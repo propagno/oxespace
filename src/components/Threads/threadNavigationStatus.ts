@@ -1,4 +1,5 @@
 import type { ConversationThread } from '../../../shared/types/thread'
+import { backgroundRunning } from '../../../shared/threadBackground'
 
 export type ThreadNavigationStatus = 'ready' | 'completed' | 'running' | 'attention' | 'failed' | 'interrupted'
 
@@ -9,7 +10,9 @@ export function threadNavigationStatus(thread: ConversationThread): { kind: Thre
     case 'approval': return { kind: 'attention', label: 'Needs input' }
     case 'failed': return { kind: 'failed', label: 'Failed' }
     case 'interrupted': return { kind: 'interrupted', label: 'Interrupted' }
-    case 'idle': return thread.lastTurnStatus === 'completed'
+    // The turn is over but work the agent started in the background still runs: not done yet.
+    case 'idle': if (backgroundRunning(thread)) return { kind: 'running', label: 'Background' }
+      return thread.lastTurnStatus === 'completed'
       ? { kind: 'completed', label: 'Completed' }
       : { kind: 'ready', label: 'Ready' }
   }

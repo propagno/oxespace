@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary, ThreadDebugPage } from '../../../../shared/types/thread'
 import type { ThreadNativeCli } from './thread-cli'
-import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
+import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult, ThreadRequestPolicy } from '../../../../shared/types/thread'
+import { fullAccessPolicy } from './kernel/permission-policy'
+import { backgroundSummary } from '../../../../shared/threadBackground'
 import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
 import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../shared/threadHistoryNotice'
@@ -1248,7 +1250,7 @@ export class ThreadOrchestrator {
     if (event.type === 'request') {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
-      const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request)
+      const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request, snapshot.thread.access)
       if (policy) event.request.policy = policy
       if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response), expired => {
         try { this.event(id, { type: 'request-resolved', id: expired.id, state: 'expired', resolution: 'unknown', resolvedAt: expired.resolvedAt }, expired.generation) }
@@ -1269,8 +1271,18 @@ export class ThreadOrchestrator {
       needsVerifiedDiff,
       needsCheckpoint
     })
+    // Lists read the thread, not its events: keep there whether background work still runs.
+    let save = result.save
+    if (event.type === 'subagent') {
+      const background = backgroundSummary(snapshot.events)
+      if (JSON.stringify(background) !== JSON.stringify(snapshot.thread.background)) {
+        if (background) snapshot.thread.background = background
+        else delete snapshot.thread.background
+        save ??= { eventsFrom: snapshot.events.length }
+      }
+    }
     this.runEffects(id, snapshot, event, result.before)
-    if (result.save) this.save(snapshot, result.save)
+    if (save) this.save(snapshot, save)
     this.runEffects(id, snapshot, event, result.after)
     if (event.type === 'request' && event.request.policy && event.request.policy.decision !== 'ask' && this.adapters.get(id)?.respondRequest) {
       // After the adapter has finished announcing the request (Claude emits `approval` right after it).
@@ -1279,8 +1291,10 @@ export class ThreadOrchestrator {
     }
   }
 
-  private evaluatePolicy(rootPath: string, request: ThreadRequest) {
-    try { return this.permissions.evaluate(rootPath, request) } catch { return undefined }
+  private evaluatePolicy(rootPath: string, request: ThreadRequest, access?: ThreadConfiguration['access']) {
+    let policy: ThreadRequestPolicy | undefined
+    try { policy = this.permissions.evaluate(rootPath, request) } catch { policy = undefined }
+    return fullAccessPolicy(request, policy, access)
   }
 
   /** Answers a request the permission rules decided; on any failure the person still sees the prompt. */

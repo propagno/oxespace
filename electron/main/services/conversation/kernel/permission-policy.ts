@@ -145,3 +145,15 @@ export function evaluatePermission(
     ...(suggestions.length && parts.every(part => part.decision === 'allow' || part.suggestions.length) ? { suggestions } : {})
   }
 }
+
+/**
+ * With Full access the person chose to let the agent run commands and tools without asking. Claude Code
+ * still raises a prompt for commands it cannot analyse (substitution, escaped parentheses, quoting) even in
+ * bypassPermissions mode, and every one of them stopped the turn. Those approvals are answered here; a deny
+ * rule the person saved still wins, and plan approvals, questions and forms keep reaching the person.
+ */
+export function fullAccessPolicy(request: Pick<ThreadRequest, 'kind' | 'toolName'>, policy: ThreadRequestPolicy | undefined, access: string | undefined): ThreadRequestPolicy | undefined {
+  if (access !== 'full-access' || request.kind !== 'approval' || request.toolName === 'ExitPlanMode') return policy
+  if (policy?.decision === 'deny') return policy
+  return { ...(policy ?? { reasons: [] }), decision: 'allow', reasons: ['Full access: run without asking.', ...(policy?.reasons ?? [])] }
+}
