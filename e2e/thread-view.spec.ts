@@ -548,7 +548,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.setViewportSize({ width: 900, height: 600 })
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Long history fixture')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
-    await expect(page.getByText('Review message 3333', { exact: true })).toBeAttached()
+    await expect(page.getByRole('paragraph').filter({ hasText: /^Review message 3333$/ })).toBeAttached()
     const geometry = await page.evaluate(() => Object.fromEntries(['.app-shell', '.workspace-surface', '.thread-view', '.thread-timeline', '.thread-composer'].map(selector => {
       const el = document.querySelector(selector) as HTMLElement
       return [selector, { height: el.clientHeight, scroll: el.scrollHeight, bottom: el.getBoundingClientRect().bottom }]
@@ -910,7 +910,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.reload()
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
     await expect(page.locator('.thread-virtual-space')).toHaveAttribute('data-total-rows', '10002')
-    await expect(page.getByText('Review message 3333', { exact: true })).toBeVisible()
+    await expect(page.getByRole('paragraph').filter({ hasText: /^Review message 3333$/ })).toBeVisible()
     const latestMessage = page.locator('.thread-message-user').filter({ hasText: 'Review message 3333' })
     const latestResponse = page.locator('.thread-message-assistant').filter({ hasText: 'A detailed response to verify the conversation history.' }).last()
     await expect(latestMessage.getByRole('button')).toHaveCount(0)
@@ -936,9 +936,17 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByText(/You can continue this conversation here/)).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Recover conversation' })).toHaveCount(0)
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
+    await page.setViewportSize({ width: 1280, height: 800 })
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))
     await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Claude needs your input' })).toBeVisible()
+    // The question must leave the conversation readable, and hiding it gives the room back.
+    const conversationShare = () => page.evaluate(() => document.querySelector('.thread-timeline')!.getBoundingClientRect().height / document.querySelector('.thread-view')!.getBoundingClientRect().height)
+    expect(await conversationShare()).toBeGreaterThanOrEqual(0.3)
+    await page.getByRole('button', { name: 'Hide', exact: true }).click()
+    await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeHidden()
+    expect(await conversationShare()).toBeGreaterThanOrEqual(0.6)
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
     await page.getByRole('radio', { name: 'Staged' }).check()
     await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Next' }).click()
     await page.getByRole('radio', { name: 'Pilot', exact: true }).check()

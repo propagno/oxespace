@@ -219,7 +219,15 @@
 .thread-usage-bar span { display: block; height: 100%; background: var(--accent, var(--text-secondary)); }
 .thread-usage-value { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 520px) { .thread-usage-list li { grid-template-columns: minmax(0, 1fr) auto; } .thread-usage-bar { display: none; } }
-.thread-pending-requests { max-height: min(60vh, 600px); min-height: 0; overflow-y: auto; overflow-x: hidden; flex-shrink: 1; }
+/* The request never takes more than about a third of the view, so the conversation above it stays readable. */
+.thread-pending-requests { max-height: min(32vh, 360px); min-height: 0; overflow-y: auto; overflow-x: hidden; flex-shrink: 1; }
+.thread-pending-requests[hidden] { display: none; }
+.thread-pending-requests-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; margin-top: 6px; color: var(--text-secondary); font-size: var(--fs-xs); }
+.thread-pending-requests-bar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-pending-requests-bar button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; }
+.thread-pending-requests-bar button:hover { background: var(--fill-hover); color: var(--text-primary); }
+.thread-pending-requests-bar button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.thread-pending-requests-bar button[aria-expanded='false'] svg { transform: rotate(180deg); }
 .thread-live-activity-meta { flex-wrap: wrap; margin: 5px 0 0 22px; }
 .thread-live-activity-meta button { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; }
 .thread-welcome { max-width: 480px; margin: 20px auto; padding: 12px 0; }
@@ -527,7 +535,6 @@
 .thread-composer .thread-configuration { display: contents; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: auto; }
 .thread-composer footer .thread-send, .thread-composer footer .thread-stop { margin-left: 0; }
-.thread-cost-chip { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-secondary); padding: 0 6px; white-space: nowrap; cursor: default; }
 .thread-usage-ring { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border-radius: var(--radius-pill); color: var(--text-secondary); }
 .thread-usage-ring-track { stroke: var(--ov-3); }
 .thread-usage-ring-value { stroke: currentColor; transition: stroke-dashoffset .3s ease; }
@@ -558,8 +565,13 @@
 .thread-usage-popover td { padding: 2px 0; text-align: right; color: var(--text-primary); }
 .thread-usage-bar { height: 4px; overflow: hidden; border-radius: var(--radius-pill); background: var(--ov-3); }
 .thread-usage-bar > span { display: block; height: 100%; background: currentColor; }
-.thread-rewind-trigger { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 2px 6px; border: 0; color: var(--text-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); opacity: 0; }
+/* Always there as a quiet icon, so the actions can be found without hovering; the label opens on hover or focus. */
+.thread-rewind-trigger { display: inline-flex; align-items: center; min-width: 28px; min-height: 28px; margin-top: 4px; padding: 0 7px; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); opacity: .6; transition: opacity var(--duration-fast) var(--ease-standard); }
+.thread-rewind-label { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width var(--duration-fast) var(--ease-standard), margin var(--duration-fast) var(--ease-standard); }
 .thread-message:hover .thread-rewind-trigger, .thread-rewind-trigger:focus-visible { opacity: 1; }
+.thread-message:hover .thread-rewind-label, .thread-rewind-trigger:focus-visible .thread-rewind-label { max-width: 12em; margin-left: 4px; }
+.thread-rewind-trigger:hover:not(:disabled) { color: var(--text-primary); background: var(--fill-hover); }
+@media (hover: none) { .thread-rewind-trigger { opacity: 1; } .thread-rewind-label { max-width: 12em; margin-left: 4px; } }
 .thread-rewind-triggers { display: inline-flex; gap: 2px; }
 .thread-rewind-confirm { display: grid; gap: 6px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-rewind-confirm p { margin: 0; }

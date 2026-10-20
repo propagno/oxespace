@@ -1,9 +1,8 @@
-import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ClaudeConversationAdapter } from '../electron/main/services/conversation/claude-conversation'
 import { addTurnCost, readClaudeResultCost, stepFromProcessTotal } from '../electron/main/services/conversation/thread-cost'
 import { repairLegacyCost } from '../shared/threadCostRepair'
-import { ThreadCostChip, formatThreadCost } from '../src/components/Threads/ThreadCostChip'
+import { formatThreadCost } from '../src/components/Threads/threadCost'
 import type { ThreadEvent } from '../shared/types/thread'
 
 describe('readClaudeResultCost', () => {
@@ -108,21 +107,11 @@ describe('Claude adapter reports the cost of each turn, not the process total', 
   })
 })
 
-describe('ThreadCostChip', () => {
+describe('formatThreadCost', () => {
   it('formats small amounts without showing a misleading zero', () => {
     expect(formatThreadCost(0)).toBe('US$ 0.00')
     expect(formatThreadCost(0.004)).toBe('US$ <0.01')
     expect(formatThreadCost(1.234)).toBe('US$ 1.23')
-  })
-
-  it('renders nothing without a cost and an estimate label with one', () => {
-    const { container, rerender } = render(<ThreadCostChip />)
-    expect(container).toBeEmptyDOMElement()
-    rerender(<ThreadCostChip cost={{ totalUsd: 0.42, turns: 3, lastTurnUsd: 0.1, updatedAt: 1, source: 'claude-result-step' }} />)
-    const chip = screen.getByLabelText('Estimated cost US$ 0.42')
-    expect(chip).toHaveTextContent('≈ US$ 0.42')
-    expect(chip.getAttribute('title')).toMatch(/Not a charge/)
-    expect(chip.getAttribute('title')).toMatch(/3 turns/)
   })
 })
 
@@ -136,10 +125,5 @@ describe('repairLegacyCost', () => {
     const fixed = { totalUsd: 3, turns: 3, lastTurnUsd: 1, updatedAt: 1, source: 'claude-result-step' as const }
     expect(repairLegacyCost(fixed)).toBe(fixed)
     expect(repairLegacyCost(undefined)).toBeUndefined()
-  })
-
-  it('shows the repaired amount in the chip', () => {
-    const { container } = render(<ThreadCostChip cost={{ totalUsd: 19333.93, turns: 30, lastTurnUsd: 2.5, updatedAt: 1, source: 'claude-result' }} />)
-    expect(container).toHaveTextContent('US$ 2.50')
   })
 })

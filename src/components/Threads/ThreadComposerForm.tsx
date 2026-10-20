@@ -6,7 +6,6 @@ import { useUIStore } from '../../store/ui.store'
 import { Menu } from '../../ui'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
-import { ThreadCostChip } from './ThreadCostChip'
 import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
 import type { useOxeVoice } from '../../hooks/useOxeVoice'
@@ -74,7 +73,6 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label="Steer active turn" title="Send guidance to the active turn" disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
       {snapshot && <div className="thread-composer-group thread-composer-status">
       <ThreadMcpHealth thread={snapshot.thread} />
-      <ThreadCostChip cost={snapshot.thread.costReport} />
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
       {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
       <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>

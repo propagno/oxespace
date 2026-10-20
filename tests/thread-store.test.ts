@@ -113,12 +113,12 @@ describe('Thread navigation store', () => {
     expect(useThreadStore.getState().snapshotCache.secondary?.thread.id).toBe('secondary')
     expect(useThreadStore.getState().activeCell).toBe('secondary')
   })
-  it('opens the selected conversation to the side when explicitly requested', async () => {
+  it('does not open the selected conversation a second time beside itself', async () => {
     const primary = snapshot('primary')
-    useThreadStore.setState({ threads: [primary.thread], selectedId: 'primary', snapshot: primary, secondaryId: 'secondary', activeCell: 'secondary' })
+    useThreadStore.setState({ threads: [primary.thread], selectedId: 'primary', snapshot: primary, secondaryId: 'secondary', activeCell: 'primary' })
     await useThreadStore.getState().openSecondary('primary')
-    expect(useThreadStore.getState().secondaryId).toBe('primary')
-    expect(useThreadStore.getState().activeCell).toBe('secondary')
+    expect(useThreadStore.getState().secondaryId).toBe('secondary')
+    expect(useThreadStore.getState().activeCell).toBe('primary')
   })
 })
 

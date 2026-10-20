@@ -1,4 +1,5 @@
-import type { RefObject } from 'react'
+import { useState, type RefObject } from 'react'
+import { ChevronDown } from 'lucide-react'
 import type { ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { ThreadRequestCard } from './ThreadRequestCard'
@@ -15,8 +16,17 @@ export function ThreadDockRequests({ snapshot, pendingRequests, pending, action 
   const id = snapshot.thread.id
   const orphanedApproval = snapshot.thread.status === 'approval' && pendingRequests.length === 0
     && !snapshot.events.some(event => event.type === 'approval' && !snapshot.events.some(other => other.type === 'approval-resolved' && other.id === event.id))
+  // Hiding is per set of requests: a new request shows itself again.
+  const requestKey = pendingRequests.map(request => `${request.id}:${request.generation}`).join(',')
+  const [hiddenKey, setHiddenKey] = useState<string | null>(null)
+  const hidden = hiddenKey === requestKey
+  const listId = `thread-pending-requests-${id}`
   return <>
-    {pendingRequests.length > 0 && <section className="thread-pending-requests" aria-label="Pending agent requests">
+    {pendingRequests.length > 0 && <div className="thread-pending-requests-bar">
+      <span>{pendingRequests.length === 1 ? 'The agent is waiting for your answer' : `${pendingRequests.length} requests are waiting for your answer`}</span>
+      <button type="button" aria-expanded={!hidden} aria-controls={listId} title={hidden ? 'Show the request' : 'Hide the request to read the conversation; it stays waiting'} onClick={() => setHiddenKey(hidden ? null : requestKey)}>{hidden ? 'Show' : 'Hide'}<ChevronDown size={14} aria-hidden="true" /></button>
+    </div>}
+    {pendingRequests.length > 0 && <section id={listId} className="thread-pending-requests" aria-label="Pending agent requests" hidden={hidden}>
       {pendingRequests.map(request => <ThreadRequestCard key={`${id}:${request.id}:${request.generation}`} conversationId={id} request={request} disabled={pending} onRespond={response => action(() => api!.respond!(id, request.id, response))}
         onRemember={api?.addPermissionRule ? async suggestions => { for (const item of suggestions) await api.addPermissionRule!(id, { kind: item.kind, pattern: item.pattern, decision: 'allow', scope: 'project' }) } : undefined} />)}
     </section>}
