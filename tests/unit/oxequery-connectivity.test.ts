@@ -24,7 +24,8 @@ const base = (change: Partial<ResolvedConnection> = {}): ResolvedConnection => (
 describe('TLS options', () => {
   it('maps each mode to what it actually verifies', () => {
     expect(pgSsl(base({ sslMode: 'disable' }))).toBe(false)
-    expect(pgSsl(base({ sslMode: 'prefer' }))).toBe(false)
+    // prefer tries TLS first (the core falls back to plain when the server has none), like libpq.
+    expect(pgSsl(base({ sslMode: 'prefer' }))).toMatchObject({ rejectUnauthorized: false })
     expect(pgSsl(base({ sslMode: 'require' }))).toMatchObject({ rejectUnauthorized: false })
     const ca = pgSsl(base({ sslMode: 'verify-ca', tls: { ca: 'CA' } }))
     expect(ca).toMatchObject({ rejectUnauthorized: true, ca: 'CA' })
