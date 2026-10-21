@@ -28,6 +28,7 @@ export function useHeight(ref: RefObject<HTMLElement | null>): number {
     const element = ref.current
     if (!element) return
     setHeight(element.getBoundingClientRect().height)
+    if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(([entry]) => setHeight(entry.contentRect.height))
     observer.observe(element)
     return () => observer.disconnect()
