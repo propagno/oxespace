@@ -2,6 +2,8 @@ import { Suspense, lazy, useEffect, useState, type ReactElement } from 'react'
 import { Boxes, Plus, RefreshCw, Settings } from 'lucide-react'
 import { NavigationRail } from '../Navigation/NavigationChrome'
 import { useUIStore } from '../../store/ui.store'
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { Splitter } from '../../ui/Splitter'
 import { ConnectionList } from './ConnectionList'
 
 const PreferencesDialog = lazy(() => import('./PreferencesDialog').then(module => ({ default: module.PreferencesDialog })))
@@ -12,6 +14,8 @@ import './OxeQuery.css'
 /** Left navigation of the OxeQuery mode: the rail plus containers and saved connections. */
 export function OxeQuerySidebar({ onSelectMode }: { onSelectMode: (mode: 'code' | 'thread') => void }): ReactElement {
   const collapsed = useUIStore(state => state.isSidebarCollapsed)
+  // Shares its width with the Thread sidebar: both are the app's left column.
+  const width = useNavigationPrefs(state => state.width), setWidth = useNavigationPrefs(state => state.setWidth)
   const toggleCollapse = useUIStore(state => state.toggleSidebar)
   const containers = useOxeQueryStore(state => state.containers)
   const activeTab = useOxeQueryStore(state => state.activeTab)
@@ -45,5 +49,6 @@ ${container.status}`}
       <ConnectionList activeTab={activeTab} />
     </div>}
     <Suspense fallback={null}>{settings && <PreferencesDialog onClose={() => setSettings(false)} />}</Suspense>
+    {!collapsed && <Splitter orientation="vertical" label="OxeQuery sidebar width" value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}
   </aside>
 }

@@ -1,5 +1,5 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
@@ -26,6 +26,8 @@ import { CellViewer, FilterBar, ParamsBar, TxBar } from './WorkbenchPanels'
 import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
 import { Select } from '../../ui/Field'
 import { copyText } from '../../ui/clipboard'
+import { Splitter } from '../../ui/Splitter'
+import { EDITOR_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 
 const ROW_LIMITS = [100, 500, 1000, 5000, 10_000, 50_000, 100_000]
 const PAGE = 100
@@ -39,7 +41,13 @@ function copy(text: string, what = 'Text'): void {
   void copyText(text, what)
 }
 
+/** Query tabs and toolbar above the editor, which the editor's height does not include. */
+const EDITOR_CHROME = 90
+
 export function SqlWorkbench({ connection }: { connection: OxeQueryConnection }): ReactElement {
+  const layout = useOxeQueryLayout()
+  const main = useRef<HTMLDivElement>(null)
+  const mainHeight = useHeight(main)
   const [tabs, setTabs] = useState<QueryTab[]>(() => [newTab('SELECT now();', 'Query 1')])
   const [activeId, setActiveId] = useState(tabs[0].id)
   const [loaded, setLoaded] = useState(false)
@@ -259,9 +267,13 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const copyAs = (format: CopyFormat): void => { if (result) copy(formatRows(format, columns, result.rows, qualified), 'Results') }
   const executedText = active.browse ? null : output?.text ?? null
 
-  return <div className="oq-workbench">
+  // The editor is as tall as it was dragged, but never so tall that the results lose their minimum height.
+  const editorMax = Math.max(EDITOR_HEIGHT.min, mainHeight - RESULTS_MIN_HEIGHT - EDITOR_CHROME)
+  const editorHeight = mainHeight ? Math.min(layout.editorHeight, editorMax) : layout.editorHeight
+  return <div className="oq-workbench" style={{ '--oq-tree-width': `${layout.treeWidth}px` } as CSSProperties}>
     <SchemaTree connection={connection} pinned={pinned} onPinnedChange={setPinned} onOpen={table => void openTable(table)} onInsert={text => addTab(text)} />
-    <div className="oq-workbench-main">
+    <Splitter orientation="vertical" label="Table list width" value={layout.treeWidth} min={TREE_WIDTH.min} max={TREE_WIDTH.max} defaultValue={TREE_WIDTH.default} onChange={treeWidth => layout.set({ treeWidth })} />
+    <div className="oq-workbench-main" ref={main}>
       <div className="oq-qtabs" role="tablist" aria-label="Queries">
         {tabs.map(tab => <span key={tab.id} className="oq-qtab" data-active={tab.id === active.id}>
           <button type="button" role="tab" aria-selected={tab.id === active.id} onClick={() => { setActiveId(tab.id); setSelectedRow(null); setCell(null) }}>{tab.title}</button>
@@ -296,7 +308,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       </div>
       {notice && <p role="alert" className="oq-error oq-notice">{notice}</p>}
       {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}
-      <div className="oq-editor" onKeyDownCapture={event => {
+      <div className="oq-editor" style={{ height: editorHeight }} onKeyDownCapture={event => {
         if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); runAllRef.current() }
       }}><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
         onMount={(instance, monaco) => {
@@ -308,6 +320,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 }, formatOnPaste: false,
           // Space, `(` and `.` end a word in SQL; they must not also accept whatever suggestion is highlighted (Enter and Tab do).
           acceptSuggestionOnCommitCharacter: false }} /></div>
+      <Splitter orientation="horizontal" label="Query editor height" value={editorHeight} min={EDITOR_HEIGHT.min} max={editorMax} defaultValue={EDITOR_HEIGHT.default} onChange={height => layout.set({ editorHeight: height })} />
       {paramsAsk && <ParamsBar names={paramsAsk.names} values={paramValues}
         onChange={(name, value) => setParamValues(current => ({ ...current, [name]: value }))}
         onRun={() => { const ask = paramsAsk; setParamsAsk(null); void run(ask.text, ask.base, ask.confirmed) }} onCancel={() => setParamsAsk(null)} />}
