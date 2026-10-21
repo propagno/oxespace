@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { LinearIssue, LinearIssueScope, LinearStatus, LinearTeam } from '../../shared/types/linear'
+import { humanizeError } from '../utils/humanizeError'
 
 interface LinearState {
   status: LinearStatus | null
@@ -121,5 +122,5 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 }))
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unexpected Linear error'
+  return humanizeError(error, 'Unexpected Linear error')
 }

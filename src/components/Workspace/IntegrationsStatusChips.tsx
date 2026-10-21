@@ -6,6 +6,7 @@ import { summarizeSemanticStatus } from '../Semantic/semanticStatusSummary'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useUpdaterStore } from '../../store/updater.store'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface IntegrationsStatusChipsProps {
   workspace: Workspace
@@ -27,7 +28,8 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
 
   const serversSelector = useCallback(selectMcpServers(workspace.id), [workspace.id])
   const servers = useMcpStore(serversSelector) || []
-  const runningMcpServers = servers.filter((s) => s && s.health === 'healthy').length
+  // Agents run the servers themselves, so what counts is how many they are given (the built-in one is counted apart).
+  const runningMcpServers = servers.filter((s) => s && s.enabled && s.trusted && !(s.workspaceId === null && s.name === 'oxespace')).length
 
   const [githubStatus, setGithubStatus] = useState<{ loggedIn: boolean; error?: string } | null>(null)
   const [builtInMcpRunning, setBuiltInMcpRunning] = useState(false)
@@ -64,7 +66,7 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
         }
       } catch (err) {
         if (mounted) {
-          setGithubStatus({ loggedIn: false, error: err instanceof Error ? err.message : String(err) })
+          setGithubStatus({ loggedIn: false, error: humanizeError(err) })
         }
       }
 
@@ -164,7 +166,7 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
           </div>
 
           <IntegrationRow icon={<Github size={14} />} label="GitHub" detail={githubStatus?.loggedIn ? 'Connected' : githubStatus ? 'Disconnected' : 'Checking…'} active={githubStatus?.loggedIn === true} />
-          <IntegrationRow icon={<Server size={14} />} label="MCP" detail={`${totalRunningMcp} running`} active={totalRunningMcp > 0} />
+          <IntegrationRow icon={<Server size={14} />} label="MCP" detail={`${totalRunningMcp} for agents`} active={totalRunningMcp > 0} />
           <IntegrationRow
             icon={<Zap size={14} />}
             label="RTK"

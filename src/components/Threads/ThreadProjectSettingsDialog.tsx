@@ -3,6 +3,7 @@ import type { DelegationSnapshot } from '../../../shared/types/delegation'
 import type { ThreadProjectSummary } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { Button, Checkbox, Dialog, TextField } from '../../ui'
+import { errorText, humanizeError } from '../../utils/humanizeError'
 
 export function ThreadProjectSettingsDialog({ project, unavailable, onClose, returnFocusTo }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void; returnFocusTo?: () => HTMLElement | null }) {
   const scope = `thread:${project.projectId}`
@@ -20,16 +21,15 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose, ret
     void window.oxe.delegation.status(scope).then(value => { if (active) setSnapshot(value) })
       .catch(cause => {
         if (!active) return
-        const message = cause instanceof Error ? cause.message : String(cause)
-        if (message.includes('ENOENT')) { setDirectoryMissing(true); setSnapshot(null) }
-        else setError(message)
+        if (errorText(cause).includes('ENOENT')) { setDirectoryMissing(true); setSnapshot(null) }
+        else setError(humanizeError(cause))
       })
     return () => { active = false }
   }, [scope, unavailable])
   const apply = async (action: () => Promise<void>) => {
     setBusy(true); setError('')
     try { await action(); setSnapshot(await window.oxe.delegation.status(scope)) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save project settings.') }
+    catch (cause) { setError(humanizeError(cause, 'Could not save project settings.')) }
     finally { setBusy(false) }
   }
   const needsRelink = unavailable || directoryMissing

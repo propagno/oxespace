@@ -46,7 +46,7 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
 
     await page.keyboard.press('Escape')
     await openConnections(page)
-    await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'MCP servers' })).toBeVisible()
     await page.getByRole('button', { name: 'Close' }).click()
 
     await runPaletteCommand(page, 'Semantic index log')

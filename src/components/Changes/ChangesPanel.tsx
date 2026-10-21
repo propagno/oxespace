@@ -10,6 +10,7 @@ import { RefPicker, type RefPickerBranch } from './RefPicker'
 import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes-request.store'
 import './ChangesPanel.css'
 import { TextField, EmptyState, Menu } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
 
@@ -204,7 +205,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       if (id !== request.current) return
       setSummary(value); setError(value.error ?? '')
     } catch (cause) {
-      if (id === request.current) setError(cause instanceof Error ? cause.message : 'Could not read changes.')
+      if (id === request.current) setError(humanizeError(cause, 'Could not read changes.'))
     } finally { if (id === request.current) setLoading(false) }
   }, [workspaceId, diffRoot, effectiveBase, headRef, effectiveMode])
 
@@ -238,7 +239,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       : window.oxe.fs.readFile({ workspaceId, rootPath: diffRoot, relativePath: selected.path }).then(result => result.content, () => '')
     void Promise.all([original, modified]).then(([originalValue, modifiedValue]) => {
       if (active) setContent({ path: selected.path, original: originalValue, modified: modifiedValue })
-    }, cause => { if (active) setContentError(cause instanceof Error ? cause.message : 'Could not load this file.') })
+    }, cause => { if (active) setContentError(humanizeError(cause, 'Could not load this file.')) })
     return () => { active = false }
   }, [selected?.path, selected?.status, selected?.oldPath, selected?.binary, effectiveBase, compiledAt, workspaceId, rootPath, diffRoot, headRef, effectiveMode])
 

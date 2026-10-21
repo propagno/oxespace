@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import type { McpDiscoverySource } from '../../../shared/types/mcp'
 import { Checkbox } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 /** Servers Claude Desktop, Cursor and Windsurf already have. Their secrets are never shown or sent here. */
 export function McpImportPanel({ workspaceId, onImported, onChanged, onClose }: { workspaceId: string | null; onImported: () => void; onChanged?: () => void; onClose: () => void }): ReactElement {
@@ -12,7 +13,7 @@ export function McpImportPanel({ workspaceId, onImported, onChanged, onClose }: 
 
   useEffect(() => {
     let live = true
-    api?.discover?.(workspaceId).then(found => { if (live) setSources(found) }, cause => { if (live) { setSources([]); setError(cause instanceof Error ? cause.message : 'Could not look for servers') } })
+    api?.discover?.(workspaceId).then(found => { if (live) setSources(found) }, cause => { if (live) { setSources([]); setError(humanizeError(cause, 'Could not look for servers')) } })
     return () => { live = false }
   }, [api, workspaceId])
 
@@ -42,7 +43,7 @@ export function McpImportPanel({ workspaceId, onImported, onChanged, onClose }: 
       setPicked({})
       setError(`Not imported: ${failed.map(item => `${item.name} (${item.reason})`).join('; ')}`)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The import failed')
+      setError(humanizeError(cause, 'The import failed'))
     } finally { setBusy(false) }
   }
 

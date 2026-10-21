@@ -9,6 +9,7 @@ import {
   joinWorkspacePath
 } from '../../../shared/utils/script-command'
 import { useBackgroundStore } from '../../store/background.store'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface ScriptsPanelProps {
   workspace: Workspace
@@ -207,6 +208,5 @@ function toScriptEntry(item: FileTreeNode, rootPath: string): ScriptEntry | null
 }
 
 function toMessage(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error)
-  return raw.replace(/^Error invoking remote method '[^']+':\s*/i, '').replace(/^Error:\s*/i, '').trim()
+  return humanizeError(error, 'The script could not run.')
 }

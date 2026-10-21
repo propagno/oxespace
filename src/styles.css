@@ -7,7 +7,7 @@
 /*  base.css       Global reset and app-shell                                   */
 /*  layout.css     Sidebar, workspace grid, panels                              */
 /*  components.css Modal, buttons, forms, settings, tasks, command palette      */
-/*  features.css   Agents workflow, OXE panel, pane, editor, terminal, wizard   */
+/*  features/      One file per feature (pane, terminal, GitHub, review, …)    */
 /*                                                                              */
 /*  Design System viewer: Ctrl+Shift+D  (or command palette)                    */
 /*  Token reference:      src/design-system/tokens.ts                          */
@@ -28,7 +28,17 @@
 @import './styles/base.css' layer(oxe-legacy);
 @import './styles/layout.css' layer(oxe-legacy);
 @import './styles/components.css' layer(oxe-legacy);
-@import './styles/features.css' layer(oxe-legacy);
+@import './styles/features/agents.css' layer(oxe-legacy);
+@import './styles/features/github.css' layer(oxe-legacy);
+@import './styles/features/pane.css' layer(oxe-legacy);
+@import './styles/features/editor.css' layer(oxe-legacy);
+@import './styles/features/terminal.css' layer(oxe-legacy);
+@import './styles/features/oxe-panel.css' layer(oxe-legacy);
+@import './styles/features/workspace-setup.css' layer(oxe-legacy);
+@import './styles/features/review.css' layer(oxe-legacy);
+@import './styles/features/github-actions.css' layer(oxe-legacy);
+@import './styles/features/integration.css' layer(oxe-legacy);
+@import './styles/features/status.css' layer(oxe-legacy);
 @import './styles/worktree.css' layer(oxe-legacy);
 @import './styles/background.css' layer(oxe-legacy);
 @import './styles/mcp.css' layer(oxe-legacy);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Check, Loader2, RefreshCw, Shield } from 'lucide-react'
 import type { ConversationThread, ThreadConfiguration, ThreadModelCatalog, ThreadSnapshot } from '../../../shared/types/thread'
 import { ConfirmDialog, Popover, TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 export function ThreadConfigurationBar({ thread, onConfigured, onError, openControl, onControlClosed }: {
   thread: ConversationThread; onConfigured: (snapshot: ThreadSnapshot) => void; onError: (message: string) => void
@@ -36,7 +37,7 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
       if (!window.oxe.thread?.configure) throw Error('Restart the updated application')
       const snapshot = await window.oxe.thread.configure(id, configuration, thread.configurationRevision ?? 0)
       if (identity.current === id) { onConfigured(snapshot); close() }
-    } catch (error) { if (identity.current === id) onError(error instanceof Error ? error.message : 'Could not apply configuration') }
+    } catch (error) { if (identity.current === id) onError(humanizeError(error, 'Could not apply configuration')) }
     finally { if (identity.current === id) setSaving(false) }
   }
   const selector = (kind: string, label: string, text: string, children: React.ReactNode, disabled = false, badge?: string) => <Popover open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess && !proposedNetwork && !proposedNever && !proposedHooks) close() }}

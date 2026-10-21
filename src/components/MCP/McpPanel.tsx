@@ -1,16 +1,18 @@
-import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, Play, Plus, RotateCw, Search, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
+import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, KeyRound, Plus, PlugZap, RotateCw, Search, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { ToolPanel, Button, TextField, Select, TextArea } from '../../ui'
-import type { CreateMcpServerInput, McpHealthStatus, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
+import type { CreateMcpServerInput, McpHealthStatus, McpHttpConfig, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { parseMcpJson } from './parseMcpJson'
 import { McpCatalog } from './McpCatalog'
 import { McpImportPanel } from './McpImportPanel'
-import { envTemplate, type McpCatalogEntry } from './connectorCatalog'
+import { catalogConfig, envTemplate, type McpCatalogEntry } from './connectorCatalog'
 import type { ThreadMcpServerStatus } from '../../../shared/types/thread'
 import { ThreadMcpServerList } from '../Threads/ThreadMcpServerList'
+import { humanizeError } from '../../utils/humanizeError'
+import { AGENT_STATE_HINT, AGENT_STATE_LABEL, agentStatusFor, type McpAgentState } from './mcpAgentStatus'
 
-interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and started as soon as it is saved. */ fromCatalog?: boolean }
+interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and tested as soon as it is saved. */ fromCatalog?: boolean; /** A remote catalog server: the values fill its headers. */ remote?: McpCatalogEntry }
 
 interface McpPanelProps {
   workspaceId: string | null
@@ -25,7 +27,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   const loading = useMcpStore((s) => s.loading)
   const error = useMcpStore((s) => s.error)
   const load = useMcpStore((s) => s.load)
-  const startServer = useMcpStore((s) => s.start)
+  const testServer = useMcpStore((s) => s.test)
   const stopServer = useMcpStore((s) => s.stop)
   const removeServer = useMcpStore((s) => s.remove)
   const updateServer = useMcpStore((s) => s.update)
@@ -73,7 +75,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
       setBuiltInStatus(next)
       setBuiltInNotice('Token regenerated. Restart open agent panes to pick up the new env.')
     } catch (err) {
-      setBuiltInNotice(err instanceof Error ? err.message : 'Failed to regenerate token')
+      setBuiltInNotice(humanizeError(err, 'Failed to regenerate token'))
     } finally {
       setBuiltInBusy(false)
     }
@@ -90,41 +92,37 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   // the form pre-filled so the user can paste the token before saving.
   const handleCatalogAdd = async (entry: McpCatalogEntry): Promise<void> => {
     if (entry.requiredEnv?.length || entry.configure) {
-      setFormInitial({ name: entry.id, command: entry.command, argsText: entry.args.join(' '), envText: envTemplate(entry), note: entry.configure, requiredEnv: entry.requiredEnv, fromCatalog: true })
+      setFormInitial(entry.transport === 'stdio'
+        ? { name: entry.id, command: entry.command, argsText: entry.args.join(' '), envText: envTemplate(entry), note: entry.configure, requiredEnv: entry.requiredEnv, fromCatalog: true }
+        : { name: entry.id, command: '', argsText: '', envText: envTemplate(entry), note: entry.configure, requiredEnv: entry.requiredEnv, fromCatalog: true, remote: entry })
       setCreating(true)
       return
     }
     setCatalogBusyId(entry.id)
     try {
-      // Catalog entries are curated, so one click adds, trusts and starts the server: for
-      // remote connectors that is what opens the browser sign-in page.
-      const created = await createServer({
-        workspaceId,
-        name: entry.id,
-        transport: 'stdio',
-        config: { transport: 'stdio', command: entry.command, args: entry.args, env: entry.env ?? {} },
-        enabled: true,
-        trusted: true
-      })
-      void startServer(created.id).catch(() => undefined) // progress and errors show on the row
+      // Catalog entries are curated, so one click adds, trusts and tests the server. A remote
+      // server's sign-in is the agent's: it opens the browser the first time it connects.
+      const config = catalogConfig(entry)
+      const created = await createServer({ workspaceId, name: entry.id, transport: config.transport, config, enabled: true, trusted: true })
+      void testServer(created.id).catch(() => undefined) // progress and errors show on the row
     } catch { /* error captured in store */ } finally { setCatalogBusyId(null) }
   }
 
-  const handleStart = async (server: McpServer): Promise<void> => {
+  const handleTest = async (server: McpServer): Promise<void> => {
     if (!server.trusted) {
       setTrustPromptId(server.id)
       setExpandedId(server.id)
       return
     }
     setBusy(server.id)
-    try { await startServer(server.id) } catch { /* error captured in store */ } finally { setBusy(null) }
+    try { await testServer(server.id) } catch { /* error captured in store */ } finally { setBusy(null) }
   }
 
-  const handleTrustAndStart = async (server: McpServer): Promise<void> => {
+  const handleTrustAndTest = async (server: McpServer): Promise<void> => {
     setBusy(server.id)
     try {
       await updateServer({ id: server.id, trusted: true })
-      await startServer(server.id)
+      await testServer(server.id)
       setTrustPromptId(null)
     } catch {
       /* error captured in store */
@@ -156,11 +154,11 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   return (
     <ToolPanel
       className={`mcp-panel${view === 'catalog' ? ' is-catalog' : ''}`}
-      label="Connections" onClose={onClose}>
+      label="MCP servers" onClose={onClose}>
       <header className="mcp-panel-header">
         <div className="mcp-panel-title">
           <Activity size={14} aria-hidden="true" />
-          <strong>Connections</strong>
+          <strong>MCP servers</strong>
           <span className="mcp-panel-scope">{workspaceId ? 'workspace' : 'global'}</span>
         </div>
         <div className="mcp-panel-actions">
@@ -188,10 +186,10 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
 
       {view === 'installed' && (
         <p className="mcp-panel-sync-note">
-          Servers enabled here are written to <code>.mcp.json</code> at the
-          workspace root. Claude Code and Copilot CLI (v1.0+) discover the
-          file automatically — restart the agent session to pick up added or
-          removed tools.
+          Your agents connect to these servers themselves: Claude Code and Copilot CLI through
+          <code>.mcp.json</code> at the workspace root, Codex through its launch settings. Test checks that a
+          server answers; whether the agent connected shows next to it in a Thread conversation. Restart the
+          agent session to pick up changes.
         </p>
       )}
 
@@ -208,7 +206,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
         <>
           <button type="button" className="mcp-panel-add" onClick={() => setCreating(true)}>
             <Plus size={12} aria-hidden="true" />
-            Add MCP server (stdio)
+            Add MCP server
           </button>
           {window.oxe?.mcp?.discover && <button type="button" className="mcp-panel-add" onClick={() => setImporting(true)}>
             <Plus size={12} aria-hidden="true" />
@@ -217,7 +215,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
         </>
       )}
 
-      <div className="mcp-view-tabs" role="tablist" aria-label="Connections view">
+      <div className="mcp-view-tabs" role="tablist" aria-label="MCP servers view">
         {conversationServers?.length ? <button type="button" role="tab" aria-selected={view === 'conversation'} onClick={() => setView('conversation')}>This conversation<small>{conversationServers.filter(server => server.status === 'connected').length}</small></button> : null}
         <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>Catalog</button>
         <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>Installed<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>
@@ -230,7 +228,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
         </div>
       ) : view === 'catalog' ? (
         <div className="mcp-panel-list">
-          <McpCatalog servers={otherServers} query={query} busyId={catalogBusyId} onAdd={(entry) => void handleCatalogAdd(entry)} onStart={(server) => void handleStart(server)} onStop={(server) => void handleStop(server.id)} />
+          <McpCatalog servers={otherServers} query={query} busyId={catalogBusyId} onAdd={(entry) => void handleCatalogAdd(entry)} onTest={(server) => void handleTest(server)} />
         </div>
       ) : (
       <div className="mcp-panel-list">
@@ -257,14 +255,15 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
             <McpServerRow
               key={server.id}
               server={server}
+              agentState={agentStatusFor(server.name, conversationServers)}
               busy={busy === server.id}
               expanded={expandedId === server.id}
               onToggle={() => setExpandedId(expandedId === server.id ? null : server.id)}
               trustPrompt={trustPromptId === server.id}
               removePrompt={removePromptId === server.id}
-              onTrustAndStart={() => void handleTrustAndStart(server)}
+              onTrustAndTest={() => void handleTrustAndTest(server)}
               onCancelTrust={() => setTrustPromptId(null)}
-              onStart={() => void handleStart(server)}
+              onTest={() => void handleTest(server)}
               onStop={() => void handleStop(server.id)}
               onRemove={() => void handleRemove(server)}
               onCancelRemove={() => setRemovePromptId(null)}
@@ -275,7 +274,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
       )}
 
       <footer className="mcp-panel-footer">
-        Running servers expose their tools to agents. Remote connectors sign in through your browser.
+        Agents run these servers themselves. Remote connectors sign in through your browser the first time the agent connects.
       </footer>
     </ToolPanel>
   )
@@ -363,21 +362,26 @@ function McpBuiltinCard({ status, busy, notice, toolCount, onRegenerate, onDismi
 
 interface McpServerRowProps {
   server: McpServer
+  agentState: McpAgentState
   busy: boolean
   expanded: boolean
   onToggle: () => void
-  onStart: () => void
+  onTest: () => void
   trustPrompt: boolean
   removePrompt: boolean
-  onTrustAndStart: () => void
+  onTrustAndTest: () => void
   onCancelTrust: () => void
   onStop: () => void
   onRemove: () => void
   onCancelRemove: () => void
 }
 
-function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onToggle, onStart, onTrustAndStart, onCancelTrust, onStop, onRemove, onCancelRemove }: McpServerRowProps): ReactElement {
-  const isRunning = server.health === 'healthy' || server.health === 'starting'
+/** What OXESpace's own test found; the agent's connection is reported separately. */
+const TEST_LABEL: Record<McpHealthStatus, string> = { unknown: 'Not tested', starting: 'Testing…', healthy: 'Answers', 'needs-auth': 'Answers · sign-in', unhealthy: 'Test failed' }
+
+function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removePrompt, onToggle, onTest, onTrustAndTest, onCancelTrust, onStop, onRemove, onCancelRemove }: McpServerRowProps): ReactElement {
+  const testing = server.health === 'starting'
+  const remote = server.config.transport !== 'stdio'
   return (
     <div className={`mcp-server-row health-${server.health}${expanded ? ' expanded' : ''}`}>
       <button type="button" className="mcp-server-main" onClick={onToggle} aria-expanded={expanded}>
@@ -385,24 +389,26 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
         <div className="mcp-server-body">
           <strong>{server.name}</strong>
           <span className="mcp-server-meta">
+            <span className={`mcp-server-tag mcp-agent-state is-${agentState}`} title={AGENT_STATE_HINT[agentState]}>{AGENT_STATE_LABEL[agentState]}</span>
+            <span className="mcp-server-tag" title={server.testedAtMs ? `OXESpace tested it at ${new Date(server.testedAtMs).toLocaleTimeString()}` : 'OXESpace has not tested it since it opened'}>{TEST_LABEL[server.health]}</span>
             <span className="mcp-server-tag">{server.transport}</span>
             {server.workspaceId ? <span className="mcp-server-tag scope-ws">workspace</span> : <span className="mcp-server-tag scope-global">global</span>}
             {server.trusted ? <span className="mcp-server-tag">trusted</span> : <span className="mcp-server-tag">review required</span>}
             {server.tools.length > 0 ? <span>{server.tools.length} tool{server.tools.length !== 1 ? 's' : ''}</span> : null}
-            {server.healthMessage ? <span className="mcp-server-err">{server.healthMessage}</span> : null}
+            {server.healthMessage && server.health !== 'healthy' ? <span className={server.health === 'unhealthy' ? 'mcp-server-err' : undefined}>{server.healthMessage}</span> : null}
           </span>
         </div>
         {expanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
       </button>
 
       <div className="mcp-server-actions">
-        {isRunning ? (
-          <Button variant="ghost" size="sm" disabled={busy} onClick={onStop} title="Stop">
+        {testing ? (
+          <Button variant="ghost" size="sm" onClick={onStop} title="Stop the test">
             <Square size={12} aria-hidden="true" /> Stop
           </Button>
         ) : (
-          <Button variant="primary" size="sm" disabled={busy} onClick={onStart} title="Start handshake">
-            <Play size={12} aria-hidden="true" /> Start
+          <Button variant="ghost" size="sm" disabled={busy} onClick={onTest} title="Check that the server answers and list its tools. The agent keeps its own connection.">
+            <PlugZap size={12} aria-hidden="true" /> Test
           </Button>
         )}
         <Button variant="ghost" size="sm" square aria-label="Remove" disabled={busy} onClick={onRemove}>
@@ -420,9 +426,9 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
           ) : null}
           {trustPrompt ? (
             <div className="mcp-inline-confirm">
-              <span>Trust this server and start now?</span>
+              <span>Trust this server and test it now?</span>
               <Button variant="ghost" size="sm" disabled={busy} onClick={onCancelTrust}>Cancel</Button>
-              <Button variant="primary" size="sm" disabled={busy} onClick={onTrustAndStart}>Trust and start</Button>
+              <Button variant="primary" size="sm" disabled={busy} onClick={onTrustAndTest}>Trust and test</Button>
             </div>
           ) : null}
           {removePrompt ? (
@@ -443,7 +449,14 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
                   <code><strong>env:</strong> {Object.keys((server.config as McpStdioConfig).env).join(', ')}</code>
                 ) : null}
               </>
-            ) : null}
+            ) : (
+              <>
+                <code><strong>url:</strong> {(server.config as McpHttpConfig).url}</code>
+                {Object.keys((server.config as McpHttpConfig).headers ?? {}).length > 0 ? (
+                  <code><strong>headers:</strong> {Object.keys((server.config as McpHttpConfig).headers).join(', ')}</code>
+                ) : null}
+              </>
+            )}
           </div>
           {server.tools.length > 0 ? (
             <div className="mcp-server-tools">
@@ -457,7 +470,7 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
             </div>
           ) : (
             <div className="mcp-server-no-tools">
-              {isRunning ? 'Loading tools…' : 'Start the server to discover tools.'}
+              {testing ? 'Loading tools…' : server.health === 'needs-auth' || (remote && server.health === 'healthy') ? 'Its tools show once the agent signs in and connects.' : 'Test the server to list its tools.'}
             </div>
           )}
         </div>
@@ -471,7 +484,9 @@ function HealthIndicator({ status }: { status: McpHealthStatus }): ReactElement 
     case 'healthy':
       return <CircleDot size={12} className="status-healthy" aria-label="healthy" />
     case 'starting':
-      return <CircleDot size={12} className="bg-jobs-pulse status-running" aria-label="starting" />
+      return <CircleDot size={12} className="bg-jobs-pulse status-running" aria-label="testing" />
+    case 'needs-auth':
+      return <KeyRound size={12} className="status-running" aria-label="answers, needs sign-in" />
     case 'unhealthy':
       return <Circle size={12} className="status-failed" aria-label="unhealthy" />
     case 'unknown':
@@ -621,9 +636,10 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
     return out
   }, [envText])
 
+  const remote = initial?.remote
   const handleSubmit = async (): Promise<void> => {
     setError(null)
-    if (!name.trim() || !command.trim()) {
+    if (!name.trim() || (!remote && !command.trim())) {
       setError('Name and command are required.')
       return
     }
@@ -633,19 +649,21 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
     if (missing.length) { setError(`Fill in ${missing.join(', ')} before saving.`); return }
     setBusy(true)
     try {
+      // A remote catalog server takes the values into its headers; the agent connects to the URL itself.
+      const config = remote ? catalogConfig(remote, parsedEnv) : { transport: 'stdio' as const, command: command.trim(), args: parsedArgs, env: parsedEnv }
       const input: CreateMcpServerInput = {
         workspaceId: scope === 'workspace' ? workspaceId : null,
         name: name.trim(),
-        transport: 'stdio',
-        config: { transport: 'stdio', command: command.trim(), args: parsedArgs, env: parsedEnv },
+        transport: config.transport,
+        config,
         enabled: true,
         trusted: initial?.fromCatalog === true
       }
       const created = await create(input)
-      if (initial?.fromCatalog) void useMcpStore.getState().start(created.id).catch(() => undefined)
+      if (initial?.fromCatalog) void useMcpStore.getState().test(created.id).catch(() => undefined)
       onCreated()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     } finally {
       setBusy(false)
     }
@@ -657,7 +675,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
     try {
       entries = parseMcpJson(jsonText)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
       return
     }
     // Anonymous { command, args, env } needs a name; ask the form for one
@@ -680,7 +698,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       }
       onCreated()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     } finally {
       setBusy(false)
     }
@@ -760,16 +778,25 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
               </Select>
             </label>
           </div>
+          {remote && remote.transport !== 'stdio' ? (
+            <label>
+              URL
+              <TextField value={remote.url} readOnly disabled={busy} />
+            </label>
+          ) : (
+            <>
+              <label>
+                Command
+                <TextField value={command} onChange={(event) => setCommand(event.currentTarget.value)} placeholder="npx" disabled={busy} />
+              </label>
+              <label>
+                Args (space-separated)
+                <TextField value={argsText} onChange={(event) => setArgsText(event.currentTarget.value)} placeholder="-y @modelcontextprotocol/server-filesystem /tmp" disabled={busy} />
+              </label>
+            </>
+          )}
           <label>
-            Command
-            <TextField value={command} onChange={(event) => setCommand(event.currentTarget.value)} placeholder="npx" disabled={busy} />
-          </label>
-          <label>
-            Args (space-separated)
-            <TextField value={argsText} onChange={(event) => setArgsText(event.currentTarget.value)} placeholder="-y @modelcontextprotocol/server-filesystem /tmp" disabled={busy} />
-          </label>
-          <label>
-            Env (KEY=VAL, one per line — optional)
+            {remote ? 'Values (KEY=VAL, one per line; sent in the request headers)' : 'Env (KEY=VAL, one per line — optional)'}
             <TextArea value={envText} onChange={(event) => setEnvText(event.currentTarget.value)} placeholder={'GITHUB_TOKEN=ghp_...\nDEBUG=1'} rows={3} disabled={busy} />
           </label>
         </>
@@ -817,7 +844,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       <div className="mcp-create-actions">
         <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
         {mode === 'form' ? (
-          <Button type="submit" variant="primary" disabled={busy || !name.trim() || !command.trim()}>Add server</Button>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim() || (!remote && !command.trim())}>Add server</Button>
         ) : (
           <Button type="submit" variant="primary" disabled={busy || !jsonText.trim()}>Add from JSON</Button>
         )}

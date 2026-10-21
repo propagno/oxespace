@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FileSystemReadBinaryResult } from '../../../shared/types/filesystem'
+import { humanizeError } from '../../utils/humanizeError'
 
 export interface BinaryPreviewState {
   data: FileSystemReadBinaryResult | null
@@ -46,7 +47,7 @@ export function useBinaryPreview(
       })
       .catch((error: unknown) => {
         if (cancelled) return
-        setState({ ...IDLE, error: error instanceof Error ? error.message : 'Failed to read file' })
+        setState({ ...IDLE, error: humanizeError(error, 'Failed to read file') })
       })
 
     return () => {

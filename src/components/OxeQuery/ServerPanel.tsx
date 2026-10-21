@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { OxeQueryConnection, SqlDatabaseInfo, SqlRoleInfo } from '../../../shared/types/oxequery'
-import { Button, Checkbox, Dialog, IconButton, Select, Tabs, TextField } from '../../ui'
+import { Button, Checkbox, Dialog, IconButton, Select, Tabs, TextField, LoadingState } from '../../ui'
 import { errorMessage, oq } from './client'
 import styles from './StructureEditor.module.css'
 
@@ -93,7 +93,7 @@ export function ServerPanel({ connection, onClose }: { connection: OxeQueryConne
   return <Dialog className="oq-scope" title={`Server of ${connection.name}`} description="Databases and roles on this PostgreSQL server." size="lg" onClose={onClose} testId="server-panel"
     footer={<Button variant="ghost" onClick={onClose}>Close</Button>}>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {!databases && !error ? <p className={styles.note}>Loading…</p>
+    {!databases && !error ? <LoadingState label="Loading databases…" />
       : <Tabs<TabId> label="Server" value={tab} onChange={setTab} tabs={[{ value: 'databases', label: 'Databases', content: databasesTab }, { value: 'roles', label: 'Roles', content: rolesTab }]} />}
   </Dialog>
 }

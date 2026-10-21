@@ -1,5 +1,5 @@
 import { Eraser, Info, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { TerminalStatusResult } from '../../../shared/types/ipc'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -11,7 +11,8 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
 import { DetailList } from '../Navigation/DetailList'
-import { ProviderSessionFinder } from './ProviderSessionFinder'
+// Opened on request only, so it stays out of the startup bundle.
+const ProviderSessionFinder = lazy(() => import('./ProviderSessionFinder').then(module => ({ default: module.ProviderSessionFinder })))
 
 interface PaneContainerProps {
   pane: WorkspacePane
@@ -370,7 +371,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           ...(sessionDetails?.startedAt ? [{ label: 'Terminal started at', detail: new Date(sessionDetails.startedAt).toLocaleString() }] : [])
         ]} /></details>
       </Dialog>}
-      {providerSessionsOpen && <ProviderSessionFinder workspaceId={workspace.id} rootPath={pane.rootPath ?? workspace.rootPath} onClose={() => setProviderSessionsOpen(false)} />}
+      {providerSessionsOpen && <Suspense fallback={null}><ProviderSessionFinder workspaceId={workspace.id} rootPath={pane.rootPath ?? workspace.rootPath} onClose={() => setProviderSessionsOpen(false)} /></Suspense>}
     </section>
   )
 }

@@ -33,6 +33,7 @@ import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MI
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, Switch, TextField, Select } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 export interface SettingsModalProps {
   agentProfiles: AgentProfile[]
@@ -125,7 +126,7 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
 
   const refresh = (): void => {
     setNotice(null)
-    void window.oxe.diagnostics.getSnapshot().then(setSnapshot).catch((error) => setNotice(error instanceof Error ? error.message : String(error)))
+    void window.oxe.diagnostics.getSnapshot().then(setSnapshot).catch((error) => setNotice(humanizeError(error)))
   }
 
   useEffect(refresh, [])
@@ -134,7 +135,7 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
     setNotice(null)
     void window.oxe.diagnostics.exportReport()
       .then((path) => setNotice(path ? `Saved sanitized report to ${path}` : 'Export cancelled.'))
-      .catch((error) => setNotice(error instanceof Error ? error.message : String(error)))
+      .catch((error) => setNotice(humanizeError(error)))
   }
 
   const failing = snapshot?.checks.filter((check) => check.tone === 'error').length ?? 0
@@ -600,7 +601,7 @@ function IdleConversationsSetting(): ReactElement | null {
   const change = async (next: number): Promise<void> => {
     setError('')
     try { setMinutes(await api.setIdleSuspendMinutes!(next)) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save this setting') }
+    catch (cause) { setError(humanizeError(cause, 'Could not save this setting')) }
   }
 
   return (
@@ -660,7 +661,7 @@ function SemanticIndexSetting(): ReactElement | null {
     setError('')
     setBusy(true)
     try { setStatus(await action()) }
-    catch (cause) { setError(cause instanceof Error ? cause.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : 'Could not change the semantic index') }
+    catch (cause) { setError(humanizeError(cause, 'Could not change the semantic index.')) }
     finally { setBusy(false) }
   }
 
@@ -797,7 +798,7 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
       const status = await window.oxe.voice.ensureModel(modelSize)
       setModel(status)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to download model.')
+      setError(humanizeError(err, 'Failed to download model.'))
     } finally {
       setBusy(false)
       setProgress(null)

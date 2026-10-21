@@ -1,6 +1,7 @@
 import { Check, ChevronDown, CircleDashed, ExternalLink, GitMerge, GitPullRequest, Loader2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { GitHubCheckState, GitHubPrStatus } from '../../../shared/types/github'
+import { humanizeError } from '../../utils/humanizeError'
 import './PrStatusBar.css'
 
 const POLL_MS = 30_000
@@ -81,7 +82,7 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
       await window.oxe.github.setPullRequestAutoMerge({ workspaceId, rootPath, number: status.number, enable: !status.autoMerge })
       await load()
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message.replace(/^Error invoking remote method '[^']+': /, '').slice(0, 160) : 'Could not change auto-merge.')
+      setNotice(humanizeError(cause, 'Could not change auto-merge.'))
     } finally { setBusy(false) }
   }
 

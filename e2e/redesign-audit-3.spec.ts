@@ -112,7 +112,7 @@ test('coverage audit', async () => {
     await surface(page, '03-menu-help', () => page.locator('button', { hasText: /^Help$/ }).first().click())
     await surface(page, '04-team-dialog', () => page.getByRole('button', { name: 'Team', exact: true }).click())
     await surface(page, '05-update-pill', () => page.getByTestId('app-update-pill').click({ timeout: 3000 }))
-    await surface(page, '06-connections', () => page.getByRole('button', { name: /Open connections/ }).click())
+    await surface(page, '06-connections', () => page.getByRole('button', { name: /Open MCP servers/ }).click())
     await surface(page, '07-activity-dock', () => page.getByRole('button', { name: /Toggle background activity/ }).click())
     await surface(page, '08-systems-menu', () => page.getByTestId('workspace-integrations-trigger').click())
     // Panes.
@@ -150,7 +150,7 @@ test('coverage audit', async () => {
     await surface(page, '38-tool-mcp', async () => { await openConnections(page); await page.waitForTimeout(1200) })
     await surface(page, '39-tool-skills', command('Skills'))
     await surface(page, '40-tool-semantic', command('Semantic index log'))
-    await surface(page, '41-tool-slash', command('Terminal Commands'))
+    await surface(page, '41-tool-slash', command('Terminal commands'))
     await surface(page, '42-tool-workspace-settings', command('Open workspace settings'))
     await surface(page, '43-tool-integration', command('Multi-repo coordination'))
     // Overlays and global.

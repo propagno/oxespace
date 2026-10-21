@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useEffect, useState, type ReactElement } from 'react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
@@ -168,12 +168,8 @@ describe('WorkspaceSurface', () => {
 
     await user.click(screen.getByTestId('workspace-integrations-trigger'))
 
-    expect(screen.getByRole('menu', { name: 'Integration status' })).toBeInTheDocument()
-    expect(screen.getByText('GitHub')).toBeInTheDocument()
-    expect(screen.getByText('MCP')).toBeInTheDocument()
-    expect(screen.getByText('RTK')).toBeInTheDocument()
-    expect(screen.getByText('Caveman')).toBeInTheDocument()
-    expect(screen.getByText('Semantic')).toBeInTheDocument()
+    const menu = screen.getByRole('menu', { name: 'Integration status' })
+    for (const name of ['GitHub', 'MCP', 'RTK', 'Caveman', 'Semantic']) expect(within(menu).getByText(name)).toBeInTheDocument()
   })
 
   test('persists expanded and collapsed editor state', async () => {

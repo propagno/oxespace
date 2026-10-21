@@ -497,8 +497,8 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
         trigger: () => page.getByRole('button', { name: 'Open settings' }).click()
       },
       {
-        label: 'Connections',
-        selector: '[role="dialog"][aria-label="Connections"]',
+        label: 'MCP servers',
+        selector: '[role="dialog"][aria-label="MCP servers"]',
         trigger: () => openConnections(page)
       },
       fromPalette('Skills', '[role="dialog"][aria-label="Skills"]', 'Skills'),

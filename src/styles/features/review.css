@@ -1,0 +1,275 @@
+/* Command palette v2 and review pane. Split out of the former features.css; imported in order from styles.css. */
+
+/* ─── Command Palette v2 (Onda 4) ──────────────────────────────────────────── */
+
+/* ─── Review pane v2 (Onda 5) ──────────────────────────────────────────────── */
+.review-pane-v2 {
+  display: flex;
+  flex-direction: column;
+  /* A size container has no width of its own, so as a flex item it must be told to fill the row. */
+  flex: 1 1 auto;
+  min-width: 0;
+  container-type: inline-size;
+  height: 100%;
+  overflow: hidden;
+}
+.review-toolbar-v2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--bd-subtle);
+  background: var(--bg-elevated);
+  font-size: var(--fs-xs);
+}
+.review-toolbar-label {
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.review-diff-mode-toggle {
+  display: inline-flex;
+  background: var(--bg-tile);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.review-diff-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.review-diff-mode-btn:hover { color: var(--tx-primary); }
+.review-diff-mode-btn.active {
+  background: var(--bg-pane-active-header);
+  color: var(--accent);
+}
+.review-reviewed-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg-tile);
+  color: var(--tx-secondary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}
+.review-clear-reviewed {
+  background: transparent;
+  color: var(--tx-muted);
+  border: none;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.review-clear-reviewed:hover { color: var(--accent); }
+
+/* Two-column split */
+.review-pane-split {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  /* Explicit 1fr row + the flex/min-height combo below make the split fill
+     all the height the panel offers. Without grid-template-rows, the row
+     was sizing to intrinsic content which kept the tree column short. */
+  flex: 1;
+  min-height: 0;
+}
+.review-pane-tree {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--bd-subtle);
+  background: var(--bg-elevated);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.review-pane-tree .review-search {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--bd-subtle);
+  flex-shrink: 0;
+}
+.review-pane-diffs {
+  overflow-y: auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.ws-settings-use-default { align-self: flex-start; padding: 7px 10px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: var(--bg-elevated); color: var(--tx-primary); font-size: var(--fs-xs); cursor: pointer; }
+.ws-settings-use-default:hover { background: var(--wb-selection); }
+@container (max-width: 620px) {
+  .review-pane-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(140px, 38%) minmax(0, 1fr); }
+  .review-pane-tree { height: auto; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
+  .review-pane-diffs { height: auto; }
+}
+
+/* Tree v2 — fills whatever vertical space its column gives it. */
+.review-file-tree-v2 {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+.review-file-tree-header {
+  flex-shrink: 0;
+}
+.review-file-tree-list {
+  overflow-y: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 4px 0;
+}
+.review-tree-dir {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  text-align: left;
+}
+.review-tree-dir:hover { background: var(--bg-ws-hover); color: var(--tx-primary); }
+.review-tree-dir.all-reviewed { color: var(--tx-muted); }
+.review-tree-dir-name {
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.review-tree-dir-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--tx-muted);
+}
+
+.review-tree-file {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 8px;
+}
+.review-tree-file:hover { background: var(--bg-ws-hover); }
+.review-tree-file.selected { background: var(--bg-pane-active-header); }
+.review-tree-file.reviewed .review-tree-file-label { color: var(--tx-muted); text-decoration: line-through; }
+.review-tree-checkbox {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.review-tree-file-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.review-tree-file-icon { flex-shrink: 0; color: var(--tx-muted); }
+.review-tree-file-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.review-tree-stats {
+  display: inline-flex;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+/* DiffCard v2 */
+.review-card {
+  background: var(--bg-tile);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  margin: 10px;
+  overflow: hidden;
+}
+.review-card.selected { border-color: var(--accent); }
+.review-card.reviewed { opacity: 0.7; }
+.review-card.reviewed:hover { opacity: 1; }
+.review-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-tile-header);
+  position: sticky;
+  top: 0;
+  z-index: var(--layer-sticky);
+}
+.review-card-collapse-btn {
+  display: inline-flex;
+  background: transparent;
+  border: none;
+  color: var(--tx-muted);
+  cursor: pointer;
+  padding: 2px;
+}
+.review-card-collapse-btn:hover { color: var(--tx-primary); }
+.review-card-reviewed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-2xs);
+  color: var(--tx-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-app);
+  position: relative;
+}
+.review-card-reviewed input { width: 11px; height: 11px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.review-card-reviewed-text { user-select: none; }
+.review-card.reviewed .review-card-reviewed { color: var(--accent); background: var(--bg-pane-active-header); }
+.review-card-path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--tx-primary);
+}
+.review-card-time {
+  font-size: var(--fs-2xs);
+  color: var(--tx-muted);
+}
+
+/* Side-by-side diff */
+.review-diff-table--split {
+  table-layout: fixed;
+  width: 100%;
+}
+.review-diff-table--split .review-diff-content--left,
+.review-diff-table--split .review-diff-content--right {
+  width: 50%;
+  border-left: 1px solid var(--bd-subtle);
+  vertical-align: top;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.diff-line--blank { background: var(--bg-app); opacity: 0.4; }

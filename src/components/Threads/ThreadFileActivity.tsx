@@ -6,6 +6,7 @@ import { ThreadPatch } from './ThreadPatch'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import { changeSummary, threadChanges, turnChanges, threadFileLabel, type ThreadChangeEntry } from './threadChanges'
 import { ThreadHunkReview } from './ThreadHunkReview'
+import { humanizeError } from '../../utils/humanizeError'
 
 export function ThreadFileActivity({ event, root, threadId, onOpen }: { event: Extract<ThreadEvent, { type: 'tool' }>; root: string; threadId: string; onOpen(entry: ThreadChangeEntry): void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -67,7 +68,7 @@ export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo,
         : <span className="thread-change-confirm" role="group" aria-label="Confirm undo">
           <button type="button" className="thread-change-view is-danger" disabled={undo === 'working'} onClick={() => {
             setUndo('working')
-            void onUndo().then(() => setUndo('idle'), cause => { setUndoError(cause instanceof Error ? cause.message : 'Could not undo these changes.'); setUndo('idle') })
+            void onUndo().then(() => setUndo('idle'), cause => { setUndoError(humanizeError(cause, 'Could not undo these changes.')); setUndo('idle') })
           }}>{undo === 'working' ? 'Undoing…' : 'Confirm undo'}</button>
           <button type="button" className="thread-change-view" disabled={undo === 'working'} onClick={() => setUndo('idle')}>Cancel</button>
         </span>)}
@@ -82,7 +83,7 @@ export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo,
         {status?.state === 'modified' && <span className="thread-change-file-state" title="Edited after this turn; undo would discard that later work">Edited later</span>}
         {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={`Undo ${threadFileLabel(entry.file.path, root)}`} onClick={() => {
           setUndoError(''); setUndoingFile(status.path)
-          void onUndoFile(status.path).then(refreshStates, cause => setUndoError(cause instanceof Error ? cause.message : 'Could not undo this file.')).finally(() => setUndoingFile(null))
+          void onUndoFile(status.path).then(refreshStates, cause => setUndoError(humanizeError(cause, 'Could not undo this file.'))).finally(() => setUndoingFile(null))
         }}>{undoingFile === status.path ? 'Undoing…' : 'Undo file'}</button>}
         {status?.state === 'pending' && loadHunks && onUndoHunk && <button type="button" className="thread-change-view" aria-expanded={reviewing === status.path} aria-label={`Review changes in ${threadFileLabel(entry.file.path, root)}`} onClick={() => setReviewing(reviewing === status.path ? null : status.path)}>{reviewing === status.path ? 'Close review' : 'Review'}</button>}
         {reviewing === status?.path && loadHunks && onUndoHunk && <ThreadHunkReview path={status.path} disabled={undoingFile !== null || undo === 'working'} loadHunks={() => loadHunks(status.path)}

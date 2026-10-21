@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import type { AgentAccess, ConnectionEnvironment, OxeQueryPreferences } from '../../../shared/types/oxequery'
-import { Button, Dialog, Select } from '../../ui'
+import { Button, Dialog, Select, LoadingState } from '../../ui'
 import { errorMessage, oq } from './client'
 
 const HISTORY = [50, 100, 200, 500, 1000, 2000]
@@ -30,7 +30,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactEl
   return <Dialog className="oq-scope" title="OxeQuery settings" description="What is kept, and how far agents may go." size="md" onClose={onClose} testId="oxequery-preferences"
     footer={<><Button variant="ghost" onClick={onClose}>Close</Button><Button variant="primary" loading={busy} disabled={!value} onClick={() => void save()}>Save</Button></>}>
     {error && <p role="alert">{error}</p>}
-    {!value && !error ? <p>Loading…</p> : value && <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+    {!value && !error ? <LoadingState label="Loading preferences…" /> : value && <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
       <Select label="Statements kept per connection" hint="The query history under Library. Older statements are dropped." value={String(value.historyLimit)}
         onChange={event => change({ historyLimit: Number(event.target.value) })} options={[...new Set([...HISTORY, value.historyLimit])].sort((a, b) => a - b).map(item => ({ value: String(item), label: `${item}` }))} />
       <Select label="Keep the agent audit log for" hint="Every request an agent made through OxeQuery, with what was decided." value={String(value.auditRetentionDays)}

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { errorText, humanizeError } from '../utils/humanizeError'
 import type {
   GitHubBranch,
   GitHubCheckpoint,
@@ -349,12 +350,9 @@ async function runMutation(
 }
 
 export function sanitizeIpcError(error: unknown): string {
-  let message = error instanceof Error ? error.message : String(error || 'Unexpected GitHub error')
-  message = message.replace(/^Error invoking remote method '[^']+':\s*/i, '')
-  message = message.replace(/^Error:\s*/i, '')
-  message = message.replace(/\s+/g, ' ').trim()
+  const message = errorText(error).replace(/\s+/g, ' ')
   if (/GitHub CLI not found|gh .*not.*found|spawn gh ENOENT/i.test(message)) {
     return 'GitHub CLI not found. Install it from cli.github.com and run gh auth login.'
   }
-  return message || 'Unexpected GitHub error'
+  return humanizeError(message, 'Unexpected GitHub error')
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AppUpdateState, RtkUpdateState } from '../../shared/types/updater'
+import { humanizeError } from '../utils/humanizeError'
 
 interface UpdaterStore {
   app: AppUpdateState
@@ -77,7 +78,7 @@ export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
         app: {
           ...get().app,
           status: 'error',
-          error: err instanceof Error ? err.message : String(err)
+          error: humanizeError(err)
         }
       })
     }
@@ -101,7 +102,7 @@ export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
         rtk: {
           ...get().rtk,
           checking: false,
-          error: err instanceof Error ? err.message : String(err)
+          error: humanizeError(err)
         }
       })
     }
@@ -119,7 +120,7 @@ export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
         rtk: {
           ...get().rtk,
           updating: false,
-          error: err instanceof Error ? err.message : String(err)
+          error: humanizeError(err)
         }
       })
     }

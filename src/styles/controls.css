@@ -120,7 +120,12 @@ input[type="search"] { min-height: var(--control-md); }
 
 /* Right-panel tabs stay on one row; labels shorten instead of wrapping the "more" button underneath. */
 .workspace-panel-stack-tabs { flex-wrap: nowrap; overflow: hidden; }
-.workspace-panel-stack-tabs [role="tab"] { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding-inline: var(--space-2); }
+.workspace-panel-stack-tabs { container-type: inline-size; }
+.workspace-panel-stack-tabs [role="tab"] { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); overflow: hidden; padding-inline: var(--space-2); }
+.workspace-panel-stack-tabs [role="tab"] > svg { flex: none; }
+.workspace-panel-stack-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Too narrow for words: icons, with the name in the tooltip. */
+@container (max-width: 380px) { .workspace-panel-stack-tab-label { display: none; } }
 .workspace-panel-stack-tabs .workspace-panel-stack-more { flex: none; margin-left: 0; }
 
 /* Where two scrollbars meet, no stray square. */

@@ -73,5 +73,10 @@ describe('design lint', () => {
       const count = legacy.reduce((sum, path) => sum + lines(path).filter(text => text.includes('!important')).length, 0)
       expect(count).toBeLessThanOrEqual(59)
     })
+
+    it('stacks with the --layer-* scale, never a bare z-index number', () => {
+      const report = legacy.flatMap(path => lines(path).flatMap((text, index) => /z-index:\s*-?\d/.test(text) ? [`${relative(ROOT, path)}:${index + 1} ${text.trim()}`] : []))
+      expect(report).toEqual([])
+    })
   })
 })

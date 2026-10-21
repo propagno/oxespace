@@ -55,6 +55,11 @@ export function Spinner({ label = 'Loading' }: { label?: string }): ReactElement
   return <span className={styles.spinner} role="status" aria-label={label} />
 }
 
+/** A spinner with a short line of text, for a panel or list whose content is on its way. */
+export function LoadingState({ label = 'Loading…' }: { label?: string }): ReactElement {
+  return <div className={styles.loading} role="status"><span className={styles.spinner} aria-hidden="true" /><span>{label}</span></div>
+}
+
 export function Separator({ orientation = 'horizontal' }: { orientation?: 'horizontal' | 'vertical' }): ReactElement {
   return <span className={styles.separator} role="separator" aria-orientation={orientation} data-orientation={orientation} />
 }

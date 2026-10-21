@@ -3,6 +3,7 @@ import { useVoiceStore } from '../store/voice.store'
 import { createAudioRecorder, type AudioRecorder } from '../lib/audio/recorder-worklet'
 import { concatFloat32, encodeWav } from '../lib/audio/wav-encode'
 import { createVad } from '../lib/audio/vad'
+import { humanizeError } from '../utils/humanizeError'
 
 export type OxeVoiceStatus =
   | 'unsupported'
@@ -52,7 +53,7 @@ function toMicError(err: unknown): string {
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone permission denied.'
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return 'No microphone was detected.'
   if (name === 'AbortError') return 'Microphone request was canceled. Try again.'
-  return err instanceof Error ? err.message : 'Could not access the microphone.'
+  return humanizeError(err, 'Could not access the microphone.')
 }
 
 export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOxeVoiceResult {
@@ -149,7 +150,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
       if (text) onFinalTextRef.current(text)
     } catch (err) {
       if (session !== sessionRef.current) return
-      setError(err instanceof Error ? err.message : 'Transcription failed.')
+      setError(humanizeError(err, 'Transcription failed.'))
       setStatus('error')
     } finally {
       pendingRef.current -= 1
@@ -180,7 +181,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
     } catch (err) {
       if (session !== sessionRef.current) return false
       setModelProgress(null)
-      setError(err instanceof Error ? err.message : 'Could not download the voice model.')
+      setError(humanizeError(err, 'Could not download the voice model.'))
       setStatus('error')
       return false
     }

@@ -9,6 +9,7 @@ import { ActivityDot } from '../Indicators/ActivityDot'
 import { HandoffInbox } from './HandoffInbox'
 import { MemberEditButton, MemberEditor } from './MemberEditor'
 import { Button, TextField, Select, EmptyState } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface IntegrationPanelProps {
   activePaneId: string | null
@@ -195,7 +196,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       setConfirmRemoveMemberId(null)
       setPanelNotice(`${member.alias} was removed from this coordination.`)
     } catch (err) {
-      setMemberActionError(err instanceof Error ? err.message : String(err))
+      setMemberActionError(humanizeError(err))
     } finally {
       setRemovingMemberId(null)
     }

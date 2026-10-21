@@ -7,7 +7,7 @@ export { Button, IconButton, ButtonGroup, type ButtonProps, type ButtonVariant, 
 export { TextField, TextArea, Select, Checkbox, Switch, SegmentedControl, Kbd } from './Field'
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog'
 export { Dialog, Popover, Menu, Tooltip, TooltipProvider, type MenuEntry, type MenuRadioOption } from './Overlay'
-export { Badge, StatusDot, Panel, Toolbar, ToolbarSpacer, EmptyState, Spinner, Separator, Tabs, Meter, Avatar, type Intent, type Status } from './Display'
+export { Badge, StatusDot, Panel, Toolbar, ToolbarSpacer, EmptyState, LoadingState, Spinner, Separator, Tabs, Meter, Avatar, type Intent, type Status } from './Display'
 export { toast, dismissToast, Toaster, type ToastInput } from './Toast'
 export { TitleTooltips } from './TitleTooltips'
 export { cx } from './cx'

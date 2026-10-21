@@ -3,6 +3,7 @@ import { type FormEvent, type ReactElement, useState } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
 import { Button, ConfirmDialog, Dialog, IconButton, TextField, Select, TextArea } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
   claude: 'Claude',
@@ -65,7 +66,7 @@ export function AgentConfigModal({
         })
         onClose()
       } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : 'Failed to save agent profile')
+        setSubmitError(humanizeError(err, 'Failed to save agent profile'))
       } finally {
         setSubmitting(false)
       }
@@ -86,7 +87,7 @@ export function AgentConfigModal({
       })
       onClose()
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to save agent profile')
+      setSubmitError(humanizeError(err, 'Failed to save agent profile'))
     } finally {
       setSubmitting(false)
     }
@@ -98,7 +99,7 @@ export function AgentConfigModal({
       await onDelete(profile.agentProfileId)
       onClose()
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to delete agent profile')
+      setSubmitError(humanizeError(err, 'Failed to delete agent profile'))
       setConfirmDelete(false)
       setDeleting(false)
     }

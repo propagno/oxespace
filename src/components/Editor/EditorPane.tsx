@@ -17,6 +17,7 @@ import { ConflictDiff } from './ConflictDiff'
 import { EditorTabs } from './EditorTabs'
 import { FileBrowser } from './FileBrowser'
 import { EmptyState } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 // #10 · Rich previews are lazy so react-markdown and the base64 plumbing stay out
 // of the renderer entry chunk (budget: 500kB).
@@ -422,5 +423,5 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unexpected file browser error'
+  return humanizeError(error, 'Unexpected file browser error')
 }

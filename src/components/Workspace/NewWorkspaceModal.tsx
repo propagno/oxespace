@@ -7,6 +7,7 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
 import { Button, Dialog, EmptyState } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 export interface WizardLaunchInput {
   rootPath: string
@@ -163,7 +164,7 @@ export function NewWorkspaceModal({
         agentBindings: [...agentBindings, ...shellBindings]
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create workspace')
+      setError(humanizeError(err, 'Failed to create workspace'))
       setIsSubmitting(false)
     }
   }

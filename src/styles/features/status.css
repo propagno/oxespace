@@ -1,0 +1,321 @@
+/* Activity dots and the workspace status summary. Split out of the former features.css; imported in order from styles.css. */
+
+/* ─── Activity dots (3-tier: thinking / awaiting / idle) ─────────────────── */
+
+/* Shared base for the activity dot used in sidebar rows and pane header.
+   Three states are expressed with the same shape — only colour and animation
+   vary, so the user sees a consistent visual vocabulary across surfaces. */
+.pane-activity-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Thinking: agent is streaming output right now — pulse at 1.2s. */
+.pane-activity-dot.activity-thinking,
+.pane-status-dot.activity-thinking {
+  background: var(--dot-green);
+  animation: oxe-activity-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(52, 212, 116, 0.65);
+}
+
+/* Awaiting: agent paused after the user's last intent — solid brand dot.
+   Quiet but visible, like "your turn". */
+.pane-activity-dot.activity-awaiting,
+.pane-status-dot.activity-awaiting {
+  background: var(--brand);
+  box-shadow: 0 0 0 2px rgba(18, 199, 154, 0.18), 0 0 6px rgba(18, 199, 154, 0.65);
+}
+
+/* Idle: nothing happening — flat muted dot, no animation. */
+.pane-activity-dot.activity-idle,
+.pane-status-dot.activity-idle {
+  background: var(--tx-muted);
+  opacity: 0.55;
+}
+
+.pane-activity-dot.activity-error,
+.pane-status-dot.activity-error {
+  background: var(--dot-red);
+  box-shadow: 0 0 6px rgba(248, 113, 113, 0.65);
+}
+
+.pane-activity-dot.activity-starting,
+.pane-status-dot.activity-starting {
+  background: var(--dot-yellow);
+  animation: oxe-activity-pulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
+}
+
+.pane-activity-dot.activity-exited,
+.pane-status-dot.activity-exited {
+  background: var(--tx-muted);
+  opacity: 0.4;
+}
+
+@keyframes oxe-activity-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.05); }
+}
+
+/* ─── Workspace status summary in the topbar ─────────────────────────────── */
+
+.workspace-status-summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: var(--space-sm);
+  min-width: 0;
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.01em;
+  /* Clipped, not scrollable: chips hide their labels when the bar is crowded, and a scroll area would need keyboard access. */
+  overflow: hidden;
+}
+
+.workspace-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  font-weight: 560;
+  box-shadow: none;
+}
+
+.workspace-status-pill strong {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-status-pill-label {
+  color: var(--tx-muted);
+  font-weight: 500;
+}
+
+.workspace-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  height: 24px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+.workspace-status-chip:hover {
+  background: var(--ov-1);
+  border-color: var(--ov-3);
+  color: var(--text-primary);
+  transform: none;
+  box-shadow: none;
+}
+
+.workspace-status-chip.activity-awaiting {
+  color: var(--tx-primary);
+}
+
+.workspace-status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all var(--duration-base) var(--ease-standard);
+}
+
+.workspace-status-dot.activity-thinking {
+  background: var(--intent-success-solid);
+  box-shadow: 0 0 8px var(--intent-success-solid);
+  animation: oxe-activity-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 8px 1px var(--dot-green);
+}
+
+.workspace-status-dot.activity-awaiting {
+  background: var(--intent-warning-solid);
+  box-shadow: 0 0 8px var(--intent-warning-solid);
+}
+
+.workspace-status-dot.activity-idle {
+  background: var(--tx-muted);
+  box-shadow: none;
+  opacity: 0.55;
+}
+
+/* Consolidated integration control. Five equal-looking topbar chips competed
+   with agent activity; the trigger keeps the aggregate glanceable and moves
+   operational detail into a keyboard-accessible menu. */
+.workspace-integrations {
+  position: relative;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.workspace-integrations-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--pane-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--pane-surface-raised) 76%, transparent);
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  font-weight: 580;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.workspace-integrations-trigger:hover,
+.workspace-integrations-trigger[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--tx-primary) 16%, transparent);
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}
+
+.workspace-integrations-health,
+.workspace-integrations-row-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.workspace-integrations-health.tone-healthy { background: var(--dot-green); box-shadow: 0 0 6px color-mix(in srgb, var(--dot-green) 62%, transparent); }
+.workspace-integrations-health.tone-attention { background: var(--dot-yellow); }
+.workspace-integrations-health.tone-idle { background: var(--tx-muted); opacity: 0.55; }
+
+.workspace-integrations-count {
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.workspace-integrations-chevron {
+  color: var(--tx-muted);
+  transition: transform var(--transition-fast);
+}
+
+.workspace-integrations-trigger[aria-expanded='true'] .workspace-integrations-chevron { transform: rotate(180deg); }
+
+.workspace-integrations-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: calc(var(--layer-dropdown) + 40);
+  width: 248px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--tx-primary) 12%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  box-shadow: var(--elevation-4), inset 0 1px 0 var(--ov-1);
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+}
+
+.workspace-integrations-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 0 8px 5px;
+  border-bottom: 1px solid var(--pane-border);
+  color: var(--tx-primary);
+  font-size: var(--fs-2xs);
+}
+
+.workspace-integrations-menu-header span { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; }
+
+.workspace-integrations-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 8px;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 42px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--tx-secondary);
+  text-align: left;
+}
+
+.workspace-integrations-row.is-action { cursor: pointer; }
+.workspace-integrations-row.is-action:hover { background: var(--surface-hover); color: var(--tx-primary); }
+
+.workspace-integrations-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-muted);
+}
+
+.workspace-integrations-row-copy { display: grid; gap: 1px; min-width: 0; }
+.workspace-integrations-row-copy strong { color: inherit; font-size: var(--fs-2xs); font-weight: 620; }
+.workspace-integrations-row-copy span { overflow: hidden; color: var(--tx-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.workspace-integrations-row-dot.activity-thinking { background: var(--dot-green); }
+.workspace-integrations-row-dot.activity-awaiting { background: var(--dot-yellow); }
+.workspace-integrations-row-dot.activity-idle { background: var(--tx-muted); opacity: 0.42; }
+
+@container terminal-pane (max-width: 560px) {
+  .pane-header { padding-inline: 8px; gap: 5px; }
+  .pane-header-left { gap: 5px; }
+  .pane-agent-chip { max-width: 11ch; }
+  .pane-intent { font-size: var(--fs-xs); }
+  .pane-actions { border-color: transparent; background: transparent; padding-inline: 1px; }
+  .terminal-statusbar { gap: 4px; padding-inline: 8px; }
+  .statusbar-chip { padding-inline: 5px; }
+}
+
+@container terminal-pane (max-width: 480px) {
+  .statusbar-chip .chip-label { display: none; }
+}
+
+@container terminal-pane (max-width: 380px) {
+  .pane-agent-chip { width: 24px; padding: 0 4px; justify-content: center; }
+  .pane-agent-chip-label,
+  .pane-header-divider { display: none; }
+  .pane-search-btn { display: none; }
+  .terminal-statusbar .statusbar-text { display: none; }
+  .terminal-view .xterm { padding-inline: 9px; }
+}
+
+/* Tighter spacing when the topbar gets crowded — workspaces with many panes
+   can produce 4+ chips that compete with the Tools button. */
+@media (max-width: 1100px) {
+  .workspace-status-summary {
+    gap: var(--space-xs);
+  }
+  .workspace-status-pill-label {
+    display: none;
+  }
+  .workspace-status-chip .chip-label {
+    display: none;
+  }
+}
+
+/* Configure agent: readiness above the form. */
+.agent-config-readiness { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.agent-config-readiness-detail { color: var(--text-secondary); font-size: var(--text-xs); }
+.agent-config-health { margin-left: auto; }

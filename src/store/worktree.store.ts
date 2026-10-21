@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { GitHubWorktree, GitHubWorktreeStatus } from '../../shared/types/github'
+import { humanizeError } from '../utils/humanizeError'
 
 export interface CreateWorktreeOptions {
   createBranch?: boolean
@@ -35,7 +36,7 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
         error: { ...s.error, [rootPath]: null }
       }))
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      const message = humanizeError(err)
       set((s) => ({
         loading: { ...s.loading, [rootPath]: false },
         error: { ...s.error, [rootPath]: message }

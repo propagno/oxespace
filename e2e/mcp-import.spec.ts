@@ -40,7 +40,7 @@ test('import MCP servers from Cursor into the Connections panel', async () => {
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
 
     await openConnections(page)
-    const panel = page.getByRole('dialog', { name: 'Connections' })
+    const panel = page.getByRole('dialog', { name: 'MCP servers' })
     await expect(panel).toBeVisible()
 
     await panel.getByRole('button', { name: /Import from Claude Desktop, Cursor or Windsurf/ }).click()

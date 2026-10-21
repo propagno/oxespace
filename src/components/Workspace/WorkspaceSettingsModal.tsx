@@ -11,6 +11,7 @@ import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
 import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import { Button, Select } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 export const SETTINGS_PAGES = [
   { id: 'appearance', label: 'Appearance', hint: 'Mode, density & layout', icon: Palette, description: 'Choose light or dark mode, and preview density and pane layout before saving.' },
@@ -93,7 +94,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
       if (!embedded) onClose()
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update workspace settings')
+      setError(humanizeError(err, 'Failed to update workspace settings'))
       return false
     } finally {
       setSaving(false)

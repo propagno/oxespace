@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ThreadFileHunk } from '../../../shared/types/thread'
 import { TextArea } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 const MAX_SHOWN_LINES = 40
 
@@ -28,7 +29,7 @@ export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disab
   const [working, setWorking] = useState<string | null>(null)
   const [commenting, setCommenting] = useState<string | null>(null)
   const [comment, setComment] = useState('')
-  const refresh = () => { void loadHunks().then(setHunks, cause => { setHunks([]); setError(cause instanceof Error ? cause.message : 'Could not load the changes.') }) }
+  const refresh = () => { void loadHunks().then(setHunks, cause => { setHunks([]); setError(humanizeError(cause, 'Could not load the changes.')) }) }
   // Loaded when the review opens and after each undo; the loader is an inline closure.
   useEffect(refresh, []) // eslint-disable-line react-hooks/exhaustive-deps
   if (hunks === null) return <p className="thread-hunk-note" role="status">Loading changes…</p>
@@ -42,7 +43,7 @@ export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disab
           <button type="button" className="thread-change-view" disabled={disabled || working !== null} onClick={() => { setCommenting(commenting === hunk.id ? null : hunk.id); setComment('') }}>Comment</button>
           <button type="button" className="thread-change-view" disabled={disabled || working !== null} onClick={() => {
             setError(''); setWorking(hunk.id)
-            void onUndoHunk(hunk.id).then(refresh, cause => setError(cause instanceof Error ? cause.message : 'Could not undo this change.')).finally(() => setWorking(null))
+            void onUndoHunk(hunk.id).then(refresh, cause => setError(humanizeError(cause, 'Could not undo this change.'))).finally(() => setWorking(null))
           }}>{working === hunk.id ? 'Undoing…' : 'Undo change'}</button>
         </header>
         <pre>{shown.slice(0, MAX_SHOWN_LINES).map(([sign, line], row) => <span key={row} className={sign === '+' ? 'is-added' : 'is-removed'}>{sign} {line.replace(/\r$/, '')}{'\n'}</span>)}{shown.length > MAX_SHOWN_LINES && <span className="thread-hunk-more">… {shown.length - MAX_SHOWN_LINES} more lines</span>}</pre>

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { WorkRun, WorkTask } from '../../../shared/types/work'
 import { formatThreadCost } from './ThreadCostChip'
+import { humanizeError } from '../../utils/humanizeError'
+import { LoadingState } from '../../ui'
 
 const STATUS: Record<WorkTask['status'] | WorkRun['status'], string> = {
   pending: 'Waiting', ready: 'Ready', running: 'Running', blocked: 'Needs input', succeeded: 'Done', failed: 'Failed', cancelled: 'Cancelled'
@@ -36,7 +38,7 @@ export default function ThreadWorkPanel({ threadId, onOpenThread }: { threadId: 
     if (!api?.workRuns) return
     setRuns(await api.workRuns(threadId))
   }, [api, threadId])
-  useEffect(() => { void load().catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load Agent Work')) }, [load])
+  useEffect(() => { void load().catch(cause => setError(humanizeError(cause, 'Could not load Agent Work'))) }, [load])
   const active = runs?.some(run => run.status === 'running') ?? false
   useEffect(() => {
     if (!active) return
@@ -46,11 +48,11 @@ export default function ThreadWorkPanel({ threadId, onOpenThread }: { threadId: 
   if (!api?.workRuns) return <p>Agent Work is not available in this build.</p>
   const cancel = async (run: WorkRun) => {
     setBusy(true); setError('')
-    try { await api.cancelWork!(threadId, run.id); await load() } catch (cause) { setError(cause instanceof Error ? cause.message : 'The run was not cancelled') } finally { setBusy(false) }
+    try { await api.cancelWork!(threadId, run.id); await load() } catch (cause) { setError(humanizeError(cause, 'The run was not cancelled')) } finally { setBusy(false) }
   }
   return <div className="thread-work">
     {error && <p role="alert">{error}</p>}
-    {runs === null ? <p>Loading…</p> : runs.length === 0 ? <p>No Agent Work yet. Ask the agent to split a job into parallel tasks; it plans them with <code>oxespace_work_plan</code> and each task runs in its own conversation.</p>
+    {runs === null ? <LoadingState label="Loading Agent Work…" /> : runs.length === 0 ? <p>No Agent Work yet. Ask the agent to split a job into parallel tasks; it plans them with <code>oxespace_work_plan</code> and each task runs in its own conversation.</p>
       : runs.map(run => <section key={run.id} className="thread-work-run" aria-label={`Run ${run.title}`}>
         <header>
           <div><h3>{run.title}</h3><small>{run.status === 'blocked' ? 'Stopped at budget' : STATUS[run.status]} · {budgetLabel(run)}{run.supervisorThreadId !== threadId ? ' · this conversation is a worker' : ''}</small></div>

@@ -4,6 +4,7 @@ import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import './WorkspaceMemorySettings.css'
 import { Button, Checkbox, TextField, Select } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTerminal, onOpenDiagnostics }: { workspaceId: string; paneIds?: string[]; onOpenTerminal?: (paneId: string, workspaceId?: string) => void; onOpenDiagnostics?: () => void }) {
   const [snapshot, setSnapshot] = useState<DelegationSnapshot>({ enabled: false, tasks: [] })
@@ -31,7 +32,7 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
   const act = async (fn: () => Promise<void>) => {
     setBusy(true); setError('')
     try { await fn(); setSnapshot(await window.oxe.delegation.status(workspaceId)) }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    catch (e) { setError(humanizeError(e)) }
     finally { setBusy(false) }
   }
   return <section className="ws-settings-section memory-settings" aria-labelledby="delegation-title">

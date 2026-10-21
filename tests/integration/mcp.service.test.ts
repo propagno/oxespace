@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
@@ -95,5 +95,31 @@ describe('McpManager trust gates', () => {
     expect(health.some((event) => event.status === 'unhealthy' && event.message?.includes('not found'))).toBe(true)
 
     db.close()
+  })
+
+  test('a test lists the tools, lets the server go and is remembered on the row', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'oxe-mcp-test-'))
+    const db = openInMemoryDatabase()
+    try {
+      const script = join(dir, 'server.cjs')
+      await writeFile(script, [
+        "process.stdin.setEncoding('utf8'); let buf = ''",
+        "process.stdin.on('data', c => { buf += c; let i; while ((i = buf.indexOf('\\n')) >= 0) { const m = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1)",
+        "  if (m.method === 'initialize') reply(m.id, { protocolVersion: '2025-06-18' })",
+        "  if (m.method === 'tools/list') reply(m.id, { tools: [{ name: 'echo', description: 'Echo', inputSchema: {} }] }) } })",
+        "function reply(id, result) { process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\\n') }"
+      ].join('\n'))
+      const manager = new McpManager(db)
+      const untrusted = manager.create({ workspaceId: null, name: 'u', transport: 'stdio', config: { transport: 'stdio', command: process.execPath, args: [script], env: {} }, enabled: true })
+      await expect(manager.test(untrusted.id)).resolves.toMatchObject({ health: 'unhealthy', healthMessage: expect.stringContaining('Not trusted') })
+
+      const server = manager.create({ workspaceId: null, name: 'echo', transport: 'stdio', config: { transport: 'stdio', command: process.execPath, args: [script], env: { ELECTRON_RUN_AS_NODE: '1' } }, enabled: true, trusted: true })
+      const tested = await manager.test(server.id)
+      expect(tested).toMatchObject({ health: 'healthy', tools: [{ name: 'echo' }] })
+      expect(tested.testedAtMs).toEqual(expect.any(Number))
+      // OXESpace does not keep a copy running beside the agent's.
+      expect(manager.list(null).find(row => row.id === server.id)).toMatchObject({ health: 'healthy', tools: [{ name: 'echo' }] })
+      expect((manager as unknown as { runtimes: Map<string, unknown> }).runtimes.size).toBe(0)
+    } finally { db.close(); await rm(dir, { recursive: true, force: true }) }
   })
 })

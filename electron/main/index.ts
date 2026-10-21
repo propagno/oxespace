@@ -42,7 +42,7 @@ import { MemoryService } from './services/memory/memory.service'
 import { configureExperimentalFeatures, sharedProjectMemoryEnabled } from './services/experimental-features'
 import { gateMemoryTools } from './mcp-internal/tool-registry'
 import { ExecutionRegistry } from './services/execution-registry'
-import { AgentLaunchService, agentMcpArguments, providerForExecutable } from './services/agent-launch.service'
+import { AgentLaunchService, codeAgentMcpLaunch, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
 import { registerMemoryIpc } from './ipc/memory.ipc'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
@@ -210,7 +210,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       const hookPort = agentHookServer.port
       return { ...executions.register(input), ...(hookPort ? { OXESPACE_AGENT_HOOK_PORT: String(hookPort) } : {}), ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {}) }
     },
-    agentMcpArgs: (executable, args) => [...agentMcpArguments(providerForExecutable(executable), join(app.getPath('userData'),'bin','oxespace-mcp.cjs')), ...args],
+    agentMcpArgs: (executable, args, workspaceId) => codeAgentMcpLaunch(db, providerForExecutable(executable), join(app.getPath('userData'),'bin','oxespace-mcp.cjs'), workspaceId, args),
     emitData: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.terminal.onData, event)
@@ -647,6 +647,7 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.mcp.update, fail)
   ipcMain.handle(IPC_CHANNELS.mcp.delete, fail)
   ipcMain.handle(IPC_CHANNELS.mcp.start, fail)
+  ipcMain.handle(IPC_CHANNELS.mcp.test, fail)
   ipcMain.handle(IPC_CHANNELS.mcp.stop, fail)
   ipcMain.handle(IPC_CHANNELS.mcp.callTool, fail)
   if ('setTrust' in IPC_CHANNELS.mcp) {

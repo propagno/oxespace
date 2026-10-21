@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { SearchResult } from '../../shared/types/search'
+import { humanizeError } from '../utils/humanizeError'
 
 export interface SearchOptions {
   isRegex: boolean
@@ -67,7 +68,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       set({ results: result, loading: false, error: result.error ?? null })
     } catch (err) {
       if (token !== requestToken) return
-      set({ loading: false, error: err instanceof Error ? err.message : String(err) })
+      set({ loading: false, error: humanizeError(err) })
     }
   },
 

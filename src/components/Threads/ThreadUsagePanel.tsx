@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { ThreadUsageBucket, ThreadUsageSummary } from '../../../shared/types/thread'
 import { formatThreadCost } from './ThreadCostChip'
-import { Select } from '../../ui'
+import { Select, LoadingState } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 type Scope = ThreadUsageSummary['scope']
 const SCOPES: [Scope, string][] = [['thread', 'This conversation'], ['project', 'This project'], ['all', 'All projects']]
@@ -42,7 +43,7 @@ export default function ThreadUsagePanel({ threadId }: { threadId: string }) {
     if (!api?.usageSummary) return
     let live = true
     setError('')
-    api.usageSummary(threadId, { scope, days }).then(value => { if (live) setSummary(value) }, cause => { if (live) setError(cause instanceof Error ? cause.message : 'Could not load spending') })
+    api.usageSummary(threadId, { scope, days }).then(value => { if (live) setSummary(value) }, cause => { if (live) setError(humanizeError(cause, 'Could not load spending')) })
     return () => { live = false }
   }, [api, threadId, scope, days])
   if (!api?.usageSummary) return <p>Spending is not available in this build.</p>
@@ -54,7 +55,7 @@ export default function ThreadUsagePanel({ threadId }: { threadId: string }) {
       <div role="radiogroup" aria-label="Spending scope">{SCOPES.map(([value, label]) => <label key={value}><input type="radio" name="usage-scope" checked={scope === value} onChange={() => setScope(value)} />{label}</label>)}</div>
       <Select aria-label="Spending period" value={days} onChange={event => setDays(Number(event.target.value))}>{PERIODS.map(value => <option key={value} value={value}>Last {value} days</option>)}</Select>
     </div>
-    {!summary ? <p>Loading…</p> : <>
+    {!summary ? <LoadingState label="Loading usage…" /> : <>
       <p className="thread-usage-total"><strong>{usageLabel(summary.total)}</strong></p>
       <p>Claude reports an API-equivalent estimate; on a subscription it is not a charge. Codex reports tokens only. Turns are recorded from this version on.</p>
       <Buckets title="By day" buckets={summary.byDay} metric={metric} />

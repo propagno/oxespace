@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { EmptyState } from '../../ui'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface FileBrowserProps {
   nodes: FileTreeNode[]
@@ -27,7 +28,7 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
       setChildrenByPath((current) => ({ ...current, [relativePath]: children }))
       return children
     } catch (error) {
-      setErrorByPath((current) => ({ ...current, [relativePath]: error instanceof Error ? error.message : 'Failed to load directory' }))
+      setErrorByPath((current) => ({ ...current, [relativePath]: humanizeError(error, 'Failed to load directory') }))
       return []
     } finally {
       setLoadingByPath((current) => ({ ...current, [relativePath]: false }))

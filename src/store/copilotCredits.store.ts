@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { CopilotCredits } from '../../shared/types/copilot'
+import { humanizeError } from '../utils/humanizeError'
 
 /**
  * Global (account-wide, not per-workspace) Copilot AI-Credits snapshot. Mirrors
@@ -24,7 +25,7 @@ export const useCopilotCreditsStore = create<CopilotCreditsState>((set, get) => 
       set({ credits, loading: false })
     } catch (err) {
       set({
-        credits: { available: false, installed: false, plan: null, sku: null, credits: null, resetDate: null, tokenBasedBilling: false, error: err instanceof Error ? err.message : String(err) },
+        credits: { available: false, installed: false, plan: null, sku: null, credits: null, resetDate: null, tokenBasedBilling: false, error: humanizeError(err) },
         loading: false
       })
     }

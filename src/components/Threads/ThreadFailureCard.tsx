@@ -1,3 +1,4 @@
+import { Button } from '../../ui'
 import { useRef, useState } from 'react'
 import { AlertCircle, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import type { ThreadEvent, ThreadFailure, ThreadUsage } from '../../../shared/types/thread'
@@ -85,18 +86,18 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
       {!usage && code !== 'authentication' && code !== 'session-busy' && <p className="thread-failure-note">{failure?.usageUnavailable ? 'Current usage could not be retrieved. The provider has not confirmed a reset time.' : refreshUsage && failure ? 'Checking current provider usage…' : 'Usage and reset time were not recorded for this failure.'}</p>}
       {usage && failure?.usageUnavailable && !currentUsage && <p className="thread-failure-note">Could not refresh usage. The snapshot above was checked at the displayed time.</p>}
       {refreshError && <p role="alert" className="thread-failure-note">{refreshError}</p>}
-      {(code !== 'session-busy' && (refreshUsage || retry || compact || permissions) || code === 'authentication' && onAccounts) && <footer>
-        {code === 'authentication' && onAccounts && <button type="button" onClick={onAccounts}>Reconnect account</button>}
-        {compact && <button type="button" disabled={disabled} onClick={compact}>Compact conversation</button>}
-        {permissions && <button type="button" disabled={disabled} onClick={permissions}>{guidance.action === 'review-permissions' ? 'Review permissions' : 'Change configuration'}</button>}
-        {retry && !choosingRetry && <button type="button" disabled={disabled} onClick={() => hasChanges ? setChoosingRetry(true) : retry(false)}>Retry turn</button>}
+      {/* A sign-in failure is acted on in the account notice above the composer, which follows the account state; repeating Reconnect here doubled it. */}
+      {code !== 'session-busy' && code !== 'authentication' && (refreshUsage || retry || compact || permissions) && <footer>
+        {compact && <Button size="sm" disabled={disabled} onClick={compact}>Compact conversation</Button>}
+        {permissions && <Button size="sm" disabled={disabled} onClick={permissions}>{guidance.action === 'review-permissions' ? 'Review permissions' : 'Change configuration'}</Button>}
+        {retry && !choosingRetry && <Button size="sm" disabled={disabled} onClick={() => hasChanges ? setChoosingRetry(true) : retry(false)}>Retry turn</Button>}
         {retry && choosingRetry && <span className="thread-retry-choice" role="group" aria-label="Retry this turn">
           <span>This turn changed files.</span>
-          <button type="button" className="is-primary" disabled={disabled} onClick={() => { setChoosingRetry(false); retry(true) }}>Undo its changes and retry</button>
-          <button type="button" disabled={disabled} onClick={() => { setChoosingRetry(false); retry(false) }}>Retry without undoing</button>
-          <button type="button" onClick={() => setChoosingRetry(false)}>Cancel</button>
+          <Button size="sm" variant="primary" disabled={disabled} onClick={() => { setChoosingRetry(false); retry(true) }}>Undo its changes and retry</Button>
+          <Button size="sm" disabled={disabled} onClick={() => { setChoosingRetry(false); retry(false) }}>Retry without undoing</Button>
+          <Button size="sm" variant="ghost" onClick={() => setChoosingRetry(false)}>Cancel</Button>
         </span>}
-        {refreshUsage && <button type="button" disabled={loading} onClick={() => void refresh()}>{loading ? <Loader2 size={14} className="thread-spin" /> : <RefreshCw size={14} />}{loading ? 'Checking usage…' : 'Refresh usage'}</button>}
+        {refreshUsage && <Button size="sm" variant="ghost" disabled={loading} icon={loading ? <Loader2 size={14} className="thread-spin" /> : <RefreshCw size={14} />} onClick={() => void refresh()}>{loading ? 'Checking usage…' : 'Refresh usage'}</Button>}
       </footer>}
     </div>
   </details>

@@ -33,7 +33,8 @@ interface TerminalManagerOptions {
   prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
   onLaunchExit?: (paneId: string) => void
   executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
-  agentMcpArgs?: (executable: string, args: string[]) => string[]
+  /** MCP launch arguments for an agent CLI, and the variables those arguments refer to. */
+  agentMcpArgs?: (executable: string, args: string[], workspaceId: string) => { args: string[]; env?: Record<string, string> }
   isManagedPane?: (paneId: string) => boolean
   /** Main-process-registered container shells (`oxequery-shell:*`); the renderer never supplies the command. */
   oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
@@ -223,7 +224,8 @@ export class TerminalManager {
     let args = input.launch ? input.launch.args : agentParts
       ? [...agentParts.slice(1), ...(input.agentArgs ?? [])]
       : [...shellArgs, ...(input.agentArgs ?? [])]
-    if (!input.launch && this.agentMcpArgs) args = this.agentMcpArgs(executable, args)
+    let mcpEnv: Record<string, string> = {}
+    if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = this.agentMcpArgs(executable, args, input.workspaceId))
 
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = launch.pane_root_path && existsSync(launch.pane_root_path)
@@ -240,6 +242,7 @@ export class TerminalManager {
       BAT_THEME: 'TwoDark'
     }
     if (this.executionEnvironment && !threadShell && !oxeShell) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
+    finalEnv = { ...finalEnv, ...mcpEnv }
     // Optional launch integrations only return environment; provider failures
     // never prevent the shell/agent from starting or touch its output stream.
     if (this.prepareLaunch && !threadShell && !oxeShell) {

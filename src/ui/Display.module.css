@@ -53,6 +53,7 @@
 /* Spinner and separator */
 .spinner { flex: none; display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin 800ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-2); color: var(--text-muted); font-size: var(--text-sm); }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
 .separator { flex: none; background: var(--border-subtle); }
 .separator[data-orientation='horizontal'] { height: 1px; width: 100%; }

@@ -9,6 +9,7 @@ import type {
 } from '../../../shared/types/automation'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { Button, TextField, Select, TextArea } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 const STATUS_LABEL: Record<AutomationRunStatus, string> = {
   pending: 'queued',
@@ -64,7 +65,7 @@ export function AutomationsSettings(): ReactElement | null {
       const latest = await Promise.all(list.map(async (a) => [a.id, (await api.runs(a.id))[0]] as const))
       setRuns(Object.fromEntries(latest))
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     }
   }, [api])
 
@@ -100,7 +101,7 @@ export function AutomationsSettings(): ReactElement | null {
       setPrompt('')
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     }
   }
 
@@ -110,7 +111,7 @@ export function AutomationsSettings(): ReactElement | null {
       await action()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     }
   }
 

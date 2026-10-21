@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { GitBranchStatus } from '../../shared/types/git'
+import { humanizeError } from '../utils/humanizeError'
 
 /**
  * Shared module-level cache for `git.getBranch` results, keyed by rootPath.
@@ -55,7 +56,7 @@ async function fetchBranch(workspaceId: string, rootPath: string): Promise<GitBr
         shortSha: null,
         // Surface the actual error so the UI can show "Git not found" etc.
         // instead of the generic "branch unavailable" fallback.
-        error: err instanceof Error ? err.message : String(err)
+        error: humanizeError(err)
       } satisfies GitBranchStatus))
     : Promise.resolve({
         branch: null,

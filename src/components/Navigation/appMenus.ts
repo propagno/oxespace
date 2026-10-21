@@ -72,7 +72,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         fromAction('toggle-sidebar', 'Toggle sidebar', 'Ctrl+B'),
         fromAction('toggle-editor', 'Toggle editor', 'Ctrl+E'),
         fromAction('github-open-panel', 'Source control'),
-        fromAction('toggle-background-dock', 'Background jobs'),
+        fromAction('toggle-background-dock', 'Background activity'),
         fromAction('toggle-split-layout', 'Split layout', 'F2'),
         fromAction('balance-pane-layout', 'Balance panes'),
         sep('view-2'),

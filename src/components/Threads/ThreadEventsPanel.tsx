@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ThreadDebugPage, ThreadDebugRow } from '../../../shared/types/thread'
 import { TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 import './ThreadEventsPanel.css'
 
 const PAGE = 200
@@ -33,7 +34,7 @@ export default function ThreadEventsPanel({ threadId }: { threadId: string }) {
       setPage(next)
       setRows(current => before === undefined ? next.rows : [...next.rows, ...current])
     } catch (cause) {
-      if (ticket === latest.current) setError(cause instanceof Error ? cause.message : 'Could not load the events')
+      if (ticket === latest.current) setError(humanizeError(cause, 'Could not load the events'))
     }
   }, [api, threadId])
 

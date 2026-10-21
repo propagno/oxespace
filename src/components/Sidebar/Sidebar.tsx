@@ -229,7 +229,7 @@ export function Sidebar({
         {integrationGroups.length > 0 ? (
           <section className="sidebar-integration-list" aria-label="Integration groups">
             <div className="sidebar-section-header">
-              <span>Integration</span>
+              <span>Integrations</span>
             </div>
             {integrationGroups.map((group) => (
               <SidebarIntegrationRow

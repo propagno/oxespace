@@ -18,7 +18,11 @@ export interface McpHttpConfig {
 
 export type McpServerConfig = McpStdioConfig | McpHttpConfig
 
-export type McpHealthStatus = 'unknown' | 'starting' | 'healthy' | 'unhealthy'
+/**
+ * What OXESpace saw the last time it tested the server. `needs-auth`: the server
+ * answered and wants a sign-in, which the agent does on first use.
+ */
+export type McpHealthStatus = 'unknown' | 'starting' | 'healthy' | 'needs-auth' | 'unhealthy'
 
 export interface McpServer {
   id: string
@@ -33,6 +37,8 @@ export interface McpServer {
   healthMessage: string | null
   /** Tools cached after the most recent successful handshake. */
   tools: McpToolDescriptor[]
+  /** When OXESpace last tested the server in this run of the app; null when it has not. */
+  testedAtMs?: number | null
   createdAtMs: number
   updatedAtMs: number
 }

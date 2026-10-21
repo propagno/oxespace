@@ -6,8 +6,8 @@ import styles from './AppearanceSettings.module.css'
 
 const OPTIONS: Array<{ id: Appearance; label: string; hint: string; icon: typeof Sun }> = [
   { id: 'system', label: 'System', hint: 'Follows your operating system', icon: Monitor },
-  { id: 'light', label: 'Light', hint: 'Caatinga green on clay', icon: Sun },
-  { id: 'dark', label: 'Dark', hint: 'Sertão sun on the night', icon: Moon }
+  { id: 'light', label: 'Light', hint: 'Light surfaces with green accents', icon: Sun },
+  { id: 'dark', label: 'Dark', hint: 'Dark surfaces with warm yellow accents', icon: Moon }
 ]
 
 function Preview({ mode }: { mode: Appearance }): ReactElement {

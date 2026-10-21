@@ -13,6 +13,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorktreeStore } from '../../store/worktree.store'
 import { deriveStatusTone } from '../../utils/paneDisplay'
 import { Button } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 const REASON_LABEL: Record<WorktreeCleanupReason, string> = {
   'idle-clean': 'idle for 30+ days',
@@ -72,7 +73,7 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
       setCandidates(found)
       setSelected(new Set(found.filter((c) => c.selectedByDefault).map((c) => c.path)))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(humanizeError(error))
     } finally {
       setBusy(false)
     }
@@ -112,7 +113,7 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
       await refresh(workspaceId, rootPath)
       await scan()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(humanizeError(error))
     } finally {
       setBusy(false)
     }

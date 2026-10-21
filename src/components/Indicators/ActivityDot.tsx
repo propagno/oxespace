@@ -26,7 +26,7 @@ const DEFAULT_LABELS: Record<ActivityLevel, string> = {
  * 6-tier activity indicator used wherever a "what state is this pane in"
  * dot needs to render — sidebar rows, pane headers, integration member
  * cards, workspace status summaries. CSS classes (`pane-activity-dot` +
- * `activity-<level>`) live in `features.css` and define the visual
+ * `activity-<level>`) live in `styles/features/status.css` and define the visual
  * vocabulary: pulse for thinking/starting, solid brand for awaiting, flat
  * muted for idle/exited, red for error.
  *

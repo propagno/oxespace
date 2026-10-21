@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { ThreadAuditEntry, ThreadPermissionRule } from '../../../shared/types/thread'
-import { Checkbox, Select, TextField } from '../../ui'
+import { Checkbox, Select, TextField, LoadingState } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 const ACTOR: Record<ThreadAuditEntry['actor'], string> = { user: 'You', policy: 'Rule', system: 'OXESpace' }
 const KIND: Record<ThreadPermissionRule['kind'], string> = { command: 'Command', path: 'Files', tool: 'MCP tool' }
@@ -28,11 +29,11 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
     setAutoReads(nextReads)
     setAudit(nextAudit)
   }, [api, threadId, scope])
-  useEffect(() => { void load().catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load permission rules')) }, [load])
+  useEffect(() => { void load().catch(cause => setError(humanizeError(cause, 'Could not load permission rules'))) }, [load])
 
   const run = async (work: () => Promise<unknown>) => {
     setBusy(true); setError('')
-    try { await work(); await load() } catch (cause) { setError(cause instanceof Error ? cause.message : 'The change was not saved') } finally { setBusy(false) }
+    try { await work(); await load() } catch (cause) { setError(humanizeError(cause, 'The change was not saved')) } finally { setBusy(false) }
   }
 
   if (!api?.permissionRules) return <p>Permission rules are not available in this build.</p>
@@ -46,7 +47,7 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
     <section>
       <h3>Rules</h3>
       <p>OXESpace answers the agent's approval prompts with these rules. Allow rules approve only when every command in a line, or every file, is covered; deny rules decline. Anything else still asks you. A denied MCP tool is also removed from the agent's tools when its next session starts.</p>
-      {rules === null ? <p>Loading…</p> : rules.length === 0 ? <p>No rules yet. Use "Always allow" on an approval, or add one below.</p> : <ul className="thread-permissions-rules">
+      {rules === null ? <LoadingState label="Loading rules…" /> : rules.length === 0 ? <p>No rules yet. Use "Always allow" on an approval, or add one below.</p> : <ul className="thread-permissions-rules">
         {rules.map(rule => <li key={rule.id}>
           <span className={`thread-permissions-decision is-${rule.decision}`}>{rule.decision === 'allow' ? 'Allow' : 'Deny'}</span>
           <span>{KIND[rule.kind]}</span>

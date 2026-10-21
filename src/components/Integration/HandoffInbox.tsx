@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { IntegrationGroup, IntegrationHandoff } from '../../../shared/types/integration'
 import { useIntegrationStore } from '../../store/integration.store'
 import { Button, Select, TextField, TextArea } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface HandoffInboxProps {
   group: IntegrationGroup
@@ -86,7 +87,7 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
       await window.oxe.terminal.write({ paneId: target.paneId, data: handoff.content + '\n' })
       await updateHandoff({ handoffId: handoff.id, status: 'saved' })
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     } finally {
       setApplyingId(null)
     }
@@ -100,7 +101,7 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
     try {
       await updateHandoff({ handoffId: handoff.id, status: 'sent' })
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     }
   }
 
@@ -132,7 +133,7 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
         ? `Handoff sent to ${target.alias}. It is ready to apply in the linked agent terminal.`
         : `Handoff recorded for ${target?.alias ?? 'the recipient'}. Link an agent terminal before applying it.`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     } finally {
       setIsSending(false)
     }

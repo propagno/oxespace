@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { GitDiff, GitDiffFile } from '../../shared/types/git'
+import { humanizeError } from '../utils/humanizeError'
 
 export type DiffMode = 'unified' | 'side-by-side'
 
@@ -149,5 +150,5 @@ export function selectGitState(workspaceId: string) {
 // actually depends on.)
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unexpected git error'
+  return humanizeError(error, 'Unexpected git error')
 }

@@ -5,6 +5,7 @@ import type { Workspace } from '../../../shared/types/workspace'
 import { DelegationCreateDialog } from './DelegationCreateDialog'
 import './DelegatedWorkDialog.css'
 import { Button, ConfirmDialog, Dialog, Select, TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, origin, onClose, onOpen }: {
   workspaces: Workspace[]; workspaceId: string; focusTaskId?: string | null; origin?: { kind: 'pane' | 'thread'; id: string }
@@ -41,7 +42,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
       await window.oxe.delegation.control(task.originWorkspaceId ?? task.workspaceId, task.id, action)
       const page = await window.oxe.delegation.status(selectedWorkspace, undefined, 50)
       setTasks(page.tasks); setCursor(page.nextCursor ?? null)
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+    } catch (cause) { setError(humanizeError(cause)) }
     finally { setBusy(false) }
   }
   const filtered = tasks.filter(task => `${task.id} ${task.objective} ${task.branch} ${task.state} ${task.nativeSession?.nativeSessionId ?? ''}`.toLowerCase().includes(query.toLowerCase()))

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, type DatabaseEngine, type MongoOptions, type OxeQueryConnection, type OxeQueryConnectionInput, type SshAuth, type SslMode } from '../../../../shared/types/oxequery'
 import type { ResolvedConnection } from './oxequery-errors'
+import { splitHostInput } from '../../../../shared/oxequeryHost'
 import { PickedFiles, assertPem } from './picked-files'
 
 /** Encryption seam: Electron's safeStorage in the app, a fake in tests. */
@@ -96,9 +97,11 @@ export function normalizeConnectionInput(input: OxeQueryConnectionInput): Normal
   if (!ENGINES.has(input.engine)) throw new ConnectionInputError('Choose PostgreSQL or MongoDB.')
   const mongoInput = input.mongo ?? {}
   const srv = input.engine === 'mongodb' && mongoInput.srv === true
-  const host = assertHost(String(input.host ?? ''), 'host name or address')
+  // A host pasted as a URL ("https://db.example.com:5432/app") is taken for its name and port.
+  const pasted = splitHostInput(String(input.host ?? ''))
+  const host = assertHost(pasted.host, 'host name or address')
   // A mongodb+srv:// seed list is a DNS name; it has no port.
-  const port = srv ? 27017 : assertPort(input.port, 'port')
+  const port = srv ? 27017 : assertPort(pasted.port ?? input.port, 'port')
   const database = String(input.database ?? '').trim()
   const username = String(input.username ?? '').trim()
   if (database.length > 255 || username.length > 255 || database.includes('\0') || username.includes('\0')) throw new ConnectionInputError('The database or user name is too long.')

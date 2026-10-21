@@ -124,7 +124,7 @@ test('captures all surfaces for design review', async () => {
     await page.keyboard.press('Escape')
 
     // 17. Native terminal shortcuts belong to the terminal; use Tools.
-    await runPaletteCommand(page, 'Terminal Commands')
+    await runPaletteCommand(page, 'Terminal commands')
     await expect(page.locator('.slash-overlay')).toBeVisible()
     await shot(page, '17-slash-overlay')
     await page.keyboard.press('Escape')

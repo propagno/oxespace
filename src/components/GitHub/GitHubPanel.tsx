@@ -10,6 +10,7 @@ import { useEditorStore } from '../../store/editor.store'
 import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 import { GITHUB_PANEL_TABS as TABS, buildStatusHeadline, describeSyncState } from './githubPanelModel'
+import { humanizeError } from '../../utils/humanizeError'
 export { buildStatusHeadline, describeSyncState } from './githubPanelModel'
 
 interface GitHubPanelProps {
@@ -369,9 +370,9 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             </div>
           </div>
           {hasRemote && <div className="github-sync-actions">
-            <button
-              type="button"
-              className="github-sync-btn secondary"
+            <Button
+              variant="secondary"
+              size="sm"
               data-testid="github-status-fetch"
               disabled={loading || !status?.isGitRepository || !hasRemote}
               title="Fetch remote updates without changing your files"
@@ -379,10 +380,10 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             >
               <Download size={14} aria-hidden="true" />
               Fetch
-            </button>
-            <button
-              type="button"
-              className={`github-sync-btn${behind > 0 && !dirty ? ' primary' : ' secondary'}`}
+            </Button>
+            <Button
+              variant={behind > 0 && !dirty ? 'primary' : 'secondary'}
+              size="sm"
               data-testid="github-status-update"
               disabled={!canPull}
               title={pullTitle}
@@ -390,10 +391,10 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             >
               <ArrowDownToLine size={14} aria-hidden="true" />
               Pull{behind > 0 ? ` ${behind}` : ''}
-            </button>
-            <button
-              type="button"
-              className={`github-sync-btn${ahead > 0 && behind === 0 ? ' primary' : ' secondary'}`}
+            </Button>
+            <Button
+              variant={ahead > 0 && behind === 0 ? 'primary' : 'secondary'}
+              size="sm"
               data-testid="github-status-push"
               disabled={!canPush}
               title={pushTitle}
@@ -401,7 +402,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             >
               <ArrowUpFromLine size={14} aria-hidden="true" />
               Push{ahead > 0 ? ` ${ahead}` : ''}
-            </button>
+            </Button>
           </div>}
           {sync.kind === 'dirty-behind' ? (
             <div className="github-sync-callout" data-testid="github-dirty-behind-callout" role="status">
@@ -462,18 +463,18 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
         </section>
       </div>
       {(unstagedChanges.length > 0 || stagedChanges.length > 0) && <div className="github-status-footer">
-        {unstagedChanges.length > 0 && <button type="button" className="github-stage-all-btn" disabled={loading} onClick={onStageAll}>
+        {unstagedChanges.length > 0 && <Button variant="ghost" size="sm" disabled={loading} onClick={onStageAll}>
           Stage all ({unstagedChanges.length})
-        </button>}
+        </Button>}
         {stagedChanges.length > 0 && <>
           <label className="github-auto-row">
             <input type="checkbox" checked={autoGenerate} disabled={generating || loading} onChange={(e) => void handleAutoGenerate(e.target.checked)} />
             <span>Auto-generate commit message</span>
           </label>
           <textarea className="github-commit-ta" aria-label="Commit message" value={message} placeholder="Describe your changes" onChange={(e) => setMessage(e.target.value)} />
-          <button type="button" className="github-commit-submit" disabled={loading || !commitMessage} onClick={() => onCommit(commitMessage)}>
+          <Button variant="primary" className="github-block-btn" disabled={loading || !commitMessage} onClick={() => onCommit(commitMessage)}>
             Commit {stagedChanges.length} staged
-          </button>
+          </Button>
         </>}
       </div>}
     </div>
@@ -581,9 +582,9 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
       <div className="github-checkpoints-footer">
         <TextField value={name} placeholder="Checkpoint name (e.g. before-refactor)..." onChange={(e) => setName(e.target.value)} />
         <TextField value={description} placeholder="Description (optional)..." onChange={(e) => setDescription(e.target.value)} />
-        <button type="button" className="github-full-primary-btn" disabled={loading || !trimmedName} onClick={() => { onCreate(trimmedName, description.trim() || undefined); setName(''); setDescription('') }}>
+        <Button variant="primary" className="github-block-btn" disabled={loading || !trimmedName} onClick={() => { onCreate(trimmedName, description.trim() || undefined); setName(''); setDescription('') }}>
           Create Checkpoint
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -638,15 +639,15 @@ function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConn
           )}
         </div>
 
-        <button type="button" className="github-push-btn" onClick={onPush}>
+        <Button variant="primary" className="github-block-btn" onClick={onPush}>
           Push to GitHub
-        </button>
+        </Button>
 
         <GitignoreRow rootPath={rootPath} workspaceId={workspaceId} />
 
         <div className="github-connected-header">
           <span>Connected Repositories</span>
-          <button type="button" className="github-text-btn" onClick={() => setShowConnectForm((v) => !v)}>+ Connect</button>
+          <Button variant="ghost" size="sm" onClick={() => setShowConnectForm((v) => !v)}>+ Connect</Button>
         </div>
         {showConnectForm ? (
           <div className="github-connect-form">
@@ -724,7 +725,7 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
           <div className="github-tab-header-title"><span>Branches</span></div>
           <div className="github-tab-header-actions">
             <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
-            <button type="button" className="github-outline-btn" onClick={() => setShowCreate((v) => !v)}>+ New Branch</button>
+            <Button variant="secondary" size="sm" onClick={() => setShowCreate((v) => !v)}>+ New Branch</Button>
           </div>
         </div>
         <div className="github-tab-sep" />
@@ -805,7 +806,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <button type="button" className="github-back-btn" onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></button>
+            <Button variant="ghost" size="sm" square aria-label="Back" onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
             <span className="github-detail-title">#{selected.number} {selected.title}</span>
           </div>
           <div className="github-tab-sep" />
@@ -823,16 +824,16 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
         </div>
         <div className="github-detail-footer">
           {selected.headRefName ? (
-            <button type="button" className="github-view-gh-btn" data-testid="github-pr-open-in-changes"
+            <Button variant="ghost" size="sm" data-testid="github-pr-open-in-changes"
               title={`Compare ${selected.baseRefName ?? 'main'} with ${selected.headRefName} in ${WORKBENCH_PANELS.changes.label}, without checking it out`}
               onClick={() => openInChanges(input.workspaceId, { base: selected.baseRefName ?? 'main', head: selected.headRefName ?? undefined })}>
               View in {WORKBENCH_PANELS.changes.label} <GitCompareArrows size={12} aria-hidden="true" />
-            </button>
+            </Button>
           ) : null}
           {selected.url ? (
-            <button type="button" className="github-view-gh-btn" onClick={() => window.open(selected.url ?? '', '_blank')}>
+            <Button variant="ghost" size="sm" onClick={() => window.open(selected.url ?? '', '_blank')}>
               View on GitHub <ExternalLink size={12} aria-hidden="true" />
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
@@ -846,7 +847,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
           <div className="github-tab-header-title"><span>Pull Requests</span></div>
           <div className="github-tab-header-actions">
             <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
-            <button type="button" className="github-outline-btn" onClick={() => repoName && window.open(`https://github.com/${repoName}/compare`, '_blank')}>+ New PR</button>
+            <Button variant="secondary" size="sm" onClick={() => repoName && window.open(`https://github.com/${repoName}/compare`, '_blank')}>+ New PR</Button>
           </div>
         </div>
         <div className="github-tab-sep" />
@@ -910,7 +911,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <button type="button" className="github-back-btn" onClick={() => setSelectedOid(null)}><ArrowLeft size={14} aria-hidden="true" /></button>
+            <Button variant="ghost" size="sm" square aria-label="Back" onClick={() => setSelectedOid(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
             <code className="github-detail-sha">{selected?.shortOid ?? selectedOid.slice(0, 7)}</code>
           </div>
           <div className="github-tab-sep" />
@@ -990,9 +991,9 @@ function CommitDetailView({ details }: { details: GitHubCommitDetails }): ReactE
         ))}
       </div>
       {details.url ? (
-        <button type="button" className="github-view-gh-btn" onClick={() => window.open(details.url ?? '', '_blank')}>
+        <Button variant="ghost" size="sm" onClick={() => window.open(details.url ?? '', '_blank')}>
           View on GitHub <ExternalLink size={12} aria-hidden="true" />
-        </button>
+        </Button>
       ) : null}
     </>
   )
@@ -1022,7 +1023,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <button type="button" className="github-back-btn" onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></button>
+            <Button variant="ghost" size="sm" square aria-label="Back" onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
             <span className="github-detail-title">{selected.name ?? selected.tagName}</span>
           </div>
           <div className="github-tab-sep" />
@@ -1032,9 +1033,9 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
             <div>{selected.isDraft ? 'Draft' : selected.isPrerelease ? 'Pre-release' : 'Release'}</div>
           </div>
           {selected.url ? (
-            <button type="button" className="github-view-gh-btn" onClick={() => window.open(selected.url ?? '', '_blank')}>
+            <Button variant="ghost" size="sm" onClick={() => window.open(selected.url ?? '', '_blank')}>
               View on GitHub <ExternalLink size={12} aria-hidden="true" />
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
@@ -1046,7 +1047,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <button type="button" className="github-back-btn" onClick={() => setShowCreate(false)}><ArrowLeft size={14} aria-hidden="true" /></button>
+            <Button variant="ghost" size="sm" square aria-label="Back" onClick={() => setShowCreate(false)}><ArrowLeft size={14} aria-hidden="true" /></Button>
             <span className="github-detail-title">New Release</span>
           </div>
           <div className="github-tab-sep" />
@@ -1058,9 +1059,9 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
               <Checkbox checked={draft} onChange={(e) => setDraft(e.target.checked)} label="Draft" />
               <Checkbox checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} label="Pre-release" />
             </div>
-            <button type="button" className="github-full-primary-btn" disabled={loading || !tagName.trim()} onClick={() => onCreate({ tagName: tagName.trim(), title: title.trim() || undefined, notes: notes.trim() || undefined, draft, prerelease, generateNotes: !notes.trim() })}>
+            <Button variant="primary" className="github-block-btn" disabled={loading || !tagName.trim()} onClick={() => onCreate({ tagName: tagName.trim(), title: title.trim() || undefined, notes: notes.trim() || undefined, draft, prerelease, generateNotes: !notes.trim() })}>
               Create Release
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1074,7 +1075,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
           <div className="github-tab-header-title"><span>Releases</span></div>
           <div className="github-tab-header-actions">
             <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
-            <button type="button" className="github-outline-btn" onClick={() => setShowCreate(true)}>+ New Release</button>
+            <Button variant="secondary" size="sm" onClick={() => setShowCreate(true)}>+ New Release</Button>
           </div>
         </div>
         <div className="github-tab-sep" />
@@ -1338,7 +1339,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
       setLogs({ text: result.logs, truncated: result.truncated })
     } catch (err) {
       console.error('[GitHubActions] fetch logs failed', err)
-      setLogsError(err instanceof Error ? err.message : String(err))
+      setLogsError(humanizeError(err))
       setLogs(null)
     } finally {
       setLogsLoading(false)
@@ -1371,23 +1372,25 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
             <RefreshCw size={12} aria-hidden="true" /> Re-run failed
           </Button>
         ) : null}
-        <button
-          type="button"
-          className={`ghost-btn${logsMode === 'all' ? ' active' : ''}`}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={logsMode === 'all'}
           disabled={logsLoading}
           onClick={() => void fetchLogs('all')}
         >
           <Terminal size={12} aria-hidden="true" /> {logsLoading && logsMode === 'all' ? `Loading… ${logsElapsed}s` : 'View logs'}
-        </button>
+        </Button>
         {isFailed ? (
-          <button
-            type="button"
-            className={`ghost-btn${logsMode === 'failed' ? ' active' : ''}`}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-pressed={logsMode === 'failed'}
             disabled={logsLoading}
             onClick={() => void fetchLogs('failed')}
           >
             <Terminal size={12} aria-hidden="true" /> {logsLoading && logsMode === 'failed' ? `Loading… ${logsElapsed}s` : 'Failed-only logs'}
-          </button>
+          </Button>
         ) : null}
         {run.url ? (
           <Button variant="ghost" onClick={() => window.open(run.url ?? '', '_blank')}>
@@ -1544,14 +1547,13 @@ function RunWorkflowForm({ workflows, loading, onRun, onCancel }: {
       />
       <div className="github-actions-v2-runform-actions">
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-        <button
-          type="button"
-          className="github-full-primary-btn"
+        <Button
+          variant="primary"
           disabled={loading || !selected}
           onClick={() => selected ? onRun(String(selected.id), ref.trim() || undefined, Object.keys(fields).length > 0 ? fields : undefined) : undefined}
         >
           Run workflow
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -1635,7 +1637,7 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
           <div className="github-settings-repos-section">
             <div className="github-settings-repos-header">
               <span>Repositories</span>
-              <button type="button" className="github-text-btn">+ Add repository</button>
+              <Button variant="ghost" size="sm">+ Add repository</Button>
             </div>
             {connectedRepositories.length === 0 ? (
               <EmptyState compact title="No repositories connected. Add one to start syncing issues." />
@@ -1740,7 +1742,7 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
         if (cancelled) return
         setRunning(true)
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Terminal error')
+        if (!cancelled) setError(humanizeError(err, 'Terminal error'))
       }
     }
     void setup()

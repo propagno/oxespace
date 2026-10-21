@@ -33,5 +33,5 @@ export async function runPaletteCommand(page: Page, title: string): Promise<void
 
 /** Connections (MCP) has its own button in the workspace bar. */
 export async function openConnections(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Open connections' }).first().click()
+  await page.getByRole('button', { name: 'Open MCP servers' }).first().click()
 }

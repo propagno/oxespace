@@ -15,6 +15,7 @@ import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, useNavigatio
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { threadConfirmation } from '../../../shared/threadConfirmations'
 import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
+import { humanizeError } from '../../utils/humanizeError'
 
 /** Threads shown per project before "Show more" (a search or the selected thread always shows). */
 const THREAD_ROWS_PER_PROJECT = 8
@@ -76,7 +77,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
       if (snapshot.thread.archived) throw Error('The conversation could not be restored.')
       useThreadStore.getState().adopt(snapshot)
       setShowArchived(false)
-    } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not restore conversation.') }
+    } catch (error) { setActionError(humanizeError(error, 'Could not restore conversation.')) }
     finally { setRestoringId(null) }
   }
   const row = (thread: ConversationThread) => {
@@ -86,10 +87,10 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label="Unread conversation" />}
     <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
     <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span><span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={12} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
-  </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={14} /></button><Menu label={`Actions for ${thread.title}`} side="right" items={[
-    { label: 'Open to the side', icon: <Columns2 size={14} />, disabled: secondaryId === thread.id, onSelect: () => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.')) },
+  </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, 'Could not open conversation.')))}><Columns2 size={14} /></button><Menu label={`Actions for ${thread.title}`} side="right" items={[
+    { label: 'Open to the side', icon: <Columns2 size={14} />, disabled: secondaryId === thread.id, onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, 'Could not open conversation.'))) },
     { label: 'Rename conversation…', icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) } },
-    { label: thread.pinned ? 'Unpin conversation' : 'Pin conversation', icon: <Pin size={14} />, onSelect: () => void (async () => { try { await window.oxe.thread!.pin(thread.id, !thread.pinned); await useThreadStore.getState().refresh(thread.id) } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not update pin.') } })() },
+    { label: thread.pinned ? 'Unpin conversation' : 'Pin conversation', icon: <Pin size={14} />, onSelect: () => void (async () => { try { await window.oxe.thread!.pin(thread.id, !thread.pinned); await useThreadStore.getState().refresh(thread.id) } catch (error) { setActionError(humanizeError(error, 'Could not update pin.')) } })() },
     { label: unreadIds.includes(thread.id) ? 'Mark as read' : 'Mark as unread', icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
     { type: 'separator' },
     { label: 'Archive conversation', icon: <Archive size={14} />, onSelect: () => { setActionError(''); setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) } },
@@ -123,7 +124,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
             trigger={<button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${group.name}`} data-project-actions={group.id}><MoreHorizontal size={14} /></button>}
             items={[
               { label: 'Project settings', onSelect: () => setProjectSettingsId(group.id) },
-              ...(group.rootPath ? [{ label: 'Open in Code', disabled: unavailableProjects.includes(group.id), onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open project in Code.')) }] : []),
+              ...(group.rootPath ? [{ label: 'Open in Code', disabled: unavailableProjects.includes(group.id), onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(humanizeError(error, 'Could not open project in Code.'))) }] : []),
               { type: 'separator' as const },
               { label: 'Remove project…', danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) } }
             ]} />
@@ -148,7 +149,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
           {hiddenProjects.map(id => {
             const project = projects.find(item => item.projectId === id)
             if (!project) return null
-            return <button key={id} type="button" className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not restore project.'))}><ArchiveRestore size={14} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
+            return <button key={id} type="button" className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id).catch(error => setActionError(humanizeError(error, 'Could not restore project.')))}><ArchiveRestore size={14} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
           })}
         </section>}
       </nav>
@@ -162,7 +163,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
       </>}>
       <form id="rename-thread-form" onSubmit={event => { event.preventDefault(); const title = renameValue.trim(); if (!title || !window.oxe.thread?.command) return
         setActing(true); setActionError('')
-        void window.oxe.thread.command(renameTarget.id, `/rename ${title}`).then(async () => { await useThreadStore.getState().refresh(renameTarget.id); setRenameTarget(null) }).catch(error => setActionError(error instanceof Error ? error.message : 'Could not rename conversation.')).finally(() => setActing(false))
+        void window.oxe.thread.command(renameTarget.id, `/rename ${title}`).then(async () => { await useThreadStore.getState().refresh(renameTarget.id); setRenameTarget(null) }).catch(error => setActionError(humanizeError(error, 'Could not rename conversation.'))).finally(() => setActing(false))
       }}>
         <label>Conversation name<TextField aria-label="Conversation name" autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
         {actionError && <p role="alert">{actionError}</p>}
@@ -187,7 +188,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
               if (confirmation.kind === 'archive') setShowArchived(true)
             }
             setConfirmation(null)
-          } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not complete the action.') }
+          } catch (error) { setActionError(humanizeError(error, 'Could not complete the action.')) }
           finally { setActing(false) }
         })()
       }} />}
