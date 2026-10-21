@@ -134,6 +134,8 @@ export class ThreadOrchestrator {
   private readonly suspending = new Map<string, Promise<void>>()
   /** A send that is starting a turn and has not reserved the conversation as busy yet. */
   private readonly starting = new Set<string>()
+  /** Conversations whose running turn the user stopped to send a queued message: that stop does not pause the queue. */
+  private readonly sendNowAfterStop = new Set<string>()
   /** Provider connections being opened, so two callers share one process instead of orphaning one. */
   private readonly connecting = new Map<string, Promise<AgentConversationAdapter>>()
   private readonly idleSweep: ReturnType<typeof setInterval>
@@ -946,7 +948,10 @@ export class ThreadOrchestrator {
     await this.drainQueue(id)
   }
 
-  /** Moves one waiting item to the front, then resumes, so the user can pick which follow-up still applies. */
+  /**
+   * Moves one waiting item to the front and sends it. While a turn runs, that turn is stopped first and the
+   * item goes as soon as it ends; the stop is the user's choice, so it does not pause the queue.
+   */
   async sendQueuedNow(id: string, itemId: string): Promise<void> {
     const snapshot = this.read(id), queue = snapshot.thread.queue ?? []
     const item = queue.find(value => value.id === itemId)
@@ -959,6 +964,11 @@ export class ThreadOrchestrator {
     }
     delete snapshot.thread.queuePause
     this.save(snapshot, { eventsFrom: snapshot.events.length })
+    if (this.busy.has(id)) {
+      this.sendNowAfterStop.add(id)
+      try { await this.interrupt(id) } catch (error) { this.sendNowAfterStop.delete(id); throw error }
+      return
+    }
     await this.drainQueue(id)
   }
 
@@ -1554,6 +1564,11 @@ export class ThreadOrchestrator {
     if (this.stopping || this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id)) return
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch { return }
+    // The flag lasts until the first drain after the stop, whether or not that turn ended up paused.
+    if (this.sendNowAfterStop.delete(id) && snapshot.thread.queuePause) {
+      delete snapshot.thread.queuePause
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+    }
     if (snapshot.thread.queuePause) return
     let item = snapshot.thread.queue?.find(value => value.state === 'queued')
     if (!item) return
