@@ -4,13 +4,26 @@
 .thread-mcp-group h4 { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 600; }
 .thread-mcp-group h4 small { color: var(--tx-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
 .thread-mcp-group > p { margin: 0; color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.4; }
-.thread-mcp-group ul { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.thread-mcp-group li { display: inline-flex; align-items: center; gap: var(--space-1); max-width: 100%; padding: 2px var(--space-2); border: 1px solid var(--bd-base); border-radius: var(--radius-pill); color: var(--tx-secondary); background: var(--bg-subtle); font-size: var(--fs-2xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-mcp-group > ul { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.thread-mcp-group > ul > li { display: inline-flex; align-items: center; gap: var(--space-1); max-width: 100%; padding: 2px var(--space-2); border: 1px solid var(--bd-base); border-radius: var(--radius-pill); color: var(--tx-secondary); background: var(--bg-subtle); font-size: var(--fs-2xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-mcp-source { color: var(--tx-muted); }
 .thread-mcp-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--tx-muted); }
 .thread-mcp-group.is-connected .thread-mcp-dot { background: var(--intent-success-fg); }
-.thread-mcp-group.is-connected li { color: var(--tx-primary); }
+.thread-mcp-group.is-connected > ul > li { color: var(--tx-primary); }
 .thread-mcp-group.is-failed .thread-mcp-dot { background: var(--intent-danger-fg); }
-.thread-mcp-group.is-failed li { border-color: color-mix(in srgb, var(--intent-danger-fg) 45%, transparent); color: var(--intent-danger-fg); }
+.thread-mcp-group.is-failed > ul > li { border-color: color-mix(in srgb, var(--intent-danger-fg) 45%, transparent); color: var(--intent-danger-fg); }
 .thread-mcp-group.is-starting .thread-mcp-dot { background: var(--intent-info-fg); }
 .thread-mcp-group.is-needs-auth .thread-mcp-dot { background: var(--intent-warning-fg); }
+/* A failed server gets a full row, so its diagnosis can be read under its name. */
+.thread-mcp-group.is-failed > ul { display: grid; }
+.thread-mcp-group.is-failed > ul > li { display: flex; flex-wrap: wrap; justify-content: space-between; border-radius: var(--radius-md); padding: var(--space-1) var(--space-2); white-space: normal; }
+.thread-mcp-diagnose { display: contents; }
+.thread-mcp-diagnose button { flex: none; height: 22px; padding: 0 var(--space-2); border: 1px solid var(--bd-base); border-radius: var(--radius-sm); background: transparent; color: var(--tx-primary); font: inherit; cursor: pointer; }
+.thread-mcp-diagnose button:hover:not(:disabled) { background: var(--bg-subtle); }
+.thread-mcp-diagnose button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.thread-mcp-diagnose [role='status'], .thread-mcp-diagnose > p { display: grid; flex: 1 0 100%; gap: var(--space-1); margin: var(--space-1) 0 0; color: var(--tx-secondary); line-height: 1.45; }
+.thread-mcp-diagnose p { margin: 0; overflow-wrap: anywhere; }
+.thread-mcp-diagnose .is-error { color: var(--intent-danger-fg); font-family: var(--font-mono); white-space: pre-wrap; max-height: 120px; overflow: auto; }
+.thread-mcp-diagnose .is-ok { color: var(--intent-success-fg); }
+.thread-mcp-diagnose ul { display: grid; gap: var(--space-1); margin: 0; padding-left: var(--space-4); color: var(--tx-primary); }
+.thread-mcp-diagnose [role='status'] button { justify-self: start; }

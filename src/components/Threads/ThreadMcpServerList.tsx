@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import type { ThreadMcpServerStatus } from '../../../shared/types/thread'
+import { ThreadMcpDiagnose } from './ThreadMcpDiagnose'
 import './ThreadMcpServerList.css'
 
 type Group = { key: string; title: string; hint?: string; servers: ThreadMcpServerStatus[] }
@@ -15,7 +16,7 @@ export function brokenMcpServers(servers: ThreadMcpServerStatus[]): ThreadMcpSer
 export function groupMcpServers(servers: ThreadMcpServerStatus[]): Group[] {
   const by = (test: (server: ThreadMcpServerStatus) => boolean) => servers.filter(test).sort((a, b) => a.name.localeCompare(b.name))
   return [
-    { key: 'failed', title: 'Failed to start', hint: 'Check the command or the server log, then start a new conversation.', servers: by(server => server.status === 'failed') },
+    { key: 'failed', title: 'Failed to start', hint: 'Diagnose tests the server and says why it does not start. After fixing it, start a new conversation.', servers: by(server => server.status === 'failed') },
     { key: 'connected', title: 'Connected', servers: by(server => server.status === 'connected') },
     { key: 'starting', title: 'Starting', servers: by(server => server.status === 'pending') },
     { key: 'needs-auth', title: 'Needs sign-in', hint: 'claude.ai connectors sign in at claude.ai, under Settings › Connectors.', servers: by(server => server.status === 'needs-auth') },
@@ -23,15 +24,19 @@ export function groupMcpServers(servers: ThreadMcpServerStatus[]): Group[] {
   ].filter(group => group.servers.length > 0)
 }
 
-/** MCP servers as the provider reported them when this conversation's session started, grouped by state. */
-export function ThreadMcpServerList({ servers }: { servers: ThreadMcpServerStatus[] }): ReactElement {
+/**
+ * MCP servers as the provider reported them when this conversation's session started, grouped by state.
+ * With `workspaceId`, a failed server can be diagnosed.
+ */
+export function ThreadMcpServerList({ servers, workspaceId }: { servers: ThreadMcpServerStatus[]; workspaceId?: string }): ReactElement {
   const groups = groupMcpServers(servers)
   if (!groups.length) return <p className="thread-mcp-list-empty">The provider reported no MCP servers for this conversation.</p>
   return <div className="thread-mcp-list">
     {groups.map(group => <section key={group.key} className={`thread-mcp-group is-${group.key}`} aria-label={`${group.title}: ${group.servers.length}`}>
       <h4><span className="thread-mcp-dot" aria-hidden="true" />{group.title}<small>{group.servers.length}</small></h4>
       {group.hint && <p>{group.hint}</p>}
-      <ul>{group.servers.map(server => <li key={server.name} title={server.name}>{isAccountConnector(server.name) ? <><span className="thread-mcp-source">claude.ai</span>{server.name.slice('claude.ai '.length)}</> : server.name}</li>)}</ul>
+      <ul>{group.servers.map(server => <li key={server.name} title={server.name}>{isAccountConnector(server.name) ? <><span className="thread-mcp-source">claude.ai</span>{server.name.slice('claude.ai '.length)}</> : server.name}
+        {group.key === 'failed' && workspaceId && !isAccountConnector(server.name) && <ThreadMcpDiagnose name={server.name} workspaceId={workspaceId} />}</li>)}</ul>
     </section>)}
   </div>
 }

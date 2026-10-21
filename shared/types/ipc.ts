@@ -262,6 +262,7 @@ export const IPC_CHANNELS = {
     delete: 'mcp:delete',
     start: 'mcp:start',
     test: 'mcp:test',
+    diagnose: 'mcp:diagnose',
     stop: 'mcp:stop',
     openSignIn: 'mcp:open-sign-in',
     discover: 'mcp:discover',
@@ -931,6 +932,8 @@ export interface McpApi {
   /** Reopens the browser sign-in page of a server that is waiting to authenticate. */
   /** Handshake and tool list, then the server is let go; the outcome is on the returned server. */
   test(id: string): Promise<import('./mcp').McpServer>
+  /** A test plus the Node.js version the server would run on, to explain why it failed. */
+  diagnose?(id: string): Promise<import('./mcp').McpDiagnosis>
   openSignIn(id: string): Promise<boolean>
   callTool(input: import('./mcp').McpCallToolInput): Promise<import('./mcp').McpCallToolResult>
   /** Servers Claude Desktop, Cursor and Windsurf already have, without their secret values. */

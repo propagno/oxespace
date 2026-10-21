@@ -1,4 +1,4 @@
-import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { execFile, spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { shell } from 'electron'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
@@ -258,6 +258,25 @@ export class McpManager {
     } catch (err) {
       return record('unhealthy', err instanceof Error ? err.message : String(err))
     }
+  }
+
+  /**
+   * The Node.js version a server started through node, npx or npm would run on, with its own
+   * variables and PATH; null for other commands or when no Node.js is found.
+   */
+  async nodeVersion(id: string): Promise<string | null> {
+    const server = this.get(id)
+    if (!server || server.transport !== 'stdio') return null
+    const config = server.config as McpStdioConfig
+    if (!/^(?:node|npx|npm|pnpm|pnpx)(?:\.(?:exe|cmd))?$/i.test(path.basename(config.command.trim()))) return null
+    const env = buildProcessEnv(config.env)
+    const node = resolveExecutable('node', env)
+    return new Promise(resolve => {
+      execFile(node, ['--version'], { env, timeout: 5000, windowsHide: true, shell: shouldUseWindowsCommandShell(node) }, (error, stdout) => {
+        const version = String(stdout).trim()
+        resolve(error || !/^v\d+\.\d+/.test(version) ? null : version)
+      })
+    })
   }
 
   /** Reopens the browser sign-in page of a server that is waiting for authentication. */
