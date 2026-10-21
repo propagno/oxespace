@@ -202,7 +202,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/runtime/execution-host.ts',
   // F3 RPC bus: writes only <userData>/rpc-endpoint.json so out-of-process
   // callers can find the local socket — never a workspace path.
-  'electron/main/runtime/rpc/server.ts'
+  'electron/main/runtime/rpc/server.ts',
+  // Reads and writes only <userData>/update-preferences.json (how the app
+  // updates itself) — never a workspace path.
+  'electron/main/updater.ts'
 ])
 
 describe('workspace fs allowlist', () => {
