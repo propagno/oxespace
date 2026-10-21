@@ -11,6 +11,9 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+/** Codex reports its version inside a user agent ("oxespace-probe/0.163.0 (Ubuntu …)"); keep the version alone. */
+export const versionOf = version => version ? String(version).match(/\d+\.\d+\.\d+(?:-[\w.]+)?/)?.[0] ?? String(version) : null
+
 /**
  * `expected` names the OSes that must report; a missing one counts as a failure, so a probe that crashed is not
  * mistaken for a passing one.
@@ -21,11 +24,11 @@ export function summarize(runs, expected = []) {
   for (const run of runs) {
     for (const report of run.reports) {
       const entry = providers[report.provider] ??= { versions: {}, ok: true }
-      entry.versions[run.os] = report.version ?? null
+      entry.versions[run.os] = versionOf(report.version)
       for (const result of report.results) {
         if (result.ok || !result.required) continue
         entry.ok = false
-        failures.push({ os: run.os, provider: report.provider, version: report.version ?? null, check: result.name, detail: result.detail ?? '' })
+        failures.push({ os: run.os, provider: report.provider, version: versionOf(report.version), check: result.name, detail: result.detail ?? '' })
       }
     }
   }

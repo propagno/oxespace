@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
-import { issueBody, summarize } from '../../scripts/provider-contract-report.mjs'
+import { issueBody, summarize, versionOf } from '../../scripts/provider-contract-report.mjs'
 
 const run = (os: string, ok: boolean) => ({ os, checkedAt: `2026-11-0${ok ? 2 : 1}T06:20:00Z`, reports: [
   { provider: 'claude', version: '2.4.0', results: [{ name: 'initialize', ok: true, required: true }, { name: 'interrupt with cancel_queued', ok, required: true, detail: ok ? undefined : 'unknown subtype' }] },
@@ -24,5 +24,12 @@ describe('provider contract report', () => {
     ])
     expect(issueBody(summary, 'https://run')).toContain('**claude 2.4.0** on ubuntu-latest: interrupt with cancel_queued — unknown subtype')
     expect(summarize([], []).ok).toBe(false)
+  })
+
+  it('keeps the version alone when a CLI reports it inside a user agent', () => {
+    expect(versionOf('oxespace-probe/0.163.0 (Ubuntu 24.4.0; x86_64) unknown (oxespace-probe; 0)')).toBe('0.163.0')
+    expect(versionOf('2.1.306')).toBe('2.1.306')
+    expect(versionOf('1.0.0-beta.2 (Windows)')).toBe('1.0.0-beta.2')
+    expect(versionOf(null)).toBeNull()
   })
 })
