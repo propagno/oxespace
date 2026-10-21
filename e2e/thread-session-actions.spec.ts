@@ -56,8 +56,10 @@ test('session actions open to the side, archive, restore and delete through Elec
     await page.getByRole('button', { name: 'Actions for Alpha session' }).click()
     await expect(page.getByRole('menuitem', { name: 'Open to the side' })).toBeDisabled()
     await page.keyboard.press('Escape')
+    // The first menu closes with an exit animation; open the next one only once it is gone.
+    await expect(page.getByRole('menu')).toHaveCount(0)
     await page.getByRole('button', { name: 'Actions for Beta session' }).click()
-    await page.getByRole('menuitem', { name: 'Open to the side' }).click()
+    await page.getByRole('menuitem', { name: 'Open to the side', disabled: false }).click()
     await expect(page.getByRole('group', { name: 'Side-by-side conversations' })).toBeVisible()
     await expect(page.locator('.thread-cell')).toHaveCount(2)
     await page.getByRole('button', { name: 'Close side-by-side conversation' }).click()
