@@ -76,6 +76,8 @@ export const IPC_CHANNELS = {
     getUpdateState: 'app:get-update-state',
     checkForUpdates: 'app:check-for-updates',
     quitAndInstall: 'app:quit-and-install',
+    downloadUpdate: 'app:download-update',
+    setUpdatePreferences: 'app:set-update-preferences',
     onUpdateState: 'app:update-state',
     setAppearance: 'app:set-appearance'
   },
@@ -707,6 +709,9 @@ export interface AppUpdateApi {
   getUpdateState(): Promise<import('./updater').AppUpdateState>
   checkForUpdates(): Promise<import('./updater').AppUpdateState>
   quitAndInstall(): Promise<boolean>
+  /** Downloads an available update when the mode does not do it on its own. */
+  downloadUpdate?(): Promise<import('./updater').AppUpdateState>
+  setUpdatePreferences?(preferences: import('./updater').AppUpdatePreferences): Promise<import('./updater').AppUpdateState>
   onUpdateState(listener: (state: import('./updater').AppUpdateState) => void): () => void
   /** Mirrors the person's light/dark choice into the native window; resolves to the mode in effect. */
   setAppearance?(mode: 'system' | 'light' | 'dark'): Promise<'light' | 'dark'>

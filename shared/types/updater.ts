@@ -9,6 +9,14 @@ export type AppUpdateStatus =
   | 'downloaded'
   | 'error'
 
+/**
+ * How the app updates itself. `auto` downloads in the background and installs on quit; `notify` checks and
+ * says a version is out, and downloads only when asked; `off` checks only when asked. A pinned version is
+ * kept: no periodic checks and no downloads, though a manual check still says what is new.
+ */
+export type AppUpdateMode = 'auto' | 'notify' | 'off'
+export interface AppUpdatePreferences { mode: AppUpdateMode; pinnedVersion: string | null }
+
 export interface AppUpdateState {
   status: AppUpdateStatus
   /** Manual for source/dev and Linux package-manager installs. */
@@ -19,6 +27,7 @@ export interface AppUpdateState {
   progress: number | null
   error: string | null
   lastCheckedAt: number | null
+  preferences?: AppUpdatePreferences
 }
 
 /** RTK sidecar (userData/bin) version tracking. */

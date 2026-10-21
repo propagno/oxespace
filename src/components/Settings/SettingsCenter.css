@@ -198,3 +198,6 @@
 /* A select keeps the control height of the ui Select: vertical padding on top of it clipped the text
    (Voice model on Linux) and the horizontal padding hid the arrow. */
 .settings-center .settings-field select, .settings-field select { height: var(--control-lg); padding: 0 var(--space-6) 0 10px; line-height: normal; }
+/* How the app updates: below the status, across the card. */
+.settings-center .settings-update-card .settings-update-preferences { display: grid; justify-items: start; gap: 10px; grid-column: 1 / -1; grid-row: 6; margin: 10px 0 0 40px; padding-top: 12px; border-top: 1px solid var(--border-default); }
+.settings-center .settings-update-mode-hint { margin: 0; font-size: var(--fs-2xs); line-height: 1.5; color: var(--text-muted); }

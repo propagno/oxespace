@@ -13,7 +13,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     const page = await app.firstWindow()
     await app.evaluate(({ ipcMain }) => {
       for (const channel of ['app:get-update-state', 'rtk:get-status', 'rtk:check-for-update']) ipcMain.removeHandler(channel)
-      ipcMain.handle('app:get-update-state', () => ({ status: 'disabled', currentVersion: '0.13.0', availableVersion: null, progress: null, error: null, lastCheckedAt: null }))
+      ipcMain.handle('app:get-update-state', () => ({ status: 'disabled', currentVersion: '0.13.0', availableVersion: null, progress: null, error: null, lastCheckedAt: null, preferences: { mode: 'auto', pinnedVersion: null } }))
       const rtk = { installed: true, version: 'v0.49.0', latestVersion: 'v0.49.0', updateAvailable: false, binDir: null, error: null, checking: false, updating: false, lastCheckedAt: Date.now() }
       ipcMain.handle('rtk:get-status', () => rtk)
       ipcMain.handle('rtk:check-for-update', async () => { await new Promise(resolve => setTimeout(resolve, 300)); return rtk })
@@ -70,6 +70,20 @@ test('Settings stays usable in short windows and renders updater states', async 
     await expect(nav.getByRole('button', { name: /^Diagnostics/ })).toBeVisible()
     await settings.getByRole('searchbox', { name: 'Search settings' }).clear()
     await nav.getByRole('button', { name: /^Updates/ }).click()
+    // How the app updates is the person's choice, and it is saved.
+    const updateMode = settings.getByRole('radiogroup', { name: 'How OXESpace updates' })
+    await expect(updateMode.getByRole('radio', { name: 'Automatic' })).toHaveAttribute('aria-checked', 'true')
+    await updateMode.getByRole('radio', { name: 'Off' }).click()
+    await expect(settings.getByTestId('app-update-mode-hint')).toContainText('Never checks on its own')
+    await settings.getByRole('switch', { name: /^Stay on v/ }).click()
+    await expect(settings.getByTestId('app-update-mode-hint')).toContainText(/Staying on v/)
+    const savedPreferences = await app.evaluate(({ app: electronApp }) => {
+      const fs = process.getBuiltinModule('node:fs') as typeof import('node:fs'), path = process.getBuiltinModule('node:path') as typeof import('node:path')
+      return fs.readFileSync(path.join(electronApp.getPath('userData'), 'update-preferences.json'), 'utf8')
+    })
+    expect(JSON.parse(savedPreferences)).toMatchObject({ mode: 'off', pinnedVersion: expect.any(String) })
+    await settings.getByRole('switch', { name: /^Stay on v/ }).click()
+    await updateMode.getByRole('radio', { name: 'Automatic' }).click()
     await page.evaluate(() => { document.documentElement.dataset.theme = 'one-dark' })
     await settings.screenshot({ path: test.info().outputPath('1280-updates-one-dark.png') })
     await app.evaluate(({ BrowserWindow }) => {
