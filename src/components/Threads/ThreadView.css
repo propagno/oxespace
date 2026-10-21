@@ -220,8 +220,11 @@
 .thread-usage-value { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 520px) { .thread-usage-list li { grid-template-columns: minmax(0, 1fr) auto; } .thread-usage-bar { display: none; } }
 /* The request never takes more than about a third of the view, so the conversation above it stays readable. */
-.thread-pending-requests { max-height: min(32vh, 360px); min-height: 0; overflow-y: auto; overflow-x: hidden; flex-shrink: 1; }
+/* --request-cap is the room a request may take; Expand trades conversation for room when the options are long. */
+.thread-pending-requests { --request-cap: clamp(260px, 32vh, 360px); max-height: var(--request-cap); min-height: 0; overflow-y: auto; overflow-x: hidden; flex-shrink: 1; }
 .thread-pending-requests[hidden] { display: none; }
+.thread-pending-requests[data-expanded='true'] { --request-cap: min(72vh, 860px); }
+.thread-pending-requests-actions { display: inline-flex; flex: none; gap: 4px; }
 .thread-pending-requests-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; margin-top: 6px; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-pending-requests-bar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-pending-requests-bar button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; }
