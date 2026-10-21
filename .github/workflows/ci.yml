@@ -1,4 +1,12 @@
 name: CI and Release
+# What each run is, in the Actions list (see docs/RELEASE_PIPELINE.md#run-names).
+run-name: >-
+  ${{ github.event_name == 'pull_request' && format('PR #{0} · {1}', github.event.pull_request.number, github.event.pull_request.title)
+  || startsWith(github.ref, 'refs/tags/') && format('Publish {0}', github.ref_name)
+  || github.event_name == 'push' && format('Push · {0}', github.ref_name)
+  || inputs.publish_release && format('Publish{0} · {1}', inputs.tag && format(' {0}', inputs.tag) || '', inputs.branch || github.ref_name)
+  || inputs.packaged_smoke_only && format('Packaged smoke · {0}', inputs.branch || github.ref_name)
+  || format('Full check · {0}', inputs.branch || github.ref_name) }}
 
 # Unified pipeline:
 #   1) build  — typecheck, test, build, e2e (+ package when releasing)
@@ -151,6 +159,17 @@ jobs:
 
           $channel = if ($version -match '-([a-z]+)(?:[.-]|$)') { $Matches[1].ToLowerInvariant() } else { 'latest' }
           $isPrerelease = $channel -ne 'latest'
+
+          # A stable release is a commit on main: release branches reach main through their PR first,
+          # so main always holds what was last published. Prereleases may come from any branch.
+          if ($shouldRelease -and -not $isPrerelease) {
+            git merge-base --is-ancestor $sha origin/main
+            $onMain = $LASTEXITCODE -eq 0
+            $global:LASTEXITCODE = 0
+            if (-not $onMain) {
+              throw "$tag is a stable release, and $sha is not on main. Merge the release PR into main, then publish from main."
+            }
+          }
 
           "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           # Package and run the packaged-app E2E without any publishing step (the release job only reads should_release).

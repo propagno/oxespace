@@ -16,37 +16,60 @@ release secrets or protected Environment configuration.
 
 ---
 
-## Recommended pattern: commit → push → Run workflow
+## Recommended pattern: release PR → merge to main → publish from main
 
-This is the day-to-day path (matches the GitHub **Run workflow** dialog).
+A stable release is published from `main` only, so `main` is always the last published version
+plus whatever is merged after it.
 
-### 1. Prepare the version on your branch
+### 1. Prepare the version on a release branch
 
 ```powershell
-# On any branch (main or feat/…)
-# 1) Bump package.json + package-lock.json to X.Y.Z (must not already be a published tag)
-# 2) Commit and push
-git add package.json package-lock.json   # + your product changes
-git commit -m "release: vX.Y.Z — short summary"
+git switch -c release/X.Y.Z origin/<integration branch>
+# Bump package.json + package-lock.json to X.Y.Z (must not already be a published tag)
+# and add docs/releases/X.Y.Z.md
+git add package.json package-lock.json docs/releases/X.Y.Z.md
+git commit -m "chore(release): X.Y.Z"
 git push -u origin HEAD
 ```
+
+Before opening the PR, dispatch **CI and Release** on the release branch with
+**packaged_smoke_only = true**. It runs the full checks and the installed-app smoke without
+publishing. Regenerate visual baselines there if the UI changed.
+
+### 2. Open the PR `release/X.Y.Z` → `main` and merge it when CI is green
+
+The push to `main` runs CI once more on the merged commit.
+
+### 3. Actions → CI and Release → Run workflow, from `main`
+
+| Field in the dialog | What to set |
+|---------------------|-------------|
+| **Use workflow from** | `main` |
+| **branch** (optional input) | Leave **empty** |
+| **publish_release** | `true` |
+| **tag** | Leave empty → uses `v{package.json version}` |
 
 Rules the pipeline enforces:
 
 - `package.json` version must be `X.Y.Z`
 - Release tag will be `vX.Y.Z` (or the value you pass in **tag**)
 - If `vX.Y.Z` already exists, it must point at **this** commit
+- A stable release must be a commit on `main`; any other ref stops in the plan step, before the
+  build. Prereleases (`X.Y.Z-beta.N`) may still be published from any branch.
 
-### 2. Actions → CI and Release → Run workflow
+### Run names
 
-| Field in the dialog | What to set |
-|---------------------|-------------|
-| **Use workflow from** | The **same branch you just pushed** (this is the code + workflow file GitHub will use) |
-| **branch** (optional input) | Leave **empty** unless you need to build a different ref than “Use workflow from” |
-| **publish_release** | `true` to ship; `false` for CI-only on that branch |
-| **tag** | Leave empty → uses `v{package.json version}` |
+Each run says what it is, in the Actions list:
 
-Click **Run workflow**.
+| Run name | Started by |
+|---|---|
+| `Publish · main` | Run workflow with **publish_release** (`Publish vX.Y.Z · main` when **tag** is set) |
+| `Publish vX.Y.Z` | A tag push |
+| `Packaged smoke · <branch>` | Run workflow with **packaged_smoke_only** |
+| `Full check · <branch>` | Run workflow with neither |
+| `PR #N · <title>` | A pull request to `main` |
+| `Push · main` | A push to `main` |
+| `Visual baselines · <platform> · <branch>` | Visual baselines |
 
 ### 3. What the pipeline does
 
@@ -75,12 +98,12 @@ build (typecheck → test → build → e2e)
 ## Alternative: automatic on tag push
 
 ```powershell
-# After version bump is on the commit you want:
-git tag vX.Y.Z
+# After the version bump is merged to main:
+git fetch origin && git tag vX.Y.Z origin/main
 git push origin vX.Y.Z
 ```
 
-Same pipeline: **build → release** (no manual Run workflow). Tag must match `package.json` and the commit.
+Same pipeline: **build → release** (no manual Run workflow). Tag must match `package.json` and the commit, and a stable tag must point at a commit on `main`.
 
 ---
 
@@ -90,6 +113,7 @@ Same pipeline: **build → release** (no manual Run workflow). Tag must match `p
 |---------|--------|
 | Push / PR to `main` | build only |
 | Run workflow with **publish_release = false** | build only on the selected branch |
+| Run workflow with **packaged_smoke_only = true** | build + installers + installed-app smoke, nothing published |
 
 ---
 

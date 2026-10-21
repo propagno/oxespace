@@ -1,4 +1,5 @@
 name: Visual baselines
+run-name: Visual baselines · ${{ inputs.platform || 'linux' }} · ${{ inputs.branch || github.ref_name }}
 
 # Generates e2e/visual/__screenshots__/<platform> (linux or win32) for review. Never publishes anything and never
 # commits: download the artifact, look at the images, then commit them by explicit path.
