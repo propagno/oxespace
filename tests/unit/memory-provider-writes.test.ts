@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import type { AiMemoryClient } from '../../electron/main/services/memory/ai-memory.client'
 
-const ctx = (sessionId: string) => ({ workspaceId: 'w', projectId: 'p', cwd: '/repo', agentId: 'claude-code', sessionId }) as Parameters<AiMemoryProvider['remember']>[0]
+const ctx = (sessionId: string) => ({ workspace: 'contract', project: 'p', projectId: 'p', cwd: '/repo', agentId: 'claude-code', sessionId })
 
 describe('AI Memory page writes', () => {
   it('go one at a time, and a failed write does not block the next', async () => {
