@@ -25,7 +25,9 @@ export class TeamDelivery {
           if (this.stopped || !this.access.deliveryTargets().some(current => current.memberId === target.memberId && current.threadId === target.threadId)) continue
           if (snapshot.thread.capabilities?.features.mcp.authorized === false) { this.access.disableDelivery(target.memberId); continue }
           if (['interrupted', 'failed'].includes(snapshot.thread.status) || snapshot.thread.archived || snapshot.thread.cliActive) { this.access.disableDelivery(target.memberId); continue }
-          if (snapshot.thread.status !== 'idle' || snapshot.thread.connection?.state !== 'connected' || snapshot.events.some(event => event.type === 'subagent' && event.state === 'running')) continue
+          // A conversation suspended while idle is started again by the send.
+          const reachable = snapshot.thread.connection?.state === 'connected' || Boolean(snapshot.thread.connection?.suspendedAt)
+          if (snapshot.thread.status !== 'idle' || !reachable || snapshot.events.some(event => event.type === 'subagent' && event.state === 'running')) continue
           const message = this.db.prepare(`SELECT m.id,m.body,m.kind FROM agent_team_messages m
             LEFT JOIN agent_team_deliveries d ON d.message_id=m.id
             WHERE m.team_id=? AND m.recipient_id=? AND m.received_at IS NULL AND d.message_id IS NULL

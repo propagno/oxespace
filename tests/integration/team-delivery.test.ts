@@ -36,3 +36,24 @@ it('waits for idle, submits once, and never confuses submission with recipient a
     expect(access.disableDelivery).toHaveBeenCalledTimes(2)
   } finally { db.close() }
 })
+
+it('delivers to a member whose conversation was suspended while idle, which the send starts again', async () => {
+  const db = openInMemoryDatabase(), repository = new TeamRepository(db)
+  try {
+    let team = repository.ensure('project', 'Project')
+    team = repository.add(team.id, team.revision, 'Developer', 'developer')
+    const member = team.members[0]
+    repository.send({ teamId: team.id, senderId: null, recipientId: member.id, key: 'one', kind: 'request', body: 'Review the change' })
+    const access = { deliveryTargets: () => [{ teamId: team.id, memberId: member.id, threadId: 'thread' }], disableDelivery: vi.fn() }
+    const snapshot = { thread: { status: 'idle', connection: { state: 'disconnected', suspendedAt: 1 } }, events: [] } as unknown as ThreadSnapshot
+    const threads = { read: () => snapshot, send: vi.fn(async () => {}) }
+    await new TeamDelivery(db, access, threads).tick()
+    expect(threads.send).toHaveBeenCalledWith('thread', expect.stringContaining('Review the change'))
+    expect(access.disableDelivery).not.toHaveBeenCalled()
+    // A connection that dropped for another reason is left alone.
+    repository.send({ teamId: team.id, senderId: null, recipientId: member.id, key: 'two', kind: 'request', body: 'Second' })
+    snapshot.thread.connection = { state: 'disconnected' } as never
+    await new TeamDelivery(db, access, threads).tick()
+    expect(threads.send).toHaveBeenCalledTimes(1)
+  } finally { db.close() }
+})
