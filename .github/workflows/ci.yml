@@ -617,6 +617,9 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      # Build provenance: GitHub signs a statement that these files came from this workflow run.
+      id-token: write
+      attestations: write
 
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
@@ -684,6 +687,17 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Remove-Item dist/SHA256SUMS-*.txt -Force
           node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
+
+      # Anyone can check where a download came from with
+      # `gh attestation verify <file> --repo propagno/oxespace` (docs/RELEASE_PIPELINE.md).
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/OXESpace-${{ needs.build.outputs.version }}-x64.exe
+            dist/OXESpace-${{ needs.build.outputs.version }}-x64.AppImage
+            dist/*.deb
+            dist/SHA256SUMS.txt
 
       - name: Create or refresh draft GitHub release
         shell: pwsh
