@@ -3,10 +3,17 @@ import type { MemoryDelivery } from './memory-outbox'
 
 /** Never retain remote errors, credentials or request payloads in diagnostics. */
 export class MemoryClientError extends Error {
-  constructor(readonly code: MemoryErrorCode, readonly status?: number) {
-    super(`AI Memory ${code}${status === undefined ? '' : ` (HTTP ${status})`}`)
+  /** `detail` is what the server said, kept short; it explains a rejection in logs and test output. */
+  constructor(readonly code: MemoryErrorCode, readonly status?: number, readonly detail?: string) {
+    super(`AI Memory ${code}${status === undefined ? '' : ` (HTTP ${status})`}${detail ? `: ${detail}` : ''}`)
     this.name = 'MemoryClientError'
   }
+}
+function errorDetail(value: unknown): string | undefined {
+  const error = object(value)
+  const text = Array.isArray(value) ? value.map(item => object(item)?.text).filter(text => typeof text === 'string').join(' ')
+    : typeof error?.message === 'string' ? `${error.message}${error.code !== undefined ? ` (${String(error.code)})` : ''}` : ''
+  return text ? text.replace(/\s+/g, ' ').slice(0, 300) : undefined
 }
 function object(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined
@@ -108,7 +115,7 @@ export class AiMemoryClient {
     const id = ++this.nextId
     const envelope = object(await this.request('/mcp', { jsonrpc: '2.0', id, method, params }, signal))
     if (!envelope || envelope.jsonrpc !== '2.0' || envelope.id !== id) throw new MemoryClientError('protocol')
-    if (envelope.error !== undefined) throw new MemoryClientError('rejected')
+    if (envelope.error !== undefined) throw new MemoryClientError('rejected', undefined, errorDetail(envelope.error))
     const result = object(envelope.result)
     if (!result) throw new MemoryClientError('protocol')
     return result
@@ -116,7 +123,7 @@ export class AiMemoryClient {
 
   async tool(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     const result = await this.rpc('tools/call', { name, arguments: args }, signal)
-    if (result.isError === true) throw new MemoryClientError('rejected')
+    if (result.isError === true) throw new MemoryClientError('rejected', undefined, errorDetail(result.content))
     if (!Array.isArray(result.content)) throw new MemoryClientError('protocol')
     const text = result.content.map(object).filter(c => c?.type === 'text').map(c => {
       if (typeof c?.text !== 'string') throw new MemoryClientError('protocol')
