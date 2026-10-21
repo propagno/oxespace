@@ -116,6 +116,30 @@ const ACKNOWLEDGEMENTS = [
   }
 ]
 
+/**
+ * Source copied into the repository instead of installed. Each folder under electron/main/vendor must be
+ * listed here and carry its upstream LICENSE; `check` fails otherwise.
+ */
+const VENDOR_ROOT = join(root, 'electron', 'main', 'vendor')
+const VENDORED = [
+  {
+    name: 'codegraph',
+    folder: 'codegraph',
+    source: 'https://github.com/colbymchenry/codegraph',
+    license: 'MIT',
+    use: 'Code graph indexing and search behind the code tools (electron/main/vendor/codegraph; origin and local changes in its ORIGIN.md).'
+  }
+]
+
+function vendorProblems() {
+  const folders = existsSync(VENDOR_ROOT) ? readdirSync(VENDOR_ROOT, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name) : []
+  return [
+    ...folders.filter(folder => !VENDORED.some(item => item.folder === folder)).map(folder => `electron/main/vendor/${folder} is not listed in VENDORED`),
+    ...VENDORED.filter(item => !existsSync(join(VENDOR_ROOT, item.folder, 'LICENSE'))).map(item => `electron/main/vendor/${item.folder} has no LICENSE file`),
+    ...VENDORED.filter(item => !allowed(item.license)).map(item => `electron/main/vendor/${item.folder} has license "${item.license}", which is not allowed`)
+  ]
+}
+
 export function render(packages) {
   const lines = [
     '# Third-party notices',
@@ -131,6 +155,10 @@ export function render(packages) {
     const text = licenseText(item.directory)
     if (text) lines.push('', '```text', text, '```')
     lines.push('')
+  }
+  lines.push('# Vendored source', '', 'OXESpace includes the source of these projects, copied and modified in its repository.', '')
+  for (const item of VENDORED) {
+    lines.push(`## ${item.name}`, '', `- License: ${item.license}`, `- Source: ${item.source}`, `- Used for: ${item.use}`, '', '```text', readFileSync(join(VENDOR_ROOT, item.folder, 'LICENSE'), 'utf8').replace(/\r\n/g, '\n').trim(), '```', '')
   }
   lines.push('# Acknowledgements', '', 'OXESpace does not bundle code from these projects, but took design ideas or values from them.', '')
   for (const item of ACKNOWLEDGEMENTS) {
@@ -152,6 +180,8 @@ function main() {
   }
 
   if (command === 'check') {
+    const vendor = vendorProblems()
+    if (vendor.length) { for (const problem of vendor) console.error(`[notices] ${problem}`); process.exit(1) }
     const blocked = packages.filter(item => !allowed(item.license))
     if (blocked.length) {
       for (const item of blocked) console.error(`[notices] ${item.name}@${item.version} has license "${item.license}", which is not allowed in the bundle`)
