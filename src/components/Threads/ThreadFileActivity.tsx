@@ -4,16 +4,24 @@ import { parseThreadPatch } from '../../../shared/threadPatch'
 import type { ThreadArtifact, ThreadFileHunk, ThreadTurnFileStatus } from '../../../shared/types/thread'
 import { ThreadPatch } from './ThreadPatch'
 import type { ThreadEvent } from '../../../shared/types/thread'
-import { changeSummary, threadChanges, turnChanges, threadFileLabel, type ThreadChangeEntry } from './threadChanges'
+import { changeSummary, threadChanges, turnChanges, type ThreadChangeEntry } from './threadChanges'
 import { ThreadHunkReview } from './ThreadHunkReview'
 import { humanizeError } from '../../utils/humanizeError'
+import { relativeTurnPath } from '../../../shared/threadFilePath'
 
-export function ThreadFileActivity({ event, root, threadId, onOpen }: { event: Extract<ThreadEvent, { type: 'tool' }>; root: string; threadId: string; onOpen(entry: ThreadChangeEntry): void }) {
+/** A changed file's path relative to its checkout, with the checkout named when it is not the conversation's root. */
+export function TurnPath({ path, roots }: { path: string; roots: Array<string | null | undefined> }) {
+  const { label, checkout } = relativeTurnPath(path, roots)
+  return <>{checkout && <span className="thread-file-checkout">{checkout}</span>}<span className="thread-file-path">{label}</span></>
+}
+
+/** `root` is the conversation's own checkout; `roots` are others it worked in, such as a worktree. */
+export function ThreadFileActivity({ event, root, roots = [], threadId, onOpen }: { event: Extract<ThreadEvent, { type: 'tool' }>; root: string; roots?: Array<string | null | undefined>; threadId: string; onOpen(entry: ThreadChangeEntry): void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   return <div className="thread-file-activity">{threadChanges([event]).map(entry => <div key={entry.key}><div className="thread-file-operation"><button type="button" className="thread-file-entry" onClick={() => onOpen(entry)} title={entry.file.path}>
     <FileCode2 size={14} /><span className="thread-file-verb">{entry.file.state === 'failed' ? 'Failed' : entry.file.state === 'running' ? 'Updating' : entry.file.state === 'unknown' ? 'Unconfirmed' : entry.file.source === 'tool-input' ? 'Tool completed' : entry.file.source === 'working-tree-observation' ? 'Observed' : entry.file.kind === 'add' ? 'Added' : entry.file.kind === 'delete' ? 'Deleted' : entry.file.kind === 'rename' ? 'Renamed' : 'Edited'}</span>
-    <span className="thread-file-path">{threadFileLabel(entry.file.path, root)}</span><FileStats file={entry.file} />
-  </button>{entry.file.artifactId && <button type="button" className="thread-file-expand" aria-label={`Expand file diff ${threadFileLabel(entry.file.path, root)}`} aria-expanded={expanded === entry.key} onClick={() => setExpanded(value => value === entry.key ? null : entry.key)}><ChevronRight size={12} /></button>}</div>
+    <TurnPath path={entry.file.path} roots={[root, ...roots]} /><FileStats file={entry.file} />
+  </button>{entry.file.artifactId && <button type="button" className="thread-file-expand" aria-label={`Expand file diff ${relativeTurnPath(entry.file.path, [root, ...roots]).label}`} aria-expanded={expanded === entry.key} onClick={() => setExpanded(value => value === entry.key ? null : entry.key)}><ChevronRight size={12} /></button>}</div>
     {expanded === entry.key && <ThreadInlineEvidence threadId={threadId} artifactId={entry.file.artifactId!} />}
   </div>)}{event.state === 'failed' && event.output && <p className="thread-file-error" role="alert">{event.output}</p>}</div>
 }
@@ -36,12 +44,13 @@ export function FileStats({ file }: { file: ThreadChangeEntry['file'] }) {
 }
 const CHANGE_PREVIEW_FILES = 3
 
-const relativeKey = (path: string, root: string): string => {
-  const label = threadFileLabel(path, root).replace(/\\/g, '/').replace(/^\.\//, '')
-  return /^[a-z]:\//i.test(root.replace(/\\/g, '/')) ? label.toLowerCase() : label
+// Matches an event's path to a checkpoint path, which is relative to the checkout the turn changed.
+const relativeKey = (path: string, roots: Array<string | null | undefined>): string => {
+  const label = relativeTurnPath(path, roots).label
+  return roots.some(root => root && /^[a-z]:[\\/]/i.test(root)) ? label.toLowerCase() : label
 }
 
-export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment }: { events: ThreadEvent[]; root: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
+export function ThreadTurnChanges({ events, root, roots = [], onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment }: { events: ThreadEvent[]; root: string; roots?: Array<string | null | undefined>; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
   const [showAll, setShowAll] = useState(false)
   const [undo, setUndo] = useState<'idle' | 'confirm' | 'working'>('idle')
   const [undoError, setUndoError] = useState('')
@@ -49,9 +58,16 @@ export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo,
   const [fileStates, setFileStates] = useState<Record<string, ThreadTurnFileStatus>>({})
   const [undoingFile, setUndoingFile] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState<string | null>(null)
+  // The checkouts the checkpoints were taken in, so a file edited in a worktree still finds its state.
+  const [checkoutRoots, setCheckoutRoots] = useState<string[]>([])
+  const allRoots = [root, ...roots, ...checkoutRoots]
   const refreshStates = (): void => {
     if (!loadFileStates) return
-    void loadFileStates().then(states => setFileStates(Object.fromEntries(states.map(state => [relativeKey(state.path, root), state]))), () => setFileStates({}))
+    void loadFileStates().then(states => {
+      const found = [...new Set(states.flatMap(state => state.root ? [state.root] : []))]
+      setCheckoutRoots(found)
+      setFileStates(Object.fromEntries(states.map(state => [relativeKey(state.path, [root, ...found]), state])))
+    }, () => setFileStates({}))
   }
   // Loaded once per rendered turn and after each undo; the loader is an inline closure, so it is not a dependency.
   useEffect(refreshStates, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -76,16 +92,17 @@ export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo,
     </header>
     {undoError && <p role="alert" className="thread-change-error">{undoError}</p>}
     <div>{shown.map(entry => {
-      const status = fileStates[relativeKey(entry.file.path, root)]
+      const status = fileStates[relativeKey(entry.file.path, allRoots)]
+      const label = relativeTurnPath(entry.file.path, allRoots).label
       return <div key={entry.key} className="thread-change-file">
-        <button type="button" onClick={() => onOpen(entry)} title={entry.file.path}><span className="thread-file-path">{threadFileLabel(entry.file.path, root)}</span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>
+        <button type="button" onClick={() => onOpen(entry)} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>
         {status?.state === 'reverted' && <span className="thread-change-file-state">Reverted</span>}
         {status?.state === 'modified' && <span className="thread-change-file-state" title="Edited after this turn; undo would discard that later work">Edited later</span>}
-        {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={`Undo ${threadFileLabel(entry.file.path, root)}`} onClick={() => {
+        {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={`Undo ${label}`} onClick={() => {
           setUndoError(''); setUndoingFile(status.path)
           void onUndoFile(status.path).then(refreshStates, cause => setUndoError(humanizeError(cause, 'Could not undo this file.'))).finally(() => setUndoingFile(null))
         }}>{undoingFile === status.path ? 'Undoing…' : 'Undo file'}</button>}
-        {status?.state === 'pending' && loadHunks && onUndoHunk && <button type="button" className="thread-change-view" aria-expanded={reviewing === status.path} aria-label={`Review changes in ${threadFileLabel(entry.file.path, root)}`} onClick={() => setReviewing(reviewing === status.path ? null : status.path)}>{reviewing === status.path ? 'Close review' : 'Review'}</button>}
+        {status?.state === 'pending' && loadHunks && onUndoHunk && <button type="button" className="thread-change-view" aria-expanded={reviewing === status.path} aria-label={`Review changes in ${label}`} onClick={() => setReviewing(reviewing === status.path ? null : status.path)}>{reviewing === status.path ? 'Close review' : 'Review'}</button>}
         {reviewing === status?.path && loadHunks && onUndoHunk && <ThreadHunkReview path={status.path} disabled={undoingFile !== null || undo === 'working'} loadHunks={() => loadHunks(status.path)}
           onUndoHunk={async hunkId => { await onUndoHunk(status.path, hunkId); refreshStates() }} onComment={text => onComment?.(text)} />}
       </div>

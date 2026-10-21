@@ -205,3 +205,26 @@
 .thread-dock-rewind button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); font: inherit; cursor: pointer; }
 .thread-dock-rewind button:hover:not(:disabled) { background: var(--nav-hover); }
 .thread-dock-rewind button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.thread-change-file-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* The checkout a file was changed in, when it is not the conversation's own (a worktree). */
+.thread-file-checkout { flex: none; max-width: 40%; overflow: hidden; padding: 0 5px; border-radius: var(--radius-sm); background: var(--nav-hover); color: var(--text-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
+/* Changes for one turn: its files, then the selected file's change blocks. */
+.thread-turn-review { display: flex; flex-direction: column; flex: 1; width: 100%; min-width: 0; min-height: 0; height: 100%; font-size: var(--fs-xs); }
+.thread-turn-review-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle, var(--border-default)); }
+.thread-turn-review-heading > div { display: grid; gap: 2px; min-width: 0; }
+.thread-turn-review-heading strong { color: var(--text-primary); font-weight: 600; }
+.thread-turn-review-heading small { overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
+.thread-turn-review-heading .thread-change-view { display: inline-flex; flex: none; align-items: center; gap: 4px; }
+.thread-turn-review-files { flex: none; max-height: 40%; margin: 0; padding: 4px; overflow: auto; list-style: none; border-bottom: 1px solid var(--border-subtle, var(--border-default)); }
+.thread-turn-review-files button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; text-align: left; cursor: pointer; }
+.thread-turn-review-files button:hover { background: var(--nav-hover); color: var(--text-primary); }
+.thread-turn-review-files button[aria-current='true'] { background: var(--accent-soft); color: var(--text-primary); }
+.thread-turn-review-files button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.thread-turn-review-files .thread-change-file-name { flex: 1; }
+.thread-turn-review-diff { flex: 1; min-height: 0; padding: 4px 12px 12px; overflow: auto; }
+.thread-turn-review-empty { padding: 12px; color: var(--text-secondary); }
+.thread-turn-review-empty ul { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
+.thread-turn-review-empty li { display: flex; gap: 6px; min-width: 0; }
+.thread-turn-review .thread-change-view { height: 24px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
+.thread-turn-review .thread-change-view:hover:not(:disabled) { background: var(--nav-hover); }
+.thread-turn-review .thread-change-view:disabled { opacity: .5; cursor: default; }

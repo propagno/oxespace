@@ -30,7 +30,8 @@ interface FileImage { exists: boolean; content?: Buffer; hash?: string }
  * which cannot be undone without losing that later work).
  */
 export type CheckpointFileState = 'pending' | 'reverted' | 'modified'
-export interface CheckpointFileStatus { path: string; state: CheckpointFileState; preExists: boolean; postExists: boolean }
+/** `path` is relative to `root`, the checkout the turn changed. */
+export interface CheckpointFileStatus { path: string; root: string; state: CheckpointFileState; preExists: boolean; postExists: boolean }
 interface CheckpointRow {
   id: string; thread_id: string; turn_id: string | null; root_path: string; base_commit: string | null
   label: string | null; state: ThreadCheckpointSummary['state']; created_at: number; finalized_at: number | null
@@ -176,7 +177,7 @@ export class ThreadCheckpointService {
       const state: CheckpointFileState = current && matches(current, imageFromRow(file, 'pre')) ? 'reverted'
         : current && current.exists === Boolean(file.post_exists) && current.hash === (file.post_hash ?? undefined) ? 'pending'
           : 'modified'
-      states.push({ path: file.path, state, preExists: Boolean(file.pre_exists), postExists: Boolean(file.post_exists) })
+      states.push({ path: file.path, root: checkpoint.root_path, state, preExists: Boolean(file.pre_exists), postExists: Boolean(file.post_exists) })
     }
     return states
   }
