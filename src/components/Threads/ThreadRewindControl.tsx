@@ -19,8 +19,8 @@ export function ThreadRewindControl({ laterTurns, disabled, onRewind, onEdit }: 
   const [restoreFiles, setRestoreFiles] = useState(true)
   const [busy, setBusy] = useState(false)
   if (!mode) return <span className="thread-rewind-triggers">
-    {onEdit && <button type="button" className="thread-rewind-trigger" disabled={disabled} title="Rewind to before this message and edit it" onClick={() => setMode('edit')}><Pencil size={12} aria-hidden="true" />Edit</button>}
-    <button type="button" className="thread-rewind-trigger" disabled={disabled} title="Set this message and everything after it aside; your next message confirms it" onClick={() => setMode('rewind')}><History size={12} aria-hidden="true" />Rewind to here</button>
+    {onEdit && <button type="button" className="thread-rewind-trigger" disabled={disabled} title="Rewind to before this message and edit it" aria-label="Edit" onClick={() => setMode('edit')}><Pencil size={14} aria-hidden="true" /><span className="thread-rewind-label">Edit</span></button>}
+    <button type="button" className="thread-rewind-trigger" disabled={disabled} title="Set this message and everything after it aside; your next message confirms it" aria-label="Rewind to here" onClick={() => setMode('rewind')}><History size={14} aria-hidden="true" /><span className="thread-rewind-label">Rewind to here</span></button>
   </span>
   const run = mode === 'edit' && onEdit ? onEdit : onRewind
   return <div className="thread-rewind-confirm" role="group" aria-label={mode === 'edit' ? 'Confirm edit' : 'Confirm rewind'}>

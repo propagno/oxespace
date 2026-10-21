@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ThreadUsageBucket, ThreadUsageSummary } from '../../../shared/types/thread'
-import { formatThreadCost } from './ThreadCostChip'
+import { formatThreadCost } from './threadCost'
 import { Select, LoadingState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 

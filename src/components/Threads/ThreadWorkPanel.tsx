@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { WorkRun, WorkTask } from '../../../shared/types/work'
-import { formatThreadCost } from './ThreadCostChip'
+import { formatThreadCost } from './threadCost'
 import { humanizeError } from '../../utils/humanizeError'
 import { LoadingState } from '../../ui'
 

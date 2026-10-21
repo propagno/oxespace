@@ -11,7 +11,7 @@ export interface TeamApi {
   messages(scope: TeamScope, memberId: string, before?: number): Promise<TeamMessage[]>
   send(scope: TeamScope, memberId: string, key: string, body: string): Promise<TeamMessage>
 }
-export interface TeamMember { id: string; teamId: string; name: string; role: TeamRole; archived: boolean; connection?: { owner: { kind: 'thread' | 'pane'; id: string }; deliveryEnabled?: boolean; state: 'connected' | 'disconnected' } }
+export interface TeamMember { id: string; teamId: string; name: string; role: TeamRole; archived: boolean; connection?: { owner: { kind: 'thread' | 'pane'; id: string }; deliveryEnabled?: boolean; state: 'connected' | 'disconnected'; /** Connected Thread that is idle-suspended; a message starts it again. */ suspended?: boolean } }
 export interface TeamBinding {
   memberId: string; provider: 'codex' | 'claude'; nativeSessionId: string; canonicalRoot: string
   surface: 'thread' | 'pane'; surfaceId: string; generation: number

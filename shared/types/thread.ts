@@ -597,7 +597,8 @@ export interface ThreadApi {
 }
 
 /** One file changed by a turn, against the working tree now. */
-export interface ThreadTurnFileStatus { path: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean }
+/** `path` is relative to `root`, the checkout the turn changed (absent from older builds). */
+export interface ThreadTurnFileStatus { path: string; root?: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean }
 
 export interface ThreadCliState {
   running: boolean

@@ -82,6 +82,12 @@ export function registerMcpIpc(manager: McpManager): void {
     return manager.test(id)
   })
 
+  ipcMain.handle(IPC_CHANNELS.mcp.diagnose, async (_event, id: unknown) => {
+    if (typeof id !== 'string' || !id) throw new Error('id is required')
+    const [server, node] = await Promise.all([manager.test(id), manager.nodeVersion(id)])
+    return { server, node }
+  })
+
   ipcMain.handle(IPC_CHANNELS.mcp.openSignIn, (_event, id: unknown) => {
     if (typeof id !== 'string' || !id) throw new Error('id is required')
     return manager.openSignIn(id)

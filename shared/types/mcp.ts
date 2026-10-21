@@ -43,6 +43,9 @@ export interface McpServer {
   updatedAtMs: number
 }
 
+/** A test run to explain a failure: the tested server and the Node.js a Node-based server runs on. */
+export interface McpDiagnosis { server: McpServer; node: string | null }
+
 export interface McpToolDescriptor {
   name: string
   description: string

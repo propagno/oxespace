@@ -37,9 +37,30 @@ describe('team execution authorization', () => {
     f.access.setDeliveryFromUi(f.team.id, revision(), f.coordinator.id, true)
     expect(f.access.deliveryTargets()).toEqual([{ teamId: f.team.id, memberId: f.coordinator.id, threadId: owner.id }])
     expect(new TeamAccess(f.db, f.executions, async () => '/git').deliveryTargets()).toEqual([])
-    f.executions.register({ owner, workspaceId: 'workspace', cwd: '/repo' })
+    f.access.disconnectFromUi(f.team.id, revision(), f.coordinator.id)
     expect(f.access.deliveryTargets()).toEqual([])
-    expect(() => f.access.setDeliveryFromUi(f.team.id, revision(), f.coordinator.id, true)).toThrow('connected Thread')
+    expect(() => f.access.setDeliveryFromUi(f.team.id, revision(), f.coordinator.id, true)).toThrow()
+  })
+  it('keeps a Thread member connected and reachable while its conversation is suspended and resumed', async () => {
+    const f = fixture()
+    const owner = { kind: 'thread' as const, id: 'thread-member' }
+    f.executions.register({ owner, workspaceId: 'workspace', cwd: '/repo' })
+    await f.access.connectFromUi(f.team.id, f.team.revision, f.developer.id, owner)
+    f.db.prepare('INSERT INTO thread_projects (id,identity,root_path,display_name,created_at,updated_at) VALUES (?,?,?,?,1,1)').run('project', '/git', '/repo', 'Project')
+    f.db.prepare('INSERT INTO conversation_threads (id,workspace_id,thread_project_id,data_json,events_json) VALUES (?,?,?,?,?)')
+      .run(owner.id, 'workspace', 'project', JSON.stringify({ provider: 'codex' }), '[]')
+    const revision = () => f.access.repository.get(f.team.id).revision
+    f.access.setDeliveryFromUi(f.team.id, revision(), f.developer.id, true)
+    // Idle suspension ends the execution: the member stays connected and messages still go to it.
+    f.executions.endOwner(owner)
+    expect(f.access.snapshotFromUi(f.team.id).members.find(m => m.id === f.developer.id)?.connection).toMatchObject({ state: 'connected', suspended: true, deliveryEnabled: true })
+    expect(f.access.deliveryTargets()).toEqual([{ teamId: f.team.id, memberId: f.developer.id, threadId: owner.id }])
+    // The resumed conversation registers a new execution, which the team still recognizes.
+    f.executions.register({ owner, workspaceId: 'workspace', cwd: '/repo' })
+    expect((await f.access.authorize(f.executions.forOwner(owner)!)).member.id).toBe(f.developer.id)
+    expect(f.access.snapshotFromUi(f.team.id).members.find(m => m.id === f.developer.id)?.connection?.suspended).toBeUndefined()
+    // A restart still drops the consent.
+    await expect(new TeamAccess(f.db, f.executions, async () => '/git').authorize(f.executions.forOwner(owner)!)).rejects.toThrow('Connect this session')
   })
   it('requires explicit connection, rejects stale credentials and never restores authorization from a saved surface', async () => {
     const f = fixture()

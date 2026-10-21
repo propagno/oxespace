@@ -73,7 +73,8 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     catch { if (version === generation) set({ errors: { ...get().errors, selection: 'Could not open conversation. Select it to retry.' } }) }
   },
   openSecondary: async id => {
-    if (id === get().selectedId) { set(state => ({ secondaryId: id, activeCell: 'secondary', unreadIds: state.unreadIds.filter(value => value !== id) })); return }
+    // The selected conversation is already on screen; a second copy beside it shows nothing new.
+    if (id === get().selectedId) return
     const cached = get().snapshotCache[id]
     if (cached) { set(state => ({ secondaryId: id, activeCell: 'secondary', unreadIds: state.unreadIds.filter(value => value !== id) })); return }
     const snapshot = await window.oxe.thread!.read(id)

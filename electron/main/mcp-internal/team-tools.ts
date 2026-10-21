@@ -13,7 +13,11 @@ function tool(name: string, description: string, properties: Record<string, unkn
       for (const key of required) if (typeof input[key] !== 'string' || !(input[key] as string).trim()) throw Error(`Invalid ${key}`)
       const repository = ctx.team.repository
       let value: unknown
-      if (name === 'oxespace_team_status') value = { team, currentMemberId: member.id, delivery: 'Read the inbox at checkpoints. Optional UI-authorized delivery wakes connected idle Thread sessions; Code sessions read the inbox through MCP.' }
+      if (name === 'oxespace_team_status') {
+        // Each member's session: its Thread id or Code pane, and whether it is connected or idle-suspended.
+        const sessions = ctx.team.snapshotFromUi(team.id).members
+        value = { team: { ...team, members: team.members.map(m => ({ ...m, session: sessions.find(s => s.id === m.id)?.connection })) }, currentMemberId: member.id, delivery: 'Read the inbox at checkpoints. Optional UI-authorized delivery wakes connected idle Thread sessions, including ones suspended while idle; Code sessions read the inbox through MCP.' }
+      }
       if (name === 'oxespace_team_inbox') value = repository.inbox(team.id, member.id, input.after as number | undefined, input.limit as number | undefined)
       if (name === 'oxespace_team_message') value = repository.send({ teamId: team.id, senderId: member.id, recipientId: input.recipientId as string, key: input.key as string, kind: input.kind as TeamMessageKind, body: input.body as string, replyTo: input.replyTo as string | undefined })
       if (name === 'oxespace_team_acknowledge') { repository.acknowledge(team.id, member.id, input.messageId as string); value = { received: true } }

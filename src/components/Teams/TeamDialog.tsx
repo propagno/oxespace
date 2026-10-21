@@ -33,7 +33,7 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
         <p className="team-note">Members are saved independently of sessions. Creating a role does not start an agent. Automatic delivery sends inbox messages to a connected idle Thread. It pauses after failure, interruption or restart; Code sessions read their inbox through MCP.</p>
         <ul className="team-members" aria-label="Team members">
           {team.members.filter(m => !m.archived).map(member => <li key={member.id}>
-            <div><strong>{member.name}</strong><span>{roles[member.role]}</span><span>{member.connection?.state === 'connected' ? 'Session connected' : member.connection ? 'Session disconnected · reconnect to authorize MCP' : 'No session connected'}</span></div>
+            <div><strong>{member.name}</strong><span>{roles[member.role]}</span><span>{member.connection?.state === 'connected' ? member.connection.suspended ? 'Session connected · idle, a message starts it again' : 'Session connected' : member.connection ? 'Session disconnected · reconnect to authorize MCP' : 'No session connected'}</span></div>
             <div className="team-member-actions">
               <Button size="sm" aria-label={`Messages: ${member.name}`} aria-pressed={selected === member.id} onClick={() => setSelected(member.id)}>Messages</Button>
               {owner && member.connection?.state !== 'connected' && <Button size="sm" variant="primary" disabled={busy} title="Lets the active session read and send this member's messages through MCP" onClick={() => void change(() => api!.connect(scope, team.revision, member.id, owner))}>Connect current session<span className="sr-only">: {member.name}</span></Button>}

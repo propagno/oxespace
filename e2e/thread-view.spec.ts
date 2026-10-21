@@ -99,6 +99,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         const content = reviewPatch.replace('export function App() {', 'export function App() { // ' + 'long diff content '.repeat(150))
         return { id: artifactId, content, hash: `hash-${artifactId}`, bytes: content.length, truncated: false, source: 'native-patch' }
       })
+      // The workbench turn changed its three files in a worktree; the branch diff below has others.
+      for (const channel of ['turn-files', 'turn-file-hunks']) ipcMain.removeHandler(`thread:${channel}`)
+      ipcMain.handle('thread:turn-files', (_event, id) => id === 'e2e-thread' ? ['src/App.tsx', 'src/components/Threads/ThreadWorkbench.tsx', 'src/components/Threads/ThreadWorkbench.css'].map((path, index) => ({ path, root: '/work/repo-feat-137525', state: 'pending', preExists: !index, postExists: true })) : [])
+      ipcMain.handle('thread:turn-file-hunks', (_event, _id, _turnId, path) => [{ id: `hunk:${path}`, oldStart: 11, newStart: 11, oldLines: ['  return <ThreadView />'], newLines: ['  return <ThreadWorkbench>', '    <ThreadView />', '  </ThreadWorkbench>'] }])
       ipcMain.handle('thread:project-diff', () => ({ files: [{ path: 'src/ExistingWork.ts', additions: 1, deletions: 0, mtime: null, hunks: [{ header: '@@ -0,0 +1 @@', lines: [{ type: 'added', oldLineNo: null, newLineNo: 1, content: 'Earlier project work' }] }] }, { path: 'README.md', additions: 1, deletions: 0, mtime: null, hunks: [{ header: '@@ -0,0 +1 @@', lines: [{ type: 'added', oldLineNo: null, newLineNo: 1, content: '# Thread workbench fixture' }] }] }], base: 'HEAD', includeUncommitted: true, compiledAt: Date.now() }))
       ipcMain.handle('thread:models', () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: 'Native catalog model', efforts: ['low', 'high'], defaultEffort: 'low' }] }))
       ipcMain.handle('thread:configure', (_event, _id, configuration, revision) => { Object.assign(snapshot!.thread as object, configuration, { configurationRevision: revision + 1 }); changed(); return snapshot })
@@ -548,7 +552,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.setViewportSize({ width: 900, height: 600 })
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Long history fixture')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
-    await expect(page.getByText('Review message 3333', { exact: true })).toBeAttached()
+    await expect(page.getByRole('paragraph').filter({ hasText: /^Review message 3333$/ })).toBeAttached()
     const geometry = await page.evaluate(() => Object.fromEntries(['.app-shell', '.workspace-surface', '.thread-view', '.thread-timeline', '.thread-composer'].map(selector => {
       const el = document.querySelector(selector) as HTMLElement
       return [selector, { height: el.clientHeight, scroll: el.scrollHeight, bottom: el.getBoundingClientRect().bottom }]
@@ -793,6 +797,19 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
     await expect(page.locator('.thread-change-summary')).toContainText('Edited 3 files')
     await page.screenshot({ path: 'test-results/thread-change-card.png' })
+    // View changes opens exactly what the turn changed, in its worktree, not the branch diff.
+    await page.locator('.thread-change-summary').last().getByRole('button', { name: 'View changes', exact: true }).click()
+    const turnFiles = page.getByRole('list', { name: 'Files changed in this turn' })
+    await expect(turnFiles.getByRole('listitem')).toHaveCount(3)
+    await expect(turnFiles).toContainText('src/App.tsx')
+    await expect(page.locator('.thread-turn-review-heading')).toContainText('3 files · in repo-feat-137525')
+    await expect(page.locator('.thread-turn-review-diff')).toContainText('return <ThreadWorkbench>')
+    await expect(page.getByText('src/ExistingWork.ts')).toHaveCount(0)
+    await page.screenshot({ path: 'test-results/thread-turn-changes.png' })
+    await page.getByRole('button', { name: 'All changes' }).click()
+    await expect(turnFiles).toHaveCount(0)
+    await page.getByRole('button', { name: 'Select workbench panel' }).click()
+    await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
     // CI status bar for the branch's pull request: summary, checks list and a ready-made fix prompt.
     const ci = page.getByRole('region', { name: 'Pull request status' })
     await expect(ci).toContainText('#42 Improve the Thread workbench')
@@ -910,7 +927,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.reload()
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
     await expect(page.locator('.thread-virtual-space')).toHaveAttribute('data-total-rows', '10002')
-    await expect(page.getByText('Review message 3333', { exact: true })).toBeVisible()
+    await expect(page.getByRole('paragraph').filter({ hasText: /^Review message 3333$/ })).toBeVisible()
     const latestMessage = page.locator('.thread-message-user').filter({ hasText: 'Review message 3333' })
     const latestResponse = page.locator('.thread-message-assistant').filter({ hasText: 'A detailed response to verify the conversation history.' }).last()
     await expect(latestMessage.getByRole('button')).toHaveCount(0)
@@ -936,9 +953,17 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByText(/You can continue this conversation here/)).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Recover conversation' })).toHaveCount(0)
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
+    await page.setViewportSize({ width: 1280, height: 800 })
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))
     await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Claude needs your input' })).toBeVisible()
+    // The question must leave the conversation readable, and hiding it gives the room back.
+    const conversationShare = () => page.evaluate(() => document.querySelector('.thread-timeline')!.getBoundingClientRect().height / document.querySelector('.thread-view')!.getBoundingClientRect().height)
+    expect(await conversationShare()).toBeGreaterThanOrEqual(0.3)
+    await page.getByRole('button', { name: 'Hide', exact: true }).click()
+    await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeHidden()
+    expect(await conversationShare()).toBeGreaterThanOrEqual(0.6)
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
     await page.getByRole('radio', { name: 'Staged' }).check()
     await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Next' }).click()
     await page.getByRole('radio', { name: 'Pilot', exact: true }).check()
