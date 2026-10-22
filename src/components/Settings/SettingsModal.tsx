@@ -32,7 +32,7 @@ import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
-import { Button, Switch, TextField, Select } from '../../ui'
+import { Button, SegmentedControl, Switch, TextField, Select } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 export interface SettingsModalProps {
@@ -1264,6 +1264,8 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const bootstrap = useUpdaterStore((s) => s.bootstrap)
   const checkAppUpdates = useUpdaterStore((s) => s.checkAppUpdates)
   const quitAndInstall = useUpdaterStore((s) => s.quitAndInstall)
+  const downloadAppUpdate = useUpdaterStore((s) => s.downloadAppUpdate)
+  const setUpdatePreferences = useUpdaterStore((s) => s.setUpdatePreferences)
   const checkRtk = useUpdaterStore((s) => s.checkRtk)
   const updateRtk = useUpdaterStore((s) => s.updateRtk)
 
@@ -1272,6 +1274,14 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   }, [bootstrap])
 
   const manualInstall = app.installMode === 'manual' || app.status === 'disabled'
+  const preferences = app.preferences ?? { mode: 'auto' as const, pinnedVersion: null }
+  const pinned = preferences.pinnedVersion !== null
+  // Only Automatic, without a pinned version, downloads on its own; otherwise a found update waits for the person.
+  const asksToDownload = !manualInstall && (preferences.mode !== 'auto' || pinned)
+  const modeHint = pinned ? `Staying on v${preferences.pinnedVersion}: OXESpace does not check or download updates. Check for updates still tells you what is new.`
+    : preferences.mode === 'auto' ? 'Checks every few hours, downloads in the background and installs when you restart.'
+      : preferences.mode === 'notify' ? 'Checks every few hours and tells you when a version is out. Nothing downloads until you choose.'
+        : 'Never checks on its own. Use Check for updates when you want to know.'
   const isDevBuild = app.status === 'disabled'
   const versionLabel = app.currentVersion === 'dev' || !app.currentVersion
     ? 'dev build'
@@ -1284,7 +1294,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
       case 'checking':
         return 'Checking GitHub Releases…'
       case 'available':
-        return manualInstall ? `Update ${app.availableVersion} available — install it from Releases` : `Update ${app.availableVersion} available — downloading in the background`
+        return manualInstall ? `Update ${app.availableVersion} available — install it from Releases` : asksToDownload ? `Update ${app.availableVersion} available` : `Update ${app.availableVersion} available — downloading in the background`
       case 'downloading':
         return `Downloading ${app.availableVersion ?? 'update'}… ${app.progress ?? 0}%`
       case 'downloaded':
@@ -1363,7 +1373,23 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
             {app.error && app.status === 'error' ? (
               <p className="settings-error" data-testid="app-update-error">{app.error}</p>
             ) : null}
+            {app.preferences ? (
+              <div className="settings-update-preferences">
+                <SegmentedControl label="How OXESpace updates" value={preferences.mode}
+                  options={[{ value: 'auto', label: 'Automatic' }, { value: 'notify', label: 'Notify me' }, { value: 'off', label: 'Off' }]}
+                  onChange={(mode) => void setUpdatePreferences({ ...preferences, mode })} />
+                <Switch checked={pinned} label={`Stay on v${pinned ? preferences.pinnedVersion : app.currentVersion}`} description="Keep this version until you turn this off."
+                  onChange={(checked) => void setUpdatePreferences({ ...preferences, pinnedVersion: checked ? app.currentVersion : null })} />
+                <p className="settings-update-mode-hint" data-testid="app-update-mode-hint">{modeHint}</p>
+              </div>
+            ) : null}
             <div className="settings-update-actions">
+              {asksToDownload && app.status === 'available' ? (
+                <Button variant="primary" onClick={() => void downloadAppUpdate()} data-testid="btn-download-app-update">
+                  <Download size={14} aria-hidden="true" />
+                  Download {app.availableVersion}
+                </Button>
+              ) : null}
               <Button
                
                 variant="ghost"
@@ -1389,7 +1415,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={14} aria-hidden="true" /> Open releases</a> : null}
             </div>
             <p className="settings-update-hint">
-              {manualInstall ? 'Development and Linux package installs cannot update in place. Use the latest release or update your development checkout.' : 'Downloads in the background. Restart to apply.'}
+              {manualInstall ? 'Development and Linux package installs cannot update in place. Use the latest release or update your development checkout.' : asksToDownload ? 'Downloaded updates install when you restart.' : 'Downloads in the background. Restart to apply.'}
             </p>
           </article>
 

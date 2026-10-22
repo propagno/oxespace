@@ -1,0 +1,48 @@
+import { afterEach, describe, expect, test, vi } from 'vitest'
+
+const files = new Map<string, string>()
+vi.mock('electron', () => ({
+  app: { isPackaged: false, getVersion: () => '1.3.1', getPath: () => '/user-data' },
+  BrowserWindow: { getAllWindows: () => [] },
+  ipcMain: { handle: () => undefined }
+}))
+vi.mock('electron-log/main.js', () => ({ default: { info: () => undefined, warn: () => undefined } }))
+vi.mock('node:fs', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  const readFileSync = (path: string) => { if (!files.has(path)) throw Error('ENOENT'); return files.get(path) }
+  const writeFileSync = (path: string, text: string) => { files.set(path, text) }
+  return { ...actual, default: { ...actual, readFileSync, writeFileSync }, readFileSync, writeFileSync }
+})
+
+const { normalizeUpdatePreferences, updatePolicy, setUpdatePreferences, checkForAppUpdates } = await import('../../electron/main/updater')
+
+afterEach(() => vi.unstubAllGlobals())
+
+describe('update preferences', () => {
+  test('keep only known modes and valid versions', () => {
+    expect(normalizeUpdatePreferences(undefined)).toEqual({ mode: 'auto', pinnedVersion: null })
+    expect(normalizeUpdatePreferences({ mode: 'notify', pinnedVersion: 'v1.3.1' })).toEqual({ mode: 'notify', pinnedVersion: '1.3.1' })
+    expect(normalizeUpdatePreferences({ mode: 'sometimes', pinnedVersion: 'latest' })).toEqual({ mode: 'auto', pinnedVersion: null })
+  })
+
+  test('decide what runs on its own', () => {
+    expect(updatePolicy({ mode: 'auto', pinnedVersion: null })).toEqual({ periodic: true, autoDownload: true, autoInstall: true })
+    expect(updatePolicy({ mode: 'notify', pinnedVersion: null })).toEqual({ periodic: true, autoDownload: false, autoInstall: false })
+    expect(updatePolicy({ mode: 'off', pinnedVersion: null })).toEqual({ periodic: false, autoDownload: false, autoInstall: false })
+    // A pinned version holds whatever the mode says.
+    expect(updatePolicy({ mode: 'auto', pinnedVersion: '1.3.1' })).toEqual({ periodic: false, autoDownload: false, autoInstall: false })
+  })
+
+  test('are saved, shown in the state, and stop the checks that run on their own', async () => {
+    const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ tag_name: 'v1.4.0' }) }))
+    vi.stubGlobal('fetch', fetch)
+    const state = setUpdatePreferences({ mode: 'off', pinnedVersion: null })
+    expect(state.preferences).toEqual({ mode: 'off', pinnedVersion: null })
+    expect(JSON.parse([...files.values()][0])).toEqual({ mode: 'off', pinnedVersion: null })
+    await checkForAppUpdates(false)
+    expect(fetch).not.toHaveBeenCalled()
+    // A check the person asks for still runs.
+    expect((await checkForAppUpdates(true)).availableVersion).toBe('1.4.0')
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})

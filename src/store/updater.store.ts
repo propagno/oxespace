@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppUpdateState, RtkUpdateState } from '../../shared/types/updater'
+import type { AppUpdatePreferences, AppUpdateState, RtkUpdateState } from '../../shared/types/updater'
 import { humanizeError } from '../utils/humanizeError'
 
 interface UpdaterStore {
@@ -9,6 +9,8 @@ interface UpdaterStore {
   bootstrap: () => void
   checkAppUpdates: () => Promise<void>
   quitAndInstall: () => Promise<void>
+  downloadAppUpdate: () => Promise<void>
+  setUpdatePreferences: (preferences: AppUpdatePreferences) => Promise<void>
   checkRtk: () => Promise<void>
   updateRtk: () => Promise<void>
   dismissBanner: () => void
@@ -88,6 +90,18 @@ export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
     const api = window.oxe?.app
     if (!api?.quitAndInstall) return
     await api.quitAndInstall()
+  },
+
+  downloadAppUpdate: async () => {
+    const api = window.oxe?.app
+    if (!api?.downloadUpdate) return
+    try { set({ app: await api.downloadUpdate() }) } catch (err) { set({ app: { ...get().app, status: 'error', error: humanizeError(err) } }) }
+  },
+
+  setUpdatePreferences: async (preferences) => {
+    const api = window.oxe?.app
+    if (!api?.setUpdatePreferences) return
+    try { set({ app: await api.setUpdatePreferences(preferences) }) } catch (err) { set({ app: { ...get().app, error: humanizeError(err) } }) }
   },
 
   checkRtk: async () => {

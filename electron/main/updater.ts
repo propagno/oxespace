@@ -1,7 +1,9 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import log from 'electron-log/main.js'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
-import type { AppUpdateState, AppUpdateStatus } from '../../shared/types/updater'
+import type { AppUpdatePreferences, AppUpdateState, AppUpdateStatus } from '../../shared/types/updater'
 
 /**
  * Auto-update via electron-updater against GitHub Releases (electron-builder
@@ -11,6 +13,8 @@ import type { AppUpdateState, AppUpdateStatus } from '../../shared/types/updater
  * - Downloads in the background; installs on quit or when the user clicks
  *   "Restart to update".
  * - Never throws into the app lifecycle — failures only log + update state.
+ * - The person's preferences (AppUpdatePreferences) decide whether checks run on their own and whether a
+ *   found update downloads by itself.
  */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 const RELEASES_API = 'https://api.github.com/repos/propagno/oxespace/releases/latest'
@@ -78,9 +82,30 @@ export function updaterSupportsThisInstall(
   return Boolean(env.APPIMAGE)
 }
 
+export const DEFAULT_UPDATE_PREFERENCES: AppUpdatePreferences = { mode: 'auto', pinnedVersion: null }
+
+export function normalizeUpdatePreferences(value: unknown): AppUpdatePreferences {
+  const input = value && typeof value === 'object' ? value as Partial<AppUpdatePreferences> : {}
+  const mode = input.mode === 'notify' || input.mode === 'off' ? input.mode : 'auto'
+  const pinnedVersion = typeof input.pinnedVersion === 'string' && parseVersion(input.pinnedVersion) ? input.pinnedVersion.replace(/^v/, '') : null
+  return { mode, pinnedVersion }
+}
+
+/** What the preferences allow: checks on a timer, downloads without asking, install on quit. */
+export function updatePolicy(preferences: AppUpdatePreferences): { periodic: boolean; autoDownload: boolean; autoInstall: boolean } {
+  const pinned = preferences.pinnedVersion !== null
+  return { periodic: preferences.mode !== 'off' && !pinned, autoDownload: preferences.mode === 'auto' && !pinned, autoInstall: preferences.mode === 'auto' && !pinned }
+}
+
+const preferencesFile = (): string => join(app.getPath('userData'), 'update-preferences.json')
+function loadPreferences(): AppUpdatePreferences {
+  try { return normalizeUpdatePreferences(JSON.parse(readFileSync(preferencesFile(), 'utf8'))) } catch { return DEFAULT_UPDATE_PREFERENCES }
+}
+
 type AutoUpdater = typeof import('electron-updater').autoUpdater
 
 let autoUpdaterRef: AutoUpdater | null = null
+let preferences: AppUpdatePreferences = DEFAULT_UPDATE_PREFERENCES
 let state: AppUpdateState = {
   status: app.isPackaged ? 'idle' : 'disabled',
   currentVersion: app.getVersion(),
@@ -91,7 +116,7 @@ let state: AppUpdateState = {
 }
 
 function setState(partial: Partial<AppUpdateState>): void {
-  state = { ...state, ...partial, currentVersion: app.getVersion() }
+  state = { ...state, ...partial, currentVersion: app.getVersion(), preferences }
   broadcast()
 }
 
@@ -104,10 +129,34 @@ function broadcast(): void {
 }
 
 export function getAppUpdateState(): AppUpdateState {
-  return { ...state, currentVersion: app.getVersion() }
+  return { ...state, currentVersion: app.getVersion(), preferences }
+}
+
+function applyPolicy(): void {
+  if (!autoUpdaterRef) return
+  const policy = updatePolicy(preferences)
+  autoUpdaterRef.autoDownload = policy.autoDownload
+  autoUpdaterRef.autoInstallOnAppQuit = policy.autoInstall
+}
+
+export function setUpdatePreferences(value: unknown): AppUpdateState {
+  preferences = normalizeUpdatePreferences(value)
+  try { writeFileSync(preferencesFile(), JSON.stringify(preferences, null, 2)) } catch (err) { log.warn('[updater] could not save preferences', err) }
+  applyPolicy()
+  setState({})
+  return getAppUpdateState()
+}
+
+/** Downloads an update that was found but not downloaded, because the mode asks first. */
+export async function downloadAppUpdate(): Promise<AppUpdateState> {
+  if (!autoUpdaterRef || state.status !== 'available') return getAppUpdateState()
+  try { await autoUpdaterRef.downloadUpdate() } catch (err) { setState({ status: 'error', error: err instanceof Error ? err.message : String(err) }) }
+  return getAppUpdateState()
 }
 
 export async function checkForAppUpdates(manual = false): Promise<AppUpdateState> {
+  // With updates off or a version pinned, only the person starts a check.
+  if (!manual && !updatePolicy(preferences).periodic) return getAppUpdateState()
   if (!app.isPackaged || !updaterSupportsThisInstall()) {
     setState({ status: 'checking', installMode: 'manual', error: null })
     try {
@@ -184,9 +233,12 @@ export function registerAppUpdateIpc(): void {
   ipcMain.handle(IPC_CHANNELS.app.getUpdateState, () => getAppUpdateState())
   ipcMain.handle(IPC_CHANNELS.app.checkForUpdates, () => checkForAppUpdates(true))
   ipcMain.handle(IPC_CHANNELS.app.quitAndInstall, () => quitAndInstallUpdate())
+  ipcMain.handle(IPC_CHANNELS.app.downloadUpdate, () => downloadAppUpdate())
+  ipcMain.handle(IPC_CHANNELS.app.setUpdatePreferences, (_event, value: unknown) => setUpdatePreferences(value))
 }
 
 export function initAutoUpdater(): void {
+  preferences = loadPreferences()
   if (!app.isPackaged || !updaterSupportsThisInstall()) {
     setState({ status: 'idle', installMode: 'manual', error: null })
     if (process.env.OXESPACE_E2E_MOCK_NATIVE !== '1') {
@@ -210,8 +262,7 @@ export function initAutoUpdater(): void {
       }
       autoUpdaterRef = autoUpdater
       autoUpdater.logger = log
-      autoUpdater.autoDownload = true
-      autoUpdater.autoInstallOnAppQuit = true
+      applyPolicy()
 
       autoUpdater.on('error', (err) => {
         log.warn('[updater] error', err)

@@ -165,6 +165,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setAppearance: (mode) => ipc.invoke(IPC_CHANNELS.app.setAppearance, mode) as Promise<'light' | 'dark'>,
       checkForUpdates: () => ipc.invoke(IPC_CHANNELS.app.checkForUpdates) as Promise<import('../../shared/types/updater').AppUpdateState>,
       quitAndInstall: () => ipc.invoke(IPC_CHANNELS.app.quitAndInstall) as Promise<boolean>,
+      downloadUpdate: () => ipc.invoke(IPC_CHANNELS.app.downloadUpdate) as Promise<import('../../shared/types/updater').AppUpdateState>,
+      setUpdatePreferences: (preferences) => ipc.invoke(IPC_CHANNELS.app.setUpdatePreferences, preferences) as Promise<import('../../shared/types/updater').AppUpdateState>,
       onUpdateState: (listener) => subscribe(ipc, IPC_CHANNELS.app.onUpdateState, listener)
     },
     rtk: {
