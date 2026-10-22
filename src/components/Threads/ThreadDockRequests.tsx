@@ -53,7 +53,7 @@ export function ThreadDockQueue({ snapshot, pending, textarea, action }: {
   const api = window.oxe?.thread
   const id = snapshot.thread.id
   return <>
-    {snapshot.thread.queue && <ThreadPromptQueue items={snapshot.thread.queue} disabled={pending} pause={snapshot.thread.queuePause}
+    {snapshot.thread.queue && <ThreadPromptQueue items={snapshot.thread.queue} disabled={pending} running={snapshot.thread.status === 'running'} pause={snapshot.thread.queuePause}
       onResume={api?.resumeQueue ? () => action(() => api.resumeQueue!(id)) : undefined}
       onSendNow={api?.sendQueuedNow ? itemId => action(() => api.sendQueuedNow!(id, itemId)) : undefined}
       onClear={() => action(async () => { for (const item of snapshot.thread.queue ?? []) if (item.state !== 'sending') await api!.deleteQueued!(id, item.id) })}
