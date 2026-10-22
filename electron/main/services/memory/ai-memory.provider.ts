@@ -4,6 +4,11 @@ import type { MemoryProvider } from './memory-provider'
 import { AiMemoryClient, MemoryClientError } from './ai-memory.client'
 
 export class AiMemoryProvider implements MemoryProvider {
+  /**
+   * Page writes go one at a time: AI Memory 2.6 creates a project's folders on first write, and two writes
+   * at once can both try to, so one fails with "file already exists" (os error 183 on Windows).
+   */
+  private writes: Promise<unknown> = Promise.resolve()
   constructor(private readonly client: AiMemoryClient) {}
   withSignal(signal: AbortSignal): AiMemoryProvider { return new AiMemoryProvider(this.client.withSignal(signal)) }
   async start(): Promise<void> { await this.client.initialize() }
@@ -32,9 +37,11 @@ export class AiMemoryProvider implements MemoryProvider {
     const path = `decisions/oxe-${id}.md`
     if (input.supersedes === path) throw new Error('A note cannot supersede itself')
     const header = [input.kind && `Kind: ${input.kind}`, input.supersedes && `Supersedes: ${input.supersedes}`].filter(Boolean).join('\n')
-    await this.client.tool('memory_write_page', { ...this.scope(ctx), path,
+    const write = this.writes.catch(() => {}).then(() => this.client.tool('memory_write_page', { ...this.scope(ctx), path,
       body: `# ${input.title?.slice(0, 160) || 'Project learning'}\n\n${header ? `${header}\n\n` : ''}${input.text}\n\nSource: ${ctx.agentId ?? 'oxespace'}; session: ${ctx.sessionId ?? 'unbound'}; checkout: ${ctx.cwd}`,
-      tier: 'semantic', tags: ['oxespace', ...(input.kind ? [input.kind] : [])] })
+      tier: 'semantic', tags: ['oxespace', ...(input.kind ? [input.kind] : [])] }))
+    this.writes = write
+    await write
   }
   async search(ctx: MemoryContext, query: string): Promise<MemoryResult[]> {
     if (!query.trim() || query.length > 1000) throw new Error('Query must contain 1–1000 characters')
