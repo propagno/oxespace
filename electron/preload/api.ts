@@ -217,7 +217,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       update: (id, input) => ipc.invoke(IPC_CHANNELS.agent.update, id, input) as Promise<AgentProfile>,
       delete: (id) => ipc.invoke(IPC_CHANNELS.agent.delete, id) as Promise<void>,
       discover: (forceRefresh) => ipc.invoke(IPC_CHANNELS.agent.discover, forceRefresh) as Promise<AgentReadiness[]>,
-      getReadiness: () => ipc.invoke(IPC_CHANNELS.agent.getReadiness) as Promise<AgentReadiness[]>
+      getReadiness: () => ipc.invoke(IPC_CHANNELS.agent.getReadiness) as Promise<AgentReadiness[]>,
+      compatibility: () => ipc.invoke(IPC_CHANNELS.agent.compatibility) as Promise<import('../../shared/providerCompatibility').ProviderCompatibility | null>
     },
     tasks: {
       list: (workspaceId) => ipc.invoke(IPC_CHANNELS.tasks.list, workspaceId) as Promise<Task[]>,
