@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Joins the provider probe reports of the nightly contract run (one per OS) into
  * compatibility.json and the text of the `provider-contract` issue.
@@ -11,7 +10,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-/** Codex reports its version inside a user agent ("oxespace-probe/0.163.0 (Ubuntu …)"); keep the version alone. */
+/** Codex reports its version inside a user agent ("oxespace-probe/0.163.0 (Ubuntu ...)"); keep the version alone. */
 export const versionOf = version => version ? String(version).match(/\d+\.\d+\.\d+(?:-[\w.]+)?/)?.[0] ?? String(version) : null
 
 /**
