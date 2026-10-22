@@ -1,0 +1,8 @@
+/* A thin line with a wider grab area; it lights up under the pointer and on keyboard focus. */
+.splitter { position: relative; flex: none; z-index: calc(var(--layer-sticky) + 1); background: var(--border-default); touch-action: none; }
+.splitter::after { content: ''; position: absolute; }
+.splitter[data-orientation='vertical'] { width: 1px; cursor: col-resize; }
+.splitter[data-orientation='vertical']::after { inset: 0 -3px; }
+.splitter[data-orientation='horizontal'] { height: 1px; cursor: row-resize; }
+.splitter[data-orientation='horizontal']::after { inset: -3px 0; }
+.splitter:hover, .splitter:focus-visible, .splitter:active { background: var(--accent); box-shadow: 0 0 0 1px var(--accent); outline: none; }

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { ChevronDown, ChevronRight, Copy, Database, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react'
 import type { MongoCollectionInfo, MongoDatabaseInfo, MongoExplainSummary, MongoResult, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { describeMongoQuery, parseMongoQuery, stringifyMongoQuery } from '../../../shared/mongoQueryText'
@@ -18,6 +18,8 @@ import { ResultGrid } from './ResultGrid'
 import { Select, TextArea } from '../../ui/Field'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { Splitter } from '../../ui/Splitter'
+import { MONGO_INPUTS_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 import { Dialog } from '../../ui/Overlay'
 import { copyText } from '../../ui/clipboard'
 import { EmptyState } from '../../ui/Display'
@@ -35,7 +37,13 @@ function copy(text: string, what = 'Text'): void {
   void copyText(text, what)
 }
 
+/** The toolbar above the query fields, which their height does not include. */
+const INPUTS_CHROME = 50
+
 export function MongoWorkbench({ connection }: { connection: OxeQueryConnection }): ReactElement {
+  const layout = useOxeQueryLayout()
+  const main = useRef<HTMLDivElement>(null)
+  const mainHeight = useHeight(main)
   const [databases, setDatabases] = useState<MongoDatabaseInfo[]>([])
   const [collections, setCollections] = useState<Record<string, MongoCollectionInfo[]>>({})
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -162,7 +170,10 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
 
   const needle = search.trim().toLowerCase()
   const more = result?.truncated === true
-  return <div className="oq-workbench">
+  // The query fields are as tall as they were dragged, but the results keep their minimum height.
+  const inputsMax = Math.max(MONGO_INPUTS_HEIGHT.min, mainHeight - RESULTS_MIN_HEIGHT - INPUTS_CHROME)
+  const inputsHeight = mainHeight ? Math.min(layout.mongoInputsHeight, inputsMax) : layout.mongoInputsHeight
+  return <div className="oq-workbench" style={{ '--oq-tree-width': `${layout.treeWidth}px` } as CSSProperties}>
     <nav className="oq-tree oq-mtree" aria-label="Databases">
       <div className="oq-tree-head">
         <label className="oq-tree-search"><input type="search" aria-label="Filter collections" placeholder="Filter collections" value={search} onChange={event => setSearch(event.target.value)} /></label>
@@ -190,7 +201,8 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
         {databases.length === 0 && !error && <p className="oq-muted">No databases visible.</p>}
       </div>
     </nav>
-    <div className="oq-workbench-main">
+    <Splitter orientation="vertical" label="Collection list width" value={layout.treeWidth} min={TREE_WIDTH.min} max={TREE_WIDTH.max} defaultValue={TREE_WIDTH.default} onChange={treeWidth => layout.set({ treeWidth })} />
+    <div className="oq-workbench-main" ref={main}>
       {!target ? <div className="oq-empty"><EmptyState icon={<Database size={20} />} title="Pick a collection">Choose one in the list on the left to find, aggregate or edit its documents.</EmptyState>{error && <QueryError error={{ message: error }} />}</div> : <>
         <div className="oq-editor-toolbar">
           <strong>{target.database}.{target.collection}</strong>
@@ -209,13 +221,14 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           {running ? <button type="button" onClick={() => void cancel()}><Square size={13} aria-hidden="true" />Cancel</button>
             : <button type="button" className="oq-primary" disabled={invalid} onClick={() => void run(0)}><Play size={13} aria-hidden="true" />Run</button>}
         </div>
-        <div className="oq-mongo-inputs">
+        <div className="oq-mongo-inputs" style={{ height: inputsHeight }}>
           {mode === 'find' ? <>
             <label>Filter<textarea aria-label="Filter" aria-invalid={problems.filter ? true : undefined} spellCheck={false} value={filter} onChange={event => setFilter(event.target.value)} rows={3} />{problems.filter && <small className="oq-field-error" role="alert">{problems.filter}</small>}</label>
             <label>Projection<textarea aria-label="Projection" aria-invalid={problems.projection ? true : undefined} spellCheck={false} value={projection} onChange={event => setProjection(event.target.value)} rows={3} placeholder='{ "field": 1 }' />{problems.projection && <small className="oq-field-error" role="alert">{problems.projection}</small>}</label>
             <label>Sort<textarea aria-label="Sort" aria-invalid={problems.sort ? true : undefined} spellCheck={false} value={sort} onChange={event => setSort(event.target.value)} rows={3} placeholder='{ "createdAt": -1 }' />{problems.sort && <small className="oq-field-error" role="alert">{problems.sort}</small>}</label>
           </> : <label className="oq-mongo-wide">Pipeline<textarea aria-label="Pipeline" aria-invalid={problems.pipeline ? true : undefined} spellCheck={false} value={pipeline} onChange={event => setPipeline(event.target.value)} rows={7} />{problems.pipeline && <small className="oq-field-error" role="alert">{problems.pipeline}</small>}</label>}
         </div>
+        <Splitter orientation="horizontal" label="Query fields height" value={inputsHeight} min={MONGO_INPUTS_HEIGHT.min} max={inputsMax} defaultValue={MONGO_INPUTS_HEIGHT.default} onChange={height => layout.set({ mongoInputsHeight: height })} />
         {error && <QueryError error={{ message: error }}>{looksLikeLostConnection(error) && <ReconnectBar connection={connection} onReconnected={() => void run(0)} />}</QueryError>}
         {explain && <ExplainCard explain={explain} onClose={() => setExplain(null)} />}
         <div className="oq-results">
