@@ -106,7 +106,9 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
   }
   const show = () => {
     if (!snapshot || pending) return
-    if (!draft) { setDraft('/'); setCursor(1) }
+    // The store, not this render's copy: a key pressed right after the text changed would see the old text.
+    const current = threadId ? useThreadStore.getState().drafts[threadId] ?? '' : draft
+    if (!current) { setDraft('/'); setCursor(1) }
     setFocused(true); setDismissed(null); setManual(true); textarea.current?.focus()
   }
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): boolean => {
