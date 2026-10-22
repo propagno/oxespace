@@ -7,6 +7,8 @@ import { TextField } from '../../ui'
 type Highlights = { set(name: string, value: unknown): void; delete(name: string): void }
 const highlights = (): Highlights | undefined => (globalThis.CSS as unknown as { highlights?: Highlights } | undefined)?.highlights
 const HighlightCtor = (globalThis as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight
+/** How many frames a jump waits for its row to be mounted by the virtualizer. */
+const MOUNT_FRAMES = 30
 
 /**
  * Find in the conversation. Searches the whole timeline model, not only the
@@ -34,14 +36,18 @@ export function ThreadFindBar({ rows, scrollRoot, scrollTo, onClose }: {
     const index = latest.current.rows.findIndex(row => row.key === activeKey)
     if (index < 0) return
     latest.current.scrollTo(index)
-    // Two frames: the virtualizer mounts the row, then its content lays out.
-    let frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => {
+    // The virtualizer mounts the row a few frames later, more on a slow machine: wait for it (up to about half a
+    // second), then place it exactly, since the heights of rows never mounted are only estimates.
+    let frame = 0, waited = 0
+    const place = () => {
       const row = scrollRoot.current?.querySelector(`[data-thread-row="${CSS.escape(activeKey)}"]`)
-      // Estimated heights of unmounted rows are approximate; place the mounted row exactly.
-      row?.scrollIntoView?.({ block: 'center' })
+      if (!row) { if (++waited < MOUNT_FRAMES) frame = requestAnimationFrame(place); return }
+      row.scrollIntoView?.({ block: 'center' })
       const registry = highlights()
-      if (row && registry && HighlightCtor) registry.set('thread-find', new HighlightCtor(...textRanges(row, query)))
-    }) })
+      if (registry && HighlightCtor) registry.set('thread-find', new HighlightCtor(...textRanges(row, query)))
+    }
+    // One frame first: the row's content lays out after it mounts.
+    frame = requestAnimationFrame(() => { frame = requestAnimationFrame(place) })
     return () => cancelAnimationFrame(frame)
   }, [activeKey, query, scrollRoot])
   useEffect(() => () => highlights()?.delete('thread-find'), [])
