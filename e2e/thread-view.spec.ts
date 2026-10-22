@@ -173,7 +173,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         if (text === 'Structured question fixture') {
           thread.status = 'approval'
           snapshot!.events = [{ type: 'message', id: 'choice-user', role: 'user', text },
-            { type: 'request', id: 'native-choice', request: { id: 'native-choice', nativeId: 'native-choice', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', generation: 1, createdAt: Date.now(), state: 'pending', questions: [{ id: 'rollout', question: 'Which rollout?', options: [{ label: 'Staged' }, { label: 'Immediate' }] }, { id: 'validation', question: 'Which validation?', options: [{ label: 'Pilot' }, { label: 'Full rollout' }] }] } }]
+            { type: 'request', id: 'native-choice', request: { id: 'native-choice', nativeId: 'native-choice', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', generation: 1, createdAt: Date.now(), state: 'pending', questions: [{ id: 'rollout', question: 'Which rollout?', options: [{ label: 'Staged', description: 'Ship to 10% of workspaces first, watch the error rate for a day, then widen the rollout in two more steps.' }, { label: 'Immediate', description: 'Ship to everyone at once; fastest, but a regression reaches every workspace before anyone notices.' }, { label: 'Behind a flag', description: 'Ship dark and turn it on per workspace from the admin console.' }] }, { id: 'validation', question: 'Which validation?', options: [{ label: 'Pilot' }, { label: 'Full rollout' }] }] } }]
           changed(); return
         }
         if (text === 'Prose choices fixture') {
@@ -964,6 +964,20 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeHidden()
     expect(await conversationShare()).toBeGreaterThanOrEqual(0.6)
     await page.getByRole('button', { name: 'Show', exact: true }).click()
+    // The compact card still shows two whole options; Expand gives it more room, Shrink gives it back.
+    const visibleOptions = () => page.locator('.thread-request-question').evaluate(card => {
+      const body = card.querySelector('.thread-question-body')!.getBoundingClientRect()
+      return [...card.querySelectorAll('fieldset:not([hidden]) .thread-request-option')].filter(option => { const rect = option.getBoundingClientRect(); return rect.top >= body.top - 1 && rect.bottom <= body.bottom + 1 }).length
+    })
+    console.log('Whole options visible', await visibleOptions())
+    await page.screenshot({ path: 'test-results/thread-question-compact.png' })
+    expect(await visibleOptions()).toBeGreaterThanOrEqual(2)
+    const requestRoom = () => page.locator('.thread-pending-requests').evaluate(el => parseFloat(getComputedStyle(el).maxHeight))
+    const compactRoom = await requestRoom()
+    await page.getByRole('button', { name: 'Expand', exact: true }).click()
+    expect(await requestRoom()).toBeGreaterThan(compactRoom * 1.5)
+    await page.getByRole('button', { name: 'Shrink', exact: true }).click()
+    expect(await requestRoom()).toBe(compactRoom)
     await page.getByRole('radio', { name: 'Staged' }).check()
     await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Next' }).click()
     await page.getByRole('radio', { name: 'Pilot', exact: true }).check()
