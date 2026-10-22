@@ -862,6 +862,21 @@
   white-space: nowrap;
 }
 
+/* How the installed CLI stands against the nightly contract check. */
+.settings-provider-card-main .settings-provider-contract {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 0 6px;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: var(--fs-2xs);
+  line-height: 18px;
+}
+.settings-provider-contract[data-state='verified'] { color: var(--intent-success-fg); border-color: color-mix(in srgb, var(--intent-success-fg) 40%, transparent); }
+.settings-provider-contract[data-state='newer'] { color: var(--intent-warning-fg); border-color: color-mix(in srgb, var(--intent-warning-fg) 40%, transparent); }
+.settings-provider-contract[data-state='failing'] { color: var(--intent-danger-fg); border-color: color-mix(in srgb, var(--intent-danger-fg) 40%, transparent); }
+
 .settings-provider-card-status {
   display: flex;
   flex-direction: column;

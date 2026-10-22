@@ -12,7 +12,11 @@ test('Settings stays usable in short windows and renders updater states', async 
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ ipcMain }) => {
-      for (const channel of ['app:get-update-state', 'rtk:get-status', 'rtk:check-for-update']) ipcMain.removeHandler(channel)
+      for (const channel of ['app:get-update-state', 'rtk:get-status', 'rtk:check-for-update', 'agent:list', 'agent:get-readiness', 'agent:compatibility']) ipcMain.removeHandler(channel)
+      // A Claude CLI newer than the one the nightly contract check verified.
+      ipcMain.handle('agent:list', () => [{ agentProfileId: 'builtin-claude', name: 'Claude Code', provider: 'claude', command: 'claude', commandTemplate: 'claude', isBuiltin: true }])
+      ipcMain.handle('agent:get-readiness', () => [{ provider: 'claude', command: 'claude', status: 'ready', version: '2.2.0 (Claude Code)' }])
+      ipcMain.handle('agent:compatibility', () => ({ checkedAt: '2026-10-22T06:20:00Z', ok: true, providers: { claude: { ok: true, versions: { 'ubuntu-latest': '2.1.306' } } } }))
       ipcMain.handle('app:get-update-state', () => ({ status: 'disabled', currentVersion: '0.13.0', availableVersion: null, progress: null, error: null, lastCheckedAt: null, preferences: { mode: 'auto', pinnedVersion: null } }))
       const rtk = { installed: true, version: 'v0.49.0', latestVersion: 'v0.49.0', updateAvailable: false, binDir: null, error: null, checking: false, updating: false, lastCheckedAt: Date.now() }
       ipcMain.handle('rtk:get-status', () => rtk)
@@ -22,6 +26,9 @@ test('Settings stays usable in short windows and renders updater states', async 
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(settings).toBeVisible()
     await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
+    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
+    await expect(settings.getByTestId('provider-contract-claude')).toHaveText('Newer than checked')
+    await expect(settings.getByTestId('provider-contract-claude')).toHaveAttribute('title', /newer than 2\.1\.306/)
     const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['voice', 'Voice'], ['notifications', 'Notifications'], ['updates', 'Updates'], ['diagnostics', 'Diagnostics']]
     for (const width of [1440, 1280, 900, 600]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : width === 1280 ? 720 : 600 })

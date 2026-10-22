@@ -131,7 +131,8 @@ export const IPC_CHANNELS = {
     update:      'agent:update',
     delete:      'agent:delete',
     discover:    'agent:discover',
-    getReadiness:'agent:get-readiness'
+    getReadiness:'agent:get-readiness',
+    compatibility: 'agent:compatibility'
   },
   tasks: {
     list: 'tasks:list',
@@ -526,6 +527,8 @@ export interface AgentApi {
   delete(id: string): Promise<void>
   discover(forceRefresh?: boolean): Promise<AgentReadiness[]>
   getReadiness(): Promise<AgentReadiness[]>
+  /** The last nightly provider contract result; null when it cannot be read. */
+  compatibility?(): Promise<import('../providerCompatibility').ProviderCompatibility | null>
 }
 
 export interface TaskApi {

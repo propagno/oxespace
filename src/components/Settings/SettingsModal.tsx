@@ -49,6 +49,7 @@ export interface SettingsModalProps {
 
 import { PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
 import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
+import { compatibilityBadge, type ProviderCompatibility } from '../../../shared/providerCompatibility'
 export { PROVIDER_INSTALL_DOCS }
 
 function openInstallDocs(url: string): void {
@@ -265,6 +266,13 @@ function ProvidersSettingsSection({
 }): ReactElement {
   const [showMissing, setShowMissing] = useState(false)
   const [usingId, setUsingId] = useState<string | null>(null)
+  // The last nightly contract check; one network read when the section opens, cached by the main process.
+  const [compatibility, setCompatibility] = useState<ProviderCompatibility | null>(null)
+  useEffect(() => {
+    let active = true
+    void window.oxe?.agent?.compatibility?.().then(value => { if (active) setCompatibility(value) }).catch(() => {})
+    return () => { active = false }
+  }, [])
   const lastHealthCheckAt = useAgentStore((s) => s.lastHealthCheckAt)
   const checkedLabel = formatCheckedAgo(lastHealthCheckAt)
 
@@ -336,6 +344,7 @@ function ProvidersSettingsSection({
   }): ReactElement => {
     const isCustom = profile.provider === 'custom'
     const install = !isCustom ? PROVIDER_INSTALL_DOCS[profile.provider] : undefined
+    const contract = status === 'ready' ? compatibilityBadge(profile.provider, readiness?.version, compatibility) : null
     const detail = isCustom
       ? `skill · parent ${profile.parentProvider ?? '—'}`
       : readiness?.details && status === 'missing'
@@ -356,6 +365,7 @@ function ProvidersSettingsSection({
           <div className="settings-provider-card-main">
             <strong>{profile.name}</strong>
             <span title={detail}>{detail}</span>
+            {contract ? <span className="settings-provider-contract" data-state={contract.state} title={contract.title} data-testid={`provider-contract-${profile.provider}`}>{contract.label}</span> : null}
           </div>
           <div className="settings-provider-card-status">
             <ReadinessBadge status={status} />

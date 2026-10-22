@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { AgentService } from '../services/agent.service'
+import { providerCompatibility } from '../services/provider-compatibility'
 import { parseCreateAgentProfileInput, parseId, parseUpdateAgentProfileInput } from './validation'
 
 export function registerAgentIpc(db: AppDatabase, agentService = new AgentService(db)): void {
@@ -28,5 +29,10 @@ export function registerAgentIpc(db: AppDatabase, agentService = new AgentServic
 
   ipcMain.handle(IPC_CHANNELS.agent.getReadiness, () =>
     agentService.getCachedReadiness()
+  )
+
+  // E2E runs offline and must not depend on the network.
+  ipcMain.handle(IPC_CHANNELS.agent.compatibility, () =>
+    process.env.OXESPACE_E2E_MOCK_NATIVE === '1' ? null : providerCompatibility()
   )
 }
