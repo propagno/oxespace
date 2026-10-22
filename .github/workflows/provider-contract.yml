@@ -1,0 +1,104 @@
+name: Provider contract
+
+# Every night, the Thread protocol probes run against the newest Claude Code and Codex CLIs, so a change on
+# their side shows up here instead of in a user's report. The probes send no prompt and spend no quota.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  # A change to the probes or to this workflow is checked on its pull request; issues are only for the nightly run.
+  pull_request:
+    paths:
+      - scripts/probe-providers.cjs
+      - scripts/probe-claude-protocol.cjs
+      - scripts/provider-contract-report.mjs
+      - .github/workflows/provider-contract.yml
+  workflow_dispatch:
+    inputs:
+      claude_version:
+        description: Claude Code version to probe (npm dist-tag or version)
+        default: latest
+      codex_version:
+        description: Codex version to probe (npm dist-tag or version)
+        default: latest
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: provider-contract
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the provider CLIs
+        run: npm install --global "@anthropic-ai/claude-code@${{ inputs.claude_version || 'latest' }}" "@openai/codex@${{ inputs.codex_version || 'latest' }}"
+      - name: Probe the providers
+        # The report is collected even when a check fails; the report job decides the outcome.
+        continue-on-error: true
+        run: node scripts/probe-providers.cjs --json "report-${{ matrix.os }}.json"
+      - name: Probe the Claude control protocol
+        continue-on-error: true
+        run: node scripts/probe-claude-protocol.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: provider-report-${{ matrix.os }}
+          path: report-${{ matrix.os }}.json
+          if-no-files-found: warn
+
+  report:
+    name: Report
+    needs: probe
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          path: reports
+          pattern: provider-report-*
+      - name: Summarize
+        id: summary
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PROBE_OS: ubuntu-latest,windows-latest
+        run: |
+          if node scripts/provider-contract-report.mjs reports compatibility.json issue.md; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compatibility
+          path: compatibility.json
+      - name: Fail the pull request check
+        if: steps.summary.outputs.ok == 'false' && github.event_name == 'pull_request'
+        run: cat issue.md && exit 1
+      - name: Open or update the issue
+        if: steps.summary.outputs.ok == 'false' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create provider-contract --color B60205 --description "Nightly provider CLI contract check" 2>/dev/null || true
+          number=$(gh issue list --label provider-contract --state open --json number --jq '.[0].number')
+          if [ -n "$number" ]; then gh issue comment "$number" --body-file issue.md; else gh issue create --title "Provider contract check failing" --label provider-contract --body-file issue.md; fi
+          exit 1
+      - name: Close the issue when the contract holds again
+        if: steps.summary.outputs.ok == 'true' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for number in $(gh issue list --label provider-contract --state open --json number --jq '.[].number'); do gh issue close "$number" --comment "The contract check passes again: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; done
