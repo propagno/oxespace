@@ -57,7 +57,7 @@ export const DELEGATION_TOOLS: ToolEntry[] = [
   tool('oxespace_delegation_targets','List local destination workspaces explicitly authorized by the user. To register or authorize a repository, ask the user to add its path in Workspace settings > Agent delegation. No clone or permission bypass.',{}),
   tool('oxespace_delegation_result','Read authorized task results and provisioning receipts. Survives application restart; a replacement requester can first use delegation control from the exact original checkout.',{taskId:string},['taskId']),
   tool('oxespace_delegation_acknowledge','Persist your read cursor for a task without consuming another participant’s events.',{taskId:string,cursor:{type:'integer',minimum:0}},['taskId']),
-  tool('oxespace_list_agents','List configured Claude/Codex profiles eligible for delegation.',{}),
+  tool('oxespace_list_agents','List the configured Claude/Codex agent profiles you can delegate a task to. These are profiles, not running agents: for the agents running in panes, use oxespace_agents.',{}),
   tool('oxespace_delegate_task','Delegate to an independent, persistent worktree. Choose an existing exact branch, create an exact branch, or use a local generated template. Optional targetWorkspaceId must be user-authorized. Reuse key for idempotency. No push or merge.',{ key: string, agentProfileId: string, objective: string, handoff: string, acceptance: string, targetWorkspaceId: string,
     schemaVersion:{type:'integer',enum:[2]}, surface:{type:'string',enum:['thread','terminal']}, mode:{type:'string',enum:['analysis','isolated-change']},
     branchIntent:{ type:'object', additionalProperties:false, required:['strategy'], properties:{
