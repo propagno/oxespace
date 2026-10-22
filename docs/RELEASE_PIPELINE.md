@@ -139,7 +139,19 @@ Every release contains:
 | `sbom-windows-x64.spdx.json`, `sbom-linux-x64.spdx.json` | both | Production-dependency SBOMs |
 | `SHA256SUMS.txt` | both | Checksums of every asset |
 
-Consumers can compare `SHA256SUMS.txt` before installation. The release body is
+Consumers can compare `SHA256SUMS.txt` before installation. The installers and
+`SHA256SUMS.txt` also carry a GitHub build-provenance attestation, a signed
+statement that the file was built by this repository's `CI and Release`
+workflow. To check a download:
+
+```sh
+gh attestation verify OXESpace-X.Y.Z-x64.exe --repo propagno/oxespace
+```
+
+The Windows installer is not code-signed yet: Windows SmartScreen still shows
+"unknown publisher" until the SignPath signing (roadmap cycle A2) is active.
+
+The release body is
 `docs/releases/X.Y.Z.md` when that file exists on the released commit;
 otherwise GitHub generates notes using the categories in `.github/release.yml`.
 
