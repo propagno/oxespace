@@ -27,6 +27,15 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
   const [selected, setSelected] = useState(0)
   const [popupHeight, setPopupHeight] = useState(360)
   const listId = useId(), menu = useRef<HTMLDivElement>(null)
+  // Where the caret goes once the chosen command is on screen. Placed right after that render, not in a later frame:
+  // a frame can arrive after the person has already selected or typed, and would collapse their selection.
+  const caretAfterChoose = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    const at = caretAfterChoose.current
+    if (at === null) return
+    caretAfterChoose.current = null
+    textarea.current?.focus(); textarea.current?.setSelectionRange(at, at)
+  })
   const token = draft.match(/^\/([a-z0-9_:-]*)(?=\s|$)/i)
   const open = Boolean(snapshot && focused && !pending && dismissed !== draft && (manual || token && cursor <= token[0].length))
   const query = manual ? '' : token?.[1].toLowerCase() ?? ''
@@ -101,8 +110,8 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     if (localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name)) { executeLocal(`/${command.name}`); return }
     const suffix = token ? draft.slice(token[0].length).trimStart() : draft
     const text = `/${command.name} ${suffix}`
+    caretAfterChoose.current = text.length
     setDraft(text); setManual(false); setDismissed(text); setCursor(text.length)
-    requestAnimationFrame(() => { textarea.current?.focus(); textarea.current?.setSelectionRange(text.length, text.length) })
   }
   const show = () => {
     if (!snapshot || pending) return

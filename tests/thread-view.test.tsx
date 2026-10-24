@@ -474,6 +474,11 @@ describe('Thread workspace UI', () => {
     fireEvent.change(input, { target: { value: '/comp' } })
     fireEvent.keyDown(input, { key: 'Tab' })
     expect(input).toHaveValue('/compact ')
+    // The caret is at the end as soon as the command shows, so a selection made next is not collapsed by a late frame.
+    expect([(input as HTMLTextAreaElement).selectionStart, (input as HTMLTextAreaElement).selectionEnd]).toEqual([9, 9])
+    ;(input as HTMLTextAreaElement).setSelectionRange(0, 9)
+    await act(async () => { await new Promise(resolve => requestAnimationFrame(() => resolve(null))) })
+    expect([(input as HTMLTextAreaElement).selectionStart, (input as HTMLTextAreaElement).selectionEnd]).toEqual([0, 9])
     fireEvent.click(screen.getByRole('button', { name: 'Show thread commands' }))
     fireEvent.click(await screen.findByRole('option', { name: /oxe-plan/ }))
     expect(input).toHaveValue('/oxe-plan ')
