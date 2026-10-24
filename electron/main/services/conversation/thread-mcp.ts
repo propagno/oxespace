@@ -20,6 +20,8 @@ export const THREAD_MCP_TOOLS = ['oxespace_team_status', 'oxespace_team_inbox', 
   'oxespace_capabilities', 'oxespace_execution_context', 'oxespace_list_agents', 'oxespace_list_workspaces',
   'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_quality_check', 'oxespace_git',
   'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_automations', 'oxespace_linear', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage',
+  // Changes: each action is recorded; pushes, pull requests, releases and the like are approved by a person.
+  'oxespace_git_change', 'oxespace_github_change', 'oxespace_threads_change',
   'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status',
   'oxespace_open_web_preview', 'oxespace_capture_web_preview',
   'oxespace_thread_create', 'oxespace_thread_send', 'oxespace_thread_read',
