@@ -130,7 +130,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^5.0.3",
     "bson": "^7.3.3",
-    "electron": "44.6.0",
+    "electron": "44.9.3",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.5",
