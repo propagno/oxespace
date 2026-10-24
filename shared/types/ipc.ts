@@ -337,7 +337,8 @@ export const IPC_CHANNELS = {
     regenerateToken: 'mcp-internal:regenerate-token',
     captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
-    onWorktreeChanged: 'mcp-internal:on-worktree-changed'
+    onWorktreeChanged: 'mcp-internal:on-worktree-changed',
+    actionAudit: 'mcp-internal:action-audit'
   },
   browserPreview: {
     session: 'browser-preview:session',
@@ -882,6 +883,8 @@ export interface McpInternalApi {
   captureWebPreview(): Promise<void>
   onWebPreview(listener: (event: import('./mcp-internal').InternalMcpWebPreviewEvent) => void): () => void
   onWorktreeChanged(listener: (event: import('./mcp-internal').InternalMcpWorktreeChangedEvent) => void): () => void
+  /** Recent changes agents made through the OXESpace MCP tools, newest first. */
+  actionAudit(limit?: number): Promise<import('./mcp-internal').AgentActionEntry[]>
 }
 
 export interface OxeContextApi {

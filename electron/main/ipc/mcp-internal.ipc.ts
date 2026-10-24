@@ -17,6 +17,10 @@ export function registerMcpInternalIpc(handle: InternalMcpHandle): void {
   ipcMain.handle(IPC_CHANNELS.mcpInternal.getStatus, (event) => { requireAppFrame(event, 'MCP bridge requests'); return handle.getStatus() })
   // A new token disconnects every agent using the bridge: only the app's own window may ask.
   ipcMain.handle(IPC_CHANNELS.mcpInternal.regenerateToken, (event) => { requireAppFrame(event, 'MCP bridge requests'); return handle.regenerateToken() })
+  ipcMain.handle(IPC_CHANNELS.mcpInternal.actionAudit, (event, limit: unknown) => {
+    requireAppFrame(event, 'MCP bridge requests')
+    return handle.actionAudit(typeof limit === 'number' && Number.isInteger(limit) ? limit : 200)
+  })
   ipcMain.handle(IPC_CHANNELS.mcpInternal.captureWebPreview, async (event) => {
     requireAppFrame(event, 'MCP bridge requests')
     const win = BrowserWindow.getAllWindows().find((item) => !item.isDestroyed())

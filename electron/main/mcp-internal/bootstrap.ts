@@ -82,6 +82,7 @@ export interface InternalMcpHandle {
   regenerateToken(): Promise<InternalMcpStatus>
   onWebPreview(listener: (event: InternalMcpWebPreviewEvent) => void): () => void
   onWorktreeChanged(listener: (event: InternalMcpWorktreeChangedEvent) => void): () => void
+  actionAudit(limit: number): import('../../../shared/types/mcp-internal').AgentActionEntry[]
 }
 
 const SINGLETON_ID = 'singleton'
@@ -219,7 +220,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     return worktree.subscribe(listener)
   }
 
-  return { start, stop, getStatus, regenerateToken, onWebPreview, onWorktreeChanged }
+  return { start, stop, getStatus, regenerateToken, onWebPreview, onWorktreeChanged, actionAudit: limit => actionAudit.list({ limit }) }
 }
 
 /* ── meta singleton helpers ───────────────────────────────────── */
