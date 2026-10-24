@@ -17,14 +17,22 @@ export interface ActionScope {
   actor: ActionActor
 }
 
+export interface Approval { summary: string; text: string; reasons?: string[] }
+
 export interface DomainAction {
   level: ActionLevel
   description: string
   /** JSON-Schema properties this action reads, merged into the tool's schema. */
   properties?: Record<string, unknown>
   required?: string[]
-  /** For `confirm`: what the person is asked to approve. Must describe the effect exactly. */
-  confirm?: (args: Args, scope: ActionScope, ctx: ToolContext) => Promise<{ summary: string; text: string; reasons?: string[] }> | { summary: string; text: string; reasons?: string[] }
+  /**
+   * For `confirm`: what the person is asked to approve; it must describe the effect exactly. Returning
+   * null skips the question for this call (for example a Thread this caller created): the call is then
+   * handled as `write`, still recorded and rate limited. Say when in `approvalNote`.
+   */
+  confirm?: (args: Args, scope: ActionScope, ctx: ToolContext) => Promise<Approval | null> | Approval | null
+  /** Replaces "A person approves each call." in the tool description. */
+  approvalNote?: string
   run: (args: Args, scope: ActionScope, ctx: ToolContext) => Promise<unknown>
 }
 
@@ -68,7 +76,7 @@ export function domainTool(name: string, summary: string, actions: Record<string
   const properties: Record<string, unknown> = { action: { type: 'string', enum: Object.keys(actions), description: 'What to do. See the tool description for each action.' } }
   for (const action of Object.values(actions)) Object.assign(properties, action.properties ?? {})
   const lines = Object.entries(actions).map(([key, action]) => {
-    const needs = action.level === 'confirm' ? ' A person approves each call.' : ''
+    const needs = action.level === 'confirm' ? ` ${action.approvalNote ?? 'A person approves each call.'}` : ''
     const required = action.required?.length ? ` Requires: ${action.required.join(', ')}.` : ''
     return `- ${key} (${action.level}): ${action.description}${required}${needs}`
   })
@@ -85,8 +93,9 @@ export function domainTool(name: string, summary: string, actions: Record<string
         if (missing.length) throw new ActionRefused(`${key} requires: ${missing.join(', ')}.`, 'invalid')
         const scope = await resolveScope(ctx)
         const approval = action.level === 'confirm' && action.confirm ? await action.confirm(args, scope, ctx) : undefined
+        const level = action.level === 'confirm' && approval === null ? 'write' : action.level
         const result = await (ctx.agentActions ?? fallbackActions).run(scope.actor, {
-          tool: name, action: key, level: action.level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, reasons: approval?.reasons
+          tool: name, action: key, level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, reasons: approval?.reasons
         }, () => action.run(args, scope, ctx))
         return reply({ schemaVersion: 1, ok: true, result })
       } catch (error) {
@@ -122,7 +131,10 @@ export function bool(args: Args, field: string, fallback: boolean): boolean {
 
 /** Wraps a validation error from the IPC parsers so the model sees the reason. */
 export function parsed<T>(parse: () => T): T {
-  try { return parse() } catch (error) { throw new ActionRefused(error instanceof Error ? error.message : 'Invalid arguments.', 'invalid') }
+  try { return parse() } catch (error) {
+    if (error instanceof ActionRefused) throw error
+    throw new ActionRefused(error instanceof Error ? error.message : 'Invalid arguments.', 'invalid')
+  }
 }
 
 /** A service the tool needs, or a refusal the model can understand. */

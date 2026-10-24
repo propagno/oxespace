@@ -5,7 +5,7 @@
  */
 export interface AppServices {
   github?: import('../services/github').GitHubService
-  tasks?: Pick<import('../services/task.service').TaskService, 'list' | 'getReadyTaskIds' | 'executions'>
+  tasks?: Pick<import('../services/task.service').TaskService, 'list' | 'getReadyTaskIds' | 'executions' | 'create' | 'update' | 'reorder' | 'addDependency' | 'removeDependency' | 'verify' | 'delete'>
   skills?: Pick<import('../services/skill.service').SkillService, 'listSkills'>
   automations?: () => Pick<import('../services/automations/service').AutomationService, 'list' | 'runs'> | undefined
   linear?: Pick<import('../services/linear.service').LinearService, 'getStatus' | 'listTeams' | 'listIssues' | 'getIssue'>
