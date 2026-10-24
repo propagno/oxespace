@@ -858,6 +858,17 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // The conversation's provider usage, live in the bottom bar, which sits below the composer instead of over it.
     const usage = page.getByTestId('usage-status')
     await expect(usage).toContainText('5h 40% · wk 30%')
+    // Clicking the reading opens its detail above the bar, inside the window.
+    await usage.click()
+    const usageDetail = page.getByTestId('usage-popover')
+    await expect(usageDetail).toContainText('5-hour window')
+    await expect(usageDetail.getByRole('region', { name: 'Claude usage' }).getByRole('meter')).toHaveCount(2)
+    const detailBox = (await usageDetail.boundingBox())!, viewport = page.viewportSize()!
+    expect(detailBox.x + detailBox.width).toBeLessThanOrEqual(viewport.width)
+    expect(detailBox.y + detailBox.height).toBeLessThanOrEqual((await usage.boundingBox())!.y)
+    await page.screenshot({ path: 'test-results/usage-popover.png' })
+    await page.keyboard.press('Escape')
+    await expect(usageDetail).toHaveCount(0)
     expect(await page.evaluate(() => {
       const bar = document.querySelector('.app-statusbar')!.getBoundingClientRect()
       const composer = document.querySelector('.thread-composer-dock')!.getBoundingClientRect()
