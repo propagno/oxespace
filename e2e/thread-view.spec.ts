@@ -405,7 +405,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.keyboard.press('Tab')
     await expect(message).toHaveValue('/oxe-plan ')
     await expect(page.getByRole('listbox', { name: 'Thread commands' })).toHaveCount(0)
-    await message.fill('')
+    // Cleared with keys, as a person does: a programmatic fill('') can leave React's controlled value unchanged,
+    // and the next re-render (the caret placed by the command just chosen) puts "/oxe-plan " back.
+    await message.press('Control+a')
+    await message.press('Delete')
     await expect(message).toHaveValue('')
     await page.keyboard.press('Control+/')
     await expect(page.getByRole('listbox', { name: 'Thread commands' })).toBeVisible()
