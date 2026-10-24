@@ -8,10 +8,11 @@ import { parseRecord, parseToken, requireAppFrame } from './ipc-guards'
  * Renderer-facing IPC for the per-provider usage/credits counter.
  *   - `agent-credits:get` — quota snapshot for a given provider (Claude/Codex).
  */
-export function registerAgentCreditsIpc(service = new AgentCreditsService()): void {
+export function registerAgentCreditsIpc(service = new AgentCreditsService()): AgentCreditsService {
   ipcMain.handle(IPC_CHANNELS.agentCredits.get, (event, value: unknown) => {
     requireAppFrame(event, 'Usage requests')
     const input = parseRecord(value, 'Usage request')
     return service.getCredits(parseToken(input.provider, 'Provider', 40) as AgentCreditsInput['provider'], input.force === true)
   })
+  return service
 }

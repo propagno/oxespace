@@ -64,6 +64,7 @@ export interface InternalMcpDeps {
   oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
   oxeQueryError?: () => string | undefined
   git?: import('./tool-registry').ToolContext['git']
+  app?: import('./app-services').AppServices
   db: AppDatabase
   mcpManager: McpManager
   workspaceServ: WorkspaceService
@@ -104,6 +105,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     oxeQueryError: deps.oxeQueryError,
     agentActions: new AgentActions({ broker: new ApprovalBroker(nativeApprovalPrompter), audit: actionAudit }),
     git: deps.git,
+    app: deps.app,
     workspaceServ: deps.workspaceServ,
     github: deps.github,
     background: deps.background,

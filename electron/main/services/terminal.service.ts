@@ -465,6 +465,16 @@ export class TerminalManager {
     session.attached = false
   }
 
+  /**
+   * The retained output for a reader that is not a view (an agent through MCP).
+   * Nothing is attached or consumed, so the pane and its views are unaffected.
+   */
+  peek(paneId: string): { running: boolean; data: string; altScreen: boolean } | null {
+    const session = this.sessions.get(paneId)
+    if (!session) return null
+    return { running: true, data: session.ring.snapshot(), altScreen: session.modes.altScreen }
+  }
+
   status(paneId: string): TerminalStatusResult {
     const session = this.sessions.get(paneId)
     if (!session) return { running: false, seq: 0, altScreen: false }

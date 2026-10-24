@@ -46,6 +46,22 @@ never an argument, so a model cannot ask for less checking:
 | `write` | Only an agent with a live OXESpace execution (a Code pane or a Thread) | Rate limited (30 per minute per execution) and recorded. |
 | `confirm` | As `write` | A native dialog shows the exact text; the grant is bound to its SHA-256, single use, five minutes. Answers `approval-pending` until the person decides; call again with the same arguments. |
 
+Read tools available now (all `read`):
+
+| Tool | Actions |
+|---|---|
+| `oxespace_git` | `status`, `branch`, `diff_summary`, `diff`, `file_at_ref` |
+| `oxespace_github` | `status`, `branches`, `pull_requests`, `pull_request_status`, `commits`, `commit`, `releases`, `workflows`, `runs`, `run`, `run_logs` (cleaned, secrets masked) |
+| `oxespace_threads` | `list`, `read`, `usage` — Threads of the caller's project only |
+| `oxespace_tasks` | `list`, `ready`, `executions` — Code workspaces only |
+| `oxespace_skills` | `list`, `get` |
+| `oxespace_automations` | `list`, `runs` |
+| `oxespace_linear` | `status`, `teams`, `issues`, `issue` |
+| `oxespace_terminal` | `output` — recent output of a pane in the caller's Code workspace, escape codes removed and secrets masked; never a full-screen program |
+| `oxespace_mcp_servers` | `list` — name, scope, transport, enabled, trusted, health and tool names; never commands, environment or headers |
+| `oxespace_search` | `text` (ripgrep), `files` |
+| `oxespace_usage` | `context`, `credits` |
+
 Calls apply to the caller's own directory (the pane's or Thread's root); a caller without an execution
 gets the workspace it names or the active one. Refusals have a stable `code`: `invalid`, `no-execution`,
 `no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `failed`.

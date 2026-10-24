@@ -12,7 +12,7 @@ import {
   parseTaskVerifyInput
 } from './validation'
 
-export function registerTaskIpc(db: AppDatabase, terminal: TerminalIpcController): void {
+export function registerTaskIpc(db: AppDatabase, terminal: TerminalIpcController): TaskService {
   const taskService = new TaskService(db, {
     isTerminalRunning: (paneId) => 'hasSession' in terminal && typeof terminal.hasSession === 'function' && terminal.hasSession(paneId),
     terminalWrite: (input) => terminal.write(input),
@@ -44,6 +44,7 @@ export function registerTaskIpc(db: AppDatabase, terminal: TerminalIpcController
   ipcMain.handle(IPC_CHANNELS.tasks.getReady, (_event, workspaceId: unknown) =>
     taskService.getReadyTaskIds(parseId(workspaceId, 'workspaceId'))
   )
+  return taskService
 }
 
 function parseDependencyInput(value: unknown): { taskId: string; dependsOnTaskId: string } {

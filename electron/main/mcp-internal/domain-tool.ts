@@ -2,6 +2,7 @@ import { basename } from 'node:path'
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { ActionRefused, AgentActions, type ActionActor } from '../services/agent-actions/agent-actions'
 import type { ActionLevel } from '../services/agent-actions/action-audit'
+import type { AppServices } from './app-services'
 
 export type Args = Record<string, unknown>
 
@@ -11,6 +12,8 @@ export interface ActionScope {
   rootPath: string
   name: string
   workspaceId: string | null
+  /** The pane or Thread that is calling, when it is a live execution. */
+  owner?: { kind: 'pane' | 'thread'; id: string }
   actor: ActionActor
 }
 
@@ -39,7 +42,7 @@ export async function resolveScope(ctx: ToolContext): Promise<ActionScope> {
   if (execution) {
     const workspace = execution.workspaceId.startsWith('thread:') ? null : ctx.workspaceServ.get(execution.workspaceId)
     return {
-      rootPath: execution.canonicalRoot, name: workspace?.name ?? basename(execution.canonicalRoot), workspaceId: execution.workspaceId,
+      rootPath: execution.canonicalRoot, name: workspace?.name ?? basename(execution.canonicalRoot), workspaceId: execution.workspaceId, owner: execution.owner,
       actor: { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, workspaceId: execution.workspaceId, authenticated: true }
     }
   }
@@ -120,4 +123,17 @@ export function bool(args: Args, field: string, fallback: boolean): boolean {
 /** Wraps a validation error from the IPC parsers so the model sees the reason. */
 export function parsed<T>(parse: () => T): T {
   try { return parse() } catch (error) { throw new ActionRefused(error instanceof Error ? error.message : 'Invalid arguments.', 'invalid') }
+}
+
+/** A service the tool needs, or a refusal the model can understand. */
+export function service<K extends keyof AppServices>(ctx: ToolContext, key: K): NonNullable<AppServices[K]> {
+  const value = ctx.app?.[key]
+  if (!value) throw new ActionRefused(`This part of OXESpace (${key}) is unavailable right now.`, 'unavailable')
+  return value as NonNullable<AppServices[K]>
+}
+
+/** Tasks, panes and other workspace features exist only in Code workspaces, not in a Thread's project. */
+export function codeWorkspace(scope: ActionScope): string {
+  if (!scope.workspaceId || scope.workspaceId.startsWith('thread:')) throw new ActionRefused('This needs a Code workspace. Open the project in Code mode first.', 'no-workspace')
+  return scope.workspaceId
 }

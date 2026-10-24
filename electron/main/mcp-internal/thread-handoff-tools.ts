@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { turnVerdict } from '../../../shared/threadTurnVerdict'
+import type { ThreadSnapshot } from '../../../shared/types/thread'
 
 function input(args: unknown): Record<string, unknown> {
   if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Arguments must be an object')
@@ -21,6 +22,44 @@ function origin(ctx: ToolContext): string {
 
 function result(value: unknown, isError = false) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(value) }], ...(isError ? { isError: true } : {}) }
+}
+
+/** Status and messages of a Thread since a cursor, with the latest turn's outcome; bounded for a model to read. */
+export function threadReadout(snapshot: ThreadSnapshot, cursor: number | undefined, limit: number) {
+  const indexed = snapshot.events.map((event, index) => ({ event, index }))
+    .filter(({ event, index }) => event.type === 'message' && (cursor === undefined || index >= cursor))
+  const window = cursor === undefined ? indexed.slice(-limit) : indexed.slice(0, limit)
+  const MAX_TEXT = 4000, MAX_TOTAL = 32_000
+  let total = 0, truncated = false
+  const messages: Array<{ role: string; text: string }> = []
+  for (const { event } of window) {
+    if (event.type !== 'message') continue
+    let text = event.text
+    if (text.length > MAX_TEXT) { text = `${text.slice(0, MAX_TEXT)}…`; truncated = true }
+    if (total + text.length > MAX_TOTAL) { truncated = true; break }
+    total += text.length
+    messages.push({ role: event.role, text })
+  }
+  const last = window.at(-1)
+  const nextCursor = last ? last.index + 1 : cursor ?? snapshot.events.length
+  const pending = snapshot.events.filter(event => event.type === 'request' && event.request.state === 'pending').length
+  // Files, tool outcomes and failure guidance of the latest turn, so a supervisor need not infer them
+  // from prose. The closing message is already among `messages`.
+  const latestTurn = snapshot.turns?.at(-1)
+  const verdict = latestTurn ? turnVerdict(snapshot, latestTurn.id) : undefined
+  const lastTurn = verdict ? (({ summary: _summary, ...rest }) => rest)(verdict) : null
+  return {
+    status: snapshot.thread.status,
+    lastTurnStatus: snapshot.thread.lastTurnStatus ?? null,
+    turns: snapshot.turns?.length ?? 0,
+    pendingRequests: pending,
+    lastTurn,
+    messages,
+    cursor: nextCursor,
+    hasMore: cursor !== undefined && indexed.length > window.length,
+    ...(truncated ? { truncated: true } : {}),
+    ...(snapshot.thread.status === 'running' ? { note: 'The destination is still working; read again later with this cursor.' } : {})
+  }
 }
 
 const requestKey = { type: 'string', minLength: 8, maxLength: 100, description: 'Stable caller-generated idempotency key. Reuse the same key only when retrying the same action.' }
@@ -108,42 +147,7 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       if (!owned) throw new Error('Destination Thread was not created by this origin execution')
       const limit = typeof values.limit === 'number' && Number.isInteger(values.limit) ? Math.min(50, Math.max(1, values.limit)) : 20
       const cursor = typeof values.cursor === 'number' && Number.isInteger(values.cursor) && values.cursor >= 0 ? values.cursor : undefined
-      const snapshot = (await ctx.threads).read(threadId)
-      const indexed = snapshot.events.map((event, index) => ({ event, index }))
-        .filter(({ event, index }) => event.type === 'message' && (cursor === undefined || index >= cursor))
-      const window = cursor === undefined ? indexed.slice(-limit) : indexed.slice(0, limit)
-      const MAX_TEXT = 4000, MAX_TOTAL = 32_000
-      let total = 0, truncated = false
-      const messages: Array<{ role: string; text: string }> = []
-      for (const { event } of window) {
-        if (event.type !== 'message') continue
-        let text = event.text
-        if (text.length > MAX_TEXT) { text = `${text.slice(0, MAX_TEXT)}…`; truncated = true }
-        if (total + text.length > MAX_TOTAL) { truncated = true; break }
-        total += text.length
-        messages.push({ role: event.role, text })
-      }
-      const last = window.at(-1)
-      const nextCursor = last ? last.index + 1 : cursor ?? snapshot.events.length
-      const pending = snapshot.events.filter(event => event.type === 'request' && event.request.state === 'pending').length
-      // Files, tool outcomes and failure guidance of the latest turn, so a supervisor need not infer them
-      // from prose. The closing message is already among `messages`.
-      const latestTurn = snapshot.turns?.at(-1)
-      const verdict = latestTurn ? turnVerdict(snapshot, latestTurn.id) : undefined
-      const lastTurn = verdict ? (({ summary: _summary, ...rest }) => rest)(verdict) : null
-      return result({
-        threadId,
-        status: snapshot.thread.status,
-        lastTurnStatus: snapshot.thread.lastTurnStatus ?? null,
-        turns: snapshot.turns?.length ?? 0,
-        pendingRequests: pending,
-        lastTurn,
-        messages,
-        cursor: nextCursor,
-        hasMore: cursor !== undefined && indexed.length > window.length,
-        ...(truncated ? { truncated: true } : {}),
-        ...(snapshot.thread.status === 'running' ? { note: 'The destination is still working; read again later with this cursor.' } : {})
-      })
+      return result({ threadId, ...threadReadout((await ctx.threads).read(threadId), cursor, limit) })
     }
   }
 ]
