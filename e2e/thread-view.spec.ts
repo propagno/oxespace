@@ -409,7 +409,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // and the next re-render (the caret placed by the command just chosen) puts "/oxe-plan " back.
     await message.press('Control+a')
     await message.press('Delete')
-    await expect(message).toHaveValue('')
+    // When this flakes, say what the composer was doing, so the cause can be read from the CI log.
+    const composerState = () => message.evaluate(el => {
+      const field = el as HTMLTextAreaElement
+      return JSON.stringify({ value: field.value, disabled: field.disabled, focused: document.activeElement === field, selection: [field.selectionStart, field.selectionEnd], popup: Boolean(document.querySelector('.thread-command-popup')) })
+    })
+    await expect.poll(() => message.inputValue(), { message: 'composer cleared', timeout: 5000 }).toBe('').catch(async error => { throw new Error(`${error.message} · composer: ${await composerState()}`) })
     await page.keyboard.press('Control+/')
     await expect(page.getByRole('listbox', { name: 'Thread commands' })).toBeVisible()
     await expect(message).toHaveValue('/')
