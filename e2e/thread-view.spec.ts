@@ -399,7 +399,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect.poll(() => app.evaluate(() => Number((globalThis as Record<string, unknown>).threadCommandQueries))).toBe(1)
     await message.focus()
     await message.pressSequentially('/oxe')
-    await expect(message).toBeFocused()
+    // This step has flaked on Linux CI with the composer holding "/" and focus elsewhere: name where focus went.
+    await expect(message).toBeFocused().catch(async error => {
+      const holder = await page.evaluate(() => { const el = document.activeElement as HTMLElement | null; return el ? `${el.tagName.toLowerCase()} aria-label="${el.getAttribute('aria-label') ?? ''}" class="${el.className}"` : 'none' })
+      throw new Error(`${error.message} · focus is on: ${holder} · composer value: ${JSON.stringify(await message.inputValue())}`)
+    })
     await expect(page.getByRole('option', { name: /oxe-plan/ })).toBeVisible()
     await expect(page.getByRole('searchbox', { name: 'Filter threads' })).toHaveValue('')
     await page.keyboard.press('Tab')
