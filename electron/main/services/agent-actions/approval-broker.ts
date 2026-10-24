@@ -8,9 +8,14 @@ export interface ApprovalRequest {
   /** Who is asking, for the prompt. */
   actor: string
   tool: string
-  connectionName: string
-  environment: string
-  engine: string
+  /** Dialog title, e.g. "OxeQuery — request from an agent". */
+  title: string
+  /** One line naming what the actor wants, e.g. "thread:t1 wants to push to origin". */
+  summary: string
+  /** What it applies to, shown above the text: a connection, a repository, a workspace. */
+  target: string
+  /** Label of the "allow for this run" button, offered for reads only. */
+  sessionLabel?: string
   risk: ApprovalRisk
   /** Exactly what will run. */
   text: string
@@ -55,8 +60,8 @@ export class ApprovalBroker {
 
   constructor(private readonly prompter: ApprovalPrompter | undefined, private readonly now: () => number = Date.now, private readonly defaultWaitMs = 45_000) {}
 
-  private key(executionKey: string, connectionId: string, tool: string, hash: string): string {
-    return `${executionKey}|${connectionId}|${tool}|${hash}`
+  private key(executionKey: string, scope: string, tool: string, hash: string): string {
+    return `${executionKey}|${scope}|${tool}|${hash}`
   }
 
   private expireSessionReads(now: number): void {
@@ -71,18 +76,18 @@ export class ApprovalBroker {
 
   async require(
     executionKey: string,
-    connectionId: string,
+    scope: string,
     request: Omit<ApprovalRequest, 'id' | 'hash' | 'expiresAt'>,
     waitMs = this.defaultWaitMs
   ): Promise<ApprovalState> {
     const hash = textHash(request.text)
-    const key = this.key(executionKey, connectionId, request.tool, hash)
+    const key = this.key(executionKey, scope, request.tool, hash)
     const now = this.now()
     this.expireSessionReads(now)
     // Expired grants and denials are dead entries; drop them so a long session does not accumulate them.
     for (const [entry, until] of this.grants) if (until <= now) this.grants.delete(entry)
     for (const [entry, until] of this.denials) if (until <= now) this.denials.delete(entry)
-    if (request.risk === 'read' && this.sessionReads.has(`${executionKey}|${connectionId}|read`)) return { state: 'approved', via: 'session' }
+    if (request.risk === 'read' && this.sessionReads.has(`${executionKey}|${scope}|read`)) return { state: 'approved', via: 'session' }
     const granted = this.grants.get(key)
     if (granted !== undefined) {
       this.grants.delete(key)
@@ -105,7 +110,7 @@ export class ApprovalBroker {
         if (decision === 'deny') this.denials.set(key, at + DENY_MEMORY_MS)
         else {
           this.grants.set(key, at + APPROVAL_TTL_MS)
-          if (decision === 'allow-session' && request.risk === 'read') this.sessionReads.set(`${executionKey}|${connectionId}|read`, this.now())
+          if (decision === 'allow-session' && request.risk === 'read') this.sessionReads.set(`${executionKey}|${scope}|read`, this.now())
         }
         return decision
       })
@@ -119,6 +124,6 @@ export class ApprovalBroker {
     if (settled === 'deny') return { state: 'denied' }
     // Approved while the caller was waiting: consume the grant now.
     this.grants.delete(key)
-    return { state: 'approved', via: this.sessionReads.has(`${executionKey}|${connectionId}|read`) && request.risk === 'read' && settled === 'allow-session' ? 'session' : 'once' }
+    return { state: 'approved', via: this.sessionReads.has(`${executionKey}|${scope}|read`) && request.risk === 'read' && settled === 'allow-session' ? 'session' : 'once' }
   }
 }

@@ -35,7 +35,7 @@ const READ_ONLY_TOOLS = new Set([
   'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
   'oxespace_memory_diagnostics', 'oxespace_delegation_status', 'oxespace_delegation_result',
   'oxespace_delegation_inbox', 'oxespace_delegation_targets', 'oxespace_delegation_preflight',
-  'oxespace_documentation_get', 'oxespace_documentation_list'
+  'oxespace_documentation_get', 'oxespace_documentation_list', 'oxespace_git'
 ])
 
 if ((!PORT || !TOKEN) && !OPTIONAL_MEMORY) {
