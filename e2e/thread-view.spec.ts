@@ -399,7 +399,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect.poll(() => app.evaluate(() => Number((globalThis as Record<string, unknown>).threadCommandQueries))).toBe(1)
     await message.focus()
     await message.pressSequentially('/oxe')
-    await expect(message).toBeFocused()
+    // This step has flaked on Linux CI with the composer holding "/" and focus elsewhere: name where focus went.
+    await expect(message).toBeFocused().catch(async error => {
+      const holder = await page.evaluate(() => { const el = document.activeElement as HTMLElement | null; return el ? `${el.tagName.toLowerCase()} aria-label="${el.getAttribute('aria-label') ?? ''}" class="${el.className}"` : 'none' })
+      throw new Error(`${error.message} · focus is on: ${holder} · composer value: ${JSON.stringify(await message.inputValue())}`)
+    })
     await expect(page.getByRole('option', { name: /oxe-plan/ })).toBeVisible()
     await expect(page.getByRole('searchbox', { name: 'Filter threads' })).toHaveValue('')
     await page.keyboard.press('Tab')
@@ -409,7 +413,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // and the next re-render (the caret placed by the command just chosen) puts "/oxe-plan " back.
     await message.press('Control+a')
     await message.press('Delete')
-    await expect(message).toHaveValue('')
+    // When this flakes, say what the composer was doing, so the cause can be read from the CI log.
+    const composerState = () => message.evaluate(el => {
+      const field = el as HTMLTextAreaElement
+      return JSON.stringify({ value: field.value, disabled: field.disabled, focused: document.activeElement === field, selection: [field.selectionStart, field.selectionEnd], popup: Boolean(document.querySelector('.thread-command-popup')) })
+    })
+    await expect.poll(() => message.inputValue(), { message: 'composer cleared', timeout: 5000 }).toBe('').catch(async error => { throw new Error(`${error.message} · composer: ${await composerState()}`) })
     await page.keyboard.press('Control+/')
     await expect(page.getByRole('listbox', { name: 'Thread commands' })).toBeVisible()
     await expect(message).toHaveValue('/')
