@@ -635,3 +635,6 @@
 .thread-empty-starter strong { font-size: var(--fs-sm); font-weight: 600; }
 .thread-empty-starter span { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.4; }
 .thread-queue-confirm { display: -webkit-box; margin: 0; overflow: hidden; color: var(--text-secondary); -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow-wrap: anywhere; }
+/* A background task's end, as Claude Code reports it to the agent: a note, not a message from the person. */
+.thread-task-notice { display: flex; align-items: center; gap: 6px; max-width: min(100%, var(--thread-prose-max)); margin: 6px 0; color: var(--text-muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.thread-task-notice > svg { flex: none; }
