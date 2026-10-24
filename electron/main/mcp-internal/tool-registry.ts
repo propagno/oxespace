@@ -34,6 +34,7 @@ import { OXEQUERY_TOOLS } from './oxequery-tools'
 import { CODE_GRAPH_TOOLS } from './code-graph-tools'
 import { WORK_TOOLS } from './work-tools'
 import { GIT_TOOLS } from './git-tools'
+import { APP_READ_TOOLS } from './app-read-tools'
 
 export interface ToolContext {
   captureRoot?: string
@@ -54,6 +55,8 @@ export interface ToolContext {
   memoryRunId?: string
   /** Policy for app tools outside OxeQuery: levels, approvals, rate limit, audit. */
   agentActions?: import('../services/agent-actions/agent-actions').AgentActions
+  /** Services the domain tools reach (GitHub, tasks, skills, Linear, terminal output...). */
+  app?: import('./app-services').AppServices
   git?: Pick<import('../services/git.service').GitService, 'getStatus' | 'getBranch' | 'getDiffSummary' | 'buildDiff' | 'getFileAtRef'>
   workspaceId: string | null
   workspaceServ: WorkspaceService
@@ -83,6 +86,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...CODE_GRAPH_TOOLS,
   ...WORK_TOOLS,
   ...GIT_TOOLS,
+  ...APP_READ_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',

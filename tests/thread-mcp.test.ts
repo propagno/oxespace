@@ -40,7 +40,8 @@ it('removes denied MCP tools before the session starts', () => {
   // Codex only hears about servers OXESpace attaches; github is configured in Codex itself.
   const codex = threadMcpArguments('codex', ['app-server'], '/bridge.cjs', undefined, denied)
   expect(codex).toContain('mcp_servers.oxespace-delegation.enabled=false')
-  expect(codex.join(' ')).not.toContain('github')
+  expect(codex.join(' ')).not.toContain('mcp_servers.github')
+  expect(codex.join(' ')).not.toContain('delete_repo')
   expect(codex.at(-1)).toBe('app-server')
   const scoped = threadMcpArguments('codex', ['app-server'], '/bridge.cjs', undefined, [{ server: 'oxespace-delegation', tool: 'oxespace_work_plan' }])
   expect(scoped).toContain('mcp_servers.oxespace-delegation.disabled_tools=["oxespace_work_plan"]')
