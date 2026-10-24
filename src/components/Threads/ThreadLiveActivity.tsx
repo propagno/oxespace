@@ -21,6 +21,16 @@ function runningToolLabel(tool: Tool, verbose = true): string {
   return `Using ${tool.name}`
 }
 
+/** A running tool is slow past three times its usual run in this conversation, and never before this. */
+export const SLOW_TOOL_MIN_MS = 30_000
+
+/** The median run of earlier calls of the same tool in this conversation; null when there are none. */
+export function usualToolRun(events: ThreadEvent[], name: string): number | null {
+  const runs = events.filter((event): event is Tool => event.type === 'tool' && event.name === name && event.state === 'completed' && event.startedAt !== undefined && event.completedAt !== undefined)
+    .map(event => event.completedAt! - event.startedAt!).filter(run => run >= 0).sort((a, b) => a - b)
+  return runs.length ? runs[Math.floor(runs.length / 2)] : null
+}
+
 export { BACKGROUND_TRUST_MS } from '../../../shared/threadBackground'
 import { BACKGROUND_TRUST_MS } from '../../../shared/threadBackground'
 
@@ -37,6 +47,10 @@ export interface LiveActivity {
   turnRunning: boolean
   /** Provider ids of the background tasks still listed as running. */
   taskIds: string[]
+  /** How long the running tool has been running, when it reported its start. */
+  toolElapsed?: string
+  /** The running tool is taking much longer than it usually does here. */
+  slowTool: boolean
 }
 
 /** A status is evidence of a provider event or transport data, never an inferred thought. */
@@ -74,8 +88,13 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
   else if (connection?.state === 'starting' || activity?.phase === 'connecting' && connection?.state !== 'connected') label = 'Connecting to the agent'
   else if (activity?.phase === 'responding' && now - activity.at < 15_000) label = 'Receiving response'
   else if (activity?.phase === 'reasoning') label = 'Analyzing request'
+  const toolRunMs = !awaitingInput && runningTool?.startedAt !== undefined ? now - runningTool.startedAt : undefined
+  const usual = runningTool ? usualToolRun(snapshot.events, runningTool.name) : null
+  const slowTool = toolRunMs !== undefined && toolRunMs >= Math.max(SLOW_TOOL_MIN_MS, (usual ?? 0) * 3)
   return {
     label, elapsed: duration(now - startedAt),
+    ...(toolRunMs !== undefined ? { toolElapsed: duration(toolRunMs) } : {}),
+    slowTool,
     signalAge: !turnRunning ? 'Background work reported by the provider' : lastSignal ? `Last provider signal ${duration(signalAgeMs)} ago` : `No provider signal yet · ${duration(signalAgeMs)}`,
     // Quiet background work is normal; only a running turn that goes silent is a doubt worth showing.
     stale: turnRunning && signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
@@ -104,7 +123,9 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
   return <section className={`thread-live-activity${activity.stale ? ' is-stale' : ''}${activity.awaitingInput ? ' is-awaiting-input' : ''}${activity.reconnecting ? ' is-reconnecting' : ''}`} aria-label="Current agent activity">
     <div className="thread-live-activity-main">
       {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Loader2 size={14} className="thread-spin" aria-hidden="true" />}
-      <span role="status"><strong title={activity.label}>{activity.stale && !activity.awaitingInput ? terminalObserved ? 'Provider result available · synchronizing required' : check.observation?.state === 'running' ? 'Provider confirms execution is active' : check.observation?.state === 'awaiting-input' ? 'Provider is waiting for input' : 'Waiting for a confirmed provider update' : activity.label}</strong></span><time title="Total time for this turn, including previous commands and waiting for input" aria-label={`Turn elapsed ${activity.elapsed}`}>Turn · {activity.elapsed}</time>
+      <span role="status"><strong title={activity.label}>{activity.stale && !activity.awaitingInput ? terminalObserved ? 'Provider result available · synchronizing required' : check.observation?.state === 'running' ? 'Provider confirms execution is active' : check.observation?.state === 'awaiting-input' ? 'Provider is waiting for input' : 'Waiting for a confirmed provider update' : activity.label}</strong>
+        {activity.toolElapsed && !activity.stale && <span className="thread-live-activity-tool"> · {activity.toolElapsed}</span>}
+        {activity.slowTool && !activity.stale && <span className="thread-live-activity-slow" title="This step is taking much longer than the same step took earlier in this conversation"> · taking longer than usual</span>}</span><time title="Total time for this turn, including previous commands and waiting for input" aria-label={`Turn elapsed ${activity.elapsed}`}>Turn · {activity.elapsed}</time>
     </div>
     {!activity.turnRunning && activity.taskIds.length > 0 && <button type="button" className="thread-live-activity-stop" disabled={stopping} onClick={() => {
       setStopping(true)
