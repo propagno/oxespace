@@ -15,6 +15,10 @@ import type {
   InternalMcpWorktreeChangedEvent
 } from '../../../shared/types/mcp-internal'
 import { createLocalRpcServer, type LocalRpcServer } from './local-rpc-server'
+import { AgentActions } from '../services/agent-actions/agent-actions'
+import { ActionAudit } from '../services/agent-actions/action-audit'
+import { ApprovalBroker } from '../services/agent-actions/approval-broker'
+import { nativeApprovalPrompter } from '../services/agent-actions/approval-prompter'
 import { activeTools } from './tool-registry'
 import { WebPreviewBus } from './web-preview-bus'
 import { WorktreeEventBus } from './worktree-event-bus'
@@ -59,6 +63,7 @@ export interface InternalMcpDeps {
   memory?: import('../services/memory/memory.service').MemoryService
   oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
   oxeQueryError?: () => string | undefined
+  git?: import('./tool-registry').ToolContext['git']
   db: AppDatabase
   mcpManager: McpManager
   workspaceServ: WorkspaceService
@@ -87,6 +92,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
   let documentation: Promise<ReturnType<typeof import('../services/documentation/runtime').createDocumentationRuntime>> | undefined
   const webPreview = new WebPreviewBus()
   const worktree = new WorktreeEventBus()
+  const actionAudit = new ActionAudit(deps.db)
+  actionAudit.prune()
   const rpc: LocalRpcServer = createLocalRpcServer({
     captureRoot: join(app.getPath('userData'), 'web-preview-captures'),
     db: deps.db, threads: deps.threads,
@@ -95,6 +102,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     memory: deps.memory,
     oxeQuery: deps.oxeQuery,
     oxeQueryError: deps.oxeQueryError,
+    agentActions: new AgentActions({ broker: new ApprovalBroker(nativeApprovalPrompter), audit: actionAudit }),
+    git: deps.git,
     workspaceServ: deps.workspaceServ,
     github: deps.github,
     background: deps.background,
