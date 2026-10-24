@@ -236,3 +236,23 @@ describe('agent gateway: MongoDB, containers and limits', () => {
     expect(await code(h.gateway.handle('oxespace_container_action', { container: 'pg-dev', action: 'rm' }, actor))).toBe('invalid')
   })
 })
+
+describe('agent gateway: explain and activity', () => {
+  it('explains one read statement without ANALYZE and without asking, on a read-only connection', async () => {
+    const h = harness([connection({ agentAccess: 'read' })])
+    expect(await code(h.gateway.handle('oxespace_db_explain', { connection: 'shop', sql: 'SELECT * FROM users WHERE id = 1' }, actor))).toBe('ok')
+    expect(h.asked).toHaveLength(0)
+    expect(h.calls[0]).toMatchObject({ op: 'sql.explain', input: { analyze: false }, connection: { readOnly: true } })
+    expect(await code(h.gateway.handle('oxespace_db_explain', { connection: 'shop', sql: 'DELETE FROM users' }, actor))).toBe('not-read')
+    expect(await code(h.gateway.handle('oxespace_db_explain', { connection: 'shop', sql: 'SELECT 1' }, actor))).toBe('ok')
+    const off = harness([connection({ agentAccess: 'off' })])
+    expect(await code(off.gateway.handle('oxespace_db_explain', { connection: 'shop', sql: 'SELECT 1' }, actor))).toBe('access-off')
+  })
+
+  it('lists what agents asked and what was decided', async () => {
+    const h = harness([connection({ agentAccess: 'read' })], { decide: 'deny' })
+    await code(h.gateway.handle('oxespace_db_query', { connection: 'shop', sql: 'SELECT 1' }, actor))
+    const activity = await h.gateway.handle('oxespace_db_activity', {}, actor) as { entries: { tool: string; decision: string }[] }
+    expect(activity.entries[0]).toMatchObject({ tool: 'oxespace_db_query', decision: 'denied' })
+  })
+})

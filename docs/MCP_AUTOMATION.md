@@ -75,6 +75,13 @@ Change tools (separate from the read tools, so a read-only Thread never gets the
 | `oxespace_automations_change` | `disable` | `create` (prompt, schedule and precheck shown; never extra CLI arguments), `enable`, `run_now`, `remove` — this project's automations only |
 | `oxespace_workspace_change` | `notify` (desktop notification), `reindex` (semantic index, Code workspaces), `worktree_for_linear_issue` | — |
 
+| `oxespace_mcp_servers_change` | `stop` | `start` (trusted servers only; never OXESpace's own bridge) |
+
+OxeQuery keeps its own policy (per-connection agent access, approval of each data read and write) and gains
+`oxespace_db_explain` (EXPLAIN without ANALYZE of one read statement; metadata, so no approval) and
+`oxespace_db_activity` (its audit, statement text redacted). Connections, credentials, host keys, import and
+export stay with the person.
+
 Branch, tag and ref arguments that git could read as an option are refused. A Thread cannot act on itself.
 Starting a task in an agent's terminal (`tasks.run`) is not a tool: it types into another agent's terminal.
 

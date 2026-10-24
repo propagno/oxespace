@@ -83,3 +83,23 @@ describe('oxespace_workspace_change', () => {
     expect(await call('oxespace_workspace_change', { action: 'reindex' }, setup({} as never, { semantic, owner: { kind: 'thread', id: 't' }, workspaceId: 'thread:p' }).ctx)).toMatchObject({ ok: false, code: 'no-workspace' })
   })
 })
+
+describe('oxespace_mcp_servers_change', () => {
+  const servers = [
+    { id: 's1', workspaceId: null, name: 'github', transport: 'stdio', trusted: true, tools: [] },
+    { id: 's2', workspaceId: null, name: 'shady', transport: 'stdio', trusted: false, tools: [] },
+    { id: 's0', workspaceId: null, name: 'oxespace', transport: 'stdio', trusted: true, tools: [] }
+  ]
+  const make = () => ({ list: vi.fn(() => servers), start: vi.fn(async () => [{ name: 'search' }]), stopRuntime: vi.fn() })
+
+  it('starts a trusted server after asking, never an untrusted one or the OXESpace bridge', async () => {
+    const mcpServers = make()
+    const { asked, ctx } = setup({ mcpServers } as never)
+    expect(await call('oxespace_mcp_servers_change', { action: 'start', serverId: 's1' }, ctx)).toMatchObject({ ok: true, result: { tools: ['search'] } })
+    expect(asked[0].text).toBe('Start "github" (stdio)')
+    expect(await call('oxespace_mcp_servers_change', { action: 'start', serverId: 's2' }, ctx)).toMatchObject({ ok: false, code: 'untrusted' })
+    expect(await call('oxespace_mcp_servers_change', { action: 'stop', serverId: 's0' }, ctx)).toMatchObject({ ok: false, code: 'not-found' })
+    expect(await call('oxespace_mcp_servers_change', { action: 'stop', serverId: 's1' }, ctx)).toMatchObject({ ok: true })
+    expect(mcpServers.start).toHaveBeenCalledTimes(1)
+  })
+})

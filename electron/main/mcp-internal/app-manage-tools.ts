@@ -132,6 +132,30 @@ const WORKSPACE_CHANGE = domainTool('oxespace_workspace_change', 'Small workspac
   }
 })
 
-export const APP_MANAGE_TOOLS: ToolEntry[] = [SKILLS_CHANGE, AUTOMATIONS_CHANGE, WORKSPACE_CHANGE]
+/** A server this workspace can see, never OXESpace's own bridge. Adding, editing and trusting servers stay with the person. */
+function visibleServer(args: Args, workspaceId: string | null, ctx: ToolContext) {
+  const id = str(args, 'serverId', 200)
+  const server = service(ctx, 'mcpServers').list(workspaceId?.startsWith('thread:') ? null : workspaceId).find(item => item.id === id && item.name !== 'oxespace')
+  if (!server) throw new ActionRefused('No MCP server with that id here. Use oxespace_mcp_servers list.', 'not-found')
+  return server
+}
+
+const MCP_SERVERS_CHANGE = domainTool('oxespace_mcp_servers_change', 'Start or stop MCP servers the person configured and trusted. Adding, editing and trusting servers stay with the person.', {
+  start: {
+    level: 'confirm', description: 'Start a trusted server (it runs its command on this machine).', properties: { serverId: { type: 'string', maxLength: 200 } }, required: ['serverId'],
+    confirm: (args, scope, ctx) => {
+      const server = visibleServer(args, scope.workspaceId, ctx)
+      if (!server.trusted) throw new ActionRefused('This server is not trusted. Only the person can trust it, in Connections.', 'untrusted')
+      return { summary: `start the MCP server "${server.name}"`, text: `Start "${server.name}" (${server.transport})` }
+    },
+    run: async (args, scope, ctx) => ({ tools: (await service(ctx, 'mcpServers').start(visibleServer(args, scope.workspaceId, ctx).id)).map(tool => tool.name) })
+  },
+  stop: {
+    level: 'write', description: 'Stop a running server.', required: ['serverId'],
+    run: async (args, scope, ctx) => { service(ctx, 'mcpServers').stopRuntime(visibleServer(args, scope.workspaceId, ctx).id); return { stopped: true } }
+  }
+})
+
+export const APP_MANAGE_TOOLS: ToolEntry[] = [SKILLS_CHANGE, AUTOMATIONS_CHANGE, WORKSPACE_CHANGE, MCP_SERVERS_CHANGE]
 export const APP_MANAGE_TOOL_NAMES = APP_MANAGE_TOOLS.map(tool => tool.descriptor.name)
 export { describeSchedule }
