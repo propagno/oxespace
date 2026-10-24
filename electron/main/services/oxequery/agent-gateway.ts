@@ -181,6 +181,8 @@ export class AgentGateway {
       case 'oxespace_containers_list': return this.containerList()
       case 'oxespace_container_logs': return this.containerLogs(args, actor)
       case 'oxespace_container_action': return this.containerAction(args, actor)
+      case 'oxespace_db_explain': return this.explain(args, actor)
+      case 'oxespace_db_activity': return this.activity(args)
       default: throw new AgentToolError('Unknown OxeQuery tool.', 'unknown')
     }
   }
@@ -221,6 +223,39 @@ export class AgentGateway {
       this.log(actor, info, 'oxespace_db_describe', { decision: 'auto', outcome: 'error', errorCode: failure.code, durationMs: this.now() - started })
       throw failure
     }
+  }
+
+  /** The planner's estimate for one read statement. EXPLAIN without ANALYZE never runs it, so it is metadata. */
+  private async explain(args: Args, actor: AgentActor): Promise<unknown> {
+    const tool = 'oxespace_db_explain'
+    const info = this.find(args.connection)
+    if (info.engine !== 'postgres') throw new AgentToolError('This tool is for PostgreSQL connections.', 'invalid')
+    this.access(info, 'read')
+    const sql = text(args.sql, 'sql')
+    const verdict = guardSql(sql)
+    const hash = textHash(sql)
+    if (verdict.kind !== 'read' || verdict.statements !== 1) {
+      this.log(actor, info, tool, { decision: 'refused', outcome: 'skipped', textHash: hash, text: redactStatement(sql), errorCode: 'not-read' })
+      throw new AgentToolError('Only a single statement that reads data can be explained here.', 'not-read')
+    }
+    const connection = { ...this.deps.resolve(info.id), readOnly: true }
+    const started = this.now()
+    try {
+      const plan = await this.serial(info.id, () => this.withTimeout(connection, () => this.deps.call<unknown>('sql.explain', connection, { sql, analyze: false })))
+      this.log(actor, info, tool, { decision: 'auto', outcome: 'ok', textHash: hash, text: redactStatement(sql), durationMs: this.now() - started })
+      const body = JSON.stringify(plan)
+      return { schemaVersion: 1, connection: info.name, plan: body.length > 30_000 ? { truncated: true, text: body.slice(0, 30_000) } : plan }
+    } catch (error) {
+      const failure = this.safe(error)
+      this.log(actor, info, tool, { decision: 'auto', outcome: 'error', textHash: hash, errorCode: failure.code, durationMs: this.now() - started })
+      throw failure
+    }
+  }
+
+  /** What agents asked OxeQuery and what the person decided; statement text is already redacted. */
+  private activity(args: Args): unknown {
+    const entries = this.deps.audit.list({ limit: bounded(args.limit, 50, 1, 200) })
+    return { schemaVersion: 1, entries: entries.map(entry => ({ ts: entry.ts, actor: entry.actor, connection: entry.connectionName, tool: entry.tool, decision: entry.decision, outcome: entry.outcome, text: entry.text, errorCode: entry.errorCode })) }
   }
 
   private async query(args: Args, actor: AgentActor): Promise<unknown> {

@@ -33,7 +33,8 @@ export const THREAD_MCP_TOOLS = ['oxespace_team_status', 'oxespace_team_inbox', 
   'oxespace_delegation_message', 'oxespace_delegation_control', 'oxespace_delegation_update', 'oxespace_delegation_checkpoint',
   // Database and container access; every data read and change is approved by a person inside OxeQuery.
   'oxespace_db_connections', 'oxespace_db_describe', 'oxespace_db_query', 'oxespace_mongo_find', 'oxespace_mongo_aggregate',
-  'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action']
+  'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action',
+  'oxespace_db_explain', 'oxespace_db_activity', 'oxespace_mcp_servers_change']
 
 /**
  * What a read-only conversation may call: lookups and status only. Nothing
