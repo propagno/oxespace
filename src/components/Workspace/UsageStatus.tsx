@@ -1,13 +1,18 @@
 import { Bot, Sparkles } from 'lucide-react'
-import { useEffect, type ReactElement } from 'react'
+import { Suspense, lazy, useEffect, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { AgentCreditsSnapshot, CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
-import { cx } from '../../ui'
+import { Popover, cx } from '../../ui'
 import styles from './AppStatusBar.module.css'
+
+// Loaded when the detail first opens: the status bar is in the first bundle, the detail is not.
+const UsagePopover = lazy(() => import('./UsagePopover').then(module => ({ default: module.UsagePopover })))
 
 /** How often the status bar reads the provider's usage while the window is visible. */
 export const USAGE_POLL_MS = 60_000
+
+export const providerName = (provider: AgentProvider) => provider === 'codex' ? 'Codex' : 'Claude'
 
 /** "1h 20m", "35m", "2d 4h": the time left until a window resets. */
 export function formatResetIn(resetsAtMs: number | null, now: number): string | null {
@@ -38,8 +43,8 @@ export function usageText(snapshot: AgentCreditsSnapshot, now: number): { short:
 
 /**
  * The provider's subscription usage, read every minute while the app is visible
- * and on focus; clicking reads it now. Shown for the agent in use: the selected
- * conversation in Thread, the active terminal's agent in Code.
+ * and on focus. Shown for the agent in use: the selected conversation in Thread,
+ * the active terminal's agent in Code. Clicking opens the detail.
  */
 export function UsageStatus({ provider }: { provider: Extract<AgentProvider, 'claude' | 'codex'> }): ReactElement | null {
   const snapshot = useAgentCreditsStore(state => state.byProvider[provider])
@@ -57,9 +62,8 @@ export function UsageStatus({ provider }: { provider: Extract<AgentProvider, 'cl
   if (!snapshot?.available || !Array.isArray(snapshot.windows) || !snapshot.windows.length) return null
   const { short, detail, peak } = usageText(snapshot, Date.now())
   const Icon = provider === 'codex' ? Bot : Sparkles
-  return <button type="button" className={cx(styles.item, styles.usage, peak >= 100 ? styles.usageCritical : peak >= 80 || snapshot.stale ? styles.usageWarning : undefined)}
-    title={`${detail}\nClick to read it now`} aria-label={`${provider === 'codex' ? 'Codex' : 'Claude'} usage: ${short}`} aria-busy={loading || undefined}
-    data-testid="usage-status" onClick={() => void refresh(provider, true)}>
+  return <Popover label="Usage" side="top" align="end" trigger={<button type="button" className={cx(styles.item, styles.usage, peak >= 100 ? styles.usageCritical : peak >= 80 || snapshot.stale ? styles.usageWarning : undefined)}
+    title={`${detail}\nClick for details`} aria-label={`${providerName(provider)} usage: ${short}`} aria-busy={loading || undefined} data-testid="usage-status">
     <Icon size={12} aria-hidden="true" />{short}
-  </button>
+  </button>}><Suspense fallback={null}><UsagePopover active={provider} /></Suspense></Popover>
 }

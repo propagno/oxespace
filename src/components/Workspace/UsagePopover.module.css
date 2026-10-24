@@ -1,0 +1,11 @@
+/* The usage detail that opens from the status bar, bottom right. */
+.root { display: grid; gap: var(--space-3); width: min(320px, calc(100vw - 32px)); }
+.provider { display: grid; gap: var(--space-2); }
+.provider + .provider { padding-top: var(--space-3); border-top: 1px solid var(--border-default); }
+.provider > header { display: flex; align-items: center; gap: var(--space-2); color: var(--text-primary); font-size: var(--text-sm); }
+.provider > header strong { font-weight: var(--weight-semibold); }
+.plan { padding: 0 var(--space-2); border: 1px solid var(--border-default); border-radius: var(--radius-full); color: var(--text-secondary); font-size: var(--text-2xs); text-transform: capitalize; }
+.current { margin-left: auto; color: var(--text-muted); font-size: var(--text-2xs); }
+.age { margin: 0; color: var(--text-muted); font-size: var(--text-2xs); }
+.stale { color: var(--intent-warning-fg); }
+.root > footer { display: flex; justify-content: space-between; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--border-default); }

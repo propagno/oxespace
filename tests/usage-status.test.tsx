@@ -33,14 +33,20 @@ describe('usage in the status bar', () => {
     })
     afterEach(() => { cleanup(); vi.useRealTimers() })
 
-    it('reads on mount and every minute, and reads now when clicked', async () => {
+    it('reads on mount and every minute; a click opens the detail, where Read now reads at once', async () => {
       render(<UsageStatus provider="claude" />)
       await act(async () => { await Promise.resolve() })
       expect(get).toHaveBeenCalledTimes(1)
       expect(screen.getByTestId('usage-status')).toHaveTextContent('5h 42% · wk 18%')
       await act(async () => { vi.advanceTimersByTime(USAGE_POLL_MS); await Promise.resolve() })
       expect(get).toHaveBeenCalledTimes(2)
+      vi.useRealTimers() // the popover opens on real time
       fireEvent.click(screen.getByTestId('usage-status'))
+      const detail = await screen.findByTestId('usage-popover')
+      expect(detail).toHaveTextContent('5-hour window')
+      expect(detail).toHaveTextContent('42% used')
+      expect(screen.getByRole('region', { name: 'Claude usage' }).querySelectorAll('[role="meter"]')).toHaveLength(2)
+      fireEvent.click(screen.getByRole('button', { name: 'Read now' }))
       await act(async () => { await Promise.resolve() })
       expect(get).toHaveBeenLastCalledWith({ provider: 'claude', force: true })
     })
