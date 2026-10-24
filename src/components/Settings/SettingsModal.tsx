@@ -1083,6 +1083,18 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
             />
           </div>
 
+          <div className="settings-toggle-row">
+            <span>
+              <strong>Resume agent sessions</strong>
+              <small>After OXESpace restarts, Claude Code and Codex panes reopen the session they were in</small>
+            </span>
+            <SettingsSwitch
+              checked={global.resumeAgentSessions !== false}
+              onChange={(next) => setGlobal({ resumeAgentSessions: next })}
+              ariaLabel="Resume agent sessions"
+            />
+          </div>
+
           <label className="settings-field">
             <span className="settings-field-label-row">
               Scrollback

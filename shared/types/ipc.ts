@@ -94,6 +94,8 @@ export const IPC_CHANNELS = {
     closePane: 'workspace:close-pane',
     splitPane: 'workspace:split-pane',
     createPane: 'workspace:create-pane',
+    /** Main changed a workspace on its own (an agent opened or closed a pane): the new state. */
+    onChanged: 'workspace:on-changed',
     updatePaneType: 'workspace:update-pane-type',
     updatePaneName: 'workspace:update-pane-name',
     setPaneAgent: 'workspace:set-pane-agent',
@@ -332,6 +334,12 @@ export const IPC_CHANNELS = {
     updateHandoff: 'integration:update-handoff',
     buildContext: 'integration:build-context'
   },
+  agentState: {
+    list: 'agent-state:list',
+    markSeen: 'agent-state:mark-seen',
+    explain: 'agent-state:explain',
+    onChanged: 'agent-state:changed'
+  },
   mcpInternal: {
     getStatus: 'mcp-internal:get-status',
     regenerateToken: 'mcp-internal:regenerate-token',
@@ -386,6 +394,8 @@ export interface TerminalStartInput {
   agentArgs?: string[]
   initialPrompt?: string
   disableRtk?: boolean
+  /** On the pane's first start after the app opens, reopen the agent session its hooks recorded (Claude Code, Codex). */
+  resumeAgent?: boolean
   /**
    * Real viewport at spawn time. Without these the PTY starts at 80x24 and the
    * app reflows on the first resize, which the user sees as a flash.
@@ -485,6 +495,7 @@ export interface UpdatePaneNameInput {
 
 export interface WorkspaceApi {
   list(): Promise<Workspace[]>
+  onChanged(listener: (workspace: Workspace) => void): () => void
   create(input: CreateWorkspaceInput): Promise<Workspace>
   setActive(id: string): Promise<Workspace>
   delete(id: string): Promise<void>
@@ -764,6 +775,7 @@ export interface OxeApi {
   skill: SkillApi
   mcp: McpApi
   mcpInternal: McpInternalApi
+  agentState: import('./agent-state').AgentStateApi
   browserPreview: import('./browser-preview').BrowserPreviewApi
   oxeContext: OxeContextApi
   semantic: SemanticApi

@@ -16,6 +16,8 @@ interface WorkspaceState {
   closePane: (id: string) => Promise<void>
   splitPane: (paneId: string, direction: 'vertical' | 'horizontal') => Promise<void>
   createPane: (workspaceId: string) => Promise<string>
+  /** A workspace the main process changed on its own (see workspace.onChanged). */
+  applyWorkspace: (workspace: import('../../shared/types/workspace').Workspace) => void
   updatePaneType: (paneId: string, type: Workspace['panes'][number]['type']) => Promise<void>
   updatePaneName: (paneId: string, displayName: string | null) => Promise<void>
   setPaneAgent: (paneId: string, agentProfileId: string | null, options?: { preserveSession?: boolean }) => Promise<void>
@@ -131,6 +133,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
       error: null
     }))
+  },
+
+  applyWorkspace: (workspace) => {
+    set((state) => ({ workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)) }))
   },
 
   createPane: async (workspaceId) => {

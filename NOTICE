@@ -1,0 +1,14 @@
+OXESpace
+Copyright 2026 propagno. Licensed under the MIT License (see LICENSE).
+
+This product includes material from herdr (https://github.com/herdrdev/herdr),
+Copyright the herdr authors, licensed under the Apache License, Version 2.0
+(see resources/agent-detection/LICENSE-APACHE-2.0):
+
+- resources/agent-detection/*.toml: herdr's agent screen-detection manifests,
+  copied unmodified except for an attribution header.
+- electron/main/services/agent-state/manifest.ts: a TypeScript port of herdr's
+  manifest matching and screen regions (src/detect/manifest.rs).
+- electron/main/services/agent-state/agent-state.service.ts: the agent
+  lifecycle states (working, blocked, done, idle, unknown) and the confirmation
+  of a working-to-idle drop follow herdr's design (src/pane/agent_detection.rs).

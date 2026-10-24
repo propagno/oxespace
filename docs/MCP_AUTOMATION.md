@@ -82,6 +82,23 @@ OxeQuery keeps its own policy (per-connection agent access, approval of each dat
 `oxespace_db_activity` (its audit, statement text redacted). Connections, credentials, host keys, import and
 export stay with the person.
 
+### Agents in panes
+
+After herdr's automation primitives (Apache-2.0, see `NOTICE`). Code workspaces only.
+
+| Tool | Actions |
+|---|---|
+| `oxespace_agents` (read) | `list` (state of every agent pane: `working`, `blocked`, `done`, `idle`, `unknown`, and `completionSeq`), `read`, `explain`, `wait` (until a state, at most 100 s; call again on timeout) |
+| `oxespace_agents_change` | `start` (write: a new pane with Claude Code or Codex from the person's profile, optional model; no other arguments), `prompt` and `interrupt` (no question on a pane the caller started, approval on any other), `close_pane` (confirm, own panes only) |
+
+Nothing is ever written to an agent that is `blocked` (`agent_blocked`), there is no free key input, and an
+agent never prompts its own pane. A prompt from a resting agent that shows no activity within 5 s returns
+`stalled: true`: read the pane before sending it again.
+
+Agent state comes from the agents' hooks (Claude Code, Codex) and from herdr's screen-detection manifests
+for Claude Code, Codex, Copilot, Cursor, Gemini, Grok, OpenCode, Qwen, Kimi, Amp and Droid; a file in
+`userData/agent-detection/<agent>.toml` replaces a bundled manifest.
+
 Branch, tag and ref arguments that git could read as an option are refused. A Thread cannot act on itself.
 Starting a task in an agent's terminal (`tasks.run`) is not a tool: it types into another agent's terminal.
 
@@ -97,6 +114,34 @@ sign-in and tokens, secrets and trust of external MCP servers, database credenti
 profiles, repository hooks, Web Preview access to external sites, delegation targets, deleting workspaces,
 bulk cleanup of sessions or worktrees, app and RTK updates, clipboard and voice, and typing into another
 agent's terminal.
+
+## Tool audit (2026-10-22)
+
+Before the app tools merged, each of the 96 tools in `TOOL_REGISTRY` got one decision. **Keep**: supported
+as is. **Change**: kept, with a follow-up named here. **Experimental**: may change or go without notice.
+**Remove**: none this round.
+
+| Group | Tools | Decision | Why / follow-up |
+|---|---|---|---|
+| App reads | `oxespace_git`, `oxespace_github`, `oxespace_threads`, `oxespace_tasks`, `oxespace_skills`, `oxespace_automations`, `oxespace_linear`, `oxespace_terminal`, `oxespace_mcp_servers`, `oxespace_usage` | Keep | One tool per domain, `read`, scoped to the caller's project. |
+| App changes | `oxespace_git_change`, `oxespace_github_change`, `oxespace_threads_change`, `oxespace_tasks_change`, `oxespace_automations_change`, `oxespace_workspace_change`, `oxespace_mcp_servers_change` | Keep | Level per action; `confirm` where an effect leaves the machine or rewrites history. |
+| Agents in panes | `oxespace_agents`, `oxespace_agents_change` | Experimental | New with the agent runtime (state from hooks and screen); the action set may change after field use. |
+| Agent profiles for delegation | `oxespace_list_agents` | Change | Easy to confuse with `oxespace_agents`: its description must say it lists *profiles*, not running agents. |
+| Thread handoff | `oxespace_thread_create`, `oxespace_thread_send`, `oxespace_thread_read` | Keep | Different policy from `oxespace_threads_change send`: only Threads this caller created, no question asked. Both stay; descriptions point to each other. |
+| Delegation | `oxespace_delegate_task`, `oxespace_delegation_*` (12) | Keep | The delegation protocol; consolidating it with work plans is a cycle-D decision, not this one. |
+| Work plans | `oxespace_work_plan`, `oxespace_work_status`, `oxespace_work_result`, `oxespace_work_message`, `oxespace_work_cancel` | Keep | Base of the self-development flow (cycle D1). |
+| Teams | `oxespace_team_status`, `oxespace_team_inbox`, `oxespace_team_message`, `oxespace_team_acknowledge` | Keep | Membership and delivery fixed in 1.3.1. |
+| Memory | `oxespace_memory_*` (6) | Experimental | AI Memory is an opt-in beta; the tools only exist when it is on. |
+| Search | `oxespace_search`, `oxespace_code_search`, `oxespace_semantic_search`, `oxespace_hybrid_explore`, `oxespace_code_callers`, `oxespace_code_callees`, `oxespace_code_impact`, `oxespace_code_node`, `oxespace_code_status` | Change | Four ways to search overlap. Follow-up: measure which agents call (the local counters since 1.2.0) and fold the least used into `oxespace_hybrid_explore`, with the semantic-index decision of the roadmap. |
+| OxeQuery | `oxespace_db_*` (6), `oxespace_mongo_*` (3), `oxespace_containers_list`, `oxespace_container_logs`, `oxespace_container_action` | Keep | Writes go through the OxeQuery broker and audit. |
+| Workspace and scripts | `oxespace_list_workspaces`, `oxespace_list_panes`, `oxespace_list_worktrees`, `oxespace_create_worktree`, `oxespace_remove_worktree`, `oxespace_list_scripts`, `oxespace_run_script`, `oxespace_list_background_jobs`, `oxespace_stop_background_job`, `oxespace_get_job_output` | Keep | Predate the domain tools; folding them into `oxespace_workspace` / `oxespace_workspace_change` is a follow-up once callers move. |
+| Web Preview | `oxespace_open_web_preview`, `oxespace_capture_web_preview`, `oxespace_preview_interact` | Keep | Scoped by `preview-scope.ts`. |
+| Documentation | `oxespace_documentation_*` (7) | Keep | |
+| Context | `oxespace_capabilities`, `oxespace_execution_context`, `oxespace_project_context`, `oxespace_quality_check` | Keep | |
+
+96 tools is also a token cost on every turn, since each definition is sent to the model. The roadmap's
+Code Mode option starts when tool definitions pass about 20% of a turn's tokens; the search and workspace
+follow-ups above are the cheaper first step.
 
 ## Importing servers from other tools
 

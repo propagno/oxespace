@@ -42,7 +42,7 @@ import { MemoryService } from './services/memory/memory.service'
 import { configureExperimentalFeatures, sharedProjectMemoryEnabled } from './services/experimental-features'
 import { gateMemoryTools } from './mcp-internal/tool-registry'
 import { ExecutionRegistry } from './services/execution-registry'
-import { AgentLaunchService, codeAgentMcpLaunch, providerForExecutable } from './services/agent-launch.service'
+import { AgentLaunchService, agentMcpArguments, codeAgentMcpLaunch, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
 import { registerMemoryIpc } from './ipc/memory.ipc'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
@@ -173,6 +173,23 @@ async function registerIpcHandlers(): Promise<() => void> {
   const executions = new ExecutionRegistry()
   registerMemoryIpc(memoryService)
   registerAgentHooksIpc(app.getPath('userData'))
+  // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
+  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }] = await Promise.all([
+    import('./services/agent-state/agent-state.service'), import('./services/agent-state/manifest'),
+    import('./services/agent-state/bundled-manifests'), import('./ipc/agent-state.ipc')
+  ])
+  const agentManifests = loadManifests(BUNDLED_MANIFESTS, join(app.getPath('userData'), 'agent-detection'))
+  for (const warning of agentManifests.warnings) log.warn(`[agent-state] ${warning}`)
+  // eslint-disable-next-line prefer-const -- assigned below; the history callback runs only after terminals start
+  let terminalForHistory: { peek(paneId: string): { data: string } | null } | undefined
+  const agentState = new AgentStateService({
+    manifests: () => agentManifests.manifests,
+    emit: broadcastAgentState,
+    history: paneId => terminalForHistory?.peek(paneId)?.data ?? null
+  })
+  registerAgentStateIpc(agentState)
+  const { PaneAgentSessions } = await import('./services/agent-state/pane-sessions')
+  const paneAgentSessions = new PaneAgentSessions(db)
   // Agents' own lifecycle hooks report here. Deliveries authenticate with the
   // same per-pane execution credentials the terminal already carries, so a
   // hook script outside an OXESpace terminal is simply inert.
@@ -186,6 +203,11 @@ async function registerIpcHandlers(): Promise<() => void> {
       }
     },
     onStatus: (event) => {
+      const hookAgent = event.agent === 'codex' ? 'codex' : 'claude'
+      agentState.hook(event.paneId, hookAgent, event.state)
+      // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
+      if (event.state === 'ended') paneAgentSessions.clear(event.paneId)
+      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
@@ -203,6 +225,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   const terminalManager: TerminalManager = new TerminalManager(db, {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
+    observer: agentState,
+    resumeSession: (paneId, wanted) => paneAgentSessions.take(paneId, wanted),
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
@@ -233,6 +257,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     userDataPath: app.getPath('userData')
   })
   
+  terminalForHistory = terminalManager
   // Semantic search service. emitLog broadcasts each activity-log line to every
   // renderer window so Tools → Semantic Activity can show processing live.
   const semanticService = new SemanticService(db, {
@@ -469,7 +494,15 @@ async function registerIpcHandlers(): Promise<() => void> {
     app: {
       github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
       terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService,
-      notify: (title, body) => { if (!Notification.isSupported()) return false; new Notification({ title, body, silent: false }).show(); return true }
+      notify: (title, body) => { if (!Notification.isSupported()) return false; new Notification({ title, body, silent: false }).show(); return true },
+      agents: {
+        state: agentState, terminal: terminalManager, profiles: () => delegationAgents.list(), resolve: id => launcher.resolve(id),
+        mcpArgs: provider => agentMcpArguments(provider, join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs')),
+        createPane: workspaceId => internalMcpWorkspaceServ.createPane(workspaceId),
+        setPaneAgent: (paneId, profileId, name) => internalMcpWorkspaceServ.setPaneAgent(paneId, profileId, name),
+        closePane: paneId => internalMcpWorkspaceServ.closePane(paneId),
+        workspaceChanged: workspace => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.workspace.onChanged, workspace) }
+      }
     },
     db,
     mcpManager,

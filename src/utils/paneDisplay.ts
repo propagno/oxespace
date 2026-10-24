@@ -19,6 +19,8 @@ export interface PaneDisplayTerminalState {
    */
   hookState?: 'working' | 'waiting' | 'done' | null
   hookAt?: number | null
+  /** Lifecycle state from the main process (hooks + screen manifests); outranks hookState and timing. */
+  agentState?: import('../../shared/types/agent-state').AgentLifecycleState | null
 }
 
 export interface PaneDisplayState {
@@ -141,7 +143,11 @@ export function derivePaneDisplayState(input: {
   const rootLabel = compactPathLabel(pane.rootPath ?? workspace.rootPath)
   const subtitle = `${identity.label} · ${statusLabel}`
   const meta = `~/${rootLabel}${branchLabel ? ` · ${branchLabel}` : ''}`
-  const attentionReason = terminal.hasUnread
+  const attentionReason = terminal.status === 'running' && terminal.agentState === 'blocked'
+    ? 'Needs your approval or answer'
+    : terminal.status === 'running' && terminal.agentState === 'done'
+      ? 'Finished — not seen yet'
+      : terminal.hasUnread
     ? 'Unread output'
     : statusTone === 'awaiting'
       ? 'Awaiting your input'
@@ -256,6 +262,9 @@ export function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTo
   if (entry.status === 'error' || entry.error) return 'error'
   if (entry.status === 'exited') return 'exited'
   if (entry.status === 'starting') return 'starting'
+  if (entry.status === 'running' && entry.agentState && entry.agentState !== 'unknown') {
+    return entry.agentState === 'working' ? 'thinking' : entry.agentState === 'idle' ? 'idle' : 'awaiting'
+  }
   const hookTone = deriveHookTone(entry, Date.now())
   if (hookTone) return hookTone
   if (entry.isWorking) return 'thinking'
