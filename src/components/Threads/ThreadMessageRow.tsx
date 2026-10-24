@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Check, Copy, FileText, Image as ImageIcon, Paperclip, Quote } from 'lucide-react'
+import { Check, Clock3, Copy, FileText, Image as ImageIcon, Paperclip, Quote } from 'lucide-react'
 import type { ThreadEvent, ThreadSnapshot } from '../../../shared/types/thread'
-import { formatNativeUserText } from '../../../shared/native-session-text'
+import { formatNativeUserText, taskNotification } from '../../../shared/native-session-text'
 import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { ThreadMarkdown } from './ThreadMarkdown'
@@ -40,6 +40,8 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
 }) {
   const api = window.oxe?.thread
   if (event.role === 'assistant' && authText(event.text)) return null
+  const notice = event.role === 'user' ? taskNotification(event.text) : null
+  if (notice) return <p className="thread-task-notice" role="note"><Clock3 size={12} aria-hidden="true" />Background task {notice.status}{notice.summary ? `: ${notice.summary}` : ''}</p>
   const displayText = event.role === 'user' && event.id.startsWith('native:') ? formatNativeUserText(event.text) : event.text
   if (!displayText && !event.historicalQuestions?.length) return null
   const copyText = event.historicalQuestions?.length ? [displayText, 'Recovered questions — answer not confirmed', ...event.historicalQuestions.flatMap(question => [question.title, ...(question.options ?? []).map(option => `- ${option}`)])].filter(Boolean).join('\n\n') : displayText
