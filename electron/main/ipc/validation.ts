@@ -121,6 +121,7 @@ export function parseTerminalStartInput(value: unknown): TerminalStartInput {
     agentArgs: Array.isArray(input.agentArgs) ? (input.agentArgs as unknown[]).filter((a): a is string => typeof a === 'string') : undefined,
     initialPrompt: input.initialPrompt === undefined ? undefined : expectNonEmptyString(input.initialPrompt, 'initialPrompt'),
     disableRtk: input.disableRtk === undefined ? undefined : typeof input.disableRtk === 'boolean' ? input.disableRtk : false,
+    resumeAgent: input.resumeAgent === true ? true : undefined,
     cols: parseOptionalDimension(input.cols),
     rows: parseOptionalDimension(input.rows)
   }

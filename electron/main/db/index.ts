@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 78
+export const LATEST_DB_VERSION = 79
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -507,6 +507,7 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 76) db.transaction(() => db.exec(readMigration('076_oxequery_preferences.sql')))()
   if (startingVersion < 77) db.transaction(() => db.exec(readMigration('077_thread_settings.sql')))()
   if (startingVersion < 78) db.transaction(() => db.exec(readMigration('078_agent_action_audit.sql')))()
+  if (startingVersion < 79) db.transaction(() => db.exec(readMigration('079_pane_agent_sessions.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

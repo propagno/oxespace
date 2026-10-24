@@ -73,6 +73,11 @@ export class PtyModeTracker {
     this.carry = escape === -1 ? '' : tail.slice(escape)
   }
 
+  /** True while the app asked for bracketed paste (mode 2004), as agent prompts do. */
+  get bracketedPaste(): boolean {
+    return this.enabled.has(2004)
+  }
+
   /** True while the app is on the alternate screen (a full-screen TUI). */
   get altScreen(): boolean {
     return this.enabled.has(1049)

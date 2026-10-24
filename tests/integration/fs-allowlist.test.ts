@@ -80,6 +80,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // would load and lists .claude/rules. For a rule it reads only the first 4 KiB
   // to find the `paths:` it is limited to. Never writes.
   'electron/main/services/conversation/instruction-sources.ts',
+  // Agent state: reads detection manifests (*.toml) from the app's own
+  // userData/agent-detection override folder, never the workspace. Never writes.
+  'electron/main/services/agent-state/manifest.ts',
   // Shell parsing: existence probes for the bash grammar and the tree-sitter runtime wasm at
   // fixed app-asset locations. Never a path from the renderer or the agent, never contents.
   'electron/main/services/conversation/shell-parse.ts',

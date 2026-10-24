@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useTerminalStore } from '../store/terminal.store'
+import { useWorkspaceStore } from '../store/workspace.store'
 import { invalidateGitBranch } from './useGitBranch'
 
 /**
@@ -19,6 +20,13 @@ export function useAgentHookStatus(): void {
       useTerminalStore.getState().setLocation(event.paneId, { cwd: event.cwd, checkoutRoot: event.checkoutRoot, sameRepository: event.sameRepository })
       if (event.checkoutRoot) invalidateGitBranch(event.checkoutRoot)
     })
-    return () => { unsubscribe?.(); unsubscribeLocation?.() }
+    // Lifecycle state read in the main process from hooks and the screen; it outranks the hook-only and timing guesses.
+    const unsubscribeState = window.oxe?.agentState?.onChanged?.((event) => {
+      useTerminalStore.getState().setAgentState(event.paneId, 'cleared' in event ? null : event.state)
+    })
+    void window.oxe?.agentState?.list?.().then(states => { for (const state of states ?? []) useTerminalStore.getState().setAgentState(state.paneId, state.state) }).catch(() => undefined)
+    // A pane an agent opened or closed through OXESpace's MCP tools.
+    const unsubscribeWorkspace = window.oxe?.workspace?.onChanged?.((workspace) => useWorkspaceStore.getState().applyWorkspace(workspace))
+    return () => { unsubscribe?.(); unsubscribeLocation?.(); unsubscribeState?.(); unsubscribeWorkspace?.() }
   }, [])
 }

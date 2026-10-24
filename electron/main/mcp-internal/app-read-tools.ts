@@ -29,7 +29,7 @@ function runId(args: Args): number {
 }
 
 /** Output a model can read: no escape codes, likely secrets masked, the tail kept. */
-function readableTail(text: string, maxChars: number): { text: string; truncated: boolean } {
+export function readableTail(text: string, maxChars: number): { text: string; truncated: boolean } {
   const clean = stripAnsi(text).replace(/\r\n?/g, '\n').split('\n').map(maskLogLine).join('\n')
   return clean.length > maxChars ? { text: clean.slice(-maxChars), truncated: true } : { text: clean, truncated: false }
 }
