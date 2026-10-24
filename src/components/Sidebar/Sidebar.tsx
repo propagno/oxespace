@@ -16,7 +16,7 @@ import { PaneSessionRow } from './PaneSessionRow'
 import { useAgentStore } from '../../store/agent.store'
 import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
-import { SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import './SidebarNavigation.css'
 import { cachedBranchLabel } from '../../hooks/useGitBranch'
 
@@ -214,8 +214,8 @@ export function Sidebar({
 
   return (
     <aside className="sidebar sidebar-redesign" style={{ width, minWidth: width, flexBasis: width }}>
-      <div className="sidebar-width-handle" role="separator" aria-label="Sidebar width" aria-orientation="vertical" aria-valuemin={240} aria-valuemax={360} aria-valuenow={width} tabIndex={0}
-        onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } }}
+      <div className="sidebar-width-handle" role="separator" aria-label="Sidebar width" aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width} tabIndex={0}
+        onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); setWidth(e.key === 'Home' ? SIDEBAR_MIN_WIDTH : SIDEBAR_MAX_WIDTH) } }}
         onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
         onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
         onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />
