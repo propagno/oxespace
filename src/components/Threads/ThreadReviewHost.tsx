@@ -2,7 +2,8 @@ import type { RefObject } from 'react'
 import { Dialog } from 'radix-ui'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
-import { useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
+import { CONVERSATION_MIN_WIDTH, REVIEW_DEFAULT_WIDTH, REVIEW_MIN_WIDTH, useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
+import { Splitter } from '../../ui/Splitter'
 import { ThreadChangesPanel } from './ThreadChangesPanel'
 
 /**
@@ -21,7 +22,9 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
   onSendToConversation: (prompt: string) => void
 }) {
   const reviewWidth = useThreadWorkbenchStore(state => state.width)
-  const content = <ThreadChangesPanel key={snapshot.thread.id} snapshot={snapshot} workspace={workspace} panel={panel} onClose={onClose} onSendToConversation={onSendToConversation} />
+  const maximized = useThreadWorkbenchStore(state => state.maximizedId === snapshot.thread.id) && !drawer
+  const content = <ThreadChangesPanel key={snapshot.thread.id} snapshot={snapshot} workspace={workspace} panel={panel} onClose={onClose} onSendToConversation={onSendToConversation}
+    maximized={maximized} onToggleMaximized={drawer ? undefined : () => useThreadWorkbenchStore.getState().setMaximized(maximized ? null : snapshot.thread.id)} />
   if (drawer) return <Dialog.Root open onOpenChange={open => { if (!open) onClose() }}><Dialog.Portal container={workbench.current}>
     <Dialog.Overlay className="thread-review-scrim" />
     <Dialog.Content className="thread-review-host" aria-describedby={undefined} style={{ width: Math.min(reviewWidth, Math.max(280, availableWidth - 16)) }} onCloseAutoFocus={event => { event.preventDefault(); onReturnFocus() }}>
@@ -29,13 +32,14 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
       {content}
     </Dialog.Content>
   </Dialog.Portal></Dialog.Root>
+  if (maximized) return <div className="thread-review-host is-maximized">{content}</div>
+  // As wide as it was dragged, up to leaving the conversation its minimum width.
+  const max = Math.max(REVIEW_MIN_WIDTH, availableWidth - CONVERSATION_MIN_WIDTH)
+  const width = Math.min(Math.max(reviewWidth, REVIEW_MIN_WIDTH), max)
   return <>
-    <div className="thread-review-resize" role="separator" aria-label="Resize review panel" aria-orientation="vertical" tabIndex={0} aria-valuemin={320} aria-valuemax={Math.min(720, availableWidth - 480)} aria-valuenow={Math.min(reviewWidth, Math.max(320, availableWidth - 480))}
-      onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); useThreadWorkbenchStore.getState().setWidth(Math.min(availableWidth - 480, reviewWidth + (event.key === 'ArrowLeft' ? 24 : -24))) } }}
-      onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId) }}
-      onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId) && workbench.current) useThreadWorkbenchStore.getState().setWidth(Math.min(availableWidth - 480, workbench.current.getBoundingClientRect().right - event.clientX)) }}
-      onPointerUp={event => event.currentTarget.releasePointerCapture(event.pointerId)} />
-    <div className="thread-review-host" style={{ width: Math.min(reviewWidth, Math.max(320, Math.min(availableWidth * .48, availableWidth - 640))) }}>
+    <Splitter orientation="vertical" label="Resize review panel" value={width} min={REVIEW_MIN_WIDTH} max={max} defaultValue={REVIEW_DEFAULT_WIDTH} after step={24}
+      onChange={value => useThreadWorkbenchStore.getState().setWidth(value)} />
+    <div className="thread-review-host" style={{ width }}>
       {content}
     </div>
   </>

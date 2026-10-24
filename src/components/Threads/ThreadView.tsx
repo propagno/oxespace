@@ -98,7 +98,8 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
   useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true) })
-  const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); requestAnimationFrame(() => textarea.current?.focus()) }
+  const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
+  const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
   const appendToConversation = (prompt: string) => {
     if (!snapshot) return
     const current = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
@@ -259,7 +260,8 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     await useAccountStore.getState().read(context)
     scroll.reinitialize()
   }
-  return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl) { event.preventDefault(); closeReview() } }}>
+  // Esc first gives a maximized panel its place back, then closes it.
+  return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else closeReview() } }}>
     <section className="thread-view" aria-label="Conversation" style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} onTogglePanel={togglePanel} onCloseCell={onCloseCell}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
