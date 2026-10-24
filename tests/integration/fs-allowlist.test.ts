@@ -181,6 +181,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // <userData>/bin and hash-checks it against the packaged source. Needs
   // raw fs to do that atomically on every boot.
   'electron/main/mcp-internal/bootstrap.ts',
+  // Long internal MCP tool results keep their full text under <userData>/tool-output, in files named by the
+  // tool, the time and a random id, never by caller arguments; files older than a week are deleted.
+  'electron/main/mcp-internal/tool-result-bound.ts',
   // OXEVoice engine: downloads the Whisper model to <userData>/models and
   // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
   // appropriate here rather than the workspace-scoped FileSystemService.

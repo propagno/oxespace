@@ -76,6 +76,8 @@ export interface ToolEntry {
   descriptor: InternalMcpToolDescriptor
   requiresWorkspace: boolean
   handler: (args: unknown, ctx: ToolContext) => Promise<InternalMcpToolCallResult>
+  /** Characters of text the result may carry before it is cut; DEFAULT_TOOL_OUTPUT_LIMIT when absent. */
+  outputLimit?: number
 }
 
 export const TOOL_REGISTRY: ToolEntry[] = [

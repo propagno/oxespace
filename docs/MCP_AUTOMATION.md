@@ -143,6 +143,18 @@ as is. **Change**: kept, with a follow-up named here. **Experimental**: may chan
 Code Mode option starts when tool definitions pass about 20% of a turn's tokens; the search and workspace
 follow-ups above are the cheaper first step.
 
+## Long tool results
+
+A tool result with more than 32,000 characters of text is cut before it reaches the agent
+(`electron/main/mcp-internal/tool-result-bound.ts`, applied to every tool in `local-rpc-server.ts`):
+
+- It keeps the first 60% and the last 40% of the allowed length. A marker between them says how much was
+  left out and names the file that holds the full text.
+- Full texts go to `<userData>/tool-output/<tool>-<time>-<id>.txt`. The name never comes from the tool's
+  arguments. Files older than seven days are deleted when the app starts.
+- Image blocks are kept. The text blocks of a cut result become one block.
+- A tool can set its own `outputLimit` in its registry entry.
+
 ## Importing servers from other tools
 
 **Connections > Import from Claude Desktop, Cursor or Windsurf** lists the MCP servers those tools already have

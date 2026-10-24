@@ -7,6 +7,7 @@ import type {
 import { INTERNAL_MCP_ERROR_CODES } from '../../../shared/types/mcp-internal'
 import { activeTools, findTool, type ToolContext } from './tool-registry'
 import { errorResult } from './tool-registry'
+import { boundToolResult, DEFAULT_TOOL_OUTPUT_LIMIT, toolOutputSaver } from './tool-result-bound'
 
 /**
  * Localhost JSON-RPC server that backs the OXESpace MCP bridge.
@@ -28,7 +29,10 @@ import { errorResult } from './tool-registry'
 const MAX_BODY_BYTES = 64 * 1024
 const STARTED_AT = Date.now()
 
-export interface LocalRpcDeps extends Omit<ToolContext, 'workspaceId'> {}
+export interface LocalRpcDeps extends Omit<ToolContext, 'workspaceId'> {
+  /** Where a cut tool result keeps its full text. Without it, a cut result only says how much was left out. */
+  toolOutputRoot?: string
+}
 
 export interface LocalRpcServer {
   start(port: number): Promise<{ port: number }>
@@ -161,7 +165,8 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           worktree: deps.worktree
         }
         const result = await tool.handler(params.arguments, ctx)
-        return { jsonrpc: '2.0', id, result }
+        const save = deps.toolOutputRoot ? toolOutputSaver(deps.toolOutputRoot, name) : undefined
+        return { jsonrpc: '2.0', id, result: boundToolResult(result, tool.outputLimit ?? DEFAULT_TOOL_OUTPUT_LIMIT, save) }
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : String(caught)
         const errBlock = errorResult(message)
