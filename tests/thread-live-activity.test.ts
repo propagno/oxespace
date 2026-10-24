@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveThreadLiveActivity } from '../src/components/Threads/ThreadLiveActivity'
+import { deriveThreadLiveActivity, usualToolRun } from '../src/components/Threads/ThreadLiveActivity'
 import type { ThreadSnapshot } from '../shared/types/thread'
 
 function fixture(): ThreadSnapshot {
@@ -13,6 +13,19 @@ function fixture(): ThreadSnapshot {
 }
 
 describe('live Thread activity', () => {
+  it('times the running step and says when it takes much longer than usual here', () => {
+    const snapshot = fixture()
+    // Earlier test runs in this conversation took 10 to 20 seconds.
+    snapshot.events.push(
+      { type: 'tool', id: 'a', name: 'Bash', state: 'completed', detail: 'npm test', startedAt: 1_000, completedAt: 11_000 },
+      { type: 'tool', id: 'b', name: 'Bash', state: 'completed', detail: 'npm test', startedAt: 12_000, completedAt: 32_000 },
+      { type: 'tool', id: 'c', name: 'Bash', state: 'running', detail: 'npm test', startedAt: 40_000 })
+    expect(usualToolRun(snapshot.events, 'Bash')).toBe(20_000)
+    expect(deriveThreadLiveActivity(snapshot, 82_000)).toMatchObject({ toolElapsed: '42s', slowTool: false })
+    expect(deriveThreadLiveActivity(snapshot, 101_000)).toMatchObject({ toolElapsed: '1m 01s', slowTool: true })
+    // A first run has nothing to compare with: slow only after the 30 s floor.
+    expect(usualToolRun(snapshot.events, 'Grep')).toBeNull()
+  })
   it('does not mistake earlier assistant text for current output and summarizes structured commands', () => {
     const snapshot = fixture()
     snapshot.events.push({ type: 'message', id: 'comment', role: 'assistant', text: 'I will inspect' }, { type: 'activity', id: 'think', phase: 'reasoning', at: 2000 })

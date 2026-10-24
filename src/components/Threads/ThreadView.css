@@ -168,7 +168,10 @@
 .thread-live-activity-main, .thread-live-activity-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .thread-live-activity-main { color: var(--text-primary); }
 .thread-live-activity-main > svg { flex-shrink: 0; }
-.thread-live-activity-main > span { flex: 1; min-width: 0; }
+.thread-live-activity-main > span { display: flex; align-items: baseline; flex: 1; min-width: 0; }
+/* The running step's own clock and, past three times its usual run here, a quiet note that it is slow. */
+.thread-live-activity-tool, .thread-live-activity-slow { flex: none; white-space: pre; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.thread-live-activity-slow { color: var(--dot-yellow); }
 .thread-live-activity-main strong { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .thread-live-activity-main time { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .thread-live-activity-main time { flex-shrink: 0; }
