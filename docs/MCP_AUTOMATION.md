@@ -71,6 +71,10 @@ Change tools (separate from the read tools, so a read-only Thread never gets the
 | `oxespace_threads_change` | `send`, `steer`, `interrupt`, `configure` (model and effort only), `rename` on a Thread the caller created (handoff or Agent Work) | the same on any other Thread of the project, and `archive` |
 | `oxespace_tasks_change` | `create`, `update`, `reorder`, `add_dependency`, `remove_dependency` | `verify` (shows the command), `delete` |
 
+| `oxespace_skills_change` | — | `create` (the whole skill is shown) |
+| `oxespace_automations_change` | `disable` | `create` (prompt, schedule and precheck shown; never extra CLI arguments), `enable`, `run_now`, `remove` — this project's automations only |
+| `oxespace_workspace_change` | `notify` (desktop notification), `reindex` (semantic index, Code workspaces), `worktree_for_linear_issue` | — |
+
 Branch, tag and ref arguments that git could read as an option are refused. A Thread cannot act on itself.
 Starting a task in an agent's terminal (`tasks.run`) is not a tool: it types into another agent's terminal.
 

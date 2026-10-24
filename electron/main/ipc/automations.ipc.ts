@@ -24,7 +24,7 @@ function expectSchedule(value: unknown): AutomationSchedule {
   }
 }
 
-function parseInput(value: unknown): AutomationInput {
+export function parseAutomationInput(value: unknown): AutomationInput {
   if (!value || typeof value !== 'object') throw new Error('Invalid automation input')
   const i = value as Record<string, unknown>
   if (i.agent !== 'claude' && i.agent !== 'codex') throw new Error('agent must be "claude" or "codex"')
@@ -47,7 +47,7 @@ function parseInput(value: unknown): AutomationInput {
 
 export function registerAutomationsIpc(service: AutomationService): void {
   ipcMain.handle(IPC_CHANNELS.automations.list, () => service.list())
-  ipcMain.handle(IPC_CHANNELS.automations.create, (_event, input: unknown) => service.create(parseInput(input)))
+  ipcMain.handle(IPC_CHANNELS.automations.create, (_event, input: unknown) => service.create(parseAutomationInput(input)))
   ipcMain.handle(IPC_CHANNELS.automations.setEnabled, (_event, input: unknown) => {
     const { id, enabled } = (input ?? {}) as { id?: unknown; enabled?: unknown }
     return service.setEnabled(expectString(id, 'id'), enabled === true)
