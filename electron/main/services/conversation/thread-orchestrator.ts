@@ -8,7 +8,7 @@ import { backgroundSummary } from '../../../../shared/threadBackground'
 import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
 import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../shared/threadHistoryNotice'
-import { formatNativeUserText } from '../../../../shared/native-session-text'
+import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
 import { assertThreadMessage, THREAD_IDLE_SUSPEND_CHOICES, THREAD_IDLE_SUSPEND_DEFAULT_MINUTES, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
@@ -331,10 +331,11 @@ export class ThreadOrchestrator {
     const window = this.history.readWindow(id)
     settleCompletedHistoryTools(window.events)
     if (!window.thread.lastTurnStatus) window.thread.lastTurnStatus = window.turns?.at(-1)?.status
-    if (window.thread.nativeSessionId && (/^Recovered (?:codex|claude) session$/i.test(window.thread.title) || window.thread.title.startsWith('<environment_context>'))) {
+    if (window.thread.nativeSessionId && (/^Recovered (?:codex|claude) session$/i.test(window.thread.title) || window.thread.title.startsWith('<environment_context>') || window.thread.title.startsWith('<task-notification>'))) {
       const full = this.read(id)
-      const firstPrompt = full.events.find(event => event.type === 'message' && event.role === 'user' && formatNativeUserText(event.text))
-      if (firstPrompt?.type === 'message' || window.thread.title.startsWith('<environment_context>')) {
+      const firstPrompt = full.events.find(event => event.type === 'message' && event.role === 'user' && !taskNotification(event.text) && formatNativeUserText(event.text))
+      // Earlier builds named a recovered conversation after a background-task notice; that title is replaced too.
+      if (firstPrompt?.type === 'message' || window.thread.title.startsWith('<environment_context>') || window.thread.title.startsWith('<task-notification>')) {
         const title = firstPrompt?.type === 'message'
           ? formatNativeUserText(firstPrompt.text).replace(/\s+/g, ' ').slice(0, 80)
           : `Recovered ${window.thread.provider} session`

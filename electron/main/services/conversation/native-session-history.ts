@@ -3,7 +3,7 @@ import { readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { ConversationThread, ThreadEvent } from '../../../../shared/types/thread'
-import { formatNativeUserText } from '../../../../shared/native-session-text'
+import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
 import type { ConversationTransport } from './codex-conversation'
 import { AgentProcessTransport } from './process-transport'
 import { AgentRpcPeer } from './rpc-peer'
@@ -145,7 +145,7 @@ export class NativeSessionReader {
       const content = Array.isArray(item.content) ? item.content.filter(block => ['input_text', 'output_text'].includes(String(record(block).type))).map(block => record(block).text).filter(text => typeof text === 'string').join('\n') : ''
       return publicMessage(`native:${typeof item.id === 'string' ? item.id : `byte-${offset}`}`, item.role, content) ?? undefined
     }, cursor, MAX_EVENTS)
-    const first = page.items.find(event => event.type === 'message' && event.role === 'user')
+    const first = page.items.find(event => event.type === 'message' && event.role === 'user' && !taskNotification(event.text))
     const title = first?.type === 'message' ? first.text.replace(/\s+/g, ' ').slice(0, 80) : undefined
     return { events: page.items, ...(title ? { title } : {}), ...(page.cursor ? { truncated: true, cursor: page.cursor } : {}) }
   }
