@@ -394,6 +394,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('menuitem', { name: 'Reset text size' }).click()
     await page.keyboard.press('Escape')
     await page.keyboard.press('Escape')
+    // The closed menu hands focus back to its button once its exit animation ends. On a slow machine that is after
+    // the composer is focused below, and the button takes focus from it: wait for the hand-back first.
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'More actions' })).toBeFocused()
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
     const message = page.getByRole('textbox', { name: 'Message', exact: true })
     await expect.poll(() => app.evaluate(() => Number((globalThis as Record<string, unknown>).threadCommandQueries))).toBe(1)
