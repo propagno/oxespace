@@ -56,7 +56,7 @@ test('preview: markdown, image and pdf render in the editor pane', async () => {
     ).toBeVisible()
 
     // Blur the terminal before using an app-level shortcut.
-    await page.mouse.click(400, 12)
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     await page.keyboard.press('Control+e')
     await expect(page.getByTestId('workspace-editor-panel')).toBeVisible({ timeout: 15_000 })
 

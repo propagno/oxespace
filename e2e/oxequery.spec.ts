@@ -28,7 +28,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     // The mode is reachable from the Code rail and costs nothing until opened.
     expect(await page.locator('.oq-view').count()).toBe(0)
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await expect(page.locator('.workbench-titlebar-context')).toContainText('OxeQuery')
+    await expect(page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' })).toHaveAttribute('aria-pressed', 'true')
 
     // Geometry: the sidebar sits to the left of the work area, not above it.
     const sidebar = await page.locator('.oq-sidebar').boundingBox()
@@ -860,7 +860,7 @@ test('the command palette opens OxeQuery and its dialogs from anywhere', async (
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
     // Still in Code view: OxeQuery was never opened, so the palette entry has to open it.
-    await page.mouse.click(400, 12)
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     await page.keyboard.press('Control+k')
     await page.keyboard.type('New database connection')
     await page.getByText('New database connection', { exact: true }).click()
@@ -868,7 +868,7 @@ test('the command palette opens OxeQuery and its dialogs from anywhere', async (
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog', { name: 'New connection' })).toHaveCount(0)
     // And settings.
-    await page.mouse.click(400, 12)
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     await page.keyboard.press('Control+k')
     await page.keyboard.type('OxeQuery settings')
     await page.getByText('OxeQuery settings', { exact: true }).click()

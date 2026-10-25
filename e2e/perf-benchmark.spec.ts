@@ -334,7 +334,7 @@ test('workspace transition: mounted native terminals', async () => {
       const started = await page.evaluate(() => performance.now())
       await target.getByTestId('sidebar-workspace-select').click()
       await page.waitForFunction(
-        (name) => document.querySelector('.workbench-titlebar-context')?.textContent?.includes(name),
+        (name) => document.querySelector('.ws-group.active')?.textContent?.includes(name),
         label
       )
       await page.evaluate(() => new Promise<void>((resolve) => {
@@ -419,7 +419,7 @@ test('workspace transition: returning to an evicted workspace', async () => {
       const started = await page.evaluate(() => performance.now())
       await target.getByTestId('sidebar-workspace-select').click()
       await page.waitForFunction(
-        (name) => document.querySelector('.workbench-titlebar-context')?.textContent?.includes(name),
+        (name) => document.querySelector('.ws-group.active')?.textContent?.includes(name),
         label
       )
       // Wait for a live terminal, not merely a painted shell — a blank-but-fast
