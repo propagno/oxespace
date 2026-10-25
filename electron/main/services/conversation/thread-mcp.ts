@@ -15,22 +15,42 @@ export interface ThreadMcpBindings {
 // workspace are not offered: listing a tool an agent can never call successfully
 // only wastes its turns. Provider permission requests remain enabled, so
 // mutating calls are reviewed in the conversation.
-export const THREAD_MCP_TOOLS = ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_message', 'oxespace_team_acknowledge', 'oxespace_memory_search', 'oxespace_memory_remember', 'oxespace_memory_sessions',
-  'oxespace_memory_handoffs', 'oxespace_memory_accept_handoff', 'oxespace_project_context',
-  'oxespace_capabilities', 'oxespace_execution_context', 'oxespace_list_agents', 'oxespace_list_workspaces',
-  'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_quality_check',
-  'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status',
-  'oxespace_open_web_preview', 'oxespace_capture_web_preview',
-  'oxespace_thread_create', 'oxespace_thread_send', 'oxespace_thread_read',
-  'oxespace_work_plan', 'oxespace_work_status', 'oxespace_work_result', 'oxespace_work_message', 'oxespace_work_cancel',
-  'oxespace_preview_interact', 'oxespace_documentation_create', 'oxespace_documentation_get', 'oxespace_documentation_list',
-  'oxespace_documentation_capture', 'oxespace_documentation_checkpoint', 'oxespace_documentation_image', 'oxespace_documentation_export',
-  'oxespace_delegation_targets', 'oxespace_delegation_preflight', 'oxespace_delegate_task', 'oxespace_delegation_status',
-  'oxespace_delegation_inbox', 'oxespace_delegation_acknowledge', 'oxespace_delegation_context', 'oxespace_delegation_result',
-  'oxespace_delegation_message', 'oxespace_delegation_control', 'oxespace_delegation_update', 'oxespace_delegation_checkpoint',
-  // Database and container access; every data read and change is approved by a person inside OxeQuery.
-  'oxespace_db_connections', 'oxespace_db_describe', 'oxespace_db_query', 'oxespace_mongo_find', 'oxespace_mongo_aggregate',
-  'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action']
+//
+// Every tool definition the bridge lists is sent with every model request, so a
+// conversation gets only the core group, the groups its role needs, and the
+// groups the project turns on with `thread.tools` in oxe.yaml.
+export const THREAD_TOOL_GROUPS = {
+  /** Every conversation: code, search and memory lookups. */
+  core: ['oxespace_capabilities', 'oxespace_project_context', 'oxespace_memory_search', 'oxespace_memory_remember',
+    'oxespace_semantic_search', 'oxespace_hybrid_explore',
+    'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status'],
+  /** A team member's conversation. */
+  team: ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_message', 'oxespace_team_acknowledge'],
+  /** A conversation that runs a delegation or an Agent Work task, or supervises a Work run. */
+  worker: ['oxespace_execution_context', 'oxespace_delegation_context', 'oxespace_delegation_update', 'oxespace_delegation_checkpoint',
+    'oxespace_delegation_message', 'oxespace_delegation_inbox', 'oxespace_delegation_acknowledge', 'oxespace_delegation_result',
+    'oxespace_delegation_status', 'oxespace_work_status', 'oxespace_work_result', 'oxespace_work_message', 'oxespace_work_cancel'],
+  /** Starting other agents and conversations. */
+  orchestration: ['oxespace_list_agents', 'oxespace_list_workspaces', 'oxespace_delegation_targets', 'oxespace_delegation_preflight',
+    'oxespace_delegate_task', 'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result', 'oxespace_delegation_control',
+    'oxespace_work_plan', 'oxespace_work_status', 'oxespace_work_result', 'oxespace_work_message', 'oxespace_work_cancel',
+    'oxespace_thread_create', 'oxespace_thread_send', 'oxespace_thread_read',
+    'oxespace_memory_sessions', 'oxespace_memory_handoffs', 'oxespace_memory_accept_handoff', 'oxespace_quality_check'],
+  /** Database and container access; every data read and change is approved by a person inside OxeQuery. */
+  data: ['oxespace_db_connections', 'oxespace_db_describe', 'oxespace_db_query', 'oxespace_mongo_find', 'oxespace_mongo_aggregate',
+    'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action'],
+  /** Web previews and documentation captures. */
+  docs: ['oxespace_open_web_preview', 'oxespace_capture_web_preview', 'oxespace_preview_interact',
+    'oxespace_documentation_create', 'oxespace_documentation_get', 'oxespace_documentation_list', 'oxespace_documentation_capture',
+    'oxespace_documentation_checkpoint', 'oxespace_documentation_image', 'oxespace_documentation_export']
+} as const satisfies Record<string, readonly string[]>
+
+export type ThreadToolGroup = keyof typeof THREAD_TOOL_GROUPS
+/** Groups a project can turn on in oxe.yaml; core is always on and roles are detected. */
+export const OPTIONAL_THREAD_TOOL_GROUPS: ThreadToolGroup[] = ['orchestration', 'data', 'docs']
+
+/** Every tool a Thread can be given. */
+export const THREAD_MCP_TOOLS: string[] = [...new Set(Object.values(THREAD_TOOL_GROUPS).flat())]
 
 /**
  * What a read-only conversation may call: lookups and status only. Nothing
@@ -43,6 +63,39 @@ export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_ex
   'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status',
   'oxespace_documentation_get', 'oxespace_documentation_list', 'oxespace_thread_read', 'oxespace_work_status', 'oxespace_work_result',
   'oxespace_team_status', 'oxespace_team_inbox', 'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
+
+/** The role a conversation has when it starts, which decides the groups it needs. */
+export interface ThreadToolRoles { team?: boolean; worker?: boolean }
+
+/** The tools a conversation gets: core, the groups of its roles, and the groups its project turned on. */
+export function threadToolList(roles: ThreadToolRoles = {}, optIn: readonly string[] = []): string[] {
+  const groups: ThreadToolGroup[] = ['core', ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : []),
+    ...OPTIONAL_THREAD_TOOL_GROUPS.filter(group => optIn.includes(group))]
+  return [...new Set(groups.flatMap(group => THREAD_TOOL_GROUPS[group]))]
+}
+
+interface RoleDatabase { prepare(sql: string): { get(...params: unknown[]): unknown } }
+
+/** Team membership, a delegation or Work task this conversation runs, or a Work run it supervises. */
+export function threadToolRoles(db: RoleDatabase, threadId: string): ThreadToolRoles {
+  const has = (sql: string): boolean => { try { return Boolean(db.prepare(sql).get(threadId)) } catch { return false } }
+  return {
+    team: has(`SELECT 1 FROM agent_team_execution_links l JOIN agent_team_members m ON m.id=l.member_id
+      WHERE l.owner_kind='thread' AND l.owner_id=? AND m.archived=0 LIMIT 1`),
+    worker: has("SELECT 1 FROM delegations WHERE json_extract(payload, '$.destinationThreadId')=? LIMIT 1")
+      || has('SELECT 1 FROM work_tasks WHERE thread_id=? LIMIT 1')
+      || has('SELECT 1 FROM work_runs WHERE supervisor_thread_id=? LIMIT 1')
+  }
+}
+
+/**
+ * Claude loads an MCP tool's definition only when it needs it, instead of
+ * sending every definition with every request, once they pass 5% of the
+ * context. A value the person set is kept.
+ */
+export function toolSearchEnvironment(provider: 'claude' | 'codex', source: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  return provider === 'claude' && source.ENABLE_TOOL_SEARCH === undefined ? { ENABLE_TOOL_SEARCH: 'auto:5' } : {}
+}
 
 /** The empty strict configuration Claude receives for a read-only conversation. */
 const READ_ONLY_EMPTY_MCP = '{"mcpServers":{}}'
@@ -76,18 +129,20 @@ function exclusionArguments(provider: 'claude' | 'codex', denied: DeniedMcpTool[
   return out
 }
 
-export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = []): string[] {
+export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
+  tools: readonly string[] = THREAD_MCP_TOOLS): string[] {
   if (provider === 'claude' && args.includes('--strict-mcp-config')) {
     // A read-only conversation keeps its strict surface (no user servers, which
     // may write), but gets the OXESpace bridge limited to read-only lookups.
     const index = args.indexOf('--mcp-config')
     if (index < 0 || args[index + 1] !== READ_ONLY_EMPTY_MCP) return args
     const readOnly = [...args]
-    readOnly[index + 1] = JSON.stringify({ mcpServers: { 'oxespace-delegation': { command: 'node', args: [bridge, '--allowed-tools', JSON.stringify(THREAD_READ_ONLY_MCP_TOOLS)] } } })
+    const lookups = THREAD_READ_ONLY_MCP_TOOLS.filter(tool => tools.includes(tool))
+    readOnly[index + 1] = JSON.stringify({ mcpServers: { 'oxespace-delegation': { command: 'node', args: [bridge, '--allowed-tools', JSON.stringify(lookups)] } } })
     return [...readOnly, ...exclusionArguments(provider, denied, [])]
   }
   const config = agentMcpArguments(provider, bridge)
-  const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(THREAD_MCP_TOOLS)]
+  const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
   if (provider === 'codex') {
     config[3] = `mcp_servers.oxespace-delegation.args=${JSON.stringify(bridgeArgs)}`
     return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])]), ...args]

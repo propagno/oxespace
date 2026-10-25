@@ -57,3 +57,26 @@ it('delivers to a member whose conversation was suspended while idle, which the 
     expect(threads.send).toHaveBeenCalledTimes(1)
   } finally { db.close() }
 })
+
+it('delivers every pending message in one turn, and marks them all when the send fails', async () => {
+  const db = openInMemoryDatabase(), repository = new TeamRepository(db)
+  try {
+    let team = repository.ensure('project', 'Project')
+    team = repository.add(team.id, team.revision, 'Developer', 'developer')
+    const member = team.members[0]
+    for (const key of ['one', 'two', 'three']) repository.send({ teamId: team.id, senderId: null, recipientId: member.id, key, kind: 'request', body: `Task ${key}` })
+    const access = { deliveryTargets: () => [{ teamId: team.id, memberId: member.id, threadId: 'thread' }], disableDelivery: vi.fn() }
+    const snapshot = { thread: { status: 'idle', connection: { state: 'connected' } }, events: [] } as unknown as ThreadSnapshot
+    const threads = { read: () => snapshot, send: vi.fn(async () => {}) }
+    await new TeamDelivery(db, access, threads).tick()
+    expect(threads.send).toHaveBeenCalledTimes(1)
+    const text = (threads.send.mock.calls[0] as unknown as [string, string])[1]
+    expect(text).toContain('Task one'); expect(text).toContain('Task two'); expect(text).toContain('Task three')
+    expect(text).toContain('These are 3 messages')
+    expect(repository.inbox(team.id, member.id).map(message => message.deliveryState)).toEqual(['submitted', 'submitted', 'submitted'])
+    for (const key of ['four', 'five']) repository.send({ teamId: team.id, senderId: null, recipientId: member.id, key, kind: 'request', body: `Task ${key}` })
+    threads.send.mockRejectedValueOnce(Error('Connection dropped'))
+    await new TeamDelivery(db, access, threads).tick()
+    expect(repository.inbox(team.id, member.id).slice(3).map(message => message.deliveryState)).toEqual(['unknown', 'unknown'])
+  } finally { db.close() }
+})

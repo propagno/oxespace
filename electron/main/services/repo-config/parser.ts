@@ -86,6 +86,10 @@ export function parseOxeYaml(content: string): RepoConfig | null {
   }
   const thread = asRecord(root.thread)
   if (thread && typeof thread.brief === 'boolean') config.thread = { brief: thread.brief }
+  if (thread && Array.isArray(thread.tools)) {
+    const tools = [...new Set(thread.tools.filter((group): group is string => typeof group === 'string').map(group => group.trim()).filter(Boolean))]
+    if (tools.length) config.thread = { ...config.thread, tools }
+  }
   const setup = asTrimmedString(scripts.setup)
   const archive = asTrimmedString(scripts.archive)
   if (setup) config.scripts.setup = setup
