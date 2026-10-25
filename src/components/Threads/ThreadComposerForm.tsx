@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject, KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { ArrowUp, AtSign, CornerDownLeft, Mic, Paperclip, Plug, Plus, Slash, Square, X } from 'lucide-react'
+import { ArrowUp, AtSign, AudioLines, CornerDownLeft, Paperclip, Plug, Plus, Slash, Square, X } from 'lucide-react'
 import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
@@ -10,6 +10,7 @@ import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
 import type { useOxeVoice } from '../../hooks/useOxeVoice'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
+import './ThreadComposerChrome.css'
 
 type Voice = ReturnType<typeof useOxeVoice>
 /** The parts of useThreadCommands / useFileMentions the composer wires into its textarea. */
@@ -67,13 +68,13 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
         { label: 'Attach image', icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
         { label: 'Mention a file', icon: <AtSign size={14} />, onSelect: onInsertMention },
         { label: 'MCP connections', icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
-      ]} trigger={<button type="button" className="thread-command-trigger" aria-label="Add to prompt" title="Attach, mention a file or connect tools" disabled={!snapshot || pending}><Plus size={14} /></button>} />
-      <button type="button" className="thread-command-trigger" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><Mic size={14} /></button></div>
+      ]} trigger={<button type="button" className="thread-command-trigger" aria-label="Add to prompt" title="Attach, mention a file or connect tools" disabled={!snapshot || pending}><Plus size={14} /></button>} /></div>
       {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
       {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label="Steer active turn" title="Send guidance to the active turn" disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
       {snapshot && <div className="thread-composer-group thread-composer-status">
       <ThreadMcpHealth thread={snapshot.thread} />
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
+      <button type="button" className="thread-voice" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><AudioLines size={15} /></button>
       {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
       <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
     {tooLong && <p className="thread-composer-limit" role="alert">This message has {draft.length.toLocaleString('en-US')} characters; the limit is {THREAD_MESSAGE_MAX_CHARS.toLocaleString('en-US')}. Attach long text as a file instead.</p>}

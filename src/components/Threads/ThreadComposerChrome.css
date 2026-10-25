@@ -1,0 +1,28 @@
+/* Composer footer in the reference pattern:
+   [Plan | Agent] [/ +] · model · effort · permission ············ status · stop · voice · send */
+.thread-composer footer { gap: 6px; }
+.thread-composer footer .thread-mode-toggle { order: -1; }
+.thread-composer footer .thread-config-trigger.is-permissions { margin-left: 0; }
+.thread-composer footer .thread-composer-status { margin-left: auto; }
+
+/* Plan | Agent: a small segmented control; the active side is lifted, not tinted. */
+.thread-mode-toggle { display: inline-flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); }
+.thread-composer .thread-mode-toggle button { height: 24px; padding: 0 10px; border-radius: calc(var(--radius-md) - 2px); color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; }
+.thread-composer .thread-mode-toggle button[aria-pressed='true'] { background: var(--fill-pressed); color: var(--text-primary); }
+.thread-composer .thread-mode-toggle button:hover:not([aria-pressed='true']) { color: var(--text-primary); background: transparent; }
+
+/* Effort and permission show an icon and a chevron; the value is in the tooltip and the accessible name. */
+.thread-composer .thread-config-trigger.is-icon { gap: 2px; padding: 4px 6px; color: var(--text-secondary); }
+.thread-composer .thread-config-trigger[data-state='open'] { outline: 1px solid var(--focus-ring); outline-offset: 0; }
+
+/* One line per option, as in a menu. The explanation stays for screen readers. */
+.thread-config-options button small {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Round actions on the right: voice is the light orb, send takes the accent only when there is something to send. */
+.thread-composer footer :is(.thread-send, .thread-stop, .thread-voice) { flex: 0 0 28px; width: 28px; height: 28px; padding: 0; justify-content: center; border-radius: 50%; }
+.thread-composer footer .thread-voice { background: var(--text-primary); color: var(--surface-base); }
+.thread-composer footer .thread-voice:hover { background: var(--text-secondary); }
+.thread-composer footer .thread-voice:disabled { opacity: .4; }
+.thread-composer footer .thread-send:disabled { background: var(--fill-pressed); color: var(--text-muted); opacity: 1; }
