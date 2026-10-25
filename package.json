@@ -18,7 +18,7 @@
     "build": "electron-vite build && npm run verify:bundle",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint src electron shared tests e2e scripts",
+    "lint": "node scripts/check-file-size.mjs && eslint src electron shared tests e2e scripts",
     "test": "vitest run",
     "test:electron": "node scripts/test-electron.mjs",
     "bench:thread": "node scripts/bench-thread.mjs",
