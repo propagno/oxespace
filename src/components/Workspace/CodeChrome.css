@@ -1,0 +1,7 @@
+/* Code in the reference pattern: the bar above the panes is a row of icons (named in their tooltip and
+   accessible name), and a pane's agent is named plainly instead of in a tinted chip. */
+.workspace-topbar .workspace-topbar-action { width: 28px; min-height: 28px; padding: 0; margin-right: 2px; border-color: transparent; color: var(--text-secondary); }
+.workspace-topbar .workspace-topbar-action span { display: none; }
+.workspace-topbar .workspace-topbar-action[aria-pressed='true'] { background: var(--nav-selected); color: var(--text-primary); }
+
+.pane-agent-chip, .pane-agent-chip[class*='provider-'] { padding: 0 4px; border-color: transparent; background: transparent; color: var(--text-primary); font-weight: var(--weight-semibold); }

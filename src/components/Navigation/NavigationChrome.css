@@ -63,3 +63,6 @@
 .nav-panel-title .sidebar-actions { margin-right: -4px; }
 /* OxeQuery's sidebar column scrolls as a grid; as a column its footer can sit at the bottom. */
 .oq-sidebar .oq-sidebar-content { display: flex; flex-direction: column; }
+/* The active workspace is a plain selected row, not a bordered box. */
+.sidebar-redesign .ws-group.active > .ws-group-header { border-color: transparent; }
+.sidebar-redesign .ws-group.active::before { display: none; }

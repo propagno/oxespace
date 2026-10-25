@@ -56,6 +56,7 @@ function prefetchPanelChunks(): void {
 import { IntegrationsStatusChips } from './IntegrationsStatusChips'
 import { WorkspaceStatusSummary } from './WorkspaceStatusSummary'
 import { ErrorBoundary } from '../common/ErrorBoundary'
+import './CodeChrome.css'
 
 interface WorkspaceSurfaceProps {
   workspace: Workspace
