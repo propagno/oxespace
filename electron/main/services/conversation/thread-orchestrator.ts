@@ -2,8 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary, ThreadDebugPage } from '../../../../shared/types/thread'
 import type { ThreadNativeCli } from './thread-cli'
-import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult, ThreadRequestPolicy } from '../../../../shared/types/thread'
-import { fullAccessPolicy } from './kernel/permission-policy'
+import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import { backgroundSummary } from '../../../../shared/threadBackground'
 import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
@@ -35,6 +34,7 @@ import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
 import { ThreadTurnTracker } from './thread-turns'
 import { ThreadPermissionStore } from './thread-permissions'
+import { requestSubject, ThreadPolicy } from './thread-policy'
 import { ThreadUsageLedger } from './thread-usage'
 import { WorkService } from '../work/work-service'
 import type { WorkRun } from '../../../../shared/types/work'
@@ -83,13 +83,6 @@ function settleCompletedHistoryTools(events: ThreadEvent[]): number {
   return earliest
 }
 
-/** What an approval was about, for the audit trail. */
-function requestSubject(request: ThreadRequest): string {
-  if (request.command) return `command: ${request.command.slice(0, 500)}`
-  if (request.paths?.length) return `${request.toolName ?? 'edit'}: ${request.paths.join(', ').slice(0, 500)}`
-  return request.title
-}
-
 export class ThreadOrchestrator {
   private readonly changeListeners = new Map<string, Set<() => void>>()
   subscribe(id: string, listener: () => void): () => void {
@@ -114,6 +107,7 @@ export class ThreadOrchestrator {
   private readonly portable = new ThreadPortableService()
   private readonly checkpoints: ThreadCheckpointService
   private readonly permissions: ThreadPermissionStore
+  private readonly policy: ThreadPolicy
   private readonly usage: ThreadUsageLedger
   /** Agent Work: plans a supervising conversation runs through worker conversations. */
   readonly work: WorkService
@@ -158,6 +152,7 @@ export class ThreadOrchestrator {
     this.checkpoints = new ThreadCheckpointService(db)
     this.turns = new ThreadTurnTracker(this.checkpoints, id => this.read(id), (id, event) => this.event(id, event))
     this.permissions = new ThreadPermissionStore(db)
+    this.policy = new ThreadPolicy(this.permissions, id => this.read(id).thread.rootPath, (id, requestId, generation, response) => this.requests.resolve(id, requestId, generation, response))
     this.usage = new ThreadUsageLedger(db)
     try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
     try { pruneThreadData(db) } catch { /* Retention is best effort; nothing is lost by skipping it once. */ }
@@ -1090,45 +1085,20 @@ export class ThreadOrchestrator {
   }
 
   private evaluatePolicy(rootPath: string, request: ThreadRequest, access?: ThreadConfiguration['access']) {
-    let policy: ThreadRequestPolicy | undefined
-    try { policy = this.permissions.evaluate(rootPath, request) } catch { policy = undefined }
-    return fullAccessPolicy(request, policy, access)
+    return this.policy.evaluate(rootPath, request, access)
   }
 
-  /** Answers a request the permission rules decided; on any failure the person still sees the prompt. */
-  private async applyPolicy(id: string, request: ThreadRequest): Promise<void> {
-    const policy = request.policy!, allow = policy.decision === 'allow', decision = allow ? 'accept' as const : 'decline' as const
-    if (request.availableDecisions && !request.availableDecisions.includes(decision)) return
-    try {
-      await this.requests.resolve(id, request.id, request.generation, allow ? { decision } : { decision, reason: `Blocked by an OXESpace permission rule. ${policy.reasons.join(' ')}`.trim() })
-      this.audit(id, { action: 'policy', actor: 'policy', summary: `${allow ? 'Allowed' : 'Declined'} ${requestSubject(request)}`, detail: policy.reasons.join('\n') })
-    } catch { /* Still pending: the person answers it. */ }
-  }
+  private applyPolicy(id: string, request: ThreadRequest): Promise<void> { return this.policy.apply(id, request) }
 
   /** Records a decision; auditing never interrupts the action it describes. */
-  private audit(id: string, entry: Omit<ThreadAuditEntry, 'id' | 'at' | 'threadId' | 'projectRoot'>): void {
-    try { this.permissions.audit({ ...entry, threadId: id, projectRoot: this.read(id).thread.rootPath }) } catch { /* best effort */ }
-  }
+  private audit(id: string, entry: Omit<ThreadAuditEntry, 'id' | 'at' | 'threadId' | 'projectRoot'>): void { this.policy.audit(id, entry) }
 
   /** Rules that answer this conversation's approvals: its project's and the global ones. */
-  permissionRules(id: string): ThreadPermissionRule[] {
-    return this.permissions.rules(this.read(id).thread.rootPath)
-  }
+  permissionRules(id: string): ThreadPermissionRule[] { return this.policy.rules(id) }
 
-  addPermissionRule(id: string, input: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): ThreadPermissionRule {
-    const rootPath = this.read(id).thread.rootPath
-    const rule = this.permissions.add({ projectRoot: input.scope === 'global' ? null : rootPath, kind: input.kind, pattern: input.pattern, decision: input.decision })
-    this.audit(id, { action: 'rule-added', actor: 'user', summary: `${rule.decision === 'allow' ? 'Allow' : 'Deny'} ${rule.kind} ${rule.pattern}${rule.projectRoot ? '' : ' (all projects)'}` })
-    return rule
-  }
+  addPermissionRule(id: string, input: Parameters<ThreadPolicy['addRule']>[1]): ThreadPermissionRule { return this.policy.addRule(id, input) }
 
-  removePermissionRule(id: string, ruleId: string): void {
-    const rootPath = this.read(id).thread.rootPath
-    const rule = this.permissions.rules(rootPath).find(value => value.id === ruleId)
-    if (!rule) throw Error('That rule does not apply to this project')
-    this.permissions.remove(ruleId)
-    this.audit(id, { action: 'rule-removed', actor: 'user', summary: `Removed ${rule.decision} ${rule.kind} ${rule.pattern}${rule.projectRoot ? '' : ' (all projects)'}` })
-  }
+  removePermissionRule(id: string, ruleId: string): void { this.policy.removeRule(id, ruleId) }
 
   workRuns(id: string): WorkRun[] {
     this.read(id)
@@ -1154,17 +1124,12 @@ export class ThreadOrchestrator {
     return this.history.debugEvents(id, options)
   }
 
-  autoApproveReads(): boolean { return this.permissions.autoApproveReads() }
+  autoApproveReads(): boolean { return this.policy.autoApproveReads() }
 
-  setAutoApproveReads(enabled: boolean): boolean {
-    const value = this.permissions.setAutoApproveReads(enabled)
-    this.permissions.audit({ action: 'configuration', actor: 'user', summary: value ? 'Approve read-only commands automatically: on' : 'Approve read-only commands automatically: off' })
-    return value
-  }
+  setAutoApproveReads(enabled: boolean): boolean { return this.policy.setAutoApproveReads(enabled) }
 
   auditLog(id: string, options: { scope?: 'thread' | 'project'; before?: number; limit?: number } = {}): ThreadAuditEntry[] {
-    const thread = this.read(id).thread
-    return this.permissions.auditLog(options.scope === 'project' ? { projectRoot: thread.rootPath, before: options.before, limit: options.limit } : { threadId: id, before: options.before, limit: options.limit })
+    return this.policy.auditLog(id, options)
   }
 
   /** Executes reducer effects; the only place event handling touches ownership, history and timers. */
