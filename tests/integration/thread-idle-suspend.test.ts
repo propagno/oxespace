@@ -21,7 +21,7 @@ function fixture(db = openInMemoryDatabase()) {
     adapters.push(adapter); return adapter
   })
   const manager = new ThreadManager(db, factory, vi.fn())
-  vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
+  vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
   const create = () => manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: '/project-A', provider: 'claude' }).thread.id
   /** Sends one message and lets the provider finish the turn. */
   const turn = async (id: string, text = 'Hello') => {

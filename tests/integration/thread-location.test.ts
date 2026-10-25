@@ -40,7 +40,7 @@ function fixture(root: string, options: { realWorkingState?: boolean } = {}) {
   }) as AgentConversationAdapter)
   const models = { list: vi.fn(async () => ({ defaultModel: 'm', models: [] })), stop: vi.fn(async () => {}) }
   const manager = new ThreadManager(db, factory, vi.fn(), undefined, undefined, undefined, models as never)
-  if (!options.realWorkingState) vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
+  if (!options.realWorkingState) vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
   const id = manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: root, provider: 'claude' }).thread.id
   cleanup.push(() => manager.stop())
   return { db, manager, callbacks, id, read: () => new ThreadHistory(db).read(id) }

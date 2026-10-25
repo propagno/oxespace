@@ -33,7 +33,7 @@ function fixture(preflight?: ConstructorParameters<typeof ThreadManager>[3], com
 describe('thread persistence and ownership', () => {
   it('does not suppress a distinct case-sensitive working-tree file reported by the provider', async () => {
     const f = fixture(), id = f.create()
-    const workingState = vi.spyOn(f.manager as unknown as { workingState: (path: string) => Promise<{ patch: string; untracked: Set<string> }> }, 'workingState')
+    const workingState = vi.spyOn((f.manager as unknown as { turns: { workingState: (path: string) => Promise<{ patch: string; untracked: Set<string> }> } }).turns, 'workingState')
     workingState.mockResolvedValueOnce({ patch: '', untracked: new Set() })
       .mockResolvedValue({ patch: '', untracked: new Set(['readme.md']) })
     await f.manager.send(id, 'Update files')
@@ -271,7 +271,7 @@ describe('thread persistence and ownership', () => {
     const f = fixture(), id = f.create()
     let releaseBaseline!: () => void
     const baseline = new Promise<undefined>(resolve => { releaseBaseline = () => resolve(undefined) })
-    vi.spyOn(f.manager as unknown as { workingState: (path: string) => Promise<undefined> }, 'workingState').mockReturnValue(baseline)
+    vi.spyOn((f.manager as unknown as { turns: { workingState: (path: string) => Promise<undefined> } }).turns, 'workingState').mockReturnValue(baseline)
     const sending = f.manager.send(id, 'Show this immediately')
     try {
       await vi.waitFor(() => expect(new ThreadHistory(f.db).read(id).events).toContainEqual(expect.objectContaining({ type: 'message', role: 'user', text: 'Show this immediately' })))
