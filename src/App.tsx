@@ -7,6 +7,7 @@ import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
+import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -996,12 +997,8 @@ export function App(): ReactElement {
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : applicationView === 'data' ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label="OXESpace workbench">
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
-        <div className={cx('workbench-titlebar-context', titleBar.context)} title={applicationView === 'data' ? 'Containers and databases' : applicationView === 'thread' ? threadSnapshot?.thread.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
-          <span>{applicationView === 'data' ? 'OxeQuery' : applicationView === 'thread' ? 'Thread' : 'Code'}</span>
-          <span className={titleBar.separator} aria-hidden="true">/</span>
-          <strong>{applicationView === 'data' ? 'Containers & databases' : applicationView === 'thread' ? threadProject?.displayName ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
-        </div>
-        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by Code and Thread' : teamDisabledReason} onClick={openTeam}>Team</Button><UpdateBanner /><AppUpdateIndicator /><span className={titleBar.version} data-app-version>v{appVersion}</span></div>
+        <ModeSwitch mode={applicationView} onSelect={selectMode} />
+        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by Code and Thread' : teamDisabledReason} onClick={openTeam}>Team</Button><UpdateBanner /><AppUpdateIndicator /></div>
       </header>
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 'var(--layer-toast)', padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
@@ -1015,8 +1012,8 @@ export function App(): ReactElement {
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
-      {applicationView === 'data' ? <Suspense fallback={<aside className="thread-navigation" aria-label="OxeQuery sidebar" />}><OxeQuerySidebar onSelectMode={selectMode} /></Suspense>
-      : applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onSelectMode={selectMode} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
+      {applicationView === 'data' ? <Suspense fallback={<aside className="thread-navigation" aria-label="OxeQuery sidebar" />}><OxeQuerySidebar /></Suspense>
+      : applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
         const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
         else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })
@@ -1035,8 +1032,6 @@ export function App(): ReactElement {
         onOpenJobs={toggleBackgroundPanel}
         onOpenScripts={toggleScriptsPanel}
         onOpenSearch={openCommandMenu}
-        onSwitchToThread={() => { setHasOpenedThread(true); setApplicationView('thread') }}
-        onSelectMode={selectMode}
         integrationGroups={integrationGroups}
       />}
       <section className={`workspace-surface${applicationView === 'thread' ? ' thread-workspace-surface' : applicationView === 'data' ? ' oq-surface' : ''}`}>

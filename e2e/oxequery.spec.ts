@@ -28,7 +28,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     // The mode is reachable from the Code rail and costs nothing until opened.
     expect(await page.locator('.oq-view').count()).toBe(0)
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await expect(page.locator('.workbench-titlebar-context')).toContainText('OxeQuery')
+    await expect(page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' })).toHaveAttribute('aria-pressed', 'true')
 
     // Geometry: the sidebar sits to the left of the work area, not above it.
     const sidebar = await page.locator('.oq-sidebar').boundingBox()

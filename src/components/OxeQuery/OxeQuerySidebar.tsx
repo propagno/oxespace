@@ -12,7 +12,7 @@ import { isDatabaseImage } from './ContainersPanel'
 import './OxeQuery.css'
 
 /** Left navigation of the OxeQuery mode: the rail plus containers and saved connections. */
-export function OxeQuerySidebar({ onSelectMode }: { onSelectMode: (mode: 'code' | 'thread') => void }): ReactElement {
+export function OxeQuerySidebar(): ReactElement {
   const collapsed = useUIStore(state => state.isSidebarCollapsed)
   // Shares its width with the Thread sidebar: both are the app's left column.
   const width = useNavigationPrefs(state => state.width), setWidth = useNavigationPrefs(state => state.setWidth)
@@ -29,7 +29,7 @@ export function OxeQuerySidebar({ onSelectMode }: { onSelectMode: (mode: 'code' 
   const listed = [...containers].sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running') || a.name.localeCompare(b.name)).slice(0, 12)
 
   return <aside className={`thread-navigation oq-sidebar${collapsed ? ' thread-navigation-collapsed' : ''}`} aria-label="OxeQuery sidebar">
-    <NavigationRail mode="data" collapsed={collapsed} onSelectMode={mode => { if (mode !== 'data') onSelectMode(mode) }} onToggle={toggleCollapse}
+    <NavigationRail mode="data" collapsed={collapsed} onToggle={toggleCollapse}
       primary={[{ id: 'new-connection', label: 'New connection', icon: Plus, onClick: () => useOxeQueryStore.getState().openDialog(null) }]}
       context={{ id: 'refresh', label: 'Refresh containers', ariaLabel: 'Refresh containers', icon: RefreshCw, onClick: () => { void useOxeQueryStore.getState().refreshContainers(); void useOxeQueryStore.getState().refreshConnections() } }} />
     {!collapsed && <div className="oq-sidebar-content">

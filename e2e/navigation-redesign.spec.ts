@@ -17,7 +17,17 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.getByTestId('wizard-layout-card-2').click()
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(2)
-    await expect(page.locator('.workbench-titlebar-context')).toContainText('Code')
+    await expect(page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Code' })).toHaveAttribute('aria-pressed', 'true')
+    // The application menus sit behind one button (Windows and Linux; macOS keeps its native menu bar).
+    if (process.platform !== 'darwin') {
+      await page.getByRole('button', { name: 'Application menu' }).click()
+      for (const name of ['File', 'Edit', 'View', 'Help']) await expect(page.getByRole('menuitem', { name })).toBeVisible()
+      await page.getByRole('menuitem', { name: 'File' }).hover()
+      await expect(page.getByRole('menuitem', { name: /^Settings/ })).toBeVisible()
+      await page.keyboard.press('Escape')
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('menu')).toHaveCount(0)
+    }
     // Surfaces follow the design tokens of the active mode (light or dark).
     const palette = await page.evaluate(() => {
       const token = (name: string) => { const el = document.createElement('span'); el.style.backgroundColor = `var(${name})`; document.body.append(el); const value = getComputedStyle(el).backgroundColor; el.remove(); return value }
