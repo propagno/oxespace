@@ -14,29 +14,32 @@
 /* ── Project group ── */
 .group { margin: 0 0 var(--space-2); }
 .heading { display: flex; align-items: center; min-width: 0; min-height: 32px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
-.group.active > .heading { background: var(--nav-selected); }
-.toggle { flex: 1; min-width: 0; min-height: 32px; width: 100%; padding: 5px 7px; color: var(--text-primary); font-size: var(--text-sm); font-weight: var(--weight-semibold); text-align: left; }
+/* A project is a plain heading with a chevron; only conversations are selected. */
+.group.active > .heading { background: transparent; }
+.toggle { flex: 1; min-width: 0; min-height: 30px; width: 100%; padding: 5px 7px; color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium); text-align: left; }
 .toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .toggle small { margin-left: auto; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--text-2xs); font-weight: var(--weight-regular); }
 .toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
 .name { flex: 1; }
-.children { margin: 5px 0 0 15px; padding-left: var(--space-3); border-left: 1px solid var(--border-subtle); }
+.children { margin: 2px 0 0 10px; }
 .rows { display: grid; gap: 2px; }
 
 /* ── Conversation row ── */
-.row { position: relative; display: flex; align-items: center; min-width: 0; min-height: 48px; border-radius: var(--radius-sm); }
+.row { position: relative; display: flex; align-items: center; min-width: 0; min-height: 32px; border-radius: var(--radius-md); }
 .row:has(.item[aria-current='page']) { background: var(--nav-selected); }
-.item { flex: 1; width: 100%; min-width: 0; min-height: 48px; margin: 0; padding: 6px var(--space-2); display: flex; align-items: center; gap: 9px; border-radius: var(--radius-sm); text-align: left; font-size: var(--text-sm); }
+.item { flex: 1; width: 100%; min-width: 0; min-height: 32px; margin: 0; padding: 6px var(--space-2); display: flex; align-items: center; gap: 8px; border-radius: var(--radius-md); text-align: left; font-size: var(--text-sm); }
 .item[aria-current='page'] { background: transparent; }
 .item svg { flex-shrink: 0; color: var(--text-secondary); }
 
 .unreadMark { position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; flex: none; border-radius: var(--radius-sm); background: var(--accent); }
 .unread .title { font-weight: var(--weight-bold); }
 
-.indicator { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; overflow: visible; color: var(--text-muted); }
-.indicator svg { color: currentColor; }
+.indicator { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 8px; height: 8px; overflow: visible; color: var(--text-muted); }
+/* One small dot in the state's colour; the icon stays in the markup for its meaning, not on screen. */
+.indicator svg { display: none; }
+.indicator:not([data-status='running'])::before { content: ''; display: block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .indicator[data-status='running'] { color: var(--intent-success-solid); }
-.indicator[data-status='running']::before { content: ''; display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--intent-success-solid); }
+.indicator[data-status='running']::before { content: ''; display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--intent-success-solid); }
 .indicator[data-status='ready'], .indicator[data-status='completed'] { color: var(--intent-info-solid); }
 .indicator[data-status='attention'] { color: var(--intent-warning-solid); }
 .indicator[data-status='failed'] { color: var(--intent-danger-solid); }
@@ -47,6 +50,10 @@
 /* Up to two lines before the ellipsis: a long title stays recognizable in a narrow sidebar or at a larger zoom. */
 .title { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; line-height: 1.3; color: var(--text-primary); font-size: var(--text-sm); font-weight: var(--weight-medium); }
 .meta { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--text-secondary); font-size: var(--text-2xs); }
+/* One line per conversation: provider, state and pin are read out, not drawn; the dot and the groups show them. */
+.content .meta { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.time, .needs { flex: none; align-self: flex-start; margin-top: 2px; color: var(--text-muted); font-size: var(--text-2xs); white-space: nowrap; }
+.needs { color: var(--intent-warning-fg); font-weight: var(--weight-semibold); }
 .meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta > small { flex-shrink: 0; margin-left: auto; color: var(--text-secondary); font-size: var(--text-2xs); }
 .provider { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
@@ -65,19 +72,20 @@
 .row .action { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
 .row:hover .action, .row:focus-within .action { opacity: 1; }
 @media (hover: none) { .row .action { opacity: 1; } }
-.rows .row > .action { position: absolute; top: 10px; right: 34px; background: var(--nav-selected); }
+.rows .row > .action { position: absolute; top: 2px; right: 34px; background: var(--nav-selected); }
 .rows .row > .action:last-child { right: var(--space-1); }
 .rows .row:hover > .action, .rows .row:focus-within > .action { background: var(--fill-hover); }
-.rows .row:hover .item, .rows .row:focus-within .item { padding-right: 65px; }
-.rows .row:hover .meta > small, .rows .row:focus-within .meta > small { display: none; }
+/* Hover never changes the layout (a row that moved under the pointer would never settle): the time hides in place
+   and the actions sit over the end of the row. */
+.rows .row:hover :is(.time, .needs), .rows .row:focus-within :is(.time, .needs) { visibility: hidden; }
 
 /* The sidebar's own density, set on its <aside>; the app's density on <html> must not decide it. */
-:global(.thread-navigation)[data-density='compact'] .rows .row, :global(.thread-navigation)[data-density='compact'] .rows .item { min-height: 38px; }
+:global(.thread-navigation)[data-density='compact'] .rows .row, :global(.thread-navigation)[data-density='compact'] .rows .item { min-height: 28px; }
 :global(.thread-navigation)[data-density='compact'] .rows .item { padding-top: var(--space-1); padding-bottom: var(--space-1); }
 :global(.thread-navigation)[data-density='compact'] .content { gap: 2px; }
 :global(.thread-navigation)[data-density='compact'] .title { display: block; -webkit-line-clamp: none; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 :global(.thread-navigation)[data-density='compact'] .meta { line-height: 12px; }
-:global(.thread-navigation)[data-density='compact'] .rows .row > .action { top: 5px; }
+:global(.thread-navigation)[data-density='compact'] .rows .row > .action { top: 0; }
 
 .showMore { width: 100%; height: 28px; margin: 2px 0 var(--space-2); padding: 0 var(--space-2) 0 36px; justify-content: flex-start; border: 0; background: transparent; color: var(--text-muted); font-size: var(--text-xs); }
 .showMore:hover { color: var(--text-primary); }
