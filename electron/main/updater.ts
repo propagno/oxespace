@@ -3,7 +3,7 @@ import log from 'electron-log/main.js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
-import type { AppUpdatePreferences, AppUpdateState, AppUpdateStatus } from '../../shared/types/updater'
+import type { AppUpdateChannel, AppUpdatePreferences, AppUpdateState, AppUpdateStatus } from '../../shared/types/updater'
 
 /**
  * Auto-update via electron-updater against GitHub Releases (electron-builder
@@ -18,7 +18,7 @@ import type { AppUpdatePreferences, AppUpdateState, AppUpdateStatus } from '../.
  */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 const RELEASES_API = 'https://api.github.com/repos/propagno/oxespace/releases/latest'
-/** Pre-release installs follow the whole list: `latest` never returns a pre-release. */
+/** The beta channel reads the whole list: `latest` never returns a pre-release. */
 const RELEASES_LIST_API = 'https://api.github.com/repos/propagno/oxespace/releases?per_page=20'
 
 interface ParsedVersion { core: number[]; pre: string[] }
@@ -82,13 +82,17 @@ export function updaterSupportsThisInstall(
   return Boolean(env.APPIMAGE)
 }
 
-export const DEFAULT_UPDATE_PREFERENCES: AppUpdatePreferences = { mode: 'auto', pinnedVersion: null }
+/** A pre-release install is on the beta channel until the person chooses otherwise. */
+export const defaultChannel = (version: string): AppUpdateChannel => (parseVersion(version)?.pre.length ?? 0) > 0 ? 'beta' : 'stable'
 
-export function normalizeUpdatePreferences(value: unknown): AppUpdatePreferences {
+export const DEFAULT_UPDATE_PREFERENCES: AppUpdatePreferences = { mode: 'auto', pinnedVersion: null, channel: 'stable' }
+
+export function normalizeUpdatePreferences(value: unknown, version = app.getVersion()): AppUpdatePreferences {
   const input = value && typeof value === 'object' ? value as Partial<AppUpdatePreferences> : {}
   const mode = input.mode === 'notify' || input.mode === 'off' ? input.mode : 'auto'
   const pinnedVersion = typeof input.pinnedVersion === 'string' && parseVersion(input.pinnedVersion) ? input.pinnedVersion.replace(/^v/, '') : null
-  return { mode, pinnedVersion }
+  const channel = input.channel === 'beta' || input.channel === 'stable' ? input.channel : defaultChannel(version)
+  return { mode, pinnedVersion, channel }
 }
 
 /** What the preferences allow: checks on a timer, downloads without asking, install on quit. */
@@ -99,13 +103,13 @@ export function updatePolicy(preferences: AppUpdatePreferences): { periodic: boo
 
 const preferencesFile = (): string => join(app.getPath('userData'), 'update-preferences.json')
 function loadPreferences(): AppUpdatePreferences {
-  try { return normalizeUpdatePreferences(JSON.parse(readFileSync(preferencesFile(), 'utf8'))) } catch { return DEFAULT_UPDATE_PREFERENCES }
+  try { return normalizeUpdatePreferences(JSON.parse(readFileSync(preferencesFile(), 'utf8'))) } catch { return normalizeUpdatePreferences(undefined) }
 }
 
 type AutoUpdater = typeof import('electron-updater').autoUpdater
 
 let autoUpdaterRef: AutoUpdater | null = null
-let preferences: AppUpdatePreferences = DEFAULT_UPDATE_PREFERENCES
+let preferences: AppUpdatePreferences = normalizeUpdatePreferences(undefined)
 let state: AppUpdateState = {
   status: app.isPackaged ? 'idle' : 'disabled',
   currentVersion: app.getVersion(),
@@ -137,6 +141,10 @@ function applyPolicy(): void {
   const policy = updatePolicy(preferences)
   autoUpdaterRef.autoDownload = policy.autoDownload
   autoUpdaterRef.autoInstallOnAppQuit = policy.autoInstall
+  // The channel setter also turns on downgrades; turn them back off, so leaving beta waits for a newer stable.
+  autoUpdaterRef.channel = preferences.channel === 'beta' ? 'beta' : 'latest'
+  autoUpdaterRef.allowPrerelease = preferences.channel === 'beta'
+  autoUpdaterRef.allowDowngrade = false
 }
 
 export function setUpdatePreferences(value: unknown): AppUpdateState {
@@ -160,8 +168,8 @@ export async function checkForAppUpdates(manual = false): Promise<AppUpdateState
   if (!app.isPackaged || !updaterSupportsThisInstall()) {
     setState({ status: 'checking', installMode: 'manual', error: null })
     try {
-      const onPrerelease = (parseVersion(app.getVersion())?.pre.length ?? 0) > 0
-      const response = await fetch(onPrerelease ? RELEASES_LIST_API : RELEASES_API, {
+      // `latest` never returns a pre-release, so the beta channel reads the list.
+      const response = await fetch(preferences.channel === 'beta' ? RELEASES_LIST_API : RELEASES_API, {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'OXESpace' },
         signal: AbortSignal.timeout(10_000)
       })
