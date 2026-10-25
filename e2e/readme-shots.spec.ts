@@ -181,7 +181,7 @@ for (const theme of THEMES) {
         ipcMain.handle('thread:projects', () => ({ projects: [{ projectId: 'e2e-project', displayName: 'acme-web', identityLabel: rootPath, contexts: [{ workspaceId, rootPath, label: 'acme-web' }] }], unavailable: [] }))
       }, { workspaceId: workspace.id, rootPath: repo })
       await installThreadDemo(app, repo)
-      await page.locator('.nav-rail').getByRole('button', { name: 'Thread', exact: true }).click()
+      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
       await page.getByRole('button', { name: /^New thread in/ }).first().click()
       await page.getByRole('button', { name: 'Create thread', exact: true }).click()
       await page.locator('.thread-timeline').waitFor()

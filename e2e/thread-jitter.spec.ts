@@ -58,7 +58,7 @@ test('the conversation stays at the bottom while typing and when a turn finishes
     await installThreadFixtures(app, workspaceRoot)
     await openDemoWorkspace(page, workspaceRoot)
     await registerThreadProject(app, page, workspaceRoot)
-    await page.locator('.nav-rail').getByRole('button', { name: 'Thread', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
     await page.getByRole('button', { name: 'New thread in repo' }).click()
     await page.getByRole('button', { name: 'Create thread', exact: true }).click()
     await page.locator('.thread-timeline').waitFor()
