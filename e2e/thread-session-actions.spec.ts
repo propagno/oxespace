@@ -64,6 +64,8 @@ test('session actions open to the side, archive, restore and delete through Elec
     await expect(page.locator('.thread-cell')).toHaveCount(2)
     await page.getByRole('button', { name: 'Close side-by-side conversation' }).click()
 
+    // Beta's menu, closed by choosing an item, may still be animating out; both menus hold the same items.
+    await expect(page.getByRole('menu')).toHaveCount(0)
     await page.getByRole('button', { name: 'Actions for Alpha session' }).click()
     await page.getByRole('menuitem', { name: 'Archive conversation' }).click()
     await page.getByRole('dialog', { name: 'Archive this conversation?' }).getByRole('button', { name: 'Archive conversation', exact: true }).click()
