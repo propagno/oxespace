@@ -22,6 +22,7 @@ import { nativeApprovalPrompter } from '../services/agent-actions/approval-promp
 import { activeTools } from './tool-registry'
 import { WebPreviewBus } from './web-preview-bus'
 import { WorktreeEventBus } from './worktree-event-bus'
+import { pruneToolOutputs } from './tool-result-bound'
 // Embed the bridge script as a string at build time. Vite's `?raw` inlines
 // the file content into the main bundle — so materialization never depends
 // on a copy plugin firing first, on process.resourcesPath, or on __dirname
@@ -96,7 +97,10 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
   const worktree = new WorktreeEventBus()
   const actionAudit = new ActionAudit(deps.db)
   actionAudit.prune()
+  const toolOutputRoot = join(app.getPath('userData'), 'tool-output')
+  pruneToolOutputs(toolOutputRoot)
   const rpc: LocalRpcServer = createLocalRpcServer({
+    toolOutputRoot,
     captureRoot: join(app.getPath('userData'), 'web-preview-captures'),
     db: deps.db, threads: deps.threads,
     documentation: () => documentation ??= import('../services/documentation/runtime').then(module => module.createDocumentationRuntime(deps.db, join(app.getPath('userData'), 'documentation'))).catch(error => { documentation = undefined; throw error }),

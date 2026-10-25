@@ -1,4 +1,7 @@
 import http from 'node:http'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
@@ -46,11 +49,12 @@ async function postRpc(port: number, headers: Record<string, string>, body: obje
   })
 }
 
-async function start(delegation?: { create: (...args: unknown[]) => Promise<unknown> }): Promise<ServerCtx> {
+async function start(delegation?: { create: (...args: unknown[]) => Promise<unknown> }, toolOutputRoot?: string): Promise<ServerCtx> {
   const db = openInMemoryDatabase()
   const workspaceServ = new WorkspaceService(db)
   const executions = new ExecutionRegistry()
   const server = createLocalRpcServer({
+    toolOutputRoot,
     documentation: async () => ({ preview: { run: async () => ({ title: 'RPC preview fixture' }) } }) as never,
     executions, delegation: (delegation ?? {}) as never, delegationAgents: () => [{ agentProfileId: 'codex' }],
     workspaceServ,
@@ -94,6 +98,28 @@ describe('Internal MCP local RPC server', () => {
     ctx.executions.endOwner({ kind: 'thread', id: 'origin-thread' })
     await postRpc(ctx.port, headers, body)
     expect(create).toHaveBeenCalledOnce()
+  })
+
+  test('a long tool result keeps its beginning and end, and the full text in a file', async () => {
+    await ctx.server.stop(); ctx.db.close()
+    const root = mkdtempSync(join(tmpdir(), 'oxe-tool-output-'))
+    const blob = `START${'x'.repeat(200_000)}END`
+    ctx = await start({ create: async () => ({ id: 'long-result', blob }) }, root)
+    const env = ctx.executions.register({ owner: { kind: 'thread', id: 'origin-thread' }, workspaceId: 'workspace', cwd: process.cwd() })
+    const headers = { Authorization: `Bearer ${TOKEN}`, 'x-oxe-workspace-id': 'workspace',
+      'x-oxe-execution-id': env.OXESPACE_EXECUTION_ID, 'x-oxe-execution-token': env.OXESPACE_EXECUTION_TOKEN }
+    const { json } = await postRpc(ctx.port, headers, { jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'oxespace_delegate_task', arguments: {
+      key: 'long', agentProfileId: 'codex', objective: 'Implement card', handoff: 'Use project context', acceptance: 'Tests pass',
+      branchIntent: { strategy: 'create', name: 'feature/long' }, surface: 'thread'
+    } } })
+    const text = (json as { result: { content: Array<{ text: string }> } }).result.content[0].text
+    expect(text.length).toBeLessThan(33_000)
+    expect(text).toContain('START')
+    expect(text).toMatch(/END/)
+    const file = text.match(/is in (.+?\.txt);/)?.[1]
+    expect(file && existsSync(file)).toBe(true)
+    expect(readFileSync(file!, 'utf8')).toContain(blob)
+    rmSync(root, { recursive: true, force: true })
   })
 
   test('retrieval tools resolve a Thread to its checkout instead of refusing it', async () => {
