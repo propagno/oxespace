@@ -23,6 +23,8 @@ const HIDDEN_WHEN_LIVE = [
   // A terminal's status dot (pane header, sidebar row) turns from starting to running when its
   // shell is up, which no fixed wait settles; the dot has a fixed size, so hiding it moves nothing.
   '.pane-status-dot',
+  // A pane's title follows its shell ("PS>" until the shell renames it "Terminal 4"), which no fixed wait settles.
+  '.pane-intent-text',
   '[data-testid="pane-session-row"] .pane-activity-dot',
   // The top bar's path names a temporary folder.
   '.workspace-topbar-path',
