@@ -70,7 +70,7 @@ export class AgentProcessTransport implements ConversationTransport {
     // Only main may supply a fresh project-bound MCP lease. Never restore the
     // parent's OXESPACE context or provider/API credentials.
     for (const key of ['OXESPACE_MCP_PORT', 'OXESPACE_MCP_TOKEN', 'OXESPACE_WORKSPACE_ID', 'OXESPACE_MEMORY_RUN_ID', 'OXESPACE_MEMORY_RUN', 'AI_MEMORY_CAPTURE_OWNER',
-      'OXESPACE_EXECUTION_ID', 'OXESPACE_EXECUTION_TOKEN', 'OXESPACE_EXECUTION_GENERATION']) {
+      'OXESPACE_EXECUTION_ID', 'OXESPACE_EXECUTION_TOKEN', 'OXESPACE_EXECUTION_GENERATION', 'ENABLE_TOOL_SEARCH']) {
       if (mcpEnvironment[key]) env[key] = mcpEnvironment[key]
     }
     const resolved = interactiveConversationCommand(command, args, env)

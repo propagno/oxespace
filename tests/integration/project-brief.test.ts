@@ -50,4 +50,10 @@ describe('oxe.yaml thread settings', () => {
     expect(parseOxeYaml('thread:\n  brief: false\n')?.thread).toEqual({ brief: false })
     expect(parseOxeYaml('thread:\n  brief: "no"\n')).toBeNull()
   })
+
+  it('reads thread.tools as a list of group names', () => {
+    expect(parseOxeYaml('thread:\n  tools: [orchestration, data, data, 3]\n')?.thread).toEqual({ tools: ['orchestration', 'data'] })
+    expect(parseOxeYaml('thread:\n  brief: false\n  tools: [docs]\n')?.thread).toEqual({ brief: false, tools: ['docs'] })
+    expect(parseOxeYaml('thread:\n  tools: docs\n')).toBeNull()
+  })
 })
