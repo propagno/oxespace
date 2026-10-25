@@ -35,7 +35,7 @@ test('linear: panel opens from the palette and asks for an API key', async () =>
     ).toBeVisible()
 
     // Blur the terminal so the palette shortcut reaches the app.
-    await page.mouse.click(400, 12)
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     await page.keyboard.press('Control+k')
     await page.keyboard.type('linear')
     // The workspace row is highlighted first, so click the command explicitly.
