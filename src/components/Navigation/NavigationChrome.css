@@ -1,5 +1,7 @@
 /* Shared desktop chrome. Mode-specific content stays in each feature. */
 .sidebar.sidebar-redesign, .thread-navigation { box-shadow: none; background: var(--bg-sidebar); background-image: none; border-right: 0; overflow: clip; }
+/* Sidebars float on the window as panels, like the work surface. Here, unlayered, so feature CSS does not repaint them. */
+.app-shell > :is(.sidebar.sidebar-redesign, .thread-navigation) { border: 1px solid var(--border-subtle); border-radius: var(--frame-radius); background: var(--surface-base); }
 .desktop-search svg { flex-shrink: 0; }
 
 .sidebar .desktop-search, .thread-navigation .desktop-search, .settings-center .desktop-search { display: flex; align-items: center; gap: 8px; position: relative; height: var(--control-h); min-height: var(--control-h); padding: 0 10px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); color: var(--tx-muted); background: var(--bg-sidebar); box-shadow: none; }

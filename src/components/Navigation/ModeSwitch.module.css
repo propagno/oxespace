@@ -27,7 +27,7 @@
   transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 .option:hover { color: var(--text-primary); }
-.option[aria-pressed='true'] { background: var(--fill-selected-strong); color: var(--text-primary); }
+.option[aria-pressed='true'] { background: var(--fill-pressed); color: var(--text-primary); }
 .option:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
 /* What needs a person in that view: amber for "needs you", red when only failures remain. */

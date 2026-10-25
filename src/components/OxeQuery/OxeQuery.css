@@ -11,7 +11,7 @@
 .oq-nav-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oq-nav-item small { color: var(--text-muted); }
 .oq-nav-item:hover, .oq-icon:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
-.oq-nav-item[aria-current='page'] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.oq-nav-item[aria-current='page'] { background: var(--nav-selected); }
 .oq-connection-row { display: flex; align-items: center; gap: 2px; }
 .oq-connection-row .oq-icon { opacity: 0; }
 .oq-connection-row:hover .oq-icon, .oq-connection-row:focus-within .oq-icon { opacity: 1; }

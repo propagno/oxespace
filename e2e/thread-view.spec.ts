@@ -328,7 +328,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     for (const [key, presses, width] of [['ArrowLeft', 20, 240], ['ArrowRight', 15, 360], ['ArrowLeft', 10, 280]] as const) {
       for (let index = 0; index < presses; index++) await resize.press(key)
       await expect(resize).toHaveAttribute('aria-valuenow', String(width))
-      await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('.workspace-surface')!.getBoundingClientRect().left - document.querySelector('.sidebar')!.getBoundingClientRect().right))).toBe(6) // --frame-gap
+      await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('.workspace-surface')!.getBoundingClientRect().left - document.querySelector('.sidebar')!.getBoundingClientRect().right))).toBe(8) // --frame-gap
       await expect(codeSidebar.getByRole('button', { name: 'Open settings', exact: true })).toBeVisible()
       const bounds = await codeSidebar.evaluate(el => {
         const side = el.getBoundingClientRect()
@@ -787,9 +787,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     })
     expect(wideGeometry.readingWidth).toBeGreaterThan(850)
     expect(wideGeometry.readingWidth).toBeLessThanOrEqual(1100)
-    // The inset frame (gap + border) narrows the view by 14px, so the composer may sit a little inside the reading column.
+    // The floating panels (gaps + borders) narrow the view, so the composer may sit a little inside the reading column.
     expect(wideGeometry.composerWidth).toBeLessThanOrEqual(wideGeometry.readingWidth)
-    expect(wideGeometry.composerWidth).toBeGreaterThan(wideGeometry.readingWidth - 24)
+    expect(wideGeometry.composerWidth).toBeGreaterThan(wideGeometry.readingWidth - 32)
     expect(wideGeometry.viewWidth).toBeGreaterThan(wideGeometry.readingWidth)
     // The timeline reserves an 8px scrollbar gutter, so its visual center may
     // differ by half that gutter while remaining aligned with the composer.
