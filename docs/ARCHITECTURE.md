@@ -78,3 +78,5 @@ Long-running or native resources must expose cleanup and be released during app 
 ## Quality gates
 
 The supported delivery sequence is typecheck, lint, coverage tests, renderer/main build with bundle budgets, Electron-native verification, and E2E. The Windows CI workflow runs these gates in that order and produces release artifacts only from the verified commit.
+
+`npm run lint` starts with `scripts/check-file-size.mjs`: no tracked `.ts`/`.tsx` file outside a vendor folder may pass 1,000 lines. The files that were already longer are listed in `scripts/file-size-baseline.json` and may not grow. When one shrinks, `node scripts/check-file-size.mjs --update` lowers its entry, so the space it freed can't be taken again.
