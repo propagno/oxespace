@@ -1,0 +1,20 @@
+/* Conversation in the reference pattern: your question is a neutral card the width of the reading column,
+   answers follow without a repeated agent name, and turns are separated by space, not lines. */
+.thread-view .thread-message-user {
+  width: 100%;
+  max-width: var(--thread-prose-max);
+  margin-left: 0;
+  margin-right: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--fill-hover);
+}
+.thread-view .thread-message-user > :is(.thread-markdown, .thread-long-prompt) { color: var(--text-primary); font-weight: var(--weight-medium); }
+
+/* The provider is in the header; here its name stays for screen readers only. "Final response" stays visible. */
+.thread-agent-name { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.thread-agent-label:not(:has(.thread-final-label)) { margin: 0; }
+.thread-view .thread-final-label { margin-left: 0; }
+
+.thread-virtual-turn.is-turn-start { border-top: 0; }

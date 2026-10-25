@@ -1,4 +1,4 @@
-import { GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X } from 'lucide-react'
+import { Folder, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X } from 'lucide-react'
 import { Menu, type MenuEntry } from '../../ui'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -9,6 +9,7 @@ import { useUIStore } from '../../store/ui.store'
 import { ThreadConversationActions } from './ThreadConversationActions'
 import { THREAD_BAR_PANELS, THREAD_MENU_PANELS, WORKBENCH_PANELS, type WorkbenchPanelId } from '../Workbench/panelCatalog'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
+import './ThreadHeaderChrome.css'
 
 /** Thread's own panel ids for the shared panel names. Worktrees is Code only and never listed here. */
 const THREAD_PANEL = {
@@ -38,7 +39,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
   const observed = thread?.observedLocation
   const moved = Boolean(observed?.sameRepository && observed.checkoutRoot)
   const outside = observed && !observed.sameRepository ? observed.cwd : null
-  return <header className="thread-heading"><div className="thread-heading-identity"><h1>{thread?.title ?? 'Project conversations'}</h1><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? `The agent is working in ${thread!.observedLocation!.checkoutRoot}\nConversation opened in ${thread!.rootPath}` : outside ? `${thread!.rootPath}\nThe agent reports working outside this repository: ${outside}` : thread?.rootPath ?? workspace?.rootPath}>{workspace?.name ?? 'Your projects'}{branch && <><GitBranch size={12} />{branch}</>}{moved && <span className="thread-heading-worktree"> · worktree</span>}</span>
+  return <header className="thread-heading"><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? `The agent is working in ${thread!.observedLocation!.checkoutRoot}\nConversation opened in ${thread!.rootPath}` : outside ? `${thread!.rootPath}\nThe agent reports working outside this repository: ${outside}` : thread?.rootPath ?? workspace?.rootPath}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? 'Your projects'}</strong>{branch && <span className="thread-heading-branch"><GitBranch size={11} aria-hidden="true" />{branch}</span>}{moved && <span className="thread-heading-worktree">worktree</span>}</span><h1>{thread?.title ?? 'Project conversations'}</h1>
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
     <div className="thread-heading-actions">
     {thread && THREAD_BAR_PANELS.map(id => <WorkbenchPanelToggle key={id} className="thread-review-trigger thread-panel-toggle" item={{ id, active: activePanel === THREAD_PANEL[id], onToggle: () => onTogglePanel(THREAD_PANEL[id]) }} />)}

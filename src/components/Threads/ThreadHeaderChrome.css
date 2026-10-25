@@ -1,0 +1,10 @@
+/* Header in the reference pattern: project and branch first, the conversation title after them in grey,
+   and the panel buttons as icons (their names are in the tooltip and the accessible name). */
+.thread-heading .thread-heading-context { flex: none; gap: 6px; color: var(--text-secondary); font-size: var(--fs-xs); }
+.thread-heading .thread-heading-context strong { color: var(--text-primary); font-weight: var(--weight-semibold); }
+.thread-heading-branch { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--fs-2xs); }
+.thread-heading-worktree { color: var(--text-muted); }
+.thread-heading h1 { color: var(--text-muted); font-size: var(--fs-xs); font-weight: var(--weight-regular); }
+.thread-heading .thread-panel-toggle span { display: none; }
+.thread-heading .thread-heading-actions .thread-panel-toggle { width: 28px; height: 28px; padding: 0; justify-content: center; }
+.thread-heading .thread-heading-actions .thread-panel-toggle:not([aria-pressed='true']) { border-color: transparent; background: transparent; }

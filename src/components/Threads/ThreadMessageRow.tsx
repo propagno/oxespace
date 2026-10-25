@@ -9,6 +9,7 @@ import { ThreadDeliveryNote } from './ThreadDeliveryNote'
 import { ThreadRewindControl } from './ThreadRewindControl'
 import { ThreadHistoricalQuestions } from './ThreadHistoricalQuestions'
 import { threadTurnPresentation } from './threadTurnPresentation'
+import './ThreadMessagesChrome.css'
 
 export function authText(text: string): boolean { return /^Failed to authenticate:|^OAuth token (?:has expired|revoked)/i.test(text) }
 
@@ -47,7 +48,7 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
   const copyText = event.historicalQuestions?.length ? [displayText, 'Recovered questions — answer not confirmed', ...event.historicalQuestions.flatMap(question => [question.title, ...(question.options ?? []).map(option => `- ${option}`)])].filter(Boolean).join('\n\n') : displayText
   const final = event.role === 'assistant' && threadTurnPresentation(turnEvents).finalMessageId === event.id
   return <article className={`thread-message thread-message-${event.role}${final ? ' is-final-response' : ''}`}>
-    {event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event) && <div className="thread-agent-label"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}{final && <span className="thread-final-label">Final response</span>}</div>}
+    {event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event) && <div className="thread-agent-label"><span className="thread-agent-name"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}</span>{final && <span className="thread-final-label">Final response</span>}</div>}
     {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small></li>)}</ul> : null}
     <ThreadMessageBody text={displayText} role={event.role} />
     {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label="Attached file context">{event.context.map(file => <li key={file.path} title={`${file.bytes} bytes attached${file.truncated ? ' (truncated)' : ''}`}><FileText size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>truncated</small>}</li>)}</ul> : null}
