@@ -28,19 +28,19 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
       await page.keyboard.press('Escape')
       await expect(page.getByRole('menu')).toHaveCount(0)
     }
-    // Surfaces follow the design tokens of the active mode (light or dark).
+    // Surfaces follow the design tokens of the active mode: panels (sidebar, work surface) on the window.
     const palette = await page.evaluate(() => {
       const token = (name: string) => { const el = document.createElement('span'); el.style.backgroundColor = `var(${name})`; document.body.append(el); const value = getComputedStyle(el).backgroundColor; el.remove(); return value }
       return {
         canvas: getComputedStyle(document.querySelector('.workspace-surface')!).backgroundColor,
         sidebar: getComputedStyle(document.querySelector('.sidebar')!).backgroundColor,
         titlebar: getComputedStyle(document.querySelector('.workbench-titlebar')!).backgroundColor,
-        expected: { canvas: token('--surface-canvas'), chrome: token('--surface-chrome') }
+        expected: { panel: token('--surface-base'), window: token('--surface-sunken') }
       }
     })
-    expect(palette.canvas).toBe(palette.expected.canvas)
-    expect(palette.sidebar).toBe(palette.expected.chrome)
-    expect(palette.titlebar).toBe(palette.expected.chrome)
+    expect(palette.canvas).toBe(palette.expected.panel)
+    expect(palette.sidebar).toBe(palette.expected.panel)
+    expect(palette.titlebar).toBe(palette.expected.window)
     await expect(page.getByTestId('pane-session-row')).toHaveCount(2)
     await page.getByTestId('pane-session-row').last().click()
     await page.getByTestId('terminal-pane').first().evaluate(el => el.setAttribute('data-preserved', 'yes'))

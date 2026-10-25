@@ -88,7 +88,8 @@
   --chrome-inset: 14px;
   --nav-radius: var(--radius-sm);
   --surface-radius: var(--radius-md);
-  --nav-selected: var(--fill-selected);
+  /* Selection is neutral; the accent is kept for focus, the brand and the main action. */
+  --nav-selected: var(--fill-pressed);
   --nav-hover: var(--fill-hover);
   --sidebar-w:        280px;
   --sidebar-w-collapsed: var(--rail-w);
@@ -98,7 +99,7 @@
   --ws-item-h:        40px;
 
   /* Window frame */
-  --frame-gap:        6px;
+  --frame-gap:        8px;
   --frame-radius:     var(--radius-lg);
   --panel-radius:     var(--radius-lg);
   --rail-w:           48px;

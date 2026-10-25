@@ -30,7 +30,8 @@ body {
      surface instead of every region being split by a 1px divider. */
   padding: 0 var(--frame-gap) var(--frame-gap);
   column-gap: var(--frame-gap);
-  background: var(--wb-chrome);
+  /* The window is the deepest layer; the sidebar and the work surface float on it as panels. */
+  background: var(--surface-sunken);
 }
 .app-shell.sidebar-collapsed {
   grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
@@ -47,7 +48,7 @@ body {
 .app-update-popover p { margin: 8px 0 12px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; }
 .app-update-popover a { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
 .app-shell > :is(.sidebar, .thread-navigation) { grid-column: 1; grid-row: 2; }
-.app-shell > .workspace-surface { grid-column: 2; grid-row: 2; min-height: 0; overflow: hidden; border: 1px solid var(--wb-border); border-radius: var(--frame-radius); }
+.app-shell > .workspace-surface { grid-column: 2; grid-row: 2; min-height: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--frame-radius); background: var(--surface-base); }
 @media (prefers-reduced-motion: reduce) {
   body, body *, body *::before, body *::after {
     scroll-behavior: auto !important;
