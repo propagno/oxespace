@@ -9,7 +9,8 @@ import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
 import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../shared/threadHistoryNotice'
 import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
-import { assertThreadMessage, THREAD_IDLE_SUSPEND_CHOICES, THREAD_IDLE_SUSPEND_DEFAULT_MINUTES, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
+import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
+import { idleSuspendMinutes, setIdleSuspendMinutes, suspendIdle, type IdleHost } from './thread-idle'
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
@@ -191,60 +192,32 @@ export class ThreadOrchestrator {
   }
 
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
-  idleSuspendMinutes(): number {
-    try {
-      const row = this.db.prepare("SELECT value FROM thread_settings WHERE key = 'idle_suspend_minutes'").get() as { value: string } | undefined
-      const minutes = row ? Number(row.value) : THREAD_IDLE_SUSPEND_DEFAULT_MINUTES
-      return THREAD_IDLE_SUSPEND_CHOICES.includes(minutes) ? minutes : THREAD_IDLE_SUSPEND_DEFAULT_MINUTES
-    } catch { return 0 }
+  idleSuspendMinutes(): number { return idleSuspendMinutes(this.db) }
+
+  setIdleSuspendMinutes(minutes: number): number { return setIdleSuspendMinutes(this.db, minutes) }
+
+  /** Closes the agent process of conversations idle longer than the setting (see thread-idle). */
+  suspendIdle(now = Date.now()): Promise<string[]> {
+    return suspendIdle(this.idleHost(), now)
   }
 
-  setIdleSuspendMinutes(minutes: number): number {
-    if (!THREAD_IDLE_SUSPEND_CHOICES.includes(minutes)) throw Error(`Choose one of ${THREAD_IDLE_SUSPEND_CHOICES.join(', ')} minutes`)
-    this.db.prepare("INSERT INTO thread_settings (key, value, updated_at) VALUES ('idle_suspend_minutes', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").run(String(minutes), Date.now())
-    return minutes
-  }
-
-  /**
-   * Closes the agent process (and the MCP servers it started) of conversations idle longer than the setting.
-   * Nothing is lost: the next message resumes the provider session. A conversation with a running turn, a
-   * pending question, queued input, a background task or session-only grants keeps its process.
-   */
-  async suspendIdle(now = Date.now()): Promise<string[]> {
-    const minutes = this.idleSuspendMinutes()
-    if (!minutes || this.stopping) return []
-    const suspended: string[] = []
-    for (const [id, adapter] of [...this.adapters]) {
-      const since = this.lastActivity.get(id)
-      if (since === undefined) { this.lastActivity.set(id, now); continue }
-      if (now - since < minutes * 60_000 || !this.canSuspend(id)) continue
-      this.adapters.delete(id)
-      this.lastActivity.delete(id)
-      const closing = adapter.dispose().catch(() => {})
-      this.suspending.set(id, closing)
-      try { await closing } finally { if (this.suspending.get(id) === closing) this.suspending.delete(id) }
-      // A message sent while the process was closing already started a new session.
-      if (this.adapters.has(id)) continue
-      try {
-        const snapshot = this.read(id)
-        snapshot.thread.connection = { ...this.sessions.close(id, now), suspendedAt: now }
-        snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, false, adapter.evidence, snapshot.thread)
-        this.save(snapshot, { eventsFrom: snapshot.events.length })
-      } catch { /* Deleted while closing. */ }
-      recordRuntime('thread-suspend', { thread: id })
-      suspended.push(id)
+  private idleHost(): IdleHost {
+    return {
+      db: this.db,
+      isStopping: () => this.stopping,
+      adapters: () => [...this.adapters],
+      hasAdapter: id => this.adapters.has(id),
+      lastActivity: id => this.lastActivity.get(id),
+      touch: (id, at) => { this.lastActivity.set(id, at) },
+      detach: id => { this.adapters.delete(id); this.lastActivity.delete(id) },
+      trackClosing: (id, closing) => { this.suspending.set(id, closing) },
+      untrackClosing: (id, closing) => { if (this.suspending.get(id) === closing) this.suspending.delete(id) },
+      isHeld: id => this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.sessionGrants.has(id),
+      openRequests: (id, generation) => this.requests.list(id, generation).length,
+      closeSession: (id, at) => this.sessions.close(id, at),
+      read: id => this.read(id),
+      save: (snapshot, options) => this.save(snapshot, options)
     }
-    return suspended
-  }
-
-  private canSuspend(id: string): boolean {
-    if (this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.sessionGrants.has(id)) return false
-    let snapshot: ThreadSnapshot
-    try { snapshot = this.read(id) } catch { return false }
-    const thread = snapshot.thread
-    if (thread.status === 'running' || thread.status === 'approval' || thread.cliActive || thread.queue?.length) return false
-    if (this.requests.list(id, thread.generation ?? 1).length) return false
-    return !snapshot.events.some(event => event.type === 'subagent' && event.state === 'running')
   }
 
   list(): ConversationThread[] {
