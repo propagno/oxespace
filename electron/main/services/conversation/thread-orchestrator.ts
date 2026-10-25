@@ -26,13 +26,13 @@ import { runThreadCommand, type CommandHost } from './kernel/command-router'
 import { ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
-import { splitThreadPatch } from '../../../../shared/threadPatch'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
 import { ThreadSessionSupervisor } from './thread-session-supervisor'
 import { pruneThreadData } from './thread-retention'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
+import { ThreadTurnTracker } from './thread-turns'
 import { ThreadPermissionStore } from './thread-permissions'
 import { ThreadUsageLedger } from './thread-usage'
 import { WorkService } from '../work/work-service'
@@ -116,15 +116,12 @@ export class ThreadOrchestrator {
   private readonly usage: ThreadUsageLedger
   /** Agent Work: plans a supervising conversation runs through worker conversations. */
   readonly work: WorkService
-  /** Checkpoints of a running turn: one per checkout the turn worked in (its root, then any worktree it moved into). */
-  private readonly turnCheckpoints = new Map<string, string[]>()
-  /** Checkouts a running turn has a checkpoint and a baseline in, by thread (canonical paths). */
-  private readonly turnRoots = new Map<string, { turnId: string; roots: Set<string> }>()
+  /** Checkpoints and working-tree baselines of running turns. */
+  private readonly turns: ThreadTurnTracker
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
   private readonly finalizing = new Set<string>()
   private readonly finalizationTasks = new Set<Promise<void>>()
-  private readonly workingTreeBaselines = new Map<string, Array<{ root: string; patch: string; untracked: Set<string> }>>()
   private stopping = false
   private readonly configuring = new Set<string>()
   /** Last provider event, message or connection per live adapter; drives idle suspension. */
@@ -158,6 +155,7 @@ export class ThreadOrchestrator {
     this.history = new ThreadHistory(db)
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
+    this.turns = new ThreadTurnTracker(this.checkpoints, id => this.read(id), (id, event) => this.event(id, event))
     this.permissions = new ThreadPermissionStore(db)
     this.usage = new ThreadUsageLedger(db)
     try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
@@ -320,8 +318,7 @@ export class ThreadOrchestrator {
     this.snapshots.delete(id)
     this.lastActivity.delete(id)
     this.sessionGrants.delete(id)
-    this.workingTreeBaselines.delete(id)
-    this.turnRoots.delete(id)
+    this.turns.forget(id)
     clearTimeout(this.deltaTimers.get(id)); this.deltaTimers.delete(id); this.deltaBuffers.delete(id)
     this.requests.invalidate(id)
   }
@@ -451,8 +448,8 @@ export class ThreadOrchestrator {
         this.snapshots.set(id, recovered)
         if (recoverLive) {
           const turn = recovered.turns!.at(-1)!
-          const captureDiff = this.workingTreeBaselines.has(id)
-          if (captureDiff || this.turnCheckpoints.has(turn.id)) {
+          const captureDiff = this.turns.hasBaseline(id)
+          if (captureDiff || this.turns.hasCheckpoints(turn.id)) {
             this.finalizing.add(id)
             const task = this.finalizeTurnThenDrain(id, turn.status as 'completed' | 'failed', turn.id, captureDiff, false)
             this.finalizationTasks.add(task)
@@ -616,7 +613,7 @@ export class ThreadOrchestrator {
       // Publish the accepted prompt before repository snapshots or agent startup can block the UI.
       // Both reads must finish before the agent can modify files, but they are independent.
       // In the checkout the conversation works in: a worktree it moved into, else its own root.
-      await this.beginTurnIn(id, turnId, workingRootOf(snapshot.thread), text.trim().slice(0, 80))
+      await this.turns.begin(id, turnId, workingRootOf(snapshot.thread), text.trim().slice(0, 80))
       this.event(id, { type: 'activity', id: `activity:${turnId}:connecting`, phase: 'connecting', at: Date.now() })
       const adapter = await this.connectAdapter(id, snapshot.thread, false)
       this.history.transitionOperation(id, operation.id, 'sent')
@@ -943,9 +940,7 @@ export class ThreadOrchestrator {
     }
     this.busy.clear()
     this.finalizing.clear()
-    this.workingTreeBaselines.clear()
-    this.turnCheckpoints.clear()
-    this.turnRoots.clear()
+    this.turns.clear()
     for (const id of this.adapters.keys()) {
       try { const snapshot = this.read(id); snapshot.thread.connection = this.sessions.close(id); this.save(snapshot, { eventsFrom: snapshot.events.length }) } catch { /* deleted */ }
     }
@@ -1003,7 +998,7 @@ export class ThreadOrchestrator {
       // changes there can be reviewed and undone like changes in the root.
       const turn = snapshot.turns?.at(-1)
       if (this.busy.has(id) && turn?.status === 'running' && next?.sameRepository && next.checkoutRoot) {
-        void this.beginTurnIn(id, turn.id, next.checkoutRoot, 'In a worktree').catch(() => undefined)
+        void this.turns.begin(id, turn.id, next.checkoutRoot, 'In a worktree').catch(() => undefined)
       }
     } catch { /* Thread may have been deleted while the provider was reporting. */ }
   }
@@ -1090,8 +1085,8 @@ export class ThreadOrchestrator {
       this.requests.settle(id, event.id, event.state)
     }
     const endingTurn = event.type === 'completed' ? snapshot.turns?.at(-1) : undefined
-    const needsVerifiedDiff = event.type === 'completed' && this.workingTreeBaselines.has(id)
-    const needsCheckpoint = Boolean(endingTurn && this.turnCheckpoints.has(endingTurn.id))
+    const needsVerifiedDiff = event.type === 'completed' && this.turns.hasBaseline(id)
+    const needsCheckpoint = Boolean(endingTurn && this.turns.hasCheckpoints(endingTurn.id))
     const invalidated = event.type === 'completed' ? this.requests.invalidate(id, event.status === 'completed' ? 'expired' : 'cancelled') : []
 
     const result = reduceThreadEvent(snapshot, event, {
@@ -1246,80 +1241,8 @@ export class ThreadOrchestrator {
     await Promise.allSettled(attachmentIds.map(attachmentId => this.attachmentStore!.remove(id, attachmentId)))
   }
 
-  private async workingState(rootPath: string): Promise<{ patch: string; untracked: Set<string> } | undefined> {
-    const run = (args: string[]) => new Promise<string>((resolve, reject) => {
-      const child = execFile('git', args, { cwd: rootPath, windowsHide: true, maxBuffer: 16 * 1024 * 1024, timeout: 15000 }, (error, stdout) => error ? reject(error) : resolve(stdout))
-      child.stdin?.end()
-    })
-    try {
-      const [patch, status] = await Promise.all([
-        run(['--no-pager', 'diff', '--no-ext-diff', '--no-textconv', '--binary', 'HEAD', '--']),
-        run(['status', '--porcelain=v1', '-z', '--untracked-files=all'])
-      ])
-      const untracked = new Set(status.split('\0').flatMap(entry => entry.startsWith('?? ') ? [entry.slice(3)] : []))
-      return { patch, untracked }
-    } catch { return undefined }
-  }
-
-  private async captureWorkingTreeDiff(id: string, status: 'completed' | 'interrupted' | 'failed', turnId?: string): Promise<void> {
-    const baselines = this.workingTreeBaselines.get(id) ?? []
-    this.workingTreeBaselines.delete(id)
-    try {
-      const snapshot = this.read(id)
-      const turnStart = snapshot.events.findIndex(event => event.type === 'message' && event.id === turnId)
-      const pathKey = (path: string): string => process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path
-      const reportedPaths = new Set(snapshot.events.slice(Math.max(0, turnStart)).flatMap(event => event.type === 'turn-diff' && event.id.startsWith('turn-diff:') ? event.files.map(file => pathKey(file.path)) : []))
-      const files: import('../../../../shared/types/thread').ThreadFileChange[] = []
-      // Every checkout the turn worked in: its root, and any worktree it moved into during the turn.
-      for (const before of baselines) {
-        const after = await this.workingState(before.root)
-        if (after === undefined || (after.patch === before.patch && ![...after.untracked].some(path => !before.untracked.has(path)))) continue
-        const previous = new Map(splitThreadPatch(before.patch).map(file => [file.path, file.patch]))
-        files.push(...splitThreadPatch(after.patch)
-          .filter(file => previous.get(file.path) !== file.patch && !reportedPaths.has(pathKey(file.path)))
-          .map(file => ({ ...file, source: 'working-tree-observation' as const, authorship: 'indeterminate' as const, state: status === 'completed' ? 'completed' as const : 'failed' as const })))
-        for (const path of after.untracked) if (!before.untracked.has(path) && !reportedPaths.has(pathKey(path))) files.push({ path, kind: 'add', source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' : 'failed' })
-      }
-      if (files.length) this.event(id, { type: 'turn-diff', id: `verified-diff:${turnId ?? randomUUID()}`, turnId: turnId ?? '', files })
-    } catch { /* Repository may have been removed after the turn. */ }
-  }
-
-  /**
-   * Takes a turn's checkpoint and working-tree baseline in one checkout. Called when the turn starts and
-   * again when the provider moves into another checkout of the repository during the turn, so changes made
-   * there are reviewable and undoable too. Both reads finish before the caller lets the agent continue.
-   */
-  private async beginTurnIn(id: string, turnId: string, root: string, label: string, baseline = true): Promise<void> {
-    const key = canonicalPath(root)
-    const current = this.turnRoots.get(id)
-    const roots = current?.turnId === turnId ? current.roots : new Set<string>()
-    if (roots.has(key)) return
-    roots.add(key)
-    this.turnRoots.set(id, { turnId, roots })
-    const [checkpointId, state] = await Promise.all([
-      // No checkpoint means this turn cannot be undone; say so in diagnostics instead of dropping the reason.
-      this.checkpoints.begin({ threadId: id, turnId, rootPath: root, label }).catch((error: unknown) => { recordRuntime('checkpoint-failed', { thread: id, turn: turnId, state: error instanceof Error ? error.message.slice(0, 200) : 'unknown' }); return undefined }),
-      baseline ? this.workingState(root) : Promise.resolve(undefined)
-    ])
-    // The turn may have finished while these reads ran (a move reported right before completion). Its records
-    // were already finalized, so this late pair must not leak into the next turn.
-    if (this.turnRoots.get(id)?.turnId !== turnId) {
-      if (checkpointId) await this.checkpoints.finalize(checkpointId).catch(() => undefined)
-      return
-    }
-    if (checkpointId) this.turnCheckpoints.set(turnId, [...this.turnCheckpoints.get(turnId) ?? [], checkpointId])
-    if (state !== undefined) this.workingTreeBaselines.set(id, [...this.workingTreeBaselines.get(id) ?? [], { root, ...state }])
-  }
-
   private async finalizeTurnThenDrain(id: string, status: 'completed' | 'interrupted' | 'failed', turnId: string | undefined, captureDiff: boolean, drain = true): Promise<void> {
-    // The turn is over from here: a checkout reported while this runs belongs to no turn.
-    if (turnId && this.turnRoots.get(id)?.turnId === turnId) this.turnRoots.delete(id)
-    try {
-      if (captureDiff) await this.captureWorkingTreeDiff(id, status, turnId)
-      for (const checkpointId of turnId ? this.turnCheckpoints.get(turnId) ?? [] : []) await this.checkpoints.finalize(checkpointId)
-    } finally {
-      if (turnId) this.turnCheckpoints.delete(turnId)
-      if (turnId && this.turnRoots.get(id)?.turnId === turnId) this.turnRoots.delete(id)
+    try { await this.turns.finalize(id, status, turnId, captureDiff) } finally {
       this.finalizing.delete(id)
       if (drain) await this.drainQueue(id)
     }
@@ -1399,7 +1322,7 @@ export class ThreadOrchestrator {
       resolveAttachments: (id, attachmentIds) => this.resolveAttachments(id, attachmentIds),
       releaseAttachments: (id, attachmentIds) => this.releaseAttachments(id, attachmentIds),
       applyPendingRewind: id => this.applyPendingRewind(id),
-      beginTurn: (id, turnId, thread, label, baseline) => this.beginTurnIn(id, turnId, workingRootOf(thread), label, baseline),
+      beginTurn: (id, turnId, thread, label, baseline) => this.turns.begin(id, turnId, workingRootOf(thread), label, baseline),
       send: (id, text, attachmentIds) => this.send(id, text, attachmentIds),
       interrupt: id => this.interrupt(id)
     }

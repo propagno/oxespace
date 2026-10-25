@@ -30,7 +30,7 @@ function fixture() {
   const models = { list: vi.fn(async () => ({ defaultModel: 'm', models: [] })), stop: vi.fn(async () => {}) }
   // No working tree: diff capture and checkpoints are out of scope for this golden file.
   const manager = new ThreadManager(db, factory, vi.fn(), undefined, undefined, undefined, models as never)
-  vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
+  vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
   const id = manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: '/project-A', provider: 'codex' }).thread.id
   return { db, manager, callbacks, id }
 }

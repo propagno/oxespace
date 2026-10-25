@@ -40,7 +40,7 @@ async function setup(access: 'read-only' | 'workspace-write' = 'workspace-write'
     } as AgentConversationAdapter
   })
   const manager = new ThreadManager(db, factory, vi.fn()); managers.push(manager)
-  vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
+  vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
   ;(manager.work as unknown as { limits: { wakeDelayMs: number } }).limits.wakeDelayMs = 0
   const supervisor = manager.create({ workspaceId: 'A', projectId: 'p', rootPath: root, provider: 'claude' }).thread
   await manager.configure(supervisor.id, { access }, supervisor.configurationRevision ?? 0)

@@ -123,7 +123,7 @@ describe('Thread approvals answered by permission rules', () => {
       })
     }) as AgentConversationAdapter)
     const manager = new ThreadManager(db, factory, vi.fn())
-    vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
+    vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
     const id = manager.create({ workspaceId: 'A', projectId: 'p', rootPath: root, provider: 'claude' }).thread.id
     await manager.send(id, 'Go')
     const request = (requestId: string, fields: Partial<ThreadRequest>) => emit({ type: 'request', id: requestId, request: {

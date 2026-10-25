@@ -80,7 +80,7 @@ describe('sending a message with @ mentions', () => {
       send, interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}), dispose: vi.fn(async () => {})
     }) as AgentConversationAdapter)
     const manager = new ThreadManager(db, factory, vi.fn())
-    vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
+    vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
     const id = manager.create({ workspaceId: 'A', projectId: 'p', rootPath: root, provider: 'claude' }).thread.id
     await manager.send(id, 'Review @src/app.ts')
     const sent = send.mock.calls[0][0] as unknown as string

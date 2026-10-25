@@ -21,7 +21,7 @@ function fixture() {
     adapters.push(adapter); return adapter
   })
   const manager = new ThreadManager(db, factory, vi.fn())
-  vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
+  vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
   const create = () => manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: '/project-A', provider: 'claude' }).thread.id
   return { db, manager, factory, adapters, callbacks, create, factoryGate, release: () => release() }
 }
