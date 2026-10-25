@@ -89,6 +89,16 @@ test('Settings stays usable in short windows and renders updater states', async 
       return fs.readFileSync(path.join(electronApp.getPath('userData'), 'update-preferences.json'), 'utf8')
     })
     expect(JSON.parse(savedPreferences)).toMatchObject({ mode: 'off', pinnedVersion: expect.any(String) })
+    // Betas are opt-in, and the choice is saved with the rest.
+    const beta = settings.getByRole('switch', { name: /^Receive beta versions/ })
+    await expect(beta).toHaveAttribute('aria-checked', 'false')
+    await beta.click()
+    await expect(beta).toHaveAttribute('aria-checked', 'true')
+    await expect.poll(async () => JSON.parse(await app.evaluate(({ app: electronApp }) => {
+      const fs = process.getBuiltinModule('node:fs') as typeof import('node:fs'), path = process.getBuiltinModule('node:path') as typeof import('node:path')
+      return fs.readFileSync(path.join(electronApp.getPath('userData'), 'update-preferences.json'), 'utf8')
+    })).channel).toBe('beta')
+    await beta.click()
     await settings.getByRole('switch', { name: /^Stay on v/ }).click()
     await updateMode.getByRole('radio', { name: 'Automatic' }).click()
     await page.evaluate(() => { document.documentElement.dataset.theme = 'one-dark' })

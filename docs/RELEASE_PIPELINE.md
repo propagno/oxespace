@@ -124,6 +124,12 @@ produces a channel-specific updater manifest (`beta.yml`) instead of replacing
 the stable `latest.yml` feed. The published GitHub Release is marked
 prerelease.
 
+Who receives a beta: an install with **Settings › Updates › Receive beta
+versions** on. A pre-release install starts with it on. Turning it off
+never downgrades: the app keeps its version until a newer stable release is
+out (`allowDowngrade` stays off). Installs from before this switch existed
+(1.3.3 and earlier) get their first beta from the Releases page.
+
 ## Published release payload
 
 Every release contains:

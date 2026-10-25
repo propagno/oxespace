@@ -15,7 +15,9 @@ export type AppUpdateStatus =
  * kept: no periodic checks and no downloads, though a manual check still says what is new.
  */
 export type AppUpdateMode = 'auto' | 'notify' | 'off'
-export interface AppUpdatePreferences { mode: AppUpdateMode; pinnedVersion: string | null }
+/** `beta` also offers pre-releases (`X.Y.Z-beta.N`). Leaving beta never downgrades: the app waits for a newer stable. */
+export type AppUpdateChannel = 'stable' | 'beta'
+export interface AppUpdatePreferences { mode: AppUpdateMode; pinnedVersion: string | null; channel: AppUpdateChannel }
 
 export interface AppUpdateState {
   status: AppUpdateStatus

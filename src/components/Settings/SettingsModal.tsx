@@ -34,6 +34,7 @@ import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MI
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, SegmentedControl, Switch, TextField, Select } from '../../ui'
+import { UpdatePreferences } from './UpdatePreferences'
 import { humanizeError } from '../../utils/humanizeError'
 
 export interface SettingsModalProps {
@@ -1299,14 +1300,10 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   }, [bootstrap])
 
   const manualInstall = app.installMode === 'manual' || app.status === 'disabled'
-  const preferences = app.preferences ?? { mode: 'auto' as const, pinnedVersion: null }
+  const preferences = app.preferences ?? { mode: 'auto' as const, pinnedVersion: null, channel: 'stable' as const }
   const pinned = preferences.pinnedVersion !== null
   // Only Automatic, without a pinned version, downloads on its own; otherwise a found update waits for the person.
   const asksToDownload = !manualInstall && (preferences.mode !== 'auto' || pinned)
-  const modeHint = pinned ? `Staying on v${preferences.pinnedVersion}: OXESpace does not check or download updates. Check for updates still tells you what is new.`
-    : preferences.mode === 'auto' ? 'Checks every few hours, downloads in the background and installs when you restart.'
-      : preferences.mode === 'notify' ? 'Checks every few hours and tells you when a version is out. Nothing downloads until you choose.'
-        : 'Never checks on its own. Use Check for updates when you want to know.'
   const isDevBuild = app.status === 'disabled'
   const versionLabel = app.currentVersion === 'dev' || !app.currentVersion
     ? 'dev build'
@@ -1399,14 +1396,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               <p className="settings-error" data-testid="app-update-error">{app.error}</p>
             ) : null}
             {app.preferences ? (
-              <div className="settings-update-preferences">
-                <SegmentedControl label="How OXESpace updates" value={preferences.mode}
-                  options={[{ value: 'auto', label: 'Automatic' }, { value: 'notify', label: 'Notify me' }, { value: 'off', label: 'Off' }]}
-                  onChange={(mode) => void setUpdatePreferences({ ...preferences, mode })} />
-                <Switch checked={pinned} label={`Stay on v${pinned ? preferences.pinnedVersion : app.currentVersion}`} description="Keep this version until you turn this off."
-                  onChange={(checked) => void setUpdatePreferences({ ...preferences, pinnedVersion: checked ? app.currentVersion : null })} />
-                <p className="settings-update-mode-hint" data-testid="app-update-mode-hint">{modeHint}</p>
-              </div>
+              <UpdatePreferences preferences={preferences} currentVersion={app.currentVersion} onChange={(next) => void setUpdatePreferences(next)} />
             ) : null}
             <div className="settings-update-actions">
               {asksToDownload && app.status === 'available' ? (
