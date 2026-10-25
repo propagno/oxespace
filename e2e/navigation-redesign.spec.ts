@@ -54,7 +54,8 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.getByRole('button', {name:/^General Navigation/}).click()
     await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible()
     const settings = page.locator('.settings-center')
-    expect(await settings.boundingBox()).toEqual({ x: 0, y: 0, width: 1280, height: 720 })
+    // Settings fill the window below the title bar, which stays in view.
+    expect(await settings.boundingBox()).toEqual({ x: 0, y: 36, width: 1280, height: 684 })
     await page.screenshot({ path: test.info().outputPath('settings-general.png') })
     await scope.getByRole('button', { name: /Current workspace/ }).click()
     await expect(page.getByRole('radio', { name: /Comfortable/ })).toBeVisible()
