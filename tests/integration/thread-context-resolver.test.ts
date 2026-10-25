@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
-import { findMentions, MAX_FILE_BYTES, resolveMentionContext } from '../../electron/main/services/conversation/thread-context-resolver'
+import { findMentions, MAX_FILE_BYTES, MAX_TOTAL_BYTES, resolveMentionContext } from '../../electron/main/services/conversation/thread-context-resolver'
 import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
 import type { AgentConversationAdapter } from '../../shared/types/thread'
 import { removeTempDir } from '../helpers/removeTempDir'
@@ -50,6 +50,17 @@ describe('resolveMentionContext', () => {
     expect(context.files).toEqual([{ path: 'big.txt', bytes: MAX_FILE_BYTES, truncated: true }])
     expect(context.block).not.toContain('secret')
     expect(context.block).toContain('truncated="true"')
+    expect(context.block).toContain(`First ${MAX_FILE_BYTES} bytes only; read the rest of the file with your tools`)
+  })
+
+  it('keeps the attached files within the total budget', async () => {
+    const root = project()
+    for (const name of ['a', 'b', 'c', 'd']) writeFileSync(join(root, `${name}.txt`), 'y'.repeat(MAX_FILE_BYTES))
+    const context = await resolveMentionContext(root, '@a.txt @b.txt @c.txt @d.txt')
+    expect(MAX_FILE_BYTES).toBe(16 * 1024)
+    expect(MAX_TOTAL_BYTES).toBe(48 * 1024)
+    expect(context.files.reduce((sum, file) => sum + file.bytes, 0)).toBeLessThanOrEqual(MAX_TOTAL_BYTES)
+    expect(context.files.map(file => file.path)).toEqual(['a.txt', 'b.txt', 'c.txt'])
   })
 
   it('returns nothing when no mention resolves', async () => {

@@ -14,8 +14,8 @@ import { resolve } from 'node:path'
 import { checkWorkspacePath } from './path-safety'
 
 export const MAX_FILES = 8
-export const MAX_FILE_BYTES = 64 * 1024
-export const MAX_TOTAL_BYTES = 256 * 1024
+export const MAX_FILE_BYTES = 16 * 1024
+export const MAX_TOTAL_BYTES = 48 * 1024
 
 export interface AttachedContextFile {
   path: string
@@ -79,7 +79,8 @@ export async function resolveMentionContext(rootPath: string, text: string): Pro
       const content = data.toString('utf8')
       total += data.length
       files.push({ path: mention, bytes: data.length, ...(truncated ? { truncated: true } : {}) })
-      parts.push(`<attached_file path="${escapeAttr(mention)}"${truncated ? ` truncated="true" total_bytes="${size}"` : ''}>\n${content}\n</attached_file>`)
+      // Only the head is attached; the agent reads the rest itself if the task needs it.
+      parts.push(`<attached_file path="${escapeAttr(mention)}"${truncated ? ` truncated="true" total_bytes="${size}" note="First ${data.length} bytes only; read the rest of the file with your tools if you need it."` : ''}>\n${content}\n</attached_file>`)
     } catch { /* Missing or unreadable: the mention stays plain text. */ }
   }
   if (!files.length) return { block: '', files: [] }

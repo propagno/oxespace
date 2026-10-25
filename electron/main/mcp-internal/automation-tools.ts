@@ -39,7 +39,13 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
         // Delegation preflight performs the detailed check when requested.
         delegation: { status: ctx.delegation ? 'available' : 'unavailable', details: 'Use oxespace_delegation_preflight for project eligibility.' },
         policy: 'Every action revalidates scope, ownership and project opt-in. Listed tools may require additional setup.',
-        limits: { concurrentDelegationsPerProject: 4, recursiveDelegation: false }
+        limits: { concurrentDelegationsPerProject: 4, recursiveDelegation: false },
+        // A conversation is offered only some groups; say how to get the others.
+        ...(execution.owner.kind === 'thread' ? { threadToolGroups: {
+          offered: 'core tools, plus team or delegation/work tools when this conversation has that role',
+          optional: ['orchestration', 'data', 'docs', 'app'],
+          enable: 'Add `thread:\n  tools: [orchestration, data, docs, app]` to oxe.yaml at the project root, then start a new conversation.'
+        } } : {})
       })
       if (name === 'oxespace_memory_diagnostics') {
         if (!ctx.memory || !ctx.memoryRunId) return reply('ok', { binding: 'unbound', suggestedAction: 'Enable/configure memory and open a new terminal.', nativePersistence: 'not_observable', consolidation: 'not_observable' })

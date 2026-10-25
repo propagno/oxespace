@@ -13,7 +13,8 @@ import { ThreadNativeCli } from './thread-cli'
 import { NativeHistoryWorkerClient } from './native-history-worker-client'
 import { CodexStateReader } from './codex-state-reader'
 import { ThreadModelService } from './thread-models'
-import { bindThreadMcp, deniedMcpTools, threadMcpArguments, type ThreadMcpBindings } from './thread-mcp'
+import { bindThreadMcp, deniedMcpTools, threadMcpArguments, threadToolList, threadToolRoles, toolSearchEnvironment, type ThreadMcpBindings } from './thread-mcp'
+import { loadRepoConfig } from '../repo-config/loader'
 import { ThreadPermissionStore } from './thread-permissions'
 import { readManagedMcp } from './thread-managed-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
@@ -48,10 +49,12 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       const projectWorkspaces = (db.prepare('SELECT id, root_path FROM workspaces').all() as { id: string; root_path: string }[])
         .filter(row => norm(row.root_path) === norm(thread.rootPath)).map(row => row.id)
       const managed = readManagedMcp(db, [thread.workspaceId, ...projectWorkspaces])
-      const env = { ...managed.env, ...prepared }
+      const env = { ...managed.env, ...prepared, ...toolSearchEnvironment(thread.provider) }
       // Deny rules for MCP tools take effect when the session starts.
       const denied = deniedMcpTools(new ThreadPermissionStore(db).rules(thread.rootPath))
-      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied), cwd, env, { thread: thread.id, generation: thread.generation })
+      // So do tool groups: only what this conversation's role and project need.
+      const tools = threadToolList(threadToolRoles(db, thread.id), (await loadRepoConfig(thread.rootPath).catch(() => null))?.thread?.tools)
+      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied, tools), cwd, env, { thread: thread.id, generation: thread.generation })
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
         : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))
       return bindThreadMcp(adapter, () => mcp.end(thread.id, executionId))
