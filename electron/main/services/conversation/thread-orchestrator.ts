@@ -14,6 +14,7 @@ import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } from './thread-rewind-flow'
+import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle } from './thread-title'
@@ -738,29 +739,12 @@ export class ThreadOrchestrator {
     this.save(snapshot, { eventsFrom, ...(turn?.operationId ? { operationId: turn.operationId } : {}) })
   }
 
-  async updateQueued(id: string, itemId: string, text: string): Promise<void> {
-    assertThreadMessage(text)
-    const snapshot = this.read(id), item = snapshot.thread.queue?.find(value => value.id === itemId)
-    if (!item || item.state !== 'queued') throw Error('Queued input is unavailable')
-    item.text = text
-    const adapter = this.adapters.get(id)
-    if (item.nativeId && adapter?.updateQueued) await adapter.updateQueued(item.nativeId, item, await this.resolveAttachments(id, item.attachmentIds ?? []))
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
+  updateQueued(id: string, itemId: string, text: string): Promise<void> {
+    return updateQueued(this.queueHost(), id, itemId, text)
   }
 
-  async deleteQueued(id: string, itemId: string, preserveAttachments = false): Promise<void> {
-    const snapshot = this.read(id), item = snapshot.thread.queue?.find(value => value.id === itemId)
-    if (!item || item.state === 'sending') throw Error('Queued input is unavailable')
-    const adapter = this.adapters.get(id)
-    // An `unknown` item crossed a process boundary without an acknowledgement.
-    // Never issue a second native mutation for it: removing it is an explicit
-    // local dismissal, not proof that the provider did or did not receive it.
-    if (item.state !== 'unknown' && item.nativeId && adapter?.deleteQueued) await adapter.deleteQueued(item.nativeId)
-    snapshot.thread.queue = snapshot.thread.queue?.filter(value => value.id !== itemId)
-    if (!snapshot.thread.queue?.some(value => value.state === 'queued')) delete snapshot.thread.queuePause
-    if (item.operationId) this.history.transitionOperation(id, item.operationId, 'cancelled', 'Queued input was removed locally.')
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
-    if (!preserveAttachments) await this.releaseAttachments(id, item.attachmentIds ?? [])
+  deleteQueued(id: string, itemId: string, preserveAttachments = false): Promise<void> {
+    return deleteQueued(this.queueHost(), id, itemId, preserveAttachments)
   }
 
   /** Sends a finished turn's prompt again, optionally after undoing its file changes (see thread-rewind-flow). */
@@ -807,48 +791,17 @@ export class ThreadOrchestrator {
   }
 
   /** Clears a pause and lets the queue continue from its first waiting item. */
-  async resumeQueue(id: string): Promise<void> {
-    const snapshot = this.read(id)
-    if (!snapshot.thread.queuePause) return
-    delete snapshot.thread.queuePause
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
-    await this.drainQueue(id)
+  resumeQueue(id: string): Promise<void> {
+    return resumeQueue(this.queueHost(), id)
   }
 
-  /**
-   * Moves one waiting item to the front and sends it. While a turn runs, that turn is stopped first and the
-   * item goes as soon as it ends; the stop is the user's choice, so it does not pause the queue.
-   */
-  async sendQueuedNow(id: string, itemId: string): Promise<void> {
-    const snapshot = this.read(id), queue = snapshot.thread.queue ?? []
-    const item = queue.find(value => value.id === itemId)
-    if (!item || item.state !== 'queued') throw Error('Queued input is unavailable')
-    if (queue[0]?.id !== itemId) {
-      const nativeIds = [item, ...queue.filter(value => value.id !== itemId)].map(value => value.nativeId).filter((value): value is string => Boolean(value))
-      snapshot.thread.queue = [item, ...queue.filter(value => value.id !== itemId)]
-      const adapter = this.adapters.get(id)
-      if (nativeIds.length === queue.length && adapter?.reorderQueued) await adapter.reorderQueued(nativeIds)
-    }
-    delete snapshot.thread.queuePause
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
-    if (this.busy.has(id)) {
-      this.sendNowAfterStop.add(id)
-      try { await this.interrupt(id) } catch (error) { this.sendNowAfterStop.delete(id); throw error }
-      return
-    }
-    await this.drainQueue(id)
+  /** Moves one waiting item to the front and sends it, stopping a running turn first. */
+  sendQueuedNow(id: string, itemId: string): Promise<void> {
+    return sendQueuedNow(this.queueHost(), id, itemId)
   }
 
-  async reorderQueued(id: string, itemIds: string[]): Promise<void> {
-    const snapshot = this.read(id), queue = snapshot.thread.queue ?? []
-    if (itemIds.length !== queue.length || new Set(itemIds).size !== itemIds.length) throw Error('Invalid queue order')
-    const byId = new Map(queue.map(item => [item.id, item]))
-    if (itemIds.some(itemId => !byId.has(itemId))) throw Error('Invalid queue order')
-    snapshot.thread.queue = itemIds.map(itemId => byId.get(itemId)!)
-    const nativeIds = snapshot.thread.queue.map(item => item.nativeId).filter((value): value is string => Boolean(value))
-    const adapter = this.adapters.get(id)
-    if (nativeIds.length === queue.length && adapter?.reorderQueued) await adapter.reorderQueued(nativeIds)
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
+  reorderQueued(id: string, itemIds: string[]): Promise<void> {
+    return reorderQueued(this.queueHost(), id, itemIds)
   }
 
   pin(id: string, pinned: boolean): void {
@@ -1427,58 +1380,28 @@ export class ThreadOrchestrator {
     }
   }
 
-  private async drainQueue(id: string): Promise<void> {
-    if (this.stopping || this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id)) return
-    let snapshot: ThreadSnapshot
-    try { snapshot = this.read(id) } catch { return }
-    // The flag lasts until the first drain after the stop, whether or not that turn ended up paused.
-    if (this.sendNowAfterStop.delete(id) && snapshot.thread.queuePause) {
-      delete snapshot.thread.queuePause
-      this.save(snapshot, { eventsFrom: snapshot.events.length })
-    }
-    if (snapshot.thread.queuePause) return
-    let item = snapshot.thread.queue?.find(value => value.state === 'queued')
-    if (!item) return
-    // The next queued message confirms a pending rewind, as a sent one does.
-    if (snapshot.thread.rewind) {
-      try { await this.applyPendingRewind(id) } catch { return }
-      snapshot = this.read(id)
-      item = snapshot.thread.queue?.find(value => value.state === 'queued')
-      if (!item) return
-    }
-    item.state = 'sending'
-    if (item.operationId) this.history.transitionOperation(id, item.operationId, 'sent')
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
-    try {
-      const adapter = this.adapters.get(id)
-      if (item.nativeId && adapter?.startQueued) {
-        const latest = this.read(id)
-        latest.thread.queue = latest.thread.queue?.filter(value => value.id !== item.id)
-        latest.thread.status = 'running'
-        delete latest.thread.providerObservation
-        const attachments = await this.resolveAttachments(id, item.attachmentIds ?? [])
-        latest.events.push({ type: 'message', id: item.id, role: 'user', text: item.text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
-        latest.turns ??= []
-        latest.turns.push({ id: item.id, ...(item.operationId ? { operationId: item.operationId } : {}), sequence: latest.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(latest.thread), ...(item.attachmentIds?.length ? { attachmentIds: [...item.attachmentIds] } : {}) })
-        await this.beginTurnIn(id, item.id, workingRootOf(latest.thread), item.text.trim().slice(0, 80), false)
-        if (item.operationId) this.history.transitionOperation(id, item.operationId, 'running')
-        this.busy.add(id); this.save(latest, { eventsFrom: latest.events.length - 1, ...(item.operationId ? { operationId: item.operationId } : {}) })
-        await adapter.startQueued(item.nativeId)
-      } else {
-        const latest = this.read(id)
-        latest.thread.queue = latest.thread.queue?.filter(value => value.id !== item.id)
-        if (item.operationId) this.history.transitionOperation(id, item.operationId, 'completed')
-        this.save(latest, { eventsFrom: latest.events.length })
-        await this.send(id, item.text, item.attachmentIds ?? [])
-      }
-    } catch (error) {
-      const latest = this.read(id)
-      latest.thread.queue ??= []
-      let failed = latest.thread.queue.find(value => value.id === item.id)
-      if (!failed) { failed = { ...item }; latest.thread.queue.push(failed) }
-      failed.state = 'failed'; failed.error = error instanceof Error ? error.message : 'Could not send queued input'
-      if (failed.operationId) this.history.transitionOperation(id, failed.operationId, 'failed', failed.error)
-      this.busy.delete(id); this.save(latest, { eventsFrom: latest.events.length })
+  private drainQueue(id: string): Promise<void> {
+    return drainQueue(this.queueHost(), id)
+  }
+
+  private queueHost(): QueueHost {
+    return {
+      isStopping: () => this.stopping,
+      isBusy: id => this.busy.has(id),
+      blocksDrain: id => this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id),
+      setBusy: (id, busy) => { if (busy) this.busy.add(id); else this.busy.delete(id) },
+      markSendNowAfterStop: (id, marked) => { if (marked) this.sendNowAfterStop.add(id); else this.sendNowAfterStop.delete(id) },
+      takeSendNowAfterStop: id => this.sendNowAfterStop.delete(id),
+      read: id => this.read(id),
+      save: (snapshot, options) => this.save(snapshot, options),
+      transitionOperation: (id, operationId, state, reason) => { this.history.transitionOperation(id, operationId, state, reason) },
+      adapter: id => this.adapters.get(id),
+      resolveAttachments: (id, attachmentIds) => this.resolveAttachments(id, attachmentIds),
+      releaseAttachments: (id, attachmentIds) => this.releaseAttachments(id, attachmentIds),
+      applyPendingRewind: id => this.applyPendingRewind(id),
+      beginTurn: (id, turnId, thread, label, baseline) => this.beginTurnIn(id, turnId, workingRootOf(thread), label, baseline),
+      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds),
+      interrupt: id => this.interrupt(id)
     }
   }
 
