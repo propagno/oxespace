@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
-import { ChevronsLeft, ChevronsRight, Settings2, type LucideIcon } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, Moon, Settings2, Sun, type LucideIcon } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
+import { useSettingsStore } from '../../store/settings.store'
+import { useColorMode } from '../../design/useColorMode'
 import './NavigationChrome.css'
 import { cx, Menu, type MenuEntry } from '../../ui'
 import styles from './NavigationRail.module.css'
@@ -18,32 +20,66 @@ export interface RailAction {
   menu?: MenuEntry[]
 }
 
-/**
- * Icon rail shared by the Code and Thread sidebars. It owns the controls that
- * used to be split between the header, quick-nav and footer so each destination
- * exists exactly once (names and test ids are unchanged).
- */
 export type NavigationMode = 'code' | 'thread' | 'data'
 
-/** The mode buttons moved to the title bar (ModeSwitch); `mode` only marks which sidebar this rail belongs to. */
-export function NavigationRail({ mode, collapsed, primary, context, onToggle, children }: {
-  mode: NavigationMode; collapsed: boolean
-  primary: RailAction[]; context: RailAction; onToggle: () => void; children?: ReactNode
+/** One sidebar action as an icon button; the same names and test ids wherever it is drawn. */
+function ActionButton({ action, size = 16, returnFocus }: { action: RailAction; size?: number; returnFocus?: boolean }) {
+  const Icon = action.icon
+  const button = <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={action.ariaLabel ?? action.label} title={action.label}
+    data-testid={action.testId} data-dialog-return={returnFocus ? '' : undefined} disabled={action.disabled} onClick={action.menu ? undefined : action.onClick}>
+    <Icon size={size} aria-hidden="true" /></button>
+  return action.menu ? <Menu label={action.label} items={action.menu} trigger={button} /> : button
+}
+
+/** The sidebar's own actions (new workspace, add project, new connection…), at the right of its title. */
+export function SidebarActions({ actions }: { actions: RailAction[] }) {
+  return <nav className={cx('sidebar-actions', styles.actions)} aria-label="Primary navigation">
+    {actions.map((action, index) => <ActionButton key={action.id} action={action} size={15} returnFocus={index === 0} />)}
+  </nav>
+}
+
+function ThemeButton() {
+  const mode = useColorMode()
+  const setAppearance = useSettingsStore(state => state.setAppearance)
+  const next = mode === 'dark' ? 'light' : 'dark'
+  return <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`} onClick={() => setAppearance(next)}>
+    {mode === 'dark' ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}</button>
+}
+
+/**
+ * The bottom of an expanded sidebar: the mode's context action (accounts, panels, refresh), light or dark,
+ * settings, and collapse.
+ */
+export function SidebarFooter({ context, onToggle, children }: { context: RailAction; onToggle: () => void; children?: ReactNode }) {
+  const openSettings = useUIStore(state => state.toggleSettings)
+  return <footer className={cx('nav-rail-footer', styles.footer)}>
+    <ActionButton action={context} size={15} />
+    {children}
+    <span className={styles.spacer} />
+    <ThemeButton />
+    <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={15} aria-hidden="true" /></button>
+    <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Collapse sidebar" title="Collapse sidebar" onClick={onToggle}><ChevronsLeft size={15} aria-hidden="true" /></button>
+  </footer>
+}
+
+/**
+ * A collapsed sidebar: a narrow column with the same actions, so nothing is out of reach while the sidebar is
+ * small. Expanded sidebars draw SidebarActions and SidebarFooter instead.
+ */
+export function NavigationRail({ mode, primary, context, onToggle, children }: {
+  mode: NavigationMode; primary: RailAction[]; context: RailAction; onToggle: () => void; children?: ReactNode
 }) {
   const openSettings = useUIStore(state => state.toggleSettings)
-  const ContextIcon = context.icon
-  return <div className={cx('nav-rail', styles.rail)} data-collapsed={collapsed} data-mode={mode}>
+  return <div className={cx('nav-rail', styles.rail)} data-collapsed data-mode={mode}>
     <nav className={styles.group} aria-label="Primary navigation">
-      {primary.map(({ id, label, ariaLabel, icon: Icon, onClick, testId, disabled }, index) =>
-        <button key={id} type="button" className={cx('nav-rail-btn', styles.button)} aria-label={ariaLabel ?? label} title={label} data-testid={testId} data-dialog-return={index === 0 ? '' : undefined} disabled={disabled} onClick={onClick}><Icon size={16} aria-hidden="true" /></button>)}
+      {primary.map((action, index) => <ActionButton key={action.id} action={action} returnFocus={index === 0} />)}
     </nav>
     {children}
     <span className={styles.spacer} />
     <footer className={cx('nav-rail-footer', styles.group)}>
-      {context.menu ? <Menu label={context.label} items={context.menu} trigger={<button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={context.ariaLabel ?? context.label} title={context.label} data-testid={context.testId} disabled={context.disabled} onClick={context.menu ? undefined : context.onClick}><ContextIcon size={16} aria-hidden="true" /></button>} /> : <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={context.ariaLabel ?? context.label} title={context.label} data-testid={context.testId} disabled={context.disabled} onClick={context.menu ? undefined : context.onClick}><ContextIcon size={16} aria-hidden="true" /></button>}
+      <ActionButton action={context} />
       <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={16} aria-hidden="true" /></button>
-      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>{collapsed ? <ChevronsRight size={16} aria-hidden="true" /> : <ChevronsLeft size={16} aria-hidden="true" />}</button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Expand sidebar" title="Expand sidebar" onClick={onToggle}><ChevronsRight size={16} aria-hidden="true" /></button>
     </footer>
   </div>
 }
-

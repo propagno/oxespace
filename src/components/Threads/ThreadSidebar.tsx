@@ -7,7 +7,7 @@ import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, Circ
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
-import { NavigationRail } from '../Navigation/NavigationChrome'
+import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
@@ -98,17 +98,17 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     { label: 'Delete conversation', icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'thread', id: thread.id, title: thread.title }) } }
   ]} trigger={<button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={14} /></button>} /></div>
   }
+  const railPrimary: RailAction[] = [{ id: 'add-project', label: 'Add project', icon: FolderPlus, onClick: onAddProject }]
+  const railContext: RailAction = { id: 'accounts', label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }
   return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} aria-label="Thread sidebar">
     {!collapsed && <div className="thread-resize" role="separator" tabIndex={0} aria-label="Thread sidebar width" aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width}
       onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); setWidth(e.key === 'Home' ? SIDEBAR_MIN_WIDTH : SIDEBAR_MAX_WIDTH) } }}
       onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
       onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
       onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />}
-    <NavigationRail mode="thread" collapsed={collapsed} onToggle={toggleCollapse}
-      primary={[{ id: 'add-project', label: 'Add project', icon: FolderPlus, onClick: onAddProject }]}
-      context={{ id: 'accounts', label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} />
+    {collapsed && <NavigationRail mode="thread" primary={railPrimary} context={railContext} onToggle={toggleCollapse} />}
     {!collapsed && <div className="nav-panel">
-      <div className="nav-panel-title"><strong>Conversations</strong></div>
+      <div className="nav-panel-title"><strong>Conversations</strong><SidebarActions actions={railPrimary} /></div>
       <div className={cx('thread-nav-actions', styles.search)}>
         <SearchField className="thread-nav-search" ref={search} label="Filter threads" placeholder="Filter threads" value={query} onChange={setQuery} shortcut="/" />
       </div>
@@ -154,6 +154,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           })}
         </section>}
       </nav>
+      <SidebarFooter context={railContext} onToggle={toggleCollapse} />
     </div>}
     {projectSettingsId && projects.find(project => project.projectId === projectSettingsId) &&
       <ThreadProjectSettingsDialog project={projects.find(project => project.projectId === projectSettingsId)!} unavailable={unavailableProjects.includes(projectSettingsId)} onClose={() => setProjectSettingsId(null)} returnFocusTo={() => document.querySelector<HTMLElement>(`[data-project-actions="${projectSettingsId}"]`)} />}

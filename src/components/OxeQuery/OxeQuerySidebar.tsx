@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState, type ReactElement } from 'react'
 import { Boxes, Plus, RefreshCw, Settings } from 'lucide-react'
-import { NavigationRail } from '../Navigation/NavigationChrome'
+import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
 import { useUIStore } from '../../store/ui.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { Splitter } from '../../ui/Splitter'
@@ -28,12 +28,12 @@ export function OxeQuerySidebar(): ReactElement {
   const running = containers.filter(container => container.state === 'running').length
   const listed = [...containers].sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running') || a.name.localeCompare(b.name)).slice(0, 12)
 
+  const railPrimary: RailAction[] = [{ id: 'new-connection', label: 'New connection', icon: Plus, onClick: () => useOxeQueryStore.getState().openDialog(null) }]
+  const railContext: RailAction = { id: 'refresh', label: 'Refresh containers', ariaLabel: 'Refresh containers', icon: RefreshCw, onClick: () => { void useOxeQueryStore.getState().refreshContainers(); void useOxeQueryStore.getState().refreshConnections() } }
   return <aside className={`thread-navigation oq-sidebar${collapsed ? ' thread-navigation-collapsed' : ''}`} aria-label="OxeQuery sidebar">
-    <NavigationRail mode="data" collapsed={collapsed} onToggle={toggleCollapse}
-      primary={[{ id: 'new-connection', label: 'New connection', icon: Plus, onClick: () => useOxeQueryStore.getState().openDialog(null) }]}
-      context={{ id: 'refresh', label: 'Refresh containers', ariaLabel: 'Refresh containers', icon: RefreshCw, onClick: () => { void useOxeQueryStore.getState().refreshContainers(); void useOxeQueryStore.getState().refreshConnections() } }} />
+    {collapsed && <NavigationRail mode="data" primary={railPrimary} context={railContext} onToggle={toggleCollapse} />}
     {!collapsed && <div className="oq-sidebar-content">
-      <header><strong>OxeQuery</strong><button type="button" className="oq-icon" aria-label="OxeQuery settings" title="Settings" onClick={() => setSettings(true)}><Settings size={13} aria-hidden="true" /></button></header>
+      <header><strong>OxeQuery</strong><SidebarActions actions={railPrimary} /><button type="button" className="oq-icon" aria-label="OxeQuery settings" title="Settings" onClick={() => setSettings(true)}><Settings size={13} aria-hidden="true" /></button></header>
       <section aria-label="Containers">
         <h3>Containers</h3>
         <button type="button" className="oq-nav-item" aria-current={activeTab === 'containers' ? 'page' : undefined} onClick={() => useOxeQueryStore.getState().setActiveTab('containers')}>
@@ -47,6 +47,7 @@ ${container.status}`}
         {containers.length > listed.length && <p className="oq-muted oq-side-note">+{containers.length - listed.length} more in All containers</p>}
       </section>
       <ConnectionList activeTab={activeTab} />
+      <SidebarFooter context={railContext} onToggle={toggleCollapse} />
     </div>}
     <Suspense fallback={null}>{settings && <PreferencesDialog onClose={() => setSettings(false)} />}</Suspense>
     {!collapsed && <Splitter orientation="vertical" label="OxeQuery sidebar width" value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}
