@@ -56,3 +56,8 @@
 .pane-row-time.recent { color: var(--text-secondary); }
 .pane-intent-button, .panel-scope-badge { min-height: var(--hit-min); display: inline-flex; align-items: center; }
 
+/* The footer of an expanded sidebar sits at its bottom, however short the list above. */
+.nav-panel > .nav-rail-footer, .oq-sidebar-content > .nav-rail-footer { margin-top: auto; }
+.nav-panel-title .sidebar-actions { margin-right: -4px; }
+/* OxeQuery's sidebar column scrolls as a grid; as a column its footer can sit at the bottom. */
+.oq-sidebar .oq-sidebar-content { display: flex; flex-direction: column; }

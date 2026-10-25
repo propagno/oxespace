@@ -6,7 +6,7 @@ import { useIntegrationStore } from '../../store/integration.store'
 import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
-import { NavigationRail, type RailAction } from '../Navigation/NavigationChrome'
+import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
 import type { MenuEntry } from '../../ui'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
@@ -172,7 +172,7 @@ export function Sidebar({
   if (isCollapsed) {
     return (
       <aside className="sidebar sidebar-redesign sidebar-collapsed" data-version={appVersion}>
-        <NavigationRail mode="code" collapsed primary={railPrimary} context={railContext} onToggle={onToggleCollapse}>
+        <NavigationRail mode="code" primary={railPrimary} context={railContext} onToggle={onToggleCollapse}>
         <nav className="sidebar-rail-list" aria-label="Collapsed workspaces">
           {integrationGroups.map((group) => (
             <div key={group.id} className={`sidebar-rail-integration${group.id === activeIntegrationGroupId ? ' active' : ''}`} title={group.name}>
@@ -215,9 +215,8 @@ export function Sidebar({
         onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
         onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
         onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />
-      <NavigationRail mode="code" collapsed={false} primary={railPrimary} context={railContext} onToggle={onToggleCollapse} />
       <div className="nav-panel" title={`OXESpace v${appVersion}`}>
-      <div className="nav-panel-title"><strong>Workspaces</strong></div>
+      <div className="nav-panel-title"><strong>Workspaces</strong><SidebarActions actions={railPrimary} /></div>
       <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label="Filter workspaces" placeholder="Filter workspaces" value={searchQuery} onChange={setSearchQuery} shortcut="/" />
 
       <nav className="ws-group-list" aria-label="Workspaces">
@@ -300,7 +299,7 @@ export function Sidebar({
           ))
         )}
       </nav>
-
+      <SidebarFooter context={railContext} onToggle={onToggleCollapse} />
       </div>
     </aside>
   )
