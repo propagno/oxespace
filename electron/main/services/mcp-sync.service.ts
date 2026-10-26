@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../shared/types/mcp'
+import { mcpServerAllowed } from './policy'
 
 /**
  * Materializes the workspace's enabled MCP servers into `<workspaceRoot>/.mcp.json`
@@ -117,6 +118,8 @@ export class McpConfigSync {
     const desiredNames: string[] = []
     let internalServerKey: string | null = null
     for (const row of rows) {
+      // A server the policy blocks is never handed to an agent.
+      if (!mcpServerAllowed(row.name, workspaceRoot)) continue
       const isInternal = row.name === 'oxespace' && row.workspace_id === null
       const entry = serializeConfig(row.config_json, {
         injectWorkspaceId: isInternal && workspaceId ? workspaceId : null,
@@ -145,6 +148,8 @@ export class McpConfigSync {
     for (const [key, value] of desiredEntries) {
       mcpServers[key] = value
     }
+    // Entries someone added by hand stay, unless the policy blocks them by name.
+    for (const key of Object.keys(mcpServers)) if (!desiredEntries.has(key) && !mcpServerAllowed(key, workspaceRoot)) delete mcpServers[key]
 
     const nextDoc = { ...(existing as object), mcpServers }
     writeFileSync(mcpPath, JSON.stringify(nextDoc, null, 2) + '\n', 'utf8')

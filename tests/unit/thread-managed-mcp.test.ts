@@ -15,6 +15,14 @@ const rows = [
 ]
 
 describe('Thread managed MCP servers', () => {
+  it('leaves out the servers a policy blocks, and their secrets with them', () => {
+    const managed = readManagedMcp(dbWith(rows), 'w1', 'linux', name => name !== 'GitHub')
+    expect(managed.servers.map(server => server.key)).toEqual(['linear', 'shadow'])
+    expect(managed.env.GITHUB_PERSONAL_ACCESS_TOKEN).toBeUndefined()
+    // A server denied by name is also excluded from the session, wherever it was configured.
+    expect(threadMcpArguments('claude', [], '/bridge.cjs', managed, [{ server: 'github', tool: '*' }]).join(' ')).toContain('mcp__github')
+  })
+
   it('skips the internal bridge and keeps secrets out of the arguments', () => {
     const managed = readManagedMcp(dbWith(rows), 'w1', 'linux')
     expect(managed.servers.map(server => server.key)).toEqual(['github', 'linear', 'shadow'])
