@@ -80,6 +80,9 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
   }
 }))
 
+// One shared empty list for selectors: a fresh [] per read makes zustand 5 re-render forever.
+const NO_ITEMS: never[] = []
+
 export function selectWorktrees(rootPath: string): (state: WorktreeStoreState) => GitHubWorktree[] {
-  return (state) => state.byRoot[rootPath] ?? []
+  return (state) => state.byRoot[rootPath] ?? NO_ITEMS
 }
