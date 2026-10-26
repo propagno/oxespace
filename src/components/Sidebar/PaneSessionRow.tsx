@@ -150,7 +150,6 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
       role="button"
       tabIndex={0}
       aria-current={isActive ? 'true' : undefined}
-      aria-label={`${label}, ${display.statusTone}${pane.originPaneId ? ', delegated task' : ''}`}
       data-testid="pane-session-row"
       onClick={handleClick}
       onContextMenu={handleContextMenu}
@@ -230,6 +229,9 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           {showUnreadDot && <span className="pane-unread-dot" aria-label="Unread output" />}
         </div>
       </div>
+      {/* The row is named by what it shows; its state is added for screen readers (an aria-label that left out the
+          visible text failed axe's label-content-name-mismatch). */}
+      <span className="sr-only">, {display.statusTone}{pane.originPaneId ? ', delegated task' : ''}</span>
       {menu ? (
         <div
           className="pane-session-context-menu"
