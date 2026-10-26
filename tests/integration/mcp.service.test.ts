@@ -123,3 +123,36 @@ describe('McpManager trust gates', () => {
     } finally { db.close(); await rm(dir, { recursive: true, force: true }) }
   })
 })
+
+describe('McpManager under a policy', () => {
+  // Roadmap C1 exit, at the level where it can run: e2e replaces the native services, so MCP sync never runs there.
+  test('a server the policy blocks is never written for the agents, nor kept when added by hand, across a restart', async () => {
+    const { McpConfigSync } = await import('../../electron/main/services/mcp-sync.service')
+    const { PolicyStore } = await import('../../electron/main/services/policy/policy-store')
+    const { setPolicyStore } = await import('../../electron/main/services/policy')
+    const rootPath = await mkdtemp(join(tmpdir(), 'oxe-mcp-policy-'))
+    const userData = await mkdtemp(join(tmpdir(), 'oxe-mcp-policy-user-'))
+    const db = openInMemoryDatabase()
+    try {
+      await writeFile(join(userData, 'policy.json'), JSON.stringify({ rules: [{ effect: 'deny', action: 'integration.use', resource: 'mcp:slack*' }] }))
+      setPolicyStore(new PolicyStore({ userData, managed: join(userData, 'no-managed.json') }))
+      const workspace = new WorkspaceService(db).create({ rootPath, layoutPreset: 1 })
+      await writeFile(join(rootPath, '.mcp.json'), JSON.stringify({ mcpServers: { 'slack-by-hand': { command: 'x' }, 'notes-by-hand': { command: 'y' } } }))
+      const manager = new McpManager(db)
+      for (const name of ['slack', 'github']) manager.create({ workspaceId: workspace.id, name, transport: 'stdio', enabled: true, trusted: true, config: { transport: 'stdio', command: 'node', args: ['server.js'], env: {} } })
+      new McpConfigSync(db).syncWorkspace(workspace.id)
+      const doc = JSON.parse(await readFile(join(rootPath, '.mcp.json'), 'utf8')) as { mcpServers: Record<string, unknown> }
+      expect(Object.keys(doc.mcpServers).sort()).toEqual(['github', 'notes-by-hand'])
+      // A restart: a new policy reader and a new sync, after someone put the blocked server back by hand.
+      await writeFile(join(rootPath, '.mcp.json'), JSON.stringify({ mcpServers: { ...doc.mcpServers, 'slack-by-hand': { command: 'x' } } }))
+      setPolicyStore(new PolicyStore({ userData, managed: join(userData, 'no-managed.json') }))
+      new McpConfigSync(db).syncAll()
+      const after = JSON.parse(await readFile(join(rootPath, '.mcp.json'), 'utf8')) as { mcpServers: Record<string, unknown> }
+      expect(Object.keys(after.mcpServers).sort()).toEqual(['github', 'notes-by-hand'])
+    } finally {
+      setPolicyStore(null)
+      db.close()
+      await rm(rootPath, { recursive: true, force: true }); await rm(userData, { recursive: true, force: true })
+    }
+  })
+})

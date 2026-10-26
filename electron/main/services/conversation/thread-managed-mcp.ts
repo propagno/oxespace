@@ -52,7 +52,8 @@ function launch(command: string, args: string[], platform: NodeJS.Platform): { c
  * scoped to that project reach the conversation too. When a workspace server
  * and a global server share a name, the workspace definition wins.
  */
-export function readManagedMcp(db: AppDatabase, workspaceIds: string | string[] | null | undefined, platform: NodeJS.Platform = process.platform): ManagedMcp {
+/** `allowed` drops the servers a policy blocks, by their configured name. */
+export function readManagedMcp(db: AppDatabase, workspaceIds: string | string[] | null | undefined, platform: NodeJS.Platform = process.platform, allowed: (name: string) => boolean = () => true): ManagedMcp {
   const scoped = (Array.isArray(workspaceIds) ? workspaceIds : workspaceIds ? [workspaceIds] : []).slice(0, 50)
   const all = db.prepare(
     `SELECT name, workspace_id, config_json FROM mcp_servers
@@ -67,6 +68,7 @@ export function readManagedMcp(db: AppDatabase, workspaceIds: string | string[] 
   for (const row of rows) {
     // The OXESpace bridge is already attached by threadMcpArguments.
     if (row.name === 'oxespace' && row.workspace_id === null) continue
+    if (!allowed(row.name)) continue
     let config: McpServerConfig
     try { config = JSON.parse(row.config_json) as McpServerConfig } catch { continue }
     let key = slug(row.name)
