@@ -73,7 +73,7 @@ export class MemoryRuntime {
     try { ({ stdout } = await exec(executable, ['--version'], { timeout: 5000, windowsHide: true, maxBuffer: 4096 })) }
     catch (error) {
       const code = (error as NodeJS.ErrnoException).code ?? 'version error'
-      throw Error(`Cannot launch AI Memory (${code}): ${executable}. Download the runtime and apply its executable path; check file permissions.`)
+      throw Error(`Cannot launch AI Memory (${code}): ${executable}. Download the runtime and apply its executable path; check file permissions.`, { cause: error })
     }
     const match = stdout.trim().match(/^ai-memory (\d+\.\d+\.\d+)$/)
     if (!match) throw Error('Unsupported AI Memory executable version response')
@@ -250,7 +250,7 @@ export class MemoryRuntime {
       return executable
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      if ((await readdir(this.directory)).includes(`runtime-${MEMORY_RELEASE}`)) throw Error('An incomplete runtime installation exists; inspect it before retrying')
+      if ((await readdir(this.directory)).includes(`runtime-${MEMORY_RELEASE}`)) throw Error('An incomplete runtime installation exists; inspect it before retrying', { cause: error })
     }
     const base = `https://github.com/akitaonrails/ai-memory/releases/download/v${MEMORY_RELEASE}/${asset}`
     const [archive, checksum] = await Promise.all([fetch(base, { signal: AbortSignal.timeout(120000) }), fetch(`${base}.sha256`, { signal: AbortSignal.timeout(30000) })])

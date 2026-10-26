@@ -27,7 +27,7 @@ function sizes() {
 }
 
 const current = sizes()
-let baseline = {}
+let baseline
 try { baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) } catch { baseline = {} }
 
 if (process.argv.includes('--update')) {

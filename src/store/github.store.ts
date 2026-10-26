@@ -204,7 +204,7 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
     } catch (error) {
       const message = sanitizeIpcError(error)
       setWorkspace(set, input.workspaceId, { loading: false, refreshing: false, error: message })
-      throw new Error(message)
+      throw new Error(message, { cause: error })
     }
   },
   push: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.push(input), () => get().loadStatus(input)),
@@ -241,7 +241,7 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
     } catch (error) {
       const message = sanitizeIpcError(error)
       setWorkspace(set, input.workspaceId, { loading: false, refreshing: false, error: message })
-      throw new Error(message)
+      throw new Error(message, { cause: error })
     }
   },
   loadWorkflowRunDetails: async (input) => {
@@ -261,7 +261,7 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
     } catch (error) {
       const message = sanitizeIpcError(error)
       setWorkspace(set, input.workspaceId, { loading: false, refreshing: false, error: message })
-      throw new Error(message)
+      throw new Error(message, { cause: error })
     }
   },
   clearError: (workspaceId) => setWorkspace(set, workspaceId, { error: null }),

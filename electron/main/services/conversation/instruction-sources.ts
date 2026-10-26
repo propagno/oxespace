@@ -26,7 +26,7 @@ const HEADER_BYTES = 4096
 
 /** The `paths:` globs of a rule file's YAML header; empty for a rule that always applies. */
 function ruleScope(path: string): string[] {
-  let text = ''
+  let text: string
   try {
     const fd = openSync(path, 'r')
     try {

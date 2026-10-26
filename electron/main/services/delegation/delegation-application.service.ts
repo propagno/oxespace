@@ -453,7 +453,7 @@ export class DelegationApplicationService {
       catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         if (!/COORDINATION_ACCESS_DENIED|CROSS_PROJECT_CONSENT_REQUIRED|outside this execution scope/.test(message)) {
-          throw new Error('DELEGATION_INBOX_UNAVAILABLE: could not verify project identity; retry when Git is available')
+          throw new Error('DELEGATION_INBOX_UNAVAILABLE: could not verify project identity; retry when Git is available', { cause: error })
         }
       }
     }
