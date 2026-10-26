@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { evaluatePolicy } from '../../../../shared/policy'
+import { evaluatePolicy, policyBlockedMessage } from '../../../../shared/policy'
 import { PolicyStore } from './policy-store'
 
 /**
@@ -37,4 +37,25 @@ export function policyDeniedMcpNames(projectRoot?: string | null, policy: Policy
     }
   }
   return [...names]
+}
+
+/** Tool names a policy denies outright (no wildcards), still denied after every layer. Claude hides them at launch. */
+export function policyDeniedToolNames(projectRoot?: string | null, policy: PolicyStore | null = policyStore()): string[] {
+  if (!policy) return []
+  const loaded = policy.load(projectRoot)
+  const names = new Set<string>()
+  for (const source of loaded.sources) {
+    for (const rule of source.rules) {
+      if (rule.action !== 'tool.use' || rule.effect !== 'deny' || rule.resource.includes('*')) continue
+      if (!evaluatePolicy(loaded, 'tool.use', rule.resource).allowed) names.add(rule.resource)
+    }
+  }
+  return [...names]
+}
+
+/** Refuses to start an agent the policy blocks, with the message a person sees. */
+export function assertProviderAllowed(provider: string, projectRoot?: string | null, policy: PolicyStore | null = policyStore()): void {
+  if (!policy) return
+  const decision = policy.decide('provider.use', provider, projectRoot)
+  if (!decision.allowed) throw new Error(policyBlockedMessage(decision, provider === 'claude' ? 'Claude Code' : provider === 'codex' ? 'Codex' : provider))
 }
