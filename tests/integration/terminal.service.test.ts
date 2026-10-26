@@ -213,6 +213,24 @@ describe('TerminalManager', () => {
     db.close()
   })
 
+  test('a policy that blocks an agent stops its pane from starting, and leaves a plain shell alone', async () => {
+    const { setPolicyStore } = await import('../../electron/main/services/policy')
+    const { PolicyStore } = await import('../../electron/main/services/policy/policy-store')
+    const userData = mkdtempSync(join(tmpdir(), 'oxe-terminal-policy-'))
+    writeFileSync(join(userData, 'policy.json'), JSON.stringify({ rules: [{ effect: 'deny', action: 'provider.use', resource: 'codex' }] }))
+    setPolicyStore(new PolicyStore({ userData, managed: join(userData, 'none.json') }))
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x2', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'linux' })
+    try {
+      await expect(manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex --full-auto' })).rejects.toThrow('Codex is blocked by your policy.')
+      expect(pty.spawn).not.toHaveBeenCalled()
+      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[1].id })
+      expect(pty.spawn).toHaveBeenCalledTimes(1)
+    } finally { setPolicyStore(null); manager.stopAll(); db.close(); rmSync(userData, { recursive: true, force: true }) }
+  })
+
   test('resolves Windows command shims through PATHEXT', () => {
     __resetExecutableCacheForTests()
     const binDir = mkdtempSync(join(tmpdir(), 'oxespace-path-'))

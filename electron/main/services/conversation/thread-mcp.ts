@@ -125,9 +125,13 @@ export function deniedMcpTools(rules: Pick<ThreadPermissionRule, 'kind' | 'decis
  * the exclusion reaches the OXESpace bridge and managed servers; the approval
  * policy still declines the rest when the provider asks.
  */
-function exclusionArguments(provider: 'claude' | 'codex', denied: DeniedMcpTool[], codexServers: string[]): string[] {
+function exclusionArguments(provider: 'claude' | 'codex', denied: DeniedMcpTool[], codexServers: string[], deniedTools: readonly string[] = []): string[] {
+  if (provider === 'claude') {
+    // Built-in tools a policy denies by name join the MCP exclusions in the one flag Claude reads.
+    const names = [...denied.map(rule => rule.tool === '*' ? `mcp__${rule.server}` : `mcp__${rule.server}__${rule.tool}`), ...deniedTools]
+    return names.length ? ['--disallowedTools', names.join(',')] : []
+  }
   if (!denied.length) return []
-  if (provider === 'claude') return ['--disallowedTools', denied.map(rule => rule.tool === '*' ? `mcp__${rule.server}` : `mcp__${rule.server}__${rule.tool}`).join(',')]
   const out: string[] = []
   for (const server of codexServers) {
     const rules = denied.filter(rule => rule.server === server)
@@ -138,7 +142,7 @@ function exclusionArguments(provider: 'claude' | 'codex', denied: DeniedMcpTool[
 }
 
 export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
-  tools: readonly string[] = THREAD_MCP_TOOLS): string[] {
+  tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = []): string[] {
   if (provider === 'claude' && args.includes('--strict-mcp-config')) {
     // A read-only conversation keeps its strict surface (no user servers, which
     // may write), but gets the OXESpace bridge limited to read-only lookups.
@@ -147,7 +151,7 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
     const readOnly = [...args]
     const lookups = THREAD_READ_ONLY_MCP_TOOLS.filter(tool => tools.includes(tool))
     readOnly[index + 1] = JSON.stringify({ mcpServers: { 'oxespace-delegation': { command: 'node', args: [bridge, '--allowed-tools', JSON.stringify(lookups)] } } })
-    return [...readOnly, ...exclusionArguments(provider, denied, [])]
+    return [...readOnly, ...exclusionArguments(provider, denied, [], deniedTools)]
   }
   const config = agentMcpArguments(provider, bridge)
   const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
@@ -161,7 +165,7 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
   return [...clean, '--mcp-config', JSON.stringify({ mcpServers: {
     ...(managed ? claudeMcpEntries(managed) : {}),
     'oxespace-delegation': { command: 'node', args: bridgeArgs }
-  } }), ...exclusionArguments(provider, denied, [])]
+  } }), ...exclusionArguments(provider, denied, [], deniedTools)]
 }
 
 export function bindThreadMcp(adapter: AgentConversationAdapter, release: () => void): AgentConversationAdapter {

@@ -84,3 +84,45 @@ describe('policy files', () => {
     expect(managedPolicyPath('darwin', {})).toBe('/Library/Application Support/OXESpace/policy.json')
   })
 })
+
+describe('policy at the decision points', () => {
+  const dirs: string[] = []
+  afterEach(async () => {
+    const { setPolicyStore } = await import('../electron/main/services/policy')
+    setPolicyStore(null)
+    for (const value of dirs.splice(0)) rmSync(value, { recursive: true, force: true })
+  })
+  const withPolicy = async (rules: unknown[]) => {
+    const userData = mkdtempSync(join(tmpdir(), 'oxe-policy-points-')); dirs.push(userData)
+    writeFileSync(join(userData, 'policy.json'), JSON.stringify({ organization: 'Acme', rules }))
+    const { setPolicyStore } = await import('../electron/main/services/policy')
+    const store = new PolicyStore({ userData, managed: join(userData, 'none.json') })
+    setPolicyStore(store)
+    return store
+  }
+
+  it('declines a tool the policy blocks, even with full access, and names who blocked it', async () => {
+    await withPolicy([{ effect: 'deny', action: 'tool.use', resource: 'Bash' }])
+    const { ThreadPolicy } = await import('../electron/main/services/conversation/thread-policy')
+    const policy = new ThreadPolicy({ evaluate: () => undefined } as never, () => '/repo', async () => undefined)
+    const bash = policy.evaluate('/repo', { id: 'r', kind: 'approval', toolName: 'Bash', title: 'Run', generation: 1 } as never, 'full-access')
+    expect(bash).toEqual({ decision: 'deny', reasons: ['Bash is blocked by Acme policy.'] })
+    const edit = policy.evaluate('/repo', { id: 'r', kind: 'approval', toolName: 'Edit', title: 'Edit', generation: 1 } as never, 'full-access')
+    expect(edit?.decision).toBe('allow')
+  })
+
+  it('hides tools denied by name from Claude, next to the MCP exclusions', async () => {
+    const { threadMcpArguments } = await import('../electron/main/services/conversation/thread-mcp')
+    const args = threadMcpArguments('claude', [], '/bridge.cjs', undefined, [{ server: 'slack', tool: '*' }], undefined, ['Bash', 'WebFetch'])
+    expect(args.slice(args.indexOf('--disallowedTools'), args.indexOf('--disallowedTools') + 2)).toEqual(['--disallowedTools', 'mcp__slack,Bash,WebFetch'])
+    expect(threadMcpArguments('claude', [], '/bridge.cjs').includes('--disallowedTools')).toBe(false)
+  })
+
+  it('refuses to start an agent the policy blocks', async () => {
+    const store = await withPolicy([{ effect: 'deny', action: 'provider.use', resource: 'codex' }, { effect: 'deny', action: 'tool.use', resource: 'WebFetch' }])
+    const { assertProviderAllowed, policyDeniedToolNames } = await import('../electron/main/services/policy')
+    expect(() => assertProviderAllowed('codex', '/repo', store)).toThrow('Codex is blocked by Acme policy.')
+    expect(() => assertProviderAllowed('claude', '/repo', store)).not.toThrow()
+    expect(policyDeniedToolNames('/repo', store)).toEqual(['WebFetch'])
+  })
+})

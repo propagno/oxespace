@@ -39,7 +39,9 @@ never applied in part. Nothing in the app, a plugin or an MCP server writes a po
 | Action | Enforced |
 |---|---|
 | `integration.use` `mcp:<server>` | Yes. A blocked server is not written into a project's `.mcp.json`, an entry with that name added by hand is removed on the next sync, OXESpace does not attach it to a Thread, and a server denied by exact name is excluded from the agent session (`--disallowedTools mcp__<server>` for Claude, `enabled=false` for Codex) even when it was configured directly in the CLI. |
-| `provider.use`, `tool.use`, `integration.use` for skills, databases and memory | Next step (roadmap C1b). |
+| `provider.use` | Yes. A Thread whose agent is blocked does not start (the conversation shows why), and a Code pane cannot launch `claude` or `codex` when blocked; a plain shell is never blocked. |
+| `tool.use` | Yes, for tools that ask for approval: the request is declined with the reason, before saved rules and full access are considered. Claude also gets the tools denied by exact name in `--disallowedTools`, so it does not offer them. Codex built-in tools that run without asking are not seen by OXESpace. |
+| `integration.use` for skills, databases and memory | Next step. |
 
 Servers configured only in a CLI's own user settings under another name cannot be seen by OXESpace; to block those,
 deny them by their exact name, or use the provider's own managed settings.
