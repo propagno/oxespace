@@ -156,12 +156,15 @@ export function __resetBackgroundOutputBufferForTests(): void {
   pendingOutput.clear()
 }
 
+// One shared empty list for selectors: a fresh [] per read makes zustand 5 re-render forever.
+const NO_ITEMS: never[] = []
+
 export function selectJobs(workspaceId: string): (state: BackgroundStoreState) => BackgroundJob[] {
-  return (state) => state.jobsByWorkspace[workspaceId] ?? []
+  return (state) => state.jobsByWorkspace[workspaceId] ?? NO_ITEMS
 }
 
 export function selectOutput(jobId: string): (state: BackgroundStoreState) => string[] {
-  return (state) => state.outputByJob[jobId] ?? []
+  return (state) => state.outputByJob[jobId] ?? NO_ITEMS
 }
 
 function upsertJob(list: BackgroundJob[], job: BackgroundJob): BackgroundJob[] {
