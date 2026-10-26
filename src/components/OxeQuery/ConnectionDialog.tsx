@@ -3,6 +3,7 @@ import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2
 import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
+import { useShallow } from 'zustand/react/shallow'
 import { useOxeQueryStore } from './oxequery.store'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
@@ -111,7 +112,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const [color, setColor] = useState<ConnectionColor | ''>(editing?.color ?? '')
   const [maskNames, setMaskNames] = useState((editing?.maskPatterns ?? []).join('\n'))
   const [keepalive, setKeepalive] = useState(String(editing?.keepaliveSeconds ?? 30))
-  const groups = useOxeQueryStore(state => [...new Set(state.connections.map(item => item.group).filter(Boolean))].sort())
+  const groups = useOxeQueryStore(useShallow(state => [...new Set(state.connections.map(item => item.group).filter(Boolean))].sort()))
 
   const [open, setOpen] = useState({ tls: sslMode !== 'disable' && sslMode !== 'prefer', ssh: Boolean(editing?.ssh), mongo: Boolean(editing && (editing.mongo.authSource || editing.mongo.replicaSet || editing.mongo.srv || editing.mongo.extraHosts.length)), limits: false })
   const [busy, setBusy] = useState(false)

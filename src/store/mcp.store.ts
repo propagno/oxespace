@@ -147,8 +147,11 @@ export const useMcpStore = create<McpStoreState>((set, get) => ({
   }
 }))
 
+// One empty list for every workspace without servers: a fresh [] per read makes zustand 5 re-render forever.
+const NO_SERVERS: McpServer[] = []
+
 export function selectMcpServers(workspaceId: string | null): (state: McpStoreState) => McpServer[] {
-  return (state) => state.serversByWorkspace[key(workspaceId)] ?? []
+  return (state) => state.serversByWorkspace[key(workspaceId)] ?? NO_SERVERS
 }
 
 function sanitizeMcpError(err: unknown): string {

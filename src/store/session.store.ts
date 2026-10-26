@@ -55,6 +55,9 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   }
 }))
 
+// One shared empty list for selectors: a fresh [] per read makes zustand 5 re-render forever.
+const NO_ITEMS: never[] = []
+
 export function selectSessions(workspaceId: string, provider: AgentProvider): (state: SessionStoreState) => SessionSummary[] {
-  return (state) => state.byKey[key(workspaceId, provider)] ?? []
+  return (state) => state.byKey[key(workspaceId, provider)] ?? NO_ITEMS
 }
