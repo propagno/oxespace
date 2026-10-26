@@ -13,6 +13,12 @@ updates:
       # The Electron runtime is upgraded deliberately (native ABI, support window).
       - dependency-name: electron
         update-types: [version-update:semver-major]
+      # CodeGraph indexes only with 0.25.x: 0.26 rejects the tree-sitter-wasms grammars (getDylinkMetadata ABI).
+      - dependency-name: web-tree-sitter
+        versions: [">=0.26.0"]
+      # The xterm addons move with the xterm core; they are upgraded together with @xterm/xterm 6.
+      - dependency-name: "@xterm/addon-*"
+        update-types: [version-update:semver-minor, version-update:semver-major]
     labels: [dependencies]
   - package-ecosystem: github-actions
     directory: /
