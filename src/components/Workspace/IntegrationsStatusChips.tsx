@@ -139,13 +139,14 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
   const activeCount = Number(githubStatus?.loggedIn === true) + Number(totalRunningMcp > 0) + Number(rtkActive) + Number(cavemanActive) + Number(semanticHealthy)
   const attentionCount = Number(rtk.updateAvailable) + Number(Boolean(semanticStatus?.lastError))
   const overallTone = attentionCount > 0 ? 'attention' : activeCount > 0 ? 'healthy' : 'idle'
+  const countText = attentionCount > 0 ? `${attentionCount} alert${attentionCount === 1 ? '' : 's'}` : `${activeCount}/5`
 
   return (
     <div className="workspace-integrations" ref={menuRef}>
       <button
         type="button"
         className={`workspace-integrations-trigger tone-${overallTone}`}
-        aria-label="Open integration status"
+        aria-label={`Systems ${countText}: integration status`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -153,8 +154,8 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
       >
         <Server size={12} aria-hidden="true" />
         <span className={`workspace-integrations-health tone-${overallTone}`} aria-hidden="true" />
-        <span className="workspace-integrations-label">Systems</span>
-        <span className="workspace-integrations-count">{attentionCount > 0 ? `${attentionCount} alert${attentionCount === 1 ? '' : 's'}` : `${activeCount}/5`}</span>
+        <span className="workspace-integrations-label">{'Systems '}</span>
+        <span className="workspace-integrations-count">{countText}</span>
         <ChevronDown size={12} className="workspace-integrations-chevron" aria-hidden="true" />
       </button>
 
