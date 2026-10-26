@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { ThreadProjectService } from '../../electron/main/services/conversation/thread-projects'
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -8,6 +8,11 @@ import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { RtkService } from '../../electron/main/services/rtk.service'
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
+
+// Starting a terminal waits a few seconds for RTK, which the real service downloads from GitHub. No test here may
+// depend on the network or that wait: one that started two terminals hit its 5 s timeout on a slow Windows runner.
+beforeEach(() => { vi.spyOn(RtkService.prototype, 'ensureRtk').mockResolvedValue('/test/rtk/bin') })
+afterEach(() => { vi.restoreAllMocks() })
 
 describe('TerminalManager', () => {
   test('runs an independent Thread shell without creating Code panes and rejects cross-owner launches', async () => {
