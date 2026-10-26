@@ -160,7 +160,7 @@ async function timePanelToggle(
   const item = menu.getByRole('menuitemcheckbox', { name: label, exact: true })
   // Opening the menu is setup, not the measured interaction. Right after a workspace opens the rail can
   // still move while terminals mount, and the menu follows it; reopen it once if it went away.
-  let t0 = 0
+  let t0: number
   for (let attempt = 0; ; attempt++) {
     if (!await menu.isVisible().catch(() => false)) {
       await page.locator('[data-testid="btn-open-tools"]:visible').click()

@@ -213,7 +213,7 @@ export class TaskService {
     `).run(executionId, task.id, startedAt)
     this.db.prepare("UPDATE tasks SET run_status = 'verifying', updated_at = ? WHERE id = ?").run(startedAt, task.id)
 
-    let exitCode: number | null = null
+    let exitCode: number | null
     try {
       exitCode = await new Promise<number | null>((resolve, reject) => {
         const child = this.spawnProcess(file, args, {

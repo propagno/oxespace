@@ -115,7 +115,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   load: async () => {
     const version = ++catalogGeneration
     set({ loading: true })
-    let threads: ConversationThread[] = [], errors: Record<string, string> = {}
+    let threads: ConversationThread[], errors: Record<string, string> = {}
     try { threads = await window.oxe.thread!.list() }
     catch { errors = { catalog: 'Could not load conversations.' }; threads = get().threads }
     if (version !== catalogGeneration) return

@@ -507,7 +507,7 @@ export class GitService {
     const out: GitDiffSummaryFile[] = []
     for (const path of paths.slice(0, MAX_UNTRACKED_FILES)) {
       let additions = 0
-      let binary = false
+      let binary: boolean
       try {
         const absolute = resolvePath(rootPath, path)
         const stat = await fsp.stat(absolute)

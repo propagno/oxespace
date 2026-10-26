@@ -355,7 +355,7 @@ export class McpManager {
     } catch (err) {
       const message = formatSpawnError(config.command, err)
       this.emitHealth({ serverId: server.id, status: 'unhealthy', message })
-      throw new Error(message)
+      throw new Error(message, { cause: err })
     }
 
     const runtime: RuntimeServer = {
@@ -438,7 +438,7 @@ export class McpManager {
       const enriched = baseMessage + stderrTail
       this.stopRuntime(server.id)
       this.emitHealth({ serverId: server.id, status: 'unhealthy', message: enriched })
-      throw new Error(enriched)
+      throw new Error(enriched, { cause: err })
     }
   }
 

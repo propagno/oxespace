@@ -339,9 +339,9 @@ export class TerminalManager {
       recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
       this.notifyLaunchExit(input.paneId)
       if (input.agentCommand || input.launch) {
-        throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`)
+        throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`, { cause: error })
       }
-      throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`)
+      throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`, { cause: error })
     }
 
     // A pane that is starting fresh must not inherit a dead session's output.

@@ -126,7 +126,7 @@ export class BackgroundManager {
       finishedAtMs: null
     }
 
-    let child: ChildProcessWithoutNullStreams | null = null
+    let child: ChildProcessWithoutNullStreams | null
     try {
       child = spawn(input.command, [], {
         cwd,
@@ -135,7 +135,7 @@ export class BackgroundManager {
       })
     } catch (err) {
       this.transitionJob(id, 'failed', null)
-      throw new Error(`Could not start background job: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Could not start background job: ${err instanceof Error ? err.message : String(err)}`, { cause: err })
     }
 
     const runtime: RuntimeJob = {

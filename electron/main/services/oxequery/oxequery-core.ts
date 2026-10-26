@@ -1,5 +1,5 @@
 import { connectionHint } from './connect-hint'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { Client } from 'pg'
 import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
@@ -29,6 +29,7 @@ import { describeFile, openRejects, readRecords, type ImportFormat, type ImportO
 import type { ImportConflict } from '../../../../shared/types/oxequery'
 import type { ImportTarget } from '../../../../shared/types/oxequery'
 import type { ExportFormat, ExportSource } from '../../../../shared/types/oxequery'
+import { cancelOperation, runTagged, type MongoOperation } from './mongo-cancel'
 
 const DEFAULT_ROWS = 500
 const MAX_ROWS = 100_000
@@ -119,7 +120,7 @@ function sessionKey(connection: ResolvedConnection): string {
 /** open: a transaction the person began; failed: a statement in it failed, so only ROLLBACK is accepted. */
 type TxState = 'none' | 'open' | 'failed'
 interface PgSession { key: string; client: Client; running: boolean; lastUsed: number; endpoint: Endpoint; tunnel?: OpenTunnel; tx: TxState; txStatements: number; txSince?: number }
-interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel; /** Comment tagged on the running find or aggregate, so it can be found and stopped. */ operation?: string }
+interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel; /** The running find or aggregate, so it can be stopped. */ operation?: MongoOperation }
 
 /** A connection nobody used for this long is closed; it reopens on the next request. */
 const withConnectionHint = (message: string, connection: ResolvedConnection): string => `${message}${connectionHint(message, connection)}`
@@ -645,7 +646,7 @@ export class OxeQueryCore {
   private mongoError(error: unknown, connection: ResolvedConnection): OxeQueryError {
     if (error instanceof OxeQueryError) return error
     const message = error instanceof Error ? error.message : 'Operation failed'
-    if (/operation was interrupted|interrupted at shutdown|operation was killed/i.test(message)) return new OxeQueryError('cancelled', 'The operation was cancelled.')
+    if (/operation was interrupted|interrupted at shutdown|operation was killed|operation was aborted|^Cancelled$/i.test(message)) return new OxeQueryError('cancelled', 'The operation was cancelled.')
     if (/time limit|exceeded time|MaxTimeMSExpired/i.test(message)) return new OxeQueryError('timeout', 'The operation exceeded its time limit and was stopped.')
     return new OxeQueryError('query', redact(message, connection.password))
   }
@@ -655,30 +656,14 @@ export class OxeQueryCore {
     return Math.min(Math.max(connection.statementTimeoutMs ?? 30_000, 1000), 3_600_000)
   }
 
-  /** Runs a read with a comment on it, so `mongoCancel` can find the operation on the server. */
-  private async tagged<T>(connection: ResolvedConnection, run: (comment: string) => Promise<T>): Promise<T> {
-    const session = this.mongo.get(connection.id)
-    const comment = `oxequery:${randomUUID()}`
-    if (session) session.operation = comment
-    try { return await run(comment) } finally { if (session && session.operation === comment) delete session.operation }
+  /** Runs a read that `mongoCancel` can stop: tagged on the server, abortable here (see mongo-cancel). */
+  private tagged<T>(connection: ResolvedConnection, run: (comment: string, signal: AbortSignal) => Promise<T>): Promise<T> {
+    return runTagged(this.mongo.get(connection.id), run)
   }
 
-  /** Stops the find or aggregate this connection is running: finds it by its comment and kills it. */
-  async mongoCancel(connection: ResolvedConnection): Promise<boolean> {
-    const session = this.mongo.get(connection.id)
-    const comment = session?.operation
-    if (!session || !comment) return false
-    try {
-      const admin = session.client.db('admin')
-      const current = await admin.command({ currentOp: 1, 'command.comment': comment }) as { inprog?: Array<{ opid?: number | string }> }
-      let killed = false
-      for (const operation of current.inprog ?? []) {
-        if (operation.opid === undefined) continue
-        await admin.command({ killOp: 1, op: operation.opid })
-        killed = true
-      }
-      return killed
-    } catch { return false }
+  /** Stops the find or aggregate this connection is running, on the server when allowed and always here. */
+  mongoCancel(connection: ResolvedConnection): Promise<boolean> {
+    return cancelOperation(this.mongo.get(connection.id))
   }
 
   /**
@@ -819,7 +804,7 @@ export class OxeQueryCore {
     try {
       const client = await this.mongoSession(connection)
       const collection = client.db(input.database).collection(input.collection)
-      const found = await this.tagged(connection, comment => collection.find(filter, { ...(projection ? { projection } : {}), ...(sort ? { sort: sort as never } : {}), limit: limit + 1, skip, maxTimeMS: this.mongoTimeout(connection), promoteValues: false, comment }).toArray())
+      const found = await this.tagged(connection, (comment, signal) => collection.find(filter, { ...(projection ? { projection } : {}), ...(sort ? { sort: sort as never } : {}), limit: limit + 1, skip, maxTimeMS: this.mongoTimeout(connection), promoteValues: false, comment, signal }).toArray())
       let total: number | undefined
       try { total = await collection.countDocuments(filter, { maxTimeMS: 5000 }) } catch { /* A slow count is not worth failing the query. */ }
       return this.mongoResult(found, limit, started, total)
@@ -834,7 +819,7 @@ export class OxeQueryCore {
       const client = await this.mongoSession(connection)
       const skip = Math.max(0, Math.min(Math.trunc(input.skip ?? 0) || 0, 10_000_000))
       const stages = [...pipeline, ...(skip > 0 ? [{ $skip: skip }] : []), { $limit: limit + 1 }]
-      const documents = await this.tagged(connection, comment => client.db(input.database).collection(input.collection).aggregate(stages, { maxTimeMS: this.mongoTimeout(connection), promoteValues: false, comment }).toArray())
+      const documents = await this.tagged(connection, (comment, signal) => client.db(input.database).collection(input.collection).aggregate(stages, { maxTimeMS: this.mongoTimeout(connection), promoteValues: false, comment, signal }).toArray())
       return this.mongoResult(documents, limit, started)
     } catch (error) { throw this.mongoError(error, connection) }
   }

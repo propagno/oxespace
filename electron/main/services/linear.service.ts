@@ -257,7 +257,7 @@ export class LinearService {
       return body.data
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(`Linear API timed out after ${REQUEST_TIMEOUT_MS}ms`)
+        throw new Error(`Linear API timed out after ${REQUEST_TIMEOUT_MS}ms`, { cause: error })
       }
       throw error
     } finally {
