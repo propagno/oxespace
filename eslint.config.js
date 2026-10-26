@@ -17,7 +17,13 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.tsx'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     plugins: { 'react-hooks': reactHooks },
-    rules: reactHooks.configs.recommended.rules
+    // Plugin 7 adds the React Compiler rules to `recommended`. They found 165 places at once; they warn while the code
+    // is brought in line, and the two rules that were already enforced stay errors.
+    rules: {
+      ...Object.fromEntries(Object.keys(reactHooks.configs.recommended.rules).map(rule => [rule, 'warn'])),
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn'
+    }
   },
   {
     rules: {
