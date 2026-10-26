@@ -216,7 +216,8 @@ most). A connection's own setting can only be lower than the cap.
 - "Run command" splits on spaces and does not interpret quotes or pipes; use the Shell
   tab for that.
 - Compose needs the engine's compose plugin and the project folder on this computer.
-- Cancelling a MongoDB operation needs the `killOp` privilege.
+- Cancelling a MongoDB operation stops it on the server only with the `killOp` privilege. Without it OXESpace
+  still abandons the operation and closes its cursor, and the server stops it at the statement time limit.
 
 ## Verification
 
