@@ -301,13 +301,20 @@ describe('cancelling', () => {
     expect(await core.mongoCancel(connection())).toBe(false)
   })
 
-  it('says false when nothing could be killed', async () => {
-    server.collection.find = () => ({ toArray: () => new Promise(resolve => setTimeout(() => resolve([]), 30)) })
+  it('without the killOp privilege, still stops the operation here', async () => {
+    let signal: AbortSignal | undefined
+    server.collection.find = (_filter: unknown, options: { signal?: AbortSignal }) => {
+      signal = options.signal
+      return { toArray: () => new Promise((resolve, reject) => { options.signal?.addEventListener('abort', () => reject(options.signal?.reason)); setTimeout(() => resolve([]), 5000) }) }
+    }
     server.collection.countDocuments = async () => 0
     server.database.command = async () => { throw new Error('not authorized') }
     const running = core.mongoFind(connection(), { connectionId: 'm1', database: 'shop', collection: 'items', filter: '{}' })
     await vi.waitFor(() => expect(called('find')).toHaveLength(1))
+    expect(await core.mongoCancel(connection())).toBe(true)
+    expect(signal?.aborted).toBe(true)
+    await expect(running).rejects.toMatchObject({ code: 'cancelled' })
+    // Nothing is running any more.
     expect(await core.mongoCancel(connection())).toBe(false)
-    await running
   })
 })
