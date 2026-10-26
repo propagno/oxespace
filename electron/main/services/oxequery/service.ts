@@ -522,7 +522,7 @@ export class OxeQueryService {
         if (!['csv', 'json', 'ndjson', 'sql', 'xlsx'].includes(format)) throw new OxeQueryError('invalid', 'Unsupported export format.')
         if (format === 'sql' && connection.engine !== 'postgres') throw new OxeQueryError('invalid', 'SQL export is for PostgreSQL tables and queries.')
         const source = record(input.source)
-        let suggested = 'export'
+        let suggested: string
         let normalized: Raw
         if (source.kind === 'sql' && connection.engine === 'postgres') {
           const sql = str(source.sql, 'SQL', 1024 * 1024)
