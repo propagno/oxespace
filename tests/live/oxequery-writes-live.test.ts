@@ -65,8 +65,15 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     await until('postgres ready', () => docker('exec', PG, 'pg_isready', '-U', 'oxe', '-d', 'appdb').includes('accepting'))
     pg = { id: 'pg', engine: 'postgres', host: '127.0.0.1', port: hostPort(PG, 5432), database: 'appdb', username: 'oxe', password: PASSWORD, sslMode: 'disable', readOnly: false }
     await until('postgres accepts queries', async () => { await exec('SELECT 1'); return true })
-    mongo = { id: 'mongo', engine: 'mongodb', host: '127.0.0.1', port: hostPort(MONGO, 27017), database: 'admin', username: 'root', password: PASSWORD, sslMode: 'disable', readOnly: false }
-    await until('mongo accepts commands', async () => { await core.mongoFind(mongo, { connectionId: 'mongo', database: 'admin', collection: 'system.version', limit: 1 }); return true })
+    // mongo:7 creates the root user with a temporary mongod, then starts the real one. On a slow runner the real one
+    // can find 27017 still taken ("Address already in use") and the container stops. Start it again, and read the
+    // published port on every try: a restarted container may get another one.
+    await until('mongo accepts commands', async () => {
+      if (docker('inspect', '-f', '{{.State.Running}}', MONGO).trim() !== 'true') { docker('start', MONGO); return false }
+      mongo = { id: 'mongo', engine: 'mongodb', host: '127.0.0.1', port: hostPort(MONGO, 27017), database: 'admin', username: 'root', password: PASSWORD, sslMode: 'disable', readOnly: false }
+      await core.mongoFind(mongo, { connectionId: 'mongo', database: 'admin', collection: 'system.version', limit: 1 })
+      return true
+    })
   }, 240_000)
 
   afterAll(async () => {

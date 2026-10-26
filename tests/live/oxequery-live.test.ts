@@ -113,7 +113,8 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
 
   it('stops, starts and restarts a container and reports the state change', async () => {
     await call('containers.action', { id: PG, action: 'stop' })
-    expect((await call('containers.list', {})).containers.find(container => container.name === PG)?.state).toBe('exited')
+    // The listing can trail the stop on a busy runner; wait for it rather than read it once.
+    await until('postgres listed as exited', async () => (await call('containers.list', {})).containers.find(container => container.name === PG)?.state === 'exited', 20_000)
     await call('containers.action', { id: PG, action: 'start' })
     await until('postgres back', async () => (await call('containers.exec', { id: PG, argv: ['pg_isready', '-U', 'oxe'] })).exitCode === 0)
     expect(events.some(event => event.type === 'containers-changed')).toBe(true)

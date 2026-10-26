@@ -5,6 +5,9 @@ import { useIntegrationStore } from '../../store/integration.store'
 import { Button, Select, TextField, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
+// One empty list for every group without handoffs: a fresh [] per read makes zustand 5 re-render forever.
+const NO_HANDOFFS: IntegrationHandoff[] = []
+
 interface HandoffInboxProps {
   group: IntegrationGroup
   currentMemberId: string | null
@@ -25,7 +28,7 @@ interface HandoffInboxProps {
  * and flips the row to 'saved' so it stops competing for attention.
  */
 export function HandoffInbox({ group, currentMemberId, onSelectMember }: HandoffInboxProps): ReactElement {
-  const handoffs = useIntegrationStore((s) => s.handoffs[group.id] ?? [])
+  const handoffs = useIntegrationStore((s) => s.handoffs[group.id] ?? NO_HANDOFFS)
   const loadHandoffs = useIntegrationStore((s) => s.loadHandoffs)
   const updateHandoff = useIntegrationStore((s) => s.updateHandoff)
   const createHandoff = useIntegrationStore((s) => s.createHandoff)

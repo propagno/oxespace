@@ -19,6 +19,8 @@ import { buildThreadTimeline, flattenThreadTimeline, foldFinishedTurns } from '.
 import { humanizeError } from '../../utils/humanizeError'
 
 const EMPTY_FOLDS: ReadonlySet<string> = new Set()
+// A stable empty list: a fresh [] per store read makes zustand 5 re-render forever.
+const NO_ATTACHMENTS: import('../../../shared/types/thread').ThreadAttachment[] = []
 import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import { ThreadTimelineWindow } from './ThreadTimeline'
 import { deriveThreadComposerState } from './threadComposerState'
@@ -61,7 +63,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const review = useThreadWorkbenchStore(state => selectedId ? state.views[selectedId] : undefined)
   const drawer = availableWidth > 0 && availableWidth < 1120
   const draft = useThreadStore(state => snapshot ? state.drafts[snapshot.thread.id] ?? '' : '')
-  const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? [] : [])
+  const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
   const [outgoing, setOutgoing] = useState<{ threadId: string; text: string; attachments: ThreadAttachment[]; knownEvents: Set<string> } | null>(null)
   const [panel, setPanel] = useState<ThreadPanelState | null>(null)

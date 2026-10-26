@@ -1,6 +1,7 @@
 import { Check, ChevronDown, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
+import { useShallow } from 'zustand/react/shallow'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
 import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
@@ -52,7 +53,8 @@ function WorkspaceGroupComponent({
   onDrop,
   onDragEnd,
 }: WorkspaceGroupProps): ReactElement {
-  const integrations = useIntegrationStore(selectIntegrationsForWorkspace(workspace.id))
+  // The selector filters, so it returns a new array on every read; compare by items.
+  const integrations = useIntegrationStore(useShallow(selectIntegrationsForWorkspace(workspace.id)))
   const openIntegrationPanel = useUIStore((s) => s.openIntegrationPanel)
   const setActiveIntegrationGroup = useIntegrationStore((s) => s.setActiveGroup)
   const updateSettings = useWorkspaceStore((s) => s.updateSettings)
