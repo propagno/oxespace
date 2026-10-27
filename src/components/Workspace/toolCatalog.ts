@@ -1,4 +1,5 @@
-import { Activity, Brain, Code2, FileCode2, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, Users, Search, Slash, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, Brain, Code2, FileCode2, FolderTree, GitCompareArrows, MonitorPlay, Network, Users, Search, Slash, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
+import { Github } from '../Brand/GithubIcon'
 
 export type ToolGroup = 'Project' | 'Development' | 'AI & Agents' | 'System'
 export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'skills' | 'semantic' | 'editor' | 'review' | 'team'
