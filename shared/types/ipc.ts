@@ -346,7 +346,8 @@ export const IPC_CHANNELS = {
     captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
     onWorktreeChanged: 'mcp-internal:on-worktree-changed',
-    actionAudit: 'mcp-internal:action-audit'
+    actionAudit: 'mcp-internal:action-audit',
+    exportAudit: 'mcp-internal:export-audit'
   },
   browserPreview: {
     session: 'browser-preview:session',
@@ -901,6 +902,8 @@ export interface McpInternalApi {
   onWorktreeChanged(listener: (event: import('./mcp-internal').InternalMcpWorktreeChangedEvent) => void): () => void
   /** Recent changes agents made through the OXESpace MCP tools, newest first. */
   actionAudit(limit?: number): Promise<import('./mcp-internal').AgentActionEntry[]>
+  /** Saves every audit entry still kept as JSON lines; the path, or null when the person cancels. */
+  exportAudit(): Promise<string | null>
 }
 
 export interface OxeContextApi {

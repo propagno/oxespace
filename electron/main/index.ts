@@ -61,15 +61,15 @@ import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX 
 import { registerBrowserPreviewIpc } from './services/browser-preview.service'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
+import { redactLogMessage } from './services/log-redaction'
 
 log.initialize()
 log.transports.file.maxSize = 512 * 1024
-// File logging already retains the diagnostic; do not duplicate it into Linux syslog.
-log.transports.console.level = false
+log.hooks.push(redactLogMessage)
+log.transports.console.level = false // the file already keeps the diagnostic; not duplicated into Linux syslog
 
-// Local crash capture: writes minidumps to <userData>/Crashpad on a renderer/GPU/
-// main crash. uploadToServer:false keeps them on-device (privacy) — a future
-// telemetry endpoint can flip this. Must be called before `app` is ready.
+// Local crash capture: minidumps in <userData>/Crashpad on a renderer/GPU/main crash; uploadToServer:false keeps
+// them on-device (privacy). Must be called before `app` is ready.
 try {
   crashReporter.start({ submitURL: '', uploadToServer: false, compress: true })
 } catch (err) {

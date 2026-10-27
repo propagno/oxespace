@@ -1,12 +1,12 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AgentActivitySettings } from '../src/components/Settings/AgentActivitySettings'
 import type { AgentActionEntry } from '../shared/types/mcp-internal'
 
 afterEach(() => { cleanup(); delete (window as { oxe?: unknown }).oxe })
 
-function mount(entries: AgentActionEntry[] | null) {
-  ;(window as unknown as { oxe: unknown }).oxe = { mcpInternal: { actionAudit: async () => entries } }
+function mount(entries: AgentActionEntry[] | null, exportAudit: () => Promise<string | null> = async () => null) {
+  ;(window as unknown as { oxe: unknown }).oxe = { mcpInternal: { actionAudit: async () => entries, exportAudit } }
   render(<AgentActivitySettings />)
 }
 
@@ -27,5 +27,11 @@ describe('AgentActivitySettings', () => {
   it('says when there is nothing yet, also when the bridge answers nothing', async () => {
     mount(null)
     expect(await screen.findByText('No agent changes yet.')).toBeVisible()
+  })
+
+  it('exports the audit and says where it was saved', async () => {
+    mount([], async () => 'C:/exports/oxespace-audit.jsonl')
+    fireEvent.click(await screen.findByRole('button', { name: /Export the audit/ }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved the audit to C:/exports/oxespace-audit.jsonl')
   })
 })

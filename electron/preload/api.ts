@@ -448,7 +448,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       captureWebPreview: () => ipc.invoke(IPC_CHANNELS.mcpInternal.captureWebPreview) as Promise<void>,
       onWebPreview: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWebPreviewEvent>(ipc, IPC_CHANNELS.mcpInternal.onWebPreview, listener),
       onWorktreeChanged: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWorktreeChangedEvent>(ipc, IPC_CHANNELS.mcpInternal.onWorktreeChanged, listener),
-      actionAudit: (limit) => ipc.invoke(IPC_CHANNELS.mcpInternal.actionAudit, limit) as Promise<import('../../shared/types/mcp-internal').AgentActionEntry[]>
+      actionAudit: (limit) => ipc.invoke(IPC_CHANNELS.mcpInternal.actionAudit, limit) as Promise<import('../../shared/types/mcp-internal').AgentActionEntry[]>,
+      exportAudit: () => ipc.invoke(IPC_CHANNELS.mcpInternal.exportAudit) as Promise<string | null>
     },
     browserPreview: {
       session: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.session, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionState>,

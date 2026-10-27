@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import type { ThreadFailure, ThreadUsage } from '../../../../shared/types/thread'
+import { redactSecrets } from '../../../../shared/secrets'
 
 const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 /** Preserve useful diagnostics, bounded and with credential fields removed. Never stringify payloads. */
 export function diagnosticText(value: unknown): string {
   if (typeof value !== 'string') return ''
-  return value.slice(0, 12000)
+  return redactSecrets(value.slice(0, 12000))
     .replace(/\bBearer\s+[^\s"'<>]+/gi, 'Bearer [redacted]')
     .replace(/\b(?:sk-[a-zA-Z0-9_-]+|eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)\b/g, '[redacted]')
     .replace(/((?:access[_-]?token|refresh[_-]?token|api[_-]?key|authorization|password|secret)\s*["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,"'}]+)/gi, '$1[redacted]')

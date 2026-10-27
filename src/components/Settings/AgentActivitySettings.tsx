@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { Download, RefreshCw } from 'lucide-react'
 import type { AgentActionEntry } from '../../../shared/types/mcp-internal'
 import { Button } from '../../ui'
 
@@ -22,6 +22,14 @@ export function AgentActivitySettings(): ReactElement {
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setEntries([]) }
   }, [])
   useEffect(() => { void load() }, [load])
+  const [saved, setSaved] = useState('')
+  // Thread permission decisions, agent actions and OxeQuery requests, one JSON object per line, secrets removed.
+  const exportAudit = async (): Promise<void> => {
+    try {
+      const path = await window.oxe.mcpInternal.exportAudit()
+      setSaved(path ? `Saved the audit to ${path}` : ''); setError('')
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+  }
 
   return <div className="settings-form-group" data-testid="agent-activity">
     <h3 className="settings-form-group-title">Agent activity</h3>
@@ -45,6 +53,8 @@ export function AgentActivitySettings(): ReactElement {
       </div>}
     <div className="settings-inline-actions">
       <Button variant="ghost" onClick={() => void load()}><RefreshCw size={14} aria-hidden="true" /> Refresh activity</Button>
+      <Button variant="ghost" onClick={() => void exportAudit()}><Download size={14} aria-hidden="true" /> Export the audit (JSONL)</Button>
     </div>
+    {saved ? <p className="settings-field-hint" role="status">{saved}</p> : null}
   </div>
 }
