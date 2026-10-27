@@ -132,7 +132,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
             {!embedded && <nav className="ws-settings-nav" aria-label="Workspace settings sections">
               <span className="ws-settings-nav-label">WORKSPACE</span>
               {visiblePages.map(({ id, label, hint, icon: Icon }) => <button key={id} type="button" aria-pressed={page === id} aria-controls={`ws-page-${id}`} onClick={() => { setPage(id); if (contentRef.current) contentRef.current.scrollTop = 0 }}>
-                <Icon size={16} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span>
+                <Icon size={16} aria-hidden="true" /><span><strong>{label}</strong>{' '}<small>{hint}</small></span>
               </button>)}
               <p>Settings scoped to<br /><strong>{workspace.name}</strong></p>
             </nav>}

@@ -32,7 +32,7 @@ export function AgentProviderIcon({ provider, size = 20 }: AgentProviderIconProp
   return (
     <div
       className="agent-provider-icon"
-      style={{ background: config.bg, width: size, height: size, flexShrink: 0 }}
+      style={{ backgroundColor: config.bg, width: size, height: size, flexShrink: 0 }}
       aria-hidden="true"
     >
       {config.icon}

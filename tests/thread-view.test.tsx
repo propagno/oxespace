@@ -248,10 +248,10 @@ describe('Thread workspace UI', () => {
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     const row = screen.getByText('Auth investigation').closest('button')!
     const icon = () => row.querySelector('.thread-session-provider .agent-provider-icon') as HTMLElement
-    expect(icon()).toHaveStyle({ background: 'var(--provider-claude)' })
+    expect(icon()).toHaveStyle({ backgroundColor: 'var(--provider-claude)' })
     expect(row.querySelector('.thread-session-provider')).toHaveTextContent('Claude Code')
     act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, provider: 'codex' }] }))
-    expect(icon()).toHaveStyle({ background: 'var(--provider-codex)' })
+    expect(icon()).toHaveStyle({ backgroundColor: 'var(--provider-codex)' })
     expect(row.querySelector('.thread-session-provider')).toHaveTextContent('Codex')
     expect(row.querySelector('.thread-session-indicator')).toHaveAttribute('data-status', 'ready')
   })
