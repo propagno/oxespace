@@ -18,4 +18,18 @@ describe('Thread project semantic search', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('240 files indexed')
     expect(setProjectEnabled).toHaveBeenCalledWith({ rootPath: 'C:/repo', enabled: true })
   })
+
+  it('moves the switch at once and back when the change cannot be saved', async () => {
+    let fail: (error: Error) => void = () => {}
+    const setProjectEnabled = vi.fn(() => new Promise<never>((_, reject) => { fail = reject }))
+    ;(window as { oxe?: unknown }).oxe = { semantic: { projectStatus: vi.fn(async () => ({ on: false, status: status(0) })), setProjectEnabled } }
+    render(<ThreadProjectSemantic rootPath="C:/repo" />)
+    const box = await screen.findByRole('checkbox', { name: /Index this project/ })
+    await vi.waitFor(() => expect(box).not.toBeDisabled())
+    fireEvent.click(box)
+    expect(box).toBeChecked()
+    fail(new Error('This project directory is unavailable'))
+    await vi.waitFor(() => expect(box).not.toBeChecked())
+    expect(await screen.findByRole('alert')).toHaveTextContent('unavailable')
+  })
 })

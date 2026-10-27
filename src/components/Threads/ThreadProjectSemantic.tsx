@@ -27,9 +27,12 @@ export function ThreadProjectSemantic({ rootPath, disabled }: { rootPath: string
   }, [state])
   if (!api?.projectStatus) return null
   const toggle = async (enabled: boolean): Promise<void> => {
+    // The switch moves at once; it moves back if the change could not be saved.
+    const before = state
     setBusy(true); setError('')
+    setState(current => current && { ...current, on: enabled })
     try { setState(await api.setProjectEnabled({ rootPath, enabled })) }
-    catch (cause) { setError(humanizeError(cause, 'Could not change semantic search.')) }
+    catch (cause) { setState(before); setError(humanizeError(cause, 'Could not change semantic search.')) }
     finally { setBusy(false) }
   }
   const files = state?.status.coverage?.lexicalDocuments ?? 0
@@ -37,7 +40,7 @@ export function ThreadProjectSemantic({ rootPath, disabled }: { rootPath: string
     <Checkbox className="thread-project-check" checked={state?.on ?? false} disabled={!state || busy || disabled}
       onChange={event => void toggle(event.target.checked)} label="Index this project so agents can search it by meaning" />
     <p>The index stays on this computer. Agents still read the files they need; this only helps them find them.</p>
-    {state?.on && <p role="status">{state.status.indexing ? `Indexing… ${files.toLocaleString('en-US')} files so far` : `${files.toLocaleString('en-US')} files indexed`}</p>}
+    {state?.on && <p role="status">{!state.status.enabled ? 'Starting the index…' : state.status.indexing ? `Indexing… ${files.toLocaleString('en-US')} files so far` : `${files.toLocaleString('en-US')} files indexed`}</p>}
     {error && <p role="alert">{error}</p>}
   </div>
 }
