@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ThreadUsageBucket, ThreadUsageSummary } from '../../../shared/types/thread'
+import type { ThreadTurnUsage, ThreadUsageBucket, ThreadUsageSummary } from '../../../shared/types/thread'
 import { formatThreadCost } from './threadCost'
 import { Select, LoadingState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
@@ -32,10 +32,36 @@ function Buckets({ title, buckets, metric }: { title: string; buckets: ThreadUsa
   </section>
 }
 
+/** Context a request of this turn sent: the turn's context over its requests (one plus one per tool call). */
+export const contextPerRequest = (turn: ThreadTurnUsage): number | undefined => turn.steps === undefined ? undefined : turn.contextTokens / (turn.steps + 1)
+/** Past this, every step of the conversation resends a large context, and compacting it pays off. */
+export const LARGE_CONTEXT = 100_000
+
+/** The conversation's latest turns: what each one sent and did, so a long conversation shows where tokens go. */
+function Turns({ turns }: { turns: ThreadTurnUsage[] }) {
+  const latest = turns[0] ? contextPerRequest(turns[0]) : undefined
+  return <section>
+    <h3>Recent turns</h3>
+    {latest !== undefined && latest >= LARGE_CONTEXT && <p className="thread-usage-advice" role="note">
+      Each request in this conversation sends about {compactTokens(latest)} tokens of context, and a turn makes one request per step.
+      <code>/compact</code> summarizes the conversation so the next turns send less.</p>}
+    {turns.length === 0 ? <p>No turns recorded in this period.</p> : <table className="thread-usage-turns">
+      <thead><tr><th scope="col">When</th><th scope="col">Context sent</th><th scope="col">Steps</th><th scope="col">Output</th><th scope="col">Cost</th></tr></thead>
+      <tbody>{turns.map(turn => <tr key={`${turn.at}:${turn.contextTokens}`}>
+        <td>{new Date(turn.at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
+        <td title={contextPerRequest(turn) === undefined ? undefined : `about ${compactTokens(contextPerRequest(turn)!)} per request`}>{compactTokens(turn.contextTokens)}</td>
+        <td>{turn.steps ?? '—'}</td>
+        <td>{compactTokens(turn.outputTokens)}</td>
+        <td>{turn.usd === undefined ? '—' : `≈ ${formatThreadCost(turn.usd)}`}</td>
+      </tr>)}</tbody>
+    </table>}
+  </section>
+}
+
 /** Spending recorded for each finished turn, by day, model and conversation. */
 export default function ThreadUsagePanel({ threadId }: { threadId: string }) {
   const api = window.oxe?.thread
-  const [scope, setScope] = useState<Scope>('project')
+  const [scope, setScope] = useState<Scope>('thread')
   const [days, setDays] = useState<number>(30)
   const [summary, setSummary] = useState<ThreadUsageSummary | null>(null)
   const [error, setError] = useState('')
@@ -58,6 +84,7 @@ export default function ThreadUsagePanel({ threadId }: { threadId: string }) {
     {!summary ? <LoadingState label="Loading usage…" /> : <>
       <p className="thread-usage-total"><strong>{usageLabel(summary.total)}</strong></p>
       <p>Claude reports an API-equivalent estimate; on a subscription it is not a charge. Codex reports tokens only. Turns are recorded from this version on.</p>
+      {summary.turns && <Turns turns={summary.turns} />}
       <Buckets title="By day" buckets={summary.byDay} metric={metric} />
       <Buckets title="By model" buckets={summary.byModel} metric={metric} />
       {scope !== 'thread' && <Buckets title="By conversation" buckets={summary.byThread} metric={metric} />}

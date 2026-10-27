@@ -35,7 +35,7 @@ import { ThreadCheckpointService } from './thread-checkpoints'
 import { ThreadTurnTracker } from './thread-turns'
 import { ThreadPermissionStore } from './thread-permissions'
 import { requestSubject, ThreadPolicy } from './thread-policy'
-import { ThreadUsageLedger } from './thread-usage'
+import { ThreadUsageLedger, turnSteps } from './thread-usage'
 import { WorkService } from '../work/work-service'
 import type { WorkRun } from '../../../../shared/types/work'
 import { recordRuntime } from '../runtime-diagnostics'
@@ -979,7 +979,7 @@ export class ThreadOrchestrator {
       snapshot.thread.costReport = addTurnCost(repairLegacyCost(snapshot.thread.costReport), cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : 'claude-result-step')
       this.save(snapshot, { eventsFrom: snapshot.events.length })
       const model = snapshot.thread.model ?? snapshot.thread.contextReport?.model
-      try { this.usage.record({ ...cost, threadId: id, projectRoot: snapshot.thread.rootPath, provider: snapshot.thread.provider, ...(model ? { model } : {}), at: now }) } catch { /* The ledger is best effort; the conversation keeps its own total. */ }
+      try { this.usage.record({ ...cost, ...turnSteps(snapshot), threadId: id, projectRoot: snapshot.thread.rootPath, provider: snapshot.thread.provider, ...(model ? { model } : {}), at: now }) } catch { /* The ledger is best effort; the conversation keeps its own total. */ }
     } catch { /* Thread may have been deleted while the provider was reporting. */ }
   }
 

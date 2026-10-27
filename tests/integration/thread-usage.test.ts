@@ -62,10 +62,16 @@ describe('Thread turns reach the usage ledger', () => {
     vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
     const id = manager.create({ workspaceId: 'A', projectId: 'p', rootPath: root, provider: 'claude' }).thread.id
     await manager.send(id, 'Go')
-    emit({ type: 'turn-cost', usd: 0.12, inputTokens: 30, outputTokens: 7 })
+    // Two tool calls, one of them reported twice as it finishes: two steps.
+    emit({ type: 'tool', id: 'read-1', name: 'Read', state: 'running', detail: 'a.ts' })
+    emit({ type: 'tool', id: 'read-1', name: 'Read', state: 'completed', detail: 'a.ts' })
+    emit({ type: 'tool', id: 'bash-1', name: 'Bash', state: 'completed', detail: 'npm test' })
+    emit({ type: 'turn-cost', usd: 0.12, inputTokens: 30, outputTokens: 7, cacheReadTokens: 900 })
     emit({ type: 'completed', status: 'completed' })
     const summary = manager.usageSummary(id, { scope: 'thread' })
     expect(summary.total).toMatchObject({ turns: 1, pricedTurns: 1, usd: 0.12, inputTokens: 30, outputTokens: 7 })
+    expect(summary.turns).toEqual([expect.objectContaining({ contextTokens: 930, outputTokens: 7, steps: 2, usd: 0.12 })])
+    expect(manager.usageSummary(id, { scope: 'project' }).turns).toBeUndefined()
     expect(summary.byThread[0]).toMatchObject({ key: id })
     expect(summary.byThread[0].label).not.toBe('Deleted conversation')
     expect(manager.read(id).thread.costReport).toMatchObject({ totalUsd: 0.12, source: 'claude-result-step' })

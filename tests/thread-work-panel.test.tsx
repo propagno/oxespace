@@ -52,13 +52,27 @@ describe('ThreadUsagePanel', () => {
     expect(usageLabel(bucket('c', { pricedTurns: 1 }))).toBe('≈ US$ 1.50 + unpriced turns · 2 turns · 2k tokens')
   })
 
-  it('reloads for another scope', async () => {
+  it('opens on this conversation and reloads for another scope', async () => {
     const summary: ThreadUsageSummary = { scope: 'project', since: 0, total: bucket('total'), byDay: [bucket('2026-10-13')], byModel: [bucket('claude · opus')], byThread: [bucket('Fix login')] }
     const usageSummary = vi.fn(async () => summary)
     ;(window as { oxe?: unknown }).oxe = { thread: { usageSummary } }
     render(<ThreadUsagePanel threadId="t" />)
-    expect(await screen.findByText('Fix login')).toBeInTheDocument()
+    await waitFor(() => expect(usageSummary).toHaveBeenLastCalledWith('t', { scope: 'thread', days: 30 }))
     fireEvent.click(screen.getByRole('radio', { name: 'All projects' }))
     await waitFor(() => expect(usageSummary).toHaveBeenLastCalledWith('t', { scope: 'all', days: 30 }))
+    expect(await screen.findByText('Fix login')).toBeInTheDocument()
+  })
+
+  it('lists the latest turns with the context they sent and their steps, and advises compacting a heavy conversation', async () => {
+    const summary: ThreadUsageSummary = { scope: 'thread', since: 0, total: bucket('total'), byDay: [], byModel: [], byThread: [], turns: [
+      { at: Date.UTC(2026, 9, 27, 12), contextTokens: 1_500_000, outputTokens: 4_000, steps: 9, usd: 2.5 },
+      { at: Date.UTC(2026, 9, 27, 11), contextTokens: 40_000, outputTokens: 1_000 }
+    ] }
+    ;(window as { oxe?: unknown }).oxe = { thread: { usageSummary: vi.fn(async () => summary) } }
+    render(<ThreadUsagePanel threadId="t" />)
+    const rows = await screen.findAllByRole('row')
+    expect(rows.slice(1).map(row => row.textContent)).toEqual([expect.stringContaining('1.5M94k≈ US$ 2.50'), expect.stringContaining('40k—1k—')])
+    // 1.5M over 10 requests: 150k per request.
+    expect(screen.getByRole('note')).toHaveTextContent('about 150k tokens of context')
   })
 })
