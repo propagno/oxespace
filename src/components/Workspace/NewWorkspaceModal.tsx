@@ -241,7 +241,7 @@ export function NewWorkspaceModal({
                 {matchingWorkspaces.map((workspace, index) => (
                   <button key={workspace.id} type="button" className={`new-workspace-existing-choice${selectedExisting.id === workspace.id ? ' selected' : ''}`}
                     aria-pressed={selectedExisting.id === workspace.id} onClick={() => setSelectedExistingId(workspace.id)}>
-                    <span>{workspace.name} #{index + 1}</span>
+                    <span>{workspace.name} #{index + 1}</span>{' '}
                     <span>{workspace.panes.filter((pane) => pane.type === 'terminal' && pane.rowIndex >= 0).length} terminals</span>
                   </button>
                 ))}

@@ -1,4 +1,5 @@
-import { Bot, Code2, Github, MousePointer2, Sparkles, Zap } from 'lucide-react'
+import { Bot, Code2, MousePointer2, Sparkles, Zap } from 'lucide-react'
+import { Github } from '../Brand/GithubIcon'
 import type { ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 
@@ -31,7 +32,7 @@ export function AgentProviderIcon({ provider, size = 20 }: AgentProviderIconProp
   return (
     <div
       className="agent-provider-icon"
-      style={{ background: config.bg, width: size, height: size, flexShrink: 0 }}
+      style={{ backgroundColor: config.bg, width: size, height: size, flexShrink: 0 }}
       aria-hidden="true"
     >
       {config.icon}
