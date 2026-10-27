@@ -84,3 +84,14 @@ export function policyBlockedMessage(decision: PolicyDecision, what: string): st
   const owner = decision.organization ? `${decision.organization} policy` : decision.layer === 'managed' ? 'your organization’s policy' : decision.layer === 'project' ? 'this project’s policy' : 'your policy'
   return `${what} is blocked by ${owner}.`
 }
+
+/** What Settings shows: the files that apply to a project, read only. */
+export interface PolicyView extends LoadedPolicy {
+  /** Every place a policy file is looked for, in evaluation order, whether or not it exists. */
+  locations: Array<{ layer: PolicyLayer; path: string }>
+}
+
+export interface PolicyApi {
+  /** The policy for a workspace's project, or the app-wide layers without one. */
+  get(workspaceId?: string): Promise<PolicyView>
+}

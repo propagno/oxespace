@@ -24,7 +24,7 @@ interface Harness {
 }
 
 /** `decide` answers immediately; with `manual` the prompt stays open until `answer` is called. */
-function harness(connections: OxeQueryConnection[], options: { decide?: ApprovalDecision; manual?: boolean; rows?: unknown[][]; now?: () => number; waitMs?: number; ceiling?: (environment: string) => 'off' | 'read' | 'write' } = {}): Harness {
+function harness(connections: OxeQueryConnection[], options: { policyBlock?: GatewayDeps['policyBlock']; decide?: ApprovalDecision; manual?: boolean; rows?: unknown[][]; now?: () => number; waitMs?: number; ceiling?: (environment: string) => 'off' | 'read' | 'write' } = {}): Harness {
   const db = openInMemoryDatabase(); databases.push(db)
   const asked: ApprovalRequest[] = []
   let release: ((decision: ApprovalDecision) => void) | undefined
@@ -50,6 +50,7 @@ function harness(connections: OxeQueryConnection[], options: { decide?: Approval
     containers: { list: async () => ({ containers: [{ id: 'abc123def456', name: 'pg-dev', image: 'postgres:16', state: 'running', status: 'Up', ports: [], labels: {} }, { id: 'zzz999yyy888', name: 'secret-job', image: 'alpine', state: 'running', status: 'Up', ports: [], labels: {} }] }), logsTail: async () => 'one\ntwo', action: async () => undefined },
     broker: new ApprovalBroker(prompter, options.now, options.waitMs),
     audit,
+    ...(options.policyBlock ? { policyBlock: options.policyBlock } : {}),
     ...(options.now ? { now: options.now } : {})
   }
   return { gateway: new AgentGateway(deps), audit, calls, asked, answer: decision => release?.(decision) }
@@ -58,6 +59,21 @@ function harness(connections: OxeQueryConnection[], options: { decide?: Approval
 const code = async (promise: Promise<unknown>): Promise<string> => promise.then(() => 'ok', (error: unknown) => (error instanceof AgentToolError ? error.code : 'other'))
 
 describe('agent gateway: access policy', () => {
+  it('refuses a connection the organization policy blocks, before any access rule, and says so in the list', async () => {
+    const seen: Array<[string, string | undefined]> = []
+    const h = harness([connection({ agentAccess: 'write' }), connection({ id: 'c2', name: 'logs' })], {
+      policyBlock: (name, root) => { seen.push([name, root]); return name === 'shop' ? 'Agent access to "shop" is blocked by Acme policy.' : undefined }
+    })
+    const scoped = { ...actor, projectRoot: '/repo' }
+    await expect(h.gateway.handle('oxespace_db_query', { connection: 'shop', sql: 'SELECT 1' }, scoped)).rejects.toMatchObject({ code: 'policy', message: 'Agent access to "shop" is blocked by Acme policy.' })
+    expect(await code(h.gateway.handle('oxespace_db_execute', { connection: 'shop', sql: 'DELETE FROM t' }, scoped))).toBe('policy')
+    expect(h.calls).toHaveLength(0)
+    expect(h.asked).toHaveLength(0)
+    expect(seen[0]).toEqual(['shop', '/repo'])
+    const listed = await h.gateway.handle('oxespace_db_connections', {}, scoped) as { connections: { name: string; agentAccess: string }[] }
+    expect(listed.connections.map(item => [item.name, item.agentAccess])).toEqual([['shop', 'blocked-by-policy'], ['logs', 'read']])
+  })
+
   it('shows no data and no tool works on a connection where agents are off', async () => {
     const h = harness([connection({ agentAccess: 'off' })])
     expect(await code(h.gateway.handle('oxespace_db_describe', { connection: 'shop' }, actor))).toBe('access-off')

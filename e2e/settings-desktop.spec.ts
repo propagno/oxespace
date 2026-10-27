@@ -127,3 +127,33 @@ test('Settings stays usable in short windows and renders updater states', async 
     await page.screenshot({ path: test.info().outputPath('titlebar-update-manual.png') })
   } finally { await app.close() }
 })
+
+test('Settings shows the policy files that apply, their rules and a file set aside, read only', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'oxe-settings-policy-'))
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('policy:get')
+      ipcMain.handle('policy:get', () => ({
+        locations: [{ layer: 'user', path: '/home/me/policy.json' }, { layer: 'managed', path: '/etc/oxespace/policy.json' }],
+        sources: [{ layer: 'managed', path: '/etc/oxespace/policy.json', organization: 'Acme', rules: [{ effect: 'deny', action: 'integration.use', resource: 'db:prod*' }] }],
+        problems: ['/home/me/policy.json: not valid JSON']
+      }))
+    })
+    await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
+    await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
+    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Policy/ }).click()
+    const policy = settings.getByTestId('policy-settings')
+    await expect(policy.getByRole('heading', { name: 'Managed · Acme' })).toBeVisible()
+    await expect(policy.getByRole('list', { name: 'Managed rules' })).toContainText('integration.use · db:prod*')
+    await expect(policy.getByRole('alert')).toHaveText('Not applied: /home/me/policy.json: not valid JSON')
+    await expect(policy).toContainText('This file has an error and is ignored.')
+    await expect(policy.getByRole('textbox')).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})

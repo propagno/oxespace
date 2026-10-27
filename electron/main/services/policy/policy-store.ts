@@ -22,14 +22,18 @@ export class PolicyStore {
   constructor(private readonly paths: { userData: string; managed?: string }) {}
 
   /** Every layer for a project root (or none for app-wide checks), in evaluation order. */
-  load(projectRoot?: string | null): LoadedPolicy {
-    const files: Array<[PolicyLayer, string]> = [
-      ...(projectRoot ? [['project', join(projectRoot, '.oxespace', 'policy.json')] as [PolicyLayer, string]] : []),
-      ['user', join(this.paths.userData, 'policy.json')],
-      ['managed', this.paths.managed ?? managedPolicyPath()]
+  /** Where each layer's file is looked for, in evaluation order. */
+  locations(projectRoot?: string | null): Array<{ layer: PolicyLayer; path: string }> {
+    return [
+      ...(projectRoot ? [{ layer: 'project' as const, path: join(projectRoot, '.oxespace', 'policy.json') }] : []),
+      { layer: 'user', path: join(this.paths.userData, 'policy.json') },
+      { layer: 'managed', path: this.paths.managed ?? managedPolicyPath() }
     ]
+  }
+
+  load(projectRoot?: string | null): LoadedPolicy {
     const policy: LoadedPolicy = { sources: [], problems: [] }
-    for (const [layer, path] of files) {
+    for (const { layer, path } of this.locations(projectRoot)) {
       const result = this.read(layer, path)
       if (!result) continue
       if ('source' in result) policy.sources.push(result.source)
