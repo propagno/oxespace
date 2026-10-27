@@ -1,4 +1,5 @@
-import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Users, Wrench } from 'lucide-react'
+import { Activity, Columns2, FilePlus2, FolderOpen, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Users, Wrench } from 'lucide-react'
+import { Github } from './components/Brand/GithubIcon'
 import { useContributedCommands } from './utils/commandRegistry'
 import './components/OxeQuery/oxequery.commands'
 import { onOxeQueryAction, performOxeQueryAction } from './components/OxeQuery/oxequery-bridge'
@@ -18,8 +19,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
 import type { CommandPaletteAction } from './utils/commandRegistry'
 import { humanizeError } from './utils/humanizeError'
-// Modals/overlays are user-triggered and infrequent — lazy-load them so they're
-// not in the first-paint bundle.
+// Modals/overlays are user-triggered and infrequent — lazy-load them so they're not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const SettingsCenter = lazy(() => import('./components/Settings/SettingsCenter').then((m) => ({ default: m.SettingsCenter })))

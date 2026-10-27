@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, GitCompareArrows, Github, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, GitCompareArrows, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import { Github } from '../Brand/GithubIcon'
 import { openInChanges } from '../../store/changes-request.store'
 import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState } from '../../ui'
@@ -1108,8 +1109,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
 
 // ─── Settings ──────────────────────────────────────────────────────────────
 
-// Onda 5: rewritten as a tree (workflows → runs) + right-side run detail panel,
-// matching the VS Code GitHub Actions extension layout.
+// Onda 5: rewritten as a tree (workflows → runs) + right-side run detail panel, matching the VS Code GitHub Actions extension layout.
 function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, workspaceId, rootPath, onLoadRunDetails, onRun, onRerun, onRefresh }: {
   workflows: GitHubWorkflow[]
   workflowRuns: GitHubWorkflowRun[]

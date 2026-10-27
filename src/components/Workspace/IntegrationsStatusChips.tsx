@@ -1,4 +1,5 @@
-import { Github, Zap, Server, Activity, Brain, ChevronDown } from 'lucide-react'
+import { Zap, Server, Activity, Brain, ChevronDown } from 'lucide-react'
+import { Github } from '../Brand/GithubIcon'
 import { useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { SemanticStatus } from '../../../shared/types/ipc'
