@@ -222,6 +222,13 @@
 .thread-usage-bar span { display: block; height: 100%; background: var(--accent, var(--text-secondary)); }
 .thread-usage-value { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 520px) { .thread-usage-list li { grid-template-columns: minmax(0, 1fr) auto; } .thread-usage-bar { display: none; } }
+.thread-usage-advice { padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-raised); }
+.thread-usage-advice code { margin: 0 3px; }
+.thread-usage-turns { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.thread-usage-turns th { padding: 4px 6px; color: var(--text-muted); font-weight: 500; text-align: right; border-bottom: 1px solid var(--border-subtle); }
+.thread-usage-turns td { padding: 4px 6px; color: var(--text-secondary); text-align: right; white-space: nowrap; }
+.thread-usage-turns :is(th, td):first-child { text-align: left; }
+.thread-usage-turns tr + tr td { border-top: 1px solid var(--border-subtle); }
 /* The request never takes more than about a third of the view, so the conversation above it stays readable. */
 /* --request-cap is the room a request may take; Expand trades conversation for room when the options are long. */
 .thread-pending-requests { --request-cap: clamp(260px, 32vh, 360px); max-height: var(--request-cap); min-height: 0; overflow-y: auto; overflow-x: hidden; flex-shrink: 1; }

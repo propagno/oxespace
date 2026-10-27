@@ -248,6 +248,19 @@ export interface ThreadUsageSummary {
   byDay: ThreadUsageBucket[]
   byModel: ThreadUsageBucket[]
   byThread: ThreadUsageBucket[]
+  /** The conversation's latest turns, newest first; only for the 'thread' scope. */
+  turns?: ThreadTurnUsage[]
+}
+/** One finished turn: what the provider read (the context, sent again on every step), wrote and did. */
+export interface ThreadTurnUsage {
+  at: number
+  model?: string
+  /** Input, cache read and cache write tokens: the context the turn sent, summed over its steps. */
+  contextTokens: number
+  outputTokens: number
+  /** Tool calls the turn made; each one is another request with the whole context. Unknown for turns recorded before 1.4. */
+  steps?: number
+  usd?: number
 }
 export interface ThreadRequestResponse {
   decision?: 'accept' | 'acceptForSession' | 'decline' | 'cancel'
