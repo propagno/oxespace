@@ -169,8 +169,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   // under userData/diagnostics and probes executable realpaths, never source files.
   'electron/main/services/runtime-diagnostics.ts',
   'electron/main/ipc/diagnostics.ipc.ts',
+<<<<<<< HEAD
   // The list of Thread projects with semantic search turned on: one JSON file under userData.
   'electron/main/services/semantic-projects.ts',
+=======
+  // The audit export is written only to a path returned by Electron's native save dialog.
+  'electron/main/ipc/mcp-internal.ipc.ts',
+>>>>>>> origin/main
   // Portable conversation packages are read/written only at a path returned
   // by Electron's native open/save dialogs; package validation remains in the
   // Thread portable service and imported content is inert.
