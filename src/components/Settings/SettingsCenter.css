@@ -54,6 +54,15 @@
 .settings-center :is(.settings-form-group, .settings-toggle-row, .settings-callout, .settings-providers-hero, .settings-provider-card, .settings-empty) { padding: 16px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-raised); }
 .settings-center .settings-form-group { gap: 14px; }
 .settings-center .settings-form-group-title { color: var(--text-primary); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
+/* A group is one card of rows: switches, fields and notes inside it are rows split by a line, not cards of their own. */
+.settings-center .settings-form-group { gap: 0; padding: 14px 16px 2px; }
+.settings-center .settings-form-group > .settings-form-group-title { margin-bottom: 6px; }
+.settings-center .settings-form-group > :is(.settings-toggle-row, .settings-field, .settings-callout) { margin: 0 -16px; padding: 12px 16px; border: 0; border-top: 1px solid var(--border-subtle); border-radius: 0; background: transparent; }
+.settings-center .settings-form-group > .settings-form-group-title + :is(.settings-toggle-row, .settings-field, .settings-callout) { border-top: 0; padding-top: 6px; }
+.settings-center .settings-form-group > :not(.settings-form-group-title, .settings-toggle-row, .settings-field, .settings-callout) { margin-top: 4px; margin-bottom: 12px; }
+/* A switch and the note right after it, outside a group, read as one card. */
+.settings-center .settings-content-body > .settings-toggle-row:has(+ :is(.settings-toggle-row, .settings-callout)) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.settings-center .settings-content-body > .settings-toggle-row + :is(.settings-toggle-row, .settings-callout) { margin-top: -17px; border-top-color: var(--border-subtle); border-top-left-radius: 0; border-top-right-radius: 0; }
 .settings-center :is(.settings-field select, .settings-field input[type="text"], .settings-hotkey-row input) { min-width: 0; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-canvas); color: var(--text-primary); font-size: var(--fs-xs); }
 .settings-center .settings-field { gap: 8px; }
 .settings-center .settings-field-hint { color: var(--text-muted); font-size: var(--fs-2xs); line-height: 1.5; }
