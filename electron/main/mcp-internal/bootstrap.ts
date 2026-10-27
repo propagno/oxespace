@@ -23,6 +23,7 @@ import { activeTools } from './tool-registry'
 import { WebPreviewBus } from './web-preview-bus'
 import { WorktreeEventBus } from './worktree-event-bus'
 import { pruneToolOutputs } from './tool-result-bound'
+import { auditJsonl } from '../services/audit-export'
 // Embed the bridge script as a string at build time. Vite's `?raw` inlines
 // the file content into the main bundle — so materialization never depends
 // on a copy plugin firing first, on process.resourcesPath, or on __dirname
@@ -84,6 +85,8 @@ export interface InternalMcpHandle {
   onWebPreview(listener: (event: InternalMcpWebPreviewEvent) => void): () => void
   onWorktreeChanged(listener: (event: InternalMcpWorktreeChangedEvent) => void): () => void
   actionAudit(limit: number): import('../../../shared/types/mcp-internal').AgentActionEntry[]
+  /** Every audit entry still kept, as JSON lines (Thread permissions, agent actions, OxeQuery). */
+  exportAudit(): string
 }
 
 const SINGLETON_ID = 'singleton'
@@ -224,7 +227,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     return worktree.subscribe(listener)
   }
 
-  return { start, stop, getStatus, regenerateToken, onWebPreview, onWorktreeChanged, actionAudit: limit => actionAudit.list({ limit }) }
+  return { start, stop, getStatus, regenerateToken, onWebPreview, onWorktreeChanged, actionAudit: limit => actionAudit.list({ limit }), exportAudit: () => auditJsonl(deps.db) }
 }
 
 /* ── meta singleton helpers ───────────────────────────────────── */

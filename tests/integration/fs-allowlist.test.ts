@@ -169,6 +169,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // under userData/diagnostics and probes executable realpaths, never source files.
   'electron/main/services/runtime-diagnostics.ts',
   'electron/main/ipc/diagnostics.ipc.ts',
+  // The audit export is written only to a path returned by Electron's native save dialog.
+  'electron/main/ipc/mcp-internal.ipc.ts',
   // Portable conversation packages are read/written only at a path returned
   // by Electron's native open/save dialogs; package validation remains in the
   // Thread portable service and imported content is inert.

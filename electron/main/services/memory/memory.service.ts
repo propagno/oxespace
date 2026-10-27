@@ -10,6 +10,7 @@ import { MemoryProjectService, projectIdentity } from './memory-project.service'
 import { MemoryRuntime, memoryEnvironment, writePrivateJson } from './memory-runtime'
 import { MemoryManager } from './memory-manager'
 import { AiMemoryProvider } from './ai-memory.provider'
+import { redactSecrets } from '../../../../shared/secrets'
 import { AgentMemoryAdapters } from './agent-memory-adapter'
 import { McpConfigSync } from '../mcp-sync.service'
 import { buildTomlTable } from '../../vendor/codegraph/installer/targets/toml'
@@ -279,12 +280,7 @@ export class MemoryService implements MemoryApi {
   }
 
   private sanitizeText(text: string, maxBytes = 4096): string {
-    const scrubbed = text.slice(0, 64 * 1024)
-      .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g, '[redacted]')
-      .replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,}|Bearer\s+\S+)/gi, '[redacted]')
-      .replace(/\bAKIA[A-Z0-9]{16}\b/g, '[redacted]')
-      .replace(/\b(password|passwd|secret|api[_-]?key|token)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
-      .replace(/:\/\/[^\s/@:]+:[^\s/@]+@/g, '://[redacted]@')
+    const scrubbed = redactSecrets(text.slice(0, 64 * 1024))
     let bytes = 0, clipped = ''
     for (const point of scrubbed) {
       const size = Buffer.byteLength(point)

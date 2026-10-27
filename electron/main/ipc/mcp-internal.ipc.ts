@@ -1,5 +1,6 @@
 import { requireAppFrame } from './ipc-guards'
-import { BrowserWindow, clipboard, ClipboardItem, ipcMain } from 'electron'
+import { BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain } from 'electron'
+import { writeFile } from 'node:fs/promises'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
 
@@ -20,6 +21,15 @@ export function registerMcpInternalIpc(handle: InternalMcpHandle): void {
   ipcMain.handle(IPC_CHANNELS.mcpInternal.actionAudit, (event, limit: unknown) => {
     requireAppFrame(event, 'MCP bridge requests')
     return handle.actionAudit(typeof limit === 'number' && Number.isInteger(limit) ? limit : 200)
+  })
+  ipcMain.handle(IPC_CHANNELS.mcpInternal.exportAudit, async (event) => {
+    requireAppFrame(event, 'MCP bridge requests')
+    const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined
+    const options = { title: 'Export the audit', defaultPath: `oxespace-audit-${new Date().toISOString().slice(0, 10)}.jsonl`, filters: [{ name: 'JSON lines', extensions: ['jsonl'] }] }
+    const result = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) return null
+    await writeFile(result.filePath, handle.exportAudit(), { encoding: 'utf8', mode: 0o600 })
+    return result.filePath
   })
   ipcMain.handle(IPC_CHANNELS.mcpInternal.captureWebPreview, async (event) => {
     requireAppFrame(event, 'MCP bridge requests')
