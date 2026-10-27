@@ -471,6 +471,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     semantic: {
       getStatus: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.getStatus, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
       setEnabled: (input) => ipc.invoke(IPC_CHANNELS.semantic.setEnabled, input) as Promise<import('../../shared/types/ipc').SemanticStatus>,
+      projectStatus: (rootPath) => ipc.invoke(IPC_CHANNELS.semantic.projectStatus, rootPath) as Promise<{ on: boolean; status: import('../../shared/types/ipc').SemanticStatus }>,
+      setProjectEnabled: (input) => ipc.invoke(IPC_CHANNELS.semantic.setProjectEnabled, input) as Promise<{ on: boolean; status: import('../../shared/types/ipc').SemanticStatus }>,
       setMode: (input) => ipc.invoke(IPC_CHANNELS.semantic.setMode, input) as Promise<import('../../shared/types/ipc').SemanticStatus>,
       reindex: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.reindex, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
       getLogs: () => ipc.invoke(IPC_CHANNELS.semantic.getLogs) as Promise<import('../../shared/types/ipc').SemanticLogEntry[]>,

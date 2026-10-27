@@ -17,6 +17,7 @@ import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
 import { savePreviewCapture } from '../services/documentation/preview-capture-store'
+import { semanticProjects } from '../services/semantic-projects'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -123,7 +124,13 @@ export async function requireProjectScope(ctx: ToolContext): Promise<ProjectScop
   return { kind: 'code', rootPath: ws.rootPath, workspaceId: ws.id }
 }
 
-const NO_SEMANTIC_INDEX = 'Semantic search is not available for this project yet: its index is built when the project is open in Code with semantic search enabled. Structural search (oxespace_hybrid_explore) works without it.'
+const NO_SEMANTIC_INDEX = 'Semantic search is off for this project. The person can turn it on in Thread (the project\'s menu › Project settings › Semantic search) or in Code. Structural search (oxespace_hybrid_explore) works without it.'
+
+/** The semantic index to search: the Code workspace's when it has one on, otherwise the Thread project's when it was turned on. */
+function semanticIndexFor(scope: ProjectScope, ctx: ToolContext): string | null {
+  if (scope.workspaceId && ctx.semantic.isEnabled(scope.workspaceId)) return scope.workspaceId
+  return scope.kind === 'thread' ? semanticProjects(ctx.semantic)?.ensure(scope.rootPath) ?? null : null
+}
 
 async function listWorkspaces(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const all = ctx.workspaceServ.list()
@@ -276,11 +283,8 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
 
 async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const scope = await requireProjectScope(ctx)
-  if (!scope.workspaceId) return textResult(NO_SEMANTIC_INDEX)
-  const id = scope.workspaceId
-  if (!ctx.semantic.isEnabled(id)) {
-    return textResult(scope.kind === 'thread' ? NO_SEMANTIC_INDEX : 'Semantic search is disabled for this workspace.')
-  }
+  const id = semanticIndexFor(scope, ctx)
+  if (!id) return textResult(scope.kind === 'thread' ? NO_SEMANTIC_INDEX : 'Semantic search is disabled for this workspace.')
   const input = asRecord(args)
   const query = expectString(input.query, 'query')
   const limit = typeof input.limit === 'number' ? input.limit : undefined
@@ -402,8 +406,9 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
   //    recall while staying token-cheap.
   try {
     // Structural search below needs only the checkout; the semantic half needs an index.
-    if (!ws.id || !ctx.semantic.isEnabled(ws.id)) throw new Error('no semantic index for this project')
-    const semanticReport = await ctx.semantic.queryDetailed(ws.id, query, { limit: Math.min(maxFiles, 20), mode, maxTokens, caller: 'oxespace_hybrid_explore' })
+    const index = semanticIndexFor(scope, ctx)
+    if (!index) throw new Error('no semantic index for this project')
+    const semanticReport = await ctx.semantic.queryDetailed(index, query, { limit: Math.min(maxFiles, 20), mode, maxTokens, caller: 'oxespace_hybrid_explore' })
     if (semanticReport.results.length > 0) {
       text += `${formatSemanticReport(semanticReport)}\n\n`
     }
