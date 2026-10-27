@@ -511,6 +511,40 @@ test('the SQL workbench runs scripts, asks for parameters, keeps a transaction a
   } finally { await app.close() }
 })
 
+test('a long SELECT shows its first rows and loads the rest page by page', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-more-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    const editor = page.locator('.oq-editor .monaco-editor')
+    await editor.click()
+    await expect(page.locator('.oq-editor .monaco-editor.focused')).toBeVisible()
+    await page.keyboard.press('Control+A'); await page.keyboard.insertText('SELECT n, label FROM big'); await page.keyboard.press('Escape')
+    await page.keyboard.press('Control+Enter')
+    // The mock result has 1,200 rows and the connection's limit is 500.
+    await expect(page.getByText('500 rows · more available')).toBeVisible()
+    const more = page.getByRole('button', { name: 'Load 500 more' })
+    await more.click()
+    await expect(page.getByText('1,000 rows · more available')).toBeVisible()
+    await more.click()
+    await expect(page.getByText(/^1,200 rows · [0-9]+ ms$/)).toBeVisible()
+    await expect(more).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
+
 test('the structure editor reviews the SQL of a new table and of an altered one before applying', async () => {
   test.setTimeout(120000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-structure-'))

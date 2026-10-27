@@ -342,7 +342,7 @@ export class OxeQueryService {
         const started = Date.now()
         try {
           const result = await this.worker.call<{ columns: unknown[]; rowCount: number; affectedRows?: number }>('sql.run', connection, {
-            sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true, params: sqlParams(input.params)
+            sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true, params: sqlParams(input.params), paged: input.paged === true
           })
           this.remember(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
           return result
@@ -392,6 +392,7 @@ export class OxeQueryService {
         return this.requireEngine(browse.connectionId, 'postgres', connection => this.worker.call('sql.browse', connection, browse))
       }
       case 'sql.cancel': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.cancel', connection))
+      case 'sql.more': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.more', connection, { pageId: str(input.pageId, 'Page', 64), maxRows: optionalInt(input.maxRows, 1, 100_000) }))
       case 'sql.check': return guardSql(str(input.sql, 'SQL', 1024 * 1024))
       case 'sql.editability': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.editability', connection, { schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255) }))
       case 'sql.previewChanges': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.previewChanges', connection, this.changeInput(input)))

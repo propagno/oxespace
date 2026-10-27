@@ -166,6 +166,19 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
     // Identifiers cannot break out of their quoting.
     const hostile = await failure('sql.browse', { connectionId: id, schema: 'public', table: 'people"; DROP TABLE people; --', limit: 1 })
     expect(hostile.code).toBe('query')
+    // Load more: the cursor stays open across requests, the tree reads the catalog meanwhile, and the rows continue in order.
+    const first = await call('sql.run', { connectionId: id, sql: 'SELECT id FROM people ORDER BY id', maxRows: 500, paged: true })
+    expect(first.pageId).toBeTruthy()
+    expect((await call('sql.tables', { connectionId: id, schema: 'public' })).tables.some(table => table.name === 'people')).toBe(true)
+    const second = await call('sql.more', { connectionId: id, pageId: first.pageId!, maxRows: 500 })
+    expect([second.rows[0][0], second.rows[second.rows.length - 1][0]]).toEqual([501, 1000])
+    const last = await call('sql.more', { connectionId: id, pageId: first.pageId!, maxRows: 500 })
+    expect(last).toMatchObject({ rowCount: 200, truncated: false })
+    expect(last.pageId).toBeUndefined()
+    // Anything else run on the connection closes an open page.
+    const again = await call('sql.run', { connectionId: id, sql: 'SELECT id FROM people ORDER BY id', maxRows: 500, paged: true })
+    await call('sql.run', { connectionId: id, sql: 'SELECT 1' })
+    expect((await failure('sql.more', { connectionId: id, pageId: again.pageId!, maxRows: 500 })).message).toMatch(/no longer open/)
     expect((await call('sql.run', { connectionId: id, sql: 'SELECT count(*)::int FROM people' })).rows[0][0]).toBe(1200)
 
     // A destructive statement needs explicit confirmation, then runs.
