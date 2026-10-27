@@ -156,7 +156,7 @@ describe('OxeQuery service', () => {
     const pg = service.connections.save({ name: 'pg', engine: 'postgres', host: 'h', port: 5432, password: 'pw' })
     const mongo = service.connections.save({ name: 'mg', engine: 'mongodb', host: 'h', port: 27017 })
     await service.call('sql.run', { connectionId: pg.id, sql: 'SELECT 1', maxRows: 10 })
-    expect(worker.call).toHaveBeenCalledWith('sql.run', expect.objectContaining({ id: pg.id, password: 'pw', readOnly: true }), { sql: 'SELECT 1', maxRows: 10, confirmed: false })
+    expect(worker.call).toHaveBeenCalledWith('sql.run', expect.objectContaining({ id: pg.id, password: 'pw', readOnly: true }), { sql: 'SELECT 1', maxRows: 10, confirmed: false, paged: false })
     const wrong = await service.call('sql.run', { connectionId: mongo.id, sql: 'SELECT 1' })
     expect(wrong.ok).toBe(false)
     const wrongMongo = await service.call('mongo.find', { connectionId: pg.id, database: 'd', collection: 'c' })

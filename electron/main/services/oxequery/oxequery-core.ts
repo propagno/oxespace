@@ -1,11 +1,11 @@
 import { connectionHint } from './connect-hint'
-import { createHash } from 'node:crypto'
-import { Client } from 'pg'
+import { createHash, randomUUID } from 'node:crypto'
+import { Client, type ClientConfig } from 'pg'
 import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
 import type {
   ConnectionTestResult, MongoWriteInput, MongoWriteResult, SqlApplyInput, SqlApplyResult, SqlEditability, MongoAggregateInput, MongoCollectionInfo, MongoDatabaseInfo, MongoFindInput, MongoIndexInfo, MongoResult,
-  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlConstraintInfo, SqlObjects, SqlTypeInfo, SqlDatabaseInfo, SqlRoleInfo, SqlExtensionInfo, SqlSearchResult, SqlSearchHit,SqlTables, ScriptStatementResult, SqlScriptResult
+  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlConstraintInfo,SqlTables, ScriptStatementResult, SqlScriptResult
 } from '../../../../shared/types/oxequery'
 import { guardSql, isMutating, quoteIdentifier, tokenizeStatements } from './sql-guard'
 import { buildFilterClause } from './filter-clause'
@@ -21,10 +21,15 @@ import { EJSON } from 'bson'
 import { buildStatements, previewStatements, type ColumnMeta, type RowChange } from './table-editor'
 import { parsePlan, planHints } from './plan-parser'
 import { inferSchema } from './mongo-schema'
-import type { MongoBulkInput, MongoBulkResult, MongoCollectionAction, MongoExplainInput, MongoExplainSummary, MongoSchema, MongoStats, MongoValidation, SqlDefinitionTarget, SqlFunctionInfo } from '../../../../shared/types/oxequery'
+import type { MongoBulkInput, MongoBulkResult, MongoCollectionAction, MongoExplainInput, MongoExplainSummary, MongoSchema, MongoStats, MongoValidation, SqlDefinitionTarget } from '../../../../shared/types/oxequery'
 import type { SqlExplain } from '../../../../shared/types/oxequery'
 import { cancelOperation, runTagged, type MongoOperation } from './mongo-cancel'
 import { exportRun, importPreview, importRun, type TransferHost } from './oxequery-transfer'
+import { closePage, metaClient, pageResult, readRows, type OpenPage } from './oxequery-paging'
+import * as catalog from './oxequery-catalog'
+
+/** A function's arguments after the host and the connection. */
+type Rest<F> = F extends (host: never, connection: never, ...rest: infer R) => unknown ? R : never
 
 const DEFAULT_ROWS = 500
 const MAX_ROWS = 100_000
@@ -114,7 +119,7 @@ function sessionKey(connection: ResolvedConnection): string {
 
 /** open: a transaction the person began; failed: a statement in it failed, so only ROLLBACK is accepted. */
 type TxState = 'none' | 'open' | 'failed'
-export interface PgSession { key: string; client: Client; running: boolean; lastUsed: number; endpoint: Endpoint; tunnel?: OpenTunnel; tx: TxState; txStatements: number; txSince?: number }
+export interface PgSession { key: string; client: Client; running: boolean; lastUsed: number; endpoint: Endpoint; tunnel?: OpenTunnel; tx: TxState; txStatements: number; txSince?: number; config: ClientConfig; page?: OpenPage; meta?: Client }
 interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel; /** The running find or aggregate, so it can be stopped. */ operation?: MongoOperation }
 
 /** A connection nobody used for this long is closed; it reopens on the next request. */
@@ -135,6 +140,11 @@ const META_WAIT_MS = 10_000
  */
 export class OxeQueryCore {
   private readonly pg = new Map<string, PgSession>()
+  /** What the catalog lists may use of this core. */
+  private readonly catalog: catalog.CatalogHost = {
+    pgMeta: (connection, sql, params, maxRows, readOnly) => this.pgMeta(connection, sql, params, maxRows, readOnly),
+    pgRun: (connection, sql, params, maxRows, readOnly) => this.pgRun(connection, sql, params, maxRows, readOnly)
+  }
   /** What import and export may use of this core. */
   private readonly transfer: TransferHost = {
     pgSession: connection => this.pgSession(connection),
@@ -191,7 +201,14 @@ export class OxeQueryCore {
     }
   }
 
+  /** The connection's session for something the person runs: an open "Load more" page is closed first, since its cursor holds the client. */
   private async pgSession(connection: ResolvedConnection): Promise<PgSession> {
+    const session = await this.openSession(connection)
+    await closePage(session)
+    return session
+  }
+
+  private async openSession(connection: ResolvedConnection): Promise<PgSession> {
     const key = sessionKey(connection)
     const existing = this.pg.get(connection.id)
     if (existing?.key === key) { existing.lastUsed = Date.now(); return existing }
@@ -199,12 +216,14 @@ export class OxeQueryCore {
     const { endpoint, tunnel } = await this.reach(connection)
     // An 'error' event with no listener would crash the worker; the session's own listener is added below.
     const quiet = (candidate: Client): Client => { candidate.on('error', () => undefined); return candidate }
-    let client = quiet(new Client(this.pgConfig(connection, endpoint)))
+    let config: ClientConfig = this.pgConfig(connection, endpoint)
+    let client = quiet(new Client(config))
     try {
       try { await client.connect() } catch (error) {
         // "prefer" tries TLS first; a server without TLS says so, and gets a plain connection like libpq gives it.
         if (connection.sslMode !== 'prefer' || !/does not support SSL|SSL is not enabled|SSL not supported/i.test(error instanceof Error ? error.message : '')) throw error
-        client = quiet(new Client({ ...this.pgConfig(connection, endpoint), ssl: false }))
+        config = { ...config, ssl: false }
+        client = quiet(new Client(config))
         await client.connect()
       }
     } catch (error) {
@@ -212,7 +231,7 @@ export class OxeQueryCore {
       throw new OxeQueryError('connect', withConnectionHint(redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase), connection))
     }
     client.on('error', () => { if (this.pg.get(connection.id)?.client === client) { this.pg.delete(connection.id); void tunnel?.close() } })
-    const session: PgSession = { key, client, running: false, lastUsed: Date.now(), endpoint, tx: 'none', txStatements: 0, ...(tunnel ? { tunnel } : {}) }
+    const session: PgSession = { key, client, config, running: false, lastUsed: Date.now(), endpoint, tx: 'none', txStatements: 0, ...(tunnel ? { tunnel } : {}) }
     // A tunnel that drops under a live session would leave a client talking to nothing.
     tunnel?.onClose(() => { if (this.pg.get(connection.id) === session) this.pg.delete(connection.id) })
     this.pg.set(connection.id, session)
@@ -224,11 +243,17 @@ export class OxeQueryCore {
    * They wait for it instead of failing with "already running", so the tree does not go
    * empty (and stay empty) whenever a long statement is in flight.
    */
-  private pgMeta(connection: ResolvedConnection, sql: string, params: unknown[], maxRows: number, readOnly: boolean): Promise<SqlResult> {
-    return this.pgRun(connection, sql, params, maxRows, readOnly, META_WAIT_MS)
+  private async pgMeta(connection: ResolvedConnection, sql: string, params: unknown[], maxRows: number, readOnly: boolean): Promise<SqlResult> {
+    const session = this.pg.get(connection.id)
+    if (!session?.page) return this.pgRun(connection, sql, params, maxRows, readOnly, META_WAIT_MS)
+    // A "Load more" page holds the client: catalog reads use the second one rather than closing the person's result.
+    const started = Date.now()
+    const raw = await (await metaClient(session, config => new Client(config))).query({ text: sql, values: params, rowMode: 'array' })
+    const page = pageResult(raw.fields.map(field => ({ name: field.name, type: TYPE_NAMES[field.dataTypeID] ?? `oid:${field.dataTypeID}` })), (raw.rows as unknown[][]).slice(0, maxRows + 1), maxRows, { cells: row => row.map(cell), capByBytes: rows => capRowsByBytes(rows) })
+    return { ...page.result, durationMs: Date.now() - started }
   }
 
-  private async pgRun(connection: ResolvedConnection, sql: string, params: unknown[], maxRows: number, readOnly: boolean, waitMs = 0): Promise<SqlResult> {
+  private async pgRun(connection: ResolvedConnection, sql: string, params: unknown[], maxRows: number, readOnly: boolean, waitMs = 0, paged = false): Promise<SqlResult> {
     const session = await this.pgSession(connection)
     for (const deadline = Date.now() + waitMs; session.running && Date.now() < deadline;) await new Promise(resolve => setTimeout(resolve, 50))
     if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
@@ -260,18 +285,20 @@ export class OxeQueryCore {
         }
       } else {
         const cursor = client.query(new Cursor(sql, params, { rowMode: 'array' }))
-        const read = (count: number): Promise<{ rows: unknown[][]; result: { fields?: { name: string; dataTypeID: number }[]; command?: string; rowCount?: number | null } }> =>
-          new Promise((resolve, reject) => cursor.read(count, (error, rows, outcome) => error ? reject(error) : resolve({ rows: rows as unknown[][], result: outcome as never })))
+        let kept = false
         try {
-          const { rows, result: outcome } = await read(maxRows + 1)
-          const capped = capRowsByBytes(rows.slice(0, maxRows).map(row => row.map(cell)))
+          const { rows, result: outcome } = await readRows(cursor, maxRows + 1)
+          const columns = (outcome.fields ?? []).map((field): SqlColumn => ({ name: field.name, type: TYPE_NAMES[field.dataTypeID] ?? `oid:${field.dataTypeID}` }))
+          const page = pageResult(columns, rows, maxRows, { cells: row => row.map(cell), capByBytes: rows => capRowsByBytes(rows) })
+          // A SELECT with more rows keeps its cursor open for "Load more"; anything else closes it here.
+          kept = paged && page.more
+          if (kept) session.page = { id: randomUUID(), cursor, columns, carry: page.carry, wrapped: readOnly && !manual }
           result = {
-            columns: (outcome.fields ?? []).map((field): SqlColumn => ({ name: field.name, type: TYPE_NAMES[field.dataTypeID] ?? `oid:${field.dataTypeID}` })),
-            rows: capped.rows, rowCount: capped.rows.length, truncated: rows.length > maxRows || capped.cut, ...(capped.cut ? { limitedBy: 'bytes' as const } : rows.length > maxRows ? { limitedBy: 'rows' as const } : {}), durationMs: 0,
+            ...page.result, durationMs: 0, ...(session.page && kept ? { pageId: session.page.id } : {}),
             ...(outcome.command ? { command: outcome.command } : {}), ...(typeof outcome.rowCount === 'number' && outcome.command !== 'SELECT' ? { affectedRows: outcome.rowCount } : {})
           }
         } finally {
-          await new Promise<void>(resolve => cursor.close(() => resolve()))
+          if (!kept) await new Promise<void>(resolve => cursor.close(() => resolve()))
         }
       }
       this.trackTransaction(session, sql)
@@ -291,7 +318,7 @@ export class OxeQueryCore {
       })
     } finally {
       client.off('notice', onNotice)
-      if (readOnly && !manual) await client.query('ROLLBACK').catch(() => undefined)
+      if (readOnly && !manual && !session.page) await client.query('ROLLBACK').catch(() => undefined)
       session.running = false
       session.lastUsed = Date.now()
     }
@@ -342,11 +369,37 @@ export class OxeQueryCore {
     }
   }
 
-  async sqlRun(connection: ResolvedConnection, sql: string, options: { maxRows?: number; confirmed?: boolean; params?: (string | null)[] } = {}): Promise<SqlResult> {
+  /** With `paged`, a single read statement whose result is longer than the limit stays open for `sqlMore`. */
+  async sqlRun(connection: ResolvedConnection, sql: string, options: { maxRows?: number; confirmed?: boolean; params?: (string | null)[]; paged?: boolean } = {}): Promise<SqlResult> {
     this.checkStatement(connection, sql, options.confirmed)
     const params = options.params ?? []
-    if (params.length > 0 && guardSql(sql).statements > 1) throw new OxeQueryError('invalid', 'Parameters work with one statement at a time.')
-    return this.pgRun(connection, sql, params, clampRows(options.maxRows ?? connection.maxRows), connection.readOnly)
+    const verdict = guardSql(sql)
+    if (params.length > 0 && verdict.statements > 1) throw new OxeQueryError('invalid', 'Parameters work with one statement at a time.')
+    return this.pgRun(connection, sql, params, clampRows(options.maxRows ?? connection.maxRows), connection.readOnly, 0, options.paged === true && verdict.kind === 'read' && verdict.statements === 1)
+  }
+
+  /** The next rows of the result `sqlRun` left open; the page closes when they run out. */
+  async sqlMore(connection: ResolvedConnection, pageId: string, maxRows?: number): Promise<SqlResult> {
+    const session = this.pg.get(connection.id), page = session?.page
+    if (!session || !page || page.id !== pageId) throw new OxeQueryError('invalid', 'This result is no longer open. Run the query again to read more rows.')
+    if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
+    const limit = clampRows(maxRows ?? connection.maxRows), started = Date.now()
+    session.running = true
+    try {
+      const rows = [...page.carry, ...(await readRows(page.cursor, limit + 1 - page.carry.length)).rows]
+      const next = pageResult(page.columns, rows, limit, { cells: row => row.map(cell), capByBytes: rows => capRowsByBytes(rows) })
+      page.carry = next.carry
+      if (!next.more) await closePage(session)
+      return { ...next.result, durationMs: Date.now() - started, command: 'SELECT', ...(next.more ? { pageId: page.id } : {}) }
+    } catch (error) {
+      await closePage(session)
+      const message = error instanceof Error ? error.message : 'Query failed'
+      if (/canceling statement due to user request/i.test(message)) throw new OxeQueryError('cancelled', 'The query was cancelled.')
+      throw new OxeQueryError('query', redact(message, connection.password))
+    } finally {
+      session.running = false
+      session.lastUsed = Date.now()
+    }
   }
 
   /**
@@ -908,103 +961,16 @@ export class OxeQueryCore {
     } catch (error) { throw this.mongoError(error, connection) }
   }
 
-  async sqlFunctions(connection: ResolvedConnection, schema: string): Promise<SqlFunctionInfo[]> {
-    const result = await this.pgMeta(connection, `SELECT p.oid::int, p.proname, pg_get_function_identity_arguments(p.oid), p.prokind
-      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-      WHERE n.nspname = $1 AND p.prokind IN ('f', 'p') ORDER BY p.proname, p.oid LIMIT 1000`, [schema], 1000, true)
-    return result.rows.map(row => ({ oid: Number(row[0]), name: String(row[1]), args: String(row[2]), kind: row[3] === 'p' ? 'procedure' as const : 'function' as const }))
-  }
+  // ---- Catalog lists (oxequery-catalog.ts) ---------------------------------
 
-  async sqlDatabases(connection: ResolvedConnection): Promise<SqlDatabaseInfo[]> {
-    const result = await this.pgMeta(connection, `SELECT d.datname, pg_get_userbyid(d.datdba), pg_encoding_to_char(d.encoding), CASE WHEN has_database_privilege(d.datname, 'CONNECT') THEN pg_database_size(d.datname) END,
-        d.datconnlimit, d.datname = current_database()
-      FROM pg_database d WHERE NOT d.datistemplate ORDER BY d.datname`, [], 500, true)
-    return result.rows.map(row => ({ name: String(row[0]), owner: String(row[1]), encoding: String(row[2]), sizeBytes: row[3] === null ? null : Number(row[3]), connectionLimit: Number(row[4]), current: Boolean(row[5]) }))
-  }
-
-  async sqlRoles(connection: ResolvedConnection): Promise<SqlRoleInfo[]> {
-    const result = await this.pgMeta(connection, `SELECT r.rolname, r.rolsuper, r.rolcreatedb, r.rolcreaterole, r.rolcanlogin, r.rolreplication, r.rolconnlimit,
-        COALESCE((SELECT array_agg(g.rolname ORDER BY g.rolname) FROM pg_auth_members m JOIN pg_roles g ON g.oid = m.roleid WHERE m.member = r.oid), '{}')
-      FROM pg_roles r WHERE r.rolname NOT LIKE 'pg\\_%' ORDER BY r.rolname`, [], 1000, true)
-    return result.rows.map(row => ({
-      name: String(row[0]), superuser: Boolean(row[1]), createDatabase: Boolean(row[2]), createRole: Boolean(row[3]), login: Boolean(row[4]), replication: Boolean(row[5]), connectionLimit: Number(row[6]),
-      memberOf: nameList(row[7])
-    }))
-  }
-
-  /** CREATE DATABASE cannot run inside a transaction, so it goes out as the only statement of the session. */
-  async sqlCreateDatabase(connection: ResolvedConnection, input: { name: string; owner?: string; template?: string; encoding?: string }): Promise<{ ok: true }> {
-    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to create a database.')
-    const encodings = ['UTF8', 'LATIN1', 'SQL_ASCII']
-    if (input.encoding !== undefined && !encodings.includes(input.encoding)) throw new OxeQueryError('invalid', 'Choose UTF8, LATIN1 or SQL_ASCII.')
-    const clauses = [
-      input.owner ? `OWNER ${quoteIdentifier(input.owner)}` : '', input.template ? `TEMPLATE ${quoteIdentifier(input.template)}` : '', input.encoding ? `ENCODING '${input.encoding}'` : ''
-    ].filter(Boolean).join(' ')
-    await this.pgRun(connection, `CREATE DATABASE ${quoteIdentifier(input.name)} ${clauses}`.trim(), [], 1, false)
-    return { ok: true }
-  }
-
-  async sqlDropDatabase(connection: ResolvedConnection, input: { name: string; confirmed?: boolean }): Promise<{ ok: true }> {
-    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to drop a database.')
-    if (input.name === connection.database) throw new OxeQueryError('invalid', 'This connection is using that database. Connect to another one to drop it.')
-    if (!input.confirmed) throw new OxeQueryError('confirm', `Dropping the database "${input.name}" deletes all of its data for good.`)
-    await this.pgRun(connection, `DROP DATABASE ${quoteIdentifier(input.name)}`, [], 1, false)
-    return { ok: true }
-  }
-
-  /** Sequences, user types and triggers of one schema (each list capped, with a flag when it was). */
-  async sqlObjects(connection: ResolvedConnection, schema: string): Promise<SqlObjects> {
-    const cap = 1000
-    const sequences = await this.pgMeta(connection, `SELECT sequencename, data_type::text, last_value FROM pg_sequences WHERE schemaname = $1 ORDER BY sequencename LIMIT ${cap + 1}`, [schema], cap + 1, true)
-    const types = await this.pgMeta(connection, `SELECT t.oid::int, t.typname, t.typtype,
-        (SELECT string_agg(e.enumlabel, chr(10) ORDER BY e.enumsortorder) FROM pg_enum e WHERE e.enumtypid = t.oid)
-      FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-      WHERE n.nspname = $1 AND t.typtype IN ('e', 'c', 'd', 'r') AND (t.typtype <> 'c' OR EXISTS (SELECT 1 FROM pg_class c WHERE c.oid = t.typrelid AND c.relkind = 'c'))
-      ORDER BY t.typname LIMIT ${cap + 1}`, [schema], cap + 1, true)
-    const triggers = await this.pgMeta(connection, `SELECT t.oid::int, t.tgname, c.relname, pg_get_triggerdef(t.oid), t.tgenabled <> 'D'
-      FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE NOT t.tgisinternal AND n.nspname = $1 ORDER BY c.relname, t.tgname LIMIT ${cap + 1}`, [schema], cap + 1, true)
-    const kinds: Record<string, SqlTypeInfo['kind']> = { e: 'enum', c: 'composite', d: 'domain', r: 'range' }
-    return {
-      sequences: sequences.rows.slice(0, cap).map(row => ({ name: String(row[0]), dataType: String(row[1]), lastValue: row[2] === null ? null : Number(row[2]) })),
-      types: types.rows.slice(0, cap).map(row => ({ oid: Number(row[0]), name: String(row[1]), kind: kinds[String(row[2])] ?? 'composite', ...(row[3] ? { values: String(row[3]).split('\n') } : {}) })),
-      triggers: triggers.rows.slice(0, cap).map(row => ({ oid: Number(row[0]), name: String(row[1]), table: String(row[2]), definition: String(row[3]), enabled: Boolean(row[4]) })),
-      truncated: sequences.rows.length > cap || types.rows.length > cap || triggers.rows.length > cap
-    }
-  }
-
-  async sqlExtensions(connection: ResolvedConnection): Promise<SqlExtensionInfo[]> {
-    const result = await this.pgMeta(connection, 'SELECT e.extname, e.extversion, n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace ORDER BY e.extname', [], 500, true)
-    return result.rows.map(row => ({ name: String(row[0]), version: String(row[1]), schema: String(row[2]) }))
-  }
-
-  /** Finds tables, views, functions, sequences and types by name in every schema except the system ones. */
-  async sqlSearch(connection: ResolvedConnection, query: string): Promise<SqlSearchResult> {
-    const text = query.trim()
-    if (text.length === 0) return { hits: [], truncated: false }
-    const pattern = `%${text.replace(/[\\%_]/g, match => `\\${match}`)}%`
-    const cap = 200
-    const result = await this.pgMeta(connection, `
-      SELECT * FROM (
-        SELECT CASE c.relkind WHEN 'r' THEN 'table' WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' WHEN 'f' THEN 'foreign table' WHEN 'p' THEN 'partitioned table' ELSE 'sequence' END AS kind,
-               n.nspname AS schema, c.relname AS name, NULL::text AS args, NULL::int AS oid
-          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'v', 'm', 'f', 'p', 'S') AND c.relname ILIKE $1
-        UNION ALL
-        SELECT CASE p.prokind WHEN 'p' THEN 'procedure' ELSE 'function' END, n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), p.oid::int
-          FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE p.prokind IN ('f', 'p') AND p.proname ILIKE $1
-        UNION ALL
-        SELECT 'type', n.nspname, t.typname, NULL, t.oid::int
-          FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typtype IN ('e', 'd', 'r') AND t.typname ILIKE $1
-      ) found WHERE schema NOT IN ('pg_catalog', 'information_schema') AND schema NOT LIKE 'pg\\_toast%' AND schema NOT LIKE 'pg\\_temp%'
-      ORDER BY (lower(name) = lower($2)) DESC, name, schema LIMIT ${cap + 1}`, [pattern, text], cap + 1, true)
-    return {
-      hits: result.rows.slice(0, cap).map(row => ({
-        kind: String(row[0]) as SqlSearchHit['kind'], schema: String(row[1]), name: String(row[2]),
-        ...(row[3] !== null ? { args: String(row[3]) } : {}), ...(row[4] !== null ? { oid: Number(row[4]) } : {})
-      })),
-      truncated: result.rows.length > cap
-    }
-  }
+  sqlFunctions(connection: ResolvedConnection, ...rest: Rest<typeof catalog.sqlFunctions>): ReturnType<typeof catalog.sqlFunctions> { return catalog.sqlFunctions(this.catalog, connection, ...rest) }
+  sqlDatabases(connection: ResolvedConnection, ...rest: Rest<typeof catalog.sqlDatabases>): ReturnType<typeof catalog.sqlDatabases> { return catalog.sqlDatabases(this.catalog, connection, ...rest) }
+  sqlRoles(connection: ResolvedConnection, ...rest: Rest<typeof catalog.sqlRoles>): ReturnType<typeof catalog.sqlRoles> { return catalog.sqlRoles(this.catalog, connection, ...rest) }
+  sqlCreateDatabase(connection: ResolvedConnection, ...rest: Rest<typeof catalog.sqlCreateDatabase>): ReturnType<typeof catalog.sqlCreateDatabase> { return catalog.sqlCreateDatabase(this.catalog, connection, ...rest) }
+  sqlDropDatabase(connection: ResolvedConnection, ...rest: Rest<typeof catalog.sqlDropDatabase>): ReturnType<typeof catalog.sqlDropDatabase> { return catalog.sqlDropDatabase(this.catalog, connection, ...rest) }
+  sqlObjects(connection: ResolvedConnection, ...rest: Rest<typeof catalog.sqlObjects>): ReturnType<typeof catalog.sqlObjects> { return catalog.sqlObjects(this.catalog, connection, ...rest) }
+  sqlExtensions(connection: ResolvedConnection, ...rest: Rest<typeof catalog.sqlExtensions>): ReturnType<typeof catalog.sqlExtensions> { return catalog.sqlExtensions(this.catalog, connection, ...rest) }
+  sqlSearch(connection: ResolvedConnection, ...rest: Rest<typeof catalog.sqlSearch>): ReturnType<typeof catalog.sqlSearch> { return catalog.sqlSearch(this.catalog, connection, ...rest) }
 
   /** `CREATE TYPE` for an enum, a composite, a domain or a range, from the catalog. */
   private async typeDefinition(connection: ResolvedConnection, oid: number): Promise<string> {
@@ -1186,7 +1152,7 @@ export class OxeQueryCore {
   async closeConnection(id: string): Promise<void> {
     const pg = this.pg.get(id), mongo = this.mongo.get(id)
     this.pg.delete(id); this.mongo.delete(id)
-    await Promise.allSettled([pg?.client.end(), mongo?.client.close()])
+    await Promise.allSettled([pg?.client.end(), pg?.meta?.end(), mongo?.client.close()])
     await Promise.allSettled([pg?.tunnel?.close(), mongo?.tunnel?.close()])
   }
 

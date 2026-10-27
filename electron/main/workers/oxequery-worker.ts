@@ -28,7 +28,8 @@ async function handle(request: Request): Promise<unknown> {
   switch (request.op) {
     case 'test': return core.test(connection)
     case 'close': await core.closeConnection(connection.id); return { ok: true }
-    case 'sql.run': return core.sqlRun(connection, String(input.sql ?? ''), { maxRows: input.maxRows as number | undefined, confirmed: input.confirmed === true, params: input.params as (string | null)[] | undefined })
+    case 'sql.run': return core.sqlRun(connection, String(input.sql ?? ''), { maxRows: input.maxRows as number | undefined, confirmed: input.confirmed === true, params: input.params as (string | null)[] | undefined, paged: input.paged === true })
+    case 'sql.more': return core.sqlMore(connection, String(input.pageId ?? ''), input.maxRows as number | undefined)
     case 'sql.script': return core.sqlScript(connection, String(input.sql ?? ''), { maxRows: input.maxRows as number | undefined, confirmed: input.confirmed === true })
     case 'sql.tx': return input.action === 'status' ? core.txState(connection) : core.sqlTx(connection, input.action as 'begin' | 'commit' | 'rollback')
     case 'sql.browse': return core.sqlBrowse(connection, input as unknown as SqlBrowseInput)

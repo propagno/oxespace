@@ -242,6 +242,8 @@ export interface SqlResult {
   command?: string
   affectedRows?: number
   notices?: string[]
+  /** Set while more rows can be read with `sql.more`; the editor's "Load more". */
+  pageId?: string
 }
 
 export interface SqlRunInput {
@@ -250,6 +252,8 @@ export interface SqlRunInput {
   maxRows?: number
   /** The user confirmed a statement the guard flagged. */
   confirmed?: boolean
+  /** Keep a long SELECT open so its next rows can be read with `sql.more`. */
+  paged?: boolean
   /** Values for `$1`, `$2`…; text the server casts to the parameter's type (null is NULL). */
   params?: (string | null)[]
 }
@@ -623,6 +627,7 @@ export interface OxeQueryOps {
   'sql.run': { input: SqlRunInput; output: SqlResult }
   'sql.browse': { input: SqlBrowseInput; output: SqlResult }
   'sql.cancel': { input: { connectionId: string }; output: { cancelled: boolean } }
+  'sql.more': { input: { connectionId: string; pageId: string; maxRows?: number }; output: SqlResult }
   'sql.script': { input: SqlScriptInput; output: SqlScriptResult }
   'workspace.load': { input: { connectionId: string }; output: { state: WorkspaceState | null } }
   'workspace.save': { input: { connectionId: string; state: WorkspaceState }; output: { ok: true } }

@@ -31,6 +31,8 @@ import { EDITOR_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLa
 
 const ROW_LIMITS = [100, 500, 1000, 5000, 10_000, 50_000, 100_000]
 const PAGE = 100
+/** Rows the result grid holds after "Load more"; the rest of a longer result is for an export. */
+const MAX_GRID_ROWS = 1_000_000
 const SAVE_DELAY_MS = 700
 
 /** What waits for a confirmation or for parameter values: the text to run and where it sits in the editor. */
@@ -187,7 +189,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           const highest = Math.max(...scan.names.map(Number))
           params = Array.from({ length: highest }, (_, index) => { const entry = values[String(index + 1)]; return entry ? (entry.isNull ? null : entry.value) : null })
         }
-        const result = await oq('sql.run', { connectionId: connection.id, sql, maxRows, confirmed, ...(params ? { params } : {}) })
+        const result = await oq('sql.run', { connectionId: connection.id, sql, maxRows, confirmed, paged: true, ...(params ? { params } : {}) })
         patch(tab.id, { outputs: [{ id: 's0', label: text.replace(/\s+/g, ' ').slice(0, 40), start: base, text, result }], outputIndex: 0 })
         // New or dropped tables and columns must show up in suggestions without reconnecting.
         if (/^(CREATE|ALTER|DROP)/i.test(result.command ?? '')) cacheFor(connection).clear()
@@ -200,6 +202,27 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       }
     } finally { setRunning(false); setLibraryTick(value => value + 1); void refreshTx() }
   }, [clearMarkers, connection, markError, maxRows, paramValues, patch, refreshTx])
+
+  /** Appends the next rows of a long SELECT; the server keeps its cursor until they run out or another statement runs. */
+  const loadMore = useCallback(async (): Promise<void> => {
+    const tab = activeRef.current
+    const index = Math.min(tab.outputIndex, Math.max(0, tab.outputs.length - 1))
+    const current = tab.outputs[index]?.result
+    if (!current?.pageId) return
+    setRunning(true); setNotice('')
+    try {
+      const next = await oq('sql.more', { connectionId: connection.id, pageId: current.pageId, maxRows })
+      const merged: SqlResult = { ...current, rows: [...current.rows, ...next.rows], rowCount: current.rowCount + next.rowCount, truncated: next.truncated,
+        durationMs: current.durationMs + next.durationMs, limitedBy: next.limitedBy, pageId: next.pageId }
+      // The grid keeps everything in memory; past this point the rest of the result belongs in an export.
+      if (merged.rowCount >= MAX_GRID_ROWS) delete merged.pageId
+      patch(tab.id, { outputs: tab.outputs.map((entry, at) => at === index ? { ...entry, result: merged } : entry) })
+    } catch (cause) {
+      // The rows already shown stay; only the open page is gone.
+      patch(tab.id, { outputs: tab.outputs.map((entry, at) => at === index && entry.result ? { ...entry, result: { ...entry.result, pageId: undefined } } : entry) })
+      setNotice(errorMessage(cause))
+    } finally { setRunning(false) }
+  }, [connection, maxRows, patch])
 
   const explain = useCallback(async (analyze: boolean, confirmed = false): Promise<void> => {
     const tab = activeRef.current
@@ -342,6 +365,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <span className="oq-spacer" />
           {active.browse && <><button type="button" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: Math.max(0, active.browse!.offset - PAGE) })}>Previous</button>
             <button type="button" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset + PAGE })}>Next</button></>}
+          {!active.browse && result?.pageId && <button type="button" disabled={running} onClick={() => void loadMore()}>Load {maxRows.toLocaleString('en-US')} more</button>}
           {(active.browse || (result && columns.length > 0 && executedText?.trim())) && <ExportButton connection={connection}
             source={active.browse ? { kind: 'table', schema: active.browse.schema, table: active.browse.table } : { kind: 'sql', sql: executedText ?? '' }}
             label={active.browse ? 'Export table' : 'Export query'} />}
@@ -383,7 +407,10 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
 function summary(result: SqlResult, browse: Browse | null): string {
   if (browse) return `rows ${browse.offset + 1}–${browse.offset + result.rowCount}${result.totalRows !== undefined ? ` of ${result.totalRows.toLocaleString('en-US')} matching` : ''} · ${result.durationMs} ms`
   if (result.columns.length === 0) return `${result.command ?? 'Done'}${result.affectedRows !== undefined ? ` · ${result.affectedRows} rows affected` : ''} · ${result.durationMs} ms`
-  return `${result.rowCount} row${result.rowCount === 1 ? '' : 's'}${result.truncated ? (result.limitedBy === 'bytes' ? ' (cut: the result is too large to show — narrow the query or export it)' : ' (limited — more exist)') : ''} · ${result.durationMs} ms`
+  const rows = `${result.rowCount.toLocaleString('en-US')} row${result.rowCount === 1 ? '' : 's'}`
+  const more = !result.truncated ? '' : result.limitedBy === 'bytes' ? ' (cut: the result is too large to show — narrow the query or export it)'
+    : result.pageId ? ' · more available' : result.rowCount >= MAX_GRID_ROWS ? ' (the grid holds 1,000,000 rows — export the query for the rest)' : ' (limited — more exist)'
+  return `${rows}${more} · ${result.durationMs} ms`
 }
 
 function DefinitionPanel({ connection, schema, name, kind, onOpen }: { connection: OxeQueryConnection; schema: string; name: string; kind?: string; onOpen: (sql: string) => void }): ReactElement {

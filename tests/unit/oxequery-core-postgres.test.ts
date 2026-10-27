@@ -15,6 +15,7 @@ const server = vi.hoisted(() => {
     clients: 0,
     connectError: null as Error | null,
     killed: [] as unknown[],
+    closedCursors: 0,
     answer: async (sql: string, values: unknown[]): Promise<Reply> => {
       state.log.push(sql.replace(/\s+/g, ' ').trim())
       const rule = state.rules.find(item => item.match.test(sql))
@@ -27,11 +28,13 @@ const server = vi.hoisted(() => {
 
 vi.mock('pg-cursor', () => ({
   default: class Cursor {
+    private offset = 0
     constructor(readonly text: string, readonly values: unknown[]) {}
+    // Each read continues where the last one stopped, as a server-side cursor does.
     read(count: number, done: (error: Error | null, rows?: unknown[][], result?: unknown) => void): void {
-      Promise.resolve(server.answer(this.text, this.values)).then(reply => done(null, (reply.rows ?? []).slice(0, count), reply), error => done(error as Error))
+      Promise.resolve(server.answer(this.text, this.values)).then(reply => { const rows = (reply.rows ?? []).slice(this.offset, this.offset + count); this.offset += rows.length; done(null, rows, reply) }, error => done(error as Error))
     }
-    close(done: () => void): void { done() }
+    close(done: () => void): void { server.closedCursors++; done() }
   }
 }))
 
@@ -63,7 +66,7 @@ const base: ResolvedConnection = { id: 'c1', engine: 'postgres', host: 'db.local
 const connection = (change: Partial<ResolvedConnection> = {}): ResolvedConnection => ({ ...base, ...change })
 
 let core: OxeQueryCore
-beforeEach(() => { server.rules.length = 0; server.log.length = 0; server.clients = 0; server.connectError = null; server.killed.length = 0; core = new OxeQueryCore() })
+beforeEach(() => { server.rules.length = 0; server.log.length = 0; server.clients = 0; server.connectError = null; server.killed.length = 0; server.closedCursors = 0; core = new OxeQueryCore() })
 afterEach(async () => { await core.closeAll() })
 
 const failure = async (run: () => Promise<unknown>): Promise<OxeQueryError> => {
@@ -529,5 +532,58 @@ describe('testing a connection', () => {
 
   it('knows which drivers are present', () => {
     expect(core.drivers().postgres).toBe(true)
+  })
+})
+
+describe('load more', () => {
+  const numbers = { fields: [{ name: 'n', dataTypeID: 23 }], rows: Array.from({ length: 12 }, (_, index) => [index + 1]), command: 'SELECT', rowCount: 12 }
+
+  it('keeps a long SELECT open and reads it page by page until it runs out', async () => {
+    on(/FROM numbers/, numbers)
+    const first = await core.sqlRun(connection(), 'SELECT n FROM numbers', { maxRows: 5, paged: true })
+    expect(first.rows.flat()).toEqual([1, 2, 3, 4, 5])
+    expect(first).toMatchObject({ truncated: true, limitedBy: 'rows' })
+    expect(first.pageId).toBeTruthy()
+    const second = await core.sqlMore(connection(), first.pageId!, 5)
+    expect(second.rows.flat()).toEqual([6, 7, 8, 9, 10])
+    expect(second.pageId).toBe(first.pageId)
+    const last = await core.sqlMore(connection(), first.pageId!, 5)
+    expect(last.rows.flat()).toEqual([11, 12])
+    expect(last).toMatchObject({ truncated: false })
+    expect(last.pageId).toBeUndefined()
+    expect((await failure(() => core.sqlMore(connection(), first.pageId!, 5))).message).toMatch(/no longer open/)
+  })
+
+  it('holds the read-only transaction while the page is open and rolls it back when it closes', async () => {
+    on(/FROM numbers/, numbers)
+    const first = await core.sqlRun(connection({ readOnly: true }), 'SELECT n FROM numbers', { maxRows: 10, paged: true })
+    expect(sent(/^(BEGIN READ ONLY|ROLLBACK)$/)).toEqual(['BEGIN READ ONLY'])
+    await core.sqlMore(connection({ readOnly: true }), first.pageId!, 10)
+    expect(sent(/^(BEGIN READ ONLY|ROLLBACK)$/)).toEqual(['BEGIN READ ONLY', 'ROLLBACK'])
+  })
+
+  it('reads the catalog on a second client while a page is open, without closing it', async () => {
+    on(/FROM numbers/, numbers)
+    on(/FROM pg_namespace/, { fields: [{ name: 'nspname', dataTypeID: 25 }], rows: [['public']] })
+    const first = await core.sqlRun(connection(), 'SELECT n FROM numbers', { maxRows: 5, paged: true })
+    expect(server.clients).toBe(1)
+    expect(await core.sqlSchemas(connection())).toEqual(['public'])
+    expect(server.clients).toBe(2)
+    expect((await core.sqlMore(connection(), first.pageId!, 5)).rows.flat()).toEqual([6, 7, 8, 9, 10])
+  })
+
+  it('closes the page when anything else runs on the connection', async () => {
+    on(/FROM numbers/, numbers)
+    const first = await core.sqlRun(connection(), 'SELECT n FROM numbers', { maxRows: 5, paged: true })
+    await core.sqlRun(connection(), 'SELECT 1')
+    expect(server.closedCursors).toBe(2)
+    expect((await failure(() => core.sqlMore(connection(), first.pageId!, 5))).message).toMatch(/no longer open/)
+  })
+
+  it('pages only a single read statement asked to page; a write or a run without the flag closes its cursor', async () => {
+    on(/FROM numbers/, numbers)
+    on(/RETURNING/, numbers)
+    expect((await core.sqlRun(connection(), 'SELECT n FROM numbers', { maxRows: 5 })).pageId).toBeUndefined()
+    expect((await core.sqlRun(connection(), 'UPDATE t SET a = 1 WHERE b = 2 RETURNING n', { maxRows: 5, paged: true })).pageId).toBeUndefined()
   })
 })
