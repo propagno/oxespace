@@ -9,8 +9,9 @@ import { AgentRpcPeer } from './rpc-peer'
 import { CLAUDE_THREAD_ARGS, claudeCommandCatalog } from './claude-command-catalog'
 import { CODEX_THREAD_COMMANDS, NATIVE_CLI_COMMANDS } from '../../../../shared/threadCommands'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
+import { integrationBlocked } from '../policy'
 
-type Entry = ThreadCommand & { path?: string; body?: string }
+type Entry = ThreadCommand & { path?: string; body?: string; blocked?: string }
 type NativeCatalog = { commands: Entry[]; warning?: string }
 function record(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {} }
 async function textFile(path: string): Promise<string> {
@@ -82,6 +83,12 @@ export class ThreadCommandService {
         entries.set(skill.name, { name: skill.name, description: skill.description, source: 'oxe', body: skill.body })
       }
     }
+    // Skills (OXE prompts and Codex skills) a policy blocks stay listed, disabled, with the reason.
+    for (const [name, entry] of entries) {
+      if (entry.body === undefined && !(entry.source === 'codex' && entry.path)) continue
+      const blocked = integrationBlocked(`skill:${name}`, `The skill "${name}"`, thread.rootPath)
+      if (blocked) entries.set(name, { name, description: entry.description, source: entry.source, execution: 'unavailable', unavailableReason: blocked, blocked })
+    }
     if (!entries.has('compact')) entries.set('compact', { name: 'compact', description: 'Summarize the native conversation context', source: thread.provider, ...(thread.provider === 'claude' ? { argumentHint: 'optional focus' } : {}) })
     for (const [name, entry] of entries) {
       if (hasDesktopCommand(thread.provider, name)) entries.set(name, { ...entry, execution: 'desktop', ...(thread.provider === 'codex' && name === 'mcp' ? { argumentHint: '[reload | login <server>]' } : {}), ...(thread.provider === 'codex' && name === 'plugins' ? { argumentHint: '[install <name> | uninstall <id> | reconcile]' } : {}), ...(thread.provider === 'codex' && name === 'apps' ? { argumentHint: '[app id]' } : {}) })
@@ -143,6 +150,7 @@ export class ThreadCommandService {
     }
     const { entries } = await this.load(thread)
     const entry = entries.get(match[1]), argument = match[2] ?? ''
+    if (entry?.blocked) throw Error(entry.blocked)
     if (entry?.body !== undefined) return { text: entry.body.includes('{{argument}}') ? entry.body.replace(/\{\{argument\}\}/g, argument) : entry.body + (argument ? `\n\n${argument}` : '') }
     if (entry?.source === 'codex' && entry.path) return { text: `$${entry.name}${argument ? ` ${argument}` : ''}`, skill: { name: entry.name, path: entry.path } }
     if (thread.provider === 'claude' && entry?.execution === 'conversation') return { text: text.trim() }

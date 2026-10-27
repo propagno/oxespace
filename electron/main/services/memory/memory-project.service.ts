@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { realpath } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { basename, dirname, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import type { AppDatabase } from '../../db'
 import type { MemoryContext, MemorySettings } from '../../../../shared/types/memory'
+import { integrationBlocked } from '../policy'
 
 const exec = promisify(execFile)
 export const DEFAULT_MEMORY_SETTINGS: MemorySettings = { enabled: false, automaticCapture: false, automaticContext: false }
@@ -57,12 +58,26 @@ export class MemoryProjectService {
     return this.resolve(pane.root_path ?? ws.root_path)
   }
 
+  /** Stored settings, forced off while organization policy blocks `memory` for the project (stored values are kept). */
   settings(projectId: string): MemorySettings {
-    const row = this.db.prepare('SELECT settings_json FROM memory_projects WHERE id = ?').get(projectId) as { settings_json: string } | undefined
-    return row ? { ...DEFAULT_MEMORY_SETTINGS, ...JSON.parse(row.settings_json) } : { ...DEFAULT_MEMORY_SETTINGS }
+    const row = this.db.prepare('SELECT identity, settings_json FROM memory_projects WHERE id = ?').get(projectId) as { identity: string; settings_json: string } | undefined
+    if (!row) return { ...DEFAULT_MEMORY_SETTINGS }
+    if (this.policyBlocked(row.identity)) return { ...DEFAULT_MEMORY_SETTINGS }
+    return { ...DEFAULT_MEMORY_SETTINGS, ...JSON.parse(row.settings_json) }
+  }
+
+  /** The policy message when `memory` is blocked for the project; its identity is the Git common dir or the folder. */
+  policyBlocked(identity: string): string | undefined {
+    const root = basename(identity) === '.git' ? dirname(identity) : identity
+    return integrationBlocked('memory', 'Shared memory', root)
   }
 
   configure(projectId: string, settings: MemorySettings): void {
+    if (settings.enabled) {
+      const row = this.db.prepare('SELECT identity FROM memory_projects WHERE id = ?').get(projectId) as { identity: string } | undefined
+      const blocked = row && this.policyBlocked(row.identity)
+      if (blocked) throw new Error(blocked)
+    }
     this.db.prepare('UPDATE memory_projects SET settings_json = ? WHERE id = ?').run(JSON.stringify(settings), projectId)
   }
 

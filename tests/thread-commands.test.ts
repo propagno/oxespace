@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ThreadCommandService } from '../electron/main/services/conversation/thread-commands'
+import { setPolicyStore } from '../electron/main/services/policy'
+import { PolicyStore } from '../electron/main/services/policy/policy-store'
 import type { ConversationThread } from '../shared/types/thread'
 import type { ConversationTransport } from '../electron/main/services/conversation/codex-conversation'
 
@@ -57,6 +59,20 @@ function claudeFixture() {
 }
 
 describe('Thread command catalog and dispatch', () => {
+  it('lists a skill the policy blocks as unavailable, with the reason, and refuses to send it', async () => {
+    const f = await fixture()
+    await f.file(join(f.project, '.oxe/skills/deploy.md'), markdown('deploy', 'Deploy now'))
+    await f.file(join(f.project, '.oxe/skills/review.md'), markdown('review', 'Review'))
+    await f.file(join(f.project, '.oxespace/policy.json'), JSON.stringify({ organization: 'Acme', rules: [{ effect: 'deny', action: 'integration.use', resource: 'skill:deploy' }] }))
+    setPolicyStore(new PolicyStore({ userData: f.home, managed: join(f.home, 'managed.json') }))
+    try {
+      const service = new ThreadCommandService(() => 'claude', { home: f.home, claudeTransport: claudeFixture().factory })
+      const deploy = (await service.list(f.thread)).commands.find(command => command.name === 'deploy')
+      expect(deploy).toMatchObject({ execution: 'unavailable', unavailableReason: 'The skill "deploy" is blocked by Acme policy.' })
+      await expect(service.prepare(f.thread, '/deploy')).rejects.toThrow('blocked by Acme policy')
+      expect(await service.prepare(f.thread, '/review')).toEqual({ text: 'Review' })
+    } finally { setPolicyStore(null) }
+  })
   it('discovers commands, plugins and aliases from the installed Claude CLI without prompting a model', async () => {
     const f = await fixture()
     const native = claudeFixture()

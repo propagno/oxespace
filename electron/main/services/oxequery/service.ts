@@ -19,6 +19,7 @@ import { WorkspaceInputError, WorkspaceStore } from './workspace-store'
 import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from '../agent-actions/approval-broker'
 import { AuditLog } from './audit-log'
+import { integrationBlocked } from '../policy'
 import type { ExportFormat } from '../../../../shared/types/oxequery'
 import { stringifyMongoQuery, type MongoQueryText } from '../../../../shared/mongoQueryText'
 
@@ -168,7 +169,8 @@ export class OxeQueryService {
         action: (id, action) => this.containers.action(id, action)
       },
       broker: this.approvals,
-      audit: this.auditLog
+      audit: this.auditLog,
+      policyBlock: (name, projectRoot) => integrationBlocked(`db:${name}`, `Agent access to "${name}"`, projectRoot)
     })
   }
 

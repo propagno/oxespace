@@ -16,6 +16,8 @@ export interface AgentActor {
   key: string
   /** `thread:abc123`, shown in the approval prompt and the audit trail. */
   label: string
+  /** The project the execution runs in; its policy file applies. */
+  projectRoot?: string
 }
 
 export interface GatewayDeps {
@@ -31,6 +33,8 @@ export interface GatewayDeps {
   }
   broker: ApprovalBroker
   audit: AuditLog
+  /** Organization policy for `db:<connection name>`; the message to show when it blocks, or nothing. */
+  policyBlock?(connectionName: string, projectRoot?: string): string | undefined
   now?: () => number
   /** Per-call time limit; the statement is cancelled when it passes. */
   timeoutMs?: number
@@ -100,7 +104,9 @@ export class AgentGateway {
     return match
   }
 
-  private access(connection: OxeQueryConnection, need: 'read' | 'write'): void {
+  private access(connection: OxeQueryConnection, need: 'read' | 'write', actor: AgentActor): void {
+    const blocked = this.deps.policyBlock?.(connection.name, actor.projectRoot)
+    if (blocked) throw new AgentToolError(blocked, 'policy')
     const cap = this.deps.ceiling?.(connection.environment) ?? 'write'
     const granted = effectiveAgentAccess(connection.agentAccess, cap)
     if (granted === 'off') {
@@ -171,7 +177,7 @@ export class AgentGateway {
     const args = (rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs) ? rawArgs : {}) as Args
     this.limit(actor)
     switch (tool) {
-      case 'oxespace_db_connections': return this.connections()
+      case 'oxespace_db_connections': return this.connections(actor)
       case 'oxespace_db_describe': return this.describe(args, actor)
       case 'oxespace_db_query': return this.query(args, actor)
       case 'oxespace_mongo_find': return this.mongo(args, actor, 'find')
@@ -187,16 +193,19 @@ export class AgentGateway {
     }
   }
 
-  private connections(): unknown {
+  private connections(actor: AgentActor): unknown {
     return {
       schemaVersion: 1,
-      connections: this.deps.list().map(item => ({ id: item.id, name: item.name, engine: item.engine, environment: item.environment, readOnly: item.readOnly, agentAccess: item.agentAccess }))
+      connections: this.deps.list().map(item => ({
+        id: item.id, name: item.name, engine: item.engine, environment: item.environment, readOnly: item.readOnly,
+        agentAccess: this.deps.policyBlock?.(item.name, actor.projectRoot) ? 'blocked-by-policy' : item.agentAccess
+      }))
     }
   }
 
   private async describe(args: Args, actor: AgentActor): Promise<unknown> {
     const info = this.find(args.connection)
-    this.access(info, 'read')
+    this.access(info, 'read', actor)
     const connection = { ...this.deps.resolve(info.id), readOnly: true }
     const started = this.now()
     try {
@@ -230,7 +239,7 @@ export class AgentGateway {
     const tool = 'oxespace_db_explain'
     const info = this.find(args.connection)
     if (info.engine !== 'postgres') throw new AgentToolError('This tool is for PostgreSQL connections.', 'invalid')
-    this.access(info, 'read')
+    this.access(info, 'read', actor)
     const sql = text(args.sql, 'sql')
     const verdict = guardSql(sql)
     const hash = textHash(sql)
@@ -262,7 +271,7 @@ export class AgentGateway {
     const tool = 'oxespace_db_query'
     const info = this.find(args.connection)
     if (info.engine !== 'postgres') throw new AgentToolError('This tool is for PostgreSQL connections. Use oxespace_mongo_find for MongoDB.', 'invalid')
-    this.access(info, 'read')
+    this.access(info, 'read', actor)
     const sql = text(args.sql, 'sql')
     const verdict = guardSql(sql)
     const hash = textHash(sql)
@@ -283,7 +292,7 @@ export class AgentGateway {
     const tool = kind === 'find' ? 'oxespace_mongo_find' : 'oxespace_mongo_aggregate'
     const info = this.find(args.connection)
     if (info.engine !== 'mongodb') throw new AgentToolError('This tool is for MongoDB connections. Use oxespace_db_query for PostgreSQL.', 'invalid')
-    this.access(info, 'read')
+    this.access(info, 'read', actor)
     const database = text(args.database, 'database', 255)
     const collection = text(args.collection, 'collection', 255)
     const limit = bounded(args.limit, DEFAULT_ROWS, 1, MAX_ROWS)
@@ -329,7 +338,7 @@ export class AgentGateway {
     if (info.engine !== 'postgres') throw new AgentToolError('Use oxespace_mongo_write for MongoDB.', 'invalid')
     const sql = text(args.sql, 'sql')
     const hash = textHash(sql)
-    try { this.access(info, 'write') } catch (error) {
+    try { this.access(info, 'write', actor) } catch (error) {
       const failure = this.safe(error)
       this.log(actor, info, tool, { decision: 'refused', outcome: 'skipped', textHash: hash, text: redactStatement(sql), errorCode: failure.code })
       throw failure
@@ -356,7 +365,7 @@ export class AgentGateway {
     }
     const body = `${input.database}.${input.collection} ${op}\n${JSON.stringify(input, null, 2)}`
     const hash = textHash(body)
-    try { this.access(info, 'write') } catch (error) {
+    try { this.access(info, 'write', actor) } catch (error) {
       const failure = this.safe(error)
       this.log(actor, info, tool, { decision: 'refused', outcome: 'skipped', textHash: hash, text: redactDocument(JSON.stringify(input)), errorCode: failure.code })
       throw failure

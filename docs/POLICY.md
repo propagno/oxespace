@@ -41,7 +41,12 @@ never applied in part. Nothing in the app, a plugin or an MCP server writes a po
 | `integration.use` `mcp:<server>` | Yes. A blocked server is not written into a project's `.mcp.json`, an entry with that name added by hand is removed on the next sync, OXESpace does not attach it to a Thread, and a server denied by exact name is excluded from the agent session (`--disallowedTools mcp__<server>` for Claude, `enabled=false` for Codex) even when it was configured directly in the CLI. |
 | `provider.use` | Yes. A Thread whose agent is blocked does not start (the conversation shows why), and a Code pane cannot launch `claude` or `codex` when blocked; a plain shell is never blocked. |
 | `tool.use` | Yes, for tools that ask for approval: the request is declined with the reason, before saved rules and full access are considered. Claude also gets the tools denied by exact name in `--disallowedTools`, so it does not offer them. Codex built-in tools that run without asking are not seen by OXESpace. |
-| `integration.use` for skills, databases and memory | Next step. |
+| `integration.use` `skill:<name>` | Yes, for skills OXESpace hands to the agent: a blocked OXE skill or Codex skill stays in the Thread command list, disabled, with the reason, and is refused when typed; a Code pane does not receive it. A skill the agent loads on its own (Claude's `Skill` tool) is a tool: block it with `tool.use` `Skill`. |
+| `integration.use` `db:<connection>` | Yes. The OxeQuery agent tools refuse a blocked connection (by its name) before any other access rule, and `oxespace_db_connections` lists it as `blocked-by-policy`. People still use the connection in OxeQuery. |
+| `integration.use` `memory` | Yes. Shared memory is off for the project while blocked (no capture, no context, no memory tools), turning it on is refused with the reason, and the stored choice comes back when the rule is lifted. A project's identity is its Git repository, so the project layer read for memory is the main checkout's. |
+
+Settings › Policy shows the files that apply to the current workspace, their rules and any file that was set aside,
+read only.
 
 Servers configured only in a CLI's own user settings under another name cannot be seen by OXESpace; to block those,
 deny them by their exact name, or use the provider's own managed settings.

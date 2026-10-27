@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Mic, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { Button, Dialog, TextField } from '../../ui'
@@ -6,6 +6,7 @@ import { SettingsContent, type SettingsModalProps, type SettingsSection } from '
 import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
 import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
+import { PolicySettings } from './PolicySettings'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -14,7 +15,8 @@ import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
 
-export type SettingsDestination = { scope: 'application'; page: 'general' | SettingsSection } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
+type AppPage = 'general' | 'policy' | SettingsSection
+export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
   { id: 'general', icon: Settings2, label: 'General', hint: 'Navigation and workspace preferences' },
   { id: 'providers', icon: Bot, label: 'Agents', hint: 'Agent CLIs, custom agents and idle conversations' },
@@ -23,6 +25,7 @@ const appPages = [
   { id: 'voice', icon: Mic, label: 'Voice', hint: 'Microphone and local transcription' },
   { id: 'notifications', icon: Bell, label: 'Notifications', hint: 'Alerts and sounds' },
   { id: 'updates', icon: ArrowUpCircle, label: 'Updates', hint: 'Version, downloads and installation' },
+  { id: 'policy', icon: ShieldCheck, label: 'Policy', hint: 'What agents are blocked from using' },
   { id: 'diagnostics', icon: Activity, label: 'Diagnostics', hint: 'Application health and troubleshooting' }
 ] as const
 
@@ -92,14 +95,14 @@ export function SettingsCenter(props: SettingsModalProps & {
         <div className="settings-scope settings-compact-category"><span>Category</span>
           <div className="settings-category-choices" role="group" aria-label="Settings category">
             {filtered.map(page => <button type="button" key={page.id} aria-pressed={destination.page === page.id}
-              onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as 'general' | SettingsSection } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{page.label}</button>)}
+              onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{page.label}</button>)}
             {!filtered.length && <span className="settings-category-empty">No matching settings</span>}
           </div>
         </div>
         <nav aria-label="Settings categories">
           <span className="settings-nav-caption">{destination.scope === 'application' ? 'Application' : 'Workspace'}</span>
           {filtered.map(({ icon: Icon, ...page }) => <button key={page.id} title={page.hint} aria-label={`${page.label} ${page.hint}`} aria-current={destination.page === page.id ? 'page' : undefined}
-            onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as 'general' | SettingsSection } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>
+            onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>
             <Icon size={16} aria-hidden="true" /><span>{page.label}</span>
           </button>)}
           {!filtered.length && <p className="settings-scope">No matching settings.</p>}
@@ -127,7 +130,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             })} />
             : <section className="settings-general"><h2>Workspace closed</h2><p>Select another workspace or return to work.</p></section>
-            : destination.page === 'general' ? <GeneralSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </div>
       </main>
       {pending && <Dialog title="Save your changes?" size="sm" onClose={() => { if (!saving) setPending(null) }}

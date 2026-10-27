@@ -216,6 +216,7 @@ export function registerE2eMockIpcHandlers(): void {
     ]
   }))
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, () => null)
+  ipcMain.handle(IPC_CHANNELS.policy.get, () => ({ sources: [], problems: [], locations: [{ layer: 'user', path: 'policy.json' }] }))
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(IPC_CHANNELS.terminal.onData, { paneId: input.paneId, data: 'PS> ' })

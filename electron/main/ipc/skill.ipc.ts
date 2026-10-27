@@ -1,5 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
+import { dirname } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { integrationBlocked } from '../services/policy'
 import type { SkillService } from '../services/skill.service'
 
 /**
@@ -31,6 +33,10 @@ export function registerSkillIpc(
 
     const skill = service.getSkill(skillName)
     if (!skill) throw new Error(`Skill "${skillName}" not found`)
+    // A workspace skill lives in <project>/.oxe/skills, so that project's policy applies too.
+    const projectRoot = skill.source === 'workspace' ? dirname(dirname(dirname(skill.filePath))) : undefined
+    const blocked = integrationBlocked(`skill:${skill.name}`, `The skill "${skill.name}"`, projectRoot)
+    if (blocked) throw new Error(blocked)
 
     const prompt = renderSkillPrompt(skill.body, typeof argument === 'string' ? argument : '')
     terminalWrite({ paneId, data: prompt + '\r' })

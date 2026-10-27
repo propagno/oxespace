@@ -6,6 +6,8 @@ import { execFileSync } from 'node:child_process'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { MemoryProjectService } from '../../electron/main/services/memory/memory-project.service'
 import { matchingMemoryMarker } from '../../electron/main/services/memory/memory-marker'
+import { setPolicyStore } from '../../electron/main/services/policy'
+import { PolicyStore } from '../../electron/main/services/policy/policy-store'
 
 const directories: string[] = []
 afterEach(async () => { await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true }))) })
@@ -17,6 +19,25 @@ async function fixture() {
 function git(cwd: string, ...args: string[]) { return execFileSync('git', args, { cwd, windowsHide: true, stdio: 'pipe' }) }
 
 describe('shared project mapping', () => {
+  test('organization policy turns shared memory off for a project and refuses to turn it on, keeping the stored choice', async () => {
+    const root = await fixture()
+    const project = join(root, 'repo'), userData = join(root, 'user')
+    await mkdir(project); await mkdir(userData)
+    git(project, 'init')
+    const db = openInMemoryDatabase()
+    try {
+      const service = new MemoryProjectService(db)
+      const context = await service.resolve(project)
+      service.configure(context.projectId, { enabled: true, automaticCapture: true, automaticContext: true })
+      await writeFile(join(userData, 'policy.json'), JSON.stringify({ organization: 'Acme', rules: [{ effect: 'deny', action: 'integration.use', resource: 'memory' }] }))
+      setPolicyStore(new PolicyStore({ userData, managed: join(root, 'managed.json') }))
+      expect(service.settings(context.projectId)).toEqual({ enabled: false, automaticCapture: false, automaticContext: false })
+      expect(() => service.configure(context.projectId, { enabled: true, automaticCapture: false, automaticContext: false })).toThrow('Shared memory is blocked by Acme policy.')
+      setPolicyStore(null)
+      expect(service.settings(context.projectId).enabled).toBe(true)
+    } finally { setPolicyStore(null); db.close() }
+  })
+
   test('worktrees converge on one persistent project; same-name repositories remain isolated', async () => {
     const parent = await fixture()
     const main = join(parent, 'main')

@@ -36,6 +36,7 @@ import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
+import { registerPolicyIpc } from './ipc/policy.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { MemoryService } from './services/memory/memory.service'
@@ -75,11 +76,9 @@ try {
   log.warn('[main] crashReporter init failed:', err instanceof Error ? err.message : err)
 }
 
-// Global safety net: a stray throw or rejected promise in the main process must
-// be logged (electron-log writes to userData/logs/main.log) rather than crash the
-// app or vanish silently. These are last-resort catches — handlers should still
-// deal with their own errors; this just keeps a single bug from taking the app
-// down and gives us a forensic trail.
+// Global safety net: a stray throw or rejected promise in the main process must be logged (electron-log writes
+// to userData/logs/main.log) rather than crash the app or vanish silently. These are last-resort catches —
+// handlers should still deal with their own errors; this keeps a single bug from taking the app down.
 let unexpectedErrorShown = false
 process.on('uncaughtException', (error) => {
   log.error('[main] uncaughtException', error)
@@ -515,9 +514,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerMcpInternalIpc(internalMcp)
   registerDiagnosticsIpc(db, internalMcp)
-  // OXESpace context manifest — prepended to the agent's initial prompt on
-  // pane spawn so the CLI knows the workspace state without calling any MCP
-  // tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
+  registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath)
+  // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
+  // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
   registerOxeContextIpc({
     db,
     workspaceServ: internalMcpWorkspaceServ,

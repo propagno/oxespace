@@ -59,3 +59,10 @@ export function assertProviderAllowed(provider: string, projectRoot?: string | n
   const decision = policy.decide('provider.use', provider, projectRoot)
   if (!decision.allowed) throw new Error(policyBlockedMessage(decision, provider === 'claude' ? 'Claude Code' : provider === 'codex' ? 'Codex' : provider))
 }
+
+/** The message to show when policy blocks an integration (`db:<name>`, `skill:<id>`, `memory`), or nothing. */
+export function integrationBlocked(resource: string, what: string, projectRoot?: string | null, policy: PolicyStore | null = policyStore()): string | undefined {
+  if (!policy) return undefined
+  const decision = policy.decide('integration.use', resource, projectRoot)
+  return decision.allowed ? undefined : policyBlockedMessage(decision, what)
+}

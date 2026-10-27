@@ -384,6 +384,9 @@ export const IPC_CHANNELS = {
   diagnostics: {
     getSnapshot: 'diagnostics:get-snapshot',
     exportReport: 'diagnostics:export-report'
+  },
+  policy: {
+    get: 'policy:get'
   }
 } as const
 
@@ -780,6 +783,7 @@ export interface OxeApi {
   oxeContext: OxeContextApi
   semantic: SemanticApi
   diagnostics: import('./diagnostics').DiagnosticsApi
+  policy: import('../policy').PolicyApi
 }
 
 export interface SemanticStatus {
