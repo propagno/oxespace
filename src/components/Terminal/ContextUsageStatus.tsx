@@ -11,12 +11,12 @@ import { ViewportTooltip } from '../common/ViewportTooltip'
 const REFRESH_INTERVAL_MS = 30_000
 
 /**
- * Live "context window %" indicator for the terminal status bar — the `/context`
- * meter, so the user knows when to `/compact` or `/clear`. Rendered only in panes
+ * Live "context left" indicator for the terminal status bar — the `/context`
+ * meter turned around, so the user knows when to `/compact` or `/clear`. Rendered only in panes
  * whose provider exposes token data (Claude/Codex/Copilot; gated by the caller).
  *
- * The figure is the current session's context fill ÷ the model's window. It polls
- * ~every 5s (+ on focus) to track each agent turn. Passive (not a button); hides
+ * The figure is what remains of the model's window after the current session's fill. It polls
+ * every 30s (+ on focus) to track each agent turn. Passive (not a button); hides
  * when no data is available.
  */
 export function ContextUsageStatus({ provider, rootPath }: { provider: AgentProvider; rootPath: string }): ReactElement | null {
@@ -39,19 +39,20 @@ export function ContextUsageStatus({ provider, rootPath }: { provider: AgentProv
   if (!chip || !chip.available) return null
 
   const pct = chip.usedPct
+  const left = Math.max(0, 100 - pct)
   const tone = pct >= 85 ? 'critical' : pct >= 70 ? 'warning' : 'ok'
   const title =
-    `Contexto: ${pct}% (${fmtTokens(chip.usedTokens)}/${fmtTokens(chip.limitTokens)} tokens)` +
-    `${chip.modelId ? ` · ${chip.modelId}` : ''} · /compact ou /clear quando encher`
+    `Context: ${left}% left (${fmtTokens(chip.usedTokens)} of ${fmtTokens(chip.limitTokens)} tokens used)` +
+    `${chip.modelId ? ` · ${chip.modelId}` : ''} · /compact or /clear when it runs low`
 
   return (
     <ViewportTooltip
       className={`statusbar-chip context-usage-chip tone-${tone}`}
       content={title}
-      ariaLabel={`Context window: ${pct}%`}
+      ariaLabel={`Context window: ${left}% left`}
     >
       <Gauge size={12} aria-hidden="true" />
-      <span className="chip-label">ctx {pct}%</span>
+      <span className="chip-label">{left}% context left</span>
     </ViewportTooltip>
   )
 }
