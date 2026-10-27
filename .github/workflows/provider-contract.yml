@@ -39,8 +39,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Install the provider CLIs
@@ -52,7 +52,7 @@ jobs:
       - name: Probe the Claude control protocol
         continue-on-error: true
         run: node scripts/probe-claude-protocol.cjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: provider-report-${{ matrix.os }}
@@ -68,11 +68,11 @@ jobs:
       contents: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: reports
           pattern: provider-report-*
@@ -83,7 +83,7 @@ jobs:
           PROBE_OS: ubuntu-latest,windows-latest
         run: |
           if node scripts/provider-contract-report.mjs reports compatibility.json issue.md; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: compatibility
           path: compatibility.json
