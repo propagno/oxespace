@@ -199,7 +199,7 @@ function main() {
   if (command === 'audit') {
     const threshold = LEVELS.indexOf(argument ?? 'moderate')
     if (threshold < 0) { console.error(`[audit] unknown level ${argument}`); process.exit(1) }
-    let raw = ''
+    let raw
     try { raw = execFileSync('npm', ['audit', '--json', '--package-lock-only'], { encoding: 'utf8', shell: process.platform === 'win32', maxBuffer: 32 * 1024 * 1024 }) }
     catch (error) { raw = error.stdout?.toString() ?? '' } // npm exits non-zero when it finds something
     const report = JSON.parse(raw || '{}')

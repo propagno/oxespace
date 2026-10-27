@@ -27,7 +27,7 @@ export function parseMcpJson(input: string): ParsedMcpEntry[] {
   try {
     parsed = JSON.parse(trimmed)
   } catch (err) {
-    throw new Error(`Invalid JSON: ${err instanceof Error ? err.message : String(err)}`)
+    throw new Error(`Invalid JSON: ${err instanceof Error ? err.message : String(err)}`, { cause: err })
   }
   if (!isObject(parsed)) {
     throw new Error('Expected a JSON object at the top level.')

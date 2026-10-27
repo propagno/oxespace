@@ -258,7 +258,7 @@ export class RtkService {
   private async downloadRtk(versionTag: string | null): Promise<void> {
     log.info('[RtkService] Downloading RTK binary...', versionTag ?? 'latest')
 
-    let url = ''
+    let url: string
     let isZip = false
 
     if (process.platform === 'win32') {

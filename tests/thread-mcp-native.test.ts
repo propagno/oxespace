@@ -39,7 +39,7 @@ it.skipIf(process.env.OXESPACE_THREAD_SMOKE !== '1')('installed Codex discovers 
     expect(JSON.stringify(status)).not.toContain('oxespace_unknown_unsafe_tool')
     expect(scopes).toContain('thread-native-project')
   } catch (error) {
-    throw new Error(`${error instanceof Error ? error.message : 'Native MCP failed'}; bridge requests=${scopes.length}; missing bridge env=${diagnostics.includes('missing OXESPACE_MCP')}; notices=${notices.join(',')}`)
+    throw new Error(`${error instanceof Error ? error.message : 'Native MCP failed'}; bridge requests=${scopes.length}; missing bridge env=${diagnostics.includes('missing OXESPACE_MCP')}; notices=${notices.join(',')}`, { cause: error })
   } finally {
     peer.close(); await transport.close()
     await new Promise<void>(resolveClose => server.close(() => resolveClose()))

@@ -344,7 +344,7 @@ export class SessionSearchService {
     if (this.running || Date.now() - this.lastCompleteAt < minInterval) return
     this.running = true
     const step = (): void => {
-      let done = true
+      let done: boolean
       try {
         done = this.index.refresh(this.options.sliceMs ?? 250)
       } catch {

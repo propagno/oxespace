@@ -184,6 +184,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Long internal MCP tool results keep their full text under <userData>/tool-output, in files named by the
   // tool, the time and a random id, never by caller arguments; files older than a week are deleted.
   'electron/main/mcp-internal/tool-result-bound.ts',
+  // Reads three policy files at fixed places (the project's .oxespace/policy.json, <userData>/policy.json and the
+  // machine-wide managed file), 256 KiB at most, JSON only; it never writes, and no caller supplies a path.
+  'electron/main/services/policy/policy-store.ts',
   // OXEVoice engine: downloads the Whisper model to <userData>/models and
   // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
   // appropriate here rather than the workspace-scoped FileSystemService.

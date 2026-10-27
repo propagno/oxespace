@@ -1,6 +1,8 @@
 import type { ThreadAuditEntry, ThreadConfiguration, ThreadPermissionRule, ThreadRequest, ThreadRequestPolicy, ThreadRequestResponse } from '../../../../shared/types/thread'
 import { fullAccessPolicy } from './kernel/permission-policy'
 import type { ThreadPermissionStore } from './thread-permissions'
+import { policyBlockedMessage } from '../../../../shared/policy'
+import { policyStore } from '../policy'
 
 type AuditInput = Omit<ThreadAuditEntry, 'id' | 'at' | 'threadId' | 'projectRoot'>
 
@@ -25,6 +27,9 @@ export class ThreadPolicy {
 
   /** The rules' answer to a request, combined with the conversation's access level. */
   evaluate(rootPath: string, request: ThreadRequest, access?: ThreadConfiguration['access']) {
+    // Organization policy first: a tool it blocks is declined, whatever the saved rules or the access level say.
+    const organization = request.toolName ? policyStore()?.decide('tool.use', request.toolName, rootPath) : undefined
+    if (organization && !organization.allowed) return { decision: 'deny' as const, reasons: [policyBlockedMessage(organization, request.toolName!)] }
     let policy: ThreadRequestPolicy | undefined
     try { policy = this.permissions.evaluate(rootPath, request) } catch { policy = undefined }
     return fullAccessPolicy(request, policy, access)

@@ -30,7 +30,7 @@ export function boundToolResult(
   const length = texts.reduce((sum, text) => sum + text.length, 0) + Math.max(0, texts.length - 1)
   if (length <= limit) return result
   const full = texts.join('\n')
-  let saved: string | null = null
+  let saved: string | null
   try { saved = save?.(full) ?? null } catch { saved = null }
   const head = full.slice(0, safeIndex(full, Math.floor(limit * 0.6)))
   const tail = full.slice(safeIndex(full, full.length - Math.floor(limit * 0.4)))

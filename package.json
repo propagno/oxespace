@@ -101,8 +101,8 @@
     "smol-toml": "^1.9.1",
     "sql-formatter": "^15.9.0",
     "tree-sitter-wasms": "^0.1.13",
-    "web-tree-sitter": "0.25.9",
-    "zustand": "^5.0.15"
+    "web-tree-sitter": "0.25.10",
+    "zustand": "^5.0.16"
   },
   "optionalDependencies": {
     "better-sqlite3": "^13.0.3",
@@ -116,7 +116,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
     "@electron/rebuild": "^4.2.1",
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
     "@resvg/resvg-js": "^2.6.2",
     "@testing-library/jest-dom": "^6.6.3",
@@ -135,10 +135,10 @@
     "electron": "44.9.3",
     "electron-builder": "^26.18.0",
     "electron-vite": "^5.0.0",
-    "eslint": "^9.39.5",
+    "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^15.15.0",
-    "gpt-tokenizer": "^3.4.0",
+    "gpt-tokenizer": "^4.1.0",
     "jsdom": "^25.0.1",
     "mongodb": "^7.7.0",
     "pg": "^8.23.1",

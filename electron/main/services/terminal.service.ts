@@ -16,6 +16,7 @@ import { agentFromCommand } from './agent-state/agents'
 import { resumeArgs } from './agent-state/pane-sessions'
 import { PtyModeTracker } from './pty-mode-tracker'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
+import { assertProviderAllowed } from './policy'
 
 const resolvedExecutableCache = new Map<string, string>()
 
@@ -234,6 +235,9 @@ export class TerminalManager {
     }
     const shellArgs = JSON.parse(launch.shell_args_json) as string[]
 
+    // Claude Code and Codex start only where the policy lets them; a plain shell is never blocked.
+    const agentName = (input.launch?.executable ?? input.agentCommand?.trim().split(/\s+/)[0] ?? '').replace(/\\/g, '/').split('/').pop()?.replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase()
+    if (agentName === 'claude' || agentName === 'codex') assertProviderAllowed(agentName, launch.workspace_root_path)
     const agentParts = input.agentCommand ? input.agentCommand.trim().split(/\s+/) : null
     const executable = input.launch ? resolveExecutable(input.launch.executable, this.env, this.platform) : agentParts
       ? resolveExecutable(agentParts[0], this.env, this.platform)
@@ -335,9 +339,9 @@ export class TerminalManager {
       recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
       this.notifyLaunchExit(input.paneId)
       if (input.agentCommand || input.launch) {
-        throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`)
+        throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`, { cause: error })
       }
-      throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`)
+      throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`, { cause: error })
     }
 
     // A pane that is starting fresh must not inherit a dead session's output.

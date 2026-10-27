@@ -597,8 +597,8 @@ export class ThreadOrchestrator {
       await adapter?.dispose().catch(() => {})
       this.history.transitionOperation(id, operation.id, 'failed', failure.message)
       // A folder that no longer exists is not a settings problem; name it.
-      if (error instanceof ThreadFolderMissingError) throw new Error(error.message)
-      throw new Error(failure.code === 'session-busy' ? failure.message : 'Could not run thread agent; check Agent Settings')
+      if (error instanceof ThreadFolderMissingError) throw new Error(error.message, { cause: error })
+      throw new Error(failure.code === 'session-busy' ? failure.message : 'Could not run thread agent; check Agent Settings', { cause: error })
     }
   }
 
