@@ -94,6 +94,8 @@ function threadTarget(thread: Pick<ConversationThread, 'id' | 'workspaceId'>): {
 async function seedPending(read: () => Promise<ThreadPendingRequestSummary[]>, threads: ConversationThread[], stillWaiting: (threadId: string) => boolean): Promise<void> {
   let pending: ThreadPendingRequestSummary[]
   try { pending = await read() } catch { return }
+  // An older main process, or a test double, can answer with something that is not a list.
+  if (!Array.isArray(pending)) return
   const byThread = new Map<string, ThreadPendingRequestSummary[]>()
   for (const request of pending) byThread.set(request.threadId, [...(byThread.get(request.threadId) ?? []), request])
   const titles = new Map(threads.map(thread => [thread.id, thread.title.trim()]))
