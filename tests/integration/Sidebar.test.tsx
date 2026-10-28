@@ -63,6 +63,29 @@ describe('Sidebar', () => {
     activate.mockRestore()
   })
 
+  test('moves through workspaces and terminals with the keyboard from one tab stop', async () => {
+    const activate = vi.spyOn(useWorkspaceStore.getState(), 'setActiveWorkspace').mockResolvedValue(undefined)
+    render(<Sidebar workspaces={[workspace]} activeWorkspaceId={workspace.id} appVersion="test" onNewWorkspace={vi.fn()}
+      onSelectWorkspace={vi.fn()} onCloseWorkspace={vi.fn()} isCollapsed={false} onToggleCollapse={vi.fn()} />)
+    const name = screen.getByRole('button', { name: 'repo' })
+    const rows = screen.getAllByTestId('pane-session-row')
+    await waitFor(() => expect(name.tabIndex).toBe(0))
+    expect(rows.map(row => row.tabIndex)).toEqual([-1, -1])
+    expect(screen.getByTestId('ws-group-settings-btn').tabIndex).toBe(-1)
+    name.focus()
+    fireEvent.keyDown(name, { key: 'ArrowDown' })
+    expect(rows[0]).toHaveFocus()
+    fireEvent.keyDown(rows[0], { key: 'j' })
+    expect(rows[1]).toHaveFocus()
+    fireEvent.keyDown(rows[1], { key: 'Enter' })
+    expect(useUIStore.getState().activePaneId).toBe('pane-2')
+    fireEvent.keyDown(rows[1], { key: 'Home' })
+    expect(name).toHaveFocus()
+    fireEvent.keyDown(name, { key: 'ArrowRight' })
+    expect(screen.getByRole('button', { name: '2 terminals in repo' })).toHaveFocus()
+    activate.mockRestore()
+  })
+
   test('renders workspace metadata and dispatches actions', async () => {
     const user = userEvent.setup()
     const onNewWorkspace = vi.fn()
