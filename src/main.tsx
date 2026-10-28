@@ -9,6 +9,7 @@ import '@fontsource/ibm-plex-mono/400.css'
 import '@fontsource/ibm-plex-mono/500.css'
 import '@fontsource-variable/bricolage-grotesque'
 import { App } from './App'
+import { StartupInteractiveMark } from './lib/startupTiming'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
 import { initI18n } from './i18n'
 // Layer order and the base reset load before every other stylesheet.
@@ -26,6 +27,7 @@ void initI18n().catch(error => console.error('[i18n] could not start the transla
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
       <App />
+      <StartupInteractiveMark />
     </React.StrictMode>
   )
 })
