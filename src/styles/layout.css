@@ -134,7 +134,6 @@
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-weight: 500;
-  outline: none;
   box-sizing: border-box;
   transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
@@ -509,7 +508,6 @@
   font-size: var(--fs-xs);
   font-weight: 700;
   font-family: inherit;
-  outline: none;
 }
 
 .ws-group-rename-input:focus {
@@ -836,7 +834,6 @@
   font-weight: 500;
   padding: 1px 4px;
   width: 100%;
-  outline: none;
   line-height: 1.3;
 }
 

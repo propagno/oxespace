@@ -289,7 +289,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
         {onSendComments && <button type="button" className="is-primary" aria-label="Send comments to agent" title="Send the review comments to the agent" onClick={() => void sendComments()}>Send</button>}
         <button type="button" aria-label="Discard review comments" title="Discard all review comments" onClick={() => clearComments(workspaceId)}><X size={14} /></button>
       </span>}
-      <button type="button" className="changes-icon" aria-label="Refresh changes" title="Refresh" onClick={() => void load()} disabled={loading}>{loading ? <Loader2 size={14} className="changes-spin" /> : <RefreshCw size={14} />}</button>
+      <button type="button" className="changes-icon" aria-label="Refresh changes" title="Refresh" onClick={() => void load()} disabled={loading}>{loading ? <Loader2 size={14} className="changes-spin" aria-hidden="true" /> : <RefreshCw size={14} />}</button>
       {onClose && <button type="button" className="changes-icon" aria-label="Close changes" title="Close" onClick={onClose}><X size={14} /></button>}
     </header>
     {large && <div className="changes-banner" role="note"><Info size={14} aria-hidden="true" /><span>This diff is large; showing one file at a time.</span>

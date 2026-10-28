@@ -141,7 +141,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           <button type="button" className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>Archived</span>{' '}<small>{archived.length}</small></button>
           {(query || showArchived) && archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
             <button type="button" className={cx('thread-navigation-item', styles.item)} disabled={restoringId !== null} title={`${thread.title}\n${thread.provider} · ${thread.rootPath}`} onClick={() => void restoreArchived(thread)}><span>{thread.title}</span>{' '}<small>{relativeTime(thread.updatedAt)}</small></button>
-            <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Restore ${thread.title}`} title="Restore conversation" disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={14} className="thread-spin" /> : <ArchiveRestore size={14} />}</button>
+            <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Restore ${thread.title}`} title="Restore conversation" disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={14} className="thread-spin" aria-hidden="true" /> : <ArchiveRestore size={14} />}</button>
           </div>)}
         </section>}
         {actionError && <p className={cx('thread-catalog-error', styles.error)} role="alert">{actionError}</p>}

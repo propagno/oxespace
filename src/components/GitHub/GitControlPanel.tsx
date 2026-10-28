@@ -78,7 +78,7 @@ export function GitControlPanel({ workspaceId, rootPath, onOpenFile, draft }: Pr
   const conflicts = files.filter(file => file.conflicted)
   return <div className="git-control" aria-busy={refreshing || busy}>
     <header className="git-control-heading"><div><strong><GitBranch size={14} />{status?.branch ?? 'Git control'}</strong><small>{status?.ahead ? `↑ ${status.ahead}` : ''}{status?.behind ? ` ↓ ${status.behind}` : ''}</small></div>
-      <button type="button" aria-label="Refresh Git status" title="Refresh Git status" onClick={() => void refresh()} disabled={refreshing || busy}>{refreshing ? <Loader2 className="git-control-spin" size={15} /> : <RefreshCw size={14} />}</button>
+      <button type="button" aria-label="Refresh Git status" title="Refresh Git status" onClick={() => void refresh()} disabled={refreshing || busy}>{refreshing ? <Loader2 className="git-control-spin" size={15} aria-hidden="true" /> : <RefreshCw size={14} />}</button>
     </header>
     {error && <p role="alert" className="git-control-error">{error}</p>}
     {status?.truncated && <p role="status" className="git-control-note">Showing the first 1,000 changed paths. Git status is larger than this view.</p>}
