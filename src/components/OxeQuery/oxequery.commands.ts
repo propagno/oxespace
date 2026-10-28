@@ -6,7 +6,7 @@ const CATEGORY = 'OxeQuery'
 const command = (id: string, label: string, action: OxeQueryAction, extra: { detail?: string; icon?: typeof Database; keywords?: string[] } = {}) =>
   ({ id: `oxequery.${id}`, label, category: CATEGORY, run: () => requestOxeQueryAction(action), ...extra })
 
-/** The OxeQuery entries of the command palette. Loaded at boot; the view itself stays lazy. */
+/** The OxeQuery entries of the command palette. App.tsx loads this right after the first paint; the view stays lazy. */
 registerCommands('oxequery', [
   command('open', 'Open OxeQuery', 'open', { icon: Database, detail: 'Containers and databases', keywords: ['database', 'sql', 'postgres', 'mongo'] }),
   command('newConnection', 'New database connection', 'newConnection', { icon: Plus, keywords: ['connect', 'postgres', 'mongodb'] }),
