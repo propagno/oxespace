@@ -66,6 +66,15 @@ it('fails closed when storage becomes unavailable instead of breaking execution 
   expect(readFileSync(root, 'utf8')).toBe('not a directory')
 })
 
+it('keeps startup phases with their duration and drops unknown phase names', () => {
+  const recorder = new RuntimeDiagnostics(fixture())
+  recorder.record('startup-phase', { phase: 'interactive', durationMs: 812.7 })
+  recorder.record('startup-phase', { phase: 'C:/Users/person/secret', durationMs: 3 })
+  const rows = recorder.export().trim().split('\n').map(line => JSON.parse(line))
+  expect(rows).toContainEqual(expect.objectContaining({ event: 'startup-phase', phase: 'interactive', durationMs: 812 }))
+  expect(JSON.stringify(rows)).not.toContain('secret')
+})
+
 it('keeps only a bounded duration and the answer kind for the local time to first answer', () => {
   expect(firstAnswerDetail({ durationMs: 93_456.7, kind: 'thread', prompt: 'private prompt', rootPath: '/home/person/repo' })).toEqual({ durationMs: 93_456, kind: 'thread' })
   expect(firstAnswerDetail({ durationMs: 1200, kind: 'code' })).toEqual({ durationMs: 1200, kind: 'code' })

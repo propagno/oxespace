@@ -17,6 +17,7 @@ import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 import { findPaletteCommand, openConnections } from './helpers/panels'
+import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
@@ -32,7 +33,27 @@ const PERF_BUDGETS_MS: Record<string, number> = {
   // 500 ms budget for all other interactions.
   'modal open:  Semantic Activity': 750,
   'modal open:  Usage & Rate Limits': 750,
-  'modal close: Usage & Rate Limits': 750
+  'modal close: Usage & Rate Limits': 750,
+  // Track 7 (V12) targets. Calibrated on Windows from the built app in mock-native mode; the CI gate
+  // compares the warm p95 with the worst sample removed (report()).
+  // Process start to the first painted screen, from the app's own marks: warm 0.97-1.05 s, so 1.5 s
+  // leaves about 45% for slower runners while still catching a second of new startup work.
+  'boot: process→ready-to-show': 1_500,
+  'boot: process→interactive': 1_500,
+  // Already-mounted modes: warm p95 23-27 ms. 100 ms is the threshold of a perceptible delay; a
+  // regression that remounts a mode (hundreds of ms) fails it.
+  'mode switch: Code→Thread': 100,
+  'mode switch: Thread→OxeQuery': 100,
+  'mode switch: OxeQuery→Code': 100,
+  // 5,000-event Thread, 600 px per frame: p95 15 ms, max 15-23 ms. 50 ms is three dropped frames at 60 Hz.
+  'thread 5k: scroll frame': 50,
+  // Composer key to painted frame with 5,000 events above it: mean 12 ms, p95 22 ms. Typing that lags
+  // 50 ms is noticeable, so this is both the target and about 2x headroom.
+  'thread 5k: keystroke→paint': 50,
+  // One streamed event (delta read) to painted: 142-150 ms, of which 100 ms is App.tsx's deliberate
+  // thread:changed coalescing window. 250 ms gives the remaining ~45 ms of read, render and two frames
+  // more than 3x headroom.
+  'thread 5k: streaming append': 250
 }
 const DEFAULT_INTERACTION_BUDGET_MS = 500
 const MAX_WORKING_SET_MB = 750
@@ -579,3 +600,200 @@ for (const { label, testId, closeButtonName } of PANELS) {
     }
   })
 }
+
+/**
+ * Time to interactive as the app measures it: process start to the renderer reporting its first painted
+ * screen (electron/main/startup-timing.ts, `oxe:interactive`). Unlike launch→firstWindow above, it leaves
+ * out Playwright's own launch and attach overhead. The first launch of a job is cold (disk cache, V8 code
+ * cache); report() gates on the warm launches only.
+ */
+test('boot: window interactive', async () => {
+  test.setTimeout(90_000)
+  const interactive: number[] = []
+  const readyToShow: number[] = []
+  for (let i = 0; i < 4; i++) {
+    const { app, page, pid } = await launchApp()
+    try {
+      await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+      const readMeasures = (): Promise<Record<string, number>> => app.evaluate(() => Object.fromEntries(
+        performance.getEntriesByType('measure').filter(entry => entry.name.startsWith('oxe:')).map(entry => [entry.name, entry.duration])
+      ))
+      await expect.poll(readMeasures, { message: 'the renderer reports its first painted screen' }).toHaveProperty('oxe:interactive')
+      const measures = await readMeasures()
+      interactive.push(measures['oxe:interactive'])
+      readyToShow.push(measures['oxe:ready-to-show'])
+    } finally {
+      await killApp(app, pid)
+    }
+  }
+  report('boot: process→ready-to-show', readyToShow)
+  report('boot: process→interactive', interactive)
+})
+
+/** Click→painted inside the renderer: a synchronous click, then two frames so layout and paint are included. */
+async function timeModeSwitch(page: Page, label: 'Code' | 'Thread' | 'OxeQuery'): Promise<number> {
+  return page.evaluate(async (name) => {
+    const button = document.querySelector<HTMLButtonElement>(`nav[aria-label="Application view"] button[aria-label="${name}"]`)!
+    const started = performance.now()
+    button.click()
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    if (button.getAttribute('aria-pressed') !== 'true') throw new Error(`${name} did not become the active view`)
+    return performance.now() - started
+  }, label)
+}
+
+/**
+ * Code, Thread and OxeQuery stay mounted once visited (App.tsx hides the inactive ones), so after the first
+ * visit a switch only restyles the surface and swaps the sidebar. The first visit of each mode loads its
+ * lazy chunks and is setup here, not part of the measurement.
+ */
+test('mode switch: Code ↔ Thread ↔ OxeQuery', async () => {
+  test.setTimeout(90_000)
+  const { app, page, pid } = await launchApp()
+  try {
+    await createWorkspace(page)
+    const nav = page.getByRole('navigation', { name: 'Application view' })
+    await nav.getByRole('button', { name: 'Thread', exact: true }).click()
+    await page.locator('.thread-host').waitFor({ state: 'visible' })
+    await nav.getByRole('button', { name: 'OxeQuery', exact: true }).click()
+    await page.locator('.oq-host').waitFor({ state: 'visible' })
+    await nav.getByRole('button', { name: 'Code', exact: true }).click()
+    await page.waitForTimeout(250)
+    const toThread: number[] = []
+    const toData: number[] = []
+    const toCode: number[] = []
+    for (let i = 0; i < REPEATS; i++) {
+      toThread.push(await timeModeSwitch(page, 'Thread'))
+      toData.push(await timeModeSwitch(page, 'OxeQuery'))
+      toCode.push(await timeModeSwitch(page, 'Code'))
+    }
+    report('mode switch: Code→Thread', toThread)
+    report('mode switch: Thread→OxeQuery', toData)
+    report('mode switch: OxeQuery→Code', toCode)
+  } finally {
+    await killApp(app, pid)
+  }
+})
+
+/** Turns of user message, tool, answer and completion: the event shapes of e2e/thread-view.spec.ts. */
+function longThread(turns: number): unknown[] {
+  return Array.from({ length: turns }, (_, turn) => [
+    { type: 'message', id: `u-${turn}`, role: 'user', text: `Review message ${turn}` },
+    { type: 'tool', id: `t-${turn}`, name: 'commandExecution', state: 'completed', detail: 'npm test', output: 'ok', exitCode: 0 },
+    { type: 'message', id: `a-${turn}`, role: 'assistant', text: 'A detailed response to verify the conversation history. '.repeat(5) },
+    { type: 'completed', status: 'completed' }
+  ]).flat()
+}
+
+test('thread: 5,000 events, scroll and streaming append', async () => {
+  test.setTimeout(150_000)
+  const { app, page, pid } = await launchApp()
+  const repo = join(tmpdir(), `oxe-thread-perf-${Date.now()}`, 'repo')
+  try {
+    mkdirSync(repo, { recursive: true })
+    await installThreadFixtures(app, repo)
+    await createWorkspace(page, repo)
+    await registerThreadProject(app, page, repo)
+    await openThreadWithState(app, page, repo, 'empty')
+    // The production read path (thread-history.ts readWindow/readSince): the renderer holds the events with a
+    // sync cursor and streamed events arrive as deltas, so earlier events keep their identity. `thread:send`
+    // appends one event the way a streaming turn does.
+    await app.evaluate(({ ipcMain, BrowserWindow }, { events, rootPath }) => {
+      const g = globalThis as Record<string, unknown>
+      const list = events as Array<Record<string, unknown>>
+      const revisions = list.map(() => 1)
+      let revision = 1
+      const thread = { id: 'e2e-thread', workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath, provider: 'claude', nativeSessionId: null,
+        title: 'Long history', pinned: false, status: 'idle', createdAt: Date.now(), updatedAt: Date.now() }
+      const changed = (): void => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: 'e2e-thread' }) }
+      for (const channel of ['list', 'read', 'read-since', 'send']) ipcMain.removeHandler(`thread:${channel}`)
+      ipcMain.handle('thread:list', () => [thread])
+      const counts = { reads: 0, deltas: 0 }
+      g.perfReadCounts = counts
+      ipcMain.handle('thread:read', () => {
+        counts.reads++
+        return { thread, events: list, turns: [], pendingRequests: [], sync: { epoch: 'perf', revision }, page: { hasMore: false, total: list.length, live: list.length } }
+      })
+      ipcMain.handle('thread:read-since', (_event, _id, cursor: { revision: number }) => {
+        counts.deltas++
+        return { ok: true, epoch: 'perf', revision, live: list.length, thread, turns: [], deliveries: {}, pendingRequests: [],
+          events: list.flatMap((event, seq) => revisions[seq] > cursor.revision ? [{ seq, event }] : []) }
+      })
+      ipcMain.handle('thread:send', (_event, _id, text: string) => {
+        list.push({ type: 'message', id: `stream-${list.length}`, role: 'assistant', text })
+        revisions.push(++revision)
+        thread.status = 'running'
+        changed()
+      })
+      changed()
+    }, { events: longThread(1_250), rootPath: repo })
+    const space = page.locator('.thread-virtual-space')
+    await expect(space).toHaveAttribute('data-total-rows', /^\d{4,}$/)
+    const totalRows = Number(await space.getAttribute('data-total-rows'))
+    const mountedRows = Number(await space.getAttribute('data-mounted-rows'))
+    console.log(`[RESULT] thread 5k: rows total=${totalRows} mounted=${mountedRows}`)
+    expect(mountedRows, 'the timeline stays virtualized').toBeLessThanOrEqual(80)
+
+    // Typing re-renders the conversation view on every key, so per-render work over the events shows here.
+    const composer = page.locator('textarea[data-thread-composer="true"]')
+    await composer.focus()
+    await composer.evaluate((field) => {
+      const samples: number[] = []
+      ;(window as unknown as { __keySamples: number[] }).__keySamples = samples
+      field.addEventListener('keydown', () => {
+        const started = performance.now()
+        requestAnimationFrame(() => requestAnimationFrame(() => samples.push(performance.now() - started)))
+      })
+    })
+    await page.keyboard.type('Check the latest change for regressions', { delay: 40 })
+    await page.waitForTimeout(100)
+    report('thread 5k: keystroke→paint', await page.evaluate(() => (window as unknown as { __keySamples: number[] }).__keySamples))
+    await composer.fill('')
+
+    // From the end to the start, 600 px per frame, recording every frame interval. Each step mounts
+    // new rows, the virtualizer's worst steady case.
+    const frames = await page.evaluate(async () => {
+      const timeline = document.querySelector<HTMLElement>('.thread-timeline')!
+      timeline.scrollTop = timeline.scrollHeight
+      await new Promise(resolve => setTimeout(resolve, 300))
+      const intervals: number[] = []
+      let last = performance.now()
+      for (let step = 0; step < 150 && timeline.scrollTop > 0; step++) {
+        timeline.scrollTop -= 600
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+        const now = performance.now()
+        intervals.push(now - last)
+        last = now
+      }
+      return intervals
+    })
+    report('thread 5k: scroll frame', frames)
+    const longFrames = frames.filter(frame => frame > PERF_BUDGETS_MS['thread 5k: scroll frame'])
+    console.log(`[RESULT] thread 5k: scroll frames over 50 ms = ${longFrames.length}/${frames.length} max=${Math.max(...frames).toFixed(1)} ms`)
+    // p95 alone would let 7 long frames through; the target is none. One is tolerated as a runner pause.
+    if (ENFORCE_BUDGETS) expect(longFrames.length, 'scroll frames over 50 ms').toBeLessThanOrEqual(1)
+
+    // Streaming: one event arrives; time until the timeline has committed and painted it.
+    await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = el.scrollHeight })
+    const appends: number[] = []
+    for (let i = 0; i < REPEATS; i++) {
+      appends.push(await page.evaluate(async (text) => {
+        // Consecutive answers can share a row, so completion is the text on screen, not the row count.
+        const shown = (): boolean => document.querySelector('.thread-virtual-space')?.textContent?.includes(text.trim()) ?? false
+        const started = performance.now()
+        void window.oxe.thread!.send('e2e-thread', text)
+        await new Promise<void>((resolve) => {
+          const check = (): void => { if (shown()) resolve(); else requestAnimationFrame(check) }
+          check()
+        })
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+        return performance.now() - started
+      }, `Streaming output ${i}. `.repeat(20)))
+    }
+    report('thread 5k: streaming append', appends)
+    const reads = await app.evaluate(() => (globalThis as Record<string, unknown>).perfReadCounts as { reads: number; deltas: number })
+    expect(reads.deltas, 'streamed events arrive as deltas, not full rereads').toBeGreaterThanOrEqual(REPEATS)
+  } finally {
+    await killApp(app, pid)
+  }
+})
