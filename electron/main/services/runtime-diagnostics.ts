@@ -37,7 +37,7 @@ function safeDetail(input: RuntimeDetail): Record<string, string | number> {
   return result
 }
 
-export type RuntimeEvent = 'app-start' | 'app-stop' | 'process-start' | 'process-exit' | 'process-error' | 'process-stop' | 'child-gone' | 'renderer-gone' | 'turn-submit' | 'turn-accepted' | 'completed' | 'continuation-started' | 'connection-closed' | 'tool' | 'subagent' | 'approval' | 'request' | 'request-resolved' | 'approval-resolved' | 'turn-interrupt' | 'thread-suspend' | 'checkpoint-failed'
+export type RuntimeEvent = 'app-start' | 'app-stop' | 'process-start' | 'process-exit' | 'process-error' | 'process-stop' | 'child-gone' | 'renderer-gone' | 'turn-submit' | 'turn-accepted' | 'completed' | 'continuation-started' | 'connection-closed' | 'tool' | 'subagent' | 'approval' | 'request' | 'request-resolved' | 'approval-resolved' | 'turn-interrupt' | 'thread-suspend' | 'checkpoint-failed' | 'first-answer'
 
 /** Small local flight recorder: bounded files, rate, deduplication and memory; no console output. */
 export class RuntimeDiagnostics {
@@ -113,6 +113,21 @@ export function startRuntimeDiagnostics(directory: string, version?: string): vo
   timer = setInterval(() => recorder?.flush(), WINDOW_MS); timer.unref()
 }
 export function recordRuntime(event: RuntimeEvent, detail: RuntimeDetail = {}): void { recorder?.record(event, detail) }
+/**
+ * The renderer's local "time to first answer": only a whole duration (capped at 30 days) and where the answer came
+ * from reach the log. Anything else in the input is ignored. Nothing leaves this computer.
+ */
+export function firstAnswerDetail(input: unknown): RuntimeDetail | null {
+  const value = input && typeof input === 'object' ? input as Record<string, unknown> : {}
+  const durationMs = value.durationMs
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs < 0 || durationMs > 30 * 86400_000) return null
+  if (value.kind !== 'thread' && value.kind !== 'code') return null
+  return { durationMs: Math.trunc(durationMs), kind: value.kind }
+}
+export function recordFirstAnswer(input: unknown): void {
+  const detail = firstAnswerDetail(input)
+  if (detail) recordRuntime('first-answer', detail)
+}
 export function exportRuntimeDiagnostics(): string { return recorder?.export() ?? '(runtime diagnostics unavailable)' }
 export function runtimeDiagnosticsAvailable(): boolean { return recorder?.available ?? false }
 export function stopRuntimeDiagnostics(): void { clearInterval(timer); recorder?.record('app-stop'); recorder?.flush() }
