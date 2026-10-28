@@ -3,12 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle } from '../src/components/Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, THREAD_BAR_PANELS, THREAD_MENU_PANELS, WORKBENCH_PANELS } from '../src/components/Workbench/panelCatalog'
+import { shortcutLabel } from '../src/keyboard/keybindings'
 
 describe('Workbench panels shared by Code and Thread', () => {
   it('names each panel once, so both modes say Changes and Browser', () => {
     for (const id of CODE_BAR_PANELS) expect(THREAD_BAR_PANELS).toContain(id)
     expect(WORKBENCH_PANELS.changes.label).toBe('Changes')
-    expect(WORKBENCH_PANELS.browser.shortcut).toBe('Ctrl+Shift+B')
+    expect(shortcutLabel(WORKBENCH_PANELS.browser.keybinding)).toBe('Ctrl+Shift+B')
     expect(CODE_MENU_PANELS.filter(id => THREAD_MENU_PANELS.includes(id))).toEqual(['git', 'files', 'search', 'scripts'])
   })
 

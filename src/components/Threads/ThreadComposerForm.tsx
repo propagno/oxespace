@@ -10,6 +10,7 @@ import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
 import type { useOxeVoice } from '../../hooks/useOxeVoice'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
+import { withShortcut } from '../../keyboard/keybindings'
 import './ThreadComposerChrome.css'
 
 type Voice = ReturnType<typeof useOxeVoice>
@@ -74,7 +75,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       {snapshot && <div className="thread-composer-group thread-composer-status">
       <ThreadMcpHealth thread={snapshot.thread} />
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
-      <button type="button" className="thread-voice" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><AudioLines size={15} /></button>
+      <button type="button" className="thread-voice" aria-label="Voice input" title={withShortcut('Voice input', 'voice.toggle')} disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><AudioLines size={15} /></button>
       {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
       <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
     {tooLong && <p className="thread-composer-limit" role="alert">This message has {draft.length.toLocaleString('en-US')} characters; the limit is {THREAD_MESSAGE_MAX_CHARS.toLocaleString('en-US')}. Attach long text as a file instead.</p>}

@@ -9,6 +9,7 @@ import { useUIStore } from '../../store/ui.store'
 import { ThreadConversationActions } from './ThreadConversationActions'
 import { THREAD_BAR_PANELS, THREAD_MENU_PANELS, WORKBENCH_PANELS, type WorkbenchPanelId } from '../Workbench/panelCatalog'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
+import { shortcutLabel } from '../../keyboard/keybindings'
 import './ThreadHeaderChrome.css'
 
 /** Thread's own panel ids for the shared panel names. Worktrees is Code only and never listed here. */
@@ -60,7 +61,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
         { type: 'radio', value: activePanel ?? '', onValueChange: (value: string) => onTogglePanel(value as ThreadPanel, true),
           options: THREAD_MENU_PANELS.map(id => ({ value: THREAD_PANEL[id], label: WORKBENCH_PANELS[id].label })) },
         { type: 'separator' },
-        { type: 'label', label: <>Transcript view <kbd>Ctrl+O</kbd></> },
+        { type: 'label', label: <>Transcript view <kbd>{shortcutLabel('thread.viewMode')}</kbd></> },
         { type: 'radio', value: viewMode, onValueChange: (value: string) => useThreadViewModeStore.getState().setMode(value as ThreadViewMode),
           options: THREAD_VIEW_MODES.map(mode => ({ value: mode, label: THREAD_VIEW_MODE_LABEL[mode], hint: THREAD_VIEW_MODE_HINT[mode], ariaLabel: `${THREAD_VIEW_MODE_LABEL[mode]} view` })) }
       ] satisfies MenuEntry[] : [])

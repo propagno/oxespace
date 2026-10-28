@@ -19,6 +19,7 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import './SidebarNavigation.css'
 import { cachedBranchLabel } from '../../hooks/useGitBranch'
+import { shortcutLabel } from '../../keyboard/keybindings'
 
 interface SidebarProps {
   onDelegations?: () => void
@@ -165,7 +166,7 @@ export function Sidebar({
   const railPrimary: RailAction[] = [
     { id: 'new-workspace', label: 'New workspace', icon: Plus, testId: 'btn-new-workspace', onClick: onNewWorkspace },
     ...(onDelegations ? [{ id: 'delegated-work', label: 'Delegated work', icon: Waypoints, onClick: onDelegations }] : []),
-    { id: 'search', label: 'Files & commands (Ctrl+J)', ariaLabel: 'Files & commands', icon: Search, onClick: onOpenSearch }
+    { id: 'search', label: `Files & commands (${shortcutLabel('palette.search')})`, ariaLabel: 'Files & commands', icon: Search, onClick: onOpenSearch }
   ]
   const railContext: RailAction = { id: 'panels', label: 'Panels', ariaLabel: 'Open panels', icon: PanelsTopLeft, testId: 'btn-open-tools', disabled: !panelMenu, menu: panelMenu }
 
