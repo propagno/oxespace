@@ -19,7 +19,7 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
       // The badge sits beside the button, not inside it: its count would otherwise be visible text missing from
       // the button's name (WCAG 2.5.3). It describes the button instead, so focus reads "Thread … 1 needs you".
       return <span key={item.mode} className={styles.item}>
-        <button type="button" className={styles.option} aria-pressed={mode === item.mode} title={item.title} aria-describedby={attentionId}
+        <button type="button" className={styles.option} aria-label={item.label} aria-pressed={mode === item.mode} title={item.title} aria-describedby={attentionId}
           onClick={() => { if (item.mode !== mode) onSelect(item.mode) }}>
           {item.label}
         </button>
