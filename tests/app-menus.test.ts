@@ -1,12 +1,18 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { buildAppMenus, MENU_ACTION_IDS, MENU_ACTION_PREFIXES, type AppMenuNode } from '../src/components/Navigation/appMenus'
 import { TOOL_CATALOG } from '../src/components/Workspace/toolCatalog'
 
-/** The palette actions App.tsx declares: literal ids, one per tool, and the families built from a template. */
+/** The command modules (src/commands/*.commands.ts) the palette and menus run. */
+function commandSources(): string {
+  const dir = join(process.cwd(), 'src/commands')
+  return readdirSync(dir).filter(name => name.endsWith('.commands.ts')).map(name => readFileSync(join(dir, name), 'utf8')).join('\n')
+}
+
+/** The palette actions the command modules declare: literal ids, one per tool, and the families built from a template. */
 function declaredActionIds(): Set<string> {
-  const source = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8')
+  const source = commandSources()
   const literal = [...source.matchAll(/\bid: '([a-z0-9-]+)'/g)].map(match => match[1])
   return new Set([...literal, ...TOOL_CATALOG.map(tool => `tool-${tool.id}`)])
 }
@@ -17,7 +23,7 @@ describe('application menus', () => {
   it('point only to palette actions that exist, so no item disappears silently', () => {
     const ids = declaredActionIds()
     expect(MENU_ACTION_IDS.filter(id => !ids.has(id))).toEqual([])
-    const source = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8')
+    const source = commandSources()
     for (const prefix of MENU_ACTION_PREFIXES) expect(source).toContain(`id: \`${prefix}`)
   })
 

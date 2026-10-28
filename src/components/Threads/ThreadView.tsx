@@ -99,7 +99,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const [finding, setFinding] = useState(false)
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
-  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true) })
+  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
   const appendToConversation = (prompt: string) => {
