@@ -21,8 +21,6 @@
 .is-del { color: var(--intent-danger-fg); }
 .changes-icon { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); cursor: pointer; }
 .changes-icon:hover:not(:disabled) { background: var(--nav-hover); color: var(--tx-primary); }
-.changes-spin { animation: changes-spin 1s linear infinite; }
-@keyframes changes-spin { to { transform: rotate(360deg); } }
 
 .changes-banner { display: flex; align-items: center; gap: 10px; flex: none; margin: 0 10px 8px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--wb-raised); color: var(--tx-primary); }
 .changes-banner > svg { flex: none; color: var(--dot-blue); }
@@ -41,8 +39,8 @@
 .changes-file-path strong { color: var(--tx-primary); font-weight: 600; }
 .changes-file-header small { color: var(--tx-muted); white-space: nowrap; }
 .changes-editor { position: relative; flex: 1; min-height: 0; }
-.changes-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 100%; margin: 0; padding: 24px; color: var(--tx-muted); text-align: center; }
-.changes-empty strong { color: var(--tx-primary); font-weight: 600; }
+/* Centers an EmptyState or LoadingState in the diff area. */
+.changes-state { display: grid; place-items: center; height: 100%; }
 
 .changes-files { display: flex; flex-direction: column; flex: none; width: clamp(200px, 26%, 300px); min-height: 0; border-left: 1px solid var(--wb-border); }
 .changes-filter { display: flex; align-items: center; gap: 8px; flex: none; margin: 8px; padding: 0 10px; height: 30px; border: 1px solid var(--wb-border); border-radius: var(--radius-md); color: var(--tx-muted); }

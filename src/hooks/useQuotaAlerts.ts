@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useActivityStore } from '../store/activity.store'
 import { useSettingsStore } from '../store/settings.store'
 import { nextQuotaState, quotaNotificationText, type QuotaTrack } from '../utils/quotaThresholds'
 
@@ -30,8 +31,10 @@ export function useQuotaAlerts(): void {
           const key = `${provider}:${usage.kind}`
           const decision = nextQuotaState(tracks.get(key), usage.usedPct, usage.resetsAtMs)
           tracks.set(key, decision.track)
-          if (decision.crossed === null || !useSettingsStore.getState().notificationsEnabled) continue
+          if (decision.crossed === null) continue
           const text = quotaNotificationText(provider, usage.kind, decision.crossed, usage.resetsAtMs)
+          useActivityStore.getState().record({ source: 'quota', id: key, kind: 'quota', target: { type: 'quota', provider }, title: text.title, detail: text.body })
+          if (!useSettingsStore.getState().notificationsEnabled) continue
           void window.oxe?.notifications?.notify({ ...text, paneId: `${QUOTA_NOTIFICATION_PANE_PREFIX}${provider}`, workspaceId: '' }).catch(() => undefined)
         }
       }

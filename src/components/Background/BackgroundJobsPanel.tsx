@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from 're
 import type { BackgroundJob, BackgroundJobStatus } from '../../../shared/types/background'
 import type { DelegationTask } from '../../../shared/types/delegation'
 import { selectJobs, selectOutput, useBackgroundStore } from '../../store/background.store'
-import { Button } from '../../ui'
+import { Button, EmptyState, ErrorState, Skeleton } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 interface BackgroundJobsPanelProps {
@@ -131,8 +131,9 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
       </nav> : null}
 
       {source === 'delegated' ? <div className="bg-jobs-dock-list" aria-busy={delegatedLoading}>
-        {delegatedError ? <div role="alert" className="bg-jobs-dock-empty">{delegatedError}</div> : null}
-        {!delegatedLoading && !delegatedError && delegated.length === 0 ? <div className="bg-jobs-dock-empty"><Activity size={24} aria-hidden="true" /><strong>No delegated work</strong><span>Delegated agent tasks for this project appear here. Agent commands remain in their conversation timeline.</span></div> : null}
+        {delegatedError ? <ErrorState compact title="Could not load delegated work." message={delegatedError} /> : null}
+        {delegatedLoading && delegated.length === 0 ? <Skeleton lines={3} label="Loading delegated work" /> : null}
+        {!delegatedLoading && !delegatedError && delegated.length === 0 ? <EmptyState icon={<Activity size={16} />} title="No delegated work">Delegated agent tasks for this project appear here. Agent commands remain in their conversation timeline.</EmptyState> : null}
         {delegated.map(task => <article key={task.id} className="bg-jobs-delegated-card">
           <div><strong>{task.objective}</strong><span data-state={task.state}>{task.state}</span></div>
           <small>{task.nativeSession?.provider ?? task.agentProfileId} · {task.branch} · {new Date(task.updatedAt).toLocaleString()}</small>
@@ -141,14 +142,9 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
         </article>)}
       </div> : <div className="bg-jobs-dock-list">
         {filtered.length === 0 ? (
-          <div className="bg-jobs-dock-empty">
-            <Activity size={24} aria-hidden="true" />
-            <strong>No job{filter !== 'all' ? ` with status "${filter}"` : 's'}</strong>
-            <span>
-              Run a background command via <kbd>Ctrl+/</kbd> → <code>/bg npm run build</code>.
-            </span>
-            <span>Commands run by an agent in Thread appear in that conversation, not as background jobs.</span>
-          </div>
+          <EmptyState icon={<Activity size={16} />} title={`No job${filter !== 'all' ? ` with status "${filter}"` : 's'}`}>
+            Run a background command via <kbd>Ctrl+/</kbd> → <code>/bg npm run build</code>. Commands run by an agent in Thread appear in that conversation, not as background jobs.
+          </EmptyState>
         ) : (
           filtered.map((job) => (
             <JobCard

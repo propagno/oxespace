@@ -1,7 +1,6 @@
 import { Activity, Columns2, FilePlus2, FolderOpen, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Users, Wrench } from 'lucide-react'
 import { Github } from './components/Brand/GithubIcon'
 import { useContributedCommands } from './utils/commandRegistry'
-import './components/OxeQuery/oxequery.commands'
 import { onOxeQueryAction, performOxeQueryAction } from './components/OxeQuery/oxequery-bridge'
 import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
 import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
@@ -68,13 +67,13 @@ import { VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
-import { useAgentNotifications } from './hooks/useAgentNotifications'
+import { useActivitySources } from './hooks/useActivitySources'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
-import { THREAD_NOTIFICATION_PANE_PREFIX, useThreadAttention } from './hooks/useThreadAttention'
+import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { matchesHotkey } from './keyboard/chords'
 import { setKeyboardView, shortcutLabel, useKeybindings, withShortcut } from './keyboard/keybindings'
-import { QUOTA_NOTIFICATION_PANE_PREFIX, useQuotaAlerts } from './hooks/useQuotaAlerts'
+import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { useSettingsStore } from './store/settings.store'
 
@@ -95,8 +94,9 @@ export function App(): ReactElement {
     if (mode === 'data') setHasOpenedData(true)
     setApplicationView(mode)
   }
-  // The palette's OxeQuery entries: open the view first, then let the action find its control.
-  useEffect(() => onOxeQueryAction(action => { selectMode('data'); performOxeQueryAction(action) }), [])
+  // The palette's OxeQuery entries register once their module loads, after the first paint. Choosing one opens
+  // the view first, then lets the action find its control.
+  useEffect(() => { void import('./components/OxeQuery/oxequery.commands'); return onOxeQueryAction(action => { selectMode('data'); performOxeQueryAction(action) }) }, [])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
@@ -466,10 +466,8 @@ export function App(): ReactElement {
     })
   }, [])
 
-  useAgentNotifications()
+  useActivitySources(applicationView)
   useAgentHookStatus()
-  useThreadAttention(applicationView)
-  useQuotaAlerts()
 
   // Clicking a notification focuses the originating pane (window focus + restore
   // is handled in main); here we switch to its workspace and select the pane.
