@@ -1,7 +1,8 @@
-import { KeyRound, Loader2, LogIn, PlugZap, Plus, SlidersHorizontal, Terminal } from 'lucide-react'
+import { KeyRound, LogIn, PlugZap, Plus, SlidersHorizontal, Terminal } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { McpServer } from '../../../shared/types/mcp'
 import { isDarkBrand, MCP_CATALOG, MCP_CATALOG_CATEGORIES, searchCatalog, type McpCatalogEntry } from './connectorCatalog'
+import { Spinner } from '../../ui'
 import './McpCatalog.css'
 
 export function McpBrandTile({ entry, size = 40 }: { entry: McpCatalogEntry; size?: number }): ReactElement {
@@ -35,10 +36,10 @@ function CatalogRow({ entry, server, busy, onAdd, onTest }: { entry: McpCatalogE
     {!server && hint && <span className="mcp-catalog-hint" title={entry.signIn ? 'The agent signs in with your browser on first use' : entry.requiredEnv?.length ? 'Needs an access token' : entry.configure ? 'Needs a value before it can start' : 'Runs with uv (uvx), which must be installed'}>{hint.icon}{hint.text}</span>}
     {server
       ? <button type="button" className="mcp-catalog-add" aria-label={`Test ${entry.name}`} title={`Check that ${entry.name} answers`} disabled={busy || testing} onClick={() => onTest(server)}>
-        {busy || testing ? <Loader2 size={14} className="usage-spin" aria-hidden="true" /> : <PlugZap size={14} aria-hidden="true" />}
+        {busy || testing ? <Spinner size="sm" decorative /> : <PlugZap size={14} aria-hidden="true" />}
       </button>
       : <button type="button" className="mcp-catalog-add" aria-label={`Add ${entry.name}`} title={`Add ${entry.name}`} disabled={busy} onClick={() => onAdd(entry)}>
-        {busy ? <Loader2 size={14} className="usage-spin" aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+        {busy ? <Spinner size="sm" decorative /> : <Plus size={16} aria-hidden="true" />}
       </button>}
   </li>
 }

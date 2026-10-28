@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
-import { CaseSensitive, ChevronDown, ChevronRight, EyeOff, Loader2, Regex, Search as SearchIcon } from 'lucide-react'
+import { CaseSensitive, ChevronDown, ChevronRight, EyeOff, Regex, Search as SearchIcon } from 'lucide-react'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { SearchFileResult, SearchSubmatch } from '../../../shared/types/search'
 import { useSearchStore } from '../../store/search.store'
 import { useEditorStore } from '../../store/editor.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { Spinner } from '../../ui'
 
 interface SearchPanelProps {
   workspace: Workspace
@@ -78,7 +79,7 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
           autoComplete="off"
           spellCheck={false}
         />
-        {loading ? <Loader2 size={14} aria-hidden="true" className="search-panel-spinner" /> : null}
+        {loading ? <Spinner size="sm" label="Searching" /> : null}
       </div>
 
       <div className="search-panel-toggles" role="group" aria-label="Search options">
