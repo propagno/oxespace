@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resizeWindow } from './helpers/launch'
@@ -15,6 +15,11 @@ const launch = (dbPath: string) => electron.launch({
 })
 const close = (app: ElectronApplication) => Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
 const zoomFactor = (app: ElectronApplication) => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomFactor())
+/** The window as drawn. Playwright's page screenshot crops a zoomed page to its CSS size, so it cannot show 90% or 125%. */
+async function capture(app: ElectronApplication, name: string): Promise<void> {
+  const png = await app.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'))
+  writeFileSync(test.info().outputPath(name), Buffer.from(png, 'base64'))
+}
 
 /** How the xterm screen sits in its card: it must not clip, and fit leaves less than a cell or two unused. */
 function terminalFit(page: Page) {
@@ -62,9 +67,7 @@ test('interface scale and density apply app-wide and survive a restart', async (
     // The new workspace follows the app ('default'), so the root takes the comfortable control heights.
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('comfortable')
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--control-md').trim())).toBe('32px')
-    await settings.screenshot({ path: test.info().outputPath('appearance-125.png') })
-    const groups = settings.locator('section[aria-labelledby="appearance-scale-title"]').locator('..')
-    await groups.screenshot({ path: test.info().outputPath('appearance-125-groups.png') })
+    await capture(app, 'appearance-125.png')
 
     // A workspace can keep its own density: it overrides the app until the person sends it back.
     const scope = settings.getByRole('group', { name: 'Settings scope' })
@@ -72,17 +75,20 @@ test('interface scale and density apply app-wide and survive a restart', async (
     const workspaceDensity = settings.getByRole('radiogroup', { name: 'Density' })
     await expect(workspaceDensity.getByRole('radio', { name: 'App default' })).toHaveAttribute('aria-checked', 'true')
     await workspaceDensity.getByRole('radio', { name: 'Compact' }).click()
-    await workspaceDensity.locator('..').screenshot({ path: test.info().outputPath('workspace-density.png') })
+    await workspaceDensity.evaluate(el => el.scrollIntoView({ block: 'center' }))
+    await capture(app, 'workspace-density.png')
     await settings.getByRole('button', { name: 'Save workspace settings' }).click()
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('compact')
     await scope.getByRole('button', { name: 'Application', exact: true }).click()
     await expect(settings.getByTestId('workspace-density-override')).toHaveText(/1 workspace uses its own density\./)
-    await groups.screenshot({ path: test.info().outputPath('appearance-workspace-override.png') })
+    await settings.getByTestId('workspace-density-override').evaluate(el => el.scrollIntoView({ block: 'center' }))
+    await capture(app, 'appearance-workspace-override.png')
     await settings.getByRole('button', { name: 'Use app density in all workspaces' }).click()
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('comfortable')
     await expect(settings.getByTestId('workspace-density-override')).toHaveCount(0)
-    await page.keyboard.press('Escape')
-    await page.screenshot({ path: test.info().outputPath('code-125-comfortable.png') })
+    await settings.getByRole('button', { name: 'Back to work' }).click()
+    await expect(settings).toHaveCount(0)
+    await capture(app, 'code-125-comfortable.png')
 
     // The terminal follows the zoom: same card, bigger cells, refit without clipping.
     await page.waitForTimeout(800)
