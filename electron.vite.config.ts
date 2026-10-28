@@ -218,9 +218,9 @@ export default defineConfig({
       }
     },
     build: {
-      // JS was being minified while the CSS asset shipped with every comment
-      // and indent intact (~299 comments), eating the renderer CSS budget for
-      // nothing. Set explicitly rather than relying on it tracking `minify`.
+      // electron-vite leaves the renderer JS readable unless asked: minify it, so the
+      // budgets measure what ships. CSS is set on its own rather than tracking `minify`.
+      minify: 'esbuild',
       cssMinify: 'esbuild',
       rollupOptions: {
         input: resolve(__dirname, 'index.html'),
@@ -229,6 +229,10 @@ export default defineConfig({
           // parse/execute Monaco, xterm, etc. Combined with the React.lazy panel
           // splits, this shrinks the initial bundle (was a ~9MB monolith).
           manualChunks(id: string) {
+            // Vite's preload helper is shared by every lazy import. Left alone it lands in
+            // the first chunk that uses it (monaco), and the entry then preloads all of
+            // Monaco at boot to reach it.
+            if (id.includes('vite/preload-helper') || id.includes('commonjsHelpers')) return 'vendor'
             if (!id.includes('node_modules')) return undefined
             if (id.includes('monaco-editor')) return 'monaco'
             if (id.includes('@xterm')) return 'xterm'

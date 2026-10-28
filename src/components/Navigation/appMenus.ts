@@ -20,12 +20,20 @@ export interface AppMenuContext {
 
 const sep = (id: string): AppMenuNode => ({ kind: 'separator', id })
 
+/** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
+export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
+  'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane', 'design-system',
+  'find-in-files', 'tool-mcp', 'tool-skills', 'open-usage', 'open-linear'] as const
+/** Families of actions shown as submenus, by id prefix. */
+export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
+type MenuActionId = typeof MENU_ACTION_IDS[number]
+
 /** Native text-editing commands run against whichever field has focus. */
 const edit = (command: 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'selectAll') => (): void => { document.execCommand(command) }
 
 export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
   const byId = new Map(ctx.actions.map(action => [action.id, action]))
-  const fromAction = (id: string, label?: string, shortcut?: string): AppMenuNode | null => {
+  const fromAction = (id: MenuActionId, label?: string, shortcut?: string): AppMenuNode | null => {
     const action = byId.get(id)
     if (!action) return null
     return { kind: 'item', id, label: label ?? action.title, shortcut, disabled: action.disabled, onSelect: action.run }
@@ -34,7 +42,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     .filter(action => action.id.startsWith(prefix))
     .map(action => ({ kind: 'item', id: action.id, label: action.title.replace(strip, ''), disabled: action.disabled, onSelect: action.run }) as AppMenuNode)
   const compact = (nodes: Array<AppMenuNode | null>): AppMenuNode[] => nodes.filter((node): node is AppMenuNode => node !== null)
-  const themes = group('theme-', /^Theme:\s*/)
+  const appearances = group('appearance-', /^Appearance:\s*/)
   const densities = group('density-', /^Density:\s*/)
   const layouts = group('layout-', /^Layout:\s*/)
   const noWorkspace = !byId.get('workspace-settings') || byId.get('workspace-settings')!.disabled === true
@@ -70,13 +78,14 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         { kind: 'radio', id: 'view-data', label: 'OxeQuery', checked: ctx.applicationView === 'data', onSelect: () => ctx.setApplicationView('data') },
         sep('view-1'),
         fromAction('toggle-sidebar', 'Toggle sidebar', 'Ctrl+B'),
-        fromAction('toggle-editor', 'Toggle editor', 'Ctrl+E'),
-        fromAction('github-open-panel', 'Source control'),
-        fromAction('toggle-background-dock', 'Background activity'),
+        fromAction('tool-editor', 'Files', 'Ctrl+E'),
+        fromAction('tool-github', 'Source control'),
+        fromAction('tool-background', 'Background activity'),
         fromAction('toggle-split-layout', 'Split layout', 'F2'),
         fromAction('balance-pane-layout', 'Balance panes'),
         sep('view-2'),
-        themes.length ? { kind: 'submenu', id: 'themes', label: 'Theme', disabled: noWorkspace, children: themes } : null,
+        // Appearance applies to the whole app, so it works without a workspace.
+        appearances.length ? { kind: 'submenu', id: 'appearance', label: 'Appearance', children: appearances } : null,
         densities.length ? { kind: 'submenu', id: 'densities', label: 'Density', disabled: noWorkspace, children: densities } : null,
         layouts.length ? { kind: 'submenu', id: 'layouts', label: 'Layout', disabled: noWorkspace, children: layouts } : null,
         sep('view-3'),
@@ -90,10 +99,9 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     {
       id: 'help', label: 'Help', items: compact([
         fromAction('find-in-files', 'Search files & commands', 'Ctrl+J'),
-        fromAction('open-tools', 'Tools'),
         sep('help-1'),
-        fromAction('open-mcp', 'MCP servers'),
-        fromAction('open-skills', 'Skills'),
+        fromAction('tool-mcp', 'MCP servers'),
+        fromAction('tool-skills', 'Skills'),
         fromAction('open-usage', 'Usage & limits'),
         fromAction('open-linear', 'Linear issues'),
         sep('help-2'),

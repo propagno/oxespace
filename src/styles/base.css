@@ -50,7 +50,8 @@ body {
 .app-shell > :is(.sidebar, .thread-navigation) { grid-column: 1; grid-row: 2; }
 .app-shell > .workspace-surface { grid-column: 2; grid-row: 2; min-height: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--frame-radius); background: var(--surface-base); }
 @media (prefers-reduced-motion: reduce) {
-  body, body *, body *::before, body *::after {
+  /* Busy indicators (any *spin* class) are left out: a frozen spinner reads as a hang. The Spinner primitive slows itself. */
+  body, body *:not([class*="spin"]), body *::before, body *::after {
     scroll-behavior: auto !important;
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
