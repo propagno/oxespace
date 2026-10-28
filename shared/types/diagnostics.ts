@@ -21,4 +21,12 @@ export interface DiagnosticsSnapshot {
 export interface DiagnosticsApi {
   getSnapshot(): Promise<DiagnosticsSnapshot>
   exportReport(): Promise<string | null>
+  /** Writes the local "time to first answer" to the runtime log on this computer. Nothing is sent anywhere. */
+  recordFirstAnswer(input: FirstAnswerInput): Promise<void>
+}
+
+export interface FirstAnswerInput {
+  durationMs: number
+  /** Where the first answer came from. */
+  kind: 'thread' | 'code'
 }

@@ -1105,7 +1105,7 @@ export function App(): ReactElement {
               <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
               <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button>
             </div>
-            <FirstRunChecklist />
+            <FirstRunChecklist onNewWorkspace={openNewWorkspaceFromUI} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} />
           </div>
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}

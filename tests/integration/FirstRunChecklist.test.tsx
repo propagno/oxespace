@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { AgentReadiness } from '../../shared/types/agent'
 import { FirstRunChecklist } from '../../src/components/Onboarding/FirstRunChecklist'
 import { useAgentStore } from '../../src/store/agent.store'
+import { useNavigationPrefs } from '../../src/store/navigation-prefs.store'
 import { useUIStore } from '../../src/store/ui.store'
 
 const entry = (provider: AgentReadiness['provider'], status: AgentReadiness['status'], details?: string): AgentReadiness => ({ provider, command: provider, status, details })
@@ -13,10 +14,12 @@ function setup(options: { known?: AgentReadiness[]; discovered?: AgentReadiness[
   const discover = vi.fn(async () => options.discovered ?? [])
   window.oxe = { ...window.oxe, agent: { getReadiness, discover } } as unknown as typeof window.oxe
   useAgentStore.setState({ readiness: [], isDiscovering: false, lastHealthCheckAt: options.lastHealthCheckAt ?? null })
+  useNavigationPrefs.setState({ firstRun: { done: [], dismissed: false, startedAt: null, firstAnswerMs: null } })
   const openAgentSettings = vi.fn()
   useUIStore.setState({ openAgentSettings })
-  render(<FirstRunChecklist />)
-  return { getReadiness, discover, openAgentSettings }
+  const onNewWorkspace = vi.fn(), onAddProject = vi.fn()
+  const view = render(<FirstRunChecklist onNewWorkspace={onNewWorkspace} onAddProject={onAddProject} />)
+  return { getReadiness, discover, openAgentSettings, onNewWorkspace, onAddProject, view }
 }
 
 describe('FirstRunChecklist', () => {
@@ -84,5 +87,44 @@ describe('FirstRunChecklist', () => {
   test('tells the user the GitHub check waits for a project instead of faking a status', async () => {
     setup({ discovered: [entry('claude', 'ready')] })
     await waitFor(() => expect(screen.getByText(/OXESpace checks it once a project is open/)).toBeInTheDocument())
+  })
+
+  test('walks three steps, marks the CLI step done and starts the local clock', async () => {
+    setup({ discovered: [entry('codex', 'ready')] })
+    const steps = await screen.findAllByRole('listitem')
+    expect(steps.map(step => step.querySelector('h3')?.textContent)).toEqual(['Agent CLIs (done)', 'Sign in', 'First folder and first answer', 'GitHub (optional)'])
+    expect(screen.getByText('1 of 3 done')).toBeInTheDocument()
+    expect(useNavigationPrefs.getState().firstRun.done).toEqual(['agents'])
+    expect(useNavigationPrefs.getState().firstRun.startedAt).toEqual(expect.any(Number))
+  })
+
+  test('opens a Thread project or a Code workspace from the third step', async () => {
+    const user = userEvent.setup()
+    const { onNewWorkspace, onAddProject } = setup({ discovered: [entry('claude', 'ready')] })
+    await user.click(await screen.findByRole('button', { name: 'Add a Thread project' }))
+    await user.click(screen.getByRole('button', { name: 'New Code workspace' }))
+    expect(onAddProject).toHaveBeenCalledTimes(1)
+    expect(onNewWorkspace).toHaveBeenCalledTimes(1)
+  })
+
+  test('lets the account and GitHub steps be skipped, and stays hidden once dismissed', async () => {
+    const user = userEvent.setup()
+    const { view } = setup({ discovered: [entry('claude', 'ready')] })
+    await user.click(await screen.findByRole('button', { name: 'Skip for now' }))
+    await user.click(screen.getByRole('button', { name: 'Mark as done' }))
+    expect(useNavigationPrefs.getState().firstRun.done).toEqual(['agents', 'account', 'github'])
+    expect(screen.getByText('2 of 3 done')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Hide this guide' }))
+    expect(screen.queryByTestId('first-run-checklist')).not.toBeInTheDocument()
+    view.rerender(<FirstRunChecklist />)
+    expect(screen.queryByTestId('first-run-checklist')).not.toBeInTheDocument()
+    expect(useNavigationPrefs.getState().firstRun.dismissed).toBe(true)
+  })
+
+  test('reports the first answer time once it is known', async () => {
+    setup({ discovered: [entry('claude', 'ready')] })
+    useNavigationPrefs.setState(state => ({ firstRun: { ...state.firstRun, done: ['agents', 'folder'], firstAnswerMs: 125_000 } }))
+    expect(await screen.findByText(/First answer 2m 05s after you started/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New Code workspace' })).not.toBeInTheDocument()
   })
 })
