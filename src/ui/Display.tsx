@@ -51,8 +51,41 @@ export function EmptyState({ icon, title, children, actions, compact = false }: 
   </div>
 }
 
-export function Spinner({ label = 'Loading' }: { label?: string }): ReactElement {
-  return <span className={styles.spinner} role="status" aria-label={label} />
+/**
+ * Something failed: what, why in words a person can act on (pass it through humanizeError), and how to try again.
+ * The technical detail stays folded. Compact is a one-line version for lists and small panels.
+ */
+export function ErrorState({ title, message, detail, onRetry, retryLabel = 'Try again', actions, compact = false }: {
+  title: ReactNode; message?: ReactNode; detail?: string; onRetry?: () => void; retryLabel?: string; actions?: ReactNode; compact?: boolean
+}): ReactElement {
+  return <div className={cx(styles.error, compact && styles.errorCompact)} role="alert">
+    <p className={styles.errorTitle}>{title}</p>
+    {message && <p className={styles.errorText}>{message}</p>}
+    {detail && <details className={styles.errorDetail}><summary>Details</summary><code>{detail}</code></details>}
+    {(onRetry || actions) && <div className={styles.errorActions}>
+      {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
+      {actions}
+    </div>}
+  </div>
+}
+
+/** The shape of content on its way: lines of text, or one block. Announced once as loading, never read line by line. */
+export function Skeleton({ lines = 3, variant = 'text', label = 'Loading' }: { lines?: number; variant?: 'text' | 'block'; label?: string }): ReactElement {
+  return <div className={styles.skeleton} role="status" aria-label={label}>
+    {variant === 'block'
+      ? <span className={cx(styles.skeletonBar, styles.skeletonBlock)} aria-hidden="true" />
+      : Array.from({ length: Math.max(1, lines) }, (_, index) => <span key={index} className={styles.skeletonBar} aria-hidden="true" />)}
+  </div>
+}
+
+/**
+ * A turning ring. With a label it is announced as loading; `decorative` hides it from assistive technology when the
+ * text next to it already says what is happening (a "Saving…" button).
+ */
+export function Spinner({ label = 'Loading', size = 'md', decorative = false }: { label?: string; size?: 'sm' | 'md'; decorative?: boolean }): ReactElement {
+  return decorative
+    ? <span className={cx(styles.spinner, size === 'sm' && styles.spinnerSm)} aria-hidden="true" />
+    : <span className={cx(styles.spinner, size === 'sm' && styles.spinnerSm)} role="status" aria-label={label} />
 }
 
 /** A spinner with a short line of text, for a panel or list whose content is on its way. */

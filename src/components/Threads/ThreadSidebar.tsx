@@ -92,7 +92,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title={sideBySideBlocked(thread.id) ? 'Already open' : 'Open side by side'} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, 'Could not open conversation.')))}><Columns2 size={14} /></button><Menu label={`Actions for ${thread.title}`} side="right" items={[
     { label: 'Open to the side', icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, 'Could not open conversation.'))) },
     { label: 'Rename conversation…', icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) } },
-    { label: thread.pinned ? 'Unpin conversation' : 'Pin conversation', icon: <Pin size={14} />, onSelect: () => void (async () => { try { await window.oxe.thread!.pin(thread.id, !thread.pinned); await useThreadStore.getState().refresh(thread.id) } catch (error) { setActionError(humanizeError(error, 'Could not update pin.')) } })() },
+    { label: thread.pinned ? 'Unpin conversation' : 'Pin conversation', icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
     { label: unreadIds.includes(thread.id) ? 'Mark as read' : 'Mark as unread', icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
     { type: 'separator' },
     { label: 'Archive conversation', icon: <Archive size={14} />, onSelect: () => { setActionError(''); setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) } },
@@ -151,7 +151,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           {hiddenProjects.map(id => {
             const project = projects.find(item => item.projectId === id)
             if (!project) return null
-            return <button key={id} type="button" className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id).catch(error => setActionError(humanizeError(error, 'Could not restore project.')))}><ArchiveRestore size={14} aria-hidden="true" /><span>{project.displayName}</span>{' '}<small>Restore</small></button>
+            return <button key={id} type="button" className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id)}><ArchiveRestore size={14} aria-hidden="true" /><span>{project.displayName}</span>{' '}<small>Restore</small></button>
           })}
         </section>}
       </nav>
@@ -165,8 +165,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         <Button variant="primary" type="submit" form="rename-thread-form" disabled={acting || !renameValue.trim() || renameValue.trim() === renameTarget.title}>{acting ? 'Renaming…' : 'Rename conversation'}</Button>
       </>}>
       <form id="rename-thread-form" onSubmit={event => { event.preventDefault(); const title = renameValue.trim(); if (!title || !window.oxe.thread?.command) return
-        setActing(true); setActionError('')
-        void window.oxe.thread.command(renameTarget.id, `/rename ${title}`).then(async () => { await useThreadStore.getState().refresh(renameTarget.id); setRenameTarget(null) }).catch(error => setActionError(humanizeError(error, 'Could not rename conversation.'))).finally(() => setActing(false))
+        // The new name shows at once; a failed save puts the old one back and says so in a toast.
+        setRenameTarget(null); void useThreadStore.getState().renameThread(renameTarget.id, title)
       }}>
         <label>Conversation name<TextField aria-label="Conversation name" autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
         {actionError && <p role="alert">{actionError}</p>}
@@ -180,16 +180,17 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
       error={actionError}
       onCancel={() => setConfirmation(null)}
       onConfirm={() => {
+        // Removing a project and archiving show at once; a failed save undoes them with a toast.
+        if (confirmation.kind === 'project') { setConfirmation(null); void useThreadStore.getState().hideProject(confirmation.id); return }
+        if (confirmation.kind === 'archive' && window.oxe.thread?.command) {
+          setConfirmation(null); void useThreadStore.getState().archiveThread(confirmation.id).then(saved => { if (saved) setShowArchived(true) }); return
+        }
         setActing(true); setActionError('')
         void (async () => {
           try {
-            if (confirmation.kind === 'project') await useThreadStore.getState().hideProject(confirmation.id)
-            else {
-              if (!window.oxe.thread?.command) throw Error('Restart the updated application to delete threads.')
-              await window.oxe.thread.command(confirmation.id, threadConfirmation(confirmation.kind === 'archive' ? 'archive' : 'delete').command)
-              await useThreadStore.getState().load()
-              if (confirmation.kind === 'archive') setShowArchived(true)
-            }
+            if (!window.oxe.thread?.command) throw Error('Restart the updated application to delete threads.')
+            await window.oxe.thread.command(confirmation.id, threadConfirmation('delete').command)
+            await useThreadStore.getState().load()
             setConfirmation(null)
           } catch (error) { setActionError(humanizeError(error, 'Could not complete the action.')) }
           finally { setActing(false) }

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { CreateSkillInput, SkillDefinition } from '../../shared/types/skill'
 import { humanizeError } from '../utils/humanizeError'
+import { optimistic } from './optimistic'
 
 interface SkillStoreState {
   skills: SkillDefinition[]
@@ -34,15 +35,19 @@ export const useSkillStore = create<SkillStoreState>((set, get) => ({
   },
 
   createSkill: async (input) => {
-    const created = await window.oxe.skill.create(input)
-    set((state) => {
-      // Optimistic insert (the onChange subscription will re-sync from disk
-      // moments later, but this keeps the UI responsive). Replace any existing
-      // entry with the same name — workspace skills override user skills.
-      const filtered = state.skills.filter((s) => s.name !== created.name)
-      return { skills: [...filtered, created].sort(sortSkills), error: null }
+    // The skill shows in the list at once, with the file path still empty; the saved definition replaces it. The
+    // onChange subscription re-syncs from disk moments later. A skill with the same name is replaced, as workspace
+    // skills override user skills. On failure the list goes back and the form that asked shows the error.
+    const pending: SkillDefinition = { name: input.name, description: input.description, agents: input.agents, category: input.category, body: input.body ?? '', filePath: '', source: input.scope, mtimeMs: 0 }
+    const insert = (skills: SkillDefinition[], skill: SkillDefinition): SkillDefinition[] => [...skills.filter((s) => s.name !== skill.name), skill].sort(sortSkills)
+    const previous = get().skills.find((s) => s.name === input.name)
+    const created = await optimistic(set, get, (state) => ({ skills: insert(state.skills, pending), error: null }), () => window.oxe.skill.create(input), {
+      rollbackMessage: 'Could not create the skill',
+      rethrow: true,
+      reconcile: (skill, state) => ({ skills: insert(state.skills, skill) }),
+      revert: (state) => ({ skills: previous ? insert(state.skills, previous) : state.skills.filter((s) => s !== pending) })
     })
-    return created
+    return created!
   },
 
   subscribe: () => {
