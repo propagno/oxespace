@@ -205,21 +205,13 @@
 }
 
 /* ErrorBoundary fallback — keeps a single component crash from blanking the app. */
+/* The ErrorState inside draws the message; this only centers it in the space the crashed part had. */
 .error-boundary-fallback {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 16px;
+  display: grid;
+  place-items: center;
   height: 100%;
-  color: var(--tx-secondary);
-  font-size: var(--fs-xs);
-}
-.error-boundary-fallback code {
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  color: var(--intent-danger-fg);
-  word-break: break-word;
+  min-height: 0;
+  padding: 16px;
 }
 
 .terminal-view {

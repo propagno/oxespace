@@ -1048,8 +1048,8 @@ export function App(): ReactElement {
           </div>
         ) : activeWorkspace || applicationView === 'thread' || applicationView === 'data' ? (
           <>
-            {hasOpenedData && <div className="oq-host" style={{ display: applicationView === 'data' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'data'}><Suspense fallback={<EmptyState compact title="Loading OxeQuery…" />}><OxeQueryView active={applicationView === 'data'} /></Suspense></div>}
-            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<EmptyState compact title="Loading threads…" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
+            {hasOpenedData && <div className="oq-host" style={{ display: applicationView === 'data' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'data'}><ErrorBoundary label="OxeQuery"><Suspense fallback={<EmptyState compact title="Loading OxeQuery…" />}><OxeQueryView active={applicationView === 'data'} /></Suspense></ErrorBoundary></div>}
+            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary label="the conversations"><Suspense fallback={<EmptyState compact title="Loading threads…" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra
