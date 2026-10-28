@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ConversationThread } from '../shared/types/thread'
 import { useThreadShortcuts } from '../src/hooks/useThreadShortcuts'
+import { setKeyboardView } from '../src/keyboard/keybindings'
 import { useThreadStore } from '../src/store/thread.store'
 import { adjacentThreadId, navigableThreads } from '../src/utils/threadNavigation'
 
@@ -34,6 +35,7 @@ describe('thread navigation order', () => {
 describe('useThreadShortcuts', () => {
   afterEach(() => {
     useThreadStore.setState({ threads: [], selectedId: null, hiddenProjects: [] })
+    setKeyboardView('code')
   })
 
   const press = (init: KeyboardEventInit): void => {
@@ -44,6 +46,7 @@ describe('useThreadShortcuts', () => {
     const select = vi.fn().mockResolvedValue(undefined)
     useThreadStore.setState({ threads: [thread('a', { updatedAt: 3 }), thread('b', { updatedAt: 2 })], selectedId: 'a', select } as never)
     const onNew = vi.fn()
+    setKeyboardView('thread')
     const { rerender } = renderHook(({ on }) => useThreadShortcuts(on, onNew), { initialProps: { on: false } })
 
     press({ key: 'PageDown', ctrlKey: true, altKey: true })

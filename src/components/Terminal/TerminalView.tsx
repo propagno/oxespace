@@ -15,6 +15,7 @@ import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
+import { isTerminalReservedChord } from '../../keyboard/keybindings'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
@@ -461,6 +462,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
 
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
+
+      // xterm cancels every key it understands, so app shortcuts would reach the
+      // shell. Only the reserved ones (palette, settings, sidebar) leave the
+      // terminal; Ctrl+R, Ctrl+J and the rest still go to the PTY. The Thread
+      // native CLI owns its whole keymap.
+      if (isTerminalReservedChord(event) && !hostRef.current?.closest('.thread-native-cli')) return false
 
       // Ctrl/Cmd+F opens the in-terminal search overlay instead of reaching
       // the PTY. (Shift/Alt variants pass through for TUIs that bind them.)

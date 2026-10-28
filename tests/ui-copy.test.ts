@@ -25,6 +25,7 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
  */
 const MIGRATED = [
   'src/components/Navigation',
+  'src/components/Onboarding/AgentCliOnboarding.tsx',
   'src/components/Settings'
 ]
 /** Text that stays the same in every language: product and tool names. */

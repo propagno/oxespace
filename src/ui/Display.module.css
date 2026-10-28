@@ -55,6 +55,31 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-2); color: var(--text-muted); font-size: var(--text-sm); }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+.spinnerSm { width: 12px; height: 12px; border-width: 1.5px; }
+
+/* Error state */
+.error { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-secondary); }
+.errorCompact { justify-items: start; padding: var(--space-2); text-align: left; }
+.errorTitle { margin: 0; font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--intent-danger-fg); }
+.errorCompact .errorTitle { font-size: var(--text-sm); }
+.errorText { margin: 0; max-width: 56ch; font-size: var(--text-sm); line-height: var(--leading-normal); }
+.errorDetail { max-width: 56ch; font-size: var(--text-xs); color: var(--text-muted); text-align: left; }
+.errorDetail summary { cursor: pointer; }
+.errorDetail code { display: block; margin-top: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); }
+.errorActions { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.errorCompact .errorActions { justify-content: flex-start; }
+.errorRetry { min-height: var(--control-md); padding: 0 var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-primary); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.errorRetry:hover { background: var(--fill-hover); }
+.errorRetry:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* Skeleton */
+.skeleton { display: grid; gap: var(--space-2); padding: var(--space-2) 0; }
+.skeletonBar { display: block; height: var(--text-sm); border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--fill-hover), var(--fill-pressed), var(--fill-hover)); background-size: 200% 100%; animation: shimmer 1.4s var(--ease-standard) infinite; }
+.skeletonBar:nth-child(3n) { width: 62%; }
+.skeletonBar:nth-child(3n + 2) { width: 84%; }
+.skeletonBlock { height: calc(var(--control-lg) * 3); width: 100%; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeletonBar { animation: none; } }
 .separator { flex: none; background: var(--border-subtle); }
 .separator[data-orientation='horizontal'] { height: 1px; width: 100%; }
 .separator[data-orientation='vertical'] { width: 1px; align-self: stretch; }

@@ -8,6 +8,7 @@ import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voi
 import type { SemanticUsage, SemanticVectorStatus } from '../../../shared/types/ipc'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { AgentCliOnboarding, openInstallDocs } from '../Onboarding/AgentCliOnboarding'
 import { AutomationsSettings } from './AutomationsSettings'
 import { AgentActivitySettings } from './AgentActivitySettings'
 import { useAgentStore } from '../../store/agent.store'
@@ -31,16 +32,12 @@ export interface SettingsModalProps {
   onUseProviderInPane?: (profile: AgentProfile) => void | Promise<void>
 }
 
-import { installDocLabel, PROVIDER_INSTALL_DOCS, type ProviderInstallDoc } from './providerInstallDocs'
+import { installDocLabel, PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
 import type { TFunction } from 'i18next'
 import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
 import { compatibilityBadge, type ProviderCompatibility } from '../../../shared/providerCompatibility'
 import { formatNumber } from '../../utils/formatTime'
 export { PROVIDER_INSTALL_DOCS }
-
-function openInstallDocs(url: string): void {
-  window.open(url, '_blank', 'noopener,noreferrer')
-}
 
 function formatCheckedAgo(ts: number | null, t: TFunction<'settings'>): string | null {
   if (ts == null) return null
@@ -469,40 +466,7 @@ function ProvidersSettingsSection({
           </div>
         </div>
 
-        {allMissing ? (
-          <div className="settings-onboarding" data-testid="providers-onboarding" role="status">
-            <Bot size={20} aria-hidden="true" />
-            <div>
-              <p>{t('providers.onboarding.title')}</p>
-              <span><RichText text={t('providers.onboarding.body')} /></span>
-            </div>
-            <div className="settings-onboarding-links">
-              {(Object.entries(PROVIDER_INSTALL_DOCS) as Array<[AgentProvider, ProviderInstallDoc]>).map(
-                ([id, doc]) => (
-                  <Button
-                    key={id}
-                   
-                    variant="ghost"
-                    onClick={() => openInstallDocs(doc.url)}
-                    data-testid={`btn-onboarding-install-${id}`}
-                  >
-                    <ExternalLink size={12} aria-hidden="true" />
-                    {installDocLabel(doc)}
-                  </Button>
-                )
-              )}
-            </div>
-            <Button
-              variant="primary"
-              disabled={isDiscoveringAgents}
-              onClick={onDiscoverAgents}
-              data-testid="btn-onboarding-health-check"
-            >
-              <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
-              {isDiscoveringAgents ? t('providers.checking') : t('providers.onboarding.detect')}
-            </Button>
-          </div>
-        ) : null}
+        {allMissing ? <AgentCliOnboarding checking={isDiscoveringAgents} onCheck={onDiscoverAgents} /> : null}
 
         {agentProfiles.length === 0 ? (
           <div className="settings-empty" role="status">

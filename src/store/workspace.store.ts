@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
 import { humanizeError } from '../utils/humanizeError'
+import { optimistic } from './optimistic'
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -104,14 +105,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   closeWorkspace: async (id) => {
-    await window.oxe.workspace.delete(id)
-    const remaining = get().workspaces.filter((workspace) => workspace.id !== id)
-    const nextActiveId = get().activeWorkspaceId === id ? remaining[0]?.id ?? null : get().activeWorkspaceId
-    set({
-      workspaces: remaining.map((workspace) => ({ ...workspace, isActive: workspace.id === nextActiveId })),
-      activeWorkspaceId: nextActiveId,
-      error: null
-    })
+    // The workspace leaves the sidebar at once; a failed delete puts it back with a toast.
+    await optimistic(set, get, (state) => {
+      const remaining = state.workspaces.filter((workspace) => workspace.id !== id)
+      const nextActiveId = state.activeWorkspaceId === id ? remaining[0]?.id ?? null : state.activeWorkspaceId
+      return {
+        workspaces: remaining.map((workspace) => ({ ...workspace, isActive: workspace.id === nextActiveId })),
+        activeWorkspaceId: nextActiveId,
+        error: null
+      }
+    }, () => window.oxe.workspace.delete(id), { rollbackMessage: 'Could not close the workspace' })
   },
 
   closePane: async (id) => {
@@ -259,11 +262,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   updateSettings: async (input) => {
-    const workspace = await window.oxe.workspace.updateSettings(input)
-    set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-      error: null
-    }))
+    // Name, theme, density and layout change at once; the saved workspace replaces the guess when it comes back.
+    const { workspaceId, applyShellToIdlePanes: _applyToIdlePanes, ...change } = input
+    const previous = get().workspaces.find((item) => item.id === workspaceId)
+    const patch = (state: WorkspaceState, next: Partial<Workspace>): Partial<WorkspaceState> => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspaceId ? { ...item, ...next } : item))
+    })
+    await optimistic(set, get, (state) => ({ ...patch(state, change), error: null }), () => window.oxe.workspace.updateSettings(input), {
+      rollbackMessage: 'Could not save the workspace settings',
+      reconcile: (workspace, state) => ({ workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)) }),
+      // Undo only the fields this change touched, so a concurrent update to the same workspace survives.
+      revert: (state) => previous ? patch(state, Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]]))) : {}
+    })
   },
 
   clearError: () => set({ error: null })

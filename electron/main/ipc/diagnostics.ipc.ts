@@ -5,6 +5,7 @@ import type { AppDatabase } from '../db'
 import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { DiagnosticsService } from '../services/diagnostics.service'
+import { recordFirstAnswer } from '../services/runtime-diagnostics'
 
 export function registerDiagnosticsIpc(
   db: AppDatabase,
@@ -24,6 +25,10 @@ export function registerDiagnosticsIpc(
     if (result.canceled || !result.filePath) return null
     await writeFile(result.filePath, service.buildSanitizedReport(), { encoding: 'utf8', mode: 0o600 })
     return result.filePath
+  })
+  ipcMain.handle(IPC_CHANNELS.diagnostics.recordFirstAnswer, (event, input: unknown) => {
+    requireAppFrame(event, 'Diagnostics')
+    recordFirstAnswer(input)
   })
   return service
 }

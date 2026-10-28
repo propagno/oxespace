@@ -38,6 +38,7 @@
 .check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .check input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .check:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
+.check:hover:not(:has(input:disabled)) input { filter: brightness(0.94); }
 
 .switch {
   position: relative;
@@ -62,7 +63,9 @@
   box-shadow: var(--elevation-1);
   transition: transform var(--duration-fast) var(--ease-standard);
 }
+.switch:hover:not(:disabled) { background: var(--text-muted); }
 .switch[aria-checked='true'] { background: var(--accent); }
+.switch[aria-checked='true']:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--text-primary)); }
 .switch[aria-checked='true']::after { transform: translateX(16px); }
 .switch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .switch:disabled { opacity: 0.5; cursor: not-allowed; }
