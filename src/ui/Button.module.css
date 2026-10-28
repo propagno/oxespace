@@ -50,10 +50,8 @@
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
-  animation: spin 700ms linear infinite;
+  animation: global(oxe-spin) var(--duration-spin) var(--ease-linear) infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
 
 .group { display: inline-flex; }
 .group > .button:not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }

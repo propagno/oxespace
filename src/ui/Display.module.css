@@ -26,7 +26,7 @@
 .dot.success { background: var(--intent-success-solid); }
 .dot.attention { background: var(--intent-warning-solid); }
 .dot.danger { background: var(--intent-danger-solid); }
-@media (prefers-reduced-motion: no-preference) { .dot.running { animation: pulse 1.6s var(--ease-standard) infinite; } }
+:global([data-motion='full']) .dot.running { animation: pulse var(--duration-pulse) var(--ease-standard) infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--intent-info-solid) 6%, transparent); } }
 
 /* Panel */
@@ -51,10 +51,10 @@
 .emptyActions { display: flex; gap: var(--space-2); margin-top: var(--space-2); flex-wrap: wrap; justify-content: center; }
 
 /* Spinner and separator */
-.spinner { flex: none; display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin 800ms linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { flex: none; display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: global(oxe-spin) var(--duration-spin) var(--ease-linear) infinite; }
+/* The app's one spin. Every busy indicator turns with it; reduced motion slows it (--duration-spin) instead of stopping it. */
+@keyframes :global(oxe-spin) { to { transform: rotate(360deg); } }
 .loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-2); color: var(--text-muted); font-size: var(--text-sm); }
-@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
 .spinnerSm { width: 12px; height: 12px; border-width: 1.5px; }
 
 /* Error state */
@@ -74,12 +74,12 @@
 
 /* Skeleton */
 .skeleton { display: grid; gap: var(--space-2); padding: var(--space-2) 0; }
-.skeletonBar { display: block; height: var(--text-sm); border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--fill-hover), var(--fill-pressed), var(--fill-hover)); background-size: 200% 100%; animation: shimmer 1.4s var(--ease-standard) infinite; }
+.skeletonBar { display: block; height: var(--text-sm); border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--fill-hover), var(--fill-pressed), var(--fill-hover)); background-size: 200% 100%; animation: shimmer var(--duration-shimmer) var(--ease-standard) infinite; }
 .skeletonBar:nth-child(3n) { width: 62%; }
 .skeletonBar:nth-child(3n + 2) { width: 84%; }
 .skeletonBlock { height: calc(var(--control-lg) * 3); width: 100%; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
-@media (prefers-reduced-motion: reduce) { .skeletonBar { animation: none; } }
+:global([data-motion='reduce']) .skeletonBar { animation: none; }
 .separator { flex: none; background: var(--border-subtle); }
 .separator[data-orientation='horizontal'] { height: 1px; width: 100%; }
 .separator[data-orientation='vertical'] { width: 1px; align-self: stretch; }
@@ -132,8 +132,9 @@
   box-shadow: var(--elevation-3);
   color: var(--text-primary);
   font-size: var(--text-sm);
-  animation: slide var(--duration-base) var(--ease-standard);
+  transition: opacity var(--duration-base) var(--ease-standard), transform var(--duration-base) var(--ease-standard);
 }
+@starting-style { .toast { opacity: 0; transform: translateY(6px); } }
 .toast strong { display: block; font-weight: var(--weight-semibold); }
 .toast p { margin: 2px 0 0; color: var(--text-secondary); }
 .toastIcon { margin-top: 1px; }
@@ -142,4 +143,3 @@
 .toast.danger .toastIcon { color: var(--intent-danger-fg); }
 .toast.info .toastIcon { color: var(--intent-info-fg); }
 .toastActions { display: flex; gap: var(--space-1); margin-top: var(--space-2); }
-@keyframes slide { from { opacity: 0; transform: translateY(6px); } }

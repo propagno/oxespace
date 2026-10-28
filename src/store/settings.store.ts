@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Appearance } from '../design/mode'
+import { motionPreference, type MotionPreference } from '../design/motion'
 import type { UiDensity } from '../../shared/types/workspace'
 import { clampUiScale, UI_SCALE_DEFAULT } from '../../shared/uiScale'
 
@@ -41,6 +42,9 @@ interface SettingsState {
   /** App-wide density; a workspace or the Thread list may override it. */
   density: UiDensity
   setDensity: (density: UiDensity) => void
+  /** Animation: follow the operating system, keep it to a minimum, or always play it. */
+  motion: MotionPreference
+  setMotion: (motion: MotionPreference) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -55,11 +59,13 @@ export const useSettingsStore = create<SettingsState>()(
       uiScale: UI_SCALE_DEFAULT,
       setUiScale: (scale) => set({ uiScale: clampUiScale(scale) }),
       density: 'compact',
-      setDensity: (density) => set({ density: density === 'comfortable' ? 'comfortable' : 'compact' })
+      setDensity: (density) => set({ density: density === 'comfortable' ? 'comfortable' : 'compact' }),
+      motion: 'system',
+      setMotion: (motion) => set({ motion: motionPreference(motion) })
     }),
     {
       name: 'oxe-settings',
-      version: 4,
+      version: 5,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
@@ -67,7 +73,8 @@ export const useSettingsStore = create<SettingsState>()(
           visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
           appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
           uiScale: clampUiScale(s.uiScale ?? UI_SCALE_DEFAULT),
-          density: s.density === 'comfortable' ? 'comfortable' : 'compact'
+          density: s.density === 'comfortable' ? 'comfortable' : 'compact',
+          motion: motionPreference(s.motion)
         }
       }
     }

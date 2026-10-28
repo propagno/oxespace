@@ -51,6 +51,6 @@
 .badgeFailed { background: var(--intent-danger-solid); }
 
 /* Agents are busy and nothing needs you: a small breathing dot. */
-.working { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; animation: breathe 1800ms var(--ease-standard) infinite; }
+.working { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; animation: breathe var(--duration-pulse) var(--ease-standard) infinite; }
 @keyframes breathe { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); } }
-@media (prefers-reduced-motion: reduce) { .working { animation: none; } }
+:global([data-motion='reduce']) .working { animation: none; }

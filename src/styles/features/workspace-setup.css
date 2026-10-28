@@ -64,7 +64,7 @@
   background: transparent;
   color: var(--tx-secondary);
   cursor: pointer;
-  transition: border-color 120ms, color 120ms;
+  transition: border-color var(--duration-fast), color var(--duration-fast);
 }
 
 .wizard-chip:hover {
@@ -92,7 +92,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   cursor: pointer;
-  transition: opacity 120ms;
+  transition: opacity var(--duration-fast);
 }
 
 .wizard-btn-primary:hover:not(:disabled) {
@@ -243,7 +243,7 @@
 }
 .ws-preview-cursor.cursor-bar { width: 2px; }
 .ws-preview-cursor.cursor-underline { height: 2px; vertical-align: baseline; }
-.ws-preview-cursor.blink { animation: ws-preview-blink 1.1s step-end infinite; }
+.ws-preview-cursor.blink { animation: ws-preview-blink var(--duration-blink) step-end infinite; }
 @keyframes ws-preview-blink { 50% { opacity: 0; } }
 .ws-preview-caption {
   font-size: var(--fs-xs);
@@ -483,7 +483,7 @@
   border-radius: var(--radius-lg);
   border: 1px dashed var(--ov-3);
   background: var(--ov-1);
-  transition: border-color 120ms, background 120ms, box-shadow 120ms;
+  transition: border-color var(--duration-fast), background var(--duration-fast), box-shadow var(--duration-fast);
 }
 .new-workspace-folder-zone.has-path {
   border-style: solid;

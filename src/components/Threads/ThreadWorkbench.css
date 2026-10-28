@@ -148,9 +148,8 @@
 .thread-turn-fold { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0; padding: 4px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
 .thread-turn-fold:hover { background: var(--nav-hover); color: var(--text-primary); }
 .thread-turn-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.thread-turn-fold-chevron { transition: transform 120ms ease; }
+.thread-turn-fold-chevron { transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-turn-fold[aria-expanded='true'] .thread-turn-fold-chevron { transform: rotate(90deg); }
-@media (prefers-reduced-motion: reduce) { .thread-turn-fold-chevron { transition: none; } }
 
 /* The plan's current step, pinned above the composer while the latest turn still has steps to do. */
 .thread-dock-plan { margin: 0 0 6px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--surface-raised); font-size: var(--fs-xs); }
@@ -158,13 +157,12 @@
 .thread-dock-plan > summary::-webkit-details-marker { display: none; }
 .thread-dock-plan > summary strong { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
 .thread-dock-plan-current { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-dock-plan-chevron { margin-left: auto; transition: transform 120ms ease; }
+.thread-dock-plan-chevron { margin-left: auto; transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-dock-plan[open] .thread-dock-plan-chevron { transform: rotate(180deg); }
 .thread-dock-plan ol { display: grid; gap: 4px; max-height: 160px; margin: 0; padding: 4px 12px 10px; overflow: auto; list-style: none; }
 .thread-dock-plan li { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
 .thread-dock-plan li.is-completed { color: var(--text-muted); }
 .thread-dock-plan li.is-inProgress { color: var(--text-primary); }
-@media (prefers-reduced-motion: reduce) { .thread-dock-plan-chevron { transition: none; } }
 
 /* The prompt of the turn being read, kept at the top edge once it has scrolled away. */
 .thread-sticky-prompt-anchor { position: sticky; top: 0; z-index: calc(var(--layer-raised) + 1); height: 0; }
@@ -185,7 +183,7 @@
 .thread-dock-changes button:hover:not(:disabled) { background: var(--nav-hover); color: var(--text-primary); }
 .thread-dock-changes button:disabled { opacity: .5; cursor: default; }
 .thread-dock-changes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.thread-dock-changes-chevron { flex: none; margin-left: auto; transition: transform 120ms ease; }
+.thread-dock-changes-chevron { flex: none; margin-left: auto; transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-dock-changes[data-open='true'] .thread-dock-changes-chevron { transform: rotate(180deg); }
 .thread-dock-changes ul { display: grid; gap: 2px; max-height: 168px; margin: 0; padding: 2px 6px 8px 10px; overflow: auto; list-style: none; }
 .thread-dock-changes li { display: flex; align-items: center; gap: 4px; min-height: 26px; }
@@ -193,7 +191,6 @@
 .thread-dock-changes-path { flex: 1; min-width: 0; overflow: hidden; color: var(--text-primary); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .thread-dock-changes-error { margin: 0 10px 8px; color: var(--intent-danger-fg, var(--dot-red)); }
 @container (max-width: 520px) { .thread-dock-changes-hint { display: none; } }
-@media (prefers-reduced-motion: reduce) { .thread-dock-changes-chevron { transition: none; } }
 
 /* Retrying a failed turn that changed files: undo them first, or keep them. */
 .thread-retry-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
