@@ -9,6 +9,7 @@ import '@fontsource/ibm-plex-mono/400.css'
 import '@fontsource/ibm-plex-mono/500.css'
 import '@fontsource-variable/bricolage-grotesque'
 import { App } from './App'
+import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
 // Layer order and the base reset load before every other stylesheet.
@@ -24,6 +25,7 @@ document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'd
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <App />
+    <ShortcutGuideHost />
     <StartupInteractiveMark />
   </React.StrictMode>
 )
