@@ -21,4 +21,6 @@ export interface DiagnosticsSnapshot {
 export interface DiagnosticsApi {
   getSnapshot(): Promise<DiagnosticsSnapshot>
   exportReport(): Promise<string | null>
+  /** Tells the main process the first screen has painted, closing its startup timeline. */
+  reportInteractive(): Promise<void>
 }

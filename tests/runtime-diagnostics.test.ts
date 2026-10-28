@@ -65,3 +65,12 @@ it('fails closed when storage becomes unavailable instead of breaking execution 
   expect(() => recorder.flush()).not.toThrow()
   expect(readFileSync(root, 'utf8')).toBe('not a directory')
 })
+
+it('keeps startup phases with their duration and drops unknown phase names', () => {
+  const recorder = new RuntimeDiagnostics(fixture())
+  recorder.record('startup-phase', { phase: 'interactive', durationMs: 812.7 })
+  recorder.record('startup-phase', { phase: 'C:/Users/person/secret', durationMs: 3 })
+  const rows = recorder.export().trim().split('\n').map(line => JSON.parse(line))
+  expect(rows).toContainEqual(expect.objectContaining({ event: 'startup-phase', phase: 'interactive', durationMs: 812 }))
+  expect(JSON.stringify(rows)).not.toContain('secret')
+})

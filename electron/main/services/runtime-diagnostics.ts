@@ -9,11 +9,14 @@ const WINDOW_MS = 60_000
 export interface RuntimeDetail {
   pid?: number; parentPid?: number; exitCode?: number; durationMs?: number; generation?: number
   thread?: string; turn?: string; task?: string; pane?: string; executable?: string
-  state?: string; kind?: string
+  state?: string; kind?: string; phase?: string
   version?: string
 }
 const states = new Set(['running', 'started', 'completed', 'failed', 'interrupted', 'closed', 'unknown', 'cancelled', 'pending', 'approval', 'crashed', 'killed', 'oom', 'launch-failed', 'clean-exit', 'abnormal-exit', 'integrity-failure'])
 const kinds = new Set(['code', 'thread', 'agent', 'GPU', 'Utility', 'Renderer', 'Browser'])
+/** Startup phases timed by startup-timing.ts; anything else is dropped rather than written. */
+export const STARTUP_PHASES = ['app-ready', 'ipc-handlers', 'window-create', 'ready-to-show', 'interactive', 'deferred-init'] as const
+const phases = new Set<string>(STARTUP_PHASES)
 export function diagnosticId(value: string): string { return createHash('sha256').update(value).digest('hex').slice(0, 16) }
 function safeDetail(input: RuntimeDetail): Record<string, string | number> {
   const result: Record<string, string | number> = {}
@@ -33,11 +36,12 @@ function safeDetail(input: RuntimeDetail): Record<string, string | number> {
   }
   if (input.state) result.state = states.has(input.state) ? input.state : 'unknown'
   if (input.kind) result.kind = kinds.has(input.kind) ? input.kind : 'agent'
+  if (input.phase && phases.has(input.phase)) result.phase = input.phase
   if (input.version && /^\d[\da-zA-Z.+-]{0,40}$/.test(input.version)) result.version = input.version
   return result
 }
 
-export type RuntimeEvent = 'app-start' | 'app-stop' | 'process-start' | 'process-exit' | 'process-error' | 'process-stop' | 'child-gone' | 'renderer-gone' | 'turn-submit' | 'turn-accepted' | 'completed' | 'continuation-started' | 'connection-closed' | 'tool' | 'subagent' | 'approval' | 'request' | 'request-resolved' | 'approval-resolved' | 'turn-interrupt' | 'thread-suspend' | 'checkpoint-failed'
+export type RuntimeEvent = 'app-start' | 'app-stop' | 'process-start' | 'process-exit' | 'process-error' | 'process-stop' | 'child-gone' | 'renderer-gone' | 'turn-submit' | 'turn-accepted' | 'completed' | 'continuation-started' | 'connection-closed' | 'tool' | 'subagent' | 'approval' | 'request' | 'request-resolved' | 'approval-resolved' | 'turn-interrupt' | 'thread-suspend' | 'checkpoint-failed' | 'startup-phase'
 
 /** Small local flight recorder: bounded files, rate, deduplication and memory; no console output. */
 export class RuntimeDiagnostics {
