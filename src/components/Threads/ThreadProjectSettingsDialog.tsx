@@ -5,6 +5,7 @@ import { useThreadStore } from '../../store/thread.store'
 import { Button, Checkbox, Dialog, TextField } from '../../ui'
 import { errorText, humanizeError } from '../../utils/humanizeError'
 import { ThreadProjectSemantic } from './ThreadProjectSemantic'
+import { formatDate } from '../../utils/formatTime'
 
 export function ThreadProjectSettingsDialog({ project, unavailable, onClose, returnFocusTo }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void; returnFocusTo?: () => HTMLElement | null }) {
   const scope = `thread:${project.projectId}`
@@ -63,7 +64,7 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose, ret
         setPath(''); setConsent(false)
       })}>Authorize destination</Button>
       {(snapshot?.targets ?? []).map(target => <div className="thread-project-destination" key={target.workspaceId}>
-        <strong>{target.name}</strong><small>{target.rootPath} · until {new Date(target.expiresAt).toLocaleDateString()}</small>
+        <strong>{target.name}</strong><small>{target.rootPath} · until {formatDate(target.expiresAt)}</small>
         <Button size="sm" variant="danger" disabled={busy} onClick={() => void apply(() => window.oxe.delegation.configureTarget(scope, target.rootPath, false, false))}>Revoke</Button>
       </div>)}
     </div>

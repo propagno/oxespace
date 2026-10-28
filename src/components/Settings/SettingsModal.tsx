@@ -1,24 +1,5 @@
-import {
-  ArrowUpCircle,
-  Activity,
-  Bell,
-  Bot,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Download,
-  ExternalLink,
-  Mic,
-  Package,
-  Play,
-  Plus,
-  RefreshCw,
-  Settings2,
-  SquareTerminal,
-  Palette,
-  X,
-  Zap
-} from 'lucide-react'
+import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Mic, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X, Zap } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
@@ -52,6 +33,7 @@ export interface SettingsModalProps {
 import { PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
 import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
 import { compatibilityBadge, type ProviderCompatibility } from '../../../shared/providerCompatibility'
+import { formatNumber } from '../../utils/formatTime'
 export { PROVIDER_INSTALL_DOCS }
 
 function openInstallDocs(url: string): void {
@@ -975,9 +957,10 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
 }
 
 function AppearanceSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+  const { t } = useTranslation('settings')
   return (
     <section className="settings-modal-content" aria-labelledby="settings-appearance-title">
-      <SettingsContentHeader kicker="Global appearance" title="Appearance" titleId="settings-appearance-title" description="Choose light or dark mode for the whole app, or follow your operating system." onClose={onClose} />
+      <SettingsContentHeader kicker={t('appearance.kicker')} title={t('appearance.title')} titleId="settings-appearance-title" description={t('appearance.description')} onClose={onClose} />
       <div className="settings-content-body settings-form"><AppearanceSettings /></div>
     </section>
   )
@@ -1099,7 +1082,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
           <label className="settings-field">
             <span className="settings-field-label-row">
               Scrollback
-              <em>{global.scrollback.toLocaleString('en-US')} lines</em>
+              <em>{formatNumber(global.scrollback)} lines</em>
             </span>
             <input
               type="range"

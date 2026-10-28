@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { SemanticStatus } from '../../../shared/types/ipc'
 import { Checkbox } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatNumber } from '../../utils/formatTime'
 
 /**
  * Semantic search for a Thread project: off unless the person turns it on here. With it on, the project's files are
@@ -40,7 +41,7 @@ export function ThreadProjectSemantic({ rootPath, disabled }: { rootPath: string
     <Checkbox className="thread-project-check" checked={state?.on ?? false} disabled={!state || busy || disabled}
       onChange={event => void toggle(event.target.checked)} label="Index this project so agents can search it by meaning" />
     <p>The index stays on this computer. Agents still read the files they need; this only helps them find them.</p>
-    {state?.on && <p role="status">{!state.status.enabled ? 'Starting the index…' : state.status.indexing ? `Indexing… ${files.toLocaleString('en-US')} files so far` : `${files.toLocaleString('en-US')} files indexed`}</p>}
+    {state?.on && <p role="status">{!state.status.enabled ? 'Starting the index…' : state.status.indexing ? `Indexing… ${formatNumber(files)} files so far` : `${formatNumber(files)} files indexed`}</p>}
     {error && <p role="alert">{error}</p>}
   </div>
 }

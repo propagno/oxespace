@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Appearance } from '../design/mode'
+import { isLanguagePreference, type LanguagePreference } from '../../shared/i18n'
 
 /**
  * General app preferences, persisted to localStorage (OXESpace has no global
@@ -33,6 +34,9 @@ interface SettingsState {
   /** Light or dark mode, or follow the operating system. */
   appearance: Appearance
   setAppearance: (appearance: Appearance) => void
+  /** Interface language, or follow the operating system (src/i18n applies it). */
+  language: LanguagePreference
+  setLanguage: (language: LanguagePreference) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -43,17 +47,20 @@ export const useSettingsStore = create<SettingsState>()(
       visitedWorkspacesCap: VISITED_WORKSPACES_CAP_DEFAULT,
       setVisitedWorkspacesCap: (cap) => set({ visitedWorkspacesCap: clampVisitedCap(cap) }),
       appearance: 'system',
-      setAppearance: (appearance) => set({ appearance })
+      setAppearance: (appearance) => set({ appearance }),
+      language: 'system',
+      setLanguage: (language) => set({ language })
     }),
     {
       name: 'oxe-settings',
-      version: 3,
+      version: 4,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
           notificationsEnabled: s.notificationsEnabled ?? true,
           visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
-          appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system'
+          appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
+          language: isLanguagePreference(s.language) ? s.language : 'system'
         }
       }
     }

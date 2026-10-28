@@ -19,6 +19,7 @@ import { VoiceHud } from '../Voice/VoiceHud'
 
 import { Dialog, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDateTime } from '../../utils/formatTime'
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -519,7 +520,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         <div className="terminal-restore-list">
           {restoreBusy && !savedSessions.length && <p>Loading saved sessions…</p>}
           {!restoreBusy && !savedSessions.length && <p>No saved sessions found in this directory.</p>}
-          {savedSessions.filter(session => `${session.firstMessagePreview ?? ''} ${session.modelId ?? ''} ${session.sessionId}`.toLowerCase().includes(restoreQuery.toLowerCase())).map(session => <button type="button" key={session.sessionId} disabled={restoreBusy} onClick={() => void restoreSession(session.sessionId)}><strong>{session.firstMessagePreview || `${agentCreditsProvider} session`}</strong><span>{new Date(session.lastUpdatedMs).toLocaleString()} · {session.modelId || 'Model not recorded'} · {session.requestCount} requests</span><small>{session.sessionId}</small></button>)}
+          {savedSessions.filter(session => `${session.firstMessagePreview ?? ''} ${session.modelId ?? ''} ${session.sessionId}`.toLowerCase().includes(restoreQuery.toLowerCase())).map(session => <button type="button" key={session.sessionId} disabled={restoreBusy} onClick={() => void restoreSession(session.sessionId)}><strong>{session.firstMessagePreview || `${agentCreditsProvider} session`}</strong><span>{formatDateTime(session.lastUpdatedMs)} · {session.modelId || 'Model not recorded'} · {session.requestCount} requests</span><small>{session.sessionId}</small></button>)}
         </div>
       </Dialog>}
     </div>

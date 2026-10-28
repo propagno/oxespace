@@ -9,6 +9,7 @@ import { NewDatabaseDialog, ResourcesPanel } from './ResourcesPanel'
 import { EngineBar } from './EngineBar'
 import { Select } from '../../ui/Field'
 import { LoadingState } from '../../ui'
+import { formatDateTime } from '../../utils/formatTime'
 
 const STATS_MS = 5000
 const COMPOSE_LABEL = 'com.docker.compose.project'
@@ -227,7 +228,7 @@ function Overview({ container, engine }: { container: ContainerSummary; engine?:
     <dt>Command</dt><dd><code>{inspect.command || '—'}</code></dd>
     {inspect.health && <><dt>Health</dt><dd>{inspect.health}</dd></>}
     {inspect.restartPolicy && <><dt>Restart</dt><dd>{inspect.restartPolicy}</dd></>}
-    {inspect.startedAt && <><dt>Started</dt><dd>{new Date(inspect.startedAt).toLocaleString()}</dd></>}
+    {inspect.startedAt && <><dt>Started</dt><dd>{formatDateTime(inspect.startedAt)}</dd></>}
     <dt>Ports</dt><dd>{formatPorts(inspect.ports) || '—'}</dd>
     <dt>Networks</dt><dd>{inspect.networks.join(', ') || '—'}</dd>
     <dt>Environment</dt><dd>{inspect.envNames.length ? inspect.envNames.join(', ') : '—'}<small className="oq-muted"> (names only)</small></dd>

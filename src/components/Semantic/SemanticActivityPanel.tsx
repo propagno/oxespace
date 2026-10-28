@@ -5,6 +5,7 @@ import { ToolPanel } from '../../ui'
 import type { SemanticLogEntry, SemanticLogLevel, SemanticSearchMode, SemanticStatus } from '../../../shared/types/ipc'
 import { useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { summarizeSemanticStatus, vectorStateLabel } from './semanticStatusSummary'
+import { formatClock, formatNumber } from '../../utils/formatTime'
 
 interface SemanticActivityPanelProps {
   workspaceId: string | null
@@ -193,7 +194,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
           {lastQuery ? (
             <>
               <strong>{lastQuery.confidence} confidence · {lastQuery.resolvedMode}{lastQuery.expanded ? ' · auto-expanded' : ''}</strong>
-              <span>{lastQuery.returnedResults} results · ≈{lastQuery.estimatedTokens.toLocaleString()} tokens · ≈{lastQuery.estimatedSavingsPercent}% saved · {lastQuery.durationMs}ms{lastQuery.truncated ? ' · capped' : ''}</span>
+              <span>{lastQuery.returnedResults} results · ≈{formatNumber(lastQuery.estimatedTokens)} tokens · ≈{lastQuery.estimatedSavingsPercent}% saved · {lastQuery.durationMs}ms{lastQuery.truncated ? ' · capped' : ''}</span>
             </>
           ) : (
             <><strong>No query yet</strong><span>Coverage and token budget appear after retrieval.</span></>
@@ -234,7 +235,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
         ) : (
           visible.map((l, i) => (
             <div key={`${l.ts}-${i}`} className={`semantic-activity-line semantic-log--${l.level}`}>
-              <span className="semantic-activity-time">{new Date(l.ts).toLocaleTimeString()}</span>
+              <span className="semantic-activity-time">{formatClock(l.ts)}</span>
               <span className="semantic-activity-level">{l.level}</span>
               <span className="semantic-activity-msg">{l.message}</span>
             </div>

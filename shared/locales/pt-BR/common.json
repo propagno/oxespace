@@ -1,0 +1,73 @@
+{
+  "languageName": {
+    "en": "English",
+    "pt-BR": "Português (Brasil)"
+  },
+  "time": {
+    "justNow": "Agora mesmo",
+    "yesterday": "Ontem"
+  },
+  "nav": {
+    "applicationView": "Visão do aplicativo",
+    "modeTitle": {
+      "code": "Code: terminais e agentes nos seus workspaces",
+      "thread": "Thread: conversas com um agente",
+      "data": "OxeQuery: contêineres e bancos de dados"
+    },
+    "primary": "Navegação principal",
+    "switchToLight": "Mudar para o modo claro",
+    "switchToDark": "Mudar para o modo escuro",
+    "settings": "Configurações",
+    "openSettings": "Abrir configurações",
+    "collapseSidebar": "Recolher barra lateral",
+    "expandSidebar": "Expandir barra lateral",
+    "clearSearch": "Limpar busca",
+    "applicationMenu": "Menu do aplicativo",
+    "menu": "Menu"
+  },
+  "attention": {
+    "needsYou_one": "{{count}} precisa de você",
+    "needsYou_many": "{{count}} precisam de você",
+    "needsYou_other": "{{count}} precisam de você",
+    "failed_one": "{{count}} falhou",
+    "failed_many": "{{count}} falharam",
+    "failed_other": "{{count}} falharam",
+    "working": "{{count}} em andamento"
+  },
+  "menu": {
+    "file": "Arquivo",
+    "newWorkspace": "Novo workspace…",
+    "addProject": "Adicionar projeto…",
+    "settings": "Configurações",
+    "workspaceSettings": "Configurações do workspace",
+    "exit": "Sair",
+    "edit": "Editar",
+    "undo": "Desfazer",
+    "redo": "Refazer",
+    "cut": "Recortar",
+    "copy": "Copiar",
+    "paste": "Colar",
+    "selectAll": "Selecionar tudo",
+    "view": "Exibir",
+    "toggleSidebar": "Mostrar ou ocultar a barra lateral",
+    "files": "Arquivos",
+    "sourceControl": "Controle de versão",
+    "backgroundActivity": "Atividade em segundo plano",
+    "splitLayout": "Layout dividido",
+    "balancePanes": "Equilibrar painéis",
+    "appearance": "Aparência",
+    "density": "Densidade",
+    "layout": "Layout",
+    "splitRight": "Dividir painel à direita",
+    "splitDown": "Dividir painel abaixo",
+    "maximizePane": "Maximizar painel",
+    "designSystem": "Sistema de design",
+    "help": "Ajuda",
+    "searchFiles": "Buscar arquivos e comandos",
+    "mcpServers": "Servidores MCP",
+    "skills": "Skills",
+    "usage": "Uso e limites",
+    "linear": "Issues do Linear",
+    "about": "OXESpace v{{version}}"
+  }
+}

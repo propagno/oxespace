@@ -20,7 +20,7 @@ export type SettingsDestination = { scope: 'application'; page: AppPage } | { sc
 const appPages = [
   { id: 'general', icon: Settings2, label: 'General', hint: 'Navigation and workspace preferences' },
   { id: 'providers', icon: Bot, label: 'Agents', hint: 'Agent CLIs, custom agents and idle conversations' },
-  { id: 'appearance', icon: Palette, label: 'Appearance', hint: 'Light, dark or system mode' },
+  { id: 'appearance', icon: Palette, label: 'Appearance', hint: 'Mode and language' },
   { id: 'terminal', icon: SquareTerminal, label: 'Terminal', hint: 'Font, cursor, scrolling and behavior' },
   { id: 'voice', icon: Mic, label: 'Voice', hint: 'Microphone and local transcription' },
   { id: 'notifications', icon: Bell, label: 'Notifications', hint: 'Alerts and sounds' },

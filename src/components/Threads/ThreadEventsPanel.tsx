@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ThreadDebugPage, ThreadDebugRow } from '../../../shared/types/thread'
 import { TextField } from '../../ui'
+import { formatClock } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import './ThreadEventsPanel.css'
 
@@ -9,7 +10,7 @@ const PAGE = 200
 const clock = (at: number): string => {
   if (!at) return '—'
   const date = new Date(at)
-  return `${date.toLocaleTimeString([], { hour12: false })}.${String(date.getMilliseconds()).padStart(3, '0')}`
+  return `${formatClock(date, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}.${String(date.getMilliseconds()).padStart(3, '0')}`
 }
 const duration = (ms?: number): string => ms === undefined ? '' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`
 

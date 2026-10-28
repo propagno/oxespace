@@ -4,6 +4,7 @@ import type { MongoStats, MongoValidation, OxeQueryConnection } from '../../../s
 import { errorMessage, oq } from './client'
 import { jsonProblem } from './mongo-model'
 import { Select } from '../../ui/Field'
+import { formatNumber } from '../../utils/formatTime'
 
 const bytes = (value: number): string => value < 1024 ? `${value} B` : value < 1024 ** 2 ? `${(value / 1024).toFixed(1)} KB` : value < 1024 ** 3 ? `${(value / 1024 ** 2).toFixed(1)} MB` : `${(value / 1024 ** 3).toFixed(2)} GB`
 
@@ -51,10 +52,10 @@ export function CollectionFacts({ connection, database, collection }: { connecti
 
   return <>
     <section className="oq-columns" aria-label="Collection statistics">
-      {disclosure(statsOpen, () => setStatsOpen(value => !value), `Statistics${stats ? ` · ${stats.documents.toLocaleString()} documents` : ''}`)}
+      {disclosure(statsOpen, () => setStatsOpen(value => !value), `Statistics${stats ? ` · ${formatNumber(stats.documents)} documents` : ''}`)}
       {statsOpen && (stats
         ? <dl className="oq-facts">
-          <div><dt>Documents</dt><dd>{stats.documents.toLocaleString()}</dd></div>
+          <div><dt>Documents</dt><dd>{formatNumber(stats.documents)}</dd></div>
           <div><dt>Data size</dt><dd>{bytes(stats.sizeBytes)}</dd></div>
           <div><dt>Average document</dt><dd>{bytes(stats.avgDocumentBytes)}</dd></div>
           <div><dt>On disk</dt><dd>{bytes(stats.storageBytes)}</dd></div>

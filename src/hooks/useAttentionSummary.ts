@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { i18n } from '../i18n'
 import { useTerminalStore } from '../store/terminal.store'
 import { useThreadStore } from '../store/thread.store'
 import { useWorkspaceStore } from '../store/workspace.store'
@@ -50,8 +51,8 @@ export function useAttentionSummary(): AttentionSummary {
 /** Spoken form for the badge, so the count is not color alone. */
 export function describeAttention(counts: AttentionCounts): string {
   const parts: string[] = []
-  if (counts.needsYou) parts.push(`${counts.needsYou} need${counts.needsYou === 1 ? 's' : ''} you`)
-  if (counts.failed) parts.push(`${counts.failed} failed`)
-  if (!parts.length && counts.working) parts.push(`${counts.working} working`)
+  if (counts.needsYou) parts.push(i18n.t('attention.needsYou', { count: counts.needsYou }))
+  if (counts.failed) parts.push(i18n.t('attention.failed', { count: counts.failed }))
+  if (!parts.length && counts.working) parts.push(i18n.t('attention.working', { count: counts.working }))
   return parts.join(', ')
 }

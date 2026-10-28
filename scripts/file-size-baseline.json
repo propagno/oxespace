@@ -1,11 +1,11 @@
 {
   "e2e/thread-view.spec.ts": 1115,
-  "electron/main/index.ts": 1011,
+  "electron/main/index.ts": 1002,
   "electron/main/services/conversation/thread-orchestrator.ts": 1285,
   "electron/main/services/oxequery/oxequery-core.ts": 1163,
   "electron/main/services/semantic.service.ts": 1065,
   "src/App.tsx": 1304,
   "src/components/GitHub/GitHubPanel.tsx": 1846,
-  "src/components/Settings/SettingsModal.tsx": 1516,
+  "src/components/Settings/SettingsModal.tsx": 1499,
   "src/components/Skills/SkillsBrowser.tsx": 1391
 }

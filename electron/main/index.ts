@@ -4,6 +4,7 @@ import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from '
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { RendererRecoveryPolicy } from './renderer-recovery'
 import { initialWindowColors, registerAppearanceIpc } from './ipc/appearance.ipc'
+import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -88,14 +89,8 @@ process.on('uncaughtException', (error) => {
   unexpectedErrorShown = true
   const window = BrowserWindow.getAllWindows()[0]
   const options: Electron.MessageBoxOptions = {
-    type: 'error',
-    title: 'OXESpace hit an unexpected error',
-    message: 'Something went wrong in the background.',
-    detail: 'Your terminals and agents may still be running, but OXESpace can no longer guarantee them. Restart to continue safely. Diagnostics can be exported from Settings > Diagnostics.',
-    buttons: ['Restart OXESpace', 'Keep working'],
-    defaultId: 0,
-    cancelId: 1,
-    noLink: true
+    type: 'error', title: tMain('crash.unexpected.title'), message: tMain('crash.unexpected.message'), detail: tMain('crash.unexpected.detail'),
+    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true
   }
   void (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)).then(({ response }) => {
     if (response === 0) { app.relaunch(); app.quit() }
@@ -807,7 +802,9 @@ function createMainWindow(): BrowserWindow {
       // Design Mode (#3) needs a <webview> — an iframe cannot be scripted
       // cross-origin, so element picking is impossible there. Every attach is
       // vetted by the will-attach-webview handler below.
-      webviewTag: true
+      webviewTag: true,
+      // A sandboxed preload cannot ask app.getLocale(), so the default interface language travels as an argument.
+      additionalArguments: [`--oxe-locale=${systemLocale()}`]
     }
   })
 
@@ -926,14 +923,8 @@ function createMainWindow(): BrowserWindow {
     if (next === 'reload' && !mainWindow.isDestroyed()) {
       setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.webContents.reload() }, 250)
     } else if (next === 'give-up' && !mainWindow.isDestroyed()) {
-      void dialog.showMessageBox(mainWindow, {
-        type: 'error',
-        title: 'OXESpace stopped responding',
-        message: 'The interface keeps crashing.',
-        detail: 'Your terminals and agents are still running. Restart OXESpace to bring the interface back; diagnostics can be exported from Settings > Diagnostics.',
-        buttons: ['OK'],
-        defaultId: 0
-      })
+      void dialog.showMessageBox(mainWindow, { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
+        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 })
     }
   })
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {

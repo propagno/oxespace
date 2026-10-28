@@ -79,7 +79,8 @@ export const IPC_CHANNELS = {
     downloadUpdate: 'app:download-update',
     setUpdatePreferences: 'app:set-update-preferences',
     onUpdateState: 'app:update-state',
-    setAppearance: 'app:set-appearance'
+    setAppearance: 'app:set-appearance',
+    setLanguage: 'app:set-language'
   },
   rtk: {
     getStatus: 'rtk:get-status',
@@ -736,6 +737,8 @@ export interface AppUpdateApi {
   onUpdateState(listener: (state: import('./updater').AppUpdateState) => void): () => void
   /** Mirrors the person's light/dark choice into the native window; resolves to the mode in effect. */
   setAppearance?(mode: 'system' | 'light' | 'dark'): Promise<'light' | 'dark'>
+  /** Tells the main process which language the interface shows, for native dialogs and notifications. */
+  setLanguage?(language: import('../i18n').Language): Promise<void>
 }
 
 export interface RtkApi {
@@ -754,6 +757,8 @@ export interface OxeApi {
     version: string
     /** Host OS, so renderer code can build platform-correct shell commands. */
     platform: NodeJS.Platform
+    /** The operating system's locale (Electron's app.getLocale()), which picks the default interface language. */
+    locale: string
   } & AppUpdateApi
   rtk: RtkApi
   workspace: WorkspaceApi

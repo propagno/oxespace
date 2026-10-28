@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronsLeft, ChevronsRight, Moon, Settings2, Sun, type LucideIcon } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
 import { useSettingsStore } from '../../store/settings.store'
@@ -33,7 +34,8 @@ function ActionButton({ action, size = 16, returnFocus }: { action: RailAction; 
 
 /** The sidebar's own actions (new workspace, add project, new connection…), at the right of its title. */
 export function SidebarActions({ actions }: { actions: RailAction[] }) {
-  return <nav className={cx('sidebar-actions', styles.actions)} aria-label="Primary navigation">
+  const { t } = useTranslation()
+  return <nav className={cx('sidebar-actions', styles.actions)} aria-label={t('nav.primary')}>
     {actions.map((action, index) => <ActionButton key={action.id} action={action} size={15} returnFocus={index === 0} />)}
   </nav>
 }
@@ -41,8 +43,10 @@ export function SidebarActions({ actions }: { actions: RailAction[] }) {
 function ThemeButton() {
   const mode = useColorMode()
   const setAppearance = useSettingsStore(state => state.setAppearance)
+  const { t } = useTranslation()
   const next = mode === 'dark' ? 'light' : 'dark'
-  return <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`} onClick={() => setAppearance(next)}>
+  const label = next === 'light' ? t('nav.switchToLight') : t('nav.switchToDark')
+  return <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={label} title={label} onClick={() => setAppearance(next)}>
     {mode === 'dark' ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}</button>
 }
 
@@ -51,14 +55,15 @@ function ThemeButton() {
  * settings, and collapse.
  */
 export function SidebarFooter({ context, onToggle, children }: { context: RailAction; onToggle: () => void; children?: ReactNode }) {
+  const { t } = useTranslation()
   const openSettings = useUIStore(state => state.toggleSettings)
   return <footer className={cx('nav-rail-footer', styles.footer)}>
     <ActionButton action={context} size={15} />
     {children}
     <span className={styles.spacer} />
     <ThemeButton />
-    <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={15} aria-hidden="true" /></button>
-    <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Collapse sidebar" title="Collapse sidebar" onClick={onToggle}><ChevronsLeft size={15} aria-hidden="true" /></button>
+    <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={t('nav.openSettings')} title={t('nav.settings')} onClick={openSettings}><Settings2 size={15} aria-hidden="true" /></button>
+    <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={t('nav.collapseSidebar')} title={t('nav.collapseSidebar')} onClick={onToggle}><ChevronsLeft size={15} aria-hidden="true" /></button>
   </footer>
 }
 
@@ -69,17 +74,18 @@ export function SidebarFooter({ context, onToggle, children }: { context: RailAc
 export function NavigationRail({ mode, primary, context, onToggle, children }: {
   mode: NavigationMode; primary: RailAction[]; context: RailAction; onToggle: () => void; children?: ReactNode
 }) {
+  const { t } = useTranslation()
   const openSettings = useUIStore(state => state.toggleSettings)
   return <div className={cx('nav-rail', styles.rail)} data-collapsed data-mode={mode}>
-    <nav className={styles.group} aria-label="Primary navigation">
+    <nav className={styles.group} aria-label={t('nav.primary')}>
       {primary.map((action, index) => <ActionButton key={action.id} action={action} returnFocus={index === 0} />)}
     </nav>
     {children}
     <span className={styles.spacer} />
     <footer className={cx('nav-rail-footer', styles.group)}>
       <ActionButton action={context} />
-      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={16} aria-hidden="true" /></button>
-      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Expand sidebar" title="Expand sidebar" onClick={onToggle}><ChevronsRight size={16} aria-hidden="true" /></button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={t('nav.openSettings')} title={t('nav.settings')} onClick={openSettings}><Settings2 size={16} aria-hidden="true" /></button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={t('nav.expandSidebar')} title={t('nav.expandSidebar')} onClick={onToggle}><ChevronsRight size={16} aria-hidden="true" /></button>
     </footer>
   </div>
 }

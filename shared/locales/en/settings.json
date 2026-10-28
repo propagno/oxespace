@@ -1,0 +1,18 @@
+{
+  "appearance": {
+    "kicker": "Global appearance",
+    "title": "Appearance",
+    "description": "Choose the mode and the language for the whole app, or follow your operating system.",
+    "mode": {
+      "title": "Mode",
+      "system": { "label": "System", "hint": "Follows your operating system" },
+      "light": { "label": "Light", "hint": "Light surfaces with green accents" },
+      "dark": { "label": "Dark", "hint": "Dark surfaces with warm yellow accents" }
+    },
+    "language": {
+      "title": "Language",
+      "system": "System ({{language}})",
+      "hint": "Applies to the whole interface. Agents answer in the language you write in."
+    }
+  }
+}

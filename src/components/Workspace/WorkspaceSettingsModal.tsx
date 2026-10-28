@@ -2,7 +2,7 @@ import { Brain, Check, GitBranch, Maximize2, Minimize2, Palette, SquareTerminal,
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS } from './workspaceOptions'
-import { AppearanceSettings } from '../Settings/AppearanceSettings'
+import { AppearanceModes } from '../Settings/AppearanceSettings'
 import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
 import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
@@ -149,7 +149,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
                 </header>
 
                 <div className="ws-settings-field-label">Mode</div>
-                <AppearanceSettings />
+                <AppearanceModes />
                 <p className="ws-settings-hint">Light and dark mode apply to the whole app. Density is saved for this workspace.</p>
 
                 <div className="ws-settings-field-label">Density</div>

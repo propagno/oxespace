@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { setMainLanguage } from '../i18n'
 
 export type AppearanceMode = 'system' | 'light' | 'dark'
 
@@ -24,9 +25,9 @@ function apply(window: BrowserWindow): void {
 }
 
 /**
- * The renderer owns the person's choice (system, light or dark). The main
- * process mirrors it into Electron's native theme, so native menus, dialogs
- * and the caption buttons match the interface.
+ * The renderer owns the person's choices (system, light or dark; the interface
+ * language). The main process mirrors them into Electron's native theme and its
+ * own translator, so native menus, dialogs and the caption buttons match.
  */
 export function registerAppearanceIpc(): void {
   ipcMain.handle(IPC_CHANNELS.app.setAppearance, (_event, mode: unknown) => {
@@ -35,5 +36,6 @@ export function registerAppearanceIpc(): void {
     for (const window of BrowserWindow.getAllWindows()) apply(window)
     return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
   })
+  ipcMain.handle(IPC_CHANNELS.app.setLanguage, (_event, language: unknown) => { setMainLanguage(language) })
   nativeTheme.on('updated', () => { for (const window of BrowserWindow.getAllWindows()) apply(window) })
 }

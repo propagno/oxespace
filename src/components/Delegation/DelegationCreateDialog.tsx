@@ -6,6 +6,7 @@ import type { ConversationThread } from '../../../shared/types/thread'
 import './DelegationCreateDialog.css'
 import { Button, Checkbox, Dialog, Select, TextArea, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDate } from '../../utils/formatTime'
 
 export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceId, origin: suppliedOrigin, onClose, onCreated }: {
   thread?: ConversationThread
@@ -122,7 +123,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
               {sessionsLoading ? <p>Loading conversations…</p> : sessions.length ? sessions.map(session => <label key={session.id}>
                 <input type="checkbox" checked={sourceThreadIds.includes(session.id)} disabled={!sourceThreadIds.includes(session.id) && sourceThreadIds.length >= 5}
                   onChange={event => setSourceThreadIds(current => event.target.checked ? [...current, session.id] : current.filter(id => id !== session.id))} />
-                <span><strong>{session.title}</strong><small>{session.provider} · {new Date(session.updatedAt).toLocaleDateString()} · {session.rootPath}</small></span>
+                <span><strong>{session.title}</strong><small>{session.provider} · {formatDate(session.updatedAt)} · {session.rootPath}</small></span>
               </label>) : <p>No saved conversations in this project yet.</p>}
             </div>
             <label className="delegation-memory-option"><input type="checkbox" checked={includeMemory} onChange={event => setIncludeMemory(event.target.checked)} /><span>Include relevant AI Memory <small>Requires AI Memory enabled for this project. Code context is included separately when available.</small></span></label>

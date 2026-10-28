@@ -1,4 +1,5 @@
 import type { GitDiffSummaryFile } from '../../../shared/types/git'
+import { formatNumber } from '../../utils/formatTime'
 
 export interface ChangeTreeNode {
   kind: 'dir' | 'file'
@@ -136,5 +137,5 @@ export function languageFor(path: string): string {
 }
 
 export function formatCount(value: number): string {
-  return value.toLocaleString('en-US')
+  return formatNumber(value)
 }

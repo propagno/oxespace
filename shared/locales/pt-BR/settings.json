@@ -1,0 +1,18 @@
+{
+  "appearance": {
+    "kicker": "Aparência global",
+    "title": "Aparência",
+    "description": "Escolha o modo e o idioma do app inteiro, ou siga o sistema operacional.",
+    "mode": {
+      "title": "Modo",
+      "system": { "label": "Sistema", "hint": "Segue o sistema operacional" },
+      "light": { "label": "Claro", "hint": "Superfícies claras com detalhes em verde" },
+      "dark": { "label": "Escuro", "hint": "Superfícies escuras com detalhes em amarelo quente" }
+    },
+    "language": {
+      "title": "Idioma",
+      "system": "Sistema ({{language}})",
+      "hint": "Vale para toda a interface. Os agentes respondem no idioma em que você escreve."
+    }
+  }
+}

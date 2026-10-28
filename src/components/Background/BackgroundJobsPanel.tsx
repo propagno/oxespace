@@ -5,6 +5,7 @@ import type { DelegationTask } from '../../../shared/types/delegation'
 import { selectJobs, selectOutput, useBackgroundStore } from '../../store/background.store'
 import { Button } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDateTime } from '../../utils/formatTime'
 
 interface BackgroundJobsPanelProps {
   workspaceId: string
@@ -135,7 +136,7 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
         {!delegatedLoading && !delegatedError && delegated.length === 0 ? <div className="bg-jobs-dock-empty"><Activity size={24} aria-hidden="true" /><strong>No delegated work</strong><span>Delegated agent tasks for this project appear here. Agent commands remain in their conversation timeline.</span></div> : null}
         {delegated.map(task => <article key={task.id} className="bg-jobs-delegated-card">
           <div><strong>{task.objective}</strong><span data-state={task.state}>{task.state}</span></div>
-          <small>{task.nativeSession?.provider ?? task.agentProfileId} · {task.branch} · {new Date(task.updatedAt).toLocaleString()}</small>
+          <small>{task.nativeSession?.provider ?? task.agentProfileId} · {task.branch} · {formatDateTime(task.updatedAt)}</small>
           {task.lastReport ? <p>{task.lastReport}</p> : null}
           {task.error ? <p role="alert">{task.error}</p> : null}
         </article>)}

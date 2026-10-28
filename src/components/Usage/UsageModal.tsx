@@ -4,6 +4,7 @@ import type { AgentCreditsSnapshot, CreditsWindow } from '../../../shared/types/
 import type { CopilotCredits } from '../../../shared/types/copilot'
 import { Badge, Button, Dialog, Meter } from '../../ui'
 import styles from './UsageModal.module.css'
+import { formatDateTime } from '../../utils/formatTime'
 
 interface UsageModalProps {
   open: boolean
@@ -25,7 +26,7 @@ function fmtReset(ms: number | null): string {
 function WindowRow({ window }: { window: CreditsWindow }): ReactElement {
   return <div className={styles.window} data-testid="usage-window">
     <Meter label={window.kind === 'session' ? 'Current session' : 'Current week'} value={Math.round(window.usedPct)} detail={`${Math.round(window.usedPct)}% used`} />
-    <span className={styles.note} title={window.resetsAtMs ? new Date(window.resetsAtMs).toLocaleString() : undefined}>{fmtReset(window.resetsAtMs)}</span>
+    <span className={styles.note} title={window.resetsAtMs ? formatDateTime(window.resetsAtMs) : undefined}>{fmtReset(window.resetsAtMs)}</span>
   </div>
 }
 
@@ -39,7 +40,7 @@ function Card({ title, meta, testId, children, footer }: { title: string; meta?:
 
 function ProviderCard({ title, snapshot }: { title: string; snapshot: AgentCreditsSnapshot | null }): ReactElement {
   const source = snapshot?.source === 'oauth' ? 'Claude account' : snapshot?.source === 'local-session' ? 'Latest local Codex session' : 'Account-wide quota'
-  const checked = snapshot?.observedAtMs ? ` · checked ${new Date(snapshot.observedAtMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''
+  const checked = snapshot?.observedAtMs ? ` · checked ${formatDateTime(snapshot.observedAtMs, { hour: '2-digit', minute: '2-digit' })}` : ''
   return <Card title={title} testId={`usage-card-${title.toLowerCase()}`}
     meta={snapshot?.stale ? <Badge intent="warning">Last known reading</Badge> : snapshot?.planLabel ? <Badge>{snapshot.planLabel}</Badge> : <Badge>Subscription</Badge>}
     footer={<>{snapshot?.stale && <span className={styles.stale}>Could not refresh. Showing the last known reading.</span>}<span>{source}{checked}</span></>}>
