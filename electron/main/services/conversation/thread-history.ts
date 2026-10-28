@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { ThreadDebugPage, ThreadDebugRow, ConversationThread, ThreadArtifact, ThreadDelivery, ThreadDelta, ThreadSyncCursor, ThreadRequest, ThreadEvent, ThreadTurn, ThreadSnapshot, ThreadHistoryPage, ThreadOperation, ThreadOperationKind, ThreadOperationState } from '../../../../shared/types/thread'
+import type { ThreadDebugPage, ThreadDebugRow, ConversationThread, ThreadArtifact, ThreadDelivery, ThreadDelta, ThreadSyncCursor, ThreadRequest, ThreadEvent, ThreadTurn, ThreadSnapshot, ThreadHistoryPage, ThreadOperation, ThreadOperationKind, ThreadOperationState, ThreadPendingRequestSummary } from '../../../../shared/types/thread'
 import { parseThreadPatch } from '../../../../shared/threadPatch'
 import { compileDebugFilter, summarizeThreadEvent } from '../../../../shared/threadDebug'
 import { canTransitionThreadOperation, createThreadEventEnvelope, deriveThreadDelivery } from './thread-event-envelope'
@@ -97,6 +97,22 @@ export class ThreadHistory {
 
   private turns(id: string): ThreadTurn[] {
     return (this.db.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')").all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json) as ThreadTurn)
+  }
+
+  /**
+   * The same pending-request read as a conversation's window, across every conversation waiting for
+   * approval. Returns titles only: the activity center points at a request, it never answers one.
+   * CROSS JOIN keeps the waiting conversations as the outer loop, so only their events are read.
+   */
+  pendingRequestsAll(limit = 200): ThreadPendingRequestSummary[] {
+    const rows = this.db.prepare(`SELECT e.thread_id, t.workspace_id, json_extract(t.data_json, '$.title') AS thread_title, e.data_json
+      FROM conversation_threads t CROSS JOIN conversation_events e ON e.thread_id = t.id
+      WHERE json_extract(t.data_json, '$.status') = 'approval' AND json_extract(e.data_json, '$.type') = 'request' AND json_extract(e.data_json, '$.request.state') = 'pending'
+      ORDER BY e.thread_id, e.seq LIMIT ?`).all(limit) as { thread_id: string; workspace_id: string; thread_title: string | null; data_json: string }[]
+    return rows.map(row => {
+      const request = (JSON.parse(row.data_json) as Extract<ThreadEvent, { type: 'request' }>).request
+      return { threadId: row.thread_id, workspaceId: row.workspace_id, threadTitle: row.thread_title ?? '', requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt }
+    })
   }
 
   private pendingRequests(id: string, thread: ConversationThread): ThreadRequest[] {

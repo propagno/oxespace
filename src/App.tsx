@@ -68,13 +68,13 @@ import { VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
-import { useAgentNotifications } from './hooks/useAgentNotifications'
+import { useActivitySources } from './hooks/useActivitySources'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
-import { THREAD_NOTIFICATION_PANE_PREFIX, useThreadAttention } from './hooks/useThreadAttention'
+import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { matchesHotkey } from './keyboard/chords'
 import { setKeyboardView, useKeybindings } from './keyboard/keybindings'
-import { QUOTA_NOTIFICATION_PANE_PREFIX, useQuotaAlerts } from './hooks/useQuotaAlerts'
+import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { useSettingsStore } from './store/settings.store'
 
@@ -466,10 +466,8 @@ export function App(): ReactElement {
     })
   }, [])
 
-  useAgentNotifications()
+  useActivitySources(applicationView)
   useAgentHookStatus()
-  useThreadAttention(applicationView)
-  useQuotaAlerts()
 
   // Clicking a notification focuses the originating pane (window focus + restore
   // is handled in main); here we switch to its workspace and select the pane.
