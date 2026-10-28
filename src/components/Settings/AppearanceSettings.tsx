@@ -1,10 +1,12 @@
 import type { ReactElement } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { Check, Maximize2, Minimize2, Monitor, Moon, Sun } from 'lucide-react'
 import type { UiDensity } from '../../../shared/types/workspace'
 import { UI_SCALE_STEPS, UI_SCALE_DEFAULT } from '../../../shared/uiScale'
 import type { Appearance } from '../../design/mode'
 import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useSettingsStore } from '../../store/settings.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
 import { Button, SegmentedControl } from '../../ui'
 import styles from './AppearanceSettings.module.css'
 
@@ -46,6 +48,9 @@ function ScaleAndDensity(): ReactElement {
   const setDensity = useSettingsStore(state => state.setDensity)
   const threadDensity = useNavigationPrefs(state => state.threadDensity)
   const setThreadDensity = useNavigationPrefs(state => state.setThreadDensity)
+  // Workspaces saved before density became app-wide keep the density they had, so they stay overrides until the person says otherwise.
+  const ownDensity = useWorkspaceStore(useShallow(state => state.workspaces.filter(workspace => workspace.uiDensity !== 'default').map(workspace => workspace.id)))
+  const updateWorkspace = useWorkspaceStore(state => state.updateSettings)
   const scale = UI_SCALE_STEPS.find(step => step === uiScale) ?? UI_SCALE_DEFAULT
   return <>
     <section className={styles.group} aria-labelledby="appearance-scale-title">
@@ -57,9 +62,13 @@ function ScaleAndDensity(): ReactElement {
       <h3 id="appearance-density-title" className={styles.groupTitle}>Density</h3>
       <p className={styles.hint}>How tightly controls and lists sit. Workspaces and the Thread list follow this unless you set their own.</p>
       <SegmentedControl label="Density" value={density} options={DENSITY_OPTIONS} onChange={setDensity} />
+      {ownDensity.length > 0 && <p className={styles.override} data-testid="workspace-density-override">
+        <span>{ownDensity.length === 1 ? '1 workspace uses its own density.' : `${ownDensity.length} workspaces use their own density.`}</span>
+        <Button variant="ghost" size="sm" onClick={() => { for (const workspaceId of ownDensity) void updateWorkspace({ workspaceId, uiDensity: 'default' }).catch(() => {}) }}>Use app density in all workspaces</Button>
+      </p>}
       {threadDensity !== null && <p className={styles.override} data-testid="thread-density-override">
         <span>The Thread list uses its own density: {threadDensity === 'compact' ? 'Compact' : 'Comfortable'}.</span>
-        <Button variant="ghost" size="sm" onClick={() => setThreadDensity(null)}>Follow app density</Button>
+        <Button variant="ghost" size="sm" onClick={() => setThreadDensity(null)}>Use app density in the Thread list</Button>
       </p>}
     </section>
   </>

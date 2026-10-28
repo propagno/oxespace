@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { resizeWindow } from './helpers/launch'
 
 /**
  * Settings › Appearance: the interface scale zooms the whole window (the terminal
@@ -39,6 +40,7 @@ test('interface scale and density apply app-wide and survive a restart', async (
   let app = await launch(dbPath)
   try {
     const page = await app.firstWindow()
+    await resizeWindow(app, 1600, 1100)
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-1').click()
@@ -61,7 +63,26 @@ test('interface scale and density apply app-wide and survive a restart', async (
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('comfortable')
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--control-md').trim())).toBe('32px')
     await settings.screenshot({ path: test.info().outputPath('appearance-125.png') })
+    const groups = settings.locator('section[aria-labelledby="appearance-scale-title"]').locator('..')
+    await groups.screenshot({ path: test.info().outputPath('appearance-125-groups.png') })
+
+    // A workspace can keep its own density: it overrides the app until the person sends it back.
+    const scope = settings.getByRole('group', { name: 'Settings scope' })
+    await scope.getByRole('button', { name: /Current workspace/ }).click()
+    const workspaceDensity = settings.getByRole('radiogroup', { name: 'Density' })
+    await expect(workspaceDensity.getByRole('radio', { name: 'App default' })).toHaveAttribute('aria-checked', 'true')
+    await workspaceDensity.getByRole('radio', { name: 'Compact' }).click()
+    await workspaceDensity.locator('..').screenshot({ path: test.info().outputPath('workspace-density.png') })
+    await settings.getByRole('button', { name: 'Save workspace settings' }).click()
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('compact')
+    await scope.getByRole('button', { name: 'Application', exact: true }).click()
+    await expect(settings.getByTestId('workspace-density-override')).toHaveText(/1 workspace uses its own density\./)
+    await groups.screenshot({ path: test.info().outputPath('appearance-workspace-override.png') })
+    await settings.getByRole('button', { name: 'Use app density in all workspaces' }).click()
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('comfortable')
+    await expect(settings.getByTestId('workspace-density-override')).toHaveCount(0)
     await page.keyboard.press('Escape')
+    await page.screenshot({ path: test.info().outputPath('code-125-comfortable.png') })
 
     // The terminal follows the zoom: same card, bigger cells, refit without clipping.
     await page.waitForTimeout(800)
