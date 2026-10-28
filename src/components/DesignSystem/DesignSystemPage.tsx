@@ -4,13 +4,13 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { colorRoles } from '../../design/tokens/semantic'
 import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
 import { RADIUS, SPACE, TEXT } from '../../design/tokens/scales'
-import { Badge, Button, ButtonGroup, Checkbox, EmptyState, IconButton, Kbd, Menu, Meter, Panel, SegmentedControl, Select, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
+import { Badge, Button, ButtonGroup, Checkbox, EmptyState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
 import styles from './DesignSystemPage.module.css'
 
-type Section = 'brand' | 'color' | 'type' | 'shape' | 'components'
+type Section = 'brand' | 'color' | 'type' | 'shape' | 'components' | 'states'
 const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'brand', label: 'Brand' }, { id: 'color', label: 'Color' }, { id: 'type', label: 'Type' },
-  { id: 'shape', label: 'Space, shape, depth' }, { id: 'components', label: 'Components' }
+  { id: 'shape', label: 'Space, shape, depth' }, { id: 'components', label: 'Components' }, { id: 'states', label: 'States' }
 ]
 
 /** Renders `children` twice, once per mode, using data-mode subtrees. */
@@ -89,6 +89,26 @@ function ShapeSection(): ReactElement {
   </>
 }
 
+/** The four states every place in the app uses, so no screen invents its own: empty, loading, failed and unavailable. */
+function StatesGallery(): ReactElement {
+  return <div className={styles.stack}>
+    <h2 className={styles.sectionTitle}>Empty</h2>
+    <Panel title="Recent conversations"><EmptyState icon={<Bell size={16} />} title="No conversations yet" actions={<Button variant="primary" size="sm">Start one</Button>}>Start a conversation to work on this project with an agent.</EmptyState></Panel>
+    <Panel title="Branches"><EmptyState compact title="No branches match this filter." /></Panel>
+    <h2 className={styles.sectionTitle}>Loading</h2>
+    <Panel title="Pull requests"><Skeleton lines={3} label="Loading pull requests" /></Panel>
+    <Panel title="Preview"><Skeleton variant="block" label="Loading the preview" /></Panel>
+    <Panel title="Models"><LoadingState label="Loading models…" /></Panel>
+    <div className={styles.row}><Spinner /><Spinner size="sm" /><Button loading>Saving</Button></div>
+    <h2 className={styles.sectionTitle}>Failed</h2>
+    <Panel title="Pull requests"><ErrorState title="Could not load pull requests" message="GitHub did not answer. Check your connection and try again." detail="HTTP 502 from api.github.com" onRetry={() => {}} /></Panel>
+    <Panel title="Branches"><ErrorState compact title="Could not list branches." onRetry={() => {}} /></Panel>
+    <h2 className={styles.sectionTitle}>Unavailable and focus</h2>
+    <div className={styles.row}><Button disabled>Disabled</Button><Checkbox label="Disabled option" disabled /><Switch checked={false} onChange={() => {}} label="Disabled switch" disabled /></div>
+    <TextField label="With an error" defaultValue="wip" error="Describe what changed in a sentence." />
+  </div>
+}
+
 function Gallery(): ReactElement {
   const [on, setOn] = useState(true)
   const [view, setView] = useState<'all' | 'mine' | 'done'>('all')
@@ -140,7 +160,7 @@ export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactEle
         <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Mandacaru, the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode.</p></div>
         <IconButton label="Close design system" icon={<X size={16} />} onClick={onClose} />
       </header>
-      {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : <BothModes>{() => <Gallery />}</BothModes>}
+      {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : section === 'states' ? <BothModes>{() => <StatesGallery />}</BothModes> : <BothModes>{() => <Gallery />}</BothModes>}
     </main>
   </div>
 }

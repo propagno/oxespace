@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmdirSync, rmSync, statSync, wr
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
-import { RuntimeDiagnostics, diagnosticId } from '../electron/main/services/runtime-diagnostics'
+import { RuntimeDiagnostics, diagnosticId, firstAnswerDetail } from '../electron/main/services/runtime-diagnostics'
 
 const roots: string[] = []
 function fixture() { const root = mkdtempSync(join(tmpdir(), 'oxe-diagnostics-')); roots.push(root); return root }
@@ -73,4 +73,15 @@ it('keeps startup phases with their duration and drops unknown phase names', () 
   const rows = recorder.export().trim().split('\n').map(line => JSON.parse(line))
   expect(rows).toContainEqual(expect.objectContaining({ event: 'startup-phase', phase: 'interactive', durationMs: 812 }))
   expect(JSON.stringify(rows)).not.toContain('secret')
+})
+
+it('keeps only a bounded duration and the answer kind for the local time to first answer', () => {
+  expect(firstAnswerDetail({ durationMs: 93_456.7, kind: 'thread', prompt: 'private prompt', rootPath: '/home/person/repo' })).toEqual({ durationMs: 93_456, kind: 'thread' })
+  expect(firstAnswerDetail({ durationMs: 1200, kind: 'code' })).toEqual({ durationMs: 1200, kind: 'code' })
+  for (const input of [null, 'x', { durationMs: -1, kind: 'thread' }, { durationMs: Infinity, kind: 'code' }, { durationMs: 31 * 86400_000, kind: 'code' }, { durationMs: 10, kind: 'browser' }, { durationMs: '10', kind: 'thread' }]) {
+    expect(firstAnswerDetail(input)).toBeNull()
+  }
+  const recorder = new RuntimeDiagnostics(fixture())
+  recorder.record('first-answer', firstAnswerDetail({ durationMs: 5000, kind: 'thread' })!)
+  expect(JSON.parse(recorder.export().trim())).toMatchObject({ event: 'first-answer', durationMs: 5000, kind: 'thread' })
 })

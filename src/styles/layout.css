@@ -1320,10 +1320,17 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* Scrolls from the top when the first-run guide is taller than a short window. */
+  justify-content: safe center;
+  overflow-y: auto;
+  min-height: 0;
   gap: var(--space-md);
   text-align: center;
   padding: var(--space-2xl);
+}
+
+.empty-state > * {
+  flex-shrink: 0;
 }
 
 .empty-state h3 {

@@ -26,6 +26,7 @@ import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voi
 import type { SemanticUsage, SemanticVectorStatus } from '../../../shared/types/ipc'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { AgentCliOnboarding, openInstallDocs } from '../Onboarding/AgentCliOnboarding'
 import { AutomationsSettings } from './AutomationsSettings'
 import { AgentActivitySettings } from './AgentActivitySettings'
 import { useAgentStore } from '../../store/agent.store'
@@ -53,10 +54,6 @@ import { PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
 import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
 import { compatibilityBadge, type ProviderCompatibility } from '../../../shared/providerCompatibility'
 export { PROVIDER_INSTALL_DOCS }
-
-function openInstallDocs(url: string): void {
-  window.open(url, '_blank', 'noopener,noreferrer')
-}
 
 function formatCheckedAgo(ts: number | null): string | null {
   if (ts == null) return null
@@ -492,44 +489,7 @@ function ProvidersSettingsSection({
           </div>
         </div>
 
-        {allMissing ? (
-          <div className="settings-onboarding" data-testid="providers-onboarding" role="status">
-            <Bot size={20} aria-hidden="true" />
-            <div>
-              <p>Get an agent CLI on this machine</p>
-              <span>
-                OXESpace launches agents as local CLIs. Install one of the guides below, ensure the command is on PATH,
-                then run <strong>Health check</strong>.
-              </span>
-            </div>
-            <div className="settings-onboarding-links">
-              {(Object.entries(PROVIDER_INSTALL_DOCS) as Array<[AgentProvider, { label: string; url: string }]>).map(
-                ([id, doc]) => (
-                  <Button
-                    key={id}
-                   
-                    variant="ghost"
-                    onClick={() => openInstallDocs(doc.url)}
-                    data-testid={`btn-onboarding-install-${id}`}
-                  >
-                    <ExternalLink size={12} aria-hidden="true" />
-                    {doc.label}
-                  </Button>
-                )
-              )}
-            </div>
-            <Button
-             
-              variant="primary"
-              disabled={isDiscoveringAgents}
-              onClick={onDiscoverAgents}
-              data-testid="btn-onboarding-health-check"
-            >
-              <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
-              {isDiscoveringAgents ? 'Checking…' : 'Detect CLIs'}
-            </Button>
-          </div>
-        ) : null}
+        {allMissing ? <AgentCliOnboarding checking={isDiscoveringAgents} onCheck={onDiscoverAgents} /> : null}
 
         {agentProfiles.length === 0 ? (
           <div className="settings-empty" role="status">

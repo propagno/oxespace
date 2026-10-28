@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ConversationThread, ThreadAttachment, ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
 import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCache'
+import { threadConfirmation } from '../../shared/threadConfirmations'
 import { createDraftWriter, loadStoredDrafts } from '../utils/threadDrafts'
+import { optimistic } from './optimistic'
 
 // Read once, before the store exists: the writer needs the saved edit times to let old drafts expire.
 const storedDrafts = loadStoredDrafts()
@@ -21,6 +23,10 @@ interface ThreadState {
   markRead: (id: string) => void
   hideProject: (id: string) => Promise<void>
   restoreProject: (id: string) => Promise<void>
+  /** Pin, rename and archive show at once and roll back with a toast when the change is not saved. */
+  pinThread: (id: string, pinned: boolean) => Promise<void>
+  renameThread: (id: string, title: string) => Promise<void>
+  archiveThread: (id: string) => Promise<boolean>
   select: (id: string | null, markRead?: boolean) => Promise<void>
   openSecondary: (id: string) => Promise<void>
   closeSecondary: () => void
@@ -39,6 +45,11 @@ interface ThreadState {
   updateSnapshot: (snapshot: ThreadSnapshot) => void
 }
 const refreshVersions = new Map<string, number>()
+/** One conversation's metadata changed in the list and, when it is open, in its header. */
+function patchThread(state: ThreadState, id: string, change: Partial<ConversationThread>): Partial<ThreadState> {
+  return { threads: state.threads.map(thread => thread.id === id ? { ...thread, ...change } : thread),
+    ...(state.snapshot?.thread.id === id ? { snapshot: { ...state.snapshot, thread: { ...state.snapshot.thread, ...change } } } : {}) }
+}
 /** Kill switch for incremental reads: localStorage `oxe.thread.delta` = 'off' falls back to full reads. */
 function deltaEnabled(): boolean {
   try { return window.localStorage.getItem('oxe.thread.delta') !== 'off' } catch { return true }
@@ -49,13 +60,33 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   hideProject: async id => {
-    await window.oxe.thread!.setProjectHidden(id, true)
-    set(state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }))
-    if (get().snapshot?.thread.projectId === id) await get().select(null)
+    const saved = await optimistic(set, get, state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }), async () => { await window.oxe.thread!.setProjectHidden(id, true); return true },
+      { rollbackMessage: 'Could not remove the project', revert: state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) }) })
+    if (saved && get().snapshot?.thread.projectId === id) await get().select(null)
   },
   restoreProject: async id => {
-    await window.oxe.thread!.setProjectHidden(id, false)
-    set(state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) }))
+    await optimistic(set, get, state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) }), () => window.oxe.thread!.setProjectHidden(id, false),
+      { rollbackMessage: 'Could not restore the project', revert: state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }) })
+  },
+  pinThread: async (id, pinned) => {
+    const saved = await optimistic(set, get, state => patchThread(state, id, { pinned }), async () => { await window.oxe.thread!.pin(id, pinned); return true },
+      { rollbackMessage: pinned ? 'Could not pin the conversation' : 'Could not unpin the conversation', revert: state => patchThread(state, id, { pinned: !pinned }) })
+    if (saved) await get().refresh(id)
+  },
+  renameThread: async (id, title) => {
+    const previous = get().threads.find(thread => thread.id === id)?.title
+    if (previous === undefined || !window.oxe.thread?.command) return
+    const saved = await optimistic(set, get, state => patchThread(state, id, { title }), async () => { await window.oxe.thread!.command!(id, `/rename ${title}`); return true },
+      { rollbackMessage: 'Could not rename the conversation', revert: state => patchThread(state, id, { title: previous }) })
+    if (saved) await get().refresh(id)
+  },
+  archiveThread: async id => {
+    if (!window.oxe.thread?.command) return false
+    const saved = await optimistic(set, get, state => patchThread(state, id, { archived: true }), async () => { await window.oxe.thread!.command!(id, threadConfirmation('archive').command); return true },
+      { rollbackMessage: 'Could not archive the conversation', revert: state => patchThread(state, id, { archived: false }) })
+    // The catalog reload moves the selection off the archived conversation.
+    if (saved) await get().load()
+    return saved === true
   },
   select: async (id, markRead = true) => {
     const version = ++generation

@@ -59,6 +59,8 @@ export interface SurfaceOptions {
   hide?: Locator[]
   /** Per-surface tolerance in pixels; the default lives in playwright.visual.config.ts. */
   maxDiffPixels?: number
+  /** Extra regions painted over (fixed-size live content, such as a timer), on top of the volatile ones. */
+  mask?: Locator[]
 }
 
 /** Waits for fonts and a quiet frame, then compares against the stored baseline. */
@@ -75,7 +77,7 @@ export async function expectSurface(page: Page, name: string, options: SurfaceOp
   for (const locator of options.hide ?? []) {
     await locator.evaluateAll(elements => elements.forEach(element => element.setAttribute('data-visual-hidden', '')))
   }
-  const mask = VOLATILE_SELECTORS.map(selector => page.locator(selector))
+  const mask = [...VOLATILE_SELECTORS.map(selector => page.locator(selector)), ...(options.mask ?? [])]
   await expect(options.target ?? page).toHaveScreenshot(`${name}.png`, {
     mask,
     animations: 'disabled',
