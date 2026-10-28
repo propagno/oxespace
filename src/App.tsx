@@ -72,24 +72,12 @@ import { useAgentNotifications } from './hooks/useAgentNotifications'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { THREAD_NOTIFICATION_PANE_PREFIX, useThreadAttention } from './hooks/useThreadAttention'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
+import { matchesHotkey } from './keyboard/chords'
+import { setKeyboardView, shortcutLabel, useKeybindings, withShortcut } from './keyboard/keybindings'
 import { QUOTA_NOTIFICATION_PANE_PREFIX, useQuotaAlerts } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { useSettingsStore } from './store/settings.store'
 
-/** Match a KeyboardEvent against a hotkey string like "Ctrl+Shift+Space". */
-function matchesHotkey(event: KeyboardEvent, hotkey: string): boolean {
-  const parts = hotkey.toLowerCase().split('+').map((p) => p.trim()).filter(Boolean)
-  const mods = new Set(['ctrl', 'shift', 'alt', 'meta', 'cmd'])
-  const mainKey = parts.find((p) => !mods.has(p)) ?? ''
-  const eventKey = event.key === ' ' ? 'space' : event.key.toLowerCase()
-  return (
-    event.ctrlKey === parts.includes('ctrl') &&
-    event.shiftKey === parts.includes('shift') &&
-    event.altKey === parts.includes('alt') &&
-    event.metaKey === (parts.includes('meta') || parts.includes('cmd')) &&
-    eventKey === mainKey
-  )
-}
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
 const AppMenuBar = lazy(() => import('./components/Navigation/AppMenuBar').then(module => ({ default: module.AppMenuBar })))
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
@@ -709,13 +697,13 @@ export function App(): ReactElement {
     // Workspace
     { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspaceFromUI },
     { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Layout, density and shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
-    { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: 'Ctrl+B', icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
+    { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: shortcutLabel('sidebar.toggle'), icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
 
     // Tools: named like the Panels menu and Thread, from the shared panel catalog.
     ...TOOL_CATALOG.map(tool => ({
       id: `tool-${tool.id}`,
       title: tool.label,
-      subtitle: tool.shortcut ? `${tool.detail} · ${tool.shortcut}` : tool.detail,
+      subtitle: withShortcut(tool.detail, tool.keybinding),
       icon: tool.icon,
       category: tool.group,
       keywords: tool.keywords,
@@ -728,8 +716,8 @@ export function App(): ReactElement {
 
     // View
     { id: 'balance-pane-layout', title: 'Balance terminal panes', subtitle: 'Restore equal sizes within each split', icon: Columns2, category: 'View', disabled: !activeWorkspace, run: () => { if (activeWorkspace) usePaneLayoutStore.getState().balance(activeWorkspace.id) } },
-    { id: 'find-in-files', title: 'Search files & commands', subtitle: 'Ctrl+K / Ctrl+J · unified search', icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex', 'command'], disabled: !activeWorkspace, run: openCommandMenu },
-    { id: 'toggle-split-layout', title: 'Toggle split layout', subtitle: 'F2 · recursive resizable panes (default on)', icon: Columns2, category: 'View', keywords: ['split', 'pane', 'layout', 'f2', 'tree'], disabled: !activeWorkspace, run: () => useUIStore.getState().toggleSplitLayout() },
+    { id: 'find-in-files', title: 'Search files & commands', subtitle: withShortcut('Unified search', 'palette.search'), icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex', 'command'], disabled: !activeWorkspace, run: openCommandMenu },
+    { id: 'toggle-split-layout', title: 'Toggle split layout', subtitle: withShortcut('Recursive resizable panes (default on)', 'code.splitLayout'), icon: Columns2, category: 'View', keywords: ['split', 'pane', 'layout', 'f2', 'tree'], disabled: !activeWorkspace, run: () => useUIStore.getState().toggleSplitLayout() },
     { id: 'open-usage', title: 'Usage & Rate Limits', subtitle: 'Claude, Codex & Copilot quota + resets', icon: Activity, category: 'AI & Agents', keywords: ['usage', 'quota', 'credits', 'rate', 'limit', 'tokens'], run: () => useUIStore.getState().openUsage() },
     { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Tokens and components in light and dark', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
 
@@ -771,125 +759,34 @@ export function App(): ReactElement {
     })),
 
     // Terminal
-    { id: 'split-vertical', title: 'Split active pane (vertical)', subtitle: 'Ctrl+Shift+\\', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('vertical') },
-    { id: 'split-horizontal', title: 'Split active pane (horizontal)', subtitle: 'Ctrl+Shift+-', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('horizontal') },
-    { id: 'maximize-pane', title: 'Maximize / restore active pane', subtitle: 'Ctrl+Shift+Enter', icon: Maximize, category: 'Terminal', disabled: !activePane, run: toggleActivePaneMaximize },
+    { id: 'split-vertical', title: 'Split active pane (vertical)', subtitle: shortcutLabel('pane.splitRight'), icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('vertical') },
+    { id: 'split-horizontal', title: 'Split active pane (horizontal)', subtitle: shortcutLabel('pane.splitDown'), icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('horizontal') },
+    { id: 'maximize-pane', title: 'Maximize / restore active pane', subtitle: shortcutLabel('pane.maximize'), icon: Maximize, category: 'Terminal', disabled: !activePane, run: toggleActivePaneMaximize },
     { id: 'toggle-oxevoice', title: 'Toggle OXEVoice for active context', subtitle: 'Speak into the active terminal, editor, or Thread draft', icon: Mic, category: 'Terminal', keywords: ['voice', 'speech', 'microphone', 'dictation'], disabled: applicationView !== 'thread' && !activeWorkspace?.editorVisible && (!activePane || activePane.type !== 'terminal' || getTerminalStatus(activePane.id).status !== 'running'), run: toggleActivePaneVoice },
-    { id: 'restart-terminal', title: 'Restart active terminal', subtitle: 'Ctrl+R', icon: RotateCw, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.restart({ paneId: activePane.id }) },
+    { id: 'restart-terminal', title: 'Restart active terminal', subtitle: shortcutLabel('terminal.restart'), icon: RotateCw, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.restart({ paneId: activePane.id }) },
     { id: 'stop-terminal', title: 'Stop active terminal', icon: StopCircle, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.stop({ paneId: activePane.id }) }
   ]
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent): void {
-      if (event.defaultPrevented) return
-      // The native CLI owns its keymap, including Ctrl+R, Ctrl+B and Ctrl+J.
-      if ((event.target as HTMLElement | null)?.closest?.('.thread-native-cli')) return
-      const settings = useUIStore.getState()
-      if (settings.isSettingsOpen || settings.isWorkspaceSettingsOpen) return
-      const key = event.key.toLowerCase()
-      // cmd-J / Ctrl+K: unified command + file + content search (Wave 1 · #8).
-      const isCommandMenu =
-        (event.ctrlKey || event.metaKey) &&
-        (key === 'k' || key === 'j' || (event.shiftKey && key === 'p'))
-      if (isCommandMenu) {
-        event.preventDefault()
-        openCommandMenu()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && key === ',') {
-        event.preventDefault()
-        openWorkspaceSettings()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === 'b') {
-        event.preventDefault()
-        toggleSidebar()
-        return
-      }
-      if (applicationView !== 'code') return
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'd') {
-        event.preventDefault()
-        toggleReviewPanel()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'b') {
-        event.preventDefault()
-        toggleWebPreviewPanel()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && key === 'e') {
-        event.preventDefault()
-        toggleEditor()
-        return
-      }
-      if (key === 'f2' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
-        event.preventDefault()
-        useUIStore.getState().toggleSplitLayout()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'f') {
-        event.preventDefault()
-        // Read fresh state: this handler doesn't re-subscribe on ui-store changes.
-        const ui = useUIStore.getState()
-        if (ui.isSearchPanelOpen) ui.closeSearchPanel()
-        else ui.openSearchPanel()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === '\\') {
-        event.preventDefault()
-        splitActivePane('vertical')
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === '-') {
-        event.preventDefault()
-        splitActivePane('horizontal')
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') {
-        event.preventDefault()
-        toggleActivePaneMaximize()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'v') {
-        event.preventDefault()
-        toggleActivePaneVoice()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && key === 'r' && activePane?.type === 'terminal') {
-        event.preventDefault()
-        void window.oxe.terminal.restart({ paneId: activePane.id })
-        return
-      }
-      if (applicationView === 'code' && (event.ctrlKey || event.metaKey) && event.key === '/' && activePane?.type === 'terminal') {
-        event.preventDefault()
-        openSlashOverlay(activePane.id)
-        return
-      }
-      // Terminal zoom belongs to the focused xterm. The old window-wide
-      // handler changed the persisted font size while using other controls.
-      const terminalFocused = activePane?.type === 'terminal'
-        && event.target instanceof HTMLElement
-        && Boolean(event.target.closest('.xterm'))
-      if (terminalFocused && (event.ctrlKey || event.metaKey) && !event.altKey) {
-        const isPlus = key === '=' || key === '+'
-        const isMinus = key === '-' || key === '_'
-        const isZero = key === '0'
-        if (isPlus || isMinus || isZero) {
-          event.preventDefault()
-          const store = useTerminalPrefsStore.getState()
-          if (isZero) {
-            store.setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })
-          } else {
-            const next = store.global.fontSize + (isPlus ? 1 : -1)
-            store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
-          }
-        }
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activePane, activeWorkspace, applicationView, maximizedPaneId, openCommandMenu, openSlashOverlay, openWorkspaceSettings, splitActivePane, toggleSidebar, updateEditorState])
+  useEffect(() => { setKeyboardView(applicationView) }, [applicationView])
+  const terminalPane = activePane?.type === 'terminal' ? activePane : null
+  const zoomTerminal = (delta: 1 | -1 | 0): void => {
+    const store = useTerminalPrefsStore.getState()
+    const next = delta === 0 ? TERMINAL_PREFS_DEFAULTS.fontSize : store.global.fontSize + delta
+    store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
+  }
+  useKeybindings({
+    'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': openWorkspaceSettings, 'sidebar.toggle': toggleSidebar,
+    'voice.toggle': toggleActivePaneVoice, 'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
+    'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),
+    // Read fresh state: the search panel flag is not part of this render's closure.
+    'code.search': () => { const ui = useUIStore.getState(); if (ui.isSearchPanelOpen) ui.closeSearchPanel(); else ui.openSearchPanel() },
+    'pane.splitRight': () => splitActivePane('vertical'), 'pane.splitDown': () => splitActivePane('horizontal'), 'pane.maximize': toggleActivePaneMaximize,
+    'terminal.restart': () => terminalPane ? void window.oxe.terminal.restart({ paneId: terminalPane.id }) : false,
+    'terminal.slash': () => terminalPane ? openSlashOverlay(terminalPane.id) : false,
+    // Terminal zoom belongs to the focused xterm, never to the window.
+    'terminal.zoomIn': () => terminalPane ? zoomTerminal(1) : false, 'terminal.zoomOut': () => terminalPane ? zoomTerminal(-1) : false,
+    'terminal.zoomReset': () => terminalPane ? zoomTerminal(0) : false
+  })
 
   // Push-to-talk: hold the configured hotkey to dictate into the active
   // terminal, release to transcribe + insert. Works even while the terminal

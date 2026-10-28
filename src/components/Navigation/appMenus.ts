@@ -1,4 +1,5 @@
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
+import { shortcutLabel } from '../../keyboard/keybindings'
 
 export type AppMenuNode =
   | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; onSelect(): void }
@@ -54,7 +55,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
           ? { kind: 'item', id: 'add-project', label: 'Add project…', onSelect: ctx.addThreadProject }
           : fromAction('new-workspace', 'New workspace…'),
         sep('file-1'),
-        { kind: 'item', id: 'settings', label: 'Settings', shortcut: 'Ctrl+,', onSelect: ctx.openSettings },
+        { kind: 'item', id: 'settings', label: 'Settings', shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
         fromAction('workspace-settings', 'Workspace settings'),
         sep('file-2'),
         { kind: 'item', id: 'quit', label: 'Exit', onSelect: () => window.close() }
@@ -77,11 +78,11 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         { kind: 'radio', id: 'view-thread', label: 'Thread', checked: ctx.applicationView === 'thread', onSelect: () => ctx.setApplicationView('thread') },
         { kind: 'radio', id: 'view-data', label: 'OxeQuery', checked: ctx.applicationView === 'data', onSelect: () => ctx.setApplicationView('data') },
         sep('view-1'),
-        fromAction('toggle-sidebar', 'Toggle sidebar', 'Ctrl+B'),
-        fromAction('tool-editor', 'Files', 'Ctrl+E'),
+        fromAction('toggle-sidebar', 'Toggle sidebar', shortcutLabel('sidebar.toggle')),
+        fromAction('tool-editor', 'Files', shortcutLabel('code.files')),
         fromAction('tool-github', 'Source control'),
         fromAction('tool-background', 'Background activity'),
-        fromAction('toggle-split-layout', 'Split layout', 'F2'),
+        fromAction('toggle-split-layout', 'Split layout', shortcutLabel('code.splitLayout')),
         fromAction('balance-pane-layout', 'Balance panes'),
         sep('view-2'),
         // Appearance applies to the whole app, so it works without a workspace.
@@ -89,16 +90,16 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         densities.length ? { kind: 'submenu', id: 'densities', label: 'Density', disabled: noWorkspace, children: densities } : null,
         layouts.length ? { kind: 'submenu', id: 'layouts', label: 'Layout', disabled: noWorkspace, children: layouts } : null,
         sep('view-3'),
-        fromAction('split-vertical', 'Split pane right', 'Ctrl+Shift+\\'),
-        fromAction('split-horizontal', 'Split pane down', 'Ctrl+Shift+-'),
-        fromAction('maximize-pane', 'Maximize pane', 'Ctrl+Shift+Enter'),
+        fromAction('split-vertical', 'Split pane right', shortcutLabel('pane.splitRight')),
+        fromAction('split-horizontal', 'Split pane down', shortcutLabel('pane.splitDown')),
+        fromAction('maximize-pane', 'Maximize pane', shortcutLabel('pane.maximize')),
         sep('view-4'),
         fromAction('design-system', 'Design system')
       ])
     },
     {
       id: 'help', label: 'Help', items: compact([
-        fromAction('find-in-files', 'Search files & commands', 'Ctrl+J'),
+        fromAction('find-in-files', 'Search files & commands', shortcutLabel('palette.search')),
         sep('help-1'),
         fromAction('tool-mcp', 'MCP servers'),
         fromAction('tool-skills', 'Skills'),
