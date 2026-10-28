@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = process.cwd()
@@ -14,7 +14,8 @@ const budgets = [
   // Thread launches brought the entry to 890 kB, under 5% headroom at 936.
   { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 952 * 1024 },
   { label: 'preload entry', dir: 'out/preload', match: /^index\.cjs$/, max: 40 * 1024 },
-  { label: 'renderer entry', dir: 'out/renderer/assets', match: /^index-.*\.js$/, max: 500 * 1024 },
+  // 320 KiB since the renderer is minified (2026-10): the entry went from 474 kB readable to 246 kB.
+  { label: 'renderer entry', dir: 'out/renderer/assets', match: /^index-.*\.js$/, max: 320 * 1024 },
   { label: 'renderer base CSS', dir: 'out/renderer/assets', match: /^index-.*\.css$/, max: 500 * 1024 },
   // OxeQuery loads on demand; its worker bundles pg, mongodb and ssh2, so it has its own ceiling.
   { label: 'OxeQuery worker', dir: 'out/main', match: /^oxequery-worker\.js$/, max: 3 * 1024 * 1024 },
@@ -40,6 +41,19 @@ for (const budget of budgets) {
     console.error(`[bundle] ${budget.label}: requires at least ${REQUIRED_HEADROOM * 100}% headroom`)
     failed = true
   }
+}
+
+// What the first paint loads: the entry plus every chunk index.html preloads with it. Monaco (4.5 MB) once
+// slipped in here through Vite's preload helper; this keeps it, and anything like it, out of the boot path.
+const BOOT_BUDGET = 1600 * 1024
+const html = readFileSync(join(root, 'out/renderer/index.html'), 'utf8')
+const boot = [...html.matchAll(/<(?:script[^>]*src|link[^>]*rel="modulepreload"[^>]*href)="\.\/(assets\/[^"]+\.js)"/g)].map(match => match[1])
+const bootBytes = boot.reduce((sum, file) => sum + statSync(join(root, 'out/renderer', file)).size, 0)
+const bootNames = boot.map(file => file.replace(/^assets\//, '').replace(/-[\w-]+\.js$/, '')).join(', ')
+console.log(`[bundle] renderer boot (${bootNames}): ${Math.round(bootBytes / 1024)} kB / ${BOOT_BUDGET / 1024} kB · ${((1 - bootBytes / BOOT_BUDGET) * 100).toFixed(1)}% headroom`)
+if (!boot.length || bootBytes > BOOT_BUDGET * (1 - REQUIRED_HEADROOM)) {
+  console.error(`[bundle] renderer boot: requires at least ${REQUIRED_HEADROOM * 100}% headroom`)
+  failed = true
 }
 
 if (failed) {
