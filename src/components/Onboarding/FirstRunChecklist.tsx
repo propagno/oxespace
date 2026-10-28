@@ -4,7 +4,7 @@ import { useAgentStore } from '../../store/agent.store'
 import { useUIStore } from '../../store/ui.store'
 import { Button, StatusDot } from '../../ui'
 import { summarizeAgentSetup, type AgentSetupState } from '../../utils/agentSetup'
-import { PROVIDER_INSTALL_DOCS } from '../Settings/providerInstallDocs'
+import { installDocLabel, PROVIDER_INSTALL_DOCS } from '../Settings/providerInstallDocs'
 import styles from './FirstRunChecklist.module.css'
 
 const DOT: Record<AgentSetupState, 'idle' | 'running' | 'success' | 'attention' | 'danger'> = {
@@ -62,7 +62,7 @@ export function FirstRunChecklist(): ReactElement {
             {(['claude', 'codex'] as const).map(provider => {
               const doc = PROVIDER_INSTALL_DOCS[provider]
               return doc ? (
-                <Button key={provider} variant="ghost" size="sm" icon={<ExternalLink size={12} aria-hidden="true" />} onClick={() => openInstallDocs(doc.url)}>{doc.label}</Button>
+                <Button key={provider} variant="ghost" size="sm" icon={<ExternalLink size={12} aria-hidden="true" />} onClick={() => openInstallDocs(doc.url)}>{installDocLabel(doc)}</Button>
               ) : null
             })}
           </>

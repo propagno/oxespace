@@ -1,4 +1,54 @@
 {
+  "center": {
+    "title": "Configurações",
+    "searchLabel": "Buscar nas configurações",
+    "searchPlaceholder": "Filtrar categorias",
+    "settingsFor": "Configurações de",
+    "scope": "Escopo das configurações",
+    "application": "Aplicativo",
+    "workspace": "Workspace",
+    "currentWorkspace": "Workspace atual",
+    "category": "Categoria",
+    "categoryGroup": "Categoria das configurações",
+    "categories": "Categorias das configurações",
+    "noMatch": "Nenhuma configuração encontrada",
+    "appliesAcross": "Vale para todos os workspaces",
+    "backToWork": "Voltar ao trabalho",
+    "close": "Fechar configurações",
+    "closeTitle": "Fechar configurações (Esc)",
+    "workspaceClosed": "Workspace fechado",
+    "workspaceClosedHint": "Escolha outro workspace ou volte ao trabalho.",
+    "unsaved": {
+      "title": "Salvar as alterações?",
+      "description": "O workspace tem alterações não aplicadas. Se salvar falhar, fique aqui para ver o erro e tentar de novo.",
+      "stay": "Ficar",
+      "discard": "Descartar",
+      "saving": "Salvando…",
+      "save": "Salvar e continuar"
+    },
+    "pages": {
+      "general": { "label": "Geral", "hint": "Navegação e preferências de workspace" },
+      "providers": { "label": "Agentes", "hint": "CLIs de agentes, agentes personalizados e conversas ociosas" },
+      "appearance": { "label": "Aparência", "hint": "Modo e idioma" },
+      "terminal": { "label": "Terminal", "hint": "Fonte, cursor, rolagem e comportamento" },
+      "voice": { "label": "Voz", "hint": "Microfone e transcrição local" },
+      "notifications": { "label": "Notificações", "hint": "Alertas e sons" },
+      "updates": { "label": "Atualizações", "hint": "Versão, downloads e instalação" },
+      "policy": { "label": "Política", "hint": "O que os agentes estão proibidos de usar" },
+      "diagnostics": { "label": "Diagnóstico", "hint": "Saúde do aplicativo e solução de problemas" }
+    }
+  },
+  "header": {
+    "close": "Fechar",
+    "closeTitle": "Fechar (Esc)"
+  },
+  "general": {
+    "title": "Geral",
+    "description": "Preferências que valem para todos os workspaces.",
+    "navigation": "Navegação entre workspaces",
+    "cacheLabel": "Workspaces visitados há pouco que ficam prontos",
+    "cacheHint": "Mantém os terminais disponíveis ao trocar de workspace. As mudanças valem na hora."
+  },
   "appearance": {
     "kicker": "Aparência global",
     "title": "Aparência",
@@ -14,5 +64,406 @@
       "system": "Sistema ({{language}})",
       "hint": "Vale para toda a interface. Os agentes respondem no idioma em que você escreve."
     }
+  },
+  "diagnostics": {
+    "kicker": "Execução",
+    "title": "Diagnóstico",
+    "description": "Diagnóstico local e compacto: até 1,5 MiB por sete dias. A exportação deixa de fora prompts, saída do terminal e argumentos de comandos.",
+    "refresh": "Atualizar",
+    "refreshTitle": "Rodar as verificações de novo",
+    "savedReport": "Relatório sem dados sensíveis salvo em {{path}}",
+    "exportCancelled": "Exportação cancelada.",
+    "checking": "Verificando…",
+    "failing": "{{count}} com falha",
+    "warning_one": "{{count}} aviso",
+    "warning_many": "{{count}} avisos",
+    "warning_other": "{{count}} avisos",
+    "allPassing_one": "{{count}} verificação passando",
+    "allPassing_many": "Todas as {{count}} verificações passando",
+    "allPassing_other": "Todas as {{count}} verificações passando",
+    "collected": "Coletado localmente · as exportações ocultam caminhos e segredos",
+    "healthy": "saudável",
+    "platform": "Plataforma",
+    "workspaces": "Workspaces",
+    "export": "Exportar relatório"
+  },
+  "checked": {
+    "justNow": "Verificado agora mesmo",
+    "minutes": "Verificado há {{value}} min",
+    "hours": "Verificado há {{value}} h",
+    "days": "Verificado há {{value}} d"
+  },
+  "providers": {
+    "kicker": "CLIs e detecção",
+    "title": "Agentes",
+    "description": "Gerencie seus agentes, as CLIs instaladas e os perfis personalizados.",
+    "status": {
+      "ready": "Pronto",
+      "partial": "Parcial",
+      "missing": "Não instalado",
+      "unknown": "Não verificado",
+      "checking": "Verificando…",
+      "custom": "Personalizado"
+    },
+    "healthCheck": "Verificar",
+    "runHealthCheck": "Verificar agentes",
+    "healthCheckTitle": "Detectar quais CLIs de agentes estão instaladas",
+    "checking": "Verificando…",
+    "summary": {
+      "none": "Nenhum provedor ainda",
+      "detecting": "Detectando as CLIs instaladas…",
+      "notChecked": "Ainda não verificado",
+      "noneOnPath": "Nenhuma CLI encontrada no PATH",
+      "ready_one": "{{count}} pronto",
+      "ready_many": "{{count}} prontos",
+      "ready_other": "{{count}} prontos",
+      "notInstalled_one": "{{count}} não instalado",
+      "notInstalled_many": "{{count}} não instalados",
+      "notInstalled_other": "{{count}} não instalados",
+      "runToDetect": "Use Verificar para detectar as CLIs instaladas",
+      "installThenRun": "Instale uma CLI e depois use Verificar"
+    },
+    "counts": "Contagem de provedores",
+    "stat": {
+      "ready_one": "pronto",
+      "ready_many": "prontos",
+      "ready_other": "prontos",
+      "missing_one": "ausente",
+      "missing_many": "ausentes",
+      "missing_other": "ausentes",
+      "custom_one": "personalizado",
+      "custom_many": "personalizados",
+      "custom_other": "personalizados"
+    },
+    "onboarding": {
+      "title": "Instale a CLI de um agente nesta máquina",
+      "body": "O OXESpace abre os agentes como CLIs locais. Siga um dos guias abaixo, confira se o comando está no PATH e depois use <strong>Verificar</strong>.",
+      "detect": "Detectar CLIs"
+    },
+    "empty": {
+      "title": "Nenhum provedor encontrado",
+      "hint": "Use Verificar para descobrir as CLIs de agentes instaladas."
+    },
+    "notInstalled_one": "{{count}} não instalado",
+    "notInstalled_many": "{{count}} não instalados",
+    "notInstalled_other": "{{count}} não instalados",
+    "missingHint": "guias de instalação · corrigir caminhos",
+    "newCustomAgent": "Novo agente personalizado",
+    "installDoc": {
+      "install": "Instalar {{product}}",
+      "docs": "Documentação do {{product}}"
+    },
+    "card": {
+      "skillParent": "skill · base {{parent}}",
+      "available": "Disponível",
+      "notOnPath": "Fora do PATH — instale ou use Corrigir caminho",
+      "probing": "Verificando…",
+      "usesParent": "Usa a CLI base + o prompt da skill",
+      "runToDetect": "Use Verificar para detectar",
+      "useInPaneLabel": "Usar {{name}} no painel ativo",
+      "bindTitle": "Vincular ao terminal ativo",
+      "starting": "Iniciando…",
+      "useInPane": "Usar no painel",
+      "installGuide": "Guia de instalação",
+      "configureLabel": "Configurar {{name}}",
+      "configureTitle": "Configurar o caminho do comando ou a skill",
+      "fixPath": "Corrigir caminho",
+      "configure": "Configurar"
+    }
+  },
+  "idle": {
+    "title": "Conversas ociosas",
+    "after": "Encerrar o processo do agente depois de",
+    "afterLabel": "Encerrar conversas ociosas depois de",
+    "never": "Nunca",
+    "minutes_one": "{{count}} minuto sem atividade",
+    "minutes_many": "{{count}} minutos sem atividade",
+    "minutes_other": "{{count}} minutos sem atividade",
+    "hint": "Cada conversa aberta do Thread mantém um processo de agente e os servidores MCP dele rodando. Encerrar as ociosas libera memória; sua próxima mensagem retoma a mesma sessão. Uma conversa com turno em andamento, pergunta, mensagens na fila, tarefa em segundo plano ou permissão liberada para a sessão continua aberta.",
+    "saveFailed": "Não foi possível salvar esta configuração"
+  },
+  "semantic": {
+    "title": "Índice semântico (beta)",
+    "searchByMeaning": "Buscar pelo significado",
+    "switchLabel": "Buscar pelo significado com o índice semântico",
+    "downloadLabel": "Download do modelo",
+    "state": {
+      "off": "Desligado. Os agentes buscam por termos exatos (FTS5) e pela estrutura do código (CodeGraph).",
+      "downloadingProgress": "Baixando o modelo… {{loaded}} de {{total}}",
+      "downloading": "Baixando o modelo…",
+      "loading": "Carregando o modelo…",
+      "notInstalled": "Ligado, mas o modelo não está instalado. Baixe-o ou importe de uma pasta.",
+      "error": "O modelo não carregou: {{error}}",
+      "ready": "Pronto. Os agentes também buscam pelo significado; os arquivos são indexados em segundo plano."
+    },
+    "unknownError": "erro desconhecido",
+    "download": "Baixar o modelo (~270 MB)",
+    "import": "Importar de uma pasta…",
+    "remove": "Remover o modelo baixado",
+    "hint": "O modelo ({{model}}) roda nesta máquina e fica na pasta de dados do app, então as atualizações não o baixam de novo. Para importar, escolha uma pasta com config.json, tokenizer.json, tokenizer_config.json e onnx/model_quantized.onnx.",
+    "usage": "Buscas dos agentes até agora: {{without}} sem o índice, {{with}} com ele (contadas só nesta máquina).",
+    "changeFailed": "Não foi possível mudar o índice semântico."
+  },
+  "voice": {
+    "kicker": "OXEVoice · transcrição local",
+    "title": "Voz",
+    "description": "Dite com transcrição local e os atalhos que você preferir.",
+    "language": "Idioma",
+    "languageValue": "Português (Brasil)",
+    "languageLabel": "Idioma fixo: português do Brasil",
+    "model": "Modelo",
+    "models": {
+      "tiny": "Tiny — o mais rápido, menos preciso (~75 MB)",
+      "base": "Base — equilibrado (~142 MB)",
+      "small": "Small — mais preciso, mais lento (~466 MB)"
+    },
+    "shortcut": "Atalho para falar",
+    "pressKeys": "Pressione as teclas…",
+    "capture": "Capturar",
+    "captureHint": "Pressione o atalho, ou Esc para cancelar",
+    "engine": "Motor",
+    "available": "disponível",
+    "unavailable": "indisponível",
+    "modelName": "Modelo «{{size}}»",
+    "modelReady": "pronto",
+    "downloadingPercent": "baixando… {{percent}}%",
+    "notDownloaded": "não baixado",
+    "engineMissing": "A entrada por voz precisa do motor whisper.cpp, que esta versão traz só para Windows. O download do modelo começa quando o motor estiver disponível neste sistema.",
+    "downloading": "Baixando…",
+    "download": "Baixar o modelo",
+    "readyLine": "Modelo pronto para falar com o atalho",
+    "downloadFailed": "Não foi possível baixar o modelo.",
+    "callout": "Reconhecimento local (whisper.cpp), em <strong>português do Brasil</strong>. Segure o atalho para falar; toque no microfone para falar sem segurar."
+  },
+  "terminal": {
+    "title": "Terminal",
+    "description": "Defina a fonte, o cursor e o comportamento padrão de todos os workspaces. Os ajustes de cada workspace continuam independentes.",
+    "preview": "prévia do terminal",
+    "font": "Fonte",
+    "family": "Família",
+    "size": "Tamanho",
+    "sizeHint": "Ctrl + / Ctrl − / Ctrl 0 dentro de um terminal",
+    "resetSize": "Voltar para {{size}}px",
+    "lineHeight": "Altura da linha",
+    "letterSpacing": "Espaçamento entre letras",
+    "cursorBuffer": "Cursor e histórico",
+    "cursorStyle": "Estilo do cursor",
+    "cursor": {
+      "block": "Bloco",
+      "bar": "Barra",
+      "underline": "Sublinhado"
+    },
+    "blink": "Cursor piscando",
+    "blinkHint": "Anima o cursor nos terminais em foco",
+    "resume": "Retomar sessões dos agentes",
+    "resumeHint": "Quando o OXESpace reinicia, os painéis do Claude Code e do Codex reabrem a sessão em que estavam",
+    "scrollback": "Histórico de rolagem",
+    "lines": "{{lines}} linhas",
+    "opacity": "Opacidade do fundo",
+    "translucent": "translúcido",
+    "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los."
+  },
+  "hooks": {
+    "title": "Hooks de status dos agentes",
+    "callout": "Deixe o Claude Code e o Codex informarem <strong>trabalhando / aguardando / pronto</strong> por conta própria, em vez de adivinhar pela saída do terminal. Grava na configuração do próprio agente; seus hooks atuais são mantidos.",
+    "installed": "Instalado.",
+    "partial": "Instalado em parte (faltando: {{missing}}).",
+    "notInstalled": "Não instalado — usando a heurística da saída.",
+    "error": "Não foi possível atualizar: {{detail}}",
+    "unknownError": "erro desconhecido",
+    "switchLabel": "Informar o status do {{agent}} por hooks"
+  },
+  "notifications": {
+    "kicker": "Sistema",
+    "title": "Notificações",
+    "description": "Escolha quando o OXESpace chama sua atenção.",
+    "notify": "Avisar quando um agente precisar de você",
+    "notifyHint": "Alertas na área de trabalho quando um agente em segundo plano termina, encerra ou falha. Clicar leva ao terminal.",
+    "onlyUnwatched": "Só para os terminais que você <strong>não está olhando</strong>.",
+    "sendTest": "Enviar notificação de teste",
+    "testBody": "Notificação de teste",
+    "performance": "Desempenho",
+    "keepMounted": "Manter os workspaces recentes carregados",
+    "keepMountedLabel": "Quantidade de workspaces mantidos carregados",
+    "keepMountedHint": "Os terminais em segundo plano continuam rodando de qualquer jeito."
+  },
+  "updates": {
+    "kicker": "Sistema",
+    "title": "Atualizações",
+    "description": "Mantenha o OXESpace e as ferramentas dele atualizados.",
+    "devBuild": "build de desenvolvimento",
+    "status": {
+      "disabled": "Serviço de atualização indisponível",
+      "checking": "Verificando as releases no GitHub…",
+      "availableManual": "Atualização {{version}} disponível — instale pela página de releases",
+      "availableAsk": "Atualização {{version}} disponível",
+      "availableAuto": "Atualização {{version}} disponível — baixando em segundo plano",
+      "downloading": "Baixando {{version}}… {{percent}}%",
+      "downloadingUnknown": "Baixando a atualização… {{percent}}%",
+      "downloaded": "Pronto para instalar {{version}}",
+      "notAvailable": "Nenhuma release mais nova publicada",
+      "error": "A verificação de atualização falhou",
+      "idle": "Aguardando o status da atualização…"
+    },
+    "pill": {
+      "devBuild": "Build de desenvolvimento",
+      "upToDate": "Atualizado",
+      "update": "Atualização",
+      "ready": "Pronto",
+      "downloading": "Baixando",
+      "checking": "Verificando",
+      "error": "Erro",
+      "idle": "Parado"
+    },
+    "group": "Aplicativo e ferramentas",
+    "downloadingLabel": "Baixando a atualização do OXESpace",
+    "download": "Baixar {{version}}",
+    "check": "Procurar atualizações",
+    "checkTitle": "Procurar uma versão nova nas releases do GitHub",
+    "restartInstall": "Reiniciar e instalar",
+    "openReleases": "Abrir releases",
+    "hint": {
+      "manual": "Instalações de desenvolvimento e por pacote Linux não se atualizam sozinhas. Use a release mais recente ou atualize seu checkout de desenvolvimento.",
+      "ask": "As atualizações baixadas são instaladas quando você reinicia.",
+      "auto": "Baixa em segundo plano. Reinicie para aplicar."
+    },
+    "rtk": {
+      "installedNoVersion": "instalado (sem arquivo de versão)",
+      "notInstalledVersion": "não instalado",
+      "pill": {
+        "error": "Erro",
+        "checking": "Verificando",
+        "updating": "Atualizando",
+        "updateAvailable": "Atualização disponível",
+        "upToDate": "Atualizado",
+        "notInstalled": "Não instalado"
+      },
+      "status": {
+        "checking": "Verificando no GitHub…",
+        "updating": "Atualizando…",
+        "available": "Atualização disponível: {{version}}",
+        "latest": "Mais recente {{version}} · atualizado",
+        "dev": "Funciona em desenvolvimento — verifique ou instale o sidecar quando quiser",
+        "notChecked": "Ainda não verificado"
+      },
+      "check": "Verificar o RTK",
+      "update": "Atualizar o RTK",
+      "install": "Instalar o RTK",
+      "hint": "Binário à parte. Atualiza independentemente do OXESpace."
+    },
+    "bundled": {
+      "group": "Incluído no OXESpace",
+      "title": "Ferramentas embutidas",
+      "subtitle": "Atualizadas a cada versão do aplicativo",
+      "included": "incluído",
+      "caveman": "Prompt e fluxo de agente dentro do app",
+      "codegraph": "Inteligência de código embutida"
+    },
+    "preferences": {
+      "label": "Como o OXESpace se atualiza",
+      "auto": "Automático",
+      "notify": "Só avisar",
+      "off": "Desligado",
+      "stay": "Ficar na v{{version}}",
+      "stayHint": "Mantém esta versão até você desligar.",
+      "beta": "Receber versões beta",
+      "betaOn": "Você recebe cada beta assim que sai. Desligar mantém sua versão até sair uma estável mais nova.",
+      "betaOff": "Experimente os recursos novos antes. As betas são testadas, mas podem mudar antes da versão estável.",
+      "hint": {
+        "pinned": "Ficando na v{{version}}: o OXESpace não procura nem baixa atualizações. Procurar atualizações ainda mostra o que há de novo.",
+        "auto": "Procura a cada poucas horas, baixa em segundo plano e instala quando você reinicia.",
+        "notify": "Procura a cada poucas horas e avisa quando sai uma versão. Nada é baixado até você escolher.",
+        "off": "Nunca procura sozinho. Use Procurar atualizações quando quiser saber."
+      }
+    }
+  },
+  "policy": {
+    "title": "Política",
+    "intro": "Regras que bloqueiam o que os agentes podem usar: provedores, ferramentas, servidores MCP, skills, bancos de dados e memória compartilhada. Elas só bloqueiam; nunca liberam nada. Para mudar uma regra, edite o arquivo. A última regra que se aplica decide, então o arquivo gerenciado prevalece.",
+    "notApplied": "Não aplicado: {{problem}}",
+    "layers": {
+      "project": { "label": "Projeto", "hint": "Vale só para este projeto" },
+      "user": { "label": "Usuário", "hint": "Vale para você neste computador" },
+      "managed": { "label": "Gerenciado", "hint": "Instalado por um administrador; tem a palavra final" }
+    },
+    "fileError": "Este arquivo tem um erro e foi ignorado.",
+    "noFile": "Nenhum arquivo.",
+    "noRules": "Nenhuma regra.",
+    "rules": "Regras de {{layer}}",
+    "reload": "Recarregar a política"
+  },
+  "activity": {
+    "title": "Atividade dos agentes",
+    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, Threads, tarefas, skills, automações) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
+    "decisions": {
+      "auto": "executou",
+      "approved": "você aprovou",
+      "denied": "você recusou",
+      "refused": "recusado pela política",
+      "pending": "aguardando você"
+    },
+    "empty": "Nenhuma mudança dos agentes ainda.",
+    "list": "Mudanças dos agentes",
+    "failed": "falhou",
+    "failedWithCode": "falhou ({{code}})",
+    "savedAudit": "Auditoria salva em {{path}}",
+    "refresh": "Atualizar a atividade",
+    "export": "Exportar a auditoria (JSONL)"
+  },
+  "automations": {
+    "title": "Automações agendadas",
+    "callout": "Roda um agente com um prompt em uma <strong>nova worktree</strong> no horário escolhido, sem abrir terminal. O app precisa estar aberto; horários perdidos são pulados, não rodam depois.",
+    "status": {
+      "pending": "na fila",
+      "running": "rodando",
+      "completed": "concluída",
+      "failed": "falhou",
+      "dispatch_failed": "não foi possível criar a worktree",
+      "skipped_precheck": "pulada (pré-verificação)",
+      "skipped_missed": "pulada (horário perdido)",
+      "skipped_busy": "pulada (a execução anterior ainda está ativa)"
+    },
+    "schedule": {
+      "interval": "a cada {{minutes}} min",
+      "daily": "todo dia às {{time}}",
+      "weekly": "{{days}} às {{time}}",
+      "cron": "cron {{expression}}"
+    },
+    "empty": "Nenhuma automação ainda.",
+    "next": "próxima: {{time}}",
+    "last": "Última: {{status}}",
+    "neverRan": "Ainda não rodou.",
+    "runNow": "Rodar agora",
+    "runNamed": "Rodar {{name}} agora",
+    "enable": "Ativar",
+    "disable": "Pausar",
+    "active": "Ativa",
+    "paused": "Pausada",
+    "delete": "Excluir",
+    "deleteNamed": "Excluir {{name}}",
+    "form": {
+      "name": "Nome",
+      "namePlaceholder": "Revisão noturna",
+      "repository": "Repositório",
+      "select": "Selecione…",
+      "agent": "Agente",
+      "prompt": "Prompt",
+      "frequency": "Frequência",
+      "interval": "A cada N minutos",
+      "daily": "Diária",
+      "weekly": "Semanal",
+      "cron": "Cron",
+      "minutes": "Minutos (mín. 5)",
+      "time": "Horário",
+      "days": "Dias da semana",
+      "expression": "Expressão (minuto hora dia mês dia-da-semana)",
+      "precheck": "Pré-verificação (opcional)",
+      "precheckHint": "Comando rodado na raiz do repositório; a execução só continua se ele sair com código 0.",
+      "extraArgs": "Argumentos extras do agente (opcional)",
+      "extraArgsHint": "Não há aprovação interativa, então o agente só usa o que esses argumentos permitem.",
+      "create": "Criar automação",
+      "cancel": "Cancelar"
+    },
+    "new": "Nova automação"
   }
 }
