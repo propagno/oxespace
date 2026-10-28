@@ -79,7 +79,8 @@ export const IPC_CHANNELS = {
     downloadUpdate: 'app:download-update',
     setUpdatePreferences: 'app:set-update-preferences',
     onUpdateState: 'app:update-state',
-    setAppearance: 'app:set-appearance'
+    setAppearance: 'app:set-appearance',
+    setUiScale: 'app:set-ui-scale'
   },
   rtk: {
     getStatus: 'rtk:get-status',
@@ -738,6 +739,8 @@ export interface AppUpdateApi {
   onUpdateState(listener: (state: import('./updater').AppUpdateState) => void): () => void
   /** Mirrors the person's light/dark choice into the native window; resolves to the mode in effect. */
   setAppearance?(mode: 'system' | 'light' | 'dark'): Promise<'light' | 'dark'>
+  /** Zooms the whole window (0.9–1.25) and saves it for the next start; resolves to the factor in effect. */
+  setUiScale?(factor: number): Promise<number>
 }
 
 export interface RtkApi {

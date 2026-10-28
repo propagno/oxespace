@@ -5,7 +5,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../el
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 80
+const EXPECTED_SCHEMA_VERSION = 81
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -185,6 +185,20 @@ describe('migrations', () => {
       expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'nord' })
       runMigrations(db)
       expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'nord' })
+    } finally { db.close() }
+  })
+
+  test('migration 081 lets workspaces on the old compact default follow the app density', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.prepare("INSERT INTO workspaces (id, name, root_path, layout, ui_density, default_shell_profile_id) VALUES ('plain', 'Plain', '/tmp/plain', '1x1', 'compact', 'builtin-claude')").run()
+      db.prepare("INSERT INTO workspaces (id, name, root_path, layout, ui_density, default_shell_profile_id) VALUES ('roomy', 'Roomy', '/tmp/roomy', '1x1', 'comfortable', 'builtin-claude')").run()
+      db.pragma('user_version = 80')
+      runMigrations(db)
+      expect(db.prepare('SELECT id, ui_density FROM workspaces ORDER BY id').all()).toEqual([
+        { id: 'plain', ui_density: 'default' }, { id: 'roomy', ui_density: 'comfortable' }
+      ])
+      expect(db.pragma('user_version', { simple: true })).toBe(EXPECTED_SCHEMA_VERSION)
     } finally { db.close() }
   })
 

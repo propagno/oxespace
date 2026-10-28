@@ -4,7 +4,11 @@ export type WorkspaceLayoutPreset = 1 | 2 | 4 | 6 | 8 | 10 | 12 | 14 | 16
 
 export type WorkspaceThemeId = 'midnight' | 'nord' | 'dracula' | 'ocean' | 'monokai' | 'amber' | 'rose-pine' | 'gruvbox' | 'one-dark' | 'synthwave84' | 'github-dark'
 
-export type WorkspaceDensity = 'compact' | 'comfortable'
+/** How tight controls and text sit: the app-wide choice in Settings › Appearance. */
+export type UiDensity = 'compact' | 'comfortable'
+
+/** A workspace's density: 'default' follows the app; the others override it. */
+export type WorkspaceDensity = 'default' | UiDensity
 
 export type PaneType = 'terminal' | 'tasks' | 'editor' | 'review'
 
