@@ -79,4 +79,34 @@ describe('design lint', () => {
       expect(report).toEqual([])
     })
   })
+
+  /**
+   * Empty, loading and failed states come from src/ui (EmptyState, Skeleton, LoadingState, Spinner, ErrorState), so
+   * every screen shows them the same way. These count what is still hand-made: lower each number as a screen moves
+   * to the primitives; never raise it.
+   */
+  describe('states use the shared primitives (ratchet)', () => {
+    const tsx = files(join(ROOT, 'src'), path => path.endsWith('.tsx') && !path.includes(`${join('src', 'ui')}`))
+    const css = files(join(ROOT, 'src'), path => path.endsWith('.css') && !/tokens\.generated/.test(path))
+    const count = (paths: string[], pattern: RegExp): number => paths.reduce((sum, path) => sum + (readFileSync(path, 'utf8').match(pattern)?.length ?? 0), 0)
+
+    it('hand-made spinners (lucide Loader2) do not grow; use <Spinner>', () => {
+      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(19)
+    })
+    it('spin keyframes do not grow; the Spinner primitive has the one animation', () => {
+      expect(count(css, /@keyframes [\w-]*spin/g)).toBeLessThanOrEqual(9)
+    })
+    it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
+      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(46)
+    })
+    it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
+      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(104)
+    })
+    it('CSS modules time motion with the --duration tokens; fixed timings do not grow', () => {
+      const modules = files(join(ROOT, 'src'), path => path.endsWith('.module.css'))
+      const fixed = modules.reduce((sum, path) => sum + readFileSync(path, 'utf8').split(/\r?\n/)
+        .filter(text => /(transition|animation)[^;]*\d+m?s\b/.test(text) && !text.includes('var(--duration')).length, 0)
+      expect(fixed).toBeLessThanOrEqual(9)
+    })
+  })
 })
