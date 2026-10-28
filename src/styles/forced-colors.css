@@ -27,14 +27,17 @@
   :is([role='dialog'], [role='alertdialog'], [role='menu'], [role='listbox'], [role='tooltip'], [cmdk-root]) { border-color: CanvasText; }
   :where(button, [role='button'], input, select, textarea) { border-color: ButtonText; }
 
-  /* Selection: the highlighted menu item, the selected option, row or tree item, and selected text. */
+  /* Selection: the highlighted menu item, the selected option, row or tree item, and selected text.
+     forced-color-adjust: none stops the browser drawing its Canvas backplate behind the text, which would
+     leave HighlightText on Canvas; inside, everything takes the item's colors. */
   :is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'])[data-highlighted],
   [cmdk-item][data-selected='true'],
   :is([role='option'], [role='treeitem'], [role='row'], [role='gridcell'])[aria-selected='true'] {
+    forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
   }
-  :is(:is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'])[data-highlighted], [cmdk-item][data-selected='true'], :is([role='option'], [role='treeitem'], [role='row'], [role='gridcell'])[aria-selected='true']) * { color: inherit; }
+  :is(:is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'])[data-highlighted], [cmdk-item][data-selected='true'], :is([role='option'], [role='treeitem'], [role='row'], [role='gridcell'])[aria-selected='true']) * { color: inherit; background-color: transparent; border-color: currentColor; }
   ::selection { background: Highlight; color: HighlightText; }
   /* The active tab is marked by a colored bar; an underline survives the palette. */
   [role='tab'][aria-selected='true'] { text-decoration: underline 2px; text-underline-offset: 4px; }
