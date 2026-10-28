@@ -370,6 +370,8 @@ export const IPC_CHANNELS = {
   semantic: {
     getStatus: 'semantic:get-status',
     setEnabled: 'semantic:set-enabled',
+    projectStatus: 'semantic:project-status',
+    setProjectEnabled: 'semantic:set-project-enabled',
     setMode: 'semantic:set-mode',
     reindex: 'semantic:reindex',
     getLogs: 'semantic:get-logs',
@@ -879,6 +881,9 @@ export interface SemanticQueryHit {
 export interface SemanticApi {
   getStatus(workspaceId: string): Promise<SemanticStatus>
   setEnabled(input: { workspaceId: string; enabled: boolean }): Promise<SemanticStatus>
+  /** Semantic search for a Thread project's directory: whether it is on, and its index. */
+  projectStatus(rootPath: string): Promise<{ on: boolean; status: SemanticStatus }>
+  setProjectEnabled(input: { rootPath: string; enabled: boolean }): Promise<{ on: boolean; status: SemanticStatus }>
   setMode(input: { workspaceId: string; mode: SemanticSearchMode }): Promise<SemanticStatus>
   reindex(workspaceId: string): Promise<SemanticStatus>
   getLogs(): Promise<SemanticLogEntry[]>

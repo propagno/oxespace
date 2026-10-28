@@ -67,6 +67,8 @@ test('Thread projects and conversations survive restart without creating Code wo
     await page.getByRole('menuitem', { name: 'Project settings' }).click()
     const settings = page.getByRole('dialog', { name: 'Thread project · second-project' })
     await expect(settings.locator('.thread-project-current-path')).toContainText(/second-project$/)
+    // A missing directory cannot be indexed.
+    await expect(settings.getByRole('checkbox', { name: /Index this project/ })).toBeDisabled()
     const checkboxLayout = await settings.locator('.thread-project-check').first().evaluate(label => {
       const box = label.querySelector('input')!.getBoundingClientRect()
       const text = label.getBoundingClientRect()
@@ -81,7 +83,15 @@ test('Thread projects and conversations survive restart without creating Code wo
     await expect(settings.getByText(/ENOENT/)).toHaveCount(0)
     await settings.getByRole('textbox', { name: 'New project directory' }).fill(relocated)
     await settings.getByRole('button', { name: 'Relink directory' }).click()
-    await expect(page.getByRole('dialog', { name: 'Thread project · second-relocated' })).toBeVisible()
+    const relinked = page.getByRole('dialog', { name: 'Thread project · second-relocated' })
+    await expect(relinked).toBeVisible()
+    // Semantic search stays off until the person turns it on for this project.
+    const semantic = relinked.getByRole('checkbox', { name: /Index this project/ })
+    await expect(semantic).toBeEnabled()
+    await expect(semantic).not.toBeChecked()
+    await semantic.click()
+    await expect(semantic).toBeChecked()
+    await expect(relinked.getByRole('status')).toHaveText(/files (indexed|so far)/)
     await page.getByRole('dialog', { name: 'Thread project · second-relocated' }).getByRole('button', { name: 'Close', exact: true }).click()
     await expect(page.getByRole('button', { name: 'New thread in second-relocated' })).toBeVisible()
     await page.getByRole('button', { name: 'Code', exact: true }).click()

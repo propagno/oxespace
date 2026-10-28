@@ -1,6 +1,8 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { SemanticService } from '../services/semantic.service'
+import { projectDirectory, semanticProjects, setSemanticProjectsFile } from '../services/semantic-projects'
 import { requireAppFrame } from './ipc-guards'
 
 /**
@@ -10,6 +12,22 @@ import { requireAppFrame } from './ipc-guards'
  * a real status for the integration chip (instead of a hardcoded "always on").
  */
 export function registerSemanticIpc(semantic: SemanticService): void {
+  setSemanticProjectsFile(join(app.getPath('userData'), 'semantic-projects.json'))
+  // Thread projects: semantic search stays opt-in, one switch per project in its settings.
+  ipcMain.handle(IPC_CHANNELS.semantic.projectStatus, (event, rootPath: unknown) => {
+    requireAppFrame(event, 'Semantic search')
+    const root = projectDirectory(rootPath)
+    const projects = semanticProjects(semantic)!
+    return { on: projects.isOn(root), status: projects.status(root) }
+  })
+  ipcMain.handle(IPC_CHANNELS.semantic.setProjectEnabled, (event, input: unknown) => {
+    requireAppFrame(event, 'Semantic search')
+    const { rootPath, enabled } = (input ?? {}) as { rootPath?: unknown; enabled?: unknown }
+    if (typeof enabled !== 'boolean') throw new Error('semantic:set-project-enabled requires an enabled boolean')
+    const root = projectDirectory(rootPath)
+    return { on: enabled, status: semanticProjects(semantic)!.set(root, enabled) }
+  })
+
   ipcMain.handle(IPC_CHANNELS.semantic.getStatus, (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string' || !workspaceId.trim()) {
       throw new Error('semantic:get-status requires a workspaceId string')

@@ -132,7 +132,7 @@ describe('Internal MCP local RPC server', () => {
     }
     const semantic = await call('oxespace_semantic_search')
     expect(semantic.isError).toBeUndefined()
-    expect(semantic.content[0].text).toMatch(/not available for this project/)
+    expect(semantic.content[0].text).toMatch(/off for this project.*Project settings › Semantic search/)
     const hybrid = await call('oxespace_hybrid_explore')
     expect(hybrid.content[0].text).not.toMatch(/requires a Code workspace/)
     expect(hybrid.content[0].text).toMatch(/Hybrid RAG: Structural AST/)
