@@ -1,8 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { scanSurface, writeReport, type Violation } from '../helpers/a11y'
 import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
@@ -25,7 +25,23 @@ const blocking = (found: Violation[]): string[] => found.filter(v => v.impact ==
 const THEMES: Appearance[] = ['light', 'dark']
 const THREAD_SURFACES: ThreadStateName[] = ['empty', 'conversation', 'approval', 'question', 'usage-failure', 'workbench']
 
-test.beforeAll(() => { rmSync(REPORT, { force: true }) })
+// The report covers the whole run. Playwright restarts the worker after a failed test, and beforeAll runs
+// again in the new one; the runner's pid (the workers' parent) tells a restart from a new run.
+test.beforeAll(() => {
+  const marker = `${REPORT}.run`
+  const run = String(process.ppid)
+  if (existsSync(marker) && readFileSync(marker, 'utf8') === run) return
+  rmSync(REPORT, { force: true })
+  mkdirSync(dirname(REPORT), { recursive: true })
+  writeFileSync(marker, run)
+})
+
+// The gate is checked once, over the whole report, so one theme's findings are not lost to the other's run.
+test.afterAll(() => {
+  if (!STRICT) return
+  const found = existsSync(REPORT) ? readFileSync(REPORT, 'utf8').split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line) as Violation) : []
+  expect(blocking(found), 'critical or serious accessibility findings').toEqual([])
+})
 
 async function record(violations: Violation[], found: Violation[]): Promise<void> {
   found.push(...violations)
@@ -97,7 +113,8 @@ for (const theme of THEMES) {
       // stack, and its "Classic" switch is then hidden, so this is scanned here.
       await reach(`${theme}/review-classic`, found, page, async () => {
         await page.getByText('Classic', { exact: true }).first().click()
-        await expect(page.getByText('Changes', { exact: true }).first()).toBeVisible()
+        // The classic toolbar's base picker; a bare "Changes" text also matches hidden menu entries.
+        await expect(page.getByRole('button', { name: /^Diff base branch/ })).toBeVisible()
       })
 
       await reach(`${theme}/github`, found, page, async () => {
@@ -208,7 +225,6 @@ for (const theme of THEMES) {
     } finally {
       await app.close()
     }
-    if (STRICT) expect(blocking(found)).toEqual([])
   })
 
   test(`a11y: Thread states — ${theme}`, async () => {
@@ -276,6 +292,5 @@ for (const theme of THEMES) {
     } finally {
       await app.close()
     }
-    if (STRICT) expect(blocking(found)).toEqual([])
   })
 }

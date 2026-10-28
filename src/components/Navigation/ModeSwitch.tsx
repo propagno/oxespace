@@ -15,18 +15,22 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
   return <nav className={styles.switch} aria-label="Application view">
     {MODES.map(item => {
       const counts = item.mode === 'code' ? attention.code : item.mode === 'thread' ? attention.thread : null
-      // An explicit name, so a badge inside does not change what the button is called.
-      return <button key={item.mode} type="button" className={styles.option} aria-label={item.label} aria-pressed={mode === item.mode} title={item.title}
-        onClick={() => { if (item.mode !== mode) onSelect(item.mode) }}>
-        {item.label}
-        {counts && counts.needsYou + counts.failed + counts.working > 0 && <Attention counts={counts} />}
-      </button>
+      const attentionId = counts && counts.needsYou + counts.failed + counts.working > 0 ? `mode-attention-${item.mode}` : undefined
+      // The badge sits beside the button, not inside it: its count would otherwise be visible text missing from
+      // the button's name (WCAG 2.5.3). It describes the button instead, so focus reads "Thread … 1 needs you".
+      return <span key={item.mode} className={styles.item}>
+        <button type="button" className={styles.option} aria-pressed={mode === item.mode} title={item.title} aria-describedby={attentionId}
+          onClick={() => { if (item.mode !== mode) onSelect(item.mode) }}>
+          {item.label}
+        </button>
+        {counts && attentionId && <Attention id={attentionId} counts={counts} />}
+      </span>
     })}
   </nav>
 }
 
-function Attention({ counts }: { counts: AttentionCounts }) {
+function Attention({ id, counts }: { id: string; counts: AttentionCounts }) {
   const total = counts.needsYou + counts.failed
-  if (total === 0) return <span className={styles.working} role="status" aria-label={describeAttention(counts)} data-testid="working-indicator" />
-  return <span className={cx(styles.badge, counts.needsYou === 0 && styles.badgeFailed)} role="status" aria-label={describeAttention(counts)} data-testid="attention-badge">{total > 9 ? '9+' : total}</span>
+  if (total === 0) return <span id={id} className={styles.working} role="status" aria-label={describeAttention(counts)} data-testid="working-indicator" />
+  return <span id={id} className={cx(styles.badge, counts.needsYou === 0 && styles.badgeFailed)} role="status" aria-label={describeAttention(counts)} data-testid="attention-badge">{total > 9 ? '9+' : total}</span>
 }

@@ -267,7 +267,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
 
   return <section className="changes-panel" aria-label="Changes" data-testid="changes-panel">
     <header className="changes-toolbar">
-      <Menu label="Change scope" trigger={<button type="button" className="changes-pill" aria-label="Change scope">{SCOPE_LABEL[scope]}{effectiveMode === 'direct' ? ' · direct' : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
+      <Menu label="Change scope" trigger={<button type="button" className="changes-pill" aria-label={`Change scope: ${SCOPE_LABEL[scope]}${effectiveMode === 'direct' ? ' · direct' : ''}`}>{SCOPE_LABEL[scope]}{effectiveMode === 'direct' ? ' · direct' : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
         { type: 'check', label: 'Compare branches', checked: scope === 'branch', onSelect: () => { setScope('branch'); setSelectedPath(null) } },
         { type: 'check', label: 'Uncommitted changes', checked: scope === 'uncommitted', onSelect: () => { setScope('uncommitted'); setSelectedPath(null) } },
         { type: 'separator' },
