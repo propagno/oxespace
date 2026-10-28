@@ -44,15 +44,6 @@
   border-color: var(--accent);
 }
 
-.search-panel-spinner {
-  color: var(--accent);
-  animation: search-spin 0.8s linear infinite;
-}
-
-@keyframes search-spin {
-  to { transform: rotate(360deg); }
-}
-
 .search-panel-toggles {
   display: flex;
   align-items: center;

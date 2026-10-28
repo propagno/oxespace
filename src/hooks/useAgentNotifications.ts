@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useTerminalStore } from '../store/terminal.store'
 import { useWorkspaceStore } from '../store/workspace.store'
 import { useSettingsStore } from '../store/settings.store'
+import { useActivityStore } from '../store/activity.store'
 import { deriveStatusTone, type PaneDisplayTone } from '../utils/paneDisplay'
 
 /**
@@ -34,6 +35,7 @@ interface PaneTrack {
   tone: PaneDisplayTone
   awaitingSince: number | null
   notifiedAwaiting: boolean
+  recordedAwaiting: boolean
   lastNotifiedAt: number | null
 }
 
@@ -45,8 +47,10 @@ export function useAgentNotifications(): void {
       void window.oxe?.notifications?.notify({ title, body, paneId, workspaceId }).catch(() => undefined)
     }
 
+    // The activity center records every transition; the OS ping keeps its own gates.
     const tick = (): void => {
-      if (!useSettingsStore.getState().notificationsEnabled) return
+      const notificationsEnabled = useSettingsStore.getState().notificationsEnabled
+      const activity = useActivityStore.getState()
       const { panes: termPanes, activePaneId } = useTerminalStore.getState()
       const workspaces = useWorkspaceStore.getState().workspaces
       const windowFocused = typeof document !== 'undefined' ? document.hasFocus() : true
@@ -62,7 +66,7 @@ export function useAgentNotifications(): void {
           const existing = tracks.get(pane.id)
           // First sighting — record state, never notify (avoids a burst on load).
           if (!existing) {
-            tracks.set(pane.id, { tone, awaitingSince: tone === 'awaiting' ? now : null, notifiedAwaiting: false, lastNotifiedAt: null })
+            tracks.set(pane.id, { tone, awaitingSince: tone === 'awaiting' ? now : null, notifiedAwaiting: false, recordedAwaiting: false, lastNotifiedAt: null })
             continue
           }
 
@@ -72,8 +76,9 @@ export function useAgentNotifications(): void {
           // Global per-pane rate limit: at most one ping per cooldown window,
           // whatever the tone does in between.
           const onCooldown = existing.lastNotifiedAt !== null && now - existing.lastNotifiedAt < COOLDOWN_MS
+          const target = { type: 'pane' as const, workspaceId: ws.id, paneId: pane.id }
           const notify = (title: string, body: string): void => {
-            if (onCooldown) return
+            if (onCooldown || !notificationsEnabled) return
             existing.lastNotifiedAt = now
             fire(title, body, pane.id, ws.id)
           }
@@ -82,6 +87,11 @@ export function useAgentNotifications(): void {
             if (existing.tone !== 'awaiting') {
               existing.awaitingSince = now
               existing.notifiedAwaiting = false
+            }
+            // Same stability gate as the ping, so token gaps do not fill the list.
+            if (!existing.recordedAwaiting && existing.awaitingSince !== null && now - existing.awaitingSince >= AWAITING_STABLE_MS) {
+              existing.recordedAwaiting = true
+              activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: `${ws.name}: the agent finished and is waiting for your reply.`, read: isViewing })
             }
             if (
               !existing.notifiedAwaiting &&
@@ -96,9 +106,16 @@ export function useAgentNotifications(): void {
           } else {
             existing.awaitingSince = null
             existing.notifiedAwaiting = false
+            if (existing.recordedAwaiting) activity.resolve('code', pane.id)
+            existing.recordedAwaiting = false
           }
 
           // exited / error fire once on the transition into that tone.
+          if (tone !== existing.tone && (tone === 'exited' || tone === 'error')) {
+            activity.record(tone === 'exited'
+              ? { source: 'code', id: pane.id, kind: 'finished', target, title: label, detail: `${ws.name}: the agent terminal was closed.`, read: isViewing }
+              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: `${ws.name}: ${entry.error ?? 'the agent hit an error.'}`, read: isViewing })
+          }
           if (tone !== existing.tone && !isViewing) {
             if (tone === 'exited') {
               notify(`${label} — session ended`, `${ws.name}: the agent terminal was closed.`)

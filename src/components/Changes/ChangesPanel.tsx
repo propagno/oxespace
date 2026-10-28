@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { ArrowLeftRight, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, FolderGit2, Info, Loader2, RefreshCw, Search, X } from 'lucide-react'
+import { ArrowLeftRight, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, FolderGit2, Info, RefreshCw, Search, X } from 'lucide-react'
 import type { GitDiffSummary, GitDiffSummaryFile, GitFileOriginal } from '../../../shared/types/git'
 import type { GitHubWorktree } from '../../../shared/types/github'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
@@ -9,7 +9,7 @@ import { buildChangeTree, chooseBase, comparisonKey, filterChangedFiles, formatC
 import { RefPicker, type RefPickerBranch } from './RefPicker'
 import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes-request.store'
 import './ChangesPanel.css'
-import { TextField, EmptyState, Menu } from '../../ui'
+import { TextField, EmptyState, LoadingState, Menu, Spinner } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
@@ -289,7 +289,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
         {onSendComments && <button type="button" className="is-primary" aria-label="Send comments to agent" title="Send the review comments to the agent" onClick={() => void sendComments()}>Send</button>}
         <button type="button" aria-label="Discard review comments" title="Discard all review comments" onClick={() => clearComments(workspaceId)}><X size={14} /></button>
       </span>}
-      <button type="button" className="changes-icon" aria-label="Refresh changes" title="Refresh" onClick={() => void load()} disabled={loading}>{loading ? <Loader2 size={14} className="changes-spin" aria-hidden="true" /> : <RefreshCw size={14} />}</button>
+      <button type="button" className="changes-icon" aria-label="Refresh changes" title="Refresh" onClick={() => void load()} disabled={loading}>{loading ? <Spinner size="sm" decorative /> : <RefreshCw size={14} />}</button>
       {onClose && <button type="button" className="changes-icon" aria-label="Close changes" title="Close" onClick={onClose}><X size={14} /></button>}
     </header>
     {large && <div className="changes-banner" role="note"><Info size={14} aria-hidden="true" /><span>This diff is large; showing one file at a time.</span>
@@ -298,8 +298,8 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     {sendNotice && <p role="status" className="changes-note">{sendNotice}</p>}
     <div className="changes-body">
       <div className="changes-diff">
-        {!summary && loading ? <p className="changes-empty" role="status">Loading changes…</p>
-          : !selected ? <div className="changes-empty"><FileDiff size={26} aria-hidden="true" /><strong>{summary?.files.length ? 'No file matches the filter' : 'No changes'}</strong><span>{summary?.files.length ? 'Clear the filter to see every changed file.' : `Nothing differs from ${effectiveBase ?? 'the base'}.`}</span></div>
+        {!summary && loading ? <div className="changes-state"><LoadingState label="Loading changes…" /></div>
+          : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? 'No file matches the filter' : 'No changes'}>{summary?.files.length ? 'Clear the filter to see every changed file.' : `Nothing differs from ${effectiveBase ?? 'the base'}.`}</EmptyState></div>
           : <>
             <div className="changes-file-header">
               <StatusIcon file={selected} /><span className="changes-file-path" title={selected.path}><span>{name!.directory}</span><strong>{name!.name}</strong></span>
@@ -312,10 +312,10 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
             <div className="changes-editor">
               {selected.binary ? <EmptyState compact title="Binary file; no text diff available." />
                 : contentError ? <p role="alert" className="changes-error">{contentError}</p>
-                : content?.path !== selected.path ? <p className="changes-empty" role="status">Loading diff…</p>
+                : content?.path !== selected.path ? <div className="changes-state"><LoadingState label="Loading diff…" /></div>
                 : <>
                   {content.original.truncated && <p className="changes-note">The base version is larger than 2 MB and was truncated.</p>}
-                  <Suspense fallback={<p className="changes-empty" role="status">Loading editor…</p>}><MonacoDiff path={selected.path} original={content.original.content} modified={content.modified} language={languageFor(selected.path)} review={fileReview} /></Suspense>
+                  <Suspense fallback={<div className="changes-state"><LoadingState label="Loading editor…" /></div>}><MonacoDiff path={selected.path} original={content.original.content} modified={content.modified} language={languageFor(selected.path)} review={fileReview} /></Suspense>
                 </>}
             </div>
           </>}

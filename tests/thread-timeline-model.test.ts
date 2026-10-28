@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ThreadEvent } from '../shared/types/thread'
-import { buildThreadTimeline, flattenThreadTimeline, foldFinishedTurns } from '../src/components/Threads/threadTimelineModel'
+import { buildThreadTimeline, createThreadTimelineBuilder, flattenThreadTimeline, foldFinishedTurns, summarizeThreadEvents } from '../src/components/Threads/threadTimelineModel'
 import { turnFoldLabel, turnTimes } from '../src/components/Threads/ThreadTurnFold'
 import { computeThreadVirtualRange } from '../src/components/Threads/useThreadVirtualizer'
 
@@ -129,5 +129,74 @@ describe('folding finished turns', () => {
     // A request never answered is a wait until the turn ended.
     expect(turnTimes(turn, [request('d', 90_000)])?.waitedMs).toBe(10_000)
     expect(turnTimes({ ...turn, completedAt: undefined })).toBeUndefined()
+  })
+})
+
+describe('Incremental Thread timeline', () => {
+  const turnOf = (n: number): ThreadEvent[] => [
+    { type: 'message', id: `u-${n}`, role: 'user', text: `Prompt ${n}` },
+    { type: 'message', id: `m-${n}`, role: 'assistant', text: 'Looking' },
+    { type: 'tool', id: `r-${n}`, name: 'Read', state: 'completed', detail: 'a.ts', turnId: `t-${n}` },
+    { type: 'tool', id: `g-${n}`, name: 'Grep', state: 'completed', detail: 'b', turnId: `t-${n}` },
+    { type: 'turn-diff', id: `d-${n}`, turnId: `t-${n}`, files: [] },
+    { type: 'message', id: `a-${n}`, role: 'assistant', text: `Answer ${n}` },
+    { type: 'completed', status: 'completed' }
+  ]
+  const history = (turns: number): ThreadEvent[] => Array.from({ length: turns }, (_, n) => turnOf(n)).flat()
+
+  it('matches the full build and reuses every turn a streamed append left alone', () => {
+    const build = createThreadTimelineBuilder()
+    const events = history(3)
+    const first = build(events, 'normal')
+    expect(first).toEqual(buildThreadTimeline(events, 'normal'))
+    // A delta keeps the earlier event objects and appends (store/threadDelta.ts).
+    const appended = [...events, { type: 'message', id: 'u-3', role: 'user', text: 'Next' } as ThreadEvent, { type: 'message', id: 'a-3', role: 'assistant', text: 'Streaming' } as ThreadEvent]
+    const second = build(appended, 'normal')
+    expect(second).toEqual(buildThreadTimeline(appended, 'normal'))
+    expect(second.slice(0, 3).every((turn, index) => turn === first[index])).toBe(true)
+    // The last turn's answer grows: only that turn is rebuilt.
+    const grown = [...appended.slice(0, -1), { type: 'message', id: 'a-3', role: 'assistant', text: 'Streaming more' } as ThreadEvent]
+    const third = build(grown, 'normal')
+    expect(third).toEqual(buildThreadTimeline(grown, 'normal'))
+    expect(third[2]).toBe(second[2])
+    expect(third[3]).not.toBe(second[3])
+  })
+
+  it('rebuilds turns whose events are new objects, and everything when the view mode changes', () => {
+    const build = createThreadTimelineBuilder()
+    const events = history(2)
+    const first = build(events, 'normal')
+    const reread = structuredClone(events)
+    const fromReread = build(reread, 'normal')
+    expect(fromReread).toEqual(first)
+    expect(fromReread[0]).not.toBe(first[0])
+    const verbose = build(reread, 'verbose')
+    expect(verbose).toEqual(buildThreadTimeline(reread, 'verbose'))
+    expect(verbose[0]).not.toBe(fromReread[0])
+  })
+
+  it('folds and flattens reused turns to the same objects, and follows a fold being opened', () => {
+    const build = createThreadTimelineBuilder()
+    const events = history(2)
+    const folded = foldFinishedTurns(build(events, 'normal'), new Set())
+    const again = foldFinishedTurns(build([...events], 'normal'), new Set())
+    expect(again[0]).toBe(folded[0])
+    expect(flattenThreadTimeline(again)[0]).toBe(flattenThreadTimeline(folded)[0])
+    const opened = foldFinishedTurns(build(events, 'normal'), new Set(['u-0']))
+    expect(opened[0]).not.toBe(folded[0])
+    expect(opened[0].rows.find(row => row.event.type === 'turn-fold')?.event).toMatchObject({ expanded: true })
+    expect(opened).toEqual(foldFinishedTurns(buildThreadTimeline(events, 'normal'), new Set(['u-0'])))
+    expect(flattenThreadTimeline(opened)).toEqual(flattenThreadTimeline(foldFinishedTurns(buildThreadTimeline(events, 'normal'), new Set(['u-0']))))
+  })
+
+  it('summarizes the last result, message and prompt and the pending requests in one pass', () => {
+    const pending = { id: 'q', nativeId: 'q', nativeMethod: 'm', kind: 'approval', title: 'Approve', generation: 1, createdAt: 1, state: 'pending' } as const
+    const events = [...history(1), { type: 'request', id: 'q', request: pending }, { type: 'request', id: 'done', request: { ...pending, id: 'done', state: 'resolved' } }] as ThreadEvent[]
+    const summary = summarizeThreadEvents(events)
+    expect(summary.lastResult).toBe(events[6])
+    expect(summary.lastMessage).toBe(events[5])
+    expect(summary.lastPrompt).toBe(events[0])
+    expect(summary.pendingRequests).toEqual([pending])
+    expect(summarizeThreadEvents([])).toEqual({ pendingRequests: [] })
   })
 })
