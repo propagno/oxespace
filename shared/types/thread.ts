@@ -542,6 +542,17 @@ export interface ThreadProjectCatalog {
   unavailable: string[]
 }
 
+/** One request still waiting for a person, without its command or arguments: enough to point at it, not to act on it. */
+export interface ThreadPendingRequestSummary {
+  threadId: string
+  workspaceId: string
+  threadTitle: string
+  requestId: string
+  kind: ThreadRequest['kind']
+  title: string
+  createdAt: number
+}
+
 export interface ThreadApi {
   artifact?(id: string, artifactId: string): Promise<ThreadArtifact>
   exportPortable?(id: string): Promise<string | null>
@@ -558,6 +569,8 @@ export interface ThreadApi {
   relinkProject(projectId: string, rootPath: string): Promise<ThreadProjectSummary>
   setProjectHidden(projectId: string, hidden: boolean): Promise<void>
   list(): Promise<ConversationThread[]>
+  /** Requests still pending in every conversation that waits for approval. Read-only. */
+  pendingRequestsAll?(): Promise<ThreadPendingRequestSummary[]>
   /**
    * With `worktree`, a new branch is created in its own worktree next to the repository and the conversation
    * starts there. Refusals carry a cause the dialog can show (branch exists, invalid base…).
