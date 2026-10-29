@@ -24,12 +24,6 @@ import { WebPreviewBus } from './web-preview-bus'
 import { WorktreeEventBus } from './worktree-event-bus'
 import { pruneToolOutputs } from './tool-result-bound'
 import { auditJsonl } from '../services/audit-export'
-// Embed the bridge script as a string at build time. Vite's `?raw` inlines
-// the file content into the main bundle — so materialization never depends
-// on a copy plugin firing first, on process.resourcesPath, or on __dirname
-// resolving to the right place in dev vs packaged. The on-disk copy under
-// <userData>/bin is what agent CLIs spawn; this string is its source of truth.
-import bridgeSource from '../../../resources/mcp-bridge/oxespace-mcp.cjs?raw'
 
 /**
  * Lifecycle for the internal "oxespace" MCP server.
@@ -135,7 +129,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     try {
       const meta = loadOrCreateMeta(deps.db)
       // 1. Materialize bridge — needs to exist before the DB row references it.
-      bridgePath = ensureBridgeScript()
+      bridgePath = await ensureBridgeScript()
 
       // 2. Ensure the global mcp_servers row exists.
       serverRowId = ensureServerRow(deps.mcpManager, bridgePath, meta.port, meta.token, meta.server_row_id)
@@ -261,7 +255,13 @@ function updateMetaServerRow(db: AppDatabase, serverRowId: string): void {
 
 /* ── bridge script materialization ────────────────────────────── */
 
-function ensureBridgeScript(): string {
+// The bridge script is embedded at build time: Vite's `?raw` inlines the file
+// into a chunk of the main bundle, loaded here once at start rather than with
+// the entry. Materialization never depends on a copy plugin, on
+// process.resourcesPath, or on __dirname in dev vs packaged. The on-disk copy
+// under <userData>/bin is what agent CLIs spawn; this string is its source of truth.
+async function ensureBridgeScript(): Promise<string> {
+  const { default: bridgeSource } = await import('../../../resources/mcp-bridge/oxespace-mcp.cjs?raw')
   const destDir = join(app.getPath('userData'), BRIDGE_DEST_DIR)
   const destPath = join(destDir, BRIDGE_DEST_FILE)
   const current = existsSync(destPath) ? readFileSync(destPath, 'utf8') : ''
