@@ -29,6 +29,7 @@ import { Select } from '../../ui/Field'
 import { EmptyState, ErrorState, LoadingState } from '../../ui/Display'
 import { copyText, formatMs, tq } from './catalog'
 import { Splitter } from '../../ui/Splitter'
+import { toast } from '../../ui/Toast'
 import { EDITOR_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 import { formatNumber } from '../../utils/formatTime'
 
@@ -269,7 +270,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   }, [connection.id, patch])
 
   const addTab = (sql = ''): void => {
-    if (tabs.length >= MAX_TABS) return
+    // The tree and the definition panel open tabs too; at the limit they say so instead of doing nothing.
+    if (tabs.length >= MAX_TABS) { toast({ title: t('workbench.tabLimit', { count: MAX_TABS }), intent: 'info' }); return }
     const tab = newTab(sql)
     setTabs(current => [...current, tab]); setActiveId(tab.id); setSelectedRow(null); setCell(null)
   }

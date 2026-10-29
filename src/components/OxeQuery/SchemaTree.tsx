@@ -153,8 +153,8 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   const openDefinition = useCallback(async (item: TreeItem): Promise<void> => {
     const target = definitionTarget(item)
     if (!target) return
-    try { onInsert((await oq('sql.definition', { connectionId: connection.id, ...target })).text) } catch (cause) { setError(errorMessage(cause)) }
-  }, [connection.id, onInsert])
+    try { onInsert((await oq('sql.definition', { connectionId: connection.id, ...target })).text) } catch (cause) { toast({ title: t('definition.failed'), description: errorMessage(cause), intent: 'danger' }) }
+  }, [connection.id, onInsert, t])
 
   const activate = useCallback((row: TreeRow): void => {
     if (row.type === 'schema' || row.type === 'category' || row.type === 'extensions' || row.type === 'pinned') { toggle(row.id, row.schema); return }
@@ -173,7 +173,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     try {
       await oq('sql.run', { connectionId: connection.id, sql: `REFRESH MATERIALIZED VIEW ${quote(table.schema)}.${quote(table.name)}` })
       toast({ title: t('tree.refreshed', { name: `${table.schema}.${table.name}` }), intent: 'success', duration: 2000 })
-    } catch (cause) { setError(errorMessage(cause)) }
+    } catch (cause) { toast({ title: t('tree.refreshFailed', { name: `${table.schema}.${table.name}` }), description: errorMessage(cause), intent: 'danger' }) }
   }
 
   const focusRow = (index: number): void => {

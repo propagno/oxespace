@@ -40,8 +40,13 @@ async function viaStore(action: Exclude<OxeQueryAction, ControlAction | 'open'>)
   if (action === 'settings') { store.setPreferencesOpen(true); return }
   // Compose projects are chosen on the Containers tab (moving to OxePod as it is).
   if (action === 'compose') { store.setActiveTab('containers'); return }
-  const [{ importConnections, exportConnections }, { tq }, { toast }, { errorMessage }] = await Promise.all([import('./connection-transfer'), import('./catalog'), import('../../ui/Toast'), import('./client')])
-  try { await (action === 'importConnections' ? importConnections() : exportConnections()) }
+  const [{ importConnections, exportConnections }, { loadOxeQueryCatalog, tq }, { toast }, { errorMessage }] = await Promise.all([import('./connection-transfer'), import('./catalog'), import('../../ui/Toast'), import('./client')])
+  // The palette can run before the view has listed the connections (or loaded its catalog): export counts them first.
+  await loadOxeQueryCatalog()
+  try {
+    if (action === 'exportConnections') await store.refreshConnections()
+    await (action === 'importConnections' ? importConnections() : exportConnections())
+  }
   catch (cause) { toast({ title: tq(action === 'importConnections' ? 'palette.importFailed' : 'palette.exportFailed'), description: errorMessage(cause), intent: 'danger' }) }
 }
 

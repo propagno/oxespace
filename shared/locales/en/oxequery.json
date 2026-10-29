@@ -734,7 +734,9 @@
     "cutBytes": "(cut: the result is too large to show — narrow the query or export it)",
     "moreAvailable": "more available",
     "gridFull": "(the grid holds {{max}} rows — export the query for the rest)",
-    "limited": "(limited — more exist)"
+    "limited": "(limited — more exist)",
+    "tabLimit_one": "Close a query tab first: {{count}} is the most that can be open.",
+    "tabLimit_other": "Close a query tab first: {{count}} is the most that can be open."
   },
   "preferences": {
     "title": "OxeQuery settings",
@@ -1260,7 +1262,8 @@
     "nothingLoaded": "Nothing loaded.",
     "partial_one": "Showing {{shown}} of {{count}} relation. Search to reach the rest.",
     "partial_other": "Showing {{shown}} of {{count}} relations. Search to reach the rest.",
-    "extensions": "Extensions"
+    "extensions": "Extensions",
+    "refreshFailed": "Could not refresh {{name}}"
   },
   "view": {
     "tab": {

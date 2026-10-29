@@ -764,7 +764,10 @@
     "gridFull": "(a grade comporta {{max}} linhas — exporte a consulta para obter o resto)",
     "limited": "(limitado — existem mais)",
     "loadMore_many": "Carregar mais {{formatted}}",
-    "affected_many": "{{formatted}} linhas afetadas"
+    "affected_many": "{{formatted}} linhas afetadas",
+    "tabLimit_one": "Feche uma aba de consulta antes: no máximo {{count}} podem ficar abertas.",
+    "tabLimit_other": "Feche uma aba de consulta antes: no máximo {{count}} podem ficar abertas.",
+    "tabLimit_many": "Feche uma aba de consulta antes: no máximo {{count}} podem ficar abertas."
   },
   "preferences": {
     "title": "Configurações do OxeQuery",
@@ -1308,7 +1311,8 @@
     "partial_other": "Mostrando {{shown}} de {{count}} relações. Busque para chegar ao resto.",
     "extensions": "Extensões",
     "truncated_many": "Mostrando os primeiros {{count}}. Digite mais para restringir.",
-    "partial_many": "Mostrando {{shown}} de {{count}} relações. Busque para chegar ao resto."
+    "partial_many": "Mostrando {{shown}} de {{count}} relações. Busque para chegar ao resto.",
+    "refreshFailed": "Não foi possível atualizar {{name}}"
   },
   "view": {
     "tab": {
