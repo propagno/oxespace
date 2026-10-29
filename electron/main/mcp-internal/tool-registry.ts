@@ -37,6 +37,8 @@ import { GIT_TOOLS } from './git-tools'
 import { APP_READ_TOOLS } from './app-read-tools'
 import { APP_WRITE_TOOLS } from './app-write-tools'
 import { APP_MANAGE_TOOLS } from './app-manage-tools'
+import { APP_SETTINGS_TOOLS } from './app-settings-tools'
+import { gated } from './domain-tool'
 import { AGENT_CHANGE_TOOLS, AGENT_READ_TOOLS } from './agent-tools'
 
 export interface ToolContext {
@@ -94,6 +96,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...APP_READ_TOOLS,
   ...APP_WRITE_TOOLS,
   ...APP_MANAGE_TOOLS,
+  ...APP_SETTINGS_TOOLS,
   ...AGENT_READ_TOOLS,
   ...AGENT_CHANGE_TOOLS,
   {
@@ -141,12 +144,12 @@ export const TOOL_REGISTRY: ToolEntry[] = [
       }
     },
     requiresWorkspace: true,
-    handler: handlers.createWorktree
+    handler: gated('oxespace_create_worktree', 'write', handlers.createWorktree)
   },
   {
     descriptor: {
       name: 'oxespace_remove_worktree',
-      description: 'Remove the git worktree at the given path. Use `force` to override uncommitted changes.',
+      description: 'Remove the git worktree at the given path. Use `force` to override uncommitted changes. A person approves each call.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -158,7 +161,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
       }
     },
     requiresWorkspace: true,
-    handler: handlers.removeWorktree
+    handler: gated('oxespace_remove_worktree', 'confirm', handlers.removeWorktree, async (args, scope) => (await import('./app-settings-actions')).removeWorktreeApproval(args, scope))
   },
   {
     descriptor: {
@@ -184,7 +187,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
       }
     },
     requiresWorkspace: true,
-    handler: handlers.runScript
+    handler: gated('oxespace_run_script', 'write', handlers.runScript)
   },
   {
     descriptor: {
@@ -213,7 +216,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
       }
     },
     requiresWorkspace: true,
-    handler: handlers.stopBackgroundJob
+    handler: gated('oxespace_stop_background_job', 'write', handlers.stopBackgroundJob)
   },
   {
     descriptor: {

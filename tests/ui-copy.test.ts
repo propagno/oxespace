@@ -24,12 +24,14 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
  * only grows: each migration PR adds its area.
  */
 const MIGRATED = [
+  'src/components/Keyboard',
   'src/components/Navigation',
+  'src/components/Onboarding/AgentCliOnboarding.tsx',
   'src/components/OxeQuery',
-  'src/components/Settings/AppearanceSettings.tsx'
+  'src/components/Settings'
 ]
-/** Text that stays the same in every language: product names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace'])
+/** Text that stays the same in every language: product and tool names. */
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph'])
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/
@@ -81,7 +83,8 @@ describe('interface copy', () => {
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {
           const text = (match[1] ?? match[2] ?? '').trim()
-          if (text && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
+          // A template made only of ${…} values holds no words of its own.
+          if (/[A-Za-z]/.test(text.replace(/\$\{[^}]*\}/g, '')) && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
         }
       }
     }

@@ -11,9 +11,17 @@ test('opens in Brazilian Portuguese on a Portuguese system and switches to Engli
     await expect(views.getByRole('button', { name: 'Thread', exact: true })).toHaveAttribute('title', 'Thread: conversas com um agente')
 
     await page.getByRole('button', { name: 'Abrir configurações', exact: true }).click()
-    const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
-    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
+    await expect(page.getByRole('dialog', { name: 'Configurações', exact: true })).toBeVisible()
+    // The dialog is renamed when the language changes, so it is found by role alone.
+    const settings = page.getByRole('dialog')
+    await settings.getByRole('group', { name: 'Escopo das configurações' }).getByRole('button', { name: 'Aplicativo', exact: true }).click()
+    const categories = settings.getByRole('navigation', { name: 'Categorias das configurações' })
+    await categories.getByRole('button', { name: /^Agentes/ }).click()
+    await expect(settings.getByRole('heading', { name: 'Agentes', exact: true })).toBeVisible()
+    await expect(settings.getByTestId('btn-discover-agents')).toHaveAccessibleName('Verificar agentes')
+    await categories.getByRole('button', { name: /^Atualizações/ }).click()
+    await expect(settings.getByRole('button', { name: 'Procurar atualizações', exact: true })).toBeVisible()
+    await categories.getByRole('button', { name: /^Aparência/ }).click()
     await expect(settings.getByRole('heading', { name: 'Aparência', exact: true })).toBeVisible()
     await expect(settings.getByRole('radiogroup', { name: 'Modo' }).getByRole('radio', { name: /^Escuro/ })).toBeVisible()
 
@@ -25,6 +33,7 @@ test('opens in Brazilian Portuguese on a Portuguese system and switches to Engli
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await expect(settings.getByRole('heading', { name: 'Appearance', exact: true })).toBeVisible()
     await expect(settings.getByLabel('Language', { exact: true })).toHaveValue('en')
+    await expect(settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Updates/ })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(settings).toBeHidden()
     await expect(page.getByRole('navigation', { name: 'Application view' })).toBeVisible()

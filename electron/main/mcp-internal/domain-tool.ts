@@ -106,6 +106,11 @@ export function domainTool(name: string, summary: string, actions: Record<string
   }
 }
 
+/** The policy door for a tool older than domainTool; a `confirm` shows the person `confirm`'s text. */
+export const gated = (tool: string, level: Exclude<ActionLevel, 'read'>, handler: ToolEntry['handler'], confirm?: Gate['confirm']): ToolEntry['handler'] =>
+  async (raw, ctx) => (await import('./app-settings-actions')).runGated({ tool, level, handler, confirm }, raw, ctx)
+export interface Gate { tool: string; level: Exclude<ActionLevel, 'read'>; handler: ToolEntry['handler']; confirm?: (args: Args, scope: ActionScope) => Promise<Approval> }
+
 /** Argument helpers: a bad argument is the model's to fix, so the message names the field. */
 export function str(args: Args, field: string, max = 4096): string | undefined {
   const value = args[field]
