@@ -1,17 +1,29 @@
 name: Accessibility scan (axe)
 
-# Runs the extended axe scan of the app surfaces (both themes, Settings in both scopes) on a
-# release candidate and prints every critical or serious finding. Never publishes anything.
-# (Touching this file on a release branch re-runs the scan.)
-# See docs/validation/a11y-axe-2026-10-14.md for what the scan covers and its limits.
+# Runs the extended axe scan of the app surfaces (both themes, Settings in both scopes) and
+# prints every critical or serious finding. Never publishes anything.
+# - On every pull request to main it is a gate: OXE_A11Y_STRICT=1 fails the run on any critical
+#   or serious finding (moderate and minor ones stay in the uploaded report).
+# - On a release branch, touching this file re-runs the scan on the candidate.
+# See docs/validation/a11y-axe-2026-10-14.md for what the scan covers and its limits, and
+# docs/validation/screen-reader-1.4.md for the manual screen-reader pass axe cannot replace.
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    # Only what can change what the scan sees.
+    paths-ignore: ["docs/**", "**/*.md", "electron/main/**/*.test.ts", "tests/**"]
   # A manual run needs the file on the default branch; a change to this file on a release
   # branch runs it there, which is how a candidate gets scanned before the file is merged.
   push:
     branches: ["release/**"]
     paths: [".github/workflows/a11y-axe.yml"]
+
+concurrency:
+  # A newer push to the same pull request replaces the scan of the older one.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -23,6 +35,7 @@ jobs:
     timeout-minutes: 45
     env:
       OXE_A11Y_REPORT: ${{ github.workspace }}/a11y-report.jsonl
+      OXE_A11Y_STRICT: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
         with:

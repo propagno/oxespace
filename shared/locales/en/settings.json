@@ -2,7 +2,7 @@
   "appearance": {
     "kicker": "Global appearance",
     "title": "Appearance",
-    "description": "Mode, interface scale, density and language for the whole app.",
+    "description": "Mode, interface scale, density, motion and language for the whole app.",
     "mode": {
       "title": "Mode",
       "system": {
@@ -37,6 +37,21 @@
       "useAppInWorkspaces": "Use app density in all workspaces",
       "threadOverride": "The Thread list uses its own density: {{density}}.",
       "useAppInThread": "Use app density in the Thread list"
+    },
+    "motion": {
+      "title": "Motion",
+      "system": {
+        "label": "System",
+        "hint": "Follows your operating system’s reduced-motion setting."
+      },
+      "reduce": {
+        "label": "Reduced",
+        "hint": "Panels and lists change without animating; busy indicators turn slowly."
+      },
+      "full": {
+        "label": "Full",
+        "hint": "Short transitions on panels, lists and menus, even if the operating system asks for less."
+      }
     }
   }
 }

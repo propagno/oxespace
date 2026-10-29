@@ -270,7 +270,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
 
   return <section className="changes-panel" aria-label={t('panels.changes')} data-testid="changes-panel">
     <header className="changes-toolbar">
-      <Menu label={t('changes.scope.label')} trigger={<button type="button" className="changes-pill" aria-label={t('changes.scope.label')}>{t(`changes.scope.${scope}`)}{effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
+      <Menu label={t('changes.scope.label')} trigger={<button type="button" className="changes-pill" aria-label={`${t('changes.scope.label')}: ${t(`changes.scope.${scope}`)}${effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}`}>{t(`changes.scope.${scope}`)}{effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
         { type: 'check', label: t('changes.scope.compareBranches'), checked: scope === 'branch', onSelect: () => { setScope('branch'); setSelectedPath(null) } },
         { type: 'check', label: t('changes.scope.uncommittedChanges'), checked: scope === 'uncommitted', onSelect: () => { setScope('uncommitted'); setSelectedPath(null) } },
         { type: 'separator' },

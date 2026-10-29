@@ -186,7 +186,7 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
                     <button type="button" aria-label={`Stop ${container.name}`} title="Stop this container" disabled={busyId === container.id} onClick={() => request(container, 'stop')}><Square size={13} aria-hidden="true" /><span>Stop</span></button>
                   </>
                   : <button type="button" aria-label={`Start ${container.name}`} title="Start this container" disabled={busyId === container.id} onClick={() => void act(container, 'start')}><Play size={13} aria-hidden="true" /><span>Start</span></button>}
-                {isDatabaseImage(container.image) && <button type="button" className="oq-connect" aria-label={`Connect to ${container.name}`} title="Create a connection to this database and open it" disabled={busyId === container.id || container.state !== 'running'} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /><span>Query</span></button>}
+                {isDatabaseImage(container.image) && <button type="button" className="oq-connect" aria-label={`Connect to ${container.name}`} title="Create a connection to this database and open it" disabled={busyId === container.id || container.state !== 'running'} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /><span>Connect</span></button>}
               </div></td>
             </tr>)}</tbody></table>}
       </div>

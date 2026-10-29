@@ -35,7 +35,7 @@ function terminalFit(page: Page) {
   })
 }
 
-test('interface scale and density apply app-wide and survive a restart', async () => {
+test('interface scale, density and motion apply app-wide and survive a restart', async () => {
   test.setTimeout(120000)
   const root = join(tmpdir(), `oxe-scale-${Date.now()}`)
   const repo = join(root, 'repo')
@@ -67,6 +67,25 @@ test('interface scale and density apply app-wide and survive a restart', async (
     // The new workspace follows the app ('default'), so the root takes the comfortable control heights.
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('comfortable')
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--control-md').trim())).toBe('32px')
+    // Motion: Reduced makes transitions instant and slows the one spin; Full plays them even if the OS asks for less.
+    const motion = settings.getByRole('radiogroup', { name: 'Motion' })
+    // Milliseconds of a duration token (the build's minifier may write 200ms as .2s).
+    const token = (name: string) => page.evaluate(n => {
+      const value = getComputedStyle(document.documentElement).getPropertyValue(n).trim()
+      return value.endsWith('ms') ? parseFloat(value) : parseFloat(value) * 1000
+    }, name)
+    await motion.getByRole('radio', { name: 'Reduced' }).click()
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.motion)).toBe('reduce')
+    expect([await token('--duration-base'), await token('--duration-spin')]).toEqual([0, 2400])
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await motion.getByRole('radio', { name: 'Full' }).click()
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.motion)).toBe('full')
+    expect([await token('--duration-base'), await token('--duration-spin')]).toEqual([200, 800])
+    await motion.getByRole('radio', { name: 'System' }).click()
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.motion)).toBe('reduce')
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.motion)).toBe('full')
+    await motion.evaluate(el => el.scrollIntoView({ block: 'center' }))
     await capture(app, 'appearance-125.png')
 
     // A workspace can keep its own density: it overrides the app until the person sends it back.
