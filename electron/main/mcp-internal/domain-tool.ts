@@ -106,26 +106,10 @@ export function domainTool(name: string, summary: string, actions: Record<string
   }
 }
 
-/**
- * The same policy door for a tool that predates domainTool: its level is fixed
- * here, so a change needs a live execution, is rate limited and recorded, and a
- * `confirm` is approved by a person who sees `confirm`'s text.
- */
-export function gated(tool: string, level: Exclude<ActionLevel, 'read'>, handler: ToolEntry['handler'], confirm?: (args: Args, scope: ActionScope) => Approval): ToolEntry['handler'] {
-  return async (raw, ctx) => {
-    const args = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Args
-    try {
-      const scope = await resolveScope(ctx)
-      const approval = level === 'confirm' ? confirm?.(args, scope) : undefined
-      return await (ctx.agentActions ?? fallbackActions).run(scope.actor, {
-        tool, action: 'call', level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, reasons: approval?.reasons
-      }, () => handler(raw, ctx))
-    } catch (error) {
-      if (error instanceof ActionRefused) return reply({ schemaVersion: 1, ok: false, code: error.code, message: error.message }, true)
-      throw error
-    }
-  }
-}
+/** The policy door for a tool older than domainTool; a `confirm` shows the person `confirm`'s text. */
+export const gated = (tool: string, level: Exclude<ActionLevel, 'read'>, handler: ToolEntry['handler'], confirm?: Gate['confirm']): ToolEntry['handler'] =>
+  async (raw, ctx) => (await import('./app-settings-actions')).runGated({ tool, level, handler, confirm }, raw, ctx)
+export interface Gate { tool: string; level: Exclude<ActionLevel, 'read'>; handler: ToolEntry['handler']; confirm?: (args: Args, scope: ActionScope) => Promise<Approval> }
 
 /** Argument helpers: a bad argument is the model's to fix, so the message names the field. */
 export function str(args: Args, field: string, max = 4096): string | undefined {

@@ -7,6 +7,7 @@ import {
 } from '../ipc/validation'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Task } from '../../../shared/types/task'
+import { lazy } from './app-settings-tools'
 
 /**
  * Tools that change the app. They are separate from the read tools so a
@@ -38,13 +39,6 @@ function id(args: Args, field: string): string {
 }
 
 function github(ctx: ToolContext) { return service(ctx, 'github') }
-
-/** A checkpoint of the caller's workspace, never one of another workspace by id. */
-function ownCheckpoint(args: Args, scope: ActionScope, ctx: ToolContext) {
-  const checkpoint = github(ctx).listCheckpoints(workspaceInput(scope)).find(item => item.id === id(args, 'checkpointId'))
-  if (!checkpoint) throw new ActionRefused('No checkpoint with that id here.', 'not-found')
-  return checkpoint
-}
 
 // ---- git ------------------------------------------------------------------
 
@@ -79,18 +73,15 @@ const GIT_CHANGE = domainTool('oxespace_git_change', 'Change the Git state of yo
   restore_checkpoint: {
     level: 'confirm', description: 'Restore the work tree to a checkpoint; current changes are replaced.', properties: { checkpointId: { type: 'string', maxLength: 200 } }, required: ['checkpointId'],
     confirm: (args, scope, ctx) => {
-      const checkpoint = ownCheckpoint(args, scope, ctx)
+      const checkpoint = github(ctx).listCheckpoints(workspaceInput(scope)).find(item => item.id === id(args, 'checkpointId'))
+      if (!checkpoint) throw new ActionRefused('No checkpoint with that id here.', 'not-found')
       return { summary: `restore checkpoint "${checkpoint.name}"`, text: `Restore checkpoint "${checkpoint.name}"\nin ${scope.rootPath}`, reasons: ['Uncommitted changes in the work tree are replaced.'] }
     },
     run: (args, scope, ctx) => github(ctx).restoreCheckpoint(parsed(() => parseGitHubRestoreCheckpointInput({ ...workspaceInput(scope), checkpointId: args.checkpointId })))
   },
   delete_checkpoint: {
     level: 'confirm', description: 'Delete a checkpoint; it cannot be restored afterwards.', required: ['checkpointId'],
-    confirm: (args, scope, ctx) => {
-      const checkpoint = ownCheckpoint(args, scope, ctx)
-      return { summary: `delete checkpoint "${checkpoint.name}"`, text: `Delete checkpoint "${checkpoint.name}"\nin ${scope.rootPath}` }
-    },
-    run: async (args, scope, ctx) => github(ctx).deleteCheckpoint({ checkpointId: ownCheckpoint(args, scope, ctx).id })
+    confirm: async (args, scope, ctx) => (await import('./app-settings-actions')).deleteCheckpointApproval(args, scope, ctx), run: lazy('delete_checkpoint')
   }
 })
 

@@ -161,11 +161,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
       }
     },
     requiresWorkspace: true,
-    handler: gated('oxespace_remove_worktree', 'confirm', handlers.removeWorktree, (args, scope) => ({
-      summary: `remove the worktree ${String(args.path)}`,
-      text: `git worktree remove${args.force === true ? ' --force' : ''} ${String(args.path)}\nfrom ${scope.rootPath}`,
-      reasons: ['Its folder is deleted, with untracked and ignored files in it.', ...(args.force === true ? ['--force also discards uncommitted changes.'] : [])]
-    }))
+    handler: gated('oxespace_remove_worktree', 'confirm', handlers.removeWorktree, async (args, scope) => (await import('./app-settings-actions')).removeWorktreeApproval(args, scope))
   },
   {
     descriptor: {
