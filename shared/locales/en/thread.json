@@ -32,6 +32,32 @@
       "disconnected": "Connect your subscription to send messages."
     }
   },
+  "actionFailure": {
+    "declined": {
+      "label": "Declined by you",
+      "guidance": "The action was not authorized. Change the request or explicitly approve a new attempt."
+    },
+    "permissions": {
+      "label": "Blocked by permissions",
+      "guidance": "Review conversation access and the provider’s saved rules. Access was not expanded automatically."
+    },
+    "authentication": {
+      "label": "Authentication required",
+      "guidance": "Reconnect the affected account or server in Connections before trying again."
+    },
+    "disconnected": {
+      "label": "Server disconnected",
+      "guidance": "Check the server in Connections and reconnect it. The action was not automatically repeated."
+    },
+    "unavailable": {
+      "label": "Tool unavailable",
+      "guidance": "Refresh the server’s tool list in Connections and check whether this tool is supported."
+    },
+    "timeout": {
+      "label": "Response timed out",
+      "guidance": "The remote outcome is unconfirmed. Check its state before repeating an action that changes data."
+    }
+  },
   "activity": {
     "names": {
       "commandExecution": "Ran command",
@@ -336,6 +362,55 @@
     "operation": "Operation",
     "truncated": "The event is longer than the inspector shows; the rest is cut."
   },
+  "failure": {
+    "title": {
+      "authentication": "Sign-in required",
+      "usage": "Usage allowance exhausted",
+      "rate-limit": "Request limit reached",
+      "context": "Context window full",
+      "budget": "Budget reached",
+      "server": "Provider unavailable",
+      "network": "Connection failed",
+      "sandbox": "Blocked by the sandbox",
+      "configuration": "Configuration rejected",
+      "session-busy": "Session active elsewhere",
+      "unknown": "Turn failed"
+    },
+    "notProvided": "Not provided",
+    "unknownTime": "unknown",
+    "usageLimits": "Usage limits",
+    "providerUsage": "Provider usage",
+    "subscriptionLimits": "Subscription limits",
+    "used": "{{percent}}% used",
+    "windowUsage": "{{label}} usage",
+    "resetsIn": "Resets in {{time}}",
+    "localTime": "local time",
+    "noReset": "Reset time not provided by the provider.",
+    "noWindows": "The provider did not return usage windows or a reset time.",
+    "checked": "{{name}} account · checked {{time}} · local time",
+    "refreshFailed": "Could not retrieve current usage. Check your account connection and try again. The provider has not confirmed a reset time.",
+    "sessionBusy": "This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.",
+    "reconnect": "Reconnect your native agent account to continue.",
+    "couldNotFinish": "The agent could not finish this turn.",
+    "diagnostic": "Provider diagnostic",
+    "usageUnavailable": "Current usage could not be retrieved. The provider has not confirmed a reset time.",
+    "checkingUsage": "Checking current provider usage…",
+    "notRecorded": "Usage and reset time were not recorded for this failure.",
+    "staleUsage": "Could not refresh usage. The snapshot above was checked at the displayed time.",
+    "compact": "Compact conversation",
+    "reviewPermissions": "Review permissions",
+    "changeConfiguration": "Change configuration",
+    "retry": "Retry turn",
+    "retryGroup": "Retry this turn",
+    "changedFiles": "This turn changed files.",
+    "undoAndRetry": "Undo its changes and retry",
+    "retryKeep": "Retry without undoing",
+    "checking": "Checking usage…",
+    "refresh": "Refresh usage",
+    "minutes": "{{value}}m",
+    "hours": "{{value}}h",
+    "days": "{{value}}d"
+  },
   "files": {
     "verb": {
       "failed": "Failed",
@@ -428,6 +503,53 @@
     "commentLabel": "Comment for the agent",
     "commentPlaceholder": "What should the agent change here?",
     "add": "Add to message"
+  },
+  "live": {
+    "runningCommand": "Running command",
+    "runningCommandDetail": "Running command: {{detail}}",
+    "runningACommand": "Running a command",
+    "reading": "Reading file",
+    "searching": "Searching the project",
+    "editing": "Editing files",
+    "using": "Using {{tool}}",
+    "waitingUpdate": "Waiting for the next agent update",
+    "requestUnavailable": "Input request unavailable",
+    "waitingInput": "Waiting for your input",
+    "reconnecting": "Reconnecting to the agent",
+    "waitingBackground_one": "Waiting for {{count}} background task",
+    "waitingBackground_other": "Waiting for {{count}} background tasks",
+    "preparing": "Preparing project context",
+    "connecting": "Connecting to the agent",
+    "receiving": "Receiving response",
+    "analyzing": "Analyzing request",
+    "backgroundReported": "Background work reported by the provider",
+    "lastSignal": "Last provider signal {{age}} ago",
+    "noSignal": "No provider signal yet · {{age}}",
+    "label": "Current agent activity",
+    "resultAvailable": "Provider result available · synchronizing required",
+    "confirmsActive": "Provider confirms execution is active",
+    "waitingProviderInput": "Provider is waiting for input",
+    "waitingConfirmed": "Waiting for a confirmed provider update",
+    "slowTitle": "This step is taking much longer than the same step took earlier in this conversation",
+    "slow": " · taking longer than usual",
+    "turnTitle": "Total time for this turn, including previous commands and waiting for input",
+    "turnElapsed": "Turn elapsed {{time}}",
+    "turn": "Turn · {{time}}",
+    "stopping": "Stopping…",
+    "stopWaiting": "Stop waiting",
+    "mayBeActive": "Execution may still be active.",
+    "checking": "Checking provider state…",
+    "confirmsActiveFull": "Provider confirms execution is active.",
+    "waitingInputFull": "Provider is waiting for input. Open Diagnostics to inspect the request.",
+    "reportsState": "Provider reports {{state}}. Local output still needs reconciliation.",
+    "notConfirmed": "Execution outcome is not confirmed. Your message was not resent.",
+    "state": {
+      "completed": "completed",
+      "failed": "failed",
+      "interrupted": "interrupted"
+    },
+    "seconds": "{{seconds}}s",
+    "minutes": "{{minutes}}m {{seconds}}s"
   },
   "markdown": {
     "code": "Code",
@@ -551,6 +673,19 @@
         "prompt": "Suggest the three improvements most worth making here next, with where each would change."
       }
     }
+  },
+  "outcome": {
+    "answered": "Answer sent to agent",
+    "approved": "Approval sent to agent",
+    "declined": "Declined by you",
+    "cancelled-by-user": "Cancelled by you",
+    "turn-completed": "Turn finished; no response to this request was confirmed",
+    "turn-failed": "Turn failed before this request was answered",
+    "interrupted": "Turn interrupted before this request was answered",
+    "connection-lost": "Connection closed; response not confirmed. This saved request cannot be answered.",
+    "expired": "Request expired",
+    "cancelled": "Request cancelled",
+    "closed": "Request closed; outcome unavailable"
   },
   "patch": {
     "region": "File diff",

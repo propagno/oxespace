@@ -49,7 +49,8 @@ function diagnosticKind(event: Tool): { label: string; className: string } {
 function ThreadToolDiagnostic({ event }: { event: Tool }) {
   const { t } = useTranslation('thread')
   const kind = diagnosticKind(event)
-  const failure = event.state === 'failed' ? threadActionFailure(event.output ?? '') : undefined
+  const failureKind = event.state === 'failed' ? threadActionFailure(event.output ?? '') : undefined
+  const failure = failureKind && { label: t(`actionFailure.${failureKind}.label`), guidance: t(`actionFailure.${failureKind}.guidance`) }
   const detail = event.detail.trim(), output = event.output?.trim() ?? ''
   const technical = [detail && `${t('activity.input')}\n${detail}`, output && `${t('activity.output')}\n${output}`, event.exitCode !== undefined && t('activity.exitCode', { code: event.exitCode })].filter(Boolean).join('\n\n')
   const primary = event.state === 'failed'

@@ -32,6 +32,32 @@
       "disconnected": "Conecte a sua assinatura para enviar mensagens."
     }
   },
+  "actionFailure": {
+    "declined": {
+      "label": "Recusada por você",
+      "guidance": "A ação não foi autorizada. Mude o pedido ou aprove explicitamente uma nova tentativa."
+    },
+    "permissions": {
+      "label": "Bloqueada pelas permissões",
+      "guidance": "Revise o acesso da conversa e as regras salvas do provedor. O acesso não foi ampliado automaticamente."
+    },
+    "authentication": {
+      "label": "Autenticação necessária",
+      "guidance": "Reconecte a conta ou o servidor afetado em Conexões antes de tentar de novo."
+    },
+    "disconnected": {
+      "label": "Servidor desconectado",
+      "guidance": "Confira o servidor em Conexões e reconecte-o. A ação não foi repetida automaticamente."
+    },
+    "unavailable": {
+      "label": "Ferramenta indisponível",
+      "guidance": "Atualize a lista de ferramentas do servidor em Conexões e confira se esta ferramenta é suportada."
+    },
+    "timeout": {
+      "label": "A resposta expirou",
+      "guidance": "O resultado remoto não foi confirmado. Confira o estado antes de repetir uma ação que altera dados."
+    }
+  },
   "activity": {
     "names": {
       "commandExecution": "Executou um comando",
@@ -346,6 +372,55 @@
     "operation": "Operação",
     "truncated": "O evento é maior do que o inspetor mostra; o resto foi cortado."
   },
+  "failure": {
+    "title": {
+      "authentication": "Login necessário",
+      "usage": "Cota de uso esgotada",
+      "rate-limit": "Limite de requisições atingido",
+      "context": "Janela de contexto cheia",
+      "budget": "Orçamento atingido",
+      "server": "Provedor indisponível",
+      "network": "A conexão falhou",
+      "sandbox": "Bloqueado pelo sandbox",
+      "configuration": "Configuração recusada",
+      "session-busy": "Sessão ativa em outro lugar",
+      "unknown": "O turno falhou"
+    },
+    "notProvided": "Não informado",
+    "unknownTime": "desconhecido",
+    "usageLimits": "Limites de uso",
+    "providerUsage": "Uso do provedor",
+    "subscriptionLimits": "Limites da assinatura",
+    "used": "{{percent}}% usados",
+    "windowUsage": "Uso de {{label}}",
+    "resetsIn": "Renova em {{time}}",
+    "localTime": "horário local",
+    "noReset": "O provedor não informou quando o limite renova.",
+    "noWindows": "O provedor não retornou janelas de uso nem horário de renovação.",
+    "checked": "Conta {{name}} · verificada às {{time}} · horário local",
+    "refreshFailed": "Não foi possível obter o uso atual. Confira a conexão da sua conta e tente de novo. O provedor não confirmou quando o limite renova.",
+    "sessionBusy": "Esta sessão nativa está ativa em outro lugar. Termine ou feche a outra sessão do Codex e envie de novo o rascunho salvo.",
+    "reconnect": "Reconecte a conta do seu agente nativo para continuar.",
+    "couldNotFinish": "O agente não conseguiu terminar este turno.",
+    "diagnostic": "Diagnóstico do provedor",
+    "usageUnavailable": "Não foi possível obter o uso atual. O provedor não confirmou quando o limite renova.",
+    "checkingUsage": "Verificando o uso atual no provedor…",
+    "notRecorded": "O uso e o horário de renovação não foram registrados nesta falha.",
+    "staleUsage": "Não foi possível atualizar o uso. Os números acima foram verificados no horário mostrado.",
+    "compact": "Compactar a conversa",
+    "reviewPermissions": "Revisar as permissões",
+    "changeConfiguration": "Mudar a configuração",
+    "retry": "Tentar o turno de novo",
+    "retryGroup": "Tentar este turno de novo",
+    "changedFiles": "Este turno alterou arquivos.",
+    "undoAndRetry": "Desfazer as alterações e tentar de novo",
+    "retryKeep": "Tentar de novo sem desfazer",
+    "checking": "Verificando o uso…",
+    "refresh": "Atualizar o uso",
+    "minutes": "{{value}} min",
+    "hours": "{{value}} h",
+    "days": "{{value}} d"
+  },
   "files": {
     "verb": {
       "failed": "Falhou",
@@ -442,6 +517,54 @@
     "commentLabel": "Comentário para o agente",
     "commentPlaceholder": "O que o agente deve mudar aqui?",
     "add": "Adicionar à mensagem"
+  },
+  "live": {
+    "runningCommand": "Executando um comando",
+    "runningCommandDetail": "Executando o comando: {{detail}}",
+    "runningACommand": "Executando um comando",
+    "reading": "Lendo um arquivo",
+    "searching": "Buscando no projeto",
+    "editing": "Editando arquivos",
+    "using": "Usando {{tool}}",
+    "waitingUpdate": "Aguardando a próxima atualização do agente",
+    "requestUnavailable": "Pedido de resposta indisponível",
+    "waitingInput": "Aguardando a sua resposta",
+    "reconnecting": "Reconectando ao agente",
+    "waitingBackground_one": "Aguardando {{count}} tarefa em segundo plano",
+    "waitingBackground_many": "Aguardando {{count}} tarefas em segundo plano",
+    "waitingBackground_other": "Aguardando {{count}} tarefas em segundo plano",
+    "preparing": "Preparando o contexto do projeto",
+    "connecting": "Conectando ao agente",
+    "receiving": "Recebendo a resposta",
+    "analyzing": "Analisando o pedido",
+    "backgroundReported": "Trabalho em segundo plano informado pelo provedor",
+    "lastSignal": "Último sinal do provedor há {{age}}",
+    "noSignal": "Nenhum sinal do provedor ainda · {{age}}",
+    "label": "Atividade atual do agente",
+    "resultAvailable": "Resultado do provedor disponível · sincronização necessária",
+    "confirmsActive": "O provedor confirma que a execução está ativa",
+    "waitingProviderInput": "O provedor está esperando uma resposta",
+    "waitingConfirmed": "Aguardando uma atualização confirmada do provedor",
+    "slowTitle": "Este passo está demorando muito mais do que o mesmo passo demorou antes nesta conversa",
+    "slow": " · mais demorado que o normal",
+    "turnTitle": "Tempo total deste turno, incluindo comandos anteriores e a espera pela sua resposta",
+    "turnElapsed": "Tempo do turno {{time}}",
+    "turn": "Turno · {{time}}",
+    "stopping": "Parando…",
+    "stopWaiting": "Parar de esperar",
+    "mayBeActive": "A execução ainda pode estar ativa.",
+    "checking": "Verificando o estado do provedor…",
+    "confirmsActiveFull": "O provedor confirma que a execução está ativa.",
+    "waitingInputFull": "O provedor está esperando uma resposta. Abra o Diagnóstico para ver o pedido.",
+    "reportsState": "O provedor informa: {{state}}. A saída local ainda precisa ser reconciliada.",
+    "notConfirmed": "O resultado da execução não foi confirmado. A sua mensagem não foi reenviada.",
+    "state": {
+      "completed": "concluído",
+      "failed": "falhou",
+      "interrupted": "interrompido"
+    },
+    "seconds": "{{seconds}} s",
+    "minutes": "{{minutes}} min {{seconds}} s"
   },
   "markdown": {
     "code": "Código",
@@ -567,6 +690,19 @@
         "prompt": "Sugira as três melhorias que mais valem a pena fazer aqui agora, dizendo onde cada uma mudaria."
       }
     }
+  },
+  "outcome": {
+    "answered": "Resposta enviada ao agente",
+    "approved": "Aprovação enviada ao agente",
+    "declined": "Recusado por você",
+    "cancelled-by-user": "Cancelado por você",
+    "turn-completed": "O turno terminou; nenhuma resposta a este pedido foi confirmada",
+    "turn-failed": "O turno falhou antes de este pedido ser respondido",
+    "interrupted": "O turno foi interrompido antes de este pedido ser respondido",
+    "connection-lost": "A conexão caiu; a resposta não foi confirmada. Este pedido salvo não pode ser respondido.",
+    "expired": "O pedido expirou",
+    "cancelled": "Pedido cancelado",
+    "closed": "Pedido encerrado; resultado indisponível"
   },
   "patch": {
     "region": "Diff do arquivo",
