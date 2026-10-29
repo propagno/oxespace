@@ -107,7 +107,7 @@ export function UsageModal({ open, onOpenChange }: UsageModalProps): ReactElemen
     footer={<span className={styles.footnote}>Subscription quota differs from a conversation’s token and context usage.</span>}>
     <div className={styles.toolbar}>
       <span>Reset times use your local time zone</span>
-      <Button size="sm" icon={<RefreshCw size={14} className={loading ? styles.spin : undefined} />} disabled={loading} onClick={() => setRefreshRevision(value => value + 1)}>Refresh</Button>
+      <Button size="sm" icon={<RefreshCw size={14} className={loading ? styles.spin : undefined} aria-hidden="true" />} disabled={loading} onClick={() => setRefreshRevision(value => value + 1)}>Refresh</Button>
     </div>
     <div className={styles.roster}>
       <ProviderCard title="Claude" snapshot={claude} />

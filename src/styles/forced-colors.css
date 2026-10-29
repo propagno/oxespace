@@ -1,0 +1,65 @@
+/*
+ * Forced colors (Windows high contrast, and any OS theme that forces a palette).
+ *
+ * The browser replaces every author color with the user's palette and drops box-shadows and
+ * background images. Whatever told a state apart only with a fill or a shadow is gone: field focus
+ * drawn as a soft shadow, the highlighted menu item, the selected row, the active tab underline, the
+ * status dots and the meter and usage fills. This file puts those back with system colors, which the
+ * browser keeps as authored.
+ *
+ * Imported once from src/styles.css, outside the legacy layer, so it wins over every legacy rule.
+ * Nothing here applies outside forced colors. System color keywords only; no tokens, no !important.
+ */
+@media (forced-colors: active) {
+  /* Focus: one ring in the highlight color on every keyboard-focused element. The offset stays the
+     component's own, so a ring drawn inside a clipped list is not pushed out of view. */
+  :root :focus-visible { outline: 2px solid Highlight; }
+  /* Separators that resize panels draw their focus as a fill; give them the ring too. */
+  :root [role='separator'][tabindex]:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
+  /* A search box that draws its own frame rings the frame, not the field inside it. */
+  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find):focus-within { outline: 2px solid Highlight; outline-offset: 1px; }
+  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find) input:focus-visible { outline-style: none; }
+  .thread-composer:focus-within { border-color: Highlight; }
+  /* OxeQuery fields draw focus as a border tint and a shadow, at a weight the general rule above does not reach. */
+  :root :is(.oq-view, .oq-scope) :is(input:not([type='checkbox'], [type='radio']), textarea):focus-visible { outline-color: Highlight; }
+
+  /* Borders: surfaces that float (dialogs, menus, popovers, tooltips) lose their elevation shadow, so their edge is a line. */
+  :is([role='dialog'], [role='alertdialog'], [role='menu'], [role='listbox'], [role='tooltip'], [cmdk-root]) { border-color: CanvasText; }
+  :where(button, [role='button'], input, select, textarea) { border-color: ButtonText; }
+
+  /* Selection: the highlighted menu item, the selected option, row or tree item, and selected text.
+     forced-color-adjust: none stops the browser drawing its Canvas backplate behind the text, which would
+     leave HighlightText on Canvas; inside, everything takes the item's colors. */
+  :is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'])[data-highlighted],
+  [cmdk-item][data-selected='true'],
+  :is([role='option'], [role='treeitem'], [role='row'], [role='gridcell'])[aria-selected='true'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  :is(:is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'])[data-highlighted], [cmdk-item][data-selected='true'], :is([role='option'], [role='treeitem'], [role='row'], [role='gridcell'])[aria-selected='true']) * { color: inherit; background-color: transparent; border-color: currentColor; }
+  ::selection { background: Highlight; color: HighlightText; }
+  /* The active tab is marked by a colored bar; an underline survives the palette. */
+  [role='tab'][aria-selected='true'] { text-decoration: underline 2px; text-underline-offset: 4px; }
+
+  /* Disabled controls read as disabled. */
+  :is(button, input, select, textarea):disabled,
+  [aria-disabled='true'],
+  [data-disabled]:not([data-disabled='false']) { color: GrayText; border-color: GrayText; }
+  a:any-link { color: LinkText; }
+
+  /* Status dots: a dot is only a fill, so each state gets a system color, and the ones that need you get a hollow ring. */
+  [data-status-dot] { forced-color-adjust: none; background: CanvasText; }
+  [data-status-dot='idle'] { background: GrayText; }
+  [data-status-dot='running'] { background: Highlight; }
+  :is([data-status-dot='attention'], [data-status-dot='danger']) { box-sizing: border-box; background: Canvas; border: 2px solid CanvasText; }
+  /* Older dots keep their own colors: each one carries a label, and the colors are what the user learned. */
+  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .oq-dot) { forced-color-adjust: none; }
+
+  /* Charts: meters, usage bars and the usage ring draw the filled part in the highlight color on an outlined track. */
+  [role='meter'], .thread-usage-bar { outline: 1px solid CanvasText; }
+  [role='meter'] > *, .thread-usage-bar > span { forced-color-adjust: none; background: Highlight; }
+  .thread-usage-ring-track { stroke: GrayText; }
+  .thread-usage-ring-value { stroke: Highlight; }
+  .thread-usage-ring[data-high='true'] .thread-usage-ring-value { stroke: CanvasText; }
+}

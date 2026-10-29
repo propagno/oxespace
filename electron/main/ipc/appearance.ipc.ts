@@ -1,5 +1,8 @@
-import { BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { clampUiScale } from '../../../shared/uiScale'
 
 export type AppearanceMode = 'system' | 'light' | 'dark'
 
@@ -23,6 +26,23 @@ function apply(window: BrowserWindow): void {
   }
 }
 
+const scaleFile = (): string => join(app.getPath('userData'), 'ui-scale.json')
+
+/** The interface scale saved last time; new windows start at it (webPreferences.zoomFactor), so there is no 100% flash at boot. */
+export function savedUiScale(): number {
+  try { return clampUiScale(JSON.parse(readFileSync(scaleFile(), 'utf8'))?.factor) } catch { return 1 }
+}
+
+/** Applies a scale to the window that asked and saves it for the next start. Resolves to the factor in effect. */
+export function applyUiScale(contents: Electron.WebContents, factor: unknown): number {
+  const value = clampUiScale(factor)
+  contents.setZoomFactor(value)
+  if (value !== savedUiScale()) {
+    try { writeFileSync(scaleFile(), JSON.stringify({ factor: value })) } catch { /* the scale still applies to this session */ }
+  }
+  return value
+}
+
 /**
  * The renderer owns the person's choice (system, light or dark). The main
  * process mirrors it into Electron's native theme, so native menus, dialogs
@@ -35,5 +55,6 @@ export function registerAppearanceIpc(): void {
     for (const window of BrowserWindow.getAllWindows()) apply(window)
     return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
   })
+  ipcMain.handle(IPC_CHANNELS.app.setUiScale, (event, factor: unknown) => applyUiScale(event.sender, factor))
   nativeTheme.on('updated', () => { for (const window of BrowserWindow.getAllWindows()) apply(window) })
 }

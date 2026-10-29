@@ -618,14 +618,14 @@ describe('Thread workspace UI', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: 'Filter threads' }), { target: { value: 'missing' } })
     expect(screen.getByText('No conversations found.')).toBeInTheDocument()
   })
-  it('offers MCP connections instead of a Delegated work shortcut in the conversation header', async () => {
+  it('offers MCP servers instead of a Delegated work shortcut in the conversation header', async () => {
     const f = fixture(), onDelegations = vi.fn()
     useUIStore.setState({ isMcpPanelOpen: false })
     render(<><ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} /><ThreadView workspace={f.workspace} onDelegations={onDelegations} /></>)
     expect(screen.queryByRole('button', { name: /Implement worktree fix/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delegated work' })).not.toBeInTheDocument()
     fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' })
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'MCP connections' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'MCP servers' }))
     expect(useUIStore.getState().isMcpPanelOpen).toBe(true)
   })
   it('retains distinct drafts when selecting another thread', async () => {

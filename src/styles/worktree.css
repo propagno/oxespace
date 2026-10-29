@@ -305,7 +305,6 @@
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
-  outline: none;
   transition: border-color var(--transition-base);
 }
 

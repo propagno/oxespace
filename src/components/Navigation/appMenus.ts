@@ -16,6 +16,7 @@ export interface AppMenuContext {
   setApplicationView(view: 'code' | 'thread' | 'data'): void
   openSettings(): void
   addThreadProject(): void
+  openCommandMenu(): void
   version: string
 }
 
@@ -23,8 +24,8 @@ const sep = (id: string): AppMenuNode => ({ kind: 'separator', id })
 
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
-  'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane', 'design-system',
-  'find-in-files', 'tool-mcp', 'tool-skills', 'open-usage', 'open-linear'] as const
+  'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
+  'tool-mcp', 'tool-skills', 'open-usage', 'open-linear', 'help.shortcuts', 'settings.diagnostics', 'settings.updates'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -53,10 +54,10 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'file', label: 'File', items: compact([
         ctx.applicationView === 'thread'
           ? { kind: 'item', id: 'add-project', label: 'Add project…', onSelect: ctx.addThreadProject }
-          : fromAction('new-workspace', 'New workspace…'),
+          : fromAction('new-workspace'),
         sep('file-1'),
         { kind: 'item', id: 'settings', label: 'Settings', shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
-        fromAction('workspace-settings', 'Workspace settings'),
+        fromAction('workspace-settings'),
         sep('file-2'),
         { kind: 'item', id: 'quit', label: 'Exit', onSelect: () => window.close() }
       ])
@@ -74,39 +75,44 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     },
     {
       id: 'view', label: 'View', items: compact([
+        { kind: 'item', id: 'command-palette', label: 'Command palette…', shortcut: shortcutLabel('palette.open'), onSelect: ctx.openCommandMenu },
+        sep('view-0'),
         { kind: 'radio', id: 'view-code', label: 'Code', checked: ctx.applicationView === 'code', onSelect: () => ctx.setApplicationView('code') },
         { kind: 'radio', id: 'view-thread', label: 'Thread', checked: ctx.applicationView === 'thread', onSelect: () => ctx.setApplicationView('thread') },
         { kind: 'radio', id: 'view-data', label: 'OxeQuery', checked: ctx.applicationView === 'data', onSelect: () => ctx.setApplicationView('data') },
         sep('view-1'),
-        fromAction('toggle-sidebar', 'Toggle sidebar', shortcutLabel('sidebar.toggle')),
-        fromAction('tool-editor', 'Files', shortcutLabel('code.files')),
-        fromAction('tool-github', 'Source control'),
-        fromAction('tool-background', 'Background activity'),
-        fromAction('toggle-split-layout', 'Split layout', shortcutLabel('code.splitLayout')),
-        fromAction('balance-pane-layout', 'Balance panes'),
+        fromAction('toggle-sidebar', undefined, shortcutLabel('sidebar.toggle')),
+        fromAction('tool-editor', undefined, shortcutLabel('code.files')),
+        fromAction('tool-github'),
+        fromAction('tool-background'),
+        fromAction('toggle-split-layout', undefined, shortcutLabel('code.splitLayout')),
+        fromAction('balance-pane-layout'),
         sep('view-2'),
         // Appearance applies to the whole app, so it works without a workspace.
         appearances.length ? { kind: 'submenu', id: 'appearance', label: 'Appearance', children: appearances } : null,
         densities.length ? { kind: 'submenu', id: 'densities', label: 'Density', disabled: noWorkspace, children: densities } : null,
         layouts.length ? { kind: 'submenu', id: 'layouts', label: 'Layout', disabled: noWorkspace, children: layouts } : null,
         sep('view-3'),
-        fromAction('split-vertical', 'Split pane right', shortcutLabel('pane.splitRight')),
-        fromAction('split-horizontal', 'Split pane down', shortcutLabel('pane.splitDown')),
-        fromAction('maximize-pane', 'Maximize pane', shortcutLabel('pane.maximize')),
-        sep('view-4'),
-        fromAction('design-system', 'Design system')
+        fromAction('split-vertical', undefined, shortcutLabel('pane.splitRight')),
+        fromAction('split-horizontal', undefined, shortcutLabel('pane.splitDown')),
+        fromAction('maximize-pane', undefined, shortcutLabel('pane.maximize'))
+      ])
+    },
+    {
+      id: 'tools', label: 'Tools', items: compact([
+        fromAction('tool-mcp'),
+        fromAction('tool-skills'),
+        fromAction('open-usage'),
+        fromAction('open-linear')
       ])
     },
     {
       id: 'help', label: 'Help', items: compact([
-        fromAction('find-in-files', 'Search files & commands', shortcutLabel('palette.search')),
+        fromAction('help.shortcuts', 'Keyboard shortcuts', shortcutLabel('help.shortcuts')),
+        fromAction('settings.diagnostics', 'Diagnostics'),
         sep('help-1'),
-        fromAction('tool-mcp', 'MCP servers'),
-        fromAction('tool-skills', 'Skills'),
-        fromAction('open-usage', 'Usage & limits'),
-        fromAction('open-linear', 'Linear issues'),
-        sep('help-2'),
-        { kind: 'item', id: 'about', label: `OXESpace v${ctx.version}`, disabled: true, onSelect: () => undefined }
+        // Settings › Updates shows the version and checks for a newer one.
+        fromAction('settings.updates', `About OXESpace (v${ctx.version})`)
       ])
     }
   ]

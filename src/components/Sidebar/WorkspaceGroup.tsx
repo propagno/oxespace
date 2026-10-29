@@ -1,4 +1,4 @@
-import { Check, ChevronDown, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ChevronDown, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useShallow } from 'zustand/react/shallow'
@@ -301,7 +301,11 @@ function WorkspaceGroupComponent({
             await useWorkspaceStore.getState().setActiveWorkspace(workspace.id)
             useUIStore.getState().openWorkspaceSettings()
           }}><Settings size={12} aria-hidden="true" />Workspace settings</button>
-          {(['up', 'down'] as const).map(direction => <button key={direction} type="button" role="menuitem" onClick={() => {
+          {(['up', 'down'] as const).map(direction => <button key={direction} type="button" role="menuitem" disabled={(() => {
+            // The first workspace cannot move up, nor the last one down.
+            const ids = useWorkspaceStore.getState().workspaces.map(item => item.id)
+            return ids.indexOf(workspace.id) === (direction === 'up' ? 0 : ids.length - 1)
+          })()} onClick={() => {
             const store = useWorkspaceStore.getState()
             const ids = store.workspaces.map(item => item.id)
             const index = ids.indexOf(workspace.id), target = index + (direction === 'up' ? -1 : 1)
@@ -310,7 +314,7 @@ function WorkspaceGroupComponent({
               void store.reorderWorkspaces(ids)
             }
             setMenu(null)
-          }}>Move {direction}</button>)}
+          }}>{direction === 'up' ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}Move {direction}</button>)}
           <button
             type="button"
             role="menuitem"
