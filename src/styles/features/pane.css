@@ -330,7 +330,7 @@
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: background 0.1s, color 0.1s;
+  transition: background var(--duration-fast), color var(--duration-fast);
 }
 
 .pane-actions-popover-item:hover:not(:disabled) {
@@ -366,7 +366,7 @@
   align-items: center;
   justify-content: center;
   color: var(--tx-muted);
-  transition: color 80ms, background 80ms;
+  transition: color var(--duration-fast), background var(--duration-fast);
   border: none;
   background: transparent;
   padding: 0;

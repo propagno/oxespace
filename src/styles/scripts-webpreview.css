@@ -292,7 +292,7 @@
     var(--surface-sunken);
 }
 
-.web-preview-empty-state {
+.web-preview-placeholder {
   position: absolute;
   inset: 0;
   display: flex;

@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle
 import { Github } from '../Brand/GithubIcon'
 import { openInChanges } from '../../store/changes-request.store'
 import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
-import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState, ErrorState } from '../../ui'
+import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState, ErrorState, LoadingState } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubFileChange, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
@@ -1446,12 +1446,7 @@ function WorkflowRuntimeTree({ run, jobs, workspaceId }: { run: GitHubWorkflowRu
   }
 
   if (jobs.length === 0) {
-    return (
-      <div className="github-actions-runtime-empty">
-        <Clock size={14} aria-hidden="true" />
-        <span>{tc('github.actions.loadingJobs')}</span>
-      </div>
-    )
+    return <LoadingState label={tc('github.actions.loadingJobs')} />
   }
 
   return (
