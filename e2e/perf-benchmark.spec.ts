@@ -477,7 +477,7 @@ test('repository: Files ↔ Source Control', async () => {
     for (let i = 0; i < REPEATS; i++) {
       toSourceControl.push(await timeDomToggle(
         page,
-        () => page.getByTestId('workspace-editor-panel').getByRole('button', { name: 'Source control' }).click(),
+        () => page.getByTestId('workspace-editor-panel').getByRole('button', { name: 'Commit & pull request' }).click(),
         '[data-testid="workspace-github-panel"]',
         true
       ))
