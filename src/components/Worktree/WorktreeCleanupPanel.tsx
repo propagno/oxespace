@@ -1,42 +1,26 @@
 import { Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CONSENT_CLEANUP_BLOCKERS,
   HARD_CLEANUP_BLOCKERS,
-  type WorktreeCleanupBlocker,
   type WorktreeCleanupCandidate,
-  type WorktreeCleanupContext,
-  type WorktreeCleanupReason
+  type WorktreeCleanupContext
 } from '../../../shared/types/worktree-cleanup'
+import { i18n } from '../../i18n'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorktreeStore } from '../../store/worktree.store'
 import { deriveStatusTone } from '../../utils/paneDisplay'
-import { Button } from '../../ui'
+import { Button, ConfirmDialog, EmptyState, ErrorState, LoadingState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
-const REASON_LABEL: Record<WorktreeCleanupReason, string> = {
-  'idle-clean': 'idle for 30+ days',
-  merged: 'already merged',
-  'missing-directory': 'folder missing'
-}
-
-const BLOCKER_LABEL: Record<WorktreeCleanupBlocker, string> = {
-  locked: 'locked (git lock)',
-  'git-status-error': 'git status unreadable',
-  'dirty-files': 'uncommitted changes',
-  'unpushed-commits': 'unpushed commits',
-  'unknown-base': 'unknown base',
-  'active-workspace': 'active pane',
-  'running-terminal': 'terminal running',
-  'live-agent': 'agent working'
-}
-
-function relativeAge(at: number | null): string {
-  if (at === null) return 'activity unknown'
-  const days = Math.floor((Date.now() - at) / 86_400_000)
-  if (days < 1) return 'active today'
-  return `idle for ${days} ${days === 1 ? 'day' : 'days'}`
+/** "idle for 3 days", "active today", in the interface language. */
+export function relativeAge(at: number | null, now = Date.now()): string {
+  if (at === null) return i18n.t('worktree.cleanup.activityUnknown', { ns: 'code' })
+  const days = Math.floor((now - at) / 86_400_000)
+  if (days < 1) return i18n.t('worktree.cleanup.activeToday', { ns: 'code' })
+  return i18n.t('worktree.cleanup.idleDays', { ns: 'code', count: days })
 }
 
 /** Collects what only the renderer knows: open panes, shells and agents, by path. */
@@ -60,20 +44,24 @@ function collectContext(workspaceId: string, rootPath: string): WorktreeCleanupC
 }
 
 export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: string; rootPath: string }): ReactElement {
+  const { t } = useTranslation('code')
   const refresh = useWorktreeStore((s) => s.refresh)
   const [candidates, setCandidates] = useState<WorktreeCleanupCandidate[] | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [scanError, setScanError] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   const scan = useCallback(async (): Promise<void> => {
     setBusy(true)
+    setScanError(null)
     try {
       const found = await window.oxe.github.scanWorktreeCleanup({ rootPath, context: collectContext(workspaceId, rootPath) })
       setCandidates(found)
       setSelected(new Set(found.filter((c) => c.selectedByDefault).map((c) => c.path)))
     } catch (error) {
-      setMessage(humanizeError(error))
+      setScanError(humanizeError(error))
     } finally {
       setBusy(false)
     }
@@ -95,20 +83,21 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
   }
 
   const removeSelected = async (): Promise<void> => {
+    setConfirming(false)
     setBusy(true)
     setMessage(null)
     try {
       const results = await window.oxe.github.removeWorktreeCleanup({
         rootPath,
         context: collectContext(workspaceId, rootPath),
-        // Choosing a row that carries unsaved work is the explicit consent.
+        // Confirming the removal of a row that carries unsaved work is the explicit consent.
         targets: chosen.map((c) => ({ path: c.path, force: c.blockers.some((b) => CONSENT_CLEANUP_BLOCKERS.includes(b)) }))
       })
       const failed = results.filter((r) => !r.ok)
       setMessage(
         failed.length === 0
-          ? `${results.length} worktree(s) removido(s).`
-          : `${results.length - failed.length} removido(s); ${failed.length} recusado(s): ${failed.map((f) => f.message).join(' ')}`
+          ? t('worktree.cleanup.removed', { count: results.length })
+          : `${t('worktree.cleanup.partly', { removed: results.length - failed.length, count: failed.length })} ${failed.map((f) => f.message).join(' ')}`
       )
       await refresh(workspaceId, rootPath)
       await scan()
@@ -120,19 +109,22 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
   }
 
   return (
-    <div className="worktree-remove-confirm" role="group" aria-label="Limpeza de worktrees">
+    <div className="worktree-remove-confirm" role="group" aria-label={t('worktree.cleanup.title')}>
       <div className="worktree-remove-confirm-head">
         <Trash2 size={12} aria-hidden="true" />
-        <strong>Limpeza de worktrees</strong>
+        <strong>{t('worktree.cleanup.title')}</strong>
       </div>
-      {candidates === null ? (
-        <p className="worktree-remove-confirm-body">Scanning…</p>
+      {scanError ? (
+        <ErrorState compact title={t('worktree.cleanup.scanFailed')} message={scanError} onRetry={() => void scan()} />
+      ) : candidates === null ? (
+        <LoadingState label={t('worktree.cleanup.scanning')} />
       ) : candidates.length === 0 ? (
-        <p className="worktree-remove-confirm-body">No worktree besides the main one.</p>
+        <EmptyState compact title={t('worktree.cleanup.none')} />
       ) : (
         <ul className="worktree-remove-confirm-body" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {candidates.map((c) => {
             const hard = c.blockers.some((b) => HARD_CLEANUP_BLOCKERS.includes(b))
+            const name = c.branch ?? t('worktree.detached')
             return (
               <li key={c.path} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '4px 0' }}>
                 <input
@@ -140,14 +132,14 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
                   checked={selected.has(c.path)}
                   disabled={hard || busy}
                   onChange={() => toggle(c)}
-                  aria-label={`Selecionar ${c.branch ?? c.path}`}
+                  aria-label={t('worktree.cleanup.select', { name })}
                 />
                 <span>
-                  <strong>{c.branch ?? '(detached)'}</strong> — {relativeAge(c.lastActivityAt)}
+                  <strong>{name}</strong> — {relativeAge(c.lastActivityAt)}
                   <br />
                   <small>
-                    {c.reasons.length > 0 ? c.reasons.map((r) => REASON_LABEL[r]).join(', ') : 'no reason to remove'}
-                    {c.blockers.length > 0 ? ` · ${c.blockers.map((b) => BLOCKER_LABEL[b]).join(', ')}` : ''}
+                    {c.reasons.length > 0 ? c.reasons.map((r) => t(`worktree.cleanup.reason.${r}`)).join(', ') : t('worktree.cleanup.noReason')}
+                    {c.blockers.length > 0 ? ` · ${c.blockers.map((b) => t(`worktree.cleanup.blocker.${b}`)).join(', ')}` : ''}
                   </small>
                 </span>
               </li>
@@ -156,22 +148,30 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
         </ul>
       )}
       {risky.length > 0 ? (
-        <p className="worktree-remove-confirm-body" role="alert">
-          {risky.length} selected worktree(s) have unsaved work or an unknown state; removing them discards that work.
-        </p>
+        <p className="worktree-remove-confirm-body" role="alert">{t('worktree.cleanup.risky', { count: risky.length })}</p>
       ) : null}
       {message ? <p className="worktree-remove-confirm-body" role="status">{message}</p> : null}
       <div className="worktree-remove-confirm-actions">
-        <Button variant="ghost" onClick={() => void scan()} disabled={busy}>Reanalisar</Button>
-        <button
-          type="button"
-          className={risky.length > 0 ? 'danger-btn' : 'primary-btn'}
-          onClick={() => void removeSelected()}
+        <Button variant="ghost" onClick={() => void scan()} disabled={busy}>{t('worktree.cleanup.rescan')}</Button>
+        <Button
+          variant={risky.length > 0 ? 'danger' : 'primary'}
+          onClick={() => { if (risky.length > 0) setConfirming(true); else void removeSelected() }}
           disabled={busy || chosen.length === 0}
+          loading={busy && candidates !== null}
         >
-          {busy ? 'Trabalhando…' : `Remove ${chosen.length} selected`}
-        </button>
+          {t('worktree.cleanup.remove', { count: chosen.length })}
+        </Button>
       </div>
+      {confirming ? (
+        <ConfirmDialog
+          danger
+          title={t('worktree.cleanup.confirmTitle', { count: risky.length })}
+          description={t('worktree.cleanup.confirmBody', { names: risky.map((c) => c.branch ?? c.path).join(', ') })}
+          confirmLabel={t('worktree.cleanup.confirm', { count: chosen.length })}
+          onConfirm={() => void removeSelected()}
+          onCancel={() => setConfirming(false)}
+        />
+      ) : null}
     </div>
   )
 }

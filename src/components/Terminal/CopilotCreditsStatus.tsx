@@ -2,7 +2,8 @@ import { Bot } from 'lucide-react'
 import { useEffect, type ReactElement } from 'react'
 import { useCopilotCreditsStore } from '../../store/copilotCredits.store'
 import { ViewportTooltip } from '../common/ViewportTooltip'
-import { formatDate } from '../../utils/formatTime'
+import { formatDate, formatNumber } from '../../utils/formatTime'
+import { i18n } from '../../i18n'
 
 const REFRESH_INTERVAL_MS = 60_000
 
@@ -48,7 +49,10 @@ export function CopilotCreditsStatus(): ReactElement | null {
     const pct = bucket.usedPct
     tone = pct >= 100 ? 'critical' : pct >= 80 ? 'warning' : 'ok'
     label = `${fmt(used)}/${fmt(bucket.entitlement)}`
-    title = `Copilot AI credits (${planLabel}): ${fmt(used)}/${fmt(bucket.entitlement)} usados · ${pct}%${resetLabel ? ` · renova ${resetLabel}` : ''}`
+    title = [
+      i18n.t('terminal.copilot.used', { ns: 'code', plan: planLabel, used: fmt(used), total: fmt(bucket.entitlement), pct }),
+      resetLabel ? i18n.t('terminal.credits.resets', { ns: 'code', when: resetLabel }) : ''
+    ].filter(Boolean).join(' · ')
   } else {
     tone = 'idle'
     label = planLabel
@@ -59,7 +63,7 @@ export function CopilotCreditsStatus(): ReactElement | null {
     <ViewportTooltip
       className={`statusbar-chip copilot-credits-chip tone-${tone}`}
       content={title}
-      ariaLabel={`Copilot credits: ${label}`}
+      ariaLabel={i18n.t('terminal.copilot.label', { ns: 'code', value: label })}
     >
       <Bot size={12} aria-hidden="true" />
       <span className="chip-label">{label}</span>
@@ -69,7 +73,7 @@ export function CopilotCreditsStatus(): ReactElement | null {
 
 /** Credits can be fractional (180.8). Show ≤1 decimal, dropping a trailing .0. */
 function fmt(n: number): string {
-  return Number.isInteger(n) ? String(n) : (Math.round(n * 10) / 10).toString()
+  return formatNumber(Math.round(n * 10) / 10, { maximumFractionDigits: 1 })
 }
 
 /** "2026-07-01" / ISO → "1 jul". Returns null when unparseable. */

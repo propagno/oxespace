@@ -8,6 +8,7 @@ import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ipc'
@@ -879,6 +880,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     terminalRef.current?.focus()
   }, [])
 
+  const { t } = useTranslation('code')
   // The addon caps highlight decorations at 1000 and reports -1 beyond that.
   const searchCountLabel = !searchQuery
     ? ''
@@ -930,8 +932,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
             ref={searchInputRef}
             type="text"
             className="terminal-search-input"
-            placeholder="Search in terminal…"
-            aria-label="Search terminal"
+            placeholder={t('terminal.search.placeholder')}
+            aria-label={t('terminal.search.label')}
             value={searchQuery}
             onChange={(e) => {
               const value = e.currentTarget.value
@@ -950,13 +952,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
             }}
           />
           <span className="terminal-search-count" aria-live="polite">{searchCountLabel}</span>
-          <button type="button" className="terminal-search-btn" aria-label="Previous match" title="Previous (Shift+Enter)" onClick={() => runSearch(searchQuery, 'prev')}>
+          <button type="button" className="terminal-search-btn" aria-label={t('terminal.search.previous')} title={t('terminal.search.previousTitle')} onClick={() => runSearch(searchQuery, 'prev')}>
             <ArrowUp size={12} aria-hidden="true" />
           </button>
-          <button type="button" className="terminal-search-btn" aria-label="Next match" title="Next (Enter)" onClick={() => runSearch(searchQuery, 'next')}>
+          <button type="button" className="terminal-search-btn" aria-label={t('terminal.search.next')} title={t('terminal.search.nextTitle')} onClick={() => runSearch(searchQuery, 'next')}>
             <ArrowDown size={12} aria-hidden="true" />
           </button>
-          <button type="button" className="terminal-search-btn" aria-label="Close search" title="Close (Esc)" onClick={closeSearch}>
+          <button type="button" className="terminal-search-btn" aria-label={t('terminal.search.close')} title={t('terminal.search.closeTitle')} onClick={closeSearch}>
             <X size={12} aria-hidden="true" />
           </button>
         </div>

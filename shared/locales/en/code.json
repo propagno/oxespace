@@ -141,5 +141,236 @@
       "local": "Your edits",
       "external": "On disk"
     }
+  },
+  "scripts": {
+    "found_one": "{{count}} found",
+    "found_other": "{{count}} found",
+    "refresh": "Look for scripts again",
+    "close": "Close scripts",
+    "filter": "Filter scripts",
+    "filterPlaceholder": "Filter npm, .ps1 and .sh scripts…",
+    "loading": "Looking for scripts…",
+    "none": "No scripts found",
+    "noneHint": "Add commands to the scripts of <strong>package.json</strong>, or add <strong>.ps1</strong> or <strong>.sh</strong> files to the workspace, to run them as background jobs.",
+    "noMatch": "No script matches “{{query}}”",
+    "run": "Run",
+    "starting": "Starting…",
+    "runLabel": "Run {{name}}",
+    "runTitle": "Run as a background job",
+    "listFailed": "Could not look for scripts",
+    "runFailed": "{{name}} did not start"
+  },
+  "background": {
+    "jobs_one": "{{count}} job",
+    "jobs_other": "{{count}} jobs",
+    "delegatedCount_one": "{{count}} delegated task",
+    "delegatedCount_other": "{{count}} delegated tasks",
+    "refresh": "Refresh",
+    "source": "Activity source",
+    "localJobs": "Local jobs",
+    "delegated": "Delegated work",
+    "statusFilter": "Status filter",
+    "status": {
+      "all": "All",
+      "running": "Running",
+      "exited": "Finished",
+      "failed": "Failed",
+      "killed": "Stopped",
+      "pending": "Starting"
+    },
+    "delegationState": {
+      "preparing": "Preparing",
+      "starting": "Starting",
+      "accepted": "Working",
+      "blocked": "Blocked",
+      "interrupted": "Interrupted",
+      "failed": "Failed",
+      "review": "Ready for review",
+      "approved": "Approved",
+      "cancelled": "Cancelled"
+    },
+    "delegatedFailed": "Could not load delegated work",
+    "delegatedLoading": "Loading delegated work",
+    "delegatedEmpty": "No delegated work",
+    "delegatedEmptyHint": "Tasks delegated to agents in this project appear here. Commands an agent runs stay in its conversation.",
+    "empty": "No jobs",
+    "emptyStatus": "No jobs: {{status}}",
+    "emptyHint": "Run a command in the background from a terminal: press <strong>{{shortcut}}</strong> and type <strong>/bg npm run build</strong>. Commands an agent runs in Thread stay in that conversation.",
+    "removeFailed": "Could not remove {{name}}",
+    "stopFailed": "Could not stop {{name}}",
+    "exit": "exit {{code}}",
+    "stop": "Stop",
+    "stopLabel": "Stop {{name}}",
+    "removeLabel": "Remove {{name}} from the history",
+    "removeTitle": "Remove from the history",
+    "output": "Output",
+    "waitingOutput": "Waiting for the process output…",
+    "noOutput": "This job printed nothing."
+  },
+  "worktree": {
+    "detached": "(detached)",
+    "mainSuffix": "(main)",
+    "unknown": "unknown worktree",
+    "paneName": "Pane {{row}}.{{column}}",
+    "pickPaneFirst": "Pick a pane first: click any pane in the grid, then choose a worktree.",
+    "activePaneSection": "Worktree of the active pane",
+    "activePane": "Active pane",
+    "noActivePane": "No active pane. Click a pane to choose it.",
+    "refresh": "Refresh the worktree list",
+    "dismiss": "Dismiss",
+    "onlyMain": "This repository has only the main worktree. Create one below to work on another branch without touching the current pane.",
+    "none": "No worktrees",
+    "noneHint": "Create a worktree below to work on another branch without touching the current pane.",
+    "pickPaneTitle": "Click a pane in the grid first",
+    "alreadyOn": "The active pane is already on {{name}}",
+    "useHere": "Open the active pane in this worktree",
+    "remove": "Remove worktree",
+    "removeLabel": "Remove worktree {{name}}",
+    "tag": {
+      "main": "main",
+      "locked": "locked",
+      "prunable": "prunable",
+      "prunableTitle": "Git lost track of this folder; removing it only cleans up the record"
+    },
+    "create": {
+      "branch": "Branch name",
+      "base": "Starts from",
+      "fetch": "Fetch {{remote}} first, so the branch starts at the latest remote commit",
+      "folder": "Folder",
+      "newHint": "New branch from <strong>{{base}}</strong>. Push it later with <strong>git push -u</strong>.",
+      "head": "the current HEAD",
+      "existingHint": "The existing branch is checked out here. It cannot be checked out in another worktree at the same time.",
+      "advanced": "Advanced",
+      "path": "Custom path",
+      "pathPlaceholder": "Derived from the branch; edit to change",
+      "browseTitle": "Pick a parent folder; the branch name is added at the end",
+      "browseLabel": "Choose the parent folder",
+      "browse": "Browse",
+      "resetPath": "Derive from the branch again",
+      "useExisting": "Use an existing branch instead of creating one",
+      "cancel": "Cancel",
+      "creating": "Creating…",
+      "submit": "Create worktree",
+      "open": "New worktree"
+    },
+    "hooks": {
+      "label": "oxe.yaml scripts waiting for approval",
+      "waiting": {
+        "setup": "The setup script (runs when a worktree is created) is waiting for approval",
+        "archive": "The archive script (runs before a worktree is removed) is waiting for approval"
+      },
+      "review": "Review and approve…",
+      "failed": "Could not approve the script",
+      "confirmTitle": {
+        "setup": "Approve the setup script?",
+        "archive": "Approve the archive script?"
+      },
+      "confirmBody": "This shell script runs on this computer every time the hook fires, until its text changes. Approve it only if you trust it.",
+      "approve": "Approve this script"
+    },
+    "removal": {
+      "modified_one": "{{count}} modified file",
+      "modified_other": "{{count}} modified files",
+      "untracked_one": "{{count}} untracked entry",
+      "untracked_other": "{{count}} untracked entries",
+      "unpushed_one": "{{count}} unpushed commit",
+      "unpushed_other": "{{count}} unpushed commits",
+      "neverPushed": "a branch that was never pushed",
+      "title": "Remove {{name}}?",
+      "checking": "Checking what this worktree holds…",
+      "clean": "Everything here is committed and pushed. The folder is deleted; the branch stays.",
+      "losesWork": "This worktree still holds {{losses}}. Removing it deletes that work for good.",
+      "losesFolder": "This worktree still holds {{losses}}. Removing it deletes the folder; the branch stays.",
+      "force": "Remove and discard changes"
+    },
+    "createError": {
+      "folderExists": "The folder “{{path}}” already exists. Pick another path: git does not create a worktree where files already exist.",
+      "branchInUse": "This branch is already checked out in another worktree. Pick another branch, or remove that worktree first.",
+      "noStart": "Git could not find a starting point for the new branch. Make sure the current branch has at least one commit.",
+      "branchMissing": "Branch not found. Type the name of an existing branch, or turn off “Use an existing branch” to create a new one.",
+      "notGit": "This workspace is not a Git repository. Worktrees only work inside a repository.",
+      "unknownBase": "Git does not know the starting point “{{base}}”. Fetch the remote, or type a ref that exists locally.",
+      "invalidName": "The branch name or the starting point has characters git does not accept. Use letters, digits, /, -, _ and .",
+      "generic": "Could not create the worktree."
+    },
+    "removeError": {
+      "archiveHook": "Fix the archive script in oxe.yaml and try again.",
+      "main": "This is the main worktree; it cannot be removed from the app.",
+      "folderInUse": "The worktree left git, but its folder could not be deleted: something still has it open (an editor, the file explorer or a terminal). Close it, and delete the folder by hand if it remains.",
+      "changed": "This worktree changed since the check and now has uncommitted work. Open the removal again to see what, and confirm.",
+      "generic": "Could not remove the worktree."
+    },
+    "cleanup": {
+      "title": "Clean up worktrees",
+      "activityUnknown": "activity unknown",
+      "activeToday": "active today",
+      "idleDays_one": "idle for {{count}} day",
+      "idleDays_other": "idle for {{count}} days",
+      "scanFailed": "Could not check the worktrees",
+      "scanning": "Checking the worktrees…",
+      "none": "No worktree besides the main one.",
+      "select": "Select {{name}}",
+      "noReason": "no reason to remove",
+      "reason": {
+        "idle-clean": "idle for 30+ days",
+        "merged": "already merged",
+        "missing-directory": "folder missing"
+      },
+      "blocker": {
+        "locked": "locked by git",
+        "git-status-error": "git status unreadable",
+        "dirty-files": "uncommitted changes",
+        "unpushed-commits": "unpushed commits",
+        "unknown-base": "unknown base",
+        "active-workspace": "active pane",
+        "running-terminal": "terminal running",
+        "live-agent": "agent working"
+      },
+      "risky_one": "{{count}} selected worktree has unsaved work or an unknown state; removing it discards that work.",
+      "risky_other": "{{count}} selected worktrees have unsaved work or an unknown state; removing them discards that work.",
+      "removed_one": "{{count}} worktree removed.",
+      "removed_other": "{{count}} worktrees removed.",
+      "partly_one": "{{removed}} removed; {{count}} refused:",
+      "partly_other": "{{removed}} removed; {{count}} refused:",
+      "rescan": "Check again",
+      "remove_one": "Remove {{count}} selected",
+      "remove_other": "Remove {{count}} selected",
+      "confirmTitle_one": "Discard the unsaved work of {{count}} worktree?",
+      "confirmTitle_other": "Discard the unsaved work of {{count}} worktrees?",
+      "confirmBody": "These worktrees have uncommitted changes, unpushed commits or an unknown state: {{names}}. Removing them deletes that work for good.",
+      "confirm_one": "Remove {{count}} and discard",
+      "confirm_other": "Remove {{count}} and discard"
+    }
+  },
+  "terminal": {
+    "bgNeedsCommand": "/bg needs a command, e.g. /bg npm run build",
+    "agentNotFound": "Agent “{{name}}” not found. Try: {{options}}…",
+    "search": {
+      "placeholder": "Search in terminal…",
+      "label": "Search terminal",
+      "previous": "Previous match",
+      "previousTitle": "Previous (Shift+Enter)",
+      "next": "Next match",
+      "nextTitle": "Next (Enter)",
+      "close": "Close search",
+      "closeTitle": "Close (Esc)"
+    },
+    "credits": {
+      "stale": "last known reading",
+      "label": "{{name}} credits: {{pct}}%",
+      "weekly": "weekly {{pct}}%",
+      "session": "5-hour session {{pct}}%",
+      "resets": "resets {{when}}"
+    },
+    "copilot": {
+      "used": "Copilot AI credits ({{plan}}): {{used}}/{{total}} used · {{pct}}%",
+      "label": "Copilot credits: {{value}}"
+    },
+    "context": {
+      "title": "Context: {{left}}% left ({{used}} of {{limit}} tokens used)",
+      "hint": "/compact or /clear when it runs low",
+      "label": "Context window: {{left}}% left",
+      "chip": "{{left}}% context left"
+    }
   }
 }

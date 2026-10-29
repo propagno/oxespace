@@ -107,13 +107,6 @@
   box-shadow: 0 0 0 3px rgba(18, 199, 154, 0.18);
 }
 
-.scripts-panel-error {
-  padding: 9px 16px;
-  background: var(--intent-danger-bg);
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-2xs);
-}
-
 .scripts-panel-list {
   flex: 1;
   min-height: 0;
@@ -336,27 +329,6 @@
 .scripts-panel-run:disabled {
   opacity: 0.45;
   cursor: default;
-}
-
-.scripts-panel-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 240px;
-  color: var(--tx-muted);
-  text-align: center;
-}
-
-.scripts-panel-empty strong {
-  color: var(--tx-primary);
-}
-
-.scripts-panel-empty span {
-  max-width: 420px;
-  font-size: var(--fs-2xs);
-  line-height: 1.5;
 }
 
 .web-preview-frame-wrap {

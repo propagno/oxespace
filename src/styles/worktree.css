@@ -201,7 +201,20 @@
 .worktree-menu-item.active { background: var(--accent-soft); border-color: var(--accent-border); }
 .worktree-menu-item.is-active-pane { box-shadow: inset 3px 0 0 var(--brand); }
 .worktree-menu-item.prunable { opacity: 0.55; }
-.worktree-menu-item:disabled { cursor: not-allowed; }
+.worktree-menu-item-select {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.worktree-menu-item-select:disabled { cursor: default; }
+.worktree-menu-item-select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; border-radius: var(--radius-xs); }
 
 .worktree-menu-item-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
 .worktree-menu-item-row { display: inline-flex; align-items: center; gap: 6px; color: var(--tx-secondary); }

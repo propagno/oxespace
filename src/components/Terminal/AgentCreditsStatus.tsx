@@ -5,6 +5,7 @@ import type { CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
 import { ViewportTooltip } from '../common/ViewportTooltip'
 import { formatDate } from '../../utils/formatTime'
+import { i18n } from '../../i18n'
 
 const REFRESH_INTERVAL_MS = 5 * 60_000
 
@@ -40,13 +41,13 @@ export function AgentCreditsStatus({ provider }: { provider: AgentProvider }): R
   const tone = snapshot.stale ? 'warning' : pct >= 100 ? 'critical' : pct >= 80 ? 'warning' : 'ok'
   const name = providerLabel(provider, snapshot.planLabel)
   const Icon = provider === 'codex' ? Bot : Sparkles
-  const title = `${buildTitle(name, snapshot.windows)}${snapshot.stale ? ' · last known reading' : ''}`
+  const title = `${buildTitle(name, snapshot.windows)}${snapshot.stale ? ` · ${i18n.t('terminal.credits.stale', { ns: 'code' })}` : ''}`
 
   return (
     <ViewportTooltip
       className={`statusbar-chip agent-credits-chip tone-${tone}`}
       content={title}
-      ariaLabel={`${name} credits: ${pct}%`}
+      ariaLabel={i18n.t('terminal.credits.label', { ns: 'code', name, pct })}
     >
       <Icon size={12} aria-hidden="true" />
       <span className="chip-label">{pct}%</span>
@@ -59,16 +60,17 @@ function providerLabel(provider: AgentProvider, planLabel: string | null): strin
   return planLabel ? `${base} (${planLabel})` : base
 }
 
-/** "Claude (max): semanal 48% · renova 5 jun · sessão 55%" */
-function buildTitle(name: string, windows: CreditsWindow[]): string {
+/** "Claude (max): weekly 48% · resets Jun 5 · 5-hour session 55%", in the interface language. */
+export function buildTitle(name: string, windows: CreditsWindow[]): string {
   const weekly = windows.find((w) => w.kind === 'weekly')
   const session = windows.find((w) => w.kind === 'session')
   const parts: string[] = []
   if (weekly) {
     const reset = formatReset(weekly.resetsAtMs)
-    parts.push(`semanal ${weekly.usedPct}%${reset ? ` · renova ${reset}` : ''}`)
+    parts.push(i18n.t('terminal.credits.weekly', { ns: 'code', pct: weekly.usedPct }))
+    if (reset) parts.push(i18n.t('terminal.credits.resets', { ns: 'code', when: reset }))
   }
-  if (session) parts.push(`session ${session.usedPct}%`)
+  if (session) parts.push(i18n.t('terminal.credits.session', { ns: 'code', pct: session.usedPct }))
   return `${name}: ${parts.join(' · ')}`
 }
 
