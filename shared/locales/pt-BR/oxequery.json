@@ -1255,7 +1255,7 @@
     "label": "Schema",
     "objects": "Objetos do schema",
     "search": "Buscar objetos",
-    "searchPlaceholder": "Buscar em todos os schemas",
+    "searchPlaceholder": "Buscar nos schemas",
     "refresh": "Atualizar schema",
     "server": "Servidor: bancos e papéis",
     "serverTitle": "Bancos de dados e papéis",

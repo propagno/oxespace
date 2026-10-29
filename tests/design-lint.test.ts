@@ -97,10 +97,10 @@ describe('design lint', () => {
       expect(count(css, /@keyframes [\w-]*spin/g)).toBeLessThanOrEqual(7)
     })
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
-      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(39)
+      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(35)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
-      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(103)
+      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(80)
     })
     it('CSS modules time motion with the --duration tokens; fixed timings do not grow', () => {
       const modules = files(join(ROOT, 'src'), path => path.endsWith('.module.css'))

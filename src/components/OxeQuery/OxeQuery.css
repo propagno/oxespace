@@ -244,6 +244,10 @@
 .oq-filepick em { flex-basis: 100%; color: var(--intent-danger-solid); font-style: normal; }
 .oq-hostkey { display: grid; gap: 8px; margin: 10px 0 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: var(--text-xs); }
 .oq-hostkey p { margin: 0; line-height: 1.5; }
+.oq-preferences { display: grid; gap: 16px; }
+.oq-preferences-ceiling { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.oq-preferences-ceiling > legend { margin-bottom: 8px; padding: 0; font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+.oq-preferences-ceiling > small { font-size: var(--text-xs); color: var(--text-muted); }
 .oq-hostkey div { display: flex; justify-content: flex-end; gap: 8px; }
 .oq-hostkey button { padding: 4px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--text-xs); cursor: pointer; }
 .oq-hostkey-danger { border-color: var(--intent-danger-solid); background: color-mix(in srgb, var(--intent-danger-solid) 10%, transparent); }
