@@ -239,7 +239,6 @@
   color: var(--intent-info-fg);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  outline: none;
 }
 
 .web-preview-address-input:focus {
@@ -689,7 +688,6 @@
 }
 
 .design-grab-note:focus {
-  outline: none;
   border-color: var(--accent);
 }
 

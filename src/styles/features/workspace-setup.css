@@ -18,7 +18,6 @@
   font-size: var(--fs-xs);
   color: var(--tx-primary);
   font-family: var(--font-mono);
-  outline: none;
 }
 
 .wizard-dir-input:focus {
@@ -541,7 +540,6 @@
   transition: border-color var(--transition-base);
 }
 .new-workspace-folder-input:focus {
-  outline: none;
   border-bottom-color: color-mix(in srgb, var(--brand) 55%, transparent);
 }
 .new-workspace-folder-input::placeholder {

@@ -30,7 +30,7 @@ test('coordination consent and result UI follows settings layout', async () => {
         route = enabled ? { workspaceId: 'destination', name: 'configuration', rootPath: path, expiresAt: Date.now() + 86400000, allowEvidence } : undefined
       })
     }, ws.id)
-    await runPaletteCommand(page, 'Open workspace settings')
+    await runPaletteCommand(page, 'Workspace settings')
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agent delegation/ }).click()
     const authorize = modal.getByRole('button', { name: 'Authorize local destination' })

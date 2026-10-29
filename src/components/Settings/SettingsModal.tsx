@@ -31,7 +31,7 @@ import { AutomationsSettings } from './AutomationsSettings'
 import { AgentActivitySettings } from './AgentActivitySettings'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
-import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
+import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, SegmentedControl, Switch, TextField, Select } from '../../ui'
@@ -793,11 +793,6 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
 
       <div className="settings-content-body settings-form">
         <label className="settings-field">
-          <span>Language</span>
-          <TextField type="text" value="Portuguese (Brazil)" readOnly disabled aria-label="Fixed language: Brazilian Portuguese" />
-        </label>
-
-        <label className="settings-field">
           <span>Model</span>
           <Select value={modelSize} onChange={(e) => setModelSize(e.target.value as VoiceModelSize)}>
             {MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -1162,8 +1157,6 @@ function AgentHooksSetting(): ReactElement | null {
 function NotificationsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
-  const visitedWorkspacesCap = useSettingsStore((s) => s.visitedWorkspacesCap)
-  const setVisitedWorkspacesCap = useSettingsStore((s) => s.setVisitedWorkspacesCap)
 
   const sendTest = (): void => {
     void window.oxe?.notifications?.notify({
@@ -1218,27 +1211,6 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         <AgentHooksSetting />
 
         <AutomationsSettings />
-
-        <div className="settings-form-group">
-          <h3 className="settings-form-group-title">Performance</h3>
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              Keep recent workspaces mounted
-              <em data-testid="visited-workspaces-cap-value">{visitedWorkspacesCap}</em>
-            </span>
-            <input
-              type="range"
-              min={VISITED_WORKSPACES_CAP_MIN}
-              max={VISITED_WORKSPACES_CAP_MAX}
-              step={1}
-              value={visitedWorkspacesCap}
-              onChange={(e) => setVisitedWorkspacesCap(Number(e.target.value))}
-              data-testid="visited-workspaces-cap"
-              aria-label="Number of workspaces to keep mounted"
-            />
-            <span className="settings-field-hint">Background terminals keep running either way.</span>
-          </label>
-        </div>
       </div>
     </section>
   )

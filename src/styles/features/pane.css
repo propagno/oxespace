@@ -314,7 +314,6 @@
   font-size: var(--fs-xs);
   font-weight: 500;
   font-family: inherit;
-  outline: none;
 }
 
 .pane-intent-input:focus {
