@@ -1,7 +1,8 @@
 import type {
   ContainerInspect, ContainerPort, ContainerState, ContainerStat, ContainerSummary, ConnectionSuggestion, DatabaseEngine, DiskUsageRow, ImageInfo, NetworkInfo, VolumeInfo
 } from '../../../../shared/types/oxequery'
-import { redactEnvironment, redactSecrets } from '../../../../shared/secrets'
+import { redactSecrets } from '../../../../shared/secrets'
+import { redactEnvironment } from '../../../../shared/environment-redaction'
 
 const STATES = new Set<ContainerState>(['running', 'exited', 'paused', 'restarting', 'created', 'dead', 'removing'])
 const MAX_RANGE = 64
