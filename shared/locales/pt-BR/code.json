@@ -809,5 +809,107 @@
       "close": "Fechar o terminal",
       "starting": "Iniciando o terminal…"
     }
+  },
+  "pane": {
+    "attention": {
+      "blocked": "Precisa da sua aprovação ou resposta",
+      "done": "Concluído, ainda não visto",
+      "awaiting": "Aguardando sua resposta"
+    },
+    "status": {
+      "thinking": "Pensando",
+      "awaiting": "Aguardando",
+      "starting": "Iniciando",
+      "exited": "Encerrado",
+      "error": "Precisa de atenção",
+      "idle": "Ocioso"
+    },
+    "fallback": {
+      "thinking": "Agente pensando",
+      "awaiting": "Aguardando resposta",
+      "starting": "Iniciando o terminal",
+      "error": "Precisa de atenção",
+      "exited": "Retomar a sessão"
+    }
+  },
+  "sidebar": {
+    "rename": "Renomear o workspace {{name}}",
+    "rowTitle": "{{name}}\n{{path}}\n(clique com o botão direito para ver as opções)",
+    "duplicate_one": "{{count}} workspace abre {{path}}.",
+    "duplicate_many": "{{count}} workspaces abrem {{path}}. São a mesma pasta, então mostram a mesma branch; feche os que não precisa mais.",
+    "duplicate_other": "{{count}} workspaces abrem {{path}}. São a mesma pasta, então mostram a mesma branch; feche os que não precisa mais.",
+    "terminalsIn_one": "{{count}} terminal em {{name}}",
+    "terminalsIn_many": "{{count}} terminais em {{name}}",
+    "terminalsIn_other": "{{count}} terminais em {{name}}",
+    "terminals_one": "{{count}} terminal",
+    "terminals_many": "{{count}} terminais",
+    "terminals_other": "{{count}} terminais",
+    "partOf": "Faz parte de: {{names}}",
+    "partOfLabel_one": "O workspace faz parte de {{count}} integração",
+    "partOfLabel_many": "O workspace faz parte de {{count}} integrações",
+    "partOfLabel_other": "O workspace faz parte de {{count}} integrações",
+    "options": "Opções",
+    "optionsLabel": "Opções do workspace",
+    "renameItem": "Renomear",
+    "settings": "Configurações do workspace",
+    "moveUp": "Mover para cima",
+    "moveDown": "Mover para baixo",
+    "remove": "Remover workspace",
+    "removeTitle": "Remover o workspace?",
+    "removeBody": "<strong>{{name}}</strong> sai da barra lateral. A pasta no disco não é tocada; você pode adicioná-la de novo com Novo workspace.",
+    "activity": {
+      "agents_one": "{{count}} agente",
+      "agents_many": "{{count}} agentes",
+      "agents_other": "{{count}} agentes",
+      "thinking_one": "{{count}} pensando",
+      "thinking_many": "{{count}} pensando",
+      "thinking_other": "{{count}} pensando",
+      "awaiting_one": "{{count}} aguardando",
+      "awaiting_many": "{{count}} aguardando",
+      "awaiting_other": "{{count}} aguardando",
+      "starting_one": "{{count}} iniciando",
+      "starting_many": "{{count}} iniciando",
+      "starting_other": "{{count}} iniciando",
+      "error_one": "{{count}} com erro",
+      "error_many": "{{count}} com erro",
+      "error_other": "{{count}} com erro",
+      "idle_one": "{{count}} ocioso",
+      "idle_many": "{{count}} ociosos",
+      "idle_other": "{{count}} ociosos",
+      "exited_one": "{{count}} encerrado",
+      "exited_many": "{{count}} encerrados",
+      "exited_other": "{{count}} encerrados"
+    },
+    "newWorkspace": "Novo workspace",
+    "search": "Arquivos e comandos ({{shortcut}})",
+    "searchLabel": "Arquivos e comandos",
+    "openPanels": "Abrir painéis",
+    "collapsed": "Workspaces recolhidos",
+    "width": "Largura da barra lateral",
+    "workspaces": "Workspaces",
+    "filter": "Filtrar workspaces",
+    "integrationGroups": "Grupos de integração",
+    "integrations": "Integrações",
+    "toggleAll": "Mostrar ou ocultar os terminais de todos os workspaces",
+    "noMatch": "Nenhum workspace corresponde.",
+    "none": "Nenhum workspace ainda.",
+    "members": "Membros de {{name}}",
+    "noMembers": "Nenhum membro ainda.",
+    "session": {
+      "context": "Contexto da sessão",
+      "delegated": "Tarefa delegada",
+      "unread": "Saída não lida",
+      "tone": {
+        "thinking": "pensando",
+        "awaiting": "aguardando",
+        "idle": "ocioso",
+        "error": "precisa de atenção",
+        "exited": "encerrado",
+        "starting": "iniciando"
+      },
+      "copy": "Copiar o contexto",
+      "stop": "Parar o terminal",
+      "close": "Fechar o terminal"
+    }
   }
 }

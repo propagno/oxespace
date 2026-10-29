@@ -776,5 +776,96 @@
       "close": "Close terminal",
       "starting": "Starting terminal…"
     }
+  },
+  "pane": {
+    "attention": {
+      "blocked": "Needs your approval or answer",
+      "done": "Finished, not seen yet",
+      "awaiting": "Awaiting your input"
+    },
+    "status": {
+      "thinking": "Thinking",
+      "awaiting": "Awaiting",
+      "starting": "Starting",
+      "exited": "Exited",
+      "error": "Needs attention",
+      "idle": "Idle"
+    },
+    "fallback": {
+      "thinking": "Agent thinking",
+      "awaiting": "Awaiting input",
+      "starting": "Starting terminal",
+      "error": "Needs attention",
+      "exited": "Resume session"
+    }
+  },
+  "sidebar": {
+    "rename": "Rename workspace {{name}}",
+    "rowTitle": "{{name}}\n{{path}}\n(right-click for options)",
+    "duplicate_one": "{{count}} workspace opens {{path}}.",
+    "duplicate_other": "{{count}} workspaces open {{path}}. They are the same folder, so they show the same branch; close the ones you no longer need.",
+    "terminalsIn_one": "{{count}} terminal in {{name}}",
+    "terminalsIn_other": "{{count}} terminals in {{name}}",
+    "terminals_one": "{{count}} terminal",
+    "terminals_other": "{{count}} terminals",
+    "partOf": "Part of: {{names}}",
+    "partOfLabel_one": "Workspace is part of {{count}} integration",
+    "partOfLabel_other": "Workspace is part of {{count}} integrations",
+    "options": "Options",
+    "optionsLabel": "Workspace options",
+    "renameItem": "Rename",
+    "settings": "Workspace settings",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove workspace",
+    "removeTitle": "Remove workspace?",
+    "removeBody": "<strong>{{name}}</strong> leaves the sidebar. The folder on disk is not touched; you can add it again with New workspace.",
+    "activity": {
+      "agents_one": "{{count}} agent",
+      "agents_other": "{{count}} agents",
+      "thinking_one": "{{count}} thinking",
+      "thinking_other": "{{count}} thinking",
+      "awaiting_one": "{{count}} awaiting",
+      "awaiting_other": "{{count}} awaiting",
+      "starting_one": "{{count}} starting",
+      "starting_other": "{{count}} starting",
+      "error_one": "{{count}} with an error",
+      "error_other": "{{count}} with an error",
+      "idle_one": "{{count}} idle",
+      "idle_other": "{{count}} idle",
+      "exited_one": "{{count}} exited",
+      "exited_other": "{{count}} exited"
+    },
+    "newWorkspace": "New workspace",
+    "search": "Files & commands ({{shortcut}})",
+    "searchLabel": "Files & commands",
+    "openPanels": "Open panels",
+    "collapsed": "Collapsed workspaces",
+    "width": "Sidebar width",
+    "workspaces": "Workspaces",
+    "filter": "Filter workspaces",
+    "integrationGroups": "Integration groups",
+    "integrations": "Integrations",
+    "toggleAll": "Toggle all workspace terminals",
+    "noMatch": "No matching workspaces.",
+    "none": "No workspaces yet.",
+    "members": "{{name}} members",
+    "noMembers": "No members yet.",
+    "session": {
+      "context": "Session context",
+      "delegated": "Delegated task",
+      "unread": "Unread output",
+      "tone": {
+        "thinking": "thinking",
+        "awaiting": "awaiting",
+        "idle": "idle",
+        "error": "needs attention",
+        "exited": "exited",
+        "starting": "starting"
+      },
+      "copy": "Copy context",
+      "stop": "Stop terminal",
+      "close": "Close terminal"
+    }
   }
 }

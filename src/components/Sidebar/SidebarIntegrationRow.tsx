@@ -1,5 +1,6 @@
 import { ChevronDown, GitBranch, Zap } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 
 interface SidebarIntegrationRowProps {
@@ -20,6 +21,7 @@ interface SidebarIntegrationRowProps {
  * they're currently inspecting from the panel.
  */
 export function SidebarIntegrationRow({ group, isActive, activeMemberId, defaultExpanded, onSelectMember }: SidebarIntegrationRowProps): ReactElement {
+  const { t } = useTranslation('code')
   const [expanded, setExpanded] = useState(defaultExpanded)
   return (
     <div className={`sidebar-integration-row${isActive ? ' active' : ''}${expanded ? ' open' : ''}`}>
@@ -36,9 +38,9 @@ export function SidebarIntegrationRow({ group, isActive, activeMemberId, default
         <span className={`sidebar-integration-row-status status-${group.status}`}>{group.status}</span>
       </button>
       {expanded ? (
-        <ul className="sidebar-integration-row-members" aria-label={`${group.name} members`}>
+        <ul className="sidebar-integration-row-members" aria-label={t('sidebar.members', { name: group.name })}>
           {group.members.length === 0 ? (
-            <li className="sidebar-integration-row-empty">No members yet.</li>
+            <li className="sidebar-integration-row-empty">{t('sidebar.noMembers')}</li>
           ) : (
             group.members.map((member) => (
               <li key={member.id}>
@@ -52,7 +54,7 @@ export function SidebarIntegrationRow({ group, isActive, activeMemberId, default
                   <span className="sidebar-integration-row-alias">{member.alias}</span>
                   <span className="sidebar-integration-row-branch">
                     <GitBranch size={12} aria-hidden="true" />
-                    {member.branch ?? 'no branch'}
+                    {member.branch ?? t('github.noBranch')}
                   </span>
                 </button>
               </li>

@@ -1,5 +1,8 @@
 import type { AgentProfile } from '../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
+import { i18n } from '../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 export type PaneDisplayTone = 'thinking' | 'awaiting' | 'idle' | 'error' | 'exited' | 'starting'
 
@@ -144,13 +147,13 @@ export function derivePaneDisplayState(input: {
   const subtitle = `${identity.label} · ${statusLabel}`
   const meta = `~/${rootLabel}${branchLabel ? ` · ${branchLabel}` : ''}`
   const attentionReason = terminal.status === 'running' && terminal.agentState === 'blocked'
-    ? 'Needs your approval or answer'
+    ? tc('pane.attention.blocked')
     : terminal.status === 'running' && terminal.agentState === 'done'
-      ? 'Finished — not seen yet'
+      ? tc('pane.attention.done')
       : terminal.hasUnread
-    ? 'Unread output'
+    ? tc('sidebar.session.unread')
     : statusTone === 'awaiting'
-      ? 'Awaiting your input'
+      ? tc('pane.attention.awaiting')
       : terminal.error
         ? terminal.error
         : null
@@ -232,12 +235,7 @@ function titleCase(value: string): string {
 }
 
 export function formatPaneStatus(tone: PaneDisplayTone): string {
-  if (tone === 'thinking') return 'Thinking'
-  if (tone === 'awaiting') return 'Awaiting'
-  if (tone === 'starting') return 'Starting'
-  if (tone === 'exited') return 'Exited'
-  if (tone === 'error') return 'Needs attention'
-  return 'Idle'
+  return tc(`pane.status.${tone}`)
 }
 
 const HOOK_WAITING_FRESH_MS = 30 * 60_000
@@ -276,12 +274,8 @@ export function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTo
 }
 
 function fallbackForStatus(tone: PaneDisplayTone, pane: WorkspacePane, paneIndex: number): string {
-  if (tone === 'thinking') return 'Agent thinking'
-  if (tone === 'awaiting') return 'Awaiting input'
-  if (tone === 'starting') return 'Starting terminal'
-  if (tone === 'error') return 'Needs attention'
-  if (tone === 'exited') return 'Resume session'
-  return pane.displayName ?? `${pane.type === 'terminal' ? 'Terminal' : pane.type} ${paneIndex + 1}`
+  if (tone !== 'idle') return tc(`pane.fallback.${tone}`)
+  return pane.displayName ?? `${pane.type === 'terminal' ? tc('panels.terminal') : pane.type} ${paneIndex + 1}`
 }
 
 function compactPreview(value: string): string {
