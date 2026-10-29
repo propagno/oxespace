@@ -509,9 +509,6 @@
   "keyboard": {
     "title": "Keyboard",
     "intro": "Shortcuts work in the view named by each group. Press <strong>?</strong> outside a text field to see the ones for the current screen. A focused terminal keeps every key except the command palette, Settings and the sidebar shortcuts.",
-    "scopes": {
-      "global": "Everywhere"
-    },
     "shortcuts": "{{scope}} shortcuts",
     "alsoUsed": "Also used by {{bindings}}",
     "capturing": "Press the new shortcut, or Esc to cancel",

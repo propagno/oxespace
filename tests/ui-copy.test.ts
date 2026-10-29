@@ -24,6 +24,7 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
  * only grows: each migration PR adds its area.
  */
 const MIGRATED = [
+  'src/components/Keyboard',
   'src/components/Navigation',
   'src/components/Onboarding/AgentCliOnboarding.tsx',
   'src/components/Settings'

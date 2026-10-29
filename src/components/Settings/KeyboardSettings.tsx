@@ -4,8 +4,9 @@ import { RichText } from '../../i18n/RichText'
 import { Button } from '../../ui'
 import { eventToChord } from '../../keyboard/chords'
 import {
-  KEYBINDINGS, SCOPE_LABELS, chordsFor, conflictsFor, isOverridden, type Keybinding, type KeybindingId, type KeybindingScope
+  KEYBINDINGS, chordsFor, conflictsFor, isOverridden, type Keybinding, type KeybindingId, type KeybindingScope
 } from '../../keyboard/keybindings'
+import { bindingLabel, scopeLabel } from '../../keyboard/labels'
 import { useSettingsStore } from '../../store/settings.store'
 import { KeyChords } from '../Keyboard/KeyChord'
 import styles from '../Keyboard/Keyboard.module.css'
@@ -19,8 +20,6 @@ export function KeyboardSettings(): ReactElement {
   const resetAll = useSettingsStore(state => state.resetKeybindings)
   const [capturing, setCapturing] = useState<KeybindingId | null>(null)
   const { t } = useTranslation('settings')
-  // "Everywhere" is the only scope that is not a product name.
-  const scopeLabel = (scope: KeybindingScope): string => scope === 'global' ? t('keyboard.scopes.global') : SCOPE_LABELS[scope]
 
   useEffect(() => {
     if (!capturing) return
@@ -53,20 +52,21 @@ export function KeyboardSettings(): ReactElement {
             const id = binding.id as KeybindingId
             const conflicts = conflictsFor(id)
             const active = capturing === id
+            const name = bindingLabel(binding)
             return <li key={id} className={`${styles.row} ${styles.settingsRow}`} data-keybinding={id}>
               <span className={styles.settingsLabel}>
-                <span>{binding.label}</span>
+                <span>{name}</span>
                 {conflicts.length > 0 && <span className={styles.warning} role="status">
-                  {t('keyboard.alsoUsed', { bindings: conflicts.map(other => `${other.label} (${scopeLabel(other.scope)})`).join(', ') })}
+                  {t('keyboard.alsoUsed', { bindings: conflicts.map(other => `${bindingLabel(other)} (${scopeLabel(other.scope)})`).join(', ') })}
                 </span>}
                 {active && <span className={styles.capturing} role="status">{t('keyboard.capturing')}</span>}
               </span>
               <span className={styles.actions}>
                 <KeyChords chords={chordsFor(id)} />
-                <Button size="sm" variant="ghost" aria-pressed={active} aria-label={t('keyboard.changeLabel', { name: binding.label })}
+                <Button size="sm" variant="ghost" aria-pressed={active} aria-label={t('keyboard.changeLabel', { name })}
                   onClick={() => setCapturing(active ? null : id)}>{active ? t('keyboard.pressKeys') : t('keyboard.change')}</Button>
-                <Button size="sm" variant="ghost" disabled={!isOverridden(id)} aria-label={t('keyboard.resetLabel', { name: binding.label })} onClick={() => setOverride(id, null)}>{t('keyboard.reset')}</Button>
-                <Button size="sm" variant="ghost" disabled={chordsFor(id).length === 0} aria-label={t('keyboard.offLabel', { name: binding.label })} onClick={() => setOverride(id, [])}>{t('keyboard.off')}</Button>
+                <Button size="sm" variant="ghost" disabled={!isOverridden(id)} aria-label={t('keyboard.resetLabel', { name })} onClick={() => setOverride(id, null)}>{t('keyboard.reset')}</Button>
+                <Button size="sm" variant="ghost" disabled={chordsFor(id).length === 0} aria-label={t('keyboard.offLabel', { name })} onClick={() => setOverride(id, [])}>{t('keyboard.off')}</Button>
               </span>
             </li>
           })}

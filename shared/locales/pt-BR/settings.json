@@ -527,9 +527,6 @@
   "keyboard": {
     "title": "Teclado",
     "intro": "Os atalhos valem na visão indicada em cada grupo. Pressione <strong>?</strong> fora de um campo de texto para ver os da tela atual. Um terminal em foco fica com todas as teclas, exceto a paleta de comandos, as Configurações e os atalhos da barra lateral.",
-    "scopes": {
-      "global": "Em todo lugar"
-    },
     "shortcuts": "Atalhos de {{scope}}",
     "alsoUsed": "Também usado por {{bindings}}",
     "capturing": "Pressione o novo atalho, ou Esc para cancelar",
