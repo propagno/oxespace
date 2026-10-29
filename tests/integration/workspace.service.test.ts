@@ -32,7 +32,7 @@ describe('WorkspaceService', () => {
     expect(workspace.layout).toBe('4x4')
     expect(workspace.layoutPreset).toBe(16)
     expect(workspace.themeId).toBe('midnight')
-    expect(workspace.uiDensity).toBe('compact')
+    expect(workspace.uiDensity).toBe('default')
     expect(workspace.backgroundPanelVisible).toBe(false)
     expect(workspace.backgroundPanelWidthPercent).toBe(28)
     expect(workspace.autoStart).toBe(false)

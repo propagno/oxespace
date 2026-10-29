@@ -80,7 +80,8 @@ export const IPC_CHANNELS = {
     setUpdatePreferences: 'app:set-update-preferences',
     onUpdateState: 'app:update-state',
     setAppearance: 'app:set-appearance',
-    setLanguage: 'app:set-language'
+    setLanguage: 'app:set-language',
+    setUiScale: 'app:set-ui-scale'
   },
   rtk: {
     getStatus: 'rtk:get-status',
@@ -741,6 +742,8 @@ export interface AppUpdateApi {
   setAppearance?(mode: 'system' | 'light' | 'dark'): Promise<'light' | 'dark'>
   /** Tells the main process which language the interface shows, for native dialogs and notifications. */
   setLanguage?(language: import('../i18n').Language): Promise<void>
+  /** Zooms the whole window (0.9–1.25) and saves it for the next start; resolves to the factor in effect. */
+  setUiScale?(factor: number): Promise<number>
 }
 
 export interface RtkApi {

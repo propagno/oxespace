@@ -140,7 +140,6 @@
 
 .skills-create-field input[type="text"]:focus,
 .skills-create-field select:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -310,7 +309,6 @@
   background: color-mix(in srgb, var(--surface-sunken) 24%, transparent);
   color: var(--tx-primary);
   font-size: var(--fs-2xs);
-  outline: none;
 }
 
 .skill-row-controls input:focus {

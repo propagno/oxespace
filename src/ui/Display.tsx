@@ -14,7 +14,7 @@ export type Status = 'idle' | 'running' | 'success' | 'attention' | 'danger'
 
 /** A status dot with an accessible label; running pulses unless motion is reduced. */
 export function StatusDot({ status, label }: { status: Status; label: string }): ReactElement {
-  return <span className={cx(styles.dot, status !== 'idle' && styles[status])} role="img" aria-label={label} title={label} />
+  return <span className={cx(styles.dot, status !== 'idle' && styles[status])} data-status-dot={status} role="img" aria-label={label} title={label} />
 }
 
 export interface PanelProps {

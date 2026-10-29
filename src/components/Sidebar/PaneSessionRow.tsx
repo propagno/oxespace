@@ -149,6 +149,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
       className={`pane-session-row${isActive ? ' active' : ''}${isExited ? ' exited' : ''}`}
       role="button"
       tabIndex={0}
+      data-list-item
       aria-current={isActive ? 'true' : undefined}
       data-testid="pane-session-row"
       onClick={handleClick}

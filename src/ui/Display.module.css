@@ -105,7 +105,8 @@
 .tab[data-state='active'] { color: var(--text-primary); font-weight: var(--weight-medium); }
 .tab[data-state='active']::after { content: ''; position: absolute; left: var(--space-2); right: var(--space-2); bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
 .tab:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-sm); }
-.tabPanel:focus-visible { outline: none; }
+/* Radix puts the panel in the tab order (Tab from the tab list lands here), so it shows where focus went. */
+.tabPanel:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-sm); }
 
 /* Meter */
 .meter { display: grid; gap: var(--space-1); min-width: 0; }

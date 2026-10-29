@@ -16,6 +16,7 @@ import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 import { isTerminalReservedChord } from '../../keyboard/keybindings'
+import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
@@ -638,6 +639,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       if (workspaceId && detail?.workspaceId === workspaceId) scheduleFit()
     }
     window.addEventListener('oxe:workspace-activated', handleWorkspaceActivated)
+    // A new interface scale changes the device pixel ratio; refit once now and once after xterm re-measures its cells.
+    const handleUiScale = (): void => { scheduleFit(); settleFitTimersRef.current.push(setTimeout(scheduleFit, 150)) }
+    window.addEventListener(UI_SCALE_EVENT, handleUiScale)
     scheduleFit()
     void document.fonts?.ready.then(scheduleFit).catch(() => undefined)
     // Belt-and-suspenders re-fits shortly after mount. The pane's own layout
@@ -766,6 +770,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       window.removeEventListener('oxe:terminal-clear', handleClearRequest)
       window.removeEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
       window.removeEventListener('oxe:workspace-activated', handleWorkspaceActivated)
+      window.removeEventListener(UI_SCALE_EVENT, handleUiScale)
       try { 
         if (webglAddon) {
           webglAddon.dispose()
