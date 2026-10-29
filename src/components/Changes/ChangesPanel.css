@@ -16,7 +16,8 @@
 .changes-menu-separator { height: 1px; margin: 6px 4px; background: var(--wb-border); }
 @container (max-width: 640px) { .changes-ref span:not([aria-hidden]) { max-width: 96px; } }
 .changes-totals { display: inline-flex; gap: 6px; font-variant-numeric: tabular-nums; }
-.is-add { color: var(--intent-success-fg); }
+/* A touch toward the text color: on a selected row the plain success color sits just under 4.5:1. */
+.is-add { color: color-mix(in srgb, var(--intent-success-fg) 90%, var(--text-primary)); }
 .is-del { color: var(--intent-danger-fg); }
 .changes-icon { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); cursor: pointer; }
 .changes-icon:hover:not(:disabled) { background: var(--nav-hover); color: var(--tx-primary); }

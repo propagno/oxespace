@@ -9,9 +9,9 @@
   padding: 52px var(--space-6) var(--space-6);
   background: var(--scrim);
   overflow: hidden;
-  animation: fade var(--duration-base) var(--ease-standard);
+  transition: opacity var(--duration-base) var(--ease-standard);
 }
+/* Enters with a short transition rather than a keyframe, so a re-render mid-way never restarts it. */
+@starting-style { .scrim { opacity: 0; } }
 .panel { max-height: calc(100vh - 76px); }
 .panel:focus-visible { outline: none; }
-@keyframes fade { from { opacity: 0 } }
-@media (prefers-reduced-motion: reduce) { .scrim { animation: none } }

@@ -17,7 +17,7 @@
 .pane-activity-dot.activity-thinking,
 .pane-status-dot.activity-thinking {
   background: var(--dot-green);
-  animation: oxe-activity-pulse 1.2s ease-in-out infinite;
+  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
   box-shadow: 0 0 6px rgba(52, 212, 116, 0.65);
 }
 
@@ -45,7 +45,7 @@
 .pane-activity-dot.activity-starting,
 .pane-status-dot.activity-starting {
   background: var(--dot-yellow);
-  animation: oxe-activity-pulse 1.4s ease-in-out infinite;
+  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
   box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
 }
 
@@ -142,7 +142,7 @@
 .workspace-status-dot.activity-thinking {
   background: var(--intent-success-solid);
   box-shadow: 0 0 8px var(--intent-success-solid);
-  animation: oxe-activity-pulse 1.2s ease-in-out infinite;
+  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
   box-shadow: 0 0 8px 1px var(--dot-green);
 }
 
