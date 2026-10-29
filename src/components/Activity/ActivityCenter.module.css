@@ -1,0 +1,81 @@
+/* The bell in the title bar: a ghost button with a small count when something is unread. */
+.trigger { position: relative; }
+.count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--intent-info-solid);
+  color: var(--text-on-solid);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  pointer-events: none;
+}
+/* Amber when something waits on a person, as on the mode switch. */
+.urgent { background: var(--intent-warning-solid); }
+
+.panel {
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(520px, 70vh);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.heading { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); }
+
+.body { overflow-y: auto; padding: var(--space-1) 0; }
+.group + .group { border-top: 1px solid var(--border-subtle); }
+.groupTitle {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.list { list-style: none; margin: 0; padding: 0 var(--space-1) var(--space-1); }
+
+.item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  column-gap: var(--space-2);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.item:hover { background: var(--fill-hover); }
+.item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.unread .title { color: var(--text-primary); font-weight: var(--weight-semibold); }
+
+.icon { display: inline-flex; padding-top: 1px; color: var(--text-muted); }
+.needsYou { color: var(--intent-warning-fg); }
+.failed { color: var(--intent-danger-fg); }
+.finished { color: var(--intent-success-fg); }
+
+.text { display: grid; gap: 2px; min-width: 0; }
+.title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.time { color: var(--text-muted); font-size: var(--text-2xs); white-space: nowrap; }

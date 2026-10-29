@@ -10,6 +10,7 @@ import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbenc
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
+import { ActivityCenter } from './components/Activity/ActivityCenter'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -822,7 +823,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label="OXESpace workbench">
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
-        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by Code and Thread' : teamDisabledReason} onClick={openTeam}>Team</Button><UpdateBanner /><AppUpdateIndicator /></div>
+        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by Code and Thread' : teamDisabledReason} onClick={openTeam}>Team</Button><ActivityCenter onSelectView={selectMode} /><UpdateBanner /><AppUpdateIndicator /></div>
       </header>
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 'var(--layer-toast)', padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
