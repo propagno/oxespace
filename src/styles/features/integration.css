@@ -223,7 +223,6 @@
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-family: inherit;
-  outline: none;
   transition: border-color var(--transition-base);
 }
 
@@ -562,7 +561,6 @@
 
 .integration-context-preview:focus {
   border-color: var(--accent-border);
-  outline: none;
   box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.16);
 }
 
@@ -998,7 +996,6 @@
   font-size: var(--fs-xs);
   line-height: 20px;
   font-family: inherit;
-  outline: none;
   cursor: pointer;
   min-width: 0;
 }

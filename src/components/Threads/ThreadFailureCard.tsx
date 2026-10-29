@@ -97,7 +97,7 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
           <Button size="sm" disabled={disabled} onClick={() => { setChoosingRetry(false); retry(false) }}>Retry without undoing</Button>
           <Button size="sm" variant="ghost" onClick={() => setChoosingRetry(false)}>Cancel</Button>
         </span>}
-        {refreshUsage && <Button size="sm" variant="ghost" disabled={loading} icon={loading ? <Loader2 size={14} className="thread-spin" /> : <RefreshCw size={14} />} onClick={() => void refresh()}>{loading ? 'Checking usage…' : 'Refresh usage'}</Button>}
+        {refreshUsage && <Button size="sm" variant="ghost" disabled={loading} icon={loading ? <Loader2 size={14} className="thread-spin" aria-hidden="true" /> : <RefreshCw size={14} />} onClick={() => void refresh()}>{loading ? 'Checking usage…' : 'Refresh usage'}</Button>}
       </footer>}
     </div>
   </details>
