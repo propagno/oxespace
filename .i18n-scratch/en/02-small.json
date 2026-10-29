@@ -1,0 +1,75 @@
+{
+  "opening": {
+    "label": "Start the conversation",
+    "title": "What should {{agent}} work on in {{folder}}?",
+    "context": "Where the agent works",
+    "starters": "Starters",
+    "access": {
+      "read-only": "Read only",
+      "workspace-write": "Can edit this project",
+      "full-access": "Full access"
+    },
+    "starter": {
+      "tour": { "label": "Tour this project", "prompt": "Give me a tour of this project: how it is organized, its entry points, and how to build and run it." },
+      "review": { "label": "Review my changes", "prompt": "Review my uncommitted changes and point out risks or anything I missed." },
+      "bugs": { "label": "Find likely bugs", "prompt": "Find the parts of this code most likely to have bugs, and explain why for each." },
+      "next": { "label": "Suggest next steps", "prompt": "Suggest the three improvements most worth making here next, with where each would change." }
+    }
+  },
+  "dockPlan": {
+    "summary": "Plan, {{done}} of {{total}} done",
+    "summaryNow": "Plan, {{done}} of {{total}} done. Now: {{current}}",
+    "title": "Plan {{done}}/{{total}}"
+  },
+  "announce": {
+    "needsInput": "The agent needs your input.",
+    "needsInputMany": "The agent needs your input on {{count}} requests.",
+    "working": "The agent is working.",
+    "failed": "The turn failed.",
+    "stopped": "The turn was stopped.",
+    "finished": "The agent finished."
+  },
+  "approvalDetails": {
+    "script": "{{language}} script",
+    "command": "Command",
+    "reviewPlan": "Review the plan before the agent continues.",
+    "reviewTool": "Review the {{tool}} request before allowing it.",
+    "reviewFiles": "Review the proposed file changes before allowing them.",
+    "mayModify": "This command may modify {{target}}.",
+    "projectFiles": "project files",
+    "reviewCommand": "Review the command before allowing it to run.",
+    "toolRequest": "Provider tool request",
+    "fileChanges": "File changes",
+    "reason": "Agent reason: {{reason}}",
+    "plan": "Plan",
+    "toolInput": "Tool input",
+    "proposedChange": "Proposed change",
+    "readable": "Readable preview",
+    "exactBelow": "The exact request is available below",
+    "exact": "Exact command or request",
+    "copied": "Copied",
+    "copyExact": "Copy exact text"
+  },
+  "mcpList": {
+    "failed": { "title": "Failed to start", "hint": "Diagnose tests the server and says why it does not start. After fixing it, start a new conversation." },
+    "connected": { "title": "Connected" },
+    "starting": { "title": "Starting" },
+    "needsAuth": { "title": "Needs sign-in", "hint": "claude.ai connectors sign in at claude.ai, under Settings › Connectors." },
+    "other": { "title": "Disabled or unknown" },
+    "empty": "The provider reported no MCP servers for this conversation.",
+    "group": "{{title}}: {{count}}"
+  },
+  "reviewHost": {
+    "title": "Conversation review",
+    "resize": "Resize review panel"
+  },
+  "semantic": {
+    "title": "Semantic search",
+    "toggle": "Index this project so agents can search it by meaning",
+    "hint": "The index stays on this computer. Agents still read the files they need; this only helps them find them.",
+    "starting": "Starting the index…",
+    "indexing": "Indexing… {{files}} files so far",
+    "indexed": "{{files}} files indexed",
+    "failed": "Could not change semantic search."
+  }
+}

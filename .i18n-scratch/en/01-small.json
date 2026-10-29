@@ -1,0 +1,196 @@
+{
+  "errors": {
+    "action": "Could not complete the action."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "tryAgain": "Try again",
+    "close": "Close",
+    "loading": "Loading…",
+    "project": "Project"
+  },
+  "historical": {
+    "label": "Recovered questions",
+    "title": "Questions from this turn",
+    "unconfirmed": "Answer not confirmed",
+    "body": "Recovered from the provider history. These questions cannot be answered here; no answer was inferred."
+  },
+  "plan": {
+    "title": "Plan",
+    "progress": "{{done}}/{{total}} completed",
+    "inProgress": "In progress"
+  },
+  "patch": {
+    "region": "File diff",
+    "commentOnNew": "Comment on new line {{line}}",
+    "commentOnOld": "Comment on old line {{line}}",
+    "commentTitle": "Comment on line",
+    "showMore": "Show more lines ({{count}} remaining)",
+    "commentLabel": "Review comment",
+    "add": "Add to conversation"
+  },
+  "turnTiming": {
+    "completedBackground": "Turn completed · {{count}} background pending",
+    "completedWarnings": "Completed with warnings",
+    "completed": "Completed",
+    "failed": "Failed",
+    "interrupted": "Interrupted",
+    "actions_one": "{{count}} action",
+    "actions_other": "{{count}} actions",
+    "failedCount": " · {{count}} failed",
+    "unconfirmedCount": " · {{count}} unconfirmed",
+    "workedTitle": "Time the agent worked; waiting for your approvals and answers is counted apart",
+    "workedWaited": "Worked {{worked}} · waited for you {{waited}}"
+  },
+  "status": {
+    "running": "Running",
+    "attention": "Needs input",
+    "failed": "Failed",
+    "interrupted": "Interrupted",
+    "background": "Background",
+    "completed": "Completed",
+    "ready": "Ready"
+  },
+  "subagent": {
+    "actions": {
+      "spawnAgent": "Started agent",
+      "sendInput": "Sent input",
+      "sendMessage": "Sent message",
+      "followupTask": "Assigned follow-up",
+      "resumeAgent": "Resumed agent",
+      "interruptAgent": "Interrupted agent",
+      "closeAgent": "Closed agent",
+      "wait": "Waited for agents",
+      "listAgents": "Listed agents"
+    },
+    "state": {
+      "pending": "pending",
+      "running": "running",
+      "completed": "completed",
+      "failed": "failed",
+      "interrupted": "interrupted",
+      "closed": "closed",
+      "not-found": "not found",
+      "unknown": "unknown"
+    },
+    "stop": "Stop",
+    "stopLabel": "Stop {{label}}",
+    "stopTitle": "Stop this background task",
+    "viewResult": "View result",
+    "instructions": "Instructions"
+  },
+  "delivery": {
+    "sending": "Sending…",
+    "unconfirmed": "Not confirmed — the provider may not have received this message",
+    "sendAgain": "Send again",
+    "rejected": "Not sent",
+    "withError": "{{label}}: {{error}}"
+  },
+  "dockRewind": {
+    "body_one": "Rewound {{count}} turn. It leaves the conversation when you send your next message.",
+    "body_other": "Rewound {{count}} turns. They leave the conversation when you send your next message.",
+    "redo": "Redo"
+  },
+  "rewind": {
+    "editTitle": "Rewind to before this message and edit it",
+    "edit": "Edit",
+    "hereTitle": "Set this message and everything after it aside; your next message confirms it",
+    "here": "Rewind to here",
+    "confirmEdit": "Confirm edit",
+    "confirmRewind": "Confirm rewind",
+    "editBody_one": "To edit this message, it and its reply are set aside and the text returns to the composer. They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.",
+    "editBody_other": "To edit this message, it and {{count}} turns are set aside and the text returns to the composer. They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.",
+    "rewindBody_one": "Rewinds to before this message: it and its reply are set aside. They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.",
+    "rewindBody_other": "Rewinds to before this message: it and {{count}} turns are set aside. They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.",
+    "restoreFiles": "Also restore files changed by those turns",
+    "rewindAndEdit": "Rewind and edit",
+    "rewind": "Rewind"
+  },
+  "conversationActions": {
+    "menu": "Conversation actions",
+    "current": "Current conversation",
+    "rename": "Rename conversation",
+    "resume": "Find or resume session…",
+    "status": "Conversation status",
+    "checkpoints": "File checkpoints",
+    "export": "Export portable copy",
+    "import": "Import conversation",
+    "fork": "Fork conversation",
+    "archive": "Archive conversation",
+    "delete": "Delete conversation"
+  },
+  "modelPicker": {
+    "title": "Choose model",
+    "hint": "Choose the model for this conversation.",
+    "model": "Model",
+    "placeholder": "Select a model",
+    "effort": "Reasoning effort",
+    "selected": "Model selected",
+    "use": "Use model",
+    "none": "No models returned by the CLI. Reopen /model after checking your connection."
+  },
+  "mcpHealth": {
+    "stoppedLabel": "MCP servers stopped while the conversation is idle; they start again with your next message",
+    "unavailable_one": "{{count}} MCP server unavailable, {{connected}} connected",
+    "unavailable_other": "{{count}} MCP servers unavailable, {{connected}} connected",
+    "connected_one": "{{count}} MCP server connected",
+    "connected_other": "{{count}} MCP servers connected",
+    "title": "MCP servers",
+    "chip": "MCP · {{value}}",
+    "chipStopped": "stopped",
+    "chipFailed": "{{count}} failed",
+    "stoppedBody": "Stopped while the conversation is idle. This is the list from its last session; your next message starts them again.",
+    "reportedBody": "As this conversation's session reported them when it started.",
+    "open": "Open connections"
+  },
+  "grid": {
+    "split": "Side-by-side conversations",
+    "single": "Conversation"
+  },
+  "queue": {
+    "title": "Queued follow-ups",
+    "pausedFailed": "Queue paused — the last turn failed. Nothing is sent until you decide.",
+    "pausedInterrupted": "Queue paused — the last turn was interrupted. Nothing is sent until you decide.",
+    "resume": "Resume",
+    "sendNext": "Send next now",
+    "clear": "Clear",
+    "state": {
+      "queued": "queued",
+      "sending": "sending",
+      "failed": "failed",
+      "unknown": "unknown"
+    },
+    "editLabel": "Edit queued input",
+    "save": "Save queued input",
+    "cancelEditing": "Cancel editing",
+    "sendNow": "Send queued input now",
+    "sendNowRunning": "Stop the current turn and send this now",
+    "sendNowTitle": "Send this now",
+    "up": "Move queued input up",
+    "down": "Move queued input down",
+    "dismiss": "Dismiss input with unknown delivery",
+    "dismissTitle": "Remove this local record without retrying it",
+    "restore": "Return queued input to draft",
+    "restoreTitle": "Restore text, attachments and configuration to the composer",
+    "confirmTitle": "Stop the current turn?",
+    "confirmLabel": "Stop and send",
+    "confirmBody": "The agent stops what it is doing now, and this message is sent as soon as it has stopped. The rest of the queue keeps its order."
+  },
+  "reasoning": {
+    "thinking": "Thinking…",
+    "thought": "Thought",
+    "thoughtFor": "Thought for {{duration}}",
+    "minutes": "{{minutes}}m {{seconds}}s",
+    "seconds": "{{seconds}}s"
+  },
+  "markdown": {
+    "code": "Code",
+    "copyCode": "Copy code",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the code to copy it manually.",
+    "table": "Message table",
+    "image": "[Image]",
+    "imageAlt": "[Image: {{alt}}]"
+  }
+}
