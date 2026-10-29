@@ -64,7 +64,7 @@ import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
 import { usePaneLayoutStore } from './store/pane-layout.store'
 import { selectWorkspacesToEvict } from './components/Terminal/webglBudget'
-import { VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
+import { useSettingsStore, VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
@@ -76,7 +76,6 @@ import { matchesHotkey } from './keyboard/chords'
 import { setKeyboardView, useKeybindings } from './keyboard/keybindings'
 import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
-import { useSettingsStore } from './store/settings.store'
 
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
 const AppMenuBar = lazy(() => import('./components/Navigation/AppMenuBar').then(module => ({ default: module.AppMenuBar })))
