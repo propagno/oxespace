@@ -13,8 +13,10 @@ function commandSources(): string {
 /** The palette actions the command modules declare: literal ids, one per tool, and the families built from a template. */
 function declaredActionIds(): Set<string> {
   const source = commandSources()
-  const literal = [...source.matchAll(/\bid: '([a-z0-9-]+)'/g)].map(match => match[1])
-  return new Set([...literal, ...TOOL_CATALOG.map(tool => `tool-${tool.id}`)])
+  const literal = [...source.matchAll(/\bid: '([a-z0-9.-]+)'/g)].map(match => match[1])
+  // Settings pages are built from a list: `settings.<page>`.
+  const pages = [...source.matchAll(/\{ page: '([a-z]+)'/g)].map(match => `settings.${match[1]}`)
+  return new Set([...literal, ...pages, ...TOOL_CATALOG.map(tool => `tool-${tool.id}`)])
 }
 
 const flat = (nodes: AppMenuNode[]): AppMenuNode[] => nodes.flatMap(node => node.kind === 'submenu' ? [node, ...flat(node.children)] : [node])
@@ -31,7 +33,7 @@ describe('application menus', () => {
     const run = vi.fn()
     const actions = [...MENU_ACTION_IDS.map(id => ({ id, title: id, category: 'Test', run })),
       ...['system', 'light', 'dark'].map(mode => ({ id: `appearance-${mode}`, title: `Appearance: ${mode}`, category: 'Appearance', run }))]
-    const menus = buildAppMenus({ actions, applicationView: 'code', setApplicationView: vi.fn(), openSettings: vi.fn(), addThreadProject: vi.fn(), version: '1.4.0' })
+    const menus = buildAppMenus({ actions, applicationView: 'code', setApplicationView: vi.fn(), openSettings: vi.fn(), addThreadProject: vi.fn(), openCommandMenu: vi.fn(), version: '1.4.0' })
     const shown = new Set(menus.flatMap(menu => flat(menu.items)).map(node => node.id))
     expect(MENU_ACTION_IDS.filter(id => !shown.has(id))).toEqual([])
     const appearance = menus.flatMap(menu => flat(menu.items)).find(node => node.id === 'appearance')

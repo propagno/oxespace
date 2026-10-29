@@ -1,6 +1,6 @@
 import { useRef, type ReactElement, type ReactNode } from 'react'
 import { Check, X } from 'lucide-react'
-import { ContextMenu as RadixContextMenu, Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
+import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
 import { IconButton } from './Button'
 import { cx } from './cx'
@@ -120,42 +120,25 @@ export function Menu({ trigger, items, align = 'start', label, testId, side }: M
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}
         onFocusOutside={event => event.preventDefault()}>
-        {menuItems(RadixMenu, items)}
+        {items.map((item, index) => {
+          if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
+          if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
+          if (item.type === 'radio') return <RadixMenu.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
+            {item.options.map(option => <RadixMenu.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
+              <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
+              <RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+            </RadixMenu.RadioItem>)}
+          </RadixMenu.RadioGroup>
+          if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
+            {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+          </RadixMenu.CheckboxItem>
+          return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
+            {item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
+          </RadixMenu.Item>
+        })}
       </RadixMenu.Content>
     </RadixMenu.Portal>
   </RadixMenu.Root>
-}
-
-/** The same entries as Menu, opened by a right click (or the context-menu key) on `children`. */
-export function ContextMenu({ children, items, label, testId }: { children: ReactElement; items: MenuEntry[]; label?: string; testId?: string }): ReactElement {
-  return <RadixContextMenu.Root modal={false}>
-    <RadixContextMenu.Trigger asChild>{children}</RadixContextMenu.Trigger>
-    <RadixContextMenu.Portal>
-      <RadixContextMenu.Content className={cx(styles.floating, styles.menu)} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}>
-        {menuItems(RadixContextMenu as unknown as typeof RadixMenu, items)}
-      </RadixContextMenu.Content>
-    </RadixContextMenu.Portal>
-  </RadixContextMenu.Root>
-}
-
-/** Dropdown and context menus share their parts' names, so one renderer serves both. */
-function menuItems(Parts: typeof RadixMenu, items: MenuEntry[]): ReactNode {
-  return items.map((item, index) => {
-    if (item.type === 'separator') return <Parts.Separator key={index} className={styles.menuSeparator} />
-    if (item.type === 'label') return <Parts.Label key={index} className={styles.menuLabel}>{item.label}</Parts.Label>
-    if (item.type === 'radio') return <Parts.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
-      {item.options.map(option => <Parts.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
-        <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
-        <Parts.ItemIndicator className={styles.menuCheck}><Check size={14} /></Parts.ItemIndicator>
-      </Parts.RadioItem>)}
-    </Parts.RadioGroup>
-    if (item.type === 'check') return <Parts.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
-      {item.label}<Parts.ItemIndicator className={styles.menuCheck}><Check size={14} /></Parts.ItemIndicator>
-    </Parts.CheckboxItem>
-    return <Parts.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
-      {item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
-    </Parts.Item>
-  })
 }
 
 /** Wrap the app once so tooltips share their open delay. */

@@ -35,7 +35,9 @@ function switchProject(ctx: ThreadCommandContext, projectId: string): void {
 export async function undoLastTurn(snapshot: ThreadSnapshot): Promise<void> {
   const api = window.oxe?.thread
   const turn = [...(snapshot.turns ?? [])].reverse().find(item => item.status !== 'running')
-  if (!turn || !api?.turnFiles || !api.undoTurnFile) return
+  if (!api?.turnFiles || !api.undoTurnFile) return
+  // Said, not silent: the palette only offers this after a finished turn, but the conversation may change under it.
+  if (!turn) { toast({ title: 'Nothing to undo', description: 'This conversation has no finished turn yet.' }); return }
   const threadId = snapshot.thread.id
   try {
     const files = (await api.turnFiles(threadId, turn.id)).filter(file => file.state === 'pending')
@@ -53,6 +55,7 @@ export async function undoLastTurn(snapshot: ThreadSnapshot): Promise<void> {
 export function buildThreadCommands(ctx: ThreadCommandContext): ContributedCommand[] {
   const { snapshot } = ctx
   const running = Boolean(snapshot?.turns?.some(turn => turn.status === 'running'))
+  const finished = Boolean(snapshot?.turns?.some(turn => turn.status !== 'running'))
   const inThread = (run: () => void) => () => { ctx.showThread(); run() }
   const slash = (id: string, label: string, text: string, icon: ContributedCommand['icon'], keywords: string[] = []): ContributedCommand => ({
     id: `thread.${id}`, label, icon, category: CATEGORY, keywords: [text, ...keywords], detail: text, disabled: !snapshot,
@@ -72,8 +75,10 @@ export function buildThreadCommands(ctx: ThreadCommandContext): ContributedComma
     slash('events', 'Conversation events', '/events', ScrollText, ['log', 'debug']),
     slash('rules', 'Approval rules', '/rules', ListChecks, ['permissions', 'allow', 'deny']),
     { id: 'thread.undo-last-turn', label: 'Undo the last turn’s file changes', icon: Undo2, category: CATEGORY, keywords: ['revert', 'restore', 'checkpoint', 'rewind'],
-      disabled: !snapshot || running, run: inThread(() => { if (snapshot) void undoLastTurn(snapshot) }) },
-    { id: 'thread.accounts', label: 'Provider accounts', icon: UserRound, category: CATEGORY, keywords: ['login', 'logout', 'claude', 'codex', 'account'], run: inThread(ctx.openAccounts) }
+      disabled: !snapshot || running || !finished, run: inThread(() => { if (snapshot) void undoLastTurn(snapshot) }) },
+    { id: 'thread.accounts', label: 'Provider accounts', icon: UserRound, category: CATEGORY, keywords: ['login', 'logout', 'claude', 'codex', 'account'],
+      // Accounts are checked inside a project.
+      disabled: ctx.projects.length === 0, run: inThread(ctx.openAccounts) }
   ]
 }
 

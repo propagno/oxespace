@@ -18,7 +18,6 @@
   font-size: var(--fs-xs);
   color: var(--tx-primary);
   font-family: var(--font-mono);
-  outline: none;
 }
 
 .wizard-dir-input:focus {
@@ -306,7 +305,7 @@
 /* Density toggle */
 .density-toggle {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 .density-option {
@@ -541,7 +540,6 @@
   transition: border-color var(--transition-base);
 }
 .new-workspace-folder-input:focus {
-  outline: none;
   border-bottom-color: color-mix(in srgb, var(--brand) 55%, transparent);
 }
 .new-workspace-folder-input::placeholder {

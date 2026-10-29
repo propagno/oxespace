@@ -17,6 +17,7 @@ export interface AppMenuContext {
   setApplicationView(view: 'code' | 'thread' | 'data'): void
   openSettings(): void
   addThreadProject(): void
+  openCommandMenu(): void
   version: string
 }
 
@@ -24,8 +25,8 @@ const sep = (id: string): AppMenuNode => ({ kind: 'separator', id })
 
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
-  'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane', 'design-system',
-  'find-in-files', 'tool-mcp', 'tool-skills', 'open-usage', 'open-linear'] as const
+  'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
+  'tool-mcp', 'tool-skills', 'open-usage', 'open-linear', 'help.shortcuts', 'settings.diagnostics', 'settings.updates'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -55,10 +56,10 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'file', label: t('menu.file'), items: compact([
         ctx.applicationView === 'thread'
           ? { kind: 'item', id: 'add-project', label: t('menu.addProject'), onSelect: ctx.addThreadProject }
-          : fromAction('new-workspace', t('menu.newWorkspace')),
+          : fromAction('new-workspace'),
         sep('file-1'),
         { kind: 'item', id: 'settings', label: t('menu.settings'), shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
-        fromAction('workspace-settings', t('menu.workspaceSettings')),
+        fromAction('workspace-settings'),
         sep('file-2'),
         { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => window.close() }
       ])
@@ -76,39 +77,44 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     },
     {
       id: 'view', label: t('menu.view'), items: compact([
+        { kind: 'item', id: 'command-palette', label: t('menu.commandPalette'), shortcut: shortcutLabel('palette.open'), onSelect: ctx.openCommandMenu },
+        sep('view-0'),
         { kind: 'radio', id: 'view-code', label: 'Code', checked: ctx.applicationView === 'code', onSelect: () => ctx.setApplicationView('code') },
         { kind: 'radio', id: 'view-thread', label: 'Thread', checked: ctx.applicationView === 'thread', onSelect: () => ctx.setApplicationView('thread') },
         { kind: 'radio', id: 'view-data', label: 'OxeQuery', checked: ctx.applicationView === 'data', onSelect: () => ctx.setApplicationView('data') },
         sep('view-1'),
-        fromAction('toggle-sidebar', t('menu.toggleSidebar'), shortcutLabel('sidebar.toggle')),
-        fromAction('tool-editor', t('menu.files'), shortcutLabel('code.files')),
-        fromAction('tool-github', t('menu.sourceControl')),
-        fromAction('tool-background', t('menu.backgroundActivity')),
-        fromAction('toggle-split-layout', t('menu.splitLayout'), shortcutLabel('code.splitLayout')),
-        fromAction('balance-pane-layout', t('menu.balancePanes')),
+        fromAction('toggle-sidebar', undefined, shortcutLabel('sidebar.toggle')),
+        fromAction('tool-editor', undefined, shortcutLabel('code.files')),
+        fromAction('tool-github'),
+        fromAction('tool-background'),
+        fromAction('toggle-split-layout', undefined, shortcutLabel('code.splitLayout')),
+        fromAction('balance-pane-layout'),
         sep('view-2'),
         // Appearance applies to the whole app, so it works without a workspace.
         appearances.length ? { kind: 'submenu', id: 'appearance', label: t('menu.appearance'), children: appearances } : null,
         densities.length ? { kind: 'submenu', id: 'densities', label: t('menu.density'), disabled: noWorkspace, children: densities } : null,
         layouts.length ? { kind: 'submenu', id: 'layouts', label: t('menu.layout'), disabled: noWorkspace, children: layouts } : null,
         sep('view-3'),
-        fromAction('split-vertical', t('menu.splitRight'), shortcutLabel('pane.splitRight')),
-        fromAction('split-horizontal', t('menu.splitDown'), shortcutLabel('pane.splitDown')),
-        fromAction('maximize-pane', t('menu.maximizePane'), shortcutLabel('pane.maximize')),
-        sep('view-4'),
-        fromAction('design-system', t('menu.designSystem'))
+        fromAction('split-vertical', undefined, shortcutLabel('pane.splitRight')),
+        fromAction('split-horizontal', undefined, shortcutLabel('pane.splitDown')),
+        fromAction('maximize-pane', undefined, shortcutLabel('pane.maximize'))
+      ])
+    },
+    {
+      id: 'tools', label: t('menu.tools'), items: compact([
+        fromAction('tool-mcp'),
+        fromAction('tool-skills'),
+        fromAction('open-usage'),
+        fromAction('open-linear')
       ])
     },
     {
       id: 'help', label: t('menu.help'), items: compact([
-        fromAction('find-in-files', t('menu.searchFiles'), shortcutLabel('palette.search')),
+        fromAction('help.shortcuts', t('menu.shortcuts'), shortcutLabel('help.shortcuts')),
+        fromAction('settings.diagnostics', t('menu.diagnostics')),
         sep('help-1'),
-        fromAction('tool-mcp', t('menu.mcpServers')),
-        fromAction('tool-skills', t('menu.skills')),
-        fromAction('open-usage', t('menu.usage')),
-        fromAction('open-linear', t('menu.linear')),
-        sep('help-2'),
-        { kind: 'item', id: 'about', label: t('menu.about', { version: ctx.version }), disabled: true, onSelect: () => undefined }
+        // Settings › Updates shows the version and checks for a newer one.
+        fromAction('settings.updates', t('menu.aboutApp', { version: ctx.version }))
       ])
     }
   ]

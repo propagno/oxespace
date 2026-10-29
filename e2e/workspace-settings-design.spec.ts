@@ -18,7 +18,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
-    await runPaletteCommand(page, 'Open workspace settings')
+    await runPaletteCommand(page, 'Workspace settings')
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(modal).toBeVisible()
     for (const width of [1360, 600]) {
@@ -81,7 +81,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await expect(page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane')).toBeVisible()
     await page.screenshot({ path: info.outputPath('600-Code-Dark.png') })
     await page.setViewportSize({ width: 1360, height: 900 })
-    await runPaletteCommand(page, 'Open workspace settings')
+    await runPaletteCommand(page, 'Workspace settings')
     await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
     await modal.getByRole('radio', { name: /^Light/ }).click()
     await page.keyboard.press('Escape')

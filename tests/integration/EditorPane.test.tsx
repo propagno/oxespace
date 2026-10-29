@@ -160,7 +160,7 @@ describe('EditorPane', () => {
     await user.type(screen.getByLabelText('monaco-typescript'), '!')
     await act(async () => { await useEditorStore.getState().openFile({ workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md' }) })
     fireEvent.contextMenu(await screen.findByTestId('editor-tab-README.md'))
-    await user.click(await screen.findByRole('menuitem', { name: /Close others/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Close other tabs' }))
     expect(screen.getByTestId('editor-tab-src/index.ts')).toBeInTheDocument()
     expect(screen.getByTestId('editor-tab-README.md')).toBeInTheDocument()
   })

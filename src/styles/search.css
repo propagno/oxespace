@@ -41,7 +41,6 @@
 }
 
 .search-panel-input:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -70,7 +69,6 @@
 }
 
 .search-panel-globs:focus {
-  outline: none;
   border-color: var(--accent);
 }
 

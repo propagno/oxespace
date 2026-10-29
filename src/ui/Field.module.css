@@ -21,7 +21,7 @@
 :where(.textarea) { padding: var(--space-2); line-height: var(--leading-normal); resize: vertical; min-height: calc(var(--control-md) * 2); }
 :where(.input, .textarea)::placeholder { color: var(--text-muted); }
 :where(.input, .textarea, .select):hover { border-color: var(--text-muted); }
-:where(.input, .textarea, .select):focus-visible { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 30%, transparent); }
+:where(.input, .textarea, .select):focus-visible { outline: 2px solid transparent; border-color: var(--border-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 30%, transparent); }
 :where(.input, .textarea, .select)[aria-invalid='true'] { border-color: var(--intent-danger-solid); }
 :where(.input, .textarea, .select):disabled { opacity: 0.55; cursor: not-allowed; }
 .mono { font-family: var(--font-mono); }

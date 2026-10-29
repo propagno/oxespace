@@ -220,7 +220,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/runtime/rpc/server.ts',
   // Reads and writes only <userData>/update-preferences.json (how the app
   // updates itself) — never a workspace path.
-  'electron/main/updater.ts'
+  'electron/main/updater.ts',
+  // Reads and writes only <userData>/ui-scale.json (the interface zoom the next
+  // window starts at, so boot has no 100% first frame) — never a workspace path.
+  'electron/main/ipc/appearance.ipc.ts'
 ])
 
 describe('workspace fs allowlist', () => {

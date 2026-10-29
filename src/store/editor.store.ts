@@ -206,14 +206,12 @@ export const useEditorStore = create<EditorState>()(
 
       closeOtherTabs: (workspaceId, relativePath) => {
         const state = get()
-        // Pinned tabs and tabs with unsaved edits stay: closing others never throws work away.
-        const dirty = (path: string): boolean => {
-          const file = state.files[workspaceId]?.[path]
-          return Boolean(file && file.content !== file.lastSavedContent)
-        }
+        const files = state.files[workspaceId] ?? {}
+        // Pinned tabs and tabs with unsaved edits stay: closing several at once must never discard work.
         const keep = new Set(
           (state.tabs[workspaceId] ?? [])
-            .filter((tab) => tab.pinned || tab.relativePath === relativePath || dirty(tab.relativePath))
+            .filter((tab) => tab.pinned || tab.relativePath === relativePath
+              || (files[tab.relativePath] !== undefined && files[tab.relativePath].content !== files[tab.relativePath].lastSavedContent))
             .map((tab) => tab.relativePath)
         )
         for (const [path, file] of Object.entries(state.files[workspaceId] ?? {})) {

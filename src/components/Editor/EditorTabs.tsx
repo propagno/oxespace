@@ -1,8 +1,8 @@
-import { Pin, X } from 'lucide-react'
+import { Pin, PinOff, X, XSquare } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { EditorTab } from '../../store/editor.store'
-import { ContextMenu, copyText, type MenuEntry } from '../../ui'
 
 interface EditorTabsProps {
   tabs: EditorTab[]
@@ -15,7 +15,7 @@ interface EditorTabsProps {
   onMove: (fromPath: string, toPath: string) => void
 }
 
-/** Editor tab strip: click to activate, middle-click or Delete to close, double-click to pin, right-click for the tab menu, drag to reorder. */
+/** Editor tab strip: click to activate, middle-click to close, drag to reorder, right-click for tab actions. */
 export function EditorTabs({
   activePath,
   dirtyPaths,
@@ -30,6 +30,27 @@ export function EditorTabs({
   const [draggingPath, setDraggingPath] = useState<string | null>(null)
   const [dropPath, setDropPath] = useState<string | null>(null)
   const stripRef = useRef<HTMLDivElement | null>(null)
+  const [menu, setMenu] = useState<{ path: string; x: number; y: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  // The menu closes on any outside press, Escape or a scroll of the strip, and starts with focus on its first item.
+  useEffect(() => {
+    if (!menu) return
+    menuRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
+    const close = (event: Event): void => {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
+      if (event.target instanceof Node && menuRef.current?.contains(event.target) && !(event instanceof KeyboardEvent)) return
+      setMenu(null)
+    }
+    window.addEventListener('pointerdown', close, true)
+    window.addEventListener('keydown', close, true)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('pointerdown', close, true)
+      window.removeEventListener('keydown', close, true)
+      window.removeEventListener('blur', close)
+    }
+  }, [menu])
 
   // The strip scrolls horizontally in a narrow panel, so the active tab has to
   // be pulled into view — otherwise opening a file appears to do nothing.
@@ -48,16 +69,9 @@ export function EditorTabs({
       {tabs.map((tab) => {
         const isActive = tab.relativePath === activePath
         const isDirty = dirtyPaths.has(tab.relativePath)
-        const menu: MenuEntry[] = [
-          { label: t('editor.tabs.close'), onSelect: () => onClose(tab.relativePath) },
-          { label: t('editor.tabs.closeOthers'), disabled: tabs.length < 2, onSelect: () => onCloseOthers(tab.relativePath) },
-          { label: tab.pinned ? t('editor.tabs.unpin') : t('editor.tabs.pin'), onSelect: () => onTogglePin(tab.relativePath) },
-          { type: 'separator' },
-          { label: t('editor.tabs.copyPath'), onSelect: () => void copyText(tab.relativePath, t('editor.tabs.path')) }
-        ]
         return (
-          <ContextMenu key={tab.relativePath} items={menu} label={t('editor.tabs.menu', { name: basename(tab.relativePath) })}>
           <div
+            key={tab.relativePath}
             role="tab"
             aria-selected={isActive}
             aria-keyshortcuts="Delete"
@@ -90,6 +104,12 @@ export function EditorTabs({
               }
             }}
             onDoubleClick={() => onTogglePin(tab.relativePath)}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              // A keyboard-opened menu (Shift+F10) has no pointer position: anchor it under the tab.
+              const box = event.currentTarget.getBoundingClientRect()
+              setMenu({ path: tab.relativePath, x: event.clientX || box.left, y: event.clientY || box.bottom })
+            }}
             onDragStart={(event) => {
               setDraggingPath(tab.relativePath)
               event.dataTransfer.effectAllowed = 'move'
@@ -128,9 +148,28 @@ export function EditorTabs({
               <X size={12} aria-hidden="true" />
             </span>
           </div>
-          </ContextMenu>
         )
       })}
+      {menu ? (() => {
+        const tab = tabs.find((item) => item.relativePath === menu.path)
+        if (!tab) return null
+        const run = (action: () => void) => () => { setMenu(null); action() }
+        // Outside the tablist, which may only own tabs.
+        return createPortal(
+          <div ref={menuRef} className="ws-group-context-menu" role="menu" aria-label={t('editor.tabs.menu', { name: basename(tab.relativePath) })} style={{ left: menu.x, top: menu.y }} data-testid="editor-tab-menu">
+            <button type="button" role="menuitem" onClick={run(() => onTogglePin(tab.relativePath))}>
+              {tab.pinned ? <PinOff size={12} aria-hidden="true" /> : <Pin size={12} aria-hidden="true" />}{tab.pinned ? t('editor.tabs.unpin') : t('editor.tabs.pin')}
+            </button>
+            <button type="button" role="menuitem" disabled={tabs.length < 2} title={t('editor.tabs.closeOthersTitle')} onClick={run(() => onCloseOthers(tab.relativePath))}>
+              <XSquare size={12} aria-hidden="true" />{t('editor.tabs.closeOthers')}
+            </button>
+            <button type="button" role="menuitem" onClick={run(() => onClose(tab.relativePath))}>
+              <X size={12} aria-hidden="true" />{t('editor.tabs.close')}
+            </button>
+          </div>,
+          document.body
+        )
+      })() : null}
     </div>
   )
 }

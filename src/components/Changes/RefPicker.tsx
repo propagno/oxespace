@@ -2,6 +2,7 @@ import { useState, type ReactElement, type ReactNode } from 'react'
 import { Check, ChevronDown, FolderGit2, GitBranch, GitCommitHorizontal, Search } from 'lucide-react'
 import type { GitHubWorktree } from '../../../shared/types/github'
 import { Popover, TextField } from '../../ui'
+import { useTranslation } from 'react-i18next'
 import { isValidRef } from './changesModel'
 import './ChangesPanel.css'
 
@@ -26,6 +27,7 @@ export function RefPicker({ label, value, icon, branches, worktrees, selected, d
   onPickRef(ref: string): void
   onPickWorktree?(worktree: GitHubWorktree): void
 }): ReactElement {
+  const { t } = useTranslation('code')
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const needle = query.trim().toLowerCase()
@@ -49,17 +51,17 @@ export function RefPicker({ label, value, icon, branches, worktrees, selected, d
     </button>
   }>
     <div className="changes-ref-menu">
-      <label className="changes-menu-search"><Search size={14} aria-hidden="true" /><TextField autoFocus aria-label="Search branches" placeholder="Branch, tag or SHA" value={query} onChange={event => setQuery(event.target.value)}
+      <label className="changes-menu-search"><Search size={14} aria-hidden="true" /><TextField autoFocus aria-label={t('changes.ref.search')} placeholder={t('changes.ref.placeholder')} value={query} onChange={event => setQuery(event.target.value)}
         onKeyDown={event => { if (event.key === 'Enter' && offerTyped) { changeOpen(false); onPickRef(typed) } }} /></label>
       <ul>
-        {trees.length > 0 && <li className="changes-menu-heading" role="presentation">Worktrees (with uncommitted changes)</li>}
-        {trees.map(tree => item(`tree:${tree.path}`, <><FolderGit2 size={14} aria-hidden="true" /><span>{tree.branch ?? 'detached'}{tree.isMain ? '' : ' · worktree'}</span></>, () => onPickWorktree?.(tree), tree.path))}
-        {local.length > 0 && <li className="changes-menu-heading" role="presentation">Branches</li>}
+        {trees.length > 0 && <li className="changes-menu-heading" role="presentation">{t('changes.ref.worktrees')}</li>}
+        {trees.map(tree => item(`tree:${tree.path}`, <><FolderGit2 size={14} aria-hidden="true" /><span>{tree.branch ?? t('changes.detached')}{tree.isMain ? '' : ` · ${t('changes.ref.worktree')}`}</span></>, () => onPickWorktree?.(tree), tree.path))}
+        {local.length > 0 && <li className="changes-menu-heading" role="presentation">{t('changes.ref.branches')}</li>}
         {local.map(name => item(`ref:${name}`, <><GitBranch size={14} aria-hidden="true" /><span>{name}</span></>, () => onPickRef(name)))}
-        {remote.length > 0 && <li className="changes-menu-heading" role="presentation">Remote branches</li>}
+        {remote.length > 0 && <li className="changes-menu-heading" role="presentation">{t('changes.ref.remote')}</li>}
         {remote.map(name => item(`ref:${name}`, <><GitBranch size={14} aria-hidden="true" /><span>{name}</span></>, () => onPickRef(name)))}
-        {offerTyped && item(`ref:${typed}`, <><GitCommitHorizontal size={14} aria-hidden="true" /><span>Use “{typed}”</span></>, () => onPickRef(typed))}
-        {nothing && <li className="changes-menu-empty">{typed && !isValidRef(typed) ? 'Not a valid branch, tag or SHA.' : 'No branches match.'}</li>}
+        {offerTyped && item(`ref:${typed}`, <><GitCommitHorizontal size={14} aria-hidden="true" /><span>{t('changes.ref.use', { ref: typed })}</span></>, () => onPickRef(typed))}
+        {nothing && <li className="changes-menu-empty">{typed && !isValidRef(typed) ? t('changes.ref.invalid') : t('changes.ref.none')}</li>}
       </ul>
     </div>
   </Popover>
