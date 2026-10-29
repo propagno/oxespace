@@ -985,7 +985,8 @@
       "note": "O que o agente deve mudar?",
       "notePlaceholder": "O que o agente deve mudar aqui? (Ctrl+Enter envia)",
       "send": "Enviar ao agente"
-    }
+    },
+    "retry": "Tentar de novo"
   },
   "workspace": {
     "panel": {

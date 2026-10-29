@@ -313,7 +313,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         {(!url || externalPageBlocked || pageError) && (
           <div className="web-preview-placeholder">
             {externalPageBlocked ? <EmptyState icon={<MonitorPlay size={20} />} title={t('preview.externalRequired')}>{t('preview.externalRequiredHint')}</EmptyState>
-              : pageError ? <ErrorState title={t('preview.unavailable')} message={t('preview.unavailableHint')} detail={pageError} onRetry={open} />
+              : pageError ? <ErrorState title={t('preview.unavailable')} message={t('preview.unavailableHint')} detail={pageError} onRetry={open} retryLabel={t('preview.retry')} />
               : <EmptyState icon={<MonitorPlay size={20} />} title={t('panels.browser')}>{t('preview.emptyHint')}</EmptyState>}
           </div>
         )}
