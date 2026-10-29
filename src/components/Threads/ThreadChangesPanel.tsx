@@ -40,7 +40,7 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSend
   }
   return <aside className="thread-review-panel" aria-label={t('workbench.label')}>
     <header className="thread-review-heading"><div className="thread-review-menu"><Menu label={t('workbench.panels')} items={[{ type: 'radio', value: panel, onValueChange: value => setPanel(value as ThreadPanel), options: (Object.keys(PANEL_ID) as ThreadPanel[]).map(value => ({ value, label: threadPanelLabel(PANEL_ID[value]) })) }]}
-      trigger={<button type="button" aria-label={t('workbench.select')}><ListTree size={14} />{threadPanelLabel(PANEL_ID[panel])}<ChevronDown size={12} /></button>} /></div>
+      trigger={<button type="button" aria-label={t('workbench.select', { panel: threadPanelLabel(PANEL_ID[panel]) })}><ListTree size={14} />{threadPanelLabel(PANEL_ID[panel])}<ChevronDown size={12} /></button>} /></div>
       {onToggleMaximized && <button type="button" aria-label={maximized ? t('workbench.restore') : t('workbench.maximize')} aria-pressed={maximized} title={maximized ? t('workbench.restoreTitle') : t('workbench.maximizeTitle')} onClick={onToggleMaximized}>{maximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>}
       <button type="button" aria-label={t('workbench.close')} title={t('common.close')} onClick={onClose}><X size={14} /></button></header>
     {panel === 'changes' && turnId ? <div className="thread-review-body thread-tool-surface"><ThreadTurnReview key={turnId} snapshot={snapshot} turnId={turnId} onShowAll={() => useThreadWorkbenchStore.getState().setView(id, { panel: 'changes', turnId: undefined })} onComment={text => onSendToConversation?.(text)} /></div>

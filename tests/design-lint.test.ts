@@ -91,7 +91,7 @@ describe('design lint', () => {
     const count = (paths: string[], pattern: RegExp): number => paths.reduce((sum, path) => sum + (readFileSync(path, 'utf8').match(pattern)?.length ?? 0), 0)
 
     it('hand-made spinners (lucide Loader2) do not grow; use <Spinner>', () => {
-      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(13)
+      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(0)
     })
     it('spin keyframes do not grow; the Spinner primitive has the one animation', () => {
       // `:global(oxe-spin)` in src/ui/Display.module.css; everything else animates with that name.

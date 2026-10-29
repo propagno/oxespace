@@ -1443,7 +1443,7 @@
   "workbench": {
     "label": "Thread workbench",
     "panels": "Workbench panels",
-    "select": "Select workbench panel",
+    "select": "Select workbench panel: {{panel}}",
     "restore": "Restore workbench panel",
     "maximize": "Maximize workbench panel",
     "restoreTitle": "Restore · Esc",

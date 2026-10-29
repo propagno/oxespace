@@ -1475,7 +1475,7 @@
   "workbench": {
     "label": "Bancada do Thread",
     "panels": "Painéis da bancada",
-    "select": "Escolher painel da bancada",
+    "select": "Escolher painel da bancada: {{panel}}",
     "restore": "Restaurar o painel da bancada",
     "maximize": "Maximizar o painel da bancada",
     "restoreTitle": "Restaurar · Esc",
