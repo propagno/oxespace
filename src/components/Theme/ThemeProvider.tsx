@@ -3,6 +3,7 @@ import type { WorkspaceDensity, WorkspaceThemeId } from '../../../shared/types/w
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 import { resolveDensity } from '../../design/density'
 import { applyMode, resolveMode } from '../../design/mode'
+import { applyMotion, REDUCED_MOTION_QUERY, resolveMotion } from '../../design/motion'
 import { useSettingsStore } from '../../store/settings.store'
 
 interface ThemeProviderProps {
@@ -15,13 +16,14 @@ interface ThemeProviderProps {
 
 /**
  * Applies the person's light/dark choice (or the operating system's), the
- * density and the interface scale to the document root, and mirrors the mode
+ * motion, density and interface scale to the document root, and mirrors the mode
  * and the scale into the native window so caption buttons, menus and zoom match.
  */
 export function ThemeProvider({ children, density }: ThemeProviderProps): ReactElement {
   const appearance = useSettingsStore(state => state.appearance)
   const appDensity = useSettingsStore(state => state.density)
   const uiScale = useSettingsStore(state => state.uiScale)
+  const motion = useSettingsStore(state => state.motion)
   const resolvedDensity = resolveDensity(density, appDensity)
 
   useEffect(() => {
@@ -32,6 +34,15 @@ export function ThemeProvider({ children, density }: ThemeProviderProps): ReactE
     query?.addEventListener('change', update)
     return () => query?.removeEventListener('change', update)
   }, [appearance])
+
+  useEffect(() => {
+    // System follows prefers-reduced-motion live; Reduced and Full ignore it.
+    const query = window.matchMedia?.(REDUCED_MOTION_QUERY)
+    const update = () => applyMotion(resolveMotion(motion, query?.matches === true))
+    update()
+    query?.addEventListener('change', update)
+    return () => query?.removeEventListener('change', update)
+  }, [motion])
 
   useLayoutEffect(() => {
     const root = document.documentElement

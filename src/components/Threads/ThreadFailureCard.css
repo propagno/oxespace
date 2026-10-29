@@ -2,7 +2,7 @@
 .thread-turn-error.thread-failure-card>summary { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
 .thread-failure-card>summary>strong { color: var(--tx-primary); font-weight: 500; }
 .thread-failure-card>summary>time { margin-left: auto; color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-failure-card>summary>svg:last-child { margin-left: auto; transition: transform .15s; }
+.thread-failure-card>summary>svg:last-child { margin-left: auto; transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-failure-card[open]>summary>svg:last-child { transform: rotate(180deg); }
 .thread-failure-card>summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .thread-failure-body { padding: 0 12px 12px; border-top: 1px solid var(--bd-base); }

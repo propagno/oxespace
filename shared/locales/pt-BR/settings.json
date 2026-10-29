@@ -83,7 +83,7 @@
   "appearance": {
     "kicker": "Aparência global",
     "title": "Aparência",
-    "description": "Modo, escala da interface, densidade e idioma do app inteiro.",
+    "description": "Modo, escala da interface, densidade, movimento e idioma do app inteiro.",
     "mode": {
       "title": "Modo",
       "system": {
@@ -119,6 +119,21 @@
       "useAppInWorkspaces": "Usar a densidade do app em todos os workspaces",
       "threadOverride": "A lista do Thread usa a própria densidade: {{density}}.",
       "useAppInThread": "Usar a densidade do app na lista do Thread"
+    },
+    "motion": {
+      "title": "Movimento",
+      "system": {
+        "label": "Sistema",
+        "hint": "Segue a opção de reduzir movimento do sistema operacional."
+      },
+      "reduce": {
+        "label": "Reduzido",
+        "hint": "Painéis e listas mudam sem animação; indicadores de atividade giram devagar."
+      },
+      "full": {
+        "label": "Completo",
+        "hint": "Transições curtas em painéis, listas e menus, mesmo que o sistema peça menos."
+      }
     }
   },
   "diagnostics": {

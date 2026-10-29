@@ -25,7 +25,7 @@ test('workspace panels remain readable when several tools are open', async () =>
     const stack = page.getByRole('navigation', { name: 'Workspace panels' })
     const tabs = stack.getByRole('tablist', { name: 'Open workspace panels' })
     await expect(tabs.getByRole('tab')).toHaveCount(4)
-    await expect(stack.getByRole('button', { name: 'More panels (1)' })).toBeVisible()
+    await expect(stack.getByRole('button', { name: 'More panels: 1' })).toBeVisible()
     await expect(tabs.getByRole('tab', { name: 'Changes', exact: true })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTestId('workspace-review-panel')).toBeVisible()
     await page.getByTestId('workspace-review-panel').evaluate(el => el.setAttribute('data-preserved', 'yes'))

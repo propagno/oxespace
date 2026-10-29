@@ -404,7 +404,7 @@ describe('Thread workspace UI', () => {
     useThreadStore.getState().setDraft('thread', 'Preserve this draft')
     render(<ThreadView workspace={f.workspace} />)
     expect(screen.getByText('Existing conversation')).toBeVisible()
-    fireEvent.click(screen.getByRole('button', { name: 'Select model' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Select model: / }))
     fireEvent.click(await screen.findByRole('button', { name: /Native model A native catalog entry/ }))
     await waitFor(() => expect(f.api.configure).toHaveBeenCalledWith('thread', { model: 'native-model', reasoningEffort: 'low' }, 0))
     fireEvent.click(screen.getByRole('button', { name: 'Select effort' }))
