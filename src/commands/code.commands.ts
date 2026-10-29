@@ -37,8 +37,9 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
   const { activeWorkspace, activePane } = ctx
   const ui = useUIStore.getState()
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
+  const terminalRunning = terminalPane !== null && useTerminalStore.getState().getStatus(terminalPane.id).status === 'running'
   const voiceAvailable = ctx.applicationView === 'thread' || Boolean(activeWorkspace?.editorVisible)
-    || (terminalPane !== null && useTerminalStore.getState().getStatus(terminalPane.id).status === 'running')
+    || terminalRunning
   // Workspace commands act on Code: from Thread or OxeQuery they show Code first, so their effect is visible.
   const away = ctx.applicationView !== 'code'
   const inCode = (run: () => void) => (): void => { if (away) ctx.showCode?.(); run() }
@@ -101,7 +102,7 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
     { id: 'maximize-pane', label: 'Maximize / restore pane', icon: Maximize, category: 'Terminal', disabled: !activePane, shortcut: 'pane.maximize', run: inCode(ctx.toggleActivePaneMaximize) },
     { id: 'toggle-oxevoice', label: 'Toggle voice input', detail: 'Speak into the active terminal, editor, or Thread draft', icon: Mic, category: 'Terminal', keywords: ['oxevoice', 'voice', 'speech', 'microphone', 'dictation'], disabled: !voiceAvailable, shortcut: 'voice.toggle', run: ctx.toggleActivePaneVoice },
     { id: 'restart-terminal', label: 'Restart terminal', icon: RotateCw, category: 'Terminal', disabled: !terminalPane, shortcut: 'terminal.restart', run: inCode(() => { if (terminalPane) void window.oxe.terminal.restart({ paneId: terminalPane.id }) }) },
-    { id: 'stop-terminal', label: 'Stop terminal', icon: StopCircle, category: 'Terminal', disabled: !terminalPane, run: inCode(() => { if (terminalPane) void window.oxe.terminal.stop({ paneId: terminalPane.id }) }) }
+    { id: 'stop-terminal', label: 'Stop terminal', icon: StopCircle, category: 'Terminal', disabled: !terminalRunning, run: inCode(() => { if (terminalPane) void window.oxe.terminal.stop({ paneId: terminalPane.id }) }) }
   ]
 }
 

@@ -17,5 +17,5 @@ registerCommands('oxequery', [
   command('settings', 'OxeQuery settings', 'settings', { icon: Settings, keywords: ['history', 'audit', 'agents'] }),
   command('importConnections', 'Import connections', 'importConnections', { icon: FileUp }),
   command('exportConnections', 'Export connections', 'exportConnections', { icon: FileDown, detail: 'Without passwords' }),
-  command('compose', 'Compose projects', 'compose', { icon: Boxes, keywords: ['docker', 'containers'] })
+  command('compose', 'Containers & Compose projects', 'compose', { icon: Boxes, keywords: ['docker', 'containers', 'compose'] })
 ])

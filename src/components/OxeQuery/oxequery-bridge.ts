@@ -48,11 +48,12 @@ const UNAVAILABLE: Partial<Record<OxeQueryAction, string>> = {
 /** Waits (up to two seconds) for the control to exist, because the view may have only just mounted. */
 export function performOxeQueryAction(action: OxeQueryAction): void {
   if (action === 'open') return
-  const started = Date.now()
+  let attempts = 0
   const attempt = (): void => {
     const target = FINDERS[action]()
     if (target && !(target as HTMLButtonElement).disabled) { if (target instanceof HTMLInputElement) target.focus(); else target.click(); return }
-    if (Date.now() - started < 2000) window.setTimeout(attempt, 100)
+    // Counted, not timed, so a frozen or adjusted clock cannot make it retry forever.
+    if (++attempts < 20) window.setTimeout(attempt, 100)
     else toast({ title: 'Nothing to do here yet', description: UNAVAILABLE[action] ?? 'This OxeQuery action is not available right now.' })
   }
   attempt()
