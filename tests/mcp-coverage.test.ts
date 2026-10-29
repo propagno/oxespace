@@ -96,6 +96,14 @@ describe('levels and tool groups', () => {
     expect(notRead).toEqual([])
   })
 
+  it('lets the bridge retry only tools whose every action is read', () => {
+    const block = /const READ_ONLY_TOOLS = new Set\(\[([\s\S]*?)\]\)/.exec(readFileSync('resources/mcp-bridge/oxespace-mcp.cjs', 'utf8'))![1]
+    const retried = [...block.matchAll(/'(oxespace_[a-z_]+)'/g)].map(match => match[1]).filter(name => name !== 'oxespace_ping')
+    const notRead = retried.flatMap(name => [...declared].filter(([ref]) => ref === name || ref.startsWith(`${name}#`)).filter(([, { level }]) => level !== 'read').map(([ref]) => ref))
+    expect(notRead).toEqual([])
+    expect(retried.filter(name => ![...declared.keys()].some(ref => ref === name || ref.startsWith(`${name}#`)))).toEqual([])
+  })
+
   it('does not grow the core group every ordinary Thread pays for', () => {
     expect(THREAD_TOOL_GROUPS.core).toEqual(['oxespace_capabilities', 'oxespace_project_context', 'oxespace_memory_search', 'oxespace_memory_remember',
       'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status'])
