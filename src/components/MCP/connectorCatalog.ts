@@ -1,5 +1,7 @@
 import type { SimpleIcon } from 'simple-icons'
 import type { McpServerConfig } from '../../../shared/types/mcp'
+import type codeCatalog from '../../../shared/locales/en/code.json'
+import { i18n } from '../../i18n'
 import {
   siAirtable, siAsana, siAtlassian, siBrave, siCloudflare, siDiscord, siDocker, siFigma, siFirebase, siGithub, siGitlab,
   siGrafana, siHubspot, siLinear, siMongodb, siMysql, siNetlify, siNotion, siPostgresql, siRedis, siSentry, siShopify,
@@ -86,6 +88,20 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
   { id: 'sequential-thinking', name: 'Sequential Thinking', description: 'Structured step-by-step reasoning', category: 'Utilities', brand: { hex: 'F59E0B' }, ...npx('@modelcontextprotocol/server-sequential-thinking') },
   { id: 'time', name: 'Time', description: 'Current time and timezone conversion', category: 'Utilities', brand: { hex: '14B8A6' }, ...uvx('mcp-server-time') }
 ]
+
+// The English text above documents each entry; on screen, description and setup note come from the code catalog
+// (mcp.connectors.<id>) in the interface language.
+type ConnectorKey = keyof typeof codeCatalog.mcp.connectors
+for (const entry of MCP_CATALOG) {
+  const id = entry.id as ConnectorKey
+  Object.defineProperty(entry, 'description', { enumerable: true, get: () => i18n.t(`mcp.connectors.${id}.description`, { ns: 'code' }) })
+  if (entry.configure) Object.defineProperty(entry, 'configure', { enumerable: true, get: () => i18n.t(`mcp.connectors.${id}.configure` as `mcp.connectors.github.configure`, { ns: 'code' }) })
+}
+
+/** A catalog category in the interface language. */
+export function categoryLabel(category: McpCatalogCategory): string {
+  return i18n.t(`mcp.category.${category}`, { ns: 'code' })
+}
 
 /** Whether a brand colour is too dark to read on a dark tile. */
 export function isDarkBrand(hex: string): boolean {

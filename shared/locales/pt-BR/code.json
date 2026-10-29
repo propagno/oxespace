@@ -1371,5 +1371,318 @@
     "addAnother": "Adicionar mais um {{name}}",
     "noAgents": "Nenhum agente configurado. O workspace começa com shells padrão.",
     "clear": "Limpar a seleção"
+  },
+  "mcp": {
+    "connectors": {
+      "github": {
+        "description": "Triagem de PRs, issues, CI e publicações",
+        "configure": "Crie um token em github.com/settings/personal-access-tokens com acesso aos repositórios que o agente deve usar e cole-o aqui."
+      },
+      "git": {
+        "description": "Operações no repositório local"
+      },
+      "gitlab": {
+        "description": "Projetos, merge requests e pipelines no gitlab.com"
+      },
+      "linear": {
+        "description": "Issues, projetos e ciclos"
+      },
+      "sentry": {
+        "description": "Investigue erros e problemas de desempenho"
+      },
+      "vercel": {
+        "description": "Projetos, deploys e logs"
+      },
+      "cloudflare": {
+        "description": "Busque na documentação da Cloudflare"
+      },
+      "netlify": {
+        "description": "Crie, publique e gerencie sites"
+      },
+      "firebase": {
+        "description": "Gerencie projetos e apps do Firebase"
+      },
+      "docker": {
+        "description": "Contêineres, imagens e volumes"
+      },
+      "figma": {
+        "description": "Crie designs e leve ao código"
+      },
+      "notion": {
+        "description": "Crie documentos, tarefas e bancos de dados"
+      },
+      "notion-token": {
+        "description": "Servidor local com token de integração, sem entrar pelo navegador",
+        "configure": "Crie uma integração em notion.so/profile/integrations, cole o token dela e compartilhe com essa integração as páginas que ela deve ler."
+      },
+      "azure-devops": {
+        "description": "Itens de trabalho, repositórios, pull requests e pipelines",
+        "configure": "Troque <your-organization> pelo nome em dev.azure.com/<organization>. Uma entrada da Microsoft abre no navegador no primeiro uso; acrescente \"-a azcli\" aos argumentos para reaproveitar um \"az login\" existente."
+      },
+      "atlassian": {
+        "description": "Issues do Jira e páginas do Confluence"
+      },
+      "asana": {
+        "description": "Tarefas, projetos e metas"
+      },
+      "airtable": {
+        "description": "Leia e escreva bases e registros"
+      },
+      "trello": {
+        "description": "Quadros, listas e cartões"
+      },
+      "hubspot": {
+        "description": "Dos insights à ação no HubSpot"
+      },
+      "shopify": {
+        "description": "Crie e gerencie sua loja"
+      },
+      "stripe": {
+        "description": "Receba pagamentos e aumente a receita"
+      },
+      "supabase": {
+        "description": "Gerencie e consulte bancos de dados"
+      },
+      "postgres": {
+        "description": "Consulte e inspecione um banco (Microsoft); também pode escrever, então conecte com um papel só de leitura"
+      },
+      "sqlite": {
+        "description": "Consulte um banco SQLite local"
+      },
+      "mysql": {
+        "description": "Inspecione esquemas e rode consultas"
+      },
+      "mongodb": {
+        "description": "Coleções, documentos e agregações",
+        "configure": "Começa em modo só leitura. Defina MDB_MCP_READ_ONLY=false nas variáveis para permitir escrita."
+      },
+      "redis": {
+        "description": "Chaves, streams e estruturas de dados"
+      },
+      "grafana": {
+        "description": "Dashboards, alertas e fontes de dados"
+      },
+      "playwright": {
+        "description": "Automação de navegador, capturas de tela e testes de interface"
+      },
+      "context7": {
+        "description": "Documentação atualizada de bibliotecas"
+      },
+      "fetch": {
+        "description": "Busque páginas da web como Markdown"
+      },
+      "brave-search": {
+        "description": "Busca na web e local"
+      },
+      "slack": {
+        "description": "Leia e gerencie o Slack"
+      },
+      "discord": {
+        "description": "Envie e leia mensagens de canais"
+      },
+      "filesystem": {
+        "description": "Leia e escreva arquivos neste workspace"
+      },
+      "memory": {
+        "description": "Grafo de conhecimento persistente"
+      },
+      "sequential-thinking": {
+        "description": "Raciocínio estruturado passo a passo"
+      },
+      "time": {
+        "description": "Hora atual e conversão de fuso horário"
+      }
+    },
+    "category": {
+      "Development": "Desenvolvimento",
+      "Productivity": "Produtividade",
+      "Data": "Dados",
+      "Browser & Docs": "Navegador e documentação",
+      "Communication": "Comunicação",
+      "Utilities": "Utilitários"
+    },
+    "agentState": {
+      "label": {
+        "connected": "Agente conectado",
+        "failed": "O agente não conectou",
+        "needs-auth": "O agente precisa entrar",
+        "pending": "Agente conectando",
+        "disabled": "Desligado no agente",
+        "unknown": "Estado do agente desconhecido",
+        "not-loaded": "Fora desta conversa",
+        "not-checked": "Agente não verificado"
+      },
+      "hint": {
+        "connected": "O agente desta conversa conectou e pode chamar as ferramentas dele.",
+        "failed": "O agente não conseguiu iniciá-lo nem alcançá-lo quando a sessão começou.",
+        "needs-auth": "Rode /mcp no Claude Code, ou comece uma conversa, para entrar.",
+        "pending": "O agente ainda estava conectando no último relato.",
+        "disabled": "O agente está com este servidor desligado.",
+        "unknown": "O agente não informou.",
+        "not-loaded": "A sessão começou sem ele. Conversas novas o carregam.",
+        "not-checked": "Abra uma conversa do Thread para ver se o agente conectou. Os terminais o carregam quando o agente reinicia."
+      }
+    },
+    "health": {
+      "healthy": "Responde",
+      "starting": "Testando",
+      "needs-auth": "Adicionado",
+      "unhealthy": "Erro",
+      "unknown": "Adicionado"
+    },
+    "hint": {
+      "signIn": "Entrar pelo navegador",
+      "signInTitle": "O agente entra pelo seu navegador no primeiro uso",
+      "token": "Token",
+      "tokenTitle": "Precisa de um token de acesso",
+      "setup": "Configurar",
+      "setupTitle": "Precisa de um valor antes de iniciar",
+      "uv": "Precisa do uv",
+      "uvTitle": "Roda com o uv (uvx), que precisa estar instalado"
+    },
+    "signingIn": "Entrando…",
+    "finishSignIn": "Termine de entrar no navegador para conectar.",
+    "agentSignsIn": "O agente abre a entrada no seu navegador da primeira vez que conecta.",
+    "openSignIn": "Abrir a página de entrada",
+    "test": {
+      "unknown": "Não testado",
+      "starting": "Testando…",
+      "healthy": "Responde",
+      "needs-auth": "Responde · entrar",
+      "unhealthy": "O teste falhou"
+    },
+    "testTitle": "Verificar se {{name}} responde",
+    "popular": "Populares",
+    "noMatch": "Nenhum conector corresponde",
+    "noMatchHint": "Tente outro nome ou adicione um servidor personalizado.",
+    "count_one": "{{count}} conector",
+    "count_many": "{{count}} conectores",
+    "count_other": "{{count}} conectores",
+    "import": {
+      "lookFailed": "Não foi possível procurar servidores",
+      "notImported": "Não importados: {{list}}",
+      "failed": "A importação falhou",
+      "label": "Importar servidores MCP",
+      "intro": "Servidores encontrados em outras ferramentas deste computador. Eles entram como não confiáveis: você revisa e confia em cada um antes de rodar. Variáveis de ambiente e cabeçalhos são copiados, mas os valores não aparecem.",
+      "looking": "Procurando…",
+      "none": "Nenhum servidor encontrado no Claude Desktop, no Cursor ou no Windsurf.",
+      "copies": "Copia {{names}}",
+      "exists": "Já adicionado",
+      "importCount_one": "Importar {{count}} servidor",
+      "importCount_many": "Importar {{count}} servidores",
+      "importCount_other": "Importar {{count}} servidores",
+      "import": "Importar"
+    },
+    "builtin": {
+      "regenerated": "Token gerado de novo. Reinicie os painéis de agentes abertos para usarem o novo.",
+      "regenerateFailed": "Não foi possível gerar o token de novo",
+      "error": "erro",
+      "running": "rodando",
+      "stopped": "parado",
+      "label": "Servidor MCP embutido do OXESpace",
+      "name": "OXESpace embutido",
+      "auto": "auto",
+      "regenerateTitle": "Gerar um token de autenticação novo. Os painéis de agentes abertos precisam reiniciar para usá-lo.",
+      "regenerating": "Gerando…",
+      "regenerate": "Gerar um token novo",
+      "toolsTitle": "Ferramentas expostas às CLIs dos agentes (chamadas pelo MCP)",
+      "confirmTitle": "Gerar um token novo para o servidor embutido?",
+      "confirmBody": "Os agentes já rodando perdem o acesso às ferramentas do OXESpace até os painéis reiniciarem com o token novo."
+    },
+    "scope": {
+      "workspace": "workspace",
+      "global": "global"
+    },
+    "close": "Fechar",
+    "failed": "Não foi possível carregar os servidores MCP",
+    "search": "Buscar servidores MCP",
+    "searchPlaceholder": "Buscar conexões",
+    "installedNote": "Seus agentes se conectam a estes servidores por conta própria: o Claude Code e o Copilot CLI pelo <strong>.mcp.json</strong> na raiz do workspace, o Codex pelas configurações de inicialização. Testar verifica se o servidor responde; se o agente conectou aparece ao lado dele numa conversa do Thread. Reinicie a sessão do agente para aplicar as mudanças.",
+    "add": "Adicionar servidor MCP",
+    "importOpen": "Importar do Claude Desktop, do Cursor ou do Windsurf",
+    "views": "Vista dos servidores MCP",
+    "view": {
+      "conversation": "Esta conversa",
+      "catalog": "Catálogo",
+      "installed": "Instalados"
+    },
+    "conversationNote": "O que o agente desta conversa carregou quando a sessão começou: servidores do OXESpace, as configurações do provedor, o <strong>.mcp.json</strong> do projeto e os conectores do claude.ai. As mudanças valem para a próxima sessão.",
+    "noMatchInstalled": "Nenhuma conexão corresponde",
+    "noneInstalled": "Nenhum servidor MCP adicional",
+    "noMatchInstalledHint": "Tente outro nome ou status.",
+    "noneInstalledHint": "Adicione um servidor ao workspace quando seus agentes precisarem de mais ferramentas.",
+    "footer": "Os agentes rodam estes servidores por conta própria. Conectores remotos entram pelo navegador da primeira vez que o agente conecta.",
+    "trusted": "confiável",
+    "reviewRequired": "precisa de revisão",
+    "tools_one": "{{count}} ferramenta",
+    "tools_many": "{{count}} ferramentas",
+    "tools_other": "{{count}} ferramentas",
+    "testedAt": "O OXESpace testou às {{time}}",
+    "notTested": "O OXESpace não o testou desde que abriu",
+    "stopTest": "Parar o teste",
+    "testServerTitle": "Verificar se o servidor responde e listar as ferramentas dele. O agente mantém a própria conexão.",
+    "testButton": "Testar",
+    "remove": "Remover",
+    "removeLabel": "Remover {{name}}",
+    "reviewHint": "Revise o comando, os argumentos e as variáveis antes de iniciar. Servidores MCP podem rodar código local.",
+    "trustQuestion": "Confiar neste servidor e testá-lo agora?",
+    "trustAndTest": "Confiar e testar",
+    "removeQuestion": "Remover “{{name}}”?",
+    "exposedTools": "Ferramentas expostas",
+    "loadingTools": "Carregando as ferramentas…",
+    "toolsAfterSignIn": "As ferramentas aparecem quando o agente entrar e conectar.",
+    "testToList": "Teste o servidor para listar as ferramentas.",
+    "indicator": {
+      "healthy": "responde",
+      "starting": "testando",
+      "needsAuth": "responde, precisa entrar",
+      "unhealthy": "com falha",
+      "unknown": "não testado"
+    },
+    "form": {
+      "required": "Nome e comando são obrigatórios.",
+      "placeholder": "Troque {{value}} por um valor real antes de salvar.",
+      "missing": "Preencha {{names}} antes de salvar.",
+      "jsonName": "Dê um nome ao servidor (não estava no JSON).",
+      "mode": "Modo de entrada",
+      "formTab": "Formulário",
+      "template": "Modelo",
+      "category": {
+        "Core": "Básico",
+        "Coding": "Código",
+        "Browser": "Navegador",
+        "Docs": "Documentação",
+        "Data": "Dados",
+        "Planning": "Planejamento"
+      },
+      "custom": "Personalizado",
+      "templates": {
+        "custom": "Formulário vazio: preencha você mesmo",
+        "filesystem": "Ler e escrever arquivos dentro deste workspace",
+        "playwright": "Automação de navegador, capturas de tela e testes de interface",
+        "github": "Issues, PRs, repositórios e operações da API do GitHub",
+        "git": "Operações no repositório Git local",
+        "context7": "Documentação atualizada de bibliotecas e frameworks",
+        "fetch": "Buscar URLs e devolver Markdown limpo para os agentes",
+        "sequential-thinking": "Raciocínio estruturado em várias etapas para tarefas ambíguas",
+        "memory": "Grafo de memória leve e persistente para trabalhos longos",
+        "postgres": "Inspecionar e consultar um banco Postgres"
+      },
+      "name": "Nome",
+      "scope": "Escopo",
+      "global": "Global",
+      "workspaceOnly": "Só este workspace",
+      "command": "Comando",
+      "args": "Argumentos (separados por espaço)",
+      "values": "Valores (CHAVE=VALOR, um por linha; enviados nos cabeçalhos da requisição)",
+      "env": "Variáveis (CHAVE=VALOR, uma por linha; opcional)",
+      "jsonNameLabel": "Nome (só se o JSON não trouxer)",
+      "json": "Configuração JSON",
+      "jsonHint": "Aceita {{a}}, {{b}} ou {{c}}. Colar do README de um servidor costuma funcionar.",
+      "failed": "O servidor não foi adicionado",
+      "add": "Adicionar servidor",
+      "addJson": "Adicionar pelo JSON"
+    },
+    "testLabel": "Testar {{name}}"
   }
 }

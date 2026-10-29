@@ -46,15 +46,6 @@
 
 .mcp-panel-actions { display: inline-flex; align-items: center; gap: 4px; }
 
-.mcp-panel-error {
-  padding: 9px 16px;
-  background: var(--intent-danger-bg);
-  border-bottom: 1px solid var(--intent-danger-border);
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-2xs);
-  flex: 0 0 auto;
-}
-
 .mcp-panel-sync-note {
   margin: 10px 16px 0;
   padding: 8px 12px;
@@ -107,21 +98,6 @@
   flex-direction: column;
   gap: 8px;
 }
-
-.mcp-panel-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 38px 28px;
-  text-align: center;
-  color: var(--tx-muted);
-}
-
-.mcp-panel-empty svg { opacity: 0.42; margin-bottom: 4px; }
-.mcp-panel-empty strong { color: var(--tx-primary); font-size: var(--fs-sm); }
-.mcp-panel-empty span { font-size: var(--fs-2xs); line-height: 1.5; max-width: 360px; }
 
 .mcp-server-row {
   display: grid;
@@ -552,14 +528,6 @@
 .mcp-create-form input:focus,
 .mcp-create-form select:focus,
 .mcp-create-form textarea:focus { border-color: var(--accent-border); }
-
-.mcp-create-error {
-  padding: 7px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--intent-danger-bg);
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-2xs);
-}
 
 .mcp-create-actions { display: flex; justify-content: flex-end; gap: 8px; }
 

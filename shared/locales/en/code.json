@@ -1311,5 +1311,315 @@
     "addAnother": "Add another {{name}}",
     "noAgents": "No agents configured. The workspace starts with default shells.",
     "clear": "Clear selection"
+  },
+  "mcp": {
+    "connectors": {
+      "github": {
+        "description": "Triage PRs, issues, CI, and publish flows",
+        "configure": "Create a token at github.com/settings/personal-access-tokens with access to the repositories the agent should use, and paste it here."
+      },
+      "git": {
+        "description": "Local repository operations"
+      },
+      "gitlab": {
+        "description": "Projects, merge requests and pipelines on gitlab.com"
+      },
+      "linear": {
+        "description": "Issues, projects and cycles"
+      },
+      "sentry": {
+        "description": "Inspect errors and performance issues"
+      },
+      "vercel": {
+        "description": "Projects, deployments and logs"
+      },
+      "cloudflare": {
+        "description": "Search Cloudflare documentation"
+      },
+      "netlify": {
+        "description": "Create, deploy and manage sites"
+      },
+      "firebase": {
+        "description": "Manage Firebase projects and apps"
+      },
+      "docker": {
+        "description": "Containers, images and volumes"
+      },
+      "figma": {
+        "description": "Create designs, ship to code"
+      },
+      "notion": {
+        "description": "Create docs, tasks and databases"
+      },
+      "notion-token": {
+        "description": "Local server with an integration token, no browser sign-in",
+        "configure": "Create an integration at notion.so/profile/integrations, paste its token, and share the pages it should read with that integration."
+      },
+      "azure-devops": {
+        "description": "Work items, repos, pull requests and pipelines",
+        "configure": "Replace <your-organization> with the name in dev.azure.com/<organization>. A Microsoft sign-in opens in your browser on first use; append \"-a azcli\" to the arguments to reuse an existing \"az login\" instead."
+      },
+      "atlassian": {
+        "description": "Jira issues and Confluence pages"
+      },
+      "asana": {
+        "description": "Tasks, projects and goals"
+      },
+      "airtable": {
+        "description": "Read and write bases and records"
+      },
+      "trello": {
+        "description": "Boards, lists and cards"
+      },
+      "hubspot": {
+        "description": "Insights to action in HubSpot"
+      },
+      "shopify": {
+        "description": "Create and manage your store"
+      },
+      "stripe": {
+        "description": "Accept payments. Grow revenue."
+      },
+      "supabase": {
+        "description": "Manage and query databases"
+      },
+      "postgres": {
+        "description": "Query and inspect a database (Microsoft); can also write, so connect with a read-only role"
+      },
+      "sqlite": {
+        "description": "Query a local SQLite database"
+      },
+      "mysql": {
+        "description": "Inspect schemas and run queries"
+      },
+      "mongodb": {
+        "description": "Collections, documents and aggregations",
+        "configure": "Starts in read-only mode. Set MDB_MCP_READ_ONLY=false in the variables to allow writes."
+      },
+      "redis": {
+        "description": "Keys, streams and data structures"
+      },
+      "grafana": {
+        "description": "Dashboards, alerts and datasources"
+      },
+      "playwright": {
+        "description": "Browser automation, screenshots and UI tests"
+      },
+      "context7": {
+        "description": "Up-to-date library documentation"
+      },
+      "fetch": {
+        "description": "Fetch web pages as Markdown"
+      },
+      "brave-search": {
+        "description": "Web and local search"
+      },
+      "slack": {
+        "description": "Read and manage Slack"
+      },
+      "discord": {
+        "description": "Send and read channel messages"
+      },
+      "filesystem": {
+        "description": "Read and write files in this workspace"
+      },
+      "memory": {
+        "description": "Persistent knowledge graph"
+      },
+      "sequential-thinking": {
+        "description": "Structured step-by-step reasoning"
+      },
+      "time": {
+        "description": "Current time and timezone conversion"
+      }
+    },
+    "category": {
+      "Development": "Development",
+      "Productivity": "Productivity",
+      "Data": "Data",
+      "Browser & Docs": "Browser & Docs",
+      "Communication": "Communication",
+      "Utilities": "Utilities"
+    },
+    "agentState": {
+      "label": {
+        "connected": "Agent connected",
+        "failed": "Agent failed to connect",
+        "needs-auth": "Agent needs sign-in",
+        "pending": "Agent connecting",
+        "disabled": "Disabled in the agent",
+        "unknown": "Agent state unknown",
+        "not-loaded": "Not in this conversation",
+        "not-checked": "Agent not checked"
+      },
+      "hint": {
+        "connected": "The agent of this conversation connected and can call its tools.",
+        "failed": "The agent could not start or reach it when the session began.",
+        "needs-auth": "Run /mcp in Claude Code, or start a conversation, to sign in.",
+        "pending": "The agent was still connecting when it last reported.",
+        "disabled": "The agent has this server turned off.",
+        "unknown": "The agent did not say.",
+        "not-loaded": "The session started without it. New conversations pick it up.",
+        "not-checked": "Open a Thread conversation to see whether the agent connected. Terminals pick it up when the agent restarts."
+      }
+    },
+    "health": {
+      "healthy": "Answers",
+      "starting": "Testing",
+      "needs-auth": "Added",
+      "unhealthy": "Error",
+      "unknown": "Added"
+    },
+    "hint": {
+      "signIn": "Browser sign-in",
+      "signInTitle": "The agent signs in with your browser on first use",
+      "token": "Token",
+      "tokenTitle": "Needs an access token",
+      "setup": "Setup",
+      "setupTitle": "Needs a value before it can start",
+      "uv": "Needs uv",
+      "uvTitle": "Runs with uv (uvx), which must be installed"
+    },
+    "signingIn": "Signing in…",
+    "finishSignIn": "Finish the sign-in in your browser to connect.",
+    "agentSignsIn": "The agent opens the sign-in in your browser the first time it connects.",
+    "openSignIn": "Open sign-in page",
+    "test": {
+      "unknown": "Not tested",
+      "starting": "Testing…",
+      "healthy": "Answers",
+      "needs-auth": "Answers · sign-in",
+      "unhealthy": "Test failed"
+    },
+    "testTitle": "Check that {{name}} answers",
+    "popular": "Popular",
+    "noMatch": "No matching connectors",
+    "noMatchHint": "Try another name, or add a custom server.",
+    "count_one": "{{count}} connector",
+    "count_other": "{{count}} connectors",
+    "import": {
+      "lookFailed": "Could not look for servers",
+      "notImported": "Not imported: {{list}}",
+      "failed": "The import failed",
+      "label": "Import MCP servers",
+      "intro": "Servers found in other tools on this computer. They are added untrusted: you review and trust each one before it runs. Environment variables and headers are copied, but their values are not shown.",
+      "looking": "Looking…",
+      "none": "No servers found in Claude Desktop, Cursor or Windsurf.",
+      "copies": "Copies {{names}}",
+      "exists": "Already added",
+      "importCount_one": "Import {{count}} server",
+      "importCount_other": "Import {{count}} servers",
+      "import": "Import"
+    },
+    "builtin": {
+      "regenerated": "Token regenerated. Restart open agent panes so they pick up the new one.",
+      "regenerateFailed": "Could not regenerate the token",
+      "error": "error",
+      "running": "running",
+      "stopped": "stopped",
+      "label": "OXESpace built-in MCP server",
+      "name": "OXESpace built-in",
+      "auto": "auto",
+      "regenerateTitle": "Generate a new auth token. Open agent panes must restart to pick it up.",
+      "regenerating": "Regenerating…",
+      "regenerate": "Regenerate token",
+      "toolsTitle": "Tools exposed to agent CLIs (called through MCP)",
+      "confirmTitle": "Regenerate the built-in server's token?",
+      "confirmBody": "Agents already running lose access to OXESpace's tools until their panes restart with the new token."
+    },
+    "scope": {
+      "workspace": "workspace",
+      "global": "global"
+    },
+    "close": "Close",
+    "failed": "Could not load the MCP servers",
+    "search": "Search MCP servers",
+    "searchPlaceholder": "Search connections",
+    "installedNote": "Your agents connect to these servers themselves: Claude Code and Copilot CLI through <strong>.mcp.json</strong> at the workspace root, Codex through its launch settings. Test checks that a server answers; whether the agent connected shows next to it in a Thread conversation. Restart the agent session to pick up changes.",
+    "add": "Add MCP server",
+    "importOpen": "Import from Claude Desktop, Cursor or Windsurf",
+    "views": "MCP servers view",
+    "view": {
+      "conversation": "This conversation",
+      "catalog": "Catalog",
+      "installed": "Installed"
+    },
+    "conversationNote": "What the agent of this conversation loaded when its session started: servers from OXESpace, your provider settings, the project's <strong>.mcp.json</strong> and claude.ai connectors. Changes apply to the next session.",
+    "noMatchInstalled": "No matching connections",
+    "noneInstalled": "No additional MCP servers",
+    "noMatchInstalledHint": "Try another name or status.",
+    "noneInstalledHint": "Add a workspace server when your agents need more tools.",
+    "footer": "Agents run these servers themselves. Remote connectors sign in through your browser the first time the agent connects.",
+    "trusted": "trusted",
+    "reviewRequired": "review required",
+    "tools_one": "{{count}} tool",
+    "tools_other": "{{count}} tools",
+    "testedAt": "OXESpace tested it at {{time}}",
+    "notTested": "OXESpace has not tested it since it opened",
+    "stopTest": "Stop the test",
+    "testServerTitle": "Check that the server answers and list its tools. The agent keeps its own connection.",
+    "testButton": "Test",
+    "remove": "Remove",
+    "removeLabel": "Remove {{name}}",
+    "reviewHint": "Review the command, arguments and variables before starting. MCP servers can run local code.",
+    "trustQuestion": "Trust this server and test it now?",
+    "trustAndTest": "Trust and test",
+    "removeQuestion": "Remove “{{name}}”?",
+    "exposedTools": "Exposed tools",
+    "loadingTools": "Loading tools…",
+    "toolsAfterSignIn": "Its tools show once the agent signs in and connects.",
+    "testToList": "Test the server to list its tools.",
+    "indicator": {
+      "healthy": "answers",
+      "starting": "testing",
+      "needsAuth": "answers, needs sign-in",
+      "unhealthy": "failing",
+      "unknown": "not tested"
+    },
+    "form": {
+      "required": "Name and command are required.",
+      "placeholder": "Replace {{value}} with a real value before saving.",
+      "missing": "Fill in {{names}} before saving.",
+      "jsonName": "Give the server a name (it was not in the JSON).",
+      "mode": "Input mode",
+      "formTab": "Form",
+      "template": "Template",
+      "category": {
+        "Core": "Core",
+        "Coding": "Coding",
+        "Browser": "Browser",
+        "Docs": "Docs",
+        "Data": "Data",
+        "Planning": "Planning"
+      },
+      "custom": "Custom",
+      "templates": {
+        "custom": "Empty form: fill it in yourself",
+        "filesystem": "Read and write files inside this workspace",
+        "playwright": "Browser automation, screenshots and UI testing",
+        "github": "Issues, PRs, repositories and GitHub API operations",
+        "git": "Local Git repository operations",
+        "context7": "Up-to-date library and framework documentation",
+        "fetch": "Fetch URLs and return clean Markdown for agents",
+        "sequential-thinking": "Structured multi-step reasoning for ambiguous tasks",
+        "memory": "Persistent lightweight memory graph for long-running work",
+        "postgres": "Inspect and query a Postgres database"
+      },
+      "name": "Name",
+      "scope": "Scope",
+      "global": "Global",
+      "workspaceOnly": "This workspace only",
+      "command": "Command",
+      "args": "Args (separated by spaces)",
+      "values": "Values (KEY=VAL, one per line; sent in the request headers)",
+      "env": "Env (KEY=VAL, one per line; optional)",
+      "jsonNameLabel": "Name (only if JSON omits it)",
+      "json": "JSON config",
+      "jsonHint": "Accepts {{a}}, {{b}} or {{c}}. Pasting from a server's README usually just works.",
+      "failed": "The server was not added",
+      "add": "Add server",
+      "addJson": "Add from JSON"
+    },
+    "testLabel": "Test {{name}}"
   }
 }
