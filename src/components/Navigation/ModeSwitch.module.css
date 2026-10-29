@@ -10,6 +10,9 @@
   -webkit-app-region: no-drag;
 }
 
+/* Holds a view's button and, beside it, its attention badge; the badge is placed against this box. */
+.item { position: relative; display: inline-flex; }
+
 .option {
   position: relative;
   display: inline-flex;

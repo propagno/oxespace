@@ -44,7 +44,7 @@ export function RefPicker({ label, value, icon, branches, worktrees, selected, d
     </button></li>
 
   return <Popover open={open} onOpenChange={changeOpen} label={label} trigger={
-    <button type="button" className="changes-pill changes-ref" aria-label={label} title={`${label}: ${value}`} disabled={disabled}>
+    <button type="button" className="changes-pill changes-ref" aria-label={`${label}: ${value}`} title={`${label}: ${value}`} disabled={disabled}>
       {icon ?? <GitBranch size={14} aria-hidden="true" />}<span>{value}</span><ChevronDown size={12} aria-hidden="true" />
     </button>
   }>

@@ -584,7 +584,7 @@ function WorkspaceSurfaceComponent({
                       })}
                     </div>
                     {overflowSidePanels.length > 0 && <Menu label="More panels" align="end"
-                      trigger={<button type="button" className="workspace-panel-stack-more" aria-label={`More panels (${overflowSidePanels.length})`}><MoreHorizontal size={14} aria-hidden="true" />{overflowSidePanels.length}</button>}
+                      trigger={<button type="button" className="workspace-panel-stack-more" aria-label={`More panels: ${overflowSidePanels.length}`}><MoreHorizontal size={14} aria-hidden="true" />{overflowSidePanels.length}</button>}
                       items={overflowSidePanels.map(panel => ({ label: sideLabels[panel.id] ?? panel.id, onSelect: () => setPreferredSideId(panel.id) }))} />}
                   </nav>}
                   <div className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
