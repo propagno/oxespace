@@ -84,7 +84,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'oxe-settings',
-      version: 5,
+      version: 6,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {

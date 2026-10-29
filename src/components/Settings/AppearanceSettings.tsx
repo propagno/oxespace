@@ -21,10 +21,10 @@ const MODES: Array<{ id: Appearance; icon: typeof Sun }> = [
 
 const percent = (factor: number): string => `${Math.round(factor * 100)}%`
 const SCALE_OPTIONS = UI_SCALE_STEPS.map(step => ({ value: String(step), label: percent(step) }))
-const DENSITIES: Array<{ value: UiDensity; icon: ReactElement }> = [
-  { value: 'compact', icon: <Minimize2 size={14} aria-hidden="true" /> },
-  { value: 'comfortable', icon: <Maximize2 size={14} aria-hidden="true" /> }
-]
+const DENSITY_ICONS: Record<UiDensity, ReactElement> = {
+  compact: <Minimize2 size={14} aria-hidden="true" />,
+  comfortable: <Maximize2 size={14} aria-hidden="true" />
+}
 
 function Preview({ mode }: { mode: Appearance }): ReactElement {
   const half = (tone: 'light' | 'dark') => <div className={styles.half} data-mode={tone}><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
@@ -32,7 +32,7 @@ function Preview({ mode }: { mode: Appearance }): ReactElement {
 }
 
 /** Light, dark or system mode for the whole app; named by `labelledBy`, or "Appearance". */
-export function AppearanceModes({ labelledBy }: { labelledBy?: string }): ReactElement {
+function ModeOptions({ labelledBy }: { labelledBy?: string }): ReactElement {
   const { t } = useTranslation('settings')
   const appearance = useSettingsStore(state => state.appearance)
   const setAppearance = useSettingsStore(state => state.setAppearance)
@@ -43,20 +43,6 @@ export function AppearanceModes({ labelledBy }: { labelledBy?: string }): ReactE
       <span className={styles.hint}>{t(`appearance.mode.${id}.hint`)}</span>
     </button>)}
   </div>
-}
-
-/** The interface language, or follow the operating system. */
-function LanguageSelect(): ReactElement {
-  const { t } = useTranslation(['settings', 'common'])
-  const language = useSettingsStore(state => state.language)
-  const setLanguage = useSettingsStore(state => state.setLanguage)
-  // Each language is named in itself, so a person who cannot read the current one still finds theirs.
-  const languages = [
-    { value: 'system', label: t('appearance.language.system', { language: t(`common:languageName.${resolveLanguage(systemLocale())}`) }) },
-    ...LANGUAGES.map(id => ({ value: id, label: t(`common:languageName.${id}`) }))
-  ]
-  return <Select label={t('appearance.language.title')} hint={t('appearance.language.hint')} options={languages} value={language} data-testid="settings-language"
-    onChange={event => { if (isLanguagePreference(event.target.value)) setLanguage(event.target.value) }} />
 }
 
 /** Interface scale and app-wide density; shown only in the app's Settings, not per workspace. */
@@ -72,11 +58,11 @@ function ScaleAndDensity(): ReactElement {
   const ownDensity = useWorkspaceStore(useShallow(state => state.workspaces.filter(workspace => workspace.uiDensity !== 'default').map(workspace => workspace.id)))
   const updateWorkspace = useWorkspaceStore(state => state.updateSettings)
   const scale = UI_SCALE_STEPS.find(step => step === uiScale) ?? UI_SCALE_DEFAULT
-  const densityOptions = DENSITIES.map(({ value, icon }) => ({ value, icon, label: t(`appearance.density.${value}`) }))
+  const densityOptions = (['compact', 'comfortable'] as const).map(value => ({ value, label: t(`appearance.density.${value}`), icon: DENSITY_ICONS[value] }))
   return <>
     <section className={styles.group} aria-labelledby="appearance-scale-title">
       <h3 id="appearance-scale-title" className={styles.groupTitle}>{t('appearance.scale.title')}</h3>
-      <p className={styles.hint}>{t('appearance.scale.hint', { value: percent(uiScale) })}</p>
+      <p className={styles.hint}>{t('appearance.scale.hint', { scale: percent(uiScale) })}</p>
       <SegmentedControl label={t('appearance.scale.title')} value={String(scale)} options={SCALE_OPTIONS} onChange={value => setUiScale(Number(value))} />
     </section>
     <section className={styles.group} aria-labelledby="appearance-density-title">
@@ -84,31 +70,46 @@ function ScaleAndDensity(): ReactElement {
       <p className={styles.hint}>{t('appearance.density.hint')}</p>
       <SegmentedControl label={t('appearance.density.title')} value={density} options={densityOptions} onChange={setDensity} />
       {ownDensity.length > 0 && <p className={styles.override} data-testid="workspace-density-override">
-        <span>{t('appearance.density.workspaces', { count: ownDensity.length })}</span>
-        <Button variant="ghost" size="sm" onClick={() => { for (const workspaceId of ownDensity) void updateWorkspace({ workspaceId, uiDensity: 'default' }).catch(() => {}) }}>{t('appearance.density.useInWorkspaces')}</Button>
+        <span>{t('appearance.density.workspaceOverride', { count: ownDensity.length })}</span>
+        <Button variant="ghost" size="sm" onClick={() => { for (const workspaceId of ownDensity) void updateWorkspace({ workspaceId, uiDensity: 'default' }).catch(() => {}) }}>{t('appearance.density.useAppInWorkspaces')}</Button>
       </p>}
       {threadDensity !== null && <p className={styles.override} data-testid="thread-density-override">
-        <span>{t('appearance.density.thread', { density: t(`appearance.density.${threadDensity}`) })}</span>
-        <Button variant="ghost" size="sm" onClick={() => setThreadDensity(null)}>{t('appearance.density.useInThread')}</Button>
+        <span>{t('appearance.density.threadOverride', { density: t(`appearance.density.${threadDensity}`) })}</span>
+        <Button variant="ghost" size="sm" onClick={() => setThreadDensity(null)}>{t('appearance.density.useAppInThread')}</Button>
       </p>}
     </section>
   </>
 }
 
+/** The interface language; each language is named in itself, so a person who cannot read the current one still finds theirs. */
+function LanguagePicker(): ReactElement {
+  const { t } = useTranslation(['settings', 'common'])
+  const language = useSettingsStore(state => state.language)
+  const setLanguage = useSettingsStore(state => state.setLanguage)
+  const languages = [
+    { value: 'system', label: t('appearance.language.system', { language: t(`common:languageName.${resolveLanguage(systemLocale())}`) }) },
+    ...LANGUAGES.map(id => ({ value: id, label: t(`common:languageName.${id}`) }))
+  ]
+  return <section className={styles.group}>
+    <Select label={t('appearance.language.title')} hint={t('appearance.language.hint')} options={languages} value={language} data-testid="settings-language"
+      onChange={event => { if (isLanguagePreference(event.target.value)) setLanguage(event.target.value) }} />
+  </section>
+}
+
 /**
- * Light, dark or system mode for the whole app. With `global` (Settings ›
- * Appearance), also the interface language, scale and app-wide density;
+ * Light, dark or system mode for the whole app. With `global`, also the
+ * interface scale, the app-wide density and the language (Settings › Appearance);
  * workspace settings show the mode only.
  */
 export function AppearanceSettings({ global = false }: { global?: boolean }): ReactElement {
   const { t } = useTranslation('settings')
-  if (!global) return <AppearanceModes />
+  if (!global) return <ModeOptions />
   return <div className={styles.stack}>
     <section className={styles.group} aria-labelledby="appearance-mode-title">
       <h3 id="appearance-mode-title" className={styles.groupTitle}>{t('appearance.mode.title')}</h3>
-      <AppearanceModes labelledBy="appearance-mode-title" />
+      <ModeOptions labelledBy="appearance-mode-title" />
     </section>
-    <section className={styles.group}><LanguageSelect /></section>
     <ScaleAndDensity />
+    <LanguagePicker />
   </div>
 }

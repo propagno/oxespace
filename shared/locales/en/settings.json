@@ -2,7 +2,7 @@
   "appearance": {
     "kicker": "Global appearance",
     "title": "Appearance",
-    "description": "Mode, language, interface scale and density for the whole app.",
+    "description": "Mode, interface scale, density and language for the whole app.",
     "mode": {
       "title": "Mode",
       "system": {
@@ -25,18 +25,18 @@
     },
     "scale": {
       "title": "Interface scale",
-      "hint": "Makes text, controls and the terminal larger or smaller across the app. Currently {{value}}."
+      "hint": "Makes text, controls and the terminal larger or smaller across the app. Currently {{scale}}."
     },
     "density": {
       "title": "Density",
       "hint": "How tightly controls and lists sit. Workspaces and the Thread list follow this unless you set their own.",
       "compact": "Compact",
       "comfortable": "Comfortable",
-      "workspaces_one": "{{count}} workspace uses its own density.",
-      "workspaces_other": "{{count}} workspaces use their own density.",
-      "useInWorkspaces": "Use app density in all workspaces",
-      "thread": "The Thread list uses its own density: {{density}}.",
-      "useInThread": "Use app density in the Thread list"
+      "workspaceOverride_one": "1 workspace uses its own density.",
+      "workspaceOverride_other": "{{count}} workspaces use their own density.",
+      "useAppInWorkspaces": "Use app density in all workspaces",
+      "threadOverride": "The Thread list uses its own density: {{density}}.",
+      "useAppInThread": "Use app density in the Thread list"
     }
   }
 }

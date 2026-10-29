@@ -56,10 +56,10 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'file', label: t('menu.file'), items: compact([
         ctx.applicationView === 'thread'
           ? { kind: 'item', id: 'add-project', label: t('menu.addProject'), onSelect: ctx.addThreadProject }
-          : fromAction('new-workspace'),
+          : fromAction('new-workspace', t('menu.newWorkspace')),
         sep('file-1'),
         { kind: 'item', id: 'settings', label: t('menu.settings'), shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
-        fromAction('workspace-settings'),
+        fromAction('workspace-settings', t('menu.workspaceSettings')),
         sep('file-2'),
         { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => window.close() }
       ])
@@ -83,38 +83,38 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         { kind: 'radio', id: 'view-thread', label: 'Thread', checked: ctx.applicationView === 'thread', onSelect: () => ctx.setApplicationView('thread') },
         { kind: 'radio', id: 'view-data', label: 'OxeQuery', checked: ctx.applicationView === 'data', onSelect: () => ctx.setApplicationView('data') },
         sep('view-1'),
-        fromAction('toggle-sidebar', undefined, shortcutLabel('sidebar.toggle')),
-        fromAction('tool-editor', undefined, shortcutLabel('code.files')),
-        fromAction('tool-github'),
-        fromAction('tool-background'),
-        fromAction('toggle-split-layout', undefined, shortcutLabel('code.splitLayout')),
-        fromAction('balance-pane-layout'),
+        fromAction('toggle-sidebar', t('menu.toggleSidebar'), shortcutLabel('sidebar.toggle')),
+        fromAction('tool-editor', t('menu.files'), shortcutLabel('code.files')),
+        fromAction('tool-github', t('menu.sourceControl')),
+        fromAction('tool-background', t('menu.backgroundActivity')),
+        fromAction('toggle-split-layout', t('menu.splitLayout'), shortcutLabel('code.splitLayout')),
+        fromAction('balance-pane-layout', t('menu.balancePanes')),
         sep('view-2'),
         // Appearance applies to the whole app, so it works without a workspace.
         appearances.length ? { kind: 'submenu', id: 'appearance', label: t('menu.appearance'), children: appearances } : null,
         densities.length ? { kind: 'submenu', id: 'densities', label: t('menu.density'), disabled: noWorkspace, children: densities } : null,
         layouts.length ? { kind: 'submenu', id: 'layouts', label: t('menu.layout'), disabled: noWorkspace, children: layouts } : null,
         sep('view-3'),
-        fromAction('split-vertical', undefined, shortcutLabel('pane.splitRight')),
-        fromAction('split-horizontal', undefined, shortcutLabel('pane.splitDown')),
-        fromAction('maximize-pane', undefined, shortcutLabel('pane.maximize'))
+        fromAction('split-vertical', t('menu.splitRight'), shortcutLabel('pane.splitRight')),
+        fromAction('split-horizontal', t('menu.splitDown'), shortcutLabel('pane.splitDown')),
+        fromAction('maximize-pane', t('menu.maximizePane'), shortcutLabel('pane.maximize'))
       ])
     },
     {
       id: 'tools', label: t('menu.tools'), items: compact([
-        fromAction('tool-mcp'),
-        fromAction('tool-skills'),
-        fromAction('open-usage'),
-        fromAction('open-linear')
+        fromAction('tool-mcp', t('menu.mcpServers')),
+        fromAction('tool-skills', t('menu.skills')),
+        fromAction('open-usage', t('menu.usage')),
+        fromAction('open-linear', t('menu.linear'))
       ])
     },
     {
       id: 'help', label: t('menu.help'), items: compact([
-        fromAction('help.shortcuts', t('menu.shortcuts'), shortcutLabel('help.shortcuts')),
+        fromAction('help.shortcuts', t('menu.keyboardShortcuts'), shortcutLabel('help.shortcuts')),
         fromAction('settings.diagnostics', t('menu.diagnostics')),
         sep('help-1'),
         // Settings › Updates shows the version and checks for a newer one.
-        fromAction('settings.updates', t('menu.aboutApp', { version: ctx.version }))
+        fromAction('settings.updates', t('menu.about', { version: ctx.version }))
       ])
     }
   ]
