@@ -655,7 +655,8 @@
       "runAll": "Abra uma conexão PostgreSQL para executar instruções.",
       "searchObjects": "Abra uma conexão de banco de dados para buscar seus objetos.",
       "newTable": "Abra uma conexão PostgreSQL de leitura e escrita e expanda um schema para criar uma tabela."
-    }
+    },
+    "nothingYet": "Nada a fazer aqui ainda"
   },
   "params": {
     "label": "Parâmetros da consulta",

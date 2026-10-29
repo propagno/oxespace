@@ -14,7 +14,7 @@ export async function importConnections(): Promise<void> {
 
 /** Exports the saved connections, without passwords or keys, to a file the person picks. Throws on failure. */
 export async function exportConnections(): Promise<void> {
-  if (useOxeQueryStore.getState().connections.length === 0) { toast({ title: tq('connections.nothingToExport'), intent: 'info' }); return }
+  if (useOxeQueryStore.getState().connections.length === 0) { toast({ title: tq('palette.nothingYet'), description: tq('connections.nothingToExport'), intent: 'info' }); return }
   const result = await oq('connections.export', {})
   if (result.saved) toast({ title: tq('connections.exported', { count: result.count }), description: tq('connections.exportNoSecrets'), intent: 'success' })
 }

@@ -628,7 +628,8 @@
       "runAll": "Open a PostgreSQL connection to run statements.",
       "searchObjects": "Open a database connection to search its objects.",
       "newTable": "Open a read-write PostgreSQL connection and expand a schema to create a table."
-    }
+    },
+    "nothingYet": "Nothing to do here yet"
   },
   "params": {
     "label": "Query parameters",

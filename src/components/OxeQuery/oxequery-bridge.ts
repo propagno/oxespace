@@ -26,6 +26,7 @@ export function requestOxeQueryAction(action: OxeQueryAction): void {
 type ControlAction = 'newQuery' | 'runAll' | 'searchObjects' | 'newTable'
 const CONTROL_ACTIONS = new Set<OxeQueryAction>(['newQuery', 'runAll', 'searchObjects', 'newTable'])
 const WAIT_MS = 2000
+const RETRY_MS = 100
 
 /** The control in the visible panel; hidden tabs keep their own copies in the page and must not be clicked. */
 export function findControl(action: ControlAction, root: ParentNode = document): HTMLElement | null {
@@ -53,20 +54,21 @@ async function viaStore(action: Exclude<OxeQueryAction, ControlAction | 'open'>)
 async function explain(action: ControlAction): Promise<void> {
   const [{ loadOxeQueryCatalog, tq }, { toast }] = await Promise.all([import('./catalog'), import('../../ui/Toast')])
   await loadOxeQueryCatalog()
-  toast({ title: tq(`palette.unavailable.${action}`), intent: 'info' })
+  toast({ title: tq('palette.nothingYet'), description: tq(`palette.unavailable.${action}`), intent: 'info' })
 }
 
 export function performOxeQueryAction(action: OxeQueryAction): void {
   if (action === 'open') return
   if (!CONTROL_ACTIONS.has(action)) { void viaStore(action as Exclude<OxeQueryAction, ControlAction | 'open'>); return }
   const control = action as ControlAction
-  const started = Date.now()
-  const attempt = async (): Promise<void> => {
+  let attempts = 0
+  const attempt = (): void => {
     const target = findControl(control)
     if (target) { if (target instanceof HTMLInputElement) target.focus(); else target.click(); return }
     // The view may have only just mounted; past the wait, the panel on screen simply has no such control.
-    if (Date.now() - started < WAIT_MS) window.setTimeout(() => void attempt(), 100)
+    // Counted, not timed, so a frozen or adjusted clock cannot make it retry forever.
+    if (++attempts < WAIT_MS / RETRY_MS) window.setTimeout(attempt, RETRY_MS)
     else void explain(control)
   }
-  void attempt()
+  attempt()
 }

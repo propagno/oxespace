@@ -35,7 +35,7 @@ describe('palette bridge', () => {
     performOxeQueryAction('runAll')
     await vi.advanceTimersByTimeAsync(2200)
     vi.useRealTimers()
-    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Open a PostgreSQL connection to run statements.' })))
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Nothing to do here yet', description: 'Open a PostgreSQL connection to run statements.' })))
   })
 })
 
