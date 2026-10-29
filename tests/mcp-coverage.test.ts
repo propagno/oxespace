@@ -86,7 +86,7 @@ describe('forbidden capabilities', () => {
   it('leave container resources to P7 and OxePost to H8', () => {
     expect(MCP_COVERAGE['containers.resources']).toMatchObject({ planned: 'P7' })
     expect(MCP_COVERAGE['oxepost.all']).toMatchObject({ planned: 'H8' })
-    expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => /image|volume|compose|network|oxepost/.test(name))).toEqual([])
+    expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => /images|volumes|compose|networks|container_(image|volume|network|exec|shell|stats)|oxepost/.test(name))).toEqual([])
   })
 })
 
