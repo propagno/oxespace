@@ -222,6 +222,8 @@ function WorkspaceGroupComponent({
               <button
                 type="button"
                 className="ws-group-name"
+                data-list-item
+                aria-current={isActive ? 'true' : undefined}
                 onClick={(event) => { event.stopPropagation(); handleHeaderClick() }}
                 title={`${workspace.name}\n${workspace.rootPath}\n(right-click for options)`}
               >
@@ -248,7 +250,7 @@ function WorkspaceGroupComponent({
         </div>
         <div className="ws-group-trailing">
           {terminalCount > 0 && onToggleTerminals ? (
-            <button type="button" className="ws-group-expand-btn" aria-label={`${terminalCount} terminals in ${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}`} title={`${terminalCount} terminals`} aria-expanded={terminalsExpanded} onClick={(event) => { event.stopPropagation(); onToggleTerminals() }}>
+            <button type="button" data-list-action className="ws-group-expand-btn" aria-label={`${terminalCount} terminals in ${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}`} title={`${terminalCount} terminals`} aria-expanded={terminalsExpanded} onClick={(event) => { event.stopPropagation(); onToggleTerminals() }}>
               <ChevronDown size={14} aria-hidden="true" />
             </button>
           ) : null}
@@ -256,6 +258,7 @@ function WorkspaceGroupComponent({
             <button
               type="button"
               className="ws-group-integration-badge"
+              data-list-action
               title={`Part of: ${integrations.map((g) => g.name).join(' · ')}`}
               aria-label={`Workspace is part of ${integrations.length} integration${integrations.length === 1 ? '' : 's'}`}
               onClick={handleIntegrationBadgeClick}
@@ -269,6 +272,7 @@ function WorkspaceGroupComponent({
             <button
               type="button"
               className="ws-group-settings-btn"
+              data-list-action
               title="Options"
               aria-label="Workspace options"
               onClick={handleContextMenu}
