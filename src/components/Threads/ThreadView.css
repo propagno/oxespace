@@ -515,7 +515,6 @@
 .thread-terminal-dot[data-status='running'] { background: var(--dot-green); }
 .thread-terminal-dot[data-status='starting'] { background: var(--dot-yellow); }
 .thread-terminal-dot[data-status='error'] { background: var(--dot-red); }
-.thread-terminal-error { margin: 0; padding: 6px 12px; color: var(--intent-danger-fg); font-size: var(--fs-xs); }
 .thread-project-terminal-content { flex: 1; min-height: 0; position: relative; }
 
 /* Permissions popover: sections, switch row and compact trigger badge. */
@@ -592,7 +591,6 @@
 .thread-rewind-confirm button { padding: 3px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-primary); background: transparent; font: inherit; }
 .thread-change-summary .thread-change-file:has(.thread-hunk-review) { flex-wrap: wrap; }
 .thread-hunk-review { display: grid; gap: 8px; margin: 6px 0 4px; flex: 1 0 100%; min-width: 0; }
-.thread-hunk-note { margin: 4px 0; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-hunk { border: 1px solid var(--border-default); border-radius: 6px; overflow: hidden; }
 .thread-hunk header { display: flex; align-items: center; gap: 6px; padding: 4px 8px; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-hunk header span { flex: 1; }
@@ -635,15 +633,15 @@
 .thread-composer-limit { margin: 0; padding: 0 var(--space-3) var(--space-2); color: var(--intent-danger-fg); font-size: var(--fs-xs); }
 
 /* An empty conversation: where the agent works, and starters that fill the composer. */
-.thread-empty { max-width: var(--thread-prose-max, 720px); margin: 48px auto 24px; padding: 0 4px; }
-.thread-empty h2 { margin: 0 0 12px; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.3px; color: var(--text-primary); }
-.thread-empty-context { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 20px; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--fs-xs); }
-.thread-empty-context li { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-empty-starters { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
-.thread-view .thread-empty-starter { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-primary); text-align: left; }
-.thread-view .thread-empty-starter:hover { border-color: var(--text-muted); background: var(--surface-raised); }
-.thread-empty-starter strong { font-size: var(--fs-sm); font-weight: 600; }
-.thread-empty-starter span { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.4; }
+.thread-opening { max-width: var(--thread-prose-max, 720px); margin: 48px auto 24px; padding: 0 4px; }
+.thread-opening h2 { margin: 0 0 12px; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.3px; color: var(--text-primary); }
+.thread-opening-context { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 20px; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--fs-xs); }
+.thread-opening-context li { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-opening-starters { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.thread-view .thread-opening-starter { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-primary); text-align: left; }
+.thread-view .thread-opening-starter:hover { border-color: var(--text-muted); background: var(--surface-raised); }
+.thread-opening-starter strong { font-size: var(--fs-sm); font-weight: 600; }
+.thread-opening-starter span { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.4; }
 .thread-queue-confirm { display: -webkit-box; margin: 0; overflow: hidden; color: var(--text-secondary); -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow-wrap: anywhere; }
 /* A background task's end, as Claude Code reports it to the agent: a note, not a message from the person. */
 .thread-task-notice { display: flex; align-items: center; gap: 6px; max-width: min(100%, var(--thread-prose-max)); margin: 6px 0; color: var(--text-muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }

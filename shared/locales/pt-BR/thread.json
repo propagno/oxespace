@@ -1,1 +1,579 @@
-{}
+{
+  "accounts": {
+    "title": "Contas dos agentes",
+    "description": "Use a sua assinatura com o agente nativo.",
+    "note": "As credenciais ficam com o Claude Code e o Codex. Reconectar muda a conta nativa usada também pelas suas sessões na CLI.",
+    "claudePlan": "Assinatura do Claude",
+    "codexPlan": "Assinatura do ChatGPT",
+    "busy": "Entrando",
+    "failed": "Não foi possível concluir esta ação. Tente de novo.",
+    "code": "Código de login",
+    "continue": "Continuar",
+    "cancel": "Cancelar login",
+    "openBrowser": "Abrir o navegador",
+    "reconnect": "Reconectar",
+    "connect": "Conectar",
+    "signOut": "Sair",
+    "verify": "Verificar",
+    "message": {
+      "checking": "Verificando a conexão…",
+      "activeTurn": "Pare o turno ativo antes de reconectar.",
+      "timeout": "O login expirou. Tente conectar de novo.",
+      "cancelled": "Login cancelado.",
+      "configuration": "Outro login está em andamento, ou a configuração nativa precisa de atenção.",
+      "missingCli": "Instale o agente nativo ou atualize o executável dele em Agentes.",
+      "error": "Não foi possível verificar a conexão. Confira o agente nativo e tente de novo.",
+      "subscription": "Assinatura conectada",
+      "subscriptionPlan": "{{plan}} · Assinatura conectada",
+      "otherMethod": "Outro método de autenticação está ativo. Conecte com a sua assinatura.",
+      "awaitingCode": "Termine no navegador, ou cole o código mostrado lá.",
+      "awaitingBrowser": "Conclua o login no navegador.",
+      "connecting": "Conectando…",
+      "disconnected": "Conecte a sua assinatura para enviar mensagens."
+    }
+  },
+  "announce": {
+    "needsInput": "O agente precisa de você.",
+    "needsInputMany": "O agente precisa de você em {{count}} pedidos.",
+    "working": "O agente está trabalhando.",
+    "failed": "O turno falhou.",
+    "stopped": "O turno foi interrompido.",
+    "finished": "O agente terminou."
+  },
+  "approvalDetails": {
+    "script": "Script {{language}}",
+    "command": "Comando",
+    "reviewPlan": "Revise o plano antes de o agente continuar.",
+    "reviewTool": "Revise o pedido de {{tool}} antes de permitir.",
+    "reviewFiles": "Revise as alterações de arquivos propostas antes de permitir.",
+    "mayModify": "Este comando pode modificar {{target}}.",
+    "projectFiles": "arquivos do projeto",
+    "reviewCommand": "Revise o comando antes de permitir que ele rode.",
+    "toolRequest": "Pedido de ferramenta do provedor",
+    "fileChanges": "Alterações de arquivos",
+    "reason": "Motivo do agente: {{reason}}",
+    "plan": "Plano",
+    "toolInput": "Entrada da ferramenta",
+    "proposedChange": "Alteração proposta",
+    "readable": "Prévia legível",
+    "exactBelow": "O pedido exato está logo abaixo",
+    "exact": "Comando ou pedido exato",
+    "copied": "Copiado",
+    "copyExact": "Copiar o texto exato"
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "tryAgain": "Tentar de novo",
+    "close": "Fechar",
+    "loading": "Carregando…",
+    "project": "Projeto"
+  },
+  "conversationActions": {
+    "menu": "Ações da conversa",
+    "current": "Conversa atual",
+    "rename": "Renomear conversa",
+    "resume": "Encontrar ou retomar sessão…",
+    "status": "Status da conversa",
+    "checkpoints": "Checkpoints de arquivos",
+    "export": "Exportar cópia portátil",
+    "import": "Importar conversa",
+    "fork": "Bifurcar conversa",
+    "archive": "Arquivar conversa",
+    "delete": "Excluir conversa"
+  },
+  "delegations": {
+    "notFound": "A delegação {{id}} não foi encontrada neste projeto.",
+    "taskId": "ID da tarefa",
+    "state": "Estado",
+    "branch": "Branch",
+    "worktree": "Worktree",
+    "baseCommit": "Commit base",
+    "provider": "Provedor",
+    "nativeSession": "Sessão nativa",
+    "notObserved": "Ainda não observada",
+    "handoffRevision": "Revisão do handoff",
+    "title": "Trabalho delegado",
+    "task": "Tarefa {{id}}",
+    "session": "Sessão {{provider}} {{session}} · geração {{generation}}"
+  },
+  "delivery": {
+    "sending": "Enviando…",
+    "unconfirmed": "Não confirmado — o provedor pode não ter recebido esta mensagem",
+    "sendAgain": "Enviar de novo",
+    "rejected": "Não enviado",
+    "withError": "{{label}}: {{error}}"
+  },
+  "dockPlan": {
+    "summary": "Plano, {{done}} de {{total}} concluídas",
+    "summaryNow": "Plano, {{done}} de {{total}} concluídas. Agora: {{current}}",
+    "title": "Plano {{done}}/{{total}}"
+  },
+  "dockRewind": {
+    "body_one": "{{count}} turno retrocedido. Ele sai da conversa quando você enviar a próxima mensagem.",
+    "body_many": "{{count}} turnos retrocedidos. Eles saem da conversa quando você enviar a próxima mensagem.",
+    "body_other": "{{count}} turnos retrocedidos. Eles saem da conversa quando você enviar a próxima mensagem.",
+    "redo": "Refazer"
+  },
+  "errors": {
+    "action": "Não foi possível concluir a ação."
+  },
+  "find": {
+    "label": "Buscar na conversa",
+    "position": "{{current}} de {{total}}",
+    "none": "Nenhum resultado",
+    "previous": "Resultado anterior",
+    "previousTitle": "Anterior · Shift+Enter",
+    "next": "Próximo resultado",
+    "nextTitle": "Próximo · Enter",
+    "close": "Fechar a busca",
+    "closeTitle": "Fechar · Esc"
+  },
+  "fold": {
+    "label_one": "Concluiu {{count}} passo",
+    "label_many": "Concluiu {{count}} passos",
+    "label_other": "Concluiu {{count}} passos",
+    "labelTimed_one": "Concluiu {{count}} passo em {{duration}}",
+    "labelTimed_many": "Concluiu {{count}} passos em {{duration}}",
+    "labelTimed_other": "Concluiu {{count}} passos em {{duration}}",
+    "hide": "Ocultar os passos deste turno",
+    "show": "Mostrar todos os passos deste turno"
+  },
+  "grid": {
+    "split": "Conversas lado a lado",
+    "single": "Conversa"
+  },
+  "historical": {
+    "label": "Perguntas recuperadas",
+    "title": "Perguntas deste turno",
+    "unconfirmed": "Resposta não confirmada",
+    "body": "Recuperadas do histórico do provedor. Estas perguntas não podem ser respondidas aqui; nenhuma resposta foi deduzida."
+  },
+  "hunks": {
+    "comment": "Comentário de revisão em `{{path}}` ({{range}}):",
+    "lines": "linhas {{from}}–{{to}}",
+    "afterLine": "depois da linha {{line}}",
+    "loadFailed": "Não foi possível carregar as alterações.",
+    "loading": "Carregando alterações…",
+    "label": "Alterações em {{path}}",
+    "none": "Nenhum bloco de alteração para revisar aqui. Alterações novas, binárias ou muito grandes são desfeitas no arquivo inteiro.",
+    "block": "Alteração {{index}} de {{total}}",
+    "linesTitle": "Linhas {{from}}–{{to}}",
+    "removedAfter": "Removido depois da linha {{line}}",
+    "commentButton": "Comentar",
+    "undoFailed": "Não foi possível desfazer esta alteração.",
+    "undoing": "Desfazendo…",
+    "undo": "Desfazer alteração",
+    "more": "… mais {{count}} linhas",
+    "commentLabel": "Comentário para o agente",
+    "commentPlaceholder": "O que o agente deve mudar aqui?",
+    "add": "Adicionar à mensagem"
+  },
+  "markdown": {
+    "code": "Código",
+    "copyCode": "Copiar código",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copyFailed": "Não foi possível copiar. Selecione o código para copiá-lo manualmente.",
+    "table": "Tabela da mensagem",
+    "image": "[Imagem]",
+    "imageAlt": "[Imagem: {{alt}}]"
+  },
+  "mcpDiagnose": {
+    "startsNow": "Inicia agora.",
+    "didNotStart": "Não iniciou.",
+    "node": "Roda no Node.js {{version}}.",
+    "testFailed": "Não foi possível testar este servidor.",
+    "label": "Diagnosticar {{name}}",
+    "testing": "Testando…",
+    "diagnose": "Diagnosticar",
+    "unmanaged": "Não é gerenciado pelo OXESpace, então não pode ser testado aqui. Confira onde ele foi adicionado, por exemplo com <code>claude mcp list</code>.",
+    "ok": "Inicia no teste de agora ({{message}}). Comece uma nova conversa para carregá-lo.",
+    "again": "Testar de novo"
+  },
+  "mcpHealth": {
+    "stoppedLabel": "Servidores MCP parados enquanto a conversa está ociosa; eles voltam com a sua próxima mensagem",
+    "unavailable_one": "{{count}} servidor MCP indisponível, {{connected}} conectados",
+    "unavailable_many": "{{count}} servidores MCP indisponíveis, {{connected}} conectados",
+    "unavailable_other": "{{count}} servidores MCP indisponíveis, {{connected}} conectados",
+    "connected_one": "{{count}} servidor MCP conectado",
+    "connected_many": "{{count}} servidores MCP conectados",
+    "connected_other": "{{count}} servidores MCP conectados",
+    "title": "Servidores MCP",
+    "chip": "MCP · {{value}}",
+    "chipStopped": "parados",
+    "chipFailed": "{{count}} com falha",
+    "stoppedBody": "Parados enquanto a conversa está ociosa. Esta é a lista da última sessão; a sua próxima mensagem os inicia de novo.",
+    "reportedBody": "Como a sessão desta conversa os informou ao começar.",
+    "open": "Abrir conexões"
+  },
+  "mcpList": {
+    "failed": {
+      "title": "Não iniciaram",
+      "hint": "Diagnosticar testa o servidor e diz por que ele não inicia. Depois de corrigir, comece uma nova conversa."
+    },
+    "connected": {
+      "title": "Conectados"
+    },
+    "starting": {
+      "title": "Iniciando"
+    },
+    "needsAuth": {
+      "title": "Precisam de login",
+      "hint": "Os conectores do claude.ai fazem login no claude.ai, em Settings › Connectors."
+    },
+    "other": {
+      "title": "Desativados ou desconhecidos"
+    },
+    "empty": "O provedor não informou nenhum servidor MCP para esta conversa.",
+    "group": "{{title}}: {{count}}"
+  },
+  "message": {
+    "showLess": "Mostrar menos",
+    "showFull": "Mostrar a mensagem inteira",
+    "taskNotice": "Tarefa em segundo plano {{status}}",
+    "taskNoticeSummary": "Tarefa em segundo plano {{status}}: {{summary}}",
+    "recovered": "Perguntas recuperadas — resposta não confirmada",
+    "final": "Resposta final",
+    "attachments": "Anexos da mensagem",
+    "context": "Contexto de arquivos anexado",
+    "bytes": "{{bytes}} bytes anexados",
+    "bytesTruncated": "{{bytes}} bytes anexados (cortado)",
+    "truncated": "cortado",
+    "brief": "Resumo do projeto anexado",
+    "rewoundFilesFailed": "Conversa retrocedida. Os arquivos não foram totalmente restaurados: {{error}}",
+    "suggested": "Respostas sugeridas",
+    "suggestedHint": "Escolha uma resposta para revisar antes de enviar",
+    "quote": "Citar na resposta",
+    "copiedLabel": "Mensagem copiada",
+    "copyFinal": "Copiar a resposta final",
+    "copyResponse": "Copiar a resposta",
+    "copied": "Copiado",
+    "copy": "Copiar",
+    "kilobytes": "{{size}} KB"
+  },
+  "modelPicker": {
+    "title": "Escolher modelo",
+    "hint": "Escolha o modelo desta conversa.",
+    "model": "Modelo",
+    "placeholder": "Selecione um modelo",
+    "effort": "Esforço de raciocínio",
+    "selected": "Modelo selecionado",
+    "use": "Usar modelo",
+    "none": "A CLI não retornou nenhum modelo. Confira a sua conexão e abra /model de novo."
+  },
+  "navigator": {
+    "back": "Voltar a este prompt (Alt+Up / Alt+Down passam de um prompt a outro)"
+  },
+  "opening": {
+    "label": "Começar a conversa",
+    "title": "No que o {{agent}} deve trabalhar em {{folder}}?",
+    "context": "Onde o agente trabalha",
+    "starters": "Sugestões para começar",
+    "access": {
+      "read-only": "Somente leitura",
+      "workspace-write": "Pode editar este projeto",
+      "full-access": "Acesso total"
+    },
+    "starter": {
+      "tour": {
+        "label": "Conhecer o projeto",
+        "prompt": "Me apresente este projeto: como ele está organizado, quais são os pontos de entrada e como compilar e executar."
+      },
+      "review": {
+        "label": "Revisar minhas alterações",
+        "prompt": "Revise as minhas alterações não commitadas e aponte riscos ou o que eu deixei passar."
+      },
+      "bugs": {
+        "label": "Achar prováveis bugs",
+        "prompt": "Encontre as partes deste código com mais chance de ter bugs e explique o porquê de cada uma."
+      },
+      "next": {
+        "label": "Sugerir próximos passos",
+        "prompt": "Sugira as três melhorias que mais valem a pena fazer aqui agora, dizendo onde cada uma mudaria."
+      }
+    }
+  },
+  "patch": {
+    "region": "Diff do arquivo",
+    "commentOnNew": "Comentar a linha nova {{line}}",
+    "commentOnOld": "Comentar a linha antiga {{line}}",
+    "commentTitle": "Comentar a linha",
+    "showMore": "Mostrar mais linhas (faltam {{count}})",
+    "commentLabel": "Comentário de revisão",
+    "add": "Adicionar à conversa"
+  },
+  "plan": {
+    "title": "Plano",
+    "progress": "{{done}}/{{total}} concluídas",
+    "inProgress": "Em andamento"
+  },
+  "projectSettings": {
+    "saveFailed": "Não foi possível salvar as configurações do projeto.",
+    "title": "Projeto do Thread · {{name}}",
+    "description": "Estas configurações valem para este projeto do Thread. As configurações do workspace do Code são separadas.",
+    "directory": "Diretório do projeto",
+    "unavailable": "Este diretório não está disponível. Escolha o novo local para retomar o trabalho.",
+    "relinkMissing": "Religar o diretório ausente",
+    "change": "Mudar o diretório do projeto",
+    "newDirectory": "Novo diretório",
+    "newDirectoryLabel": "Novo diretório do projeto",
+    "newDirectoryPlaceholder": "Caminho absoluto do projeto",
+    "relink": "Religar o diretório",
+    "delegation": "Delegação entre agentes",
+    "allow": "Permitir que os agentes deste projeto do Thread deleguem trabalho",
+    "optIn": "Cada destino também precisa da própria autorização. Transferências entre projetos exigem uma autorização separada.",
+    "destination": "Diretório de destino",
+    "destinationPlaceholder": "Caminho absoluto de outro repositório local",
+    "evidence": "Incluir como evidência o texto commitado selecionado",
+    "consent": "Autorizar a passagem para o agente de destino por 30 dias",
+    "authorize": "Autorizar o destino",
+    "until": "{{path}} · até {{date}}",
+    "revoke": "Revogar"
+  },
+  "queue": {
+    "title": "Mensagens na fila",
+    "pausedFailed": "Fila pausada — o último turno falhou. Nada é enviado até você decidir.",
+    "pausedInterrupted": "Fila pausada — o último turno foi interrompido. Nada é enviado até você decidir.",
+    "resume": "Retomar",
+    "sendNext": "Enviar a próxima agora",
+    "clear": "Limpar",
+    "state": {
+      "queued": "na fila",
+      "sending": "enviando",
+      "failed": "falhou",
+      "unknown": "incerta"
+    },
+    "editLabel": "Editar mensagem da fila",
+    "save": "Salvar mensagem da fila",
+    "cancelEditing": "Cancelar edição",
+    "sendNow": "Enviar a mensagem da fila agora",
+    "sendNowRunning": "Parar o turno atual e enviar esta agora",
+    "sendNowTitle": "Enviar esta agora",
+    "up": "Subir mensagem na fila",
+    "down": "Descer mensagem na fila",
+    "dismiss": "Descartar mensagem de entrega incerta",
+    "dismissTitle": "Remove este registro local sem tentar de novo",
+    "restore": "Devolver a mensagem da fila ao rascunho",
+    "restoreTitle": "Devolve o texto, os anexos e a configuração ao campo de mensagem",
+    "confirmTitle": "Parar o turno atual?",
+    "confirmLabel": "Parar e enviar",
+    "confirmBody": "O agente para o que está fazendo, e esta mensagem é enviada assim que ele parar. O resto da fila mantém a ordem."
+  },
+  "reasoning": {
+    "thinking": "Pensando…",
+    "thought": "Pensou",
+    "thoughtFor": "Pensou por {{duration}}",
+    "minutes": "{{minutes}} min {{seconds}} s",
+    "seconds": "{{seconds}} s"
+  },
+  "requests": {
+    "waiting": "O agente está esperando a sua resposta",
+    "waitingMany": "{{count}} pedidos estão esperando a sua resposta",
+    "shrinkTitle": "Devolver o espaço para a conversa",
+    "expandTitle": "Dar mais espaço ao pedido para ler as opções",
+    "shrink": "Reduzir",
+    "expand": "Expandir",
+    "showTitle": "Mostrar o pedido",
+    "hideTitle": "Ocultar o pedido para ler a conversa; ele continua esperando",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "label": "Pedidos pendentes do agente",
+    "orphaned": "O provedor está esperando uma resposta, mas o pedido não está disponível. Atualize o pedido ou pare o turno com o botão de parar.",
+    "refresh": "Atualizar o pedido"
+  },
+  "resumeData": {
+    "firstThousand": "Mostrando as sessões das primeiras 1.000 tarefas. Busque o histórico completo em Trabalho delegado.",
+    "delegatedFailed": "Não foi possível carregar as sessões delegadas. As conversas salvas continuam disponíveis.",
+    "nativeFailed": "Não foi possível listar as sessões do provedor. Você ainda pode digitar abaixo o ID exato de uma sessão nativa."
+  },
+  "reviewHost": {
+    "title": "Revisão da conversa",
+    "resize": "Redimensionar o painel de revisão"
+  },
+  "rewind": {
+    "editTitle": "Retroceder para antes desta mensagem e editá-la",
+    "edit": "Editar",
+    "hereTitle": "Deixa esta mensagem e tudo depois dela de lado; a sua próxima mensagem confirma",
+    "here": "Retroceder até aqui",
+    "confirmEdit": "Confirmar edição",
+    "confirmRewind": "Confirmar retrocesso",
+    "editBody_one": "Para editar esta mensagem, ela e a resposta ficam de lado e o texto volta para o campo de mensagem. Elas saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
+    "editBody_many": "Para editar esta mensagem, ela e {{count}} turnos ficam de lado e o texto volta para o campo de mensagem. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
+    "editBody_other": "Para editar esta mensagem, ela e {{count}} turnos ficam de lado e o texto volta para o campo de mensagem. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
+    "rewindBody_one": "Retrocede para antes desta mensagem: ela e a resposta ficam de lado. Elas saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
+    "rewindBody_many": "Retrocede para antes desta mensagem: ela e {{count}} turnos ficam de lado. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
+    "rewindBody_other": "Retrocede para antes desta mensagem: ela e {{count}} turnos ficam de lado. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
+    "restoreFiles": "Restaurar também os arquivos alterados nesses turnos",
+    "rewindAndEdit": "Retroceder e editar",
+    "rewind": "Retroceder"
+  },
+  "semantic": {
+    "title": "Busca semântica",
+    "toggle": "Indexar este projeto para os agentes buscarem por significado",
+    "hint": "O índice fica neste computador. Os agentes continuam lendo os arquivos de que precisam; isto só ajuda a encontrá-los.",
+    "starting": "Iniciando o índice…",
+    "indexing": "Indexando… {{files}} arquivos até agora",
+    "indexed": "{{files}} arquivos indexados",
+    "failed": "Não foi possível alterar a busca semântica."
+  },
+  "status": {
+    "running": "Em execução",
+    "attention": "Precisa de você",
+    "failed": "Falhou",
+    "interrupted": "Interrompida",
+    "background": "Em segundo plano",
+    "completed": "Concluída",
+    "ready": "Pronta"
+  },
+  "subagent": {
+    "actions": {
+      "spawnAgent": "Iniciou um agente",
+      "sendInput": "Enviou entrada",
+      "sendMessage": "Enviou mensagem",
+      "followupTask": "Atribuiu continuação",
+      "resumeAgent": "Retomou o agente",
+      "interruptAgent": "Interrompeu o agente",
+      "closeAgent": "Encerrou o agente",
+      "wait": "Esperou pelos agentes",
+      "listAgents": "Listou os agentes"
+    },
+    "state": {
+      "pending": "pendente",
+      "running": "em execução",
+      "completed": "concluído",
+      "failed": "falhou",
+      "interrupted": "interrompido",
+      "closed": "encerrado",
+      "not-found": "não encontrado",
+      "unknown": "desconhecido"
+    },
+    "stop": "Parar",
+    "stopLabel": "Parar: {{label}}",
+    "stopTitle": "Parar esta tarefa em segundo plano",
+    "viewResult": "Ver resultado",
+    "instructions": "Instruções"
+  },
+  "terminal": {
+    "tab": "Terminal {{number}}",
+    "closeTab": "Fechar {{label}}",
+    "label": "Terminal do projeto",
+    "tabs": "Terminais do projeto",
+    "new": "Novo terminal",
+    "controls": "Controles do shell",
+    "start": "Iniciar o shell",
+    "interrupt": "Interromper o comando",
+    "interruptTitle": "Interromper o comando (Ctrl+C)",
+    "stop": "Parar o shell",
+    "stopTitle": "Parar o shell — fechar este painel mantém o processo rodando"
+  },
+  "turnReview": {
+    "loadFailed": "Não foi possível carregar as alterações deste turno.",
+    "turn": "Turno {{number}}",
+    "thisTurn": "Este turno",
+    "files_one": "{{count}} arquivo",
+    "files_many": "{{count}} arquivos",
+    "files_other": "{{count}} arquivos",
+    "in": " · em {{folder}}",
+    "allTitle": "Mostrar todas as alterações da branch, não só as deste turno",
+    "all": "Todas as alterações",
+    "loading": "Carregando as alterações deste turno…",
+    "notRecorded": "As alterações deste turno não foram registradas para revisão, então não podem aparecer como diff aqui. Ele informou estes arquivos:",
+    "none": "Nenhuma alteração de arquivo foi registrada neste turno.",
+    "files": "Arquivos alterados neste turno",
+    "reverted": "Revertido",
+    "modified": "Editado depois",
+    "deleted": "Excluído",
+    "added": "Adicionado",
+    "backToBefore": "Este arquivo voltou a ser como era antes do turno.",
+    "editedAfter": "Este arquivo foi editado depois do turno, então a alteração do turno não pode mais ser mostrada sozinha. Use Todas as alterações para ver o arquivo como ele está."
+  },
+  "turnTiming": {
+    "completedBackground": "Turno concluído · {{count}} em segundo plano pendente",
+    "completedWarnings": "Concluído com avisos",
+    "completed": "Concluído",
+    "failed": "Falhou",
+    "interrupted": "Interrompido",
+    "actions_one": "{{count}} ação",
+    "actions_many": "{{count}} ações",
+    "actions_other": "{{count}} ações",
+    "failedCount": " · {{count}} com falha",
+    "unconfirmedCount": " · {{count}} sem confirmação",
+    "workedTitle": "Tempo em que o agente trabalhou; a espera pelas suas aprovações e respostas é contada à parte",
+    "workedWaited": "Trabalhou {{worked}} · esperou por você {{waited}}"
+  },
+  "usage": {
+    "planLabelSession": "{{percent}}% da sessão atual usados",
+    "planLabelWeek": "{{percent}}% desta semana usados",
+    "resetsIn": "{{label}} · renova em {{time}}",
+    "contextLabel": "{{percent}}% da janela de contexto usados ({{used}} de {{total}})",
+    "details": "Detalhes de uso",
+    "trigger": "Uso: {{label}}",
+    "context": "Janela de contexto",
+    "used": "{{percent}}% usados",
+    "tokens": "{{used}} / {{total}} tokens · {{percent}}%",
+    "autoCompact": "Compactação automática perto de {{tokens}} tokens",
+    "deferred": "{{name}} (adiado)",
+    "plan": "Uso do plano",
+    "open": "Abrir os detalhes de uso"
+  },
+  "work": {
+    "status": {
+      "pending": "Aguardando",
+      "ready": "Pronta",
+      "running": "Em execução",
+      "blocked": "Precisa de você",
+      "succeeded": "Concluída",
+      "failed": "Falhou",
+      "cancelled": "Cancelada"
+    },
+    "turns_one": "{{count}} turno",
+    "turns_many": "{{count}} turnos",
+    "turns_other": "{{count}} turnos",
+    "turnsOf_one": "{{count}} turno de {{budget}}",
+    "turnsOf_many": "{{count}} turnos de {{budget}}",
+    "turnsOf_other": "{{count}} turnos de {{budget}}",
+    "cost": "≈ {{cost}}",
+    "costOf": "≈ {{cost}} de {{budget}}",
+    "readOnly": "somente leitura",
+    "canEdit": "pode editar",
+    "after": "depois de {{tasks}}",
+    "open": "Abrir",
+    "result": "Resultado",
+    "resultFiles_one": "Resultado · {{count}} arquivo alterado",
+    "resultFiles_many": "Resultado · {{count}} arquivos alterados",
+    "resultFiles_other": "Resultado · {{count}} arquivos alterados",
+    "loadFailed": "Não foi possível carregar o Agent Work",
+    "unavailable": "O Agent Work não está disponível nesta versão.",
+    "cancelFailed": "A execução não foi cancelada",
+    "loading": "Carregando o Agent Work…",
+    "empty": "Nenhum Agent Work ainda",
+    "emptyHint": "Peça ao agente para dividir um trabalho em tarefas paralelas; ele as planeja com <code>oxespace_work_plan</code> e cada tarefa roda na sua própria conversa.",
+    "run": "Execução {{title}}",
+    "stoppedAtBudget": "Parou no limite do orçamento",
+    "isWorker": " · esta conversa é uma executora",
+    "openSupervisor": "Abrir a supervisora",
+    "cancel": "Cancelar a execução"
+  },
+  "workbench": {
+    "label": "Bancada do Thread",
+    "panels": "Painéis da bancada",
+    "select": "Escolher painel da bancada",
+    "restore": "Restaurar o painel da bancada",
+    "maximize": "Maximizar o painel da bancada",
+    "restoreTitle": "Restaurar · Esc",
+    "maximizeTitle": "Maximizar",
+    "close": "Fechar o painel da bancada",
+    "loadingChanges": "Carregando alterações…",
+    "loadingGit": "Carregando o Git…",
+    "loadingFiles": "Carregando arquivos…",
+    "loadingSearch": "Carregando a busca…",
+    "loadingScripts": "Carregando scripts…",
+    "loadingBackground": "Carregando a atividade em segundo plano…",
+    "loadingPreview": "Carregando a prévia web…",
+    "loadingTerminal": "Carregando o terminal…",
+    "unavailable": "O projeto não está disponível.",
+    "nativeActivity": "Atividade nativa em segundo plano",
+    "providerActivity": "Atividade do provedor · {{count}} em execução",
+    "noNativeTasks": "Nenhuma tarefa nativa foi informada nesta conversa."
+  }
+}

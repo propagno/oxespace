@@ -1,6 +1,7 @@
 import type { ConversationThread, ThreadCommandResult } from '../../../shared/types/thread'
 import type { DelegationTask } from '../../../shared/types/delegation'
 import type { SessionSummary } from '../../../shared/types/session'
+import { i18n } from '../../i18n'
 
 /** What the "Resume work" dialog lists, loaded when /resume opens it. */
 export interface ThreadResumeData {
@@ -28,18 +29,19 @@ export async function loadResumeData(thread: ConversationThread): Promise<Thread
       tasks.push(...page.tasks.filter(task => task.destinationThreadId || task.nativeSession))
       cursor = page.nextCursor ?? undefined
     } while (cursor && inspected < 1000)
-    if (cursor) notice = 'Showing sessions from the first 1,000 tasks. Search the complete history in Delegated Work.'
-  } catch { notice = 'Delegated sessions could not be loaded. Saved conversations are still available.' }
+    if (cursor) notice = i18n.t('thread:resumeData.firstThousand')
+  } catch { notice = i18n.t('thread:resumeData.delegatedFailed') }
   try {
     if (!window.oxe.session?.list) throw Error('Session discovery is unavailable')
     const sessions = await window.oxe.session.list({ workspaceId: thread.workspaceId, workspaceRootPath: thread.rootPath, provider: thread.provider })
     nativeSessions = sessions.filter(session => session.provider === thread.provider && NATIVE_SESSION_ID.test(session.sessionId))
-  } catch { nativeNotice = 'Could not list provider sessions. You can still enter an exact native session ID below.' }
+  } catch { nativeNotice = i18n.t('thread:resumeData.nativeFailed') }
   return { tasks, notice, nativeSessions, nativeNotice }
 }
 
 /** /delegations lists the project's delegated work; `/delegations <id>` shows one task. */
 export async function loadDelegationPanel(thread: ConversationThread, result: ThreadCommandResult): Promise<ThreadPanelState> {
+  const t = i18n.t.bind(i18n)
   if (result.text) {
     let cursor: string | undefined
     let found: DelegationTask | undefined
@@ -48,18 +50,18 @@ export async function loadDelegationPanel(thread: ConversationThread, result: Th
       found = page.tasks.find(task => task.id === result.text)
       cursor = page.nextCursor ?? undefined
     } while (!found && cursor)
-    if (!found) throw Error(`Delegation ${result.text} was not found in this project.`)
+    if (!found) throw Error(t('thread:delegations.notFound', { id: result.text }))
     return { kind: 'panel', title: found.objective, rows: [
-      { label: 'Task ID', detail: found.id }, { label: 'State', detail: found.state },
-      { label: 'Branch', detail: found.branch }, { label: 'Worktree', detail: found.path },
-      { label: 'Base commit', detail: found.baseSha }, { label: 'Provider', detail: found.nativeSession?.provider ?? found.agentProfileId },
-      { label: 'Native session', detail: found.nativeSession?.nativeSessionId ?? 'Not yet observed' },
-      { label: 'Handoff revision', detail: String(found.knowledgeBundle?.revision ?? 1) }
+      { label: t('thread:delegations.taskId'), detail: found.id }, { label: t('thread:delegations.state'), detail: found.state },
+      { label: t('thread:delegations.branch'), detail: found.branch }, { label: t('thread:delegations.worktree'), detail: found.path },
+      { label: t('thread:delegations.baseCommit'), detail: found.baseSha }, { label: t('thread:delegations.provider'), detail: found.nativeSession?.provider ?? found.agentProfileId },
+      { label: t('thread:delegations.nativeSession'), detail: found.nativeSession?.nativeSessionId ?? t('thread:delegations.notObserved') },
+      { label: t('thread:delegations.handoffRevision'), detail: String(found.knowledgeBundle?.revision ?? 1) }
     ], text: found.context ?? found.handoff }
   }
   const status = await window.oxe.delegation.status(thread.workspaceId, undefined, 100)
-  return { ...result, title: 'Delegated work', rows: status.tasks.map(task => ({
-    label: task.objective, detail: `${task.branch} · ${task.state}\nTask ${task.id}\n${task.path}${task.nativeSession ? `\n${task.nativeSession.provider} session ${task.nativeSession.nativeSessionId} · generation ${task.nativeSession.generation}` : ''}`,
+  return { ...result, title: t('thread:delegations.title'), rows: status.tasks.map(task => ({
+    label: task.objective, detail: `${task.branch} · ${task.state}\n${t('thread:delegations.task', { id: task.id })}\n${task.path}${task.nativeSession ? `\n${t('thread:delegations.session', { provider: task.nativeSession.provider, session: task.nativeSession.nativeSessionId, generation: task.nativeSession.generation })}` : ''}`,
     ...(task.destinationThreadId ? { id: task.destinationThreadId } : {})
   })) }
 }
