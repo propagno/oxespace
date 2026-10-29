@@ -80,12 +80,6 @@
   letter-spacing: 0.02em;
 }
 
-.search-panel-error {
-  color: var(--danger, var(--intent-danger-fg));
-  font-size: var(--fs-2xs);
-  word-break: break-word;
-}
-
 .search-panel-results {
   flex: 1;
   min-height: 0;

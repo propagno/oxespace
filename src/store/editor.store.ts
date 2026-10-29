@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { FileSystemFileChangedEvent } from '../../shared/types/ipc'
 import { detectEditorLanguage } from '../components/Editor/language'
 import { isBinaryPreview, previewKind } from '../components/Preview/previewKind'
+import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 
 interface EditorConflict {
@@ -37,6 +38,15 @@ interface OpenFileInput {
   workspaceId: string
   rootPath: string
   relativePath: string
+  /** 1-based line to show and put the cursor on once the file is open (a search match). */
+  line?: number
+}
+
+/** A line the editor still has to scroll to; `seq` makes asking twice for the same line count. */
+export interface EditorReveal {
+  relativePath: string
+  line: number
+  seq: number
 }
 
 interface EditorState {
@@ -46,6 +56,9 @@ interface EditorState {
   tabs: Record<string, EditorTab[]>
   /** workspaceId → active tab path (persisted). */
   activePath: Record<string, string | null>
+  /** workspaceId → line waiting to be revealed (not persisted). */
+  reveal: Record<string, EditorReveal | null>
+  clearReveal: (workspaceId: string, seq: number) => void
   /** Opens (or re-activates) a tab. Activating a loaded tab never re-reads it. */
   openFile: (input: OpenFileInput) => Promise<void>
   closeTab: (workspaceId: string, relativePath: string) => void
@@ -57,6 +70,8 @@ interface EditorState {
   updateContent: (workspaceId: string, content: string) => void
   saveFile: (workspaceId: string) => Promise<void>
   markExternalChange: (event: FileSystemFileChangedEvent) => void
+  /** Ends the active file's conflict: take the version on disk, or keep the local edits (still unsaved). */
+  resolveConflict: (workspaceId: string, keep: 'disk' | 'mine') => void
   clearEditor: (workspaceId: string) => void
   hasDirtyEditor: (workspaceId: string) => boolean
 }
@@ -72,6 +87,11 @@ export const useEditorStore = create<EditorState>()(
       files: {},
       tabs: {},
       activePath: {},
+      reveal: {},
+
+      clearReveal: (workspaceId, seq) => {
+        if (get().reveal[workspaceId]?.seq === seq) set((state) => ({ reveal: { ...state.reveal, [workspaceId]: null } }))
+      },
 
       openFile: async (input) => {
         const kind = previewKind(input.relativePath)
@@ -86,6 +106,9 @@ export const useEditorStore = create<EditorState>()(
             ? tabs
             : sortTabs([...tabs, { relativePath: input.relativePath, pinned: false, binary }])
           return {
+            reveal: input.line && !binary
+              ? { ...state.reveal, [input.workspaceId]: { relativePath: input.relativePath, line: input.line, seq: (state.reveal[input.workspaceId]?.seq ?? 0) + 1 } }
+              : state.reveal,
             tabs: { ...state.tabs, [input.workspaceId]: nextTabs },
             activePath: { ...state.activePath, [input.workspaceId]: input.relativePath },
             files: {
@@ -117,8 +140,9 @@ export const useEditorStore = create<EditorState>()(
         if (binary || alreadyLoaded) return
 
         try {
-          const result = await window.oxe.fs.readFile(input)
-          const watch = await window.oxe.fs.watchFile(input)
+          const target = { workspaceId: input.workspaceId, rootPath: input.rootPath, relativePath: input.relativePath }
+          const result = await window.oxe.fs.readFile(target)
+          const watch = await window.oxe.fs.watchFile(target)
           set((state) => {
             const current = state.files[input.workspaceId]?.[input.relativePath]
             if (!current) return state
@@ -182,9 +206,14 @@ export const useEditorStore = create<EditorState>()(
 
       closeOtherTabs: (workspaceId, relativePath) => {
         const state = get()
+        // Pinned tabs and tabs with unsaved edits stay: closing others never throws work away.
+        const dirty = (path: string): boolean => {
+          const file = state.files[workspaceId]?.[path]
+          return Boolean(file && file.content !== file.lastSavedContent)
+        }
         const keep = new Set(
           (state.tabs[workspaceId] ?? [])
-            .filter((tab) => tab.pinned || tab.relativePath === relativePath)
+            .filter((tab) => tab.pinned || tab.relativePath === relativePath || dirty(tab.relativePath))
             .map((tab) => tab.relativePath)
         )
         for (const [path, file] of Object.entries(state.files[workspaceId] ?? {})) {
@@ -323,6 +352,19 @@ export const useEditorStore = create<EditorState>()(
         })
       },
 
+      resolveConflict: (workspaceId, keep) => {
+        set((state) => {
+          const path = state.activePath[workspaceId]
+          const file = path ? state.files[workspaceId]?.[path] : undefined
+          if (!path || !file?.conflict) return state
+          // "Disk" takes the file as it is now; "mine" keeps the edits, which the next save writes over the disk version.
+          const next = keep === 'disk'
+            ? { ...file, content: file.conflict.externalContent, lastSavedContent: file.conflict.externalContent, conflict: null }
+            : { ...file, lastSavedContent: file.conflict.externalContent, conflict: null }
+          return { files: { ...state.files, [workspaceId]: { ...state.files[workspaceId], [path]: next } } }
+        })
+      },
+
       clearEditor: (workspaceId) => {
         for (const file of Object.values(get().files[workspaceId] ?? {})) {
           if (file.watchId) void window.oxe.fs.unwatchFile({ watchId: file.watchId })
@@ -357,5 +399,5 @@ export function selectActiveFile(state: EditorState, workspaceId: string): Edito
 }
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'Unexpected editor error')
+  return humanizeError(error, i18n.t('editor.unexpected', { ns: 'code' }))
 }

@@ -1,1 +1,145 @@
-{}
+{
+  "panels": {
+    "terminal": "Terminal",
+    "changes": "Changes",
+    "browser": "Browser",
+    "git": "Commit & pull request",
+    "files": "Files",
+    "search": "Find in files",
+    "scripts": "Scripts",
+    "worktrees": "Worktrees",
+    "background": "Background activity",
+    "menu": "Panels",
+    "more": "More panels",
+    "needsWorkspace": "Open a workspace to use its panels"
+  },
+  "tools": {
+    "team": {
+      "label": "Team",
+      "detail": "Project roles and agent inboxes"
+    },
+    "integration": {
+      "label": "Multi-repo coordination",
+      "detail": "Align agents, context and handoffs"
+    },
+    "github": {
+      "label": "Commit & pull request",
+      "detail": "Commits, pull requests and workflows"
+    },
+    "worktrees": {
+      "label": "Worktrees",
+      "detail": "Branch checkouts side by side"
+    },
+    "scripts": {
+      "label": "Scripts",
+      "detail": "Discover and run project scripts"
+    },
+    "search": {
+      "label": "Find in files",
+      "detail": "Text and regex search with ripgrep"
+    },
+    "webPreview": {
+      "label": "Browser",
+      "detail": "Preview a local page"
+    },
+    "background": {
+      "label": "Background activity",
+      "detail": "Local jobs and delegated work"
+    },
+    "slash": {
+      "label": "Terminal commands",
+      "detail": "Slash commands in the active pane"
+    },
+    "mcp": {
+      "label": "MCP servers",
+      "detail": "Servers and connectors your agents use"
+    },
+    "skills": {
+      "label": "Skills",
+      "detail": "Markdown skill prompts"
+    },
+    "semantic": {
+      "label": "Semantic index log",
+      "detail": "Local vector index activity"
+    },
+    "editor": {
+      "label": "Files",
+      "detail": "Browse and edit project files"
+    },
+    "review": {
+      "label": "Changes",
+      "detail": "Branch and uncommitted changes"
+    }
+  },
+  "search": {
+    "placeholder": "Find in files…",
+    "query": "Search query",
+    "searching": "Searching",
+    "options": "Search options",
+    "matchCase": "Match case",
+    "regex": "Use regular expression",
+    "includeIgnored": "Include git-ignored and hidden files",
+    "globsPlaceholder": "Files to include (e.g. src/**, !*.lock)",
+    "globs": "Glob filters",
+    "noResults": "No results",
+    "summary": "{{matches}} in {{files}}",
+    "matches_one": "{{count}} match",
+    "matches_other": "{{count}} matches",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "truncated": "{{summary}} (truncated)",
+    "failed": "Search failed",
+    "openAt": "Open {{path}} at line {{line}}"
+  },
+  "editor": {
+    "label": "Editor",
+    "loadingFiles": "Loading files…",
+    "treeFailed": "Could not list the files",
+    "treeWidth": "File tree width",
+    "noFile": "No file selected",
+    "selectFile": "Select a file",
+    "compare": "Compare this file in {{panel}}",
+    "compareTitle": "Compare this file with another branch in {{panel}}",
+    "showSource": "Show Markdown source",
+    "showRendered": "Show rendered Markdown",
+    "saving": "Saving…",
+    "unsaved": "Unsaved",
+    "saved": "Saved",
+    "unsavedChanges": "Unsaved changes",
+    "dictation": "Dictation",
+    "dictationTitle": "Tap to start or stop dictation. Hold to talk.",
+    "loadingPreview": "Loading preview…",
+    "loadingEditor": "Loading the editor…",
+    "openFailed": "Could not open the file",
+    "previewFailed": "Could not show the preview",
+    "readFailed": "Could not read the file.",
+    "unexpected": "The editor ran into an unexpected error.",
+    "folderFailed": "Could not open the folder",
+    "loadingFolder": "Loading {{name}}",
+    "emptyFolder": "Empty folder",
+    "noFiles": "No files",
+    "workspaceFiles": "Workspace files",
+    "fit": "Click to fit",
+    "fullSize": "Click to view at full size",
+    "imageSkipped": "[image: {{name}}]",
+    "tabs": {
+      "label": "Open files",
+      "menu": "{{name}} tab",
+      "close": "Close",
+      "closeOthers": "Close others (keeps pinned and unsaved)",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "copyPath": "Copy relative path",
+      "path": "Path"
+    },
+    "conflict": {
+      "label": "The file changed on disk",
+      "title": "The file changed on disk",
+      "kept": "Your unsaved edits were kept.",
+      "useDisk": "Use the version on disk",
+      "keepMine": "Keep my edits",
+      "local": "Your edits",
+      "external": "On disk"
+    }
+  }
+}

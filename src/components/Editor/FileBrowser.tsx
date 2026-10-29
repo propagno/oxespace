@@ -1,7 +1,9 @@
 import { ChevronDown, ChevronRight, FileText, Folder } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
-import { EmptyState } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
+import { EmptyState, ErrorState, Spinner } from '../../ui'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -18,6 +20,7 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
   const [loadingByPath, setLoadingByPath] = useState<Record<string, boolean>>({})
   const [errorByPath, setErrorByPath] = useState<Record<string, string>>({})
   const tree = useTreeKeyboard<HTMLDivElement>()
+  const { t } = useTranslation('code')
 
   const loadDirectory = async (relativePath: string): Promise<FileTreeNode[]> => {
     if (childrenByPath[relativePath]) return childrenByPath[relativePath]
@@ -28,7 +31,7 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
       setChildrenByPath((current) => ({ ...current, [relativePath]: children }))
       return children
     } catch (error) {
-      setErrorByPath((current) => ({ ...current, [relativePath]: humanizeError(error, 'Failed to load directory') }))
+      setErrorByPath((current) => ({ ...current, [relativePath]: humanizeError(error, i18n.t('editor.folderFailed', { ns: 'code' })) }))
       return []
     } finally {
       setLoadingByPath((current) => ({ ...current, [relativePath]: false }))
@@ -36,12 +39,12 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
   }
 
   if (nodes.length === 0) {
-    return <EmptyState compact title="No files" />
+    return <EmptyState compact title={t('editor.noFiles')} />
   }
 
   return (
-    <nav className="editor-browser" aria-label="Workspace files">
-      <div className="editor-browser-tree" role="tree" aria-label="Files" ref={tree.ref} onKeyDown={tree.onKeyDown}>
+    <nav className="editor-browser" aria-label={t('editor.workspaceFiles')}>
+      <div className="editor-browser-tree" role="tree" aria-label={t('panels.files')} ref={tree.ref} onKeyDown={tree.onKeyDown}>
       {nodes.map((node, index) => (
         <FileNode
           key={node.relativePath}
@@ -87,6 +90,7 @@ function buildAbsolutePath(rootPath: string, relativePath: string): string {
 }
 
 function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selectedPath, loadDirectory, childrenByPath, loadingByPath, errorByPath }: FileNodeProps): ReactElement {
+  const { t } = useTranslation('code')
   const [isExpanded, setIsExpanded] = useState(false)
 
   const handleDragStart = (event: React.DragEvent): void => {
@@ -127,9 +131,9 @@ function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selec
         </button>
         {isExpanded ? (
           <div className="editor-browser-children">
-            {isLoading ? <EmptyState compact title="Loading" /> : null}
-            {error ? <div className="editor-error">{error}</div> : null}
-            {!isLoading && !error && children.length === 0 ? <EmptyState compact title="Empty" /> : null}
+            {isLoading ? <Spinner size="sm" label={t('editor.loadingFolder', { name: node.name })} /> : null}
+            {error ? <ErrorState compact title={t('editor.folderFailed')} message={error} onRetry={() => void loadDirectory(node.relativePath)} /> : null}
+            {!isLoading && !error && children.length === 0 ? <EmptyState compact title={t('editor.emptyFolder')} /> : null}
             {children.map((child, childIndex) => (
               <FileNode
                 key={child.relativePath}

@@ -16,7 +16,8 @@ import { isBinaryPreview, previewKind } from '../Preview/previewKind'
 import { ConflictDiff } from './ConflictDiff'
 import { EditorTabs } from './EditorTabs'
 import { FileBrowser } from './FileBrowser'
-import { EmptyState } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { EmptyState, ErrorState, LoadingState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 // #10 · Rich previews are lazy so react-markdown and the base64 plumbing stay out
@@ -34,6 +35,7 @@ const EMPTY_TABS: never[] = []
 const EMPTY_FILES = {} as Record<string, never>
 
 export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactElement {
+  const { t } = useTranslation('code')
   const paneRef = useRef<HTMLDivElement | null>(null)
   const resizeFrameRef = useRef<number | null>(null)
   const resizingTreeRef = useRef(false)
@@ -51,6 +53,8 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   const [tree, setTree] = useState<FileTreeNode[]>([])
   const [treeError, setTreeError] = useState<string | null>(null)
   const [isLoadingTree, setIsLoadingTree] = useState(false)
+  const [treeAttempt, setTreeAttempt] = useState(0)
+  const reveal = useEditorStore((state) => state.reveal[workspaceId] ?? null)
   const [editorSize, setEditorSize] = useState({ width: 0, height: 0 })
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const [showRendered, setShowRendered] = useState(true)
@@ -183,7 +187,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         if (!cancelled) setTree(nodes)
       })
       .catch((error: unknown) => {
-        if (!cancelled) setTreeError(toMessage(error))
+        if (!cancelled) setTreeError(humanizeError(error))
       })
       .finally(() => {
         if (!cancelled) setIsLoadingTree(false)
@@ -191,7 +195,19 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     return () => {
       cancelled = true
     }
-  }, [rootPath, workspaceId])
+  }, [rootPath, workspaceId, treeAttempt])
+
+  const [editorReady, setEditorReady] = useState(0)
+  // A search match asked for a line: scroll to it and put the cursor there once the text is in.
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!reveal || !editor || !file || file.isLoading || file.relativePath !== reveal.relativePath) return
+    const line = Math.min(reveal.line, editor.getModel()?.getLineCount() ?? reveal.line)
+    editor.setPosition({ lineNumber: line, column: 1 })
+    editor.revealLineInCenter(line)
+    editor.focus()
+    useEditorStore.getState().clearReveal(workspaceId, reveal.seq)
+  }, [reveal, file, editorReady, workspaceId])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
@@ -250,6 +266,10 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     ? { relativePath: activePath, kind: activeKind }
     : null
   const isMarkdown = activeKind === 'markdown'
+  // A line can only be shown in the source, so a Markdown file asked to reveal one opens as source.
+  useEffect(() => {
+    if (reveal && isMarkdown && reveal.relativePath === activePath) setShowRendered(false)
+  }, [reveal, isMarkdown, activePath])
   const dirtyPaths = useMemo(
     () =>
       new Set(
@@ -263,15 +283,15 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   return (
     <div className="editor-pane" ref={paneRef}>
       <aside className="editor-sidebar" style={{ flexBasis: visibleTreeWidth }}>
-        <div className="editor-sidebar-title">Files</div>
-        {isLoadingTree ? <EmptyState compact title="Loading" /> : null}
-        {treeError ? <div className="editor-error">{treeError}</div> : null}
+        <div className="editor-sidebar-title">{t('panels.files')}</div>
+        {isLoadingTree ? <LoadingState label={t('editor.loadingFiles')} /> : null}
+        {treeError ? <ErrorState compact title={t('editor.treeFailed')} message={treeError} onRetry={() => setTreeAttempt((value) => value + 1)} /> : null}
         {!isLoadingTree && !treeError ? <FileBrowser nodes={tree} rootPath={rootPath} workspaceId={workspaceId} selectedPath={activePath} onOpenFile={handleOpenFile} /> : null}
       </aside>
       <div
         className="editor-tree-resize"
         role="separator"
-        aria-label="File tree width"
+        aria-label={t('editor.treeWidth')}
         aria-orientation="vertical"
         aria-valuemin={180}
         aria-valuemax={520}
@@ -297,7 +317,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         }}
         onDoubleClick={() => resizeTree(240)}
       />
-      <section className="editor-main" aria-label="Editor">
+      <section className="editor-main" aria-label={t('editor.label')}>
         <EditorTabs
           tabs={tabs}
           activePath={activePath}
@@ -309,15 +329,15 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
           onMove={(fromPath, toPath) => moveTab(workspaceId, fromPath, toPath)}
         />
         <header className="editor-toolbar">
-          <span className="editor-path">{activePath ?? 'No file selected'}</span>
+          <span className="editor-path">{activePath ?? t('editor.noFile')}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {activePath && !workspaceId.startsWith('thread:') ? (
               <button
                 type="button"
                 className="tile-btn"
                 onClick={() => openInChanges(workspaceId, { path: activePath })}
-                aria-label={`Compare this file in ${WORKBENCH_PANELS.changes.label}`}
-                title={`Compare this file with another branch in ${WORKBENCH_PANELS.changes.label}`}
+                aria-label={t('editor.compare', { panel: WORKBENCH_PANELS.changes.label })}
+                title={t('editor.compareTitle', { panel: WORKBENCH_PANELS.changes.label })}
                 data-testid="editor-open-in-changes"
               >
                 <GitCompareArrows size={12} aria-hidden="true" />
@@ -328,14 +348,15 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 type="button"
                 className={`tile-btn${showRendered ? ' active' : ''}`}
                 onClick={() => setShowRendered((value) => !value)}
-                title={showRendered ? 'Show Markdown source' : 'Show rendered Markdown'}
+                aria-pressed={!showRendered}
+                title={showRendered ? t('editor.showSource') : t('editor.showRendered')}
                 data-testid="markdown-toggle"
               >
                 {showRendered ? <Code2 size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
               </button>
             ) : null}
             {binaryFile ? null : (
-              <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? 'saving' : isDirty ? 'dirty' : 'saved'}</span>
+              <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? t('editor.saving') : isDirty ? t('editor.unsaved') : t('editor.saved')}</span>
             )}
 
             {voice.isSupported && (
@@ -346,7 +367,9 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 onPointerUp={onVoicePointerEnd}
                 onPointerCancel={onVoicePointerCancel}
                 onContextMenu={(e) => e.preventDefault()}
-                title="Tap to toggle dictation. Hold for push-to-talk."
+                aria-label={t('editor.dictation')}
+                aria-pressed={isVoiceActive}
+                title={t('editor.dictationTitle')}
                 style={{ position: 'relative' }}
               >
                 {isVoiceActive ? <Mic size={12} aria-hidden="true" /> : <MicOff size={12} aria-hidden="true" />}
@@ -369,7 +392,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         </header>
         <div className="editor-body">
           {binaryFile ? (
-            <Suspense fallback={<div className="editor-loading">Loading preview</div>}>
+            <Suspense fallback={<LoadingState label={t('editor.loadingPreview')} />}>
               <BinaryPreview
                 workspaceId={workspaceId}
                 rootPath={rootPath}
@@ -378,11 +401,11 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
               />
             </Suspense>
           ) : null}
-          {!binaryFile && file?.error ? <div className="editor-error">{file.error}</div> : null}
-          {!binaryFile && file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} /> : null}
+          {!binaryFile && file?.error ? <ErrorState compact title={t('editor.openFailed')} message={file.error} onRetry={() => void openFile({ workspaceId, rootPath, relativePath: file.relativePath })} /> : null}
+          {!binaryFile && file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} onResolve={(keep) => useEditorStore.getState().resolveConflict(workspaceId, keep)} /> : null}
           {!binaryFile && file && isMarkdown && showRendered ? (
             <div className="editor-preview-host scrollbar-sleek">
-              <Suspense fallback={<div className="editor-loading">Loading preview</div>}>
+              <Suspense fallback={<LoadingState label={t('editor.loadingPreview')} />}>
                 <MarkdownPreview content={file.content} />
               </Suspense>
             </div>
@@ -395,7 +418,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 theme={MONACO_THEME}
                 language={file.language}
                 value={file.content}
-                loading={<div className="editor-loading">Loading</div>}
+                loading={<LoadingState label={t('editor.loadingEditor')} />}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 13,
@@ -410,18 +433,15 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 }}
                 onMount={(editor) => {
                   editorRef.current = editor
+                  setEditorReady((value) => value + 1)
                 }}
                 onChange={(value) => updateContent(workspaceId, value ?? '')}
               />
             </div>
           ) : null}
-          {!binaryFile && !file ? <EmptyState compact title="Select a file" /> : null}
+          {!binaryFile && !file ? <EmptyState compact title={t('editor.selectFile')} /> : null}
         </div>
       </section>
     </div>
   )
-}
-
-function toMessage(error: unknown): string {
-  return humanizeError(error, 'Unexpected file browser error')
 }

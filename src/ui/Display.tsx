@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
 import { Tabs as RadixTabs } from 'radix-ui'
+import { i18n } from '../i18n'
 import { cx } from './cx'
 import styles from './Display.module.css'
 
@@ -55,13 +56,13 @@ export function EmptyState({ icon, title, children, actions, compact = false }: 
  * Something failed: what, why in words a person can act on (pass it through humanizeError), and how to try again.
  * The technical detail stays folded. Compact is a one-line version for lists and small panels.
  */
-export function ErrorState({ title, message, detail, onRetry, retryLabel = 'Try again', actions, compact = false }: {
+export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false }: {
   title: ReactNode; message?: ReactNode; detail?: string; onRetry?: () => void; retryLabel?: string; actions?: ReactNode; compact?: boolean
 }): ReactElement {
   return <div className={cx(styles.error, compact && styles.errorCompact)} role="alert">
     <p className={styles.errorTitle}>{title}</p>
     {message && <p className={styles.errorText}>{message}</p>}
-    {detail && <details className={styles.errorDetail}><summary>Details</summary><code>{detail}</code></details>}
+    {detail && <details className={styles.errorDetail}><summary>{i18n.t('ui.details')}</summary><code>{detail}</code></details>}
     {(onRetry || actions) && <div className={styles.errorActions}>
       {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
       {actions}
@@ -70,7 +71,7 @@ export function ErrorState({ title, message, detail, onRetry, retryLabel = 'Try 
 }
 
 /** The shape of content on its way: lines of text, or one block. Announced once as loading, never read line by line. */
-export function Skeleton({ lines = 3, variant = 'text', label = 'Loading' }: { lines?: number; variant?: 'text' | 'block'; label?: string }): ReactElement {
+export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading') }: { lines?: number; variant?: 'text' | 'block'; label?: string }): ReactElement {
   return <div className={styles.skeleton} role="status" aria-label={label}>
     {variant === 'block'
       ? <span className={cx(styles.skeletonBar, styles.skeletonBlock)} aria-hidden="true" />
@@ -82,14 +83,14 @@ export function Skeleton({ lines = 3, variant = 'text', label = 'Loading' }: { l
  * A turning ring. With a label it is announced as loading; `decorative` hides it from assistive technology when the
  * text next to it already says what is happening (a "Saving…" button).
  */
-export function Spinner({ label = 'Loading', size = 'md', decorative = false }: { label?: string; size?: 'sm' | 'md'; decorative?: boolean }): ReactElement {
+export function Spinner({ label = i18n.t('ui.loading'), size = 'md', decorative = false }: { label?: string; size?: 'sm' | 'md'; decorative?: boolean }): ReactElement {
   return decorative
     ? <span className={cx(styles.spinner, size === 'sm' && styles.spinnerSm)} aria-hidden="true" />
     : <span className={cx(styles.spinner, size === 'sm' && styles.spinnerSm)} role="status" aria-label={label} />
 }
 
 /** A spinner with a short line of text, for a panel or list whose content is on its way. */
-export function LoadingState({ label = 'Loading…' }: { label?: string }): ReactElement {
+export function LoadingState({ label = i18n.t('ui.loadingEllipsis') }: { label?: string }): ReactElement {
   return <div className={styles.loading} role="status"><span className={styles.spinner} aria-hidden="true" /><span>{label}</span></div>
 }
 

@@ -1,1 +1,147 @@
-{}
+{
+  "panels": {
+    "terminal": "Terminal",
+    "changes": "Alterações",
+    "browser": "Navegador",
+    "git": "Commit e pull request",
+    "files": "Arquivos",
+    "search": "Buscar nos arquivos",
+    "scripts": "Scripts",
+    "worktrees": "Worktrees",
+    "background": "Atividade em segundo plano",
+    "menu": "Painéis",
+    "more": "Mais painéis",
+    "needsWorkspace": "Abra um workspace para usar os painéis dele"
+  },
+  "tools": {
+    "team": {
+      "label": "Equipe",
+      "detail": "Papéis do projeto e caixas de entrada dos agentes"
+    },
+    "integration": {
+      "label": "Coordenação entre repositórios",
+      "detail": "Alinhe agentes, contexto e passagens de trabalho"
+    },
+    "github": {
+      "label": "Commit e pull request",
+      "detail": "Commits, pull requests e workflows"
+    },
+    "worktrees": {
+      "label": "Worktrees",
+      "detail": "Checkouts de branches lado a lado"
+    },
+    "scripts": {
+      "label": "Scripts",
+      "detail": "Encontre e rode os scripts do projeto"
+    },
+    "search": {
+      "label": "Buscar nos arquivos",
+      "detail": "Busca de texto e regex com ripgrep"
+    },
+    "webPreview": {
+      "label": "Navegador",
+      "detail": "Pré-visualize uma página local"
+    },
+    "background": {
+      "label": "Atividade em segundo plano",
+      "detail": "Tarefas locais e trabalho delegado"
+    },
+    "slash": {
+      "label": "Comandos do terminal",
+      "detail": "Comandos de barra no painel ativo"
+    },
+    "mcp": {
+      "label": "Servidores MCP",
+      "detail": "Servidores e conectores que seus agentes usam"
+    },
+    "skills": {
+      "label": "Skills",
+      "detail": "Prompts de skill em Markdown"
+    },
+    "semantic": {
+      "label": "Registro do índice semântico",
+      "detail": "Atividade do índice vetorial local"
+    },
+    "editor": {
+      "label": "Arquivos",
+      "detail": "Navegue e edite os arquivos do projeto"
+    },
+    "review": {
+      "label": "Alterações",
+      "detail": "Alterações da branch e ainda não commitadas"
+    }
+  },
+  "search": {
+    "placeholder": "Buscar nos arquivos…",
+    "query": "Termo de busca",
+    "searching": "Buscando",
+    "options": "Opções de busca",
+    "matchCase": "Diferenciar maiúsculas e minúsculas",
+    "regex": "Usar expressão regular",
+    "includeIgnored": "Incluir arquivos ocultos e ignorados pelo git",
+    "globsPlaceholder": "Arquivos a incluir (ex.: src/**, !*.lock)",
+    "globs": "Filtros glob",
+    "noResults": "Nenhum resultado",
+    "summary": "{{matches}} em {{files}}",
+    "matches_one": "{{count}} ocorrência",
+    "matches_many": "{{count}} ocorrências",
+    "matches_other": "{{count}} ocorrências",
+    "files_one": "{{count}} arquivo",
+    "files_many": "{{count}} arquivos",
+    "files_other": "{{count}} arquivos",
+    "truncated": "{{summary}} (cortado)",
+    "failed": "A busca falhou",
+    "openAt": "Abrir {{path}} na linha {{line}}"
+  },
+  "editor": {
+    "label": "Editor",
+    "loadingFiles": "Carregando os arquivos…",
+    "treeFailed": "Não foi possível listar os arquivos",
+    "treeWidth": "Largura da árvore de arquivos",
+    "noFile": "Nenhum arquivo selecionado",
+    "selectFile": "Selecione um arquivo",
+    "compare": "Comparar este arquivo em {{panel}}",
+    "compareTitle": "Comparar este arquivo com outra branch em {{panel}}",
+    "showSource": "Mostrar o código Markdown",
+    "showRendered": "Mostrar o Markdown renderizado",
+    "saving": "Salvando…",
+    "unsaved": "Não salvo",
+    "saved": "Salvo",
+    "unsavedChanges": "Alterações não salvas",
+    "dictation": "Ditado",
+    "dictationTitle": "Toque para começar ou parar o ditado. Segure para falar.",
+    "loadingPreview": "Carregando a prévia…",
+    "loadingEditor": "Carregando o editor…",
+    "openFailed": "Não foi possível abrir o arquivo",
+    "previewFailed": "Não foi possível mostrar a prévia",
+    "readFailed": "Não foi possível ler o arquivo.",
+    "unexpected": "O editor encontrou um erro inesperado.",
+    "folderFailed": "Não foi possível abrir a pasta",
+    "loadingFolder": "Carregando {{name}}",
+    "emptyFolder": "Pasta vazia",
+    "noFiles": "Nenhum arquivo",
+    "workspaceFiles": "Arquivos do workspace",
+    "fit": "Clique para ajustar",
+    "fullSize": "Clique para ver no tamanho real",
+    "imageSkipped": "[imagem: {{name}}]",
+    "tabs": {
+      "label": "Arquivos abertos",
+      "menu": "Aba {{name}}",
+      "close": "Fechar",
+      "closeOthers": "Fechar as outras (mantém fixadas e não salvas)",
+      "pin": "Fixar",
+      "unpin": "Desafixar",
+      "copyPath": "Copiar o caminho relativo",
+      "path": "Caminho"
+    },
+    "conflict": {
+      "label": "O arquivo mudou no disco",
+      "title": "O arquivo mudou no disco",
+      "kept": "Suas edições não salvas foram mantidas.",
+      "useDisk": "Usar a versão do disco",
+      "keepMine": "Manter minhas edições",
+      "local": "Suas edições",
+      "external": "No disco"
+    }
+  }
+}

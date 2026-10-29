@@ -1,6 +1,8 @@
 import { Pin, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { EditorTab } from '../../store/editor.store'
+import { ContextMenu, copyText, type MenuEntry } from '../../ui'
 
 interface EditorTabsProps {
   tabs: EditorTab[]
@@ -13,7 +15,7 @@ interface EditorTabsProps {
   onMove: (fromPath: string, toPath: string) => void
 }
 
-/** Editor tab strip: click to activate, middle-click to close, drag to reorder. */
+/** Editor tab strip: click to activate, middle-click or Delete to close, double-click to pin, right-click for the tab menu, drag to reorder. */
 export function EditorTabs({
   activePath,
   dirtyPaths,
@@ -24,6 +26,7 @@ export function EditorTabs({
   onTogglePin,
   tabs
 }: EditorTabsProps): ReactElement | null {
+  const { t } = useTranslation('code')
   const [draggingPath, setDraggingPath] = useState<string | null>(null)
   const [dropPath, setDropPath] = useState<string | null>(null)
   const stripRef = useRef<HTMLDivElement | null>(null)
@@ -41,13 +44,20 @@ export function EditorTabs({
   if (tabs.length === 0) return null
 
   return (
-    <div ref={stripRef} className="editor-tabs scrollbar-sleek" role="tablist" aria-label="Open files" data-testid="editor-tabs">
+    <div ref={stripRef} className="editor-tabs scrollbar-sleek" role="tablist" aria-label={t('editor.tabs.label')} data-testid="editor-tabs">
       {tabs.map((tab) => {
         const isActive = tab.relativePath === activePath
         const isDirty = dirtyPaths.has(tab.relativePath)
+        const menu: MenuEntry[] = [
+          { label: t('editor.tabs.close'), onSelect: () => onClose(tab.relativePath) },
+          { label: t('editor.tabs.closeOthers'), disabled: tabs.length < 2, onSelect: () => onCloseOthers(tab.relativePath) },
+          { label: tab.pinned ? t('editor.tabs.unpin') : t('editor.tabs.pin'), onSelect: () => onTogglePin(tab.relativePath) },
+          { type: 'separator' },
+          { label: t('editor.tabs.copyPath'), onSelect: () => void copyText(tab.relativePath, t('editor.tabs.path')) }
+        ]
         return (
+          <ContextMenu key={tab.relativePath} items={menu} label={t('editor.tabs.menu', { name: basename(tab.relativePath) })}>
           <div
-            key={tab.relativePath}
             role="tab"
             aria-selected={isActive}
             aria-keyshortcuts="Delete"
@@ -80,10 +90,6 @@ export function EditorTabs({
               }
             }}
             onDoubleClick={() => onTogglePin(tab.relativePath)}
-            onContextMenu={(event) => {
-              event.preventDefault()
-              onCloseOthers(tab.relativePath)
-            }}
             onDragStart={(event) => {
               setDraggingPath(tab.relativePath)
               event.dataTransfer.effectAllowed = 'move'
@@ -109,7 +115,7 @@ export function EditorTabs({
           >
             {tab.pinned ? <Pin size={12} aria-hidden="true" className="editor-tab-pin" /> : null}
             <span className="editor-tab-label">{basename(tab.relativePath)}</span>
-            {isDirty ? <span className="editor-tab-dot" aria-label="Unsaved changes" /> : null}
+            {isDirty ? <span className="editor-tab-dot" role="img" aria-label={t('editor.unsavedChanges')} /> : null}
             {/* A tab cannot own a control: keyboard and assistive tech close with Delete, the pointer uses this. */}
             <span
               className="editor-tab-close"
@@ -122,6 +128,7 @@ export function EditorTabs({
               <X size={12} aria-hidden="true" />
             </span>
           </div>
+          </ContextMenu>
         )
       })}
     </div>
