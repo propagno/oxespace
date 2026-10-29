@@ -5,6 +5,7 @@ import type { ExportFormat, OxeQueryConnection, SqlCellValue, SqlEditability, Sq
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { displayCell } from './ResultGrid'
 import { toast } from '../../ui/Toast'
+import { formatNumber } from '../../utils/formatTime'
 
 interface Props {
   connection: OxeQueryConnection
@@ -225,7 +226,7 @@ export function ExportButton({ connection, source, label = 'Export' }: {
       const outcome = await oq('export.run', { connectionId: connection.id, exportId: id, source, format })
       if (outcome.dismissed) setState({ phase: 'idle', rows: 0, text: '' })
       else if (outcome.cancelled) setState({ phase: 'error', rows: outcome.rows, text: 'Export cancelled. No file was kept.' })
-      else setState({ phase: 'done', rows: outcome.rows, text: `${outcome.rows.toLocaleString()} rows saved to ${outcome.fileName ?? 'the chosen file'}.` })
+      else setState({ phase: 'done', rows: outcome.rows, text: `${formatNumber(outcome.rows)} rows saved to ${outcome.fileName ?? 'the chosen file'}.` })
     } catch (cause) { setState({ phase: 'error', rows: 0, text: errorMessage(cause) }) }
   }
 
@@ -233,7 +234,7 @@ export function ExportButton({ connection, source, label = 'Export' }: {
   return <span className="oq-export">
     <button type="button" aria-haspopup="menu" aria-expanded={open} disabled={state.phase === 'running'} onClick={() => setOpen(value => !value)}><Download size={13} aria-hidden="true" />{label}</button>
     {open && <ul role="menu" aria-label="Export format">{formats.map(format => <li key={format} role="none"><button type="button" role="menuitem" onClick={() => void run(format)}>{format.toUpperCase()}</button></li>)}</ul>}
-    {state.phase === 'running' && <span className="oq-muted" role="status">Exporting… {state.rows.toLocaleString()} rows
+    {state.phase === 'running' && <span className="oq-muted" role="status">Exporting… {formatNumber(state.rows)} rows
       <button type="button" onClick={() => void oq('export.cancel', { exportId }).catch(() => undefined)}>Cancel</button></span>}
     {state.phase === 'done' && <span className="oq-muted" role="status">{state.text}</span>}
     {state.phase === 'error' && <span className="oq-error" role="alert">{state.text}</span>}

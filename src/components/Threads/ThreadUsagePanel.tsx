@@ -3,6 +3,7 @@ import type { ThreadTurnUsage, ThreadUsageBucket, ThreadUsageSummary } from '../
 import { formatThreadCost } from './threadCost'
 import { Select, LoadingState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDateTime } from '../../utils/formatTime'
 
 type Scope = ThreadUsageSummary['scope']
 const SCOPES: [Scope, string][] = [['thread', 'This conversation'], ['project', 'This project'], ['all', 'All projects']]
@@ -48,7 +49,7 @@ function Turns({ turns }: { turns: ThreadTurnUsage[] }) {
     {turns.length === 0 ? <p>No turns recorded in this period.</p> : <table className="thread-usage-turns">
       <thead><tr><th scope="col">When</th><th scope="col">Context sent</th><th scope="col">Steps</th><th scope="col">Output</th><th scope="col">Cost</th></tr></thead>
       <tbody>{turns.map(turn => <tr key={`${turn.at}:${turn.contextTokens}`}>
-        <td>{new Date(turn.at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
+        <td>{formatDateTime(turn.at, { dateStyle: 'short', timeStyle: 'short' })}</td>
         <td title={contextPerRequest(turn) === undefined ? undefined : `about ${compactTokens(contextPerRequest(turn)!)} per request`}>{compactTokens(turn.contextTokens)}</td>
         <td>{turn.steps ?? '—'}</td>
         <td>{compactTokens(turn.outputTokens)}</td>

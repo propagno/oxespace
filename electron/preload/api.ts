@@ -162,8 +162,11 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       // renderer can branch on the host OS (script commands, path separators)
       // without an IPC round-trip.
       platform: process.platform,
+      // The main process passes app.getLocale() as an argument: a sandboxed preload cannot call app APIs.
+      locale: process.argv.find(arg => arg.startsWith('--oxe-locale='))?.slice('--oxe-locale='.length) ?? '',
       getUpdateState: () => ipc.invoke(IPC_CHANNELS.app.getUpdateState) as Promise<import('../../shared/types/updater').AppUpdateState>,
       setAppearance: (mode) => ipc.invoke(IPC_CHANNELS.app.setAppearance, mode) as Promise<'light' | 'dark'>,
+      setLanguage: (language) => ipc.invoke(IPC_CHANNELS.app.setLanguage, language) as Promise<void>,
       setUiScale: (factor) => ipc.invoke(IPC_CHANNELS.app.setUiScale, factor) as Promise<number>,
       checkForUpdates: () => ipc.invoke(IPC_CHANNELS.app.checkForUpdates) as Promise<import('../../shared/types/updater').AppUpdateState>,
       quitAndInstall: () => ipc.invoke(IPC_CHANNELS.app.quitAndInstall) as Promise<boolean>,

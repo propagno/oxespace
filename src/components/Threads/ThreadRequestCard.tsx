@@ -7,6 +7,7 @@ import { elicitationContent, elicitationDefaults, elicitationFields, validateEli
 import { cx, Select } from '../../ui'
 import styles from './ThreadRequestCard.module.css'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDateTime } from '../../utils/formatTime'
 
 // In-memory only: preserve drafts across view remounts, never persist secrets.
 const drafts = new Map<string, Record<string, string[]>>()
@@ -67,7 +68,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     <summary className={cx('thread-request is-resolved', styles.resolved)}>
     {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={14} /> : <AlertCircle size={14} />}
     <span><strong>{request.questions?.[0]?.question ?? request.title}</strong><small>{requestOutcomeLabel(request)}{policy && policy.decision !== 'ask' && (request.resolution === 'approved' || request.resolution === 'declined') ? ' · by a permission rule' : ''}{request.resolution === 'answered' && turnResult === 'failed' ? ' · The turn failed afterward; see the error below.' : request.resolution === 'answered' && turnResult === 'interrupted' ? ' · The turn was interrupted afterward.' : ''}</small></span>
-    {request.resolvedAt && <time title={new Date(request.resolvedAt).toLocaleString()}>{new Date(request.resolvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}
+    {request.resolvedAt && <time title={formatDateTime(request.resolvedAt)}>{formatDateTime(request.resolvedAt, { hour: '2-digit', minute: '2-digit' })}</time>}
     </summary>
     <div className={cx('thread-request-history-content', styles.historyBody)}>
       <p>{request.resolution === 'connection-lost' ? 'The application connection ended before the response could be confirmed. This is a saved record, not an active approval. No permission was inferred or resent.' : 'Saved request details. This request is no longer interactive.'}</p>

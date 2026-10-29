@@ -1,0 +1,57 @@
+{
+  "appearance": {
+    "kicker": "Global appearance",
+    "title": "Appearance",
+    "description": "Mode, interface scale, density, motion and language for the whole app.",
+    "mode": {
+      "title": "Mode",
+      "system": {
+        "label": "System",
+        "hint": "Follows your operating system"
+      },
+      "light": {
+        "label": "Light",
+        "hint": "Light surfaces with green accents"
+      },
+      "dark": {
+        "label": "Dark",
+        "hint": "Dark surfaces with warm yellow accents"
+      }
+    },
+    "language": {
+      "title": "Language",
+      "system": "System ({{language}})",
+      "hint": "Applies to the whole interface. Agents answer in the language you write in."
+    },
+    "scale": {
+      "title": "Interface scale",
+      "hint": "Makes text, controls and the terminal larger or smaller across the app. Currently {{scale}}."
+    },
+    "density": {
+      "title": "Density",
+      "hint": "How tightly controls and lists sit. Workspaces and the Thread list follow this unless you set their own.",
+      "compact": "Compact",
+      "comfortable": "Comfortable",
+      "workspaceOverride_one": "1 workspace uses its own density.",
+      "workspaceOverride_other": "{{count}} workspaces use their own density.",
+      "useAppInWorkspaces": "Use app density in all workspaces",
+      "threadOverride": "The Thread list uses its own density: {{density}}.",
+      "useAppInThread": "Use app density in the Thread list"
+    },
+    "motion": {
+      "title": "Motion",
+      "system": {
+        "label": "System",
+        "hint": "Follows your operating system’s reduced-motion setting."
+      },
+      "reduce": {
+        "label": "Reduced",
+        "hint": "Panels and lists change without animating; busy indicators turn slowly."
+      },
+      "full": {
+        "label": "Full",
+        "hint": "Short transitions on panels, lists and menus, even if the operating system asks for less."
+      }
+    }
+  }
+}

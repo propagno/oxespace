@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import './WorkspaceMemorySettings.css'
 import { Button, Checkbox, TextField, Select } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDate } from '../../utils/formatTime'
 
 export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTerminal, onOpenDiagnostics }: { workspaceId: string; paneIds?: string[]; onOpenTerminal?: (paneId: string, workspaceId?: string) => void; onOpenDiagnostics?: () => void }) {
   const [snapshot, setSnapshot] = useState<DelegationSnapshot>({ enabled: false, tasks: [] })
@@ -55,7 +56,7 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
       })}>Authorize local destination</Button>
       {(snapshot.targets ?? []).map(target => <article className="memory-feedback" key={target.workspaceId}>
         <strong>{target.name}</strong><p>{target.rootPath}</p>
-        <p>Expires {new Date(target.expiresAt).toLocaleDateString()} · Evidence {target.allowEvidence ? 'allowed' : 'disabled'}</p>
+        <p>Expires {formatDate(target.expiresAt)} · Evidence {target.allowEvidence ? 'allowed' : 'disabled'}</p>
         <button type="button" onClick={() => void act(() => window.oxe.delegation.configureTarget(workspaceId, target.rootPath, false, false))}>Revoke destination</button>
       </article>)}
     </fieldset>

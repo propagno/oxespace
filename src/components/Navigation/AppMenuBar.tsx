@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { Check, ChevronRight, Menu } from 'lucide-react'
 import { DropdownMenu } from 'radix-ui'
+import { useTranslation } from 'react-i18next'
 import { buildAppMenus, type AppMenuContext, type AppMenuNode } from './appMenus'
 import './AppMenuBar.css'
 
@@ -28,9 +29,11 @@ function Submenu({ label, nodes, disabled }: { label: string; nodes: AppMenuNode
 
 /** The application menus (File, Edit, View, Tools, Help) behind one button in the title bar; the OS frame is hidden. */
 export function AppMenuBar({ context }: { context: AppMenuContext }): ReactElement {
+  // Subscribing re-renders the menus, built with i18n.t, when the language changes.
+  const { t } = useTranslation()
   const menus = buildAppMenus(context)
   return <DropdownMenu.Root>
-    <DropdownMenu.Trigger className="app-menu-button" aria-label="Application menu" title="Menu"><Menu size={16} aria-hidden="true" /></DropdownMenu.Trigger>
+    <DropdownMenu.Trigger className="app-menu-button" aria-label={t('nav.applicationMenu')} title={t('nav.menu')}><Menu size={16} aria-hidden="true" /></DropdownMenu.Trigger>
     <DropdownMenu.Portal>
       <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6}>
         {menus.map(menu => <Submenu key={menu.id} label={menu.label} nodes={menu.items} />)}

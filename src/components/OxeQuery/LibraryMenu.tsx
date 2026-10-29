@@ -6,6 +6,7 @@ import { groupSaved } from './library-folders'
 import { Button, IconButton } from '../../ui/Button'
 import { Popover } from '../../ui/Overlay'
 import { toast } from '../../ui/Toast'
+import { formatDateTime } from '../../utils/formatTime'
 
 /** Saved queries and history for one connection; both live in the app database, not in the page. */
 export function LibraryMenu({ connection, currentSql, refreshKey, onPick, describe = text => text.replace(/\s+/g, ' ') }: {
@@ -75,7 +76,7 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
         <ul>{history.map(item => <li key={item.id}>
           <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}>
             <code>{describe(item.sql).slice(0, 90)}</code>
-            <small>{item.ok ? `${item.rows ?? '–'} rows · ${item.durationMs ?? '–'} ms` : 'failed'} · {new Date(item.ranAt).toLocaleString()}</small>
+            <small>{item.ok ? `${item.rows ?? '–'} rows · ${item.durationMs ?? '–'} ms` : 'failed'} · {formatDateTime(item.ranAt)}</small>
           </button></li>)}</ul>
         {history.length === 0 ? <p className="oq-muted">Statements you run appear here.</p> : <Button size="sm" onClick={() => void clear()}>Clear history</Button>}
       </>}

@@ -1,0 +1,17 @@
+{
+  "crash": {
+    "unexpected": {
+      "title": "O OXESpace encontrou um erro inesperado",
+      "message": "Algo deu errado em segundo plano.",
+      "detail": "Seus terminais e agentes podem continuar rodando, mas o OXESpace não consegue mais garantir que estejam bem. Reinicie para continuar com segurança. O diagnóstico pode ser exportado em Configurações > Diagnóstico.",
+      "restart": "Reiniciar o OXESpace",
+      "keepWorking": "Continuar trabalhando"
+    },
+    "rendererGone": {
+      "title": "O OXESpace parou de responder",
+      "message": "A interface continua travando.",
+      "detail": "Seus terminais e agentes continuam rodando. Reinicie o OXESpace para trazer a interface de volta; o diagnóstico pode ser exportado em Configurações > Diagnóstico.",
+      "ok": "OK"
+    }
+  }
+}

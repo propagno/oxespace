@@ -4,6 +4,7 @@ import type { AgentProvider } from '../../../shared/types/agent'
 import type { CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
 import { ViewportTooltip } from '../common/ViewportTooltip'
+import { formatDate } from '../../utils/formatTime'
 
 const REFRESH_INTERVAL_MS = 5 * 60_000
 
@@ -74,5 +75,5 @@ function buildTitle(name: string, windows: CreditsWindow[]): string {
 /** epoch ms → "5 jun". Returns null when unparseable. */
 function formatReset(ms: number | null): string | null {
   if (ms === null || !Number.isFinite(ms)) return null
-  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return formatDate(ms, { day: 'numeric', month: 'short' })
 }

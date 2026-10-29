@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import type { PlanNode, SqlExplain } from '../../../shared/types/oxequery'
+import { formatNumber } from '../../utils/formatTime'
 
 function Node({ node, depth, analyze }: { node: PlanNode; depth: number; analyze: boolean }): ReactElement {
   const [open, setOpen] = useState(depth < 6)
@@ -17,9 +18,9 @@ function Node({ node, depth, analyze }: { node: PlanNode; depth: number; analyze
           <span className="oq-plan-share" title="Share of the plan's time (or cost) spent in this step alone"><span style={{ width: `${Math.max(2, share)}%` }} /></span><small>{share}%</small></div>
         <div className="oq-plan-meta">
           {analyze && node.actualMs !== undefined
-            ? <span>{(node.selfMs ?? 0).toFixed(2)} ms own · {node.actualRows?.toLocaleString()} rows{(node.loops ?? 1) > 1 ? ` × ${node.loops} loops` : ''} (estimated {node.planRows.toLocaleString()})</span>
-            : <span>cost {node.startupCost.toFixed(2)}..{node.totalCost.toFixed(2)} · ~{node.planRows.toLocaleString()} rows</span>}
-          {node.readBlocks ? <span>{node.readBlocks.toLocaleString()} blocks read from disk</span> : null}
+            ? <span>{(node.selfMs ?? 0).toFixed(2)} ms own · {node.actualRows === undefined ? '' : formatNumber(node.actualRows)} rows{(node.loops ?? 1) > 1 ? ` × ${node.loops} loops` : ''} (estimated {formatNumber(node.planRows)})</span>
+            : <span>cost {node.startupCost.toFixed(2)}..{node.totalCost.toFixed(2)} · ~{formatNumber(node.planRows)} rows</span>}
+          {node.readBlocks ? <span>{formatNumber(node.readBlocks)} blocks read from disk</span> : null}
         </div>
         {node.detail && <code className="oq-plan-detail">{node.detail}</code>}
       </div>

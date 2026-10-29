@@ -12,6 +12,7 @@ import { App } from './App'
 import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
+import { initI18n } from './i18n'
 import { applyMotion, resolveMotion, savedMotion } from './design/motion'
 // Layer order and the base reset load before every other stylesheet.
 import './styles/reset.css'
@@ -24,10 +25,13 @@ applyMotion(resolveMotion(savedMotion()))
 // Lets the frameless title bar reserve room for macOS traffic lights.
 document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'darwin' : /Win/i.test(navigator.platform) ? 'win32' : 'linux'
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-    <ShortcutGuideHost />
-    <StartupInteractiveMark />
-  </React.StrictMode>
-)
+// The interface language loads before the first render, so no text flashes in the other language.
+void initI18n().catch(error => console.error('[i18n] could not start the translator', error)).finally(() => {
+  ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+      <ShortcutGuideHost />
+      <StartupInteractiveMark />
+    </React.StrictMode>
+  )
+})

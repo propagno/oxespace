@@ -28,6 +28,7 @@ import { Select } from '../../ui/Field'
 import { copyText } from '../../ui/clipboard'
 import { Splitter } from '../../ui/Splitter'
 import { EDITOR_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
+import { formatNumber } from '../../utils/formatTime'
 
 const ROW_LIMITS = [100, 500, 1000, 5000, 10_000, 50_000, 100_000]
 const PAGE = 100
@@ -318,7 +319,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <Button size="sm" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title="Run the statement and show real timings. A statement that changes data is rolled back.">Analyze</Button>
           <Button size="sm" onClick={format} title="Format the SQL (Shift+Alt+F)">Format</Button>
         </div>
-        <label className="oq-inline">Limit<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{value.toLocaleString('en-US')} rows</option>)}</Select></label>
+        <label className="oq-inline">Limit<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{formatNumber(value)} rows</option>)}</Select></label>
         <div className="oq-tb-group oq-tb-end">
         {!connection.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
         <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => replaceText(active.id, sql)} />
@@ -365,7 +366,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <span className="oq-spacer" />
           {active.browse && <><button type="button" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: Math.max(0, active.browse!.offset - PAGE) })}>Previous</button>
             <button type="button" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset + PAGE })}>Next</button></>}
-          {!active.browse && result?.pageId && <button type="button" disabled={running} onClick={() => void loadMore()}>Load {maxRows.toLocaleString('en-US')} more</button>}
+          {!active.browse && result?.pageId && <button type="button" disabled={running} onClick={() => void loadMore()}>Load {formatNumber(maxRows)} more</button>}
           {(active.browse || (result && columns.length > 0 && executedText?.trim())) && <ExportButton connection={connection}
             source={active.browse ? { kind: 'table', schema: active.browse.schema, table: active.browse.table } : { kind: 'sql', sql: executedText ?? '' }}
             label={active.browse ? 'Export table' : 'Export query'} />}
@@ -405,9 +406,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
 }
 
 function summary(result: SqlResult, browse: Browse | null): string {
-  if (browse) return `rows ${browse.offset + 1}–${browse.offset + result.rowCount}${result.totalRows !== undefined ? ` of ${result.totalRows.toLocaleString('en-US')} matching` : ''} · ${result.durationMs} ms`
+  if (browse) return `rows ${browse.offset + 1}–${browse.offset + result.rowCount}${result.totalRows !== undefined ? ` of ${formatNumber(result.totalRows)} matching` : ''} · ${result.durationMs} ms`
   if (result.columns.length === 0) return `${result.command ?? 'Done'}${result.affectedRows !== undefined ? ` · ${result.affectedRows} rows affected` : ''} · ${result.durationMs} ms`
-  const rows = `${result.rowCount.toLocaleString('en-US')} row${result.rowCount === 1 ? '' : 's'}`
+  const rows = `${formatNumber(result.rowCount)} row${result.rowCount === 1 ? '' : 's'}`
   const more = !result.truncated ? '' : result.limitedBy === 'bytes' ? ' (cut: the result is too large to show — narrow the query or export it)'
     : result.pageId ? ' · more available' : result.rowCount >= MAX_GRID_ROWS ? ' (the grid holds 1,000,000 rows — export the query for the rest)' : ' (limited — more exist)'
   return `${rows}${more} · ${result.durationMs} ms`
