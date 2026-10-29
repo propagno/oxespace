@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import type { McpDiscoverySource } from '../../../shared/types/mcp'
 import { Checkbox, EmptyState, ErrorState, LoadingState } from '../../ui'
 import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
 import { humanizeError } from '../../utils/humanizeError'
 
 /** Servers Claude Desktop, Cursor and Windsurf already have. Their secrets are never shown or sent here. */
@@ -15,7 +16,7 @@ export function McpImportPanel({ workspaceId, onImported, onChanged, onClose }: 
 
   useEffect(() => {
     let live = true
-    api?.discover?.(workspaceId).then(found => { if (live) setSources(found) }, cause => { if (live) { setSources([]); setError(humanizeError(cause, t('mcp.import.lookFailed'))) } })
+    api?.discover?.(workspaceId).then(found => { if (live) setSources(found) }, cause => { if (live) { setSources([]); setError(humanizeError(cause, i18n.t('mcp.import.lookFailed', { ns: 'code' }))) } })
     return () => { live = false }
   }, [api, workspaceId])
 

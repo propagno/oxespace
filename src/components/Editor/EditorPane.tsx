@@ -267,9 +267,10 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     : null
   const isMarkdown = activeKind === 'markdown'
   // A line can only be shown in the source, so a Markdown file asked to reveal one opens as source.
-  useEffect(() => {
-    if (reveal && isMarkdown && reveal.relativePath === activePath) setShowRendered(false)
-  }, [reveal, isMarkdown, activePath])
+  useEffect(() => useEditorStore.subscribe((state, previous) => {
+    const next = state.reveal[workspaceId]
+    if (next && next !== previous.reveal[workspaceId] && previewKind(next.relativePath) === 'markdown') setShowRendered(false)
+  }), [workspaceId])
   const dirtyPaths = useMemo(
     () =>
       new Set(

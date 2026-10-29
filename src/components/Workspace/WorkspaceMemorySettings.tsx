@@ -59,7 +59,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     if (!window.oxe?.memory) return
     void window.oxe.memory.status(workspaceId).then(value => {
       if (alive) { setStatus(value); setSettings(value.settings); setRuntime(value.runtime) }
-    }).catch(() => { if (alive) setMessage(t('memory.unavailable')) })
+    }).catch(() => { if (alive) setMessage(tc('memory.unavailable')) })
     return () => { alive = false }
   }, [workspaceId])
   const memoryReady = !!status?.settings.enabled && status.health.status === 'ready'
