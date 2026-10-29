@@ -100,6 +100,7 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await expect(scope.getByRole('button', { name: 'Application', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('heading', {name:'Diagnostics',exact:true})).toBeVisible()
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    expect(await page.locator('.app-shell').evaluate(el => parseFloat(getComputedStyle(el).transitionDuration))).toBeLessThanOrEqual(.001)
+    // System motion follows the operating system through data-motion, which updates on the media change event.
+    await expect.poll(() => page.locator('.app-shell').evaluate(el => parseFloat(getComputedStyle(el).transitionDuration))).toBeLessThanOrEqual(.001)
   } finally { await app.close() }
 })

@@ -332,7 +332,7 @@
 }
 
 /* Pulse animation for running jobs */
-.bg-jobs-pulse.status-running { animation: bg-jobs-pulse 1.4s ease-in-out infinite; color: var(--dot-green); }
+.bg-jobs-pulse.status-running { animation: bg-jobs-pulse var(--duration-pulse) var(--ease-in-out) infinite; color: var(--dot-green); }
 .status-exited { color: var(--dot-blue); }
 .status-failed { color: var(--dot-red); }
 .status-killed { color: var(--dot-gray); }

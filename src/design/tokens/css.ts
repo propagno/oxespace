@@ -5,7 +5,7 @@
  */
 import { IDENTITY, type Mode } from './palette'
 import { colorRoles, elevations } from './semantic'
-import { CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, SPACE, TEXT, WEIGHT } from './scales'
+import { CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT, WEIGHT } from './scales'
 
 const block = (selector: string, entries: Record<string, string | number>, extra: string[] = []): string =>
   `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${name}: ${value};`), ...extra.map(line => `  ${line}`)].join('\n')}\n}`
@@ -42,8 +42,10 @@ export function tokensCss(): string {
     block(":root, [data-mode='light']", modeTokens('light'), ['color-scheme: light;']),
     block(":root[data-mode='dark'], [data-mode='dark']", modeTokens('dark'), ['color-scheme: dark;']),
     block(":root[data-density='comfortable']", comfortable),
-    // Motion collapses for people who ask for less of it.
-    '@media (prefers-reduced-motion: reduce) {\n  :root { --duration-fast: 0ms; --duration-base: 0ms; --duration-slow: 0ms; }\n}',
+    // Motion collapses for people who ask for less of it: Settings › Appearance sets data-motion on the
+    // root (System resolves the operating system's choice); before that attribute exists, the media query decides.
+    block(":root[data-motion='reduce']", REDUCED_MOTION),
+    `@media (prefers-reduced-motion: reduce) {\n${block(':root:not([data-motion])', REDUCED_MOTION).replace(/^/gm, '  ')}\n}`,
     ''
   ].join('\n\n')
 }
