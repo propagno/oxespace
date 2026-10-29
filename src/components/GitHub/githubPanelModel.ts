@@ -1,15 +1,23 @@
 import type { GitHubPanelTab } from '../../../shared/types/github'
+import { i18n } from '../../i18n'
 
-export const GITHUB_PANEL_TABS: ReadonlyArray<{ id: GitHubPanelTab; label: string; remote?: boolean }> = [
-  { id: 'status', label: 'Status' },
-  { id: 'checkpoints', label: 'Checkpoints' },
-  { id: 'repos', label: 'Repos' },
-  { id: 'branches', label: 'Branches' },
-  { id: 'prs', label: 'PRs', remote: true },
-  { id: 'commits', label: 'Commits' },
-  { id: 'releases', label: 'Releases', remote: true },
-  { id: 'actions', label: 'Actions', remote: true },
-  { id: 'settings', label: 'Settings' }
+const tc = i18n.getFixedT(null, 'code')
+
+function tab(id: GitHubPanelTab, remote?: boolean): { id: GitHubPanelTab; readonly label: string; remote?: boolean } {
+  return { id, remote, get label() { return tc(`git.tabs.${id}`) } }
+}
+
+/** The panel's tabs; labels are read in the interface language each time. */
+export const GITHUB_PANEL_TABS: ReadonlyArray<{ id: GitHubPanelTab; readonly label: string; remote?: boolean }> = [
+  tab('status'),
+  tab('checkpoints'),
+  tab('repos'),
+  tab('branches'),
+  tab('prs', true),
+  tab('commits'),
+  tab('releases', true),
+  tab('actions', true),
+  tab('settings')
 ]
 
 export function buildStatusHeadline(input: {
@@ -20,12 +28,12 @@ export function buildStatusHeadline(input: {
   hasRemote: boolean
 }): string {
   const { ahead, behind, dirty, totalFiles, hasRemote } = input
-  if (!hasRemote) return 'No remote · configure origin to sync'
+  if (!hasRemote) return tc('git.sync.headlineNoRemote')
   const parts: string[] = []
-  if (behind > 0) parts.push(`${behind} to pull`)
-  if (ahead > 0) parts.push(`${ahead} to push`)
-  if (dirty || totalFiles > 0) parts.push(`${totalFiles} file${totalFiles === 1 ? '' : 's'} changed`)
-  return parts.length === 0 ? 'Up to date with remote · clean working tree' : parts.join(' · ')
+  if (behind > 0) parts.push(tc('git.sync.toPull', { count: behind }))
+  if (ahead > 0) parts.push(tc('git.sync.toPush', { count: ahead }))
+  if (dirty || totalFiles > 0) parts.push(tc('git.sync.filesChanged', { count: totalFiles }))
+  return parts.length === 0 ? tc('git.sync.headlineClean') : parts.join(' · ')
 }
 
 export type GitHubSyncState = {
@@ -42,14 +50,10 @@ export function describeSyncState(input: {
   totalFiles?: number
 }): GitHubSyncState {
   const { ahead, behind, dirty, hasRemote } = input
-  if (!hasRemote) return { kind: 'no-remote', title: 'No remote configured', detail: 'Add an origin to enable Fetch, Pull and Push.' }
-  if (behind > 0 && ahead > 0) return { kind: 'diverged', title: 'Branch diverged from remote', detail: `${behind} to pull · ${ahead} to push. Fast-forward Pull may fail — use the terminal for rebase/merge if needed.` }
-  if (behind > 0 && dirty) return { kind: 'dirty-behind', title: `${behind} commit${behind === 1 ? '' : 's'} to pull`, detail: 'You also have local uncommitted changes. Commit or stash first so Pull does not mix remote history with a dirty tree.' }
-  if (behind > 0) return { kind: 'behind', title: `${behind} commit${behind === 1 ? '' : 's'} to pull`, detail: 'Remote is ahead of you. Pull downloads with fast-forward only (safe).' }
-  if (ahead > 0) return { kind: 'ahead', title: `${ahead} commit${ahead === 1 ? '' : 's'} to push`, detail: 'Your local commits are not on the remote yet. Push publishes this branch.' }
-  return {
-    kind: 'ok',
-    title: 'In sync with remote',
-    detail: dirty ? 'Nothing to pull or push. You have local changes — stage and commit below.' : 'Nothing to pull or push. Fetch occasionally to check for remote updates.'
-  }
+  if (!hasRemote) return { kind: 'no-remote', title: tc('git.sync.noRemote'), detail: tc('git.sync.noRemoteDetail') }
+  if (behind > 0 && ahead > 0) return { kind: 'diverged', title: tc('git.sync.diverged'), detail: tc('git.sync.divergedDetail', { behind, ahead }) }
+  if (behind > 0 && dirty) return { kind: 'dirty-behind', title: tc('git.sync.commitsToPull', { count: behind }), detail: tc('git.sync.dirtyBehindDetail') }
+  if (behind > 0) return { kind: 'behind', title: tc('git.sync.commitsToPull', { count: behind }), detail: tc('git.sync.behindDetail') }
+  if (ahead > 0) return { kind: 'ahead', title: tc('git.sync.commitsToPush', { count: ahead }), detail: tc('git.sync.aheadDetail') }
+  return { kind: 'ok', title: tc('git.sync.inSync'), detail: dirty ? tc('git.sync.inSyncDirty') : tc('git.sync.inSyncClean') }
 }

@@ -12,8 +12,9 @@ export interface WorkbenchPanelItem {
   disabled?: boolean
 }
 
-/** Menu entries for panels: checked when open, so several can be stacked in Code. */
+/** Menu entries for panels: checked when open, so several can be stacked in Code. Without a workspace, a line says why it is empty. */
 export function panelMenuEntries(items: WorkbenchPanelItem[]): MenuEntry[] {
+  if (!items.length) return [{ type: 'label', label: i18n.t('panels.needsWorkspace', { ns: 'code' }) }]
   return [{ type: 'label', label: i18n.t('panels.menu', { ns: 'code' }) }, ...items.map(item => ({ type: 'check' as const, label: WORKBENCH_PANELS[item.id].label, checked: item.active, disabled: item.disabled, onSelect: item.onToggle }))]
 }
 
