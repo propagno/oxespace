@@ -46,15 +46,58 @@
     "refresh": "Atualizar o uso",
     "minutes": "{{value}} min",
     "hours": "{{value}} h",
-    "days": "{{value}} d"
+    "days": "{{value}} d",
+    "message": {
+      "session-busy": "Esta sessão nativa está ativa em outro lugar. Termine ou feche a outra sessão do Codex e envie de novo o rascunho salvo.",
+      "authentication": "A conta do seu agente precisa ser reconectada.",
+      "usage": "O provedor informou que a cota de uso acabou.",
+      "rate-limit": "O provedor está limitando as requisições. Confira o uso e tente de novo mais tarde.",
+      "context": "A conversa passou da janela de contexto do modelo. Compacte-a ou comece uma nova conversa.",
+      "budget": "A sessão passou do orçamento configurado.",
+      "server": "O provedor informou uma falha no servidor. Tente de novo mais tarde.",
+      "sandbox": "O agente não conseguiu executar uma operação no sandbox.",
+      "network": "A conexão com o agente falhou ou expirou.",
+      "configuration": "O agente recusou a configuração ou não conseguiu iniciar.",
+      "model": "Este modelo não está disponível para a sua conta. Escolha outro modelo no seletor abaixo da caixa de mensagem ou mude o modelo padrão nas configurações do próprio provedor."
+    },
+    "window": {
+      "weekly": "Semanal",
+      "session5h": "Sessão · 5 horas",
+      "primary": "Janela principal",
+      "secondary": "Janela secundária",
+      "hours_one": "{{count}} hora",
+      "hours_many": "{{count}} horas",
+      "hours_other": "{{count}} horas",
+      "minutes_one": "{{count}} minuto",
+      "minutes_many": "{{count}} minutos",
+      "minutes_other": "{{count}} minutos"
+    }
   },
   "actionFailure": {
-    "declined": { "label": "Recusada por você", "guidance": "A ação não foi autorizada. Mude o pedido ou aprove explicitamente uma nova tentativa." },
-    "permissions": { "label": "Bloqueada pelas permissões", "guidance": "Revise o acesso da conversa e as regras salvas do provedor. O acesso não foi ampliado automaticamente." },
-    "authentication": { "label": "Autenticação necessária", "guidance": "Reconecte a conta ou o servidor afetado em Conexões antes de tentar de novo." },
-    "disconnected": { "label": "Servidor desconectado", "guidance": "Confira o servidor em Conexões e reconecte-o. A ação não foi repetida automaticamente." },
-    "unavailable": { "label": "Ferramenta indisponível", "guidance": "Atualize a lista de ferramentas do servidor em Conexões e confira se esta ferramenta é suportada." },
-    "timeout": { "label": "A resposta expirou", "guidance": "O resultado remoto não foi confirmado. Confira o estado antes de repetir uma ação que altera dados." }
+    "declined": {
+      "label": "Recusada por você",
+      "guidance": "A ação não foi autorizada. Mude o pedido ou aprove explicitamente uma nova tentativa."
+    },
+    "permissions": {
+      "label": "Bloqueada pelas permissões",
+      "guidance": "Revise o acesso da conversa e as regras salvas do provedor. O acesso não foi ampliado automaticamente."
+    },
+    "authentication": {
+      "label": "Autenticação necessária",
+      "guidance": "Reconecte a conta ou o servidor afetado em Conexões antes de tentar de novo."
+    },
+    "disconnected": {
+      "label": "Servidor desconectado",
+      "guidance": "Confira o servidor em Conexões e reconecte-o. A ação não foi repetida automaticamente."
+    },
+    "unavailable": {
+      "label": "Ferramenta indisponível",
+      "guidance": "Atualize a lista de ferramentas do servidor em Conexões e confira se esta ferramenta é suportada."
+    },
+    "timeout": {
+      "label": "A resposta expirou",
+      "guidance": "O resultado remoto não foi confirmado. Confira o estado antes de repetir uma ação que altera dados."
+    }
   },
   "outcome": {
     "answered": "Resposta enviada ao agente",
@@ -109,7 +152,11 @@
     "waitingInputFull": "O provedor está esperando uma resposta. Abra o Diagnóstico para ver o pedido.",
     "reportsState": "O provedor informa: {{state}}. A saída local ainda precisa ser reconciliada.",
     "notConfirmed": "O resultado da execução não foi confirmado. A sua mensagem não foi reenviada.",
-    "state": { "completed": "concluído", "failed": "falhou", "interrupted": "interrompido" },
+    "state": {
+      "completed": "concluído",
+      "failed": "falhou",
+      "interrupted": "interrompido"
+    },
     "seconds": "{{seconds}} s",
     "minutes": "{{minutes}} min {{seconds}} s"
   }

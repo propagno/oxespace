@@ -94,8 +94,8 @@
       "descriptionNamed": "Excluir “{{name}}” do OXESpace? Um turno em andamento será interrompido. A sessão do provedor e os arquivos do projeto são mantidos."
     },
     "rewind": {
-      "title": "Voltar o último turno?",
-      "confirm": "Voltar um turno",
+      "title": "Retroceder o último turno?",
+      "confirm": "Retroceder um turno",
       "description": "Remove o turno mais recente da conversa nativa. Os arquivos não são revertidos; se precisar, restaure-os de um checkpoint.",
       "descriptionNamed": "Remove o turno mais recente da conversa nativa. Os arquivos não são revertidos; se precisar, restaure-os de um checkpoint."
     }

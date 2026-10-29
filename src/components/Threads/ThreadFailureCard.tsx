@@ -11,6 +11,27 @@ import { formatDateTime, formatNumber } from '../../utils/formatTime'
 /** Failure codes with a title of their own; anything else reads as a generic failure. */
 const TITLED = new Set<string>(['authentication', 'usage', 'rate-limit', 'context', 'budget', 'server', 'network', 'sandbox', 'configuration', 'session-busy', 'unknown'])
 
+/**
+ * The main process explains a failure in English, one wording per code; shown in the interface language. A message
+ * it does not recognise (an older saved failure) stays as saved.
+ */
+export function failureMessage(failure: Pick<ThreadFailure, 'code' | 'message'>): string {
+  if (failure.code === 'configuration' && failure.message.startsWith('This model is not available')) return i18n.t('thread:failure.message.model')
+  if (failure.code === 'unknown' && failure.message === 'The agent could not finish this turn.') return i18n.t('thread:failure.couldNotFinish')
+  const key = `thread:failure.message.${failure.code}`
+  return failure.code !== 'unknown' && i18n.exists(key) ? i18n.t(key as 'thread:failure.message.usage') : failure.message
+}
+
+/** A usage window's period in the interface language: "codex · Weekly" → "codex · Semanal". The limit's name stays. */
+export function usageWindowLabel(label: string): string {
+  const t = i18n.t.bind(i18n)
+  const periods: Array<[string, string]> = [['Session · 5 hours', t('thread:failure.window.session5h')], ['Weekly', t('thread:failure.window.weekly')],
+    ['Primary window', t('thread:failure.window.primary')], ['Secondary window', t('thread:failure.window.secondary')]]
+  for (const [english, local] of periods) if (label === english || label.endsWith(` · ${english}`)) return label.slice(0, label.length - english.length) + local
+  const span = label.match(/(\d+(?:\.\d+)?) (hours|minutes)$/)
+  return span ? label.slice(0, span.index) + t(`thread:failure.window.${span[2] as 'hours'}`, { count: Number(span[1]) }) : label
+}
+
 export function usageTime(timestamp: number): string {
   return Number.isFinite(timestamp) && !Number.isNaN(new Date(timestamp).getTime())
     ? formatDateTime(timestamp, { dateStyle: 'short', timeStyle: 'long' }) : i18n.t('thread:failure.notProvided')
@@ -40,8 +61,8 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
     {usage.windows.length ? <div className="thread-usage-grid">{usage.windows.map((window, index) => {
       const percent = Math.max(0, Math.min(100, window.usedPercent))
       return <div className="thread-usage-window" key={`${window.label}:${index}`}>
-        <div><span>{labelOf(window.label)}</span><strong>{t('failure.used', { percent: formatNumber(window.usedPercent, { maximumFractionDigits: 1 }) })}</strong></div>
-        <progress className={percent >= 90 ? 'is-high' : undefined} aria-label={t('failure.windowUsage', { label: window.label })} value={percent} max={100} />
+        <div><span>{usageWindowLabel(labelOf(window.label))}</span><strong>{t('failure.used', { percent: formatNumber(window.usedPercent, { maximumFractionDigits: 1 }) })}</strong></div>
+        <progress className={percent >= 90 ? 'is-high' : undefined} aria-label={t('failure.windowUsage', { label: usageWindowLabel(window.label) })} value={percent} max={100} />
         <small>{window.resetsAt ? <>{t('failure.resetsIn', { time: usageResetIn(window.resetsAt) })} · <time dateTime={new Date(window.resetsAt).toISOString()}>{usageTime(window.resetsAt)}</time> · {t('failure.localTime')}</> : t('failure.noReset')}</small>
       </div>
     })}</div> : <EmptyState compact title={t('failure.noWindows')} />}
@@ -87,7 +108,7 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
   return <details className="thread-turn-error thread-failure-card" open={latest}>
     <summary><AlertCircle size={14} /><strong>{title}</strong>{failure && <time dateTime={new Date(failure.occurredAt).toISOString()}>{usageTime(failure.occurredAt)}</time>}<ChevronDown size={14} /></summary>
     <div className="thread-failure-body">
-      <p>{code === 'session-busy' ? t('failure.sessionBusy') : failure?.message ?? (code === 'authentication' ? t('failure.reconnect') : event.error ?? t('failure.couldNotFinish'))}</p>
+      <p>{code === 'session-busy' ? t('failure.sessionBusy') : failure ? failureMessage(failure) : (code === 'authentication' ? t('failure.reconnect') : event.error ?? t('failure.couldNotFinish'))}</p>
       {failure?.detail && <pre className="thread-failure-diagnostic" aria-label={t('failure.diagnostic')}>{failure.detail}</pre>}
       {(failure?.providerCode || failure?.httpStatus) && <div className="thread-failure-codes">{failure.providerCode && <code>{failure.providerCode}</code>}{failure.httpStatus && <code>HTTP {failure.httpStatus}</code>}</div>}
       {usage && <ThreadUsageDetails usage={usage} />}

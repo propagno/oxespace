@@ -28,7 +28,7 @@ export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: 
   const [inWorktree, setInWorktree] = useState(false)
   const [branch, setBranch] = useState(''), [baseRef, setBaseRef] = useState('')
   const filteredProjects = unique.map((context, index) => ({ context, index })).filter(({ context }) => `${context.projectName} ${context.rootPath}`.toLowerCase().includes(projectQuery.toLowerCase()))
-  return <Dialog className="thread-create-dialog" title={t('dialogs.newTitle')} description={t('dialogs.newDescription')} onClose={() => { if (!pending) onClose() }}
+  return <Dialog closeLabel={t('common.close')} className="thread-create-dialog" title={t('dialogs.newTitle')} description={t('dialogs.newDescription')} onClose={() => { if (!pending) onClose() }}
     footer={<>
       <Button disabled={pending} onClick={onClose}>{t('common.cancel')}</Button>
       <Button variant="primary" type="submit" form="new-thread-form" disabled={!unique[choice] || pending || !window.oxe?.thread}>{pending ? t('dialogs.creating') : t('dialogs.create')}</Button>
@@ -73,7 +73,7 @@ export function AddThreadProjectDialog({ onPickFolder, onAdd, onClose }: {
     catch (cause) { setError(humanizeError(cause, t('dialogs.addFailed'))) }
     finally { setPending(false) }
   }
-  return <Dialog className="thread-create-dialog thread-project-dialog" title={t('dialogs.addTitle')} description={t('dialogs.addDescription')} onClose={() => { if (!pending && !picking) onClose() }}
+  return <Dialog closeLabel={t('common.close')} className="thread-create-dialog thread-project-dialog" title={t('dialogs.addTitle')} description={t('dialogs.addDescription')} onClose={() => { if (!pending && !picking) onClose() }}
     footer={<>
       <Button disabled={pending || picking} onClick={onClose}>{t('common.cancel')}</Button>
       <Button variant="primary" type="submit" form="add-thread-project-form" disabled={pending || picking || !rootPath.trim()}>{pending ? t('dialogs.adding') : t('dialogs.add')}</Button>

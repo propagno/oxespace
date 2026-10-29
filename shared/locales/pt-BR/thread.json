@@ -441,8 +441,8 @@
       "descriptionNamed": "Excluir “{{name}}” do OXESpace? Um turno em andamento será interrompido. A sessão do provedor e os arquivos do projeto são mantidos."
     },
     "rewind": {
-      "title": "Voltar o último turno?",
-      "confirm": "Voltar um turno",
+      "title": "Retroceder o último turno?",
+      "confirm": "Retroceder um turno",
       "description": "Remove o turno mais recente da conversa nativa. Os arquivos não são revertidos; se precisar, restaure-os de um checkpoint.",
       "descriptionNamed": "Remove o turno mais recente da conversa nativa. Os arquivos não são revertidos; se precisar, restaure-os de um checkpoint."
     }
@@ -614,7 +614,32 @@
     "refresh": "Atualizar o uso",
     "minutes": "{{value}} min",
     "hours": "{{value}} h",
-    "days": "{{value}} d"
+    "days": "{{value}} d",
+    "message": {
+      "session-busy": "Esta sessão nativa está ativa em outro lugar. Termine ou feche a outra sessão do Codex e envie de novo o rascunho salvo.",
+      "authentication": "A conta do seu agente precisa ser reconectada.",
+      "usage": "O provedor informou que a cota de uso acabou.",
+      "rate-limit": "O provedor está limitando as requisições. Confira o uso e tente de novo mais tarde.",
+      "context": "A conversa passou da janela de contexto do modelo. Compacte-a ou comece uma nova conversa.",
+      "budget": "A sessão passou do orçamento configurado.",
+      "server": "O provedor informou uma falha no servidor. Tente de novo mais tarde.",
+      "sandbox": "O agente não conseguiu executar uma operação no sandbox.",
+      "network": "A conexão com o agente falhou ou expirou.",
+      "configuration": "O agente recusou a configuração ou não conseguiu iniciar.",
+      "model": "Este modelo não está disponível para a sua conta. Escolha outro modelo no seletor abaixo da caixa de mensagem ou mude o modelo padrão nas configurações do próprio provedor."
+    },
+    "window": {
+      "weekly": "Semanal",
+      "session5h": "Sessão · 5 horas",
+      "primary": "Janela principal",
+      "secondary": "Janela secundária",
+      "hours_one": "{{count}} hora",
+      "hours_many": "{{count}} horas",
+      "hours_other": "{{count}} horas",
+      "minutes_one": "{{count}} minuto",
+      "minutes_many": "{{count}} minutos",
+      "minutes_other": "{{count}} minutos"
+    }
   },
   "files": {
     "verb": {

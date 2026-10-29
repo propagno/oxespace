@@ -60,7 +60,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   // Archive, delete and rewind: one question, Cancel and one action.
   if (panel.kind === 'confirm' && panel.confirm) {
     const confirm = localizeConfirmation(panel.confirm)
-    return <ConfirmDialog title={confirm.title} description={confirm.description} confirmLabel={confirm.confirmLabel} danger={confirm.danger} busy={pending} error={error}
+    return <ConfirmDialog cancelLabel={t('common.cancel')} title={confirm.title} description={confirm.description} confirmLabel={confirm.confirmLabel} danger={confirm.danger} busy={pending} error={error}
       onCancel={onClose} onConfirm={() => void action(async () => { await runCommand(confirm.command); onClose() })} />
   }
 
@@ -70,7 +70,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
     : !panel.surface && output && panel.text ? <Button onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError(t('commandDialog.copyFailed')))}>{t('commandDialog.copy')}</Button>
     : undefined
 
-  return <Dialog className={`thread-command-dialog${panel.surface === 'sessions' ? ' thread-resume-dialog' : ''}`} size={panel.surface === 'sessions' || panel.surface === 'events' || panel.surface === 'spending' ? 'lg' : 'md'}
+  return <Dialog closeLabel={t('common.close')} className={`thread-command-dialog${panel.surface === 'sessions' ? ' thread-resume-dialog' : ''}`} size={panel.surface === 'sessions' || panel.surface === 'events' || panel.surface === 'spending' ? 'lg' : 'md'}
     title={panel.surface === 'sessions' ? t('commandDialog.resume') : panel.title === 'Conversation status' ? t('commandDialog.statusTitle') : panel.title || t('commandDialog.conversation')} description={panel.surface && DESCRIBED.has(panel.surface) ? t(`commandDialog.surface.${panel.surface as 'rename'}`) : undefined} onClose={onClose} footer={footer}>
     {error && <ErrorState compact title={error} />}
     {panel.surface === 'rename' ? <form id="thread-rename-form" className="thread-command-form" onSubmit={event => { event.preventDefault(); if (!canRename) return; void action(async () => { await runCommand(`/rename ${rename.trim()}`); onClose() }) }}>

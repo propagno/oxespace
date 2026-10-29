@@ -62,7 +62,7 @@ export function ProviderAccountsPanel({ workspaceId, onClose }: { workspaceId: s
     window.addEventListener('focus', focus)
     return () => { window.removeEventListener('focus', focus) }
   }, [workspaceId, threadId, threadProvider])
-  return <Dialog className="thread-accounts-dialog" title={t('accounts.title')} description={t('accounts.description')} onClose={onClose}>
+  return <Dialog closeLabel={t('common.close')} className="thread-accounts-dialog" title={t('accounts.title')} description={t('accounts.description')} onClose={onClose}>
     {(['claude', 'codex'] as const).map(provider => <AccountCard key={provider} context={accountContext(provider, workspaceId, thread)} />)}
     <p className="thread-account-note">{t('accounts.note')}</p>
   </Dialog>

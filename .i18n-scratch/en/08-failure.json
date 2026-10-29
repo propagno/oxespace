@@ -46,15 +46,56 @@
     "refresh": "Refresh usage",
     "minutes": "{{value}}m",
     "hours": "{{value}}h",
-    "days": "{{value}}d"
+    "days": "{{value}}d",
+    "message": {
+      "session-busy": "This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.",
+      "authentication": "Your agent account needs to be reconnected.",
+      "usage": "The provider reported an exhausted usage allowance.",
+      "rate-limit": "The provider is limiting requests. Check usage and retry later.",
+      "context": "The conversation exceeded the model context window. Compact it or start a new thread.",
+      "budget": "The session exceeded its configured budget.",
+      "server": "The provider reported a server failure. Retry later.",
+      "sandbox": "The agent could not run an operation in its sandbox.",
+      "network": "The connection to the agent failed or timed out.",
+      "configuration": "The agent rejected the configuration or could not start.",
+      "model": "This model is not available for your account. Choose another model in the model picker below the message box, or change the default model in the provider’s own settings."
+    },
+    "window": {
+      "weekly": "Weekly",
+      "session5h": "Session · 5 hours",
+      "primary": "Primary window",
+      "secondary": "Secondary window",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes"
+    }
   },
   "actionFailure": {
-    "declined": { "label": "Declined by you", "guidance": "The action was not authorized. Change the request or explicitly approve a new attempt." },
-    "permissions": { "label": "Blocked by permissions", "guidance": "Review conversation access and the provider’s saved rules. Access was not expanded automatically." },
-    "authentication": { "label": "Authentication required", "guidance": "Reconnect the affected account or server in Connections before trying again." },
-    "disconnected": { "label": "Server disconnected", "guidance": "Check the server in Connections and reconnect it. The action was not automatically repeated." },
-    "unavailable": { "label": "Tool unavailable", "guidance": "Refresh the server’s tool list in Connections and check whether this tool is supported." },
-    "timeout": { "label": "Response timed out", "guidance": "The remote outcome is unconfirmed. Check its state before repeating an action that changes data." }
+    "declined": {
+      "label": "Declined by you",
+      "guidance": "The action was not authorized. Change the request or explicitly approve a new attempt."
+    },
+    "permissions": {
+      "label": "Blocked by permissions",
+      "guidance": "Review conversation access and the provider’s saved rules. Access was not expanded automatically."
+    },
+    "authentication": {
+      "label": "Authentication required",
+      "guidance": "Reconnect the affected account or server in Connections before trying again."
+    },
+    "disconnected": {
+      "label": "Server disconnected",
+      "guidance": "Check the server in Connections and reconnect it. The action was not automatically repeated."
+    },
+    "unavailable": {
+      "label": "Tool unavailable",
+      "guidance": "Refresh the server’s tool list in Connections and check whether this tool is supported."
+    },
+    "timeout": {
+      "label": "Response timed out",
+      "guidance": "The remote outcome is unconfirmed. Check its state before repeating an action that changes data."
+    }
   },
   "outcome": {
     "answered": "Answer sent to agent",
@@ -108,7 +149,11 @@
     "waitingInputFull": "Provider is waiting for input. Open Diagnostics to inspect the request.",
     "reportsState": "Provider reports {{state}}. Local output still needs reconciliation.",
     "notConfirmed": "Execution outcome is not confirmed. Your message was not resent.",
-    "state": { "completed": "completed", "failed": "failed", "interrupted": "interrupted" },
+    "state": {
+      "completed": "completed",
+      "failed": "failed",
+      "interrupted": "interrupted"
+    },
     "seconds": "{{seconds}}s",
     "minutes": "{{minutes}}m {{seconds}}s"
   }

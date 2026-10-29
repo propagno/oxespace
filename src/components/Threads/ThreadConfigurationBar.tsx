@@ -72,7 +72,7 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
       {thread.provider === 'claude' && desired.access === 'workspace-write' && <><p className="thread-config-section-label">{t('config.mode')}</p><button type="button" role="switch" aria-checked={desired.mode === 'acceptEdits'} className="thread-config-switch" onClick={() => void apply({ mode: desired.mode === 'acceptEdits' ? 'default' : 'acceptEdits' })}><span><strong>{t('config.autoAccept')}</strong><small>{t('config.autoAcceptHint')}</small></span><i aria-hidden="true" /></button></>}
       {thread.provider === 'codex' && <p className="thread-config-hint">{t('config.codexHint')}</p>}
     </div>, false, thread.provider === 'codex' && desired.access !== 'read-only' && desired.approvalPolicy === 'never' ? t('config.never') : undefined, accessIcon)}
-    {proposedAccess && <ConfirmDialog returnFocusTo={() => accessTrigger.current} busy={saving} danger={proposedAccess === 'full-access'}
+    {proposedAccess && <ConfirmDialog cancelLabel={t('common.cancel')} returnFocusTo={() => accessTrigger.current} busy={saving} danger={proposedAccess === 'full-access'}
       title={proposedAccess === 'full-access' ? t('config.expandTitle') : t('config.changeTitle')}
       description={proposedAccess === 'full-access' ? t('config.expandBody') : thread.provider === 'claude' ? t('config.nativeBody') : t('config.workspaceBody')}
       confirmLabel={proposedAccess === 'full-access' ? t('config.expandConfirm') : t('config.applyAccess')}
@@ -80,9 +80,9 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
       <p className="thread-access-directory">{thread.rootPath}</p>
       <p>{t('config.appliesHere')}</p>
     </ConfirmDialog>}
-    {proposedNetwork && <ConfirmDialog returnFocusTo={() => accessTrigger.current} busy={saving} danger title={t('config.networkTitle')} description={t('config.networkBody')} confirmLabel={t('config.networkConfirm')} onCancel={() => setProposedNetwork(false)} onConfirm={() => void apply({ networkAccess: true })} />}
-    {proposedNever && <ConfirmDialog returnFocusTo={() => accessTrigger.current} busy={saving} danger title={t('config.neverTitle')} description={t('config.neverBody')} confirmLabel={t('config.never')} onCancel={() => setProposedNever(false)} onConfirm={() => void apply({ approvalPolicy: 'never' })} />}
-    {proposedHooks && <ConfirmDialog returnFocusTo={() => accessTrigger.current} busy={saving} danger title={t('config.hooksTitle')} description={t('config.hooksBody')} confirmLabel={t('config.hooksConfirm')} onCancel={() => setProposedHooks(false)} onConfirm={() => void apply({ hooksEnabled: true })} />}
+    {proposedNetwork && <ConfirmDialog cancelLabel={t('common.cancel')} returnFocusTo={() => accessTrigger.current} busy={saving} danger title={t('config.networkTitle')} description={t('config.networkBody')} confirmLabel={t('config.networkConfirm')} onCancel={() => setProposedNetwork(false)} onConfirm={() => void apply({ networkAccess: true })} />}
+    {proposedNever && <ConfirmDialog cancelLabel={t('common.cancel')} returnFocusTo={() => accessTrigger.current} busy={saving} danger title={t('config.neverTitle')} description={t('config.neverBody')} confirmLabel={t('config.never')} onCancel={() => setProposedNever(false)} onConfirm={() => void apply({ approvalPolicy: 'never' })} />}
+    {proposedHooks && <ConfirmDialog cancelLabel={t('common.cancel')} returnFocusTo={() => accessTrigger.current} busy={saving} danger title={t('config.hooksTitle')} description={t('config.hooksBody')} confirmLabel={t('config.hooksConfirm')} onCancel={() => setProposedHooks(false)} onConfirm={() => void apply({ hooksEnabled: true })} />}
     {thread.pendingConfiguration && <small className="thread-config-pending" title={t('config.nextTurnTitle')}>{t('config.nextTurn')}</small>}
     {desired.mode === 'acceptEdits' && <small>{t('config.autoEdit')}</small>}
   </div>

@@ -164,7 +164,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     </div>}
     {projectSettingsId && projects.find(project => project.projectId === projectSettingsId) &&
       <ThreadProjectSettingsDialog project={projects.find(project => project.projectId === projectSettingsId)!} unavailable={unavailableProjects.includes(projectSettingsId)} onClose={() => setProjectSettingsId(null)} returnFocusTo={() => document.querySelector<HTMLElement>(`[data-project-actions="${projectSettingsId}"]`)} />}
-    {renameTarget && <Dialog className="thread-create-dialog" title={t('commandDialog.rename')} description={t('commandDialog.surface.rename')} onClose={() => { if (!acting) setRenameTarget(null) }}
+    {renameTarget && <Dialog closeLabel={t('common.close')} className="thread-create-dialog" title={t('commandDialog.rename')} description={t('commandDialog.surface.rename')} onClose={() => { if (!acting) setRenameTarget(null) }}
       footer={<>
         <Button disabled={acting} onClick={() => setRenameTarget(null)}>{t('common.cancel')}</Button>
         <Button variant="primary" type="submit" form="rename-thread-form" disabled={acting || !renameValue.trim() || renameValue.trim() === renameTarget.title}>{acting ? t('sidebar.renaming') : t('commandDialog.rename')}</Button>
@@ -176,7 +176,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         <label>{t('sidebar.name')}<TextField aria-label={t('sidebar.name')} autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
       </form>
     </Dialog>}
-    {confirmation && <ConfirmDialog
+    {confirmation && <ConfirmDialog cancelLabel={t('common.cancel')}
       {...(confirmation.kind === 'project'
         ? { title: t('sidebar.removeProject.title'), confirmLabel: t('sidebar.removeProject.confirm'), danger: true, description: t('sidebar.removeProject.description', { name: confirmation.title }) }
         : threadConfirmationText(confirmation.kind === 'thread' ? 'delete' : 'archive', confirmation.title))}

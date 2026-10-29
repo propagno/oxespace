@@ -37,7 +37,7 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose, ret
     finally { setBusy(false) }
   }
   const needsRelink = unavailable || directoryMissing
-  return <Dialog className="thread-create-dialog thread-project-dialog thread-project-settings" title={t('projectSettings.title', { name: project.displayName })}
+  return <Dialog closeLabel={t('common.close')} className="thread-create-dialog thread-project-dialog thread-project-settings" title={t('projectSettings.title', { name: project.displayName })}
     description={t('projectSettings.description')} onClose={onClose} returnFocusTo={returnFocusTo}>
     <div className="thread-project-settings-body"><div className="thread-create-section"><strong>{t('projectSettings.directory')}</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
       {needsRelink && <ErrorState compact title={t('projectSettings.unavailable')} />}
