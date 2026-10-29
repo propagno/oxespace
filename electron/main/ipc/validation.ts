@@ -53,7 +53,7 @@ import type { CreateWorkspaceInput, PaneType, WorkspaceDensity, WorkspaceLayout,
 const LAYOUTS = new Set<WorkspaceLayout>(['1x1', '1x2', '2x1', '2x2', '2x3', '2x4', '2x5', '2x7', '3x4', '4x4'])
 const LAYOUT_PRESETS = new Set<WorkspaceLayoutPreset>([1, 2, 4, 6, 8, 10, 12, 14, 16])
 const THEMES = new Set<WorkspaceThemeId>(['midnight', 'nord', 'dracula', 'ocean', 'monokai', 'amber', 'rose-pine', 'gruvbox', 'one-dark', 'synthwave84', 'github-dark'])
-const DENSITIES = new Set<WorkspaceDensity>(['compact', 'comfortable'])
+const DENSITIES = new Set<WorkspaceDensity>(['default', 'compact', 'comfortable'])
 const TASK_COLUMNS = new Set<TaskColumn>(['backlog', 'ready', 'running', 'review', 'done'])
 const TASK_STATUSES = new Set<TaskRunStatus>(['idle', 'running', 'verifying', 'passed', 'failed'])
 const PANE_TYPES = new Set<PaneType>(['terminal', 'tasks', 'editor', 'review'])
@@ -658,7 +658,7 @@ function expectTheme(value: unknown): WorkspaceThemeId {
 
 function expectDensity(value: unknown): WorkspaceDensity {
   if (typeof value !== 'string' || !DENSITIES.has(value as WorkspaceDensity)) {
-    throw new Error('uiDensity must be compact or comfortable')
+    throw new Error('uiDensity must be default, compact or comfortable')
   }
   return value as WorkspaceDensity
 }

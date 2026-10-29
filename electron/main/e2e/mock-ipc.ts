@@ -43,7 +43,7 @@ export function registerE2eMockIpcHandlers(): void {
       layout,
       layoutPreset: input.layoutPreset ?? layoutToPreset(layout),
       themeId: 'midnight',
-      uiDensity: 'compact',
+      uiDensity: 'default',
       defaultShellProfileId: input.defaultShellProfileId ?? 'builtin-claude',
       autoStart: input.autoStart !== false,
       isActive: true,

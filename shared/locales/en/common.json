@@ -58,13 +58,15 @@
     "splitRight": "Split pane right",
     "splitDown": "Split pane down",
     "maximizePane": "Maximize pane",
-    "designSystem": "Design system",
     "help": "Help",
-    "searchFiles": "Search files & commands",
     "mcpServers": "MCP servers",
     "skills": "Skills",
     "usage": "Usage & limits",
     "linear": "Linear issues",
-    "about": "OXESpace v{{version}}"
+    "about": "About OXESpace (v{{version}})",
+    "commandPalette": "Command palette…",
+    "tools": "Tools",
+    "keyboardShortcuts": "Keyboard shortcuts",
+    "diagnostics": "Diagnostics"
   }
 }

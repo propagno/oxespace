@@ -1,8 +1,9 @@
 import type { ReactNode, RefObject, KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { ArrowUp, AtSign, AudioLines, CornerDownLeft, Paperclip, Plus, Slash, Square, X } from 'lucide-react'
+import { ArrowUp, AtSign, AudioLines, CornerDownLeft, Paperclip, Plug, Plus, Slash, Square, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
+import { useUIStore } from '../../store/ui.store'
 import { ErrorState, Menu } from '../../ui'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
@@ -69,7 +70,8 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
     <footer><div className="thread-composer-group"><button type="button" className="thread-command-trigger" aria-label={t('composer.commands')} title={t('composer.commandsTitle')} aria-haspopup="listbox" aria-expanded={commands.open} disabled={blocked} onMouseDown={e => e.preventDefault()} onClick={commands.show}><Slash size={14} /></button>
       <Menu label={t('composer.add')} side="top" items={[
         { label: t('composer.attach'), icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
-        { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: onInsertMention }
+        { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: onInsertMention },
+        { label: t('header.mcp'), icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
       ]} trigger={<button type="button" className="thread-command-trigger" aria-label={t('composer.add')} title={t('composer.addTitle')} disabled={!snapshot || pending}><Plus size={14} /></button>} /></div>
       {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
       {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}

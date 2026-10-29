@@ -27,7 +27,7 @@ function Submenu({ label, nodes, disabled }: { label: string; nodes: AppMenuNode
   </DropdownMenu.Sub>
 }
 
-/** The application menus (File, Edit, View, Help) behind one button in the title bar; the OS frame is hidden. */
+/** The application menus (File, Edit, View, Tools, Help) behind one button in the title bar; the OS frame is hidden. */
 export function AppMenuBar({ context }: { context: AppMenuContext }): ReactElement {
   // Subscribing re-renders the menus, built with i18n.t, when the language changes.
   const { t } = useTranslation()

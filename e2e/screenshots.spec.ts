@@ -118,7 +118,7 @@ test('captures all surfaces for design review', async () => {
     await shot(page, '15b-github-features')
 
     // 16. Workspace settings, reached through a verified menu action.
-    await runPaletteCommand(page, 'Open workspace settings')
+    await runPaletteCommand(page, 'Workspace settings')
     await expect(page.locator('.settings-center')).toBeVisible()
     await shot(page, '16-workspace-settings')
     await page.keyboard.press('Escape')

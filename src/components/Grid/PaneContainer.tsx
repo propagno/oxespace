@@ -306,7 +306,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                   }}
                 >
                   <PanelRight size={14} aria-hidden="true" />
-                  Split vertical
+                  Split pane right
                 </button>
                 <button
                   type="button"
@@ -318,13 +318,13 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                   }}
                 >
                   <PanelBottom size={14} aria-hidden="true" />
-                  Split horizontal
+                  Split pane down
                 </button>
                 {onArrange ? <>
                   <div className="pane-actions-popover-sep" aria-hidden="true" />
                   <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />Move below the previous pane</button>
                   <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />Move to the right of the previous pane</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />Balance splits</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />Balance panes</button>
                 </> : null}
                 {onClose ? (
                   <>
