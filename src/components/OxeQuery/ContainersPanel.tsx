@@ -192,7 +192,7 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
                     <button type="button" aria-label={t('containers.stopNamed', { name: container.name })} title={t('containers.stopTitleShort')} disabled={busyId === container.id} onClick={() => request(container, 'stop')}><Square size={13} aria-hidden="true" /><span>{t('containers.stop')}</span></button>
                   </>
                   : <button type="button" aria-label={t('containers.startNamed', { name: container.name })} title={t('containers.startTitleShort')} disabled={busyId === container.id} onClick={() => void act(container, 'start')}><Play size={13} aria-hidden="true" /><span>{t('containers.start')}</span></button>}
-                {isDatabaseImage(container.image) && <button type="button" className="oq-connect" aria-label={t('containers.connectNamed', { name: container.name })} title={t('containers.connectTitle')} disabled={busyId === container.id || container.state !== 'running'} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /><span>{t('containers.query')}</span></button>}
+                {isDatabaseImage(container.image) && <button type="button" className="oq-connect" aria-label={t('containers.connectNamed', { name: container.name })} title={t('containers.connectTitle')} disabled={busyId === container.id || container.state !== 'running'} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /><span>{t('containers.connect')}</span></button>}
               </div></td>
             </tr>)}</tbody></table>}
       </div>

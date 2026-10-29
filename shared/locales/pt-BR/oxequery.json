@@ -103,7 +103,7 @@
     "deleteTitle": "Excluir “{{name}}”?",
     "deleteDescription": "A senha, as chaves e os certificados salvos também são removidos. O banco de dados em si não é alterado.",
     "emptyTitle": "Nenhuma conexão ainda",
-    "emptyText": "Clique em Consultar num contêiner de banco de dados, ou adicione uma à mão.",
+    "emptyText": "Clique em Conectar num contêiner de banco de dados, ou adicione uma à mão.",
     "section": {
       "matches_one": "Resultados ({{count}})",
       "matches_other": "Resultados ({{count}})",
@@ -137,14 +137,13 @@
     "databaseCount_one": "<strong>{{value}}</strong> banco de dados",
     "databaseCount_other": "<strong>{{value}}</strong> bancos de dados",
     "updating": "Atualizando…",
-    "queryHint": "Para consultar um banco, clique em <strong>Consultar</strong> num contêiner PostgreSQL ou MongoDB abaixo, ou use <strong>Nova conexão</strong> para um servidor que não está em contêiner.",
+    "queryHint": "Para consultar um banco, clique em <strong>Conectar</strong> num contêiner PostgreSQL ou MongoDB abaixo, ou use <strong>Nova conexão</strong> para um servidor que não está em contêiner.",
     "remoteContext": "O contexto Docker <strong>{{where}}</strong> está ativo. Tudo aqui — inclusive parar, remover e executar comando — age naquele host, não neste computador.",
     "stopTitle": "Parar {{name}}?",
     "restartTitle": "Reiniciar {{name}}?",
     "stop": "Parar",
     "restart": "Reiniciar",
     "start": "Iniciar",
-    "query": "Consultar",
     "databaseWarning": "Este é um contêiner de banco de dados; as conexões abertas e as consultas em execução são interrompidas.",
     "managedVolume": "Ele foi criado pelo OxeQuery; os dados ficam guardados num volume nomeado.",
     "noMatch": "Nenhum contêiner corresponde ao filtro.",
@@ -177,7 +176,8 @@
     "connectTitle": "Criar uma conexão com este banco e abri-la",
     "runningCount_many": "<strong>{{value}}</strong> em execução",
     "stoppedCount_many": "<strong>{{value}}</strong> parados",
-    "databaseCount_many": "<strong>{{value}}</strong> bancos de dados"
+    "databaseCount_many": "<strong>{{value}}</strong> bancos de dados",
+    "connect": "Conectar"
   },
   "compose": {
     "label": "Ações do projeto Compose",

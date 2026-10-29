@@ -50,6 +50,8 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
   'help.shortcuts': dialog('Keyboard shortcuts'),
+  'activity.open': testId('activity-center'),
+  'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
   'new-workspace': dialog('Create new workspace'),
   'workspace-settings': both(view('code'), dialog('Settings'), async page => {
     await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: /Current workspace/ })).toHaveAttribute('aria-pressed', 'true')
@@ -88,7 +90,8 @@ const PALETTE_EFFECTS: Record<string, Check> = {
 const PREFIX_EFFECTS: Array<[string, (id: string) => Check]> = [
   ['settings.', id => settingsPage(SETTINGS_LABELS[id.slice('settings.'.length)] ?? '?')],
   ['appearance-', id => id === 'appearance-system' ? async () => undefined : rootData('mode', id.slice('appearance-'.length))],
-  ['density-', id => both(view('code'), rootData('density', id.slice('density-'.length)))],
+  // density-default resolves to the app-wide density, compact unless Settings › Appearance says otherwise.
+  ['density-', id => both(view('code'), rootData('density', id === 'density-default' ? 'compact' : id.slice('density-'.length)))],
   ['layout-', id => async page => { await expect.poll(() => paneCount(page)).toBe(Number(id.slice('layout-'.length))) }]
 ]
 /** Commands that hand off to the operating system (a native file dialog), proven by their target control instead. */
@@ -316,7 +319,8 @@ test.describe('offer audit', () => {
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
         Appearance: label => label === 'Follow system' ? async () => undefined : rootData('mode', label.toLowerCase()),
-        Density: label => rootData('density', label.toLowerCase()),
+        // App default resolves to the app-wide density, compact unless Settings › Appearance says otherwise.
+        Density: label => rootData('density', label === 'App default' ? 'compact' : label.toLowerCase()),
         Layout: label => async p => { await expect.poll(() => paneCount(p)).toBe(Number.parseInt(label, 10)) }
       }
       const failures: string[] = []

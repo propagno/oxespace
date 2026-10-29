@@ -102,7 +102,7 @@
     "deleteTitle": "Delete “{{name}}”?",
     "deleteDescription": "Its saved password, keys and certificates are removed too. The database itself is not touched.",
     "emptyTitle": "No connections yet",
-    "emptyText": "Press Query on a database container, or add one by hand.",
+    "emptyText": "Press Connect on a database container, or add one by hand.",
     "section": {
       "matches_one": "Matches ({{count}})",
       "matches_other": "Matches ({{count}})",
@@ -132,14 +132,13 @@
     "databaseCount_one": "<strong>{{value}}</strong> database",
     "databaseCount_other": "<strong>{{value}}</strong> databases",
     "updating": "Updating…",
-    "queryHint": "To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.",
+    "queryHint": "To query a database, press <strong>Connect</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.",
     "remoteContext": "Docker context <strong>{{where}}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer.",
     "stopTitle": "Stop {{name}}?",
     "restartTitle": "Restart {{name}}?",
     "stop": "Stop",
     "restart": "Restart",
     "start": "Start",
-    "query": "Query",
     "databaseWarning": "This is a database container; open connections and running queries are interrupted.",
     "managedVolume": "It was created by OxeQuery; its data is kept in a named volume.",
     "noMatch": "No container matches the filter.",
@@ -169,7 +168,8 @@
     "restartTitleShort": "Restart this container",
     "stopTitleShort": "Stop this container",
     "startTitleShort": "Start this container",
-    "connectTitle": "Create a connection to this database and open it"
+    "connectTitle": "Create a connection to this database and open it",
+    "connect": "Connect"
   },
   "compose": {
     "label": "Compose project actions",
