@@ -2,10 +2,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, Dialog, Menu, cx, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Spinner, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
-import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
+import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
@@ -119,8 +119,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         <SearchField className="thread-nav-search" ref={search} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={query} onChange={setQuery} shortcut="/" />
       </div>
       <nav className={cx('thread-project-list', styles.list)} aria-label={t('sidebar.projectsRegion')}>
-        {loading && !threads.length && <p className={cx('thread-nav-empty', styles.empty)} role="status">{t('sidebar.loading')}</p>}
-        {Object.entries(errors).map(([id, error]) => <div key={id} className={cx('thread-catalog-error', styles.error)} role="alert"><p>{error}</p><button type="button" onClick={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }}>{t('common.tryAgain')}</button></div>)}
+        {loading && !threads.length && <LoadingState label={t('sidebar.loading')} />}
+        {Object.entries(errors).map(([id, error]) => <ErrorState key={id} compact title={error} retryLabel={t('common.tryAgain')} onRetry={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }} />)}
         {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2>{t('sidebar.pinnedHeading')}</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).map(row)}</section>}
         {!!groups.length && <div className={cx('thread-list-heading', styles.listHeading)}><h2>{t('sidebar.projects')}</h2><button type="button" aria-label={t('sidebar.compact')} title={density === 'compact' ? t('sidebar.comfortableSpacing') : t('sidebar.compactSpacing')} aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}><AlignJustify size={14} aria-hidden="true" /></button></div>}
         {groups.map(group => <section key={group.id} className={cx('thread-project-group', styles.group, selected?.projectId === group.id && cx('is-active', styles.active))}>
@@ -146,11 +146,11 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           <button type="button" className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>{t('sidebar.archived')}</span>{' '}<small>{archived.length}</small></button>
           {(query || showArchived) && archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
             <button type="button" className={cx('thread-navigation-item', styles.item)} disabled={restoringId !== null} title={[thread.title, `${thread.provider} · ${thread.rootPath}`].join('\n')} onClick={() => void restoreArchived(thread)}><span>{thread.title}</span>{' '}<small>{relativeTime(thread.updatedAt)}</small></button>
-            <button type="button" className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.restoreNamed', { name: thread.title })} title={t('sidebar.restoreConversation')} disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={14} className="thread-spin" /> : <ArchiveRestore size={14} />}</button>
+            <button type="button" className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.restoreNamed', { name: thread.title })} title={t('sidebar.restoreConversation')} disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Spinner size="sm" decorative /> : <ArchiveRestore size={14} />}</button>
           </div>)}
         </section>}
-        {actionError && <p className={cx('thread-catalog-error', styles.error)} role="alert">{actionError}</p>}
-        {!loading && !groups.length && <p className={cx('thread-nav-empty', styles.empty)}>{query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')}</p>}
+        {actionError && <ErrorState compact title={actionError} />}
+        {!loading && !groups.length && <EmptyState compact title={query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')} />}
         {hiddenProjects.length > 0 && <section className={cx('thread-hidden-section', styles.section)} aria-label={t('sidebar.removedProjects')}>
           <h2>{t('sidebar.removedProjects')}</h2>
           {hiddenProjects.map(id => {
@@ -174,7 +174,6 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         setRenameTarget(null); void useThreadStore.getState().renameThread(renameTarget.id, title)
       }}>
         <label>{t('sidebar.name')}<TextField aria-label={t('sidebar.name')} autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
-        {actionError && <p role="alert">{actionError}</p>}
       </form>
     </Dialog>}
     {confirmation && <ConfirmDialog

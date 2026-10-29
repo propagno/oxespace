@@ -3,7 +3,7 @@ import { Command, RefreshCw, Slash } from 'lucide-react'
 import type { ThreadCommand, ThreadCommandCatalog, ThreadSnapshot } from '../../../shared/types/thread'
 import { CODEX_THREAD_COMMANDS, NATIVE_CLI_COMMANDS } from '../../../shared/threadCommands'
 import { hasDesktopCommand } from '../../../shared/threadDesktopCommands'
-import { EmptyState, LoadingState, Spinner } from '../../ui'
+import { EmptyState, ErrorState, LoadingState, Spinner } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { useThreadStore } from '../../store/thread.store'
 import { i18n } from '../../i18n'
@@ -166,7 +166,7 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
         </button>)}
       </div>
       {!commands.length && (loading ? <LoadingState label={t('commands.loading')} /> : <EmptyState compact title={t('commands.none')} />)}
-      {catalog.warning && <p className="thread-command-warning" role="status">{catalog.warning}</p>}
+      {catalog.warning && <ErrorState compact title={catalog.warning} />}
       <footer><span>{t('commands.navigate')}</span><span>{t('commands.select')}</span><span>{t('commands.close')}</span></footer>
     </div> : null
   }

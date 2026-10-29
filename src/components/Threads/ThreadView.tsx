@@ -1,7 +1,7 @@
-import { Button } from '../../ui'
+import { Button, ErrorState, Spinner } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ArrowDown, ArrowUp, Check, Loader2, MessageSquarePlus, TerminalSquare, Image as ImageIcon } from 'lucide-react'
+import { AlertCircle, ArrowDown, ArrowUp, Check, MessageSquarePlus, TerminalSquare, Image as ImageIcon } from 'lucide-react'
 import { blocksThreadInput } from '../../../shared/threadHistoryNotice'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { ThreadAttachment } from '../../../shared/types/thread'
@@ -287,7 +287,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       <div ref={scroll.content} className="thread-reading-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
-        {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Loader2 size={14} className="thread-spin" /> : <ArrowUp size={14} />}{t('view.loadEarlier')}</button>}
+        {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} />}{t('view.loadEarlier')}</button>}
         {scroll.historyFeedback?.id === selectedId && <p className="thread-history-feedback" role={scroll.historyFeedback.error ? 'alert' : 'status'}>{scroll.historyFeedback.text}</p>}
         {!snapshot && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? t('view.opening') : t('view.welcomeTitle')}</h2><p>{selectedId ? t('view.openingBody') : t('view.welcomeBody')}</p>{!selectedId && <div className="thread-welcome-actions">{onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={onNewThread}>{t('view.newConversation')}</Button>}{onAccounts && <Button onClick={onAccounts}>{t('view.providerAccounts')}</Button>}</div>}</div>}
         <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
@@ -307,7 +307,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {snapshot && needsLogin && <div className="thread-connection-notice"><AlertCircle size={14} /><span>{authFailure ? t('view.signIn', { provider: snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex' }) : accountMessage(account)}</span><Button size="sm" variant={authFailure && account?.state === 'connected' ? 'secondary' : 'primary'} onClick={onAccounts}>{authFailure ? t('view.reconnect') : t('view.connect')}</Button>{authFailure && lastPrompt?.type === 'message' && <Button size="sm" variant={account?.state === 'connected' && account.method === 'subscription' ? 'primary' : 'secondary'} title={t('view.resendTitle')} disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>{t('common.tryAgain')}</Button>}</div>}
       {degradedConnection && !needsLogin && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || t('view.connectionUnavailable')}{degradedConnection.nextRetryAt ? ` ${t('view.retryAfter', { time: formatClock(degradedConnection.nextRetryAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}` : ''}</span></div>}
       {snapshot && blocksThreadInput(snapshot.thread) && <div className="thread-connection-notice"><TerminalSquare size={14} /><span>{t('view.recoverBody')}</span><button type="button" disabled={pending} onClick={() => void action(returnFromCli)}>{t('view.recover')}</button></div>}
-      {(error || !api) && <div role="alert" className="thread-action-error"><span>{error || t('view.serviceUnavailable')}</span><button type="button" aria-label={t('view.dismissError')} onClick={() => setError('')}>×</button></div>}
+      {(error || !api) && <div className="thread-action-error"><ErrorState compact title={error || t('view.serviceUnavailable')} actions={error && <Button size="sm" variant="ghost" onClick={() => setError('')}>{t('view.dismissError')}</Button>} /></div>}
       {snapshot && <ThreadDockRewind snapshot={snapshot} pending={pending} onRedo={() => void action(async () => {
         const restored = await api!.redoRewind!(snapshot.thread.id)
         useThreadStore.getState().updateSnapshot(restored)

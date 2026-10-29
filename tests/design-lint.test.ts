@@ -91,16 +91,16 @@ describe('design lint', () => {
     const count = (paths: string[], pattern: RegExp): number => paths.reduce((sum, path) => sum + (readFileSync(path, 'utf8').match(pattern)?.length ?? 0), 0)
 
     it('hand-made spinners (lucide Loader2) do not grow; use <Spinner>', () => {
-      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(13)
+      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(0)
     })
     it('spin keyframes do not grow; the Spinner primitive has the one animation', () => {
-      expect(count(css, /@keyframes [\w-]*spin/g)).toBeLessThanOrEqual(7)
+      expect(count(css, /@keyframes [\w-]*spin/g)).toBeLessThanOrEqual(6)
     })
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
-      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(39)
+      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(33)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
-      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(103)
+      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(76)
     })
     it('CSS modules time motion with the --duration tokens; fixed timings do not grow', () => {
       const modules = files(join(ROOT, 'src'), path => path.endsWith('.module.css'))

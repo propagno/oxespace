@@ -3,6 +3,7 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Check, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { ErrorState } from '../../ui'
 import './ThreadMarkdown.css'
 
 function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
@@ -20,7 +21,7 @@ function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
       catch { setError(true); setCopied(false) }
     }}>{copied ? <Check size={12} /> : <Copy size={12} />}{copied ? t('markdown.copied') : t('markdown.copy')}</button></div>
     <pre {...props}>{children}</pre>
-    {error && <p role="status" className="thread-code-copy-error">{t('markdown.copyFailed')}</p>}
+    {error && <ErrorState compact title={t('markdown.copyFailed')} />}
   </div>
 }
 
