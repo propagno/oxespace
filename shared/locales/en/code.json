@@ -867,5 +867,78 @@
       "stop": "Stop terminal",
       "close": "Close terminal"
     }
+  },
+  "preview": {
+    "error": {
+      "tabs": "Could not update the browser tabs.",
+      "open": "Could not open the page.",
+      "back": "Could not go back.",
+      "forward": "Could not go forward.",
+      "reload": "Could not reload.",
+      "capture": "Could not capture the preview."
+    },
+    "invalidUrl": "Enter a valid HTTP or HTTPS address.",
+    "localOnly": "Local-only mode accepts localhost, 127.0.0.1 and ::1. Turn on External for other sites.",
+    "pageFailed": "The page could not be loaded.",
+    "designWait": "Wait for the page to finish loading before using Design Mode.",
+    "addedToDraft": "Added to the active Thread draft.",
+    "agentExternal": "An agent asked for an external address. Turn on External to open it.",
+    "copied": "Preview copied to the clipboard.",
+    "close": "Close browser",
+    "tabs": "Browser tabs",
+    "tabLoading": "Loading",
+    "tabFailed": "The page failed",
+    "tab": "Tab {{index}}: {{name}}",
+    "newTab": "New tab",
+    "closeTab": "Close tab {{index}}",
+    "newTabLabel": "New browser tab",
+    "toolbar": "Browser toolbar",
+    "back": "Back",
+    "forward": "Forward",
+    "reload": "Reload",
+    "address": "Page address",
+    "go": "Go",
+    "externalTitle": "Allow sites outside this computer; they keep their own frame security headers",
+    "external": "External",
+    "zoom": "Zoom",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "viewport": {
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Mobile",
+      "size": "{{name}} · {{width}}px"
+    },
+    "design": "Design Mode",
+    "designTitle": "Design Mode: click an element to send it to an agent",
+    "designHint": "Design Mode: click an element in the page, or press Escape to cancel.",
+    "capture": "Copy the preview to the clipboard",
+    "openExternal": "Open in your browser",
+    "access": {
+      "title": "Allow agents to inspect this page?",
+      "allow": "Allow access",
+      "body": "Agents in this workspace can read the page and capture screenshots. Page content and screenshots may be sent to the agent vendor. Inputs are masked automatically, but check captures for other private data. Each click, fill or navigation still asks for its own approval.",
+      "toggleTitle": "Let agents in this workspace inspect and capture this page. Captures can be sent to the agent vendor. Inputs are masked; other private data is not. Clicks, fills and navigation ask first. Turns off when the browser closes.",
+      "toggleLabel": "Agent access to this page",
+      "toggle": "Agent access",
+      "on": "Actions ask for approval",
+      "off": "Agents cannot see this page"
+    },
+    "externalRequired": "External access required",
+    "externalRequiredHint": "Turn on External to reopen this site.",
+    "unavailable": "Page unavailable",
+    "unavailableHint": "The browser could not load this page. Check that the server is running.",
+    "emptyHint": "Start your dev server, then type its address above, for example http://localhost:3000.",
+    "page": "Page in the browser",
+    "grab": {
+      "label": "Design Mode selection",
+      "discard": "Discard the selection",
+      "capture": "Capture of {{selector}}",
+      "box": "Box",
+      "text": "Text",
+      "note": "What should the agent change?",
+      "notePlaceholder": "What should the agent change here? (Ctrl+Enter sends)",
+      "send": "Send to agent"
+    }
   }
 }

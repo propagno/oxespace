@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { BrowserPreviewMount, BrowserPreviewMountResult } from '../../../shared/types/browser-preview'
+import { useTranslation } from 'react-i18next'
 
 export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPreviewMount; active: boolean; zoom: number }): ReactElement {
+  const { t } = useTranslation('code')
   const ref = useRef<HTMLDivElement>(null)
   const leasePromise = useRef<Promise<BrowserPreviewMountResult> | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -53,5 +55,5 @@ export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPrevi
       window.removeEventListener('scroll',schedule,true)
     }
   },[ownerKey,tabId,active,mounted])
-  return <div ref={ref} className="web-preview-native-host" data-testid="browser-preview-native" data-browser-tab-id={tabId} data-workspace-id={workspaceId} data-thread-id={threadId} aria-label="Embedded browser page" />
+  return <div ref={ref} className="web-preview-native-host" data-testid="browser-preview-native" data-browser-tab-id={tabId} data-workspace-id={workspaceId} data-thread-id={threadId} aria-label={t('preview.page')} />
 }

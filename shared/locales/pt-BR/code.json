@@ -911,5 +911,78 @@
       "stop": "Parar o terminal",
       "close": "Fechar o terminal"
     }
+  },
+  "preview": {
+    "error": {
+      "tabs": "Não foi possível atualizar as abas do navegador.",
+      "open": "Não foi possível abrir a página.",
+      "back": "Não foi possível voltar.",
+      "forward": "Não foi possível avançar.",
+      "reload": "Não foi possível recarregar.",
+      "capture": "Não foi possível capturar a prévia."
+    },
+    "invalidUrl": "Digite um endereço HTTP ou HTTPS válido.",
+    "localOnly": "O modo local só aceita localhost, 127.0.0.1 e ::1. Ligue Externo para outros sites.",
+    "pageFailed": "A página não pôde ser carregada.",
+    "designWait": "Espere a página terminar de carregar antes de usar o Modo Design.",
+    "addedToDraft": "Adicionado ao rascunho do Thread ativo.",
+    "agentExternal": "Um agente pediu um endereço externo. Ligue Externo para abri-lo.",
+    "copied": "Prévia copiada para a área de transferência.",
+    "close": "Fechar o navegador",
+    "tabs": "Abas do navegador",
+    "tabLoading": "Carregando",
+    "tabFailed": "A página falhou",
+    "tab": "Aba {{index}}: {{name}}",
+    "newTab": "Nova aba",
+    "closeTab": "Fechar a aba {{index}}",
+    "newTabLabel": "Nova aba do navegador",
+    "toolbar": "Barra do navegador",
+    "back": "Voltar",
+    "forward": "Avançar",
+    "reload": "Recarregar",
+    "address": "Endereço da página",
+    "go": "Ir",
+    "externalTitle": "Permitir sites fora deste computador; eles mantêm os próprios cabeçalhos de segurança de frame",
+    "external": "Externo",
+    "zoom": "Zoom",
+    "zoomOut": "Diminuir o zoom",
+    "zoomIn": "Aumentar o zoom",
+    "viewport": {
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Celular",
+      "size": "{{name}} · {{width}}px"
+    },
+    "design": "Modo Design",
+    "designTitle": "Modo Design: clique em um elemento para enviá-lo a um agente",
+    "designHint": "Modo Design: clique em um elemento da página, ou pressione Esc para cancelar.",
+    "capture": "Copiar a prévia para a área de transferência",
+    "openExternal": "Abrir no seu navegador",
+    "access": {
+      "title": "Permitir que os agentes inspecionem esta página?",
+      "allow": "Permitir acesso",
+      "body": "Os agentes deste workspace podem ler a página e capturar telas. O conteúdo e as capturas podem ser enviados ao fornecedor do agente. Os campos de entrada são mascarados, mas confira as capturas em busca de outros dados privados. Cada clique, preenchimento ou navegação ainda pede aprovação própria.",
+      "toggleTitle": "Deixa os agentes deste workspace inspecionarem e capturarem esta página. As capturas podem ir para o fornecedor do agente. Os campos são mascarados; outros dados privados não. Cliques, preenchimentos e navegação pedem antes. Desliga quando o navegador fecha.",
+      "toggleLabel": "Acesso dos agentes a esta página",
+      "toggle": "Acesso dos agentes",
+      "on": "As ações pedem aprovação",
+      "off": "Os agentes não veem esta página"
+    },
+    "externalRequired": "É preciso acesso externo",
+    "externalRequiredHint": "Ligue Externo para reabrir este site.",
+    "unavailable": "Página indisponível",
+    "unavailableHint": "O navegador não conseguiu carregar esta página. Confira se o servidor está rodando.",
+    "emptyHint": "Inicie o seu servidor de desenvolvimento e digite o endereço acima, por exemplo http://localhost:3000.",
+    "page": "Página no navegador",
+    "grab": {
+      "label": "Seleção do Modo Design",
+      "discard": "Descartar a seleção",
+      "capture": "Captura de {{selector}}",
+      "box": "Caixa",
+      "text": "Texto",
+      "note": "O que o agente deve mudar?",
+      "notePlaceholder": "O que o agente deve mudar aqui? (Ctrl+Enter envia)",
+      "send": "Enviar ao agente"
+    }
   }
 }
