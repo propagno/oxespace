@@ -49,9 +49,13 @@ export function firstRunState(value: unknown): FirstRunState {
 
 export const useNavigationPrefs = create<{
   width: number; expanded: Record<string, boolean>
-  threadDensity: 'comfortable' | 'compact'
+  /**
+   * The Thread list's own density, overriding the app-wide one in Settings › Appearance.
+   * It ships as comfortable (two-line titles); null follows the app.
+   */
+  threadDensity: 'comfortable' | 'compact' | null
   firstRun: FirstRunState
-  setThreadDensity: (density: 'comfortable' | 'compact') => void
+  setThreadDensity: (density: 'comfortable' | 'compact' | null) => void
   setWidth: (width: number) => void; setExpanded: (id: string, expanded: boolean) => void
   completeFirstRunStep: (step: FirstRunStep) => void
   dismissFirstRun: () => void
@@ -71,7 +75,7 @@ export const useNavigationPrefs = create<{
 }), { name: 'oxe.navigation', merge: (saved, current) => {
   const value = saved as { width?: unknown; expanded?: Record<string, unknown>; threadDensity?: unknown; firstRun?: unknown } | null
   return { ...current, width: navigationWidth(value?.width ?? current.width),
-    threadDensity: value?.threadDensity === 'compact' ? 'compact' : 'comfortable',
+    threadDensity: value?.threadDensity === 'compact' || value?.threadDensity === 'comfortable' || value?.threadDensity === null ? value.threadDensity : current.threadDensity,
     firstRun: firstRunState(value?.firstRun),
     expanded: Object.fromEntries(Object.entries(value?.expanded ?? {}).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean> }
 } }))

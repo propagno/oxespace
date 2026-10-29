@@ -52,3 +52,5 @@
 @import './styles/linear.css' layer(oxe-legacy);
 @import './styles/orca-shell.css' layer(oxe-legacy);
 @import './styles/controls.css' layer(oxe-legacy);
+/* Forced colors (high contrast) stays outside the layer: it must win over every legacy rule. */
+@import './styles/forced-colors.css';

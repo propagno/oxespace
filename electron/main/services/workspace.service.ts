@@ -72,7 +72,7 @@ const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
 // rows to match, so this must resolve from the same helper the migration mirrors.
 const DEFAULT_SPLIT_SHELL_PROFILE_ID = defaultSplitShellProfileId()
 const DEFAULT_THEME_ID: WorkspaceThemeId = 'midnight'
-const DEFAULT_UI_DENSITY: WorkspaceDensity = 'compact'
+const DEFAULT_UI_DENSITY: WorkspaceDensity = 'default'
 const DEFAULT_LAYOUT_PRESET: WorkspaceLayoutPreset = 4
 
 const PRESET_LAYOUTS: Record<WorkspaceLayoutPreset, WorkspaceLayout> = {

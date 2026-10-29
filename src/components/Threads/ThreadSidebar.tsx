@@ -12,6 +12,8 @@ import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { useSettingsStore } from '../../store/settings.store'
+import { resolveDensity } from '../../design/density'
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { threadConfirmation } from '../../../shared/threadConfirmations'
 import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
@@ -42,7 +44,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const width = useNavigationPrefs(s => s.width), setWidth = useNavigationPrefs(s => s.setWidth)
-  const density = useNavigationPrefs(s => s.threadDensity), setDensity = useNavigationPrefs(s => s.setThreadDensity)
+  // The list's own density overrides the app-wide one (Settings › Appearance) once the person toggles it.
+  const density = resolveDensity(useNavigationPrefs(s => s.threadDensity), useSettingsStore(s => s.density)), setDensity = useNavigationPrefs(s => s.setThreadDensity)
   const collapsed = useUIStore(s => s.isSidebarCollapsed), toggleCollapse = useUIStore(s => s.toggleSidebar)
   const [query, setQuery] = useState('')
   const search = useRef<HTMLInputElement>(null)
@@ -144,7 +147,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           <button type="button" data-list-item className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>Archived</span>{' '}<small>{archived.length}</small></button>
           {(query || showArchived) && archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
             <button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} disabled={restoringId !== null} title={`${thread.title}\n${thread.provider} · ${thread.rootPath}`} onClick={() => void restoreArchived(thread)}><span>{thread.title}</span>{' '}<small>{relativeTime(thread.updatedAt)}</small></button>
-            <button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={`Restore ${thread.title}`} title="Restore conversation" disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={14} className="thread-spin" /> : <ArchiveRestore size={14} />}</button>
+            <button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={`Restore ${thread.title}`} title="Restore conversation" disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={14} className="thread-spin" aria-hidden="true" /> : <ArchiveRestore size={14} />}</button>
           </div>)}
         </section>}
         {actionError && <p className={cx('thread-catalog-error', styles.error)} role="alert">{actionError}</p>}

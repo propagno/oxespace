@@ -65,13 +65,13 @@ export function ThreadActivityGroup({ events, mode = 'verbose' }: { events: Tool
   if (events.length === 1) {
     const event = events[0]
     return <details className={`thread-activity-single${event.state === 'failed' ? ' has-failure' : ''}`}>
-      <summary>{event.state === 'running' ? <Loader2 size={14} className="thread-spin" /> : event.state === 'failed' ? <CircleAlert size={14} /> : event.state === 'unknown' ? <CircleHelp size={14} /> : <TerminalSquare size={14} />}
+      <summary>{event.state === 'running' ? <Loader2 size={14} className="thread-spin" aria-hidden="true" /> : event.state === 'failed' ? <CircleAlert size={14} /> : event.state === 'unknown' ? <CircleHelp size={14} /> : <TerminalSquare size={14} />}
         <span>{mode === 'verbose' ? names[event.name] ?? event.name : summarizeActivity([event])}{mode === 'verbose' && <small>{toolSummary(event)}</small>}</span><ChevronDown size={14} /></summary>
       <ThreadToolDiagnostic event={event} />
     </details>
   }
   return <details className={`thread-activity-group${failures ? ' has-failure' : ''}`}>
-    <summary>{running ? <Loader2 size={14} className="thread-spin" /> : failures ? <CircleAlert size={14} /> : unconfirmed ? <CircleHelp size={14} /> : <Check size={14} />}{mode === 'verbose'
+    <summary>{running ? <Loader2 size={14} className="thread-spin" aria-hidden="true" /> : failures ? <CircleAlert size={14} /> : unconfirmed ? <CircleHelp size={14} /> : <Check size={14} />}{mode === 'verbose'
       ? <span>{running ? 'Running actions' : failures ? 'Actions need attention' : unconfirmed ? 'Actions need verification' : commands ? 'Ran commands' : reading ? 'Explored the project' : 'Completed actions'}<small> · {events.length} {events.length === 1 ? 'action' : 'actions'}{failures ? ` · ${failures} failed` : ''}{unconfirmed ? ` · ${unconfirmed} unconfirmed` : ''}</small></span>
       : <span>{summarizeActivity(events)}{running ? '…' : ''}{(failures > 0 || unconfirmed > 0) && <small>{failures ? ` · ${failures} failed` : ''}{unconfirmed ? ` · ${unconfirmed} unconfirmed` : ''}</small>}</span>}<ChevronDown size={14} /></summary>
     <div className="thread-activity-items">{events.filter(event => event.state !== 'completed').map(event => renderItem(event))}

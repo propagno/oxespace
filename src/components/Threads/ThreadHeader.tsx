@@ -47,9 +47,9 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
     <Menu label="More actions" align="end" items={[
       ...(thread ? [
         { label: 'Delegate work', icon: <Waypoints size={14} aria-hidden="true" />, disabled: pending || running, onSelect: onDelegate },
-        { label: thread.pinned ? 'Unpin thread' : 'Pin thread', icon: <Pin size={14} aria-hidden="true" />, disabled: pending, onSelect: onPin }
+        { label: thread.pinned ? 'Unpin conversation' : 'Pin conversation', icon: <Pin size={14} aria-hidden="true" />, disabled: pending, onSelect: onPin }
       ] : []),
-      { label: 'MCP connections', icon: <Plug size={14} aria-hidden="true" />, onSelect: () => useUIStore.getState().openMcpPanel() },
+      { label: 'MCP servers', icon: <Plug size={14} aria-hidden="true" />, onSelect: () => useUIStore.getState().openMcpPanel() },
       { type: 'separator' },
       { type: 'label', label: <>Text size <output aria-label="Thread text size">{threadFontSize}px</output></> },
       { label: 'Smaller text', icon: <Minus size={14} aria-hidden="true" />, keepOpen: true, disabled: threadFontSize <= THREAD_FONT_MIN, onSelect: () => setThreadFontSize(threadFontSize - 1) },

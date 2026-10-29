@@ -39,7 +39,7 @@ test('linear: panel opens from the palette and asks for an API key', async () =>
     await page.keyboard.press('Control+k')
     await page.keyboard.type('linear')
     // The workspace row is highlighted first, so click the command explicitly.
-    await page.getByText('Open Linear issues').click()
+    await page.getByText('Linear issues', { exact: true }).click()
 
     const panel = page.getByTestId('linear-panel')
     await expect(panel).toBeVisible()
