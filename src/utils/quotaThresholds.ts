@@ -1,3 +1,5 @@
+import { formatDateTime } from './formatTime'
+
 /**
  * Quota alerts: notify once as a usage window crosses 50/75/90/95 %, never
  * again for the same level, and start over when the window resets.
@@ -45,7 +47,7 @@ export function quotaNotificationText(
   const name = provider === 'claude' ? 'Claude' : 'Codex'
   const window = kind === 'weekly' ? 'semanal' : 'de 5 horas'
   const severity = threshold >= 95 ? 'quase esgotada' : threshold >= 90 ? 'muito alta' : 'em uso'
-  const reset = resetsAtMs ? ` Renova em ${new Date(resetsAtMs).toLocaleString()}.` : ''
+  const reset = resetsAtMs ? ` Renova em ${formatDateTime(resetsAtMs)}.` : ''
   return {
     title: `${name} — cota ${window} ${severity} (${threshold}%)`,
     body: `A janela ${window} do ${name} passou de ${threshold}% do limite.${reset}`

@@ -1,6 +1,7 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { domainTool, int, parsed, str, type ActionScope, type Args } from './domain-tool'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
+import { lazy } from './app-settings-tools'
 import { parseGitDiffInput, parseGitFileAtRefInput } from '../ipc/validation'
 import type { GitDiff } from '../../../shared/types/git'
 
@@ -75,6 +76,7 @@ export const GIT_TOOLS: ToolEntry[] = [
         const input = parsed(() => parseGitFileAtRefInput({ workspaceId: scope.workspaceId ?? 'mcp', rootPath: scope.rootPath, ref: args.ref, path: args.path }))
         return git(ctx).getFileAtRef(input.rootPath, input.ref, input.path)
       }
-    }
+    },
+    checkpoints: { level: 'read', description: 'Saved checkpoints of the work tree (ids for restore), newest first.', run: lazy('checkpoints') }
   })
 ]

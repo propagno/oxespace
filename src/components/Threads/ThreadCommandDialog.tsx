@@ -10,8 +10,9 @@ import ThreadUsagePanel from './ThreadUsagePanel'
 import ThreadWorkPanel from './ThreadWorkPanel'
 import type { ThreadPanelState } from './threadCommandPanels'
 import { Button, ConfirmDialog, Dialog, TextField } from '../../ui'
+import { formatDateTime } from '../../utils/formatTime'
 
-function sessionDate(timestamp: number): string { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp) }
+function sessionDate(timestamp: number): string { return formatDateTime(timestamp, { dateStyle: 'medium', timeStyle: 'short' }) }
 
 /** What each integrated surface is for, under its title. Output panels have no description. */
 const SURFACE_DESCRIPTION: Partial<Record<NonNullable<ThreadPanelState['surface']>, string>> = {
@@ -93,8 +94,8 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
       </section>
       <section><h3>{snapshot?.thread.provider === 'codex' ? 'Codex' : 'Claude'} sessions in this directory</h3><p>Terminal PTY, pane and workspace IDs are not provider conversation IDs. Choose a native session by its start time and model.</p>
         {resume?.nativeNotice && <p role="status">{resume.nativeNotice}</p>}
-        <div className="thread-panel-list thread-native-session-list">{nativeSessions.filter(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, new Date(session.sessionStartedAtMs).toLocaleString(), new Date(session.lastUpdatedMs).toLocaleString()])).map(session => <button key={session.sessionId} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${session.sessionId}`))}><strong>{session.firstMessagePreview || `${session.provider === 'codex' ? 'Codex' : 'Claude'} session`}</strong><span className="thread-session-meta"><span>Updated {sessionDate(session.lastUpdatedMs)}</span><span>{session.modelId || 'Model unknown'}</span>{session.requestCount > 0 && <span>{session.requestCount} requests</span>}</span><span className="thread-session-foot"><span>Started {sessionDate(session.sessionStartedAtMs)}</span><code>{session.sessionId}</code></span></button>)}
-          {!nativeSessions.some(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, new Date(session.sessionStartedAtMs).toLocaleString(), new Date(session.lastUpdatedMs).toLocaleString()])) && !resume?.nativeNotice && <p>{resumeQuery ? 'No native sessions match this search.' : 'No native sessions found for this provider and directory.'}</p>}
+        <div className="thread-panel-list thread-native-session-list">{nativeSessions.filter(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])).map(session => <button key={session.sessionId} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${session.sessionId}`))}><strong>{session.firstMessagePreview || `${session.provider === 'codex' ? 'Codex' : 'Claude'} session`}</strong><span className="thread-session-meta"><span>Updated {sessionDate(session.lastUpdatedMs)}</span><span>{session.modelId || 'Model unknown'}</span>{session.requestCount > 0 && <span>{session.requestCount} requests</span>}</span><span className="thread-session-foot"><span>Started {sessionDate(session.sessionStartedAtMs)}</span><code>{session.sessionId}</code></span></button>)}
+          {!nativeSessions.some(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])) && !resume?.nativeNotice && <p>{resumeQuery ? 'No native sessions match this search.' : 'No native sessions found for this provider and directory.'}</p>}
         </div>
       </section>
       <section><h3>Open an exact native session</h3><p>Use a Claude or Codex session ID from this directory. OXESpace verifies its provider and path before linking it.</p>

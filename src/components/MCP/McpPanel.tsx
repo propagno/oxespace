@@ -11,6 +11,7 @@ import type { ThreadMcpServerStatus } from '../../../shared/types/thread'
 import { ThreadMcpServerList } from '../Threads/ThreadMcpServerList'
 import { humanizeError } from '../../utils/humanizeError'
 import { AGENT_STATE_HINT, AGENT_STATE_LABEL, agentStatusFor, type McpAgentState } from './mcpAgentStatus'
+import { formatClock } from '../../utils/formatTime'
 
 interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and tested as soon as it is saved. */ fromCatalog?: boolean; /** A remote catalog server: the values fill its headers. */ remote?: McpCatalogEntry }
 
@@ -390,7 +391,7 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
           <strong>{server.name}</strong>
           <span className="mcp-server-meta">
             <span className={`mcp-server-tag mcp-agent-state is-${agentState}`} title={AGENT_STATE_HINT[agentState]}>{AGENT_STATE_LABEL[agentState]}</span>
-            <span className="mcp-server-tag" title={server.testedAtMs ? `OXESpace tested it at ${new Date(server.testedAtMs).toLocaleTimeString()}` : 'OXESpace has not tested it since it opened'}>{TEST_LABEL[server.health]}</span>
+            <span className="mcp-server-tag" title={server.testedAtMs ? `OXESpace tested it at ${formatClock(server.testedAtMs)}` : 'OXESpace has not tested it since it opened'}>{TEST_LABEL[server.health]}</span>
             <span className="mcp-server-tag">{server.transport}</span>
             {server.workspaceId ? <span className="mcp-server-tag scope-ws">workspace</span> : <span className="mcp-server-tag scope-global">global</span>}
             {server.trusted ? <span className="mcp-server-tag">trusted</span> : <span className="mcp-server-tag">review required</span>}

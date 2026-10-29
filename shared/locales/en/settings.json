@@ -1,0 +1,539 @@
+{
+  "center": {
+    "title": "Settings",
+    "searchLabel": "Search settings",
+    "searchPlaceholder": "Filter categories",
+    "settingsFor": "Settings for",
+    "scope": "Settings scope",
+    "application": "Application",
+    "workspace": "Workspace",
+    "currentWorkspace": "Current workspace",
+    "category": "Category",
+    "categoryGroup": "Settings category",
+    "categories": "Settings categories",
+    "noMatch": "No matching settings",
+    "appliesAcross": "Applies across workspaces",
+    "backToWork": "Back to work",
+    "close": "Close settings",
+    "closeTitle": "Close settings (Esc)",
+    "workspaceClosed": "Workspace closed",
+    "workspaceClosedHint": "Select another workspace or return to work.",
+    "unsaved": {
+      "title": "Save your changes?",
+      "description": "Your workspace has unapplied changes. If saving fails, stay here to inspect the error and try again.",
+      "stay": "Stay",
+      "discard": "Discard",
+      "saving": "Saving…",
+      "save": "Save and continue"
+    },
+    "pages": {
+      "general": {
+        "label": "General",
+        "hint": "Navigation and workspace preferences"
+      },
+      "providers": {
+        "label": "Agents",
+        "hint": "Agent CLIs, custom agents and idle conversations"
+      },
+      "appearance": {
+        "label": "Appearance",
+        "hint": "Mode, scale, density and language"
+      },
+      "terminal": {
+        "label": "Terminal",
+        "hint": "Font, cursor, scrolling and behavior"
+      },
+      "keyboard": {
+        "label": "Keyboard",
+        "hint": "Shortcuts and key bindings"
+      },
+      "voice": {
+        "label": "Voice",
+        "hint": "Microphone and local transcription"
+      },
+      "notifications": {
+        "label": "Notifications",
+        "hint": "Alerts and sounds"
+      },
+      "updates": {
+        "label": "Updates",
+        "hint": "Version, downloads and installation"
+      },
+      "policy": {
+        "label": "Policy",
+        "hint": "What agents are blocked from using"
+      },
+      "diagnostics": {
+        "label": "Diagnostics",
+        "hint": "Application health and troubleshooting"
+      }
+    }
+  },
+  "header": {
+    "close": "Close",
+    "closeTitle": "Close (Esc)"
+  },
+  "general": {
+    "title": "General",
+    "description": "Preferences that apply across every workspace.",
+    "navigation": "Workspace navigation",
+    "cacheLabel": "Recently visited workspaces kept ready",
+    "cacheHint": "Keep terminal views available when switching workspaces. Changes apply automatically."
+  },
+  "appearance": {
+    "kicker": "Global appearance",
+    "title": "Appearance",
+    "description": "Mode, interface scale, density, motion and language for the whole app.",
+    "mode": {
+      "title": "Mode",
+      "system": {
+        "label": "System",
+        "hint": "Follows your operating system"
+      },
+      "light": {
+        "label": "Light",
+        "hint": "Light surfaces with green accents"
+      },
+      "dark": {
+        "label": "Dark",
+        "hint": "Dark surfaces with warm yellow accents"
+      }
+    },
+    "language": {
+      "title": "Language",
+      "system": "System ({{language}})",
+      "hint": "Applies to the whole interface. Agents answer in the language you write in."
+    },
+    "scale": {
+      "title": "Interface scale",
+      "hint": "Makes text, controls and the terminal larger or smaller across the app. Currently {{scale}}."
+    },
+    "density": {
+      "title": "Density",
+      "hint": "How tightly controls and lists sit. Workspaces and the Thread list follow this unless you set their own.",
+      "compact": "Compact",
+      "comfortable": "Comfortable",
+      "workspaceOverride_one": "1 workspace uses its own density.",
+      "workspaceOverride_other": "{{count}} workspaces use their own density.",
+      "useAppInWorkspaces": "Use app density in all workspaces",
+      "threadOverride": "The Thread list uses its own density: {{density}}.",
+      "useAppInThread": "Use app density in the Thread list"
+    },
+    "motion": {
+      "title": "Motion",
+      "system": {
+        "label": "System",
+        "hint": "Follows your operating system’s reduced-motion setting."
+      },
+      "reduce": {
+        "label": "Reduced",
+        "hint": "Panels and lists change without animating; busy indicators turn slowly."
+      },
+      "full": {
+        "label": "Full",
+        "hint": "Short transitions on panels, lists and menus, even if the operating system asks for less."
+      }
+    }
+  },
+  "diagnostics": {
+    "kicker": "Runtime",
+    "title": "Diagnostics",
+    "description": "Compact local diagnostics: up to 1.5 MiB for seven days. Export excludes prompts, terminal output and command arguments.",
+    "refresh": "Refresh",
+    "refreshTitle": "Re-run checks",
+    "savedReport": "Saved sanitized report to {{path}}",
+    "exportCancelled": "Export cancelled.",
+    "checking": "Checking…",
+    "failing": "{{count}} failing",
+    "warning": "{{count}} warning",
+    "allPassing": "All {{count}} checks passing",
+    "collected": "Collected locally · exports redact paths and secrets",
+    "healthy": "healthy",
+    "platform": "Platform",
+    "workspaces": "Workspaces",
+    "export": "Export report"
+  },
+  "checked": {
+    "justNow": "Checked just now",
+    "minutes": "Checked {{value}} min ago",
+    "hours": "Checked {{value}} h ago",
+    "days": "Checked {{value}} d ago"
+  },
+  "providers": {
+    "kicker": "CLIs & discovery",
+    "title": "Agents",
+    "description": "Manage your agents, CLI installations and custom profiles.",
+    "status": {
+      "ready": "Ready",
+      "partial": "Partial",
+      "missing": "Not installed",
+      "unknown": "Not checked",
+      "checking": "Checking…",
+      "custom": "Custom"
+    },
+    "healthCheck": "Health check",
+    "runHealthCheck": "Run health check",
+    "healthCheckTitle": "Detect which agent CLIs are installed",
+    "checking": "Checking…",
+    "summary": {
+      "none": "No providers yet",
+      "detecting": "Detecting installed CLIs…",
+      "notChecked": "Not checked yet",
+      "noneOnPath": "No CLIs detected on PATH",
+      "ready": "{{count}} ready",
+      "notInstalled": "{{count}} not installed",
+      "runToDetect": "Run Health check to detect installed CLIs",
+      "installThenRun": "Install a CLI, then run Health check"
+    },
+    "counts": "Provider counts",
+    "stat": {
+      "ready": "ready",
+      "missing": "missing",
+      "custom": "custom"
+    },
+    "onboarding": {
+      "title": "Get an agent CLI on this machine",
+      "body": "OXESpace launches agents as local CLIs. Install one of the guides below, ensure the command is on PATH, then run <strong>Health check</strong>.",
+      "detect": "Detect CLIs"
+    },
+    "empty": {
+      "title": "No providers found",
+      "hint": "Run a health check to discover installed agent CLIs."
+    },
+    "notInstalled": "{{count}} not installed",
+    "missingHint": "install guides · fix paths",
+    "newCustomAgent": "New custom agent",
+    "installDoc": {
+      "install": "Install {{product}}",
+      "docs": "{{product}} docs"
+    },
+    "card": {
+      "skillParent": "skill · parent {{parent}}",
+      "available": "Available",
+      "notOnPath": "Not on PATH — install or Fix path",
+      "probing": "Probing…",
+      "usesParent": "Uses parent CLI + skill prompt",
+      "runToDetect": "Run health check to detect",
+      "useInPaneLabel": "Use {{name}} in active pane",
+      "bindTitle": "Bind to the active terminal",
+      "starting": "Starting…",
+      "useInPane": "Use in pane",
+      "installGuide": "Install guide",
+      "configureLabel": "Configure {{name}}",
+      "configureTitle": "Configure command path or skill",
+      "fixPath": "Fix path",
+      "configure": "Configure"
+    }
+  },
+  "idle": {
+    "title": "Idle conversations",
+    "after": "Close the agent process after",
+    "afterLabel": "Close idle conversations after",
+    "never": "Never",
+    "minutes_one": "{{count}} minute without activity",
+    "minutes_other": "{{count}} minutes without activity",
+    "hint": "Each open Thread conversation keeps an agent process and its MCP servers running. Closing idle ones frees memory; your next message resumes the same session. A conversation with a running turn, a question, queued messages, a background task or a permission allowed for the session stays open.",
+    "saveFailed": "Could not save this setting"
+  },
+  "semantic": {
+    "title": "Semantic index (beta)",
+    "searchByMeaning": "Search by meaning",
+    "switchLabel": "Search by meaning with the semantic index",
+    "downloadLabel": "Model download",
+    "state": {
+      "off": "Off. Agents search with exact terms (FTS5) and code structure (CodeGraph).",
+      "downloadingProgress": "Downloading model… {{loaded}} of {{total}}",
+      "downloading": "Downloading model…",
+      "loading": "Loading the model…",
+      "notInstalled": "On, but the model is not installed. Download it or import it from a folder.",
+      "error": "The model could not load: {{error}}",
+      "ready": "Ready. Agents also search by meaning; files are embedded in the background."
+    },
+    "unknownError": "unknown error",
+    "download": "Download model (~270 MB)",
+    "import": "Import from folder…",
+    "remove": "Remove downloaded model",
+    "hint": "The model ({{model}}) runs on this machine and is kept in the app's data folder, so updates do not download it again. To import, choose a folder with config.json, tokenizer.json, tokenizer_config.json and onnx/model_quantized.onnx.",
+    "usage": "Agent searches so far: {{without}} without the index, {{with}} with it (counted on this machine only).",
+    "changeFailed": "Could not change the semantic index."
+  },
+  "voice": {
+    "kicker": "OXEVoice · local STT",
+    "title": "Voice",
+    "description": "Dictate with local transcription and your preferred shortcuts.",
+    "model": "Model",
+    "models": {
+      "tiny": "Tiny — fastest, least accurate (~75 MB)",
+      "base": "Base — balanced (~142 MB)",
+      "small": "Small — more accurate, slower (~466 MB)"
+    },
+    "shortcut": "Push-to-talk shortcut",
+    "pressKeys": "Press keys…",
+    "capture": "Capture",
+    "captureHint": "Press the shortcut, or Esc to cancel",
+    "engine": "Engine",
+    "available": "available",
+    "unavailable": "unavailable",
+    "modelName": "Model «{{size}}»",
+    "modelReady": "ready",
+    "downloadingPercent": "downloading… {{percent}}%",
+    "notDownloaded": "not downloaded",
+    "engineMissing": "Voice input needs the whisper.cpp engine, which this version ships for Windows only. The model download starts once the engine is available on this system.",
+    "downloading": "Downloading…",
+    "download": "Download model",
+    "readyLine": "Model ready for push-to-talk",
+    "downloadFailed": "Failed to download model.",
+    "callout": "Local recognition (whisper.cpp), <strong>Brazilian Portuguese</strong>. Hold the shortcut to speak; tap the mic for hands-free."
+  },
+  "terminal": {
+    "title": "Terminal",
+    "description": "Set the default font, cursor and behavior for every workspace. Workspace overrides remain independent.",
+    "preview": "terminal preview",
+    "font": "Font",
+    "family": "Family",
+    "size": "Size",
+    "sizeHint": "Ctrl + / Ctrl − / Ctrl 0 in a terminal",
+    "resetSize": "Reset to {{size}}px",
+    "lineHeight": "Line height",
+    "letterSpacing": "Letter spacing",
+    "cursorBuffer": "Cursor & buffer",
+    "cursorStyle": "Cursor style",
+    "cursor": {
+      "block": "Block",
+      "bar": "Bar",
+      "underline": "Underline"
+    },
+    "blink": "Blinking cursor",
+    "blinkHint": "Animate the caret in focused terminals",
+    "resume": "Resume agent sessions",
+    "resumeHint": "After OXESpace restarts, Claude Code and Codex panes reopen the session they were in",
+    "scrollback": "Scrollback",
+    "lines": "{{lines}} lines",
+    "opacity": "Background opacity",
+    "translucent": "translucent",
+    "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them."
+  },
+  "hooks": {
+    "title": "Agent status hooks",
+    "callout": "Let Claude Code and Codex report <strong>working / waiting / done</strong> themselves instead of guessing from terminal output. Writes to the agent's own config; your existing hooks are kept.",
+    "installed": "Installed.",
+    "partial": "Partially installed (missing: {{missing}}).",
+    "notInstalled": "Not installed — using output heuristics.",
+    "error": "Cannot update: {{detail}}",
+    "unknownError": "unknown error",
+    "switchLabel": "Report {{agent}} status through hooks"
+  },
+  "notifications": {
+    "kicker": "System",
+    "title": "Notifications",
+    "description": "Choose when OXESpace gets your attention.",
+    "notify": "Notify when an agent needs you",
+    "notifyHint": "Desktop alerts when a background agent finishes, exits, or errors. Clicking focuses the terminal.",
+    "onlyUnwatched": "Only for terminals you are <strong>not watching</strong>.",
+    "sendTest": "Send test notification",
+    "testBody": "Test notification"
+  },
+  "updates": {
+    "kicker": "System",
+    "title": "Updates",
+    "description": "Keep OXESpace and its tools up to date.",
+    "devBuild": "dev build",
+    "status": {
+      "disabled": "Update service unavailable",
+      "checking": "Checking GitHub Releases…",
+      "availableManual": "Update {{version}} available — install it from Releases",
+      "availableAsk": "Update {{version}} available",
+      "availableAuto": "Update {{version}} available — downloading in the background",
+      "downloading": "Downloading {{version}}… {{percent}}%",
+      "downloadingUnknown": "Downloading update… {{percent}}%",
+      "downloaded": "Ready to install {{version}}",
+      "notAvailable": "No newer published release found",
+      "error": "Update check failed",
+      "idle": "Waiting for update status…"
+    },
+    "pill": {
+      "devBuild": "Dev build",
+      "upToDate": "Up to date",
+      "update": "Update",
+      "ready": "Ready",
+      "downloading": "Downloading",
+      "checking": "Checking",
+      "error": "Error",
+      "idle": "Idle"
+    },
+    "group": "Application & tools",
+    "downloadingLabel": "Downloading OXESpace update",
+    "download": "Download {{version}}",
+    "check": "Check for updates",
+    "checkTitle": "Check GitHub Releases for a new version",
+    "restartInstall": "Restart & install",
+    "openReleases": "Open releases",
+    "hint": {
+      "manual": "Development and Linux package installs cannot update in place. Use the latest release or update your development checkout.",
+      "ask": "Downloaded updates install when you restart.",
+      "auto": "Downloads in the background. Restart to apply."
+    },
+    "rtk": {
+      "installedNoVersion": "installed (no version file)",
+      "notInstalledVersion": "not installed",
+      "pill": {
+        "error": "Error",
+        "checking": "Checking",
+        "updating": "Updating",
+        "updateAvailable": "Update available",
+        "upToDate": "Up to date",
+        "notInstalled": "Not installed"
+      },
+      "status": {
+        "checking": "Checking GitHub…",
+        "updating": "Updating…",
+        "available": "Update available: {{version}}",
+        "latest": "Latest {{version}} · up to date",
+        "dev": "Works in dev — check or install the sidecar anytime",
+        "notChecked": "Not checked yet"
+      },
+      "check": "Check RTK",
+      "update": "Update RTK",
+      "install": "Install RTK",
+      "hint": "Sidecar binary. Updates independently of OXESpace."
+    },
+    "bundled": {
+      "group": "Included with OXESpace",
+      "title": "Built-in tools",
+      "subtitle": "Updated with each application release",
+      "included": "included",
+      "caveman": "In-app prompt / agent workflow",
+      "codegraph": "Vendored code intelligence"
+    },
+    "preferences": {
+      "label": "How OXESpace updates",
+      "auto": "Automatic",
+      "notify": "Notify me",
+      "off": "Off",
+      "stay": "Stay on v{{version}}",
+      "stayHint": "Keep this version until you turn this off.",
+      "beta": "Receive beta versions",
+      "betaOn": "You get each beta as it comes out. Turning this off keeps your version until a newer stable one is out.",
+      "betaOff": "Try upcoming features early. Betas are tested, but can change before the stable release.",
+      "hint": {
+        "pinned": "Staying on v{{version}}: OXESpace does not check or download updates. Check for updates still tells you what is new.",
+        "auto": "Checks every few hours, downloads in the background and installs when you restart.",
+        "notify": "Checks every few hours and tells you when a version is out. Nothing downloads until you choose.",
+        "off": "Never checks on its own. Use Check for updates when you want to know."
+      }
+    }
+  },
+  "policy": {
+    "title": "Policy",
+    "intro": "Rules that block what agents may use: providers, tools, MCP servers, skills, databases and shared memory. They only block; they never grant anything. To change a rule, edit the file. The last matching rule decides, so the managed file wins.",
+    "notApplied": "Not applied: {{problem}}",
+    "layers": {
+      "project": {
+        "label": "Project",
+        "hint": "Applies to this project only"
+      },
+      "user": {
+        "label": "User",
+        "hint": "Applies to you on this computer"
+      },
+      "managed": {
+        "label": "Managed",
+        "hint": "Installed by an administrator; has the final word"
+      }
+    },
+    "fileError": "This file has an error and is ignored.",
+    "noFile": "No file.",
+    "noRules": "No rules.",
+    "rules": "{{layer}} rules",
+    "reload": "Reload policy"
+  },
+  "activity": {
+    "title": "Agent activity",
+    "hint": "What agents changed through OXESpace (commits, pushes, pull requests, Threads, tasks, skills, automations) and what you decided. Database and container requests are listed in OxeQuery.",
+    "decisions": {
+      "auto": "ran",
+      "approved": "you approved",
+      "denied": "you declined",
+      "refused": "refused by policy",
+      "pending": "waiting for you"
+    },
+    "empty": "No agent changes yet.",
+    "list": "Agent changes",
+    "failed": "failed",
+    "failedWithCode": "failed ({{code}})",
+    "savedAudit": "Saved the audit to {{path}}",
+    "refresh": "Refresh activity",
+    "export": "Export the audit (JSONL)"
+  },
+  "automations": {
+    "title": "Scheduled automations",
+    "callout": "Runs an agent with a prompt in a <strong>new worktree</strong> at the chosen time, with no terminal open. The app must be running; missed times are skipped, not run later.",
+    "status": {
+      "pending": "queued",
+      "running": "running",
+      "completed": "completed",
+      "failed": "failed",
+      "dispatch_failed": "could not create the worktree",
+      "skipped_precheck": "skipped (pre-check)",
+      "skipped_missed": "skipped (missed time)",
+      "skipped_busy": "skipped (previous run still active)"
+    },
+    "schedule": {
+      "interval": "every {{minutes}} min",
+      "daily": "every day at {{time}}",
+      "weekly": "{{days}} at {{time}}",
+      "cron": "cron {{expression}}"
+    },
+    "empty": "No automations yet.",
+    "next": "next: {{time}}",
+    "last": "Last: {{status}}",
+    "neverRan": "Has not run yet.",
+    "runNow": "Run now",
+    "runNamed": "Run {{name}} now",
+    "enable": "Enable",
+    "disable": "Disable",
+    "active": "Active",
+    "paused": "Paused",
+    "delete": "Delete",
+    "deleteNamed": "Delete {{name}}",
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Nightly review",
+      "repository": "Repository",
+      "select": "Select…",
+      "agent": "Agent",
+      "prompt": "Prompt",
+      "frequency": "Frequency",
+      "interval": "Every N minutes",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "cron": "Cron",
+      "minutes": "Minutes (min. 5)",
+      "time": "Time",
+      "days": "Days of the week",
+      "expression": "Expression (minute hour day month weekday)",
+      "precheck": "Pre-check (optional)",
+      "precheckHint": "Command run at the repository root; the run only continues if it exits with code 0.",
+      "extraArgs": "Extra agent arguments (optional)",
+      "extraArgsHint": "There is no interactive approval, so the agent only uses what these arguments allow.",
+      "create": "Create automation",
+      "cancel": "Cancel"
+    },
+    "new": "New automation"
+  },
+  "keyboard": {
+    "title": "Keyboard",
+    "intro": "Shortcuts work in the view named by each group. Press <strong>?</strong> outside a text field to see the ones for the current screen. A focused terminal keeps every key except the command palette, Settings and the sidebar shortcuts.",
+    "shortcuts": "{{scope}} shortcuts",
+    "alsoUsed": "Also used by {{bindings}}",
+    "capturing": "Press the new shortcut, or Esc to cancel",
+    "changeLabel": "Change shortcut for {{name}}",
+    "pressKeys": "Press keys…",
+    "change": "Change",
+    "resetLabel": "Reset shortcut for {{name}}",
+    "reset": "Reset",
+    "offLabel": "Turn off shortcut for {{name}}",
+    "off": "Turn off",
+    "resetAll": "Reset all shortcuts"
+  }
+}

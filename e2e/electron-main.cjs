@@ -2,6 +2,9 @@ const { pathToFileURL } = require('node:url')
 const { dirname, join } = require('node:path')
 const { app } = require('electron')
 
+// The interface follows the system language; specs assert English text, so they pin it unless a spec asks otherwise.
+process.env.OXESPACE_LOCALE ||= 'en-US'
+
 if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1' && process.env.OXESPACE_E2E_PREVIEW_HANDLERS) {
   globalThis.previewHandlers = import(pathToFileURL(process.env.OXESPACE_E2E_PREVIEW_HANDLERS).href)
 }

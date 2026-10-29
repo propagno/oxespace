@@ -6,6 +6,7 @@ import { DelegationCreateDialog } from './DelegationCreateDialog'
 import './DelegatedWorkDialog.css'
 import { Button, ConfirmDialog, Dialog, Select, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDateTime } from '../../utils/formatTime'
 
 export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, origin, onClose, onOpen }: {
   workspaces: Workspace[]; workspaceId: string; focusTaskId?: string | null; origin?: { kind: 'pane' | 'thread'; id: string }
@@ -59,7 +60,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
       {filtered.map(task => <article key={task.id}>
         <header><strong>{task.objective}</strong><span data-state={task.state}>{task.state}</span></header>
         <p className="delegated-work-branch"><GitBranch size={14} />{task.branch}</p>
-        <p>{task.nativeSession?.provider ?? task.agentProfileId} · {task.surface ?? 'terminal'} · {new Date(task.updatedAt).toLocaleString()}</p>
+        <p>{task.nativeSession?.provider ?? task.agentProfileId} · {task.surface ?? 'terminal'} · {formatDateTime(task.updatedAt)}</p>
         {task.lastReport && <p>{task.lastReport}</p>}
         {task.error && <p role="alert">{task.error}</p>}
         <div className="delegated-work-actions">
