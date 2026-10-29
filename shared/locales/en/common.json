@@ -68,5 +68,68 @@
     "tools": "Tools",
     "keyboardShortcuts": "Keyboard shortcuts",
     "diagnostics": "Diagnostics"
+  },
+  "keys": {
+    "or": "or",
+    "notSet": "Not set",
+    "everywhere": "Everywhere",
+    "guide": {
+      "title": "Keyboard shortcuts",
+      "description": "What works in {{view}} right now.",
+      "customize": "Customize shortcuts"
+    },
+    "bindings": {
+      "palette": {
+        "open": "Open command palette",
+        "search": "Search files & commands"
+      },
+      "settings": {
+        "open": "Open settings"
+      },
+      "sidebar": {
+        "toggle": "Toggle sidebar"
+      },
+      "activity": {
+        "open": "Open activity center"
+      },
+      "voice": {
+        "toggle": "Toggle voice input"
+      },
+      "code": {
+        "changes": "Changes",
+        "browser": "Browser",
+        "files": "Files",
+        "search": "Find in files",
+        "splitLayout": "Toggle split layout"
+      },
+      "pane": {
+        "splitRight": "Split pane right",
+        "splitDown": "Split pane down",
+        "maximize": "Maximize / restore pane"
+      },
+      "terminal": {
+        "restart": "Restart terminal",
+        "slash": "Terminal commands",
+        "zoomIn": "Terminal font bigger",
+        "zoomOut": "Terminal font smaller",
+        "zoomReset": "Terminal font reset"
+      },
+      "thread": {
+        "new": "New conversation",
+        "next": "Next conversation",
+        "previous": "Previous conversation",
+        "find": "Find in conversation",
+        "viewMode": "Transcript view",
+        "terminal": "Terminal",
+        "changes": "Changes",
+        "browser": "Browser",
+        "permissions": "Permissions",
+        "model": "Model",
+        "effort": "Reasoning effort"
+      },
+      "help": {
+        "shortcuts": "Show keyboard shortcuts"
+      }
+    }
   }
 }

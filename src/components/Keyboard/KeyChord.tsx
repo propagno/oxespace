@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Kbd } from '../../ui'
 import { chordParts, formatChord } from '../../keyboard/chords'
 import styles from './Keyboard.module.css'
@@ -12,10 +13,11 @@ export function KeyChord({ chord }: { chord: string }): ReactElement {
 
 /** Every chord of a shortcut, or a quiet "Not set". */
 export function KeyChords({ chords }: { chords: string[] }): ReactElement {
-  if (!chords.length) return <span className={styles.unset}>Not set</span>
+  const { t } = useTranslation()
+  if (!chords.length) return <span className={styles.unset}>{t('keys.notSet')}</span>
   return <span className={styles.chords}>
     {chords.map((chord, index) => <span key={chord} className={styles.chords}>
-      {index > 0 && <span className={styles.or}>or</span>}<KeyChord chord={chord} />
+      {index > 0 && <span className={styles.or}>{t('keys.or')}</span>}<KeyChord chord={chord} />
     </span>)}
   </span>
 }
