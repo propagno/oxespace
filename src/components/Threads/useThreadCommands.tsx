@@ -3,21 +3,30 @@ import { Command, RefreshCw, Slash } from 'lucide-react'
 import type { ThreadCommand, ThreadCommandCatalog, ThreadSnapshot } from '../../../shared/types/thread'
 import { CODEX_THREAD_COMMANDS, NATIVE_CLI_COMMANDS } from '../../../shared/threadCommands'
 import { hasDesktopCommand } from '../../../shared/threadDesktopCommands'
+import { EmptyState, LoadingState, Spinner } from '../../ui'
+import { useTranslation } from 'react-i18next'
 import { useThreadStore } from '../../store/thread.store'
+import { i18n } from '../../i18n'
 
-const LOCAL_COMMANDS: ThreadCommand[] = [
-  { name: 'new', description: 'Start a new thread', source: 'oxe' },
-  { name: 'stop', description: 'Interrupt the current turn', source: 'oxe' },
-  { name: 'accounts', description: 'Connect your Claude or Codex subscription', source: 'oxe' },
-  { name: 'help', description: 'Show available commands and skills', source: 'oxe' }
-]
-const localNames = new Set(LOCAL_COMMANDS.map(command => command.name))
+const LOCAL_NAMES = ['new', 'stop', 'accounts', 'help'] as const
+const localNames = new Set<string>(LOCAL_NAMES)
+const localCommands = (): ThreadCommand[] => LOCAL_NAMES.map(name => ({ name, description: i18n.t(`thread:commands.local.${name}`), source: 'oxe' }))
+
+/**
+ * A command's description in the interface language when the app knows it (the built-in lists of
+ * shared/threadCommands.ts); a description the provider reported stays as the provider wrote it.
+ */
+function describe(command: ThreadCommand, provider: 'claude' | 'codex'): string {
+  const key = `thread:commands.${provider}.${command.name}`
+  return i18n.exists(key) ? i18n.t(key as 'thread:commands.codex.model') : command.description
+}
 
 export function useThreadCommands({ snapshot, draft, textarea, pending, run, onNewThread, onAccounts, onError }: {
   snapshot: ThreadSnapshot | null; draft: string; textarea: RefObject<HTMLTextAreaElement | null>; pending: boolean
   run: (action: () => Promise<unknown>) => Promise<void>
   onNewThread?: () => void; onAccounts?: () => void; onError: (message: string) => void
 }) {
+  const { t } = useTranslation('thread')
   const [catalog, setCatalog] = useState<ThreadCommandCatalog>({ commands: [] })
   const [loading, setLoading] = useState(false)
   const [catalogRevision, setCatalogRevision] = useState(0)
@@ -62,21 +71,27 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     refreshRequested.current = false
     setLoading(true)
     const api = window.oxe?.thread
-    if (!api?.commands) { setLoading(false); setCatalog({ commands: [], warning: 'Update and restart the application to load agent commands.' }); return }
+    if (!api?.commands) { setLoading(false); setCatalog({ commands: [], warning: i18n.t('thread:commands.restartToLoad') }); return }
     // Typing, cursor movement and popup focus only filter the catalog already loaded for this thread.
     void (forceRefresh ? api.commands(threadId, true) : api.commands(threadId)).then(value => { if (active) setCatalog(value) }).catch(() => {
-      if (active) setCatalog({ commands: [], warning: 'Could not load agent commands. Use Refresh commands to retry.' })
+      if (active) setCatalog({ commands: [], warning: i18n.t('thread:commands.loadFailed') })
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [threadId, provider, rootPath, catalogRevision])
   const commands = useMemo(() => {
-    const local = LOCAL_COMMANDS.filter(command => command.name !== 'new' || onNewThread).filter(command => command.name !== 'accounts' || onAccounts)
-    const baseline = snapshot ? [...new Map([...NATIVE_CLI_COMMANDS[snapshot.thread.provider], ...(snapshot.thread.provider === 'codex' ? CODEX_THREAD_COMMANDS : [])].map(command => [command.name, command])).values()] : []
-    const native = [...catalog.commands, ...baseline.filter(command => !catalog.commands.some(item => item.name === command.name)).map(command => ({ ...command, execution: snapshot && hasDesktopCommand(snapshot.thread.provider, command.name) ? 'desktop' as const : 'unavailable' as const }))]
+    const local = localCommands().filter(command => command.name !== 'new' || onNewThread).filter(command => command.name !== 'accounts' || onAccounts)
+    const provider = snapshot?.thread.provider
+    // The built-in lists name every native command; only those Thread can run are offered. A command that would only
+    // answer "not integrated" is left out of the list (typing it still explains why).
+    const baseline = provider ? [...new Map([...NATIVE_CLI_COMMANDS[provider], ...(provider === 'codex' ? CODEX_THREAD_COMMANDS : [])].map(command => [command.name, command])).values()]
+      .filter(command => hasDesktopCommand(provider, command.name)) : []
+    const native = [...catalog.commands.filter(command => command.execution !== 'unavailable'), ...baseline.filter(command => !catalog.commands.some(item => item.name === command.name)).map(command => ({ ...command, execution: 'desktop' as const }))]
+      .map(command => provider ? { ...command, description: describe(command, provider) } : command)
     const all = [...native, ...local.filter(command => !native.some(item => item.name === command.name))]
     if (!query) return all
     return all.filter(command => command.name.toLowerCase().includes(query) || command.description.toLowerCase().includes(query)).sort((a, b) => Number(b.name.toLowerCase().startsWith(query)) - Number(a.name.toLowerCase().startsWith(query)))
-  }, [catalog, query, onNewThread, onAccounts, snapshot])
+    // t: the descriptions follow a language switch.
+  }, [catalog, query, onNewThread, onAccounts, snapshot, t]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setSelected(0) }, [query, threadId])
   const activeIndex = Math.min(selected, Math.max(0, commands.length - 1))
   useLayoutEffect(() => { if (open) menu.current?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest' }) }, [open, activeIndex])
@@ -91,22 +106,22 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     if (!match) return false
     if (match[1] === 'new' || snapshot?.thread.provider === 'codex' && match[1] === 'stop') return false
     if (catalog.commands.some(command => command.name === match[1])) return false
-    if (match[2]?.trim()) { onError(`/${match[1]} does not take arguments.`); dismiss(); return true }
+    if (match[2]?.trim()) { onError(t('commands.noArguments', { name: match[1] })); dismiss(); return true }
     if (pending || !snapshot) return true
     switch (match[1]) {
-      case 'new': if (onNewThread) { clearCommand(); onNewThread() } else onError('New thread is unavailable.'); break
-      case 'accounts': if (onAccounts) { clearCommand(); onAccounts() } else onError('Agent accounts are unavailable.'); break
+      case 'new': if (onNewThread) { clearCommand(); onNewThread() } else onError(t('commands.newUnavailable')); break
+      case 'accounts': if (onAccounts) { clearCommand(); onAccounts() } else onError(t('commands.accountsUnavailable')); break
       case 'help': setDraft('/'); setCursor(1); setDismissed(null); setManual(true); textarea.current?.focus(); break
       case 'stop':
         dismiss()
-        if (snapshot.thread.status !== 'running' && snapshot.thread.status !== 'approval') { onError('There is no running turn to stop.'); break }
+        if (snapshot.thread.status !== 'running' && snapshot.thread.status !== 'approval') { onError(t('commands.nothingToStop')); break }
         void run(async () => { await window.oxe.thread!.interrupt(snapshot.thread.id); clearCommand() })
         break
     }
     return true
   }
   const choose = (command: ThreadCommand) => {
-    if (command.execution === 'unavailable') { onError(command.unavailableReason || `/${command.name} is not integrated with Thread yet.`); return }
+    if (command.execution === 'unavailable') { onError(command.unavailableReason || t('commands.notIntegrated', { name: command.name })); return }
     if (localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name)) { executeLocal(`/${command.name}`); return }
     const suffix = token ? draft.slice(token[0].length).trimStart() : draft
     const text = `/${command.name} ${suffix}`
@@ -143,16 +158,16 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     onSelect: (position: number) => setCursor(position),
     inputProps: { 'aria-autocomplete': 'list' as const, 'aria-haspopup': 'listbox' as const, 'aria-controls': open ? listId : undefined, 'aria-activedescendant': open && commands.length ? `${listId}-${activeIndex}` : undefined },
     popup: open ? <div className="thread-command-popup" style={{ maxHeight: popupHeight }}>
-      <header><Command size={14} /><span>Commands & skills</span>{loading && <small role="status">Loading…</small>}<button type="button" aria-label="Refresh commands" title="Refresh commands" disabled={loading} onMouseDown={event => event.preventDefault()} onClick={() => { refreshRequested.current = true; setCatalogRevision(value => value + 1) }}><RefreshCw size={14} /></button></header>
-      <div className="thread-command-list" id={listId} role="listbox" aria-label="Thread commands" ref={menu}>
+      <header><Command size={14} /><span>{t('commands.title')}</span>{loading && <Spinner size="sm" label={t('commands.loading')} />}<button type="button" aria-label={t('commands.refresh')} title={t('commands.refresh')} disabled={loading} onMouseDown={event => event.preventDefault()} onClick={() => { refreshRequested.current = true; setCatalogRevision(value => value + 1) }}><RefreshCw size={14} /></button></header>
+      <div className="thread-command-list" id={listId} role="listbox" aria-label={t('commands.list')} ref={menu}>
         {commands.map((command, index) => <button key={command.name} type="button" role="option" id={`${listId}-${index}`} aria-selected={activeIndex === index} tabIndex={-1}
           onMouseDown={event => event.preventDefault()} onMouseMove={() => setSelected(index)} onClick={() => choose(command)}>
-          <Slash size={14} /><span><strong>/{command.name}{command.argumentHint && <small>{command.argumentHint}</small>}</strong><span>{command.description}</span></span><small>{command.execution === 'unavailable' ? 'Unavailable' : command.execution === 'desktop' || localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name) ? 'Thread' : command.source === 'oxe' ? 'OXE skill' : command.source === 'claude' ? 'Claude' : 'Codex'}</small>
+          <Slash size={14} /><span><strong>/{command.name}{command.argumentHint && <small>{command.argumentHint}</small>}</strong><span>{command.description}</span></span><small>{command.execution === 'desktop' || localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name) ? 'Thread' : command.source === 'oxe' ? t('commands.skill') : command.source === 'claude' ? 'Claude' : 'Codex'}</small>
         </button>)}
       </div>
-      {!commands.length && <p role="status">{loading ? 'Loading commands…' : 'No matching commands. You can still type a command directly.'}</p>}
+      {!commands.length && (loading ? <LoadingState label={t('commands.loading')} /> : <EmptyState compact title={t('commands.none')} />)}
       {catalog.warning && <p className="thread-command-warning" role="status">{catalog.warning}</p>}
-      <footer><span>↑ ↓ navigate</span><span>Enter select</span><span>Esc close</span></footer>
+      <footer><span>{t('commands.navigate')}</span><span>{t('commands.select')}</span><span>{t('commands.close')}</span></footer>
     </div> : null
   }
 }
