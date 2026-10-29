@@ -32,7 +32,8 @@
     "recoverBody": "Recupere a conversa salva para continuar aqui.",
     "recover": "Recuperar conversa",
     "serviceUnavailable": "O serviço do Thread está indisponível. Reinicie o aplicativo atualizado.",
-    "dismissError": "Dispensar erro"
+    "dismissError": "Dispensar erro",
+    "retry": "Tentar de novo"
   },
   "header": {
     "movedTitle": "O agente está trabalhando em {{checkout}}\nConversa aberta em {{root}}",
@@ -55,9 +56,18 @@
   },
   "viewMode": {
     "ariaLabel": "Exibição {{mode}}",
-    "summary": { "label": "Resumida", "hint": "Só as respostas e os arquivos alterados" },
-    "normal": { "label": "Normal", "hint": "Ações agrupadas em resumos curtos" },
-    "verbose": { "label": "Detalhada", "hint": "Cada ação, leitura de arquivo e comando" }
+    "summary": {
+      "label": "Resumida",
+      "hint": "Só as respostas e os arquivos alterados"
+    },
+    "normal": {
+      "label": "Normal",
+      "hint": "Ações agrupadas em resumos curtos"
+    },
+    "verbose": {
+      "label": "Detalhada",
+      "hint": "Cada ação, leitura de arquivo e comando"
+    }
   },
   "panels": {
     "terminal": "Terminal",

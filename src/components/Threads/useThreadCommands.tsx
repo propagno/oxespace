@@ -16,9 +16,16 @@ const localCommands = (): ThreadCommand[] => LOCAL_NAMES.map(name => ({ name, de
  * A command's description in the interface language when the app knows it (the built-in lists of
  * shared/threadCommands.ts); a description the provider reported stays as the provider wrote it.
  */
-function describe(command: ThreadCommand, provider: 'claude' | 'codex'): string {
-  const key = `thread:commands.${provider}.${command.name}`
-  return i18n.exists(key) ? i18n.t(key as 'thread:commands.codex.model') : command.description
+export function describeThreadCommand(command: ThreadCommand, provider: 'claude' | 'codex'): string {
+  const key = `thread:commands.${provider}.${command.name}`, own = `thread:commands.desktop.${command.name}`
+  // A command OXESpace itself carries out is described by what it does here, not by the provider.
+  if (command.execution === 'desktop') {
+    if (i18n.exists(key)) return i18n.t(key as 'thread:commands.codex.model')
+    if (i18n.exists(own)) return i18n.t(own as 'thread:commands.desktop.help')
+    return command.description
+  }
+  const builtIn = [...NATIVE_CLI_COMMANDS[provider], ...(provider === 'codex' ? CODEX_THREAD_COMMANDS : [])].find(item => item.name === command.name)
+  return builtIn?.description === command.description && i18n.exists(key) ? i18n.t(key as 'thread:commands.codex.model') : command.description
 }
 
 export function useThreadCommands({ snapshot, draft, textarea, pending, run, onNewThread, onAccounts, onError }: {
@@ -86,7 +93,7 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     const baseline = provider ? [...new Map([...NATIVE_CLI_COMMANDS[provider], ...(provider === 'codex' ? CODEX_THREAD_COMMANDS : [])].map(command => [command.name, command])).values()]
       .filter(command => hasDesktopCommand(provider, command.name)) : []
     const native = [...catalog.commands.filter(command => command.execution !== 'unavailable'), ...baseline.filter(command => !catalog.commands.some(item => item.name === command.name)).map(command => ({ ...command, execution: 'desktop' as const }))]
-      .map(command => provider ? { ...command, description: describe(command, provider) } : command)
+      .map(command => provider ? { ...command, description: describeThreadCommand(command, provider) } : command)
     const all = [...native, ...local.filter(command => !native.some(item => item.name === command.name))]
     if (!query) return all
     return all.filter(command => command.name.toLowerCase().includes(query) || command.description.toLowerCase().includes(query)).sort((a, b) => Number(b.name.toLowerCase().startsWith(query)) - Number(a.name.toLowerCase().startsWith(query)))

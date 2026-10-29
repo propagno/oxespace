@@ -32,7 +32,8 @@
     "recoverBody": "Recover the saved conversation to continue here.",
     "recover": "Recover conversation",
     "serviceUnavailable": "Thread service unavailable. Restart the updated application.",
-    "dismissError": "Dismiss error"
+    "dismissError": "Dismiss error",
+    "retry": "Retry"
   },
   "header": {
     "movedTitle": "The agent is working in {{checkout}}\nConversation opened in {{root}}",
@@ -55,9 +56,18 @@
   },
   "viewMode": {
     "ariaLabel": "{{mode}} view",
-    "summary": { "label": "Summary", "hint": "Only replies and the files that changed" },
-    "normal": { "label": "Normal", "hint": "Actions collapsed into short summaries" },
-    "verbose": { "label": "Verbose", "hint": "Every action, file read and command" }
+    "summary": {
+      "label": "Summary",
+      "hint": "Only replies and the files that changed"
+    },
+    "normal": {
+      "label": "Normal",
+      "hint": "Actions collapsed into short summaries"
+    },
+    "verbose": {
+      "label": "Verbose",
+      "hint": "Every action, file read and command"
+    }
   },
   "panels": {
     "terminal": "Terminal",
