@@ -5,6 +5,7 @@ import { parseLinearListIssuesInput, parseSearchInput } from '../ipc/validation'
 import { threadReadout } from './thread-handoff-tools'
 import { stripAnsi } from '../services/github/parsers'
 import { maskLogLine } from '../services/oxequery/agent-output'
+import { SessionService } from '../services/session.service'
 import type { ToolContext } from './tool-registry'
 import type { ConversationThread } from '../../../shared/types/thread'
 
@@ -118,6 +119,16 @@ export const APP_READ_TOOLS: ToolEntry[] = [
       run: async (args, scope, ctx) => {
         const thread = await projectThread(args, scope, ctx)
         return (await ctx.threads!).usageSummary(thread.id, { scope: str(args, 'scope', 10) === 'thread' ? 'thread' : 'project', days: args.days === undefined ? undefined : int(args, 'days', 30, 1, 365) })
+      }
+    },
+    native_sessions: {
+      level: 'read', description: 'Claude Code or Codex CLI sessions run in this folder: id, model, tokens, first message.',
+      properties: { provider: { type: 'string', enum: ['claude', 'codex'] } }, required: ['provider'],
+      run: async (args, scope, ctx) => {
+        if (!ctx.db) throw new ActionRefused('Sessions are unavailable right now.', 'unavailable')
+        const provider = str(args, 'provider', 10) === 'codex' ? 'codex' : 'claude'
+        const sessions = new SessionService(ctx.db).listSessions(scope.workspaceId ?? 'mcp', scope.rootPath, provider).sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs)
+        return capped(sessions.map(({ filePath: _path, ...session }) => session), int(args, 'limit', 30, 1, 100))
       }
     }
   }),
