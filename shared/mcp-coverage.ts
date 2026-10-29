@@ -63,6 +63,10 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     tools: { ...each('oxespace_agents', 'read', ['list', 'read', 'explain', 'wait']), ...each('oxespace_agents_change', 'confirm', ['prompt', 'interrupt']) },
     ipc: ['agentState.list', 'agentState.explain']
   },
+  'code.activity': {
+    label: 'Activity center (the title-bar bell)',
+    excluded: 'A window-only list of the person\'s notifications. The states behind it are read with oxespace_agents list and oxespace_threads list.'
+  },
   'code.agent_seen': { label: 'Mark an agent\'s finished turn as seen', excluded: 'An attention marker of the person\'s window.', ipc: ['agentState.markSeen'] },
   'code.terminal_output': { label: 'Read a pane\'s output', tools: each('oxespace_terminal', 'read', ['output']), ipc: ['terminal.status'] },
   'code.terminal_input': {
@@ -359,7 +363,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'usage.copilot': { label: 'GitHub Copilot allowance', excluded: 'No agent OXESpace starts runs on Copilot; the panel is for Copilot panes.', ipc: ['copilot.credits'] },
   'settings.policy': { label: 'Organization policy in force', tools: each('oxespace_settings', 'read', ['policy']), ipc: ['policy.get'] },
   'settings.app': {
-    label: 'Appearance, app updates, RTK, agent hooks',
+    label: 'Appearance, UI scale, app updates, RTK, agent hooks',
     excluded: 'The person\'s app maintenance; installing hooks writes into the agents\' own configuration.',
     ipc: ['app.*', 'rtk.*', 'agentHooks.*']
   },

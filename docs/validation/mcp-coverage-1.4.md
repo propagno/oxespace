@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 36 | 27 | 2 | 10 | 75 |
+| 36 | 28 | 2 | 10 | 76 |
 
 The registry has 88 tools: 65 single-purpose tools and 23 domain tools with 88 actions, so the
 manifest declares 153 tool-or-action entries.
@@ -77,6 +77,7 @@ before. Code panes receive the whole registry.
 | `code.workspace_admin` | Create, delete, reorder or switch workspaces; change their settings and panel layout | Excluded: The person's layout and preferences. Deleting a workspace is never exposed. |
 | `code.panes` | Panes, and agents started in panes | **read**: `oxespace_list_panes`<br>**write**: `oxespace_agents_change#start`<br>**confirm**: `oxespace_agents_change#close_pane` |
 | `code.agents` | Agents running in panes: state, output, prompt, stop a turn | **read**: `oxespace_agents#list`, `oxespace_agents#read`, `oxespace_agents#explain`, `oxespace_agents#wait`<br>**confirm**: `oxespace_agents_change#prompt`, `oxespace_agents_change#interrupt` |
+| `code.activity` | Activity center (the title-bar bell) | Excluded: A window-only list of the person's notifications. The states behind it are read with oxespace_agents list and oxespace_threads list. |
 | `code.agent_seen` | Mark an agent's finished turn as seen | Excluded: An attention marker of the person's window. |
 | `code.terminal_output` | Read a pane's output | **read**: `oxespace_terminal#output` |
 | `code.terminal_input` | Start, type into, resize or stop a terminal | Excluded: Free key input into another terminal. Agents prompt agents with oxespace_agents_change prompt, which refuses one waiting for an approval. |
@@ -139,7 +140,7 @@ before. Code panes receive the whole registry.
 | `usage.read` | Context window and plan allowance | **read**: `oxespace_usage#context`, `oxespace_usage#credits` |
 | `usage.copilot` | GitHub Copilot allowance | Excluded: No agent OXESpace starts runs on Copilot; the panel is for Copilot panes. |
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
-| `settings.app` | Appearance, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
+| `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
 | `settings.diagnostics` | Diagnostics snapshot and reports | Excluded: Whole-app paths and logs; the person exports them. |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
