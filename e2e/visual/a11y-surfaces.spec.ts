@@ -1,8 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { scanSurface, writeReport, type Violation } from '../helpers/a11y'
 import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
@@ -12,16 +12,36 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject, setT
  * Accessibility scan (axe, WCAG 2.0/2.1 A and AA) over the surfaces the visual suite already
  * reaches, in both themes. Run with `npm run test:a11y`.
  *
- * Informative for 1.0: it records what it finds in a JSON-lines report and does not fail. Set
- * OXE_A11Y_STRICT=1 to fail on any violation. The report goes to OXE_A11Y_REPORT, default
- * <tmp>/oxespace-a11y-report.jsonl: not under test-results, which Playwright empties on every run.
+ * It records every finding in a JSON-lines report. By default it does not fail. With OXE_A11Y_STRICT=1
+ * (the pull-request gate in .github/workflows/a11y-axe.yml) it fails on critical and serious findings;
+ * moderate and minor ones, and surfaces it could not reach, stay in the report. The report goes to
+ * OXE_A11Y_REPORT, default <tmp>/oxespace-a11y-report.jsonl: not under test-results, which Playwright
+ * empties on every run.
  */
 const REPORT = process.env.OXE_A11Y_REPORT ?? join(tmpdir(), 'oxespace-a11y-report.jsonl')
 const STRICT = process.env.OXE_A11Y_STRICT === '1'
+/** What the strict gate fails on: the findings that block someone from using the screen. */
+const blocking = (found: Violation[]): string[] => found.filter(v => v.impact === 'critical' || v.impact === 'serious').map(v => `${v.surface} ${v.rule} (${v.impact})`)
 const THEMES: Appearance[] = ['light', 'dark']
 const THREAD_SURFACES: ThreadStateName[] = ['empty', 'conversation', 'approval', 'question', 'usage-failure', 'workbench']
 
-test.beforeAll(() => { rmSync(REPORT, { force: true }) })
+// The report covers the whole run. Playwright restarts the worker after a failed test, and beforeAll runs
+// again in the new one; the runner's pid (the workers' parent) tells a restart from a new run.
+test.beforeAll(() => {
+  const marker = `${REPORT}.run`
+  const run = String(process.ppid)
+  if (existsSync(marker) && readFileSync(marker, 'utf8') === run) return
+  rmSync(REPORT, { force: true })
+  mkdirSync(dirname(REPORT), { recursive: true })
+  writeFileSync(marker, run)
+})
+
+// The gate is checked once, over the whole report, so one theme's findings are not lost to the other's run.
+test.afterAll(() => {
+  if (!STRICT) return
+  const found = existsSync(REPORT) ? readFileSync(REPORT, 'utf8').split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line) as Violation) : []
+  expect(blocking(found), 'critical or serious accessibility findings').toEqual([])
+})
 
 async function record(violations: Violation[], found: Violation[]): Promise<void> {
   found.push(...violations)
@@ -93,7 +113,8 @@ for (const theme of THEMES) {
       // stack, and its "Classic" switch is then hidden, so this is scanned here.
       await reach(`${theme}/review-classic`, found, page, async () => {
         await page.getByText('Classic', { exact: true }).first().click()
-        await expect(page.getByText('Changes', { exact: true }).first()).toBeVisible()
+        // The classic toolbar's base picker; a bare "Changes" text also matches hidden menu entries.
+        await expect(page.getByRole('button', { name: /^Diff base branch/ })).toBeVisible()
       })
 
       await reach(`${theme}/github`, found, page, async () => {
@@ -204,7 +225,6 @@ for (const theme of THEMES) {
     } finally {
       await app.close()
     }
-    if (STRICT) expect(found, JSON.stringify(found.map(v => `${v.surface} ${v.rule}`))).toEqual([])
   })
 
   test(`a11y: Thread states — ${theme}`, async () => {
@@ -272,6 +292,5 @@ for (const theme of THEMES) {
     } finally {
       await app.close()
     }
-    if (STRICT) expect(found, JSON.stringify(found.map(v => `${v.surface} ${v.rule}`))).toEqual([])
   })
 }

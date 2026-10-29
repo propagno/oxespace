@@ -41,7 +41,6 @@ export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): R
       className={`panel-scope-badge${scope.isWorktree ? ' is-worktree' : ''}${pinned ? ' is-pinned' : ''}`}
       onClick={() => togglePin(workspaceId)}
       title={title}
-      aria-label={title}
       data-testid="panel-scope-badge"
     >
       {scope.isWorktree ? <FolderTree size={12} aria-hidden="true" /> : null}
