@@ -33,7 +33,7 @@ export function AskAgent({ context, hasError, hasPlan }: { context: AskContext; 
       items={[
         { label: t(context.engine === 'postgres' ? 'ask.explainStatement' : 'ask.explainQuery'), disabled: !hasText, onSelect: () => void send('explain') },
         { label: t('ask.fix'), disabled: !hasError, onSelect: () => void send('fix') },
-        ...(hasPlan ? [{ label: t('ask.plan'), onSelect: () => void send('plan') }] : []),
+        { label: t('ask.plan'), disabled: !hasPlan, onSelect: () => void send('plan') },
         { type: 'separator' },
         { label: t('ask.write'), onSelect: () => setWriting(true) },
         { type: 'separator' },

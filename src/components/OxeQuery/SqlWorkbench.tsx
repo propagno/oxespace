@@ -24,7 +24,7 @@ import { ExplainView } from './ExplainView'
 import { bindCompletion, cacheFor } from './sql-completion'
 import { registerSqlExtras } from './sql-snippets'
 import { CellViewer, FilterBar, ParamsBar, TxBar } from './WorkbenchPanels'
-import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
+import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputError, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
 import { Select } from '../../ui/Field'
 import { EmptyState, ErrorState, LoadingState } from '../../ui/Display'
 import { copyText, formatMs, tq } from './catalog'
@@ -202,7 +202,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ text, base, reasons: cause.reasons })
       else {
-        patch(tab.id, { outputs: [{ id: 's0', label: text.replace(/\s+/g, ' ').slice(0, 40), start: base, text, error: { message: errorMessage(cause), ...(cause instanceof OxeQueryClientError && cause.position ? { position: cause.position } : {}) } }], outputIndex: 0 })
+        patch(tab.id, { outputs: [{ id: 's0', label: text.replace(/\s+/g, ' ').slice(0, 40), start: base, text, error: outputError(cause, errorMessage(cause)) }], outputIndex: 0 })
         if (cause instanceof OxeQueryClientError && cause.position) markError(base + cause.position - 1, cause.message)
       }
     } finally { setRunning(false); setLibraryTick(value => value + 1); void refreshTx() }
@@ -239,7 +239,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       pendingExplain.current = null
     } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') { pendingExplain.current = target; setPending({ text: target.text, base: target.base, reasons: cause.reasons, explain: 'analyze' }) }
-      else patch(tab.id, { explain: null, outputs: [{ id: 's0', label: t('workbench.explain'), start: target.base, text: target.text, error: { message: errorMessage(cause) } }], outputIndex: 0 })
+      else patch(tab.id, { explain: null, outputs: [{ id: 's0', label: t('workbench.explain'), start: target.base, text: target.text, error: outputError(cause, errorMessage(cause)) }], outputIndex: 0 })
     } finally { setRunning(false) }
   }, [connection.id, currentStatement, patch, t])
 
@@ -266,7 +266,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         ...(filters.length ? { filters } : {})
       })
       patch(tab.id, { outputs: [{ id: 's0', label: table.name, start: 0, text: '', result: rows }], outputIndex: 0, browse: { schema: table.schema, table: table.name, offset, kind: table.kind, sort, filters }, details, explain: null, title: table.name })
-    } catch (cause) { patch(tab.id, { outputs: [{ id: 's0', label: table.name, start: 0, text: '', error: { message: errorMessage(cause) } }], outputIndex: 0 }) } finally { setRunning(false) }
+    } catch (cause) { patch(tab.id, { outputs: [{ id: 's0', label: table.name, start: 0, text: '', error: outputError(cause, errorMessage(cause)) }], outputIndex: 0 }) } finally { setRunning(false) }
   }, [connection.id, patch])
 
   const addTab = (sql = ''): void => {
@@ -380,7 +380,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           {result && columns.length > 0 && <Select className="oq-select" aria-label={t('workbench.copyAs')} value="" onChange={event => { if (event.target.value) copyAs(event.target.value as CopyFormat) }}>
             <option value="">{t('workbench.copyAsPlaceholder')}</option>{COPY_FORMATS.map(format => <option key={format} value={format}>{t(`workbench.copyFormat.${format}`)}</option>)}</Select>}
         </div>
-        {error && <QueryError error={{ message: error.message, sqlState: error.sqlState, hint: error.hint, position: error.position }}>{looksLikeLostConnection(error.message) && <ReconnectBar connection={connection} />}</QueryError>}
+        {error && <QueryError error={error}>{looksLikeLostConnection(error.message) && <ReconnectBar connection={connection} />}</QueryError>}
         {result?.notices?.map(text => <p key={text} className="oq-muted oq-notice">{text}</p>)}
         {/* Structure, filter, definition and row editing sit in one wrapping row; an open one takes the full width. */}
         <div className="oq-extras">

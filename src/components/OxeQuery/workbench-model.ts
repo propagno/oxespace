@@ -15,7 +15,18 @@ export interface Output {
   /** The whole statement, for Export and for running it again. */
   text: string
   result?: SqlResult
-  error?: { message: string; position?: number; sqlState?: string; hint?: string }
+  error?: OutputError
+}
+
+/** A failed run as the result pane shows it; `code` and `sqlState` choose the plain explanation above the server's words. */
+export interface OutputError { message: string; code?: string; position?: number; sqlState?: string; hint?: string }
+
+/** The error of a failed call with what QueryError needs to explain it, not only its message. */
+export function outputError(cause: unknown, message: string): OutputError {
+  const info = (typeof cause === 'object' && cause !== null ? cause : {}) as Partial<Record<'code' | 'sqlState' | 'hint', unknown>> & { position?: unknown }
+  const text = (value: unknown): string | undefined => typeof value === 'string' && value ? value : undefined
+  const code = text(info.code), sqlState = text(info.sqlState), hint = text(info.hint)
+  return { message, ...(code ? { code } : {}), ...(typeof info.position === 'number' && info.position > 0 ? { position: info.position } : {}), ...(sqlState ? { sqlState } : {}), ...(hint ? { hint } : {}) }
 }
 
 export interface Browse { schema: string; table: string; offset: number; kind?: string; sort: GridSort | null; filters: SqlFilter[] }

@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { launchApp, openDemoWorkspace } from './helpers/launch'
-import pt from '../shared/locales/pt-BR/oxequery.json'
+import type Catalog from '../shared/locales/en/oxequery.json'
+
+const pt = JSON.parse(readFileSync(join(process.cwd(), 'shared', 'locales', 'pt-BR', 'oxequery.json'), 'utf8')) as typeof Catalog & { workbench: { affected_other: string } }
 
 /**
  * The main OxeQuery query flow on a Brazilian Portuguese system: the view, the tree, the workbench, the shared
