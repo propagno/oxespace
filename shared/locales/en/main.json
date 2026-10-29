@@ -1,0 +1,17 @@
+{
+  "crash": {
+    "unexpected": {
+      "title": "OXESpace hit an unexpected error",
+      "message": "Something went wrong in the background.",
+      "detail": "Your terminals and agents may still be running, but OXESpace can no longer guarantee them. Restart to continue safely. Diagnostics can be exported from Settings > Diagnostics.",
+      "restart": "Restart OXESpace",
+      "keepWorking": "Keep working"
+    },
+    "rendererGone": {
+      "title": "OXESpace stopped responding",
+      "message": "The interface keeps crashing.",
+      "detail": "Your terminals and agents are still running. Restart OXESpace to bring the interface back; diagnostics can be exported from Settings > Diagnostics.",
+      "ok": "OK"
+    }
+  }
+}

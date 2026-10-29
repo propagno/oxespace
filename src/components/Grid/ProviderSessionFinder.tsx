@@ -4,6 +4,7 @@ import type { SessionSummary } from '../../../shared/types/session'
 import type { SessionSearchResult } from '../../../shared/types/session-search'
 
 import { Dialog, TextField } from '../../ui'
+import { formatDateTime } from '../../utils/formatTime'
 
 export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { workspaceId: string; rootPath: string; onClose: () => void }) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
@@ -57,7 +58,7 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
     {loading ? <p role="status">Loading native sessions…</p> : matches.length ? <div className="desktop-provider-session-list">
       {matches.map(session => <article key={`${session.provider}:${session.sessionId}`} className="desktop-provider-session-card">
         <div className="desktop-provider-session-heading"><strong>{session.firstMessagePreview || `${session.provider === 'codex' ? 'Codex' : 'Claude'} session`}</strong><span>{session.provider === 'codex' ? 'Codex' : 'Claude'}</span></div>
-        <p>{session.modelId || 'Unknown model'} · Updated {new Date(session.lastUpdatedMs).toLocaleString()} · {session.requestCount} {session.requestCount === 1 ? 'request' : 'requests'}</p>
+        <p>{session.modelId || 'Unknown model'} · Updated {formatDateTime(session.lastUpdatedMs)} · {session.requestCount} {session.requestCount === 1 ? 'request' : 'requests'}</p>
         <div className="desktop-provider-session-id"><code>{session.sessionId}</code><div><button type="button" aria-label={`Copy session ID ${session.provider} ${session.sessionId}`} onClick={() => void copy(session.sessionId, `id:${session.sessionId}`)}>{copied === `id:${session.sessionId}` ? <Check size={14} /> : <Copy size={14} />}{copied === `id:${session.sessionId}` ? 'Copied' : 'Copy ID'}</button><button type="button" aria-label={`Copy command to resume ${session.provider} ${session.sessionId}`} onClick={() => void copy(`${session.provider === 'claude' ? 'claude --resume' : 'codex resume'} ${session.sessionId}`, `command:${session.sessionId}`)}>{copied === `command:${session.sessionId}` ? <Check size={14} /> : <Copy size={14} />}{copied === `command:${session.sessionId}` ? 'Copied' : 'Copy command'}</button></div></div>
       </article>)}
     </div> : <p className="desktop-provider-session-empty">{query ? 'No session matches the search.' : 'No Codex or Claude session found in this directory.'}</p>}

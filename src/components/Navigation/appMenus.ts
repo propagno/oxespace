@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { shortcutLabel } from '../../keyboard/keybindings'
 
@@ -34,6 +35,7 @@ type MenuActionId = typeof MENU_ACTION_IDS[number]
 const edit = (command: 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'selectAll') => (): void => { document.execCommand(command) }
 
 export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
+  const t = i18n.t.bind(i18n)
   const byId = new Map(ctx.actions.map(action => [action.id, action]))
   const fromAction = (id: MenuActionId, label?: string, shortcut?: string): AppMenuNode | null => {
     const action = byId.get(id)
@@ -51,68 +53,68 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
 
   return [
     {
-      id: 'file', label: 'File', items: compact([
+      id: 'file', label: t('menu.file'), items: compact([
         ctx.applicationView === 'thread'
-          ? { kind: 'item', id: 'add-project', label: 'Add project…', onSelect: ctx.addThreadProject }
-          : fromAction('new-workspace'),
+          ? { kind: 'item', id: 'add-project', label: t('menu.addProject'), onSelect: ctx.addThreadProject }
+          : fromAction('new-workspace', t('menu.newWorkspace')),
         sep('file-1'),
-        { kind: 'item', id: 'settings', label: 'Settings', shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
-        fromAction('workspace-settings'),
+        { kind: 'item', id: 'settings', label: t('menu.settings'), shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
+        fromAction('workspace-settings', t('menu.workspaceSettings')),
         sep('file-2'),
-        { kind: 'item', id: 'quit', label: 'Exit', onSelect: () => window.close() }
+        { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => window.close() }
       ])
     },
     {
-      id: 'edit', label: 'Edit', items: [
-        { kind: 'item', id: 'undo', label: 'Undo', shortcut: 'Ctrl+Z', onSelect: edit('undo') },
-        { kind: 'item', id: 'redo', label: 'Redo', shortcut: 'Ctrl+Shift+Z', onSelect: edit('redo') },
+      id: 'edit', label: t('menu.edit'), items: [
+        { kind: 'item', id: 'undo', label: t('menu.undo'), shortcut: 'Ctrl+Z', onSelect: edit('undo') },
+        { kind: 'item', id: 'redo', label: t('menu.redo'), shortcut: 'Ctrl+Shift+Z', onSelect: edit('redo') },
         sep('edit-1'),
-        { kind: 'item', id: 'cut', label: 'Cut', shortcut: 'Ctrl+X', onSelect: edit('cut') },
-        { kind: 'item', id: 'copy', label: 'Copy', shortcut: 'Ctrl+C', onSelect: edit('copy') },
-        { kind: 'item', id: 'paste', label: 'Paste', shortcut: 'Ctrl+V', onSelect: edit('paste') },
-        { kind: 'item', id: 'select-all', label: 'Select all', shortcut: 'Ctrl+A', onSelect: edit('selectAll') }
+        { kind: 'item', id: 'cut', label: t('menu.cut'), shortcut: 'Ctrl+X', onSelect: edit('cut') },
+        { kind: 'item', id: 'copy', label: t('menu.copy'), shortcut: 'Ctrl+C', onSelect: edit('copy') },
+        { kind: 'item', id: 'paste', label: t('menu.paste'), shortcut: 'Ctrl+V', onSelect: edit('paste') },
+        { kind: 'item', id: 'select-all', label: t('menu.selectAll'), shortcut: 'Ctrl+A', onSelect: edit('selectAll') }
       ]
     },
     {
-      id: 'view', label: 'View', items: compact([
-        { kind: 'item', id: 'command-palette', label: 'Command palette…', shortcut: shortcutLabel('palette.open'), onSelect: ctx.openCommandMenu },
+      id: 'view', label: t('menu.view'), items: compact([
+        { kind: 'item', id: 'command-palette', label: t('menu.commandPalette'), shortcut: shortcutLabel('palette.open'), onSelect: ctx.openCommandMenu },
         sep('view-0'),
         { kind: 'radio', id: 'view-code', label: 'Code', checked: ctx.applicationView === 'code', onSelect: () => ctx.setApplicationView('code') },
         { kind: 'radio', id: 'view-thread', label: 'Thread', checked: ctx.applicationView === 'thread', onSelect: () => ctx.setApplicationView('thread') },
         { kind: 'radio', id: 'view-data', label: 'OxeQuery', checked: ctx.applicationView === 'data', onSelect: () => ctx.setApplicationView('data') },
         sep('view-1'),
-        fromAction('toggle-sidebar', undefined, shortcutLabel('sidebar.toggle')),
-        fromAction('tool-editor', undefined, shortcutLabel('code.files')),
-        fromAction('tool-github'),
-        fromAction('tool-background'),
-        fromAction('toggle-split-layout', undefined, shortcutLabel('code.splitLayout')),
-        fromAction('balance-pane-layout'),
+        fromAction('toggle-sidebar', t('menu.toggleSidebar'), shortcutLabel('sidebar.toggle')),
+        fromAction('tool-editor', t('menu.files'), shortcutLabel('code.files')),
+        fromAction('tool-github', t('menu.sourceControl')),
+        fromAction('tool-background', t('menu.backgroundActivity')),
+        fromAction('toggle-split-layout', t('menu.splitLayout'), shortcutLabel('code.splitLayout')),
+        fromAction('balance-pane-layout', t('menu.balancePanes')),
         sep('view-2'),
         // Appearance applies to the whole app, so it works without a workspace.
-        appearances.length ? { kind: 'submenu', id: 'appearance', label: 'Appearance', children: appearances } : null,
-        densities.length ? { kind: 'submenu', id: 'densities', label: 'Density', disabled: noWorkspace, children: densities } : null,
-        layouts.length ? { kind: 'submenu', id: 'layouts', label: 'Layout', disabled: noWorkspace, children: layouts } : null,
+        appearances.length ? { kind: 'submenu', id: 'appearance', label: t('menu.appearance'), children: appearances } : null,
+        densities.length ? { kind: 'submenu', id: 'densities', label: t('menu.density'), disabled: noWorkspace, children: densities } : null,
+        layouts.length ? { kind: 'submenu', id: 'layouts', label: t('menu.layout'), disabled: noWorkspace, children: layouts } : null,
         sep('view-3'),
-        fromAction('split-vertical', undefined, shortcutLabel('pane.splitRight')),
-        fromAction('split-horizontal', undefined, shortcutLabel('pane.splitDown')),
-        fromAction('maximize-pane', undefined, shortcutLabel('pane.maximize'))
+        fromAction('split-vertical', t('menu.splitRight'), shortcutLabel('pane.splitRight')),
+        fromAction('split-horizontal', t('menu.splitDown'), shortcutLabel('pane.splitDown')),
+        fromAction('maximize-pane', t('menu.maximizePane'), shortcutLabel('pane.maximize'))
       ])
     },
     {
-      id: 'tools', label: 'Tools', items: compact([
-        fromAction('tool-mcp'),
-        fromAction('tool-skills'),
-        fromAction('open-usage'),
-        fromAction('open-linear')
+      id: 'tools', label: t('menu.tools'), items: compact([
+        fromAction('tool-mcp', t('menu.mcpServers')),
+        fromAction('tool-skills', t('menu.skills')),
+        fromAction('open-usage', t('menu.usage')),
+        fromAction('open-linear', t('menu.linear'))
       ])
     },
     {
-      id: 'help', label: 'Help', items: compact([
-        fromAction('help.shortcuts', 'Keyboard shortcuts', shortcutLabel('help.shortcuts')),
-        fromAction('settings.diagnostics', 'Diagnostics'),
+      id: 'help', label: t('menu.help'), items: compact([
+        fromAction('help.shortcuts', t('menu.keyboardShortcuts'), shortcutLabel('help.shortcuts')),
+        fromAction('settings.diagnostics', t('menu.diagnostics')),
         sep('help-1'),
         // Settings › Updates shows the version and checks for a newer one.
-        fromAction('settings.updates', `About OXESpace (v${ctx.version})`)
+        fromAction('settings.updates', t('menu.about', { version: ctx.version }))
       ])
     }
   ]

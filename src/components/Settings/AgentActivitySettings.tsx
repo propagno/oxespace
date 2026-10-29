@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import type { AgentActionEntry } from '../../../shared/types/mcp-internal'
 import { Button } from '../../ui'
+import { formatDateTime } from '../../utils/formatTime'
 
 const DECISIONS: Record<AgentActionEntry['decision'], string> = {
   auto: 'ran', approved: 'you approved', denied: 'you declined', refused: 'refused by policy', pending: 'waiting for you'
@@ -45,7 +46,7 @@ export function AgentActivitySettings(): ReactElement {
           <span className="diagnostics-check-dot" aria-hidden="true" />
           <span className="diagnostics-check-label">{entry.tool.replace(/^oxespace_/, '')}.{entry.action}</span>
           <span className="diagnostics-check-detail" title={entry.text ?? undefined}>
-            {new Date(entry.ts).toLocaleString()} · {entry.actor} · {DECISIONS[entry.decision] ?? entry.decision}
+            {formatDateTime(entry.ts)} · {entry.actor} · {DECISIONS[entry.decision] ?? entry.decision}
             {entry.outcome === 'error' ? ` · failed${entry.errorCode ? ` (${entry.errorCode})` : ''}` : ''}
             {entry.text ? ` — ${entry.text.replace(/\s+/g, ' ').slice(0, 140)}` : ''}
           </span>

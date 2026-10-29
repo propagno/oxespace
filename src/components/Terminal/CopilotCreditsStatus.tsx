@@ -2,6 +2,7 @@ import { Bot } from 'lucide-react'
 import { useEffect, type ReactElement } from 'react'
 import { useCopilotCreditsStore } from '../../store/copilotCredits.store'
 import { ViewportTooltip } from '../common/ViewportTooltip'
+import { formatDate } from '../../utils/formatTime'
 
 const REFRESH_INTERVAL_MS = 60_000
 
@@ -76,5 +77,5 @@ function formatReset(value: string | null): string | null {
   if (!value) return null
   const parsed = Date.parse(value.length === 10 ? `${value}T00:00:00` : value)
   if (!Number.isFinite(parsed)) return null
-  return new Date(parsed).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return formatDate(parsed, { day: 'numeric', month: 'short' })
 }

@@ -12,6 +12,7 @@ import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 import { GITHUB_PANEL_TABS as TABS, buildStatusHeadline, describeSyncState } from './githubPanelModel'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDateTime } from '../../utils/formatTime'
 export { buildStatusHeadline, describeSyncState } from './githubPanelModel'
 
 interface GitHubPanelProps {
@@ -1793,9 +1794,8 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
 
 function formatDate(value: string | number | null | undefined): string {
   if (!value) return '-'
-  const date = typeof value === 'number' ? new Date(value) : new Date(value)
-  if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? String(value) : formatDateTime(date, { dateStyle: 'short', timeStyle: 'short' })
 }
 
 function buildStageAllPreview(status: GitHubWorkspaceStatus | null): string {

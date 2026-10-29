@@ -10,6 +10,7 @@ import type {
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { Button, TextField, Select, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDateTime } from '../../utils/formatTime'
 
 const STATUS_LABEL: Record<AutomationRunStatus, string> = {
   pending: 'queued',
@@ -132,7 +133,7 @@ export function AutomationsSettings(): ReactElement | null {
               <strong>{a.name}</strong>
               <small>
                 {a.agent === 'codex' ? 'Codex' : 'Claude'} · {describeSchedule(a.schedule)}
-                {a.nextRunAt && a.enabled ? ` · next: ${new Date(a.nextRunAt).toLocaleString()}` : ''}
+                {a.nextRunAt && a.enabled ? ` · next: ${formatDateTime(a.nextRunAt)}` : ''}
                 <br />
                 {last ? `Last: ${STATUS_LABEL[last.status]}${last.message ? ` — ${last.message}` : ''}` : 'Has not run yet.'}
                 {last?.branch ? ` (${last.branch})` : ''}

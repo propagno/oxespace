@@ -7,6 +7,7 @@ import type { ImportConflict, ImportPreview, ImportReadOptions, ImportResult, Im
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { Select } from '../../ui/Field'
 import { toast } from '../../ui/Toast'
+import { formatNumber } from '../../utils/formatTime'
 
 /**
  * Import a CSV, JSON or NDJSON file into a table or collection. The file is
@@ -60,7 +61,7 @@ export function ImportButton({ connection, target, onImported }: { connection: O
     try {
       const outcome = await oq('import.run', { connectionId: connection.id, importId: preview.importId, target, mapping, dryRun, emptyAsNull, confirmed, options, ...(target.kind === 'table' && conflict.mode !== 'error' ? { conflict } : {}) })
       setResult(outcome); setConfirm(null)
-      if (!dryRun) toast({ title: 'Import finished', description: `${outcome.inserted.toLocaleString()} row${outcome.inserted === 1 ? '' : 's'} imported, ${outcome.rejected.toLocaleString()} rejected.`, intent: outcome.rejected ? 'warning' : 'success' })
+      if (!dryRun) toast({ title: 'Import finished', description: `${formatNumber(outcome.inserted)} row${outcome.inserted === 1 ? '' : 's'} imported, ${formatNumber(outcome.rejected)} rejected.`, intent: outcome.rejected ? 'warning' : 'success' })
       if (!dryRun && !outcome.cancelled) onImported()
     } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirm(cause.reasons)
@@ -120,13 +121,13 @@ export function ImportButton({ connection, target, onImported }: { connection: O
         {target.kind === 'table' && <label className="oq-inline"><input type="checkbox" checked={emptyAsNull} onChange={event => setEmptyAsNull(event.target.checked)} />Empty values become NULL (when the column allows it)</label>}
         {target.kind === 'collection' && preview.format === 'csv' && <p className="oq-muted">CSV values are imported as text.</p>}
 
-        {busy === 'dry' || busy === 'import' ? <p role="status">{busy === 'dry' ? 'Checking' : 'Importing'}… {progress.toLocaleString()} rows
+        {busy === 'dry' || busy === 'import' ? <p role="status">{busy === 'dry' ? 'Checking' : 'Importing'}… {formatNumber(progress)} rows
           <button type="button" onClick={() => void oq('import.cancel', { importId: preview.importId }).catch(() => undefined)}>Cancel</button></p> : null}
         {error && <p role="alert" className="oq-error">{error}</p>}
         {result && <div role="status" className="oq-import-result">
           {result.cancelled ? <strong>Cancelled. Nothing was imported.</strong>
-            : result.dryRun ? <strong>Dry run: {result.inserted.toLocaleString()} row{result.inserted === 1 ? '' : 's'} would be imported, {result.rejected.toLocaleString()} rejected. Nothing was written.</strong>
-              : <strong>Imported {result.inserted.toLocaleString()} row{result.inserted === 1 ? '' : 's'}{result.updated ? `, updated ${result.updated.toLocaleString()}` : ''}{result.skipped ? `, skipped ${result.skipped.toLocaleString()} that already existed` : ''}; {result.rejected.toLocaleString()} rejected.</strong>}
+            : result.dryRun ? <strong>Dry run: {formatNumber(result.inserted)} row{result.inserted === 1 ? '' : 's'} would be imported, {formatNumber(result.rejected)} rejected. Nothing was written.</strong>
+              : <strong>Imported {formatNumber(result.inserted)} row{result.inserted === 1 ? '' : 's'}{result.updated ? `, updated ${formatNumber(result.updated)}` : ''}{result.skipped ? `, skipped ${formatNumber(result.skipped)} that already existed` : ''}; {formatNumber(result.rejected)} rejected.</strong>}
           {result.rejects.length > 0 && <ul>{result.rejects.slice(0, 8).map(item => <li key={item.row}>Row {item.row}: {item.reason}</li>)}</ul>}
           {result.rejectsPath && <p className="oq-muted">Rejected rows saved to {result.rejectsPath.split(/[\\/]/).pop()}.</p>}
         </div>}

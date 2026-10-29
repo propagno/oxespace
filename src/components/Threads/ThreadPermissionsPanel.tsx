@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react'
 import type { ThreadAuditEntry, ThreadPermissionRule } from '../../../shared/types/thread'
 import { Checkbox, Select, TextField, LoadingState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatDateTime } from '../../utils/formatTime'
 
 const ACTOR: Record<ThreadAuditEntry['actor'], string> = { user: 'You', policy: 'Rule', system: 'OXESpace' }
 const KIND: Record<ThreadPermissionRule['kind'], string> = { command: 'Command', path: 'Files', tool: 'MCP tool' }
@@ -72,7 +73,7 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
       </div>
       {audit.length === 0 ? <p>No decisions recorded yet. Approvals, rule changes, undo and rewind appear here for 180 days.</p> : <ol className="thread-permissions-audit">
         {audit.map(entry => <li key={entry.id} title={entry.detail}>
-          <time dateTime={new Date(entry.at).toISOString()}>{new Date(entry.at).toLocaleString()}</time>
+          <time dateTime={new Date(entry.at).toISOString()}>{formatDateTime(entry.at)}</time>
           <span className={`thread-permissions-actor is-${entry.actor}`}>{ACTOR[entry.actor]}</span>
           <span>{entry.summary}</span>
         </li>)}

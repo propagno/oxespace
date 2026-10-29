@@ -11,6 +11,7 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
 import { DetailList } from '../Navigation/DetailList'
+import { formatDateTime } from '../../utils/formatTime'
 // Opened on request only, so it stays out of the startup bundle.
 const ProviderSessionFinder = lazy(() => import('./ProviderSessionFinder').then(module => ({ default: module.ProviderSessionFinder })))
 
@@ -368,7 +369,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           ...(pane.rootPath !== workspace.rootPath ? [{ label: 'Workspace path', detail: workspace.rootPath }] : []),
           ...(sessionDetails?.executable ? [{ label: 'Executable', detail: sessionDetails.executable }] : []),
           ...(sessionDetails?.pid ? [{ label: 'Process ID', detail: String(sessionDetails.pid) }] : []),
-          ...(sessionDetails?.startedAt ? [{ label: 'Terminal started at', detail: new Date(sessionDetails.startedAt).toLocaleString() }] : [])
+          ...(sessionDetails?.startedAt ? [{ label: 'Terminal started at', detail: formatDateTime(sessionDetails.startedAt) }] : [])
         ]} /></details>
       </Dialog>}
       {providerSessionsOpen && <Suspense fallback={null}><ProviderSessionFinder workspaceId={workspace.id} rootPath={pane.rootPath ?? workspace.rootPath} onClose={() => setProviderSessionsOpen(false)} /></Suspense>}

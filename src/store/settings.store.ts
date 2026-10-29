@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Appearance } from '../design/mode'
+import { isLanguagePreference, type LanguagePreference } from '../../shared/i18n'
 import { motionPreference, type MotionPreference } from '../design/motion'
 import type { UiDensity } from '../../shared/types/workspace'
 import { clampUiScale, UI_SCALE_DEFAULT } from '../../shared/uiScale'
@@ -42,6 +43,9 @@ interface SettingsState {
   /** Light or dark mode, or follow the operating system. */
   appearance: Appearance
   setAppearance: (appearance: Appearance) => void
+  /** Interface language, or follow the operating system (src/i18n applies it). */
+  language: LanguagePreference
+  setLanguage: (language: LanguagePreference) => void
   /** Interface scale (window zoom), 0.9–1.25. */
   uiScale: number
   setUiScale: (scale: number) => void
@@ -67,6 +71,8 @@ export const useSettingsStore = create<SettingsState>()(
       setVisitedWorkspacesCap: (cap) => set({ visitedWorkspacesCap: clampVisitedCap(cap) }),
       appearance: 'system',
       setAppearance: (appearance) => set({ appearance }),
+      language: 'system',
+      setLanguage: (language) => set({ language }),
       uiScale: UI_SCALE_DEFAULT,
       setUiScale: (scale) => set({ uiScale: clampUiScale(scale) }),
       density: 'compact',
@@ -84,13 +90,14 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'oxe-settings',
-      version: 6,
+      version: 7,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
           notificationsEnabled: s.notificationsEnabled ?? true,
           visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
           appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
+          language: isLanguagePreference(s.language) ? s.language : 'system',
           uiScale: clampUiScale(s.uiScale ?? UI_SCALE_DEFAULT),
           density: s.density === 'comfortable' ? 'comfortable' : 'compact',
           motion: motionPreference(s.motion),

@@ -6,6 +6,7 @@ import { OxeQueryClientError, errorMessage, oq } from './client'
 import { changesFromDraft, createFromDraft, draftFromDetails, draftProblems, emptyDraft, type StructureDraft } from './structure-model'
 import { ColumnsTab, ConstraintsTab, IndexesTab } from './StructureParts'
 import styles from './StructureEditor.module.css'
+import { formatNumber } from '../../utils/formatTime'
 
 type TabId = 'columns' | 'constraints' | 'indexes' | 'table'
 export type StructureOutcome = { kind: 'created' | 'altered'; table: string } | { kind: 'dropped' | 'truncated' | 'duplicated'; table: string }
@@ -102,7 +103,7 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
       <div><dt>Kind</dt><dd>{details.properties.kind}</dd></div>
       <div><dt>Owner</dt><dd>{details.properties.owner}</dd></div>
       <div><dt>Size</dt><dd>{bytes(details.properties.sizeBytes)}</dd></div>
-      <div><dt>Rows (estimate)</dt><dd>{details.properties.estimatedRows.toLocaleString()}</dd></div>
+      <div><dt>Rows (estimate)</dt><dd>{formatNumber(details.properties.estimatedRows)}</dd></div>
     </dl>}
     {details && details.dependents.length > 0 && <>
       <h4 className={styles.heading}>Used by</h4>

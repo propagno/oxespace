@@ -3,6 +3,7 @@ import { RefreshCw, ShieldCheck } from 'lucide-react'
 import type { OxeQueryAuditEntry } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { EmptyState } from '../../ui/Display'
+import { formatDateTime } from '../../utils/formatTime'
 
 const DECISIONS: Record<string, string> = {
   auto: 'allowed', approved: 'approved', 'approved-session': 'approved (run)', denied: 'declined', refused: 'refused by policy', pending: 'waiting for you'
@@ -39,7 +40,7 @@ export function ActivityPanel({ active }: { active: boolean }): ReactElement {
       : <table className="oq-activity-table">
         <thead><tr><th>When</th><th>Agent</th><th>Connection</th><th>Request</th><th>Decision</th><th>Result</th></tr></thead>
         <tbody>{shown.map(entry => <tr key={entry.id} data-outcome={entry.outcome} data-decision={entry.decision}>
-          <td>{new Date(entry.ts).toLocaleString()}</td>
+          <td>{formatDateTime(entry.ts)}</td>
           <td>{entry.actor}</td>
           <td>{entry.connectionName ?? '—'}{entry.environment ? <small> · {entry.environment}</small> : null}</td>
           <td><strong>{entry.tool.replace('oxespace_', '')}</strong>{entry.text ? <code title={entry.text}>{entry.text.replace(/\s+/g, ' ').slice(0, 120)}</code> : null}</td>

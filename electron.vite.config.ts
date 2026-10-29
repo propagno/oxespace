@@ -1,4 +1,4 @@
-import { cpSync, existsSync } from 'node:fs'
+import { cpSync, existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
@@ -56,6 +56,16 @@ export default defineConfig({
             resolve(__dirname, 'out/main/migrations'),
             { recursive: true }
           )
+        }
+      },
+      {
+        // The main process reads its translations (native dialogs, notifications) from files next to the bundle,
+        // so new strings never grow the main entry. electron/main/i18n.ts falls back to shared/locales in tests.
+        name: 'copy-main-locales',
+        closeBundle() {
+          for (const language of readdirSync(resolve(__dirname, 'shared/locales'))) {
+            cpSync(resolve(__dirname, 'shared/locales', language, 'main.json'), resolve(__dirname, 'out/main/locales', language, 'main.json'))
+          }
         }
       },
       {
@@ -236,6 +246,8 @@ export default defineConfig({
             if (!id.includes('node_modules')) return undefined
             if (id.includes('monaco-editor')) return 'monaco'
             if (id.includes('@xterm')) return 'xterm'
+            // Brand marks for the MCP catalog, which loads on demand; the boot path must not carry them.
+            if (id.includes('simple-icons')) return 'brand-icons'
             if (id.includes('@xenova') || id.includes('onnxruntime')) return 'ml'
             // The markdown pipeline (#10) is only reached through the lazy
             // MarkdownPreview, so keep it out of the eagerly-loaded vendor chunk.

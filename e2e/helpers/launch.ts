@@ -23,7 +23,7 @@ export async function freezeClock(page: Page): Promise<void> {
 }
 
 /** Launches the built app against a temporary database (requires `npm run build` first). */
-export async function launchApp(options: { appearance?: Appearance } = {}): Promise<LaunchedApp> {
+export async function launchApp(options: { appearance?: Appearance; locale?: string } = {}): Promise<LaunchedApp> {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-visual-'))
   const workspaceRoot = join(root, 'demo-repo')
   mkdirSync(workspaceRoot, { recursive: true })
@@ -36,7 +36,9 @@ export async function launchApp(options: { appearance?: Appearance } = {}): Prom
       TZ: 'UTC',
       OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
       OXESPACE_E2E_MOCK_NATIVE: '1',
-      OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3')
+      OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'),
+      // The system language the app sees; e2e/electron-main.cjs pins English when unset.
+      ...(options.locale ? { OXESPACE_LOCALE: options.locale } : {})
     }
   })
   // The RTK sidecar check hits the network and, when it finds an update, adds an icon to

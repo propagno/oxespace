@@ -4,10 +4,11 @@ import { AlertCircle, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import type { ThreadEvent, ThreadFailure, ThreadUsage } from '../../../shared/types/thread'
 import { failureGuidance } from '../../../shared/threadTurnVerdict'
 import './ThreadFailureCard.css'
+import { formatDateTime, formatNumber } from '../../utils/formatTime'
 
 export function usageTime(timestamp: number): string {
   return Number.isFinite(timestamp) && !Number.isNaN(new Date(timestamp).getTime())
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'long' }).format(timestamp) : 'Not provided'
+    ? formatDateTime(timestamp, { dateStyle: 'short', timeStyle: 'long' }) : 'Not provided'
 }
 
 /** "2h", "6d", "35m": how long until a window resets, as in the Usage & rate limits dialog. */
@@ -18,7 +19,7 @@ export function usageResetIn(timestamp: number, now = Date.now()): string {
   return `${Math.round(minutes / 1440)}d`
 }
 
-const usageClock = (timestamp: number): string => Number.isFinite(timestamp) ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(timestamp) : 'unknown'
+const usageClock = (timestamp: number): string => Number.isFinite(timestamp) ? formatDateTime(timestamp, { hour: '2-digit', minute: '2-digit' }) : 'unknown'
 
 /** Same card language as the Usage & rate limits dialog: provider, two-up windows, reset hint, checked time. */
 export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; provider?: string }) {
@@ -33,7 +34,7 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
     {usage.windows.length ? <div className="thread-usage-grid">{usage.windows.map((window, index) => {
       const percent = Math.max(0, Math.min(100, window.usedPercent))
       return <div className="thread-usage-window" key={`${window.label}:${index}`}>
-        <div><span>{labelOf(window.label)}</span><strong>{window.usedPercent.toLocaleString(undefined, { maximumFractionDigits: 1 })}% used</strong></div>
+        <div><span>{labelOf(window.label)}</span><strong>{formatNumber(window.usedPercent, { maximumFractionDigits: 1 })}% used</strong></div>
         <progress className={percent >= 90 ? 'is-high' : undefined} aria-label={`${window.label} usage`} value={percent} max={100} />
         <small>{window.resetsAt ? <>Resets in {usageResetIn(window.resetsAt)} · <time dateTime={new Date(window.resetsAt).toISOString()}>{usageTime(window.resetsAt)}</time> · local time</> : 'Reset time not provided by the provider.'}</small>
       </div>

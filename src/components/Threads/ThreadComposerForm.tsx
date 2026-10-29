@@ -12,6 +12,7 @@ import type { useOxeVoice } from '../../hooks/useOxeVoice'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import { withShortcut } from '../../keyboard/keybindings'
 import './ThreadComposerChrome.css'
+import { formatNumber } from '../../utils/formatTime'
 
 type Voice = ReturnType<typeof useOxeVoice>
 /** The parts of useThreadCommands / useFileMentions the composer wires into its textarea. */
@@ -78,6 +79,6 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       <button type="button" className="thread-voice" aria-label="Voice input" title={withShortcut('Voice input', 'voice.toggle')} disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><AudioLines size={15} /></button>
       {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
       <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
-    {tooLong && <p className="thread-composer-limit" role="alert">This message has {draft.length.toLocaleString('en-US')} characters; the limit is {THREAD_MESSAGE_MAX_CHARS.toLocaleString('en-US')}. Attach long text as a file instead.</p>}
+    {tooLong && <p className="thread-composer-limit" role="alert">This message has {formatNumber(draft.length)} characters; the limit is {formatNumber(THREAD_MESSAGE_MAX_CHARS)}. Attach long text as a file instead.</p>}
   </form>
 }

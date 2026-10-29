@@ -1,0 +1,72 @@
+{
+  "languageName": {
+    "en": "English",
+    "pt-BR": "Português (Brasil)"
+  },
+  "time": {
+    "justNow": "Just now",
+    "yesterday": "Yesterday"
+  },
+  "nav": {
+    "applicationView": "Application view",
+    "modeTitle": {
+      "code": "Code: terminals and agents in your workspaces",
+      "thread": "Thread: conversations with an agent",
+      "data": "OxeQuery: containers and databases"
+    },
+    "primary": "Primary navigation",
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode",
+    "settings": "Settings",
+    "openSettings": "Open settings",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "clearSearch": "Clear search",
+    "applicationMenu": "Application menu",
+    "menu": "Menu"
+  },
+  "attention": {
+    "needsYou_one": "{{count}} needs you",
+    "needsYou_other": "{{count}} need you",
+    "failed": "{{count}} failed",
+    "working": "{{count}} working"
+  },
+  "menu": {
+    "file": "File",
+    "newWorkspace": "New workspace…",
+    "addProject": "Add project…",
+    "settings": "Settings",
+    "workspaceSettings": "Workspace settings",
+    "exit": "Exit",
+    "edit": "Edit",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select all",
+    "view": "View",
+    "toggleSidebar": "Toggle sidebar",
+    "files": "Files",
+    "sourceControl": "Commit & pull request",
+    "backgroundActivity": "Background activity",
+    "splitLayout": "Toggle split layout",
+    "balancePanes": "Balance panes",
+    "appearance": "Appearance",
+    "density": "Density",
+    "layout": "Layout",
+    "splitRight": "Split pane right",
+    "splitDown": "Split pane down",
+    "maximizePane": "Maximize / restore pane",
+    "help": "Help",
+    "mcpServers": "MCP servers",
+    "skills": "Skills",
+    "usage": "Usage & limits",
+    "linear": "Linear issues",
+    "about": "About OXESpace (v{{version}})",
+    "commandPalette": "Command palette…",
+    "tools": "Tools",
+    "keyboardShortcuts": "Keyboard shortcuts",
+    "diagnostics": "Diagnostics"
+  }
+}
