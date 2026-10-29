@@ -192,6 +192,57 @@ test.describe('offer audit', () => {
     }
   })
 
+  test('every Thread command reaches the open conversation', async () => {
+    const launched = await launchApp()
+    const { app, page, workspaceRoot } = launched
+    try {
+      // A project with one finished conversation; the main process records the commands it receives.
+      await app.evaluate(({ ipcMain, BrowserWindow }, rootPath) => {
+        const received: string[] = []
+        ;(globalThis as { offerAuditCommands?: string[] }).offerAuditCommands = received
+        const thread = { id: 'session-1', workspaceId: 'thread:offer', projectId: 'offer', rootPath, provider: 'codex', nativeSessionId: null, title: 'Offer audit', status: 'idle', pinned: false, createdAt: Date.now(), updatedAt: Date.now() }
+        const snapshot = { thread, events: [], turns: [{ id: 'turn-1', sequence: 1, status: 'completed', startedAt: Date.now(), completedAt: Date.now(), configuration: {} }] }
+        for (const channel of ['list', 'read', 'command', 'commands', 'projects', 'models', 'turn-files']) ipcMain.removeHandler(`thread:${channel}`)
+        ipcMain.handle('thread:projects', () => ({ projects: [{ projectId: 'offer', displayName: 'offer-repo', identityLabel: rootPath, hidden: false, contexts: [{ workspaceId: 'thread:offer', rootPath, label: 'offer-repo' }] }], unavailable: [] }))
+        ipcMain.handle('thread:commands', () => ({ commands: [] }))
+        ipcMain.handle('thread:models', () => ({ defaultModel: 'test-model', models: [{ id: 'test-model', label: 'Test model', description: '', efforts: ['low'], defaultEffort: 'low' }] }))
+        ipcMain.handle('thread:list', () => [thread])
+        ipcMain.handle('thread:read', () => snapshot)
+        ipcMain.handle('thread:turn-files', () => [])
+        ipcMain.handle('thread:command', (_event, _id, command: string) => { received.push(command); return { kind: 'applied' } })
+        for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: thread.id })
+      }, workspaceRoot)
+      await selectView(page, 'Thread')
+      await page.locator('.thread-navigation-item').filter({ hasText: 'Offer audit' }).click()
+      const received = (): Promise<string[]> => app.evaluate(() => [...((globalThis as { offerAuditCommands?: string[] }).offerAuditCommands ?? [])])
+      const sent = (text: string): Check => async () => { await expect.poll(received).toContain(text) }
+      const THREAD_EFFECTS: Record<string, Check> = {
+        'thread.new': both(view('thread'), dialog('New thread')),
+        'thread.add-project': both(view('thread'), dialog('Add project')),
+        'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current="page"]')).toContainText('Offer audit') }),
+        'thread.resume': sent('/resume'), 'thread.rename': sent('/rename'), 'thread.spending': sent('/spending'),
+        'thread.events': sent('/events'), 'thread.rules': sent('/rules'),
+        'thread.undo-last-turn': toast('Nothing to undo'),
+        'thread.accounts': dialog('Agent accounts')
+      }
+      await expect.poll(async () => (await listedCommandIds(page)).includes('thread.spending')).toBe(true)
+      const ids = (await listedCommandIds(page)).filter(id => id.startsWith('thread.'))
+      expect(ids.filter(id => !THREAD_EFFECTS[id]), 'Thread commands without an expected effect in e2e/offer-audit.spec.ts').toEqual([])
+      const failures: string[] = []
+      for (const id of ids) {
+        await dismiss(page)
+        const errorsBefore = pageErrors(launched).length
+        if (!(await runCommand(page, id))) { failures.push(`${id}: not offered with a conversation open`); continue }
+        await THREAD_EFFECTS[id](page).catch(error => failures.push(`${id}: ${(error as Error).message.split('\n')[0]}`))
+        const errors = pageErrors(launched).slice(errorsBefore)
+        if (errors.length) failures.push(`${id}: page error ${errors[0]}`)
+      }
+      expect(failures).toEqual([])
+    } finally {
+      await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
+    }
+  })
+
   test('a Code panel command run from Thread or OxeQuery opens Code with the panel, and Ctrl+, opens Settings', async () => {
     const launched = await launchWithWorkspace()
     const { app, page } = launched

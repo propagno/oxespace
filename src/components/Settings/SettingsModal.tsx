@@ -793,11 +793,6 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
 
       <div className="settings-content-body settings-form">
         <label className="settings-field">
-          <span>Language</span>
-          <TextField type="text" value="Portuguese (Brazil)" readOnly disabled aria-label="Fixed language: Brazilian Portuguese" />
-        </label>
-
-        <label className="settings-field">
           <span>Model</span>
           <Select value={modelSize} onChange={(e) => setModelSize(e.target.value as VoiceModelSize)}>
             {MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
