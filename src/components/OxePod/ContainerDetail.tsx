@@ -64,7 +64,7 @@ export function ContainerDetail({ container, engine, active }: { container: Cont
   const stat = active && running ? statFor(stats, container) : undefined
   const memory = stat ? memoryOf(stat) : null
   const state = KNOWN_STATES.has(container.state) ? t(`state.${container.state}` as 'state.running') : container.state
-  const since = running && inspect?.startedAt ? t('detail.runningSince', { when: formatRelative(inspect.startedAt) }) : state
+  const since = running && inspect?.startedAt ? t('detail.runningSince', { when: formatRelative(Math.min(inspect.startedAt, Date.now())) }) : state
   const volumes = [...new Set((inspect?.mounts ?? []).map(mount => mount.volume).filter((name): name is string => Boolean(name)))]
 
   return <div className={styles.detail}>
@@ -96,7 +96,7 @@ export function ContainerDetail({ container, engine, active }: { container: Cont
       </footer>}
     </section>
     <aside className={styles.side} aria-label={t('detail.context')}>
-      {database && <DatabaseCard container={container} kind={database} engine={engine} />}
+      {database && <DatabaseCard container={container} kind={database} engine={engine} active={active} />}
       <ComposeCard container={container} engine={engine} />
       <AboutCard inspect={inspect} />
     </aside>

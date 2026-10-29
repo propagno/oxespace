@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type Page } from '@playwright/test
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer } from './helpers/oxepod'
 
 /** Screenshots of every OxeQuery surface in both modes, for a person to look at (e2e/screenshots/oxequery). */
 const OUT = join(process.cwd(), 'e2e/screenshots/oxequery' + (process.env.SHOTS_W ? '-' + process.env.SHOTS_W : ''))
@@ -31,8 +32,8 @@ test('captures the OxeQuery surfaces', async () => {
     await page.waitForTimeout(600)
     const shot = async (name: string): Promise<void> => { for (const m of ['light', 'dark'] as const) { await mode(page, m); await page.screenshot({ path: join(OUT, `${name}-${m}.png`) }) } }
 
-    await shot('1-containers')
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await shot('1-welcome')
+    await connectFromContainer(page, 'pg-dev')
     await page.getByRole('button', { name: 'Edit pg-dev' }).click()
     await page.getByRole('dialog', { name: 'Edit connection' }).waitFor()
     await shot('2-connection-dialog')
@@ -62,8 +63,7 @@ test('captures the OxeQuery surfaces', async () => {
     await shot('8-settings')
     await page.keyboard.press('Escape')
 
-    await page.getByRole('tab', { name: 'Containers' }).click()
-    await page.getByRole('button', { name: 'Connect to mongo-dev' }).click()
+    await connectFromContainer(page, 'mongo-dev')
     const sidebar = page.getByRole('navigation', { name: 'Databases' })
     await sidebar.getByRole('button', { name: 'shop', exact: true }).click()
     await sidebar.getByRole('button', { name: 'items', exact: true }).click()

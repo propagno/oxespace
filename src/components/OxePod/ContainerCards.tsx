@@ -17,16 +17,18 @@ const ENGINE_NAMES: Record<DatabaseKind, string> = { postgres: 'PostgreSQL', mon
  * there and kept in the vault, or comes from the vault when a connection to this container is already saved; it never
  * passes through this page and agents never see it.
  */
-export function DatabaseCard({ container, kind, engine }: { container: ContainerSummary; kind: DatabaseKind; engine?: ContainerEngine }): ReactElement {
+export function DatabaseCard({ container, kind, engine, active }: { container: ContainerSummary; kind: DatabaseKind; engine?: ContainerEngine; active: boolean }): ReactElement {
   const { t } = useTranslation('pods')
   const [saved, setSaved] = useState<OxeQueryConnection | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Looked up again each time OxePod comes to the front: the connection may have been made in OxeQuery meanwhile.
   useEffect(() => {
+    if (!active) return
     let alive = true
     oq('connections.list', {}).then(list => { if (alive) setSaved(list.find(item => item.containerRef === container.name && !item.ephemeral) ?? null) }, () => undefined)
     return () => { alive = false }
-  }, [container.name])
+  }, [container.name, active])
 
   const port = firstHostPort(container.ports)
   const running = container.state === 'running'

@@ -108,7 +108,7 @@ export function registerOxeQueryMock(): void {
       case 'connections.save': {
         const saved: OxeQueryConnection = { id: String(input.id ?? randomUUID()), name: String(input.name), engine: input.engine as 'postgres' | 'mongodb', host: String(input.host), port: Number(input.port),
           database: String(input.database ?? ''), username: String(input.username ?? ''), readOnly: input.readOnly !== false, environment: (input.environment as 'local') ?? 'local',
-          hasPassword: Boolean(input.password), ...extras, group: String(input.group ?? ''), favorite: input.favorite === true, color: (input.color as OxeQueryConnection['color']) ?? '', sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
+          hasPassword: Boolean(input.password), ...extras, ...(input.containerRef ? { containerRef: String(input.containerRef) } : {}), group: String(input.group ?? ''), favorite: input.favorite === true, color: (input.color as OxeQueryConnection['color']) ?? '', sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
           ...((input.ssh as { enabled?: boolean; host?: string; port?: number; user?: string; auth?: 'key' | 'password' } | undefined)?.enabled
             ? { ssh: { host: String((input.ssh as { host?: string }).host), port: Number((input.ssh as { port?: number }).port ?? 22), user: String((input.ssh as { user?: string }).user), auth: (input.ssh as { auth?: 'key' | 'password' }).auth ?? 'key', hasSecret: true } } : {}),
           createdAt: Date.now(), updatedAt: Date.now() }

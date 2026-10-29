@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer } from './helpers/oxepod'
 
 /**
  * Every OxeQuery dialog, menu and popover opens with focus inside it, keeps Tab inside (dialogs),
@@ -51,7 +52,7 @@ test('OxeQuery overlays take focus, trap Tab, close on Escape and return focus',
     await exercise('OxeQuery settings', () => page.getByRole('button', { name: 'OxeQuery settings' }), () => page.getByRole('dialog', { name: 'OxeQuery settings' }))
 
     // SQL workbench.
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     await exercise('Edit connection', () => page.getByRole('button', { name: 'Edit pg-dev' }), () => page.getByRole('dialog', { name: 'Edit connection' }))
     await exercise('Server panel', () => page.getByRole('button', { name: 'Server: databases and roles' }), () => page.getByRole('dialog', { name: /Server of/ }))
