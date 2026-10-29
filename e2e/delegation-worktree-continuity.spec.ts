@@ -75,9 +75,9 @@ test('Code and Thread share delegation creation, exact recovery and session deta
       sourceThreadIds: ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002'], branchIntent: { strategy: 'create', name: 'feature/CARD-143' } } })
     await page.getByRole('dialog', { name: 'Delegated work' }).getByRole('button', { name: 'Close', exact: true }).click()
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
-    // Thread no longer carries a Delegated work shortcut; it offers MCP connections instead.
+    // Thread no longer carries a Delegated work shortcut; it offers MCP servers instead.
     await expect(page.getByRole('button', { name: 'Delegated work', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'More actions' }).click()
-    await expect(page.getByRole('menuitem', { name: 'MCP connections' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'MCP servers' })).toBeVisible()
   } finally { await app.close() }
 })

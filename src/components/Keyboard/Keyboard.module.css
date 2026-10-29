@@ -1,0 +1,31 @@
+.chord { display: inline-flex; align-items: center; gap: var(--space-1); }
+.chords { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.or { font-size: var(--text-xs); color: var(--text-muted); }
+.unset { font-size: var(--text-xs); color: var(--text-muted); font-style: italic; }
+
+/* Shortcut guide */
+.guide { display: grid; gap: var(--space-4); }
+.group { display: grid; gap: var(--space-1); }
+.groupTitle { margin: 0; font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.list { display: grid; margin: 0; padding: 0; list-style: none; }
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 32px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+.row:last-child { border-bottom: 0; }
+
+/* Settings › Keyboard */
+.settingsList { flex: 1; min-width: 0; }
+.settingsRow { align-items: center; }
+.settingsLabel { display: grid; gap: var(--space-1); min-width: 0; }
+.warning { font-size: var(--text-xs); color: var(--intent-warning-fg); }
+.capturing { font-size: var(--text-xs); color: var(--text-secondary); }
+/* Same columns on every row: chord, Change, Reset, Turn off. */
+.actions { display: grid; grid-template-columns: minmax(180px, auto) repeat(3, auto); justify-items: end; align-items: center; gap: var(--space-2); flex-shrink: 0; }

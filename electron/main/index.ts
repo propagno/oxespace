@@ -4,7 +4,7 @@ import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from '
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { RendererRecoveryPolicy } from './renderer-recovery'
-import { initialWindowColors, registerAppearanceIpc } from './ipc/appearance.ipc'
+import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -804,10 +804,10 @@ function createMainWindow(): BrowserWindow {
       // remains compatible with Chromium's renderer sandbox. Native PTY/SQLite
       // stay exclusively in the main process behind validated IPC handlers.
       sandbox: true,
-      // Design Mode (#3) needs a <webview> — an iframe cannot be scripted
-      // cross-origin, so element picking is impossible there. Every attach is
-      // vetted by the will-attach-webview handler below.
-      webviewTag: true
+      // Design Mode (#3) needs a <webview> — an iframe cannot be scripted cross-origin, so element
+      // picking is impossible there. Every attach is vetted by the will-attach-webview handler below.
+      webviewTag: true,
+      zoomFactor: savedUiScale()
     }
   })
 

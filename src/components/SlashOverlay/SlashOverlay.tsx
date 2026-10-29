@@ -28,6 +28,12 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
     setSelectedIndex(0)
   }, [query])
 
+  // Opened from the command palette, the closing palette hands focus back to its opener after autoFocus ran.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => inputRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
   useEffect(() => {
     if (pendingCommand && !pendingCommand.requiresArgument) {
       void runCommand(pendingCommand, '')
@@ -102,6 +108,8 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
         aria-modal="true"
         aria-label={`Commands for ${paneLabel}`}
         onMouseDown={(event) => event.stopPropagation()}
+        // Escape closes the overlay wherever focus is inside it; the input handles its own Escape first.
+        onKeyDown={(event) => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); onClose() } }}
       >
         <header className="slash-overlay-header">
           <div className="slash-overlay-pane-tag">

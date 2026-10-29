@@ -7,6 +7,10 @@ import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, commandStyles } from '../../ui/CommandPalette'
 import { useEditorStore } from '../../store/editor.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { useCommandHistoryStore } from '../../store/command-history.store'
+import { fuzzyScore, rankBy, rankText } from '../../utils/fuzzy'
+import { KEYBINDINGS, chordsFor, type KeybindingId } from '../../keyboard/keybindings'
+import { KeyChord } from '../Keyboard/KeyChord'
 
 interface CommandMenuProps {
   open: boolean
@@ -47,29 +51,15 @@ let requestToken = 0
 const MATCHES_PER_FILE = 4
 const MAX_NAME_MATCHES = 15
 
-/** Multi-word matcher for commands/workspaces/agents: every query token must
- *  appear somewhere in the haystack, so "usage rate" hits "Usage & Rate Limits". */
-function matchesTokens(haystack: string, q: string): boolean {
-  const hay = haystack.toLowerCase()
-  return q.split(/\s+/).every((token) => !token || hay.includes(token))
+const KEYBINDING_IDS = new Set<string>(KEYBINDINGS.map(binding => binding.id))
+/** A command's shortcut: a registry id (with the user's override) or a literal chord. */
+function commandChord(shortcut: string | undefined): string | undefined {
+  if (!shortcut) return undefined
+  return KEYBINDING_IDS.has(shortcut) ? chordsFor(shortcut as KeybindingId)[0] : shortcut
 }
 
-/** Cheap fuzzy score for filename quick-open: basename substring > path
- *  substring > ordered subsequence. Returns 0 for no match. */
-function fuzzyScore(path: string, q: string): number {
-  const hay = path.toLowerCase()
-  const base = hay.slice(hay.lastIndexOf('/') + 1)
-  const inBase = base.indexOf(q)
-  if (inBase >= 0) return 1000 - inBase
-  if (hay.includes(q)) return 500
-  let hi = 0
-  for (const ch of q) {
-    const f = hay.indexOf(ch, hi)
-    if (f < 0) return 0
-    hi = f + 1
-  }
-  return 100
-}
+const actionScore = (action: CommandPaletteAction, q: string): number =>
+  rankText(action.title, `${action.subtitle ?? ''} ${(action.keywords ?? []).join(' ')} ${action.category ?? ''}`, q)
 
 /**
  * cmd-J unified command palette (Wave 1 · #8 Native Search seed). Runs quick
@@ -162,18 +152,22 @@ export function CommandMenu({
     },
     [close]
   )
+  const recentIds = useCommandHistoryStore(state => state.recent)
+  const runCommand = useCallback(
+    (action: CommandPaletteAction) => {
+      useCommandHistoryStore.getState().record(action.id)
+      runAction(action.run)
+    },
+    [runAction]
+  )
 
   const q = query.trim().toLowerCase()
-  const matchedWorkspaces = workspaces.filter(
-    (w) => !q || matchesTokens(`${workspaceLabel(w)} ${w.rootPath}`, q)
-  )
+  // One ranker for every group: best match first, groups ordered by their best match.
+  const matchedWorkspaces = rankBy(workspaces, q, (w) => rankText(workspaceLabel(w), w.rootPath, q))
   const panes = workspace?.panes ?? []
-  const matchedPanes = panes.filter((p) => !q || matchesTokens(paneLabel(p, panes), q))
-  const matchedActions = actions.filter((a) => {
-    if (a.disabled) return false
-    if (!q) return true
-    return matchesTokens(`${a.title} ${a.subtitle ?? ''} ${(a.keywords ?? []).join(' ')}`, q)
-  })
+  const matchedPanes = rankBy(panes, q, (p) => rankText(paneLabel(p, panes), p.agentName ?? '', q))
+  const enabled = actions.filter((a) => !a.disabled)
+  const matchedActions = rankBy(enabled, q, (a) => actionScore(a, q))
   const actionGroups = new Map<string, CommandPaletteAction[]>()
   for (const a of matchedActions) {
     const key = a.category ?? 'General'
@@ -181,6 +175,8 @@ export function CommandMenu({
     arr.push(a)
     actionGroups.set(key, arr)
   }
+  const byId = new Map(enabled.map((a) => [a.id, a]))
+  const recentActions = q ? [] : recentIds.flatMap((id) => byId.get(id) ?? [])
 
   const files = results?.files ?? []
   const nameMatches = q
@@ -207,6 +203,12 @@ export function CommandMenu({
     >
       <CommandInput value={query} onValueChange={setQuery} placeholder="Search files and commands…" />
       <CommandList>
+        {recentActions.length > 0 ? (
+          <CommandGroup heading="Recent">
+            {recentActions.map((a) => <ActionItem key={`recent-${a.id}`} action={a} value={`recent-${a.id}`} onSelect={runCommand} />)}
+          </CommandGroup>
+        ) : null}
+
         {matchedWorkspaces.length > 0 ? (
           <CommandGroup heading="Workspaces">
             {matchedWorkspaces.map((w) => (
@@ -243,18 +245,7 @@ export function CommandMenu({
 
         {[...actionGroups].map(([category, items]) => (
           <CommandGroup key={category} heading={category}>
-            {items.map((a) => {
-              const Icon = a.icon
-              return (
-                <CommandItem key={a.id} value={`cmd-${a.id}`} onSelect={() => runAction(a.run)}>
-                  {Icon ? <Icon /> : null}
-                  <span className={commandStyles.label}>{a.title}</span>
-                  {a.subtitle ? (
-                    <span className={commandStyles.detail}>{a.subtitle}</span>
-                  ) : null}
-                </CommandItem>
-              )
-            })}
+            {items.map((a) => <ActionItem key={a.id} action={a} value={`cmd-${a.id}`} onSelect={runCommand} />)}
           </CommandGroup>
         ))}
 
@@ -319,5 +310,18 @@ export function CommandMenu({
         ) : null}
       </CommandList>
     </CommandDialog>
+  )
+}
+
+function ActionItem({ action, value, onSelect }: { action: CommandPaletteAction; value: string; onSelect: (action: CommandPaletteAction) => void }): ReactElement {
+  const Icon = action.icon
+  const chord = commandChord(action.shortcut)
+  return (
+    <CommandItem value={value} onSelect={() => onSelect(action)}>
+      {Icon ? <Icon /> : null}
+      <span className={commandStyles.label}>{action.title}</span>
+      {action.subtitle ? <span className={commandStyles.detail}>{action.subtitle}</span> : null}
+      {chord ? <span className={commandStyles.trailing}><KeyChord chord={chord} /></span> : null}
+    </CommandItem>
   )
 }

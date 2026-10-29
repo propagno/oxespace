@@ -73,7 +73,6 @@
 }
 
 .diff-comment-input:focus {
-  outline: none;
   border-color: var(--brand, var(--accent));
 }
 
