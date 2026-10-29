@@ -4,6 +4,7 @@ import { Check, Maximize2, Minimize2, Monitor, Moon, Sun } from 'lucide-react'
 import type { UiDensity } from '../../../shared/types/workspace'
 import { UI_SCALE_STEPS, UI_SCALE_DEFAULT } from '../../../shared/uiScale'
 import type { Appearance } from '../../design/mode'
+import type { MotionPreference } from '../../design/motion'
 import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -22,6 +23,16 @@ const DENSITY_OPTIONS: Array<{ value: UiDensity; label: string; icon: ReactEleme
   { value: 'compact', label: 'Compact', icon: <Minimize2 size={14} aria-hidden="true" /> },
   { value: 'comfortable', label: 'Comfortable', icon: <Maximize2 size={14} aria-hidden="true" /> }
 ]
+const MOTION_OPTIONS: Array<{ value: MotionPreference; label: string }> = [
+  { value: 'system', label: 'System' },
+  { value: 'reduce', label: 'Reduced' },
+  { value: 'full', label: 'Full' }
+]
+const MOTION_HINT: Record<MotionPreference, string> = {
+  system: 'Follows your operating system’s reduced-motion setting.',
+  reduce: 'Panels and lists change without animating; busy indicators turn slowly.',
+  full: 'Short transitions on panels, lists and menus, even if the operating system asks for less.'
+}
 
 function Preview({ mode }: { mode: Appearance }): ReactElement {
   const half = (tone: 'light' | 'dark') => <div className={styles.half} data-mode={tone}><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
@@ -40,7 +51,7 @@ function ModeOptions(): ReactElement {
   </div>
 }
 
-/** Interface scale and app-wide density; shown only in the app's Settings, not per workspace. */
+/** Interface scale, app-wide density and motion; shown only in the app's Settings, not per workspace. */
 function ScaleAndDensity(): ReactElement {
   const uiScale = useSettingsStore(state => state.uiScale)
   const setUiScale = useSettingsStore(state => state.setUiScale)
@@ -51,6 +62,8 @@ function ScaleAndDensity(): ReactElement {
   // Workspaces saved before density became app-wide keep the density they had, so they stay overrides until the person says otherwise.
   const ownDensity = useWorkspaceStore(useShallow(state => state.workspaces.filter(workspace => workspace.uiDensity !== 'default').map(workspace => workspace.id)))
   const updateWorkspace = useWorkspaceStore(state => state.updateSettings)
+  const motion = useSettingsStore(state => state.motion)
+  const setMotion = useSettingsStore(state => state.setMotion)
   const scale = UI_SCALE_STEPS.find(step => step === uiScale) ?? UI_SCALE_DEFAULT
   return <>
     <section className={styles.group} aria-labelledby="appearance-scale-title">
@@ -71,12 +84,17 @@ function ScaleAndDensity(): ReactElement {
         <Button variant="ghost" size="sm" onClick={() => setThreadDensity(null)}>Use app density in the Thread list</Button>
       </p>}
     </section>
+    <section className={styles.group} aria-labelledby="appearance-motion-title">
+      <h3 id="appearance-motion-title" className={styles.groupTitle}>Motion</h3>
+      <p className={styles.hint}>{MOTION_HINT[motion]}</p>
+      <SegmentedControl label="Motion" value={motion} options={MOTION_OPTIONS} onChange={setMotion} />
+    </section>
   </>
 }
 
 /**
  * Light, dark or system mode for the whole app. With `global`, also the
- * interface scale and the app-wide density (Settings › Appearance); workspace
+ * interface scale, the app-wide density and motion (Settings › Appearance); workspace
  * settings show the mode only.
  */
 export function AppearanceSettings({ global = false }: { global?: boolean }): ReactElement {

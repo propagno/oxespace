@@ -12,13 +12,15 @@ import { App } from './App'
 import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
+import { applyMotion, resolveMotion, savedMotion } from './design/motion'
 // Layer order and the base reset load before every other stylesheet.
 import './styles/reset.css'
 import './styles.css'
 import '@xyflow/react/dist/style.css'
 
-// Apply the saved light/dark choice before the first paint, so the window never flashes the other mode.
+// Apply the saved light/dark and motion choices before the first paint, so the window never flashes the other mode.
 applyMode(resolveMode(savedAppearance()))
+applyMotion(resolveMotion(savedMotion()))
 // Lets the frameless title bar reserve room for macOS traffic lights.
 document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'darwin' : /Win/i.test(navigator.platform) ? 'win32' : 'linux'
 

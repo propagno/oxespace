@@ -47,8 +47,15 @@
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;
+  --duration-spin: 800ms;
+  --duration-pulse: 1.6s;
+  --duration-shimmer: 1.4s;
+  --duration-blink: 1.1s;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.3, 0, 0, 1.2);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
+  --ease-linear: linear;
   --provider-claude: #c2643f;
   --provider-codex: #10a37f;
   --provider-copilot: #24b2d5;
@@ -237,7 +244,19 @@
   --control-lg: 36px;
 }
 
+:root[data-motion='reduce'] {
+  --duration-fast: 0ms;
+  --duration-base: 0ms;
+  --duration-slow: 0ms;
+  --duration-spin: 2.4s;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  :root { --duration-fast: 0ms; --duration-base: 0ms; --duration-slow: 0ms; }
+  :root:not([data-motion]) {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+    --duration-spin: 2.4s;
+  }
 }
 
