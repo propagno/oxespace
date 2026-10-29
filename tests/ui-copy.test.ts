@@ -33,7 +33,9 @@ const MIGRATED = [
   'src/components/GitHub',
   'src/components/Preview',
   'src/components/Scripts',
+  'src/components/MCP',
   'src/components/Search',
+  'src/components/Skills',
   'src/components/Sidebar',
   'src/components/Terminal',
   'src/components/WebPreview',
@@ -48,7 +50,13 @@ const MIGRATED = [
 /** Text that stays the same in every language: product and tool names, commands and sample values. */
 const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph',
   'GitHub', 'MCP', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
-  'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000'])
+  'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000',
+  'stdio', 'command:', 'args:', 'env:', 'url:', 'headers:', 'filesystem', 'github', 'npx', '-y @modelcontextprotocol/server-filesystem /tmp',
+  'GITHUB_TOKEN=ghp_...\\nDEBUG=1', 'refactor-react', 'refactor'])
+/** Lines in migrated areas that are not interface text, with the reason. */
+const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = [
+  { file: 'src/components/Skills/SkillsBrowser.tsx', includes: "    description: '", why: 'frontmatter of the SDLC skill files written for agents' }
+]
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/
@@ -97,6 +105,7 @@ describe('interface copy', () => {
     for (const path of MIGRATED) expect(existsSync(join(ROOT, path)), path).toBe(true)
     const found: string[] = []
     for (const [file, number, line] of codeLines(MIGRATED)) {
+      if (NOT_INTERFACE.some(item => item.file === file && line.includes(item.includes))) continue
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {
           const text = (match[1] ?? match[2] ?? '').trim()
