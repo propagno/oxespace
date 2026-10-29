@@ -1,0 +1,14 @@
+{
+  "resources": {
+    "label": "Images, volumes and networks", "failed": "The engine's resources could not be read",
+    "tab": {"images_one": "Images ({{count}})", "images_other": "Images ({{count}})", "volumes_one": "Volumes ({{count}})", "volumes_other": "Volumes ({{count}})", "networks_one": "Networks ({{count}})", "networks_other": "Networks ({{count}})"},
+    "usage": "{{type}}: {{size}}", "usageReclaimable": "{{type}}: {{size}} ({{reclaimable}} reclaimable)",
+    "removeTitle": {"image": "Remove image {{name}}?", "volume": "Remove volume {{name}}?", "network": "Remove network {{name}}?"},
+    "removeWarning": {"image": "Containers can no longer be created from it until it is pulled again.", "volume": "The data in this volume is deleted and cannot be recovered.", "network": "Containers attached to this network are not affected, but it is removed."},
+    "inUse": "The engine refuses when it is still in use.",
+    "removeNamed": {"image": "Remove image {{name}}", "volume": "Remove volume {{name}}", "network": "Remove network {{name}}"},
+    "empty": {"images": "No images.", "volumes": "No volumes.", "networks": "No networks."},
+    "column": {"repository": "Repository", "tag": "Tag", "size": "Size", "created": "Created", "name": "Name", "driver": "Driver", "scope": "Scope"}
+  },
+  "newDatabase": {"title": "New database", "description": "Starts a container bound to <code>127.0.0.1</code> with a named volume and a generated password, then connects to it. The first start may need to download the image.", "creating": "Creating…", "create": "Create and connect", "engine": "Engine", "name": "Name", "version": "Version", "versionHint": "An image tag such as {{examples}}.", "port": "Host port", "optional": "(optional)", "portPlaceholder": "first free port", "failed": "The database could not be created"}
+}

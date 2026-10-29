@@ -1,0 +1,20 @@
+{"structure": {
+  "createTable": "Create table", "applyChanges": "Apply changes", "duplicateTable": "Duplicate table", "truncateTable": "Truncate table", "dropTable": "Drop table",
+  "maintenanceDone": "{{statement}} finished in {{duration}}.", "kind": "Kind", "rowsEstimate": "Rows (estimate)", "usedBy": "Used by", "dependents": "Dependents", "privileges": "Privileges", "canGrant": "(can grant)",
+  "comment": "Comment", "commentOptional": "Comment (optional)", "maintenance": "Maintenance",
+  "vacuumTitle": "Reclaim the space of deleted rows", "analyzeTitle": "Refresh the statistics the planner uses", "vacuumAnalyzeTitle": "Reclaim space and refresh the statistics", "reindexTitle": "Locks the table while its indexes are rebuilt",
+  "copy": "Copy", "copyName": "Name of the copy", "copyRows": "Copy the rows too", "reviewCopy": "Review copy", "danger": "Danger zone", "restartIdentity": "Restart identity", "cascade": "Cascade to referencing tables",
+  "reviewTruncate": "Review truncate", "reviewDrop": "Review drop", "loadFailed": "The structure could not be read", "loading": "Loading the structure…", "tableName": "Table name",
+  "columns": "Columns", "constraints": "Constraints", "indexes": "Indexes", "table": "Table", "toFix": "To fix", "review": "Review",
+  "oneTransaction": "Runs in one transaction: if a statement fails, none of them is kept.", "understand": "I understand this cannot be undone", "productionApply": "This is a production connection: apply the change",
+  "failed": "The change could not be made", "createDescription": "Define the columns, keys and indexes, then review the SQL before it runs.", "editDescription": "Edit the columns, keys and indexes. Nothing changes until you apply.",
+  "reviewSql": "Review SQL", "readOnly": "This connection is read-only. You can look at the structure but not change it.",
+  "notNull": "Not null", "identity": "Identity", "newColumn": "new column", "nameOf": "Name of {{name}}", "typeOf": "Type of {{name}}", "notNullOf": "{{name}} is not null", "generatedColumn": "Generated column",
+  "defaultOf": "Default of {{name}}", "identityOf": "Identity of {{name}}", "identityAlways": "always", "identityByDefault": "by default", "keepNamed": "Keep {{name}}", "dropNamed": "Drop {{name}}", "removeNamed": "Remove {{name}}",
+  "addColumn": "Add column", "addConstraintLegend": "Add a constraint", "constraintKind": {"primary": "Primary key", "unique": "Unique", "check": "Check", "foreign": "Foreign key"},
+  "nameOptional": "Name (optional)", "expression": "Expression", "commas": "Separate with commas", "refSchema": "References schema", "refTable": "References table", "refColumns": "References columns",
+  "onDelete": "On delete", "onUpdate": "On update", "addConstraint": "Add constraint", "new": "new", "removeNewConstraint": "Remove new constraint {{number}}", "noConstraints": "No constraints.",
+  "addIndexLegend": "Add an index", "method": "Method", "partial": "Only rows where (optional)", "unique": "Unique", "addIndex": "Add index", "removeNewIndex": "Remove new index {{number}}", "noIndexes": "No indexes besides the keys.",
+  "unnamed": "(unnamed)",
+  "problem": {"tableName": "Give the table a name.", "oneColumn": "A table needs at least one column.", "columnName": "Every column needs a name.", "duplicate": "Two columns are called \"{{name}}\".", "type": "\"{{name}}\" needs a type.", "identityDefault": "\"{{name}}\" cannot have both an identity and a default.", "checkExpression": "A check constraint needs an expression.", "columns": {"primary": "A primary key needs columns.", "unique": "A unique constraint needs columns.", "foreign": "A foreign key needs columns."}, "foreignTarget": "A foreign key needs the table and columns it points to.", "indexName": "Every index needs a name.", "indexColumns": "Index \"{{name}}\" needs columns."}
+}}

@@ -48,5 +48,8 @@ describe('lost connections', () => {
     expect(looksLikeLostConnection('read ECONNRESET')).toBe(true)
     expect(looksLikeLostConnection('MongoNetworkError: connection 3 to host:27017 closed')).toBe(true)
     expect(looksLikeLostConnection('relation "users" does not exist')).toBe(false)
+    // The MongoDB driver's own wording, without the error class in front.
+    expect(looksLikeLostConnection('connection 5 to db.example.com:27017 closed')).toBe(true)
+    expect(looksLikeLostConnection('connection d to S closed')).toBe(false)
   })
 })

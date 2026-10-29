@@ -1,5 +1,6 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
@@ -10,7 +11,7 @@ import type { OxeQueryConnection, SqlFilter, SqlResult, SqlTable, SqlTableDetail
 import { namedToPositional, scanParameters, splitStatements, statementAt } from '../../../shared/sqlText'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ResultGrid, type GridSort } from './ResultGrid'
-import { displayCell, formatRows, type CopyFormat } from './grid-format'
+import { SQL_NULL, displayCell, formatRows, type CopyFormat } from './grid-format'
 import { LibraryMenu } from './LibraryMenu'
 import { ExportButton, TableEditor } from './TableEditor'
 import { SchemaTree } from './SchemaTree'
@@ -25,7 +26,8 @@ import { registerSqlExtras } from './sql-snippets'
 import { CellViewer, FilterBar, ParamsBar, TxBar } from './WorkbenchPanels'
 import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
 import { Select } from '../../ui/Field'
-import { copyText } from '../../ui/clipboard'
+import { EmptyState, ErrorState, LoadingState } from '../../ui/Display'
+import { copyText, formatMs, tq } from './catalog'
 import { Splitter } from '../../ui/Splitter'
 import { EDITOR_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 import { formatNumber } from '../../utils/formatTime'
@@ -40,7 +42,7 @@ const SAVE_DELAY_MS = 700
 interface Pending { text: string; base: number; reasons: string[]; explain?: 'analyze' }
 interface ParamsAsk { text: string; base: number; names: string[]; confirmed: boolean }
 
-function copy(text: string, what = 'Text'): void {
+function copy(text: string, what = tq('workbench.copiedText')): void {
   void copyText(text, what)
 }
 
@@ -48,10 +50,11 @@ function copy(text: string, what = 'Text'): void {
 const EDITOR_CHROME = 90
 
 export function SqlWorkbench({ connection }: { connection: OxeQueryConnection }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const layout = useOxeQueryLayout()
   const main = useRef<HTMLDivElement>(null)
   const mainHeight = useHeight(main)
-  const [tabs, setTabs] = useState<QueryTab[]>(() => [newTab('SELECT now();', 'Query 1')])
+  const [tabs, setTabs] = useState<QueryTab[]>(() => [newTab('SELECT now();', tq('workbench.queryTitle', { number: 1 }))])
   const [activeId, setActiveId] = useState(tabs[0].id)
   const [loaded, setLoaded] = useState(false)
   const [pinned, setPinned] = useState<NonNullable<WorkspaceState['pinned']>>([])
@@ -167,7 +170,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     if (!text.trim()) return
     const spans = splitStatements(text)
     const scan = scanParameters(text)
-    if (scan.kind !== 'none' && spans.length > 1) { patch(tab.id, { outputs: [{ id: 's0', label: 'Parameters', start: base, text, error: { message: 'Parameters work with one statement at a time. Run a single statement, or remove the parameters.' } }], outputIndex: 0, browse: null, details: null, explain: null }); return }
+    if (scan.kind !== 'none' && spans.length > 1) { patch(tab.id, { outputs: [{ id: 's0', label: t('params.title'), start: base, text, error: { message: t('params.oneStatement') } }], outputIndex: 0, browse: null, details: null, explain: null }); return }
     if (scan.kind !== 'none' && scan.names.some(name => values[name] === undefined)) { setParamsAsk({ text, base, names: scan.names, confirmed }); return }
     setRunning(true); setPending(null); setParamsAsk(null); setSelectedRow(null); setCell(null); setNotice('')
     patch(tab.id, { browse: null, details: null, explain: null })
@@ -202,7 +205,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         if (cause instanceof OxeQueryClientError && cause.position) markError(base + cause.position - 1, cause.message)
       }
     } finally { setRunning(false); setLibraryTick(value => value + 1); void refreshTx() }
-  }, [clearMarkers, connection, markError, maxRows, paramValues, patch, refreshTx])
+  }, [clearMarkers, connection, markError, maxRows, paramValues, patch, refreshTx, t])
 
   /** Appends the next rows of a long SELECT; the server keeps its cursor until they run out or another statement runs. */
   const loadMore = useCallback(async (): Promise<void> => {
@@ -235,9 +238,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       pendingExplain.current = null
     } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') { pendingExplain.current = target; setPending({ text: target.text, base: target.base, reasons: cause.reasons, explain: 'analyze' }) }
-      else patch(tab.id, { explain: null, outputs: [{ id: 's0', label: 'Explain', start: target.base, text: target.text, error: { message: errorMessage(cause) } }], outputIndex: 0 })
+      else patch(tab.id, { explain: null, outputs: [{ id: 's0', label: t('workbench.explain'), start: target.base, text: target.text, error: { message: errorMessage(cause) } }], outputIndex: 0 })
     } finally { setRunning(false) }
-  }, [connection.id, currentStatement, patch])
+  }, [connection.id, currentStatement, patch, t])
 
   const runCurrent = useCallback((): void => { const target = currentStatement(); if (target) void run(target.text, target.base) }, [currentStatement, run])
   const runAll = useCallback((): void => { const sql = editor.current?.getValue() ?? activeRef.current.sql; const selection = editor.current?.getSelection(); void run(selection && !selection.isEmpty() ? editor.current?.getModel()?.getValueInRange(selection) ?? sql : sql, 0) }, [run])
@@ -288,7 +291,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const types = useMemo(() => result?.columns.map(column => column.type) ?? [], [result])
   const row = selectedRow !== null && result ? result.rows[selectedRow] : null
   const qualified = active.browse ? `"${active.browse.schema.replace(/"/g, '""')}"."${active.browse.table.replace(/"/g, '""')}"` : undefined
-  const copyAs = (format: CopyFormat): void => { if (result) copy(formatRows(format, columns, result.rows, qualified), 'Results') }
+  const copyAs = (format: CopyFormat): void => { if (result) copy(formatRows(format, columns, result.rows, qualified), t('workbench.copiedResults')) }
   const executedText = active.browse ? null : output?.text ?? null
 
   // The editor is as tall as it was dragged, but never so tall that the results lose their minimum height.
@@ -296,30 +299,30 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const editorHeight = mainHeight ? Math.min(layout.editorHeight, editorMax) : layout.editorHeight
   return <div className="oq-workbench" style={{ '--oq-tree-width': `${layout.treeWidth}px` } as CSSProperties}>
     <SchemaTree connection={connection} pinned={pinned} onPinnedChange={setPinned} onOpen={table => void openTable(table)} onInsert={text => addTab(text)} />
-    <Splitter orientation="vertical" label="Table list width" value={layout.treeWidth} min={TREE_WIDTH.min} max={TREE_WIDTH.max} defaultValue={TREE_WIDTH.default} onChange={treeWidth => layout.set({ treeWidth })} />
+    <Splitter orientation="vertical" label={t('workbench.treeWidth')} value={layout.treeWidth} min={TREE_WIDTH.min} max={TREE_WIDTH.max} defaultValue={TREE_WIDTH.default} onChange={treeWidth => layout.set({ treeWidth })} />
     <div className="oq-workbench-main" ref={main}>
-      <div className="oq-qtabs" role="tablist" aria-label="Queries">
+      <div className="oq-qtabs" role="tablist" aria-label={t('workbench.queries')}>
         {tabs.map(tab => <span key={tab.id} className="oq-qtab" data-active={tab.id === active.id}>
           <button type="button" role="tab" aria-selected={tab.id === active.id} onClick={() => { setActiveId(tab.id); setSelectedRow(null); setCell(null) }}>{tab.title}</button>
-          <button type="button" className="oq-tab-close" aria-label={`Close ${tab.title}`} onClick={() => closeTab(tab.id)}><X size={11} aria-hidden="true" /></button>
+          <button type="button" className="oq-tab-close" aria-label={t('view.closeTab', { name: tab.title })} onClick={() => closeTab(tab.id)}><X size={11} aria-hidden="true" /></button>
         </span>)}
-        <button type="button" className="oq-qtab-add" aria-label="New query" title="New query tab" disabled={tabs.length >= MAX_TABS} onClick={() => addTab('')}><Plus size={13} aria-hidden="true" /></button>
+        <button type="button" className="oq-qtab-add" data-oq-action="newQuery" aria-label={t('workbench.newQuery')} title={t('workbench.newQueryTitle')} disabled={tabs.length >= MAX_TABS} onClick={() => addTab('')}><Plus size={13} aria-hidden="true" /></button>
         <span className="oq-spacer" />
-        <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
-        <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
+        <span className="oq-badge" data-environment={connection.environment}>{t(`environment.short.${connection.environment}`)}</span>
+        <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{connection.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
       </div>
       <div className="oq-editor-toolbar">
-        <div className="oq-tb-group" role="group" aria-label="Run">
-          <Button size="sm" variant="primary" icon={<Play size={13} aria-hidden="true" />} onClick={runCurrent} disabled={running} title="Run the selection, or the statement the cursor is in (Ctrl+Enter)">Run</Button>
-          <Button size="sm" onClick={runAll} disabled={running} title="Run every statement, one after the other (Ctrl+Shift+Enter)">Run all</Button>
-          {running && <Button size="sm" icon={<Square size={13} aria-hidden="true" />} onClick={cancel} title="Cancel the running statement">Cancel</Button>}
+        <div className="oq-tb-group" role="group" aria-label={t('common.run')}>
+          <Button size="sm" variant="primary" icon={<Play size={13} aria-hidden="true" />} onClick={runCurrent} disabled={running} title={t('workbench.runTitle')}>{t('common.run')}</Button>
+          <Button size="sm" data-oq-action="runAll" onClick={runAll} disabled={running} title={t('workbench.runAllTitle')}>{t('workbench.runAll')}</Button>
+          {running && <Button size="sm" icon={<Square size={13} aria-hidden="true" />} onClick={cancel} title={t('workbench.cancelTitle')}>{t('common.cancel')}</Button>}
         </div>
-        <div className="oq-tb-group" role="group" aria-label="Plan and format">
-          <Button size="sm" icon={<Gauge size={13} aria-hidden="true" />} onClick={() => { pendingExplain.current = null; void explain(false) }} disabled={running} title="Show the execution plan without running the statement">Explain</Button>
-          <Button size="sm" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title="Run the statement and show real timings. A statement that changes data is rolled back.">Analyze</Button>
-          <Button size="sm" onClick={format} title="Format the SQL (Shift+Alt+F)">Format</Button>
+        <div className="oq-tb-group" role="group" aria-label={t('workbench.planAndFormat')}>
+          <Button size="sm" icon={<Gauge size={13} aria-hidden="true" />} onClick={() => { pendingExplain.current = null; void explain(false) }} disabled={running} title={t('workbench.explainTitle')}>{t('workbench.explain')}</Button>
+          <Button size="sm" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title={t('workbench.analyzeTitle')}>{t('workbench.analyze')}</Button>
+          <Button size="sm" onClick={format} title={t('workbench.formatTitle')}>{t('workbench.format')}</Button>
         </div>
-        <label className="oq-inline">Limit<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{formatNumber(value)} rows</option>)}</Select></label>
+        <label className="oq-inline">{t('workbench.limit')}<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{t('common.rows', { count: value, formatted: formatNumber(value) })}</option>)}</Select></label>
         <div className="oq-tb-group oq-tb-end">
         {!connection.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
         <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => replaceText(active.id, sql)} />
@@ -330,7 +333,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         }} />
         </div>
       </div>
-      {notice && <p role="alert" className="oq-error oq-notice">{notice}</p>}
+      {notice && <div className="oq-notice"><ErrorState compact title={notice} /></div>}
       {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}
       <div className="oq-editor" style={{ height: editorHeight }} onKeyDownCapture={event => {
         if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); runAllRef.current() }
@@ -344,36 +347,36 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 }, formatOnPaste: false,
           // Space, `(` and `.` end a word in SQL; they must not also accept whatever suggestion is highlighted (Enter and Tab do).
           acceptSuggestionOnCommitCharacter: false }} /></div>
-      <Splitter orientation="horizontal" label="Query editor height" value={editorHeight} min={EDITOR_HEIGHT.min} max={editorMax} defaultValue={EDITOR_HEIGHT.default} onChange={height => layout.set({ editorHeight: height })} />
+      <Splitter orientation="horizontal" label={t('workbench.editorHeight')} value={editorHeight} min={EDITOR_HEIGHT.min} max={editorMax} defaultValue={EDITOR_HEIGHT.default} onChange={height => layout.set({ editorHeight: height })} />
       {paramsAsk && <ParamsBar names={paramsAsk.names} values={paramValues}
         onChange={(name, value) => setParamValues(current => ({ ...current, [name]: value }))}
         onRun={() => { const ask = paramsAsk; setParamsAsk(null); void run(ask.text, ask.base, ask.confirmed) }} onCancel={() => setParamsAsk(null)} />}
-      {pending && <ConfirmDialog danger title={pending.explain ? 'Analyze runs this statement' : 'This statement is destructive'}
-        confirmLabel={pending.explain ? 'Analyze anyway' : 'Run anyway'}
-        description={connection.environment === 'prod' ? 'This is a production connection.' : 'Check these before it runs.'}
+      {pending && <ConfirmDialog danger title={pending.explain ? t('workbench.confirm.analyzeTitle') : t('workbench.confirm.destructiveTitle')}
+        confirmLabel={pending.explain ? t('workbench.confirm.analyzeAnyway') : t('workbench.confirm.runAnyway')} cancelLabel={t('common.cancel')}
+        description={connection.environment === 'prod' ? t('workbench.confirm.production') : t('workbench.confirm.check')}
         onCancel={() => { pendingExplain.current = null; setPending(null) }}
         onConfirm={() => pending.explain ? void explain(true, true) : void run(pending.text, pending.base, true)}>
         <ul>{pending.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
       </ConfirmDialog>}
       <div className="oq-results">
-        {active.outputs.length > 1 && <div className="oq-output-tabs" role="tablist" aria-label="Results">
+        {active.outputs.length > 1 && <div className="oq-output-tabs" role="tablist" aria-label={t('workbench.results')}>
           {active.outputs.map((entry, index) => <button key={entry.id} type="button" role="tab" aria-selected={index === active.outputIndex} data-error={entry.error ? 'true' : undefined}
             title={entry.text} onClick={() => { patch(active.id, { outputIndex: index }); setSelectedRow(null); setCell(null) }}>{index + 1}. {entry.error ? '✕ ' : ''}{entry.label}</button>)}
         </div>}
         <div className="oq-results-bar">
           {active.browse && <span className="oq-results-title"><Table2 size={13} aria-hidden="true" /> {active.browse.schema}.{active.browse.table}</span>}
-          <span className="oq-muted">{running ? 'Running…' : result ? summary(result, active.browse) : error ? 'No result' : 'Results appear here.'}</span>
+          <span className="oq-muted">{running ? t('workbench.running') : result ? summary(result, active.browse) : error ? t('workbench.noResult') : t('workbench.resultsHere')}</span>
           <span className="oq-spacer" />
-          {active.browse && <><button type="button" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: Math.max(0, active.browse!.offset - PAGE) })}>Previous</button>
-            <button type="button" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset + PAGE })}>Next</button></>}
-          {!active.browse && result?.pageId && <button type="button" disabled={running} onClick={() => void loadMore()}>Load {formatNumber(maxRows)} more</button>}
+          {active.browse && <><button type="button" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: Math.max(0, active.browse!.offset - PAGE) })}>{t('common.previous')}</button>
+            <button type="button" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset + PAGE })}>{t('common.next')}</button></>}
+          {!active.browse && result?.pageId && <button type="button" disabled={running} onClick={() => void loadMore()}>{t('workbench.loadMore', { count: maxRows, formatted: formatNumber(maxRows) })}</button>}
           {(active.browse || (result && columns.length > 0 && executedText?.trim())) && <ExportButton connection={connection}
             source={active.browse ? { kind: 'table', schema: active.browse.schema, table: active.browse.table } : { kind: 'sql', sql: executedText ?? '' }}
-            label={active.browse ? 'Export table' : 'Export query'} />}
+            label={active.browse ? t('export.table') : t('export.query')} />}
           {active.browse && <ImportButton connection={connection} target={{ kind: 'table', schema: active.browse.schema, table: active.browse.table }}
             onImported={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' })} />}
-          {result && columns.length > 0 && <Select className="oq-select" aria-label="Copy results as" value="" onChange={event => { if (event.target.value) copyAs(event.target.value as CopyFormat) }}>
-            <option value="">Copy as…</option><option value="csv">CSV</option><option value="tsv">TSV (spreadsheet)</option><option value="json">JSON</option><option value="markdown">Markdown table</option><option value="insert">INSERT statements</option></Select>}
+          {result && columns.length > 0 && <Select className="oq-select" aria-label={t('workbench.copyAs')} value="" onChange={event => { if (event.target.value) copyAs(event.target.value as CopyFormat) }}>
+            <option value="">{t('workbench.copyAsPlaceholder')}</option>{COPY_FORMATS.map(format => <option key={format} value={format}>{t(`workbench.copyFormat.${format}`)}</option>)}</Select>}
         </div>
         {error && <QueryError error={{ message: error.message, sqlState: error.sqlState, hint: error.hint, position: error.position }}>{looksLikeLostConnection(error.message) && <ReconnectBar connection={connection} />}</QueryError>}
         {result?.notices?.map(text => <p key={text} className="oq-muted oq-notice">{text}</p>)}
@@ -392,12 +395,12 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
             : result && columns.length > 0 ? <ResultGrid columns={columns} types={types} rows={result.rows} onCopy={copy} selected={selectedRow} tableName={qualified}
               onSelect={index => setSelectedRow(current => current === index ? null : index)} onOpenCell={setCell}
               {...(active.browse ? { sort: active.browse.sort, onSort: (sort: GridSort | null) => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: active.browse!.kind as SqlTable['kind'] }, { offset: 0, sort }) } : {})} />
-            : result && !error ? <div className="oq-empty"><p>{result.command ?? 'Done'}{result.affectedRows !== undefined ? ` · ${result.affectedRows} row${result.affectedRows === 1 ? '' : 's'} affected` : ''}</p></div>
-              : !error && <div className="oq-empty"><p>Write a query and press <kbd>Ctrl ↵</kbd> to run the statement you are in, <kbd>Ctrl ⇧ ↵</kbd> to run them all, or pick a table on the left.</p></div>}
+            : result && !error ? <div className="oq-placeholder"><EmptyState compact title={commandSummary(result)} /></div>
+              : !error && <div className="oq-placeholder"><EmptyState compact title={<Trans t={t} i18nKey="workbench.emptyHint" components={{ kbd: <kbd /> }} />} /></div>}
           {cell && <CellViewer cell={cell} onCopy={copy} onClose={() => setCell(null)} />}
-          {row && !cell && <aside className="oq-row-detail" aria-label="Row details">
-            <header><strong>Row {selectedRow! + 1}</strong><button type="button" aria-label="Close row details" onClick={() => setSelectedRow(null)}><X size={13} aria-hidden="true" /></button></header>
-            <dl>{columns.map((name, index) => <div key={`${name}:${index}`}><dt>{name}<small>{types[index]}</small></dt><dd className={row[index] === null ? 'is-null' : undefined} onDoubleClick={() => copy(displayCell(row[index]))} title="Double-click to copy">{displayCell(row[index])}</dd></div>)}</dl>
+          {row && !cell && <aside className="oq-row-detail" aria-label={t('workbench.rowDetails')}>
+            <header><strong>{t('workbench.row', { number: selectedRow! + 1 })}</strong><button type="button" aria-label={t('workbench.closeRowDetails')} onClick={() => setSelectedRow(null)}><X size={13} aria-hidden="true" /></button></header>
+            <dl>{columns.map((name, index) => <div key={`${name}:${index}`}><dt>{name}<small>{types[index]}</small></dt><dd className={row[index] === null ? 'is-null' : undefined} onDoubleClick={() => copy(displayCell(row[index]))} title={t('workbench.doubleClickCopy')}>{displayCell(row[index])}</dd></div>)}</dl>
           </aside>}
         </div>
       </div>
@@ -405,16 +408,29 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   </div>
 }
 
+const COPY_FORMATS: CopyFormat[] = ['csv', 'tsv', 'json', 'markdown', 'insert']
+
+/** What a statement without rows did: its command tag and the rows it touched. */
+function commandSummary(result: SqlResult): string {
+  const command = result.command ?? tq('workbench.done')
+  return result.affectedRows === undefined ? command : `${command} · ${tq('workbench.affected', { count: result.affectedRows, formatted: formatNumber(result.affectedRows) })}`
+}
+
 function summary(result: SqlResult, browse: Browse | null): string {
-  if (browse) return `rows ${browse.offset + 1}–${browse.offset + result.rowCount}${result.totalRows !== undefined ? ` of ${formatNumber(result.totalRows)} matching` : ''} · ${result.durationMs} ms`
-  if (result.columns.length === 0) return `${result.command ?? 'Done'}${result.affectedRows !== undefined ? ` · ${result.affectedRows} rows affected` : ''} · ${result.durationMs} ms`
-  const rows = `${formatNumber(result.rowCount)} row${result.rowCount === 1 ? '' : 's'}`
-  const more = !result.truncated ? '' : result.limitedBy === 'bytes' ? ' (cut: the result is too large to show — narrow the query or export it)'
-    : result.pageId ? ' · more available' : result.rowCount >= MAX_GRID_ROWS ? ' (the grid holds 1,000,000 rows — export the query for the rest)' : ' (limited — more exist)'
-  return `${rows}${more} · ${result.durationMs} ms`
+  const took = formatMs(result.durationMs)
+  if (browse) {
+    const range = tq('workbench.range', { from: formatNumber(browse.offset + 1), to: formatNumber(browse.offset + result.rowCount) })
+    return `${result.totalRows !== undefined ? tq('workbench.rangeOf', { range, total: formatNumber(result.totalRows) }) : range} · ${took}`
+  }
+  if (result.columns.length === 0) return `${commandSummary(result)} · ${took}`
+  const rows = tq('common.rows', { count: result.rowCount, formatted: formatNumber(result.rowCount) })
+  const more = !result.truncated ? '' : result.limitedBy === 'bytes' ? ` ${tq('workbench.cutBytes')}`
+    : result.pageId ? ` · ${tq('workbench.moreAvailable')}` : result.rowCount >= MAX_GRID_ROWS ? ` ${tq('workbench.gridFull', { max: formatNumber(MAX_GRID_ROWS) })}` : ` ${tq('workbench.limited')}`
+  return `${rows}${more} · ${took}`
 }
 
 function DefinitionPanel({ connection, schema, name, kind, onOpen }: { connection: OxeQueryConnection; schema: string; name: string; kind?: string; onOpen: (sql: string) => void }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [open, setOpen] = useState(false)
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -427,26 +443,27 @@ function DefinitionPanel({ connection, schema, name, kind, onOpen }: { connectio
     oq('sql.definition', { connectionId: connection.id, kind: objectKind, schema, name }).then(value => { if (alive) setText(value.text) }, cause => { if (alive) setError(errorMessage(cause)) })
     return () => { alive = false }
   }, [open, text, connection.id, schema, name, kind])
-  return <section className="oq-columns" aria-label="Definition">
+  return <section className="oq-columns" aria-label={t('definition.label')}>
     <button type="button" className="oq-disclosure" aria-expanded={open} onClick={() => setOpen(value => !value)}>
-      {open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}Definition (DDL)</button>
+      {open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}{t('definition.title')}</button>
     {open && <div className="oq-columns-grid">
-      {error ? <p role="alert" className="oq-error">{error}</p> : text === null ? <p className="oq-muted" aria-busy="true">Reading the catalog…</p>
+      {error ? <ErrorState compact title={t('definition.failed')} message={error} /> : text === null ? <LoadingState label={t('definition.loading')} />
         : <><pre className="oq-sql-preview">{text}</pre>
-          <div className="oq-staged-actions"><button type="button" onClick={() => copy(text)}>Copy</button><button type="button" onClick={() => onOpen(text)}>Open in a new tab</button></div></>}
+          <div className="oq-staged-actions"><button type="button" onClick={() => copy(text, t('definition.copied'))}>{t('common.copy')}</button><button type="button" onClick={() => onOpen(text)}>{t('definition.openInTab')}</button></div></>}
     </div>}
   </section>
 }
 
 function ColumnsPanel({ details }: { details: SqlTableDetails }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [open, setOpen] = useState(false)
-  return <section className="oq-columns" aria-label="Table structure">
+  return <section className="oq-columns" aria-label={t('columns.label')}>
     <button type="button" className="oq-disclosure" aria-expanded={open} onClick={() => setOpen(value => !value)}>
-      {open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}Structure · {details.columns.length} columns · {details.indexes.length} indexes</button>
+      {open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}{t('columns.title', { columns: t('columns.columns', { count: details.columns.length }), indexes: t('columns.indexes', { count: details.indexes.length }) })}</button>
     {open && <div className="oq-columns-grid">
-      <table><thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th></tr></thead>
-        <tbody>{details.columns.map(column => <tr key={column.name}><td>{column.primaryKey ? '🔑 ' : ''}{column.name}</td><td>{column.type}</td><td>{column.nullable ? 'yes' : 'no'}</td><td>{column.default ?? ''}</td></tr>)}</tbody></table>
-      {details.indexes.length > 0 && <ul>{details.indexes.map(index => <li key={index.name} title={index.definition}>{index.name}{index.primary ? ' · primary' : index.unique ? ' · unique' : ''}</li>)}</ul>}
+      <table><thead><tr><th>{t('columns.column')}</th><th>{t('columns.type')}</th><th>{SQL_NULL}</th><th>{t('columns.default')}</th></tr></thead>
+        <tbody>{details.columns.map(column => <tr key={column.name}><td>{column.primaryKey ? '🔑 ' : ''}{column.name}</td><td>{column.type}</td><td>{column.nullable ? t('common.yes') : t('common.no')}</td><td>{column.default ?? ''}</td></tr>)}</tbody></table>
+      {details.indexes.length > 0 && <ul>{details.indexes.map(index => <li key={index.name} title={index.definition}>{index.name}{index.primary ? ` · ${t('columns.primary')}` : index.unique ? ` · ${t('columns.unique')}` : ''}</li>)}</ul>}
     </div>}
   </section>
 }

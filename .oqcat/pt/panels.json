@@ -1,0 +1,7 @@
+{
+  "params": {"label": "Parâmetros da consulta", "title": "Parâmetros", "value": "valor", "useNull": "Usar NULL em {{name}}", "hint": "Os valores são texto; o servidor os converte para o tipo que a instrução espera."},
+  "tx": {"begin": "Iniciar transação", "beginTitle": "Agrupa as próximas instruções numa transação que você mesmo confirma ou desfaz", "failed": "Transação falhou", "open": "Transação aberta", "statements_one": "{{count}} instrução", "statements_other": "{{count}} instruções", "commit": "Confirmar", "commitTitle": "Torna as alterações permanentes", "commitBlocked": "Uma instrução falhou; só é possível desfazer", "rollback": "Desfazer", "rollbackTitle": "Descarta as alterações"},
+  "filter": {"label": "Filtrar linhas", "column": "Coluna", "condition": "Condição", "value": "Valor", "remove": "Remover condição", "add": "Filtrar", "op": {"eq": "igual a", "ne": "diferente de", "contains": "contém", "startsWith": "começa com", "endsWith": "termina com", "null": "está vazio", "notNull": "não está vazio", "in": "é um de"}},
+  "cell": {"label": "Célula", "row": "linha {{number}}", "close": "Fechar visualizador de célula"},
+  "workbench": {"queryTitle": "Consulta {{number}}", "statementTitle": "Instrução {{number}}"}
+}

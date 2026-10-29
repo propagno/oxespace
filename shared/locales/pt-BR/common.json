@@ -69,5 +69,39 @@
     "usage": "Uso e limites",
     "linear": "Issues do Linear",
     "about": "OXESpace v{{version}}"
+  },
+  "oxequeryCommands": {
+    "open": {
+      "label": "Abrir o OxeQuery",
+      "detail": "Contêineres e bancos de dados"
+    },
+    "newConnection": {
+      "label": "Nova conexão de banco de dados"
+    },
+    "newQuery": {
+      "label": "Nova aba de consulta"
+    },
+    "runAll": {
+      "label": "Executar todas as instruções"
+    },
+    "searchObjects": {
+      "label": "Buscar objetos do banco"
+    },
+    "newTable": {
+      "label": "Nova tabela"
+    },
+    "settings": {
+      "label": "Configurações do OxeQuery"
+    },
+    "importConnections": {
+      "label": "Importar conexões"
+    },
+    "exportConnections": {
+      "label": "Exportar conexões",
+      "detail": "Sem senhas"
+    },
+    "compose": {
+      "label": "Projetos Compose"
+    }
   }
 }

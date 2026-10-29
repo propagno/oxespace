@@ -1,0 +1,7 @@
+{
+  "params": {"label": "Query parameters", "title": "Parameters", "value": "value", "useNull": "Use NULL for {{name}}", "hint": "Values are text; the server converts them to the type the statement expects."},
+  "tx": {"begin": "Begin transaction", "beginTitle": "Group the statements that follow into one transaction you commit or roll back yourself", "failed": "Transaction failed", "open": "Transaction open", "statements_one": "{{count}} statement", "statements_other": "{{count}} statements", "commit": "Commit", "commitTitle": "Make the changes permanent", "commitBlocked": "A statement failed; only Roll back is possible", "rollback": "Roll back", "rollbackTitle": "Discard the changes"},
+  "filter": {"label": "Filter rows", "column": "Column", "condition": "Condition", "value": "Value", "remove": "Remove condition", "add": "Filter", "op": {"eq": "equals", "ne": "is not", "contains": "contains", "startsWith": "starts with", "endsWith": "ends with", "null": "is empty", "notNull": "is not empty", "in": "is one of"}},
+  "cell": {"label": "Cell", "row": "row {{number}}", "close": "Close cell viewer"},
+  "workbench": {"queryTitle": "Query {{number}}", "statementTitle": "Statement {{number}}"}
+}

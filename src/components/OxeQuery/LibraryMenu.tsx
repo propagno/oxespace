@@ -1,4 +1,8 @@
 import { useEffect, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
+import { EmptyState, ErrorState } from '../../ui/Display'
+import { formatMs } from './catalog'
+import { formatNumber } from '../../utils/formatTime'
 import { BookMarked, History, Trash2 } from 'lucide-react'
 import type { OxeQueryConnection, QueryHistoryItem, SavedQuery } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
@@ -18,6 +22,7 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
   /** What a list shows for an entry; defaults to the text on one line. */
   describe?: (sql: string) => string
 }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<'saved' | 'history'>('saved')
   const [saved, setSaved] = useState<SavedQuery[]>([])
@@ -39,7 +44,7 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
       const created = await oq('library.save', { connectionId: connection.id, name, sql: currentSql })
       setSaved(current => [...current.filter(item => item.id !== created.id), created].sort((a, b) => a.name.localeCompare(b.name)))
       setName(''); setError('')
-      toast({ title: 'Query saved', description: created.name, intent: 'success', duration: 2500 })
+      toast({ title: t('library.saved'), description: created.name, intent: 'success', duration: 2500 })
     } catch (cause) { setError(errorMessage(cause)) }
   }
   const remove = async (id: string): Promise<void> => {
@@ -50,35 +55,35 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
     try { await oq('library.clearHistory', { connectionId: connection.id }); setHistory([]) } catch (cause) { setError(errorMessage(cause)) }
   }
 
-  return <Popover open={open} onOpenChange={setOpen} align="end" label="Saved queries and history"
-    trigger={<Button size="sm" aria-haspopup="dialog" icon={<BookMarked size={13} aria-hidden="true" />}>Library</Button>}>
+  return <Popover open={open} onOpenChange={setOpen} align="end" label={t('library.label')}
+    trigger={<Button size="sm" aria-haspopup="dialog" icon={<BookMarked size={13} aria-hidden="true" />}>{t('library.title')}</Button>}>
     <div className="oq-library oq-scope">
       <div role="tablist" className="oq-segment">
-        <button type="button" role="tab" aria-selected={tab === 'saved'} data-selected={tab === 'saved'} onClick={() => setTab('saved')}><BookMarked size={12} aria-hidden="true" />Saved ({saved.length})</button>
-        <button type="button" role="tab" aria-selected={tab === 'history'} data-selected={tab === 'history'} onClick={() => setTab('history')}><History size={12} aria-hidden="true" />History ({history.length})</button>
+        <button type="button" role="tab" aria-selected={tab === 'saved'} data-selected={tab === 'saved'} onClick={() => setTab('saved')}><BookMarked size={12} aria-hidden="true" />{t('library.savedTab', { count: saved.length })}</button>
+        <button type="button" role="tab" aria-selected={tab === 'history'} data-selected={tab === 'history'} onClick={() => setTab('history')}><History size={12} aria-hidden="true" />{t('library.historyTab', { count: history.length })}</button>
       </div>
-      {error && <p role="alert" className="oq-error">{error}</p>}
+      {error && <ErrorState compact title={t('library.failed')} message={error} />}
       {tab === 'saved' && <>
         <form className="oq-library-save" onSubmit={event => { event.preventDefault(); void save() }}>
-          <input aria-label="Name for the current query" placeholder="Save as… (Folder/Name)" value={name} maxLength={120} onChange={event => setName(event.target.value)} />
-          <Button size="sm" variant="primary" disabled={!name.trim() || !currentSql.trim()} onClick={() => void save()}>Save</Button>
+          <input aria-label={t('library.nameLabel')} placeholder={t('library.namePlaceholder')} value={name} maxLength={120} onChange={event => setName(event.target.value)} />
+          <Button size="sm" variant="primary" disabled={!name.trim() || !currentSql.trim()} onClick={() => void save()}>{t('common.save')}</Button>
         </form>
         <ul>{groupSaved(saved).flatMap(group => [
           ...(group.folder ? [<li key={`folder:${group.folder}`} className="oq-library-folder" role="presentation"><strong>{group.folder}</strong></li>] : []),
           ...group.items.map(({ query: item, label }) => <li key={item.id}>
             <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}><strong>{label}</strong><code>{describe(item.sql).slice(0, 80)}</code></button>
-            <IconButton size="sm" label={`Delete ${item.name}`} icon={<Trash2 size={12} aria-hidden="true" />} onClick={() => void remove(item.id)} />
+            <IconButton size="sm" label={t('connections.deleteNamed', { name: item.name })} icon={<Trash2 size={12} aria-hidden="true" />} onClick={() => void remove(item.id)} />
           </li>)
         ])}</ul>
-        {saved.length === 0 && <p className="oq-muted">Nothing saved yet.</p>}
+        {saved.length === 0 && <EmptyState compact title={t('library.noneSaved')} />}
       </>}
       {tab === 'history' && <>
         <ul>{history.map(item => <li key={item.id}>
           <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}>
             <code>{describe(item.sql).slice(0, 90)}</code>
-            <small>{item.ok ? `${item.rows ?? '–'} rows · ${item.durationMs ?? '–'} ms` : 'failed'} · {formatDateTime(item.ranAt)}</small>
+            <small>{item.ok ? [item.rows === null || item.rows === undefined ? t('activity.rowsUnknown') : t('common.rows', { count: item.rows, formatted: formatNumber(item.rows) }), item.durationMs === null || item.durationMs === undefined ? '' : formatMs(item.durationMs)].filter(Boolean).join(' · ') : t('common.failed')} · {formatDateTime(item.ranAt)}</small>
           </button></li>)}</ul>
-        {history.length === 0 ? <p className="oq-muted">Statements you run appear here.</p> : <Button size="sm" onClick={() => void clear()}>Clear history</Button>}
+        {history.length === 0 ? <EmptyState compact title={t('library.noHistory')} /> : <Button size="sm" onClick={() => void clear()}>{t('library.clearHistory')}</Button>}
       </>}
     </div>
   </Popover>

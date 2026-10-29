@@ -1,0 +1,10 @@
+{"tree": {
+  "label": "Schema", "objects": "Schema objects", "search": "Search objects", "searchPlaceholder": "Search all schemas", "refresh": "Refresh schema", "server": "Server: databases and roles", "serverTitle": "Databases and roles",
+  "failed": "The schema could not be read", "truncated_one": "Showing the first {{count}}. Type more to narrow it down.", "truncated_other": "Showing the first {{count}}. Type more to narrow it down.",
+  "kind": {"sequence": "sequence", "trigger": "trigger"}, "lastValue": "last {{value}}", "refreshed": "Refreshed {{name}}",
+  "query": "Query", "queryFor": "Write a query for {{name}}", "queryTitle": "Open a new query for this table", "structure": "Structure", "structureOf": "Structure of {{name}}", "structureTitle": "View or change columns, keys and indexes",
+  "refreshNamed": "Refresh {{name}}", "refreshView": "Refresh the materialized view", "pinNamed": "Pin {{name}}", "unpinNamed": "Unpin {{name}}", "pin": "Pin to the top", "unpin": "Unpin",
+  "browse": "Browse {{name}}", "newTable": "New table", "newTableIn": "New table in {{schema}}", "newTableTitle": "Create a table",
+  "category": {"tables": "Tables", "views": "Views", "matviews": "Materialized views", "foreign": "Foreign tables", "functions": "Functions", "sequences": "Sequences", "types": "Types", "triggers": "Triggers"},
+  "triggerOn": "{{name}} on {{table}}", "pinned": "Pinned", "nothingLoaded": "Nothing loaded.", "partial_one": "Showing {{shown}} of {{count}} relation. Search to reach the rest.", "partial_other": "Showing {{shown}} of {{count}} relations. Search to reach the rest.", "extensions": "Extensions"
+}}

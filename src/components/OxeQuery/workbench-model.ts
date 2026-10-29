@@ -1,6 +1,7 @@
 import type { ScriptStatementResult, SqlExplain, SqlFilter, SqlResult, SqlTableDetails, WorkspaceState } from '../../../shared/types/oxequery'
 import { scanParameters } from '../../../shared/sqlText'
 import type { GridSort } from './ResultGrid'
+import { tq } from './catalog'
 
 export const MAX_TABS = 12
 
@@ -32,7 +33,7 @@ export interface QueryTab {
 }
 
 let counter = 0
-export const newTab = (sql = '', title?: string): QueryTab => ({ id: `q${++counter}`, title: title ?? `Query ${counter}`, sql, outputs: [], outputIndex: 0, browse: null, details: null, explain: null })
+export const newTab = (sql = '', title?: string): QueryTab => ({ id: `q${++counter}`, title: title ?? tq('workbench.queryTitle', { number: counter }), sql, outputs: [], outputIndex: 0, browse: null, details: null, explain: null })
 
 export function serializeWorkspace(tabs: QueryTab[], activeId: string, pinned: NonNullable<WorkspaceState['pinned']> = []): WorkspaceState {
   return { v: 1, activeId, tabs: tabs.map(tab => ({ id: tab.id, title: tab.title, sql: tab.sql, ...(tab.pinned ? { pinned: true } : {}) })), ...(pinned.length ? { pinned } : {}) }
@@ -51,7 +52,7 @@ export function restoreWorkspace(state: WorkspaceState): { tabs: QueryTab[]; act
 /** The outputs of a script run, as tabs; a script that stopped on an error ends with that error. */
 export function outputsFromScript(statements: ScriptStatementResult[], baseOffset: number, source: string): Output[] {
   return statements.map(entry => ({
-    id: `s${entry.index}`, label: entry.sql.replace(/\s+/g, ' ').slice(0, 40) || `Statement ${entry.index + 1}`, start: baseOffset + entry.start, text: source.slice(entry.start, entry.end),
+    id: `s${entry.index}`, label: entry.sql.replace(/\s+/g, ' ').slice(0, 40) || tq('workbench.statementTitle', { number: entry.index + 1 }), start: baseOffset + entry.start, text: source.slice(entry.start, entry.end),
     ...(entry.result ? { result: entry.result } : {}),
     ...(entry.error ? { error: { message: entry.error.message, ...(entry.error.position ? { position: entry.error.position } : {}), ...(entry.error.sqlState ? { sqlState: entry.error.sqlState } : {}), ...(entry.error.hint ? { hint: entry.error.hint } : {}) } } : {})
   }))
@@ -73,11 +74,14 @@ export function completeFilters(filters: SqlFilter[]): SqlFilter[] {
   return filters.filter(filter => filter.column && (filter.op === 'null' || filter.op === 'notNull' || (filter.value ?? '') !== ''))
 }
 
-export const FILTER_LABELS: Record<SqlFilter['op'], string> = {
-  eq: 'equals', ne: 'is not', lt: '<', lte: '≤', gt: '>', gte: '≥', contains: 'contains', startsWith: 'starts with', endsWith: 'ends with', null: 'is empty', notNull: 'is not empty', in: 'is one of'
-}
+/** The conditions of the filter bar, in the order offered. */
+export const FILTER_OPS: SqlFilter['op'][] = ['eq', 'ne', 'lt', 'lte', 'gt', 'gte', 'contains', 'startsWith', 'endsWith', 'null', 'notNull', 'in']
+const SYMBOLS: Partial<Record<SqlFilter['op'], string>> = { lt: '<', lte: '≤', gt: '>', gte: '≥' }
+
+/** What a condition is called in the filter bar; comparisons keep their symbol in every language. */
+export const filterLabel = (op: SqlFilter['op']): string => SYMBOLS[op] ?? tq(`filter.op.${op as 'eq'}`)
 
 /** True for the errors a dropped connection produces: the next statement can dial again, and a person may want to do it now. */
 export function looksLikeLostConnection(message: string): boolean {
-  return /connection terminated|connection closed|client has encountered a connection error|econnreset|econnrefused|epipe|etimedout|socket (hang up|closed)|server closed the connection|topology (was )?destroyed|pool (was )?cleared|tunnel|connection d+ to S+ closed|MongoNetworkError/i.test(message)
+  return /connection terminated|connection closed|client has encountered a connection error|econnreset|econnrefused|epipe|etimedout|socket (hang up|closed)|server closed the connection|topology (was )?destroyed|pool (was )?cleared|tunnel|connection \d+ to \S+ closed|MongoNetworkError/i.test(message)
 }

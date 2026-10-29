@@ -1,0 +1,10 @@
+{"tree": {
+  "label": "Schema", "objects": "Objetos do schema", "search": "Buscar objetos", "searchPlaceholder": "Buscar em todos os schemas", "refresh": "Atualizar schema", "server": "Servidor: bancos e papéis", "serverTitle": "Bancos de dados e papéis",
+  "failed": "Não foi possível ler o schema", "truncated_one": "Mostrando o primeiro. Digite mais para restringir.", "truncated_other": "Mostrando os primeiros {{count}}. Digite mais para restringir.",
+  "kind": {"sequence": "sequência", "trigger": "gatilho"}, "lastValue": "último {{value}}", "refreshed": "{{name}} atualizada",
+  "query": "Consultar", "queryFor": "Escrever uma consulta para {{name}}", "queryTitle": "Abrir uma nova consulta para esta tabela", "structure": "Estrutura", "structureOf": "Estrutura de {{name}}", "structureTitle": "Ver ou alterar colunas, chaves e índices",
+  "refreshNamed": "Atualizar {{name}}", "refreshView": "Atualizar a view materializada", "pinNamed": "Fixar {{name}}", "unpinNamed": "Desafixar {{name}}", "pin": "Fixar no topo", "unpin": "Desafixar",
+  "browse": "Navegar em {{name}}", "newTable": "Nova tabela", "newTableIn": "Nova tabela em {{schema}}", "newTableTitle": "Criar uma tabela",
+  "category": {"tables": "Tabelas", "views": "Views", "matviews": "Views materializadas", "foreign": "Tabelas externas", "functions": "Funções", "sequences": "Sequências", "types": "Tipos", "triggers": "Gatilhos"},
+  "triggerOn": "{{name}} em {{table}}", "pinned": "Fixadas", "nothingLoaded": "Nada carregado.", "partial_one": "Mostrando {{shown}} de {{count}} relação. Busque para chegar ao resto.", "partial_other": "Mostrando {{shown}} de {{count}} relações. Busque para chegar ao resto.", "extensions": "Extensões"
+}}

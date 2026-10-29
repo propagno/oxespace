@@ -1,0 +1,29 @@
+{
+  "copy": {"done": "Copiado: {{what}}", "failed": "Não foi possível copiar: {{what}}", "unavailable": "A área de transferência não está disponível."},
+  "queryError": {
+    "title": "A consulta falhou", "copy": "Copiar erro", "copied": "mensagem de erro", "technical": "Detalhe técnico", "position": "posição {{position}}", "hint": "Dica: {{hint}}",
+    "unknown": {"headline": "Não foi possível executar a instrução", "recovery": "Leia o detalhe técnico abaixo ou peça ao agente que o explique."},
+    "sqlState": {
+      "42601": {"headline": "A instrução tem um erro de sintaxe", "recovery": "Confira a grafia perto da posição indicada em Detalhe técnico ou peça ao agente que a corrija."},
+      "42P01": {"headline": "Uma tabela ou view da instrução não existe", "recovery": "Confira o nome e o schema na árvore à esquerda."},
+      "42703": {"headline": "Uma coluna da instrução não existe", "recovery": "Abra a tabela na árvore para ver as colunas."},
+      "42883": {"headline": "A função ou o operador não existe para esses tipos", "recovery": "Converta os valores para os tipos que a função espera."},
+      "42501": {"headline": "Este usuário não tem permissão para isso", "recovery": "Use um papel com os privilégios certos ou peça a quem administra o servidor."},
+      "23505": {"headline": "Já existe uma linha com o mesmo valor único", "recovery": "Altere o valor ou atualize a linha existente."},
+      "23503": {"headline": "A linha faz referência a outra linha, ou é referenciada por ela", "recovery": "Adicione ou remova a linha relacionada primeiro."},
+      "23502": {"headline": "Uma coluna obrigatória está sem valor", "recovery": "Informe um valor para a coluna."},
+      "22P02": {"headline": "Um valor não é válido para o seu tipo", "recovery": "Confira o formato do valor, por exemplo um número ou uma data."},
+      "57014": {"headline": "A instrução foi cancelada ou demorou demais", "recovery": "Restrinja-a com uma cláusula WHERE ou um limite menor, ou aumente o tempo limite de instrução da conexão."},
+      "40001": {"headline": "O banco de dados não conseguiu concluir a transação", "recovery": "Execute de novo."},
+      "40P01": {"headline": "Duas transações ficaram esperando uma pela outra", "recovery": "Execute de novo."},
+      "53300": {"headline": "O servidor não tem conexões livres", "recovery": "Feche outras sessões ou aguarde um momento."}
+    },
+    "code": {
+      "timeout": {"headline": "A instrução demorou demais", "recovery": "Restrinja-a ou aumente o tempo limite de instrução da conexão."},
+      "cancelled": {"headline": "A instrução foi cancelada", "recovery": "Execute de novo quando estiver pronto."},
+      "read-only": {"headline": "Esta conexão é somente leitura", "recovery": "Desative o modo somente leitura nas configurações da conexão para alterar dados."},
+      "connect": {"headline": "A conexão com o banco de dados falhou", "recovery": "Confira se o servidor está rodando e se o host, a porta e as credenciais estão corretos."},
+      "tunnel": {"headline": "Não foi possível abrir o túnel SSH", "recovery": "Confira o host, o usuário e a chave SSH nas configurações da conexão."}
+    }
+  }
+}

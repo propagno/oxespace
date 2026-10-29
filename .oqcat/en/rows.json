@@ -1,0 +1,27 @@
+{
+  "rows": {
+    "change": {"insert": "Insert a row ({{columns}})", "defaults": "defaults", "delete": "Delete row where {{key}}", "update": "Update {{columns}} where {{key}}"},
+    "readOnly": "This connection is read-only. Turn that off in the connection settings to edit.", "notEditable": "This table cannot be edited.", "nothingChanged": "Nothing changed in this row.",
+    "applied_one": "{{count}} change applied", "applied_other": "{{count}} changes applied", "checking": "Checking whether this table can be edited…",
+    "edit": "Edit rows", "editTitle": "Stage changes to rows, review the SQL, then apply them in one transaction", "editing": "Editing", "add": "Add row", "selectHint": "Select a row to change or delete it.",
+    "pending_one": "{{count}} pending change", "pending_other": "{{count}} pending changes", "newRow": "New row", "editRow": "Edit row", "closeEditor": "Close editor",
+    "key": "key", "generated": "generated", "default": "default", "setNull": "Set to NULL", "stageInsert": "Stage insert", "stageUpdate": "Stage update", "stageDelete": "Stage delete",
+    "pendingLabel": "Pending changes", "discardOne": "Discard change {{number}}", "sqlPreview": "SQL that will run", "applyFailed": "The changes could not be applied", "conflict": "Reload the table to see the current values.",
+    "confirmTitle": "Confirm these changes", "confirmApply": "Apply changes", "confirmDescription": "Check these before the changes are applied.", "viewSql": "View SQL", "discardAll": "Discard all",
+    "applyCount_one": "Apply {{count}}", "applyCount_other": "Apply {{count}}"
+  },
+  "export": {"label": "Export", "format": "Export format", "cancelled": "Export cancelled. No file was kept.", "chosenFile": "the chosen file", "saved_one": "{{formatted}} row saved to {{file}}.", "saved_other": "{{formatted}} rows saved to {{file}}.", "running_one": "Exporting… {{formatted}} row", "running_other": "Exporting… {{formatted}} rows", "collection": "Export collection"},
+  "import": {
+    "finished": "Import finished", "finishedText_one": "{{formatted}} row imported, {{rejected}} rejected.", "finishedText_other": "{{formatted}} rows imported, {{rejected}} rejected.", "failed": "The import failed",
+    "title": "Import into {{destination}}", "dryRun": "Dry run", "howRead": "How the file is read", "delimiter": "Delimiter", "detect": "Detect", "detected": "Detect ({{value}})", "tab": "tab",
+    "comma": "Comma ,", "semicolon": "Semicolon ;", "tabName": "Tab", "pipe": "Pipe |", "encoding": "Encoding", "windows1252": "Windows-1252 (Excel, Western Europe)", "header": "First row is a header",
+    "fileField": "File field", "sample": "Sample", "goesTo": "Goes to", "columnFor": "Column for {{field}}", "fieldFor": "Field name for {{field}}", "skip": "— skip —",
+    "conflictLegend": "If a row with the same key already exists", "then": "Then", "whenKeyExists": "When a key exists", "conflict": {"error": "Stop the import (nothing is kept)", "skip": "Skip that row", "update": "Update that row"},
+    "keyColumns": "Key columns", "matchOn": "Rows match on the columns that make up a unique key:", "matchOnOptional": "Rows match on (optional) the columns that make up a unique key:",
+    "emptyAsNull": "Empty values become NULL (when the column allows it)", "csvAsText": "CSV values are imported as text.",
+    "checking_one": "Checking… {{formatted}} row", "checking_other": "Checking… {{formatted}} rows", "importing_one": "Importing… {{formatted}} row", "importing_other": "Importing… {{formatted}} rows",
+    "cancelled": "Cancelled. Nothing was imported.", "dryRunResult_one": "Dry run: {{formatted}} row would be imported, {{rejected}} rejected. Nothing was written.", "dryRunResult_other": "Dry run: {{formatted}} rows would be imported, {{rejected}} rejected. Nothing was written.",
+    "imported_one": "Imported {{formatted}} row", "imported_other": "Imported {{formatted}} rows", "updated": "updated {{formatted}}", "skipped": "skipped {{formatted}} that already existed", "rejected": "{{formatted}} rejected.",
+    "rejectRow": "Row {{number}}: {{reason}}", "rejectsSaved": "Rejected rows saved to {{file}}.", "confirmTitle": "Confirm this import", "confirmAnyway": "Import anyway", "confirmDescription": "Check these before anything is written."
+  }
+}

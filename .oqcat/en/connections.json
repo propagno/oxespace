@@ -1,0 +1,17 @@
+{
+  "common": {"close": "Close", "cancel": "Cancel", "save": "Save", "delete": "Delete", "edit": "Edit", "refresh": "Refresh", "copy": "Copy", "run": "Run", "clear": "Clear", "tryAgain": "Try again", "noMatch": "Nothing matches “{{text}}”.", "remove": "Remove", "apply": "Apply", "previous": "Previous", "next": "Next", "import": "Import", "back": "Back", "confirm": "Confirm", "continue": "Continue", "create": "Create", "rename": "Rename", "loading": "Loading…", "none": "none", "yes": "yes", "no": "no", "readOnly": "read-only", "readWrite": "read-write", "rows_one": "{{formatted}} row", "rows_other": "{{formatted}} rows", "failed": "failed"},
+  "environment": {"local": "Local", "dev": "Development", "prod": "Production", "short": {"local": "local", "dev": "dev", "prod": "prod"}},
+  "connections": {
+    "title": "Connections", "new": "New connection", "add": "Add connection", "notSaved": "not saved",
+    "favorite": "Favorite {{name}}", "unfavorite": "Unfavorite {{name}}", "addFavorite": "Add to favorites", "removeFavorite": "Remove from favorites",
+    "editNamed": "Edit {{name}}", "duplicate": "Duplicate", "duplicateNamed": "Duplicate {{name}}", "closeNamed": "Close {{name}}", "deleteNamed": "Delete {{name}}",
+    "import": "Import connections", "importTitle": "Import connections from a file", "export": "Export connections", "exportTitle": "Export connections to a file (no passwords)",
+    "imported_one": "{{count}} connection imported", "imported_other": "{{count}} connections imported",
+    "importSkipped_one": "{{count}} skipped: a tunnel with a key or password cannot be imported.", "importSkipped_other": "{{count}} skipped: a tunnel with a key or password cannot be imported.",
+    "exported_one": "{{count}} connection exported", "exported_other": "{{count}} connections exported", "exportNoSecrets": "Passwords and keys are not included.",
+    "search": "Search connections", "loadFailed": "The saved connections could not be read",
+    "deleteTitle": "Delete “{{name}}”?", "deleteDescription": "Its saved password, keys and certificates are removed too. The database itself is not touched.",
+    "emptyTitle": "No connections yet", "emptyText": "Press Query on a database container, or add one by hand.",
+    "section": {"matches_one": "Matches ({{count}})", "matches_other": "Matches ({{count}})", "favorites": "Favorites", "recent": "Recent", "unsaved": "Not saved", "other": "Other"}
+  }
+}

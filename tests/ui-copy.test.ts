@@ -25,6 +25,7 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
  */
 const MIGRATED = [
   'src/components/Navigation',
+  'src/components/OxeQuery',
   'src/components/Settings/AppearanceSettings.tsx'
 ]
 /** Text that stays the same in every language: product names. */
@@ -35,7 +36,8 @@ const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar
 const LITERAL = /'([^'\n]{4,})'|"([^"\n]{4,})"|`([^`\n]{4,})`|>([^<>{}\n]{4,})</g
 /** Interface text written in code: JSX text, naming attributes and the label-like fields of objects. */
 const UI_LITERAL = [
-  />([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
+  // JSX text; an arrow's `>` (`=> Promise<T>`) starts a type, not text.
+  /(?<!=)>([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
   /\s(?:aria-label|title|placeholder|alt|label|hint|description)=(?:"([^"]*[A-Za-z][^"]*)"|\{['`]([^'`]*[A-Za-z][^'`]*)['`]\})/g,
   /\b(?:label|title|hint|description|placeholder|message|detail|ariaLabel)\s*:\s*['"`]([^'"`]*[A-Za-z][^'"`]*)['"`]/g
 ]

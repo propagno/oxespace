@@ -66,5 +66,39 @@
     "usage": "Usage & limits",
     "linear": "Linear issues",
     "about": "OXESpace v{{version}}"
+  },
+  "oxequeryCommands": {
+    "open": {
+      "label": "Open OxeQuery",
+      "detail": "Containers and databases"
+    },
+    "newConnection": {
+      "label": "New database connection"
+    },
+    "newQuery": {
+      "label": "New query tab"
+    },
+    "runAll": {
+      "label": "Run all statements"
+    },
+    "searchObjects": {
+      "label": "Search database objects"
+    },
+    "newTable": {
+      "label": "New table"
+    },
+    "settings": {
+      "label": "OxeQuery settings"
+    },
+    "importConnections": {
+      "label": "Import connections"
+    },
+    "exportConnections": {
+      "label": "Export connections",
+      "detail": "Without passwords"
+    },
+    "compose": {
+      "label": "Compose projects"
+    }
   }
 }

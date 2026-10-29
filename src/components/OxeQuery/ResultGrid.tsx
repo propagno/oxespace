@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
-import { displayCell as plainCell, formatRows, normalizeRange, sliceRange, sortedOrder, type CellRange, type CopyFormat } from './grid-format'
+import { useTranslation } from 'react-i18next'
+import { SQL_NULL, displayCell as plainCell, formatRows, normalizeRange, sliceRange, sortedOrder, type CellRange, type CopyFormat } from './grid-format'
 
 // The formatters live in grid-format.ts; these stay importable from here.
 export { displayCell, toCsv, toJsonRows, sortedOrder } from './grid-format'
@@ -13,8 +14,8 @@ interface Position { row: number; column: number }
 
 /** A real NULL and the text "NULL" must not look alike. */
 function shown(value: unknown): string {
-  if (value === null || value === undefined) return 'NULL'
-  return value === 'NULL' ? '"NULL"' : plainCell(value)
+  if (value === null || value === undefined) return SQL_NULL
+  return value === SQL_NULL ? `"${SQL_NULL}"` : plainCell(value)
 }
 
 export interface GridSort { column: number; direction: 'asc' | 'desc' }
@@ -30,7 +31,7 @@ export interface GridSort { column: number; direction: 'asc' | 'desc' }
  * Sorting: with `onSort` the server orders the rows (the grid shows the order it was given);
  * without it the loaded rows are sorted in place.
  */
-export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, onOpenCell, onSort, sort: controlledSort, tableName, label = 'Result' }: {
+export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, onOpenCell, onSort, sort: controlledSort, tableName, label: labelProp }: {
   columns: string[]; types?: string[]; rows: unknown[][]; onCopy?: (text: string, format?: CopyFormat) => void
   /** Called with the original row index when a row is opened (click on its number, or Enter). */
   onSelect?: (index: number) => void
@@ -43,6 +44,8 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   tableName?: string
   label?: string
 }): ReactElement {
+  const { t } = useTranslation('oxequery')
+  const label = labelProp ?? t('grid.label')
   const scroller = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(360)
@@ -163,15 +166,15 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
     <div className="oq-grid-inner" style={{ width: total, height: (rows.length + 1) * ROW_HEIGHT }}>
       <div className="oq-grid-header" role="row" style={{ width: total }}>
         <span className="oq-grid-index" role="columnheader">
-          {hidden.size > 0 ? <button type="button" className="oq-grid-unhide" title={`${hidden.size} hidden — show all`} aria-label={`Show ${hidden.size} hidden columns`} onClick={() => setHidden(new Set())}>+{hidden.size}</button> : '#'}
+          {hidden.size > 0 ? <button type="button" className="oq-grid-unhide" title={t('grid.hiddenTitle', { count: hidden.size })} aria-label={t('grid.showHidden', { count: hidden.size })} onClick={() => setHidden(new Set())}>+{hidden.size}</button> : '#'}
         </span>
         {visible.map(index => <span key={`${columns[index]}:${index}`} role="columnheader" style={{ width: widthOf(index) }}
-          title={types?.[index] ? `${columns[index]} · ${types[index]} — click to sort` : `${columns[index]} — click to sort`}
+          title={t('grid.sortTitle', { column: types?.[index] ? `${columns[index]} · ${types[index]}` : columns[index] })}
           aria-sort={sort?.column === index ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort(index)}>
           {columns[index]}{types?.[index] && <small>{types[index]}</small>}{sort?.column === index && <b aria-hidden="true">{sort.direction === 'asc' ? ' ▲' : ' ▼'}</b>}
-          {visible.length > 1 && <button type="button" className="oq-grid-hide" aria-label={`Hide column ${columns[index]}`} title="Hide column"
+          {visible.length > 1 && <button type="button" className="oq-grid-hide" aria-label={t('grid.hideNamed', { name: columns[index] })} title={t('grid.hide')}
             onClick={event => { event.stopPropagation(); setHidden(current => new Set([...current, index])) }}>×</button>}
-          <i className="oq-grid-resize" role="separator" aria-orientation="vertical" aria-label={`Resize column ${columns[index]}`}
+          <i className="oq-grid-resize" role="separator" aria-orientation="vertical" aria-label={t('grid.resize', { name: columns[index] })}
             onMouseDown={event => beginResize(index, event)} onClick={event => event.stopPropagation()}
             onDoubleClick={event => { event.stopPropagation(); setOverrides(current => { const next = { ...current }; delete next[index]; return next }) }} />
         </span>)}
@@ -180,13 +183,13 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
         const index = order ? order[position] : position
         const row = rows[index]
         return <div key={position} className={`oq-grid-row${selected === index ? ' is-selected' : ''}${activeRow === position ? ' is-active' : ''}`} role="row" aria-rowindex={position + 2} style={{ top: (position + 1) * ROW_HEIGHT, width: total }}>
-          <span className="oq-grid-index" role="rowheader" title="Open this row" onClick={() => onSelect?.(index)}>{index + 1}</span>
+          <span className="oq-grid-index" role="rowheader" title={t('grid.openRow')} onClick={() => onSelect?.(index)}>{index + 1}</span>
           {visible.map((column, columnPosition) => {
             const value = row[column]
             const active = focus?.row === position && focus.column === columnPosition
             const classes = [value === null || value === undefined ? 'is-null' : typeof value === 'number' ? 'is-number' : '', inRange(position, columnPosition) ? 'is-range' : '', active ? 'is-focus' : ''].filter(Boolean).join(' ')
             return <span key={`${columns[column]}:${column}`} id={`${label}-cell-${position}-${columnPosition}`} role="gridcell" aria-selected={inRange(position, columnPosition)}
-              className={classes || undefined} style={{ width: widthOf(column) }} title={value === null || value === undefined ? 'NULL (no value)' : plainCell(value).slice(0, 500)}
+              className={classes || undefined} style={{ width: widthOf(column) }} title={value === null || value === undefined ? t('grid.nullTitle') : plainCell(value).slice(0, 500)}
               onMouseDown={event => startDrag({ row: position, column: columnPosition }, event)}
               onMouseEnter={() => { if (dragging.current) setFocus({ row: position, column: columnPosition }) }}
               onDoubleClick={() => onOpenCell ? onOpenCell({ column: columns[column], ...(types?.[column] ? { type: types[column] } : {}), value, row: index }) : onCopy?.(plainCell(value))}>{shown(value)}</span>

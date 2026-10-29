@@ -1,0 +1,1 @@
+{"reconnect": {"label": "Conexão perdida", "text": "A conexão com <strong>{{name}}</strong> caiu. A próxima instrução reconecta sozinha; você também pode reconectar agora ou fechar esta aba.", "busy": "Reconectando…", "reconnect": "Reconectar", "closeTab": "Fechar aba", "connected": "Conectado.", "connectedTo": "Conectado a {{version}}."}}

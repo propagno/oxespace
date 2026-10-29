@@ -1,0 +1,24 @@
+{
+  "params": {"oneStatement": "Parameters work with one statement at a time. Run a single statement, or remove the parameters."},
+  "workbench": {
+    "copiedText": "text", "copiedResults": "results", "explain": "Explain", "analyze": "Analyze", "format": "Format",
+    "treeWidth": "Table list width", "queries": "Queries", "newQuery": "New query", "newQueryTitle": "New query tab",
+    "readOnlyTitle": "The server refuses statements that change data", "readWriteTitle": "This connection can change data",
+    "runTitle": "Run the selection, or the statement the cursor is in (Ctrl+Enter)", "runAll": "Run all", "runAllTitle": "Run every statement, one after the other (Ctrl+Shift+Enter)",
+    "cancelTitle": "Cancel the running statement", "planAndFormat": "Plan and format",
+    "explainTitle": "Show the execution plan without running the statement", "analyzeTitle": "Run the statement and show real timings. A statement that changes data is rolled back.", "formatTitle": "Format the SQL (Shift+Alt+F)",
+    "limit": "Limit", "editorHeight": "Query editor height",
+    "confirm": {"analyzeTitle": "Analyze runs this statement", "destructiveTitle": "This statement is destructive", "analyzeAnyway": "Analyze anyway", "runAnyway": "Run anyway", "production": "This is a production connection.", "check": "Check these before it runs."},
+    "results": "Results", "running": "Running…", "noResult": "No result", "resultsHere": "Results appear here.",
+    "loadMore_one": "Load {{formatted}} more", "loadMore_other": "Load {{formatted}} more",
+    "copyAs": "Copy results as", "copyAsPlaceholder": "Copy as…", "copyFormat": {"csv": "CSV", "tsv": "TSV (spreadsheet)", "json": "JSON", "markdown": "Markdown table", "insert": "INSERT statements"},
+    "emptyHint": "Write a query and press <kbd>Ctrl ↵</kbd> to run the statement you are in, <kbd>Ctrl ⇧ ↵</kbd> to run them all, or pick a table on the left.",
+    "rowDetails": "Row details", "row": "Row {{number}}", "closeRowDetails": "Close row details", "doubleClickCopy": "Double-click to copy",
+    "done": "Done", "affected_one": "{{formatted}} row affected", "affected_other": "{{formatted}} rows affected",
+    "range": "rows {{from}}–{{to}}", "rangeOf": "{{range}} of {{total}} matching",
+    "cutBytes": "(cut: the result is too large to show — narrow the query or export it)", "moreAvailable": "more available", "gridFull": "(the grid holds {{max}} rows — export the query for the rest)", "limited": "(limited — more exist)"
+  },
+  "definition": {"label": "Definition", "title": "Definition (DDL)", "failed": "The definition could not be read", "loading": "Reading the catalog…", "copied": "definition", "openInTab": "Open in a new tab"},
+  "columns": {"label": "Table structure", "title": "Structure · {{columns}} · {{indexes}}", "columns_one": "{{count}} column", "columns_other": "{{count}} columns", "indexes_one": "{{count}} index", "indexes_other": "{{count}} indexes", "column": "Column", "type": "Type", "default": "Default", "primary": "primary", "unique": "unique"},
+  "export": {"table": "Export table", "query": "Export query"}
+}

@@ -1,7 +1,9 @@
 /**
  * What the command palette can ask OxeQuery to do. OxeQuery is lazy: nothing of it is loaded until its view is first opened,
  * so the palette goes through this small module, which App imports, instead of reaching into the view.
- * App switches to the OxeQuery view; the action then finds the control a person would have clicked and uses it.
+ * App switches to the OxeQuery view; the action then runs through the store, or uses the control a person would have
+ * used in the panel on screen. When the panel on screen has no such control (no connection open, a read-only one),
+ * a toast says what is needed instead of the palette doing nothing.
  */
 export type OxeQueryAction =
   | 'open' | 'newConnection' | 'newQuery' | 'runAll' | 'searchObjects' | 'newTable' | 'settings'
@@ -20,28 +22,46 @@ export function requestOxeQueryAction(action: OxeQueryAction): void {
   listeners.forEach(listener => listener(action))
 }
 
-const buttonByText = (text: string): HTMLElement | null => [...document.querySelectorAll<HTMLElement>('.oq-view button')].find(element => element.textContent?.trim().startsWith(text) && !(element as HTMLButtonElement).disabled) ?? null
+/** Actions that act on a control of the panel on screen, found by its `data-oq-action` hook (never by its text, which is translated). */
+type ControlAction = 'newQuery' | 'runAll' | 'searchObjects' | 'newTable'
+const CONTROL_ACTIONS = new Set<OxeQueryAction>(['newQuery', 'runAll', 'searchObjects', 'newTable'])
+const WAIT_MS = 2000
 
-const FINDERS: Record<Exclude<OxeQueryAction, 'open'>, () => HTMLElement | null> = {
-  newConnection: () => document.querySelector<HTMLElement>('[aria-label="New connection"]') ?? buttonByText('New connection'),
-  newQuery: () => document.querySelector<HTMLElement>('[aria-label="New query"]'),
-  runAll: () => buttonByText('Run all'),
-  searchObjects: () => document.querySelector<HTMLElement>('input[aria-label="Search objects"]') ?? document.querySelector<HTMLElement>('input[aria-label="Filter collections"]'),
-  newTable: () => buttonByText('New table'),
-  settings: () => document.querySelector<HTMLElement>('[aria-label="OxeQuery settings"]'),
-  importConnections: () => document.querySelector<HTMLElement>('[aria-label="Import connections"]'),
-  exportConnections: () => document.querySelector<HTMLElement>('[aria-label="Export connections"]'),
-  compose: () => [...document.querySelectorAll<HTMLElement>('.oq-view [role="tab"]')].find(element => element.textContent?.trim() === 'Containers') ?? null
+/** The control in the visible panel; hidden tabs keep their own copies in the page and must not be clicked. */
+export function findControl(action: ControlAction, root: ParentNode = document): HTMLElement | null {
+  return [...root.querySelectorAll<HTMLElement>(`.oq-panel:not([hidden]) [data-oq-action="${action}"]`)]
+    .find(element => !(element as HTMLButtonElement).disabled) ?? null
 }
 
-/** Waits (up to two seconds) for the control to exist, because the view may have only just mounted. */
+async function viaStore(action: Exclude<OxeQueryAction, ControlAction | 'open'>): Promise<void> {
+  const { useOxeQueryStore } = await import('./oxequery.store')
+  const store = useOxeQueryStore.getState()
+  if (action === 'newConnection') { store.openDialog(null); return }
+  if (action === 'settings') { store.setPreferencesOpen(true); return }
+  // Compose projects are chosen on the Containers tab (moving to OxePod as it is).
+  if (action === 'compose') { store.setActiveTab('containers'); return }
+  const [{ importConnections, exportConnections }, { tq }, { toast }, { errorMessage }] = await Promise.all([import('./connection-transfer'), import('./catalog'), import('../../ui/Toast'), import('./client')])
+  try { await (action === 'importConnections' ? importConnections() : exportConnections()) }
+  catch (cause) { toast({ title: tq(action === 'importConnections' ? 'palette.importFailed' : 'palette.exportFailed'), description: errorMessage(cause), intent: 'danger' }) }
+}
+
+async function explain(action: ControlAction): Promise<void> {
+  const [{ loadOxeQueryCatalog, tq }, { toast }] = await Promise.all([import('./catalog'), import('../../ui/Toast')])
+  await loadOxeQueryCatalog()
+  toast({ title: tq(`palette.unavailable.${action}`), intent: 'info' })
+}
+
 export function performOxeQueryAction(action: OxeQueryAction): void {
   if (action === 'open') return
+  if (!CONTROL_ACTIONS.has(action)) { void viaStore(action as Exclude<OxeQueryAction, ControlAction | 'open'>); return }
+  const control = action as ControlAction
   const started = Date.now()
-  const attempt = (): void => {
-    const target = FINDERS[action]()
+  const attempt = async (): Promise<void> => {
+    const target = findControl(control)
     if (target) { if (target instanceof HTMLInputElement) target.focus(); else target.click(); return }
-    if (Date.now() - started < 2000) window.setTimeout(attempt, 100)
+    // The view may have only just mounted; past the wait, the panel on screen simply has no such control.
+    if (Date.now() - started < WAIT_MS) window.setTimeout(() => void attempt(), 100)
+    else void explain(control)
   }
-  attempt()
+  void attempt()
 }

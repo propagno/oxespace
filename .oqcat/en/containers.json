@@ -1,0 +1,42 @@
+{
+  "containers": {
+    "filter": "Filter containers", "onlyRunning": "Running only", "composeProject": "Compose project", "allProjects": "All projects", "engine": "Container engine",
+    "engineVersion": "Container engine {{version}}", "engineName": "Engine: {{engine}}", "engineWithContext": "Engine: {{engine}} ({{where}})",
+    "newDatabase": "New database", "newDatabaseTitle": "Start a PostgreSQL or MongoDB container and connect to it", "summary": "Summary",
+    "runningCount_one": "<strong>{{value}}</strong> running", "runningCount_other": "<strong>{{value}}</strong> running",
+    "stoppedCount_one": "<strong>{{value}}</strong> stopped", "stoppedCount_other": "<strong>{{value}}</strong> stopped",
+    "databaseCount_one": "<strong>{{value}}</strong> database", "databaseCount_other": "<strong>{{value}}</strong> databases",
+    "updating": "Updating…",
+    "queryHint": "To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.",
+    "remoteContext": "Docker context <strong>{{where}}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer.",
+    "stopTitle": "Stop {{name}}?", "restartTitle": "Restart {{name}}?", "stop": "Stop", "restart": "Restart", "start": "Start", "query": "Query",
+    "databaseWarning": "This is a database container; open connections and running queries are interrupted.", "managedVolume": "It was created by OxeQuery; its data is kept in a named volume.",
+    "noMatch": "No container matches the filter.", "emptyTitle": "No containers yet.", "emptyText": "Start a PostgreSQL or MongoDB container here, or run one with Docker or Podman and it shows up by itself.",
+    "list": "Container list",
+    "column": {"name": "Name", "image": "Image", "state": "State", "usage": "CPU / memory", "ports": "Ports", "actions": "Actions"},
+    "state": {"running": "running", "exited": "exited", "created": "created", "paused": "paused", "restarting": "restarting", "dead": "dead", "removing": "removing"},
+    "restartNamed": "Restart {{name}}", "stopNamed": "Stop {{name}}", "startNamed": "Start {{name}}", "connectNamed": "Connect to {{name}}",
+    "restartTitleShort": "Restart this container", "stopTitleShort": "Stop this container", "startTitleShort": "Start this container", "connectTitle": "Create a connection to this database and open it"
+  },
+  "compose": {
+    "label": "Compose project actions", "running_one": "{{running}} of {{count}} running", "running_other": "{{running}} of {{count}} running",
+    "up": "Up", "start": "Start", "stop": "Stop", "restart": "Restart", "logs": "Logs", "down": "Down", "downAsk": "Down…", "done": "Done.",
+    "title": {"up": "Create and start the project's containers (docker compose up -d)", "start": "Start the project's existing containers", "stop": "Stop the project's containers", "restart": "Restart the project's containers", "logs": "Show the last 200 lines of the project's logs", "down": "Remove the project's containers and networks"},
+    "downTitle": "Take {{project}} down?", "downConfirm": "Take down", "downDescription": "Its containers and networks are removed. Named volumes are kept.", "closeOutput": "Close output"
+  },
+  "details": {
+    "label": "{{name}} details", "close": "Close details", "sections": "Container sections",
+    "tab": {"overview": "Overview", "logs": "Logs", "run": "Run command", "shell": "Shell"},
+    "inspectFailed": "Could not read the container", "loading": "Loading container details…",
+    "image": "Image", "command": "Command", "health": "Health", "restartPolicy": "Restart", "started": "Started", "ports": "Ports", "networks": "Networks", "environment": "Environment", "namesOnly": "(names only)", "mounts": "Mounts"
+  },
+  "logs": {"filter": "Filter logs", "filterPlaceholder": "Filter", "pause": "Pause", "resume": "Resume", "pauseTitle": "Freeze the view; new lines are kept and shown on Resume", "failed": "The log stream stopped", "label": "Container logs", "waiting": "Waiting for output…"},
+  "run": {"explain": "Runs once inside <strong>{{name}}</strong> without a shell, so pipes and quotes are not interpreted. Use the Shell tab for interactive work.", "command": "Command", "startFirst": "Start the container to run commands.", "failed": "The command could not run", "timedOut": "Timed out after 30 s", "exitCode": "Exit code {{code}}", "truncated": "output truncated", "output": "Command output"},
+  "shell": {"startFirst": "Start the container to open a shell.", "failed": "Could not open a shell", "opening": "Opening shell…", "paneName": "{{name}} shell", "shell": "Shell", "newSession": "New session"},
+  "engine": {
+    "missingTitle": "No container engine found", "deniedTitle": "Not allowed to use Docker", "stoppedTitle": "{{engine}} is not running", "unavailableTitle": "Containers unavailable",
+    "deniedFix": "Add your user to the <code>docker</code> group, then sign in again.", "startLinux": "Start it with <code>sudo systemctl start docker</code>.", "startDesktop": "Open Docker Desktop and wait until it says it is running.", "startPodman": "Start the machine with <code>podman machine start</code>.", "checksAgain": "This page checks again by itself.",
+    "install": "Install Docker Desktop, Docker Engine or Podman. OxeQuery uses their command-line tool, so anything that works in your terminal works here.",
+    "checkAgain": "Check again", "checking": "Checking…"
+  }
+}

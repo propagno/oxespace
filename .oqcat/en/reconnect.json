@@ -1,0 +1,1 @@
+{"reconnect": {"label": "Connection lost", "text": "The connection to <strong>{{name}}</strong> was lost. The next statement dials again by itself; you can also do it now, or close this tab.", "busy": "Reconnecting…", "reconnect": "Reconnect", "closeTab": "Close tab", "connected": "Connected.", "connectedTo": "Connected to {{version}}."}}

@@ -1,0 +1,20 @@
+{"structure": {
+  "createTable": "Criar tabela", "applyChanges": "Aplicar alterações", "duplicateTable": "Duplicar tabela", "truncateTable": "Esvaziar tabela", "dropTable": "Excluir tabela",
+  "maintenanceDone": "{{statement}} terminou em {{duration}}.", "kind": "Tipo", "rowsEstimate": "Linhas (estimativa)", "usedBy": "Usada por", "dependents": "Dependentes", "privileges": "Privilégios", "canGrant": "(pode conceder)",
+  "comment": "Comentário", "commentOptional": "Comentário (opcional)", "maintenance": "Manutenção",
+  "vacuumTitle": "Recupera o espaço das linhas excluídas", "analyzeTitle": "Atualiza as estatísticas que o planejador usa", "vacuumAnalyzeTitle": "Recupera espaço e atualiza as estatísticas", "reindexTitle": "Bloqueia a tabela enquanto os índices são reconstruídos",
+  "copy": "Cópia", "copyName": "Nome da cópia", "copyRows": "Copiar as linhas também", "reviewCopy": "Revisar cópia", "danger": "Zona de perigo", "restartIdentity": "Reiniciar identidade", "cascade": "Propagar às tabelas que a referenciam",
+  "reviewTruncate": "Revisar esvaziamento", "reviewDrop": "Revisar exclusão", "loadFailed": "Não foi possível ler a estrutura", "loading": "Carregando a estrutura…", "tableName": "Nome da tabela",
+  "columns": "Colunas", "constraints": "Restrições", "indexes": "Índices", "table": "Tabela", "toFix": "A corrigir", "review": "Revisão",
+  "oneTransaction": "Executa numa transação: se uma instrução falhar, nenhuma é mantida.", "understand": "Entendo que isto não pode ser desfeito", "productionApply": "Esta é uma conexão de produção: aplicar a alteração",
+  "failed": "Não foi possível fazer a alteração", "createDescription": "Defina as colunas, chaves e índices e revise o SQL antes de executar.", "editDescription": "Edite as colunas, chaves e índices. Nada muda até você aplicar.",
+  "reviewSql": "Revisar SQL", "readOnly": "Esta conexão é somente leitura. Você pode ver a estrutura, mas não alterá-la.",
+  "notNull": "Não nulo", "identity": "Identidade", "newColumn": "nova coluna", "nameOf": "Nome de {{name}}", "typeOf": "Tipo de {{name}}", "notNullOf": "{{name}} não é nulo", "generatedColumn": "Coluna gerada",
+  "defaultOf": "Padrão de {{name}}", "identityOf": "Identidade de {{name}}", "identityAlways": "sempre", "identityByDefault": "por padrão", "keepNamed": "Manter {{name}}", "dropNamed": "Excluir {{name}}", "removeNamed": "Remover {{name}}",
+  "addColumn": "Adicionar coluna", "addConstraintLegend": "Adicionar uma restrição", "constraintKind": {"primary": "Chave primária", "unique": "Única", "check": "Verificação", "foreign": "Chave estrangeira"},
+  "nameOptional": "Nome (opcional)", "expression": "Expressão", "commas": "Separe com vírgulas", "refSchema": "Schema referenciado", "refTable": "Tabela referenciada", "refColumns": "Colunas referenciadas",
+  "onDelete": "Ao excluir", "onUpdate": "Ao atualizar", "addConstraint": "Adicionar restrição", "new": "nova", "removeNewConstraint": "Remover a nova restrição {{number}}", "noConstraints": "Nenhuma restrição.",
+  "addIndexLegend": "Adicionar um índice", "method": "Método", "partial": "Só as linhas onde (opcional)", "unique": "Único", "addIndex": "Adicionar índice", "removeNewIndex": "Remover o novo índice {{number}}", "noIndexes": "Nenhum índice além das chaves.",
+  "unnamed": "(sem nome)",
+  "problem": {"tableName": "Dê um nome à tabela.", "oneColumn": "Uma tabela precisa de pelo menos uma coluna.", "columnName": "Toda coluna precisa de um nome.", "duplicate": "Há duas colunas chamadas \"{{name}}\".", "type": "\"{{name}}\" precisa de um tipo.", "identityDefault": "\"{{name}}\" não pode ter identidade e valor padrão ao mesmo tempo.", "checkExpression": "Uma restrição de verificação precisa de uma expressão.", "columns": {"primary": "Uma chave primária precisa de colunas.", "unique": "Uma restrição única precisa de colunas.", "foreign": "Uma chave estrangeira precisa de colunas."}, "foreignTarget": "Uma chave estrangeira precisa da tabela e das colunas para onde aponta.", "indexName": "Todo índice precisa de um nome.", "indexColumns": "O índice \"{{name}}\" precisa de colunas."}
+}}
