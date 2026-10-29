@@ -225,8 +225,8 @@ export function resolvePaneIdentity(input: {
   }
 
   if (shellName) return { label: shellName, key: 'shell' }
-  if (pane.shellProfileId) return { label: 'Shell', key: 'shell' }
-  return { label: 'Local', key: 'shell' }
+  if (pane.shellProfileId) return { label: tc('newWorkspace.shell'), key: 'shell' }
+  return { label: tc('pane.local'), key: 'shell' }
 }
 
 function titleCase(value: string): string {

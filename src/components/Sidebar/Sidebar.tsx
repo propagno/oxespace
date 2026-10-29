@@ -221,7 +221,7 @@ export function Sidebar({
         onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
         onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
         onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />
-      <div className="nav-panel" title={`OXESpace v${appVersion}`}>
+      <div className="nav-panel" title={t('sidebar.version', { version: appVersion })}>
       <div className="nav-panel-title"><strong>{t('sidebar.workspaces')}</strong><SidebarActions actions={railPrimary} /></div>
       <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={searchQuery} onChange={setSearchQuery} shortcut="/" />
 

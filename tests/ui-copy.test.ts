@@ -25,17 +25,38 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
  */
 const MIGRATED = [
   'src/components/Navigation',
-  'src/components/Settings/AppearanceSettings.tsx'
+  'src/components/Settings/AppearanceSettings.tsx',
+  // Code mode (V9 4.3)
+  'src/components/Background',
+  'src/components/Changes',
+  'src/components/Editor',
+  'src/components/GitHub',
+  'src/components/Preview',
+  'src/components/Scripts',
+  'src/components/Search',
+  'src/components/Sidebar',
+  'src/components/Terminal',
+  'src/components/WebPreview',
+  'src/components/Workbench',
+  'src/components/Workspace',
+  'src/components/Worktree',
+  'src/utils/agentSetup.ts',
+  'src/utils/humanizeError.ts',
+  'src/utils/paneDisplay.ts',
+  'src/utils/quotaThresholds.ts'
 ]
-/** Text that stays the same in every language: product names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace'])
+/** Text that stays the same in every language: product and tool names, commands and sample values. */
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph',
+  'GitHub', 'MCP', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
+  'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000'])
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/
 const LITERAL = /'([^'\n]{4,})'|"([^"\n]{4,})"|`([^`\n]{4,})`|>([^<>{}\n]{4,})</g
 /** Interface text written in code: JSX text, naming attributes and the label-like fields of objects. */
 const UI_LITERAL = [
-  />([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
+  // Not after `=` (an arrow's `=>`) nor `/` (a self-closing tag's `/>`): neither ends an opening tag.
+  /(?<![=/])>([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
   /\s(?:aria-label|title|placeholder|alt|label|hint|description)=(?:"([^"]*[A-Za-z][^"]*)"|\{['`]([^'`]*[A-Za-z][^'`]*)['`]\})/g,
   /\b(?:label|title|hint|description|placeholder|message|detail|ariaLabel)\s*:\s*['"`]([^'"`]*[A-Za-z][^'"`]*)['"`]/g
 ]
@@ -79,7 +100,8 @@ describe('interface copy', () => {
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {
           const text = (match[1] ?? match[2] ?? '').trim()
-          if (text && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
+          // A template made only of ${…} values holds no words of its own.
+          if (/[A-Za-z]/.test(text.replace(/\$\{[^}]*\}/g, '')) && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
         }
       }
     }

@@ -830,7 +830,8 @@
       "starting": "Iniciando o terminal",
       "error": "Precisa de atenção",
       "exited": "Retomar a sessão"
-    }
+    },
+    "local": "Local"
   },
   "sidebar": {
     "rename": "Renomear o workspace {{name}}",
@@ -910,7 +911,8 @@
       "copy": "Copiar o contexto",
       "stop": "Parar o terminal",
       "close": "Fechar o terminal"
-    }
+    },
+    "version": "OXESpace v{{version}}"
   },
   "preview": {
     "error": {
@@ -992,7 +994,8 @@
       "collapse": "Recolher o painel",
       "actions": "Ações do painel",
       "repositoryViews": "Vistas do repositório",
-      "files": "Arquivos e editor"
+      "files": "Arquivos e editor",
+      "this": "este painel"
     },
     "git": {
       "github": "Recursos do GitHub",
@@ -1185,6 +1188,15 @@
         "underline": "Sublinhado"
       },
       "usingGlobal": "Usando as preferências globais do terminal (Configurações › Terminal)."
+    },
+    "topbar": {
+      "label": "Status do workspace",
+      "mcp": "Abrir os servidores MCP",
+      "activity": "Mostrar ou ocultar a atividade em segundo plano",
+      "activityShort": "Atividade",
+      "panels": "Painéis do workspace",
+      "openPanels": "Painéis abertos do workspace",
+      "morePanels": "Mais painéis: {{count}}"
     }
   },
   "memory": {

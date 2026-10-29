@@ -797,7 +797,8 @@
       "starting": "Starting terminal",
       "error": "Needs attention",
       "exited": "Resume session"
-    }
+    },
+    "local": "Local"
   },
   "sidebar": {
     "rename": "Rename workspace {{name}}",
@@ -866,7 +867,8 @@
       "copy": "Copy context",
       "stop": "Stop terminal",
       "close": "Close terminal"
-    }
+    },
+    "version": "OXESpace v{{version}}"
   },
   "preview": {
     "error": {
@@ -948,7 +950,8 @@
       "collapse": "Collapse panel",
       "actions": "Panel actions",
       "repositoryViews": "Repository views",
-      "files": "Files and editor"
+      "files": "Files and editor",
+      "this": "this panel"
     },
     "git": {
       "github": "GitHub features",
@@ -1130,6 +1133,15 @@
         "underline": "Underline"
       },
       "usingGlobal": "Using the global terminal preferences (Settings › Terminal)."
+    },
+    "topbar": {
+      "label": "Workspace status",
+      "mcp": "Open MCP servers",
+      "activity": "Toggle background activity",
+      "activityShort": "Activity",
+      "panels": "Workspace panels",
+      "openPanels": "Open workspace panels",
+      "morePanels": "More panels: {{count}}"
     }
   },
   "memory": {
