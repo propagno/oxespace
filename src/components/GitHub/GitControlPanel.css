@@ -9,8 +9,6 @@
 :where(.git-control) button:not([class*="_button_"]):disabled { cursor: default; opacity: .45; }
 .git-control :is(button, summary, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .git-control-heading > button { width: 27px; height: 27px; display: grid; place-items: center; }
-.git-control-spin { animation: git-control-rotate 1s linear infinite; }
-@keyframes git-control-rotate { to { transform: rotate(360deg); } }
 .git-control-group h3 { display: flex; justify-content: space-between; margin: 0 0 5px; padding: 6px 3px; border-bottom: 1px solid var(--bd-base); font-size: var(--fs-2xs); font-weight: 600; color: var(--tx-muted); }
 .git-control-group h3 span { font-variant-numeric: tabular-nums; }
 .git-control-file { min-height: 28px; }

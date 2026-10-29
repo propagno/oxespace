@@ -1,4 +1,4 @@
-import { execFileSync as nodeExecFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { delimiter, extname, isAbsolute, join } from 'node:path'
@@ -56,15 +56,34 @@ interface ReadinessCacheRow {
   checked_at: number
 }
 
+interface ExecOptions {
+  timeout: number
+  encoding: 'utf8'
+  windowsHide: boolean
+  shell?: boolean
+  env: NodeJS.ProcessEnv
+}
+/** Runs a command and resolves its stdout. Sync doubles (tests) work too: the result is awaited. */
+export type AgentExec = (file: string, args: string[], options: ExecOptions) => string | Promise<string>
+
+/**
+ * Readiness probes run off the main thread's critical path: each provider costs a `where.exe` and a
+ * `--version` (up to 2 s apiece), and the first-run checklist asks for them while the window is painting.
+ * Run synchronously, six providers held every other IPC call for seconds.
+ */
+const nodeExec: AgentExec = (file, args, options) => new Promise((resolve, reject) => {
+  execFile(file, args, options, (error, stdout) => { if (error) reject(error); else resolve(stdout) })
+})
+
 interface AgentServiceOptions {
-  execFileSync?: typeof nodeExecFileSync
+  exec?: AgentExec
 }
 
 export class AgentService {
-  private readonly execFileSync: typeof nodeExecFileSync
+  private readonly exec: AgentExec
 
   constructor(private readonly db: AppDatabase, options: AgentServiceOptions = {}) {
-    this.execFileSync = options.execFileSync ?? nodeExecFileSync
+    this.exec = options.exec ?? nodeExec
   }
 
   list(): AgentProfile[] {
@@ -169,13 +188,14 @@ export class AgentService {
       .map((row) => mapReadiness(row, commandByProvider.get(row.provider as AgentProvider) ?? row.provider))
   }
 
-  discover(forceRefresh = false): AgentReadiness[] {
+  async discover(forceRefresh = false): Promise<AgentReadiness[]> {
     if (!forceRefresh) {
       const cached = this.getCachedReadiness()
       if (cached.length > 0) return cached
     }
 
-    const results: AgentReadiness[] = this.list().map((profile) => this.checkProvider(profile.provider, profile.command))
+    // Providers are independent; probing them together bounds the wait by the slowest one.
+    const results: AgentReadiness[] = await Promise.all(this.list().map((profile) => this.checkProvider(profile.provider, profile.command)))
 
     const upsert = this.db.prepare(`
       INSERT INTO agent_readiness_cache (provider, status, version, details, checked_at)
@@ -198,10 +218,10 @@ export class AgentService {
     return results
   }
 
-  private checkProvider(provider: AgentProvider, command: string): AgentReadiness {
+  private async checkProvider(provider: AgentProvider, command: string): Promise<AgentReadiness> {
     try {
-      const resolved = resolveCommand(command, this.execFileSync)
-      const output = runCommand(this.execFileSync, resolved.file, ['--version'], resolved.env)
+      const resolved = await resolveCommand(command, this.exec)
+      const output = await runCommand(this.exec, resolved.file, ['--version'], resolved.env)
       const version = output.trim().split('\n')[0] ?? undefined
       return { provider, command, status: 'ready', version }
     } catch (error) {
@@ -218,14 +238,14 @@ export class AgentService {
   }
 }
 
-function runCommand(
-  execFileSync: typeof nodeExecFileSync,
+async function runCommand(
+  exec: AgentExec,
   command: string,
   args: string[],
   env: NodeJS.ProcessEnv = process.env
-): string {
+): Promise<string> {
   if (process.platform === 'win32' && WINDOWS_SCRIPT_EXTENSIONS.has(extname(command).toLowerCase())) {
-    return execFileSync(command, args, {
+    return await exec(command, args, {
       timeout: 2000,
       encoding: 'utf8',
       shell: true,
@@ -234,20 +254,20 @@ function runCommand(
     })
   }
 
-  return execFileSync(command, args, {
-        timeout: 2000,
-        encoding: 'utf8',
+  return await exec(command, args, {
+    timeout: 2000,
+    encoding: 'utf8',
     windowsHide: true,
     env
-      })
+  })
 }
 
-function resolveCommand(command: string, execFileSync: typeof nodeExecFileSync): { file: string; env: NodeJS.ProcessEnv } {
+async function resolveCommand(command: string, exec: AgentExec): Promise<{ file: string; env: NodeJS.ProcessEnv }> {
   if (process.platform !== 'win32') return { file: command, env: process.env }
   const env = { ...process.env, PATH: augmentWindowsPath(process.env.PATH ?? '') }
   if (isAbsolute(command) && existsSync(command)) return { file: command, env }
 
-  const fromWhere = findWithWhere(command, execFileSync, env)
+  const fromWhere = await findWithWhere(command, exec, env)
   if (fromWhere.length > 0) return { file: preferWindowsShim(fromWhere), env }
 
   const fromPath = findOnWindowsPath(command, env.PATH ?? '')
@@ -267,14 +287,14 @@ function augmentWindowsPath(pathValue: string): string {
   return parts.join(delimiter)
 }
 
-function findWithWhere(command: string, execFileSync: typeof nodeExecFileSync, env: NodeJS.ProcessEnv): string[] {
+async function findWithWhere(command: string, exec: AgentExec, env: NodeJS.ProcessEnv): Promise<string[]> {
   try {
-    return execFileSync('where.exe', [command], {
+    return (await exec('where.exe', [command], {
       timeout: 2000,
       encoding: 'utf8',
       windowsHide: true,
       env
-    }).split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    })).split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
   } catch {
     return []
   }

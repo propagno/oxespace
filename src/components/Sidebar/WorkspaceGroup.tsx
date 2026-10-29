@@ -118,19 +118,14 @@ function WorkspaceGroupComponent({
     commitGuardRef.current = true
     const next = draftName.trim()
     // Close the input immediately so a slow IPC doesn't leave the user
-    // staring at a frozen field. On failure we still flip back to view
-    // mode (the previous name stays visible from the workspace prop).
+    // staring at a frozen field.
     setRenaming(false)
     if (!next || next === workspace.name) {
       setDraftName(workspace.name)
       return
     }
-    try {
-      await updateSettings({ workspaceId: workspace.id, name: next })
-    } catch (err) {
-      console.warn('[workspace] rename failed', err)
-      setDraftName(workspace.name)
-    }
+    // The store shows the new name at once and puts the old one back, with a toast, if saving fails.
+    await updateSettings({ workspaceId: workspace.id, name: next })
   }
 
   function cancelRename(): void {
