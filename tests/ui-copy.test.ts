@@ -25,17 +25,19 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
  */
 const MIGRATED = [
   'src/components/Navigation',
-  'src/components/Settings/AppearanceSettings.tsx'
+  'src/components/Settings/AppearanceSettings.tsx',
+  'src/components/Threads'
 ]
-/** Text that stays the same in every language: product names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace'])
+/** Text that stays the same in every language: product and service names. */
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'claude.ai'])
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/
 const LITERAL = /'([^'\n]{4,})'|"([^"\n]{4,})"|`([^`\n]{4,})`|>([^<>{}\n]{4,})</g
 /** Interface text written in code: JSX text, naming attributes and the label-like fields of objects. */
 const UI_LITERAL = [
-  />([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
+  // JSX text; an arrow's `>` (`=> Promise<T>`) starts a type, not text.
+  /(?<!=)>([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
   /\s(?:aria-label|title|placeholder|alt|label|hint|description)=(?:"([^"]*[A-Za-z][^"]*)"|\{['`]([^'`]*[A-Za-z][^'`]*)['`]\})/g,
   /\b(?:label|title|hint|description|placeholder|message|detail|ariaLabel)\s*:\s*['"`]([^'"`]*[A-Za-z][^'"`]*)['"`]/g
 ]
@@ -79,7 +81,9 @@ describe('interface copy', () => {
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {
           const text = (match[1] ?? match[2] ?? '').trim()
-          if (text && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
+          // A template made only of ${…} values holds no words of its own; text that starts with `:` `,` or `?` is a
+          // ternary between two elements or the next argument after a generic type (`Set<string>, b: Set<`), not JSX text.
+          if (/[A-Za-z]/.test(text.replace(/\$\{[^}]*\}/g, '')) && !/^[:,?]/.test(text) && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
         }
       }
     }

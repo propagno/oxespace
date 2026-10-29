@@ -61,7 +61,8 @@ export async function loadDelegationPanel(thread: ConversationThread, result: Th
   }
   const status = await window.oxe.delegation.status(thread.workspaceId, undefined, 100)
   return { ...result, title: t('thread:delegations.title'), rows: status.tasks.map(task => ({
-    label: task.objective, detail: `${task.branch} · ${task.state}\n${t('thread:delegations.task', { id: task.id })}\n${task.path}${task.nativeSession ? `\n${t('thread:delegations.session', { provider: task.nativeSession.provider, session: task.nativeSession.nativeSessionId, generation: task.nativeSession.generation })}` : ''}`,
+    label: task.objective, detail: [`${task.branch} · ${task.state}`, t('thread:delegations.task', { id: task.id }), task.path,
+      ...(task.nativeSession ? [t('thread:delegations.session', { provider: task.nativeSession.provider, session: task.nativeSession.nativeSessionId, generation: task.nativeSession.generation })] : [])].join('\n'),
     ...(task.destinationThreadId ? { id: task.destinationThreadId } : {})
   })) }
 }

@@ -13,6 +13,7 @@ import type { ThreadPanelState } from './threadCommandPanels'
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, TextField } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
+import { localizeConfirmation } from './threadConfirmationText'
 
 function sessionDate(timestamp: number): string { return formatDateTime(timestamp, { dateStyle: 'medium', timeStyle: 'short' }) }
 
@@ -20,6 +21,9 @@ function sessionDate(timestamp: number): string { return formatDateTime(timestam
 const DESCRIBED = new Set(['rename', 'sessions', 'rules', 'work', 'events', 'spending', 'delegations'])
 /** The shape of a native session ID, shown as the placeholder; the same in every language. */
 const SESSION_ID_SHAPE = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+/** The rows /status sends, in the order shown, with their catalog keys; the main process names them in English. */
+const STATUS_ROWS: Record<string, string> = { Provider: 'provider', 'Native session ID (resume)': 'nativeSession', Status: 'status', Model: 'model', Effort: 'effort', Access: 'access', Network: 'network', Approvals: 'approvals', Mode: 'mode', Connection: 'connection', Directory: 'directory' }
+const INTERNAL_ROWS: Record<string, string> = { 'Thread ID': 'threadId', 'Project ID': 'projectId', 'Workspace ID': 'workspaceId', Generation: 'generation', Operation: 'operation', Hooks: 'hooks' }
 
 /** The dialog a desktop command opens: confirmations, command output, rename, resume, delegations and permission rules. Loaded on demand. */
 export default function ThreadCommandDialog({ panel, snapshot, pending, error, onClose, onError, action, runCommand, onDelegations }: {
@@ -55,7 +59,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
 
   // Archive, delete and rewind: one question, Cancel and one action.
   if (panel.kind === 'confirm' && panel.confirm) {
-    const confirm = panel.confirm
+    const confirm = localizeConfirmation(panel.confirm)
     return <ConfirmDialog title={confirm.title} description={confirm.description} confirmLabel={confirm.confirmLabel} danger={confirm.danger} busy={pending} error={error}
       onCancel={onClose} onConfirm={() => void action(async () => { await runCommand(confirm.command); onClose() })} />
   }
@@ -67,7 +71,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
     : undefined
 
   return <Dialog className={`thread-command-dialog${panel.surface === 'sessions' ? ' thread-resume-dialog' : ''}`} size={panel.surface === 'sessions' || panel.surface === 'events' || panel.surface === 'spending' ? 'lg' : 'md'}
-    title={panel.surface === 'sessions' ? t('commandDialog.resume') : panel.title || t('commandDialog.conversation')} description={panel.surface && DESCRIBED.has(panel.surface) ? t(`commandDialog.surface.${panel.surface as 'rename'}`) : undefined} onClose={onClose} footer={footer}>
+    title={panel.surface === 'sessions' ? t('commandDialog.resume') : panel.title === 'Conversation status' ? t('commandDialog.statusTitle') : panel.title || t('commandDialog.conversation')} description={panel.surface && DESCRIBED.has(panel.surface) ? t(`commandDialog.surface.${panel.surface as 'rename'}`) : undefined} onClose={onClose} footer={footer}>
     {error && <ErrorState compact title={error} />}
     {panel.surface === 'rename' ? <form id="thread-rename-form" className="thread-command-form" onSubmit={event => { event.preventDefault(); if (!canRename) return; void action(async () => { await runCommand(`/rename ${rename.trim()}`); onClose() }) }}>
       <label>{t('commandDialog.name')}<TextField aria-label={t('commandDialog.name')} value={rename} maxLength={120} autoFocus onFocus={event => event.currentTarget.select()} onChange={event => setRename(event.target.value)} /></label>
@@ -103,8 +107,8 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
     : <>{panel.text !== undefined && (explanation ? <p className="thread-command-explanation">{panel.text}</p> : <pre>{panel.text || t('commandDialog.noContent')}</pre>)}
       {panel.usage ? <ThreadUsageDetails usage={panel.usage} /> : panel.title === 'Conversation status' && panel.rows ? <div className="thread-status-summary">
         <p className="terminal-session-identity-note">{t('commandDialog.statusNote')}</p>
-        <DetailList rows={['Provider', 'Native session ID (resume)', 'Status', 'Model', 'Effort', 'Access', 'Network', 'Approvals', 'Mode', 'Connection', 'Directory'].flatMap(label => panel.rows!.filter(row => row.label === label))} />
-        <details className="terminal-technical-details"><summary>{t('commandDialog.internal')}</summary><DetailList rows={['Thread ID', 'Project ID', 'Workspace ID', 'Generation', 'Operation', 'Hooks'].flatMap(label => panel.rows!.filter(row => row.label === label))} /></details>
+        <DetailList rows={Object.entries(STATUS_ROWS).flatMap(([label, key]) => panel.rows!.filter(row => row.label === label).map(row => ({ ...row, label: t(`commandDialog.statusRow.${key as 'provider'}`) })))} />
+        <details className="terminal-technical-details"><summary>{t('commandDialog.internal')}</summary><DetailList rows={Object.entries(INTERNAL_ROWS).flatMap(([label, key]) => panel.rows!.filter(row => row.label === label).map(row => ({ ...row, label: t(`commandDialog.statusRow.${key as 'provider'}`) })))} /></details>
       </div> : panel.rows && (panel.rows.length && panel.rows.every(row => !row.id) ? <DetailList rows={panel.rows} /> : <div className="thread-panel-list">{panel.rows.length ? panel.rows.map((row, index) => row.id ? <button type="button" key={index} disabled={pending} onClick={() => void action(async () => { onClose(); await runCommand(row.id!) })}><strong>{row.label}</strong>{row.detail && <span>{row.detail}</span>}</button> : <div key={index}><strong>{row.label}</strong><span>{row.detail}</span></div>) : <EmptyState compact title={t('commandDialog.noItems')} />}</div>)}</>}
   </Dialog>
 }

@@ -195,7 +195,27 @@
     "noContent": "No content available.",
     "statusNote": "The native session ID resumes the Codex or Claude conversation. Thread, project and workspace IDs belong to OXESpace.",
     "internal": "Internal OXESpace IDs and runtime",
-    "noItems": "No items returned by the provider."
+    "noItems": "No items returned by the provider.",
+    "statusTitle": "Conversation status",
+    "statusRow": {
+      "provider": "Provider",
+      "nativeSession": "Native session ID (resume)",
+      "status": "Status",
+      "model": "Model",
+      "effort": "Effort",
+      "access": "Access",
+      "network": "Network",
+      "approvals": "Approvals",
+      "mode": "Mode",
+      "connection": "Connection",
+      "directory": "Directory",
+      "threadId": "Thread ID",
+      "projectId": "Project ID",
+      "workspaceId": "Workspace ID",
+      "generation": "Generation",
+      "operation": "Operation",
+      "hooks": "Hooks"
+    }
   },
   "commands": {
     "local": {
@@ -381,6 +401,26 @@
     "nextTurn": "Next turn",
     "autoEdit": "Auto-edit",
     "saving": "Saving"
+  },
+  "confirm": {
+    "archive": {
+      "title": "Archive this conversation?",
+      "confirm": "Archive conversation",
+      "description": "Archive this conversation? An active turn will stop. You can restore it from Archived in the sidebar or with /resume.",
+      "descriptionNamed": "Archive “{{name}}”? An active turn will stop. You can restore it from Archived in the sidebar or with /resume."
+    },
+    "delete": {
+      "title": "Delete this conversation?",
+      "confirm": "Delete conversation",
+      "description": "Delete this conversation from OXESpace? An active turn will stop. The provider session and project files are kept.",
+      "descriptionNamed": "Delete “{{name}}” from OXESpace? An active turn will stop. The provider session and project files are kept."
+    },
+    "rewind": {
+      "title": "Rewind the last turn?",
+      "confirm": "Rewind one turn",
+      "description": "Remove the most recent turn from the native conversation. Files are not reverted; restore them from a checkpoint if needed.",
+      "descriptionNamed": "Remove the most recent turn from the native conversation. Files are not reverted; restore them from a checkpoint if needed."
+    }
   },
   "conversationActions": {
     "menu": "Conversation actions",
@@ -615,6 +655,25 @@
     "split": "Side-by-side conversations",
     "single": "Conversation"
   },
+  "header": {
+    "movedTitle": "The agent is working in {{checkout}}\nConversation opened in {{root}}",
+    "outsideTitle": "{{root}}\nThe agent reports working outside this repository: {{cwd}}",
+    "yourProjects": "Your projects",
+    "worktree": "worktree",
+    "projectConversations": "Project conversations",
+    "moreActions": "More actions",
+    "delegate": "Delegate work",
+    "pin": "Pin conversation",
+    "unpin": "Unpin conversation",
+    "mcp": "MCP connections",
+    "textSize": "Text size",
+    "textSizeValue": "Thread text size",
+    "smaller": "Smaller text",
+    "larger": "Larger text",
+    "resetSize": "Reset text size",
+    "transcriptView": "Transcript view",
+    "closeSide": "Close side-by-side conversation"
+  },
   "historical": {
     "label": "Recovered questions",
     "title": "Questions from this turn",
@@ -824,6 +883,17 @@
     "cancelled": "Request cancelled",
     "closed": "Request closed; outcome unavailable"
   },
+  "panels": {
+    "terminal": "Terminal",
+    "changes": "Changes",
+    "browser": "Browser",
+    "git": "Commit & pull request",
+    "files": "Files",
+    "search": "Find in files",
+    "scripts": "Scripts",
+    "worktrees": "Worktrees",
+    "background": "Background activity"
+  },
   "patch": {
     "region": "File diff",
     "commentOnNew": "Comment on new line {{line}}",
@@ -1022,6 +1092,76 @@
     "indexed": "{{files}} files indexed",
     "failed": "Could not change semantic search."
   },
+  "sidebar": {
+    "age": {
+      "now": "now",
+      "minutes_one": "{{count}}m",
+      "minutes_other": "{{count}}m",
+      "hours_one": "{{count}}h",
+      "hours_other": "{{count}}h",
+      "days_one": "{{count}}d",
+      "days_other": "{{count}}d"
+    },
+    "restartToRestore": "Restart the updated application to restore conversations.",
+    "notRestored": "The conversation could not be restored.",
+    "restoreFailed": "Could not restore conversation.",
+    "unread": "Unread conversation",
+    "unreadShort": "Unread",
+    "pinned": "Pinned",
+    "pinnedHeading": "Pinned",
+    "openSideNamed": "Open {{name}} side by side",
+    "alreadyOpen": "Already open",
+    "openSide": "Open side by side",
+    "openFailed": "Could not open conversation.",
+    "actionsFor": "Actions for {{name}}",
+    "openToSide": "Open to the side",
+    "renameMenu": "Rename conversation…",
+    "pin": "Pin conversation",
+    "unpin": "Unpin conversation",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "conversationActions": "Conversation actions",
+    "addProject": "Add project",
+    "accounts": "Accounts",
+    "agentAccounts": "Agent accounts",
+    "region": "Thread sidebar",
+    "width": "Thread sidebar width",
+    "conversations": "Conversations",
+    "filter": "Filter threads",
+    "projectsRegion": "Thread projects",
+    "loading": "Loading conversations…",
+    "projects": "Projects",
+    "compact": "Compact thread list",
+    "comfortableSpacing": "Use comfortable spacing",
+    "compactSpacing": "Use compact spacing",
+    "directoryMissing": "Directory missing",
+    "newInNamed": "New thread in {{name}}",
+    "newIn": "New thread in this project",
+    "projectActions": "{{name}} project actions",
+    "projectSettings": "Project settings",
+    "openInCode": "Open in Code",
+    "openInCodeFailed": "Could not open project in Code.",
+    "removeProjectMenu": "Remove project…",
+    "showMore_one": "Show {{count}} more",
+    "showMore_other": "Show {{count}} more",
+    "archivedRegion": "Archived conversations",
+    "archived": "Archived",
+    "restoreNamed": "Restore {{name}}",
+    "restoreConversation": "Restore conversation",
+    "noMatches": "No conversations found.",
+    "restoreOrAdd": "Restore a project below or add another folder.",
+    "addToStart": "Add a project to start a conversation.",
+    "removedProjects": "Removed projects",
+    "restore": "Restore",
+    "renaming": "Renaming…",
+    "name": "Conversation name",
+    "removeProject": {
+      "title": "Remove this project?",
+      "confirm": "Remove project",
+      "description": "Remove “{{name}}” from the Thread sidebar? Its conversations, files and Code workspaces remain. Restore this project individually from Removed projects or add its folder again."
+    },
+    "restartToDelete": "Restart the updated application to delete threads."
+  },
   "spending": {
     "scope": {
       "thread": "This conversation",
@@ -1062,6 +1202,19 @@
     "background": "Background",
     "completed": "Completed",
     "ready": "Ready"
+  },
+  "store": {
+    "removeProjectFailed": "Could not remove the project",
+    "restoreProjectFailed": "Could not restore the project",
+    "pinFailed": "Could not pin the conversation",
+    "unpinFailed": "Could not unpin the conversation",
+    "renameFailed": "Could not rename the conversation",
+    "archiveFailed": "Could not archive the conversation",
+    "openFailed": "Could not open conversation. Select it to retry.",
+    "gone": "Conversation is no longer available",
+    "projectsUnavailable": "Some project directories are unavailable. Check their location and retry.",
+    "projectsFailed": "Could not load project directories.",
+    "catalogFailed": "Could not load conversations."
   },
   "subagent": {
     "actions": {
@@ -1160,6 +1313,56 @@
     "deferred": "{{name}} (deferred)",
     "plan": "Plan usage",
     "open": "Open usage details"
+  },
+  "view": {
+    "region": "Conversation",
+    "history": "Conversation history",
+    "copyFailed": "Could not copy this message.",
+    "connectFirst": "Connect your subscription before sending.",
+    "restartForCommands": "Restart the updated application to use integrated commands.",
+    "unsupportedImage": "{{name}} is not a supported image.",
+    "cliOwns": "The native CLI owns this conversation. Recover it before sending a message.",
+    "inspectImage": "Please inspect the attached image.",
+    "exported": "Conversation exported",
+    "importFailed": "Could not import conversation.",
+    "loadEarlier": "Load earlier messages",
+    "opening": "Opening conversation…",
+    "openingBody": "Loading the selected conversation.",
+    "welcomeTitle": "What would you like to work on?",
+    "welcomeBody": "Start a conversation in a project, or pick one from the sidebar.",
+    "newConversation": "New conversation",
+    "providerAccounts": "Provider accounts",
+    "sendingMessage": "Sending message",
+    "attachments": "Message attachments",
+    "kilobytes": "{{size}} KB",
+    "sending": "Sending…",
+    "latest": "Latest messages",
+    "latestCount": "Latest messages · {{count}}",
+    "signIn": "Sign in to {{provider}}",
+    "reconnect": "Reconnect",
+    "connect": "Connect",
+    "resendTitle": "Resend after connecting",
+    "connectionUnavailable": "Provider connection is unavailable.",
+    "retryAfter": "You can retry after {{time}}.",
+    "recoverBody": "Recover the saved conversation to continue here.",
+    "recover": "Recover conversation",
+    "serviceUnavailable": "Thread service unavailable. Restart the updated application.",
+    "dismissError": "Dismiss error"
+  },
+  "viewMode": {
+    "ariaLabel": "{{mode}} view",
+    "summary": {
+      "label": "Summary",
+      "hint": "Only replies and the files that changed"
+    },
+    "normal": {
+      "label": "Normal",
+      "hint": "Actions collapsed into short summaries"
+    },
+    "verbose": {
+      "label": "Verbose",
+      "hint": "Every action, file read and command"
+    }
   },
   "work": {
     "status": {
