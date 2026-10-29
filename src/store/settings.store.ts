@@ -21,6 +21,12 @@ function clampVisitedCap(n: number): number {
   return Math.min(VISITED_WORKSPACES_CAP_MAX, Math.max(VISITED_WORKSPACES_CAP_MIN, Math.round(n)))
 }
 
+function cleanOverrides(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== 'object') return {}
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter((entry): entry is [string, string[]] => Array.isArray(entry[1]) && entry[1].every(chord => typeof chord === 'string')))
+}
+
 interface SettingsState {
   /** Fire native desktop notifications when a background agent needs you. */
   notificationsEnabled: boolean
@@ -37,6 +43,11 @@ interface SettingsState {
   /** Interface language, or follow the operating system (src/i18n applies it). */
   language: LanguagePreference
   setLanguage: (language: LanguagePreference) => void
+  /** Settings › Keyboard: chords per keybinding id; an empty list turns the shortcut off. */
+  keybindingOverrides: Record<string, string[]>
+  /** `null` returns the shortcut to its default. */
+  setKeybindingOverride: (id: string, chords: string[] | null) => void
+  resetKeybindings: () => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -49,18 +60,27 @@ export const useSettingsStore = create<SettingsState>()(
       appearance: 'system',
       setAppearance: (appearance) => set({ appearance }),
       language: 'system',
-      setLanguage: (language) => set({ language })
+      setLanguage: (language) => set({ language }),
+      keybindingOverrides: {},
+      setKeybindingOverride: (id, chords) => set(state => {
+        const next = { ...state.keybindingOverrides }
+        if (chords) next[id] = chords
+        else delete next[id]
+        return { keybindingOverrides: next }
+      }),
+      resetKeybindings: () => set({ keybindingOverrides: {} })
     }),
     {
       name: 'oxe-settings',
-      version: 4,
+      version: 5,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
           notificationsEnabled: s.notificationsEnabled ?? true,
           visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
           appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
-          language: isLanguagePreference(s.language) ? s.language : 'system'
+          language: isLanguagePreference(s.language) ? s.language : 'system',
+          keybindingOverrides: cleanOverrides(s.keybindingOverrides)
         }
       }
     }

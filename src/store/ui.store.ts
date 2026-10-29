@@ -10,12 +10,17 @@ function restoredSidebarCollapsed(): boolean {
   } catch { return false }
 }
 
+/** The application Settings pages, in SettingsCenter order. */
+export type SettingsPageId = 'general' | 'providers' | 'appearance' | 'terminal' | 'keyboard' | 'voice' | 'notifications' | 'updates' | 'policy' | 'diagnostics'
+
 interface UIState {
   isNewWorkspaceOpen: boolean
   maximizedPaneId: string | null
   isSidebarCollapsed: boolean
   isSettingsOpen: boolean
-  settingsInitialPage: 'providers' | undefined
+  settingsInitialPage: SettingsPageId | undefined
+  /** Opens application Settings on one page. */
+  openSettingsPage: (page: SettingsPageId) => void
   openAgentSettings: () => void
   /** Tools hub modal (sidebar gear) — distinct from agent Settings. */
   isCommandPaletteOpen: boolean
@@ -84,6 +89,7 @@ export const useUIStore = create<UIState>((set) => ({
   isSettingsOpen: false,
   settingsInitialPage: undefined,
   openAgentSettings: () => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: 'providers' }),
+  openSettingsPage: (page) => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: page }),
   isCommandPaletteOpen: false,
   isCommandMenuOpen: false,
   isWorkspaceSettingsOpen: false,

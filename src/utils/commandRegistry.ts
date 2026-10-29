@@ -13,6 +13,8 @@ export interface CommandPaletteAction {
   category?: string
   /** Extra search terms (synonyms) that should match this command. */
   keywords?: string[]
+  /** A keybinding id from src/keyboard/keybindings.ts (follows the user's overrides) or a literal chord; shown as key caps. */
+  shortcut?: string
   run: () => void
 }
 
@@ -26,6 +28,8 @@ export interface ContributedCommand {
   /** Palette group heading. */
   category: string
   disabled?: boolean
+  /** Same as CommandPaletteAction.shortcut. */
+  shortcut?: string
   run: () => void
 }
 
@@ -36,7 +40,7 @@ let snapshot: CommandPaletteAction[] = []
 const rebuild = (): void => {
   snapshot = [...sources.values()].flat().map(command => ({
     id: command.id, title: command.label, subtitle: command.detail, icon: command.icon, category: command.category,
-    keywords: command.keywords, disabled: command.disabled, run: command.run
+    keywords: command.keywords, disabled: command.disabled, shortcut: command.shortcut, run: command.run
   }))
   listeners.forEach(listener => listener())
 }

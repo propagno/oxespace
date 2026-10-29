@@ -1,10 +1,11 @@
-import { Activity, Columns2, FilePlus2, FolderOpen, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Users, Wrench } from 'lucide-react'
-import { Github } from './components/Brand/GithubIcon'
+import { Activity, Palette, Plus } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
-import './components/OxeQuery/oxequery.commands'
+import './commands/settings.commands'
+import { useCodeCommands } from './commands/code.commands'
+import { useThreadCommands } from './commands/thread.commands'
 import { onOxeQueryAction, performOxeQueryAction } from './components/OxeQuery/oxequery-bridge'
 import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
-import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
+import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
@@ -17,7 +18,6 @@ import { isSameRootPath } from '../shared/utils/path'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
-import type { CommandPaletteAction } from './utils/commandRegistry'
 import { humanizeError } from './utils/humanizeError'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
@@ -56,7 +56,6 @@ import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { UpdateBanner } from './components/Updates/UpdateBanner'
 import { AppUpdateIndicator } from './components/Updates/AppUpdateIndicator'
-import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './components/Workspace/workspaceOptions'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
 import { useTerminalStore } from './store/terminal.store'
@@ -68,13 +67,13 @@ import { VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
-import { useAgentNotifications } from './hooks/useAgentNotifications'
+import { useActivitySources } from './hooks/useActivitySources'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
-import { THREAD_NOTIFICATION_PANE_PREFIX, useThreadAttention } from './hooks/useThreadAttention'
+import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { matchesHotkey } from './keyboard/chords'
-import { setKeyboardView, shortcutLabel, useKeybindings, withShortcut } from './keyboard/keybindings'
-import { QUOTA_NOTIFICATION_PANE_PREFIX, useQuotaAlerts } from './hooks/useQuotaAlerts'
+import { setKeyboardView, useKeybindings } from './keyboard/keybindings'
+import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { useSettingsStore } from './store/settings.store'
 
@@ -95,8 +94,9 @@ export function App(): ReactElement {
     if (mode === 'data') setHasOpenedData(true)
     setApplicationView(mode)
   }
-  // The palette's OxeQuery entries: open the view first, then let the action find its control.
-  useEffect(() => onOxeQueryAction(action => { selectMode('data'); performOxeQueryAction(action) }), [])
+  // The palette's OxeQuery entries register once their module loads, after the first paint. Choosing one opens
+  // the view first, then lets the action find its control.
+  useEffect(() => { void import('./components/OxeQuery/oxequery.commands'); return onOxeQueryAction(action => { selectMode('data'); performOxeQueryAction(action) }) }, [])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
@@ -466,10 +466,8 @@ export function App(): ReactElement {
     })
   }, [])
 
-  useAgentNotifications()
+  useActivitySources(applicationView)
   useAgentHookStatus()
-  useThreadAttention(applicationView)
-  useQuotaAlerts()
 
   // Clicking a notification focuses the originating pane (window focus + restore
   // is handled in main); here we switch to its workspace and select the pane.
@@ -689,83 +687,10 @@ export function App(): ReactElement {
     editor: toggleEditor, review: toggleReviewPanel, team: openTeam, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
-  const contributedCommands = useContributedCommands()
-
-
-  const commandActions: CommandPaletteAction[] = [
-    ...contributedCommands,
-    // Workspace
-    { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspaceFromUI },
-    { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Layout, density and shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
-    { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: shortcutLabel('sidebar.toggle'), icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
-
-    // Tools: named like the Panels menu and Thread, from the shared panel catalog.
-    ...TOOL_CATALOG.map(tool => ({
-      id: `tool-${tool.id}`,
-      title: tool.label,
-      subtitle: withShortcut(tool.detail, tool.keybinding),
-      icon: tool.icon,
-      category: tool.group,
-      keywords: tool.keywords,
-      disabled: tool.id === 'team' ? !teamTarget : tool.id === 'slash' ? !activePane : !['mcp', 'skills', 'semantic'].includes(tool.id) && !activeWorkspace,
-      run: toolHandlers[tool.id] ?? (() => undefined)
-    })),
-
-    // AI & Agents
-    { id: 'open-linear', title: 'Open Linear issues', subtitle: 'Issues, boards and worktree from issue', icon: ListTodo, category: 'Git & Repo', keywords: ['linear', 'issue', 'ticket', 'board', 'worktree'], run: openLinearPanel },
-
-    // View
-    { id: 'balance-pane-layout', title: 'Balance terminal panes', subtitle: 'Restore equal sizes within each split', icon: Columns2, category: 'View', disabled: !activeWorkspace, run: () => { if (activeWorkspace) usePaneLayoutStore.getState().balance(activeWorkspace.id) } },
-    { id: 'find-in-files', title: 'Search files & commands', subtitle: withShortcut('Unified search', 'palette.search'), icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex', 'command'], disabled: !activeWorkspace, run: openCommandMenu },
-    { id: 'toggle-split-layout', title: 'Toggle split layout', subtitle: withShortcut('Recursive resizable panes (default on)', 'code.splitLayout'), icon: Columns2, category: 'View', keywords: ['split', 'pane', 'layout', 'f2', 'tree'], disabled: !activeWorkspace, run: () => useUIStore.getState().toggleSplitLayout() },
-    { id: 'open-usage', title: 'Usage & Rate Limits', subtitle: 'Claude, Codex & Copilot quota + resets', icon: Activity, category: 'AI & Agents', keywords: ['usage', 'quota', 'credits', 'rate', 'limit', 'tokens'], run: () => useUIStore.getState().openUsage() },
-    { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Tokens and components in light and dark', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
-
-    // Appearance: one app-wide choice (light, dark or follow the system).
-    ...(['system', 'light', 'dark'] as const).map((appearance) => ({
-      id: `appearance-${appearance}`,
-      title: `Appearance: ${appearance === 'system' ? 'Follow system' : appearance === 'light' ? 'Light' : 'Dark'}`,
-      subtitle: 'Applies to the whole application',
-      icon: Palette,
-      category: 'Appearance',
-      keywords: ['theme', 'mode', 'color', 'light', 'dark'],
-      run: () => useSettingsStore.getState().setAppearance(appearance)
-    })),
-
-    // Density
-    ...WORKSPACE_DENSITIES.map((density) => ({
-      id: `density-${density.id}`,
-      title: `Density: ${density.label}`,
-      subtitle: 'Workspace density',
-      icon: Sliders,
-      category: 'Appearance',
-      disabled: !activeWorkspace,
-      run: () => {
-        if (activeWorkspace) void updateSettings({ workspaceId: activeWorkspace.id, uiDensity: density.id })
-      }
-    })),
-
-    // Layout
-    ...LAYOUT_PRESETS.map((preset) => ({
-      id: `layout-${preset}`,
-      title: `Layout: ${preset} panes`,
-      subtitle: 'Workspace layout preset',
-      icon: Grid2x2,
-      category: 'Layout',
-      disabled: !activeWorkspace,
-      run: () => {
-        if (activeWorkspace) void updateSettings({ workspaceId: activeWorkspace.id, layoutPreset: preset })
-      }
-    })),
-
-    // Terminal
-    { id: 'split-vertical', title: 'Split active pane (vertical)', subtitle: shortcutLabel('pane.splitRight'), icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('vertical') },
-    { id: 'split-horizontal', title: 'Split active pane (horizontal)', subtitle: shortcutLabel('pane.splitDown'), icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('horizontal') },
-    { id: 'maximize-pane', title: 'Maximize / restore active pane', subtitle: shortcutLabel('pane.maximize'), icon: Maximize, category: 'Terminal', disabled: !activePane, run: toggleActivePaneMaximize },
-    { id: 'toggle-oxevoice', title: 'Toggle OXEVoice for active context', subtitle: 'Speak into the active terminal, editor, or Thread draft', icon: Mic, category: 'Terminal', keywords: ['voice', 'speech', 'microphone', 'dictation'], disabled: applicationView !== 'thread' && !activeWorkspace?.editorVisible && (!activePane || activePane.type !== 'terminal' || getTerminalStatus(activePane.id).status !== 'running'), run: toggleActivePaneVoice },
-    { id: 'restart-terminal', title: 'Restart active terminal', subtitle: shortcutLabel('terminal.restart'), icon: RotateCw, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.restart({ paneId: activePane.id }) },
-    { id: 'stop-terminal', title: 'Stop active terminal', icon: StopCircle, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.stop({ paneId: activePane.id }) }
-  ]
+  // Palette and menu commands live in src/commands/*.commands.ts.
+  useCodeCommands({ applicationView, activeWorkspace, activePane, hasTeamTarget: teamTarget !== null, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI,
+    splitActivePane, toggleActivePaneMaximize, toggleActivePaneVoice, openDesignSystem: () => setDesignSystemOpen(true) })
+  const commandActions = useContributedCommands()
 
   useEffect(() => { setKeyboardView(applicationView) }, [applicationView])
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
@@ -857,6 +782,8 @@ export function App(): ReactElement {
   useThreadShortcuts(applicationView === 'thread', newThread)
 
   const openThreadAccounts = () => setAccountsOpen(true)
+  useThreadCommands({ snapshot: threadSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
+    addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts })
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
       setDelegationTarget({ workspaceId: task.originWorkspaceId ?? task.workspaceId, taskId: task.id })

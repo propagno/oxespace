@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, safeStorage, session, shell } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
+import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { RendererRecoveryPolicy } from './renderer-recovery'
 import { initialWindowColors, registerAppearanceIpc } from './ipc/appearance.ipc'
@@ -105,7 +106,6 @@ if (isDev && !process.env.OXESPACE_DB_PATH) {
   app.setPath('userData', join(app.getPath('appData'), 'oxespace-dev'))
 }
 let ipcRegistered = false
-/** In-memory session for Web Preview guests — isolated from the app's own. */
 const clipboardImageTempFiles = new Set<string>()
 const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 
@@ -960,11 +960,11 @@ if (!gotLock) {
   })
   app.once('will-quit', stopRuntimeDiagnostics)
   app.whenReady().then(async () => {
-    // Awaited so every handler is registered before the renderer can invoke
-    // one. In the normal path this costs a microtask; only the E2E mock path
-    // actually resolves a module here.
-    const deferredInit = await registerIpcHandlers()
-    const mainWindow = createMainWindow()
+    // Awaited so every handler is registered before the renderer can invoke one. Each step is timed
+    // (startup-timing.ts) up to the renderer reporting its first screen.
+    markAppReady()
+    const deferredInit = await measureStartup('ipc-handlers', registerIpcHandlers)
+    const mainWindow = trackWindowStartup(measureStartup('window-create', createMainWindow))
     // Kick off the heavy, non-critical startup work once the window is painting.
     // Idempotent + fallback: if ready-to-show never fires (renderer fails to load,
     // render-process-gone, or a slow first paint), a 3s timer still runs the
@@ -974,7 +974,7 @@ if (!gotLock) {
     const kick = (): void => {
       if (kicked) return
       kicked = true
-      setImmediate(deferredInit)
+      setImmediate(() => measureStartup('deferred-init', deferredInit))
     }
     mainWindow.once('ready-to-show', kick)
     const fallbackTimer = setTimeout(kick, 3000)
