@@ -79,6 +79,43 @@ describe('CommandMenu', () => {
     expect(screen.queryByText('Open Tools')).not.toBeInTheDocument()
   })
 
+  test('ranks the best match first and shows shortcuts as key caps', async () => {
+    const user = userEvent.setup()
+    render(
+      <CommandMenu open onOpenChange={vi.fn()} workspace={workspace} workspaces={[]} onSelectWorkspace={() => undefined} onSelectPane={() => undefined}
+        actions={[
+          { id: 'find', title: 'Find in files', category: 'Development', shortcut: 'code.search', run: vi.fn() },
+          { id: 'files', title: 'Files', category: 'System', shortcut: 'Mod+E', run: vi.fn() }
+        ]} />
+    )
+    await user.type(await screen.findByPlaceholderText(/Search files and commands/i), 'fi')
+    await waitFor(() => expect(screen.getByText('Files')).toBeInTheDocument())
+    const titles = screen.getAllByRole('option').map(option => option.textContent ?? '')
+    expect(titles.findIndex(text => text.startsWith('Files'))).toBeLessThan(titles.findIndex(text => text.startsWith('Find in files')))
+    expect(screen.getByLabelText('Ctrl+Shift+F')).toBeInTheDocument()
+    expect(screen.getByLabelText('Ctrl+E')).toBeInTheDocument()
+  })
+
+  test('lists the last commands run under Recent when the query is empty', async () => {
+    const user = userEvent.setup()
+    const { useCommandHistoryStore } = await import('../../src/store/command-history.store')
+    useCommandHistoryStore.setState({ recent: [] })
+    const actions = [
+      { id: 'open-usage', title: 'Usage & Rate Limits', category: 'AI & Agents', run: vi.fn() },
+      { id: 'open-tools', title: 'Open Tools', category: 'Workspace', run: vi.fn() }
+    ]
+    const view = render(<CommandMenu open onOpenChange={vi.fn()} workspace={workspace} actions={actions} workspaces={[]} onSelectWorkspace={() => undefined} onSelectPane={() => undefined} />)
+    expect(screen.queryByText('Recent')).not.toBeInTheDocument()
+    await user.click(await screen.findByText('Open Tools'))
+    expect(useCommandHistoryStore.getState().recent).toEqual(['open-tools'])
+    view.rerender(<CommandMenu open={false} onOpenChange={vi.fn()} workspace={workspace} actions={actions} workspaces={[]} onSelectWorkspace={() => undefined} onSelectPane={() => undefined} />)
+    view.rerender(<CommandMenu open onOpenChange={vi.fn()} workspace={workspace} actions={actions} workspaces={[]} onSelectWorkspace={() => undefined} onSelectPane={() => undefined} />)
+    const recent = await screen.findByText('Recent')
+    expect(recent.closest('[cmdk-group]')?.textContent).toContain('Open Tools')
+    for (let index = 0; index < 12; index++) useCommandHistoryStore.getState().record(`command-${index}`)
+    expect(useCommandHistoryStore.getState().recent).toHaveLength(8)
+  })
+
   test('searches file names and opens the editor for a match', async () => {
     const user = userEvent.setup()
     const openFile = vi.fn().mockResolvedValue(undefined)

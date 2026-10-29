@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
+import { THREAD_RUN_COMMAND_EVENT } from '../../commands/thread.commands'
 import type { useOxeVoice } from '../../hooks/useOxeVoice'
 import { useKeybindings } from '../../keyboard/keybindings'
 import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
@@ -9,13 +10,26 @@ import type { ThreadPanel } from '../../store/thread-workbench.store'
  * configuration pickers; chords live in src/keyboard/keybindings.ts) and the global voice events.
  * Inactive cells (side-by-side layouts) listen to nothing.
  */
-export function useThreadShortcuts({ active, voice, togglePanel, openControl, onFind }: {
+export function useThreadShortcuts({ active, voice, togglePanel, openControl, onFind, runCommand }: {
   active: boolean
   voice: ReturnType<typeof useOxeVoice>
   togglePanel: (panel: ThreadPanel) => void
   openControl: (control: 'model' | 'effort' | 'permissions') => void
   onFind: () => void
+  /** Runs a composer command (the palette's Thread entries send these). */
+  runCommand: (text: string) => Promise<void>
 }) {
+  const latestRun = useRef(runCommand)
+  useLayoutEffect(() => { latestRun.current = runCommand })
+  useEffect(() => {
+    if (!active) return
+    const run = (event: Event): void => {
+      const text = (event as CustomEvent<{ text?: string }>).detail?.text
+      if (text) void latestRun.current(text).catch(() => undefined)
+    }
+    window.addEventListener(THREAD_RUN_COMMAND_EVENT, run)
+    return () => window.removeEventListener(THREAD_RUN_COMMAND_EVENT, run)
+  }, [active])
   useEffect(() => {
     if (!active) return
     const toggle = () => voice.toggle(), start = () => voice.startHold(), end = () => voice.endHold()
