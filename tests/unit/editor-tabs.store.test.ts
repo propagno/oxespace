@@ -74,6 +74,15 @@ describe('editor tabs', () => {
     expect(useEditorStore.getState().tabs[WS].map((tab) => tab.relativePath)).toEqual(['c.ts', 'a.ts'])
   })
 
+  it('closing other tabs keeps the ones with unsaved edits', async () => {
+    for (const path of ['a.ts', 'b.ts', 'c.ts']) await useEditorStore.getState().openFile({ workspaceId: WS, rootPath: ROOT, relativePath: path })
+    // updateContent edits the active file: c.ts.
+    useEditorStore.getState().updateContent(WS, 'C edited')
+    useEditorStore.getState().closeOtherTabs(WS, 'a.ts')
+    expect(useEditorStore.getState().tabs[WS].map((tab) => tab.relativePath)).toEqual(['a.ts', 'c.ts'])
+    expect(useEditorStore.getState().files[WS]['c.ts'].content).toBe('C edited')
+  })
+
   it('reorders tabs by drag', async () => {
     await useEditorStore.getState().openFile({ workspaceId: WS, rootPath: ROOT, relativePath: 'a.ts' })
     await useEditorStore.getState().openFile({ workspaceId: WS, rootPath: ROOT, relativePath: 'b.ts' })

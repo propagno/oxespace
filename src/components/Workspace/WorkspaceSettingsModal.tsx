@@ -1,8 +1,10 @@
-import { Brain, Check, GitBranch, Maximize2, Minimize2, Palette, SquareTerminal, X } from 'lucide-react'
+import { Brain, Check, GitBranch, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
-import { LAYOUT_PRESETS } from './workspaceOptions'
-import { AppearanceModes } from '../Settings/AppearanceSettings'
+import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './workspaceOptions'
+import { useSettingsStore } from '../../store/settings.store'
+import { resolveDensity } from '../../design/density'
+import { AppearanceSettings } from '../Settings/AppearanceSettings'
 import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
 import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
@@ -149,21 +151,19 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
                 </header>
 
                 <div className="ws-settings-field-label">Mode</div>
-                <AppearanceModes />
-                <p className="ws-settings-hint">Light and dark mode apply to the whole app. Density is saved for this workspace.</p>
+                <AppearanceSettings />
+                <p className="ws-settings-hint">Light and dark mode apply to the whole app. App default follows the density in Settings › Appearance; Compact or Comfortable override it for this workspace.</p>
 
                 <div className="ws-settings-field-label">Density</div>
                 <div className="density-toggle" role="radiogroup" aria-label="Density">
-                  <button type="button" role="radio" aria-checked={uiDensity === 'compact'}
-                    className={`density-option${uiDensity === 'compact' ? ' selected' : ''}`} onClick={() => setUiDensity('compact')}>
-                    <Minimize2 size={14} aria-hidden="true" />
-                    <span>Compact</span>
-                  </button>
-                  <button type="button" role="radio" aria-checked={uiDensity === 'comfortable'}
-                    className={`density-option${uiDensity === 'comfortable' ? ' selected' : ''}`} onClick={() => setUiDensity('comfortable')}>
-                    <Maximize2 size={14} aria-hidden="true" />
-                    <span>Comfortable</span>
-                  </button>
+                  {WORKSPACE_DENSITIES.map(({ id, label }) => {
+                    const Icon = id === 'compact' ? Minimize2 : id === 'comfortable' ? Maximize2 : Settings2
+                    return <button key={id} type="button" role="radio" aria-checked={uiDensity === id}
+                      className={`density-option${uiDensity === id ? ' selected' : ''}`} onClick={() => setUiDensity(id)}>
+                      <Icon size={14} aria-hidden="true" />
+                      <span>{label}</span>
+                    </button>
+                  })}
                 </div>
               </section>
 
@@ -230,7 +230,8 @@ function WorkspacePreview({ name, themeId, density, layoutPreset, prefs }: {
   prefs: TerminalPrefs
 }): ReactElement {
   const grid = PRESET_GRIDS[layoutPreset]
-  const gap = density === 'compact' ? 3 : 6
+  const resolved = resolveDensity(density, useSettingsStore(state => state.density))
+  const gap = resolved === 'compact' ? 3 : 6
   // Clamp the sample text size so big fonts don't overflow the small preview.
   const sampleSize = Math.max(9, Math.min(prefs.fontSize, 16))
 
@@ -264,7 +265,7 @@ function WorkspacePreview({ name, themeId, density, layoutPreset, prefs }: {
         </div>
       </div>
       <div className="ws-preview-caption">
-        {density === 'compact' ? 'Compact' : 'Comfortable'} · {layoutPreset} panes · {prefs.fontSize}px
+        {resolved === 'compact' ? 'Compact' : 'Comfortable'}{density === 'default' ? ' (app default)' : ''} · {layoutPreset} panes · {prefs.fontSize}px
       </div>
     </div>
   )

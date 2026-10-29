@@ -1,5 +1,6 @@
-import { Pin, X } from 'lucide-react'
+import { Pin, PinOff, X, XSquare } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { createPortal } from 'react-dom'
 import type { EditorTab } from '../../store/editor.store'
 
 interface EditorTabsProps {
@@ -13,7 +14,7 @@ interface EditorTabsProps {
   onMove: (fromPath: string, toPath: string) => void
 }
 
-/** Editor tab strip: click to activate, middle-click to close, drag to reorder. */
+/** Editor tab strip: click to activate, middle-click to close, drag to reorder, right-click for tab actions. */
 export function EditorTabs({
   activePath,
   dirtyPaths,
@@ -27,6 +28,27 @@ export function EditorTabs({
   const [draggingPath, setDraggingPath] = useState<string | null>(null)
   const [dropPath, setDropPath] = useState<string | null>(null)
   const stripRef = useRef<HTMLDivElement | null>(null)
+  const [menu, setMenu] = useState<{ path: string; x: number; y: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  // The menu closes on any outside press, Escape or a scroll of the strip, and starts with focus on its first item.
+  useEffect(() => {
+    if (!menu) return
+    menuRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
+    const close = (event: Event): void => {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
+      if (event.target instanceof Node && menuRef.current?.contains(event.target) && !(event instanceof KeyboardEvent)) return
+      setMenu(null)
+    }
+    window.addEventListener('pointerdown', close, true)
+    window.addEventListener('keydown', close, true)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('pointerdown', close, true)
+      window.removeEventListener('keydown', close, true)
+      window.removeEventListener('blur', close)
+    }
+  }, [menu])
 
   // The strip scrolls horizontally in a narrow panel, so the active tab has to
   // be pulled into view — otherwise opening a file appears to do nothing.
@@ -82,7 +104,9 @@ export function EditorTabs({
             onDoubleClick={() => onTogglePin(tab.relativePath)}
             onContextMenu={(event) => {
               event.preventDefault()
-              onCloseOthers(tab.relativePath)
+              // A keyboard-opened menu (Shift+F10) has no pointer position: anchor it under the tab.
+              const box = event.currentTarget.getBoundingClientRect()
+              setMenu({ path: tab.relativePath, x: event.clientX || box.left, y: event.clientY || box.bottom })
             }}
             onDragStart={(event) => {
               setDraggingPath(tab.relativePath)
@@ -124,6 +148,26 @@ export function EditorTabs({
           </div>
         )
       })}
+      {menu ? (() => {
+        const tab = tabs.find((item) => item.relativePath === menu.path)
+        if (!tab) return null
+        const run = (action: () => void) => () => { setMenu(null); action() }
+        // Outside the tablist, which may only own tabs.
+        return createPortal(
+          <div ref={menuRef} className="ws-group-context-menu" role="menu" aria-label={`Actions for ${basename(tab.relativePath)}`} style={{ left: menu.x, top: menu.y }} data-testid="editor-tab-menu">
+            <button type="button" role="menuitem" onClick={run(() => onTogglePin(tab.relativePath))}>
+              {tab.pinned ? <PinOff size={12} aria-hidden="true" /> : <Pin size={12} aria-hidden="true" />}{tab.pinned ? 'Unpin tab' : 'Pin tab'}
+            </button>
+            <button type="button" role="menuitem" disabled={tabs.length < 2} title="Pinned tabs and tabs with unsaved changes stay open" onClick={run(() => onCloseOthers(tab.relativePath))}>
+              <XSquare size={12} aria-hidden="true" />Close other tabs
+            </button>
+            <button type="button" role="menuitem" onClick={run(() => onClose(tab.relativePath))}>
+              <X size={12} aria-hidden="true" />Close tab
+            </button>
+          </div>,
+          document.body
+        )
+      })() : null}
     </div>
   )
 }

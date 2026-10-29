@@ -97,7 +97,7 @@
 .oq-tree > p { margin: 4px 8px; }
 .oq-tree-head { display: flex; align-items: center; gap: 4px; padding: 0 8px 6px; }
 .oq-tree-search { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-muted); background: var(--surface-base, transparent); }
-.oq-tree-search:focus-within { border-color: var(--accent); }
+.oq-tree-search:focus-within { border-color: var(--border-focus); }
 .oq-tree-search input { flex: 1; min-width: 0; padding: 5px 0; border: 0; outline: 0; color: var(--text-primary); background: transparent; font: inherit; }
 /* Only the rows on screen exist: a schema can hold thousands of objects. */
 .oq-tree-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; outline: 0; }
@@ -388,7 +388,8 @@
 /* Connection list: groups, colors, favorites, search. A color is one of the identity tokens. */
 .oq-h3-actions { display: inline-flex; align-items: center; gap: 2px; }
 .oq-conn-search { display: flex; align-items: center; gap: 6px; margin: 0 8px 6px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-muted); }
-.oq-conn-search input { flex: 1; min-width: 0; padding: 5px 0; border: 0; outline: 0; color: var(--text-primary); background: transparent; font: inherit; font-size: var(--text-xs); }
+.oq-conn-search:focus-within { border-color: var(--border-focus); }
+.oq-conn-search input {flex: 1; min-width: 0; padding: 5px 0; border: 0; outline: 0; color: var(--text-primary); background: transparent; font: inherit; font-size: var(--text-xs); }
 .oq-conn-heading { display: flex; align-items: center; gap: 4px; width: 100%; padding: 4px 8px; border: 0; color: var(--text-muted); background: transparent; font: inherit; font-size: var(--text-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; }
 .oq-conn-heading small { margin-left: auto; }
 .oq-connection-row .oq-icon[data-on] { opacity: 1; color: var(--intent-warning-solid, var(--accent)); }
@@ -541,7 +542,7 @@ td:has(> .oq-actions) { width: 1%; }
 :is(.oq-view, .oq-scope) textarea { padding: var(--space-2); line-height: var(--leading-normal); }
 :is(.oq-view, .oq-scope) :is(input, textarea)::placeholder { color: var(--text-muted); }
 :is(.oq-view, .oq-scope) :is(input:not([type='checkbox'], [type='radio']), textarea):hover:not(:disabled) { border-color: var(--text-muted); }
-:is(.oq-view, .oq-scope) :is(input:not([type='checkbox'], [type='radio']), textarea):focus-visible { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 30%, transparent); }
+:is(.oq-view, .oq-scope) :is(input:not([type='checkbox'], [type='radio']), textarea):focus-visible { outline: 2px solid transparent; border-color: var(--border-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 30%, transparent); }
 :is(.oq-view, .oq-scope) :is(input, textarea):disabled { opacity: .55; cursor: not-allowed; }
 /* Labels above fields read the same everywhere in a dialog. */
 .oq-scope label { font-size: var(--text-xs); color: var(--text-secondary); }

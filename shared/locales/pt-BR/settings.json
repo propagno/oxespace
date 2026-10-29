@@ -2,17 +2,42 @@
   "appearance": {
     "kicker": "Aparência global",
     "title": "Aparência",
-    "description": "Escolha o modo e o idioma do app inteiro, ou siga o sistema operacional.",
+    "description": "Modo, escala da interface, densidade e idioma do app inteiro.",
     "mode": {
       "title": "Modo",
-      "system": { "label": "Sistema", "hint": "Segue o sistema operacional" },
-      "light": { "label": "Claro", "hint": "Superfícies claras com detalhes em verde" },
-      "dark": { "label": "Escuro", "hint": "Superfícies escuras com detalhes em amarelo quente" }
+      "system": {
+        "label": "Sistema",
+        "hint": "Segue o sistema operacional"
+      },
+      "light": {
+        "label": "Claro",
+        "hint": "Superfícies claras com detalhes em verde"
+      },
+      "dark": {
+        "label": "Escuro",
+        "hint": "Superfícies escuras com detalhes em amarelo quente"
+      }
     },
     "language": {
       "title": "Idioma",
       "system": "Sistema ({{language}})",
       "hint": "Vale para toda a interface. Os agentes respondem no idioma em que você escreve."
+    },
+    "scale": {
+      "title": "Escala da interface",
+      "hint": "Deixa textos, controles e o terminal maiores ou menores em todo o app. Agora em {{scale}}."
+    },
+    "density": {
+      "title": "Densidade",
+      "hint": "Quão juntos ficam controles e listas. Os workspaces e a lista do Thread seguem esta opção, a menos que tenham a própria.",
+      "compact": "Compacta",
+      "comfortable": "Confortável",
+      "workspaceOverride_one": "1 workspace usa a própria densidade.",
+      "workspaceOverride_many": "{{count}} workspaces usam a própria densidade.",
+      "workspaceOverride_other": "{{count}} workspaces usam a própria densidade.",
+      "useAppInWorkspaces": "Usar a densidade do app em todos os workspaces",
+      "threadOverride": "A lista do Thread usa a própria densidade: {{density}}.",
+      "useAppInThread": "Usar a densidade do app na lista do Thread"
     }
   }
 }

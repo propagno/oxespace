@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Appearance } from '../design/mode'
 import { isLanguagePreference, type LanguagePreference } from '../../shared/i18n'
+import type { UiDensity } from '../../shared/types/workspace'
+import { clampUiScale, UI_SCALE_DEFAULT } from '../../shared/uiScale'
 
 /**
  * General app preferences, persisted to localStorage (OXESpace has no global
@@ -43,6 +45,12 @@ interface SettingsState {
   /** Interface language, or follow the operating system (src/i18n applies it). */
   language: LanguagePreference
   setLanguage: (language: LanguagePreference) => void
+  /** Interface scale (window zoom), 0.9–1.25. */
+  uiScale: number
+  setUiScale: (scale: number) => void
+  /** App-wide density; a workspace or the Thread list may override it. */
+  density: UiDensity
+  setDensity: (density: UiDensity) => void
   /** Settings › Keyboard: chords per keybinding id; an empty list turns the shortcut off. */
   keybindingOverrides: Record<string, string[]>
   /** `null` returns the shortcut to its default. */
@@ -61,6 +69,10 @@ export const useSettingsStore = create<SettingsState>()(
       setAppearance: (appearance) => set({ appearance }),
       language: 'system',
       setLanguage: (language) => set({ language }),
+      uiScale: UI_SCALE_DEFAULT,
+      setUiScale: (scale) => set({ uiScale: clampUiScale(scale) }),
+      density: 'compact',
+      setDensity: (density) => set({ density: density === 'comfortable' ? 'comfortable' : 'compact' }),
       keybindingOverrides: {},
       setKeybindingOverride: (id, chords) => set(state => {
         const next = { ...state.keybindingOverrides }
@@ -72,7 +84,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'oxe-settings',
-      version: 5,
+      version: 6,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
@@ -80,6 +92,8 @@ export const useSettingsStore = create<SettingsState>()(
           visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
           appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
           language: isLanguagePreference(s.language) ? s.language : 'system',
+          uiScale: clampUiScale(s.uiScale ?? UI_SCALE_DEFAULT),
+          density: s.density === 'comfortable' ? 'comfortable' : 'compact',
           keybindingOverrides: cleanOverrides(s.keybindingOverrides)
         }
       }

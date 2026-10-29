@@ -42,6 +42,7 @@ export const KEYBINDINGS = [
   { id: 'palette.search', chords: ['Mod+J'], scope: 'global', label: 'Search files & commands' },
   { id: 'settings.open', chords: ['Mod+,'], scope: 'global', label: 'Open settings', reservedInTerminal: true },
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', label: 'Toggle sidebar', reservedInTerminal: true },
+  { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', label: 'Open activity center', reservedInTerminal: true },
   { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', label: 'Toggle voice input', when: context => context.view !== 'data' },
   // Code
   { id: 'code.changes', chords: ['Mod+Shift+D'], scope: 'code', label: 'Changes' },

@@ -14,7 +14,9 @@ export const WORKSPACE_THEMES: Array<{ id: WorkspaceThemeId; label: string }> = 
   { id: 'github-dark', label: 'GitHub Dark' }
 ]
 
+/** 'default' follows Settings › Appearance; the others override it for one workspace. */
 export const WORKSPACE_DENSITIES: Array<{ id: WorkspaceDensity; label: string }> = [
+  { id: 'default', label: 'App default' },
   { id: 'compact', label: 'Compact' },
   { id: 'comfortable', label: 'Comfortable' }
 ]
@@ -29,8 +31,8 @@ export const WORKSPACE_TEMPLATES: Array<{
   uiDensity: WorkspaceDensity
   layoutPreset: WorkspaceLayoutPreset
 }> = [
-  { id: 'focused', label: 'Focused', description: 'Single agent focus', themeId: 'midnight', uiDensity: 'compact', layoutPreset: 1 },
-  { id: 'pairing', label: 'Pairing', description: 'Two agents side by side', themeId: 'nord', uiDensity: 'compact', layoutPreset: 2 },
+  { id: 'focused', label: 'Focused', description: 'Single agent focus', themeId: 'midnight', uiDensity: 'default', layoutPreset: 1 },
+  { id: 'pairing', label: 'Pairing', description: 'Two agents side by side', themeId: 'nord', uiDensity: 'default', layoutPreset: 2 },
   { id: 'review', label: 'Review', description: 'Review and verify grid', themeId: 'dracula', uiDensity: 'comfortable', layoutPreset: 4 },
-  { id: 'automation', label: 'Automation', description: 'Large automation surface', themeId: 'monokai', uiDensity: 'compact', layoutPreset: 8 }
+  { id: 'automation', label: 'Automation', description: 'Large automation surface', themeId: 'monokai', uiDensity: 'default', layoutPreset: 8 }
 ]
