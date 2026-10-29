@@ -940,7 +940,7 @@
     "back": "Voltar",
     "forward": "Avançar",
     "reload": "Recarregar",
-    "address": "Endereço da página",
+    "address": "Endereço da prévia",
     "go": "Ir",
     "externalTitle": "Permitir sites fora deste computador; eles mantêm os próprios cabeçalhos de segurança de frame",
     "external": "Externo",
@@ -963,7 +963,7 @@
       "allow": "Permitir acesso",
       "body": "Os agentes deste workspace podem ler a página e capturar telas. O conteúdo e as capturas podem ser enviados ao fornecedor do agente. Os campos de entrada são mascarados, mas confira as capturas em busca de outros dados privados. Cada clique, preenchimento ou navegação ainda pede aprovação própria.",
       "toggleTitle": "Deixa os agentes deste workspace inspecionarem e capturarem esta página. As capturas podem ir para o fornecedor do agente. Os campos são mascarados; outros dados privados não. Cliques, preenchimentos e navegação pedem antes. Desliga quando o navegador fecha.",
-      "toggleLabel": "Acesso dos agentes a esta página",
+      "toggleLabel": "Acesso de documentação dos agentes",
       "toggle": "Acesso dos agentes",
       "on": "As ações pedem aprovação",
       "off": "Os agentes não veem esta página"
@@ -983,6 +983,124 @@
       "note": "O que o agente deve mudar?",
       "notePlaceholder": "O que o agente deve mudar aqui? (Ctrl+Enter envia)",
       "send": "Enviar ao agente"
+    }
+  },
+  "workspace": {
+    "panel": {
+      "restore": "Restaurar a largura do painel",
+      "expand": "Expandir o painel",
+      "collapse": "Recolher o painel",
+      "actions": "Ações do painel",
+      "repositoryViews": "Vistas do repositório",
+      "files": "Arquivos e editor"
+    },
+    "git": {
+      "github": "Recursos do GitHub",
+      "local": "Git local · qualquer remoto",
+      "back": "Voltar ao controle do Git"
+    },
+    "review": {
+      "back": "Voltar às Alterações",
+      "classic": "Revisão clássica (comentários por linha)"
+    },
+    "density": {
+      "default": "Padrão do app",
+      "compact": "Compacta",
+      "comfortable": "Confortável"
+    },
+    "status": {
+      "bar": "Barra de status do workspace",
+      "noProject": "Nenhum projeto selecionado",
+      "panesTitle": "Painéis abertos neste workspace",
+      "panes_one": "{{count}} painel",
+      "panes_many": "{{count}} painéis",
+      "panes_other": "{{count}} painéis",
+      "backgroundTitle_one": "{{count}} terminal ainda roda em um workspace que não está aberto. Clique para pará-lo.",
+      "backgroundTitle_many": "{{count}} terminais ainda rodam em workspaces que não estão abertos. Clique para pará-los.",
+      "backgroundTitle_other": "{{count}} terminais ainda rodam em workspaces que não estão abertos. Clique para pará-los.",
+      "background_one": "{{count}} em segundo plano",
+      "background_many": "{{count}} em segundo plano",
+      "background_other": "{{count}} em segundo plano"
+    },
+    "branch": {
+      "shared_one": "{{count}} terminal usa esta pasta",
+      "shared_many": "{{count}} terminais compartilham esta pasta; mudar de branch afeta todos eles.",
+      "shared_other": "{{count}} terminais compartilham esta pasta; mudar de branch afeta todos eles.",
+      "movedTo": "O agente está trabalhando em {{path}}",
+      "openedIn": "Terminal aberto em {{path}}",
+      "directory": "Pasta do terminal: {{path}}",
+      "outside": "O agente diz estar trabalhando fora deste repositório: {{path}}"
+    },
+    "scope": {
+      "pinned": "Painéis fixados na raiz do workspace ({{path}}). Clique para voltar a seguir o painel ativo.",
+      "worktree": "Os painéis estão lendo o worktree em {{path}}. Clique para fixá-los na raiz do workspace.",
+      "root": "Os painéis estão lendo {{path}}. Clique para mantê-los aqui mesmo quando um painel de worktree estiver ativo."
+    },
+    "systems": {
+      "title": "Sistemas",
+      "label": "Status das integrações",
+      "triggerLabel": "Sistemas {{count}}: status das integrações",
+      "alerts_one": "{{count}} alerta",
+      "alerts_many": "{{count}} alertas",
+      "alerts_other": "{{count}} alertas",
+      "active_one": "{{count}} ativo",
+      "active_many": "{{count}} ativos",
+      "active_other": "{{count}} ativos",
+      "semanticOff": "Busca semântica: desligada",
+      "semanticTitle": "Semântica: {{label}}",
+      "mode": "modo {{mode}}",
+      "disconnected": "Desconectado",
+      "checking": "Verificando…",
+      "mcp_one": "{{count}} para os agentes",
+      "mcp_many": "{{count}} para os agentes",
+      "mcp_other": "{{count}} para os agentes",
+      "update": "Atualização {{version}} disponível",
+      "on": "Ativo",
+      "off": "Desligado",
+      "clickOff": "clique para desligar",
+      "clickOn": "clique para ligar",
+      "semantic": "Semântica",
+      "indexing": "Indexando…"
+    },
+    "summary": {
+      "agents_one": "agente",
+      "agents_many": "agentes",
+      "agents_other": "agentes",
+      "thinkingTitle_one": "{{count}} agente pensando agora",
+      "thinkingTitle_many": "{{count}} agentes pensando agora",
+      "thinkingTitle_other": "{{count}} agentes pensando agora",
+      "awaitingTitle_one": "{{count}} agente aguardando sua resposta",
+      "awaitingTitle_many": "{{count}} agentes aguardando sua resposta",
+      "awaitingTitle_other": "{{count}} agentes aguardando sua resposta",
+      "idleTitle_one": "{{count}} agente ocioso",
+      "idleTitle_many": "{{count}} agentes ociosos",
+      "idleTitle_other": "{{count}} agentes ociosos"
+    },
+    "usage": {
+      "minutes": "{{minutes}} min",
+      "hours": "{{hours}} h {{minutes}} min",
+      "days": "{{days}} d {{hours}} h",
+      "sessionShort": "5h",
+      "weekShort": "sem",
+      "session": "Janela de 5 horas",
+      "weekly": "Janela semanal",
+      "line": "{{name}}: {{pct}}% usado",
+      "lineReset": "{{name}}: {{pct}}% usado, renova em {{reset}}",
+      "staleSeconds": "Última leitura conhecida, de {{age}} s atrás (o provedor não está respondendo agora)",
+      "readSeconds": "Lido há {{age}} s",
+      "label": "Uso",
+      "click": "Clique para ver os detalhes",
+      "aria": "Uso do {{name}}: {{value}}",
+      "provider": "Uso do {{name}}",
+      "inUse": "Em uso",
+      "used": "{{pct}}% usado",
+      "usedReset": "{{pct}}% usado · renova em {{reset}}",
+      "staleMinutes": "Última leitura conhecida, de {{age}} min atrás: o provedor não está respondendo agora.",
+      "readNow": "Lido agora mesmo",
+      "readMinutes": "Lido há {{age}} min",
+      "reading": "Lendo…",
+      "read": "Ler agora",
+      "details": "Detalhes de uso"
     }
   }
 }

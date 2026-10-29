@@ -2,6 +2,9 @@ import { Activity } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 interface WorkspaceStatusSummaryProps {
   workspace: Workspace
@@ -34,24 +37,24 @@ export function WorkspaceStatusSummary({ workspace }: WorkspaceStatusSummaryProp
       <span className="workspace-status-pill">
         <Activity size={12} aria-hidden="true" />
         <strong>{counts.total}</strong>
-        <span className="workspace-status-pill-label">{counts.total === 1 ? 'agent' : 'agents'}</span>
+        <span className="workspace-status-pill-label">{tc('workspace.summary.agents', { count: counts.total })}</span>
       </span>
       {counts.thinking > 0 ? (
-        <span className="workspace-status-chip activity-thinking" title={`${counts.thinking} agent${counts.thinking === 1 ? '' : 's'} thinking right now`}>
+        <span className="workspace-status-chip activity-thinking" title={tc('workspace.summary.thinkingTitle', { count: counts.thinking })}>
           <span className="workspace-status-dot activity-thinking" aria-hidden="true" />
-          {counts.thinking} thinking
+          {tc('sidebar.activity.thinking', { count: counts.thinking })}
         </span>
       ) : null}
       {counts.awaiting > 0 ? (
-        <span className="workspace-status-chip activity-awaiting" title={`${counts.awaiting} agent${counts.awaiting === 1 ? '' : 's'} waiting for your input`}>
+        <span className="workspace-status-chip activity-awaiting" title={tc('workspace.summary.awaitingTitle', { count: counts.awaiting })}>
           <span className="workspace-status-dot activity-awaiting" aria-hidden="true" />
-          {counts.awaiting} awaiting
+          {tc('sidebar.activity.awaiting', { count: counts.awaiting })}
         </span>
       ) : null}
       {counts.idle > 0 ? (
-        <span className="workspace-status-chip activity-idle" title={`${counts.idle} idle agent${counts.idle === 1 ? '' : 's'}`}>
+        <span className="workspace-status-chip activity-idle" title={tc('workspace.summary.idleTitle', { count: counts.idle })}>
           <span className="workspace-status-dot activity-idle" aria-hidden="true" />
-          {counts.idle} idle
+          {tc('sidebar.activity.idle', { count: counts.idle })}
         </span>
       ) : null}
     </div>

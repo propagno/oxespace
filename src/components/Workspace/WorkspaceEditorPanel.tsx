@@ -5,6 +5,9 @@ import { EditorPane } from '../Editor/EditorPane'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { PanelScopeBadge } from './PanelScopeBadge'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 interface WorkspaceEditorPanelProps {
   workspace: Workspace
@@ -31,23 +34,23 @@ export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded,
           <span>{workspace.name}</span>
           <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
         </div>
-        <div className="workspace-editor-actions repository-view-actions" aria-label="Repository views">
-          <button type="button" className="tile-btn active" aria-label="Files and editor" title="Files and editor">
+        <div className="workspace-editor-actions repository-view-actions" aria-label={tc('workspace.panel.repositoryViews')}>
+          <button type="button" className="tile-btn active" aria-label={tc('workspace.panel.files')} title={tc('workspace.panel.files')}>
             <Files size={14} aria-hidden="true" />
           </button>
-          <button type="button" className="tile-btn" aria-label="Source control" title="Source control" onClick={openSourceControl}>
+          <button type="button" className="tile-btn" aria-label={tc('panels.git')} title={tc('panels.git')} onClick={openSourceControl}>
             <GitBranch size={14} aria-hidden="true" />
           </button>
           <button
             type="button"
             className="tile-btn"
-            aria-label={isExpanded ? 'Restore editor width' : 'Expand editor'}
-            title={isExpanded ? 'Restore editor width' : 'Expand editor'}
+            aria-label={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
+            title={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
             onClick={onToggleExpanded}
           >
             {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
           </button>
-          <button type="button" className="tile-btn" aria-label="Collapse editor" title="Collapse editor" onClick={onCollapse}>
+          <button type="button" className="tile-btn" aria-label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} onClick={onCollapse}>
             <ChevronsRight size={14} aria-hidden="true" />
           </button>
         </div>

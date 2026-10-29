@@ -896,7 +896,7 @@
     "back": "Back",
     "forward": "Forward",
     "reload": "Reload",
-    "address": "Page address",
+    "address": "Preview address",
     "go": "Go",
     "externalTitle": "Allow sites outside this computer; they keep their own frame security headers",
     "external": "External",
@@ -919,7 +919,7 @@
       "allow": "Allow access",
       "body": "Agents in this workspace can read the page and capture screenshots. Page content and screenshots may be sent to the agent vendor. Inputs are masked automatically, but check captures for other private data. Each click, fill or navigation still asks for its own approval.",
       "toggleTitle": "Let agents in this workspace inspect and capture this page. Captures can be sent to the agent vendor. Inputs are masked; other private data is not. Clicks, fills and navigation ask first. Turns off when the browser closes.",
-      "toggleLabel": "Agent access to this page",
+      "toggleLabel": "Agent documentation access",
       "toggle": "Agent access",
       "on": "Actions ask for approval",
       "off": "Agents cannot see this page"
@@ -939,6 +939,113 @@
       "note": "What should the agent change?",
       "notePlaceholder": "What should the agent change here? (Ctrl+Enter sends)",
       "send": "Send to agent"
+    }
+  },
+  "workspace": {
+    "panel": {
+      "restore": "Restore panel width",
+      "expand": "Expand panel",
+      "collapse": "Collapse panel",
+      "actions": "Panel actions",
+      "repositoryViews": "Repository views",
+      "files": "Files and editor"
+    },
+    "git": {
+      "github": "GitHub features",
+      "local": "Local Git · any remote",
+      "back": "Back to Git control"
+    },
+    "review": {
+      "back": "Back to Changes",
+      "classic": "Classic review (line comments)"
+    },
+    "density": {
+      "default": "App default",
+      "compact": "Compact",
+      "comfortable": "Comfortable"
+    },
+    "status": {
+      "bar": "Workspace status bar",
+      "noProject": "No project selected",
+      "panesTitle": "Panes open in this workspace",
+      "panes_one": "{{count}} pane",
+      "panes_other": "{{count}} panes",
+      "backgroundTitle_one": "{{count}} terminal is still running in a workspace that is not open. Click to stop it.",
+      "backgroundTitle_other": "{{count}} terminals are still running in workspaces that are not open. Click to stop them.",
+      "background_one": "{{count}} in background",
+      "background_other": "{{count}} in background"
+    },
+    "branch": {
+      "shared_one": "{{count}} terminal uses this directory",
+      "shared_other": "{{count}} terminals share this directory; branch changes affect all of them.",
+      "movedTo": "The agent is working in {{path}}",
+      "openedIn": "Terminal opened in {{path}}",
+      "directory": "Terminal directory: {{path}}",
+      "outside": "The agent reports working outside this repository: {{path}}"
+    },
+    "scope": {
+      "pinned": "Panels pinned to the workspace root ({{path}}). Click to follow the active pane again.",
+      "worktree": "Panels are reading the worktree at {{path}}. Click to pin them to the workspace root.",
+      "root": "Panels are reading {{path}}. Click to keep them here even when a worktree pane is active."
+    },
+    "systems": {
+      "title": "Systems",
+      "label": "Integration status",
+      "triggerLabel": "Systems {{count}}: integration status",
+      "alerts_one": "{{count}} alert",
+      "alerts_other": "{{count}} alerts",
+      "active_one": "{{count}} active",
+      "active_other": "{{count}} active",
+      "semanticOff": "Semantic search: off",
+      "semanticTitle": "Semantic: {{label}}",
+      "mode": "{{mode}} mode",
+      "disconnected": "Disconnected",
+      "checking": "Checking…",
+      "mcp_one": "{{count}} for agents",
+      "mcp_other": "{{count}} for agents",
+      "update": "Update {{version}} available",
+      "on": "Active",
+      "off": "Off",
+      "clickOff": "click to turn off",
+      "clickOn": "click to turn on",
+      "semantic": "Semantic",
+      "indexing": "Indexing…"
+    },
+    "summary": {
+      "agents_one": "agent",
+      "agents_other": "agents",
+      "thinkingTitle_one": "{{count}} agent thinking right now",
+      "thinkingTitle_other": "{{count}} agents thinking right now",
+      "awaitingTitle_one": "{{count}} agent waiting for your input",
+      "awaitingTitle_other": "{{count}} agents waiting for your input",
+      "idleTitle_one": "{{count}} idle agent",
+      "idleTitle_other": "{{count}} idle agents"
+    },
+    "usage": {
+      "minutes": "{{minutes}}m",
+      "hours": "{{hours}}h {{minutes}}m",
+      "days": "{{days}}d {{hours}}h",
+      "sessionShort": "5h",
+      "weekShort": "wk",
+      "session": "5-hour window",
+      "weekly": "Weekly window",
+      "line": "{{name}}: {{pct}}% used",
+      "lineReset": "{{name}}: {{pct}}% used, resets in {{reset}}",
+      "staleSeconds": "Last known reading, {{age}}s old (the provider is not answering now)",
+      "readSeconds": "Read {{age}}s ago",
+      "label": "Usage",
+      "click": "Click for details",
+      "aria": "{{name}} usage: {{value}}",
+      "provider": "{{name}} usage",
+      "inUse": "In use",
+      "used": "{{pct}}% used",
+      "usedReset": "{{pct}}% used · renews in {{reset}}",
+      "staleMinutes": "Last known reading, {{age}} min old: the provider is not answering now.",
+      "readNow": "Read just now",
+      "readMinutes": "Read {{age}} min ago",
+      "reading": "Reading…",
+      "read": "Read now",
+      "details": "Usage details"
     }
   }
 }

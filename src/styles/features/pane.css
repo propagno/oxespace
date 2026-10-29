@@ -109,54 +109,6 @@
   white-space: nowrap;
 }
 
-/* --- PANE TYPE SWITCHER --- */
-.pane-type-switcher { position: relative; }
-
-.pane-type-switcher-label { text-transform: capitalize; }
-
-.pane-type-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: var(--layer-dropdown);
-  min-width: 144px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  box-shadow: var(--elevation-3);
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.pane-type-popover-item {
-  display: flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: none;
-  color: var(--tx-secondary);
-  font-size: var(--fs-xs);
-  text-transform: capitalize;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: background 0.1s, color 0.1s;
-}
-.pane-type-popover-item:hover { background: var(--surface-canvas); color: var(--tx-primary); }
-.pane-type-popover-item.active { color: var(--accent); }
-
-.pane-type-popover-check {
-  width: 18px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  color: var(--accent);
-}
-
 .pane-agent-chip {
   display: inline-flex;
   align-items: center;
