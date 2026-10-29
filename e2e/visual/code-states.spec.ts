@@ -51,10 +51,12 @@ for (const theme of THEMES) {
       await expect(panel).toBeVisible()
       await panel.getByRole('complementary', { name: 'Changed files' }).getByRole('treeitem', { name: 'app.ts' }).click()
       await expect(panel.locator('.monaco-diff-editor')).toContainText('unmodified lines', { timeout: 15_000 })
-      // Monaco paints the cursor, the current-line box and the overview-ruler marks a frame or two after the text,
-      // so they alternate between runs; they are not part of what this surface checks.
-      const monacoLive = panel.locator('.monaco-diff-editor').locator('.cursors-layer, .current-line, .decorationsOverviewRuler, .diffOverview')
-      await expectSurface(page, `code-changes-diff-${theme}`, { hide: [...liveMasks(page), monacoLive] })
+      // Monaco lays out the overview ruler a frame or two after the text, and the rows narrow to make room for it;
+      // wait for it so the layout is always the final one. The cursor, current-line box and ruler marks then come and
+      // go with focus, so a style rule (which also covers elements Monaco adds later) hides them.
+      await expect(panel.locator('.monaco-diff-editor .decorationsOverviewRuler').first()).toBeAttached()
+      await page.addStyleTag({ content: '.monaco-diff-editor :is(.cursors-layer, .current-line, .decorationsOverviewRuler, .diffOverview){visibility:hidden!important}' })
+      await expectSurface(page, `code-changes-diff-${theme}`, { hide: liveMasks(page) })
 
       await openTool(page, /^Commit & pull request$/)
       await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
