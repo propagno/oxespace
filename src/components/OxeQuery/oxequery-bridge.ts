@@ -1,3 +1,5 @@
+import { toast } from '../../ui/Toast'
+
 /**
  * What the command palette can ask OxeQuery to do. OxeQuery is lazy: nothing of it is loaded until its view is first opened,
  * so the palette goes through this small module, which App imports, instead of reaching into the view.
@@ -34,14 +36,24 @@ const FINDERS: Record<Exclude<OxeQueryAction, 'open'>, () => HTMLElement | null>
   compose: () => [...document.querySelectorAll<HTMLElement>('.oq-view [role="tab"]')].find(element => element.textContent?.trim() === 'Containers') ?? null
 }
 
+/** Why a command found nothing to act on: the person learns what to do instead of seeing nothing happen. */
+const UNAVAILABLE: Partial<Record<OxeQueryAction, string>> = {
+  newQuery: 'Open a PostgreSQL connection to write queries.',
+  runAll: 'Open a PostgreSQL connection with a query to run.',
+  searchObjects: 'Open a connection to search its objects.',
+  newTable: 'Open a PostgreSQL connection and expand a schema to create a table.',
+  exportConnections: 'There are no saved connections to export yet.'
+}
+
 /** Waits (up to two seconds) for the control to exist, because the view may have only just mounted. */
 export function performOxeQueryAction(action: OxeQueryAction): void {
   if (action === 'open') return
   const started = Date.now()
   const attempt = (): void => {
     const target = FINDERS[action]()
-    if (target) { if (target instanceof HTMLInputElement) target.focus(); else target.click(); return }
+    if (target && !(target as HTMLButtonElement).disabled) { if (target instanceof HTMLInputElement) target.focus(); else target.click(); return }
     if (Date.now() - started < 2000) window.setTimeout(attempt, 100)
+    else toast({ title: 'Nothing to do here yet', description: UNAVAILABLE[action] ?? 'This OxeQuery action is not available right now.' })
   }
   attempt()
 }

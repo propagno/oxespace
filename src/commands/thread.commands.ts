@@ -73,7 +73,9 @@ export function buildThreadCommands(ctx: ThreadCommandContext): ContributedComma
     slash('rules', 'Approval rules', '/rules', ListChecks, ['permissions', 'allow', 'deny']),
     { id: 'thread.undo-last-turn', label: 'Undo the last turn’s file changes', icon: Undo2, category: CATEGORY, keywords: ['revert', 'restore', 'checkpoint', 'rewind'],
       disabled: !snapshot || running, run: inThread(() => { if (snapshot) void undoLastTurn(snapshot) }) },
-    { id: 'thread.accounts', label: 'Provider accounts', icon: UserRound, category: CATEGORY, keywords: ['login', 'logout', 'claude', 'codex', 'account'], run: inThread(ctx.openAccounts) }
+    { id: 'thread.accounts', label: 'Provider accounts', icon: UserRound, category: CATEGORY, keywords: ['login', 'logout', 'claude', 'codex', 'account'],
+      // Accounts are checked inside a project.
+      disabled: ctx.projects.length === 0, run: inThread(ctx.openAccounts) }
   ]
 }
 

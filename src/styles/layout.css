@@ -546,8 +546,13 @@
   cursor: pointer;
 }
 
-.ws-group-context-menu button:hover {
+.ws-group-context-menu button:hover:not(:disabled) {
   background: var(--bg-ws-hover);
+}
+
+.ws-group-context-menu button:disabled {
+  color: var(--text-disabled);
+  cursor: default;
 }
 
 .ws-group-context-menu button.danger {

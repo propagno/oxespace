@@ -68,7 +68,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       <Menu label="Add to prompt" side="top" items={[
         { label: 'Attach image', icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
         { label: 'Mention a file', icon: <AtSign size={14} />, onSelect: onInsertMention },
-        { label: 'MCP connections', icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
+        { label: 'MCP servers', icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
       ]} trigger={<button type="button" className="thread-command-trigger" aria-label="Add to prompt" title="Attach, mention a file or connect tools" disabled={!snapshot || pending}><Plus size={14} /></button>} /></div>
       {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
       {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label="Steer active turn" title="Send guidance to the active turn" disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
