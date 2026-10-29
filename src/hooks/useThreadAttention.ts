@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
-import type { ThreadStatus } from '../../shared/types/thread'
+import type { ConversationThread, ThreadPendingRequestSummary, ThreadStatus } from '../../shared/types/thread'
+import { useActivityStore, type ActivityKind } from '../store/activity.store'
 import { useSettingsStore } from '../store/settings.store'
 import { useThreadStore } from '../store/thread.store'
-import { decideThreadAttention, threadAttentionText } from '../utils/threadAttention'
+import { decideThreadAttention, threadAttentionText, type ThreadAttentionKind } from '../utils/threadAttention'
 
 /** Prefix that routes a notification click to a thread instead of a terminal pane. */
 export const THREAD_NOTIFICATION_PANE_PREFIX = 'thread:'
@@ -38,15 +39,20 @@ export function useThreadAttention(applicationView: 'code' | 'thread' | 'data'):
       const focused = typeof document === 'undefined' ? true : document.hasFocus()
       const notificationsEnabled = useSettingsStore.getState().notificationsEnabled
 
+      const activity = useActivityStore.getState()
+      if (!seeded && api.pendingRequestsAll) void seedPending(() => api.pendingRequestsAll!(), threads, id => !disposed && known.get(id) === 'approval')
       for (const thread of threads) {
         const previous = seeded ? known.get(thread.id) : undefined
         known.set(thread.id, thread.status)
         // A thread created after the first scan has no previous status either;
         // it is new, not "finished".
         if (!seeded) continue
+        // Approved or answered elsewhere: the entry no longer waits on anyone.
+        if (previous === 'approval' && thread.status !== 'approval') activity.resolve('thread', thread.id)
         const watching = view.current === 'thread' && focused && (thread.id === selectedId || thread.id === secondaryId)
         const decision = decideThreadAttention({ previous, current: thread, viewing: watching })
         if (!decision.kind) continue
+        activity.record({ source: 'thread', id: thread.id, kind: ACTIVITY_KIND[decision.kind], target: threadTarget(thread), title: thread.title.trim() || 'Conversation', detail: threadAttentionText(decision.kind, thread.title).body, read: watching })
         if (decision.unread) markUnread(thread.id)
         if (decision.notify && notificationsEnabled) {
           const text = threadAttentionText(decision.kind, thread.title)
@@ -73,4 +79,37 @@ export function useThreadAttention(applicationView: 'code' | 'thread' | 'data'):
       if (timer) clearTimeout(timer)
     }
   }, [])
+}
+
+const ACTIVITY_KIND: Record<ThreadAttentionKind, ActivityKind> = { 'needs-approval': 'needs-you', failed: 'failed', finished: 'finished' }
+
+function threadTarget(thread: Pick<ConversationThread, 'id' | 'workspaceId'>): { type: 'thread'; threadId: string; workspaceId?: string } {
+  return { type: 'thread', threadId: thread.id, ...(thread.workspaceId ? { workspaceId: thread.workspaceId } : {}) }
+}
+
+/**
+ * Conversations already waiting when the app opened never pass through a transition, so their
+ * requests are read once, across every conversation, to fill "Needs you".
+ */
+async function seedPending(read: () => Promise<ThreadPendingRequestSummary[]>, threads: ConversationThread[], stillWaiting: (threadId: string) => boolean): Promise<void> {
+  let pending: ThreadPendingRequestSummary[]
+  try { pending = await read() } catch { return }
+  // An older main process, or a test double, can answer with something that is not a list.
+  if (!Array.isArray(pending)) return
+  const byThread = new Map<string, ThreadPendingRequestSummary[]>()
+  for (const request of pending) byThread.set(request.threadId, [...(byThread.get(request.threadId) ?? []), request])
+  const titles = new Map(threads.map(thread => [thread.id, thread.title.trim()]))
+  const activity = useActivityStore.getState()
+  for (const [threadId, requests] of byThread) {
+    // Answered while the read was in flight, or the view went away.
+    if (!stillWaiting(threadId)) continue
+    const first = requests[0]
+    activity.record({
+      source: 'thread', id: threadId, kind: 'needs-you',
+      target: threadTarget({ id: threadId, workspaceId: first.workspaceId }),
+      title: titles.get(threadId) || first.threadTitle || 'Conversation',
+      detail: requests.length > 1 ? `${requests.length} requests are waiting for your decision.` : first.title,
+      at: Math.max(...requests.map(request => request.createdAt))
+    })
+  }
 }

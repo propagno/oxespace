@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { chordsCollide, formatChord, matchesChord, matchesHotkey, parseChord } from '../src/keyboard/chords'
+import { chordsCollide, eventToChord, formatChord, matchesChord, matchesHotkey, parseChord } from '../src/keyboard/chords'
+import { useSettingsStore } from '../src/store/settings.store'
 import {
-  KEYBINDINGS, bindingsCollide, dispatchKeybinding, isTerminalReservedChord, setKeybindingOverrides, setKeyboardView, shortcutLabel, useKeybindings,
-  type Keybinding
+  KEYBINDINGS, bindingsCollide, dispatchKeybinding, conflictsFor, isTerminalReservedChord, setKeyboardView, shortcutLabel, useKeybindings,
+  type Keybinding, type KeybindingId
 } from '../src/keyboard/keybindings'
 
 const key = (init: KeyboardEventInit & { key: string }): KeyboardEvent => new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
@@ -45,15 +46,65 @@ describe('chords', () => {
   })
 })
 
+describe('capturing and shifted symbols', () => {
+  it('name a captured key press as a portable chord', () => {
+    expect(eventToChord(key({ key: 'D', code: 'KeyD', ctrlKey: true, shiftKey: true }))).toBe('Mod+Shift+D')
+    expect(eventToChord(key({ key: '_', code: 'Minus', ctrlKey: true, shiftKey: true }))).toBe('Mod+Shift+-')
+    expect(eventToChord(key({ key: '?', code: 'Slash', shiftKey: true }))).toBe('?')
+    expect(eventToChord(key({ key: 'F2', code: 'F2' }))).toBe('F2')
+    expect(eventToChord(key({ key: 'Control', code: 'ControlLeft', ctrlKey: true }))).toBeNull()
+  })
+
+  it('match "?" whatever Shift state the layout needs, but not inside other chords', () => {
+    expect(matchesChord(key({ key: '?', code: 'Slash', shiftKey: true }), '?')).toBe(true)
+    expect(matchesChord(key({ key: '?', code: 'Minus' }), '?')).toBe(true)
+    expect(matchesChord(key({ key: '/', code: 'Slash' }), '?')).toBe(false)
+    expect(matchesChord(key({ key: '?', code: 'Slash', ctrlKey: true, shiftKey: true }), 'Mod+/')).toBe(false)
+  })
+})
+
+const overrides = (value: Record<string, string[]>): void => useSettingsStore.setState({ keybindingOverrides: value })
+
 describe('keybinding registry', () => {
-  afterEach(() => { setKeybindingOverrides({}); setKeyboardView('code') })
+  afterEach(() => { overrides({}); setKeyboardView('code') })
 
   it('has unique ids and no two bindings fire on the same key in the same view', () => {
     const bindings = KEYBINDINGS as readonly Keybinding[]
     expect(new Set(bindings.map(binding => binding.id)).size).toBe(bindings.length)
-    const clashes = bindings.flatMap((a, index) => bindings.slice(index + 1)
-      .filter(b => bindingsCollide(a, b, a.chords, b.chords)).map(b => `${a.id} × ${b.id}`))
+    const clashes = bindings.flatMap(binding => conflictsFor(binding.id as KeybindingId).map(other => `${binding.id} × ${other.id}`))
     expect(clashes).toEqual([])
+    // The one deliberate overlap is real, and stays the only one.
+    expect(bindingsCollide(KEYBINDINGS.find(b => b.id === 'terminal.slash')!, KEYBINDINGS.find(b => b.id === 'help.shortcuts')!, ['Mod+/'], ['Mod+/'])).toBe(true)
+  })
+
+  it('warns about a conflict a user override creates, on both sides', () => {
+    overrides({ 'code.files': ['Mod+Shift+D'] })
+    expect(conflictsFor('code.files').map(binding => binding.id)).toEqual(['code.changes'])
+    expect(conflictsFor('code.changes').map(binding => binding.id)).toContain('code.files')
+    expect(conflictsFor('thread.changes').map(binding => binding.id)).toEqual([])
+  })
+
+  it('turns a shortcut off with an empty override', () => {
+    const files = vi.fn()
+    const hook = renderHook(() => useKeybindings({ 'code.files': files }))
+    overrides({ 'code.files': [] })
+    expect(dispatchKeybinding(key({ key: 'e', ctrlKey: true }))).toBe(false)
+    overrides({ 'code.files': ['Mod+Alt+E'] })
+    expect(dispatchKeybinding(key({ key: 'e', ctrlKey: true, altKey: true }))).toBe(true)
+    expect(files).toHaveBeenCalledTimes(1)
+    hook.unmount()
+  })
+
+  it('opens the guide with ? only outside text fields', () => {
+    const guide = vi.fn()
+    const hook = renderHook(() => useKeybindings({ 'help.shortcuts': guide }))
+    const input = document.createElement('input')
+    document.body.append(input)
+    expect(dispatchKeybinding(Object.defineProperty(key({ key: '?', shiftKey: true }), 'target', { value: input }))).toBe(false)
+    expect(dispatchKeybinding(Object.defineProperty(key({ key: '?', shiftKey: true }), 'target', { value: document.body }))).toBe(true)
+    expect(guide).toHaveBeenCalledTimes(1)
+    input.remove()
+    hook.unmount()
   })
 
   it('reserves only the palette, settings and sidebar chords in a focused terminal', () => {
@@ -66,9 +117,9 @@ describe('keybinding registry', () => {
 
   it('labels follow user overrides', () => {
     expect(shortcutLabel('code.changes')).toBe('Ctrl+Shift+D')
-    setKeybindingOverrides({ 'code.changes': ['Mod+Alt+C'] })
+    overrides({ 'code.changes': ['Mod+Alt+C'] })
     expect(shortcutLabel('code.changes')).toBe('Ctrl+Alt+C')
-    setKeybindingOverrides({ 'code.changes': [] })
+    overrides({ 'code.changes': [] })
     expect(shortcutLabel('code.changes')).toBeUndefined()
   })
 

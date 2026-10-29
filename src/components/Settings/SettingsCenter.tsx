@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { Button, Dialog, TextField } from '../../ui'
@@ -7,6 +7,7 @@ import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSe
 import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
 import { PolicySettings } from './PolicySettings'
+import { KeyboardSettings } from './KeyboardSettings'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -15,13 +16,14 @@ import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
 
-type AppPage = 'general' | 'policy' | SettingsSection
+type AppPage = 'general' | 'policy' | 'keyboard' | SettingsSection
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
   { id: 'general', icon: Settings2, label: 'General', hint: 'Navigation and workspace preferences' },
   { id: 'providers', icon: Bot, label: 'Agents', hint: 'Agent CLIs, custom agents and idle conversations' },
   { id: 'appearance', icon: Palette, label: 'Appearance', hint: 'Mode and language' },
   { id: 'terminal', icon: SquareTerminal, label: 'Terminal', hint: 'Font, cursor, scrolling and behavior' },
+  { id: 'keyboard', icon: Keyboard, label: 'Keyboard', hint: 'Shortcuts and key bindings' },
   { id: 'voice', icon: Mic, label: 'Voice', hint: 'Microphone and local transcription' },
   { id: 'notifications', icon: Bell, label: 'Notifications', hint: 'Alerts and sounds' },
   { id: 'updates', icon: ArrowUpCircle, label: 'Updates', hint: 'Version, downloads and installation' },
@@ -30,7 +32,7 @@ const appPages = [
 ] as const
 
 export function SettingsCenter(props: SettingsModalProps & {
-  workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: SettingsSection; shellProfiles: ShellProfile[]; allowWorkspaceScope?: boolean
+  workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: AppPage; shellProfiles: ShellProfile[]; allowWorkspaceScope?: boolean
   onSave: (input: UpdateWorkspaceSettingsInput) => Promise<void>
 }): ReactElement {
   const [destination, setDestination] = useState<SettingsDestination>(() => {
@@ -130,7 +132,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             })} />
             : <section className="settings-general"><h2>Workspace closed</h2><p>Select another workspace or return to work.</p></section>
-            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </div>
       </main>
       {pending && <Dialog title="Save your changes?" size="sm" onClose={() => { if (!saving) setPending(null) }}
