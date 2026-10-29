@@ -388,7 +388,8 @@
     "trustDescription": "<strong>{{host}}</strong> has not been seen before. Compare this fingerprint with the one your server reports (for example with <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>).",
     "keyChanged": "<strong>The SSH server's host key changed.</strong> This can mean the server was rebuilt, or that someone is intercepting the connection. Do not continue until you have confirmed it with whoever runs the server.",
     "trusted": "trusted: {{fingerprint}}",
-    "now": "now: {{fingerprint}}"
+    "now": "now: {{fingerprint}}",
+    "testFailed": "The connection test failed"
   },
   "grid": {
     "label": "Result",
@@ -773,13 +774,29 @@
       "recovery": "Read the technical detail below, or ask the agent to explain it."
     },
     "sqlState": {
+      "23502": {
+        "headline": "A required column has no value",
+        "recovery": "Provide a value for the column."
+      },
+      "23503": {
+        "headline": "The row refers to, or is referred to by, another row",
+        "recovery": "Add or remove the related row first."
+      },
+      "23505": {
+        "headline": "A row with the same unique value already exists",
+        "recovery": "Change the value, or update the existing row instead."
+      },
+      "40001": {
+        "headline": "The database could not finish the transaction",
+        "recovery": "Run it again."
+      },
+      "42501": {
+        "headline": "This user is not allowed to do that",
+        "recovery": "Use a role with the right privileges, or ask whoever runs the server."
+      },
       "42601": {
         "headline": "The statement has a syntax error",
         "recovery": "Check the spelling near the position shown under Technical detail, or ask the agent to fix it."
-      },
-      "42P01": {
-        "headline": "A table or view in the statement does not exist",
-        "recovery": "Check the name and schema in the tree on the left."
       },
       "42703": {
         "headline": "A column in the statement does not exist",
@@ -789,41 +806,25 @@
         "headline": "The function or operator does not exist for these types",
         "recovery": "Cast the values to the types the function expects."
       },
-      "42501": {
-        "headline": "This user is not allowed to do that",
-        "recovery": "Use a role with the right privileges, or ask whoever runs the server."
-      },
-      "23505": {
-        "headline": "A row with the same unique value already exists",
-        "recovery": "Change the value, or update the existing row instead."
-      },
-      "23503": {
-        "headline": "The row refers to, or is referred to by, another row",
-        "recovery": "Add or remove the related row first."
-      },
-      "23502": {
-        "headline": "A required column has no value",
-        "recovery": "Provide a value for the column."
-      },
-      "22P02": {
-        "headline": "A value is not valid for its type",
-        "recovery": "Check the format of the value, for example a number or a date."
+      "53300": {
+        "headline": "The server has no free connections",
+        "recovery": "Close other sessions or wait a moment."
       },
       "57014": {
         "headline": "The statement was cancelled or took too long",
         "recovery": "Narrow it with a WHERE clause or a smaller limit, or raise the statement timeout on the connection."
       },
-      "40001": {
-        "headline": "The database could not finish the transaction",
-        "recovery": "Run it again."
+      "42P01": {
+        "headline": "A table or view in the statement does not exist",
+        "recovery": "Check the name and schema in the tree on the left."
+      },
+      "22P02": {
+        "headline": "A value is not valid for its type",
+        "recovery": "Check the format of the value, for example a number or a date."
       },
       "40P01": {
         "headline": "Two transactions waited for each other",
         "recovery": "Run it again."
-      },
-      "53300": {
-        "headline": "The server has no free connections",
-        "recovery": "Close other sessions or wait a moment."
       }
     },
     "code": {
@@ -856,7 +857,8 @@
     "reconnect": "Reconnect",
     "closeTab": "Close tab",
     "connected": "Connected.",
-    "connectedTo": "Connected to {{version}}."
+    "connectedTo": "Connected to {{version}}.",
+    "failed": "Could not reconnect"
   },
   "resources": {
     "label": "Images, volumes and networks",
@@ -1213,7 +1215,17 @@
     "truncated_other": "Showing the first {{count}}. Type more to narrow it down.",
     "kind": {
       "sequence": "sequence",
-      "trigger": "trigger"
+      "trigger": "trigger",
+      "view": "view",
+      "materialized view": "materialized view",
+      "foreign table": "foreign table",
+      "partitioned table": "partitioned table",
+      "function": "function",
+      "procedure": "procedure",
+      "enum": "enum",
+      "composite": "composite",
+      "domain": "domain",
+      "range": "range"
     },
     "lastValue": "last {{value}}",
     "refreshed": "Refreshed {{name}}",

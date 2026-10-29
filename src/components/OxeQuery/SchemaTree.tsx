@@ -41,10 +41,10 @@ function definitionTarget(item: TreeItem): SqlDefinitionTarget | null {
 
 const describeItem = (item: TreeItem): string => {
   switch (item.kind) {
-    case 'relation': return item.table.kind === 'table' ? '' : item.table.kind
-    case 'function': return item.fn.kind
+    case 'relation': return item.table.kind === 'table' ? '' : tq(`tree.kind.${item.table.kind}`)
+    case 'function': return tq(`tree.kind.${item.fn.kind}`)
     case 'sequence': return item.sequence.lastValue === null ? tq('tree.kind.sequence') : tq('tree.lastValue', { value: item.sequence.lastValue })
-    case 'type': return item.type.kind
+    case 'type': return tq(`tree.kind.${item.type.kind}`)
     case 'trigger': return tq('tree.kind.trigger')
   }
 }

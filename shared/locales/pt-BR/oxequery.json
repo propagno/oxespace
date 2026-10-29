@@ -398,7 +398,8 @@
     "trustDescription": "<strong>{{host}}</strong> nunca foi visto antes. Compare esta impressão digital com a que o seu servidor informa (por exemplo com <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>).",
     "keyChanged": "<strong>A chave de host do servidor SSH mudou.</strong> Isso pode significar que o servidor foi reconstruído, ou que alguém está interceptando a conexão. Não continue até confirmar com quem administra o servidor.",
     "trusted": "confiável: {{fingerprint}}",
-    "now": "agora: {{fingerprint}}"
+    "now": "agora: {{fingerprint}}",
+    "testFailed": "O teste de conexão falhou"
   },
   "grid": {
     "label": "Resultado",
@@ -804,13 +805,29 @@
       "recovery": "Leia o detalhe técnico abaixo ou peça ao agente que o explique."
     },
     "sqlState": {
+      "23502": {
+        "headline": "Uma coluna obrigatória está sem valor",
+        "recovery": "Informe um valor para a coluna."
+      },
+      "23503": {
+        "headline": "A linha faz referência a outra linha, ou é referenciada por ela",
+        "recovery": "Adicione ou remova a linha relacionada primeiro."
+      },
+      "23505": {
+        "headline": "Já existe uma linha com o mesmo valor único",
+        "recovery": "Altere o valor ou atualize a linha existente."
+      },
+      "40001": {
+        "headline": "O banco de dados não conseguiu concluir a transação",
+        "recovery": "Execute de novo."
+      },
+      "42501": {
+        "headline": "Este usuário não tem permissão para isso",
+        "recovery": "Use um papel com os privilégios certos ou peça a quem administra o servidor."
+      },
       "42601": {
         "headline": "A instrução tem um erro de sintaxe",
         "recovery": "Confira a grafia perto da posição indicada em Detalhe técnico ou peça ao agente que a corrija."
-      },
-      "42P01": {
-        "headline": "Uma tabela ou view da instrução não existe",
-        "recovery": "Confira o nome e o schema na árvore à esquerda."
       },
       "42703": {
         "headline": "Uma coluna da instrução não existe",
@@ -820,41 +837,25 @@
         "headline": "A função ou o operador não existe para esses tipos",
         "recovery": "Converta os valores para os tipos que a função espera."
       },
-      "42501": {
-        "headline": "Este usuário não tem permissão para isso",
-        "recovery": "Use um papel com os privilégios certos ou peça a quem administra o servidor."
-      },
-      "23505": {
-        "headline": "Já existe uma linha com o mesmo valor único",
-        "recovery": "Altere o valor ou atualize a linha existente."
-      },
-      "23503": {
-        "headline": "A linha faz referência a outra linha, ou é referenciada por ela",
-        "recovery": "Adicione ou remova a linha relacionada primeiro."
-      },
-      "23502": {
-        "headline": "Uma coluna obrigatória está sem valor",
-        "recovery": "Informe um valor para a coluna."
-      },
-      "22P02": {
-        "headline": "Um valor não é válido para o seu tipo",
-        "recovery": "Confira o formato do valor, por exemplo um número ou uma data."
+      "53300": {
+        "headline": "O servidor não tem conexões livres",
+        "recovery": "Feche outras sessões ou aguarde um momento."
       },
       "57014": {
         "headline": "A instrução foi cancelada ou demorou demais",
         "recovery": "Restrinja-a com uma cláusula WHERE ou um limite menor, ou aumente o tempo limite de instrução da conexão."
       },
-      "40001": {
-        "headline": "O banco de dados não conseguiu concluir a transação",
-        "recovery": "Execute de novo."
+      "42P01": {
+        "headline": "Uma tabela ou view da instrução não existe",
+        "recovery": "Confira o nome e o schema na árvore à esquerda."
+      },
+      "22P02": {
+        "headline": "Um valor não é válido para o seu tipo",
+        "recovery": "Confira o formato do valor, por exemplo um número ou uma data."
       },
       "40P01": {
         "headline": "Duas transações ficaram esperando uma pela outra",
         "recovery": "Execute de novo."
-      },
-      "53300": {
-        "headline": "O servidor não tem conexões livres",
-        "recovery": "Feche outras sessões ou aguarde um momento."
       }
     },
     "code": {
@@ -887,7 +888,8 @@
     "reconnect": "Reconectar",
     "closeTab": "Fechar aba",
     "connected": "Conectado.",
-    "connectedTo": "Conectado a {{version}}."
+    "connectedTo": "Conectado a {{version}}.",
+    "failed": "Não foi possível reconectar"
   },
   "resources": {
     "label": "Imagens, volumes e redes",
@@ -1259,7 +1261,17 @@
     "truncated_other": "Mostrando os primeiros {{count}}. Digite mais para restringir.",
     "kind": {
       "sequence": "sequência",
-      "trigger": "gatilho"
+      "trigger": "gatilho",
+      "view": "view",
+      "materialized view": "view materializada",
+      "foreign table": "tabela externa",
+      "partitioned table": "tabela particionada",
+      "function": "função",
+      "procedure": "procedimento",
+      "enum": "enum",
+      "composite": "composto",
+      "domain": "domínio",
+      "range": "intervalo"
     },
     "lastValue": "último {{value}}",
     "refreshed": "{{name}} atualizada",

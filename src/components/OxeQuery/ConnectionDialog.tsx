@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui/Display'
 import { formatMs } from './catalog'
 import { EXAMPLE } from './examples'
-import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
@@ -352,7 +352,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
 
       {error && <ErrorState compact title={t('form.failed')} message={error} />}
       {outcome?.kind === 'ok' && <p role="status" className="oq-outcome oq-outcome-ok"><CheckCircle2 size={15} aria-hidden="true" />{outcome.message}</p>}
-      {outcome?.kind === 'fail' && <p role="alert" className="oq-outcome oq-outcome-fail"><XCircle size={15} aria-hidden="true" />{outcome.message}</p>}
+      {outcome?.kind === 'fail' && <ErrorState compact title={t('form.testFailed')} message={outcome.message} />}
       {outcome?.kind === 'hostkey' && <ConfirmDialog title={t('form.trustTitle')} confirmLabel={t('form.trustConfirm')} cancelLabel={t('common.cancel')} busy={busy}
         description={<Trans t={t} i18nKey="form.trustDescription" values={{ host: outcome.host }} components={STRONG_AND_CODE} />}
         onCancel={() => setOutcome(null)} onConfirm={() => void trustAndRetry()}>
