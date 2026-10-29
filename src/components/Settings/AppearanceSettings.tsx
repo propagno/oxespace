@@ -6,6 +6,7 @@ import { LANGUAGES, isLanguagePreference, resolveLanguage } from '../../../share
 import type { UiDensity } from '../../../shared/types/workspace'
 import { UI_SCALE_STEPS, UI_SCALE_DEFAULT } from '../../../shared/uiScale'
 import type { Appearance } from '../../design/mode'
+import type { MotionPreference } from '../../design/motion'
 import { systemLocale } from '../../i18n'
 import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useSettingsStore } from '../../store/settings.store'
@@ -21,6 +22,7 @@ const MODES: Array<{ id: Appearance; icon: typeof Sun }> = [
 
 const percent = (factor: number): string => `${Math.round(factor * 100)}%`
 const SCALE_OPTIONS = UI_SCALE_STEPS.map(step => ({ value: String(step), label: percent(step) }))
+const MOTIONS: MotionPreference[] = ['system', 'reduce', 'full']
 const DENSITY_ICONS: Record<UiDensity, ReactElement> = {
   compact: <Minimize2 size={14} aria-hidden="true" />,
   comfortable: <Maximize2 size={14} aria-hidden="true" />
@@ -45,7 +47,7 @@ function ModeOptions({ labelledBy }: { labelledBy?: string }): ReactElement {
   </div>
 }
 
-/** Interface scale and app-wide density; shown only in the app's Settings, not per workspace. */
+/** Interface scale, app-wide density and motion; shown only in the app's Settings, not per workspace. */
 function ScaleAndDensity(): ReactElement {
   const { t } = useTranslation('settings')
   const uiScale = useSettingsStore(state => state.uiScale)
@@ -54,10 +56,13 @@ function ScaleAndDensity(): ReactElement {
   const setDensity = useSettingsStore(state => state.setDensity)
   const threadDensity = useNavigationPrefs(state => state.threadDensity)
   const setThreadDensity = useNavigationPrefs(state => state.setThreadDensity)
+  const motion = useSettingsStore(state => state.motion)
+  const setMotion = useSettingsStore(state => state.setMotion)
   // Workspaces saved before density became app-wide keep the density they had, so they stay overrides until the person says otherwise.
   const ownDensity = useWorkspaceStore(useShallow(state => state.workspaces.filter(workspace => workspace.uiDensity !== 'default').map(workspace => workspace.id)))
   const updateWorkspace = useWorkspaceStore(state => state.updateSettings)
   const scale = UI_SCALE_STEPS.find(step => step === uiScale) ?? UI_SCALE_DEFAULT
+  const motionOptions = MOTIONS.map(value => ({ value, label: t(`appearance.motion.${value}.label`) }))
   const densityOptions = (['compact', 'comfortable'] as const).map(value => ({ value, label: t(`appearance.density.${value}`), icon: DENSITY_ICONS[value] }))
   return <>
     <section className={styles.group} aria-labelledby="appearance-scale-title">
@@ -77,6 +82,11 @@ function ScaleAndDensity(): ReactElement {
         <span>{t('appearance.density.threadOverride', { density: t(`appearance.density.${threadDensity}`) })}</span>
         <Button variant="ghost" size="sm" onClick={() => setThreadDensity(null)}>{t('appearance.density.useAppInThread')}</Button>
       </p>}
+    </section>
+    <section className={styles.group} aria-labelledby="appearance-motion-title">
+      <h3 id="appearance-motion-title" className={styles.groupTitle}>{t('appearance.motion.title')}</h3>
+      <p className={styles.hint}>{t(`appearance.motion.${motion}.hint`)}</p>
+      <SegmentedControl label={t('appearance.motion.title')} value={motion} options={motionOptions} onChange={setMotion} />
     </section>
   </>
 }
@@ -98,7 +108,7 @@ function LanguagePicker(): ReactElement {
 
 /**
  * Light, dark or system mode for the whole app. With `global`, also the
- * interface scale, the app-wide density and the language (Settings › Appearance);
+ * interface scale, the app-wide density, motion and the language (Settings › Appearance);
  * workspace settings show the mode only.
  */
 export function AppearanceSettings({ global = false }: { global?: boolean }): ReactElement {

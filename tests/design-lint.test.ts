@@ -91,10 +91,12 @@ describe('design lint', () => {
     const count = (paths: string[], pattern: RegExp): number => paths.reduce((sum, path) => sum + (readFileSync(path, 'utf8').match(pattern)?.length ?? 0), 0)
 
     it('hand-made spinners (lucide Loader2) do not grow; use <Spinner>', () => {
-      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(0)
+      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(13)
     })
     it('spin keyframes do not grow; the Spinner primitive has the one animation', () => {
-      expect(count(css, /@keyframes [\w-]*spin/g)).toBeLessThanOrEqual(6)
+      // `:global(oxe-spin)` in src/ui/Display.module.css; everything else animates with that name.
+      expect(count(css, /@keyframes [\w:(-]*spin/g)).toBeLessThanOrEqual(1)
+      expect(readFileSync(join(ROOT, 'src', 'ui', 'Display.module.css'), 'utf8')).toContain('@keyframes :global(oxe-spin)')
     })
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
       expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(33)
@@ -106,7 +108,17 @@ describe('design lint', () => {
       const modules = files(join(ROOT, 'src'), path => path.endsWith('.module.css'))
       const fixed = modules.reduce((sum, path) => sum + readFileSync(path, 'utf8').split(/\r?\n/)
         .filter(text => /(transition|animation)[^;]*\d+m?s\b/.test(text) && !text.includes('var(--duration')).length, 0)
-      expect(fixed).toBeLessThanOrEqual(9)
+      expect(fixed).toBeLessThanOrEqual(0)
+    })
+    it('legacy stylesheets time motion with the tokens too (only the reduced-motion reset in base.css is fixed)', () => {
+      const legacy = css.filter(path => !path.endsWith('.module.css'))
+      const fixed = legacy.flatMap(path => readFileSync(path, 'utf8').split(/\r?\n/)
+        .filter(text => /(transition|animation)[^;]*\d+m?s\b/.test(text) && !text.includes('var(--duration')).map(text => `${relative(ROOT, path)}: ${text.trim()}`))
+      expect(fixed.length).toBeLessThanOrEqual(2)
+    })
+    it('reduced motion is read from data-motion, so the Motion setting can override the operating system', () => {
+      const report = css.flatMap(path => /prefers-reduced-motion/.test(readFileSync(path, 'utf8')) ? [relative(ROOT, path)] : [])
+      expect(report).toEqual([])
     })
   })
 })

@@ -49,13 +49,12 @@ body {
 .app-update-popover a { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
 .app-shell > :is(.sidebar, .thread-navigation) { grid-column: 1; grid-row: 2; }
 .app-shell > .workspace-surface { grid-column: 2; grid-row: 2; min-height: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--frame-radius); background: var(--surface-base); }
-@media (prefers-reduced-motion: reduce) {
-  /* Busy indicators (any *spin* class) are left out: a frozen spinner reads as a hang. The Spinner primitive slows itself. */
-  body, body *:not([class*="spin"]), body *::before, body *::after {
-    scroll-behavior: auto !important;
-    animation-duration: .01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .01ms !important;
-  }
+/* Reduced motion: data-motion='reduce' comes from Settings › Appearance (System follows the operating system).
+   Busy indicators (any *spin* class) are left out: a frozen spinner reads as a hang. The one spin slows down through --duration-spin. */
+:root[data-motion='reduce'] body, :root[data-motion='reduce'] body *:not([class*="spin"]), :root[data-motion='reduce'] body *::before, :root[data-motion='reduce'] body *::after {
+  scroll-behavior: auto !important;
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important;
 }
 

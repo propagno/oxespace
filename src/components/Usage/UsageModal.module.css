@@ -1,7 +1,5 @@
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding-bottom: var(--space-3); margin-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: var(--text-xs); }
-.spin { animation: rotate 1s linear infinite; }
-@keyframes rotate { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+.spin { animation: global(oxe-spin) var(--duration-spin) var(--ease-linear) infinite; }
 
 .roster { display: grid; gap: var(--space-3); }
 .card { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-raised); }

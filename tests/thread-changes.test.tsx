@@ -46,7 +46,7 @@ describe('transparent file changes', () => {
   it('offers project files and search in the same Thread workbench', async () => {
     const user = userEvent.setup()
     render(<ThreadChangesPanel snapshot={{ thread, events: [tool('one')] }} panel="files" onClose={() => {}} />)
-    await user.click(screen.getByRole('button', { name: 'Select workbench panel' }))
+    await user.click(screen.getByRole('button', { name: /^Select workbench panel: / }))
     expect(await screen.findByRole('menuitemradio', { name: 'Files' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Find in files' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Scripts' })).toBeVisible()

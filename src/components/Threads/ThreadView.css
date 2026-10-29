@@ -349,7 +349,7 @@
 .thread-activity-single summary::-webkit-details-marker { display: none; }
 .thread-activity-single summary > span:not([aria-hidden]) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-activity-single summary small { margin-left: 8px; color: var(--text-muted); font-size: var(--fs-2xs); }
-.thread-activity-single summary > svg:last-child { opacity: .65; transition: transform .15s; }
+.thread-activity-single summary > svg:last-child { opacity: .65; transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-activity-single[open] summary > svg:last-child { transform: rotate(180deg); }
 .thread-activity-single summary:hover { color: var(--text-primary); }
 .thread-activity-single.has-failure summary > svg:first-child { color: var(--dot-red); }
@@ -358,14 +358,14 @@
 .thread-activity-group summary { display: flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; list-style: none; border-radius: var(--radius-sm); }
 .thread-activity-group summary::-webkit-details-marker { display: none; }
 .thread-activity-group summary:hover { color: var(--text-primary); background: var(--fill-hover); }
-.thread-activity-group>summary>svg:last-child { margin-left: auto; transition: transform .15s; }
+.thread-activity-group>summary>svg:last-child { margin-left: auto; transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-activity-group[open]>summary>svg:last-child { transform: rotate(180deg); }
 .thread-activity-group small { font-size: var(--fs-2xs); font-weight: 400; color: var(--text-muted); }
 .thread-activity-items { margin: 0 0 10px 6px; padding-left: 14px; border-left: 1px solid var(--border-default); }
 .thread-activity-completed { margin: 4px 0 8px; }
 .thread-activity-completed > summary { display: flex; align-items: center; gap: 8px; min-height: 28px; color: var(--text-muted); font-size: var(--fs-2xs); cursor: pointer; list-style: none; }
 .thread-activity-completed > summary::-webkit-details-marker { display: none; }
-.thread-activity-completed > summary svg { margin-left: auto; transition: transform .15s; }
+.thread-activity-completed > summary svg { margin-left: auto; transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-activity-completed[open] > summary svg { transform: rotate(180deg); }
 .thread-activity-completed > summary:hover { color: var(--text-primary); }
 .thread-activity-item summary>span:first-of-type { flex: 1; min-width: 0; }
@@ -543,7 +543,7 @@
 .thread-composer footer .thread-send, .thread-composer footer .thread-stop { margin-left: 0; }
 .thread-usage-ring { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border-radius: var(--radius-pill); color: var(--text-secondary); }
 .thread-usage-ring-track { stroke: var(--ov-3); }
-.thread-usage-ring-value { stroke: currentColor; transition: stroke-dashoffset .3s ease; }
+.thread-usage-ring-value { stroke: currentColor; transition: stroke-dashoffset var(--duration-slow) var(--ease-standard); }
 .thread-usage-ring[data-high='true'] { color: var(--dot-red); }
 .thread-mention-menu { position: absolute; z-index: var(--layer-dropdown); bottom: calc(100% + 6px); left: 8px; right: 8px; display: grid; padding: 4px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-lg); }
 .thread-mention-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: var(--radius-sm); text-align: left; }

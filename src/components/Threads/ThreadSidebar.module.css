@@ -40,7 +40,7 @@
 .indicator[data-status='ready'], .indicator[data-status='completed'] { color: var(--intent-info-solid); }
 .indicator[data-status='attention'] { color: var(--intent-warning-solid); }
 .indicator[data-status='failed'] { color: var(--intent-danger-solid); }
-@media (prefers-reduced-motion: no-preference) { .indicator[data-status='running']::before { animation: breathe 2s ease-in-out infinite; } }
+:global([data-motion='full']) .indicator[data-status='running']::before { animation: breathe var(--duration-pulse) var(--ease-in-out) infinite; }
 @keyframes breathe { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--intent-success-solid) 20%, transparent); } }
 
 .content { display: grid; flex: 1; min-width: 0; gap: 3px; }
