@@ -1,7 +1,8 @@
-import { Check, ChevronDown, CircleDashed, ExternalLink, GitMerge, GitPullRequest, Loader2, Wrench, X } from 'lucide-react'
+import { Check, ChevronDown, CircleDashed, ExternalLink, GitMerge, GitPullRequest, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { GitHubCheckState, GitHubPrStatus } from '../../../shared/types/github'
 import { humanizeError } from '../../utils/humanizeError'
+import { Spinner } from '../../ui'
 import './PrStatusBar.css'
 
 const POLL_MS = 30_000
@@ -98,7 +99,7 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
       <span className="pr-status-actions">
         {failing && onFix && <button type="button" className="is-primary" onClick={() => onFix(ciFixPrompt(status))}><Wrench size={14} aria-hidden="true" />Fix failing checks</button>}
         <button type="button" aria-pressed={status.autoMerge} disabled={busy} onClick={() => void toggleAutoMerge()} title="Merge (squash) automatically once every required check passes">
-          {busy ? <Loader2 size={14} className="usage-spin" aria-hidden="true" /> : <GitMerge size={14} aria-hidden="true" />}Auto-merge{status.autoMerge ? ' on' : ''}
+          {busy ? <Spinner size="sm" decorative /> : <GitMerge size={14} aria-hidden="true" />}Auto-merge{status.autoMerge ? ' on' : ''}
         </button>
         {status.url && <button type="button" aria-label="Open pull request on GitHub" title="Open on GitHub" onClick={() => window.open(status.url!, '_blank', 'noopener,noreferrer')}><ExternalLink size={14} aria-hidden="true" /></button>}
       </span>

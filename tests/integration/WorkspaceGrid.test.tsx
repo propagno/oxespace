@@ -84,7 +84,7 @@ describe('WorkspaceGrid', () => {
     // Hidden until the kebab is opened.
     expect(screen.queryByRole('menuitem', { name: /Clear terminal/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /New session/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /Split vertical/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /Split pane right/i })).not.toBeInTheDocument()
 
     await user.click(screen.getByLabelText('More pane actions'))
 
@@ -93,8 +93,8 @@ describe('WorkspaceGrid', () => {
     expect(screen.getByRole('menuitem', { name: 'Details' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: /Clear terminal/i })).toBeDisabled()
     expect(screen.getByRole('menuitem', { name: /New session/i })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: /Split vertical/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /Split horizontal/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Split pane right/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Split pane down/i })).toBeInTheDocument()
     await user.click(screen.getByRole('menuitem', { name: 'Details' }))
     expect(screen.queryByTestId('pane-actions-menu')).not.toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'Terminal details' })).toHaveTextContent('Not started')

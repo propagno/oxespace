@@ -30,6 +30,18 @@ describe('indexed Thread history', () => {
     f.history.write(f.snapshot)
     expect(f.history.readWindow('thread', 20).pendingRequests).toEqual([])
   })
+  it('lists pending requests across conversations waiting for approval, as titles only', () => {
+    const f = fixture()
+    const request = { id: 'run', nativeId: 'run', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval' as const, title: 'Run the tests', command: 'npm test', generation: 1, createdAt: 5, state: 'pending' as const }
+    const resolved = { ...request, id: 'old', title: 'Earlier', state: 'resolved' as const }
+    f.snapshot.events.push({ type: 'request', id: resolved.id, request: resolved }, { type: 'request', id: request.id, request })
+    f.history.write(f.snapshot)
+    // Not waiting: its pending event is not reported.
+    expect(f.history.pendingRequestsAll()).toEqual([])
+    f.snapshot.thread.status = 'approval'
+    f.history.write(f.snapshot)
+    expect(f.history.pendingRequestsAll()).toEqual([{ threadId: 'thread', workspaceId: 'ws', threadTitle: 'Legacy', requestId: 'run', kind: 'approval', title: 'Run the tests', createdAt: 5 }])
+  })
   it('exports persisted earlier pages without changing the live journal and clears them explicitly on native replacement', () => {
     const f = fixture()
     f.history.read('thread')

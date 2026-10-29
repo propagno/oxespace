@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useSettingsStore } from '../store/settings.store'
 import { useUIStore } from '../store/ui.store'
 import { chordsCollide, formatChord, matchesChord, parseChord, type ParsedChord } from './chords'
 
@@ -30,6 +31,10 @@ export interface Keybinding {
 export const inXterm = (target: Element | null): boolean => Boolean(target?.closest('.xterm'))
 /** Editors and terminals keep their own find. */
 export const inEditor = (target: Element | null): boolean => Boolean(target?.closest('.xterm, .monaco-editor, .cm-editor'))
+/** Anywhere a key types text: inputs, text areas, editable content, editors and terminals. */
+export const inTextField = (target: Element | null): boolean => Boolean(target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) || inEditor(target)
+
+export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'Code', terminal: 'Terminal', thread: 'Thread', oxequery: 'OxeQuery' }
 
 export const KEYBINDINGS = [
   // Global
@@ -37,8 +42,8 @@ export const KEYBINDINGS = [
   { id: 'palette.search', chords: ['Mod+J'], scope: 'global', label: 'Search files & commands' },
   { id: 'settings.open', chords: ['Mod+,'], scope: 'global', label: 'Open settings', reservedInTerminal: true },
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', label: 'Toggle sidebar', reservedInTerminal: true },
+  { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', label: 'Open activity center', reservedInTerminal: true },
   { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', label: 'Toggle voice input', when: context => context.view !== 'data' },
-
   // Code
   { id: 'code.changes', chords: ['Mod+Shift+D'], scope: 'code', label: 'Changes' },
   { id: 'code.browser', chords: ['Mod+Shift+B'], scope: 'code', label: 'Browser' },
@@ -67,7 +72,10 @@ export const KEYBINDINGS = [
   { id: 'thread.browser', chords: ['Mod+Shift+B'], scope: 'thread', label: 'Browser' },
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread', label: 'Permissions' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread', label: 'Model' },
-  { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread', label: 'Reasoning effort' }
+  { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread', label: 'Reasoning effort' },
+
+  // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
+  { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', label: 'Show keyboard shortcuts', when: context => !inTextField(context.target) }
 ] as const satisfies readonly Keybinding[]
 
 export type KeybindingId = typeof KEYBINDINGS[number]['id']
@@ -78,8 +86,6 @@ export function getKeybinding(id: KeybindingId): Keybinding {
   return BY_ID.get(id)!
 }
 
-// User overrides (Settings › Keyboard). An empty list disables the shortcut.
-let overrides: Partial<Record<string, string[]>> = {}
 const parsedCache = new Map<string, ParsedChord>()
 const parsed = (chord: string): ParsedChord => {
   let value = parsedCache.get(chord)
@@ -87,12 +93,36 @@ const parsed = (chord: string): ParsedChord => {
   return value
 }
 
-export function setKeybindingOverrides(next: Partial<Record<string, string[]>>): void {
-  overrides = next
+/** The chords in effect: the user's override from Settings › Keyboard (an empty list turns it off) or the default. */
+export function chordsFor(id: KeybindingId): string[] {
+  return useSettingsStore.getState().keybindingOverrides[id] ?? [...getKeybinding(id).chords]
 }
 
-export function chordsFor(id: KeybindingId): string[] {
-  return overrides[id] ?? [...getKeybinding(id).chords]
+export function isOverridden(id: KeybindingId): boolean {
+  return id in useSettingsStore.getState().keybindingOverrides
+}
+
+/**
+ * Shared chords that are fine: Ctrl+/ opens terminal commands when a terminal pane is
+ * active and falls through to the shortcut guide otherwise.
+ */
+const ALLOWED_OVERLAPS = new Set(['terminal.slash|help.shortcuts'])
+
+/** The other bindings a key press of `id` would also fire in some view, with the chords in effect. */
+export function conflictsFor(id: KeybindingId): Keybinding[] {
+  const binding = getKeybinding(id)
+  const chords = chordsFor(id)
+  return (KEYBINDINGS as readonly Keybinding[]).filter(other => other.id !== id
+    && !ALLOWED_OVERLAPS.has(`${id}|${other.id}`) && !ALLOWED_OVERLAPS.has(`${other.id}|${id}`)
+    && bindingsCollide(binding, other, chords, chordsFor(other.id as KeybindingId)))
+}
+
+/** The bindings that listen in a view, grouped by scope in registry order. */
+export function bindingsForView(view: AppView): Array<{ scope: KeybindingScope; bindings: Keybinding[] }> {
+  const scopes: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery']
+  return scopes.filter(scope => scopeIsActive(scope, view))
+    .map(scope => ({ scope, bindings: (KEYBINDINGS as readonly Keybinding[]).filter(binding => binding.scope === scope) }))
+    .filter(group => group.bindings.length > 0)
 }
 
 /** The label a menu or tooltip shows, e.g. "Ctrl+Shift+D"; undefined when unbound. */

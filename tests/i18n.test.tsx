@@ -43,7 +43,7 @@ describe('interface language', () => {
   })
 
   it('switches from Settings › Appearance › Language and keeps the choice', async () => {
-    render(<AppearanceSettings />)
+    render(<AppearanceSettings global />)
     const select = screen.getByTestId('settings-language') as HTMLSelectElement
     expect(screen.getByRole('option', { name: 'System (English)' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Português (Brasil)' })).toBeInTheDocument()

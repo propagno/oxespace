@@ -15,10 +15,14 @@ import { useFileMentions } from './useFileMentions'
 import { PrStatusBar } from '../GitHub/PrStatusBar'
 import { ThreadLiveActivity } from './ThreadLiveActivity'
 import { threadQuickReplies } from './threadQuickReplies'
-import { buildThreadTimeline, flattenThreadTimeline, foldFinishedTurns } from './threadTimelineModel'
+import { createThreadTimelineBuilder, flattenThreadTimeline, foldFinishedTurns, summarizeThreadEvents } from './threadTimelineModel'
 import { humanizeError } from '../../utils/humanizeError'
 
 const EMPTY_FOLDS: ReadonlySet<string> = new Set()
+// Stable empty values, so rows do not get a new prop on every render.
+const NO_EVENTS: import('../../../shared/types/thread').ThreadEvent[] = []
+const NO_REPLIES: ReturnType<typeof threadQuickReplies> = []
+const NO_REQUESTS: import('../../../shared/types/thread').ThreadRequest[] = []
 // A stable empty list: a fresh [] per store read makes zustand 5 re-render forever.
 const NO_ATTACHMENTS: import('../../../shared/types/thread').ThreadAttachment[] = []
 import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
@@ -100,7 +104,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const [finding, setFinding] = useState(false)
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
-  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true) })
+  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
   const appendToConversation = (prompt: string) => {
@@ -115,7 +119,10 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const contextKey = JSON.stringify(context)
   useEffect(() => { const ctx = JSON.parse(contextKey); if (ctx.workspaceId) void useAccountStore.getState().read(ctx) }, [contextKey])
   const running = snapshot?.thread.status === 'running' || snapshot?.thread.status === 'approval'
-  const pendingRequests = running ? (snapshot?.pendingRequests ?? snapshot?.events.flatMap(event => event.type === 'request' && event.request.state === 'pending' ? [event.request] : []) ?? []) : []
+  // One pass per events array instead of several scans per render: typing re-renders this view on every key.
+  const events = snapshot?.events ?? NO_EVENTS
+  const summary = useMemo(() => summarizeThreadEvents(events), [events])
+  const pendingRequests = running ? (snapshot?.pendingRequests ?? summary.pendingRequests) : NO_REQUESTS
   const viewMode = useThreadViewModeStore(state => state.mode)
   // A stable key, so the timeline is not rebuilt on every render only because this array is new.
   const pendingRequestKey = pendingRequests.map(request => request.id).join('\n')
@@ -128,24 +135,26 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     if (turns.has(turnId)) turns.delete(turnId); else turns.add(turnId)
     return { threadId: snapshot?.thread.id, turns }
   }), [snapshot?.thread.id])
+  // Rebuilds only the turns a streamed delta changed (threadTimelineModel.ts).
+  const [buildTimeline] = useState(createThreadTimelineBuilder)
   const turns = useMemo(() => {
-    const built = buildThreadTimeline(snapshot?.events ?? [], viewMode)
+    const built = buildTimeline(events, viewMode)
     if (viewMode === 'verbose' || finding) return built
     return foldFinishedTurns(built, expandedFolds, new Set(pendingRequestKey ? pendingRequestKey.split('\n') : []))
-  }, [snapshot?.events, viewMode, finding, expandedFolds, pendingRequestKey])
+  }, [buildTimeline, events, viewMode, finding, expandedFolds, pendingRequestKey])
   const timelineRows = useMemo(() => flattenThreadTimeline(turns), [turns])
   const supersededTurns = useMemo(() => snapshot ? supersededTurnIds(snapshot) : new Set<string>(), [snapshot])
-  const pendingMessage = outgoing && snapshot?.thread.id === outgoing.threadId && !snapshot.events.some(event => event.type === 'message' && event.role === 'user' && event.text === outgoing.text && !outgoing.knownEvents.has(event.id)) ? outgoing : null
-  const lastResult = snapshot?.events.filter(e => e.type === 'completed').at(-1)
-  const lastConversationMessage = snapshot?.events.filter(e => e.type === 'message').at(-1)
-  const quickReplies = lastConversationMessage?.type === 'message' && lastConversationMessage.role === 'assistant' && snapshot?.thread.status === 'idle' && !snapshot.events.some(e => e.type === 'request' && e.request.state === 'pending')
-    ? threadQuickReplies(lastConversationMessage.text) : []
+  const shownThreadId = snapshot?.thread.id
+  const pendingMessage = useMemo(() => outgoing && shownThreadId === outgoing.threadId && !events.some(event => event.type === 'message' && event.role === 'user' && event.text === outgoing.text && !outgoing.knownEvents.has(event.id)) ? outgoing : null, [outgoing, shownThreadId, events])
+  const { lastResult, lastMessage: lastConversationMessage, lastPrompt } = summary
+  const idle = snapshot?.thread.status === 'idle'
+  const quickReplies = useMemo(() => lastConversationMessage?.role === 'assistant' && idle && !summary.pendingRequests.length
+    ? threadQuickReplies(lastConversationMessage.text) : NO_REPLIES, [lastConversationMessage, idle, summary])
   const authFailure = snapshot?.thread.status === 'failed' && (lastResult?.type === 'completed' && lastResult.errorCode === 'authentication' || turns.at(-1)?.events.some(e => e.type === 'message' && e.role === 'assistant' && authText(e.text)))
   // Only something to act on: a failed sign-in, no account, a missing CLI or another auth method. A check that
   // merely could not confirm the account ('error'), or is still running, is not shown by default.
   const needsLogin = Boolean(snapshot && (authFailure || account && !['connected', 'error', 'checking', 'connecting'].includes(account.state) || account?.state === 'connected' && account.method !== 'subscription'))
   const degradedConnection = snapshot?.thread.connection?.state === 'degraded' ? snapshot.thread.connection : undefined
-  const lastPrompt = snapshot?.events.filter(e => e.type === 'message' && e.role === 'user').at(-1)
   const copyMessage = async (id: string, text: string) => {
     let copied = false
     try { copied = await window.oxe?.clipboard?.writeText(text) ?? false } catch { /* Browser clipboard remains available. */ }
@@ -276,7 +285,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       <div ref={scroll.content} className="thread-reading-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
-        {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Loader2 size={14} className="thread-spin" /> : <ArrowUp size={14} />}Load earlier messages</button>}
+        {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Loader2 size={14} className="thread-spin" aria-hidden="true" /> : <ArrowUp size={14} />}Load earlier messages</button>}
         {scroll.historyFeedback?.id === selectedId && <p className="thread-history-feedback" role={scroll.historyFeedback.error ? 'alert' : 'status'}>{scroll.historyFeedback.text}</p>}
         {!snapshot && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? 'Opening conversation…' : 'What would you like to work on?'}</h2><p>{selectedId ? 'Loading the selected conversation.' : 'Start a conversation in a project, or pick one from the sidebar.'}</p>{!selectedId && <div className="thread-welcome-actions">{onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={onNewThread}>New conversation</Button>}{onAccounts && <Button onClick={onAccounts}>Provider accounts</Button>}</div>}</div>}
         <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
@@ -284,7 +293,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
           onCopy={(id, text) => void copyMessage(id, text)} onPermissions={() => setOpenControl('permissions')} onQuote={text => appendToConversation(quoteMarkdown(text))} onDraft={appendToConversation}
           onQuickReply={value => { useThreadStore.getState().setDraft(snapshot!.thread.id, value); requestAnimationFrame(() => textarea.current?.focus()) }} onToggleFold={toggleFold} superseded={supersededTurns.has(row.turnId)} />}</ThreadTimelineWindow>
         {pendingMessage && <article className="thread-message thread-message-user thread-message-outgoing" aria-label="Sending message">{pendingMessage.attachments.length > 0 && <ul className="thread-sent-attachments" aria-label="Message attachments">{pendingMessage.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small></li>)}</ul>}<ThreadMessageBody text={pendingMessage.text} role="user" /><small className="thread-message-outgoing-status">Sending…</small></article>}
-        {snapshot && !pendingMessage && !snapshot.page?.hasMore && !snapshot.events.some(event => event.type === 'message' && event.role === 'user') && snapshot.thread.status === 'idle'
+        {snapshot && !pendingMessage && !snapshot.page?.hasMore && !lastPrompt && snapshot.thread.status === 'idle'
           && <ThreadEmptyState thread={snapshot.thread} branch={branch?.branch} onStarter={prompt => { useThreadStore.getState().setDraft(snapshot.thread.id, prompt); requestAnimationFrame(() => textarea.current?.focus()) }} />}
         {snapshot && <ThreadLiveActivity snapshot={snapshot} />}
       </div>

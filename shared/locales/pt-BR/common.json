@@ -61,13 +61,15 @@
     "splitRight": "Dividir painel à direita",
     "splitDown": "Dividir painel abaixo",
     "maximizePane": "Maximizar painel",
-    "designSystem": "Sistema de design",
     "help": "Ajuda",
-    "searchFiles": "Buscar arquivos e comandos",
     "mcpServers": "Servidores MCP",
     "skills": "Skills",
     "usage": "Uso e limites",
     "linear": "Issues do Linear",
-    "about": "OXESpace v{{version}}"
+    "about": "Sobre o OXESpace (v{{version}})",
+    "commandPalette": "Paleta de comandos…",
+    "tools": "Ferramentas",
+    "keyboardShortcuts": "Atalhos de teclado",
+    "diagnostics": "Diagnóstico"
   }
 }

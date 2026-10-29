@@ -246,6 +246,8 @@ export default defineConfig({
             if (!id.includes('node_modules')) return undefined
             if (id.includes('monaco-editor')) return 'monaco'
             if (id.includes('@xterm')) return 'xterm'
+            // Brand marks for the MCP catalog, which loads on demand; the boot path must not carry them.
+            if (id.includes('simple-icons')) return 'brand-icons'
             if (id.includes('@xenova') || id.includes('onnxruntime')) return 'ml'
             // The markdown pipeline (#10) is only reached through the lazy
             // MarkdownPreview, so keep it out of the eagerly-loaded vendor chunk.

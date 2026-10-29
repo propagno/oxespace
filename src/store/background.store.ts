@@ -5,6 +5,7 @@ import type {
   BackgroundJobUpdateEvent,
   StartBackgroundJobInput
 } from '../../shared/types/background'
+import { useActivityStore } from './activity.store'
 
 interface BackgroundStoreState {
   jobsByWorkspace: Record<string, BackgroundJob[]>
@@ -126,6 +127,8 @@ export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
       if (!flushTimer) flushTimer = setTimeout(flush, FLUSH_INTERVAL_MS)
     })
     const offUpdate = window.oxe.background.onUpdate((event: BackgroundJobUpdateEvent) => {
+      const previous = get().jobsByWorkspace[event.job.workspaceId]?.find((job) => job.id === event.job.id)
+      recordJobOutcome(previous, event.job)
       set((s) => {
         const list = s.jobsByWorkspace[event.job.workspaceId] ?? []
         return { jobsByWorkspace: { ...s.jobsByWorkspace, [event.job.workspaceId]: upsertJob(list, event.job) } }
@@ -165,6 +168,24 @@ export function selectJobs(workspaceId: string): (state: BackgroundStoreState) =
 
 export function selectOutput(jobId: string): (state: BackgroundStoreState) => string[] {
   return (state) => state.outputByJob[jobId] ?? NO_ITEMS
+}
+
+const ACTIVE = new Set<BackgroundJob['status']>(['pending', 'running'])
+
+/**
+ * A job that stops on its own goes to the activity center; one the person stopped does not.
+ * An unseen job counts as active, since the first update about it may already be the last one.
+ */
+export function recordJobOutcome(previous: BackgroundJob | undefined, job: BackgroundJob): void {
+  if (previous && !ACTIVE.has(previous.status)) return
+  if (job.status !== 'exited' && job.status !== 'failed') return
+  const failed = job.status === 'failed' || (job.exitCode !== null && job.exitCode !== 0)
+  useActivityStore.getState().record({
+    source: 'background', id: job.id, kind: failed ? 'failed' : 'finished',
+    target: { type: 'background', workspaceId: job.workspaceId, jobId: job.id },
+    title: job.label || job.command,
+    detail: failed ? `Background job failed${job.exitCode !== null ? ` with exit code ${job.exitCode}` : ''}.` : 'Background job finished.'
+  })
 }
 
 function upsertJob(list: BackgroundJob[], job: BackgroundJob): BackgroundJob[] {

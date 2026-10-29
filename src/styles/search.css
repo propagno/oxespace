@@ -41,17 +41,7 @@
 }
 
 .search-panel-input:focus {
-  outline: none;
   border-color: var(--accent);
-}
-
-.search-panel-spinner {
-  color: var(--accent);
-  animation: search-spin 0.8s linear infinite;
-}
-
-@keyframes search-spin {
-  to { transform: rotate(360deg); }
 }
 
 .search-panel-toggles {
@@ -79,7 +69,6 @@
 }
 
 .search-panel-globs:focus {
-  outline: none;
   border-color: var(--accent);
 }
 

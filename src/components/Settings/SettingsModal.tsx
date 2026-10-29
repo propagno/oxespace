@@ -13,7 +13,7 @@ import { AutomationsSettings } from './AutomationsSettings'
 import { AgentActivitySettings } from './AgentActivitySettings'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
-import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
+import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, SegmentedControl, Switch, TextField, Select } from '../../ui'
@@ -760,11 +760,6 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
 
       <div className="settings-content-body settings-form">
         <label className="settings-field">
-          <span>{t('voice.language')}</span>
-          <TextField type="text" value={t('voice.languageValue')} readOnly disabled aria-label={t('voice.languageLabel')} />
-        </label>
-
-        <label className="settings-field">
           <span>{t('voice.model')}</span>
           <Select value={modelSize} onChange={(e) => setModelSize(e.target.value as VoiceModelSize)}>
             {MODEL_SIZES.map((size) => <option key={size} value={size}>{t(`voice.models.${size}`)}</option>)}
@@ -899,7 +894,7 @@ function AppearanceSettingsSection({ onClose }: { onClose: () => void }): ReactE
   return (
     <section className="settings-modal-content" aria-labelledby="settings-appearance-title">
       <SettingsContentHeader kicker={t('appearance.kicker')} title={t('appearance.title')} titleId="settings-appearance-title" description={t('appearance.description')} onClose={onClose} />
-      <div className="settings-content-body settings-form"><AppearanceSettings /></div>
+      <div className="settings-content-body settings-form"><AppearanceSettings global /></div>
     </section>
   )
 }
@@ -1119,8 +1114,6 @@ function AgentHooksSetting(): ReactElement | null {
 function NotificationsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
-  const visitedWorkspacesCap = useSettingsStore((s) => s.visitedWorkspacesCap)
-  const setVisitedWorkspacesCap = useSettingsStore((s) => s.setVisitedWorkspacesCap)
   const { t } = useTranslation('settings')
   const sendTest = (): void => {
     void window.oxe?.notifications?.notify({
@@ -1169,27 +1162,6 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         <AgentHooksSetting />
 
         <AutomationsSettings />
-
-        <div className="settings-form-group">
-          <h3 className="settings-form-group-title">{t('notifications.performance')}</h3>
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('notifications.keepMounted')}
-              <em data-testid="visited-workspaces-cap-value">{visitedWorkspacesCap}</em>
-            </span>
-            <input
-              type="range"
-              min={VISITED_WORKSPACES_CAP_MIN}
-              max={VISITED_WORKSPACES_CAP_MAX}
-              step={1}
-              value={visitedWorkspacesCap}
-              onChange={(e) => setVisitedWorkspacesCap(Number(e.target.value))}
-              data-testid="visited-workspaces-cap"
-              aria-label={t('notifications.keepMountedLabel')}
-            />
-            <span className="settings-field-hint">{t('notifications.keepMountedHint')}</span>
-          </label>
-        </div>
       </div>
     </section>
   )

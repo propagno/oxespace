@@ -27,15 +27,46 @@
       "save": "Save and continue"
     },
     "pages": {
-      "general": { "label": "General", "hint": "Navigation and workspace preferences" },
-      "providers": { "label": "Agents", "hint": "Agent CLIs, custom agents and idle conversations" },
-      "appearance": { "label": "Appearance", "hint": "Mode and language" },
-      "terminal": { "label": "Terminal", "hint": "Font, cursor, scrolling and behavior" },
-      "voice": { "label": "Voice", "hint": "Microphone and local transcription" },
-      "notifications": { "label": "Notifications", "hint": "Alerts and sounds" },
-      "updates": { "label": "Updates", "hint": "Version, downloads and installation" },
-      "policy": { "label": "Policy", "hint": "What agents are blocked from using" },
-      "diagnostics": { "label": "Diagnostics", "hint": "Application health and troubleshooting" }
+      "general": {
+        "label": "General",
+        "hint": "Navigation and workspace preferences"
+      },
+      "providers": {
+        "label": "Agents",
+        "hint": "Agent CLIs, custom agents and idle conversations"
+      },
+      "appearance": {
+        "label": "Appearance",
+        "hint": "Mode, scale, density and language"
+      },
+      "terminal": {
+        "label": "Terminal",
+        "hint": "Font, cursor, scrolling and behavior"
+      },
+      "keyboard": {
+        "label": "Keyboard",
+        "hint": "Shortcuts and key bindings"
+      },
+      "voice": {
+        "label": "Voice",
+        "hint": "Microphone and local transcription"
+      },
+      "notifications": {
+        "label": "Notifications",
+        "hint": "Alerts and sounds"
+      },
+      "updates": {
+        "label": "Updates",
+        "hint": "Version, downloads and installation"
+      },
+      "policy": {
+        "label": "Policy",
+        "hint": "What agents are blocked from using"
+      },
+      "diagnostics": {
+        "label": "Diagnostics",
+        "hint": "Application health and troubleshooting"
+      }
     }
   },
   "header": {
@@ -52,17 +83,41 @@
   "appearance": {
     "kicker": "Global appearance",
     "title": "Appearance",
-    "description": "Choose the mode and the language for the whole app, or follow your operating system.",
+    "description": "Mode, interface scale, density and language for the whole app.",
     "mode": {
       "title": "Mode",
-      "system": { "label": "System", "hint": "Follows your operating system" },
-      "light": { "label": "Light", "hint": "Light surfaces with green accents" },
-      "dark": { "label": "Dark", "hint": "Dark surfaces with warm yellow accents" }
+      "system": {
+        "label": "System",
+        "hint": "Follows your operating system"
+      },
+      "light": {
+        "label": "Light",
+        "hint": "Light surfaces with green accents"
+      },
+      "dark": {
+        "label": "Dark",
+        "hint": "Dark surfaces with warm yellow accents"
+      }
     },
     "language": {
       "title": "Language",
       "system": "System ({{language}})",
       "hint": "Applies to the whole interface. Agents answer in the language you write in."
+    },
+    "scale": {
+      "title": "Interface scale",
+      "hint": "Makes text, controls and the terminal larger or smaller across the app. Currently {{scale}}."
+    },
+    "density": {
+      "title": "Density",
+      "hint": "How tightly controls and lists sit. Workspaces and the Thread list follow this unless you set their own.",
+      "compact": "Compact",
+      "comfortable": "Comfortable",
+      "workspaceOverride_one": "1 workspace uses its own density.",
+      "workspaceOverride_other": "{{count}} workspaces use their own density.",
+      "useAppInWorkspaces": "Use app density in all workspaces",
+      "threadOverride": "The Thread list uses its own density: {{density}}.",
+      "useAppInThread": "Use app density in the Thread list"
     }
   },
   "diagnostics": {
@@ -191,9 +246,6 @@
     "kicker": "OXEVoice · local STT",
     "title": "Voice",
     "description": "Dictate with local transcription and your preferred shortcuts.",
-    "language": "Language",
-    "languageValue": "Portuguese (Brazil)",
-    "languageLabel": "Fixed language: Brazilian Portuguese",
     "model": "Model",
     "models": {
       "tiny": "Tiny — fastest, least accurate (~75 MB)",
@@ -264,11 +316,7 @@
     "notifyHint": "Desktop alerts when a background agent finishes, exits, or errors. Clicking focuses the terminal.",
     "onlyUnwatched": "Only for terminals you are <strong>not watching</strong>.",
     "sendTest": "Send test notification",
-    "testBody": "Test notification",
-    "performance": "Performance",
-    "keepMounted": "Keep recent workspaces mounted",
-    "keepMountedLabel": "Number of workspaces to keep mounted",
-    "keepMountedHint": "Background terminals keep running either way."
+    "testBody": "Test notification"
   },
   "updates": {
     "kicker": "System",
@@ -365,9 +413,18 @@
     "intro": "Rules that block what agents may use: providers, tools, MCP servers, skills, databases and shared memory. They only block; they never grant anything. To change a rule, edit the file. The last matching rule decides, so the managed file wins.",
     "notApplied": "Not applied: {{problem}}",
     "layers": {
-      "project": { "label": "Project", "hint": "Applies to this project only" },
-      "user": { "label": "User", "hint": "Applies to you on this computer" },
-      "managed": { "label": "Managed", "hint": "Installed by an administrator; has the final word" }
+      "project": {
+        "label": "Project",
+        "hint": "Applies to this project only"
+      },
+      "user": {
+        "label": "User",
+        "hint": "Applies to you on this computer"
+      },
+      "managed": {
+        "label": "Managed",
+        "hint": "Installed by an administrator; has the final word"
+      }
     },
     "fileError": "This file has an error and is ignored.",
     "noFile": "No file.",
@@ -448,5 +505,23 @@
       "cancel": "Cancel"
     },
     "new": "New automation"
+  },
+  "keyboard": {
+    "title": "Keyboard",
+    "intro": "Shortcuts work in the view named by each group. Press <strong>?</strong> outside a text field to see the ones for the current screen. A focused terminal keeps every key except the command palette, Settings and the sidebar shortcuts.",
+    "scopes": {
+      "global": "Everywhere"
+    },
+    "shortcuts": "{{scope}} shortcuts",
+    "alsoUsed": "Also used by {{bindings}}",
+    "capturing": "Press the new shortcut, or Esc to cancel",
+    "changeLabel": "Change shortcut for {{name}}",
+    "pressKeys": "Press keys…",
+    "change": "Change",
+    "resetLabel": "Reset shortcut for {{name}}",
+    "reset": "Reset",
+    "offLabel": "Turn off shortcut for {{name}}",
+    "off": "Turn off",
+    "resetAll": "Reset all shortcuts"
   }
 }

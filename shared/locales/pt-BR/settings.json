@@ -27,15 +27,46 @@
       "save": "Salvar e continuar"
     },
     "pages": {
-      "general": { "label": "Geral", "hint": "Navegação e preferências de workspace" },
-      "providers": { "label": "Agentes", "hint": "CLIs de agentes, agentes personalizados e conversas ociosas" },
-      "appearance": { "label": "Aparência", "hint": "Modo e idioma" },
-      "terminal": { "label": "Terminal", "hint": "Fonte, cursor, rolagem e comportamento" },
-      "voice": { "label": "Voz", "hint": "Microfone e transcrição local" },
-      "notifications": { "label": "Notificações", "hint": "Alertas e sons" },
-      "updates": { "label": "Atualizações", "hint": "Versão, downloads e instalação" },
-      "policy": { "label": "Política", "hint": "O que os agentes estão proibidos de usar" },
-      "diagnostics": { "label": "Diagnóstico", "hint": "Saúde do aplicativo e solução de problemas" }
+      "general": {
+        "label": "Geral",
+        "hint": "Navegação e preferências de workspace"
+      },
+      "providers": {
+        "label": "Agentes",
+        "hint": "CLIs de agentes, agentes personalizados e conversas ociosas"
+      },
+      "appearance": {
+        "label": "Aparência",
+        "hint": "Modo, escala, densidade e idioma"
+      },
+      "terminal": {
+        "label": "Terminal",
+        "hint": "Fonte, cursor, rolagem e comportamento"
+      },
+      "keyboard": {
+        "label": "Teclado",
+        "hint": "Atalhos e combinações de teclas"
+      },
+      "voice": {
+        "label": "Voz",
+        "hint": "Microfone e transcrição local"
+      },
+      "notifications": {
+        "label": "Notificações",
+        "hint": "Alertas e sons"
+      },
+      "updates": {
+        "label": "Atualizações",
+        "hint": "Versão, downloads e instalação"
+      },
+      "policy": {
+        "label": "Política",
+        "hint": "O que os agentes estão proibidos de usar"
+      },
+      "diagnostics": {
+        "label": "Diagnóstico",
+        "hint": "Saúde do aplicativo e solução de problemas"
+      }
     }
   },
   "header": {
@@ -52,17 +83,42 @@
   "appearance": {
     "kicker": "Aparência global",
     "title": "Aparência",
-    "description": "Escolha o modo e o idioma do app inteiro, ou siga o sistema operacional.",
+    "description": "Modo, escala da interface, densidade e idioma do app inteiro.",
     "mode": {
       "title": "Modo",
-      "system": { "label": "Sistema", "hint": "Segue o sistema operacional" },
-      "light": { "label": "Claro", "hint": "Superfícies claras com detalhes em verde" },
-      "dark": { "label": "Escuro", "hint": "Superfícies escuras com detalhes em amarelo quente" }
+      "system": {
+        "label": "Sistema",
+        "hint": "Segue o sistema operacional"
+      },
+      "light": {
+        "label": "Claro",
+        "hint": "Superfícies claras com detalhes em verde"
+      },
+      "dark": {
+        "label": "Escuro",
+        "hint": "Superfícies escuras com detalhes em amarelo quente"
+      }
     },
     "language": {
       "title": "Idioma",
       "system": "Sistema ({{language}})",
       "hint": "Vale para toda a interface. Os agentes respondem no idioma em que você escreve."
+    },
+    "scale": {
+      "title": "Escala da interface",
+      "hint": "Deixa textos, controles e o terminal maiores ou menores em todo o app. Agora em {{scale}}."
+    },
+    "density": {
+      "title": "Densidade",
+      "hint": "Quão juntos ficam controles e listas. Os workspaces e a lista do Thread seguem esta opção, a menos que tenham a própria.",
+      "compact": "Compacta",
+      "comfortable": "Confortável",
+      "workspaceOverride_one": "1 workspace usa a própria densidade.",
+      "workspaceOverride_many": "{{count}} workspaces usam a própria densidade.",
+      "workspaceOverride_other": "{{count}} workspaces usam a própria densidade.",
+      "useAppInWorkspaces": "Usar a densidade do app em todos os workspaces",
+      "threadOverride": "A lista do Thread usa a própria densidade: {{density}}.",
+      "useAppInThread": "Usar a densidade do app na lista do Thread"
     }
   },
   "diagnostics": {
@@ -208,9 +264,6 @@
     "kicker": "OXEVoice · transcrição local",
     "title": "Voz",
     "description": "Dite com transcrição local e os atalhos que você preferir.",
-    "language": "Idioma",
-    "languageValue": "Português (Brasil)",
-    "languageLabel": "Idioma fixo: português do Brasil",
     "model": "Modelo",
     "models": {
       "tiny": "Tiny — o mais rápido, menos preciso (~75 MB)",
@@ -281,11 +334,7 @@
     "notifyHint": "Alertas na área de trabalho quando um agente em segundo plano termina, encerra ou falha. Clicar leva ao terminal.",
     "onlyUnwatched": "Só para os terminais que você <strong>não está olhando</strong>.",
     "sendTest": "Enviar notificação de teste",
-    "testBody": "Notificação de teste",
-    "performance": "Desempenho",
-    "keepMounted": "Manter os workspaces recentes carregados",
-    "keepMountedLabel": "Quantidade de workspaces mantidos carregados",
-    "keepMountedHint": "Os terminais em segundo plano continuam rodando de qualquer jeito."
+    "testBody": "Notificação de teste"
   },
   "updates": {
     "kicker": "Sistema",
@@ -382,9 +431,18 @@
     "intro": "Regras que bloqueiam o que os agentes podem usar: provedores, ferramentas, servidores MCP, skills, bancos de dados e memória compartilhada. Elas só bloqueiam; nunca liberam nada. Para mudar uma regra, edite o arquivo. A última regra que se aplica decide, então o arquivo gerenciado prevalece.",
     "notApplied": "Não aplicado: {{problem}}",
     "layers": {
-      "project": { "label": "Projeto", "hint": "Vale só para este projeto" },
-      "user": { "label": "Usuário", "hint": "Vale para você neste computador" },
-      "managed": { "label": "Gerenciado", "hint": "Instalado por um administrador; tem a palavra final" }
+      "project": {
+        "label": "Projeto",
+        "hint": "Vale só para este projeto"
+      },
+      "user": {
+        "label": "Usuário",
+        "hint": "Vale para você neste computador"
+      },
+      "managed": {
+        "label": "Gerenciado",
+        "hint": "Instalado por um administrador; tem a palavra final"
+      }
     },
     "fileError": "Este arquivo tem um erro e foi ignorado.",
     "noFile": "Nenhum arquivo.",
@@ -465,5 +523,23 @@
       "cancel": "Cancelar"
     },
     "new": "Nova automação"
+  },
+  "keyboard": {
+    "title": "Teclado",
+    "intro": "Os atalhos valem na visão indicada em cada grupo. Pressione <strong>?</strong> fora de um campo de texto para ver os da tela atual. Um terminal em foco fica com todas as teclas, exceto a paleta de comandos, as Configurações e os atalhos da barra lateral.",
+    "scopes": {
+      "global": "Em todo lugar"
+    },
+    "shortcuts": "Atalhos de {{scope}}",
+    "alsoUsed": "Também usado por {{bindings}}",
+    "capturing": "Pressione o novo atalho, ou Esc para cancelar",
+    "changeLabel": "Mudar o atalho de {{name}}",
+    "pressKeys": "Pressione as teclas…",
+    "change": "Mudar",
+    "resetLabel": "Restaurar o atalho de {{name}}",
+    "reset": "Restaurar",
+    "offLabel": "Desligar o atalho de {{name}}",
+    "off": "Desligar",
+    "resetAll": "Restaurar todos os atalhos"
   }
 }
