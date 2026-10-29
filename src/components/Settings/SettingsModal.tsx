@@ -937,8 +937,8 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
 function AppearanceSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   return (
     <section className="settings-modal-content" aria-labelledby="settings-appearance-title">
-      <SettingsContentHeader kicker="Global appearance" title="Appearance" titleId="settings-appearance-title" description="Choose light or dark mode for the whole app, or follow your operating system." onClose={onClose} />
-      <div className="settings-content-body settings-form"><AppearanceSettings /></div>
+      <SettingsContentHeader kicker="Global appearance" title="Appearance" titleId="settings-appearance-title" description="Mode, interface scale and density for the whole app." onClose={onClose} />
+      <div className="settings-content-body settings-form"><AppearanceSettings global /></div>
     </section>
   )
 }

@@ -1,22 +1,28 @@
-import { useEffect, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, type ReactElement, type ReactNode } from 'react'
 import type { WorkspaceDensity, WorkspaceThemeId } from '../../../shared/types/workspace'
+import { UI_SCALE_EVENT } from '../../../shared/uiScale'
+import { resolveDensity } from '../../design/density'
 import { applyMode, resolveMode } from '../../design/mode'
 import { useSettingsStore } from '../../store/settings.store'
 
 interface ThemeProviderProps {
   /** Kept for saved workspaces; color themes were replaced by light and dark mode. */
   themeId?: WorkspaceThemeId
+  /** The active workspace's density; 'default' or nothing follows the app-wide choice. */
   density?: WorkspaceDensity
   children: ReactNode
 }
 
 /**
- * Applies the person's light/dark choice (or the operating system's) and the
- * workspace density to the document root, and mirrors the mode into the
- * native window so caption buttons and menus match.
+ * Applies the person's light/dark choice (or the operating system's), the
+ * density and the interface scale to the document root, and mirrors the mode
+ * and the scale into the native window so caption buttons, menus and zoom match.
  */
-export function ThemeProvider({ children, density = 'compact' }: ThemeProviderProps): ReactElement {
+export function ThemeProvider({ children, density }: ThemeProviderProps): ReactElement {
   const appearance = useSettingsStore(state => state.appearance)
+  const appDensity = useSettingsStore(state => state.density)
+  const uiScale = useSettingsStore(state => state.uiScale)
+  const resolvedDensity = resolveDensity(density, appDensity)
 
   useEffect(() => {
     const query = window.matchMedia?.('(prefers-color-scheme: dark)')
@@ -27,11 +33,20 @@ export function ThemeProvider({ children, density = 'compact' }: ThemeProviderPr
     return () => query?.removeEventListener('change', update)
   }, [appearance])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement
-    root.dataset.density = density
+    root.dataset.density = resolvedDensity
     return () => { delete root.dataset.density }
-  }, [density])
+  }, [resolvedDensity])
+
+  useEffect(() => {
+    const setUiScale = window.oxe?.app?.setUiScale
+    if (!setUiScale) return
+    let live = true
+    // Measured surfaces (the terminal's cell grid) refit once the new zoom is in effect.
+    void setUiScale(uiScale).then(() => { if (live) window.dispatchEvent(new Event(UI_SCALE_EVENT)) }).catch(() => {})
+    return () => { live = false }
+  }, [uiScale])
 
   return <>{children}</>
 }

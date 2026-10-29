@@ -12,6 +12,8 @@ import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { useSettingsStore } from '../../store/settings.store'
+import { resolveDensity } from '../../design/density'
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { threadConfirmation } from '../../../shared/threadConfirmations'
 import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
@@ -42,7 +44,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const width = useNavigationPrefs(s => s.width), setWidth = useNavigationPrefs(s => s.setWidth)
-  const density = useNavigationPrefs(s => s.threadDensity), setDensity = useNavigationPrefs(s => s.setThreadDensity)
+  // The list's own density overrides the app-wide one (Settings › Appearance) once the person toggles it.
+  const density = resolveDensity(useNavigationPrefs(s => s.threadDensity), useSettingsStore(s => s.density)), setDensity = useNavigationPrefs(s => s.setThreadDensity)
   const collapsed = useUIStore(s => s.isSidebarCollapsed), toggleCollapse = useUIStore(s => s.toggleSidebar)
   const [query, setQuery] = useState('')
   const search = useRef<HTMLInputElement>(null)
