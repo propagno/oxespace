@@ -3,8 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { EmptyState } from '../../ui'
 import type { AppView } from '../../keyboard/keybindings'
-import { onOxeQueryAction, performOxeQueryAction } from '../OxeQuery/oxequery-bridge'
-import { onOxePodAction, performOxePodAction } from '../OxePod/oxepod-bridge'
 
 // OxeQuery (databases) and OxePod (containers) are entirely lazy: nothing of either is in the entry chunk until first use.
 const OxeQuerySidebar = lazy(() => import('../OxeQuery/OxeQuerySidebar').then(m => ({ default: m.OxeQuerySidebar })))
@@ -40,17 +38,23 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
 }
 
 /**
- * The palette entries of OxeQuery and OxePod register once their modules load, after the first paint. Choosing one
- * opens its view first, then lets the action find its control.
+ * The palette entries of OxeQuery and OxePod register once their modules load, after the first paint; so do the
+ * small bridges they talk through, which keeps both out of the boot bundle. Choosing an entry opens its view first,
+ * then lets the action find its control.
  */
 export function useModeActions(select: (view: AppView) => void): void {
   const latest = useRef(select)
   useEffect(() => { latest.current = select })
   useEffect(() => {
-    void import('../OxeQuery/oxequery.commands')
-    void import('../OxePod/oxepod.commands')
-    const offQuery = onOxeQueryAction(action => { latest.current('data'); performOxeQueryAction(action) })
-    const offPod = onOxePodAction(action => { latest.current('pods'); performOxePodAction(action) })
-    return () => { offQuery(); offPod() }
+    let cancelled = false
+    let off: Array<() => void> = []
+    void Promise.all([import('../OxeQuery/oxequery-bridge'), import('../OxePod/oxepod-bridge'), import('../OxeQuery/oxequery.commands'), import('../OxePod/oxepod.commands')]).then(([query, pod]) => {
+      if (cancelled) return
+      off = [
+        query.onOxeQueryAction(action => { latest.current('data'); query.performOxeQueryAction(action) }),
+        pod.onOxePodAction(action => { latest.current('pods'); pod.performOxePodAction(action) })
+      ]
+    })
+    return () => { cancelled = true; off.forEach(stop => stop()) }
   }, [])
 }
