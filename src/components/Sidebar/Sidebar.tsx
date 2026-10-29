@@ -20,6 +20,7 @@ import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, useNavigatio
 import './SidebarNavigation.css'
 import { cachedBranchLabel } from '../../hooks/useGitBranch'
 import { shortcutLabel } from '../../keyboard/keybindings'
+import { useListKeyboard } from '../../hooks/useListKeyboard'
 
 interface SidebarProps {
   onDelegations?: () => void
@@ -80,6 +81,8 @@ export function Sidebar({
     requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId } })))
   }
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+  // Arrows and j/k move through workspaces and their terminals; one tab stop for the whole list.
+  const { ref: attachList, onKeyDown: onListKeyDown } = useListKeyboard<HTMLElement>()
 
   useNavigationSearch(searchInputRef, isCollapsed, onToggleCollapse)
 
@@ -220,7 +223,7 @@ export function Sidebar({
       <div className="nav-panel-title"><strong>Workspaces</strong><SidebarActions actions={railPrimary} /></div>
       <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label="Filter workspaces" placeholder="Filter workspaces" value={searchQuery} onChange={setSearchQuery} shortcut="/" />
 
-      <nav className="ws-group-list" aria-label="Workspaces">
+      <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label="Workspaces">
 
         {integrationGroups.length > 0 ? (
           <section className="sidebar-integration-list" aria-label="Integration groups">

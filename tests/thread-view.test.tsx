@@ -153,6 +153,27 @@ describe('Thread workspace UI', () => {
     const titles = screen.getAllByText(/^(Older|Newer) conversation$/).map(node => node.textContent)
     expect(titles).toEqual(['Newer conversation', 'Older conversation'])
   })
+  it('moves through projects and conversations by keyboard from one tab stop', async () => {
+    const f = fixture()
+    const base = useThreadStore.getState().threads[0]
+    useThreadStore.setState({ threads: [{ ...base, id: 'older', title: 'Older conversation', createdAt: 1 }, { ...base, id: 'newer', title: 'Newer conversation', createdAt: 2 }], selectedId: 'older' })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    const older = screen.getByText('Older conversation').closest('button')!
+    const newer = screen.getByText('Newer conversation').closest('button')!
+    await waitFor(() => expect(older.tabIndex).toBe(0))
+    expect(newer.tabIndex).toBe(-1)
+    expect(screen.getByRole('button', { name: 'Open Older conversation side by side' }).tabIndex).toBe(-1)
+    older.focus()
+    fireEvent.keyDown(older, { key: 'k' })
+    expect(newer).toHaveFocus()
+    fireEvent.keyDown(newer, { key: 'ArrowUp' })
+    expect(document.activeElement).toHaveAttribute('aria-expanded')
+    fireEvent.keyDown(document.activeElement!, { key: 'End' })
+    expect(older).toHaveFocus()
+    // The side-by-side button is disabled for the open conversation, so Right skips to its menu.
+    fireEvent.keyDown(older, { key: 'ArrowRight' })
+    expect(screen.getByRole('button', { name: 'Actions for Older conversation' })).toHaveFocus()
+  })
   it('creates a thread in the project context and requires confirmation before deleting a conversation', async () => {
     const f = fixture(), onCreate = vi.fn()
     const user = userEvent.setup()
