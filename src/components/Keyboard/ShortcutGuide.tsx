@@ -6,7 +6,7 @@ import { useUIStore } from '../../store/ui.store'
 import { KeyChords } from './KeyChord'
 import styles from './Keyboard.module.css'
 
-const VIEW_NAMES: Record<AppView, string> = { code: 'Code', thread: 'Thread', data: 'OxeQuery' }
+const VIEW_NAMES: Record<AppView, string> = { code: 'Code', thread: 'Thread', data: 'OxeQuery', pods: 'OxePod' }
 
 /** The shortcuts that work on the current screen, read from the keybinding registry. */
 export function ShortcutGuide({ view, onClose }: { view: AppView; onClose: () => void }): ReactElement {

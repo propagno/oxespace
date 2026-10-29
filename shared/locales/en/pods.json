@@ -1,0 +1,278 @@
+{
+  "common": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "refresh": "Refresh",
+    "run": "Run",
+    "clear": "Clear",
+    "remove": "Remove",
+    "tryAgain": "Try again"
+  },
+  "sidebar": {
+    "label": "OxePod sidebar",
+    "refresh": "Refresh containers",
+    "filter": "Filter containers",
+    "project": "Project {{name}}",
+    "others": "Others",
+    "noMatch": "No container matches the filter.",
+    "empty": "No containers yet.",
+    "more": "More in OxePod",
+    "activity": "Agent activity",
+    "width": "OxePod sidebar width"
+  },
+  "state": {
+    "running": "running",
+    "exited": "exited",
+    "created": "created",
+    "paused": "paused",
+    "restarting": "restarting",
+    "dead": "dead",
+    "removing": "removing"
+  },
+  "engine": {
+    "label": "Container engine",
+    "ready": "active {{version}}",
+    "state": {
+      "stopped": "installed, not running",
+      "denied": "no permission",
+      "missing": "not found"
+    },
+    "missingTitle": "No container engine found",
+    "deniedTitle": "Not allowed to use Docker",
+    "stoppedTitle": "{{engine}} is not running",
+    "unavailableTitle": "Containers unavailable",
+    "deniedFix": "Add your user to the <code>docker</code> group, then sign in again.",
+    "startLinux": "Start it with <code>sudo systemctl start docker</code>.",
+    "startDesktop": "Open Docker Desktop and wait until it says it is running.",
+    "startPodman": "Start the machine with <code>podman machine start</code>.",
+    "checksAgain": "This page checks again by itself.",
+    "install": "Install Docker Desktop, Docker Engine or Podman. OxeQuery uses their command-line tool, so anything that works in your terminal works here.",
+    "checkAgain": "Check again",
+    "checking": "Checking…"
+  },
+  "engineBar": {
+    "label": "Docker engine",
+    "thisEngine": "this engine",
+    "elsewhere_one": "No containers in “{{selected}}”, but “{{other}}” has {{count}}. Choose it below.",
+    "elsewhere_other": "No containers in “{{selected}}”, but “{{other}}” has {{count}}. Choose it below.",
+    "refused": "“{{label}}” is a Docker engine on this computer, but your user is not allowed to use it ({{endpoint}}). Add your user to the docker group and sign in again, or choose another engine.",
+    "state": {
+      "denied": "no permission",
+      "unreachable": "not running",
+      "not-checked": "remote, not used"
+    }
+  },
+  "detail": {
+    "label": "{{name}} details",
+    "runningSince": "started {{when}}",
+    "actions": "Container actions",
+    "sections": "Container sections",
+    "context": "About this container",
+    "unreadable": "Could not read this container",
+    "loading": "Loading container details…"
+  },
+  "actions": {
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart",
+    "terminal": "Terminal",
+    "remove": "Remove…",
+    "startNamed": "Start {{name}}",
+    "stopNamed": "Stop {{name}}",
+    "restartNamed": "Restart {{name}}",
+    "removeNamed": "Remove {{name}}…",
+    "failed": "The engine refused",
+    "stopTitle": "Stop {{name}}?",
+    "restartTitle": "Restart {{name}}?",
+    "databaseWarning": "This is a database container; open connections and running queries are interrupted.",
+    "managedVolume": "It was created by OxeQuery; its data is kept in a named volume."
+  },
+  "tab": {
+    "logs": "Logs",
+    "stats": "Stats",
+    "environment": "Environment",
+    "ports": "Ports",
+    "terminal": "Terminal",
+    "command": "Command"
+  },
+  "stats": {
+    "label": "Usage",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "memoryOf": "{{used}} / {{limit}}",
+    "network": "Network in / out",
+    "disk": "Disk read / write",
+    "processes": "Processes",
+    "notRunning": "Start the container to see what it uses.",
+    "measuring": "Measuring…"
+  },
+  "remove": {
+    "title": "Remove the container {{name}}?",
+    "confirm": "Remove",
+    "running": "It is stopped first.",
+    "volumes_one": "The data in the volume <strong>{{volumes}}</strong> stays.",
+    "volumes_other": "The data in the volumes <strong>{{volumes}}</strong> stays.",
+    "noVolumes": "It has no named volume; files written inside it are lost.",
+    "final": "This cannot be undone."
+  },
+  "environment": {
+    "empty": "This container sets no environment variables.",
+    "name": "Variable",
+    "value": "Value",
+    "hidden": "hidden",
+    "hiddenTitle": "Hidden because it is, or may be, a secret",
+    "hiddenNote_one": "{{count}} value is hidden because it is, or may be, a secret. It never leaves the main process, and agents never see it.",
+    "hiddenNote_other": "{{count}} values are hidden because they are, or may be, secrets. They never leave the main process, and agents never see them."
+  },
+  "ports": {
+    "none": "This container publishes no port.",
+    "host": "On this computer",
+    "container": "In the container",
+    "protocol": "Protocol",
+    "internal": "only to other containers"
+  },
+  "bridge": {
+    "title": "Database detected",
+    "where": "{{engine}} on {{host}}:{{port}}",
+    "unpublished": "Its database port is not published, so nothing outside the engine can reach it. Recreate it with a published port (for example -p 5432:5432).",
+    "saved": "Saved as the connection {{name}}.",
+    "open": "Open in OxeQuery",
+    "connect": "Connect in OxeQuery",
+    "startFirst": "Start the container to connect to it.",
+    "failed": "Could not prepare the connection",
+    "password": "OxeQuery asks for the password and keeps it in the vault; agents never see it."
+  },
+  "about": {
+    "title": "About",
+    "image": "Image",
+    "command": "Command",
+    "health": "Health",
+    "restartPolicy": "Restart",
+    "started": "Started",
+    "ports": "Ports",
+    "networks": "Networks",
+    "mounts": "Mounts"
+  },
+  "logs": {
+    "filter": "Filter logs",
+    "filterPlaceholder": "Filter",
+    "pause": "Pause",
+    "resume": "Resume",
+    "label": "Container logs",
+    "waiting": "Waiting for output…",
+    "failed": "The log stopped",
+    "noMatch": "No line matches the filter.",
+    "live": "— live —"
+  },
+  "run": {
+    "explain": "Runs once inside <strong>{{name}}</strong> without a shell, so pipes and quotes are not interpreted. Use the Shell tab for interactive work.",
+    "command": "Command",
+    "startFirst": "Start the container to run commands.",
+    "timedOut": "Timed out after 30 s",
+    "exitCode": "Exit code {{code}}",
+    "truncated": "output truncated",
+    "output": "Command output",
+    "failed": "The command could not run"
+  },
+  "shell": {
+    "startFirst": "Start the container to open a shell.",
+    "opening": "Opening shell…",
+    "paneName": "{{name}} shell",
+    "shell": "Shell",
+    "newSession": "New session",
+    "failed": "Could not open a shell"
+  },
+  "compose": {
+    "running_one": "{{running}} of {{count}} running",
+    "running_other": "{{running}} of {{count}} running",
+    "up": "Up",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart",
+    "logs": "Logs",
+    "down": "Down",
+    "downAsk": "Down…",
+    "done": "Done.",
+    "downTitle": "Take {{project}} down?",
+    "downConfirm": "Take down",
+    "downDescription": "Its containers and networks are removed. Named volumes are kept.",
+    "closeOutput": "Close output",
+    "outputTitle": "{{project}} · {{action}}",
+    "label": "Compose project {{project}}",
+    "services_one": "{{count}} service",
+    "services_other": "{{count}} services",
+    "failed": "Compose failed"
+  },
+  "resources": {
+    "label": "Images, volumes and networks",
+    "tab": {
+      "images_one": "Images ({{count}})",
+      "images_other": "Images ({{count}})",
+      "volumes_one": "Volumes ({{count}})",
+      "volumes_other": "Volumes ({{count}})",
+      "networks_one": "Networks ({{count}})",
+      "networks_other": "Networks ({{count}})"
+    },
+    "usage": "{{type}}: {{size}}",
+    "usageReclaimable": "{{type}}: {{size}} ({{reclaimable}} reclaimable)",
+    "removeTitle": {
+      "image": "Remove image {{name}}?",
+      "volume": "Remove volume {{name}}?",
+      "network": "Remove network {{name}}?"
+    },
+    "removeWarning": {
+      "image": "Containers can no longer be created from it until it is pulled again.",
+      "volume": "The data in this volume is deleted and cannot be recovered.",
+      "network": "Containers attached to this network are not affected, but it is removed."
+    },
+    "inUse": "The engine refuses when it is still in use.",
+    "removeNamed": {
+      "image": "Remove image {{name}}",
+      "volume": "Remove volume {{name}}",
+      "network": "Remove network {{name}}"
+    },
+    "column": {
+      "repository": "Repository",
+      "tag": "Tag",
+      "size": "Size",
+      "created": "Created",
+      "name": "Name",
+      "driver": "Driver",
+      "scope": "Scope",
+      "actions": "Actions"
+    },
+    "kind": "Kind",
+    "failed": "Could not read the engine",
+    "empty": {
+      "images": "No images.",
+      "volumes": "No volumes.",
+      "networks": "No networks."
+    }
+  },
+  "prune": {
+    "containers": "Clean up stopped…",
+    "images": "Clean up dangling images…",
+    "title": {
+      "containers": "Remove every stopped container?",
+      "images": "Remove every dangling image?"
+    },
+    "description": {
+      "containers": "Containers that are not running are removed with what they wrote inside them. Named volumes stay. This cannot be undone.",
+      "images": "Image layers no tag or container uses are removed. Tagged images stay. This cannot be undone."
+    },
+    "confirm": "Clean up",
+    "done": {
+      "containers": "Stopped containers removed",
+      "images": "Dangling images removed"
+    }
+  },
+  "activity": {
+    "loading": "Loading agent activity…"
+  },
+  "view": {
+    "loading": "Looking for containers…",
+    "emptyTitle": "No containers yet",
+    "emptyText": "Containers you start with Docker or Podman show up here, grouped by their Compose project.",
+    "remoteContext": "Docker context <strong>{{where}}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer."
+  }
+}

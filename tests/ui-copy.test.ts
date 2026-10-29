@@ -26,10 +26,11 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
 const MIGRATED = [
   'src/components/Navigation',
   'src/components/OxeQuery',
+  'src/components/OxePod',
   'src/components/Settings/AppearanceSettings.tsx'
 ]
 /** Text that stays the same in every language: product names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace'])
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OxePod', 'OXESpace'])
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/

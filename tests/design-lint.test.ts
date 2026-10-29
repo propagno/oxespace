@@ -99,10 +99,10 @@ describe('design lint', () => {
       expect(readFileSync(join(ROOT, 'src', 'ui', 'Display.module.css'), 'utf8')).toContain('@keyframes :global(oxe-spin)')
     })
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
-      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(35)
+      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(33)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
-      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(80)
+      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(76)
     })
     it('CSS modules time motion with the --duration tokens; fixed timings do not grow', () => {
       const modules = files(join(ROOT, 'src'), path => path.endsWith('.module.css'))

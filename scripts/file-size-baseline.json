@@ -4,8 +4,8 @@
   "electron/main/services/conversation/thread-orchestrator.ts": 1285,
   "electron/main/services/oxequery/oxequery-core.ts": 1163,
   "electron/main/services/semantic.service.ts": 1065,
-  "src/App.tsx": 1127,
+  "src/App.tsx": 1120,
   "src/components/GitHub/GitHubPanel.tsx": 1846,
-  "src/components/Settings/SettingsModal.tsx": 1448,
+  "src/components/Settings/SettingsModal.tsx": 1431,
   "src/components/Skills/SkillsBrowser.tsx": 1391
 }

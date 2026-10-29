@@ -2,19 +2,23 @@ import { useTranslation } from 'react-i18next'
 import { cx } from '../../ui'
 import { describeAttention, useAttentionSummary, type AttentionCounts } from '../../hooks/useAttentionSummary'
 import type { NavigationMode } from './NavigationChrome'
+import { shortcutLabel, useKeybindings, type KeybindingId } from '../../keyboard/keybindings'
 import styles from './ModeSwitch.module.css'
 
 // Product names, never translated.
 const MODES: Array<{ mode: NavigationMode; label: string }> = [
   { mode: 'code', label: 'Code' },
   { mode: 'thread', label: 'Thread' },
-  { mode: 'data', label: 'OxeQuery' }
+  { mode: 'data', label: 'OxeQuery' },
+  { mode: 'pods', label: 'OxePod' }
 ]
 
-/** The application's three views, as one segmented control in the middle of the title bar. */
+/** The application's four views, as one segmented control in the middle of the title bar; Ctrl+1…4 switch between them. */
 export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect: (mode: NavigationMode) => void }) {
   const { t } = useTranslation()
   const attention = useAttentionSummary()
+  const go = (next: NavigationMode) => () => { if (next !== mode) onSelect(next) }
+  useKeybindings({ 'view.code': go('code'), 'view.thread': go('thread'), 'view.data': go('data'), 'view.pods': go('pods') })
   return <nav className={styles.switch} aria-label={t('nav.applicationView')}>
     {MODES.map(item => {
       const counts = item.mode === 'code' ? attention.code : item.mode === 'thread' ? attention.thread : null
@@ -22,7 +26,7 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
       // The badge sits beside the button, not inside it: its count would otherwise be visible text missing from
       // the button's name (WCAG 2.5.3). It describes the button instead, so focus reads "Thread … 1 needs you".
       return <span key={item.mode} className={styles.item}>
-        <button type="button" className={styles.option} aria-label={item.label} aria-pressed={mode === item.mode} title={t(`nav.modeTitle.${item.mode}`)} aria-describedby={attentionId}
+        <button type="button" className={styles.option} aria-label={item.label} aria-pressed={mode === item.mode} title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
           onClick={() => { if (item.mode !== mode) onSelect(item.mode) }}>
           {item.label}
         </button>
@@ -31,6 +35,8 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
     })}
   </nav>
 }
+
+const withKey = (title: string, mode: NavigationMode): string => { const key = shortcutLabel(`view.${mode}` as KeybindingId); return key ? `${title} (${key})` : title }
 
 function Attention({ id, counts }: { id: string; counts: AttentionCounts }) {
   const total = counts.needsYou + counts.failed

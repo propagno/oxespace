@@ -5,7 +5,7 @@ import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 
-export type ActivityView = 'code' | 'thread' | 'data'
+export type ActivityView = import('../../keyboard/keybindings').AppView
 
 /**
  * Takes the person to what an entry is about: the conversation, the pane, the job, or the Settings
