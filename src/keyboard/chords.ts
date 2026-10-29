@@ -66,8 +66,34 @@ export function matchesChord(event: ChordEvent, chord: string | ParsedChord): bo
     if (!(event.ctrlKey || event.metaKey)) return false
     if (!parsed.ctrl && !parsed.meta && event.ctrlKey && event.metaKey) return false
   } else if (event.ctrlKey !== parsed.ctrl || event.metaKey !== parsed.meta) return false
-  if (event.shiftKey !== parsed.shift || event.altKey !== parsed.alt) return false
+  if (event.altKey !== parsed.alt) return false
+  // A symbol typed with Shift ("?") matches a chord that names the symbol, whatever the layout needs.
+  if (!parsed.shift && event.shiftKey && isShiftedSymbol(parsed.key) && normalizeKey(event.key) === parsed.key) return true
+  if (event.shiftKey !== parsed.shift) return false
   return eventKeys(event).includes(parsed.key)
+}
+
+const isShiftedSymbol = (key: string): boolean => key.length === 1 && !/[a-z0-9]/.test(key)
+
+const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'AltGraph', 'OS'])
+
+/** The chord a key press stands for, for capturing a new shortcut; null while only modifiers are down. */
+export function eventToChord(event: Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>): string | null {
+  if (MODIFIER_KEYS.has(event.key)) return null
+  const code = event.code ?? ''
+  const physical = CODE_KEYS[code] ?? (/^Key[A-Z]$/.test(code) ? code.slice(3) : /^Digit\d$/.test(code) ? code.slice(5) : null)
+  let key = physical ?? normalizeKey(event.key)
+  // Without other modifiers, a shifted symbol is named by what it types ("?", not "Shift+/").
+  const plainSymbol = !event.ctrlKey && !event.metaKey && !event.altKey && event.shiftKey && event.key.length === 1 && isShiftedSymbol(event.key)
+  if (plainSymbol) key = event.key
+  const named: Record<string, string> = { space: 'Space', escape: 'Escape', enter: 'Enter', tab: 'Tab', backspace: 'Backspace', delete: 'Delete' }
+  const display = named[key] ?? (key.length === 1 ? key.toUpperCase() : event.key)
+  const parts: string[] = []
+  if (event.ctrlKey || event.metaKey) parts.push('Mod')
+  if (event.altKey) parts.push('Alt')
+  if (event.shiftKey && !plainSymbol) parts.push('Shift')
+  parts.push(display)
+  return parts.join('+')
 }
 
 /** Match a KeyboardEvent against a hotkey string like "Ctrl+Shift+Space" (exact modifiers). */

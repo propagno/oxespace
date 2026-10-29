@@ -33,7 +33,7 @@ describe('motion', () => {
   })
 
   it('reads the saved choice before the first paint', () => {
-    localStorage.setItem('oxe-settings', JSON.stringify({ state: { motion: 'reduce' }, version: 5 }))
+    localStorage.setItem('oxe-settings', JSON.stringify({ state: { motion: 'reduce' }, version: 6 }))
     expect(savedMotion()).toBe('reduce')
     localStorage.setItem('oxe-settings', '{broken')
     expect(savedMotion()).toBe('system')

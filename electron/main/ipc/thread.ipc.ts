@@ -113,6 +113,8 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     sender(event); if (typeof hidden !== 'boolean') throw Error('Invalid project visibility'); threadProjects.setHidden(string(projectId), hidden)
   })
   ipcMain.handle(IPC_CHANNELS.thread.list, event => { sender(event); return manager.then(service => service.list()) })
+  // Read-only summary for the activity center; answering a request stays in the conversation.
+  ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => { sender(event); return manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsAll()) })
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => { sender(event); return manager.then(service => service.readForRenderer(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
     sender(event)

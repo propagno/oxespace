@@ -23,6 +23,12 @@ function clampVisitedCap(n: number): number {
   return Math.min(VISITED_WORKSPACES_CAP_MAX, Math.max(VISITED_WORKSPACES_CAP_MIN, Math.round(n)))
 }
 
+function cleanOverrides(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== 'object') return {}
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter((entry): entry is [string, string[]] => Array.isArray(entry[1]) && entry[1].every(chord => typeof chord === 'string')))
+}
+
 interface SettingsState {
   /** Fire native desktop notifications when a background agent needs you. */
   notificationsEnabled: boolean
@@ -45,6 +51,11 @@ interface SettingsState {
   /** Animation: follow the operating system, keep it to a minimum, or always play it. */
   motion: MotionPreference
   setMotion: (motion: MotionPreference) => void
+  /** Settings › Keyboard: chords per keybinding id; an empty list turns the shortcut off. */
+  keybindingOverrides: Record<string, string[]>
+  /** `null` returns the shortcut to its default. */
+  setKeybindingOverride: (id: string, chords: string[] | null) => void
+  resetKeybindings: () => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -61,11 +72,19 @@ export const useSettingsStore = create<SettingsState>()(
       density: 'compact',
       setDensity: (density) => set({ density: density === 'comfortable' ? 'comfortable' : 'compact' }),
       motion: 'system',
-      setMotion: (motion) => set({ motion: motionPreference(motion) })
+      setMotion: (motion) => set({ motion: motionPreference(motion) }),
+      keybindingOverrides: {},
+      setKeybindingOverride: (id, chords) => set(state => {
+        const next = { ...state.keybindingOverrides }
+        if (chords) next[id] = chords
+        else delete next[id]
+        return { keybindingOverrides: next }
+      }),
+      resetKeybindings: () => set({ keybindingOverrides: {} })
     }),
     {
       name: 'oxe-settings',
-      version: 5,
+      version: 6,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
@@ -74,7 +93,8 @@ export const useSettingsStore = create<SettingsState>()(
           appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
           uiScale: clampUiScale(s.uiScale ?? UI_SCALE_DEFAULT),
           density: s.density === 'comfortable' ? 'comfortable' : 'compact',
-          motion: motionPreference(s.motion)
+          motion: motionPreference(s.motion),
+          keybindingOverrides: cleanOverrides(s.keybindingOverrides)
         }
       }
     }
