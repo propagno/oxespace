@@ -473,6 +473,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 role="menuitemcheckbox"
                 aria-checked={terminalPrefs.rtkHookEnabled}
                 data-testid="menu-toggle-rtk"
+                title="Compress the command output agents read. Applies when the terminal next starts."
                 onClick={() => {
                   setTerminalOverride(workspaceId, 'rtkHookEnabled', !terminalPrefs.rtkHookEnabled)
                 }}
@@ -486,6 +487,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 role="menuitemcheckbox"
                 aria-checked={terminalPrefs.cavemanModeEnabled}
                 data-testid="menu-toggle-caveman"
+                title="Ask the agent for short, technical replies. Applies when the terminal next starts."
                 onClick={() => {
                   setTerminalOverride(workspaceId, 'cavemanModeEnabled', !terminalPrefs.cavemanModeEnabled)
                 }}
@@ -499,6 +501,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 role="menuitemcheckbox"
                 aria-checked={terminalPrefs.semanticSearchEnabled}
                 data-testid="menu-toggle-semantic"
+                title="Index this workspace so agents can search it by meaning."
                 onClick={() => {
                   const next = !terminalPrefs.semanticSearchEnabled
                   setTerminalOverride(workspaceId, 'semanticSearchEnabled', next)

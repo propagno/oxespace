@@ -32,8 +32,8 @@ const PERF_BUDGETS_MS: Record<string, number> = {
   // is ~570 ms on Linux runners; keep this explicit instead of weakening the
   // 500 ms budget for all other interactions.
   'modal open:  Semantic Activity': 750,
-  'modal open:  Usage & Rate Limits': 750,
-  'modal close: Usage & Rate Limits': 750,
+  'modal open:  Usage & limits': 750,
+  'modal close: Usage & limits': 750,
   // Track 7 (V12) targets. Calibrated on Windows from the built app in mock-native mode; the CI gate
   // compares the warm p95 with the worst sample removed (report()).
   // Process start to the first painted screen, from the app's own marks: warm 0.97-1.05 s, so 1.5 s
@@ -308,8 +308,8 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
     await page.getByTestId('pane-container').first().click()
     await pressShellShortcut(page, 'Control+k')
     const commandInput = page.locator('input[placeholder="Search files and commands…"]')
-    await commandInput.fill('Split active pane (vertical)')
-    const splitCommand = page.getByText('Split active pane (vertical)', { exact: true })
+    await commandInput.fill('Split pane right')
+    const splitCommand = page.getByText('Split pane right', { exact: true })
     await splitCommand.waitFor({ state: 'visible' })
     const splitStarted = await page.evaluate(() => performance.now())
     await splitCommand.click()
@@ -524,7 +524,7 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       },
       fromPalette('Skills', '[role="dialog"][aria-label="Skills"]', 'Skills'),
       fromPalette('Semantic Activity', '[role="dialog"][aria-label="Semantic activity"]', 'Semantic index log'),
-      fromPalette('Workspace Settings', '.workspace-settings-modal-v2', 'Open workspace settings')
+      fromPalette('Workspace Settings', '.workspace-settings-modal-v2', 'Workspace settings')
     )
 
     for (const surface of surfaces) {
@@ -554,14 +554,14 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       await page.locator('.sidebar-section-header').last().click()
       await page.keyboard.press('Control+k')
       const input = page.locator('input[placeholder="Search files and commands…"]')
-      await input.fill('Usage & Rate Limits')
-      await page.getByText('Usage & Rate Limits', { exact: true }).click()
+      await input.fill('Usage & limits')
+      await page.getByText('Usage & limits', { exact: true }).click()
       await page.locator('[data-testid="usage-modal"]').waitFor({ state: 'visible' })
       usageOpen.push(await page.evaluate((start) => performance.now() - start, started))
       usageClose.push(await timeDomToggle(page, () => page.getByTestId('usage-modal').getByRole('button', { name: 'Close' }).click(), '[data-testid="usage-modal"]', false))
     }
-    report('modal open:  Usage & Rate Limits', usageOpen)
-    report('modal close: Usage & Rate Limits', usageClose)
+    report('modal open:  Usage & limits', usageOpen)
+    report('modal close: Usage & limits', usageClose)
   } finally {
     await killApp(app, pid)
   }

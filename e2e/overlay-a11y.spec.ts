@@ -39,6 +39,6 @@ test('overlays take focus, trap Tab and close on Escape', async () => {
     await exercise('MCP servers', () => openConnections(page), '[role="dialog"][aria-label*="MCP servers" i], [role="dialog"]:has-text("MCP servers")')
     await exercise('Skills', () => runPaletteCommand(page, 'Skills'), '[role="dialog"]:has-text("Skills")')
     await exercise('Semantic activity', () => runPaletteCommand(page, 'Semantic index log'), '[role="dialog"]:has-text("Semantic")')
-    await exercise('Workspace settings', () => runPaletteCommand(page, 'Open workspace settings'), '[role="dialog"]:has-text("Workspace")')
+    await exercise('Workspace settings', () => runPaletteCommand(page, 'Workspace settings'), '[role="dialog"]:has-text("Workspace")')
   } finally { await app.close() }
 })

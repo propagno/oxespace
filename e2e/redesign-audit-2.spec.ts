@@ -26,7 +26,7 @@ test('redesign audit part 2', async () => {
     const open: Record<string, () => Promise<void>> = {
       Skills: () => runPaletteCommand(page, 'Skills'), 'Semantic index log': () => runPaletteCommand(page, 'Semantic index log'),
       Files: () => togglePanel(page, 'Files'), Changes: () => togglePanel(page, 'Changes'),
-      'Command palette': () => page.keyboard.press('Control+k'), 'Workspace settings': () => runPaletteCommand(page, 'Open workspace settings')
+      'Command palette': () => page.keyboard.press('Control+k'), 'Workspace settings': () => runPaletteCommand(page, 'Workspace settings')
     }
     for (const label of Object.keys(open)) {
       try {
