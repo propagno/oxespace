@@ -1,4 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { launchApp, type LaunchedApp } from './helpers/launch'
 
 /**
@@ -380,6 +382,41 @@ test.describe('offer audit', () => {
       await menu.getByRole('menuitem', { name: 'Rename' }).click()
       await expect(page.getByRole('textbox', { name: /Rename workspace/ })).toBeFocused()
       await page.keyboard.press('Escape')
+      expect(pageErrors(launched)).toEqual([])
+    } finally {
+      await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
+    }
+  })
+
+  test('editor tab menu: right-click offers Pin, Close other tabs and Close, and never discards a tab silently', async () => {
+    const launched = await launchWithWorkspace()
+    const { app, page, workspaceRoot } = launched
+    try {
+      for (const name of ['alpha.txt', 'beta.txt', 'gamma.txt']) writeFileSync(join(workspaceRoot, name), `${name}
+`)
+      await runCommand(page, 'tool-editor')
+      await testId('workspace-editor-panel')(page)
+      for (const name of ['alpha.txt', 'beta.txt', 'gamma.txt']) await page.locator('.editor-browser-file', { hasText: name }).click()
+      const tabs = page.getByTestId('editor-tabs').locator('.editor-tab')
+      await expect(tabs).toHaveCount(3)
+      // A right-click used to close every other tab at once, without a menu.
+      await tabs.filter({ hasText: 'beta.txt' }).click({ button: 'right' })
+      const menu = page.getByTestId('editor-tab-menu')
+      await expect(menu).toBeVisible()
+      await expect(tabs).toHaveCount(3)
+      await expect(menu.getByRole('menuitem').first()).toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(menu).toHaveCount(0)
+      await tabs.filter({ hasText: 'alpha.txt' }).click({ button: 'right' })
+      await menu.getByRole('menuitem', { name: 'Pin tab' }).click()
+      await expect(tabs.filter({ hasText: 'alpha.txt' })).toHaveClass(/pinned/)
+      await tabs.filter({ hasText: 'beta.txt' }).click({ button: 'right' })
+      await menu.getByRole('menuitem', { name: 'Close other tabs' }).click()
+      await expect(tabs).toHaveCount(2)
+      await expect(tabs.filter({ hasText: 'gamma.txt' })).toHaveCount(0)
+      await tabs.filter({ hasText: 'beta.txt' }).click({ button: 'right' })
+      await menu.getByRole('menuitem', { name: 'Close tab' }).click()
+      await expect(tabs).toHaveCount(1)
       expect(pageErrors(launched)).toEqual([])
     } finally {
       await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
