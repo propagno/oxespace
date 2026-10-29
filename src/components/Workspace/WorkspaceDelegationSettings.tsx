@@ -3,12 +3,16 @@ import type { DelegationSnapshot } from '../../../shared/types/delegation'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import './WorkspaceMemorySettings.css'
-import { Button, Checkbox, TextField, Select } from '../../ui'
+import { Button, Checkbox, ConfirmDialog, EmptyState, ErrorState, TextField, Select } from '../../ui'
+import { useTranslation } from 'react-i18next'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDate } from '../../utils/formatTime'
 
 export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTerminal, onOpenDiagnostics }: { workspaceId: string; paneIds?: string[]; onOpenTerminal?: (paneId: string, workspaceId?: string) => void; onOpenDiagnostics?: () => void }) {
+  const { t } = useTranslation('code')
   const [snapshot, setSnapshot] = useState<DelegationSnapshot>({ enabled: false, tasks: [] })
+  // Approving a result and handing a task's control to a terminal are confirmed in a dialog, never one click.
+  const [confirming, setConfirming] = useState<{ title: string; description: string; confirmLabel: string; run: () => Promise<void> } | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [ready, setReady] = useState(false)
@@ -37,40 +41,40 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
     finally { setBusy(false) }
   }
   return <section className="ws-settings-section memory-settings" aria-labelledby="delegation-title">
-    <header className="ws-settings-section-header"><h3 id="delegation-title">Agent delegation</h3></header>
-    <p>Delegate parallel work to an independent worktree and persistent conversation. Open Delegated work in either sidebar to create, inspect and resume tasks.</p>
-    <Checkbox checked={snapshot.enabled} disabled={!ready || busy} onChange={e => { const enabled = e.target.checked; void act(() => window.oxe.delegation.configure(workspaceId,enabled)) }} label="Allow agents to delegate tasks in this project" />
-    <p className="memory-privacy">Delegation starts an independent Claude or Codex session with your selected handoff. Subscription login and conversation permissions still apply.</p>
+    <header className="ws-settings-section-header"><h3 id="delegation-title">{t('workspace.settings.pages.delegation.label')}</h3></header>
+    <p>{t('delegation.intro')}</p>
+    <Checkbox checked={snapshot.enabled} disabled={!ready || busy} onChange={e => { const enabled = e.target.checked; void act(() => window.oxe.delegation.configure(workspaceId,enabled)) }} label={t('delegation.allow')} />
+    <p className="memory-privacy">{t('delegation.privacy')}</p>
     <details className="coordination-destinations">
-      <summary>Manage authorized destinations ({snapshot.targets?.length ?? 0})</summary>
+      <summary>{t('delegation.manage', { count: snapshot.targets?.length ?? 0 })}</summary>
     <fieldset disabled={busy || !ready}>
-      <legend>Authorized destinations</legend>
-      <p>Allow this project to launch independent tasks in another local repository for 30 days. Both projects must enable delegation. No clone, push or merge is authorized.</p>
-      <label>Destination repository path<TextField value={targetPath} onChange={e => { setTargetPath(e.target.value); setConsent(false) }} placeholder="Absolute path to a local Git repository" /></label>
-      <Checkbox checked={allowEvidence} onChange={e => { setAllowEvidence(e.target.checked); setConsent(false) }} label="Allow selected committed text files as evidence (up to 64 KB)" />
-      <Checkbox checked={consent} onChange={e => setConsent(e.target.checked)} label={<>I authorize task handoffs{allowEvidence ? ' and selected file content' : ''} to the destination agent, which may send them to its cloud provider.</>} />
-      <p>Analysis mode instructs the agent not to edit files; it is not a security sandbox. Revoking access cannot retract content already delivered.</p>
+      <legend>{t('delegation.destinations')}</legend>
+      <p>{t('delegation.destinationsIntro')}</p>
+      <label>{t('delegation.path')}<TextField value={targetPath} onChange={e => { setTargetPath(e.target.value); setConsent(false) }} placeholder={t('delegation.pathPlaceholder')} /></label>
+      <Checkbox checked={allowEvidence} onChange={e => { setAllowEvidence(e.target.checked); setConsent(false) }} label={t('delegation.evidence')} />
+      <Checkbox checked={consent} onChange={e => setConsent(e.target.checked)} label={allowEvidence ? t('delegation.consentEvidence') : t('delegation.consent')} />
+      <p>{t('delegation.analysis')}</p>
       <Button variant="primary" disabled={!targetPath.trim() || !consent} onClick={() => void act(async () => {
         await window.oxe.delegation.configureTarget(workspaceId, targetPath, true, allowEvidence)
         setTargetPath(''); setConsent(false); await useWorkspaceStore.getState().bootstrap()
-      })}>Authorize local destination</Button>
+      })}>{t('delegation.authorize')}</Button>
       {(snapshot.targets ?? []).map(target => <article className="memory-feedback" key={target.workspaceId}>
         <strong>{target.name}</strong><p>{target.rootPath}</p>
-        <p>Expires {formatDate(target.expiresAt)} · Evidence {target.allowEvidence ? 'allowed' : 'disabled'}</p>
-        <button type="button" onClick={() => void act(() => window.oxe.delegation.configureTarget(workspaceId, target.rootPath, false, false))}>Revoke destination</button>
+        <p>{t('delegation.expires', { date: formatDate(target.expiresAt) })} · {target.allowEvidence ? t('delegation.evidenceOn') : t('delegation.evidenceOff')}</p>
+        <button type="button" onClick={() => void act(() => window.oxe.delegation.configureTarget(workspaceId, target.rootPath, false, false))}>{t('delegation.revoke')}</button>
       </article>)}
     </fieldset>
     </details>
-    {error && <p role="alert" className="memory-feedback">{error}</p>}
-    {onOpenDiagnostics && <button type="button" onClick={onOpenDiagnostics}>Open diagnostics and logs</button>}
-    {!snapshot.tasks.length && <p>No delegated tasks yet. Ask your agent to use oxespace_delegate_task.</p>}
+    {error && <ErrorState compact title={t('delegation.failed')} message={error} />}
+    {onOpenDiagnostics && <button type="button" onClick={onOpenDiagnostics}>{t('delegation.diagnostics')}</button>}
+    {!snapshot.tasks.length && <EmptyState compact title={t('delegation.none')} />}
     {snapshot.tasks.map(task => <article key={task.id} className="memory-feedback">
-      <div className="memory-status-line"><strong>{task.objective}</strong><span className="memory-badge" data-state={task.state}>{task.state}</span></div>
+      <div className="memory-status-line"><strong>{task.objective}</strong><span className="memory-badge" data-state={task.state}>{t(`background.delegationState.${task.state}`)}</span></div>
       <p>{task.branch}</p>
-      {task.originWorkspaceId && <p>{workspaces.find(w => w.id === task.originWorkspaceId)?.name ?? 'Origin'} → {workspaces.find(w => w.id === task.workspaceId)?.name ?? 'Destination'} · {task.mode ?? 'isolated-change'}</p>}
+      {task.originWorkspaceId && <p>{workspaces.find(w => w.id === task.originWorkspaceId)?.name ?? t('delegation.origin')} → {workspaces.find(w => w.id === task.workspaceId)?.name ?? t('delegation.destination')} · {task.mode ?? 'isolated-change'}</p>}
       {task.error && <p role="alert">{task.error}</p>}
       {task.lastReport && <p>{task.lastReport}</p>}
-      {task.lastMessage && <p>Latest message: {task.lastMessage}</p>}
+      {task.lastMessage && <p>{t('delegation.latest', { message: task.lastMessage })}</p>}
       <div className="memory-task-actions">
         {task.workspaceId !== workspaceId && <button type="button" onClick={() => void act(async () => {
           await useWorkspaceStore.getState().bootstrap()
@@ -78,30 +82,32 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
           await useWorkspaceStore.getState().setActiveWorkspace(task.workspaceId)
           if (task.paneId) useUIStore.getState().setActivePane(task.paneId)
           useUIStore.getState().closeWorkspaceSettings()
-        })}>Open destination</button>}
+        })}>{t('delegation.openDestination')}</button>}
         {task.workspaceId === workspaceId && task.paneId && (!paneIds || paneIds.includes(task.paneId)) && <button type="button" onClick={() => {
           if (onOpenTerminal) onOpenTerminal(task.paneId!)
           else { useUIStore.getState().setActivePane(task.paneId!); useUIStore.getState().closeWorkspaceSettings() }
-        }}>Open terminal</button>}
+        }}>{t('delegation.openTerminal')}</button>}
         {(task.originWorkspaceId ?? task.workspaceId) === workspaceId && <>
-          {['failed','interrupted'].includes(task.state) && task.nativeSession?.resumable && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'resume'))}>Resume session</button>}
-          {['failed','interrupted'].includes(task.state) && !task.nativeSession?.resumable && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'retry'))}>Retry provisioning</button>}
-          {task.state === 'review' && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'approve'))}>Approve result</button>}
-          {!['approved','cancelled'].includes(task.state) && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'cancel'))}>Cancel task</button>}
+          {['failed','interrupted'].includes(task.state) && task.nativeSession?.resumable && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'resume'))}>{t('delegation.resume')}</button>}
+          {['failed','interrupted'].includes(task.state) && !task.nativeSession?.resumable && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'retry'))}>{t('delegation.retry')}</button>}
+          {task.state === 'review' && <button type="button" disabled={busy} aria-haspopup="dialog" onClick={() => setConfirming({ title: t('delegation.approveTitle'), description: t('delegation.approveBody', { objective: task.objective }), confirmLabel: t('delegation.approve'), run: () => window.oxe.delegation.control(workspaceId,task.id,'approve') })}>{t('delegation.approveOpen')}</button>}
+          {!['approved','cancelled'].includes(task.state) && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'cancel'))}>{t('delegation.cancel')}</button>}
         </>}
       </div>
       {(task.originWorkspaceId ?? task.workspaceId) === workspaceId && <div>
-        <label>Reconnect origin terminal<Select value={adoptPane[task.id] ?? ''} onChange={e => setAdoptPane(value => ({ ...value, [task.id]: e.target.value }))}>
-          <option value="">Select a running terminal</option>
+        <label>{t('delegation.reconnect')}<Select value={adoptPane[task.id] ?? ''} onChange={e => setAdoptPane(value => ({ ...value, [task.id]: e.target.value }))}>
+          <option value="">{t('delegation.selectTerminal')}</option>
           {sourcePanes.filter(p => p.id !== task.paneId).map(p => <option key={p.id} value={p.id}>{p.displayName ?? p.id}</option>)}
         </Select></label>
-        <button type="button" disabled={busy || !adoptPane[task.id]} onClick={() => void act(() => window.oxe.delegation.adopt(workspaceId, task.id, adoptPane[task.id]))}>Authorize terminal to follow and control this task</button>
+        <button type="button" disabled={busy || !adoptPane[task.id]} aria-haspopup="dialog" onClick={() => setConfirming({ title: t('delegation.adoptTitle'), description: t('delegation.adoptBody'), confirmLabel: t('delegation.adoptConfirm'), run: () => window.oxe.delegation.adopt(workspaceId, task.id, adoptPane[task.id]) })}>{t('delegation.adopt')}</button>
       </div>}
-      {task.workspaceId === workspaceId && task.paneId && paneIds && !paneIds.includes(task.paneId) && <p>Terminal was closed. Retry recreates it while preserving the worktree and handoff.</p>}
-      {task.nativeSession && <p>Native session <code>{task.nativeSession.nativeSessionId}</code> · generation {task.nativeSession.generation}</p>}
+      {task.workspaceId === workspaceId && task.paneId && paneIds && !paneIds.includes(task.paneId) && <p>{t('delegation.closed')}</p>}
+      {task.nativeSession && <p>{t('delegation.session')} <code>{task.nativeSession.nativeSessionId}</code> · {t('delegation.generation', { value: task.nativeSession.generation })}</p>}
       <p><code>{task.path}</code></p>
-      {['preparing','starting'].includes(task.state) && <p role="status">{task.state === 'preparing' ? 'Preparing the branch, worktree and handoff…' : task.surface === 'thread' ? 'Thread started and linked to its provider session.' : 'Agent terminal started. Check login, trust or acceptance prompts.'}</p>}
-      <details><summary>Task and handoff</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{task.context ?? task.handoff}</pre></details>
+      {['preparing','starting'].includes(task.state) && <p role="status">{task.state === 'preparing' ? t('delegation.preparing') : task.surface === 'thread' ? t('delegation.threadStarted') : t('delegation.terminalStarted')}</p>}
+      <details><summary>{t('delegation.handoff')}</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{task.context ?? task.handoff}</pre></details>
     </article>)}
+    {confirming && <ConfirmDialog title={confirming.title} description={confirming.description} confirmLabel={confirming.confirmLabel} busy={busy}
+      onCancel={() => setConfirming(null)} onConfirm={() => { const run = confirming.run; setConfirming(null); void act(run) }} />}
   </section>
 }
