@@ -1,6 +1,7 @@
 import type {
   ContainerInspect, ContainerPort, ContainerState, ContainerStat, ContainerSummary, ConnectionSuggestion, DatabaseEngine, DiskUsageRow, ImageInfo, NetworkInfo, VolumeInfo
 } from '../../../../shared/types/oxequery'
+import { redactEnvironment, redactSecrets } from '../../../../shared/secrets'
 
 const STATES = new Set<ContainerState>(['running', 'exited', 'paused', 'restarting', 'created', 'dead', 'removing'])
 const MAX_RANGE = 64
@@ -154,7 +155,7 @@ export function parseInspect(stdout: string): ContainerInspect | null {
   if (!raw) return null
   const config = record(raw.Config), state = record(raw.State), network = record(raw.NetworkSettings), host = record(raw.HostConfig)
   const command = [...(Array.isArray(config.Entrypoint) ? config.Entrypoint : []), ...(Array.isArray(config.Cmd) ? config.Cmd : [])].map(text).filter(Boolean).join(' ')
-  const env = (Array.isArray(config.Env) ? config.Env : []).map(text).map(entry => entry.split('=')[0]).filter(Boolean)
+  const env = (Array.isArray(config.Env) ? config.Env : []).map(text).filter(Boolean)
   const started = Date.parse(text(state.StartedAt))
   return {
     id: text(raw.Id).slice(0, 64),
@@ -164,12 +165,12 @@ export function parseInspect(stdout: string): ContainerInspect | null {
     ...(Number.isFinite(started) && started > 0 ? { startedAt: started } : {}),
     ...(text(record(host.RestartPolicy).Name) ? { restartPolicy: text(record(host.RestartPolicy).Name) } : {}),
     ...(text(record(state.Health).Status) ? { health: text(record(state.Health).Status) } : {}),
-    command: command.slice(0, 500),
+    command: redactSecrets(command).slice(0, 500),
     ...(text(config.WorkingDir) ? { workingDir: text(config.WorkingDir) } : {}),
-    envNames: [...new Set(env)].slice(0, 200),
+    environment: redactEnvironment(env),
     mounts: (Array.isArray(raw.Mounts) ? raw.Mounts : []).slice(0, 100).map(value => {
       const mount = record(value)
-      return { source: text(mount.Source), destination: text(mount.Destination), ...(text(mount.Mode) ? { mode: text(mount.Mode) } : {}) }
+      return { source: text(mount.Source), destination: text(mount.Destination), ...(text(mount.Mode) ? { mode: text(mount.Mode) } : {}), ...(text(mount.Type) === 'volume' && text(mount.Name) ? { volume: text(mount.Name) } : {}) }
     }),
     networks: Object.keys(record(network.Networks)).slice(0, 20),
     ports: inspectPorts(network.Ports)

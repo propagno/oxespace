@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
   ConnectionSuggestion, ContainerAction, ContainerEngine, ContainerEngineCandidate, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerStat, ContainerSummary, DiskUsageRow, ImageInfo, NetworkInfo,
-  OxeQueryEvent, ResourceKind, VolumeInfo
+  OxeQueryEvent, PruneKind, ResourceKind, VolumeInfo
 } from '../../../../shared/types/oxequery'
 import { classifyProbe, isLocalEndpoint, parseContainerList, parseContexts, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
 import { createServer } from 'node:net'
@@ -297,6 +297,24 @@ export class ContainerRuntime {
     const result = await this.run(resolved, args, 60_000)
     if (result.code !== 0) throw explainEngineError(resolved, result.stderr)
     this.options.emit({ type: 'containers-changed' })
+  }
+
+  /** Removes one container, stopping it first when it runs. Volumes, named or anonymous, are kept. */
+  async removeContainer(id: string, engine?: ContainerEngine): Promise<void> {
+    const resolved = await this.resolve(engine)
+    const result = await this.run(resolved, ['rm', '--force', assertContainerId(id)], 60_000)
+    if (result.code !== 0) throw explainEngineError(resolved, result.stderr)
+    this.options.emit({ type: 'containers-changed' })
+  }
+
+  /** Stopped containers, or dangling images (untagged layers no image uses), all at once. Returns what the engine reclaimed. */
+  async prune(kind: PruneKind, engine?: ContainerEngine): Promise<{ output: string }> {
+    if (kind !== 'containers' && kind !== 'images') throw new ContainerRuntimeError('invalid', 'Unsupported clean-up')
+    const resolved = await this.resolve(engine)
+    const result = await this.run(resolved, [kind === 'containers' ? 'container' : 'image', 'prune', '--force'], 120_000)
+    if (result.code !== 0) throw explainEngineError(resolved, result.stderr)
+    this.options.emit({ type: 'containers-changed' })
+    return { output: result.stdout.trim().slice(-2000) }
   }
 
   /**
