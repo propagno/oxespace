@@ -154,6 +154,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados de Settings | #176 | FRONTEND | Pré-homologado com ressalva |
 | F1 estados do Code | #179 | FRONTEND | Pré-homologado |
 | F1 estados de OxeChat, OxePod e OxePost | #173 | FRONTEND | Pré-homologado |
+| Ajustes visuais do A4 | #207 | FRONTEND | Reprovado na pré-homologação: os cartões de agente regrediram |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 
@@ -284,6 +285,19 @@ Cada branch foi mesclada com a `main`, montada e testada sozinha, em primeiro pl
   
   Além disso, "Novo agente personalizado" é um segundo botão primário de largura inteira logo abaixo. Esperado: uma
   mensagem e uma ação principal.
+
+### Ajustes visuais do A4 (#207): Reprovado na pré-homologação
+
+Os quatro itens da ressalva do A4 estão corrigidos (roteiro `a4.spec.ts`, pt-BR e en):
+- o checkbox fica ao lado do rótulo;
+- o placeholder "Padrão (ex.: origin/main)" aparece inteiro;
+- a recusa vem num `Notice` warning com o conselho e as duas ações;
+- o estado vazio usa a branch.
+
+Regressão nos cartões Claude Code e Codex da Nova conversa: o ícone vai para uma faixa própria, e os dois cartões
+ficam desalinhados. Causa: o seletor novo `.thread-create-dialog label:not(:has(> input[type='checkbox']))` ganha
+especificidade com o `:not(:has(...))` e vence a regra própria dos cartões, que são `label` com rádio. Enviado ao
+FRONTEND, com a sugestão de usar uma classe ou `:where(...)`.
 
 ### B8.1 main minificado (#162): Homologado
 
