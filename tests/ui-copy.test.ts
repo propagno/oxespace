@@ -24,12 +24,15 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
  * only grows: each migration PR adds its area.
  */
 const MIGRATED = [
+  'src/components/Keyboard',
   'src/components/Navigation',
-  'src/components/Settings/AppearanceSettings.tsx',
+  'src/components/Onboarding/AgentCliOnboarding.tsx',
+  'src/components/OxeQuery',
+  'src/components/Settings',
   'src/components/Threads'
 ]
-/** Text that stays the same in every language: product and service names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'claude.ai'])
+/** Text that stays the same in every language: product and tool names. */
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'claude.ai'])
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/

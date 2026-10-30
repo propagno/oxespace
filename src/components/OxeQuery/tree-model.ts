@@ -1,10 +1,10 @@
 import type { SqlExtensionInfo, SqlFunctionInfo, SqlObjects, SqlSearchHit, SqlSequenceInfo, SqlTable, SqlTriggerInfo, SqlTypeInfo, WorkspaceState } from '../../../shared/types/oxequery'
+import { tq } from './catalog'
 
 export type Category = 'tables' | 'views' | 'matviews' | 'foreign' | 'functions' | 'sequences' | 'types' | 'triggers'
 
-export const CATEGORY_LABEL: Record<Category, string> = {
-  tables: 'Tables', views: 'Views', matviews: 'Materialized views', foreign: 'Foreign tables', functions: 'Functions', sequences: 'Sequences', types: 'Types', triggers: 'Triggers'
-}
+/** What a category is called in the tree, in the language on screen. */
+export const categoryLabel = (category: Category): string => tq(`tree.category.${category}`)
 const CATEGORY_ORDER: Category[] = ['tables', 'views', 'matviews', 'foreign', 'functions', 'sequences', 'types', 'triggers']
 
 export interface SchemaData {
@@ -47,7 +47,7 @@ function itemsOf(schema: string, data: SchemaData, category: Category): TreeRow[
     case 'functions': return data.functions.map(fn => row(`${fn.oid}`, `${fn.name}(${fn.args})`, { kind: 'function', fn, schema }))
     case 'sequences': return data.objects.sequences.map(sequence => row(sequence.name, sequence.name, { kind: 'sequence', sequence, schema }))
     case 'types': return data.objects.types.map(type => row(`${type.oid}`, type.name, { kind: 'type', type, schema }))
-    case 'triggers': return data.objects.triggers.map(trigger => row(`${trigger.oid}`, `${trigger.name} on ${trigger.table}`, { kind: 'trigger', trigger, schema }))
+    case 'triggers': return data.objects.triggers.map(trigger => row(`${trigger.oid}`, tq('tree.triggerOn', { name: trigger.name, table: trigger.table }), { kind: 'trigger', trigger, schema }))
     default: return data.tables.filter(table => categoryOfTable(table) === category).map(table => row(table.name, table.name, { kind: 'relation', table }))
   }
 }
@@ -72,10 +72,10 @@ export function buildRows({ schemas, data, expanded, pinned, extensions, loading
   const rows: TreeRow[] = []
   if (pinned.length > 0) {
     const open = expanded.has('pinned')
-    rows.push({ id: 'pinned', level: 1, type: 'pinned', label: 'Pinned', expanded: open, count: pinned.length })
+    rows.push({ id: 'pinned', level: 1, type: 'pinned', label: tq('tree.pinned'), expanded: open, count: pinned.length })
     if (open) for (const pin of pinned) {
       const table: SqlTable = { schema: pin.schema, name: pin.name, kind: pin.kind }
-      rows.push({ id: `pinned/${pinKey(pin.schema, pin.name)}`, level: 2, type: 'item', label: `${pin.schema}.${pin.name}`, schema: pin.schema, category: categoryOfTable(table), item: { kind: 'relation', table } })
+      rows.push({ id: `pinned/${pinKey(pin.schema, pin.name)}`, level: 2, type: 'item', label: [pin.schema, pin.name].join('.'), schema: pin.schema, category: categoryOfTable(table), item: { kind: 'relation', table } })
     }
   }
   for (const schema of schemas) {
@@ -83,22 +83,22 @@ export function buildRows({ schemas, data, expanded, pinned, extensions, loading
     rows.push({ id: `schema/${schema}`, level: 1, type: 'schema', label: schema, expanded: open, schema })
     if (!open) continue
     const loaded = data[schema]
-    if (!loaded) { rows.push({ id: `schema/${schema}/loading`, level: 2, type: 'note', label: loading?.has(schema) ? 'Loading…' : 'Nothing loaded.', schema }); continue }
+    if (!loaded) { rows.push({ id: `schema/${schema}/loading`, level: 2, type: 'note', label: loading?.has(schema) ? tq('common.loading') : tq('tree.nothingLoaded'), schema }); continue }
     for (const { category, items } of categoriesOf(schema, loaded)) {
       const id = `schema/${schema}/${category}`
       const categoryOpen = expanded.has(id)
-      rows.push({ id, level: 2, type: 'category', label: CATEGORY_LABEL[category], expanded: categoryOpen, count: items.length, schema, category })
+      rows.push({ id, level: 2, type: 'category', label: categoryLabel(category), expanded: categoryOpen, count: items.length, schema, category })
       if (!categoryOpen) continue
       rows.push(...items)
       if (category === 'tables' && loaded.total > loaded.tables.length) {
-        rows.push({ id: `${id}/more`, level: 3, type: 'note', label: `Showing ${loaded.tables.length} of ${loaded.total} relations. Search to reach the rest.`, schema, category })
+        rows.push({ id: `${id}/more`, level: 3, type: 'note', label: tq('tree.partial', { shown: loaded.tables.length, count: loaded.total }), schema, category })
       }
     }
   }
   if (extensions) {
     const open = expanded.has('extensions')
-    rows.push({ id: 'extensions', level: 1, type: 'extensions', label: 'Extensions', expanded: open, count: extensions.length })
-    if (open) for (const extension of extensions) rows.push({ id: `extensions/${extension.name}`, level: 2, type: 'extension', label: `${extension.name} ${extension.version}`, extension })
+    rows.push({ id: 'extensions', level: 1, type: 'extensions', label: tq('tree.extensions'), expanded: open, count: extensions.length })
+    if (open) for (const extension of extensions) rows.push({ id: `extensions/${extension.name}`, level: 2, type: 'extension', label: [extension.name, extension.version].join(' '), extension })
   }
   return rows
 }

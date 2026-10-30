@@ -60,103 +60,6 @@
   50%      { opacity: 1;    transform: scale(1.05); }
 }
 
-/* ─── Workspace status summary in the topbar ─────────────────────────────── */
-
-.workspace-status-summary {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding-left: var(--space-sm);
-  min-width: 0;
-  color: var(--tx-secondary);
-  font-size: var(--fs-2xs);
-  letter-spacing: 0.01em;
-  /* Clipped, not scrollable: chips hide their labels when the bar is crowded, and a scroll area would need keyboard access. */
-  overflow: hidden;
-}
-
-.workspace-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 7px;
-  height: 26px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--tx-secondary);
-  font-size: var(--fs-2xs);
-  font-weight: 560;
-  box-shadow: none;
-}
-
-.workspace-status-pill strong {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.workspace-status-pill-label {
-  color: var(--tx-muted);
-  font-weight: 500;
-}
-
-.workspace-status-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 7px;
-  height: 24px;
-  border-radius: var(--radius-md);
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--tx-secondary);
-  font-size: var(--fs-2xs);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-  box-shadow: none;
-  flex-shrink: 0;
-}
-
-.workspace-status-chip:hover {
-  background: var(--ov-1);
-  border-color: var(--ov-3);
-  color: var(--text-primary);
-  transform: none;
-  box-shadow: none;
-}
-
-.workspace-status-chip.activity-awaiting {
-  color: var(--tx-primary);
-}
-
-.workspace-status-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: all var(--duration-base) var(--ease-standard);
-}
-
-.workspace-status-dot.activity-thinking {
-  background: var(--intent-success-solid);
-  box-shadow: 0 0 8px var(--intent-success-solid);
-  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
-  box-shadow: 0 0 8px 1px var(--dot-green);
-}
-
-.workspace-status-dot.activity-awaiting {
-  background: var(--intent-warning-solid);
-  box-shadow: 0 0 8px var(--intent-warning-solid);
-}
-
-.workspace-status-dot.activity-idle {
-  background: var(--tx-muted);
-  box-shadow: none;
-  opacity: 0.55;
-}
-
 /* Consolidated integration control. Five equal-looking topbar chips competed
    with agent activity; the trigger keeps the aggregate glanceable and moves
    operational detail into a keyboard-accessible menu. */
@@ -299,20 +202,6 @@
   .pane-search-btn { display: none; }
   .terminal-statusbar .statusbar-text { display: none; }
   .terminal-view .xterm { padding-inline: 9px; }
-}
-
-/* Tighter spacing when the topbar gets crowded — workspaces with many panes
-   can produce 4+ chips that compete with the Tools button. */
-@media (max-width: 1100px) {
-  .workspace-status-summary {
-    gap: var(--space-xs);
-  }
-  .workspace-status-pill-label {
-    display: none;
-  }
-  .workspace-status-chip .chip-label {
-    display: none;
-  }
 }
 
 /* Configure agent: readiness above the form. */

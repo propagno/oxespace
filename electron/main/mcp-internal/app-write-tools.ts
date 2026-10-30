@@ -7,6 +7,7 @@ import {
 } from '../ipc/validation'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Task } from '../../../shared/types/task'
+import { lazy } from './app-settings-tools'
 
 /**
  * Tools that change the app. They are separate from the read tools so a
@@ -77,6 +78,10 @@ const GIT_CHANGE = domainTool('oxespace_git_change', 'Change the Git state of yo
       return { summary: `restore checkpoint "${checkpoint.name}"`, text: `Restore checkpoint "${checkpoint.name}"\nin ${scope.rootPath}`, reasons: ['Uncommitted changes in the work tree are replaced.'] }
     },
     run: (args, scope, ctx) => github(ctx).restoreCheckpoint(parsed(() => parseGitHubRestoreCheckpointInput({ ...workspaceInput(scope), checkpointId: args.checkpointId })))
+  },
+  delete_checkpoint: {
+    level: 'confirm', description: 'Delete a checkpoint; it cannot be restored afterwards.', required: ['checkpointId'],
+    confirm: async (args, scope, ctx) => (await import('./app-settings-actions')).deleteCheckpointApproval(args, scope, ctx), run: lazy('delete_checkpoint')
   }
 })
 
