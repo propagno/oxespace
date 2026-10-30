@@ -51,7 +51,9 @@ test('Settings › Devices pairs a phone by QR and removes it', async () => {
     // The QR, its text alternative, then the phone that scanned it asks to pair.
     await devices.getByRole('button', { name: 'Show pairing code' }).click()
     await expect(devices.getByRole('img', { name: /Pairing QR code/ })).toBeVisible()
-    await expect(devices.getByTestId('devices-pairing-code')).toHaveText('e2e-pairing-code-00000')
+    // QR only: the code is not offered for typing, it travels in the QR with the certificate pin.
+    await expect(devices.getByTestId('devices-pairing-qr')).toBeVisible()
+    await expect(devices.getByTestId('devices-pairing-offer')).not.toContainText('e2e-pairing-code-00000')
     await expect(devices.getByTestId('devices-pairing-fingerprint')).toContainText('ABAB ABAB')
     const prompt = page.getByRole('dialog', { name: 'Pair Pixel 8 Pro?' })
     await expect(prompt.getByTestId('devices-pairing-verification')).toHaveText('28T5CY')

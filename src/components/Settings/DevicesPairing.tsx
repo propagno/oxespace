@@ -18,7 +18,7 @@ const remaining = (ms: number): string => {
 }
 
 /**
- * Shows a one-time pairing code as a QR, with its text alternative (address, code and certificate fingerprint), and
+ * Shows a one-time pairing code as a QR, with the certificate fingerprint the phone checks, and
  * asks the person to confirm the phone that answers it. Leaving the page withdraws the code.
  * TODO(CCR F9-1): show `remote:pairing-failed` (MainMessage remote.pairing.failed, reason invalid | expired | refused |
  * limit | peer-closed) as a Notice here and stop waiting; today a failed attempt never reaches the window, and a phone
@@ -89,8 +89,7 @@ export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; b
             <path d={path.d} fill="currentColor" />
           </svg>}
         <dl className={styles.details}>
-          <div><dt>{t('devices.pairing.address')}</dt><dd>{parsed.qr.host.includes(':') ? `[${parsed.qr.host}]:${parsed.qr.port}` : `${parsed.qr.host}:${parsed.qr.port}`}</dd></div>
-          <div><dt>{t('devices.pairing.code')}</dt><dd data-testid="devices-pairing-code">{parsed.qr.code}</dd></div>
+          {/* QR only (1.4): the certificate pin travels only in the QR, so the address and code are not offered for typing. */}
           <div><dt>{t('devices.pairing.fingerprint')}</dt><dd data-testid="devices-pairing-fingerprint">{groupFingerprint(parsed.qr.fp)}</dd>
             <dd className={styles.meta}>{t('devices.pairing.fingerprintHint')}</dd></div>
           {!expired ? <div><dt className={styles.meta} aria-live="off">{t('devices.pairing.expiresIn', { time: remaining(offer.expiresAt - now) })}</dt></div> : null}

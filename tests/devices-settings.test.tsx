@@ -85,14 +85,19 @@ describe('Settings › Devices', () => {
     expect(api.setEnabled).toHaveBeenLastCalledWith({ enabled: true })
   })
 
-  it('shows the QR with its text alternative, then asks to confirm the phone by its code', async () => {
+  it('shows the QR (QR only, no address or code to type), then asks to confirm the phone by its code', async () => {
     const { api, emit } = fakeRemote({ status: { enabled: true, listening: { addresses: ['192.168.0.10'], port: 47321 }, fingerprint: FP } })
     render(<DevicesSettings />)
     await userEvent.click(await screen.findByRole('button', { name: 'Show pairing code' }))
-    const qr = await screen.findByRole('img', { name: /Pairing QR code\. If the phone cannot scan it, type the address and code/ })
+    const qr = await screen.findByRole('img', { name: "Pairing QR code. Point the phone's camera at the code." })
     expect(qr.querySelector('path')?.getAttribute('d')).toMatch(/^M\d+ \d+h1v1h-1z/)
-    expect(screen.getByText('192.168.0.10:47321')).toBeInTheDocument()
-    expect(screen.getByTestId('devices-pairing-code')).toHaveTextContent(CODE)
+    // QR only (1.4): the certificate pin travels only in the QR, so neither the address nor the code is offered
+    // for typing; typed without the pin they would let a man in the middle pair instead.
+    const offer = screen.getByTestId('devices-pairing-offer')
+    expect(screen.queryByTestId('devices-pairing-code')).toBeNull()
+    expect(offer).not.toHaveTextContent(CODE)
+    expect(offer).not.toHaveTextContent('192.168.0.10:47321')
+    expect(offer).not.toHaveTextContent(/type the address/i)
     expect(screen.getByTestId('devices-pairing-fingerprint')).toHaveTextContent('0123 4567 89AB CDEF')
     expect(screen.getByText(/Expires in [12]:\d\d/)).toBeInTheDocument()
 
