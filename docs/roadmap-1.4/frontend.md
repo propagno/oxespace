@@ -135,3 +135,12 @@ Dono de `src/**`, `shared/locales/**`, `e2e/visual/**`, `docs/design/**` e `mobi
 - **Testes:** unidade; e2e; visual no lote.
 - **Riscos:** alerta alarmista → limites e textos revisados com o BACKEND; cada alerta diz o que fazer.
 
+### F12 · OxeCode e OxeChat (M)
+- **Objetivo:** os cinco modos com a mesma família de nomes: OxeCode, OxeChat, OxeQuery, OxePod, OxePost (decisão do usuário, 30/10/2026).
+- **Escopo:** nomes visíveis: seletor de modos, menus e paleta, títulos, Settings, onboarding, atalhos (rótulos), notificações e diálogos (textos do main pelos códigos C3, com o BACKEND), documentação, README e roadmaps. No OxeChat, cada item é uma "conversa" (pt-BR) / "conversation" (en).
+- **Fora:** identificadores internos: canais IPC (`thread:*`), ferramentas MCP (`oxespace_thread_*`), banco, nomes de arquivos e de componentes. Mudar esses quebraria contratos e agentes sem ganho visível.
+- **Contratos:** C3 para os textos do main; nenhum canal muda.
+- **Aceite:** nenhuma ocorrência visível de "Code" ou "Thread" como nome de modo em en e pt-BR (teste de catálogo); e2e e helpers (`openView`) usando os nomes novos; offer-audit verde.
+- **Testes:** catálogo; e2e de troca de modo nos dois idiomas; visual no lote.
+- **Riscos:** e2e quebrarem em massa → trocar os nomes nos helpers primeiro e num PR só.
+
