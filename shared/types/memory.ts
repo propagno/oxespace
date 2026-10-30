@@ -46,6 +46,8 @@ export interface MemoryNote {
   /** Why the note cannot be shared with the team yet, when it cannot. */
   teamBlock?: string
 }
+/** What a person can change about a note. `text` writes a new page that replaces the old one, and counts as a review. */
+export interface MemoryNotePatch { pinned?: boolean; wrong?: boolean; expiresAt?: number | null; scope?: MemoryScope; trust?: 'trusted'; text?: string; title?: string }
 export interface MemoryNotesView { notes: MemoryNote[]; teamAllowed: boolean; teamBlock?: string }
 export interface MemoryExport { fileName: string; content: string; count: number }
 export type MemoryResetScope = 'project' | 'all'
@@ -95,6 +97,8 @@ export type MemoryReply<T> = { status: 'ok'; value: T } | { status: 'disabled' |
 export interface MemoryManageApi {
   /** Every note the app knows for the workspace's project, with its origin and state; searched by text when `query` is given. */
   notes(input: { workspaceId: string; query?: string }): Promise<MemoryNotesView>
+  /** Pin, mark wrong, expire, change scope, review or edit a note. A refusal says why (for example, why a note cannot be shared with the team). */
+  noteUpdate(input: { workspaceId: string; path: string; patch: MemoryNotePatch }): Promise<MemoryNote>
   /** Hides the note from every agent and tool; erased from the memory service too when it can. */
   noteDelete(input: { workspaceId: string; path: string }): Promise<{ erased: boolean }>
   /** Notes as JSON Lines with secrets removed. `scope: 'team'` exports only what the team may receive. */

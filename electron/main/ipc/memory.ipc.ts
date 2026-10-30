@@ -19,7 +19,7 @@ export function registerMemoryIpc(service: Omit<MemoryApi, keyof MemoryManageApi
   ipcMain.handle(IPC_CHANNELS.memory.acceptHandoff, gate((_event, input) => service.acceptHandoff({ workspaceId: text(input?.workspaceId), handoffId: text(input?.handoffId) })))
   ipcMain.handle(IPC_CHANNELS.memory.storage, gate(() => service.storage()))
   // Looking through, exporting, deleting and resetting stored memory: the handlers load on first use.
-  for (const action of ['notes', 'noteDelete', 'export', 'reset'] as const) {
+  for (const action of ['notes', 'noteUpdate', 'noteDelete', 'export', 'reset'] as const) {
     ipcMain.handle(IPC_CHANNELS.memory[action], gate(async (_event, input) => (await import('./memory-manage.ipc')).handleMemoryManage(action, () => service.control(), input)))
   }
   ipcMain.handle(IPC_CHANNELS.memory.install, gate(() => service.install()))
