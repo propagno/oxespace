@@ -1,12 +1,14 @@
 // @vitest-environment node
 import { X509Certificate } from 'node:crypto'
 import http from 'node:http'
+import https from 'node:https'
 import net from 'node:net'
 import { hostname, networkInterfaces } from 'node:os'
 import { afterEach, describe, expect, test } from 'vitest'
 import { isPrivateAddress } from '../../electron/main/services/remote/network'
 import { RemoteStore } from '../../electron/main/services/remote/store'
-import { MainMessageError, messageFromError } from '../../shared/messages'
+import { MainMessageError } from '../../electron/main/ipc/main-message-error'
+import { messageFromError } from '../../shared/messages'
 import { isCertificateFingerprint, isPairingCode, pairingVerification, readPairingUri, REMOTE_LIMITS } from '../../shared/remote/protocol'
 import { connectPinned, peerFingerprint, request } from '../helpers/remote-client'
 import { fakeSafeStorage, freePort, Harness, LOOPBACK, newPhone, spkiDigest, tcpOpen } from '../helpers/remote-gateway-harness'
@@ -378,6 +380,34 @@ describe('remote gateway: what the window is told (CCR F9)', () => {
     while (store.activeCount() < REMOTE_LIMITS.maxDevices) store.addDevice('Racer', newPhone().spki)
     expect((await h.pair({ qr: last, phone })).res.body).toEqual({ code: 'too-many-devices' })
     expect(toldSince(h, mark, phone)).toEqual([failed('limit')])
+  })
+
+  test('a phone that hangs up while the question is on screen: peer-closed, once, inside the same cap', async () => {
+    const h = harness()
+    const target = await h.enable()
+    const phone = newPhone()
+    const qr = h.offer()
+    const prompt = h.nextPrompt()
+    const socket = await connectPinned(target)
+    const body = JSON.stringify({ code: qr.code, deviceName: 'Pixel', publicKey: phone.publicKey })
+    const req = https.request({
+      host: target.host, port: target.port, method: 'POST', path: '/pair', agent: false, rejectUnauthorized: false,
+      headers: { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) }, createConnection: () => socket
+    })
+    req.on('error', () => { /* hung up on purpose */ })
+    req.end(body)
+    await prompt
+    const shownBefore = (h.gateway as unknown as { pairingFailuresShown: { count: number } }).pairingFailuresShown.count
+    req.destroy()
+    const deadline = Date.now() + 3000
+    while (!h.pairingFailures.length && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20))
+    expect(toldSince(h, 0, phone)).toEqual([failed('peer-closed')])
+    expect((h.gateway as unknown as { pairingFailuresShown: { count: number } }).pairingFailuresShown.count).toBe(shownBefore + 1)
+    // The question is off the screen, and nothing else follows.
+    expect(h.changes.at(-1)).toEqual({ pairing: null })
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(h.pairingFailures).toHaveLength(1)
+    expect(new RemoteStore(h.db).auditEntries().some(entry => entry.action === 'pairing' && entry.outcome === 'abandoned')).toBe(true)
   })
 
   test('a flood of bad requests reaches the window at most twenty times a minute', async () => {

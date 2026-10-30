@@ -6,7 +6,8 @@ import type { Socket } from 'node:net'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer } from 'ws'
 import type { AppDatabase } from '../../db'
-import { mainMessage, MainMessageError, type MainMessage } from '../../../../shared/messages'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
+import { MainMessageError } from '../../ipc/main-message-error'
 import {
   isHelloChallenge, pairingUri, pairingVerification, readPairRequest, REMOTE_LIMITS, REMOTE_PAIRING_PATH, REMOTE_PROTOCOL_VERSION, REMOTE_WS_PATH,
   type RemoteAuthFrame, type RemoteCommand, type RemotePairingErrorCode, type RemotePairResponse, type RemoteSubscription
@@ -404,7 +405,8 @@ export class RemoteGateway implements ConnectionHost {
     res.on('close', abandon)
     const answer = await asked.answer
     res.off('close', abandon)
-    if (res.destroyed || res.writableEnded) { outcome('abandoned'); return }
+    // The phone hung up while the question was on screen: nobody to answer, but the window is told why it closed.
+    if (res.destroyed || res.writableEnded) { outcome('abandoned'); this.tellPairingFailed('peer-closed'); return }
     // No answer in time is `expired` for the window; the phone hears `pairing-refused` either way.
     if (answer === 'expired') { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused', 'expired') }
     if (answer !== 'accepted' || this.running !== running) { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused') }
@@ -422,6 +424,11 @@ export class RemoteGateway implements ConnectionHost {
   /** The phone's answer, and the window's: every failed attempt reaches it once, with the reason and nothing else. */
   private pairFailure(res: ServerResponse, code: RemotePairingErrorCode, reason = PAIRING_FAILURE_REASON[code]): void {
     json(res, PAIRING_STATUS[code], { code })
+    this.tellPairingFailed(reason)
+  }
+
+  /** `remote.pairing.failed` to the window, at most `PAIRING_FAILURES_SHOWN_PER_MINUTE` a minute. */
+  private tellPairingFailed(reason: RemotePairingFailureReason): void {
     const now = this.now()
     if (now - this.pairingFailuresShown.windowStart >= 60_000) this.pairingFailuresShown = { windowStart: now, count: 0 }
     if (++this.pairingFailuresShown.count > PAIRING_FAILURES_SHOWN_PER_MINUTE) return

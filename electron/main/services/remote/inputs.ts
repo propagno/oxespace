@@ -1,4 +1,5 @@
-import { mainMessage, MainMessageError } from '../../../../shared/messages'
+import { mainMessage } from '../../../../shared/messages'
+import { MainMessageError } from '../../ipc/main-message-error'
 import { REMOTE_LIMITS } from '../../../../shared/remote/protocol'
 import { REMOTE_MAX_DESKTOP_NAME_LENGTH } from '../../../../shared/types/remote'
 
