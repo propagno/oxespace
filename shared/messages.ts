@@ -28,6 +28,14 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** The person picked a port below 1024 for the remote gateway. */
+  'remote.port.privileged': { port: number }
+  /** Another program already listens on the gateway's port. */
+  'remote.port.inUse': { port: number }
+  /** No private network interface (RFC 1918, link-local, ULA) to listen on. */
+  'remote.network.noPrivateInterface': Record<string, never>
+  /** The gateway's certificate could not be made or read back from secure storage. */
+  'remote.certificate.failed': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -41,7 +49,11 @@ export const MESSAGE_CODES = [
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
-  'app.connectivity.offline'
+  'app.connectivity.offline',
+  'remote.port.privileged',
+  'remote.port.inUse',
+  'remote.network.noPrivateInterface',
+  'remote.certificate.failed'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

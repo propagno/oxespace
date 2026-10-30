@@ -17,7 +17,11 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
   'thread.request.unanswered': [],
-  'app.connectivity.offline': []
+  'app.connectivity.offline': [],
+  'remote.port.privileged': ['port'],
+  'remote.port.inUse': ['port'],
+  'remote.network.noPrivateInterface': [],
+  'remote.certificate.failed': []
 }
 
 describe('C3 message codes', () => {

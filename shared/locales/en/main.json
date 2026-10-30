@@ -58,6 +58,18 @@
       "connectivity": {
         "offline": "No network connection."
       }
+    },
+    "remote": {
+      "port": {
+        "privileged": "Pick a port of 1024 or above; port {{port}} is reserved by the system.",
+        "inUse": "Port {{port}} is already in use by another program. Pick another port."
+      },
+      "network": {
+        "noPrivateInterface": "No private network was found to listen on. Connect to your local Wi-Fi or Ethernet and try again."
+      },
+      "certificate": {
+        "failed": "The connection certificate could not be created or read from secure storage."
+      }
     }
   }
 }

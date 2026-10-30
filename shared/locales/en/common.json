@@ -72,7 +72,8 @@
     "tools": "Tools",
     "keyboardShortcuts": "Keyboard shortcuts",
     "diagnostics": "Diagnostics",
-    "reportProblem": "Report a problem…"
+    "reportProblem": "Report a problem…",
+    "checkUpdates": "Check for updates…"
   },
   "report": {
     "title": "Report a problem",
@@ -245,6 +246,21 @@
     "resets": "Resets {{when}}."
   },
   "ui": {
+    "divider": {
+      "columns": "Divider between columns",
+      "rows": "Divider between rows",
+      "hint": "Drag, or use the arrow keys; Enter for more",
+      "left": "Move the divider left",
+      "right": "Move the divider right",
+      "up": "Move the divider up",
+      "down": "Move the divider down"
+    },
+    "splitter": {
+      "menu": "{{name}}: size options",
+      "smaller": "Smaller",
+      "larger": "Larger",
+      "restore": "Restore the default size"
+    },
     "loading": "Loading",
     "loadingEllipsis": "Loading…",
     "tryAgain": "Try again",
@@ -257,6 +273,20 @@
       "done": "{{what}} copied",
       "failed": "Could not copy: {{what}}",
       "unavailable": "The clipboard is not available."
+    },
+    "offline": {
+      "title": "You are offline",
+      "message": "This needs the network. It comes back by itself when the connection does.",
+      "retry": "Check again"
+    },
+    "palette": {
+      "title": "Command palette",
+      "description": "Search for a command, file or workspace"
+    },
+    "boundary": {
+      "title": "Something went wrong while showing {{what}}.",
+      "titlePart": "Something went wrong while showing this part of the app.",
+      "message": "The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu."
     },
     "crash": {
       "title": "OXESpace could not show this window.",
@@ -299,5 +329,31 @@
     "noneDetail": "OXESpace runs agents as local CLIs. Install Claude Code or Codex, make sure the command is on your PATH, then check again.",
     "unchecked": "Agent CLIs not checked yet",
     "uncheckedDetail": "Check which agent CLIs are installed on this machine."
+  },
+  "about": {
+    "title": "About OXESpace",
+    "versionLine": "Version {{version}}",
+    "tagline": "Agents and terminals for your projects",
+    "channel": {
+      "stable": "Stable",
+      "beta": "Beta",
+      "dev": "Development"
+    },
+    "commit": "Commit",
+    "built": "Built",
+    "system": "System",
+    "loading": "Reading the build details",
+    "unavailable": "The build details are not available in this version.",
+    "license": "Open source under the MIT license.",
+    "links": "Links",
+    "link": {
+      "repository": "Source code",
+      "releaseNotes": "Release notes",
+      "licenseText": "License",
+      "notices": "Third-party licenses"
+    },
+    "copy": "Copy details",
+    "details": "Build details",
+    "report": "Report a problem"
   }
 }

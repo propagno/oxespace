@@ -4,7 +4,7 @@ import type { ThreadProvider } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { useTranslation } from 'react-i18next'
-import { Button, Checkbox, Dialog, EmptyState, ErrorState, TextField } from '../../ui'
+import { Button, Checkbox, Dialog, EmptyState, ErrorState, TextField, Notice } from '../../ui'
 import { errorText, humanizeError } from '../../utils/humanizeError'
 import { parseThreadWorktreeError, threadWorktreeFailureAdvice, type ThreadWorktreeErrorCode } from '../../../shared/threadWorktree'
 import { readThreadWorktreePref, writeThreadWorktreePref } from './threadWorktreePref'
@@ -67,14 +67,14 @@ export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: 
         </div>}
       </div>
       {error && <ErrorState compact title={error} />}
-      {failure && advice && <div className="thread-worktree-failure">
-        <ErrorState compact title={t(`dialogs.worktreeError.${failure.code}`, { branch: branch.trim(), base: baseRef.trim(), detail: failure.detail })} />
-        <p>{t(`dialogs.worktreeAdvice.${failure.code}`)}</p>
-        <div className="thread-worktree-failure-actions">
-          {advice.canContinue && <Button disabled={pending} onClick={() => void create(true, true)}>{t('dialogs.worktreeContinue')}</Button>}
-          <Button disabled={pending} onClick={() => void create(false)}>{t('dialogs.worktreeUseProject')}</Button>
-        </div>
-      </div>}
+      {failure && advice && <Notice className="thread-worktree-failure" intent={advice.canContinue ? 'warning' : 'danger'}
+        title={t(`dialogs.worktreeError.${failure.code}`, { branch: branch.trim(), base: baseRef.trim(), detail: failure.detail })}
+        actions={<>
+          {advice.canContinue && <Button size="sm" disabled={pending} onClick={() => void create(true, true)}>{t('dialogs.worktreeContinue')}</Button>}
+          <Button size="sm" disabled={pending} onClick={() => void create(false)}>{t('dialogs.worktreeUseProject')}</Button>
+        </>}>
+        {t(`dialogs.worktreeAdvice.${failure.code}`)}
+      </Notice>}
     </form>
   </Dialog>
 }

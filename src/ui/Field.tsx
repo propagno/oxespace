@@ -113,3 +113,11 @@ export function SegmentedControl<T extends string>({ value, onChange, options, l
 export function Kbd({ children }: { children: ReactNode }): ReactElement {
   return <kbd className={styles.kbd}>{children}</kbd>
 }
+
+/**
+ * The error under a control the primitives do not draw (a code editor, a textarea inside a custom layout). Point the
+ * control at it with aria-describedby={id} and aria-invalid; it is announced when it appears.
+ */
+export function FieldError({ id, children, className }: { id?: string; children: ReactNode; className?: string }): ReactElement {
+  return <span id={id} className={cx(styles.error, className)} role="alert">{children}</span>
+}

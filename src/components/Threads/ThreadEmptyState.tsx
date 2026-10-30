@@ -23,7 +23,8 @@ export function ThreadEmptyState({ thread, branch, onStarter }: { thread: Conver
   const agent = thread.provider === 'claude' ? 'Claude' : 'Codex'
   const folder = thread.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? thread.rootPath
   return <section className="thread-opening" aria-label={t('opening.label')} data-testid="thread-empty">
-    <h2>{t('opening.title', { agent, folder })}</h2>
+    {/* A worktree of its own is named by its branch in the title: its folder carries a random suffix nobody chose. */}
+    <h2>{t('opening.title', { agent, folder: thread.ownedWorktree?.branch ?? folder })}</h2>
     <ul className="thread-opening-context" aria-label={t('opening.context')}>
       <li title={thread.rootPath}><FolderGit2 size={13} aria-hidden="true" />{folder}</li>
       {branch && <li><GitBranch size={13} aria-hidden="true" />{branch}</li>}
