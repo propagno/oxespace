@@ -12,7 +12,7 @@ import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ipc'
 import { webglPaneBudget } from './webglBudget'
-import { createWebglRenderer } from './webglRenderer'
+import { createLazyWebglRenderer } from './lazyWebglRenderer'
 import { useTerminalPresence } from './useTerminalPresence'
 import { resendPanePresence } from './terminalPresence'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
@@ -219,7 +219,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
 
     // WebGL for the panes the person sees most, the focused one first (F16); the rest draw with the DOM
     // renderer, and a hidden pane gives its GPU context back. See webglBudget.ts and webglRenderer.ts.
-    const webgl = createWebglRenderer(terminal)
+    const webgl = createLazyWebglRenderer(terminal)
     const unregisterWebgl = webglPaneBudget.join(paneId, presenceRef.current, (granted) => webgl.setEnabled(granted))
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
     // Vite-bundled dev builds the proposed-API check throws even with
