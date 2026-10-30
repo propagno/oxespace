@@ -81,9 +81,10 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
 linux:
-  # Linux cannot read the multi-resolution .ico — main/index.ts selects this PNG
-  # at runtime too, otherwise the window falls back to Electron's default icon.
-  icon: resources/icon.png
+  # Linux cannot read the multi-resolution .ico. The desktop entry takes every
+  # size from resources/icons (16–1024, rendered by `npm run generate:icon`);
+  # main/index.ts selects resources/icon.png for the window at runtime.
+  icon: resources/icons
   category: Development
   synopsis: An open source, AI-native workspace and terminal
   maintainer: OXESpace contributors <propagno@users.noreply.github.com>

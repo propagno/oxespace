@@ -122,6 +122,7 @@ function StatesGallery(): ReactElement {
     <h2 className={styles.sectionTitle}>Failed</h2>
     <Panel title="Pull requests"><ErrorState title="Could not load pull requests" message="GitHub did not answer. Check your connection and try again." detail="HTTP 502 from api.github.com" onRetry={() => {}} /></Panel>
     <Panel title="Branches"><ErrorState compact title="Could not list branches." onRetry={() => {}} /></Panel>
+    <Panel title="A whole view"><ErrorState brand title="Something went wrong while showing OxeQuery." message="The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu." detail="TypeError: rows is undefined" onRetry={() => {}} /></Panel>
     <h2 className={styles.sectionTitle}>Unavailable and focus</h2>
     <div className={styles.row}><Button disabled>Disabled</Button><Checkbox label="Disabled option" disabled /><Switch checked={false} onChange={() => {}} label="Disabled switch" disabled /></div>
     <TextField label="With an error" defaultValue="wip" error="Describe what changed in a sentence." />

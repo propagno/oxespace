@@ -20,3 +20,11 @@ export function BrandLoader({ label = i18n.t('ui.loading'), size = 40, decorativ
     </svg>
   </span>
 }
+
+/** The mark standing still, in the muted text color with its sun: what a full-page message (a crash, offline) carries. */
+export function BrandMark({ size = 40 }: { size?: number }): ReactElement {
+  return <svg className={styles.still} width={size} height={size} viewBox={MARK_VIEWBOX} fill="none" aria-hidden="true">
+    <g stroke="currentColor" strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round"><path d={MARK_TRUNK} /><path d={MARK_ARM_LEFT} /><path d={MARK_ARM_RIGHT} /></g>
+    <circle className={styles.stillSun} cx={MARK_SUN.cx} cy={MARK_SUN.cy} r={MARK_SUN.r} />
+  </svg>
+}

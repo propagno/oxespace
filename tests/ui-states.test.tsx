@@ -65,4 +65,17 @@ describe('ErrorBoundary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(screen.getByText('Recovered')).toBeInTheDocument()
   })
+
+  it('carries the brand mark, and at the root covers the window with a way to reload', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const reload = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, reload })
+    function Child(): JSX.Element { throw new Error('render failed') }
+    const { container } = render(<ErrorBoundary page label="OXESpace"><Child /></ErrorBoundary>)
+    expect(container.querySelector('.error-boundary-page')).not.toBeNull()
+    expect(screen.getByRole('alert')).toHaveTextContent('OXESpace could not show this window.')
+    expect(screen.getByRole('alert').querySelector('svg')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Reload window' }))
+    expect(reload).toHaveBeenCalledOnce()
+  })
 })

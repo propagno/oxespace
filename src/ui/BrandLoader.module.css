@@ -2,4 +2,6 @@
 .loader svg { display: block; overflow: visible; }
 /* The arms grow out of the trunk and draw back, half a beat apart; the sun breathes with them. */
 .arm { transform-box: view-box; --pulse-scale: 0.2; --pulse-opacity: 0.35; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-in-out) infinite; }
+.still { flex: none; display: block; color: var(--brand-mark); }
+.stillSun { fill: var(--brand-sun); }
 .sun { fill: var(--brand-sun); --pulse-opacity: 0.4; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-in-out) infinite; }

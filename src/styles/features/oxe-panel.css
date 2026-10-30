@@ -211,6 +211,8 @@
   min-height: 0;
   padding: 16px;
 }
+/* The root boundary covers the window, on the canvas, so a crash never leaves it blank. */
+.error-boundary-page { position: fixed; inset: 0; background: var(--surface-canvas); color: var(--text-primary); }
 
 .terminal-view {
   width: 100%;
