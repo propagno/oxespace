@@ -69,6 +69,7 @@
     "invalid": "A phone tried to pair with a code that is not valid. Show a new code and scan it again.",
     "expired": "The pairing code or the question on this computer expired. Show a new code and try again.",
     "refused": "Pairing was declined on this computer.",
-    "limit": "The phone could not pair: this computer already has the maximum number of devices."
+    "limit": "The phone could not pair: this computer already has the maximum number of devices.",
+    "peer-closed": "The phone stopped pairing before you answered. Show a new code to try again."
   }
 }
