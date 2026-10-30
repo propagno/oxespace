@@ -100,8 +100,11 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
 
   get closed(): boolean { return this.disposed }
 
-  /** `fork` (side chat, B1.2): start as an ephemeral copy of the session instead of resuming it. */
-  constructor(private readonly transport: ConversationTransport, private readonly fork?: { ephemeral: true }) {}
+  /**
+   * `fork` (side chat, B1.2): start as an ephemeral copy of the session instead of resuming it. `lookups` are the
+   * OXESpace read-only tools that may run there without asking; every other MCP tool asks (see codex-side-fork.ts).
+   */
+  constructor(private readonly transport: ConversationTransport, private readonly fork?: { ephemeral: true; lookups?: readonly string[] }) {}
 
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
     if (this.rpc || this.disposed) throw new Error('Conversation adapter cannot be started twice')
@@ -173,7 +176,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private async startFork(rpc: AgentRpcPeer, context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void, handshake: unknown): Promise<void> {
     if (!context.nativeSessionId) throw new CodexForkUnsupportedError('There is no session to copy')
     if (!codexSupportsSideFork(handshake)) throw new CodexForkUnsupportedError('This Codex version is older than the one verified for side chats')
-    const approvals = sideForkApprovalOverrides(await rpc.request('config/read', { cwd: context.rootPath, includeLayers: false }).catch(() => null))
+    const approvals = sideForkApprovalOverrides(await rpc.request('config/read', { cwd: context.rootPath, includeLayers: false }).catch(() => null), this.fork?.lookups)
     if (!approvals) throw new CodexForkUnsupportedError('An MCP server could not be set to ask before every tool call')
     let response: Record<string, unknown>
     try {

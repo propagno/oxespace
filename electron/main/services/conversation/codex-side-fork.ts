@@ -10,6 +10,11 @@
  * not reach means the copy cannot be made safe, and the side chat is reported as unavailable.
  */
 
+import { THREAD_READ_ONLY_MCP_TOOLS } from './thread-mcp'
+
+/** The OXESpace bridge: the one server whose read-only lookups a side chat may run without asking. */
+export const OXESPACE_BRIDGE_SERVER = 'oxespace-delegation'
+
 /** The first Codex version on which the approval override was verified. */
 export const CODEX_SIDE_FORK_MIN_VERSION: readonly [number, number, number] = [0, 166, 0]
 
@@ -38,8 +43,11 @@ export function codexSupportsSideFork(handshake: unknown): boolean {
  * The `thread/fork` config that makes every tool of every configured MCP server ask first and turns plugins and app
  * connectors off, from the effective configuration `config/read` returns. Null when that configuration is missing or
  * a server or tool name cannot be addressed safely.
+ *
+ * The one exemption: on the OXESpace bridge, each of `lookups` that is in THREAD_READ_ONLY_MCP_TOOLS is approved by
+ * name. The bridge itself stays at "prompt", so any other OXESpace tool still asks and is declined.
  */
-export function sideForkApprovalOverrides(configRead: unknown): { config: Record<string, unknown>; servers: Set<string> } | null {
+export function sideForkApprovalOverrides(configRead: unknown, lookups: readonly string[] = []): { config: Record<string, unknown>; servers: Set<string> } | null {
   const effective = record(record(configRead).config)
   // No answer means nothing is known about the servers; an answer without any is an empty list.
   if (!Object.keys(effective).length || (effective.mcp_servers != null && typeof effective.mcp_servers !== 'object')) return null
@@ -53,6 +61,9 @@ export function sideForkApprovalOverrides(configRead: unknown): { config: Record
       if (!NAME.test(tool)) return null
       config[`mcp_servers.${server}.tools.${tool}.approval_mode`] = 'prompt'
     }
+  }
+  if (OXESPACE_BRIDGE_SERVER in servers) {
+    for (const tool of lookups) if (THREAD_READ_ONLY_MCP_TOOLS.includes(tool) && NAME.test(tool)) config[`mcp_servers.${OXESPACE_BRIDGE_SERVER}.tools.${tool}.approval_mode`] = 'approve'
   }
   return { config, servers: new Set(Object.keys(servers)) }
 }

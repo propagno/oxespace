@@ -25,7 +25,7 @@ function claudeFixture(fork = { sessionId: FORK, args: ['--disallowedTools', ...
 
 const USER_SERVERS = { 'oxespace-delegation': { command: 'node' }, userwriter: { command: 'node', default_tools_approval_mode: 'auto', tools: { write_marker: { approval_mode: 'approve' } } } }
 
-function codexFixture(fork: (params: Record<string, unknown>) => { result?: unknown; error?: string }, options: { version?: string; servers?: unknown; statuses?: unknown[]; config?: unknown } = {}) {
+function codexFixture(fork: (params: Record<string, unknown>) => { result?: unknown; error?: string }, options: { version?: string; servers?: unknown; statuses?: unknown[]; config?: unknown; lookups?: string[] } = {}) {
   let receive: (chunk: Uint8Array) => void = () => {}
   const requests: { method: string; params: Record<string, unknown> }[] = []
   const responses: Record<string, unknown>[] = []
@@ -45,8 +45,27 @@ function codexFixture(fork: (params: Record<string, unknown>) => { result?: unkn
     },
     onData: listener => { receive = listener }, onClose: () => {}, close: vi.fn(async () => {})
   }
-  return { adapter: new CodexConversationAdapter(transport, { ephemeral: true }), requests, responses, transport,
-    serverRequest: (id: number, method: string, params: unknown) => receive(Buffer.from(JSON.stringify({ id, method, params }) + '\n')) }
+  const serverRequest = (id: number, method: string, params: unknown) => receive(Buffer.from(JSON.stringify({ id, method, params }) + '\n'))
+  const ran: string[] = []
+  let nextRequest = 900
+  /**
+   * A tool call as the app-server decides it, with the precedence verified live on codex-cli 0.166.0: a per-tool
+   * `approval_mode` wins over the server's `default_tools_approval_mode`. "approve" runs without asking; "prompt"
+   * raises an approval request and runs only if it is accepted.
+   */
+  const callTool = async (server: string, tool: string): Promise<{ asked: boolean; ran: boolean }> => {
+    const config = (requests.find(request => request.method === 'thread/fork')?.params.config ?? {}) as Record<string, unknown>
+    const mode = config[`mcp_servers.${server}.tools.${tool}.approval_mode`] ?? config[`mcp_servers.${server}.default_tools_approval_mode`] ?? 'auto'
+    if (mode !== 'prompt') { ran.push(`${server}/${tool}`); return { asked: false, ran: true } }
+    const id = nextRequest++
+    serverRequest(id, 'mcpServer/elicitation/request', { threadId: 'fork-A', turnId: 't', serverName: server, mode: 'form', message: `Allow the ${server} MCP server to run tool "${tool}"?`,
+      requestedSchema: { type: 'object', properties: {} }, _meta: { codex_approval_kind: 'mcp_tool_call' } })
+    await vi.waitFor(() => expect(responses.some(response => response.id === id)).toBe(true))
+    const accepted = (responses.find(response => response.id === id)?.result as { action?: string } | undefined)?.action === 'accept'
+    if (accepted) ran.push(`${server}/${tool}`)
+    return { asked: true, ran: accepted }
+  }
+  return { adapter: new CodexConversationAdapter(transport, { ephemeral: true, lookups: options.lookups }), requests, responses, transport, serverRequest, callTool, ran }
 }
 
 function thread(overrides: Partial<ConversationThread> = {}): ConversationThread {
@@ -161,6 +180,34 @@ describe('side chat: Codex fork', () => {
   ])('refuses to open with %s', async (_name, options) => {
     const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }), options as Parameters<typeof codexFixture>[1])
     await expect(start(f.adapter, 'native-A')).rejects.toBeInstanceOf(CodexForkUnsupportedError)
+  })
+
+  it('approves only the listed OXESpace read-only lookups by name, never the whole bridge', async () => {
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }), { lookups: ['oxespace_code_search', 'oxespace_memory_search', 'oxespace_thread_send', 'oxespace_memory_remember', 'bad.name'] })
+    await start(f.adapter, 'native-A')
+    const config = f.requests.find(request => request.method === 'thread/fork')!.params.config as Record<string, unknown>
+    const approved = Object.entries(config).filter(([, value]) => value === 'approve').map(([key]) => key)
+    expect(approved.sort()).toEqual(['mcp_servers.oxespace-delegation.tools.oxespace_code_search.approval_mode', 'mcp_servers.oxespace-delegation.tools.oxespace_memory_search.approval_mode'])
+    expect(config['mcp_servers.oxespace-delegation.default_tools_approval_mode']).toBe('prompt')
+    expect(config['mcp_servers.userwriter.default_tools_approval_mode']).toBe('prompt')
+    await f.adapter.dispose()
+  })
+
+  it('runs a listed lookup, and asks about and declines an unlisted OXESpace tool and a user MCP tool', async () => {
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }), { lookups: ['oxespace_code_search', 'oxespace_thread_send'] })
+    const s = sideFixture(thread({ provider: 'codex' }))
+    vi.mocked(s.host.connect).mockResolvedValueOnce(f.adapter)
+    const opened = await s.chats.open('thread-A', s.emit)
+    if (!opened.ok) throw Error('expected a side chat')
+    await s.chats.send(opened.side.sideId, 'Look around')
+    expect(await f.callTool('oxespace-delegation', 'oxespace_code_search')).toEqual({ asked: false, ran: true })
+    expect(await f.callTool('oxespace-delegation', 'oxespace_thread_send')).toEqual({ asked: true, ran: false })
+    expect(await f.callTool('oxespace-delegation', 'oxespace_memory_remember')).toEqual({ asked: true, ran: false })
+    expect(await f.callTool('userwriter', 'write_marker')).toEqual({ asked: true, ran: false })
+    expect(f.ran).toEqual(['oxespace-delegation/oxespace_code_search'])
+    expect(f.responses.filter(response => (response.result as { action?: string } | undefined)?.action === 'decline')).toHaveLength(3)
+    expect(s.events.some(event => event.event.type === 'request')).toBe(false)
+    await s.chats.stop()
   })
 
   it('declines a user MCP tool call the copy asks about, and shows nothing', async () => {

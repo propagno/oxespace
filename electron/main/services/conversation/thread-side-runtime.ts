@@ -42,7 +42,7 @@ export function createThreadSideChats(db: AppDatabase, bridge: string, manager: 
       return thread.provider === 'claude'
         ? new ClaudeConversationAdapter((args, cwd) => new AgentProcessTransport(profile.command, launch(args), cwd, env, diagnostic),
           { sessionId: forkId, args: ['--disallowedTools', ...SIDE_CHAT_DISALLOWED_TOOLS] })
-        : new CodexConversationAdapter(new AgentProcessTransport(profile.command, launch(['app-server', '--listen', 'stdio://']), thread.rootPath, env, diagnostic), { ephemeral: true })
+        : new CodexConversationAdapter(new AgentProcessTransport(profile.command, launch(['app-server', '--listen', 'stdio://']), thread.rootPath, env, diagnostic), { ephemeral: true, lookups: tools })
     },
     // Codex's copy is ephemeral and never reaches disk; Claude's is the one `<forkId>.jsonl` beside the session.
     discard: async (thread, forkId, keep) => { if (thread.provider === 'claude') await removeClaudeSessionCopy({ rootPath: thread.rootPath, forkId, keep }) }
