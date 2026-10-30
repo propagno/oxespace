@@ -1469,7 +1469,7 @@ function WorkflowRuntimeTree({ run, jobs, workspaceId }: { run: GitHubWorkflowRu
             {!collapsed ? (
               <div className="github-actions-step-list">
                 {job.steps.length === 0 ? (
-                  <span className="github-actions-step-empty">{tc('github.actions.noSteps')}</span>
+                  <EmptyState compact title={tc('github.actions.noSteps')} />
                 ) : (
                   job.steps.map((step) => (
                     <div key={`${key}:${step.number ?? step.name}`} className="github-actions-step-row">

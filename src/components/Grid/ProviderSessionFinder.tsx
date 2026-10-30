@@ -3,7 +3,7 @@ import { Check, Copy, Search } from 'lucide-react'
 import type { SessionSummary } from '../../../shared/types/session'
 import type { SessionSearchResult } from '../../../shared/types/session-search'
 
-import { Dialog, TextField } from '../../ui'
+import { Dialog, EmptyState, Notice, TextField } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
 
 export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { workspaceId: string; rootPath: string; onClose: () => void }) {
@@ -54,14 +54,14 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
   return <Dialog className="desktop-provider-sessions-dialog" size="lg" title="Codex and Claude sessions" description="Native conversations saved in this directory. Identify the session by the start of the conversation and its time." onClose={onClose}>
     <p className="terminal-session-identity-note">Terminal (PTY), pane and workspace IDs do not resume a provider conversation. A terminal may have opened several native sessions.</p>
     <label className="desktop-provider-session-search"><Search size={14} aria-hidden="true" /><TextField type="search" aria-label="Search native sessions" placeholder="Search message, model or session ID" value={query} onChange={event => setQuery(event.target.value)} /></label>
-    {error && <p className="desktop-provider-session-error" role="alert">{error}</p>}
+    {error && <Notice intent="danger">{error}</Notice>}
     {loading ? <p role="status">Loading native sessions…</p> : matches.length ? <div className="desktop-provider-session-list">
       {matches.map(session => <article key={`${session.provider}:${session.sessionId}`} className="desktop-provider-session-card">
         <div className="desktop-provider-session-heading"><strong>{session.firstMessagePreview || `${session.provider === 'codex' ? 'Codex' : 'Claude'} session`}</strong><span>{session.provider === 'codex' ? 'Codex' : 'Claude'}</span></div>
         <p>{session.modelId || 'Unknown model'} · Updated {formatDateTime(session.lastUpdatedMs)} · {session.requestCount} {session.requestCount === 1 ? 'request' : 'requests'}</p>
         <div className="desktop-provider-session-id"><code>{session.sessionId}</code><div><button type="button" aria-label={`Copy session ID ${session.provider} ${session.sessionId}`} onClick={() => void copy(session.sessionId, `id:${session.sessionId}`)}>{copied === `id:${session.sessionId}` ? <Check size={14} /> : <Copy size={14} />}{copied === `id:${session.sessionId}` ? 'Copied' : 'Copy ID'}</button><button type="button" aria-label={`Copy command to resume ${session.provider} ${session.sessionId}`} onClick={() => void copy(`${session.provider === 'claude' ? 'claude --resume' : 'codex resume'} ${session.sessionId}`, `command:${session.sessionId}`)}>{copied === `command:${session.sessionId}` ? <Check size={14} /> : <Copy size={14} />}{copied === `command:${session.sessionId}` ? 'Copied' : 'Copy command'}</button></div></div>
       </article>)}
-    </div> : <p className="desktop-provider-session-empty">{query ? 'No session matches the search.' : 'No Codex or Claude session found in this directory.'}</p>}
+    </div> : <EmptyState compact title={query ? 'No session matches the search.' : 'No Codex or Claude session found in this directory.'} />}
     {content && content.hits.length > 0 && <div className="desktop-provider-session-list" aria-label="Results in conversation content">
       <p className="terminal-session-identity-note">In conversation content{content.indexing ? ' (indexing in progress)' : ''}:</p>
       {content.hits.map(hit => <article key={`hit:${hit.agent}:${hit.sessionId}`} className="desktop-provider-session-card">

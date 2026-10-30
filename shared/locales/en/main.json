@@ -14,12 +14,36 @@
       "ok": "OK"
     }
   },
+  "dialogs": {
+    "approval": {
+      "deny": "Deny",
+      "allowOnce": "Allow once",
+      "allowSession": "Allow reads like this for this run"
+    },
+    "previewAutomation": {
+      "title": "Agent browser action",
+      "cancel": "Cancel",
+      "allowOnce": "Allow once",
+      "closeTab": "Close tab",
+      "closeTabMessage": "Allow the agent to close this browser tab?",
+      "closeTabDetail": "Tab: {{tab}}\nUnsaved page changes may be lost.",
+      "action": {
+        "click": "Allow the agent to click in the Browser?",
+        "fill": "Allow the agent to type into a field in the Browser?",
+        "navigate": "Allow the agent to open another page in the Browser?",
+        "scroll": "Allow the agent to scroll in the Browser?",
+        "other": "Allow the agent to {{action}} in the Browser?"
+      },
+      "actionDetail": "Page: {{page}}\nTarget: {{target}}\nThis may change real system data. Text values are not recorded in the operation history."
+    }
+  },
   "messages": {
     "mcp": {
       "quarantine": {
         "changed": "The description or inputs of {{tools}} changed after you trusted it.",
         "added": "It added {{tools}}.",
-        "removed": "It removed {{tools}}."
+        "removed": "It removed {{tools}}.",
+        "configChanged": "Its command, arguments, environment or URL changed after you trusted it."
       },
       "signIn": {
         "waiting": "Waiting for you to sign in in the browser…"
@@ -57,6 +81,18 @@
     "app": {
       "connectivity": {
         "offline": "No network connection."
+      }
+    },
+    "remote": {
+      "port": {
+        "privileged": "Pick a port of 1024 or above; port {{port}} is reserved by the system.",
+        "inUse": "Port {{port}} is already in use by another program. Pick another port."
+      },
+      "network": {
+        "noPrivateInterface": "No private network was found to listen on. Connect to your local Wi-Fi or Ethernet and try again."
+      },
+      "certificate": {
+        "failed": "The connection certificate could not be created or read from secure storage."
       }
     },
     "linear": {

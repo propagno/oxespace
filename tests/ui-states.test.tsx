@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { BrandLoader, ErrorState, LoadingState, Skeleton, Spinner } from '../src/ui'
+import { BrandLoader, ErrorState, FieldError, LoadingState, Notice, OfflineState, Skeleton, Spinner, SuccessState } from '../src/ui'
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
@@ -29,6 +29,45 @@ describe('state primitives', () => {
     rerender(<Spinner decorative size="sm" />)
     expect(screen.queryByRole('status')).toBeNull()
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
+describe('success, offline and notices', () => {
+  it('SuccessState says what was done, politely, with what to do next', () => {
+    render(<SuccessState title="Worktree created" message="It is ready in its own folder." actions={<button type="button">Open it</button>} />)
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Worktree created')
+    expect(status).toHaveTextContent('It is ready in its own folder.')
+    expect(screen.getByRole('button', { name: 'Open it' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('OfflineState has translated defaults, waits with the brand loader and checks again', () => {
+    const retry = vi.fn()
+    const { container, rerender } = render(<OfflineState onRetry={retry} />)
+    expect(screen.getByRole('status')).toHaveTextContent('You are offline')
+    expect(container.querySelector('[data-brand-loader]')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
+    expect(retry).toHaveBeenCalledOnce()
+    rerender(<OfflineState compact />)
+    expect(container.querySelector('[data-brand-loader]')).toBeNull()
+    expect(screen.getByRole('status')).not.toHaveTextContent('comes back by itself')
+  })
+
+  it('Notice interrupts only for a warning or a failure', () => {
+    const { rerender } = render(<Notice intent="warning" title="2 worktrees have changes">Removing them discards them.</Notice>)
+    expect(screen.getByRole('alert')).toHaveTextContent('2 worktrees have changes')
+    rerender(<Notice intent="danger">Could not apply the policy.</Notice>)
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not apply the policy.')
+    rerender(<Notice intent="info">Agents use your shell profile.</Notice>)
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('status')).toHaveTextContent('Agents use your shell profile.')
+  })
+
+  it('FieldError is announced and can be pointed at by its control', () => {
+    render(<><textarea aria-label="Filter" aria-invalid aria-describedby="filter-error" /><FieldError id="filter-error">Not valid JSON.</FieldError></>)
+    expect(screen.getByRole('alert')).toHaveTextContent('Not valid JSON.')
+    expect(screen.getByLabelText('Filter')).toHaveAccessibleDescription('Not valid JSON.')
   })
 })
 

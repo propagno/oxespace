@@ -12,6 +12,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.quarantine.changed': ['tools'],
   'mcp.quarantine.added': ['tools'],
   'mcp.quarantine.removed': ['tools'],
+  'mcp.quarantine.configChanged': [],
   'thread.request.notPending': [],
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
@@ -61,7 +62,11 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'oxepost.send.timeout': ['seconds'],
   'oxepost.send.tls': ['code'],
   'oxepost.send.failed': [],
-  'oxepost.send.failedWith': ['detail']
+  'oxepost.send.failedWith': ['detail'],
+  'remote.port.privileged': ['port'],
+  'remote.port.inUse': ['port'],
+  'remote.network.noPrivateInterface': [],
+  'remote.certificate.failed': []
 }
 
 describe('C3 message codes', () => {
