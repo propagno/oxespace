@@ -352,7 +352,7 @@ export const IPC_CHANNELS = {
   },
   mcpInternal: {
     getStatus: 'mcp-internal:get-status',
-    toolGroups: 'mcp-internal:tool-groups', setToolGroupMode: 'mcp-internal:set-tool-group-mode',
+    toolGroups: 'mcp-internal:tool-groups', setToolGroupMode: 'mcp-internal:set-tool-group-mode', toolRules: 'mcp-internal:tool-rules', setToolRule: 'mcp-internal:set-tool-rule',
     regenerateToken: 'mcp-internal:regenerate-token',
     captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',

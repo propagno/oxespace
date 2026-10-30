@@ -69,6 +69,33 @@ export interface McpToolGroupsApi {
    * app's window only, and records it in the audit. The person's choice: never an MCP tool.
    */
   setToolGroupMode?(input: { rootPath: string; group: ConfigurableMcpToolGroup; mode: McpToolGroupMode }): Promise<McpToolGroupsReport>
+  /** B7.3: what each MCP tool of a project needs before it runs (OXESpace's and other servers'). */
+  toolRules?(input: { rootPath: string }): Promise<McpToolRule[]>
+  /**
+   * Sets one tool's rule in the project, from the app's window only, and records it in the audit. The person's choice:
+   * never an MCP tool. Refused, with a code, for `allow` on an OXESpace tool of the confirm level.
+   */
+  setToolRule?(input: { rootPath: string; server: string; tool: string; decision: McpToolDecision }): Promise<McpToolRule[]>
+}
+
+/** Per tool: run without asking, ask the person (the default), or never run. */
+export const MCP_TOOL_DECISIONS = ['allow', 'ask', 'deny'] as const
+export type McpToolDecision = typeof MCP_TOOL_DECISIONS[number]
+
+/**
+ * One tool's rule, and where it holds. `deny` is a `tool.use` rule in the project's `.oxespace/policy.json`: it holds
+ * everywhere (OxeChat conversations, OxeCode terminals and MCP). `allow` is a project permission rule: it holds for
+ * OxeChat conversations, while agents in OxeCode terminals follow their own CLI's permissions. `ask` is no rule.
+ */
+export interface McpToolRule {
+  /** The MCP server's key, `oxespace-delegation` for OXESpace's own tools. */
+  server: string
+  tool: string
+  decision: McpToolDecision
+  /** Where the deciding rule lives; `default` when there is none. A user or managed rule cannot be changed here. */
+  source: 'project' | 'user' | 'managed' | 'default'
+  editable: boolean
+  scope: 'everywhere' | 'oxechat' | null
 }
 
 /**

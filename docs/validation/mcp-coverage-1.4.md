@@ -46,6 +46,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `oxequery.secrets` | OxeQuery connection credentials, SSH host keys, connection export/import |
 | `mcp.server_trust` | `mcp.create`, `update`, `delete`, `discover`, `importDiscovered`, `openSignIn` |
 | `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
+| `mcp.tool_rules_admin` | `mcpInternal.setToolRule` |
 
 ## New in X21
 
@@ -143,6 +144,7 @@ before. Code panes receive the whole registry.
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
 | `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
 | `mcp_internal.tool_groups_admin` | Choose how a project offers each group of OXESpace tools | **Forbidden**: Raises what agents can reach. |
+| `mcp.tool_rules_admin` | Choose, per MCP tool, to run it without asking, ask, or block it | **Forbidden**: Approvals and access stay with the person. |
 | `settings.diagnostics` | Diagnostics snapshot and reports | Excluded: Whole-app paths and logs; the person exports them. |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
