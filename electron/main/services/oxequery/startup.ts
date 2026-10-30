@@ -37,7 +37,7 @@ export async function startOxeQuery(db: AppDatabase, pod: () => Promise<OxePodSe
     const { describeStartupFailure } = await import('./startup-failure')
     const reason = describeStartupFailure(error)
     // The view asks through this channel; answer with the reason instead of "no handler registered".
-    ipcMain.handle(IPC_CHANNELS.oxeQuery.call, () => ({ ok: false, error: { code: 'failed', message: `OxeQuery did not start: ${reason}` } }))
+    ipcMain.handle(IPC_CHANNELS.oxeQuery.call, () => ({ ok: false, error: { code: 'failed', message: `OxeQuery did not start: ${reason}`, messageCode: { code: 'oxequery.startFailed', params: { reason } } } }))
     return { error: reason }
   }
 }
