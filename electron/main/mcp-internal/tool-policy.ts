@@ -10,26 +10,30 @@ import type { PolicyStore } from '../services/policy/policy-store'
 export const oxespaceToolResources = (tool: string): string[] => [`mcp__oxespace-delegation__${tool}`, `mcp__oxespace__${tool}`]
 
 /**
- * The project folders a call comes from: the execution's own folder when it proves one, the workspace it names, and,
- * without either, the active workspace the tools would act on. Policy is checked against each, so a block in any holds.
+ * The project folders whose policy a call answers to. The workspace header is the agent's own claim
+ * (OXESPACE_WORKSPACE_ID), so it never chooses the policy by itself:
+ * - a call that proves a live execution answers to that execution's folder and its workspace's or project's roots;
+ * - any other call answers to every registered project, so the strictest deny among them holds.
+ * Policy is checked against each root, and the user and managed layers apply to all of them.
  */
 function callerRoots(ctx: Pick<ToolContext, 'db' | 'workspaceServ' | 'executions' | 'executionId' | 'executionToken' | 'workspaceId'>): string[] {
   const roots = new Set<string>()
-  try {
-    const execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId)
-    if (execution) roots.add(execution.cwd)
-  } catch { /* A generic MCP caller has no execution. */ }
-  if (ctx.workspaceId?.startsWith('thread:')) {
-    const rows = ctx.db?.prepare('SELECT root_path FROM thread_project_contexts WHERE project_id = ?').all(ctx.workspaceId.slice('thread:'.length)) as { root_path: string }[] | undefined
-    for (const row of rows ?? []) roots.add(row.root_path)
-  } else if (ctx.workspaceId) {
-    const workspace = ctx.workspaceServ.get(ctx.workspaceId)
-    if (workspace) roots.add(workspace.rootPath)
+  let execution: { cwd: string; workspaceId: string } | undefined
+  try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* Not a live execution. */ }
+  if (execution) {
+    roots.add(execution.cwd)
+    if (execution.workspaceId.startsWith('thread:')) {
+      const rows = ctx.db?.prepare('SELECT root_path FROM thread_project_contexts WHERE project_id = ?').all(execution.workspaceId.slice('thread:'.length)) as { root_path: string }[] | undefined
+      for (const row of rows ?? []) roots.add(row.root_path)
+    } else {
+      const workspace = ctx.workspaceServ.get(execution.workspaceId)
+      if (workspace) roots.add(workspace.rootPath)
+    }
+    return [...roots]
   }
-  if (!roots.size) {
-    const active = ctx.workspaceServ.list().find(workspace => workspace.isActive === true)
-    if (active) roots.add(active.rootPath)
-  }
+  for (const workspace of ctx.workspaceServ.list()) roots.add(workspace.rootPath)
+  const rows = ctx.db?.prepare('SELECT DISTINCT root_path FROM thread_project_contexts').all() as { root_path: string }[] | undefined
+  for (const row of rows ?? []) roots.add(row.root_path)
   return [...roots]
 }
 
