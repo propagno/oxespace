@@ -23,21 +23,30 @@ function claudeFixture(fork = { sessionId: FORK, args: ['--disallowedTools', ...
   return { adapter, launches, emit: (index: number, value: unknown) => launches[index].data(Buffer.from(JSON.stringify(value) + '\n')) }
 }
 
-function codexFixture(fork: (params: Record<string, unknown>) => { result?: unknown; error?: string }) {
+const USER_SERVERS = { 'oxespace-delegation': { command: 'node' }, userwriter: { command: 'node', default_tools_approval_mode: 'auto', tools: { write_marker: { approval_mode: 'approve' } } } }
+
+function codexFixture(fork: (params: Record<string, unknown>) => { result?: unknown; error?: string }, options: { version?: string; servers?: unknown; statuses?: unknown[]; config?: unknown } = {}) {
   let receive: (chunk: Uint8Array) => void = () => {}
   const requests: { method: string; params: Record<string, unknown> }[] = []
+  const responses: Record<string, unknown>[] = []
   const transport: ConversationTransport = {
     write: line => {
       const message = JSON.parse(line)
-      if (!message.method) return
+      if (!message.method) { responses.push(message); return }
       requests.push({ method: message.method, params: message.params })
       if (message.id === undefined) return
-      const answer = message.method === 'thread/fork' ? fork(message.params) : { result: {} }
+      const answer = message.method === 'thread/fork' ? fork(message.params)
+        : message.method === 'initialize' ? { result: { userAgent: `oxespace/${options.version ?? '0.166.0'} (Windows; x86_64)` } }
+        : message.method === 'config/read' ? { result: options.config ?? { config: { mcp_servers: options.servers ?? USER_SERVERS, plugins: { 'browser@openai-bundled': { enabled: true } } } } }
+        : message.method === 'mcpServerStatus/list' ? { result: { data: options.statuses ?? Object.keys(USER_SERVERS).map(name => ({ name, pluginId: null })), nextCursor: null } }
+        : message.method === 'turn/start' ? { result: { turn: { id: 't' } } }
+        : { result: {} }
       queueMicrotask(() => receive(Buffer.from(JSON.stringify(answer.error ? { id: message.id, error: { code: -32601, message: answer.error } } : { id: message.id, result: answer.result }) + '\n')))
     },
     onData: listener => { receive = listener }, onClose: () => {}, close: vi.fn(async () => {})
   }
-  return { adapter: new CodexConversationAdapter(transport, { ephemeral: true }), requests, transport }
+  return { adapter: new CodexConversationAdapter(transport, { ephemeral: true }), requests, responses, transport,
+    serverRequest: (id: number, method: string, params: unknown) => receive(Buffer.from(JSON.stringify({ id, method, params }) + '\n')) }
 }
 
 function thread(overrides: Partial<ConversationThread> = {}): ConversationThread {
@@ -126,6 +135,46 @@ describe('side chat: Codex fork', () => {
     expect(f.requests.map(request => request.method)).not.toContain('thread/resume')
     expect(events).toContainEqual({ type: 'session', nativeSessionId: 'fork-A' })
     await f.adapter.dispose()
+  })
+
+  it('makes every MCP tool ask first, overriding per-tool settings in the user config', async () => {
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }))
+    await start(f.adapter, 'native-A')
+    expect(f.requests.find(request => request.method === 'thread/fork')!.params.config).toEqual({
+      'mcp_servers.oxespace-delegation.default_tools_approval_mode': 'prompt',
+      'mcp_servers.userwriter.default_tools_approval_mode': 'prompt',
+      'mcp_servers.userwriter.tools.write_marker.approval_mode': 'prompt',
+      'features.apps': false,
+      plugins: { 'browser@openai-bundled': { enabled: false } }
+    })
+    expect(f.requests.find(request => request.method === 'mcpServerStatus/list')!.params).toMatchObject({ threadId: 'fork-A' })
+    await f.adapter.dispose()
+  })
+
+  it.each([
+    ['an older Codex', { version: '0.165.9' }],
+    ['a server name the override cannot address', { servers: { 'my.server': { command: 'x' } } }],
+    ['a tool name the override cannot address', { servers: { userwriter: { tools: { 'a.b': {} } } } }],
+    ['a plugin server the override did not reach', { statuses: [{ name: 'userwriter', pluginId: null }, { name: 'browser', pluginId: 'openai-bundled/browser' }] }],
+    ['an app connector the override did not reach', { statuses: [{ name: 'codex_apps', pluginId: null }] }],
+    ['no effective configuration to read', { config: {} }]
+  ])('refuses to open with %s', async (_name, options) => {
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }), options as Parameters<typeof codexFixture>[1])
+    await expect(start(f.adapter, 'native-A')).rejects.toBeInstanceOf(CodexForkUnsupportedError)
+  })
+
+  it('declines a user MCP tool call the copy asks about, and shows nothing', async () => {
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }))
+    const s = sideFixture(thread({ provider: 'codex' }))
+    vi.mocked(s.host.connect).mockResolvedValueOnce(f.adapter)
+    const opened = await s.chats.open('thread-A', s.emit)
+    if (!opened.ok) throw Error('expected a side chat')
+    await s.chats.send(opened.side.sideId, 'Write the marker')
+    f.serverRequest(900, 'mcpServer/elicitation/request', { threadId: 'fork-A', turnId: 't', serverName: 'userwriter', mode: 'form', message: 'Allow the userwriter MCP server to run tool "write_marker"?',
+      requestedSchema: { type: 'object', properties: {} }, _meta: { codex_approval_kind: 'mcp_tool_call' } })
+    await vi.waitFor(() => expect(f.responses).toContainEqual(expect.objectContaining({ id: 900, result: expect.objectContaining({ action: 'decline' }) })))
+    expect(s.events.some(event => event.event.type === 'request')).toBe(false)
+    await s.chats.stop()
   })
 
   it('reports an app-server without thread/fork as unavailable', async () => {

@@ -27,7 +27,11 @@ vi.mock('../../electron/main/services/conversation/process-transport', () => ({
       const reply = (value: unknown) => queueMicrotask(() => this.data(Buffer.from(JSON.stringify(value) + '\n')))
       if (message.request_id === 'initialize') reply({ type: 'control_response', response: { request_id: 'initialize', subtype: 'success', response: {} } })
       else if (message.method && message.id !== undefined) {
-        const answer = message.method === 'thread/fork' ? hooks.codexFork(message.params as Record<string, unknown>) : { result: {} }
+        const answer = message.method === 'thread/fork' ? hooks.codexFork(message.params as Record<string, unknown>)
+          : message.method === 'initialize' ? { result: { userAgent: 'oxespace/0.166.0 (Windows; x86_64)' } }
+          : message.method === 'config/read' ? { result: { config: { mcp_servers: { 'oxespace-delegation': { command: 'node' } } } } }
+          : message.method === 'mcpServerStatus/list' ? { result: { data: [{ name: 'oxespace-delegation', pluginId: null }], nextCursor: null } }
+          : { result: {} }
         reply(answer.error ? { id: message.id, error: { code: -32601, message: answer.error } } : { id: message.id, result: answer.result })
       }
     }
@@ -134,7 +138,8 @@ describe('side chat runtime (B1.2)', () => {
     const methods = launch.writes.map(write => write.method)
     expect(methods).toContain('thread/fork')
     expect(methods).not.toContain('thread/resume')
-    expect(launch.writes.find(write => write.method === 'thread/fork')?.params).toMatchObject({ threadId: 'native-codex', ephemeral: true, sandbox: 'read-only' })
+    expect(launch.writes.find(write => write.method === 'thread/fork')?.params).toMatchObject({ threadId: 'native-codex', ephemeral: true, sandbox: 'read-only',
+      config: { 'mcp_servers.oxespace-delegation.default_tools_approval_mode': 'prompt' } })
     const bridgeArg = launch.args.find(arg => arg.startsWith('mcp_servers.oxespace-delegation.args='))!
     const bridge = JSON.parse(bridgeArg.slice(bridgeArg.indexOf('=') + 1)) as string[]
     expect((JSON.parse(bridge[bridge.indexOf('--allowed-tools') + 1]) as string[]).every(tool => THREAD_READ_ONLY_MCP_TOOLS.includes(tool))).toBe(true)
