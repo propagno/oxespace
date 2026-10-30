@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.R
+import com.oxespace.mobile.ui.theme.OxeTheme
 
 /** First screen until pairing exists (M2): says what the app is for. */
 @Composable
