@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Eraser, HardDrive, RefreshCw, Trash2 } from 'lucide-react'
-import type { ContainerEngine, DiskUsageRow, ImageInfo, NetworkInfo, PruneKind, ResourceKind, VolumeInfo } from '../../../shared/types/oxequery'
+import type { ContainerEngine, DiskUsageRow, ImageInfo, NetworkInfo, PruneKind, ResourceKind, VolumeInfo } from '../../../shared/types/oxepod'
 import { Button, ConfirmDialog, EmptyState, ErrorState, IconButton, SegmentedControl, toast } from '../../ui'
-import { errorMessage, oq } from '../OxeQuery/client'
+import { errorMessage, pod } from './client'
 import { useOxePodStore } from './oxepod.store'
 import styles from './OxePod.module.css'
 
@@ -27,7 +27,7 @@ export function ResourcesPanel({ engine, active }: { engine?: ContainerEngine; a
   const load = useCallback(async (): Promise<void> => {
     try {
       const [a, b, c, d] = await Promise.all([
-        oq('resources.images', { engine }), oq('resources.volumes', { engine }), oq('resources.networks', { engine }), oq('resources.usage', { engine }).catch(() => [] as DiskUsageRow[])
+        pod('resources.images', { engine }), pod('resources.volumes', { engine }), pod('resources.networks', { engine }), pod('resources.usage', { engine }).catch(() => [] as DiskUsageRow[])
       ])
       setImages(a); setVolumes(b); setNetworks(c); setUsage(d); setError('')
     } catch (cause) { setError(errorMessage(cause)) }
@@ -37,14 +37,14 @@ export function ResourcesPanel({ engine, active }: { engine?: ContainerEngine; a
   const remove = async (): Promise<void> => {
     if (!confirming) return
     setBusy(true)
-    try { await oq('resources.remove', { kind: confirming.kind, id: confirming.id, engine, confirmed: true }); setConfirming(null); await load() }
+    try { await pod('resources.remove', { kind: confirming.kind, id: confirming.id, engine, confirmed: true }); setConfirming(null); await load() }
     catch (cause) { setError(errorMessage(cause)); setConfirming(null) } finally { setBusy(false) }
   }
 
   const prune = async (kind: PruneKind): Promise<void> => {
     setBusy(true)
     try {
-      const result = await oq('resources.prune', { kind, engine, confirmed: true })
+      const result = await pod('resources.prune', { kind, engine, confirmed: true })
       toast({ title: t(`prune.done.${kind}`), description: result.output.split('\n').pop() || undefined, intent: 'success' })
       useOxePodStore.getState().askPrune(null)
       await Promise.all([load(), useOxePodStore.getState().refresh()])

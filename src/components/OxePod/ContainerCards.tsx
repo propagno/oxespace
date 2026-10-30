@@ -1,10 +1,13 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Database, Layers } from 'lucide-react'
-import type { ContainerEngine, ContainerInspect, ContainerSummary, OxeQueryConnection } from '../../../shared/types/oxequery'
+import type { ContainerEngine, ContainerInspect, ContainerSummary } from '../../../shared/types/oxepod'
+import type { OxeQueryConnection } from '../../../shared/types/oxequery'
 import { Button, ConfirmDialog, ErrorState } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
-import { OxeQueryClientError, errorMessage, oq } from '../OxeQuery/client'
+import { OxePodClientError, errorMessage, pod } from './client'
+// OxePod reads which connections OxeQuery already saved for a container: the one renderer call across the two products.
+import { oq } from '../OxeQuery/client'
 import { requestOxeQueryConnect } from '../OxeQuery/oxequery-bridge'
 import { useOxePodStore } from './oxepod.store'
 import { COMPOSE_LABEL, firstHostPort, formatPorts, type DatabaseKind } from './pods-model'
@@ -37,7 +40,7 @@ export function DatabaseCard({ container, kind, engine, active }: { container: C
     if (saved) { requestOxeQueryConnect({ connectionId: saved.id }); return }
     setBusy(true)
     try {
-      const suggestion = await oq('containers.suggestConnection', { id: container.id, engine })
+      const suggestion = await pod('containers.suggestConnection', { id: container.id, engine })
       if (!suggestion || !suggestion.port) { setError(t('bridge.unpublished')); return }
       requestOxeQueryConnect({ draft: { engine: suggestion.engine, name: suggestion.name, host: suggestion.host, port: suggestion.port, database: suggestion.database ?? '', username: suggestion.username ?? '', containerRef: suggestion.name } })
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
@@ -73,11 +76,11 @@ export function ComposeCard({ container, engine }: { container: ContainerSummary
   const run = async (action: ComposeAction, confirmed = false): Promise<void> => {
     setBusy(action); setError(''); setConfirmDown(false)
     try {
-      const result = await oq('containers.compose', { id: container.id, action, engine, confirmed, ...(action === 'logs' ? { tail: 200 } : {}) })
+      const result = await pod('containers.compose', { id: container.id, action, engine, confirmed, ...(action === 'logs' ? { tail: 200 } : {}) })
       setOutput(action === 'logs' || result.output ? { title: t('compose.outputTitle', { project, action: t(`compose.${action}`) }), text: result.output || t('compose.done') } : null)
       if (action !== 'logs') await useOxePodStore.getState().refresh()
     } catch (cause) {
-      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirmDown(true)
+      if (cause instanceof OxePodClientError && cause.code === 'confirm') setConfirmDown(true)
       else setError(errorMessage(cause))
     } finally { setBusy('') }
   }
