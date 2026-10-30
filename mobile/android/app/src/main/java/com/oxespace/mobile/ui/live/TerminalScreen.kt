@@ -60,6 +60,7 @@ import com.oxespace.mobile.ui.terminal.Ansi
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeColors
 import com.oxespace.mobile.ui.theme.OxeSpace
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** A pane's output, read-only, in the desktop's terminal colors; follows the newest line. */
@@ -72,6 +73,15 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     val redacted = watched.store.redacted
     val vertical = rememberScrollState()
     LaunchedEffect(tick) { vertical.scrollTo(vertical.maxValue) }
+    // The desktop's redactor holds output up to 250 ms, so a first snapshot can be empty while the pane runs:
+    // say "loading" for a second before "no output yet".
+    var settling by remember { mutableStateOf(true) }
+    LaunchedEffect(watched.loaded) {
+        if (watched.loaded) {
+            delay(EMPTY_GRACE_MS)
+            settling = false
+        }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -102,7 +112,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 )
             }
             if (text.isEmpty()) {
-                Text(stringResource(if (watched.loaded) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
+                Text(stringResource(if (watched.loaded && !settling) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
             } else {
                 Text(
                     text,
@@ -188,6 +198,9 @@ private fun TerminalInput(paneId: String, commands: CommandApi) {
         }
     }
 }
+
+/** How long an empty first snapshot reads as "loading": the redactor delays output up to 250 ms. */
+private const val EMPTY_GRACE_MS = 1_000L
 
 /** Characters per terminal.write; ASCII-heavy input keeps it under the contract's 4 KiB. */
 private const val TERMINAL_PIECE = 1_000
