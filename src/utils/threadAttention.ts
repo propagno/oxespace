@@ -46,7 +46,7 @@ export function decideThreadAttention({ previous, current, viewing }: ThreadAtte
 
 export function threadAttentionText(kind: ThreadAttentionKind, title: string): { title: string; body: string } {
   // B10: the title can come from the agent; a reserved app name in it is never shown as the sender.
-  const name = withoutReservedName(title.trim()) || 'Conversation'
+  const name = withoutReservedName(title.trim(), 'Conversation') || 'Conversation'
   switch (kind) {
     case 'needs-approval': return { title: `${name} — needs approval`, body: 'The agent is waiting for your decision to continue.' }
     case 'failed': return { title: `${name} — failed`, body: 'The turn ended with an error. Open the conversation to see why.' }

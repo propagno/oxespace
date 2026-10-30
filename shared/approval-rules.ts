@@ -46,7 +46,7 @@ export function reservedNameIn(value: string): ReservedAppName | null {
  * For notices the app composes around agent-supplied text (a pane name, a conversation title, an error): the text, or
  * `fallback` when it carries a reserved name. The app's own fixed words around it are not checked.
  */
-export function withoutReservedName(text: string, fallback = ''): string {
+export function withoutReservedName(text: string, fallback: string): string {
   return reservedNameIn(text) ? fallback : text
 }
 
