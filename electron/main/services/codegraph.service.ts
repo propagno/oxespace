@@ -4,8 +4,17 @@ import CodeGraph from '../vendor/codegraph/index'
 import { isInitialized } from '../vendor/codegraph/directory'
 import type { AppDatabase } from '../db'
 
+/**
+ * An open project holds a SQLite connection (page cache, memory map) and its parsed state. A project nobody
+ * has asked about for this long is closed; opening it again syncs and costs about a second.
+ */
+const IDLE_CLOSE_MS = 10 * 60_000
+
 export class CodeGraphService {
   private instances = new Map<string, CodeGraph>()
+  private readonly lastUsed = new Map<string, number>()
+  private readonly opening = new Map<string, Promise<CodeGraph>>()
+  private sweep: ReturnType<typeof setInterval> | undefined
 
   constructor(private readonly db: AppDatabase) {
     // The vendored CodeGraph loads schema.sql + tree-sitter wasm from disk; in
@@ -26,10 +35,31 @@ export class CodeGraphService {
    * If it's not initialized, it will initialize and start indexing.
    */
   public async ensureInstance(projectRoot: string): Promise<CodeGraph> {
-    if (this.instances.has(projectRoot)) {
-      return this.instances.get(projectRoot)!
+    this.lastUsed.set(projectRoot, Date.now())
+    const open = this.instances.get(projectRoot)
+    if (open) return open
+    // Concurrent callers share one open instead of each creating a connection.
+    let pending = this.opening.get(projectRoot)
+    if (!pending) {
+      pending = this.open(projectRoot).finally(() => this.opening.delete(projectRoot))
+      this.opening.set(projectRoot, pending)
     }
+    return pending
+  }
 
+  /** Closes the projects nobody has used for a while. */
+  public closeIdle(now = Date.now()): number {
+    let closed = 0
+    for (const [root, instance] of this.instances) {
+      if (this.opening.has(root) || now - (this.lastUsed.get(root) ?? 0) < IDLE_CLOSE_MS) continue
+      this.instances.delete(root); this.lastUsed.delete(root)
+      try { instance.close(); closed++ } catch (e) { console.error(`[CodeGraphService] Error closing idle instance for ${root}:`, e) }
+    }
+    if (!this.instances.size && this.sweep) { clearInterval(this.sweep); this.sweep = undefined }
+    return closed
+  }
+
+  private async open(projectRoot: string): Promise<CodeGraph> {
     try {
       if (!isInitialized(projectRoot)) {
         console.log(`[CodeGraphService] Initializing CodeGraph for ${projectRoot}...`)
@@ -40,6 +70,7 @@ export class CodeGraphService {
       // Pass sync:true to spin up the FileWatcher for hot reloading
       const instance = await CodeGraph.open(projectRoot, { sync: true })
       this.instances.set(projectRoot, instance)
+      if (!this.sweep) { this.sweep = setInterval(() => this.closeIdle(), IDLE_CLOSE_MS / 2); this.sweep.unref?.() }
       return instance
     } catch (err) {
       console.error(`[CodeGraphService] Failed to initialize/open CodeGraph for ${projectRoot}:`, err)
@@ -60,6 +91,7 @@ export class CodeGraphService {
   }
 
   public async closeAll(): Promise<void> {
+    if (this.sweep) { clearInterval(this.sweep); this.sweep = undefined }
     for (const [root, instance] of this.instances.entries()) {
       try {
         await instance.close()

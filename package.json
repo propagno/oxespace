@@ -27,7 +27,7 @@
     "test:e2e": "playwright test",
     "bench:cpu": "vitest bench --run tests/bench/hotpaths.bench.ts",
     "bench:services": "vitest bench --run tests/bench/services.bench.ts",
-    "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts",
+    "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts memory-footprint.spec.ts",
     "bench:web-preview": "playwright test --config playwright.tools.config.ts browser-preview-performance.spec.ts",
     "bench:semantic": "node scripts/semantic-eval.mjs",
     "bench:semantic:gate": "node scripts/semantic-quality-gate.mjs",

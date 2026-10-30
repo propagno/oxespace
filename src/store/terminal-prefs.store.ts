@@ -48,10 +48,11 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   letterSpacing: 0,
   cursorStyle: 'bar',
   cursorBlink: false,
-  // 100k retained lines per mounted pane makes xterm selection and clipboard
-  // operations noticeably unreliable in long-lived agent sessions. 50k still
-  // retains extensive history while keeping the terminal responsive.
-  scrollback: 50_000,
+  // A retained line costs about 2.7 KB in xterm (cols x 12 bytes), so 50k lines is ~130 MB per pane once an
+  // agent CLI has filled it: four Claude/Codex panes held over 300 MB. 100k also made selection and clipboard
+  // operations unreliable in long-lived agent sessions. 10k still keeps many screens of history; the slider
+  // in Settings raises it for whoever wants more.
+  scrollback: 10_000,
   backgroundOpacity: 1,
   // RTK, Caveman and Semantic are opt-in developer features — off by default so
   // a fresh workspace does no extra token transforms or background indexing.
@@ -102,7 +103,7 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     }),
     {
       name: 'oxe-terminal-prefs',
-      version: 7,
+      version: 8,
       // v2: RTK/Caveman/Semantic became opt-in (off by default). Existing users
       // have a persisted `global` from when RTK/Semantic defaulted to ON, and
       // `merge` spreads persisted over defaults — so without this migration the
@@ -123,9 +124,9 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         // v4 (modern terminal card): prefer JetBrains Mono for users who never
         // picked a font themselves — anyone with a custom stack keeps it.
         if (global.fontFamily === LEGACY_DEFAULT_FONT || global.fontFamily === 'JetBrains Mono, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace') global.fontFamily = TERMINAL_PREFS_DEFAULTS.fontFamily
-        // v5: roll the old 100k default forward. Explicitly larger/smaller
+        // v5 + v8: roll the old 100k and 50k defaults forward to the memory-bounded one. Other
         // values remain untouched as a deliberate user preference.
-        if (global.scrollback === 100_000) global.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
+        if (global.scrollback === 100_000 || global.scrollback === 50_000) global.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
         // v7: the former window-wide Ctrl/Cmd+Plus shortcut could repeatedly
         // grow the persisted size to its 32px ceiling outside the terminal.
         // Repair that ceiling value once; retain other chosen sizes and all
@@ -136,7 +137,7 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
           const next = { ...(ov as Partial<TerminalPrefs>) }
           delete next.rtkHookEnabled
           delete next.semanticSearchEnabled
-          if (next.scrollback === 100_000) next.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
+          if (next.scrollback === 100_000 || next.scrollback === 50_000) next.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
           if (Object.keys(next).length > 0) overrides[ws] = next
         }
         return { ...p, global, overrides }
