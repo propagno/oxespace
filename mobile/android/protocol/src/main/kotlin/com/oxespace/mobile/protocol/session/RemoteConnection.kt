@@ -21,6 +21,15 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 
+/** What the app holds of a session; [RemoteConnection] in the app, a fake in tests. */
+interface SessionLink {
+    val state: StateFlow<SessionState>
+    /** The address that answered, to try first next time. */
+    val connectedHost: String?
+    fun connect()
+    fun close()
+}
+
 /** The paired desktop as the connection needs it. The pin, not the address, says who it is. */
 data class DesktopTarget(
     val deviceId: String,
@@ -43,13 +52,12 @@ class RemoteConnection(
     private val clientFor: (fingerprint: String) -> OkHttpClient = { PinnedTls.client(it) },
     private val hostAllowed: (String) -> Boolean = LanAddress::isPrivate,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
-) {
+) : SessionLink {
     private val lock = Any()
     private val mutableState = MutableStateFlow<SessionState>(SessionState.Opening)
-    val state: StateFlow<SessionState> = mutableState.asStateFlow()
+    override val state: StateFlow<SessionState> = mutableState.asStateFlow()
 
-    /** The address that answered, to try first next time. */
-    @Volatile var connectedHost: String? = null
+    @Volatile override var connectedHost: String? = null
         private set
 
     private var protocol: SessionProtocol? = null
@@ -57,9 +65,9 @@ class RemoteConnection(
     private var renewal: ScheduledFuture<*>? = null
     private var closedByUs = false
 
-    fun connect() = tryHost(0)
+    override fun connect() = tryHost(0)
 
-    fun close() {
+    override fun close() {
         synchronized(lock) {
             closedByUs = true
             renewal?.cancel(false)
@@ -128,10 +136,10 @@ class RemoteConnection(
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
             webSocket.close(NORMAL, null)
-            ended()
+            ended(code)
         }
 
-        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = ended()
+        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = ended(code)
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             // Before the session opened, this address didn't answer with the paired certificate: try the next one.
@@ -139,10 +147,15 @@ class RemoteConnection(
             ended()
         }
 
-        private fun ended() {
+        /**
+         * The gateway closes with 1009 (frame over REMOTE_LIMITS) or 1002 instead of answering: a protocol fault on
+         * this side, never a reason to resend the same frame.
+         */
+        private fun ended(code: Int = NORMAL) {
             synchronized(lock) {
                 renewal?.cancel(false)
                 val session = protocol ?: return
+                if (code == TOO_BIG || code == PROTOCOL_ERROR) session.onUnreadable()
                 session.onClosed()
                 publish(session)
             }
@@ -169,5 +182,7 @@ class RemoteConnection(
 
     private companion object {
         const val NORMAL = 1000
+        const val PROTOCOL_ERROR = 1002
+        const val TOO_BIG = 1009
     }
 }

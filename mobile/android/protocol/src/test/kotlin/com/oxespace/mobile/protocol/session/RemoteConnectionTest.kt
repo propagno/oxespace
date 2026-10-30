@@ -168,6 +168,17 @@ class RemoteConnectionTest {
     }
 
     @Test
+    fun treatsAClose1009AsAProtocolFaultNotADrop() {
+        val desktop = FakeGateway()
+        val connection = connection(gateway(desktop).port)
+        connection.connect()
+        connection.awaitState { it is SessionState.Ready }
+        // The gateway closes with 1009 when a frame is over 64 KiB instead of answering frame-too-large.
+        desktop.socket!!.close(1009, null)
+        assertEquals(SessionState.Ended(SessionEnd.PROTOCOL), connection.awaitState { it is SessionState.Ended })
+    }
+
+    @Test
     fun renewsTheTokenBeforeItExpires() {
         val desktop = FakeGateway(tokenTtlMs = 1_200)
         val tokens = TokenHolder()
