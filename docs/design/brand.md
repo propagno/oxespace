@@ -89,7 +89,7 @@ baselines under `e2e/visual/__screenshots__/<platform>/`, generated once per wav
 | ✅ | App icon: taskbar, dock, installer, Start menu | `resources/icon.svg` → `icon.ico` (16–256), `icon.png` (512), `icons/` (16–1024) | the files are the capture; `tests/brand-touchpoints.test.ts` |
 | ✅ | README banner and badges (caatinga and sun) | `docs/assets/logo.png`, rendered with the icon | the file |
 | ✅ | Window favicon | `index.html` links `resources/icon.svg` | — (Electron shows it only in tools) |
-| ✅ | Boot splash: the icon on the window's background until React renders, arms sprouting | `index.html` + `src/styles/splash.css` | `brand-touchpoints.spec.ts/splash-light`, `splash-dark` |
+| ✅ | Boot splash: the icon on the window's background until React renders, arms sprouting, in the light/dark chosen in Settings | `index.html` + `public/boot-appearance.js` + `src/styles/splash.css` | `brand-touchpoints.spec.ts/splash-light`, `splash-dark` |
 | ✅ | Title bar mark and wordmark | `OxeLogo` (`src/components/Brand`) | `anchor-surfaces.spec.ts/*` |
 | ✅ | Empty states (`hero` variant) | `OxeLogo` | `anchor-surfaces.spec.ts/empty-*` |
 | ✅ | Loading a whole view (OxeQuery, OxePod, OxePost, Thread) | `LoadingState brand` → `BrandLoader` | `design-system.spec.ts/design-system-motion` |
