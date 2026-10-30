@@ -1,4 +1,4 @@
-import { useRef, type ReactElement, type ReactNode } from 'react'
+import { useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
 import { Check, ChevronRight, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
@@ -101,6 +101,7 @@ export type MenuEntry =
   /** A nested menu: Right or Enter opens it, Left closes it. Keep to one level. */
   | { type: 'submenu'; label: string; icon?: ReactNode; items: MenuEntry[]; disabled?: boolean; testId?: string }
 
+/** The entries of a dropdown menu, shared by Menu and AnchoredMenu. */
 function menuEntries(items: MenuEntry[]): ReactNode {
   return items.map((item, index) => {
     if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
@@ -147,6 +148,30 @@ export function Menu({ trigger, items, align = 'start', label, testId, side }: M
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}
         onFocusOutside={event => event.preventDefault()}>
+        {menuEntries(items)}
+      </RadixMenu.Content>
+    </RadixMenu.Portal>
+  </RadixMenu.Root>
+}
+
+/**
+ * A menu that opens from code, not from a button: a click on a divider or a grip that is not a drag. It hangs from a
+ * hidden anchor that the caller places inside the element it belongs to (positioned), because the element itself may
+ * not carry aria-expanded (a separator); on close, focus goes back where `returnFocus` says.
+ */
+export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom', returnFocus }: {
+  open: boolean; onOpenChange: (open: boolean) => void; label: string; items: MenuEntry[]; side?: 'top' | 'right' | 'bottom' | 'left'; returnFocus?: () => HTMLElement | null
+}): ReactElement {
+  // The content is portalled to the body, but React still bubbles its events to the element that holds the anchor:
+  // a divider would start a drag on a click in the menu, an arrow key would resize, a tree row would open its file.
+  const contain = (event: SyntheticEvent): void => { event.stopPropagation() }
+  const containKeys = (event: KeyboardEvent<HTMLDivElement>): void => { if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation() }
+  return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
+    <RadixMenu.Trigger asChild><span className={styles.menuAnchor} aria-hidden="true" tabIndex={-1} /></RadixMenu.Trigger>
+    <RadixMenu.Portal>
+      <RadixMenu.Content className={cx(styles.floating, styles.menu)} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-labelledby={undefined} aria-label={label}
+        onCloseAutoFocus={event => { const target = returnFocus?.(); if (target) { event.preventDefault(); target.focus() } }}
+        onPointerDown={contain} onPointerUp={contain} onMouseDown={contain} onClick={contain} onDoubleClick={contain} onContextMenu={contain} onKeyDown={containKeys}>
         {menuEntries(items)}
       </RadixMenu.Content>
     </RadixMenu.Portal>

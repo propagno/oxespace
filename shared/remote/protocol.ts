@@ -34,7 +34,11 @@ export const REMOTE_LIMITS = {
   pairingAttemptsPerWindow: 5,
   pairingAttemptWindowMs: 2 * 60_000,
   /** Characters of the device name a phone may give when pairing. */
-  maxDeviceNameLength: 64
+  maxDeviceNameLength: 64,
+  /** Bytes a `terminal.write` may carry. */
+  terminalWriteBytes: 4 * 1024,
+  /** How long the desktop remembers a `clientId` of `thread.send` / `thread.steer`, so a resend is applied once. */
+  clientIdDedupeMs: 10 * 60_000
 } as const
 
 export const REMOTE_FRAME_TYPES = ['hello', 'auth', 'subscribe', 'unsubscribe', 'event', 'snapshot', 'command', 'ack', 'error'] as const
@@ -46,9 +50,11 @@ export type RemoteSubscription = typeof REMOTE_SUBSCRIPTIONS[number]
 
 /**
  * What the phone can do. `thread.respondRequest` answers a Thread request by id and generation (B1.1) after biometric
- * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop.
+ * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop;
+ * `thread.history` reads older items of a conversation. Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
+ * and is recorded in the desktop's audit with the device id.
  */
-export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write'] as const
+export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history'] as const
 export type RemoteCommand = typeof REMOTE_COMMANDS[number]
 
 /** Never a command, a subscription or an argument of the remote protocol. */
@@ -122,6 +128,11 @@ export interface RemoteSubscribeFrame extends FrameBase<'subscribe'> {
   target?: string
   /** Resume after this sequence; the gateway sends what came after, without gaps or repeats. */
   sinceSeq?: number
+  /**
+   * Resume after this point exactly: an opaque cursor the gateway built (`epoch:revision` of a conversation, the ring
+   * sequence of a terminal). The phone never reads it; an unknown or expired one gets a fresh snapshot.
+   */
+  cursor?: string
 }
 
 export interface RemoteUnsubscribeFrame extends FrameBase<'unsubscribe'> {
@@ -136,14 +147,21 @@ export interface RemoteEventFrame extends FrameBase<'event'> {
   /** The ThreadEvent `schemaVersion`, or this protocol's version for other topics. */
   schemaVersion: number
   data: unknown
+  /** The point this event brings the phone to, to resume from. */
+  cursor?: string
 }
 
-/** The whole state of a subscription, sent first and whenever resuming is not possible. */
+/**
+ * The whole state of a subscription, sent first and whenever resuming is not possible. A snapshot over a frame comes
+ * in pages, in order; the phone applies it only when the page marked `last` arrives.
+ */
 export interface RemoteSnapshotFrame extends FrameBase<'snapshot'> {
   subscription: string
   seq: number
   schemaVersion: number
   data: unknown
+  cursor?: string
+  page?: { index: number; last: boolean }
 }
 
 export interface RemoteCommandFrame extends FrameBase<'command'> {
@@ -332,4 +350,179 @@ export function pairingVerification(spkiSha256: Uint8Array): string {
   let text = ''
   for (let index = 0; index < 6; index += 1) { text = VERIFICATION_ALPHABET[bits % 32] + text; bits = Math.floor(bits / 32) }
   return text
+}
+
+// ---- Payloads (M4, M5) --------------------------------------------------------------------------------------------
+//
+// What `event.data`, `snapshot.data`, command `args` and `ack.result` carry, per topic and command. Everything is
+// derived from data the desktop already has. No absolute path, secret, native session id or provider token is sent,
+// and text is cut to fit a frame. Before anything leaves the desktop, the app's redactor removes secrets from
+// terminal output, tool output and detail, request commands and warnings; `redacted` says how many values it replaced.
+
+export const REMOTE_TEXT_LIMITS = {
+  /** Characters of one timeline item's text (message, reasoning, tool output) sent to the phone. */
+  itemText: 8_000,
+  /** Characters of a tool's detail line or a request's command as shown. */
+  detail: 2_000,
+  /** Characters of terminal output per event frame. */
+  terminalChunk: 32_000,
+  /** Items per page of a conversation snapshot. */
+  threadPage: 50,
+  /** Characters of a delegation's objective. */
+  objective: 500
+} as const
+
+// ---- workspaces: snapshot and every event carry the whole list (it is small) ---------------------------------------
+export interface RemotePane {
+  id: string
+  /** Display name, else the agent's or the shell's; never a path. */
+  title: string
+  kind: 'terminal' | 'agent' | 'other'
+  /** Manifest id (claude, codex…) when an agent runs in it. */
+  agent?: string
+  agentState?: 'working' | 'blocked' | 'done' | 'idle' | 'unknown'
+  /**
+   * The person turned "allow from phone" on for this pane on the desktop; `terminal.write` works only here. Off by default,
+   * off again when the app restarts, and never changed by the phone or an MCP tool.
+   */
+  phoneWrite: boolean
+}
+export interface RemoteWorkspace { id: string; name: string; active: boolean; panes: RemotePane[] }
+export interface RemoteWorkspacesData { workspaces: RemoteWorkspace[] }
+
+// ---- threads: the list -------------------------------------------------------------------------------------------
+export interface RemoteThreadSummary {
+  id: string
+  workspaceId: string
+  title: string
+  provider: 'claude' | 'codex'
+  status: 'idle' | 'running' | 'approval' | 'interrupted' | 'failed'
+  lastTurnStatus?: 'running' | 'completed' | 'failed' | 'interrupted'
+  /** Background tasks still running after the turn ended. */
+  backgroundRunning?: number
+  /** Requests waiting for a person in this conversation. */
+  pendingRequests: number
+  updatedAt: number
+}
+/** Snapshot: every conversation not archived, newest first, in pages if needed. */
+export interface RemoteThreadsSnapshot { threads: RemoteThreadSummary[] }
+/** Event: what changed. */
+export interface RemoteThreadsEvent { upsert?: RemoteThreadSummary[]; removed?: string[] }
+
+// ---- thread: one conversation (target = thread id) ----------------------------------------------------------------
+/**
+ * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
+ * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
+ * `delta` events are folded into the message they extend, so the phone gets the whole text.
+ */
+export type RemoteThreadItem =
+  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; truncated?: boolean; attachments?: number }
+  | { type: 'reasoning'; id: string; text: string; truncated?: boolean; completed: boolean }
+  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; outputTruncated?: boolean; exitCode?: number; filesChanged?: number; interrupted?: boolean; redacted?: number }
+  | { type: 'plan'; id: string; steps: { label: string; status: 'pending' | 'inProgress' | 'completed' }[] }
+  | { type: 'request'; id: string; requestId: string; kind: 'approval' | 'question' | 'permissions' | 'elicitation' | 'tool'; title: string; state: 'pending' | 'resolved' | 'cancelled' | 'expired' }
+  | { type: 'subagent'; id: string; state: 'running' | 'completed' | 'failed' | 'interrupted' | 'unknown'; agents: number }
+  | { type: 'completed'; id: string; status: 'completed' | 'interrupted' | 'failed'; errorCode?: string }
+
+export interface RemoteThreadHeader extends RemoteThreadSummary {
+  model?: string
+  queued: number
+  /** Whether the provider can take a message while a turn runs. */
+  canSteer: boolean
+}
+/** Snapshot: the newest page; `thread.history` asks for older ones. */
+export interface RemoteThreadSnapshot { thread: RemoteThreadHeader; items: { seq: number; item: RemoteThreadItem }[]; hasMore: boolean }
+/**
+ * Event: one read of what changed since the last cursor, filtered. An item with a known id replaces the previous one
+ * (messages grow). When the desktop cannot resume from the cursor, the gateway sends a fresh snapshot instead.
+ */
+export interface RemoteThreadEvent { thread: RemoteThreadHeader; items: { seq: number; item: RemoteThreadItem }[] }
+
+// ---- pendingRequests: snapshot and every event carry the whole list ------------------------------------------------
+/** A request as the desktop shows it, with what the phone needs to decide, nothing more. */
+export interface RemotePendingRequest {
+  threadId: string
+  workspaceId: string
+  threadTitle: string
+  requestId: string
+  generation: number
+  kind: 'approval' | 'question' | 'permissions' | 'elicitation' | 'tool'
+  title: string
+  detail?: string
+  /** The command line as the desktop's prompt shows it, redacted and cut to `REMOTE_TEXT_LIMITS.detail`. */
+  command?: string
+  /** Working directory relative to the project root, `.` for the root; left out when outside it. */
+  cwd?: string
+  reason?: string
+  toolName?: string
+  /** Files it would write, relative to the project root. */
+  paths?: string[]
+  /** The desktop's risk colour and notes for this request. */
+  risk?: 'green' | 'orange' | 'red'
+  warnings?: string[]
+  /** Values the redactor replaced in `command` and `warnings`. */
+  redacted?: number
+  /** Questions without `secret` only, with options as on the desktop. */
+  questions?: { id: string; header?: string; question: string; options?: { label: string; description?: string }[]; multiple?: boolean; required?: boolean }[]
+  /** Offered by the provider; "accept for the session" is never offered on the phone. */
+  decisions: ('accept' | 'decline' | 'cancel')[]
+  /**
+   * False when only the desktop can answer: guarded requests, permissions, elicitation, tool and secret questions.
+   * `thread.respondRequest` on one of these is `forbidden`.
+   */
+  answerable: boolean
+  createdAt: number
+  expiresAt?: number
+}
+export interface RemotePendingRequestsData { requests: RemotePendingRequest[] }
+
+// ---- terminal: read-only (target = pane id) -----------------------------------------------------------------------
+/** Snapshot: what the ring keeps, in pages of `terminalChunk`. Event: what came after. ANSI escapes as is. */
+export interface RemoteTerminalData {
+  data: string
+  /** The phone was away longer than the ring is deep: clear the view before this. */
+  truncated: boolean
+  redacted?: number
+}
+
+// ---- jobs and delegations: snapshot and every event carry the whole list -------------------------------------------
+/** No command line or cwd: arguments can carry secrets. The label is what the person named it. */
+export interface RemoteJob { id: string; workspaceId: string; label: string; status: 'pending' | 'running' | 'exited' | 'failed' | 'killed'; exitCode: number | null; startedAt: number; finishedAt: number | null }
+export interface RemoteJobsData { jobs: RemoteJob[] }
+/** No path, cwd, base commit, evidence, context or handoff; the objective cut to `REMOTE_TEXT_LIMITS.objective`. */
+export interface RemoteDelegation { id: string; workspaceId: string; objective: string; state: string; error?: string; branch?: string; destinationThreadId?: string; updatedAt: number }
+export interface RemoteDelegationsData { delegations: RemoteDelegation[] }
+
+// ---- commands: args, and ack.result -------------------------------------------------------------------------------
+/**
+ * `clientId` is made by the phone once per message and repeated on a resend after reconnecting; the desktop applies a
+ * given clientId once within `REMOTE_LIMITS.clientIdDedupeMs`, so nothing is sent twice. `text` ≤ `maxTextLength`.
+ */
+export interface RemoteThreadSendArgs { threadId: string; text: string; clientId: string }
+export interface RemoteThreadSteerArgs { threadId: string; text: string; clientId: string }
+export interface RemoteThreadInterruptArgs { threadId: string }
+/**
+ * After biometric confirmation on the phone. Only accept, decline or cancel, and answers to questions that are not
+ * secret. Refusals are `not-pending`, `stale-generation`, and `forbidden` for a request that is not answerable.
+ */
+export interface RemoteRespondRequestArgs {
+  threadId: string
+  requestId: string
+  generation: number
+  response: { decision?: 'accept' | 'decline' | 'cancel'; answers?: Record<string, string[]>; reason?: string }
+}
+export interface RemoteRespondRequestResult { resolution: string }
+/** Only on a pane with `phoneWrite`, else `pane-not-shared`; `data` ≤ `REMOTE_LIMITS.terminalWriteBytes`. */
+export interface RemoteTerminalWriteArgs { paneId: string; data: string }
+/** Older items of a conversation, for scrolling back. `ack.result` is a `RemoteThreadSnapshot` page. */
+export interface RemoteThreadHistoryArgs { threadId: string; beforeSeq: number }
+
+/** The args each command takes. */
+export interface RemoteCommandArgs {
+  'thread.send': RemoteThreadSendArgs
+  'thread.steer': RemoteThreadSteerArgs
+  'thread.interrupt': RemoteThreadInterruptArgs
+  'thread.respondRequest': RemoteRespondRequestArgs
+  'terminal.write': RemoteTerminalWriteArgs
+  'thread.history': RemoteThreadHistoryArgs
 }
