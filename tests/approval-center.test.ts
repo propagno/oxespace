@@ -44,6 +44,8 @@ describe('approval center: the window first (B10)', () => {
     expect(h.native).toHaveLength(0)
     expect(h.resolved()).toEqual([{ id: request.id, generation: 1, outcome: 'allow', optionId: 'allow-once', by: 'user' }])
     expect(h.center.history()[0]).toMatchObject({ id: request.id, outcome: 'allow', by: 'user', textSha256: expect.stringMatching(/^[0-9a-f]{64}$/) })
+    // A person's own decision carries no reason.
+    expect(h.center.history()[0].reason).toBeUndefined()
   })
 
   it('accepts exactly one answer: a second, a stale generation, an unknown id or option is refused with its code', async () => {
@@ -64,6 +66,7 @@ describe('approval center: the window first (B10)', () => {
     vi.advanceTimersByTime(APPROVAL_TIMEOUT_MS)
     await expect(outcome).resolves.toEqual({ intent: 'deny', optionId: 'deny', by: 'timeout' })
     expect(h.resolved()).toEqual([expect.objectContaining({ outcome: 'deny', by: 'timeout' })])
+    expect(h.center.history()[0]).toMatchObject({ by: 'timeout', reason: { code: 'approvals.denied.timeout' } })
   })
 
   it('closes the modal when the source cancels the request', async () => {
@@ -73,6 +76,7 @@ describe('approval center: the window first (B10)', () => {
     controller.abort()
     await expect(outcome).resolves.toMatchObject({ intent: 'deny', by: 'cancelled' })
     expect(h.resolved()).toEqual([expect.objectContaining({ by: 'cancelled' })])
+    expect(h.center.history()[0]).toMatchObject({ by: 'cancelled', reason: { code: 'approvals.denied.cancelled' } })
     expect(h.center.list()).toEqual([])
   })
 
@@ -169,7 +173,7 @@ describe('approval center: review cap and queue (B10)', () => {
     expect(overflow).toMatchObject({ intent: 'deny', by: 'refused', refusal: { code: 'approvals.denied.queueFull', params: { max: 3 } } })
     expect(h.center.list()).toHaveLength(3)
     expect(h.log).toHaveBeenCalledWith('refused', expect.objectContaining({ code: 'approvals.denied.queueFull' }))
-    expect(h.center.history()[0]).toMatchObject({ outcome: 'deny', by: 'refused' })
+    expect(h.center.history()[0]).toMatchObject({ outcome: 'deny', by: 'refused', reason: { code: 'approvals.denied.queueFull', params: { max: 3 } } })
   })
 })
 

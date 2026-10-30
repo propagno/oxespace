@@ -179,7 +179,7 @@ export class ApprovalCenter {
   /** Denied without being shown; logged and kept in the history. */
   private refuse(request: ApprovalRequest, message: MainMessage | undefined, problems: string[] = []): ApprovalOutcome {
     this.deps.log?.('refused', { kind: request.kind, code: message?.code ?? null, problems, pending: this.pending.size })
-    this.remember(request, 'deny', 'refused')
+    this.remember(request, 'deny', 'refused', message)
     return { intent: 'deny', optionId: request.defaultOptionId, by: 'refused', ...(message ? { refusal: message } : {}) }
   }
 
@@ -190,17 +190,17 @@ export class ApprovalCenter {
     for (const timer of entry.timers) clearTimeout(timer)
     if (by !== 'native') entry.native?.abort()
     const option = entry.request.options.find(item => item.id === optionId) ?? entry.request.options.find(item => item.id === entry.request.defaultOptionId)!
-    this.remember(entry.request, option.intent, by)
+    this.remember(entry.request, option.intent, by, by === 'timeout' ? mainMessage('approvals.denied.timeout', {}) : by === 'cancelled' ? mainMessage('approvals.denied.cancelled', {}) : undefined)
     const resolved: ApprovalResolved = { id: entry.request.id, generation: entry.request.generation, outcome: option.intent, optionId: option.id, by }
     this.deps.send(IPC_CHANNELS.approvals.onResolved, resolved)
     entry.settle({ intent: option.intent, optionId: option.id, by })
   }
 
-  private remember(request: ApprovalRequest, outcome: ApprovalIntent, by: ApprovalResolvedBy): void {
+  private remember(request: ApprovalRequest, outcome: ApprovalIntent, by: ApprovalResolvedBy, reason?: MainMessage): void {
     this.answered.add(request.id)
     if (this.answered.size > ANSWERED_MEMORY) this.answered.delete(this.answered.values().next().value as string)
     this.decisions.unshift({
-      id: request.id, kind: request.kind, requester: request.requester, risk: request.risk, title: request.title, summary: request.summary, outcome, by,
+      id: request.id, kind: request.kind, requester: request.requester, risk: request.risk, title: request.title, summary: request.summary, outcome, by, ...(reason ? { reason } : {}),
       textSha256: createHash('sha256').update(request.agentText.text).digest('hex'), createdAt: request.createdAt, resolvedAt: this.now()
     })
     this.decisions.length = Math.min(this.decisions.length, APPROVAL_HISTORY_MAX)

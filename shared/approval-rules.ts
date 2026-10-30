@@ -71,7 +71,8 @@ export type SqlKind = 'empty' | 'read' | 'write' | 'ddl' | 'destructive'
 export type ShellLevel = 'green' | 'orange' | 'red'
 
 const SQL_RISK: Record<SqlKind, ApprovalRisk> = { empty: 'low', read: 'low', write: 'medium', ddl: 'high', destructive: 'critical' }
-const SHELL_RISK: Record<ShellLevel, ApprovalRisk> = { green: 'low', orange: 'medium', red: 'high' }
+// Red is critical, like a destructive statement and like the OxeChat approval card: the 2 s hold, no allow for the run.
+const SHELL_RISK: Record<ShellLevel, ApprovalRisk> = { green: 'low', orange: 'medium', red: 'critical' }
 
 /** One step up, for a production environment. */
 export function raiseRisk(risk: ApprovalRisk): ApprovalRisk {

@@ -265,7 +265,9 @@
       },
       "denied": {
         "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
-        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores."
+        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores.",
+        "timeout": "Ninguém respondeu a tempo, então foi negado.",
+        "cancelled": "O pedido foi retirado antes de alguém responder."
       }
     },
     "notify": {

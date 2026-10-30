@@ -158,6 +158,8 @@ export interface MessageParams {
   'approvals.refused.tooSoon': Record<string, never>
   /** Denied before it was shown: APPROVAL_QUEUE_MAX requests were already waiting. */
   'approvals.denied.queueFull': { max: number }
+  'approvals.denied.timeout': Record<string, never>
+  'approvals.denied.cancelled': Record<string, never>
   /** Denied before it was shown: the text to approve is longer than a person reviews. */
   'approvals.denied.tooLong': { max: number }
   /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
@@ -293,6 +295,8 @@ export const MESSAGE_CODES = [
   'approvals.refused.alreadyReported',
   'approvals.refused.tooSoon',
   'approvals.denied.queueFull',
+  'approvals.denied.timeout',
+  'approvals.denied.cancelled',
   'approvals.denied.tooLong',
   'notify.prefix.pane',
   'notify.prefix.conversation',
