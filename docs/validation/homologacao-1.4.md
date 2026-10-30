@@ -159,6 +159,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados do Code | #179 (main) | FRONTEND | Homologado (na `main` a412f04b) |
 | B1.1 respondPending | #166 | BACKEND | Homologado (contrato; na `main` a412f04b) |
 | B8 conectividade e About (handlers) | #168 | BACKEND | Homologado (teste de unidade; e2e depois do #185) |
+| Payloads C5 (assinaturas e comandos, M4) | #187 | BACKEND | Homologado (contrato), com uma nota baixa |
 | Esqueleto do app Android + CI | #164 | MOBILE | Homologado (na `main` c82cff0a) |
 | Correção de segurança do `tool.use` | #212 | BACKEND | Pré-homologado (0da8d604): os dois desvios estão fechados |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
@@ -355,6 +356,18 @@ dizer isso na documentação de política. Sugestão: incorporar os dois casos a
 - No e2e, `about().version` ainda vale `44.9.3` porque o mock responde no lugar do handler; a correção do mock é o #185.
 - Incidente da homologação: um comando com glob vazio rodou o `test:electron` inteiro por cerca de 6 minutos dentro
   da trava. O processo foi encerrado, e o `hml-heavy.sh` agora recusa suíte sem arquivo explícito.
+
+### Payloads C5 (#187): Homologado (contrato)
+
+Sonda de caixa-preta no `readRemoteFrame` da `main`, com 17 entradas de um celular malicioso ou com defeito:
+- passa 64 KiB exatos e recusa 64 KiB + 1, contando bytes (multibyte incluso);
+- recusa quadros que só o desktop envia (event, ack), comando desconhecido, caixa diferente e tipo com espaço;
+- recusa array, `null`, BOM e `__proto__`;
+- com chave repetida vale a última, e mesmo assim recusa (`command` duplicado com valor desconhecido).
+
+Nota baixa para o BACKEND: um JSON aninhado em 20 mil níveis passa como `hello` válido. O leitor aguenta, mas um
+código recursivo depois dele (redator, validação de `args`) pode estourar a pilha. Sugestão: limite de profundidade
+no `readRemoteFrame` (por exemplo, 64 níveis), com teste.
 
 ### B8.1 main minificado (#162): Homologado
 

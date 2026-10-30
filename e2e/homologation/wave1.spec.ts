@@ -30,7 +30,7 @@ async function seed(page: Page, appearance: Mode, density: Density, motion: 'ful
   await page.reload()
   await page.waitForLoadState('load')
   // The palette's shortcut is registered on the first render, after the language catalog loads.
-  await page.waitForFunction(() => performance.getEntriesByName('oxe:interactive').length > 0)
+  await page.getByTestId('btn-new-workspace').first().waitFor()
 }
 
 const shot = (page: Page, name: string) => page.screenshot({ path: join(OUT, `${name}.png`) })

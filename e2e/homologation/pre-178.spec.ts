@@ -31,6 +31,7 @@ for (const [locale, appearance] of [['pt-BR', 'dark'], ['en-US', 'light']] as co
     const { app, page, consoleErrors } = await launchApp({ locale, appearance })
     try {
       await resizeWindow(app, 1280, 860)
+      await page.getByTestId('btn-new-workspace').first().waitFor()
       await page.keyboard.press('Control+k')
       await page.keyboard.insertText(locale === 'pt-BR' ? 'Sobre' : 'About')
       notes[`${locale}-paletteEntries`] = await page.locator('[cmdk-item]').allInnerTexts()
