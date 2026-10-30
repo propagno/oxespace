@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { ContainerSummary } from '../../shared/types/oxequery'
+import type { ContainerSummary } from '../../shared/types/oxepod'
 import { redactEnvironment } from '../../shared/environment-redaction'
 import { databaseKind, defaultSelection, firstHostPort, formatPorts, groupContainers, isDatabaseImage, memoryOf, parseSize, statFor, stateStatus } from '../../src/components/OxePod/pods-model'
 import { useOxePodStore } from '../../src/components/OxePod/oxepod.store'

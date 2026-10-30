@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HardDrive, RefreshCw, Search, ShieldCheck } from 'lucide-react'
-import type { ContainerEngine } from '../../../shared/types/oxequery'
+import type { ContainerEngine } from '../../../shared/types/oxepod'
 import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
 import { useUIStore } from '../../store/ui.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'

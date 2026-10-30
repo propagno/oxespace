@@ -23,6 +23,7 @@ import { FileSystemService } from '../services/file-system.service'
 import { worktreeOrWorkspaceRoot } from '../ipc/file-system.ipc'
 import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
+import { registerOxePodMock } from './oxepod-mock'
 import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
@@ -36,6 +37,7 @@ export function registerE2eMockIpcHandlers(): void {
   const shellProfiles: ShellProfile[] = fallbackShellProfiles()
   const workspaces: Workspace[] = []
   registerOxeQueryMock()
+  registerOxePodMock()
   registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
