@@ -554,13 +554,22 @@
     "analyzeTitle": "Run the statement and show real timings. A statement that changes data is rolled back.",
     "formatTitle": "Format the SQL (Shift+Alt+F)",
     "limit": "Limit",
+    "limitTitle": "Rows a query returns. Capped at {{formatted}} for this connection.",
+    "timeout": "{{seconds}} s",
+    "timeoutTitle": "The server stops a statement after {{seconds}} seconds on this connection.",
+    "readOnlyPolicy": "read-only by policy",
+    "readOnlyPolicyTitle": "Your organization's policy keeps this connection read-only. It cannot be turned off here.",
     "editorHeight": "Query editor height",
     "confirm": {
       "analyzeTitle": "Analyze runs this statement",
       "destructiveTitle": "This statement is destructive",
+      "typedTitle": "Change data on production?",
       "analyzeAnyway": "Analyze anyway",
       "runAnyway": "Run anyway",
+      "runOnProduction": "Run on production",
       "production": "This is a production connection.",
+      "typedHint": "This statement changes data on a production connection.",
+      "typeName": "Type {{name}} to continue",
       "check": "Check these before it runs."
     },
     "results": "Results",
@@ -595,6 +604,15 @@
     "tabLimit_one": "Close a query tab first: {{count}} is the most that can be open.",
     "tabLimit_other": "Close a query tab first: {{count}} is the most that can be open."
   },
+  "lint": {
+    "updateNoWhere": "UPDATE without WHERE changes every row of the table.",
+    "deleteNoWhere": "DELETE without WHERE removes every row of the table.",
+    "drop": "{{statement}} permanently removes the object and what it holds.",
+    "truncate": "TRUNCATE removes every row of the table.",
+    "alterDrop": "{{statement}} permanently removes a column or constraint and the data in it.",
+    "selectStarLarge": "SELECT * reads every column of {{table}}, about {{formatted}} rows. List the columns you need or add a LIMIT.",
+    "selectNoLimit": "No LIMIT: this query may return every row. On production, add a LIMIT."
+  },
   "preferences": {
     "title": "OxeQuery settings",
     "description": "What is kept, and how far agents may go.",
@@ -614,6 +632,13 @@
       "write": "Read and write, with approval"
     },
     "ceilingHint": "A connection's own agent setting can only be lower than this. Agents never write to production.",
+    "limits": "Limits by environment",
+    "limitsHint": "The most rows a query returns and the longest a statement may run on a connection of each kind. A connection's own setting can only be lower.",
+    "rows": "Rows",
+    "statementTime": "Statement time",
+    "noLimit": "No limit",
+    "seconds": "{{seconds}} seconds",
+    "minutes": "{{minutes}} minutes",
     "saved": "Saved."
   },
   "copy": {

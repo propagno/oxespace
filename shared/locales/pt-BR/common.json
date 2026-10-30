@@ -73,7 +73,23 @@
     "commandPalette": "Paleta de comandos…",
     "tools": "Ferramentas",
     "keyboardShortcuts": "Atalhos de teclado",
-    "diagnostics": "Diagnóstico"
+    "diagnostics": "Diagnóstico",
+    "reportProblem": "Relatar um problema…"
+  },
+  "report": {
+    "title": "Relatar um problema",
+    "description": "Esta é a issue que abriríamos no GitHub. Nada é enviado até você escolher o que fazer com ela.",
+    "titleLabel": "Título",
+    "bodyLabel": "Relato",
+    "bodyHint": "Versão, sistema e diagnósticos recentes entram sem segredos e sem o caminho da sua pasta pessoal. Leia, acrescente os passos e edite o que não quiser compartilhar.",
+    "loading": "Preparando o relato…",
+    "failed": "Não foi possível preparar o relato.",
+    "retry": "Tentar de novo",
+    "copy": "Copiar texto",
+    "copyWhat": "Relato",
+    "open": "Abrir no GitHub",
+    "opened": "GitHub aberto no navegador",
+    "truncated": "O texto é grande demais para um link, então o GitHub recebe só o começo. Use Copiar texto para compartilhar tudo."
   },
   "keys": {
     "or": "ou",

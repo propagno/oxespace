@@ -19,7 +19,8 @@ import { WorkspaceInputError, WorkspaceStore } from './workspace-store'
 import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from '../agent-actions/approval-broker'
 import { AuditLog } from './audit-log'
-import { integrationBlocked } from '../policy'
+import { integrationBlocked, policyStore } from '../policy'
+import { capRows, checkWrite, guardConnection, type Guarded } from './oxequery-guard'
 import type { ExportFormat } from '../../../../shared/types/oxequery'
 import { stringifyMongoQuery, type MongoQueryText } from '../../../../shared/mongoQueryText'
 
@@ -161,7 +162,8 @@ export class OxeQueryService {
     this.agent = new AgentGateway({
       list: () => this.connections.list(),
       ceiling: environment => this.preferences.get().agentCeiling[environment],
-      resolve: id => this.connections.resolve(id),
+      // Agents see the connection as policy and the environment's limits leave it: never more than the person has.
+      resolve: id => this.guarded(id).connection,
       call: (op, connection, input) => this.worker.call(op, connection, input),
       containers: {
         list: () => this.containers.list(),
@@ -189,6 +191,11 @@ export class OxeQueryService {
 
   private resolve(value: unknown): ResolvedConnection {
     return this.connections.resolve(str(value, 'Connection', 64))
+  }
+
+  /** The connection as the environment's limits and the organization's policy leave it (see oxequery-guard.ts). */
+  private guarded(id: string): Guarded {
+    return guardConnection(this.connections.resolve(id), this.connections.get(id).name, this.preferences.get().environmentLimits, policyStore())
   }
 
   private async dispatch(op: string, rawInput: unknown): Promise<unknown> {
@@ -350,12 +357,13 @@ export class OxeQueryService {
       case 'sql.schemas': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.schemas', connection))
       case 'sql.tables': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.tables', connection, { schema: str(input.schema, 'Schema', 255) }))
       case 'sql.table': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.table', connection, { schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255) }))
-      case 'sql.run': return this.requireEngine(input.connectionId, 'postgres', async connection => {
+      case 'sql.run': return this.requireEngine(input.connectionId, 'postgres', async (connection, guarded) => {
         const sql = str(input.sql, 'SQL', 1024 * 1024)
+        checkWrite(guarded, sql, input.confirmName)
         const started = Date.now()
         try {
           const result = await this.worker.call<{ columns: unknown[]; rowCount: number; affectedRows?: number }>('sql.run', connection, {
-            sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true, params: sqlParams(input.params), paged: input.paged === true
+            sql, maxRows: capRows(optionalInt(input.maxRows, 1, 100_000), guarded.safety), confirmed: input.confirmed === true, params: sqlParams(input.params), paged: input.paged === true
           })
           this.remember(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
           return result
@@ -365,10 +373,11 @@ export class OxeQueryService {
           throw error
         }
       })
-      case 'sql.script': return this.requireEngine(input.connectionId, 'postgres', async connection => {
+      case 'sql.script': return this.requireEngine(input.connectionId, 'postgres', async (connection, guarded) => {
         const sql = str(input.sql, 'SQL', 1024 * 1024)
+        checkWrite(guarded, sql, input.confirmName)
         const started = Date.now()
-        const outcome = await this.worker.call<SqlScriptResult>('sql.script', connection, { sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true })
+        const outcome = await this.worker.call<SqlScriptResult>('sql.script', connection, { sql, maxRows: capRows(optionalInt(input.maxRows, 1, 100_000), guarded.safety), confirmed: input.confirmed === true })
         // Every statement that ran is history on its own, so a statement can be found and run again.
         for (const entry of outcome.statements) {
           const text = sql.slice(entry.start, entry.end)
@@ -405,8 +414,9 @@ export class OxeQueryService {
         return this.requireEngine(browse.connectionId, 'postgres', connection => this.worker.call('sql.browse', connection, browse))
       }
       case 'sql.cancel': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.cancel', connection))
-      case 'sql.more': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.more', connection, { pageId: str(input.pageId, 'Page', 64), maxRows: optionalInt(input.maxRows, 1, 100_000) }))
+      case 'sql.more': return this.requireEngine(input.connectionId, 'postgres', (connection, guarded) => this.worker.call('sql.more', connection, { pageId: str(input.pageId, 'Page', 64), maxRows: capRows(optionalInt(input.maxRows, 1, 100_000), guarded.safety) }))
       case 'sql.check': return guardSql(str(input.sql, 'SQL', 1024 * 1024))
+      case 'safety.get': return this.guarded(str(input.connectionId, 'Connection', 64)).safety
       case 'sql.editability': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.editability', connection, { schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255) }))
       case 'sql.previewChanges': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.previewChanges', connection, this.changeInput(input)))
       case 'sql.apply': return this.requireEngine(input.connectionId, 'postgres', connection => {
@@ -457,8 +467,10 @@ export class OxeQueryService {
       case 'sql.explain': {
         const sql = str(input.sql, 'SQL', 1024 * 1024)
         const analyze = input.analyze === true
-        return this.requireEngine(input.connectionId, 'postgres', connection => {
+        return this.requireEngine(input.connectionId, 'postgres', (connection, guarded) => {
           const verdict = guardSql(sql)
+          // ANALYZE runs the statement, so a statement that changes data is held to the same rules as running it.
+          if (analyze) checkWrite(guarded, sql, input.confirmName)
           if (analyze && verdict.kind !== 'read' && verdict.kind !== 'empty' && input.confirmed !== true) {
             throw new OxeQueryError('confirm', 'Confirmation is required.', ['ANALYZE runs the statement. Its changes are rolled back, but triggers and sequences still run.', ...verdict.reasons])
           }
@@ -694,11 +706,11 @@ export class OxeQueryService {
     throw new OxeQueryError('invalid', 'That destination does not fit this connection.')
   }
 
-  private async requireEngine<T>(id: unknown, expected: ResolvedConnection['engine'], run: (connection: ResolvedConnection) => Promise<T>): Promise<T> {
-    const connection = this.resolve(id)
-    if (connection.engine !== expected) throw new OxeQueryError('invalid', `This operation needs a ${expected === 'postgres' ? 'PostgreSQL' : 'MongoDB'} connection.`)
-    this.connections.touch(connection.id)
-    return run(connection)
+  private async requireEngine<T>(id: unknown, expected: ResolvedConnection['engine'], run: (connection: ResolvedConnection, guarded: Guarded) => Promise<T>): Promise<T> {
+    const guarded = this.guarded(str(id, 'Connection', 64))
+    if (guarded.connection.engine !== expected) throw new OxeQueryError('invalid', `This operation needs a ${expected === 'postgres' ? 'PostgreSQL' : 'MongoDB'} connection.`)
+    this.connections.touch(guarded.connection.id)
+    return run(guarded.connection, guarded)
   }
 
   private async fromContainer(id: string, requested: ContainerEngine | undefined, name: string | undefined): Promise<OxeQueryConnection> {

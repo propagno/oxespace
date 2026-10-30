@@ -5,14 +5,15 @@
  * "resource": "mcp:github" }`. Resources are names with `*` wildcards, compared without case:
  * - `provider.use`: `claude`, `codex`;
  * - `tool.use`: a tool name as the agent reports it (`Bash`, `mcp__github__create_issue`);
- * - `integration.use`: `mcp:<server>`, `skill:<id>`, `db:<connection>`, `memory`.
+ * - `integration.use`: `mcp:<server>`, `skill:<id>`, `db:<connection>`, `memory`;
+ * - `db.write`: `<environment>:<connection>` (`prod:*`, `*:reports-db`). A `deny` makes the connection read-only in OxeQuery.
  *
  * Rules are read from three layers, in this order: the project (`.oxespace/policy.json`), the user
  * (`<userData>/policy.json`) and the managed file an administrator installs. The last rule that matches decides,
  * so the managed file always has the final word. With no matching rule the action is allowed: policy blocks,
  * it never grants anything the app would not already do. `allow` only lifts an earlier `deny`.
  */
-export type PolicyAction = 'provider.use' | 'tool.use' | 'integration.use'
+export type PolicyAction = 'provider.use' | 'tool.use' | 'integration.use' | 'db.write'
 export type PolicyEffect = 'allow' | 'deny'
 export type PolicyLayer = 'project' | 'user' | 'managed'
 
@@ -33,7 +34,7 @@ export interface PolicyDecision {
   path?: string
 }
 
-const ACTIONS: readonly PolicyAction[] = ['provider.use', 'tool.use', 'integration.use']
+const ACTIONS: readonly PolicyAction[] = ['provider.use', 'tool.use', 'integration.use', 'db.write']
 const MAX_RULES = 500
 const MAX_RESOURCE = 200
 

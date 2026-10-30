@@ -3,6 +3,7 @@ import './WorkspaceMemorySettings.css'
 import type { MemoryHandoff, MemoryStorageUsage, MemorySettings, MemoryRuntimeSettings, MemoryWorkspaceStatus } from '../../../shared/types/memory'
 import { Button, Checkbox, Select, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { WorkspaceMemoryNotes } from './WorkspaceMemoryNotes'
 
 const STAGE_LABEL: Record<string, string> = {
   unknown: 'Unknown (not observable)', disabled: 'Off', active: 'Accepting events', suspended: 'Suspended', failed: 'Failing',
@@ -155,6 +156,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
         <pre>{handoffText(resumed)}</pre>
         <button type="button" onClick={() => void navigator.clipboard?.writeText(`Historical handoff (${resumed.cwd ?? 'unknown checkout'}; read-only):\n${handoffText(resumed)}`).then(() => setMessage('Handoff copied. Paste it into the composer to continue.')).catch(() => setMessage('Could not copy the handoff.'))}>Copy for composer</button></div>}
     </section>}
+    {status?.settings.enabled && <WorkspaceMemoryNotes workspaceId={workspaceId} />}
     {status?.health.pipeline && <dl className="memory-pipeline" aria-label="Memory pipeline">
       <div><dt>Capture</dt><dd>{STAGE_LABEL[status.health.pipeline.capture]}</dd></div>
       <div><dt>Delivery to memory service</dt><dd>{STAGE_LABEL[status.health.pipeline.delivery]}</dd></div>

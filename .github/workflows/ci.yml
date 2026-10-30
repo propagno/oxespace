@@ -268,6 +268,18 @@ jobs:
           npm run fix:native
           npm run verify:native
 
+      # A database written by the last stable release (its own migration code, read from its git tag) is filled
+      # with data, upgraded by this build under the Electron runtime, and taken back: the old release must refuse
+      # the upgraded file untouched and open the verified backup. OXESPACE_UPGRADE_FROM picks another release.
+      - name: Upgrade rehearsal (previous stable database, forward and back)
+        shell: pwsh
+        env:
+          OXESPACE_REQUIRE_UPGRADE_TAG: "1"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run test:electron -- tests/integration/upgrade-rehearsal.native.test.ts
+
       # OxeQuery carries its own floor: unit, component and integration tests together cover at least 60%.
       - name: OxeQuery coverage gate
         shell: bash

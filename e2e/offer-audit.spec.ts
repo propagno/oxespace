@@ -57,6 +57,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
   'help.shortcuts': dialog('Keyboard shortcuts'),
+  'help.report-problem': both(dialog('Report a problem'), testId('report-problem')),
   'activity.open': testId('activity-center'),
   'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
   'new-workspace': dialog('Create new workspace'),
@@ -322,7 +323,8 @@ test.describe('offer audit', () => {
         'Tools/Usage & limits': dialog('Usage & rate limits'),
         'Tools/Linear issues': dialog('Linear issues'),
         'Help/Keyboard shortcuts': dialog('Keyboard shortcuts'),
-        'Help/Diagnostics': settingsPage('Diagnostics')
+        'Help/Diagnostics': settingsPage('Diagnostics'),
+        'Help/Report a problem…': dialog('Report a problem')
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
         Appearance: label => label === 'Follow system' ? async () => undefined : rootData('mode', label.toLowerCase()),

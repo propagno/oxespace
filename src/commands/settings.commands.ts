@@ -1,4 +1,5 @@
-import { Activity, ArrowUpCircle, Bell, Bot, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowUpCircle, Bell, Bot, Bug, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { OPEN_REPORT_PROBLEM_EVENT } from '../components/Diagnostics/ReportProblemHost'
 import { OPEN_SHORTCUT_GUIDE_EVENT } from '../components/Keyboard/ShortcutGuideHost'
 import { useUIStore, type SettingsPageId } from '../store/ui.store'
 import { registerCommands } from '../utils/commandRegistry'
@@ -24,5 +25,8 @@ registerCommands('settings', [
   })),
   { id: 'help.shortcuts', label: 'Show keyboard shortcuts', icon: Keyboard, category: 'Help', keywords: ['keys', 'hotkeys', 'cheatsheet'], shortcut: 'help.shortcuts',
     // After the palette closes, so the guide gets focus.
-    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_SHORTCUT_GUIDE_EVENT))) } }
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_SHORTCUT_GUIDE_EVENT))) } },
+  // Builds a GitHub issue to read and edit; nothing is sent unless the person opens or copies it.
+  { id: 'help.report-problem', label: 'Report a problem', icon: Bug, category: 'Help', keywords: ['bug', 'issue', 'feedback', 'github', 'diagnostics', 'support'],
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) } }
 ])
