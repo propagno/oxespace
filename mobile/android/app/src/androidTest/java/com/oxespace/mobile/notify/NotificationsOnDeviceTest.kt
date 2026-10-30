@@ -43,10 +43,20 @@ class NotificationsOnDeviceTest {
     fun postsANeedsYouAlertAndTakesItDownWhenAnswered() {
         assertTrue(notifications.allowed())
         notifications.apply(AlertChange.Post(key, AlertKind.NEEDS_YOU, "Run npm test", "Fix login", AlertTarget.Request("t-1", "r-1")))
-        val posted = system.activeNotifications.single { it.tag == key }
+        // The system posts asynchronously: wait for it to show.
+        val posted = waitFor { system.activeNotifications.firstOrNull { it.tag == key } }
         assertEquals(Notifications.NEEDS_YOU, posted.notification.channelId)
         assertTrue(posted.notification.contentIntent != null)
         notifications.apply(AlertChange.Cancel(key))
-        assertTrue(system.activeNotifications.none { it.tag == key })
+        waitFor { if (system.activeNotifications.none { it.tag == key }) true else null }
+    }
+
+    private fun <T : Any> waitFor(read: () -> T?): T {
+        val until = System.currentTimeMillis() + 3_000
+        while (System.currentTimeMillis() < until) {
+            read()?.let { return it }
+            Thread.sleep(50)
+        }
+        return checkNotNull(read()) { "not seen within 3 s" }
     }
 }
