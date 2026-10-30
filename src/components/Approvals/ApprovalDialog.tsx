@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { History, OctagonAlert, ShieldAlert, ShieldCheck, ShieldQuestion, type LucideIcon } from 'lucide-react'
 import { mainMessage } from '../../../shared/messages'
@@ -7,6 +7,7 @@ import { Badge, Button, Dialog, Notice, type Intent } from '../../ui'
 import { useApprovalsStore, type ApprovalNotice } from './approvals.store'
 import { CRITICAL_ALLOW_DELAY_MS, denyOption, holdsAllow, visibleOptions } from './approvalsRules'
 import { approvalT as t, factsSentence, formatCount, formatMainMessage, formatTime, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
+import { useAllowHold } from './useAllowHold'
 import styles from './Approvals.module.css'
 
 /**
@@ -29,24 +30,6 @@ function noticeText(notice: ApprovalNotice): { intent: 'info' | 'warning' | 'dan
   return { intent: 'info', title: t(`approvals.settled.${notice.by}`), body: '' }
 }
 
-/** Milliseconds left before allow options unlock at critical risk; 0 once they are available. Restarts per generation. */
-function useHold(critical: boolean, instance: string, delayMs: number): number {
-  const [hold, setHold] = useState({ instance, left: critical ? delayMs : 0 })
-  useEffect(() => {
-    if (!critical || delayMs <= 0) { setHold({ instance, left: 0 }); return }
-    const started = performance.now()
-    setHold({ instance, left: delayMs })
-    const timer = setInterval(() => {
-      const left = Math.max(0, delayMs - (performance.now() - started))
-      setHold({ instance, left })
-      if (!left) clearInterval(timer)
-    }, 100)
-    return () => clearInterval(timer)
-  }, [critical, instance, delayMs])
-  // A new request renders before its effect runs: it starts held, never with the previous request's countdown.
-  return hold.instance === instance ? hold.left : critical ? delayMs : 0
-}
-
 export interface ApprovalDialogProps {
   request: ApprovalRequest
   position: number
@@ -67,7 +50,7 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS, 
   const instance = `${request.id}:${request.generation}`
   useEffect(() => { shownAt.current = performance.now() }, [instance])
   const critical = holdsAllow(request)
-  const holdLeft = useHold(critical, instance, holdMs)
+  const holdLeft = useAllowHold(critical, instance, holdMs)
 
   const fallback = denyOption(request)
   const options = visibleOptions(request)
