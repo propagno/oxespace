@@ -31,7 +31,7 @@ test('motion: full plays the brand keyframes and entrances; reduced keeps only a
     await page.keyboard.press('Control+k')
     await expect(page.locator('[cmdk-root]')).toBeVisible()
     await page.keyboard.insertText('Design System')
-    await page.locator('[cmdk-item]', { hasText: 'Design System: Open Viewer' }).click()
+    await page.locator('[cmdk-item]', { hasText: 'View: Open the design system viewer' }).click()
     const viewer = page.getByRole('dialog', { name: 'Design system' })
     await viewer.getByRole('navigation', { name: 'Design system sections' }).getByRole('button', { name: 'Motion', exact: true }).click()
     await expect(viewer.getByRole('heading', { level: 2, name: 'Loops' })).toBeVisible()

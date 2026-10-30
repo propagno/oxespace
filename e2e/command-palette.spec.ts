@@ -36,7 +36,7 @@ test('the palette ranks commands, shows shortcuts and remembers recent commands'
     await page.waitForTimeout(500)
     await page.screenshot({ path: 'test-results/command-palette-keyboard.png' })
     await input.fill('keyboard')
-    await page.getByRole('option', { name: /Settings: Keyboard/ }).click()
+    await page.getByRole('option', { name: /Settings: Open keyboard settings/ }).click()
     await expect(page.getByTestId('keyboard-settings')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('keyboard-settings')).toBeHidden()
@@ -46,7 +46,7 @@ test('the palette ranks commands, shows shortcuts and remembers recent commands'
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     await open()
     const recent = page.locator('[cmdk-group]', { has: page.locator('[cmdk-group-heading]', { hasText: 'Recent' }) })
-    await expect(recent.getByRole('option').first()).toContainText('Settings: Keyboard')
+    await expect(recent.getByRole('option').first()).toContainText('Settings: Open keyboard settings')
   } finally {
     await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
   }

@@ -308,36 +308,37 @@ test.describe('offer audit', () => {
       }
       /** What each item visibly does, by menu and label. Edit items run the browser's own editing commands. */
       const MENU_EFFECTS: Record<string, Check | 'native'> = {
-        'File/New workspace…': dialog('Create new workspace'),
+        'File/Create a workspace…': dialog('Create new workspace'),
         'File/Settings': dialog('Settings'),
-        'File/Workspace settings': dialog('Settings'),
+        'File/Open workspace settings': dialog('Settings'),
         'File/Exit': 'native',
         'Edit/Undo': 'native', 'Edit/Redo': 'native', 'Edit/Cut': 'native', 'Edit/Copy': 'native', 'Edit/Paste': 'native', 'Edit/Select all': 'native',
         'View/Command palette…': async p => { await expect(paletteInput(p)).toBeVisible() },
         'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'), 'View/OxePost': view('post'),
         'View/Toggle sidebar': async p => { await expect(p.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
-        'View/Files': testId('workspace-editor-panel'),
-        'View/Commit & pull request': testId('workspace-github-panel'),
-        'View/Background activity': testId('workspace-background-panel'),
+        'View/Toggle files panel': testId('workspace-editor-panel'),
+        'View/Toggle commit & pull request panel': testId('workspace-github-panel'),
+        'View/Toggle background activity panel': testId('workspace-background-panel'),
         'View/Toggle split layout': testId('workspace-grid'),
         'View/Balance panes': async p => { expect(await paneCount(p)).toBeGreaterThan(0) },
         'View/Split pane right': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Split pane down': async p => { expect(await paneCount(p)).toBe(3) },
-        'View/Maximize / restore pane': async p => { expect(await paneCount(p)).toBe(1) },
-        'Tools/MCP servers': dialog('MCP servers'),
-        'Tools/Skills': dialog('Skills'),
-        'Tools/Usage & limits': dialog('Usage & rate limits'),
-        'Tools/Linear issues': dialog('Linear issues'),
-        'Help/Keyboard shortcuts': dialog('Keyboard shortcuts'),
-        'Help/Diagnostics': settingsPage('Diagnostics'),
+        'View/Maximize or restore pane': async p => { expect(await paneCount(p)).toBe(1) },
+        'Tools/Manage MCP servers': dialog('MCP servers'),
+        'Tools/Browse skills': dialog('Skills'),
+        'Tools/Show usage and limits': dialog('Usage & rate limits'),
+        'Tools/Open Linear issues': dialog('Linear issues'),
+        'Help/Show keyboard shortcuts': dialog('Keyboard shortcuts'),
+        'Help/Open diagnostics': settingsPage('Diagnostics'),
         'Help/Report a problem…': dialog('Report a problem'),
-        'Help/Check for updates…': settingsPage('Updates')
+        'Help/Check for updates': settingsPage('Updates')
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
-        Appearance: label => label === 'Follow system' ? async () => undefined : rootData('mode', label.toLowerCase()),
+        // Menu items say the palette's action: "Use the light theme", "Use compact density", "Use 2 panes".
+        Appearance: label => label === 'Follow the system theme' ? async () => undefined : rootData('mode', label.includes('light') ? 'light' : 'dark'),
         // App default resolves to the app-wide density, compact unless Settings › Appearance says otherwise.
-        Density: label => rootData('density', label === 'App default' ? 'compact' : label.toLowerCase()),
-        Layout: label => async p => { await expect.poll(() => paneCount(p)).toBe(Number.parseInt(label, 10)) }
+        Density: label => rootData('density', label.includes('default') ? 'compact' : label.includes('compact') ? 'compact' : 'comfortable'),
+        Layout: label => async p => { await expect.poll(() => paneCount(p)).toBe(Number.parseInt(label.replace(/\D+/g, ''), 10)) }
       }
       const failures: string[] = []
       for (const menu of ['File', 'Edit', 'View', 'Tools', 'Help']) {

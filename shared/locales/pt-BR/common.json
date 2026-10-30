@@ -40,10 +40,7 @@
   },
   "menu": {
     "file": "Arquivo",
-    "newWorkspace": "Novo workspace…",
-    "addProject": "Adicionar projeto…",
     "settings": "Configurações",
-    "workspaceSettings": "Configurações do workspace",
     "exit": "Sair",
     "edit": "Editar",
     "undo": "Desfazer",
@@ -53,30 +50,12 @@
     "paste": "Colar",
     "selectAll": "Selecionar tudo",
     "view": "Exibir",
-    "toggleSidebar": "Mostrar ou ocultar a barra lateral",
-    "files": "Arquivos",
-    "sourceControl": "Commit e pull request",
-    "backgroundActivity": "Atividade em segundo plano",
-    "splitLayout": "Alternar layout dividido",
-    "balancePanes": "Equilibrar painéis",
     "appearance": "Aparência",
     "density": "Densidade",
     "layout": "Layout",
-    "splitRight": "Dividir painel à direita",
-    "splitDown": "Dividir painel abaixo",
-    "maximizePane": "Maximizar ou restaurar painel",
     "help": "Ajuda",
-    "mcpServers": "Servidores MCP",
-    "skills": "Skills",
-    "usage": "Uso e limites",
-    "linear": "Issues do Linear",
-    "about": "Sobre o OXESpace (v{{version}})",
     "commandPalette": "Paleta de comandos…",
-    "tools": "Ferramentas",
-    "keyboardShortcuts": "Atalhos de teclado",
-    "diagnostics": "Diagnóstico",
-    "reportProblem": "Relatar um problema…",
-    "checkUpdates": "Procurar atualizações…"
+    "tools": "Ferramentas"
   },
   "report": {
     "title": "Relatar um problema",
@@ -172,66 +151,27 @@
   },
   "oxequeryCommands": {
     "open": {
-      "label": "Abrir o OxeQuery",
       "detail": "Bancos de dados"
     },
-    "newConnection": {
-      "label": "Nova conexão de banco de dados"
-    },
-    "newQuery": {
-      "label": "Nova aba de consulta"
-    },
-    "runAll": {
-      "label": "Executar todas as instruções"
-    },
-    "searchObjects": {
-      "label": "Buscar objetos do banco"
-    },
-    "newTable": {
-      "label": "Nova tabela"
-    },
-    "settings": {
-      "label": "Configurações do OxeQuery"
-    },
-    "importConnections": {
-      "label": "Importar conexões"
-    },
     "exportConnections": {
-      "label": "Exportar conexões",
       "detail": "Sem senhas"
     },
     "newDatabase": {
-      "label": "Novo banco local",
       "detail": "PostgreSQL ou MongoDB num contêiner"
-    },
-    "activity": {
-      "label": "Atividade dos agentes nos bancos"
     }
   },
   "postCommands": {
-    "open": { "label": "Abrir o OxePost", "detail": "Requisições de API, ambientes e cURL" },
-    "newRequest": { "label": "Nova requisição de API", "detail": "Salva em .oxespace/requests" },
-    "filter": { "label": "Encontrar uma requisição de API" },
-    "import": { "label": "Importar cURL ou OpenAPI", "detail": "Vira arquivos de requisição" },
-    "environments": { "label": "Ambientes de API", "detail": "Variáveis e segredos" },
+    "open": { "detail": "Requisições de API, ambientes e cURL" },
+    "newRequest": { "detail": "Salva em .oxespace/requests" },
+    "import": { "detail": "Vira arquivos de requisição" },
+    "environments": { "detail": "Variáveis e segredos" },
     "defaultName": "Nova requisição"
   },
   "podsCommands": {
     "open": {
-      "label": "Abrir OxePod",
       "detail": "Contêineres, Docker e Podman"
     },
-    "filter": {
-      "label": "Encontrar um contêiner"
-    },
-    "resources": {
-      "label": "Imagens, volumes e redes"
-    },
-    "activity": {
-      "label": "Atividade dos agentes nos contêineres"
-    },
     "pruneContainers": {
-      "label": "Limpar contêineres parados",
       "detail": "Pergunta antes"
     }
   },
@@ -548,24 +488,195 @@
   "commands": {
     "category": {
       "general": "Geral",
-      "workspace": "Workspace",
-      "project": "Projeto",
-      "development": "Desenvolvimento",
-      "agents": "IA e agentes",
-      "system": "Sistema",
+      "goTo": "Ir para",
       "view": "Exibir",
-      "appearance": "Aparência",
       "layout": "Layout",
+      "appearance": "Aparência",
+      "workspace": "Workspace",
       "terminal": "Terminal",
+      "git": "Git",
+      "agents": "Agentes",
+      "activity": "Atividade",
       "settings": "Configurações",
       "help": "Ajuda"
     },
-    "settingsPage": "Configurações: {{page}}",
-    "reportProblem": "Relatar um problema",
-    "about": "Sobre o OXESpace",
+    "action": {
+      "activity": {
+        "open": "Abrir a central de atividade",
+        "markAllRead": "Marcar tudo como lido"
+      },
+      "help": {
+        "shortcuts": "Mostrar os atalhos de teclado",
+        "report-problem": "Relatar um problema…",
+        "about": "Sobre o OXESpace"
+      },
+      "settings": {
+        "general": "Abrir as configurações gerais",
+        "providers": "Abrir as configurações de agentes",
+        "appearance": "Abrir as configurações de aparência",
+        "terminal": "Abrir as configurações do terminal",
+        "keyboard": "Abrir as configurações de teclado",
+        "voice": "Abrir as configurações de voz",
+        "notifications": "Abrir as configurações de notificações",
+        "updates": "Procurar atualizações",
+        "policy": "Abrir as configurações de política",
+        "diagnostics": "Abrir o diagnóstico"
+      },
+      "oxequery": {
+        "open": "Abrir",
+        "newConnection": "Adicionar uma conexão de banco de dados",
+        "newDatabase": "Criar um banco local",
+        "newQuery": "Abrir uma nova aba de consulta",
+        "runAll": "Executar todas as instruções",
+        "searchObjects": "Buscar objetos do banco",
+        "newTable": "Criar uma tabela",
+        "settings": "Abrir as configurações",
+        "importConnections": "Importar conexões",
+        "exportConnections": "Exportar conexões",
+        "activity": "Mostrar a atividade dos agentes nos bancos"
+      },
+      "oxepod": {
+        "open": "Abrir",
+        "filter": "Encontrar um contêiner",
+        "resources": "Mostrar imagens, volumes e redes",
+        "activity": "Mostrar a atividade dos agentes nos contêineres",
+        "pruneContainers": "Limpar contêineres parados"
+      },
+      "oxepost": {
+        "open": "Abrir",
+        "newRequest": "Criar uma requisição de API",
+        "filter": "Encontrar uma requisição de API",
+        "import": "Importar cURL ou OpenAPI",
+        "environments": "Gerenciar os ambientes de API"
+      },
+      "thread": {
+        "new": "Iniciar uma nova conversa",
+        "add-project": "Adicionar um projeto…",
+        "project": "Mudar para o projeto {{project}}",
+        "resume": "Retomar uma sessão",
+        "rename": "Renomear a conversa",
+        "spending": "Mostrar os gastos da conversa",
+        "events": "Mostrar os eventos da conversa",
+        "rules": "Mostrar as regras de aprovação",
+        "undo-last-turn": "Desfazer as alterações de arquivo do último turno",
+        "accounts": "Gerenciar as contas dos provedores"
+      },
+      "new-workspace": "Criar um workspace…",
+      "workspace-settings": "Abrir as configurações do workspace",
+      "toggle-sidebar": "Mostrar ou ocultar a barra lateral",
+      "tool-team": "Abrir a equipe",
+      "tool-integration": "Abrir a coordenação entre repositórios",
+      "tool-github": "Mostrar ou ocultar o painel de commit e pull request",
+      "tool-worktrees": "Mostrar ou ocultar o painel de worktrees",
+      "tool-scripts": "Mostrar ou ocultar o painel de scripts",
+      "tool-search": "Buscar nos arquivos",
+      "tool-web-preview": "Mostrar ou ocultar o painel do navegador",
+      "tool-background": "Mostrar ou ocultar o painel de atividade em segundo plano",
+      "tool-slash": "Mostrar os comandos do agente",
+      "tool-mcp": "Gerenciar os servidores MCP",
+      "tool-skills": "Explorar as skills",
+      "tool-semantic": "Mostrar o registro do índice semântico",
+      "tool-editor": "Mostrar ou ocultar o painel de arquivos",
+      "tool-review": "Mostrar ou ocultar o painel de alterações",
+      "open-linear": "Abrir as issues do Linear",
+      "balance-pane-layout": "Equilibrar os painéis",
+      "toggle-split-layout": "Alternar o layout dividido",
+      "open-usage": "Mostrar uso e limites",
+      "design-system": "Abrir o visualizador do Design System",
+      "appearance-system": "Seguir o tema do sistema",
+      "appearance-light": "Usar o tema claro",
+      "appearance-dark": "Usar o tema escuro",
+      "density-default": "Usar a densidade padrão do app",
+      "density-compact": "Usar a densidade compacta",
+      "density-comfortable": "Usar a densidade confortável",
+      "layout_one": "Usar {{count}} painel",
+      "layout_many": "Usar {{count}} painéis",
+      "layout_other": "Usar {{count}} painéis",
+      "split-vertical": "Dividir o painel à direita",
+      "split-horizontal": "Dividir o painel abaixo",
+      "maximize-pane": "Maximizar ou restaurar o painel",
+      "toggle-oxevoice": "Ligar ou desligar a entrada por voz",
+      "restart-terminal": "Reiniciar",
+      "stop-terminal": "Parar"
+    },
+    "formerly": {
+      "help": {
+        "shortcuts": "Atalhos de teclado",
+        "report-problem": "Relatar um problema"
+      },
+      "settings": {
+        "general": "Configurações: Geral",
+        "providers": "Configurações: Agentes",
+        "appearance": "Configurações: Aparência",
+        "terminal": "Configurações: Terminal",
+        "keyboard": "Configurações: Teclado",
+        "voice": "Configurações: Voz",
+        "notifications": "Configurações: Notificações",
+        "updates": "Configurações: Atualizações | Procurar atualizações…",
+        "policy": "Configurações: Política",
+        "diagnostics": "Configurações: Diagnóstico | Diagnóstico"
+      },
+      "oxequery": {
+        "open": "Abrir o OxeQuery",
+        "newConnection": "Nova conexão de banco de dados",
+        "newDatabase": "Novo banco local",
+        "newQuery": "Nova aba de consulta",
+        "newTable": "Nova tabela",
+        "settings": "Configurações do OxeQuery",
+        "activity": "Atividade dos agentes nos bancos"
+      },
+      "oxepod": {
+        "open": "Abrir OxePod",
+        "resources": "Imagens, volumes e redes",
+        "activity": "Atividade dos agentes nos contêineres"
+      },
+      "oxepost": {
+        "open": "Abrir o OxePost",
+        "newRequest": "Nova requisição de API",
+        "environments": "Ambientes de API"
+      },
+      "thread": {
+        "new": "Nova conversa",
+        "add-project": "Adicionar projeto do OxeChat… | Adicionar projeto…",
+        "rename": "Renomear conversa",
+        "spending": "Gastos da conversa",
+        "events": "Eventos da conversa",
+        "rules": "Regras de aprovação",
+        "accounts": "Contas dos provedores"
+      },
+      "new-workspace": "Novo workspace…",
+      "workspace-settings": "Configurações do workspace",
+      "tool-team": "Equipe",
+      "tool-integration": "Coordenação entre repositórios",
+      "tool-github": "Commit e pull request",
+      "tool-worktrees": "Worktrees",
+      "tool-scripts": "Scripts",
+      "tool-web-preview": "Navegador",
+      "tool-background": "Atividade em segundo plano",
+      "tool-slash": "Comandos do terminal",
+      "tool-mcp": "Servidores MCP",
+      "tool-skills": "Skills",
+      "tool-semantic": "Registro do índice semântico",
+      "tool-editor": "Arquivos",
+      "tool-review": "Alterações",
+      "open-linear": "Issues do Linear",
+      "open-usage": "Uso e limites",
+      "design-system": "Design System: abrir o visualizador",
+      "appearance-system": "Aparência: Seguir o sistema",
+      "appearance-light": "Aparência: Claro",
+      "appearance-dark": "Aparência: Escuro",
+      "density-default": "Densidade: Padrão do app",
+      "density-compact": "Densidade: Compacta",
+      "density-comfortable": "Densidade: Confortável",
+      "layout_one": "Layout: {{count}} painel",
+      "layout_many": "Layout: {{count}} painéis",
+      "layout_other": "Layout: {{count}} painéis",
+      "maximize-pane": "Maximizar ou restaurar painel",
+      "restart-terminal": "Reiniciar o terminal",
+      "stop-terminal": "Parar terminal"
+    },
     "aboutKeywords": "sobre versão versao compilação licença",
     "activity": {
-      "markAllRead": "Atividade: marcar tudo como lido",
       "nothing": "Nada para marcar como lido",
       "nothingDetail": "Todos os itens de atividade já foram lidos.",
       "allRead": "Toda a atividade foi marcada como lida"
@@ -577,50 +688,27 @@
       "balanceDetail": "Restaurar tamanhos iguais em cada divisão",
       "splitLayoutDetail": "Painéis redimensionáveis recursivos (ligado por padrão)",
       "usageDetail": "Cotas e renovações do Claude, Codex e Copilot",
-      "designSystem": "Design System: abrir o visualizador",
       "designSystemDetail": "Tokens e componentes no claro e no escuro",
-      "appearance": "Aparência: {{mode}}",
-      "appearanceMode": {
-        "system": "Seguir o sistema",
-        "light": "Claro",
-        "dark": "Escuro"
-      },
       "appearanceDetail": "Vale para o aplicativo inteiro",
-      "density": "Densidade: {{density}}",
       "densityDetail": "Densidade do workspace",
-      "layout_one": "Layout: {{count}} painel",
-      "layout_other": "Layout: {{count}} painéis",
       "layoutDetail": "Predefinição de layout do workspace",
-      "voiceDetail": "Fale no terminal ativo, no editor ou no rascunho do OxeChat",
-      "stopTerminal": "Parar terminal",
-      "layout_many": "Layout: {{count}} painéis"
+      "voiceDetail": "Fale no terminal ativo, no editor ou no rascunho do OxeChat"
     },
     "thread": {
       "nothingToUndo": "Nada para desfazer",
       "noFinishedTurn": "Esta conversa ainda não tem um turno concluído.",
       "noChanges": "O último turno não deixou alterações de arquivo para restaurar.",
       "restored_one": "{{count}} arquivo restaurado",
+      "restored_many": "{{count}} arquivos restaurados",
       "restored_other": "{{count}} arquivos restaurados",
       "undoFailed": "Não foi possível desfazer o último turno",
-      "undoFailedDetail": "Um arquivo mudou depois do turno.",
-      "addProject": "Adicionar projeto do OxeChat…",
-      "switchProject": "Mudar para o projeto {{project}}",
-      "resume": "Retomar uma sessão",
-      "rename": "Renomear conversa",
-      "spending": "Gastos da conversa",
-      "events": "Eventos da conversa",
-      "rules": "Regras de aprovação",
-      "undo": "Desfazer as alterações de arquivo do último turno",
-      "accounts": "Contas dos provedores",
-      "restored_many": "{{count}} arquivos restaurados"
+      "undoFailedDetail": "Um arquivo mudou depois do turno."
     },
     "menu": {
       "title": "Buscar",
       "description": "Buscar arquivos e executar comandos",
       "placeholder": "Buscar arquivos e comandos…",
       "recent": "Recentes",
-      "workspaces": "Workspaces",
-      "agents": "Agentes",
       "files": "Arquivos",
       "semantic": "Semântica · e5-base",
       "searching": "Buscando no conteúdo…",

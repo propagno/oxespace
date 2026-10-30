@@ -21,12 +21,14 @@ export async function findPaletteCommand(page: Page, title: string): Promise<Loc
   const input = page.getByPlaceholder('Search files and commands…')
   await input.waitFor({ state: 'visible' })
   await input.fill(title)
-  const option = page.getByRole('option', { name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).first()
+  // The best-ranked command: a title is either the label ("Help: Show keyboard shortcuts") or a former name the
+  // command keeps as a search word ("Keyboard shortcuts"), see docs/design/commands.md.
+  const option = page.locator('[cmdk-item][data-value^="cmd-"]').first()
   await option.waitFor({ state: 'visible' })
   return option
 }
 
-/** Runs a command palette entry by its title (tools without a panel: Skills, Semantic index log…). */
+/** Runs a command palette entry by its title or former name (tools without a panel: Skills, Semantic index log…). */
 export async function runPaletteCommand(page: Page, title: string): Promise<void> {
   await (await findPaletteCommand(page, title)).click()
 }

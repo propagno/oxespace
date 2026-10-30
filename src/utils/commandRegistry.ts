@@ -5,6 +5,8 @@ import type { LucideIcon } from 'lucide-react'
 export interface CommandPaletteAction {
   id: string
   title: string
+  /** The action without its category ("Restart" for "Terminal: Restart"): what the application menus show, from the same catalog key. */
+  action?: string
   subtitle?: string
   disabled?: boolean
   /** Lucide icon component (optional — falls back to a category-derived dot). */
@@ -22,6 +24,8 @@ export interface CommandPaletteAction {
 export interface ContributedCommand {
   id: string
   label: string
+  /** Same as CommandPaletteAction.action. */
+  action?: string
   detail?: string
   icon?: LucideIcon
   keywords?: string[]
@@ -39,7 +43,7 @@ let snapshot: CommandPaletteAction[] = []
 
 const rebuild = (): void => {
   snapshot = [...sources.values()].flat().map(command => ({
-    id: command.id, title: command.label, subtitle: command.detail, icon: command.icon, category: command.category,
+    id: command.id, title: command.label, action: command.action, subtitle: command.detail, icon: command.icon, category: command.category,
     keywords: command.keywords, disabled: command.disabled, shortcut: command.shortcut, run: command.run
   }))
   listeners.forEach(listener => listener())

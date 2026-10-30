@@ -5,7 +5,7 @@ import { OPEN_SHORTCUT_GUIDE_EVENT } from '../components/Keyboard/ShortcutGuideH
 import { i18n } from '../i18n'
 import { useUIStore, type SettingsPageId } from '../store/ui.store'
 import { registerCommands } from '../utils/commandRegistry'
-import { registerTranslated, tCommand } from './commandText'
+import { commandText, registerTranslated, tCommand } from './commandText'
 
 /** Search words in English, so they match in any language; the label, detail and group match in the language on screen. */
 const PAGES: Array<{ page: SettingsPageId; icon: LucideIcon; keywords?: string[] }> = [
@@ -24,19 +24,19 @@ const PAGES: Array<{ page: SettingsPageId; icon: LucideIcon; keywords?: string[]
 /** Every Settings page and the shortcut guide, in the palette. Loaded at boot; Settings itself stays lazy. */
 registerTranslated(() => registerCommands('settings', [
   ...PAGES.map(({ page, icon, keywords }) => ({
-    id: `settings.${page}`, label: tCommand('settingsPage', { page: i18n.t(`center.pages.${page}.label`, { ns: 'settings' }) }), icon, category: 'Settings',
-    keywords: ['settings', 'preferences', ...(keywords ?? [])],
+    id: `settings.${page}`, icon,
+    ...commandText('Settings', `settings.${page}`, { keywords: ['settings', 'preferences', i18n.t(`center.pages.${page}.label`, { ns: 'settings' }), ...(keywords ?? [])] }),
     run: () => useUIStore.getState().openSettingsPage(page)
   })),
-  { id: 'help.shortcuts', label: i18n.t('keys.bindings.help.shortcuts'), icon: Keyboard, category: 'Help', keywords: ['keys', 'hotkeys', 'cheatsheet'], shortcut: 'help.shortcuts',
+  { id: 'help.shortcuts', ...commandText('Help', 'help.shortcuts', { keywords: ['keys', 'hotkeys', 'cheatsheet'] }), icon: Keyboard, shortcut: 'help.shortcuts',
     // After the palette closes, so the guide gets focus.
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_SHORTCUT_GUIDE_EVENT))) } },
   // Builds a GitHub issue to read and edit; nothing is sent unless the person opens or copies it.
-  { id: 'help.report-problem', label: tCommand('reportProblem'), icon: Bug, category: 'Help', keywords: ['bug', 'issue', 'feedback', 'github', 'diagnostics', 'support'],
+  { id: 'help.report-problem', ...commandText('Help', 'help.report-problem', { keywords: ['bug', 'issue', 'feedback', 'github', 'diagnostics', 'support'] }), icon: Bug,
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) } },
   // The version, channel and build of this copy, its license and links; the details copy into a support message.
   // The English words match in any language; the translated ones ("sobre", "versão"…) in the language on screen.
-  { id: 'help.about', label: tCommand('about'), icon: Info, category: 'Help',
-    keywords: ['about', 'version', 'build', 'license', 'electron', 'release', ...tCommand('aboutKeywords').split(/\s+/).filter(Boolean)],
+  { id: 'help.about', icon: Info,
+    ...commandText('Help', 'help.about', { keywords: ['about', 'version', 'build', 'license', 'electron', 'release', ...tCommand('aboutKeywords').split(/\s+/).filter(Boolean)] }),
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_ABOUT_EVENT))) } }
 ]))

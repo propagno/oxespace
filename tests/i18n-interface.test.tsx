@@ -52,9 +52,9 @@ describe('text built outside components', () => {
   it('renames the palette commands and their groups when the language changes, without a restart', async () => {
     const { result } = renderHook(() => useContributedCommands())
     const general = (): string | undefined => result.current.find(command => command.id === 'settings.general')?.title
-    expect(general()).toBe('Settings: General')
+    expect(general()).toBe('Settings: Open general settings')
     await act(async () => { await changeLanguage('pt-BR') })
-    expect(general()).toBe('Configurações: Geral')
+    expect(general()).toBe('Configurações: Abrir as configurações gerais')
     expect(commandCategoryLabel('Help')).toBe('Ajuda')
     expect(commandCategoryLabel('OxeQuery')).toBe('OxeQuery')
   })
