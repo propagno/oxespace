@@ -5,7 +5,10 @@ import { i18n } from '../i18n'
  * re-register on `languageChanged`, and the hook sources (useCommandSource) re-render their host with it.
  */
 export function tCommand(key: string, values?: Record<string, unknown>): string {
-  return (i18n.t as unknown as (key: string, options: object) => string)(`commands.${key}`, { ns: 'common', ...values })
+  // Commands can register before the translator has started, when t() gives back no text: never hand a caller
+  // (`.split` on keywords) something that is not a string. They register again once the language is known.
+  const text: unknown = (i18n.t as unknown as (key: string, options: object) => unknown)(`commands.${key}`, { ns: 'common', ...values })
+  return typeof text === 'string' ? text : ''
 }
 
 /** Group headings the code writes in English; product names (OxeChat, OxeQuery…) are shown as they are. */
