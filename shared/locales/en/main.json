@@ -194,7 +194,9 @@
         "pane": "{{agent}} · pane {{pane}}",
         "conversation": "{{agent}} · conversation {{conversation}}",
         "mcpServer": "MCP server {{server}}",
-        "app": "OXESpace"
+        "app": "OXESpace",
+        "unknownPane": "Unknown agent · pane {{pane}}",
+        "unknownConversation": "Unknown agent · conversation {{conversation}}"
       },
       "option": {
         "deny": "Deny",
@@ -269,7 +271,9 @@
     "notify": {
       "prefix": {
         "pane": "{{agent}} in pane {{pane}}: {{title}}",
-        "conversation": "{{agent}} in conversation {{conversation}}: {{title}}"
+        "conversation": "{{agent}} in conversation {{conversation}}: {{title}}",
+        "unknownPane": "Unknown agent in pane {{pane}}: {{title}}",
+        "unknownConversation": "Unknown agent in conversation {{conversation}}: {{title}}"
       },
       "refused": {
         "reservedName": "A notification cannot use the name \"{{name}}\"; it belongs to the app.",
