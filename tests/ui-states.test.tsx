@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ErrorState, Skeleton, Spinner } from '../src/ui'
+import { BrandLoader, ErrorState, LoadingState, Skeleton, Spinner } from '../src/ui'
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
@@ -29,6 +29,26 @@ describe('state primitives', () => {
     rerender(<Spinner decorative size="sm" />)
     expect(screen.queryByRole('status')).toBeNull()
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
+describe('brand loader', () => {
+  it('is a labelled status drawn from the mark, or hidden when decorative', () => {
+    const { container, rerender } = render(<BrandLoader label="Loading OxePost" />)
+    expect(screen.getByRole('status', { name: 'Loading OxePost' })).toBeInTheDocument()
+    // The trunk, two sprouting arms and the sun.
+    expect(container.querySelectorAll('path')).toHaveLength(3)
+    expect(container.querySelector('circle')).not.toBeNull()
+    rerender(<BrandLoader decorative />)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('LoadingState brand shows the loader above the text and is announced once', () => {
+    const { container } = render(<LoadingState brand label="Loading OxeQuery…" />)
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Loading OxeQuery…')
+    expect(container.querySelector('[data-brand-loader]')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getAllByRole('status')).toHaveLength(1)
   })
 })
 

@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { MARK_ARM_LEFT, MARK_ARM_RIGHT, MARK_STROKE, MARK_SUN, MARK_TRUNK, MARK_VIEWBOX } from '../../design/brand'
 import styles from './OxeLogo.module.css'
 
 interface OxeLogoProps {
@@ -39,13 +40,13 @@ export function OxeLogo({ size = 28, variant = 'full' }: OxeLogoProps): ReactEle
 export function OxeMark({ size, tile }: { size: number; tile: boolean }): ReactElement {
   // Drawn on a 44-unit grid; the stroke is 1/11 of the size. The sun drops below 20px.
   const stroke = tile ? '#ffffff' : 'currentColor'
-  return <svg className={styles.mark} width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
+  return <svg className={styles.mark} width={size} height={size} viewBox={MARK_VIEWBOX} fill="none" aria-hidden="true">
     {tile && <rect width="44" height="44" rx="11" fill={TILE} />}
-    <g transform={tile ? 'translate(4.4 4.4) scale(0.8)' : undefined} stroke={stroke} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 39V8" />
-      <path d="M22 27h-6a4 4 0 0 1-4-4v-7" />
-      <path d="M22 21h6a4 4 0 0 0 4-4v-6" />
+    <g transform={tile ? 'translate(4.4 4.4) scale(0.8)' : undefined} stroke={stroke} strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round">
+      <path d={MARK_TRUNK} />
+      <path d={MARK_ARM_LEFT} />
+      <path d={MARK_ARM_RIGHT} />
     </g>
-    {size >= 20 && <circle cx={tile ? 12.4 : 10} cy={tile ? 11.2 : 8.5} r={tile ? 2.8 : 3.4} fill={SUN} />}
+    {size >= 20 && <circle cx={tile ? 12.4 : MARK_SUN.cx} cy={tile ? 11.2 : MARK_SUN.cy} r={tile ? 2.8 : MARK_SUN.r} fill={SUN} />}
   </svg>
 }

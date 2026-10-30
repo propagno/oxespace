@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
 import { Tabs as RadixTabs } from 'radix-ui'
 import { i18n } from '../i18n'
+import { BrandLoader } from './BrandLoader'
 import { cx } from './cx'
 import styles from './Display.module.css'
 
@@ -89,9 +90,14 @@ export function Spinner({ label = i18n.t('ui.loading'), size = 'md', decorative 
     : <span className={cx(styles.spinner, size === 'sm' && styles.spinnerSm)} role="status" aria-label={label} />
 }
 
-/** A spinner with a short line of text, for a panel or list whose content is on its way. */
-export function LoadingState({ label = i18n.t('ui.loadingEllipsis') }: { label?: string }): ReactElement {
-  return <div className={styles.loading} role="status"><span className={styles.spinner} aria-hidden="true" /><span>{label}</span></div>
+/**
+ * A spinner with a short line of text, for a panel or list whose content is on its way. `brand` is for a whole view
+ * that takes a while: the mandacaru loader, centered, above the text.
+ */
+export function LoadingState({ label = i18n.t('ui.loadingEllipsis'), brand = false }: { label?: string; brand?: boolean }): ReactElement {
+  return brand
+    ? <div className={styles.loadingBrand} role="status"><BrandLoader decorative /><span>{label}</span></div>
+    : <div className={styles.loading} role="status"><span className={styles.spinner} aria-hidden="true" /><span>{label}</span></div>
 }
 
 export function Separator({ orientation = 'horizontal' }: { orientation?: 'horizontal' | 'vertical' }): ReactElement {

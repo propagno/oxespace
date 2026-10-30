@@ -242,8 +242,7 @@
 }
 .ws-preview-cursor.cursor-bar { width: 2px; }
 .ws-preview-cursor.cursor-underline { height: 2px; vertical-align: baseline; }
-.ws-preview-cursor.blink { animation: ws-preview-blink var(--duration-blink) step-end infinite; }
-@keyframes ws-preview-blink { 50% { opacity: 0; } }
+.ws-preview-cursor.blink { --pulse-opacity: 0; animation: oxe-pulse var(--duration-blink) step-end infinite; }
 .ws-preview-caption {
   font-size: var(--fs-xs);
   color: var(--tx-muted);
