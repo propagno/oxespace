@@ -10,7 +10,10 @@ import { DevicesPairing } from './DevicesPairing'
 import styles from './DevicesSettings.module.css'
 
 /** Set once the person has read the firewall explanation; it is shown before the first time the connection turns on. */
+// TODO(CCR F9-3): use RemoteGatewayStatus.listenedBefore (persisted per profile) in place of localStorage.
 export const FIREWALL_EXPLAINED_KEY = 'oxe.remote.firewallExplained'
+// TODO(CCR F9-2): remote.* rejections carry C3 codes (remote.gateway.offline, remote.pairing.limit, remote.device.notFound,
+// remote.device.invalidName, remote.desktop.invalidName, remote.pane.invalid); show them through formatMainMessage.
 const errorText = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause)
 const firewallExplained = (): boolean => { try { return localStorage.getItem(FIREWALL_EXPLAINED_KEY) === '1' } catch { return false } }
 const rememberFirewallExplained = (): void => { try { localStorage.setItem(FIREWALL_EXPLAINED_KEY, '1') } catch { /* Shown again next time. */ } }
