@@ -495,6 +495,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getSnapshot: () => ipc.invoke(IPC_CHANNELS.diagnostics.getSnapshot) as Promise<import('../../shared/types/diagnostics').DiagnosticsSnapshot>,
       exportReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportReport) as Promise<string | null>,
       reportInteractive: () => ipc.invoke(IPC_CHANNELS.diagnostics.reportInteractive) as Promise<void>,
+      buildIssueReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.buildIssueReport) as Promise<import('../../shared/issue-report').IssueReport>,
       recordFirstAnswer: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.recordFirstAnswer, input) as Promise<void>
     },
     policy: {
