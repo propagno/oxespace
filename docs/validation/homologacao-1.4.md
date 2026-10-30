@@ -146,8 +146,10 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 primitivas | #163 | FRONTEND | Pré-homologado |
 | F4 WCAG 2.2, partes 1 e 2 | #186 | FRONTEND | Pré-homologado com ressalvas |
 | R1 + A4 (splash na aparência salva; visualizador só em dev) | #190 | FRONTEND | Pré-homologado |
-| F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Em andamento: build pronta, aguardando a trava única da máquina |
-| A4 worktree por conversa | #151 | BACKEND/FRONTEND | Em andamento na `main` (f5d6f478): roteiro `e2e/homologation/a4.spec.ts` pronto, aguardando a trava |
+| F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Pré-homologado com ressalvas |
+| A4 worktree por conversa | #151 | FRONTEND | Homologado com ressalvas (na `main` 9e4a9307) |
+| B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
+| Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -189,6 +191,64 @@ Ressalvas para o FRONTEND:
 - **Visualizador:** some da paleta quando a URL do renderer está dentro de `.asar`. O `electron-builder.yml` tem
   `asar: true` e não desempacota o renderer, então a regra vale para o app publicado. Na build de teste o
   visualizador continua visível, como esperado. Conferir no smoke empacotado.
+
+### F12 OxeCode/OxeChat (#188 + #189): Pré-homologado com ressalvas
+
+Main mesclada localmente com as duas branches. O #188 conflita com a `main` em `src/App.tsx` (fallback do Suspense
+do thread-host); resolvi só para testar. Roteiro: `e2e/homologation/pre-f12.spec.ts`, uma varredura de texto visível,
+`aria-label`, `title` e `placeholder` no início vazio, nos 5 modos, no menu, na paleta (85 itens), no guia de
+atalhos e nas 10 categorias de Settings, em en e pt-BR.
+
+- O seletor, a paleta, Settings e o onboarding já dizem OxeCode e OxeChat. Nenhum erro de console.
+- Ressalvas para o FRONTEND (literais em `src/App.tsx` que o `mode-names.test` não alcança):
+  - botão "Open Thread" na tela inicial (linha 921);
+  - title do botão Team: "…shared by Code and Thread" (linha 817);
+  - títulos de Team desabilitado: "Team is available in Code and Thread" e "Select a Thread project…" (linha 661).
+- Fora da F12 (F6): no pt-BR, a tela inicial e o FirstRunChecklist continuam em inglês (`pre-f12/pt-BR-start.png`).
+
+### A4 worktree por conversa (#151): Homologado com ressalvas
+
+Roteiro `e2e/homologation/a4.spec.ts`, em pt-BR/escuro e en/claro, com o main substituído por um stub (o Git real
+está no teste de integração do PR):
+- A opção "Trabalhar em uma worktree isolada" vem desligada.
+- Com o projeto sujo, a criação é recusada com DIRTY_BASE: a mensagem diz o que fazer, e há "Criar mesmo assim" (que
+  envia `allowDirtyBase: true`) e "Usar a pasta do projeto".
+- O cabeçalho mostra a branch e o selo "worktree", com title explicativo.
+- Ao arquivar uma conversa cuja worktree tem trabalho (2 arquivos alterados, 1 novo, 1 commit sem push), a pergunta
+  lista o que há e oferece Cancelar, Abrir no Code, Arquivar e manter, e "Descartar o trabalho e remover…". Descartar
+  pede uma segunda confirmação, e o main recebe `['t1','archive','discard']`.
+- Nenhum `pageerror`. Prints em `a4/`.
+
+Ressalvas visuais para o FRONTEND (`a4/pt-BR-refused-dirty-base.png` e `a4/pt-BR-archive-ask.png`):
+1. O checkbox da opção fica numa linha sozinho, acima do próprio rótulo, em vez de ao lado dele.
+2. O placeholder de "Começar de" corta: "Padrão do repositório (ex.: origin/mai".
+3. A recusa é texto solto, não um `Notice` warning da F1. Sem ícone nem cor, perde destaque.
+4. O estado vazio da conversa diz "No que o Claude deve trabalhar em feature-a4-cd34?", com o nome da pasta e o
+   sufixo aleatório. Para quem lê, faz mais sentido a branch (`feature/a4`) ou o projeto (`repo`).
+5. Com a F12, "Abrir no Code" passa a ser "Abrir no OxeCode".
+
+### B8.1 main minificado (#162): Homologado
+
+- `out/main/index.js` tem 575 KiB, e todo o main soma 1977 KiB com os chunks.
+- 76 `.map` em `out/main`, gerados como `hidden`: nenhum `.js` traz `sourceMappingURL`. O `electron-builder.yml`
+  exclui `out/**/*.map` do pacote, e não há mapa no renderer nem no preload.
+- Abertura em 3 execuções: janela em 2,5 s / 1,0 s / 1,1 s (a primeira fria), interface pronta em 2,8 s / 1,05 s /
+  1,1 s e workspace aberto em 3,9 s / 2,0 s / 2,1 s. Sem `pageerror` (`b8-1/boot.json`).
+- O código `mcp.quarantine.configChanged` tem texto em en e pt-BR.
+- Não conferido localmente: o pacote em si (sem build empacotada). A exclusão dos mapas fica para o smoke da CI.
+
+### Contrato `remote.*` (#174): Homologado (contrato)
+
+- `remote-ipc-contract` + `remote-protocol-contract`: 16 de 16.
+- Pelo `window.oxe.remote`, contra o mock:
+  - `status` e `devices` (Pixel 8);
+  - porta 80 recusada com `remote.port.privileged {port: 80}`;
+  - na porta 47000, o gateway escuta só em 192.168.0.10;
+  - `startPairing` devolve uma URI aceita pelo `readPairingUri`;
+  - o pedido "Pixel 8 Pro" chega com a verificação `28T5CY`, e aceitar adiciona o aparelho;
+  - `rename` recusa 65 caracteres e aceita "Celular do trabalho";
+  - `revoke` remove o aparelho, e um id desconhecido é recusado.
+- Notas em `b9-174/notes.json`.
 
 ### Achados fora dos itens da onda
 

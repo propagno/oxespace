@@ -77,7 +77,7 @@ for (const locale of ['pt-BR', 'en-US'] as const) {
       notes[`${locale}-refusal`] = { text: (await dialog.innerText()).slice(0, 600), buttons: await dialog.getByRole('button').allInnerTexts() }
       await shot(page, `${locale}-refused-dirty-base`)
       // "Create anyway" keeps the worktree request, without the project's changes.
-      await dialog.getByRole('button', { name: /^(Create anyway|Criar mesmo assim)$/ }).click()
+      await dialog.getByRole('button', { name: /^(Create it anyway|Criar mesmo assim)$/ }).click()
       await page.waitForTimeout(800)
       const heading = page.locator('.thread-heading')
       notes[`${locale}-header`] = { branch: await heading.locator('.thread-heading-branch').innerText().catch(() => 'missing'), badge: await heading.locator('.thread-heading-worktree').isVisible().catch(() => false), badgeTitle: await heading.locator('.thread-heading-worktree').getAttribute('title').catch(() => null) }
