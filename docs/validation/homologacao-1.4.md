@@ -96,7 +96,8 @@ Aceite: testes de contrato de ops dos dois (na CI do PR). Na tela:
   `{ state: 'online', checkedAt }`.
 - Ainda não há tela de About nem de conectividade (F1/F2 parte 2), como previsto.
 - Atenção para o B8: no mock, a `version` vem igual à do Electron (`44.9.3`), porque o app roda sem empacotar. O
-  handler real precisa usar a versão do pacote (`1.3.3`/`1.4.0`). Vale um teste no B8.
+  handler real precisa usar a versão do pacote (`1.3.3`/`1.4.0`). Vale um teste no B8. Encaminhado: o handler real
+  está no #168, com teste contra o `package.json`, e o mock passa a usar a versão do pacote no #185.
 
 ### Achados fora dos itens da onda
 
@@ -104,7 +105,7 @@ Coisas vistas durante a passada. Não reprovam itens da onda 1, mas têm dono.
 
 | # | Onde | O que se vê | Dono | Encaminhamento |
 |---|---|---|---|---|
-| A1 | Thread, workspace aberto num perfil novo (en e pt-BR) | A barra lateral mostra em vermelho "Could not load project directories." e, logo abaixo, "Add a project to start a conversation.". `window.oxe.thread.projects()` devolve `undefined` no perfil de teste, e a store então cai no `catch`. Captura: `light-en-US-comfortable-mode-2-Thread.png` | BACKEND (canal `thread:projects` / mock e2e) | Investigar: se for o mock, todo e2e e captura do Thread com workspace mostra um erro falso; se for o handler real, é bug para quem abre o app pela primeira vez |
+| A1 | Thread, workspace aberto num perfil novo (en e pt-BR) | A barra lateral mostra em vermelho "Could not load project directories." e, logo abaixo, "Add a project to start a conversation.". `window.oxe.thread.projects()` devolve `undefined` no perfil de teste, e a store então cai no `catch`. Captura: `light-en-US-comfortable-mode-2-Thread.png` | BACKEND (mock e2e) | Causa confirmada pelo BACKEND: o mock não tinha handler para `thread:projects` e respondia `null`. O produto está certo. Correção no #185 (aberto); reverificar depois do merge |
 | A2 | Barra de título em pt-BR | Botão "Team" e a dica "Project roles and messages shared by Code and Thread" em inglês (`src/App.tsx:817`, `TeamDialog`) | FRONTEND | F6 / F12 |
 | A3 | OxePost em pt-BR | O nome padrão da requisição nova é "New request" (`shared/oxepost/format.ts:112`) | FRONTEND | F6 |
 | A4 | Paleta em pt-BR | "Design System: Open Viewer / Tokens and components in light and dark" em inglês (`src/commands/code.commands.ts:78`) | FRONTEND, depois da sua decisão | Se ficar só em dev, some da paleta de produção; senão, F6 |
