@@ -1,7 +1,7 @@
 import type { AppDatabase } from '../db'
 import { CONFIGURABLE_MCP_TOOL_GROUPS, estimateTokens, MCP_TOOL_GROUP_IDS, type ConfigurableMcpToolGroup, type McpToolCost, type McpToolGroupInfo, type McpToolGroupMode, type McpToolGroupsReport } from '../../../shared/types/mcp-tools'
 import type { FileSystemService } from './file-system.service'
-import { THREAD_TOOL_GROUPS } from './conversation/thread-mcp'
+import { MCP_TOOL_GROUPS } from './conversation/thread-mcp'
 import { projectToolModes } from './conversation/tool-groups'
 import { ThreadPermissionStore } from './conversation/thread-permissions'
 import { loadRepoConfig } from './repo-config/loader'
@@ -15,14 +15,14 @@ export async function toolGroupsReport(rootPath: string | null): Promise<McpTool
   const [{ TOOL_REGISTRY }, { toolDefinitionChars, toolNameChars }] = await Promise.all([import('../mcp-internal/tool-registry'), import('../mcp-internal/tool-cost')])
   const modes = projectToolModes(rootPath ? (await loadRepoConfig(rootPath))?.thread : undefined)
   const groups = MCP_TOOL_GROUP_IDS.map((id): McpToolGroupInfo => {
-    const tools = [...THREAD_TOOL_GROUPS[id]]
+    const tools = [...MCP_TOOL_GROUPS[id]]
     const configurable = (CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(id)
     const project = configurable ? modes[id as ConfigurableMcpToolGroup] : undefined
     const loaded = toolDefinitionChars(TOOL_REGISTRY, tools)
     return {
       id, tools, configurable,
       mode: project?.mode ?? 'always',
-      source: id === 'team' || id === 'worker' ? 'role' : project?.source ?? 'default',
+      source: id === 'team' || id === 'worker' || id === 'code' ? 'role' : project?.source ?? 'default',
       cost: { claude: { loaded: cost(loaded), deferred: cost(toolNameChars(tools)) }, codex: { loaded: cost(loaded) } }
     }
   })

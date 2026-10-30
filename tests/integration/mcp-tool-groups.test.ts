@@ -34,7 +34,7 @@ describe('Settings › Tools (F10)', () => {
     expect(report.rootPath).toBeNull()
     expect(report.groups.map(group => [group.id, group.mode, group.source, group.configurable])).toEqual([
       ['core', 'always', 'default', false], ['orchestration', 'on-demand', 'default', true], ['data', 'on-demand', 'default', true],
-      ['docs', 'on-demand', 'default', true], ['app', 'on-demand', 'default', true], ['team', 'always', 'role', false], ['worker', 'always', 'role', false]
+      ['docs', 'on-demand', 'default', true], ['app', 'on-demand', 'default', true], ['team', 'always', 'role', false], ['worker', 'always', 'role', false], ['code', 'always', 'role', false]
     ])
     for (const group of report.groups) {
       expect(group.cost.claude.loaded.chars, group.id).toBeGreaterThan(0)

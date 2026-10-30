@@ -37,7 +37,7 @@ interface TerminalManagerOptions {
   onLaunchExit?: (paneId: string) => void
   executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
   /** MCP launch arguments for an agent CLI, and the variables those arguments refer to. */
-  agentMcpArgs?: (executable: string, args: string[], workspaceId: string) => { args: string[]; env?: Record<string, string> }
+  agentMcpArgs?: (executable: string, args: string[], workspaceId: string) => { args: string[]; env?: Record<string, string> } | Promise<{ args: string[]; env?: Record<string, string> }>
   isManagedPane?: (paneId: string) => boolean
   /** Main-process-registered container shells (`oxequery-shell:*`); the renderer never supplies the command. */
   oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
@@ -255,7 +255,7 @@ export class TerminalManager {
       else if (!agentParts && !input.initialPrompt) typedResume = [resume.agent, ...extra].join(' ')
     }
     let mcpEnv: Record<string, string> = {}
-    if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = this.agentMcpArgs(executable, args, input.workspaceId))
+    if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = await this.agentMcpArgs(executable, args, input.workspaceId))
 
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = launch.pane_root_path && existsSync(launch.pane_root_path)
