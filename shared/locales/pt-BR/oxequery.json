@@ -105,7 +105,7 @@
     "deleteTitle": "Excluir “{{name}}”?",
     "deleteDescription": "A senha, as chaves e os certificados salvos também são removidos. O banco de dados em si não é alterado.",
     "emptyTitle": "Nenhuma conexão ainda",
-    "emptyText": "Clique em Conectar num contêiner de banco de dados, ou adicione uma à mão.",
+    "emptyText": "Adicione uma, ou use Conectar no OxeQuery num contêiner de banco de dados no OxePod.",
     "section": {
       "matches_one": "Resultados ({{count}})",
       "matches_other": "Resultados ({{count}})",

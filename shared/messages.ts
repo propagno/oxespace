@@ -51,6 +51,52 @@ export interface MessageParams {
   'bundle.file.runtime': Record<string, never>
   'bundle.file.versions': Record<string, never>
   'bundle.file.configuration': Record<string, never>
+  // Main-process sentences the window used to receive ready-made in English (C3 sweep).
+  'linear.worktree.exists': { issue: string; path: string }
+  'worktree.cleanup.notRemovable': Record<string, never>
+  'worktree.cleanup.blocked': { reasons: string[] }
+  'worktree.cleanup.needsConfirmation': { reasons: string[] }
+  'mcp.signIn.waiting': Record<string, never>
+  'mcp.server.quarantined': Record<string, never>
+  'mcp.server.untrusted': Record<string, never>
+  'github.cli.missing': Record<string, never>
+  'git.base.unresolved': { base: string }
+  'oxe.status.unreadable': Record<string, never>
+  'oxe.dashboard.timeout': Record<string, never>
+  'memory.disabled': Record<string, never>
+  'memory.unavailable': Record<string, never>
+  'memory.runtimeUnavailable': Record<string, never>
+  'thread.commands.configure': Record<string, never>
+  'thread.commands.busy': Record<string, never>
+  'thread.commands.claudeFailed': Record<string, never>
+  'thread.commands.codexFailed': Record<string, never>
+  'thread.capability.readOnly': Record<string, never>
+  'thread.capability.mcpReadOnly': Record<string, never>
+  'thread.observe.unsupported': Record<string, never>
+  'thread.observe.changed': Record<string, never>
+  'thread.queue.deliveryUnconfirmed': Record<string, never>
+  'oxequery.edit.readOnly': Record<string, never>
+  'oxequery.edit.notTable': Record<string, never>
+  'oxequery.edit.noKey': Record<string, never>
+  'oxequery.test.connected': Record<string, never>
+  'oxequery.startFailed': { reason: string }
+  'oxepod.startFailed': { reason: string }
+  'oxepost.network.notFound': Record<string, never>
+  'oxepost.network.refused': Record<string, never>
+  'oxepost.network.reset': Record<string, never>
+  'oxepost.network.timedOut': Record<string, never>
+  'oxepost.network.lookupFailed': Record<string, never>
+  'oxepost.network.hostUnreachable': Record<string, never>
+  'oxepost.network.networkUnreachable': Record<string, never>
+  'oxepost.send.invalidUrl': Record<string, never>
+  'oxepost.send.scheme': Record<string, never>
+  'oxepost.send.bodyNotAllowed': { method: string }
+  'oxepost.send.bodyTooLarge': Record<string, never>
+  'oxepost.send.invalidHeader': { name: string }
+  'oxepost.send.timeout': { seconds: number }
+  'oxepost.send.tls': { code: string }
+  'oxepost.send.failed': Record<string, never>
+  'oxepost.send.failedWith': { detail: string }
   /** The person picked a port below 1024 for the remote gateway. */
   'remote.port.privileged': { port: number }
   /** Another program already listens on the gateway's port. */
@@ -92,6 +138,51 @@ export const MESSAGE_CODES = [
   'bundle.file.runtime',
   'bundle.file.versions',
   'bundle.file.configuration',
+  'linear.worktree.exists',
+  'worktree.cleanup.notRemovable',
+  'worktree.cleanup.blocked',
+  'worktree.cleanup.needsConfirmation',
+  'mcp.signIn.waiting',
+  'mcp.server.quarantined',
+  'mcp.server.untrusted',
+  'github.cli.missing',
+  'git.base.unresolved',
+  'oxe.status.unreadable',
+  'oxe.dashboard.timeout',
+  'memory.disabled',
+  'memory.unavailable',
+  'memory.runtimeUnavailable',
+  'thread.commands.configure',
+  'thread.commands.busy',
+  'thread.commands.claudeFailed',
+  'thread.commands.codexFailed',
+  'thread.capability.readOnly',
+  'thread.capability.mcpReadOnly',
+  'thread.observe.unsupported',
+  'thread.observe.changed',
+  'thread.queue.deliveryUnconfirmed',
+  'oxequery.edit.readOnly',
+  'oxequery.edit.notTable',
+  'oxequery.edit.noKey',
+  'oxequery.test.connected',
+  'oxequery.startFailed',
+  'oxepod.startFailed',
+  'oxepost.network.notFound',
+  'oxepost.network.refused',
+  'oxepost.network.reset',
+  'oxepost.network.timedOut',
+  'oxepost.network.lookupFailed',
+  'oxepost.network.hostUnreachable',
+  'oxepost.network.networkUnreachable',
+  'oxepost.send.invalidUrl',
+  'oxepost.send.scheme',
+  'oxepost.send.bodyNotAllowed',
+  'oxepost.send.bodyTooLarge',
+  'oxepost.send.invalidHeader',
+  'oxepost.send.timeout',
+  'oxepost.send.tls',
+  'oxepost.send.failed',
+  'oxepost.send.failedWith',
   'remote.port.privileged',
   'remote.port.inUse',
   'remote.network.noPrivateInterface',

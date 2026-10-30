@@ -382,9 +382,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'remote.devices_read': { label: 'Remote gateway status and paired phones', excluded: 'The person\'s devices, shown in Settings › Devices; agents have no use for them.', ipc: ['remote.status', 'remote.devices'] },
   'remote.gateway_admin': {
-    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop',
+    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane',
     forbidden: 'Opens a network surface and grants device access.',
-    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName']
+    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite']
   },
   'settings.agent_audit': {
     label: 'Audit of agent actions; internal MCP status',

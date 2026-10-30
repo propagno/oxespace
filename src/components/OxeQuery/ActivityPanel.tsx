@@ -4,7 +4,7 @@ import { RefreshCw, ShieldCheck } from 'lucide-react'
 import type { OxeQueryAuditEntry } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { formatMs } from './catalog'
-import { EmptyState } from '../../ui/Display'
+import { EmptyState, ErrorState } from '../../ui/Display'
 import { formatDateTime, formatNumber } from '../../utils/formatTime'
 import './OxeQuery.css'
 
@@ -47,8 +47,8 @@ export function ActivityPanel({ active, scope = 'database' }: { active: boolean;
       </div>
       <button type="button" onClick={() => void load()}><RefreshCw size={13} aria-hidden="true" />{t('common.refresh')}</button>
     </header>
-    {error && <p role="alert" className="oq-error">{error}</p>}
-    {shown.length === 0 && !error ? <div className="oq-empty"><EmptyState icon={<ShieldCheck size={20} />} title={t('activity.emptyTitle')}>{t(scope === 'containers' ? 'activity.emptyContainers' : 'activity.emptyText')}</EmptyState></div>
+    {error && <ErrorState compact title={error} onRetry={() => void load()} />}
+    {shown.length === 0 && !error ? <EmptyState icon={<ShieldCheck size={20} />} title={t('activity.emptyTitle')}>{t(scope === 'containers' ? 'activity.emptyContainers' : 'activity.emptyText')}</EmptyState>
       : <table className="oq-activity-table">
         <thead><tr><th>{t('activity.column.when')}</th><th>{t('activity.column.agent')}</th>{scope === 'database' && <th>{t('activity.column.connection')}</th>}<th>{t('activity.column.request')}</th><th>{t('activity.column.decision')}</th><th>{t('activity.column.result')}</th></tr></thead>
         <tbody>{shown.map(entry => <tr key={entry.id} data-outcome={entry.outcome} data-decision={entry.decision}>

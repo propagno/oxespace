@@ -55,6 +55,7 @@
 
 .editor-browser-directory,
 .editor-browser-file {
+  position: relative; /* anchors its path menu */
   display: flex;
   align-items: center;
   gap: 8px;

@@ -44,6 +44,13 @@
         "added": "Ele adicionou {{tools}}.",
         "removed": "Ele removeu {{tools}}.",
         "configChanged": "O comando, os argumentos, o ambiente ou a URL dele mudaram depois que você confiou no servidor."
+      },
+      "signIn": {
+        "waiting": "Aguardando você entrar no navegador…"
+      },
+      "server": {
+        "quarantined": "Em quarentena: ele mudou depois que você confiou nele. Revise e confie de novo para usá-lo.",
+        "untrusted": "Ainda não confiável. Revise o comando e confie nele antes de testar."
       }
     },
     "thread": {
@@ -52,6 +59,23 @@
         "staleGeneration": "A conversa reiniciou desde que este pedido apareceu. Abra-a para ver o que está esperando agora.",
         "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
         "unanswered": "Responda a todas as perguntas antes de continuar."
+      },
+      "commands": {
+        "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
+        "busy": "A busca de comandos está ocupada. Use Atualizar comandos para tentar de novo.",
+        "claudeFailed": "Não foi possível carregar os comandos do Claude. Confira a CLI em Configurações de agentes e use Atualizar comandos.",
+        "codexFailed": "Não foi possível carregar as skills do Codex. Confira a CLI em Configurações de agentes e use Atualizar comandos."
+      },
+      "capability": {
+        "readOnly": "Desligado pela política de ferramentas somente leitura desta conversa.",
+        "mcpReadOnly": "Limitado pela política somente leitura desta conversa: só consultas do OXESpace, sem servidores MCP seus."
+      },
+      "observe": {
+        "unsupported": "Nenhum provedor conectado informa o estado desta conversa. O resultado continua sem confirmação.",
+        "changed": "O estado do provedor mudou durante a recuperação. A conversa aqui foi mantida; confira de novo."
+      },
+      "queue": {
+        "deliveryUnconfirmed": "Não foi possível confirmar a entrega desta mensagem."
       }
     },
     "app": {
@@ -69,6 +93,77 @@
       },
       "certificate": {
         "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
+      }
+    },
+    "linear": {
+      "worktree": {
+        "exists": "Já existe um worktree para {{issue}} em {{path}}."
+      }
+    },
+    "worktree": {
+      "cleanup": {
+        "notRemovable": "Este não é um worktree removível deste repositório.",
+        "blocked": "Bloqueado: {{reasons}}.",
+        "needsConfirmation": "Precisa de confirmação: {{reasons}}."
+      }
+    },
+    "github": {
+      "cli": {
+        "missing": "GitHub CLI não encontrado. Instale em https://cli.github.com/ e rode gh auth login."
+      }
+    },
+    "git": {
+      "base": {
+        "unresolved": "Não foi possível resolver a base “{{base}}”, e o repositório não tem commits."
+      }
+    },
+    "oxe": {
+      "status": {
+        "unreadable": "Não foi possível ler a saída do oxe status."
+      },
+      "dashboard": {
+        "timeout": "O painel não respondeu a tempo."
+      }
+    },
+    "memory": {
+      "disabled": "A memória do projeto está desligada.",
+      "unavailable": "A memória do projeto está indisponível no momento. Os agentes continuam trabalhando.",
+      "runtimeUnavailable": "As credenciais ou o serviço de memória estão indisponíveis."
+    },
+    "oxequery": {
+      "edit": {
+        "readOnly": "Esta conexão é somente leitura. Desligue o somente leitura para editar dados.",
+        "notTable": "Só tabelas podem ser editadas, não views nem tabelas externas.",
+        "noKey": "Esta tabela não tem chave primária nem índice único NOT NULL, então uma linha não pode ser identificada com segurança."
+      },
+      "test": {
+        "connected": "Conectado"
+      },
+      "startFailed": "O OxeQuery não iniciou: {{reason}}"
+    },
+    "oxepod": {
+      "startFailed": "O OxePod não iniciou: {{reason}}"
+    },
+    "oxepost": {
+      "network": {
+        "notFound": "O nome do host não foi encontrado. Confira a URL e a conexão.",
+        "refused": "A conexão foi recusada: nada está escutando nesse endereço e porta.",
+        "reset": "O servidor fechou a conexão antes de responder.",
+        "timedOut": "A conexão esgotou o tempo.",
+        "lookupFailed": "Não foi possível consultar o nome do host agora.",
+        "hostUnreachable": "O host não pode ser alcançado.",
+        "networkUnreachable": "A rede não pode ser alcançada."
+      },
+      "send": {
+        "invalidUrl": "A URL não é válida. Ela precisa de um esquema, como https://example.com/path",
+        "scheme": "Só URLs http e https podem ser enviadas.",
+        "bodyNotAllowed": "{{method}} não pode ter corpo. Troque o método ou limpe o corpo.",
+        "bodyTooLarge": "O corpo passa de 5 MB.",
+        "invalidHeader": "“{{name}}” não é um cabeçalho válido.",
+        "timeout": "Nenhuma resposta completa em {{seconds}} segundos.",
+        "tls": "O certificado do servidor não foi aceito ({{code}}). O OxePost sempre verifica certificados: confie no certificado neste computador ou use o endereço para o qual ele foi emitido.",
+        "failed": "O pedido falhou.",
+        "failedWith": "O pedido falhou: {{detail}}"
       }
     },
     "incident": {
