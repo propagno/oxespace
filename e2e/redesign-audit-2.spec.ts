@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, test } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -38,12 +39,12 @@ test('redesign audit part 2', async () => {
       await page.keyboard.press('Escape'); await page.waitForTimeout(300)
     }
     try {
-      await page.getByRole('button', { name: 'Thread', exact: true }).first().click({ timeout: 5000 })
+      await modeButton(page, 'thread').click({ timeout: 5000 })
       await shot('14-thread-mode')
       const btn = page.getByRole('button', { name: /new thread|new chat|nova/i }).first()
       if (await btn.count()) { await btn.click(); await shot('15-thread-new') }
     } catch (e) { log.push(`thread: ${(e as Error).message.split('\n')[0]}`) }
-    await page.getByRole('button', { name: 'Code', exact: true }).first().click().catch(() => undefined)
+    await modeButton(page, 'code').click().catch(() => undefined)
     await page.getByRole('button', { name: /Delegated work/ }).click().then(() => shot('16-delegated-work')).catch(e => log.push('delegated ' + e.message.split('\n')[0]))
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: /Activity/ }).first().click().then(() => shot('17-activity')).catch(e => log.push('activity ' + e.message.split('\n')[0]))

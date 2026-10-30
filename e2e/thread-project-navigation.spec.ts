@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync, renameSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,7 +16,7 @@ test('Thread projects and conversations survive restart without creating Code wo
   let app = await launch()
   try {
     let page = await app.firstWindow()
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     const add = async (path: string) => {
       await page.locator('.thread-navigation').getByRole('button', { name: 'Add project' }).click()
       await page.getByRole('textbox', { name: 'Project folder path' }).fill(path)
@@ -29,11 +30,11 @@ test('Thread projects and conversations survive restart without creating Code wo
     const codeId = await page.evaluate(async directory => (await window.oxe.workspace.create({ rootPath: directory, autoStart: false })).id, codeOnly)
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
     expect(await page.evaluate(async () => (await window.oxe.workspace.list()).length)).toBe(1)
-    await page.getByRole('button', { name: 'Code', exact: true }).click()
+    await modeButton(page, 'code').click()
     await page.evaluate(async id => window.oxe.workspace.delete(id), codeId)
     expect(await page.evaluate(async () => (await window.oxe.workspace.list()).length)).toBe(0)
     await expect(page.locator('[data-testid="sidebar-workspace-item"]')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
     await page.getByRole('button', { name: 'New thread in first-project' }).click()
     await page.getByRole('dialog', { name: 'New thread' }).getByRole('button', { name: 'Create thread' }).click()
@@ -42,14 +43,14 @@ test('Thread projects and conversations survive restart without creating Code wo
     await page.getByRole('menuitem', { name: 'Remove project…' }).click()
     await page.getByRole('dialog', { name: 'Remove this project?' }).getByRole('button', { name: 'Remove project', exact: true }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(1)
-    await page.getByRole('button', { name: 'Code', exact: true }).click()
+    await modeButton(page, 'code').click()
     await expect(page.locator('[data-testid="sidebar-workspace-item"]')).toHaveCount(0)
     await app.close()
 
     app = await launch()
     page = await app.firstWindow()
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-project-group')).toHaveCount(1)
     await expect(page.locator('.thread-session-title')).toContainText(['New thread'])
     const removed = page.getByRole('region', { name: 'Removed projects' })
@@ -94,13 +95,13 @@ test('Thread projects and conversations survive restart without creating Code wo
     await expect(relinked.getByRole('status')).toHaveText(/files (indexed|so far)/)
     await page.getByRole('dialog', { name: 'Thread project · second-relocated' }).getByRole('button', { name: 'Close', exact: true }).click()
     await expect(page.getByRole('button', { name: 'New thread in second-relocated' })).toBeVisible()
-    await page.getByRole('button', { name: 'Code', exact: true }).click()
+    await modeButton(page, 'code').click()
     await expect(page.locator('[data-testid="sidebar-workspace-item"]')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: 'Actions for second-relocated' }).click()
     await page.getByRole('menuitem', { name: 'Open in Code' }).click()
     await expect(page.locator('[data-testid="sidebar-workspace-item"]')).toHaveCount(1)
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
   } finally { await app.close() }
 })

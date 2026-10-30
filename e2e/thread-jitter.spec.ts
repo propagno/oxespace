@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
 import { installThreadFixtures, registerThreadProject } from './helpers/thread-fixtures'
@@ -58,7 +59,7 @@ test('the conversation stays at the bottom while typing and when a turn finishes
     await installThreadFixtures(app, workspaceRoot)
     await openDemoWorkspace(page, workspaceRoot)
     await registerThreadProject(app, page, workspaceRoot)
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: 'New thread in repo' }).click()
     await page.getByRole('button', { name: 'Create thread', exact: true }).click()
     await page.locator('.thread-timeline').waitFor()

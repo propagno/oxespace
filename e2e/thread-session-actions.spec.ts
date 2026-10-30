@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -47,7 +48,7 @@ test('session actions open to the side, archive, restore and delete through Elec
         await window.oxe.thread!.command!(snapshot.thread.id, `/rename ${name}`)
       }
     })
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     const alpha = page.locator('.thread-navigation-row:not(.thread-archived-row) .thread-navigation-item').filter({ hasText: 'Alpha session' })
     const beta = page.locator('.thread-navigation-row:not(.thread-archived-row) .thread-navigation-item').filter({ hasText: 'Beta session' })
     await expect(alpha).toBeVisible()

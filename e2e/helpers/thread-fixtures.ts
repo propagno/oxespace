@@ -1,3 +1,4 @@
+import { modeButton } from './modes'
 import type { ElectronApplication, Page } from '@playwright/test'
 
 /**
@@ -188,7 +189,7 @@ export async function registerThreadProject(app: ElectronApplication, page: Page
 
 /** Opens Thread mode, creates the fake thread through the real dialog and applies a named state. */
 export async function openThreadWithState(app: ElectronApplication, page: Page, root: string, state: ThreadStateName): Promise<void> {
-  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
+  await modeButton(page, 'thread').click()
   await page.getByRole('button', { name: 'New thread in repo' }).click()
   await page.getByRole('button', { name: 'Create thread', exact: true }).click()
   await page.locator('.thread-timeline').waitFor()

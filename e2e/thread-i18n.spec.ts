@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { expect, test, type Page } from '@playwright/test'
 import { join } from 'node:path'
 import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from './helpers/launch'
@@ -13,7 +14,7 @@ test('Thread main flow in Brazilian Portuguese', async () => {
     await installThreadFixtures(app, workspaceRoot)
     await openDemoWorkspace(page, workspaceRoot)
     await registerThreadProject(app, page, workspaceRoot)
-    await page.getByRole('navigation', { name: 'Visão do aplicativo' }).getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
 
     const sidebar = page.getByRole('complementary', { name: 'Barra lateral do Thread' })
     await expect(sidebar.getByText('Conversas', { exact: true })).toBeVisible()
@@ -77,7 +78,7 @@ test('captures the Thread states for review', async () => {
     await openDemoWorkspace(page, workspaceRoot)
     await registerThreadProject(app, page, workspaceRoot)
     const pt = locale === 'pt-BR'
-    await page.getByRole('button', { name: 'Thread', exact: true }).first().click()
+    await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: pt ? 'Nova conversa em repo' : 'New thread in repo', exact: true }).click()
     await shot(page, 'create-dialog')
     await page.getByRole('button', { name: pt ? 'Criar conversa' : 'Create thread', exact: true }).click()

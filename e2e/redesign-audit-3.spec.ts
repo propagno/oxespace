@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, test, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -159,7 +160,7 @@ test('coverage audit', async () => {
     await surface(page, '52-design-system', async () => { await page.keyboard.press('Control+k'); await page.keyboard.type('Design System'); await page.keyboard.press('Enter') })
     await page.getByRole('button', { name: /^Close/ }).first().click({ timeout: 2000 }).catch(() => undefined)
     // Thread entry without accounts.
-    await surface(page, '60-thread-empty', () => page.getByRole('button', { name: 'Thread', exact: true }).first().click())
+    await surface(page, '60-thread-empty', () => modeButton(page, 'thread').click())
     await surface(page, '61-thread-add-project', () => page.getByRole('button', { name: /Add project/ }).first().click())
     await surface(page, '62-thread-accounts', () => page.getByRole('button', { name: /Agent accounts|Provider accounts/ }).first().click())
     await surface(page, '63-thread-new-conversation', () => page.getByRole('button', { name: /New conversation|New thread/ }).first().click())

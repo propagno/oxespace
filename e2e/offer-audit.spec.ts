@@ -1,3 +1,4 @@
+import { modeButton, type AppMode } from './helpers/modes'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -14,10 +15,9 @@ type Check = (page: Page) => Promise<void>
 
 const dialog = (name: string | RegExp): Check => async page => { await expect(page.getByRole('dialog', { name }).first()).toBeVisible() }
 const testId = (id: string): Check => async page => { await expect(page.getByTestId(id).first()).toBeVisible() }
-// CSS, not roles: a modal hides the rest of the page from the accessibility tree.
-const VIEW_NAMES = { code: 'Code', thread: 'Thread', data: 'OxeQuery', pods: 'OxePod', post: 'OxePost' } as const
-const view = (shell: keyof typeof VIEW_NAMES): Check => async page => {
-  await expect(page.locator(`nav[aria-label="Application view"] button[aria-label="${VIEW_NAMES[shell]}"]`)).toHaveAttribute('aria-pressed', 'true')
+// The mode's id, not a role or its name: a modal hides the rest of the page from the accessibility tree.
+const view = (shell: AppMode): Check => async page => {
+  await expect(modeButton(page, shell)).toHaveAttribute('aria-pressed', 'true')
 }
 const both = (...checks: Check[]): Check => async page => { for (const check of checks) await check(page) }
 const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
@@ -152,8 +152,8 @@ async function dismiss(page: Page): Promise<void> {
   }
 }
 
-async function selectView(page: Page, name: 'Code' | 'Thread' | 'OxeQuery' | 'OxePod'): Promise<void> {
-  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name }).click()
+async function selectView(page: Page, mode: AppMode): Promise<void> {
+  await modeButton(page, mode).click()
 }
 
 async function launchWithWorkspace(): Promise<LaunchedApp> {
@@ -190,7 +190,7 @@ test.describe('offer audit', () => {
         const panesBefore = await paneCount(page)
         // A command that needs Code's workspace is offered there; come back to Code when the last command left it.
         if (!(await runCommand(page, id))) {
-          await selectView(page, 'Code')
+          await selectView(page, 'code')
           if (!(await runCommand(page, id))) { failures.push(`${id}: not offered in Code`); continue }
         }
         try {
@@ -230,7 +230,7 @@ test.describe('offer audit', () => {
         ipcMain.handle('thread:command', (_event, _id, command: string) => { received.push(command); return { kind: 'applied' } })
         for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: thread.id })
       }, workspaceRoot)
-      await selectView(page, 'Thread')
+      await selectView(page, 'thread')
       await page.locator('.thread-navigation-item').filter({ hasText: 'Offer audit' }).click()
       const received = (): Promise<string[]> => app.evaluate(() => [...((globalThis as { offerAuditCommands?: string[] }).offerAuditCommands ?? [])])
       const sent = (text: string): Check => async () => { await expect.poll(received).toContain(text) }
@@ -265,7 +265,7 @@ test.describe('offer audit', () => {
     const launched = await launchWithWorkspace()
     const { app, page } = launched
     try {
-      for (const name of ['Thread', 'OxeQuery', 'OxePod'] as const) {
+      for (const name of ['thread', 'data', 'pods'] as const) {
         await selectView(page, name)
         await runCommand(page, 'tool-editor')
         await view('code')(page)
@@ -374,7 +374,7 @@ test.describe('offer audit', () => {
           await dismiss(page)
           if (label === 'Toggle sidebar' || label === 'Toggle split layout' || label.startsWith('Maximize')) await runCommand(page, label === 'Toggle sidebar' ? 'toggle-sidebar' : label.startsWith('Maximize') ? 'maximize-pane' : 'toggle-split-layout')
           if (label.startsWith('Split pane')) await runCommand(page, 'layout-2')
-          if (label === 'Thread' || label === 'OxeQuery' || label === 'OxePod' || label === 'OxePost') await selectView(page, 'Code')
+          if (await modeButton(page, 'code').getAttribute('aria-pressed') !== 'true') await selectView(page, 'code')
           await dismiss(page)
         }
       }

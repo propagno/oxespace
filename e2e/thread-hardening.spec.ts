@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -122,7 +123,7 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
     }, { workspaceId: workspace.id, rootPath: repo })
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
 
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: 'New thread in repo' }).click()
     await page.getByRole('radio', { name: /Codex/ }).check()
     await page.getByRole('button', { name: 'Create thread', exact: true }).click()

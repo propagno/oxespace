@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
@@ -318,8 +319,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(canvasTop).toBe(surfaceTop)
     await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
     await expect(page.getByRole('navigation', { name: 'Collapsed workspaces' })).toBeVisible()
-    await nav.getByRole('button', { name: 'Thread', exact: true }).click()
-    await nav.getByRole('button', { name: 'Code', exact: true }).click()
+    await modeButton(page, 'thread').click()
+    await modeButton(page, 'code').click()
     await expect(page.getByRole('navigation', { name: 'Collapsed workspaces' })).toBeVisible()
     await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click()
 
@@ -338,17 +339,17 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         })
       })
       expect(bounds).toBe(true)
-      await nav.getByRole('button', { name: 'Thread', exact: true }).click()
+      await modeButton(page, 'thread').click()
       await expect(page.locator('.thread-navigation')).toHaveCSS('width', `${width}px`)
       await page.getByRole('button', { name: 'Open settings', exact: true }).click()
       await expect(page.locator('.settings-center-nav')).toHaveCSS('width', `${width}px`)
       await page.getByRole('button', { name: 'Close settings', exact: true }).click()
-      await nav.getByRole('button', { name: 'Code', exact: true }).click()
+      await modeButton(page, 'code').click()
     }
     await page.mouse.move(800, 400)
     await page.screenshot({ path: 'test-results/code-sidebar-mode.png' })
     const codeFooter = await page.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
-    await nav.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-navigation')).toHaveCSS('width', '280px')
     const threadFooter = await page.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
     expect(threadFooter).toEqual(codeFooter)
@@ -683,10 +684,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(runningActions.sendWidth).toBe(28)
     await expectReadingAnchor()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Unsent draft')
-    await nav.getByRole('button', { name: 'Code', exact: true }).click()
+    await modeButton(page, 'code').click()
     await expect(grid).toBeVisible()
     expect(await page.locator('.xterm').count()).toBe(terminalCount)
-    await nav.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Unsent draft')
     // Font and virtual-row measurements can settle a few pixels differently
     // after remounting Thread; a large reading-position jump still fails.
@@ -974,7 +975,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Long history fixture'))
     await expect(page.locator('.thread-virtual-space')).toHaveAttribute('data-total-rows', '10002')
     await page.reload()
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-virtual-space')).toHaveAttribute('data-total-rows', '10002')
     await expect(page.getByRole('paragraph').filter({ hasText: /^Review message 3333$/ })).toBeVisible()
     const latestMessage = page.locator('.thread-message-user').filter({ hasText: 'Review message 3333' })

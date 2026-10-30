@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -36,7 +37,7 @@ test('the Thread sidebar keeps rows readable at every width and zoom', async () 
       ipcMain.handle('thread:commands', () => ({ commands: [] }))
       ipcMain.handle('thread:models', () => ({ defaultModel: 'm', models: [{ id: 'm', label: 'Model', description: '', efforts: ['low'], defaultEffort: 'low' }] }))
     }, { rootPath: repo, titles: TITLES })
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     const sidebar = page.getByRole('complementary', { name: 'Thread sidebar' })
     await expect(sidebar.locator('.thread-navigation-item').first()).toBeVisible()
     const separator = page.getByRole('separator', { name: 'Thread sidebar width' })

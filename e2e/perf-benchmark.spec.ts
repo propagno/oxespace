@@ -10,6 +10,7 @@
  * Build first: npm run build   ·   Run: npx playwright test e2e/perf-benchmark.spec.ts
  * Budgets: 1 frame @60fps = 16.7ms · 100ms = perceptible.
  */
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, symlinkSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -653,11 +654,11 @@ test('mode switch: Code ↔ Thread ↔ OxeQuery', async () => {
   try {
     await createWorkspace(page)
     const nav = page.getByRole('navigation', { name: 'Application view' })
-    await nav.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
     await nav.getByRole('button', { name: 'OxeQuery', exact: true }).click()
     await page.locator('.oq-host').waitFor({ state: 'visible' })
-    await nav.getByRole('button', { name: 'Code', exact: true }).click()
+    await modeButton(page, 'code').click()
     await page.waitForTimeout(250)
     const toThread: number[] = []
     const toData: number[] = []
@@ -839,7 +840,7 @@ test('memory: main process with 10 Threads open', async () => {
     })
 
     const project = await page.evaluate(root => window.oxe.thread!.addProject(root), repo)
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
     await page.waitForTimeout(1_500)
     const before = await sample()
