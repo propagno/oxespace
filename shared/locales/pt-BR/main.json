@@ -45,7 +45,30 @@
       },
       "certificate": {
         "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
+      },
+      "pairing": {
+        "failed": "$t(remotePairingFailure.{{reason}})",
+        "limit": "Este computador já tem {{max}} dispositivos pareados. Remova um antes de parear outro."
+      },
+      "gateway": {
+        "offline": "Ligue a conexão antes de parear um celular."
+      },
+      "device": {
+        "notFound": "Este dispositivo não está mais pareado.",
+        "invalidName": "Dê ao dispositivo um nome de 1 a {{max}} caracteres, sem quebras de linha."
+      },
+      "desktop": {
+        "invalidName": "Dê a este computador um nome de 1 a {{max}} caracteres, sem quebras de linha."
+      },
+      "pane": {
+        "invalid": "Este terminal não está mais disponível."
       }
     }
+  },
+  "remotePairingFailure": {
+    "invalid": "Um celular tentou parear com um código inválido. Mostre um novo código e escaneie de novo.",
+    "expired": "O código de pareamento ou a pergunta neste computador expirou. Mostre um novo código e tente de novo.",
+    "refused": "O pareamento foi recusado neste computador.",
+    "limit": "O celular não conseguiu parear: este computador já tem o número máximo de dispositivos."
   }
 }

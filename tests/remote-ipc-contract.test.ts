@@ -3,7 +3,10 @@ import { TOOL_REGISTRY } from '../electron/main/mcp-internal/tool-registry'
 import { createOxeApi, type PreloadIpc } from '../electron/preload/api'
 import { FORBIDDEN_CAPABILITIES, MCP_COVERAGE } from '../shared/mcp-coverage'
 import { IPC_CHANNELS } from '../shared/types/ipc'
-import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MAX_DESKTOP_NAME_LENGTH, REMOTE_MIN_PORT } from '../shared/types/remote'
+import { mainMessage, type MessageParams } from '../shared/messages'
+import {
+  REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MAX_DESKTOP_NAME_LENGTH, REMOTE_MIN_PORT, REMOTE_PAIRING_FAILURE_REASONS, type RemoteGatewayStatus, type RemotePairingFailureReason
+} from '../shared/types/remote'
 
 vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
@@ -14,7 +17,7 @@ describe('Settings › Devices contract (remote.*)', () => {
     expect(IPC_CHANNELS.remote).toEqual({
       status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
       cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-      setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write'
+      setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', pairingFailed: 'remote:pairing-failed'
     })
   })
 
@@ -56,6 +59,33 @@ describe('Settings › Devices contract (remote.*)', () => {
     ])
     remote.onChanged(vi.fn())
     expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.remote.changed, expect.any(Function))
-    expect(Object.keys(remote).sort()).toEqual(['answerPairing', 'cancelPairing', 'devices', 'onChanged', 'rename', 'revoke', 'setDesktopName', 'setEnabled', 'setPhoneWrite', 'startPairing', 'status'])
+    expect(Object.keys(remote).sort()).toEqual(['answerPairing', 'cancelPairing', 'devices', 'onChanged', 'onPairingFailed', 'rename', 'revoke', 'setDesktopName', 'setEnabled', 'setPhoneWrite', 'startPairing', 'status'])
+  })
+
+  it('hands a failed pairing to the window as a C3 message, and stops when unsubscribed', () => {
+    const ipc: PreloadIpc = { invoke: vi.fn(), on: vi.fn(), removeListener: vi.fn() }
+    const listener = vi.fn()
+    const stop = createOxeApi(ipc).remote!.onPairingFailed(listener)
+    const [[channel, wrapped]] = vi.mocked(ipc.on).mock.calls
+    expect(channel).toBe(IPC_CHANNELS.remote.pairingFailed)
+    const message = mainMessage('remote.pairing.failed', { reason: 'expired' })
+    wrapped({} as never, message)
+    expect(listener).toHaveBeenCalledWith(message)
+    stop()
+    expect(ipc.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.remote.pairingFailed, wrapped)
+  })
+
+  it('names the reasons a pairing can fail for, the same as the message code carries', () => {
+    expect([...REMOTE_PAIRING_FAILURE_REASONS]).toEqual(['invalid', 'expired', 'refused', 'limit'])
+    const reasons: Array<MessageParams['remote.pairing.failed']['reason']> = [...REMOTE_PAIRING_FAILURE_REASONS]
+    const back: RemotePairingFailureReason[] = reasons
+    expect(back).toHaveLength(4)
+  })
+
+  it('reports whether the gateway ever listened, as part of every status', () => {
+    const status: RemoteGatewayStatus = {
+      enabled: false, desktopName: REMOTE_DEFAULT_DESKTOP_NAME, listening: null, fingerprint: null, devices: 0, maxDevices: 5, phoneWritePanes: [], listenedBefore: false
+    }
+    expect(Object.keys(status)).toContain('listenedBefore')
   })
 })

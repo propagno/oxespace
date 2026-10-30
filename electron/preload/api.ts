@@ -312,6 +312,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       status: () => ipc.invoke(IPC_CHANNELS.remote.status) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       devices: () => ipc.invoke(IPC_CHANNELS.remote.devices) as Promise<import('../../shared/types/remote').RemoteDevice[]>,
       onChanged: listener => subscribe<import('../../shared/types/remote').RemoteChange>(ipc, IPC_CHANNELS.remote.changed, listener),
+      onPairingFailed: listener => subscribe<import('../../shared/messages').MainMessage>(ipc, IPC_CHANNELS.remote.pairingFailed, listener),
       setEnabled: input => ipc.invoke(IPC_CHANNELS.remote.setEnabled, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       startPairing: () => ipc.invoke(IPC_CHANNELS.remote.startPairing) as Promise<import('../../shared/types/remote').RemotePairingOffer>,
       cancelPairing: () => ipc.invoke(IPC_CHANNELS.remote.cancelPairing) as Promise<void>,
