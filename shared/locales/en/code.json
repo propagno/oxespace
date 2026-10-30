@@ -913,7 +913,7 @@
     },
     "design": "Design Mode",
     "designTitle": "Design Mode: click an element to send it to an agent",
-    "designHint": "Design Mode: click an element in the page, or press Escape to cancel.",
+    "designHint": "Design Mode — click an element in the page, or press Escape to cancel.",
     "capture": "Copy the preview to the clipboard",
     "openExternal": "Open in your browser",
     "access": {
