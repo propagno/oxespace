@@ -134,6 +134,62 @@ Correção no #183 (`618c479f`), pré-verificada na branch com a mesma sonda e m
 quebra de linha e `name` repetido no nome): todas são recusadas; o QR válido e o nome com espaço continuam aceitos;
 o host público continua sendo regra só do app. Falta reverificar na `main` depois do merge, para fechar a ressalva.
 
+## Onda 2 e fila (pré-homologação)
+
+A pedido do coordenador, os PRs abertos são pré-homologados na própria branch, mesclada localmente com a `main`.
+O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápida na `main`. Os roteiros ficam em
+`e2e/homologation/pre-<PR>.spec.ts`, e as capturas em `e2e/screenshots/homologation/pre-<PR>/`.
+
+| Item | PR | Dono | Veredito |
+|---|---|---|---|
+| Roadmap 1.4 (documentação) | #157 | coordenador | Homologado (na `main` 8e1d8c14) |
+| F1 primitivas | #163 | FRONTEND | Pré-homologado |
+| F4 WCAG 2.2, partes 1 e 2 | #186 | FRONTEND | Pré-homologado com ressalvas |
+| R1 + A4 (splash na aparência salva; visualizador só em dev) | #190 | FRONTEND | Pré-homologado |
+| F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Em andamento: build pronta, aguardando a trava única da máquina |
+| A4 worktree por conversa | #151 | BACKEND/FRONTEND | Em andamento na `main` (f5d6f478): roteiro `e2e/homologation/a4.spec.ts` pronto, aguardando a trava |
+
+### #157 Roadmap 1.4: Homologado
+
+Os seis documentos de `docs/roadmap-1.4/` estão na `main`, sem links relativos quebrados. Duas sugestões de texto
+para o coordenador: o "DoD comum" do README não diz que um item só conta como feito depois de mergeado e
+homologado; e a F11 ainda fala em "abre um Thread", que vira OxeChat com a F12.
+
+### #163 F1 primitivas: Pré-homologado
+
+- No visualizador, a seção States tem Empty, Loading, Failed, Succeeded, Offline, Notices e Unavailable, nos dois
+  modos. Os rótulos padrão estão traduzidos no pt-BR: "Você está sem conexão", "Verificar de novo", "Tentar de
+  novo" e "Detalhes".
+- Papéis: aviso e erro (Notice warning/danger, FieldError, ErrorState) são `alert`; info, sucesso e offline são
+  `status`.
+- Nenhum erro de console. Prints: `pre-163/light-pt-BR-states-3.png` e `-4.png`.
+- Fora do PR (F6): o placeholder da paleta, "Search files and commands…", continua em inglês no pt-BR.
+
+### #186 F4 WCAG 2.2: Pré-homologado com ressalvas
+
+Passada só com teclado, em pt-BR:
+- O divisor da barra lateral abre com Enter o menu Menor / Maior / Restaurar. "Maior" mantém o menu aberto
+  (280→288), e o Escape devolve o foco ao separador.
+- Na árvore de arquivos, Shift+F10 abre "Copiar caminho" e "Copiar caminho relativo".
+- Com `prefers-contrast: more`, as bordas e o texto muted ficam mais fortes nos dois modos (claro: borda
+  `#cdd8d0`→`#bbc9bf`; escuro: muted `#9ea7a1`→`#c4cdc7`).
+
+Ressalvas para o FRONTEND:
+1. **Divisor do grid de painéis:**
+   - ele recebe foco e as setas o movem (50%→52%), mas Enter, Espaço e Shift+F10 não abrem o menu "Mover o
+     divisor", diferente do divisor da barra lateral;
+   - é um `separator` focável sem `aria-valuenow`;
+   - o nome é "Resize columns"/"Resize rows", em inglês no pt-BR.
+2. **Nome do menu:** sai "Tamanho de Largura da barra lateral". Sugestão: "Tamanho da barra lateral".
+
+### #190 R1 + A4: Pré-homologado
+
+- **Splash:** com o bundle bloqueado, ele abre na aparência salva nas 6 combinações (Escuro/Claro/Sistema × sistema
+  claro/escuro). Com "Sistema", segue o sistema. Com a configuração corrompida, o boot continua (`pre-190/notes.json`).
+- **Visualizador:** some da paleta quando a URL do renderer está dentro de `.asar`. O `electron-builder.yml` tem
+  `asar: true` e não desempacota o renderer, então a regra vale para o app publicado. Na build de teste o
+  visualizador continua visível, como esperado. Conferir no smoke empacotado.
+
 ### Achados fora dos itens da onda
 
 Coisas vistas durante a passada. Não reprovam itens da onda 1, mas têm dono.
