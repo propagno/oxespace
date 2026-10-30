@@ -33,9 +33,11 @@
 .workbench { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); flex: 1; min-height: 0; padding: var(--space-3); }
 .editor, .response { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; min-height: 0; padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-raised); overflow: hidden; }
 .urlBar { display: flex; align-items: center; gap: var(--space-2); }
-.urlInput { flex: 1; min-width: 0; }
+.urlBar select { flex: none; width: 7.5rem; }
+.urlBar .urlInput { flex: 1 1 0; width: auto; min-width: 0; }
 .metaBar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
-.nameInput { width: 220px; max-width: 100%; }
+.metaBar .nameInput { flex: 0 1 240px; width: auto; min-width: 140px; }
+.metaBar select { flex: none; width: auto; min-width: 11rem; }
 .spacer { flex: 1; }
 .muted { color: var(--text-muted); }
 .note, .hint, .warn { margin: 0; font-size: var(--text-xs); line-height: var(--leading-snug); }

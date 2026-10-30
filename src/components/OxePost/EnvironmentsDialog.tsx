@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, X } from 'lucide-react'
 import { isSensitiveName } from '../../../shared/oxepost/redact'
 import type { PostEnvironmentView } from '../../../shared/oxepost/types'
 import { Badge, Button, ConfirmDialog, Dialog, ErrorState, IconButton, Switch, TextField, toast } from '../../ui'
 import { messageOf, post } from './client'
+import { EXAMPLE } from './examples'
 import { useOxePostStore } from './oxepost.store'
 import styles from './OxePost.module.css'
 
@@ -21,15 +22,17 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
   const workspaceId = useOxePostStore(state => state.workspaceId)
   const environments = useOxePostStore(state => state.environments)
   const secretsProblem = useOxePostStore(state => state.secretsProblem)
-  const [form, setForm] = useState<Form>(() => environments[0] ? fromEnvironment(environments[0]) : blank())
+  const [form, setFormState] = useState<Form>(() => environments[0] ? fromEnvironment(environments[0]) : blank())
   const [failure, setFailure] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [secretValues, setSecretValues] = useState<Record<string, string>>({})
   const [newSecret, setNewSecret] = useState('')
   const saved = environments.find(env => env.id === form.id)
+  const setForm = setFormState
+  /** Another environment: what was typed for the previous one's secrets and the last error do not follow. */
+  const switchTo = (next: Form): void => { setFormState(next); setSecretValues({}); setFailure('') }
 
-  useEffect(() => { setSecretValues({}); setFailure('') }, [form.id])
 
   const run = async (action: () => Promise<void>): Promise<void> => {
     setBusy(true); setFailure('')
@@ -41,7 +44,7 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
     const result = await post('envSave', { workspaceId, id: form.id || undefined, environment: { name: form.name, production: form.production, variables, secrets: form.secrets } })
     useOxePostStore.getState().applyEnvironments(result.environments)
     const created = result.environments.find(env => env.id === result.id)
-    if (created) setForm(fromEnvironment(created))
+    if (created) switchTo(fromEnvironment(created))
     toast({ title: t('env.saved'), intent: 'success' })
   })
 
@@ -49,7 +52,7 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
     const result = await post('envDelete', { workspaceId, id: form.id })
     useOxePostStore.getState().applyEnvironments(result.environments)
     setConfirmDelete(false)
-    setForm(result.environments[0] ? fromEnvironment(result.environments[0]) : blank())
+    switchTo(result.environments[0] ? fromEnvironment(result.environments[0]) : blank())
   })
 
   const setSecret = (name: string, clear: boolean): Promise<void> => run(async () => {
@@ -75,10 +78,10 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
     </>}>
     <div className={styles.envLayout}>
       <nav className={styles.envList} aria-label={t('env.list')}>
-        {environments.map(env => <button key={env.id} type="button" className={styles.row} aria-current={form.id === env.id ? 'page' : undefined} onClick={() => setForm(fromEnvironment(env))}>
+        {environments.map(env => <button key={env.id} type="button" className={styles.row} aria-current={form.id === env.id ? 'page' : undefined} onClick={() => switchTo(fromEnvironment(env))}>
           <span className={styles.rowName}>{env.name}</span>{env.production && <Badge intent="danger">{t('env.production')}</Badge>}
         </button>)}
-        <Button size="sm" variant="ghost" icon={<Plus size={13} aria-hidden="true" />} onClick={() => setForm(blank())}>{t('env.new')}</Button>
+        <Button size="sm" variant="ghost" icon={<Plus size={13} aria-hidden="true" />} onClick={() => switchTo(blank())}>{t('env.new')}</Button>
       </nav>
       <div className={styles.dialogStack}>
         <TextField label={t('env.name')} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} placeholder={t('env.namePlaceholder')} />
@@ -88,9 +91,9 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
         <h3 className={styles.sectionTitle}>{t('env.variables')}</h3>
         <ul className={styles.rows} aria-label={t('env.variables')}>
           {form.variables.map((row, index) => <li key={index} className={styles.kvRow}>
-            <TextField mono aria-label={t('table.name', { n: index + 1 })} placeholder="baseUrl" value={row.name} error={isSensitiveName(row.name) && row.value ? t('env.useSecret') : undefined}
+            <TextField mono aria-label={t('table.name', { n: index + 1 })} placeholder={EXAMPLE.variableName} value={row.name} error={isSensitiveName(row.name) && row.value ? t('env.useSecret') : undefined}
               onChange={event => setForm({ ...form, variables: form.variables.map((item, at) => at === index ? { ...item, name: event.target.value } : item) })} />
-            <TextField mono aria-label={t('table.value', { n: index + 1 })} placeholder="http://localhost:3000" value={row.value}
+            <TextField mono aria-label={t('table.value', { n: index + 1 })} placeholder={EXAMPLE.variableValue} value={row.value}
               onChange={event => setForm({ ...form, variables: form.variables.map((item, at) => at === index ? { ...item, value: event.target.value } : item) })} />
             <IconButton label={t('table.remove', { n: index + 1 })} size="sm" icon={<X size={14} aria-hidden="true" />} onClick={() => setForm({ ...form, variables: form.variables.filter((_, at) => at !== index) })} />
           </li>)}
@@ -116,7 +119,7 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
           })}
         </ul>
         <div className={styles.addSecret}>
-          <TextField mono aria-label={t('env.secretName')} placeholder="token" value={newSecret} onChange={event => setNewSecret(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addSecret() } }} />
+          <TextField mono aria-label={t('env.secretName')} placeholder={EXAMPLE.secretName} value={newSecret} onChange={event => setNewSecret(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addSecret() } }} />
           <Button size="sm" variant="ghost" icon={<Plus size={13} aria-hidden="true" />} disabled={!newSecret.trim()} onClick={addSecret}>{t('env.addSecret')}</Button>
         </div>
         <p className={styles.hint}>{t('env.secretsHint')}</p>

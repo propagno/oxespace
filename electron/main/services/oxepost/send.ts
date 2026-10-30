@@ -45,7 +45,8 @@ export async function sendRequest(request: PostRequest, options: SendOptions = {
     throw describeFailure(error, timeoutMs)
   }
 
-  let kept: Buffer[] = [], keptBytes = 0, size = 0, truncated = false
+  const kept: Buffer[] = []
+  let keptBytes = 0, size = 0, truncated = false
   try {
     const reader = response.body?.getReader()
     if (reader) {
@@ -64,7 +65,6 @@ export async function sendRequest(request: PostRequest, options: SendOptions = {
   }
   const ms = Math.round(performance.now() - started)
   const bytes = Buffer.concat(kept)
-  kept = []
   const contentType = response.headers.get('content-type') ?? ''
   const binary = contentType ? !TEXTUAL.test(contentType) && bytes.includes(0) : bytes.subarray(0, 4096).includes(0)
   const list: Array<{ name: string; value: string }> = []

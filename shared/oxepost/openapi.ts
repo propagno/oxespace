@@ -20,7 +20,7 @@ const isObject = (value: unknown): value is Json => !!value && typeof value === 
 /** Reads an OpenAPI 3 document (JSON or YAML) into requests, one per operation, grouped by tag. */
 export function parseOpenApi(text: string): OpenApiImport {
   let document: unknown
-  try { document = text.trimStart().startsWith('{') ? JSON.parse(text) : loadYaml(text) } catch (error) { throw new Error(`The document is neither valid JSON nor YAML: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`) }
+  try { document = text.trimStart().startsWith('{') ? JSON.parse(text) : loadYaml(text) } catch (error) { throw new Error(`The document is neither valid JSON nor YAML: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`, { cause: error }) }
   if (!isObject(document)) throw new Error('The document is not an OpenAPI description')
   const version = typeof document.openapi === 'string' ? document.openapi : ''
   if (!version.startsWith('3.')) throw new Error(document.swagger ? 'Swagger 2 is not supported; convert it to OpenAPI 3 first' : 'This is not an OpenAPI 3 document (the "openapi" field is missing)')
@@ -36,18 +36,19 @@ export function parseOpenApi(text: string): OpenApiImport {
     return resolve(node, [...seen, ref])
   }
 
-  const example = (schema: unknown, depth = 0): unknown => {
+  const example = (schema: unknown, depth = 0, seen: string[] = []): unknown => {
+    if (isObject(schema) && typeof schema.$ref === 'string') { if (seen.includes(schema.$ref)) return null; seen = [...seen, schema.$ref] }
     const node = resolve(schema)
     if (!isObject(node) || depth > MAX_DEPTH) return null
     if (node.example !== undefined) return node.example
     if (node.default !== undefined) return node.default
     if (Array.isArray(node.enum) && node.enum.length) return node.enum[0]
     const variant = [node.oneOf, node.anyOf].find(Array.isArray) as unknown[] | undefined
-    if (variant?.length) return example(variant[0], depth + 1)
-    if (Array.isArray(node.allOf)) return Object.assign({}, ...node.allOf.map(part => { const sample = example(part, depth + 1); return isObject(sample) ? sample : {} }))
+    if (variant?.length) return example(variant[0], depth + 1, seen)
+    if (Array.isArray(node.allOf)) return Object.assign({}, ...node.allOf.map(part => { const sample = example(part, depth + 1, seen); return isObject(sample) ? sample : {} }))
     const type = node.type ?? (isObject(node.properties) ? 'object' : undefined)
-    if (type === 'object') return Object.fromEntries(Object.entries(isObject(node.properties) ? node.properties : {}).map(([key, child]) => [key, example(child, depth + 1)]))
-    if (type === 'array') return [example(node.items, depth + 1)]
+    if (type === 'object') return Object.fromEntries(Object.entries(isObject(node.properties) ? node.properties : {}).map(([key, child]) => [key, example(child, depth + 1, seen)]))
+    if (type === 'array') return [example(node.items, depth + 1, seen)]
     if (type === 'integer' || type === 'number') return 0
     if (type === 'boolean') return false
     if (type === 'string') return node.format === 'date-time' ? '2024-01-01T00:00:00Z' : node.format === 'date' ? '2024-01-01' : 'string'

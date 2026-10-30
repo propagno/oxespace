@@ -34,7 +34,7 @@ const MIGRATED = [
   'src/components/Threads'
 ]
 /** Text that stays the same in every language: product and tool names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OxePod', 'OxePost', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'claude.ai'])
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OxePod', 'OxePost', 'cURL', 'OpenAPI 3', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'claude.ai'])
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/

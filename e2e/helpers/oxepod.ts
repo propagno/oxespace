@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 
-/** The four views of the title bar, by their product names. */
-export async function openView(page: Page, name: 'Code' | 'Thread' | 'OxeQuery' | 'OxePod'): Promise<void> {
+/** The views of the title bar, by their product names. */
+export async function openView(page: Page, name: 'Code' | 'Thread' | 'OxeQuery' | 'OxePod' | 'OxePost'): Promise<void> {
   const navigation = page.locator('nav[aria-label="Application view"], nav[aria-label="Visão do aplicativo"]')
   await navigation.getByRole('button', { name, exact: true }).click()
   await expect(navigation.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true')

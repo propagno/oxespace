@@ -509,7 +509,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerMcpInternalIpc(internalMcp)
   registerDiagnosticsIpc(db, internalMcp)
-  registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath); ipcMain.handle(IPC_CHANNELS.oxePost.call, async (event, request: unknown) => (await import('./ipc/oxepost.ipc')).handleOxePost(event, request, id => internalMcpWorkspaceServ.get(id)?.rootPath)) // OxePost: its code loads on first use
+  registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath)
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
   registerOxeContextIpc({

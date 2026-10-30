@@ -6,6 +6,7 @@ import { literalSecrets } from '../../../shared/oxepost/format'
 import { findVariables } from '../../../shared/oxepost/variables'
 import { HTTP_METHODS, type HttpMethod, type PostAuth, type PostHeader, type PostRequest } from '../../../shared/oxepost/types'
 import { Badge, Button, Checkbox, IconButton, Select, Tabs, TextArea, TextField, copyText, toast } from '../../ui'
+import { EXAMPLE } from './examples'
 import { isDirty, useOxePostStore } from './oxepost.store'
 import { queryParams, withParams, prettyBody } from './post-model'
 import styles from './OxePost.module.css'
@@ -129,15 +130,15 @@ function AuthEditor({ request }: { request: PostRequest }): ReactElement {
   return <div className={styles.pane}>
     <Select label={t('auth.type')} value={auth.type} onChange={event => choose(event.target.value as PostAuth['type'])}
       options={[{ value: 'none', label: t('auth.none') }, { value: 'bearer', label: t('auth.bearer') }, { value: 'basic', label: t('auth.basic') }, { value: 'apikey', label: t('auth.apikey') }]} />
-    {auth.type === 'bearer' && <TextField mono label={t('auth.token')} placeholder="{{token}}" value={auth.token} onChange={event => edit({ auth: { ...auth, token: event.target.value } })} />}
+    {auth.type === 'bearer' && <TextField mono label={t('auth.token')} placeholder={EXAMPLE.token} value={auth.token} onChange={event => edit({ auth: { ...auth, token: event.target.value } })} />}
     {auth.type === 'basic' && <>
-      <TextField mono label={t('auth.username')} placeholder="{{username}}" value={auth.username} onChange={event => edit({ auth: { ...auth, username: event.target.value } })} />
-      <TextField mono label={t('auth.password')} placeholder="{{password}}" value={auth.password} onChange={event => edit({ auth: { ...auth, password: event.target.value } })} />
+      <TextField mono label={t('auth.username')} placeholder={EXAMPLE.username} value={auth.username} onChange={event => edit({ auth: { ...auth, username: event.target.value } })} />
+      <TextField mono label={t('auth.password')} placeholder={EXAMPLE.password} value={auth.password} onChange={event => edit({ auth: { ...auth, password: event.target.value } })} />
     </>}
     {auth.type === 'apikey' && <>
       <Select label={t('auth.keyIn')} value={auth.in} onChange={event => edit({ auth: { ...auth, in: event.target.value as 'header' | 'query' } })} options={[{ value: 'header', label: t('auth.inHeader') }, { value: 'query', label: t('auth.inQuery') }]} />
       <TextField mono label={t('auth.keyName')} value={auth.name} onChange={event => edit({ auth: { ...auth, name: event.target.value } })} />
-      <TextField mono label={t('auth.keyValue')} placeholder="{{apiKey}}" value={auth.value} onChange={event => edit({ auth: { ...auth, value: event.target.value } })} />
+      <TextField mono label={t('auth.keyValue')} placeholder={EXAMPLE.apiKey} value={auth.value} onChange={event => edit({ auth: { ...auth, value: event.target.value } })} />
     </>}
     {auth.type !== 'none' && <p className={styles.hint}>{t('auth.hint', { example: '{{token}}' })}</p>}
     {literals.length > 0 && <p className={styles.warn} role="note">{t('auth.literal')}</p>}
