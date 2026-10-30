@@ -4,7 +4,7 @@
  * A rule allows or denies an action on a resource: `{ "effect": "deny", "action": "integration.use",
  * "resource": "mcp:github" }`. Resources are names with `*` wildcards, compared without case:
  * - `provider.use`: `claude`, `codex`;
- * - `tool.use`: a tool name as the agent reports it (`Bash`, `mcp__github__create_issue`);
+ * - `tool.use`: a tool name as the agent reports it (`Bash`, `mcp__github__create_issue`); `mcp__github` covers the server's tools;
  * - `integration.use`: `mcp:<server>`, `skill:<id>`, `db:<connection>`, `memory`;
  * - `integration.use` also takes `env:<NAME>` (an allow lets a secret-looking variable reach agent child processes; a deny withholds
  *   one, see env-scrub.ts) and `net:<domain>` (network reach; evaluated by net-policy.ts, not enforced yet);
@@ -69,13 +69,20 @@ export function matchesResource(pattern: string, resource: string): boolean {
   return new RegExp(`^${escaped}$`).test(resource.toLowerCase())
 }
 
+/** The server part of an MCP tool name (`mcp__github` for `mcp__github__create_issue`), split as Claude splits it. */
+export function mcpToolServer(name: string): string | undefined {
+  return /^(mcp__.+?)__.+$/.exec(name)?.[1]
+}
+
 /** The decision for one action on one resource: the last matching rule across the layers, in order. */
 export function evaluatePolicy(policy: LoadedPolicy, action: PolicyAction, resource: string): PolicyDecision {
   let decision: PolicyDecision = { allowed: true }
+  // As in Claude, a `tool.use` rule naming a whole MCP server (`mcp__github`) covers each of its tools.
+  const server = action === 'tool.use' ? mcpToolServer(resource) : undefined
   const sources = [...policy.sources].sort((a, b) => LAYER_ORDER.indexOf(a.layer) - LAYER_ORDER.indexOf(b.layer))
   for (const source of sources) {
     for (const rule of source.rules) {
-      if (rule.action !== action || !matchesResource(rule.resource, resource)) continue
+      if (rule.action !== action || !(matchesResource(rule.resource, resource) || (server !== undefined && matchesResource(rule.resource, server)))) continue
       decision = { allowed: rule.effect === 'allow', rule, layer: source.layer, path: source.path, ...(source.organization ? { organization: source.organization } : {}) }
     }
   }

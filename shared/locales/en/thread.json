@@ -551,7 +551,7 @@
     "branch": "Branch",
     "branchPlaceholder": "thread/<date> (generated)",
     "startFrom": "Start from",
-    "startFromPlaceholder": "Repository default (e.g. origin/main)",
+    "startFromPlaceholder": "Default (e.g. origin/main)",
     "chooseFolder": "Choose a project folder.",
     "addFailed": "Could not add this project.",
     "addTitle": "Add project",

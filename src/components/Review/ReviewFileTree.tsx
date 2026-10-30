@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, File } from 'lucide-react'
 import { useId, type ReactElement } from 'react'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import type { GitDiffFile } from '../../../shared/types/git'
+import { EmptyState } from '../../ui'
 
 interface DirNode {
   name: string
@@ -252,7 +253,7 @@ export function ReviewFileTree({
       {/* Read once when the tree is entered; repeating it on every row would be noise. */}
       <p id={hintId} className="sr-only">Use the arrow keys to move between files. On a file, press Enter to open it and Space to mark it reviewed.</p>
       {/* A tree must own tree items; with no files there is no tree, only a note. */}
-      {files.length === 0 ? <p className="review-file-tree-list review-file-tree-empty">No files to review.</p> : <div className="review-file-tree-list" role="tree" aria-label="Review files" aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
+      {files.length === 0 ? <div className="review-file-tree-list"><EmptyState compact title="No files to review." /></div> : <div className="review-file-tree-list" role="tree" aria-label="Review files" aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
         {treeMode === 'structured' ? (
           <RenderNode
             node={buildTree(files, reviewedSet)}

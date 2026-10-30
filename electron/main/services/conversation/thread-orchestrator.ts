@@ -24,7 +24,7 @@ import { briefBlock, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
-import { ThreadRequestRegistry } from './thread-request-registry'
+import { ThreadRequestRefusalError, ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
@@ -668,14 +668,13 @@ export class ThreadOrchestrator {
     await adapter.stopTask(taskId)
   }
 
-  async approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void> {
-    await this.respond(id, requestId, { decision })
-  }
+  async approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void> { await this.respond(id, requestId, { decision }) }
 
-  async respond(id: string, requestId: string, response: ThreadRequestResponse): Promise<void> {
+  async respond(id: string, requestId: string, response: ThreadRequestResponse, listedGeneration?: number): Promise<ThreadRequest | undefined> {
     const snapshot = this.read(id), generation = snapshot.thread.generation ?? 1
+    if (listedGeneration !== undefined && listedGeneration !== generation) throw new ThreadRequestRefusalError('staleGeneration', 'Request belongs to an older conversation generation')
     const adapter = this.adapters.get(id)
-    if (!adapter) throw new Error('Request has no live execution')
+    if (!adapter) throw new ThreadRequestRefusalError('notPending', 'Request has no live execution')
     const request = this.requests.list(id, generation).find(value => value.id === requestId)
     if (adapter.respondRequest) await this.requests.resolve(id, requestId, generation, response)
     else await adapter.approve(requestId, response.decision === 'accept' || response.decision === 'acceptForSession' ? 'accept' : 'decline')
@@ -685,6 +684,7 @@ export class ThreadOrchestrator {
       const verb = response.decision === 'acceptForSession' ? 'Allowed for the session' : response.decision === 'accept' || response.permissions ? 'Allowed' : 'Declined'
       this.audit(id, { action: 'approval', actor: 'user', summary: `${verb} ${requestSubject(request)}` })
     }
+    return request
   }
 
   async steer(id: string, text: string, attachmentIds: string[] = []): Promise<void> {

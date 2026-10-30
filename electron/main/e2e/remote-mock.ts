@@ -7,15 +7,16 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { mainMessage } from '../../../shared/messages'
 import { pairingUri, REMOTE_LIMITS, REMOTE_PROTOCOL_VERSION } from '../../../shared/remote/protocol'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import { REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingPrompt } from '../../../shared/types/remote'
+import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MAX_DESKTOP_NAME_LENGTH, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingPrompt } from '../../../shared/types/remote'
 
 export function registerRemoteMock(): void {
   const fingerprint = 'ab'.repeat(32)
-  let enabled = false, port = 47_321, error: RemoteGatewayStatus['error']
+  let enabled = false, port = 47_321, error: RemoteGatewayStatus['error'], desktopName = REMOTE_DEFAULT_DESKTOP_NAME
   let prompt: RemotePairingPrompt | null = null, offerExpiresAt = 0
+  const phoneWritePanes = new Set<string>()
   const devices: RemoteDevice[] = process.env.OXESPACE_E2E_REMOTE_DEVICES === '0' ? [] : [{ deviceId: 'device-1', name: 'Pixel 8', pairedAt: 1, lastSeenAt: 2, connected: true }]
   const status = (): RemoteGatewayStatus => ({
-    enabled, listening: enabled ? { addresses: ['192.168.0.10'], port } : null, fingerprint, devices: devices.length, maxDevices: REMOTE_LIMITS.maxDevices, ...(error ? { error } : {})
+    enabled, desktopName, phoneWritePanes: [...phoneWritePanes], listening: enabled ? { addresses: ['192.168.0.10'], port } : null, fingerprint, devices: devices.length, maxDevices: REMOTE_LIMITS.maxDevices, ...(error ? { error } : {})
   })
   const changed = (change: RemoteChange) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.remote.changed, change) }
   const find = (deviceId: unknown) => {
@@ -47,7 +48,7 @@ export function registerRemoteMock(): void {
       prompt = { promptId: 'prompt-1', deviceName: 'Pixel 8 Pro', verification: '28T5CY', expiresAt: Date.now() + 60_000 }
       changed({ pairing: prompt })
     }, 300)
-    return { uri: pairingUri({ v: REMOTE_PROTOCOL_VERSION, host: '192.168.0.10', port, fp: fingerprint, code: 'e2e-pairing-code-00000', name: 'OXESpace E2E' }), expiresAt: offerExpiresAt }
+    return { uri: pairingUri({ v: REMOTE_PROTOCOL_VERSION, host: '192.168.0.10', port, fp: fingerprint, code: 'e2e-pairing-code-00000', name: desktopName }), expiresAt: offerExpiresAt }
   })
   ipcMain.handle(IPC_CHANNELS.remote.cancelPairing, () => {
     offerExpiresAt = 0
@@ -62,6 +63,18 @@ export function registerRemoteMock(): void {
   ipcMain.handle(IPC_CHANNELS.remote.revoke, (_event, input: { deviceId?: unknown }) => {
     devices.splice(devices.indexOf(find(input?.deviceId)), 1)
     changed({ devices: [...devices], status: status() })
+  })
+  ipcMain.handle(IPC_CHANNELS.remote.setDesktopName, (_event, input: { name?: unknown }) => {
+    if (input?.name !== null && (typeof input?.name !== 'string' || !input.name.trim() || input.name.length > REMOTE_MAX_DESKTOP_NAME_LENGTH)) throw new Error('Invalid desktop name')
+    desktopName = input.name === null ? REMOTE_DEFAULT_DESKTOP_NAME : input.name.trim()
+    changed({ status: status() })
+    return status()
+  })
+  ipcMain.handle(IPC_CHANNELS.remote.setPhoneWrite, (_event, input: { paneId?: unknown; allowed?: unknown }) => {
+    if (typeof input?.paneId !== 'string' || !input.paneId || typeof input.allowed !== 'boolean') throw new Error('Invalid pane input')
+    if (input.allowed) phoneWritePanes.add(input.paneId); else phoneWritePanes.delete(input.paneId)
+    changed({ status: status() })
+    return status()
   })
   ipcMain.handle(IPC_CHANNELS.remote.rename, (_event, input: { deviceId?: unknown; name?: unknown }) => {
     const device = find(input?.deviceId)

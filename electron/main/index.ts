@@ -21,6 +21,8 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
+import { registerAppInfoIpc } from './ipc/app-info.ipc'
+import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerCopilotIpc } from './ipc/copilot.ipc'
 import { registerAgentCreditsIpc } from './ipc/agentCredits.ipc'
@@ -358,22 +360,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
   const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
   registerMcpIpc(mcpManager)
-  // Read clipboard text in main (Electron's clipboard module needs no renderer
-  // permission), so terminal Ctrl+V paste never depends on navigator.clipboard
-  // being granted clipboard-read.
-  ipcMain.handle(IPC_CHANNELS.clipboard.readText, () => clipboard.readText())
-  ipcMain.handle(IPC_CHANNELS.clipboard.writeText, async (_e, text: string) => {
-    const value = typeof text === 'string' ? text : ''
-    try {
-      await clipboard.writeText(value)
-      // Verify the completed write. Normalize CRLF because the Windows clipboard
-      // may canonicalize line endings while preserving the copied text.
-      const normalize = (input: string): string => input.replace(/\r\n/g, '\n')
-      return normalize(await clipboard.readText()) === normalize(value)
-    } catch {
-      return false
-    }
-  })
+  registerClipboardTextIpc()
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
     const item = (await clipboard.read()).find(value => value.types.includes('image/png'))
     if (!item) return null
@@ -389,6 +376,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
+  app.once('before-quit', registerAppInfoIpc())
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()

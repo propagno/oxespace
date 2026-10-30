@@ -63,6 +63,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
   'help.shortcuts': dialog('Keyboard shortcuts'),
   'help.report-problem': both(dialog('Report a problem'), testId('report-problem')),
+  'help.about': both(dialog('About OXESpace'), testId('about-dialog')),
   'activity.open': testId('activity-center'),
   'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
   'new-workspace': dialog('Create new workspace'),
@@ -329,7 +330,8 @@ test.describe('offer audit', () => {
         'Tools/Linear issues': dialog('Linear issues'),
         'Help/Keyboard shortcuts': dialog('Keyboard shortcuts'),
         'Help/Diagnostics': settingsPage('Diagnostics'),
-        'Help/Report a problem…': dialog('Report a problem')
+        'Help/Report a problem…': dialog('Report a problem'),
+        'Help/Check for updates…': settingsPage('Updates')
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
         Appearance: label => label === 'Follow system' ? async () => undefined : rootData('mode', label.toLowerCase()),
@@ -360,7 +362,7 @@ test.describe('offer audit', () => {
             continue
           }
           const key = label.startsWith('About OXESpace') ? 'Help/About' : `${menu}/${label}`
-          const effect = key === 'Help/About' ? settingsPage('Updates') : MENU_EFFECTS[key]
+          const effect = key === 'Help/About' ? dialog('About OXESpace') : MENU_EFFECTS[key]
           if (!effect) { failures.push(`${key}: no expected effect in e2e/offer-audit.spec.ts`); continue }
           if (effect === 'native') continue
           const s = await openMenu(menu)
