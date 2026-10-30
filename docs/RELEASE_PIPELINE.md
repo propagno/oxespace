@@ -182,6 +182,21 @@ What users see:
 - A **stable** install never receives pre-releases.
 - The `.deb` does not self-update; its users install the new package.
 
+## Upgrade rehearsal
+
+Every CI run (Windows and Linux) runs `tests/integration/upgrade-rehearsal.native.test.ts` under the Electron
+runtime. It reads the previous stable release's `electron/main/db` from its git tag (`v1.3.3`), lets that code
+create a real database, fills it with user data, and upgrades it with the current build. It checks that every
+value survived, that integrity and foreign keys hold, that exactly one verified backup of the old version was
+taken, and that reopening takes no second one. It then rehearses the way back: the old release must refuse the
+upgraded file without changing it (a database from a newer version is never downgraded), and restoring the
+backup from `db-backups/` must give the old release a database it opens with all its data, which the current
+build can upgrade again. The latest schema version is read from `LATEST_DB_VERSION`, never hardcoded.
+
+When a release becomes the latest stable, change `PREVIOUS_STABLE` in the test. To rehearse another release
+locally: `OXESPACE_UPGRADE_FROM=v1.3.0 npm run test:electron -- tests/integration/upgrade-rehearsal.native.test.ts`.
+CI sets `OXESPACE_REQUIRE_UPGRADE_TAG=1`, so a missing tag fails the job instead of skipping the test.
+
 ## Guarantee that the release shipped
 
 The **release** job fails the workflow unless all of the following hold after

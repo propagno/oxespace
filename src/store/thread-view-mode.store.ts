@@ -8,12 +8,6 @@ import { create } from 'zustand'
  */
 export type ThreadViewMode = 'summary' | 'normal' | 'verbose'
 export const THREAD_VIEW_MODES: ThreadViewMode[] = ['summary', 'normal', 'verbose']
-export const THREAD_VIEW_MODE_LABEL: Record<ThreadViewMode, string> = { summary: 'Summary', normal: 'Normal', verbose: 'Verbose' }
-export const THREAD_VIEW_MODE_HINT: Record<ThreadViewMode, string> = {
-  summary: 'Only replies and the files that changed',
-  normal: 'Actions collapsed into short summaries',
-  verbose: 'Every action, file read and command'
-}
 
 const KEY = 'oxe.thread.viewMode'
 
