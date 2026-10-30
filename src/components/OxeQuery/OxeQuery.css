@@ -19,7 +19,6 @@
 .oq-icon svg { flex: none; }
 .oq-prod { color: var(--intent-danger-solid); }
 .oq-muted { color: var(--text-muted); font-size: var(--text-xs); }
-.oq-error { margin: 6px 0; color: var(--intent-danger-solid); font-size: var(--text-xs); white-space: pre-wrap; }
 .oq-ok { margin: 6px 0; color: var(--intent-success-solid, var(--text-secondary)); font-size: var(--text-xs); }
 
 .oq-view { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; background: var(--surface-canvas); color: var(--text-primary); }
@@ -42,7 +41,6 @@
 .oq-primary { border-color: transparent !important; color: var(--surface-canvas) !important; background: var(--accent) !important; }
 .oq-danger { border-color: transparent !important; color: var(--text-on-solid) !important; background: var(--intent-danger-solid) !important; }
 .oq-view textarea, .oq-form input { border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; font-size: var(--text-xs); }
-.oq-empty { display: grid; place-content: center; gap: 8px; width: 100%; padding: 32px; text-align: center; color: var(--text-secondary); }
 
 .oq-link { padding: 0; border: 0; color: var(--text-primary); background: transparent; font-weight: 500; cursor: pointer; }
 
@@ -126,7 +124,6 @@
 .oq-url > span { display: inline-flex; align-items: center; gap: 6px; }
 .oq-url small { color: var(--text-muted); }
 .oq-url input { padding: 7px 9px; border: 1px dashed var(--border-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; font-family: var(--font-mono, ui-monospace, monospace); }
-.oq-url em { color: var(--intent-danger-solid); font-style: normal; }
 .oq-safety { display: grid; gap: 10px; margin: 14px 0 6px; padding: 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); }
 .oq-segment { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); width: max-content; }
 .oq-segment button { padding: 4px 12px; border: 0; border-radius: calc(var(--radius-sm) - 1px); color: var(--text-secondary); background: transparent; font-size: var(--text-xs); cursor: pointer; }
@@ -196,7 +193,11 @@
 .oq-filepick > span { min-width: 120px; }
 .oq-filepick button:not(.oq-link) { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--text-xs); cursor: pointer; }
 .oq-filepick code { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border-radius: var(--radius-sm); background: var(--ov-3); }
-.oq-filepick em { flex-basis: 100%; color: var(--intent-danger-solid); font-style: normal; }
+.oq-filepick-error { flex-basis: 100%; }
+/* The changed-key warning: the explanation, then the trusted and the new fingerprints. */
+.oq-hostkey-notice { margin-top: 10px; }
+.oq-hostkey-notice p { margin: 0; line-height: 1.5; }
+.oq-hostkey-notice .oq-fingerprint { margin-top: 6px; }
 .oq-hostkey { display: grid; gap: 8px; margin: 10px 0 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: var(--text-xs); }
 .oq-hostkey p { margin: 0; line-height: 1.5; }
 .oq-preferences { display: grid; gap: 16px; }
@@ -207,7 +208,6 @@
 .oq-preferences-limits > legend { margin-bottom: 4px; padding: 0; font-size: var(--text-xs); color: var(--text-muted); }
 .oq-hostkey div { display: flex; justify-content: flex-end; gap: 8px; }
 .oq-hostkey button { padding: 4px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--text-xs); cursor: pointer; }
-.oq-hostkey-danger { border-color: var(--intent-danger-solid); background: color-mix(in srgb, var(--intent-danger-solid) 10%, transparent); }
 .oq-fingerprint { display: block; overflow-wrap: anywhere; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-canvas); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
 .oq-form textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); }
 

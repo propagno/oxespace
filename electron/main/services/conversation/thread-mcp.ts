@@ -1,5 +1,6 @@
 import { agentMcpArguments } from '../agent-launch.service'
 import { claudeMcpEntries, codexMcpArguments, type ManagedMcp } from './thread-managed-mcp'
+import { matchesResource } from '../../../../shared/policy'
 import type { ConversationThread, AgentConversationAdapter, ThreadEvent, ThreadPermissionRule, ThreadSnapshot } from '../../../../shared/types/thread'
 
 export interface ThreadMcpBindings {
@@ -125,20 +126,43 @@ export function deniedMcpTools(rules: Pick<ThreadPermissionRule, 'kind' | 'decis
  * the exclusion reaches the OXESpace bridge and managed servers; the approval
  * policy still declines the rest when the provider asks.
  */
-function exclusionArguments(provider: 'claude' | 'codex', denied: DeniedMcpTool[], codexServers: string[], deniedTools: readonly string[] = []): string[] {
+function exclusionArguments(provider: 'claude' | 'codex', denied: DeniedMcpTool[], codexServers: string[], deniedTools: readonly string[] = [], tools: readonly string[] = []): string[] {
+  const byPolicy = policyExclusions(deniedTools, tools)
   if (provider === 'claude') {
     // Built-in tools a policy denies by name join the MCP exclusions in the one flag Claude reads.
-    const names = [...denied.map(rule => rule.tool === '*' ? `mcp__${rule.server}` : `mcp__${rule.server}__${rule.tool}`), ...deniedTools]
+    const names = [...new Set([...[...denied, ...byPolicy.mcp].map(rule => rule.tool === '*' ? `mcp__${rule.server}` : `mcp__${rule.server}__${rule.tool}`), ...byPolicy.builtIn])]
     return names.length ? ['--disallowedTools', names.join(',')] : []
   }
-  if (!denied.length) return []
+  // Codex has no flag for names: MCP tools a policy denies join the per-server exclusions.
+  if (!denied.length && !byPolicy.mcp.length) return []
   const out: string[] = []
   for (const server of codexServers) {
-    const rules = denied.filter(rule => rule.server === server)
+    const rules = [...denied, ...byPolicy.mcp].filter(rule => rule.server === server)
     if (rules.some(rule => rule.tool === '*')) out.push('-c', `mcp_servers.${server}.enabled=false`)
-    else if (rules.length) out.push('-c', `mcp_servers.${server}.disabled_tools=${JSON.stringify(rules.map(rule => rule.tool))}`)
+    else if (rules.length) out.push('-c', `mcp_servers.${server}.disabled_tools=${JSON.stringify([...new Set(rules.map(rule => rule.tool))])}`)
   }
   return out
+}
+
+/**
+ * Splits the tool names a policy denies into built-in names (Claude only) and per-server MCP rules, matched the way
+ * Claude and `tools/call` match them: a whole server (`mcp__github`, `mcp__github__*`) or one tool. The OXESpace server
+ * also answers to `oxespace`, its key in Code terminals, and a partial wildcard over its tools (`mcp__oxespace__oxespace_db_*`)
+ * is resolved against the tools this conversation offers. Another server's partial wildcard is left to approvals,
+ * since its tools are not known at launch.
+ */
+function policyExclusions(deniedTools: readonly string[], tools: readonly string[]): { builtIn: string[]; mcp: DeniedMcpTool[] } {
+  const builtIn: string[] = [], mcp: DeniedMcpTool[] = []
+  for (const name of deniedTools) {
+    const match = /^mcp__(.+?)(?:__(.+))?$/i.exec(name)
+    if (!match) { builtIn.push(name); continue }
+    if (match[1].includes('*')) continue
+    const server = match[1].toLowerCase() === 'oxespace' ? 'oxespace-delegation' : match[1]
+    const tool = match[2] ?? '*'
+    if (tool === '*' || !tool.includes('*')) mcp.push({ server, tool })
+    else if (server === 'oxespace-delegation') for (const known of tools) if (matchesResource(tool, known)) mcp.push({ server, tool: known })
+  }
+  return { builtIn, mcp }
 }
 
 export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
@@ -151,13 +175,13 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
     const readOnly = [...args]
     const lookups = THREAD_READ_ONLY_MCP_TOOLS.filter(tool => tools.includes(tool))
     readOnly[index + 1] = JSON.stringify({ mcpServers: { 'oxespace-delegation': { command: 'node', args: [bridge, '--allowed-tools', JSON.stringify(lookups)] } } })
-    return [...readOnly, ...exclusionArguments(provider, denied, [], deniedTools)]
+    return [...readOnly, ...exclusionArguments(provider, denied, [], deniedTools, lookups)]
   }
   const config = agentMcpArguments(provider, bridge)
   const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
   if (provider === 'codex') {
     config[3] = `mcp_servers.oxespace-delegation.args=${JSON.stringify(bridgeArgs)}`
-    return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])]), ...args]
+    return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])], deniedTools, tools), ...args]
   }
   const clean = args.filter((arg, i) => !['--mcp-config', '--strict-mcp-config'].includes(arg) && args[i - 1] !== '--mcp-config')
   // Keep Claude's user and project MCP configuration. The extra config adds
@@ -165,7 +189,7 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
   return [...clean, '--mcp-config', JSON.stringify({ mcpServers: {
     ...(managed ? claudeMcpEntries(managed) : {}),
     'oxespace-delegation': { command: 'node', args: bridgeArgs }
-  } }), ...exclusionArguments(provider, denied, [], deniedTools)]
+  } }), ...exclusionArguments(provider, denied, [], deniedTools, tools)]
 }
 
 export function bindThreadMcp(adapter: AgentConversationAdapter, release: () => void): AgentConversationAdapter {
