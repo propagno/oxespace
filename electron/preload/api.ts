@@ -74,6 +74,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setProjectHidden: (projectId, hidden) => ipc.invoke(IPC_CHANNELS.thread.setProjectHidden, projectId, hidden) as ReturnType<import('../../shared/types/thread').ThreadApi['setProjectHidden']>,
       list: () => ipc.invoke(IPC_CHANNELS.thread.list) as ReturnType<import('../../shared/types/thread').ThreadApi['list']>,
       pendingRequestsAll: () => ipc.invoke(IPC_CHANNELS.thread.pendingRequestsAll) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['pendingRequestsAll']>>,
+      children: id => ipc.invoke(IPC_CHANNELS.thread.children, id) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['children']>>,
       respondPending: input => ipc.invoke(IPC_CHANNELS.thread.respondPending, input) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['respondPending']>>,
       create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
       read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,

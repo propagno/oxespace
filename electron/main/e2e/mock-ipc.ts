@@ -29,7 +29,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import type { GitCompareMode } from '../../../shared/types/git'
 import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
-import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult } from '../../../shared/types/thread'
+import type { ThreadChildrenSummary, ThreadChildSummary, ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult } from '../../../shared/types/thread'
 import { mainMessage } from '../../../shared/messages'
 import { requestOutcome } from '../../../shared/threadRequestOutcome'
 
@@ -271,6 +271,17 @@ export function registerE2eMockIpcHandlers(): void {
   // for the listed generation, exactly as the registry does.
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
+  // B1.3: children per conversation, seeded per run as { "<threadId>": [ThreadChildSummary, ...] }.
+  const children: Record<string, ThreadChildSummary[]> = JSON.parse(process.env.OXESPACE_E2E_THREAD_CHILDREN || '{}')
+  ipcMain.handle(IPC_CHANNELS.thread.children, (_event: IpcMainInvokeEvent, id: unknown): ThreadChildrenSummary => {
+    if (typeof id !== 'string' || !id) throw new Error('Invalid thread input')
+    const list = children[id] ?? []
+    const live = list.filter(child => !child.archived)
+    return { threadId: id, children: list, aggregate: {
+      running: live.filter(child => child.status === 'running').length, approval: live.filter(child => child.status === 'approval').length,
+      failed: live.filter(child => child.status === 'failed').length, done: live.filter(child => child.status === 'idle').length
+    } }
+  })
   ipcMain.handle(IPC_CHANNELS.thread.respondPending, (_event: IpcMainInvokeEvent, input: ThreadPendingResponseInput): ThreadPendingResponseResult => {
     const index = pendingRequests.findIndex(request => request.threadId === input.threadId && request.requestId === input.requestId)
     const refuse = (refusal: ThreadPendingRefusal): ThreadPendingResponseResult => ({ ok: false, refusal, message: mainMessage(`thread.request.${refusal}`, {}) })
