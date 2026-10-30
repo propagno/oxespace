@@ -154,6 +154,18 @@ function classify(words: string[], texts: string[]): Verdict | Verdict[] {
   if (first === 'COPY' && outer.includes('PROGRAM')) {
     return { kind: 'destructive', reason: COPY_PROGRAM, code: mainMessage('oxequery.sql.copyProgram', {}) }
   }
+  if (first === 'PREPARE') {
+    // PREPARE name [ (types) ] AS <statement>: the EXECUTE that follows runs the inner statement, so it is judged here.
+    let depth = 0
+    const as = words.findIndex(word => { if (word === '(') depth++; else if (word === ')') depth = Math.max(0, depth - 1); return depth === 0 && word === 'AS' })
+    const inner = as === -1 ? [] : [classify(words.slice(as + 1), texts)].flat()
+    const destructive = inner.some(verdict => verdict.kind === 'destructive')
+    const keyword = destructive ? destructiveWord(words.slice(as + 1)) ?? words[as + 1] : undefined
+    return [{ kind: 'write' }, ...inner, ...(keyword ? [{
+      kind: 'destructive' as const, reason: `PREPARE contains ${keyword}, which can remove data or objects.`,
+      code: mainMessage('oxequery.sql.destructiveInside', { statement: 'PREPARE', keyword })
+    }] : [])]
+  }
   if (first === 'DO' || first === 'CALL') {
     const runs: Verdict = { kind: 'write', reason: RUNS_CODE[first], code: mainMessage(first === 'DO' ? 'oxequery.sql.doBlock' : 'oxequery.sql.callProcedure', {}) }
     const inside = destructiveInside(words.slice(1), texts)
