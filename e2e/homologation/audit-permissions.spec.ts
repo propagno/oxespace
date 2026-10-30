@@ -1,5 +1,5 @@
 import { test, type ElectronApplication } from '@playwright/test'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
@@ -49,10 +49,17 @@ for (const locale of ['pt-BR', 'en-US'] as const) {
       await openDemoWorkspace(page, workspaceRoot)
       await connectFromContainer(page, 'pg-dev', locale === 'pt-BR' ? { connect: /no OxeQuery$/, save: 'Salvar e abrir' } : undefined)
 
-      const db = new DatabaseSync(join(root, 'oxespace.sqlite3'), { readOnly: true })
-      const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string }
-      const workspace = (db.prepare('SELECT id FROM workspaces LIMIT 1').get() as { id: string }).id
-      db.close()
+      // What an agent in this workspace gets: the OXESpace server in <workspace>/.mcp.json, with its port and token.
+      let config: { mcpServers?: Record<string, { env?: Record<string, string> }> } = {}
+      for (let tries = 0; tries < 40 && !Object.values(config.mcpServers ?? {}).some(s => s.env?.OXESPACE_MCP_TOKEN); tries++) {
+        try { config = JSON.parse(readFileSync(join(workspaceRoot, '.mcp.json'), 'utf8')) } catch { /* not written yet */ }
+        await page.waitForTimeout(250)
+      }
+      const env = Object.values(config.mcpServers ?? {}).find(s => s.env?.OXESPACE_MCP_TOKEN)?.env ?? {}
+      notes[`${locale}-mcpJsonServers`] = Object.keys(config.mcpServers ?? {})
+      const meta = { port: Number(env.OXESPACE_MCP_PORT), token: env.OXESPACE_MCP_TOKEN ?? '' }
+      const workspace = env.OXESPACE_WORKSPACE_ID ?? ''
+      void root; void DatabaseSync
       const call = (name: string, args: object = {}) => rpc(meta.port, meta.token, workspace, 'tools/call', { name, arguments: args })
 
       const listed = await rpc(meta.port, meta.token, workspace, 'tools/list', {}) as { result?: { tools?: Array<{ name: string; description?: string }> } }
