@@ -4,9 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OXESpace</title>
+    <link rel="icon" type="image/svg+xml" href="/resources/icon.svg" />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- The boot splash: drawn by the stylesheet alone (src/styles/splash.css), before any script runs, and replaced
+         when React renders. The mark matches src/design/brand.ts; tests/brand-touchpoints.test.ts keeps them equal. -->
+    <div id="root"><div class="oxe-splash" role="status" aria-label="OXESpace"><svg width="72" height="72" viewBox="0 0 44 44" fill="none" aria-hidden="true"><rect class="oxe-splash-tile" width="44" height="44" rx="11"/><g transform="translate(4.4 4.4) scale(0.8)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 39V8"/><path class="oxe-splash-arm" d="M22 27h-6a4 4 0 0 1-4-4v-7"/><path class="oxe-splash-arm oxe-splash-arm-late" d="M22 21h6a4 4 0 0 0 4-4v-6"/></g><circle class="oxe-splash-sun" cx="12.4" cy="11.2" r="2.8"/></svg></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

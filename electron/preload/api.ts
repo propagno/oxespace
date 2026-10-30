@@ -114,6 +114,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       approve: (id, request, decision) => ipc.invoke(IPC_CHANNELS.thread.approve, id, request, decision) as Promise<void>,
       respond: (id, request, response) => ipc.invoke(IPC_CHANNELS.thread.respond, id, request, response) as Promise<void>,
       pin: (id, pinned) => ipc.invoke(IPC_CHANNELS.thread.pin, id, pinned) as Promise<void>,
+      worktreeInspect: id => ipc.invoke(IPC_CHANNELS.thread.worktreeInspect, id) as Promise<import('../../shared/threadWorktree').ThreadWorktreeInspection | null>,
+      worktreeFinish: (id, action, choice) => ipc.invoke(IPC_CHANNELS.thread.worktreeFinish, id, action, choice) as Promise<import('../../shared/threadWorktree').ThreadWorktreeFinishResult>,
       onChanged: listener => {
         const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
         ipc.on(IPC_CHANNELS.thread.changed, handler)
@@ -308,6 +310,18 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onEvent: listener => subscribe<import('../../shared/types/oxepod').OxePodEvent>(ipc, IPC_CHANNELS.oxePod.onEvent, listener)
     },
     oxePost: { call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePost.call, { op, input }) as never },
+    remote: {
+      status: () => ipc.invoke(IPC_CHANNELS.remote.status) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      devices: () => ipc.invoke(IPC_CHANNELS.remote.devices) as Promise<import('../../shared/types/remote').RemoteDevice[]>,
+      onChanged: listener => subscribe<import('../../shared/types/remote').RemoteChange>(ipc, IPC_CHANNELS.remote.changed, listener),
+      setEnabled: input => ipc.invoke(IPC_CHANNELS.remote.setEnabled, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      startPairing: () => ipc.invoke(IPC_CHANNELS.remote.startPairing) as Promise<import('../../shared/types/remote').RemotePairingOffer>,
+      cancelPairing: () => ipc.invoke(IPC_CHANNELS.remote.cancelPairing) as Promise<void>,
+      answerPairing: input => ipc.invoke(IPC_CHANNELS.remote.answerPairing, input) as Promise<void>,
+      revoke: input => ipc.invoke(IPC_CHANNELS.remote.revoke, input) as Promise<void>,
+      rename: input => ipc.invoke(IPC_CHANNELS.remote.rename, input) as Promise<import('../../shared/types/remote').RemoteDevice>,
+      setDesktopName: input => ipc.invoke(IPC_CHANNELS.remote.setDesktopName, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>
+    },
     automations: {
       list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,
       create: (input) => ipc.invoke(IPC_CHANNELS.automations.create, input) as Promise<import('../../shared/types/automation').Automation>,

@@ -26,6 +26,8 @@
 @import './styles/tokens.generated.css';
 @import './styles/tokens.css';
 @import './styles/base.css' layer(oxe-legacy);
+@import './styles/motion.css' layer(oxe-legacy);
+@import './styles/splash.css' layer(oxe-legacy);
 @import './styles/layout.css' layer(oxe-legacy);
 @import './styles/components.css' layer(oxe-legacy);
 @import './styles/features/agents.css' layer(oxe-legacy);

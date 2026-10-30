@@ -25,6 +25,7 @@ import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
 import { registerOxePodMock } from './oxepod-mock'
 import { registerMcpToolsMock } from './mcp-tools-mock'
+import { registerRemoteMock } from './remote-mock'
 import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
@@ -40,6 +41,7 @@ export function registerE2eMockIpcHandlers(): void {
   registerOxeQueryMock()
   registerOxePodMock()
   registerMcpToolsMock()
+  registerRemoteMock()
   registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
