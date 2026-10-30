@@ -40,16 +40,15 @@ export function visibleOptions(request: ApprovalRequest): ApprovalOption[] {
 export const holdsAllow = (request: Pick<ApprovalRequest, 'allowDelayMs'>): boolean => request.allowDelayMs > 0
 
 /**
- * A decision as the history shows it. `by: 'refused'` is main denying a request before it was shown (queue full, text
- * too long): the app's decision, never the person's. Why it did comes from `reason` when main sends one, or from a
- * `summary` that is itself an `approvals.denied.*` code. TODO(CCR B10): ApprovalHistoryEntry has no reason field yet.
+ * A decision as the history shows it. A request that ended without the person's answer (main refused it: queue
+ * full, text too long; it timed out; its source withdrew it) carries main's `reason`: the app's outcome, never the
+ * person's decision. A person's own decision has no reason.
  */
-export type ApprovalHistoryRow = Omit<ApprovalHistoryEntry, 'textSha256' | 'createdAt'> & { reason?: MainMessage | { code: string; params: Record<string, unknown> } }
-export function refusalReason(row: ApprovalHistoryRow): ApprovalHistoryRow['reason'] {
-  if (row.reason) return row.reason
-  return row.summary.code.startsWith('approvals.denied.') ? row.summary : undefined
+export type ApprovalHistoryRow = Omit<ApprovalHistoryEntry, 'textSha256' | 'createdAt'>
+export function refusalReason(row: ApprovalHistoryRow): MainMessage | undefined {
+  return row.reason
 }
 
-export function historyRow(entry: ApprovalHistoryEntry & { reason?: ApprovalHistoryRow['reason'] }): ApprovalHistoryRow {
+export function historyRow(entry: ApprovalHistoryEntry): ApprovalHistoryRow {
   return { id: entry.id, kind: entry.kind, requester: entry.requester, risk: entry.risk, title: entry.title, summary: entry.summary, outcome: entry.outcome, by: entry.by, resolvedAt: entry.resolvedAt, reason: entry.reason }
 }
