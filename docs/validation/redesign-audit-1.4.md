@@ -45,13 +45,15 @@ capturas de tela inteira ficam só locais, porque mostram a área de trabalho de
 | P1-9 | OxeChat · cartão de aprovação (comportamento) | positivo | O comando enorme (16 mil caracteres) aparece inteiro numa área rolável depois de expandido. Enter no composer não aprova o pedido, e o foco não é roubado quando o pedido chega. | `audit-permissions-app/notes.json` | Manter. Ainda assim, o leitor de tela precisa ouvir "pedido de aprovação" quando ele chega (região viva educada); conferir no roteiro NVDA/Orca. |
 | P1-10 | OxePost · confirmação de produção | atrapalha | A confirmação mostra `GET {{baseUrl}}/danger`, com a variável sem resolver, então a pessoa não vê o endereço real de produção para onde vai enviar. | `audit-permissions-app/oxepost-production-confirm.png` | A confirmação mostra a URL resolvida (host em destaque, segredos mascarados), o método e o ambiente. Um teste com variável confere o host exibido. |
 | P1-11 | OxePost · confirmação de produção (comportamento) | positivo | Ctrl+Enter também passa pela confirmação. O foco começa em Cancel, e um Enter seguido não envia. Send fica vermelho, e há o selo "Production" ao lado do ambiente. | `audit-permissions-app/notes.json` | Manter. |
+| P1-12 | OxeQuery · classificação para a confirmação (produção e agentes) | positivo | O classificador (`sql-guard`) pega, entre 22 entradas adversariais: DELETE dentro de `WITH`, destrutivo depois de SELECT, comentários que disfarçam, caixa misturada, `EXPLAIN ANALYZE` (executa), `dblink`, `lo_export` e `pg_terminate_backend` (saem do banco), `SELECT INTO`, `TRUNCATE`, `GRANT` e `PREPARE/EXECUTE`. Uma string `$q$DELETE…$q$` fica como leitura, corretamente. | sonda em Node sobre `sql-guard.ts` da `main` f211ca7f | Manter, com as 22 entradas viradas teste de regressão. |
+| P1-13 | OxeQuery · motivo mostrado na confirmação | atrapalha | Três casos chegam à confirmação sem dizer o pior: `COPY … TO PROGRAM '…'` (executa um comando de shell no servidor do banco) vira "write" sem motivo; um `DO $$ … DELETE FROM users; … $$` e um `CALL purge_users()` viram "write" simples, sem inspecionar o corpo, e o DELETE de dentro não aparece como destrutivo; `SELECT … FOR UPDATE` (trava linhas) é tratado como leitura. | mesma sonda | `COPY … TO/FROM PROGRAM` é destrutivo, com o motivo "executa um comando no servidor do banco". `DO`/`CALL` levam o motivo "executa código no banco; o efeito não é conhecido antes" e são tratados como destrutivos em produção. `FOR UPDATE` e `FOR SHARE` levam o aviso de trava. Os quatro casos entram como teste. |
 
 Ainda não cobertos nesta fase:
 - a edição de config protegida;
 - a quarentena e a confiança de MCP;
 - o pareamento do celular (sem tela ainda);
 - o firewall na primeira escuta do gateway;
-- a confirmação de produção do OxeQuery (o OxePost foi coberto).
+- a confirmação de produção do OxeQuery na tela (a classificação foi coberta acima; o fluxo com o nome digitado tem e2e próprio, `e2e/oxequery-production.spec.ts`).
 
 Entram na próxima rodada da fase 1.
 
