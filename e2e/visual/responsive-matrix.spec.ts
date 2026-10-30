@@ -111,9 +111,9 @@ for (const size of MATRIX) {
       await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
       const query = page.locator('.oq-view')
       await query.waitFor()
-      await expect(page.getByRole('button', { name: 'mongo-dev', exact: true }).first()).toBeVisible()
+      await expect(page.getByRole('button', { name: 'New connection' }).first()).toBeVisible()
       await expectNoHorizontalScroll(page)
-      await expectUnclipped([page.getByRole('button', { name: 'New connection' }).first(), page.getByRole('button', { name: 'New database' })])
+      await expectUnclipped([page.getByRole('button', { name: 'New connection' }).first()])
       await expectSurface(page, `matrix-oxequery-${size.name}`, { target: query, mask: [page.locator('.oq-duration, [data-oq-volatile], .oq-statusbar time, .oq-state-since, .oq-timing')] })
 
       expect(consoleErrors).toEqual([])

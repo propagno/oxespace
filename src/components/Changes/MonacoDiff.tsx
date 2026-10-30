@@ -42,8 +42,15 @@ export default function MonacoDiff({ original, modified, language, path, review 
     language={language}
     theme={MONACO_THEME}
     beforeMount={defineMonacoTheme}
+    // The wrapper disposes the models before the diff widget lets go of them, which Monaco reports as an error
+    // ("TextModel got disposed before DiffEditorWidget model got reset"). Keep them, and dispose them once the
+    // editor is gone (below).
+    keepCurrentOriginalModel
+    keepCurrentModifiedModel
     onMount={(editor, monaco) => {
       for (const dispose of cleanup.current.splice(0)) dispose()
+      const models = editor.getModel()
+      cleanup.current.push(() => { setTimeout(() => { models?.original.dispose(); models?.modified.dispose() }) })
       const dom = editor.getContainerDomNode()
       let frame = 0
       const observer = new MutationObserver(() => {
