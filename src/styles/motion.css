@@ -1,0 +1,20 @@
+/*
+ * The app's only keyframes (docs/design/motion.md). Everything else moves with transitions on the --duration and
+ * --ease tokens, and enters through @starting-style, so reduced motion collapses it with the tokens.
+ *
+ * oxe-spin     busy indicators; reduced motion slows it (--duration-spin) instead of stopping it.
+ * oxe-shimmer  skeleton bars.
+ * oxe-pulse    the brand's beat: live status dots, the cursor blink and the mandacaru loader. It only touches
+ *              opacity and scale, set per use with --pulse-opacity and --pulse-scale.
+ */
+@keyframes oxe-spin { to { transform: rotate(360deg); } }
+@keyframes oxe-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes oxe-pulse { 50% { opacity: var(--pulse-opacity, 0.45); scale: var(--pulse-scale, 1); } }
+
+/* A press (send, approve): the control gives a little under the pointer. */
+.oxe-press { transition: scale var(--duration-fast) var(--ease-out); }
+:root[data-motion='full'] .oxe-press:active:not(:disabled) { scale: 0.94; }
+
+/* A confirmation (copied, approved): the check pops in once. */
+.oxe-confirm { transition: opacity var(--duration-fast) var(--ease-out), scale var(--duration-base) var(--ease-emphasized); }
+@starting-style { .oxe-confirm { opacity: 0; scale: 0.6; } }

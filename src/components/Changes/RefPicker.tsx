@@ -1,7 +1,7 @@
 import { useState, type ReactElement, type ReactNode } from 'react'
 import { Check, ChevronDown, FolderGit2, GitBranch, GitCommitHorizontal, Search } from 'lucide-react'
 import type { GitHubWorktree } from '../../../shared/types/github'
-import { Popover, TextField } from '../../ui'
+import { EmptyState, Popover, TextField } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { isValidRef } from './changesModel'
 import './ChangesPanel.css'
@@ -61,7 +61,7 @@ export function RefPicker({ label, value, icon, branches, worktrees, selected, d
         {remote.length > 0 && <li className="changes-menu-heading" role="presentation">{t('changes.ref.remote')}</li>}
         {remote.map(name => item(`ref:${name}`, <><GitBranch size={14} aria-hidden="true" /><span>{name}</span></>, () => onPickRef(name)))}
         {offerTyped && item(`ref:${typed}`, <><GitCommitHorizontal size={14} aria-hidden="true" /><span>{t('changes.ref.use', { ref: typed })}</span></>, () => onPickRef(typed))}
-        {nothing && <li className="changes-menu-empty">{typed && !isValidRef(typed) ? t('changes.ref.invalid') : t('changes.ref.none')}</li>}
+        {nothing && <li role="presentation"><EmptyState compact title={typed && !isValidRef(typed) ? t('changes.ref.invalid') : t('changes.ref.none')} /></li>}
       </ul>
     </div>
   </Popover>

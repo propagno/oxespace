@@ -14,12 +14,36 @@
       "ok": "OK"
     }
   },
+  "dialogs": {
+    "approval": {
+      "deny": "Negar",
+      "allowOnce": "Permitir uma vez",
+      "allowSession": "Permitir leituras como esta nesta execução"
+    },
+    "previewAutomation": {
+      "title": "Ação do agente no navegador",
+      "cancel": "Cancelar",
+      "allowOnce": "Permitir uma vez",
+      "closeTab": "Fechar aba",
+      "closeTabMessage": "Permitir que o agente feche esta aba do navegador?",
+      "closeTabDetail": "Aba: {{tab}}\nAlterações não salvas na página podem ser perdidas.",
+      "action": {
+        "click": "Permitir que o agente clique no Navegador?",
+        "fill": "Permitir que o agente digite em um campo do Navegador?",
+        "navigate": "Permitir que o agente abra outra página no Navegador?",
+        "scroll": "Permitir que o agente role a página no Navegador?",
+        "other": "Permitir que o agente execute \"{{action}}\" no Navegador?"
+      },
+      "actionDetail": "Página: {{page}}\nAlvo: {{target}}\nIsso pode alterar dados reais do sistema. Valores de texto não ficam no histórico de operações."
+    }
+  },
   "messages": {
     "mcp": {
       "quarantine": {
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
         "added": "Ele adicionou {{tools}}.",
-        "removed": "Ele removeu {{tools}}."
+        "removed": "Ele removeu {{tools}}.",
+        "configChanged": "O comando, os argumentos, o ambiente ou a URL dele mudaram depois que você confiou no servidor."
       },
       "toolRule": {
         "confirmLevel": "{{tool}} faz mudanças que você confirma a cada vez, então sempre pergunta antes de rodar.",
@@ -38,6 +62,18 @@
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
+      }
+    },
+    "remote": {
+      "port": {
+        "privileged": "Escolha uma porta a partir de 1024; a porta {{port}} é reservada pelo sistema.",
+        "inUse": "A porta {{port}} já está em uso por outro programa. Escolha outra porta."
+      },
+      "network": {
+        "noPrivateInterface": "Nenhuma rede privada encontrada para escutar. Conecte-se ao Wi-Fi ou à rede cabeada local e tente de novo."
+      },
+      "certificate": {
+        "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
       }
     }
   }

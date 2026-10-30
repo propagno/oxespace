@@ -1,4 +1,3 @@
-import http from 'node:http'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -11,7 +10,7 @@ import { threadMcpArguments } from '../../electron/main/services/conversation/th
 import { confirmLevelTools, setToolRule, toolRules, type ToolRulesDeps } from '../../electron/main/services/mcp-tool-rules'
 import { policyDeniedToolNames, setPolicyStore } from '../../electron/main/services/policy'
 import { PolicyStore } from '../../electron/main/services/policy/policy-store'
-import { createLocalRpcServer } from '../../electron/main/mcp-internal/local-rpc-server'
+import { toolCallBlocked } from '../../electron/main/mcp-internal/tool-policy'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { McpManager } from '../../electron/main/services/mcp.service'
 import type { AgentConversationAdapter, ThreadEvent, ThreadRequest, ThreadRequestResponse } from '../../shared/types/thread'
@@ -77,15 +76,10 @@ describe('Per-tool rules (B7.3)', () => {
     expect(threadMcpArguments('claude', [], '/bridge.cjs', undefined, [], undefined, denied).join(' ')).toContain('--disallowedTools mcp__oxespace-delegation__oxespace_list_workspaces')
     expect(threadMcpArguments('codex', [], '/bridge.cjs', undefined, [], undefined, denied)).toContain('mcp_servers.oxespace-delegation.disabled_tools=["oxespace_list_workspaces"]')
 
-    // The internal MCP server refuses the call, whichever client makes it; other tools still run.
-    const server = createLocalRpcServer({ db, workspaceServ: new WorkspaceService(db) } as never)
-    server.setToken('t'.repeat(64))
-    const { port } = await server.start(0)
-    try {
-      const call = (name: string) => post(port, { name })
-      expect(await call('oxespace_list_workspaces')).toMatchObject({ result: { isError: true, content: [{ text: expect.stringContaining('blocked by this project’s policy') }] } })
-      expect(await call('oxespace_execution_context')).not.toMatchObject({ result: { content: [{ text: expect.stringContaining('blocked') }] } })
-    } finally { await server.stop() }
+    // The internal MCP server's check (tool-policy, covered by policy-tool-use-enforcement) reads the rule written here.
+    const ctx = { db, workspaceServ: new WorkspaceService(db) }
+    expect(toolCallBlocked('oxespace_list_workspaces', ctx, deps.policy)).toContain('blocked by this project’s policy')
+    expect(toolCallBlocked('oxespace_execution_context', ctx, deps.policy)).toBeUndefined()
   })
 
   it('deny keeps the other rules and fields of an existing policy.json', async () => {
@@ -284,19 +278,3 @@ describe('Per-tool rules, CCR from FRONTEND (B7.3)', () => {
 })
 
 const settle = () => new Promise(resolve => setTimeout(resolve, 20))
-
-async function post(port: number, params: object): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params })
-    const req = http.request({ host: '127.0.0.1', port, path: '/rpc', method: 'POST', headers: {
-      'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload), Authorization: `Bearer ${'t'.repeat(64)}`, 'X-OXE-Workspace-Id': 'A'
-    } }, res => {
-      let body = ''
-      res.setEncoding('utf8')
-      res.on('data', chunk => { body += chunk })
-      res.on('end', () => { try { resolve(JSON.parse(body)) } catch (error) { reject(error) } })
-    })
-    req.on('error', reject)
-    req.end(payload)
-  })
-}
