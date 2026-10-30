@@ -66,6 +66,10 @@ win:
       to: THIRD_PARTY_NOTICES.md
     - from: resources/icon.ico
       to: icon.ico
+    # The brand icon set (npm run generate:icon): native dialogs and notifications
+    # read <resources>/icons/256x256.png at runtime.
+    - from: resources/icons
+      to: icons
     # Internal MCP bridge spawned by agent CLIs at runtime — must be on disk
     # next to the packaged app so .mcp.json's `args: ["<absolute path>"]`
     # resolves whether the user runs the installed build or a portable copy.
@@ -84,9 +88,10 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
 linux:
-  # Linux cannot read the multi-resolution .ico — main/index.ts selects this PNG
-  # at runtime too, otherwise the window falls back to Electron's default icon.
-  icon: resources/icon.png
+  # Linux cannot read the multi-resolution .ico. The desktop entry takes every
+  # size from resources/icons (16–1024, rendered by `npm run generate:icon`);
+  # main/index.ts selects resources/icon.png for the window at runtime.
+  icon: resources/icons
   category: Development
   synopsis: An open source, AI-native workspace and terminal
   maintainer: OXESpace contributors <propagno@users.noreply.github.com>
@@ -111,6 +116,8 @@ linux:
       to: THIRD_PARTY_NOTICES.md
     - from: resources/icon.png
       to: icon.png
+    - from: resources/icons
+      to: icons
     - from: resources/mcp-bridge
       to: mcp-bridge
 appImage:
