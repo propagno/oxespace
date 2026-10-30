@@ -116,6 +116,9 @@ before. Code panes receive the whole registry.
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
 | `thread.coordinator_admin` | Make a conversation the project's coordinator | **Forbidden**: Raises what an agent can reach. |
 | `thread.coordinator_read` | The coordinator's summary of the project's pending requests | Planned (B1.4): `oxespace_threads#pending` (read), offered only to the coordinator; titles and kinds inside the untrusted-output block; nothing that answers a request. |
+
+> `oxespace_delegation_control` `approve` is the requesting agent accepting the result of a task it delegated: an agreement between agents, never the approval of a person's request, and it never merges. For the coordinator conversation it holds only for tasks the coordinator itself delegated.
+
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |
 | `team.messaging` | Team status and messages | **read**: `oxespace_team_status`, `oxespace_team_inbox`<br>**write**: `oxespace_team_message`, `oxespace_team_acknowledge` |

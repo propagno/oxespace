@@ -259,6 +259,10 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['team.messages', 'team.send']
   },
   'team.admin': { label: 'Add members, pick the coordinator, archive, delivery', excluded: 'The person builds the team.', ipc: ['team.command'] },
+  // oxespace_delegation_control `approve` is the requesting agent accepting the result of a task it delegated: an
+  // agreement between agents, never the approval of a person's request, and it never merges. For the coordinator
+  // conversation (B1.4) it holds only for tasks the coordinator itself delegated, without taking over another
+  // requester's control.
   'delegation.use': {
     label: 'Delegate a task and follow it',
     tools: {

@@ -25,7 +25,9 @@ describe('coordinator conversation contract (B1.4)', () => {
     // No tool, whatever its role, answers an approval or a question.
     const actions = (schema: unknown) => (schema as { properties?: { action?: { enum?: string[] } } }).properties?.action?.enum ?? []
     const names = TOOL_REGISTRY.flatMap(({ descriptor }) => [descriptor.name, ...actions(descriptor.inputSchema).map(action => `${descriptor.name}#${action}`)])
-    // The one exception is not a person's approval: the requesting agent accepts a delegated task's submitted result.
+    // The one exception is not a person's approval: the requesting agent accepts the result of a task it delegated, an
+    // agreement between agents that never merges. For the coordinator it holds only for tasks the coordinator itself
+    // delegated (the implementation tests a coordinator refused on another conversation's task).
     const NOT_A_PERSONS_APPROVAL = ['oxespace_delegation_control#approve']
     expect(names.filter(name => /respond|approve|answer|decide/i.test(name) && !NOT_A_PERSONS_APPROVAL.includes(name))).toEqual([])
   })
