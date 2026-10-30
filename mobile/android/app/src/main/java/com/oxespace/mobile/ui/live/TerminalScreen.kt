@@ -182,13 +182,17 @@ private fun TerminalInput(paneId: String, commands: CommandApi) {
                 onClick = {
                     busy = true
                     scope.launch {
+                        val pieces = terminalPieces(text)
                         var result: CommandResult = CommandResult.Done(null)
-                        for (piece in (text + ENTER).chunked(TERMINAL_PIECE)) {
+                        var sent = 0
+                        for (piece in pieces) {
                             result = commands.terminalWrite(RemoteTerminalWriteArgs(paneId, piece))
                             if (result !is CommandResult.Done) break
+                            sent++
                         }
                         message = commandMessage(result)
-                        if (result is CommandResult.Done) text = ""
+                        // What went through is in the terminal already: only the rest stays, so sending again can't repeat it.
+                        text = unsentText(pieces, sent)
                         busy = false
                     }
                 },
@@ -207,4 +211,10 @@ private const val TERMINAL_PIECE = 1_000
 
 /** What the Enter key sends to a terminal. */
 private const val ENTER = "\r"
+
+/** A typed line as terminal.write pieces, Enter included. */
+internal fun terminalPieces(text: String): List<String> = (text + ENTER).chunked(TERMINAL_PIECE)
+
+/** What's left to type after [sent] pieces went through; empty when all did. Enter is the send button's, not the field's. */
+internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.drop(sent).joinToString("").removeSuffix(ENTER)
 
