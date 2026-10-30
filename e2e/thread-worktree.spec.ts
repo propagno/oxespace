@@ -12,8 +12,10 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
   test.setTimeout(120_000)
   const { app, page, workspaceRoot } = await launchApp()
   try {
-    // Wide enough that the header keeps its context row (it folds away at 700px or less, which 1280 is close to on Windows).
+    // The header folds its context row away at 700px or less. Windows runners cap the window at a small screen, so the
+    // page is zoomed out to give the layout room, and the width is checked below before anything relies on it.
     await resizeWindow(app, 1440, 900)
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(0.8))
     await installThreadFixtures(app, workspaceRoot)
     await openDemoWorkspace(page, workspaceRoot)
     await registerThreadProject(app, page, workspaceRoot)
@@ -70,7 +72,10 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
 
     // The conversation shows the branch it works on and that it is a worktree.
     const heading = page.locator('.thread-heading')
+    const headingWidth = await heading.evaluate(element => element.getBoundingClientRect().width)
+    expect(headingWidth, 'the header must be wider than its 700px fold for this check').toBeGreaterThan(700)
     await expect(heading.locator('.thread-heading-branch')).toHaveText('feature/e2e')
+    await expect(heading.locator('.thread-heading-branch')).toBeVisible()
     await expect(heading.locator('.thread-heading-worktree')).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('thread-header-worktree-branch.png') })
     const calls = () => app.evaluate(() => (globalThis as Record<string, unknown>).worktreeCalls as { create: unknown[]; finish: unknown[] })
