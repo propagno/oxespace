@@ -15,11 +15,14 @@ endlessly, or needs the mouse. File an issue for each failure and link it in the
 | Screen reader | NVDA 2024.4 or later, default settings, speech viewer on (NVDA menu › Tools › Speech viewer) | Orca 45 or later (`orca --replace`), default settings |
 | Build | the beta installer, not `npm run dev` | the beta `.deb` or AppImage |
 | Data | a fresh profile: run with `OXESPACE_DB_PATH` pointing to an empty folder, so the first-run guide shows | same |
-| Also needed | one Git repository on disk; Docker Desktop with a PostgreSQL container for the OxeQuery part (optional; mark those steps "not run" otherwise) | same, with Docker Engine |
+| Also needed | one Git repository on disk; Docker Desktop with a PostgreSQL container for the OxePod and OxeQuery parts; a local HTTP endpoint for OxePost (for example `npx http-server`) (optional; mark those steps "not run" otherwise) | same, with Docker Engine |
 
 Conventions: **NVDA** is the NVDA modifier (Insert or Caps Lock), **Orca** is the Orca modifier (Insert or
 Caps Lock). "Say all" is NVDA+↓ / Orca+;. Leave browse mode off (NVDA+Space, Orca+A): OXESpace is an
 application, and every step is done in focus mode. If a step only works in browse mode, mark it a failure.
+
+Mode names: after F12 the Code mode is read as "OxeCode" and the Thread mode as "OxeChat". Until F12 is on
+`main`, the old names are expected.
 
 Each step lists what should be **heard**. The wording can differ slightly between readers. What must be the
 same is the name, the role and the state.
@@ -78,20 +81,53 @@ same is the name, the role and the state.
 
 ## 4. OxeQuery mode
 
-1. Switch to OxeQuery from "Application view". **Heard:** the mode button pressed, then the containers list, or
-   an explanation if Docker is not running. The explanation must be read, not shown only as an icon.
-2. Containers table: Tab into it. **Heard:** the table name ("Container list"), and each row with its name,
-   state and ports.
-3. Connect to the PostgreSQL container. In the schema tree, ↓/↑/←/→ move through the tree. **Heard:** "tree
-   item", the object name, its level and expanded/collapsed. Enter on a table opens it.
-4. Result grid: Tab to the grid. **Heard:** "grid" with its name and row and column counts. Arrow keys move the
+Containers moved to OxePod (section 5). OxeQuery holds connections, the schema tree, the editor and the grid.
+
+1. Switch to OxeQuery from "Application view" (Ctrl+3). **Heard:** the mode button pressed, then the
+   "Connections" list, or its empty state read as text (never only an icon).
+2. Connect to the PostgreSQL container through OxePod (section 5, step 4). In the schema tree, ↓/↑/←/→ move
+   through the tree. **Heard:** "tree item", the object name, its level and expanded/collapsed. Enter on a table
+   opens it.
+3. Result grid: Tab to the grid. **Heard:** "grid" with its name and row and column counts. Arrow keys move the
    active cell. **Heard:** the cell value with its column header, and NULL cells as "NULL". Shift+arrows extend
    the selection. **Heard:** "selected". Escape clears it. Ctrl+Home/Ctrl+End jump to the first and last cell.
    Enter opens "Row details". Its close button is reachable and returns focus to the grid.
-5. Open "New connection". **Heard:** dialog name, and every field with its label and "required" where it
+4. Open "New connection". **Heard:** dialog name, and every field with its label and "required" where it
    applies. A connection error is read as an alert without moving focus.
 
-## 5. Settings, dialogs and notifications
+## 5. OxePod mode
+
+1. Ctrl+4. **Heard:** "OxePod, toggle button, pressed", then the OxePod sidebar. With Docker off, the explanation
+   of what to do is read as text.
+2. Tab into the sidebar. **Heard:** "Container engine" radio group with Docker/Podman and which is checked; the
+   "Filter containers" search field; each Compose project as a region ("Project shop") and each container as a
+   button with its name, state and port. The open container is read as current.
+3. In a container, Tab to its tabs (Logs, Stats, Environment, Ports, Terminal, Command). **Heard:** "tab", its
+   name and "selected". The live log is not read line by line; "Pause" and "Clear" are reachable.
+4. "Connect in OxeQuery" in the "Database detected" card. **Heard:** the button name. Enter moves to OxeQuery with
+   the connection open, and focus lands on a named control in OxeQuery, not on the page body.
+5. "Remove…" and "Take down…" open a confirmation. **Heard:** the dialog title and what will be lost. Escape
+   cancels and focus returns to the button.
+
+## 6. OxePost mode
+
+1. Ctrl+5. **Heard:** "OxePost, toggle button, pressed", then the "OxePost sidebar" with its empty-state text.
+2. Tab to the request bar. **Heard:** the method as a combo box ("GET"), the URL field with its label, "Send".
+   Ctrl+Enter or Enter on "Send" sends.
+3. After the response arrives. **Heard, politely and once:** the "Response summary" status with the code, time
+   and size ("200 OK, 25 ms, 26 B"). Focus does not jump. Tab reaches the response tabs (Body, Headers, Cookies),
+   read as tabs with their counts.
+4. "Environments" opens a dialog. **Heard:** its title, each variable row field as "Name, row 1" / "Value, row 1".
+   A production environment asks before sending, and that question is read as a dialog.
+
+## 7. Motion and the boot splash
+
+1. Settings › Appearance › Motion: **Heard:** a group with System / Reduced / Full and which one is selected, then
+   its hint. Choosing Reduced changes nothing that is spoken, and focus stays on the choice.
+2. Start the app with the reader on. **Heard:** the boot splash is read once as "OXESpace" (status) at most, and is
+   never read again after the app replaces it.
+
+## 8. Settings, dialogs and notifications
 
 1. Ctrl+, opens Settings. **Heard:** the settings heading, then "Settings categories" navigation. Each category
    is a button. The current one is read as current or pressed. "Close settings" is reachable with Tab and
@@ -103,7 +139,7 @@ same is the name, the role and the state.
 4. Busy states: wherever a spinner shows, the reader hears a status text ("Loading…", "Refreshing") or nothing.
    It never hears "graphic" or an unlabelled image.
 
-## 6. High contrast (forced colors)
+## 9. High contrast (forced colors)
 
 Not a screen-reader step, but done in the same session because it uses the same machine.
 
@@ -117,5 +153,5 @@ Not a screen-reader step, but done in the same session because it uses the same 
 
 | Date | Build | Reader and OS | Sections run | Failures (issue links) | By |
 |---|---|---|---|---|---|
-| | | NVDA · Windows 11 | 1–6 | | |
-| | | Orca · Ubuntu 24.04 | 1–6 | | |
+| | | NVDA · Windows 11 | 1–9 | | |
+| | | Orca · Ubuntu 24.04 | 1–9 | | |
