@@ -25,6 +25,7 @@ import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
 import { registerOxePodMock } from './oxepod-mock'
 import { registerRemoteMock } from './remote-mock'
+import { installMcpFixture } from './mcp-fixture'
 import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
@@ -41,6 +42,8 @@ export function registerE2eMockIpcHandlers(): void {
   registerOxeQueryMock()
   registerOxePodMock()
   registerRemoteMock()
+  // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
+  installMcpFixture(ipcMain, process.env, app.isPackaged)
   registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)

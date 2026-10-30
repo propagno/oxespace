@@ -7,6 +7,7 @@
 
 import type { MaintenanceAction, StructureAction, StructurePlan, StructureResult } from './oxequery-structure'
 import type { ContainerEngine } from './oxepod'
+import type { MainMessage } from '../messages'
 
 export type DatabaseEngine = 'postgres' | 'mongodb'
 
@@ -215,6 +216,8 @@ export interface SqlGuardVerdict {
   kind: 'read' | 'write' | 'ddl' | 'destructive' | 'empty'
   reasons: string[]
   statements: number
+  /** C3 codes for the reasons that have one, for the window to show in the person's language. */
+  codes?: MainMessage[]
 }
 
 export interface SqlTable { schema: string; name: string; kind: 'table' | 'view' | 'materialized view' | 'foreign table' | 'partitioned table'; approxRows?: number }
