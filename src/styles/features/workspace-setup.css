@@ -506,6 +506,27 @@
   border-color: color-mix(in srgb, var(--brand) 30%, transparent);
   background: color-mix(in srgb, var(--brand) 14%, transparent);
 }
+/* Main refused the folder: the zone and its icon say so, the message sits under it. */
+.new-workspace-folder-zone.is-refused {
+  border-color: var(--intent-danger-border);
+  background: var(--intent-danger-bg);
+  box-shadow: none;
+}
+.new-workspace-folder-zone.is-refused .new-workspace-folder-zone-icon {
+  color: var(--intent-danger-fg);
+  border-color: var(--intent-danger-border);
+  background: transparent;
+}
+.new-workspace-root-refusal {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+.new-workspace-root-refusal-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
+}
 .new-workspace-folder-zone-main {
   display: grid;
   gap: 4px;

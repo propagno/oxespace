@@ -1411,7 +1411,9 @@
     "removeOne": "Remove one {{name}}",
     "addAnother": "Add another {{name}}",
     "noAgents": "No agents configured. The workspace starts with default shells.",
-    "clear": "Clear selection"
+    "clear": "Clear selection",
+    "chooseAnother": "Choose another folder",
+    "rootNotFoundHint": "OXESpace can’t create folders yet. Create it in your file manager, then select Create workspace again."
   },
   "mcp": {
     "connectors": {
