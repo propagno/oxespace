@@ -17,7 +17,8 @@ export function registerDiagnosticsMock(): void {
     at: Date.now(),
     processes: [{ kind: 'main', pid: 1, cpuPercent: 1.5, memoryBytes: 150e6 }, { kind: 'renderer', pid: 2, cpuPercent: 3, memoryBytes: 220e6 }, { kind: 'gpu', pid: 3, cpuPercent: 0.5, memoryBytes: 90e6 }],
     terminals: { running: 2, agents: 1 },
-    storage: { freeBytes: 120e9, databaseBytes: 8e6, logsBytes: 2e6 },
+    system: { totalMemoryBytes: 16 * 1024 ** 3 },
+    storage: { freeBytes: 120e9, diskTotalBytes: 512e9, databaseBytes: 8e6, logsBytes: 2e6 },
     connectivity: { state: 'online', checkedAt: Date.now() },
     gateway: null,
     clis: [{ id: 'claude', found: true, version: '2.0.0' }, { id: 'codex', found: false }],
@@ -56,9 +57,9 @@ export function registerDiagnosticsMock(): void {
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.previewBundle, () => ({
     files: [
-      { name: 'snapshot.json', bytes: 2048, summary: 'Processes, storage, connectivity and versions' },
-      { name: 'incidents.json', bytes: 512, summary: `${incidents.length} incident kinds` },
-      { name: 'main-log-tail.txt', bytes: 4096, summary: 'Last lines of the main log, redacted' }
+      { name: 'snapshot.json', bytes: 2048, summary: { code: 'bundle.file.snapshot', params: {} } },
+      { name: 'incidents.json', bytes: 512, summary: { code: 'bundle.file.incidents', params: {} } },
+      { name: 'main-log-tail.txt', bytes: 4096, summary: { code: 'bundle.file.logTail', params: {} } }
     ],
     redactions: 3
   }))

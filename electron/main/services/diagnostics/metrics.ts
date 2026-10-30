@@ -1,4 +1,5 @@
 import { readdir, stat, statfs } from 'node:fs/promises'
+import { totalmem } from 'node:os'
 import { delimiter, join } from 'node:path'
 import type { AppConnectivity } from '../../../../shared/types/app'
 import type { DiagnosticsMetrics, DiagnosticsProcess, DiagnosticsProcessKind } from '../../../../shared/types/diagnostics'
@@ -22,6 +23,8 @@ export interface MetricsSources {
   knownPids?(): Partial<Record<'oxequery-worker' | 'codegraph', number | undefined>>
   terminals?(): { running: number; agents: number }
   storage(): Promise<DiagnosticsMetrics['storage']>
+  /** The computer's memory, in bytes; os.totalmem() when not given (tests give it). */
+  totalMemory?(): number
   connectivity(): AppConnectivity
   clis(): Promise<DiagnosticsMetrics['clis']>
   accounts(): DiagnosticsMetrics['accounts']
@@ -47,13 +50,14 @@ export async function collectMetrics(sources: MetricsSources, now = Date.now()):
     memoryBytes: Math.round(finite(metric.memory?.workingSetSize) * 1024)
   }))
   const [storage, clis] = await Promise.all([
-    sources.storage().catch(() => ({ freeBytes: null, databaseBytes: 0, logsBytes: 0 })),
+    sources.storage().catch(() => ({ freeBytes: null, diskTotalBytes: null, databaseBytes: 0, logsBytes: 0 })),
     sources.clis().catch(() => [])
   ])
   return {
     at: now,
     processes,
     terminals: safe(() => sources.terminals?.() ?? { running: 0, agents: 0 }, { running: 0, agents: 0 }),
+    system: { totalMemoryBytes: safe(() => Math.max(0, Math.trunc(finite(sources.totalMemory?.() ?? totalmem()))), 0) },
     storage,
     connectivity: safe(() => sources.connectivity(), { state: 'unknown', checkedAt: now }),
     gateway: null, // no remote gateway in this build
@@ -70,12 +74,14 @@ function safe<T>(read: () => T, fallback: T): T {
 /** Free space on the data volume (null where statfs is missing), the database with its WAL, and the log folders. */
 export async function measureStorage(input: { dataDirectory: string; databaseFile: string; logDirectories: string[] }): Promise<DiagnosticsMetrics['storage']> {
   let freeBytes: number | null = null
+  let diskTotalBytes: number | null = null
   try {
     if (typeof statfs === 'function') {
       const disk = await statfs(input.dataDirectory)
       freeBytes = Number(disk.bavail) * Number(disk.bsize)
+      diskTotalBytes = Number(disk.blocks) * Number(disk.bsize)
     }
-  } catch { freeBytes = null }
+  } catch { freeBytes = null; diskTotalBytes = null }
   let databaseBytes = 0
   for (const suffix of ['', '-wal', '-shm']) databaseBytes += await fileSize(input.databaseFile + suffix)
   let logsBytes = 0
@@ -84,7 +90,7 @@ export async function measureStorage(input: { dataDirectory: string; databaseFil
     try { names = await readdir(directory) } catch { continue }
     for (const name of names) logsBytes += await fileSize(join(directory, name))
   }
-  return { freeBytes, databaseBytes, logsBytes }
+  return { freeBytes, diskTotalBytes, databaseBytes, logsBytes }
 }
 
 async function fileSize(path: string): Promise<number> {

@@ -29,7 +29,13 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.interaction.overBudget': [],
   'incident.app.journalReset': [],
   'diagnostics.bundle.fileTooLarge': [],
-  'diagnostics.bundle.tooLarge': []
+  'diagnostics.bundle.tooLarge': [],
+  'bundle.file.snapshot': [],
+  'bundle.file.incidents': [],
+  'bundle.file.logTail': [],
+  'bundle.file.runtime': [],
+  'bundle.file.versions': [],
+  'bundle.file.configuration': []
 }
 
 describe('C3 message codes', () => {

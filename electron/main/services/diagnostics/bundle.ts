@@ -1,3 +1,4 @@
+import type { MainMessage } from '../../../../shared/messages'
 import { open } from 'node:fs/promises'
 import type { DiagnosticsBundlePreview, DiagnosticsIncident, DiagnosticsMetrics, DiagnosticsSnapshot } from '../../../../shared/types/diagnostics'
 import { createRedactor, redactLogTail } from './bundle-redaction'
@@ -38,13 +39,13 @@ export async function buildBundle(sources: BundleSources): Promise<Bundle> {
   let logText = ''
   for (const file of safe(() => sources.logFiles(), [])) logText += (await readTail(file, LOG_TAIL_BYTES).catch(() => '')) + '\n'
 
-  const files: Array<{ name: string; summary: string; text: string }> = [
-    { name: 'snapshot.json', summary: 'Checks, processes, storage, connectivity, CLIs and MCP server counts', text: json({ snapshot: safeSnapshot, metrics }) },
-    { name: 'incidents.json', summary: `${incidents.length} incident kind${incidents.length === 1 ? '' : 's'}: codes, areas, counts and times`, text: json(incidents) },
-    { name: 'runtime-events.jsonl', summary: 'Compact runtime events: process starts and exits, hashed ids, no arguments', text: redactor.text(safe(() => sources.runtimeEvents(), '')) },
-    { name: 'main-log-tail.txt', summary: 'Last lines of the app log: time, level and the app\'s own fixed messages only; every other line left out', text: redactLogTail(logText, redactor) },
-    { name: 'versions.json', summary: 'App, Electron, Chromium, Node.js and system versions', text: json(safe(() => sources.about(), {})) },
-    { name: 'configuration.json', summary: 'Settings without secrets: modes, channels and counts', text: json(safe(() => sources.configuration(), {})) }
+  const files: Array<{ name: string; summary: MainMessage; text: string }> = [
+    { name: 'snapshot.json', summary: { code: 'bundle.file.snapshot', params: {} }, text: json({ snapshot: safeSnapshot, metrics }) },
+    { name: 'incidents.json', summary: { code: 'bundle.file.incidents', params: {} }, text: json(incidents) },
+    { name: 'runtime-events.jsonl', summary: { code: 'bundle.file.runtime', params: {} }, text: redactor.text(safe(() => sources.runtimeEvents(), '')) },
+    { name: 'main-log-tail.txt', summary: { code: 'bundle.file.logTail', params: {} }, text: redactLogTail(logText, redactor) },
+    { name: 'versions.json', summary: { code: 'bundle.file.versions', params: {} }, text: json(safe(() => sources.about(), {})) },
+    { name: 'configuration.json', summary: { code: 'bundle.file.configuration', params: {} }, text: json(safe(() => sources.configuration(), {})) }
   ]
   const entries = files.map(file => ({ name: file.name, data: Buffer.from(file.text, 'utf8') }))
   return {

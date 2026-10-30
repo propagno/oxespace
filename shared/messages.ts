@@ -42,6 +42,13 @@ export interface MessageParams {
   'diagnostics.bundle.fileTooLarge': Record<string, never>
   /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
   'diagnostics.bundle.tooLarge': Record<string, never>
+  /** What each file of the diagnostics bundle holds (B8.3 preview). */
+  'bundle.file.snapshot': Record<string, never>
+  'bundle.file.incidents': Record<string, never>
+  'bundle.file.logTail': Record<string, never>
+  'bundle.file.runtime': Record<string, never>
+  'bundle.file.versions': Record<string, never>
+  'bundle.file.configuration': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -67,7 +74,13 @@ export const MESSAGE_CODES = [
   'incident.interaction.overBudget',
   'incident.app.journalReset',
   'diagnostics.bundle.fileTooLarge',
-  'diagnostics.bundle.tooLarge'
+  'diagnostics.bundle.tooLarge',
+  'bundle.file.snapshot',
+  'bundle.file.incidents',
+  'bundle.file.logTail',
+  'bundle.file.runtime',
+  'bundle.file.versions',
+  'bundle.file.configuration'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */
