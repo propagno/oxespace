@@ -1,6 +1,8 @@
 import type { OnMount } from '@monaco-editor/react'
 import type { OxeQueryConnection } from '../../../shared/types/oxequery'
 import { oq } from './client'
+import { cteSuggestions, functionSuggestions, joinConditionSuggestions, joinPosition, joinTargetSuggestions, parseForeignKeys, type ExtraSuggestion } from './sql-completion-extra'
+import { parseStatement, statementAt, type ForeignKeyRef } from './sql-statement'
 
 const KEYWORDS = [
   'SELECT', 'FROM', 'WHERE', 'GROUP BY', 'ORDER BY', 'HAVING', 'LIMIT', 'OFFSET', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ON', 'AS', 'AND', 'OR', 'NOT',
@@ -50,6 +52,7 @@ export class SchemaCache {
   private readonly tables = new Map<string, { name: string; kind: string; approxRows?: number }[]>()
   private readonly listeners = new Set<() => void>()
   private readonly columns = new Map<string, { name: string; type: string }[]>()
+  private readonly foreignKeys = new Map<string, ForeignKeyRef[]>()
   private readonly inflight = new Map<string, Promise<void>>()
   constructor(private readonly connectionId: string) {}
 
@@ -94,19 +97,26 @@ export class SchemaCache {
     const key = `${schema}.${table}`
     if (!this.columns.has(key)) this.once(`c:${key}`, async () => {
       const details = await oq('sql.table', { connectionId: this.connectionId, schema, table })
+      this.foreignKeys.set(key, parseForeignKeys(details.foreignKeys))
       this.columns.set(key, details.columns.map(column => ({ name: column.name, type: column.type })))
     })
     return this.columns.get(key) ?? []
   }
+  /** Foreign keys of a table, read together with its columns; empty until that read lands. */
+  foreignKeysOf(schema: string, table: string): ForeignKeyRef[] {
+    this.columnsOf(schema, table)
+    return this.foreignKeys.get(`${schema}.${table}`) ?? []
+  }
   /** Fills the cache without asking the server (tests, and warm starts). */
-  seed(data: { schemas: string[]; tables: Record<string, { name: string; kind: string }[]>; columns: Record<string, { name: string; type: string }[]> }): void {
+  seed(data: { schemas: string[]; tables: Record<string, { name: string; kind: string }[]>; columns: Record<string, { name: string; type: string }[]>; foreignKeys?: Record<string, { name: string; definition: string }[]> }): void {
     this.schemas = data.schemas
     for (const [schema, list] of Object.entries(data.tables)) { this.tables.set(schema, list); this.inflight.set(`t:${schema}`, Promise.resolve()) }
     for (const [key, list] of Object.entries(data.columns)) { this.columns.set(key, list); this.inflight.set(`c:${key}`, Promise.resolve()) }
+    for (const [key, list] of Object.entries(data.foreignKeys ?? {})) this.foreignKeys.set(key, parseForeignKeys(list))
     this.inflight.set('schemas', Promise.resolve())
   }
   /** Forget everything, e.g. after DDL or a refresh. */
-  clear(): void { this.schemas = null; this.tables.clear(); this.columns.clear(); this.inflight.clear() }
+  clear(): void { this.schemas = null; this.tables.clear(); this.columns.clear(); this.foreignKeys.clear(); this.inflight.clear() }
 }
 
 const caches = new Map<string, SchemaCache>()
@@ -116,19 +126,25 @@ export function cacheFor(connection: OxeQueryConnection): SchemaCache {
   return cache
 }
 
-export interface Suggestion { label: string; kind: 'keyword' | 'table' | 'column' | 'schema'; detail?: string; insert: string }
+export interface Suggestion { label: string; kind: 'keyword' | 'table' | 'column' | 'schema' | ExtraSuggestion['kind']; detail?: string; insert: string }
 
 const quote = (name: string): string => /^[a-z_][a-z0-9_$]*$/.test(name) ? name : `"${name.replace(/"/g, '""')}"`
 
 /** The suggestions for a cursor position. Pure given a populated cache, so it can be tested without Monaco. */
 export function suggest(cache: SchemaCache, fullText: string, textBeforeCursor: string): Suggestion[] {
   const context = analyzeContext(textBeforeCursor)
+  const slice = statementAt(fullText, textBeforeCursor.length)
+  const parsed = parseStatement(slice.masked)
   const needle = context.prefix.toLowerCase()
   const matches = (label: string): boolean => !needle || label.toLowerCase().startsWith(needle)
   if (context.qualifier) {
     const qualifier = context.qualifier.toLowerCase()
-    const aliases = collectAliases(fullText)
-    const found = aliases.get(qualifier)
+    const source = parsed.sources.find(entry => entry.key === qualifier)
+    // A CTE or derived table exposes the columns of its own select list.
+    if (source && source.kind !== 'table' && source.columns) {
+      return source.columns.filter(matches).map(column => ({ label: column, kind: 'column' as const, detail: source.kind === 'cte' ? 'CTE' : 'subquery', insert: quote(column) }))
+    }
+    const found = source?.kind === 'table' && source.table ? { schema: source.schema ?? 'public', table: source.table } : undefined
     // `FROM audit.` names a schema, not a table called audit.
     const isSchema = cache.schemaNames().some(name => name.toLowerCase() === qualifier)
     const target = found && !(isSchema && found.table.toLowerCase() === qualifier) ? found : undefined
@@ -147,22 +163,29 @@ export function suggest(cache: SchemaCache, fullText: string, textBeforeCursor: 
   }
   if (needle.length === 0 && !/\s$/.test(textBeforeCursor) && textBeforeCursor.length > 0) return []
   const result: Suggestion[] = []
+  const join = joinPosition(textBeforeCursor)
+  if (join?.kind === 'on' && !join.prefix.includes('.')) result.push(...joinConditionSuggestions(cache, parsed, join.target, join.prefix))
+  if (join?.kind === 'target') result.push(...joinTargetSuggestions(cache, parsed, join.prefix))
+  result.push(...cteSuggestions(parsed, needle))
   for (const table of cache.tablesOf('public')) if (matches(table.name)) result.push({ label: table.name, kind: 'table', detail: table.kind, insert: quote(table.name) })
   for (const schema of cache.schemaNames()) if (matches(schema)) result.push({ label: schema, kind: 'schema', insert: quote(schema) })
   // Columns of the tables already named in the statement.
   const seen = new Set<string>()
-  for (const target of collectAliases(fullText).values()) {
+  for (const source of parsed.sources) {
+    if (source.kind !== 'table' || !source.table) continue
+    const target = { schema: source.schema ?? 'public', table: source.table }
     const key = `${target.schema}.${target.table}`
     if (seen.has(key)) continue
     seen.add(key)
     for (const column of cache.columnsOf(target.schema, target.table)) if (matches(column.name)) result.push({ label: column.name, kind: 'column', detail: [target.table, column.type].join('.'), insert: quote(column.name) })
   }
+  result.push(...functionSuggestions(needle))
   for (const keyword of KEYWORDS) if (matches(keyword)) result.push({ label: keyword, kind: 'keyword', insert: keyword })
   return result.slice(0, 200)
 }
 
 type Monaco = Parameters<OnMount>[1]
-const KIND = { keyword: 17, table: 7, column: 4, schema: 8 } as const // monaco CompletionItemKind: Keyword, Class, Field, Module
+const KIND = { keyword: 17, table: 7, column: 4, schema: 8, function: 1, cte: 7, join: 27 } as const // monaco CompletionItemKind: Keyword, Class, Field, Module
 
 let provider: { dispose(): void } | null = null
 let active: SchemaCache | null = null
@@ -182,7 +205,7 @@ export function bindCompletion(monaco: Monaco, connection: OxeQueryConnection): 
         suggestions: suggest(active, model.getValue(), before).map((item, index) => ({
           label: item.label, kind: KIND[item.kind], insertText: item.insert, detail: item.detail, range,
           // Columns first, then tables, then keywords.
-          sortText: `${item.kind === 'column' ? '0' : item.kind === 'table' ? '1' : item.kind === 'schema' ? '2' : '3'}${String(index).padStart(4, '0')}`
+          sortText: `${item.kind === 'join' ? '0' : item.kind === 'column' ? '1' : item.kind === 'table' || item.kind === 'cte' ? '2' : item.kind === 'schema' ? '3' : '4'}${String(index).padStart(4, '0')}`
         }))
       }
     }
