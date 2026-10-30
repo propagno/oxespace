@@ -10,8 +10,9 @@ import { join } from 'node:path'
 import type { AppDatabase } from '../db'
 import { evaluatePolicy, parsePolicy, type LoadedPolicy, type PolicyRule } from '../../../shared/policy'
 import { MCP_COVERAGE } from '../../../shared/mcp-coverage'
-import type { MessageCode, MessageParams } from '../../../shared/messages'
-import type { McpToolDecision, McpToolRule } from '../../../shared/types/mcp-tools'
+import type { MessageParams } from '../../../shared/messages'
+import { serverKey } from '../../../shared/types/mcp'
+import { MCP_TOOL_DECISIONS, type McpToolDecision, type McpToolRule, type McpToolRuleRefusalCode } from '../../../shared/types/mcp-tools'
 import type { ThreadPermissionRule } from '../../../shared/types/thread'
 import type { FileSystemService } from './file-system.service'
 import { ThreadPermissionStore } from './conversation/thread-permissions'
@@ -32,11 +33,11 @@ export interface ToolRulesDeps {
   db: AppDatabase
   files: FileSystemService
   policy?: PolicyStore | null
-  servers?: { list(workspaceId: string | null): Array<{ name: string; workspaceId: string | null; tools: Array<{ name: string }> }> }
+  servers?: { list(workspaceId: string | null): Array<{ name: string; key?: string; workspaceId: string | null; tools: Array<{ name: string }> }> }
 }
 
-/** A refusal the window turns into words (C3): the message is the code. */
-export class ToolRuleRefusal<Code extends MessageCode = MessageCode> extends Error {
+/** A refusal the window turns into words (C3): the message is the code, one of `MCP_TOOL_RULE_REFUSAL_CODES`. */
+export class ToolRuleRefusal<Code extends McpToolRuleRefusalCode = McpToolRuleRefusalCode> extends Error {
   constructor(readonly code: Code, readonly params: MessageParams[Code]) { super(code) }
 }
 
@@ -58,8 +59,6 @@ function registeredProject(db: AppDatabase, rootPath: string): string | null {
   return project ? `thread:${project.project_id}` : null
 }
 
-/** The key a configured server gets in a conversation and in `.mcp.json`. */
-const serverKey = (name: string): string => name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'mcp-server'
 const isInternal = (server: { name: string; workspaceId: string | null }) => server.name === 'oxespace' && server.workspaceId === null
 
 /** Tools of the servers configured for the project (global and its workspaces'), as last seen. */
@@ -74,7 +73,7 @@ function configuredTools(deps: ToolRulesDeps, rootPath: string): Array<[string, 
   }
   for (const workspaceId of workspaces.length ? workspaces : [null]) {
     for (const server of deps.servers?.list(workspaceId) ?? []) {
-      if (!isInternal(server)) for (const tool of server.tools) found.push([serverKey(server.name), tool.name])
+      if (!isInternal(server)) for (const tool of server.tools) found.push([server.key ?? serverKey(server.name), tool.name])
     }
   }
   return found
@@ -91,8 +90,22 @@ const toolRuleMatches = (pattern: string, server: string, tool: string) => {
   return ruleServer === server && (ruleTool === '*' || ruleTool === tool)
 }
 
+let confirmLevel: Set<string> | null = null
+
+/** What the window may pick for a row: nothing when it is locked, never `allow` for an OXESpace tool of the confirm level. */
+function withChoices(rule: Omit<McpToolRule, 'allowedDecisions' | 'confirmLevel'>): McpToolRule {
+  confirmLevel ??= confirmLevelTools()
+  const confirm = rule.server === OXESPACE_MCP_SERVER && confirmLevel.has(rule.tool)
+  const allowedDecisions = !rule.editable ? [] : MCP_TOOL_DECISIONS.filter(decision => !(confirm && decision === 'allow'))
+  return { ...rule, allowedDecisions, confirmLevel: confirm }
+}
+
 /** The deciding rule for one tool: policy first (it outranks permission rules), then the permission rules. */
 function ruleFor(server: string, tool: string, loaded: LoadedPolicy, permissions: ThreadPermissionRule[]): McpToolRule {
+  return withChoices(decidingRule(server, tool, loaded, permissions))
+}
+
+function decidingRule(server: string, tool: string, loaded: LoadedPolicy, permissions: ThreadPermissionRule[]): Omit<McpToolRule, 'allowedDecisions' | 'confirmLevel'> {
   const verdict = evaluatePolicy(loaded, 'tool.use', toolResource(server, tool))
   if (!verdict.allowed) {
     const source = verdict.layer ?? 'project'
@@ -171,7 +184,7 @@ export async function setToolRule(deps: ToolRulesDeps, input: { rootPath: string
   const current = ruleFor(server, tool, policy.load(rootPath), store.rules(rootPath))
   const name = `${server}/${tool}`
   if (!current.editable) throw new ToolRuleRefusal('mcp.toolRule.locked', { tool: name })
-  if (decision === 'allow' && server === OXESPACE_MCP_SERVER && confirmLevelTools().has(tool)) throw new ToolRuleRefusal('mcp.toolRule.confirmLevel', { tool: name })
+  if (!current.allowedDecisions.includes(decision)) throw new ToolRuleRefusal('mcp.toolRule.confirmLevel', { tool: name })
 
   // The project's policy: only this tool's exact `tool.use` rules change; everything else is kept as it was.
   const resource = toolResource(server, tool).toLowerCase()

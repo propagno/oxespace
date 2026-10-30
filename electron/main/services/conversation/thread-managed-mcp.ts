@@ -1,5 +1,5 @@
 import type { AppDatabase } from '../../db/index'
-import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../../shared/types/mcp'
+import { serverKey, type McpHttpConfig, type McpServerConfig, type McpStdioConfig } from '../../../../shared/types/mcp'
 
 /**
  * MCP servers configured in OXESpace (global + the thread's workspace) that a
@@ -31,7 +31,6 @@ export interface ManagedMcp {
 
 interface Row { name: string; workspace_id: string | null; config_json: string }
 
-const slug = (name: string): string => name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'mcp-server'
 const variable = (key: string, name: string): string => `OXE_MCP_${key.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}_${name.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}`
 
 // Names that would change how the agent process itself behaves when set in its environment.
@@ -71,8 +70,8 @@ export function readManagedMcp(db: AppDatabase, workspaceIds: string | string[] 
     if (!allowed(row.name)) continue
     let config: McpServerConfig
     try { config = JSON.parse(row.config_json) as McpServerConfig } catch { continue }
-    let key = slug(row.name)
-    for (let counter = 2; taken.has(key); counter += 1) key = `${slug(row.name)}-${counter}`
+    let key = serverKey(row.name)
+    for (let counter = 2; taken.has(key); counter += 1) key = `${serverKey(row.name)}-${counter}`
     taken.add(key)
     if (config.transport === 'stdio') {
       const stdio = config as McpStdioConfig

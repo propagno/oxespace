@@ -17,6 +17,7 @@ import type {
   McpTransport,
   UpdateMcpServerInput
 } from '../../../shared/types/mcp'
+import { serverKey } from '../../../shared/types/mcp'
 import { McpConfigSync } from './mcp-sync.service'
 import { inheritedEnvironment } from './policy'
 import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
@@ -609,6 +610,7 @@ function mapRow(row: McpServerRow): McpServer {
     id: row.id,
     workspaceId: row.workspace_id,
     name: row.name,
+    key: serverKey(row.name),
     transport: row.transport,
     config: JSON.parse(row.config_json) as McpServerConfig,
     enabled: row.enabled === 1,
