@@ -248,6 +248,20 @@
     "resets": "Renova em {{when}}."
   },
   "ui": {
+    "divider": {
+      "columns": "Divisor entre colunas",
+      "rows": "Divisor entre linhas",
+      "left": "Mover o divisor para a esquerda",
+      "right": "Mover o divisor para a direita",
+      "up": "Mover o divisor para cima",
+      "down": "Mover o divisor para baixo"
+    },
+    "splitter": {
+      "menu": "Tamanho de {{name}}",
+      "smaller": "Menor",
+      "larger": "Maior",
+      "restore": "Restaurar o tamanho padrão"
+    },
     "loading": "Carregando",
     "loadingEllipsis": "Carregando…",
     "tryAgain": "Tentar de novo",

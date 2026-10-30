@@ -7,7 +7,6 @@
 .thread-navigation button:hover, .thread-view button:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
 .thread-navigation button:focus-visible, .thread-view button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .thread-view button:disabled { opacity: .45; cursor: default; }
-.thread-resize { position: absolute; top: 0; bottom: 0; right: 0; width: 4px; z-index: var(--layer-sticky); cursor: ew-resize; touch-action: none; }
 /* Match Code's project → child tree while keeping conversation titles primary. */
 .thread-command-dialog .thread-panel-list button span { white-space: pre-line; overflow-wrap: anywhere; }
 .thread-resume-sections { display: grid; gap: 22px; min-height: 0; overflow-y: auto; padding-right: 8px; }
@@ -326,7 +325,6 @@
 @media (max-width: 1000px) { .thread-heading { padding: 0 16px; gap: 10px; } .thread-heading-context { max-width: 160px; } .thread-reading-column { padding: 16px; } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
 @media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { margin-top: 8px; } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
 
-.thread-resize:hover, .thread-resize:focus-visible { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .thread-create-dialog p, .thread-account-card p, .thread-accounts-dialog p { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
 
 .thread-configuration { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; min-width: 0; }

@@ -2,7 +2,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Spinner, cx, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Spinner, Splitter, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
@@ -13,7 +13,7 @@ import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
-import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { resolveDensity } from '../../design/density'
 import { threadNavigationStatus } from './threadNavigationStatus'
@@ -54,7 +54,6 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const collapsed = useUIStore(s => s.isSidebarCollapsed), toggleCollapse = useUIStore(s => s.toggleSidebar)
   const [query, setQuery] = useState('')
   const search = useRef<HTMLInputElement>(null)
-  const resizing = useRef(false)
   // Arrows and j/k move through conversations and projects; one tab stop for the whole list.
   const { ref: attachList, onKeyDown: onListKeyDown } = useListKeyboard<HTMLElement>()
   useNavigationSearch(search, collapsed, toggleCollapse)
@@ -113,11 +112,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const railPrimary: RailAction[] = [{ id: 'add-project', label: t('sidebar.addProject'), icon: FolderPlus, onClick: onAddProject }]
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
   return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} aria-label={t('sidebar.region')}>
-    {!collapsed && <div className="thread-resize" role="separator" tabIndex={0} aria-label={t('sidebar.width')} aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width}
-      onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); setWidth(e.key === 'Home' ? SIDEBAR_MIN_WIDTH : SIDEBAR_MAX_WIDTH) } }}
-      onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
-      onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
-      onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />}
+    {!collapsed && <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}
     {collapsed && <NavigationRail mode="thread" primary={railPrimary} context={railContext} onToggle={toggleCollapse} />}
     {!collapsed && <div className="nav-panel">
       <div className="nav-panel-title"><strong>{t('sidebar.conversations')}</strong><SidebarActions actions={railPrimary} /></div>

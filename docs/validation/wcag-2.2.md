@@ -19,7 +19,7 @@ and the documented exceptions.
 | Criterion | Level | Status | How |
 |---|---|---|---|
 | 2.4.11 Focus Not Obscured (Minimum) | AA | Pass | The only thing that floats over scrolling content is the conversation's sticky prompt pill; the timeline has `scroll-padding-top`, so a control focused from the keyboard scrolls into view below it. Dialogs trap focus, and toasts sit in a corner away from the focused control. |
-| 2.5.7 Dragging Movements | AA | In progress (F4, second part) | Splitters and the sidebars' width already move with the arrow keys; a single-pointer alternative (no drag) for them and for reordering tabs, workspaces and panes comes in the next F4 pull request. |
+| 2.5.7 Dragging Movements | AA | Pass | Every drag has a single-click way: a click on a splitter, a sidebar's edge or a pane-grid divider (a press that does not travel), or Enter on it, opens Smaller / Larger / Restore (Move the divider for the grid); editor tabs move left or right from their menu; workspaces move up or down from theirs; panes move with the pane menu's Arrange; the file tree's menu copies a path instead of dragging it into a terminal. `e2e/drag-alternatives.spec.ts`, `tests/ui-splitter.test.tsx`, offer-audit. |
 | 2.5.8 Target Size (Minimum) | AA | Pass, with one documented exception | axe `target-size` on every surface. Control heights come from `--control-*` (24, 28 and 32 px). Exception below. |
 | 3.2.6 Consistent Help | A | Pass | Help is always in the same place: the Help menu of the title bar (keyboard shortcuts, diagnostics, report a problem, About) and the same entries in the command palette. |
 | 3.3.7 Redundant Entry | A | Audit pending (F4, third part) | Forms are being reviewed for information asked twice in the same process. |

@@ -245,6 +245,20 @@
     "resets": "Resets {{when}}."
   },
   "ui": {
+    "divider": {
+      "columns": "Divider between columns",
+      "rows": "Divider between rows",
+      "left": "Move the divider left",
+      "right": "Move the divider right",
+      "up": "Move the divider up",
+      "down": "Move the divider down"
+    },
+    "splitter": {
+      "menu": "Size of {{name}}",
+      "smaller": "Smaller",
+      "larger": "Larger",
+      "restore": "Restore the default size"
+    },
     "loading": "Loading",
     "loadingEllipsis": "Loading…",
     "tryAgain": "Try again",
