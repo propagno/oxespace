@@ -64,6 +64,12 @@
       "app": {
         "journalReset": "The diagnostics journal was unreadable and started over."
       }
+    },
+    "diagnostics": {
+      "bundle": {
+        "fileTooLarge": "A file in the diagnostics bundle is larger than 8 MB, so nothing was saved.",
+        "tooLarge": "The diagnostics bundle is larger than 32 MB, so nothing was saved."
+      }
     }
   }
 }

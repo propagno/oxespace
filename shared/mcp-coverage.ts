@@ -4,7 +4,7 @@
  * Every capability is one of:
  *   tools      reachable: each tool, or each action of a domain tool (`oxespace_git#status`), with its level
  *   excluded   deliberately not a tool, with the reason
- *   planned    belongs to a future item (P7 OxePod containers, H8 OxePost, B8.3 diagnostics)
+ *   planned    belongs to a future item (P7 OxePod containers, H8 OxePost)
  *   forbidden  never a tool: approvals or raising access, sign-in and tokens, secrets, MCP server trust
  *
  * `ipc` names the app's IPC channels (`group.key` from IPC_CHANNELS, `*` as a wildcard) the capability
@@ -18,7 +18,7 @@ interface Base { label: string; ipc?: readonly string[] }
 export type McpCapability =
   | Base & { tools: Readonly<Record<string, McpLevel>> }
   | Base & { excluded: string }
-  | Base & { planned: 'P7' | 'H8' | 'B8.3'; reason: string }
+  | Base & { planned: 'P7' | 'H8'; reason: string }
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
@@ -375,8 +375,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'diagnostics.read': {
     label: 'Summary of the incident journal and a snapshot of the app',
-    planned: 'B8.3',
-    reason: 'oxespace_diagnostics (read, app group) returns the same Markdown summary as the window\'s "Ask for an analysis": incident codes, areas and counts, with aggregate processes and storage. Never content, paths or raw errors.',
+    // The same Markdown as the window's "Ask for an analysis": incident codes, areas and counts, with aggregate processes
+    // and storage. Never content, paths or raw errors.
+    tools: { oxespace_diagnostics: 'read' },
     ipc: ['diagnostics.incidents']
   },
   'settings.agent_audit': {

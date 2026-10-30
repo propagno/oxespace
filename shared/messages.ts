@@ -37,6 +37,10 @@ export interface MessageParams {
   'incident.updater.failed': Record<string, never>
   'incident.interaction.overBudget': Record<string, never>
   'incident.app.journalReset': Record<string, never>
+  /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
+  'diagnostics.bundle.fileTooLarge': Record<string, never>
+  /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
+  'diagnostics.bundle.tooLarge': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -59,7 +63,9 @@ export const MESSAGE_CODES = [
   'incident.oxequery.timeout',
   'incident.updater.failed',
   'incident.interaction.overBudget',
-  'incident.app.journalReset'
+  'incident.app.journalReset',
+  'diagnostics.bundle.fileTooLarge',
+  'diagnostics.bundle.tooLarge'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

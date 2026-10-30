@@ -26,7 +26,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.oxequery.timeout': [],
   'incident.updater.failed': [],
   'incident.interaction.overBudget': [],
-  'incident.app.journalReset': []
+  'incident.app.journalReset': [],
+  'diagnostics.bundle.fileTooLarge': [],
+  'diagnostics.bundle.tooLarge': []
 }
 
 describe('C3 message codes', () => {

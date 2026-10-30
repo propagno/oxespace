@@ -64,6 +64,12 @@
       "app": {
         "journalReset": "O diário de diagnóstico estava ilegível e recomeçou."
       }
+    },
+    "diagnostics": {
+      "bundle": {
+        "fileTooLarge": "Um arquivo do pacote de diagnóstico passa de 8 MB, então nada foi salvo.",
+        "tooLarge": "O pacote de diagnóstico passa de 32 MB, então nada foi salvo."
+      }
     }
   }
 }

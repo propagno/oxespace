@@ -34,9 +34,9 @@ describe('diagnostics contract (B8.3)', () => {
     expect(DIAGNOSTICS_LIMITS.defaultIntervalMs).toBeLessThanOrEqual(DIAGNOSTICS_LIMITS.maxIntervalMs)
   })
 
-  it('reads the journal through the planned diagnostics tool and keeps everything else with the window', () => {
+  it('reads the journal through the diagnostics tool and keeps everything else with the window', () => {
     const read = MCP_COVERAGE['diagnostics.read']
-    expect('planned' in read && read.planned).toBe('B8.3')
+    expect('tools' in read && read.tools).toEqual({ oxespace_diagnostics: 'read' })
     expect(read.ipc).toEqual(['diagnostics.incidents'])
     const settings = MCP_COVERAGE['settings.diagnostics']
     expect('excluded' in settings).toBe(true)

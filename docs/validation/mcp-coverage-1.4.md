@@ -24,10 +24,10 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 36 | 28 | 2 | 10 | 76 |
+| 37 | 28 | 1 | 10 | 76 |
 
-The registry has 88 tools: 65 single-purpose tools and 23 domain tools with 88 actions, so the
-manifest declares 153 tool-or-action entries.
+The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
+manifest declares 154 tool-or-action entries.
 
 ## Forbidden, never a tool
 
@@ -142,7 +142,7 @@ before. Code panes receive the whole registry.
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
 | `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
 | `settings.diagnostics` | Diagnostics snapshot, live measurements, problem bundles and reports | Excluded: Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them. |
-| `diagnostics.read` | Summary of the incident journal and a snapshot of the app | Planned (B8.3): `oxespace_diagnostics` (read, app group) returns the same Markdown summary as the window's "Ask for an analysis". |
+| `diagnostics.read` | Summary of the incident journal and a snapshot of the app | **read**: `oxespace_diagnostics` (app group): the same Markdown summary as the window's "Ask for an analysis". |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |

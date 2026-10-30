@@ -47,7 +47,7 @@ export const THREAD_TOOL_GROUPS = {
   /** The app itself: Git, GitHub, Threads, skills, automations, Linear, MCP servers, search and usage.
    * Changes: each action is recorded; pushes, pull requests, releases and the like are approved by a person. */
   app: ['oxespace_git', 'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_automations', 'oxespace_linear',
-    'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings',
+    'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_diagnostics',
     'oxespace_git_change', 'oxespace_github_change', 'oxespace_threads_change', 'oxespace_skills_change', 'oxespace_automations_change',
     'oxespace_workspace_change', 'oxespace_mcp_servers_change']
 } as const satisfies Record<string, readonly string[]>
