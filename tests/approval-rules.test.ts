@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { approvalRequestProblems, approvalSurface, boundAgentText, foldName, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, reservedNameIn, riskFromShell, riskFromSql } from '../shared/approval-rules'
+import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, reservedNameIn, riskFromShell, riskFromSql } from '../shared/approval-rules'
 import { mainMessage } from '../shared/messages'
-import { APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_SCHEMA_VERSION, type ApprovalRequest } from '../shared/types/approvals'
+import { APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_SCHEMA_VERSION, type ApprovalRequest } from '../shared/types/approvals'
 import { guardSql } from '../electron/main/services/oxequery/sql-guard'
 
 const request = (patch: Partial<ApprovalRequest> = {}): ApprovalRequest => ({
-  schemaVersion: APPROVAL_SCHEMA_VERSION, id: 'r1', generation: 1, kind: 'oxequery', risk: 'medium', ackRequired: false,
+  schemaVersion: APPROVAL_SCHEMA_VERSION, id: 'r1', generation: 1, kind: 'oxequery', risk: 'medium', ackRequired: false, allowDelayMs: 0, enterDisabled: false,
   requester: { kind: 'agent', id: 'pane:p1', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 1 }) },
   title: mainMessage('approvals.title.oxequery', {}), summary: mainMessage('approvals.summary.oxequery.write', {}), appNotes: [],
   agentText: boundAgentText('UPDATE t SET a = 1 WHERE id = 2'),
@@ -98,6 +98,31 @@ describe('a request main may emit (B10)', () => {
     const session = { id: 'run', label: mainMessage('approvals.option.allowSessionReads', {}), intent: 'allow-session' as const }
     expect(approvalRequestProblems(request({ risk: 'low', options: [...request().options, session] }))).toEqual([])
     expect(approvalRequestProblems(request({ risk: 'medium', options: [...request().options, session] }))).toContain('allow-session above low risk')
+  })
+})
+
+describe('critical pacing and the review cap (B10)', () => {
+  const critical = { allowDelayMs: APPROVAL_CRITICAL_ALLOW_DELAY_MS }
+
+  it('holds Allow back for 2 s and turns Enter off at critical only', () => {
+    expect(approvalPacing('critical')).toEqual({ allowDelayMs: 2_000, enterDisabled: true })
+    for (const risk of ['low', 'medium', 'high'] as const) expect(approvalPacing(risk)).toEqual({ allowDelayMs: 0, enterDisabled: false })
+    expect(approvalRequestProblems(request({ risk: 'critical' }))).toContain('critical without the allow delay and Enter off')
+    expect(approvalRequestProblems(request({ risk: 'critical', ...approvalPacing('critical') }))).toEqual([])
+  })
+
+  it('refuses an allow before 2 s after the ack, or with no ack, and never holds a deny back', () => {
+    expect(allowTooSoon(critical, 'allow', 1_000, 2_999)).toBe(true)
+    expect(allowTooSoon(critical, 'allow', 1_000, 3_000)).toBe(false)
+    expect(allowTooSoon(critical, 'allow', undefined, 99_999)).toBe(true)
+    expect(allowTooSoon(critical, 'deny', undefined, 0)).toBe(false)
+    expect(allowTooSoon({ allowDelayMs: 0 }, 'allow', undefined, 0)).toBe(false)
+  })
+
+  it('shows up to the cap, refuses a change above it, and cuts only a low-risk text', () => {
+    expect(agentTextAdmission(APPROVAL_AGENT_TEXT_MAX, 'critical')).toBe('show')
+    for (const risk of ['medium', 'high', 'critical'] as const) expect(agentTextAdmission(APPROVAL_AGENT_TEXT_MAX + 1, risk)).toBe('refuse')
+    expect(agentTextAdmission(APPROVAL_AGENT_TEXT_MAX + 1, 'low')).toBe('truncate')
   })
 })
 

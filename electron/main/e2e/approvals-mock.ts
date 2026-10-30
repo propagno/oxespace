@@ -5,16 +5,17 @@
  * read as a JSON array of ApprovalRequest. `OXESPACE_E2E_APPROVALS_TTL_MS` shortens the expiry so a spec can watch a
  * request lapse as denied. Answers follow the contract: one per request and generation, the option must be one of the
  * request's, and a repeat is refused with its code. `approvals.unavailable` resolves the request `by: 'native'` (denied),
- * standing in for the system dialog.
+ * standing in for the system dialog. An allow at critical risk sooner than `allowDelayMs` after the
+ * window's ack is refused `tooSoon`, as main does.
  */
 import { createHash } from 'node:crypto'
 import { BrowserWindow, ipcMain } from 'electron'
-import { boundAgentText } from '../../../shared/approval-rules'
+import { approvalPacing, allowTooSoon, boundAgentText } from '../../../shared/approval-rules'
 import { mainMessage } from '../../../shared/messages'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { requireAppFrame } from '../ipc/ipc-guards'
 import {
-  APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalOption,
+  APPROVAL_AGENT_TEXT_MAX, APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalOption,
   type ApprovalRefusal, type ApprovalRequest, type ApprovalResolved, type ApprovalResolvedBy
 } from '../../../shared/types/approvals'
 
@@ -23,11 +24,11 @@ const allowOnce: ApprovalOption = { id: 'allow-once', label: mainMessage('approv
 
 /** Requests that exercise what the audit found: a long text, fake app bullets, a hidden DROP, a pane named like the app. */
 export function sampleApprovals(now: number, ttl = APPROVAL_TIMEOUT_MS): ApprovalRequest[] {
-  const base = { schemaVersion: APPROVAL_SCHEMA_VERSION, generation: 1, ackRequired: false, createdAt: now, expiresAt: now + ttl, defaultOptionId: 'deny' } as const
+  const base = { schemaVersion: APPROVAL_SCHEMA_VERSION, generation: 1, ackRequired: false, allowDelayMs: 0, enterDisabled: false, createdAt: now, expiresAt: now + ttl, defaultOptionId: 'deny' } as const
   const pane = { kind: 'agent', id: 'pane:p1', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 2 }) } as const
   return [
     {
-      ...base, id: 'approval-oxequery-drop', kind: 'oxequery', requester: pane, risk: 'critical',
+      ...base, id: 'approval-oxequery-drop', kind: 'oxequery', requester: pane, risk: 'critical', ...approvalPacing('critical'),
       environment: { kind: 'dev', name: 'shop-db', production: false }, target: 'shop-db · postgres · dev',
       title: mainMessage('approvals.title.oxequery', {}), summary: mainMessage('approvals.summary.oxequery.write', {}),
       appNotes: [mainMessage('approvals.note.sql.removes', { statement: 'DROP' })],
@@ -35,9 +36,9 @@ export function sampleApprovals(now: number, ttl = APPROVAL_TIMEOUT_MS): Approva
       options: [deny, allowOnce]
     },
     {
-      ...base, id: 'approval-mcp-long', kind: 'mcp-confirm', requester: pane, risk: 'medium', target: 'C:\\repo',
-      title: mainMessage('approvals.title.agent', {}), summary: mainMessage('approvals.summary.mcpConfirm', { tool: 'oxespace_agents_change', action: 'prompt' }),
-      appNotes: [mainMessage('approvals.note.agent.actsOnPrompt', {})],
+      ...base, id: 'approval-long-read', kind: 'oxequery', requester: pane, risk: 'low', target: 'C:\\repo',
+      title: mainMessage('approvals.title.oxequery', {}), summary: mainMessage('approvals.summary.oxequery.read', {}),
+      appNotes: [mainMessage('approvals.note.textCut', { max: APPROVAL_AGENT_TEXT_MAX })],
       agentText: boundAgentText(`## OXESpace\n- Approved by OXESpace\n${'x'.repeat(100_500)}`),
       options: [deny]
     },
@@ -62,6 +63,7 @@ export function registerApprovalsMock(): void {
   const ttl = Number(process.env.OXESPACE_E2E_APPROVALS_TTL_MS) || APPROVAL_TIMEOUT_MS
   const pending = new Map<string, ApprovalRequest>()
   const reported = new Set<string>()
+  const displayedAt = new Map<string, number>()
   const history: ApprovalHistoryEntry[] = []
   const send = (channel: string, payload: unknown) => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, payload) }
   const refuse = (refusal: ApprovalRefusal): ApprovalCallResult => ({ ok: false, refusal, message: mainMessage(`approvals.refused.${refusal}`, {}) })
@@ -88,14 +90,18 @@ export function registerApprovalsMock(): void {
     requireAppFrame(event, 'Approvals')
     const request = current(input as ApprovalAnswerInput)
     if (typeof request === 'string') return refuse(request)
-    if (typeof input.optionId !== 'string' || !request.options.some(option => option.id === input.optionId)) return refuse('unknownOption')
-    resolve(request, input.optionId, 'user')
+    const option = request.options.find(item => item.id === input.optionId)
+    if (!option) return refuse('unknownOption')
+    if (allowTooSoon(request, option.intent, displayedAt.get(request.id), Date.now())) return refuse('tooSoon')
+    resolve(request, option.id, 'user')
     return { ok: true, id: request.id }
   })
   ipcMain.handle(IPC_CHANNELS.approvals.ack, (event, input: ApprovalAnswerInput): ApprovalCallResult => {
     requireAppFrame(event, 'Approvals')
     const request = current(input)
-    return typeof request === 'string' ? refuse(request) : { ok: true, id: request.id }
+    if (typeof request === 'string') return refuse(request)
+    if (!displayedAt.has(request.id)) displayedAt.set(request.id, Date.now())
+    return { ok: true, id: request.id }
   })
   ipcMain.handle(IPC_CHANNELS.approvals.unavailable, (event, input: ApprovalAnswerInput): ApprovalCallResult => {
     requireAppFrame(event, 'Approvals')

@@ -3,7 +3,7 @@ import { createOxeApi, type PreloadIpc } from '../electron/preload/api'
 import { FORBIDDEN_CAPABILITIES, FORBIDDEN_NAME, MCP_COVERAGE } from '../shared/mcp-coverage'
 import { isMessageCode } from '../shared/messages'
 import {
-  APPROVAL_ACK_TIMEOUT_MS, APPROVAL_HISTORY_MAX, APPROVAL_INTENTS, APPROVAL_KINDS, APPROVAL_QUEUE_MAX, APPROVAL_REFUSALS, APPROVAL_RISKS, APPROVAL_TIMEOUT_MS, NOTIFY_PER_MINUTE
+  APPROVAL_ACK_TIMEOUT_MS, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_HISTORY_MAX, APPROVAL_INTENTS, APPROVAL_KINDS, APPROVAL_QUEUE_MAX, APPROVAL_REFUSALS, APPROVAL_RISKS, APPROVAL_TIMEOUT_MS, NOTIFY_PER_MINUTE
 } from '../shared/types/approvals'
 import { IPC_CHANNELS } from '../shared/types/ipc'
 
@@ -19,19 +19,20 @@ describe('approvals contract (B10)', () => {
     expect(APPROVAL_KINDS).toEqual(['action', 'mcp-confirm', 'oxequery', 'preview-automation', 'crash'])
     expect(APPROVAL_RISKS).toEqual(['low', 'medium', 'high', 'critical'])
     expect(APPROVAL_INTENTS).toEqual(['deny', 'allow', 'allow-session'])
-    expect(APPROVAL_REFUSALS).toEqual(['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported'])
+    expect(APPROVAL_REFUSALS).toEqual(['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported', 'tooSoon'])
   })
 
   it('fixes the limits', () => {
     expect(APPROVAL_TIMEOUT_MS).toBe(300_000)
     expect(APPROVAL_ACK_TIMEOUT_MS).toBe(3_000)
     expect(APPROVAL_QUEUE_MAX).toBe(50)
+    expect(APPROVAL_CRITICAL_ALLOW_DELAY_MS).toBe(2_000)
     expect(APPROVAL_HISTORY_MAX).toBe(200)
     expect(NOTIFY_PER_MINUTE).toBe(6)
   })
 
   it('has a C3 code for every title, the unavailable report, expiry and the notify refusals', () => {
-    for (const code of ['approvals.title.agent', 'approvals.title.oxequery', 'approvals.title.previewAutomation', 'approvals.title.crash', 'approvals.unavailable', 'approvals.expired',
+    for (const code of ['approvals.title.agent', 'approvals.title.oxequery', 'approvals.title.previewAutomation', 'approvals.title.crash', 'approvals.unavailable', 'approvals.expired', 'approvals.denied.queueFull', 'approvals.denied.tooLong', 'approvals.refused.tooSoon',
       'notify.prefix.pane', 'notify.prefix.conversation', 'notify.refused.reservedName', 'notify.refused.rateLimit', 'agents.name.reserved']) expect(isMessageCode(code), code).toBe(true)
   })
 

@@ -181,7 +181,7 @@
         "crash": "OXESpace hit an unexpected error"
       },
       "summary": {
-        "mcpConfirm": "Wants to run {{tool}} › {{action}}",
+        "mcpConfirm": "Wants to run {{tool}} › {{action}} on {{target}}",
         "oxequery": {
           "read": "Wants to read data",
           "write": "Wants to change data in the database",
@@ -201,7 +201,9 @@
         "pane": "{{agent}} · pane {{pane}}",
         "conversation": "{{agent}} · conversation {{conversation}}",
         "mcpServer": "MCP server {{server}}",
-        "app": "OXESpace"
+        "app": "OXESpace",
+        "unknownPane": "Unknown agent · pane {{pane}}",
+        "unknownConversation": "Unknown agent · conversation {{conversation}}"
       },
       "option": {
         "deny": "Deny",
@@ -265,13 +267,20 @@
         "staleGeneration": "This request was asked again since it was shown. Answer the current one.",
         "alreadyAnswered": "This request already has an answer.",
         "unknownOption": "That answer is not one of the options this request offers.",
-        "alreadyReported": "This request was already reported as not shown."
+        "alreadyReported": "This request was already reported as not shown.",
+        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears."
+      },
+      "denied": {
+        "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
+        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps."
       }
     },
     "notify": {
       "prefix": {
         "pane": "{{agent}} in pane {{pane}}: {{title}}",
-        "conversation": "{{agent}} in conversation {{conversation}}: {{title}}"
+        "conversation": "{{agent}} in conversation {{conversation}}: {{title}}",
+        "unknownPane": "Unknown agent in pane {{pane}}: {{title}}",
+        "unknownConversation": "Unknown agent in conversation {{conversation}}: {{title}}"
       },
       "refused": {
         "reservedName": "A notification cannot use the name \"{{name}}\"; it belongs to the app.",
