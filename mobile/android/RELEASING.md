@@ -1,0 +1,63 @@
+# Releasing the Android app
+
+The signed APK is attached to each GitHub release by `.github/workflows/android-release.yml`. It runs when the
+desktop's "CI and Release" pipeline publishes a release, or by hand (Actions › Android release › Run workflow, with
+the tag). It's not on the Play Store.
+
+## One-time setup (maintainer)
+
+The signing key stays out of the repository. Create it once, keep a backup somewhere safe (losing it means phones
+can't update the app; they would have to uninstall and pair again), and register four repository secrets
+(Settings › Secrets and variables › Actions):
+
+1. Create the key, on your machine (JDK `keytool`):
+
+   ```sh
+   keytool -genkeypair -v -keystore oxespace-release.jks -alias oxespace \
+     -keyalg RSA -keysize 4096 -validity 10000 \
+     -dname "CN=OXESpace, O=OXESpace"
+   ```
+
+2. Register the secrets:
+
+   | Secret | Value |
+   |---|---|
+   | `ANDROID_KEYSTORE_BASE64` | `base64 -w0 oxespace-release.jks` (on macOS: `base64 -i oxespace-release.jks`) |
+   | `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+   | `ANDROID_KEY_ALIAS` | `oxespace` (or the alias you chose) |
+   | `ANDROID_KEY_PASSWORD` | the key password |
+
+3. Publish the certificate fingerprint once, in the project README or the first release notes, so people can check
+   every later APK against it:
+
+   ```sh
+   keytool -list -v -keystore oxespace-release.jks -alias oxespace | grep "SHA256:"
+   ```
+
+Without the secrets the workflow stops at its first step and names the ones missing; nothing is built or published.
+
+## What each release gets
+
+- `oxespace-android-vX.Y.Z.apk`: release build (minified), signed with APK Signature Scheme v3 (Android 9+).
+- `oxespace-android-vX.Y.Z.apk.sha256`: its SHA-256.
+- The run summary shows the same SHA-256 and the signing certificate's SHA-256.
+
+## Verifying an APK before installing it
+
+1. The file is the one published:
+
+   ```sh
+   sha256sum -c oxespace-android-vX.Y.Z.apk.sha256
+   ```
+
+2. It's signed by the project's key: `apksigner` from the Android SDK build-tools.
+
+   ```sh
+   apksigner verify --print-certs oxespace-android-vX.Y.Z.apk
+   ```
+
+   The line `Signer #1 certificate SHA-256 digest:` must match the fingerprint the project published (step 3 above,
+   without the colons, in lowercase). Android also refuses an update signed by a different key.
+
+3. Install it (enable "install unknown apps" for the browser or file manager), open OXESpace › Settings › Devices on
+   the computer, and pair by scanning the QR.
