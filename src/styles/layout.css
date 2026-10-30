@@ -402,15 +402,9 @@
   height: 8px;
 }
 
-@keyframes ws-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(18, 199, 154, 0.6); }
-  70% { box-shadow: 0 0 0 4px rgba(18, 199, 154, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(18, 199, 154, 0); }
-}
-
 .ws-group-dot.activity-thinking,
 .ws-group-dot.activity-running {
-  animation: ws-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-opacity: 0.4; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .ws-group-dot.activity-placeholder {
@@ -419,7 +413,7 @@
 }
 
 /* Collapsed-rail status pip — recolor the existing absolute dot by tone. */
-.sidebar-rail-pip.activity-thinking { background: var(--dot-green); animation: ws-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
+.sidebar-rail-pip.activity-thinking { background: var(--dot-green); --pulse-opacity: 0.4; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
 .sidebar-rail-pip.activity-awaiting { background: var(--brand); }
 .sidebar-rail-pip.activity-starting { background: var(--dot-yellow); }
 .sidebar-rail-pip.activity-error { background: var(--dot-red); }
@@ -793,7 +787,8 @@
   border-color: var(--intent-success-border);
   background: var(--intent-success-bg);
   color: var(--dot-green);
-  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-scale: 0.85;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 /* Awaiting: solid brand-accent ring so it reads as "your turn", distinct from
@@ -808,7 +803,8 @@
   border-color: var(--intent-warning-border);
   background: var(--intent-warning-bg);
   color: var(--dot-yellow);
-  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-scale: 0.85;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .pane-row-state-mark.activity-exited {
@@ -911,13 +907,6 @@
   flex-shrink: 0;
 }
 
-/* Working: 3 bouncing dots */
-
-@keyframes session-bounce {
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
-  40%           { transform: translateY(-4px); opacity: 1; }
-}
-
 /* Dormant: z²Z */
 
 /* Starting dot */
@@ -927,7 +916,8 @@
   height: 5px;
   border-radius: 50%;
   background: var(--dot-yellow, var(--intent-warning-solid));
-  animation: dot-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-opacity: 0.3;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 /* Error dot */
@@ -993,7 +983,8 @@
 
 .pane-status-dot.starting {
   background: var(--dot-yellow);
-  animation: dot-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-opacity: 0.3;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .pane-status-dot.error {
@@ -1004,10 +995,6 @@
   background: color-mix(in srgb, var(--text-primary) 20%, transparent);
 }
 
-@keyframes dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
 
 
 /* ─── Footer ────────────────────────────────────────────────────────────── */

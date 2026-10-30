@@ -8,6 +8,7 @@ export { TextField, TextArea, Select, Checkbox, Switch, SegmentedControl, Kbd } 
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog'
 export { Dialog, Popover, Menu, Tooltip, TooltipProvider, type MenuEntry, type MenuRadioOption } from './Overlay'
 export { Badge, StatusDot, Panel, Toolbar, ToolbarSpacer, EmptyState, ErrorState, LoadingState, Skeleton, Spinner, Separator, Tabs, Meter, Avatar, type Intent, type Status } from './Display'
+export { BrandLoader, BrandMark } from './BrandLoader'
 export { toast, dismissToast, Toaster, type ToastInput } from './Toast'
 export { TitleTooltips } from './TitleTooltips'
 export { cx } from './cx'

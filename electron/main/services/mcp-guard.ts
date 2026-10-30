@@ -11,6 +11,7 @@
  * and the process live in mcp.service.ts.
  */
 import type { McpToolDescriptor } from '../../../shared/types/mcp'
+import { mainMessage, type MainMessage } from '../../../shared/messages'
 import { quarantined, sha, stable, type GuardState, type GuardVerdict, type ToolPrint } from './mcp-pin'
 
 export * from './mcp-pin'
@@ -38,13 +39,29 @@ export function checkTools(state: GuardState, tools: readonly McpToolDescriptor[
   const change = diffTools(state.tools, seen)
   if (!change.added.length && !change.removed.length && !change.changed.length) return { ok: true, state }
   const reasons: string[] = []
-  if (change.changed.length) reasons.push(`The description or inputs of ${list(change.changed)} changed after you trusted it.`)
-  if (change.added.length) reasons.push(`It added ${list(change.added)}.`)
-  if (change.removed.length) reasons.push(`It removed ${list(change.removed)}.`)
-  return quarantined(state, now, reasons, { ...change, observed: seen })
+  const codes: MainMessage[] = []
+  if (change.changed.length) {
+    reasons.push(`The description or inputs of ${list(change.changed)} changed after you trusted it.`)
+    codes.push(mainMessage('mcp.quarantine.changed', { tools: shownNames(change.changed) }))
+  }
+  if (change.added.length) {
+    reasons.push(`It added ${list(change.added)}.`)
+    codes.push(mainMessage('mcp.quarantine.added', { tools: shownNames(change.added) }))
+  }
+  if (change.removed.length) {
+    reasons.push(`It removed ${list(change.removed)}.`)
+    codes.push(mainMessage('mcp.quarantine.removed', { tools: shownNames(change.removed) }))
+  }
+  return quarantined(state, now, reasons, codes, { ...change, observed: seen })
 }
 
 function list(names: string[]): string {
   const shown = names.slice(0, 4).map(name => `"${name.slice(0, 60)}"`).join(', ')
   return names.length > 4 ? `${shown} and ${names.length - 4} more` : shown
+}
+
+/** Tool names come from the server: quoted, cut to 60 characters, at most four, and a count for the rest ("+3"). */
+export function shownNames(names: readonly string[]): string[] {
+  const shown = names.slice(0, 4).map(name => `"${name.slice(0, 60)}"`)
+  return names.length > 4 ? [...shown, `+${names.length - 4}`] : shown
 }
