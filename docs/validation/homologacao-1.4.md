@@ -146,7 +146,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 primitivas | #163 | FRONTEND | Homologado (na `main` 7c8cb949) |
 | F4 WCAG 2.2, partes 1 e 2 | #186 | FRONTEND | Pré-homologado com ressalvas |
 | R1 + A4 (splash na aparência salva; visualizador só em dev) | #190 | FRONTEND | Pré-homologado |
-| F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Pré-homologado com ressalvas |
+| F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Pré-homologado (ressalvas resolvidas na reverificação) |
 | A4 worktree por conversa | #151 | FRONTEND | Homologado com ressalvas (na `main` 9e4a9307) |
 | F8 gate visual | #193 | FRONTEND | Pré-homologado |
 | F1 OfflineState + F2 About | #178 | FRONTEND (+ BACKEND no texto do OxePost) | Pré-homologado com ressalvas |
@@ -212,6 +212,9 @@ atalhos e nas 10 categorias de Settings, em en e pt-BR.
   - title do botão Team: "…shared by Code and Thread" (linha 817);
   - títulos de Team desabilitado: "Team is available in Code and Thread" e "Select a Thread project…" (linha 661).
 - Fora da F12 (F6): no pt-BR, a tela inicial e o FirstRunChecklist continuam em inglês (`pre-f12/pt-BR-start.png`).
+- Reverificação (main + #188 atualizado + #189, `253e32f9`): a mesma varredura não acha nenhum nome antigo em pt-BR.
+  Em en, o único resultado é "Vendored code intelligence", com "code" como substantivo comum. Paleta com 85
+  itens; nenhum erro de console.
 
 ### A4 worktree por conversa (#151): Homologado com ressalvas
 
