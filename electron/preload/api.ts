@@ -318,7 +318,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       answerPairing: input => ipc.invoke(IPC_CHANNELS.remote.answerPairing, input) as Promise<void>,
       revoke: input => ipc.invoke(IPC_CHANNELS.remote.revoke, input) as Promise<void>,
       rename: input => ipc.invoke(IPC_CHANNELS.remote.rename, input) as Promise<import('../../shared/types/remote').RemoteDevice>,
-      setDesktopName: input => ipc.invoke(IPC_CHANNELS.remote.setDesktopName, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>
+      setDesktopName: input => ipc.invoke(IPC_CHANNELS.remote.setDesktopName, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      setPhoneWrite: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneWrite, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>
     },
     automations: {
       list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,

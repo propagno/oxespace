@@ -14,6 +14,9 @@ import {
   REMOTE_PAIRING_ERROR_CODES,
   REMOTE_PAIRING_SCHEME,
   REMOTE_WS_PATH,
+  REMOTE_TEXT_LIMITS,
+  type RemoteCommandArgs,
+  type RemotePendingRequest,
   readRemoteFrame,
   REMOTE_CLIENT_FRAMES,
   REMOTE_COMMANDS,
@@ -110,6 +113,25 @@ describe('C5 pairing', () => {
     ]) expect(readPairingUri(bad).ok, bad).toBe(false)
   })
 
+  it('reads a QR as strictly as the Android reader (homologation of #172)', () => {
+    const uri = pairingUri({ v: 1, host: '192.168.0.10', port: 7443, fp, code, name: 'Estudos PC' })
+    const other = randomBytes(16).toString('base64url')
+    for (const bad of [
+      // Each key at most once: two readers must never see different codes.
+      `${uri}&code=${other}`, `${uri}&port=7444`, `${uri}&v=1`, `${uri}&name=Other`, `${uri}&fp=${fp}`, `${uri}&host=192.168.0.11`,
+      // The port in plain decimal digits.
+      uri.replace('port=7443', 'port=0x1D13'), uri.replace('port=7443', 'port=%207443'), uri.replace('port=7443', 'port=7443.0'), uri.replace('port=7443', 'port=+7443'), uri.replace('port=7443', 'port=1e4'),
+      // Exactly this protocol's version.
+      uri.replace('v=1', 'v=2'), uri.replace('v=1', 'v=1e0'), uri.replace('v=1', 'v=01'), uri.replace('v=1', 'v=%201'),
+      // No control character in the name, C0, DEL or C1.
+      uri.replace('name=Estudos+PC', 'name=Estudos%C2%85PC'), uri.replace('name=Estudos+PC', 'name=Estudos%7FPC'), uri.replace('name=Estudos+PC', 'name=Estudos%0APC'), uri.replace('name=Estudos+PC', 'name=Estudos%C2%9FPC')
+    ]) expect(readPairingUri(bad).ok, bad).toBe(false)
+    expect(readPairingUri(uri).ok).toBe(true)
+    // The same control rule holds for the name a phone gives when pairing.
+    const publicKey = generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey.export({ type: 'spki', format: 'der' }).toString('base64url')
+    expect(readPairRequest({ code, deviceName: 'Pixel\u00858', publicKey })).toEqual({ ok: false, code: 'malformed' })
+  })
+
   it('reads a pairing request and calls anything else malformed', () => {
     expect(readPairRequest({ code, deviceName: 'Pixel 8', publicKey })).toEqual({ ok: true, request: { code, deviceName: 'Pixel 8', publicKey } })
     for (const body of [null, [], 'x', {}, { code, deviceName: 'Pixel 8' }, { code, deviceName: 'Pixel 8', publicKey, extra: 1 },
@@ -157,5 +179,34 @@ describe('C5 pairing', () => {
     const vector = new Uint8Array(32); vector.set([0x12, 0x34, 0x56, 0x78])
     expect(pairingVerification(vector)).toBe('28T5CY')
     expect(() => pairingVerification(new Uint8Array(31))).toThrow()
+  })
+})
+
+describe('C5 payloads (M4, M5)', () => {
+  it('adds the history command and keeps every command clear of forbidden capabilities', () => {
+    expect(REMOTE_COMMANDS).toContain('thread.history')
+    const offered = [...REMOTE_COMMANDS, ...REMOTE_SUBSCRIPTIONS] as string[]
+    expect(offered.filter(name => FORBIDDEN_WORDS.test(name))).toEqual([])
+  })
+
+  it('keeps the payload limits the CCR sets, inside a frame', () => {
+    expect(REMOTE_TEXT_LIMITS).toEqual({ itemText: 8_000, detail: 2_000, terminalChunk: 32_000, threadPage: 50, objective: 500 })
+    expect(REMOTE_LIMITS.terminalWriteBytes).toBe(4 * 1024)
+    expect(REMOTE_LIMITS.clientIdDedupeMs).toBeGreaterThanOrEqual(10 * 60_000)
+    // A terminal chunk, even all 3-byte characters, fits a frame with room for the envelope.
+    expect(REMOTE_TEXT_LIMITS.terminalChunk * 3).toBeLessThan(REMOTE_LIMITS.maxFrameBytes * 2)
+    expect(REMOTE_TEXT_LIMITS.terminalChunk).toBeLessThan(REMOTE_LIMITS.maxFrameBytes)
+  })
+
+  it('never offers the phone what only the desktop may do in a request', () => {
+    const request: RemotePendingRequest = {
+      threadId: 't', workspaceId: 'w', threadTitle: 'T', requestId: 'r', generation: 1, kind: 'approval', title: 'Run', decisions: ['accept', 'decline', 'cancel'],
+      answerable: true, createdAt: 1
+    }
+    // "Accept for the session" is not a decision the phone can send, by type.
+    const decisions: RemotePendingRequest['decisions'] = request.decisions
+    expect(decisions).not.toContain('acceptForSession' as never)
+    const args: RemoteCommandArgs['thread.respondRequest'] = { threadId: 't', requestId: 'r', generation: 1, response: { decision: 'accept' } }
+    expect(Object.keys(args.response)).toEqual(['decision'])
   })
 })
