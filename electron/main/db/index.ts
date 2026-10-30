@@ -4,7 +4,6 @@ import { app } from 'electron'
 import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scheduleStorageRetention } from '../services/storage-retention'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -37,7 +36,9 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
   for (let attempt = 1; attempt <= OPEN_MAX_ATTEMPTS; attempt++) {
     try {
       const db = openAndMigrate(databasePath)
-      scheduleStorageRetention(dirname(databasePath))
+      // Loaded after the window is up, so the retention code stays out of the main entry.
+      const dataDirectory = dirname(databasePath)
+      setTimeout(() => { void import('../services/storage-retention').then(module => module.scheduleStorageRetention(dataDirectory)).catch(() => undefined) }, 0)
       return db
     } catch (err) {
       lastErr = err
