@@ -256,6 +256,16 @@ jobs:
           # OxeQuery worker that imported a devDependency and could not load on any installed build.
           node scripts/check-bundle-imports.mjs
 
+      # The main process ships minified; its source maps never ship. Keep them with the run, so a stack from a
+      # problem report of this build can be read: node scripts/symbolicate-stack.mjs --maps <artifact folder>.
+      - name: Upload main-process source maps
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: main-sourcemaps-${{ matrix.label }}
+          if-no-files-found: error
+          retention-days: 90
+          path: out/main/**/*.map
+
       # E2E launches Electron, so it must run only after the Electron-native
       # binary has been installed and verified. node-pty supplies a
       # N-API-compatible prebuild; rebuilding it would unnecessarily require
@@ -376,6 +386,8 @@ jobs:
           # Installer size in every run log, so a dependency that bloats the package shows up in review.
           Get-ChildItem dist -File | Where-Object { $_.Extension -in '.exe', '.deb', '.AppImage' } |
             ForEach-Object { '[installer-size] {0} {1:N1} MB' -f $_.Name, ($_.Length / 1MB) }
+          # The source maps are private: none may reach the packaged app.
+          node -e "const asar = require('@electron/asar'); const fs = require('node:fs'); const dirs = fs.readdirSync('dist').filter(name => name.endsWith('-unpacked')); if (!dirs.length) throw new Error('no unpacked app in dist'); for (const dir of dirs) { const maps = asar.listPackage('dist/' + dir + '/resources/app.asar', {}).filter(file => /^[\\/]out[\\/].*\.map$/.test(file)); if (maps.length) throw new Error(dir + ' ships source maps: ' + maps.slice(0, 5).join(', ')); console.log('[sourcemaps] ' + dir + ': none in app.asar') }"
 
       - name: E2E packaged Linux build
         if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Linux'

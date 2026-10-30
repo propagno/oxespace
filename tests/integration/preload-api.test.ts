@@ -22,6 +22,20 @@ describe('preload api', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.exportPortable, 'thread-A')
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.importPortable, 'thread-A')
   })
+  test('exposes the 1.4 contracts: connectivity, About and answering a pending request by generation', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    await api.app.connectivity!()
+    await api.app.about!()
+    const input = { threadId: 'thread-A', requestId: 'request-1', generation: 3, response: { decision: 'accept' as const } }
+    await api.thread!.respondPending!(input)
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.app.connectivity)
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.app.about)
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.respondPending, input)
+    expect(ipc.invoke).toHaveBeenCalledTimes(3)
+    const listener = vi.fn()
+    api.app.onConnectivity!(listener)
+    expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.app.onConnectivity, expect.any(Function))
+  })
   test('exposes workspace and terminal APIs without raw ipc access', async () => {
     const ipc = createFakeIpc()
     const api = createOxeApi(ipc)

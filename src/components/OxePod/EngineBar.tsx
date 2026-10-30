@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ContainerEngineCandidate } from '../../../shared/types/oxequery'
-import { errorMessage, oq } from '../OxeQuery/client'
+import type { ContainerEngineCandidate } from '../../../shared/types/oxepod'
+import { errorMessage, pod } from './client'
 import { tp } from './catalog'
 import { useOxePodStore } from './oxepod.store'
 import { Select } from '../../ui/Field'
@@ -29,7 +29,7 @@ export function EngineBar({ shown }: { shown: number }): ReactElement | null {
   const refresh = useOxePodStore(state => state.refresh)
 
   const load = useCallback(async (): Promise<void> => {
-    try { setCandidates(await oq('containers.candidates', {})) } catch { setCandidates([]) }
+    try { setCandidates(await pod('containers.candidates', {})) } catch { setCandidates([]) }
   }, [])
 
   // Probing every daemon is not free, so it runs when the sidebar opens and when nothing is listed, not on each refresh.
@@ -40,7 +40,7 @@ export function EngineBar({ shown }: { shown: number }): ReactElement | null {
   const advice = engineAdvice(candidates, shown)
   const choose = async (id: string): Promise<void> => {
     setFailure('')
-    try { setCandidates(await oq('containers.useCandidate', { id })); await refresh() } catch (cause) { setFailure(errorMessage(cause)) }
+    try { setCandidates(await pod('containers.useCandidate', { id })); await refresh() } catch (cause) { setFailure(errorMessage(cause)) }
   }
   const selected = candidates.find(entry => entry.selected)
   return <div className={styles.engineBar}>

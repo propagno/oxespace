@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ContainerInspect, ContainerSummary, OxeQueryEvent } from '../shared/types/oxequery'
+import type { ContainerInspect, ContainerSummary, OxePodEvent } from '../shared/types/oxepod'
 import { connection, installFakeOxeQuery, refusal, type FakeOxeQuery } from './helpers/oxequery-api'
 
 vi.mock('../src/components/Panes/TerminalPane', () => ({ TerminalPane: () => <div data-testid="terminal" /> }))
@@ -24,15 +24,15 @@ const inspectOf = (item: ContainerSummary, change: Partial<ContainerInspect> = {
 })
 
 let api: FakeOxeQuery
-let listeners: ((event: OxeQueryEvent) => void)[]
-const emit = (event: OxeQueryEvent): void => act(() => { for (const listener of listeners) listener(event) })
+let listeners: ((event: OxePodEvent) => void)[]
+const emit = (event: OxePodEvent): void => act(() => { for (const listener of listeners) listener(event) })
 const DOCKER = { engine: 'docker' as const, available: true, state: 'ready' as const, version: '27.0', context: 'default' }
 
 beforeEach(() => {
   api = installFakeOxeQuery()
   listeners = []
-  const oxe = (window as unknown as { oxe: { oxeQuery: { onEvent: (listener: (event: OxeQueryEvent) => void) => () => void } } }).oxe
-  oxe.oxeQuery.onEvent = listener => { listeners.push(listener); return () => { listeners = listeners.filter(item => item !== listener) } }
+  const oxe = (window as unknown as { oxe: { oxePod: { onEvent: (listener: (event: OxePodEvent) => void) => () => void } } }).oxe
+  oxe.oxePod.onEvent = listener => { listeners.push(listener); return () => { listeners = listeners.filter(item => item !== listener) } }
   api.on('containers.list', { containers: [web, postgres, mongo], engine: 'docker' })
   api.on('containers.engines', [DOCKER, { engine: 'podman', available: false, state: 'missing' }])
   api.on('containers.candidates', [])
@@ -95,7 +95,7 @@ describe('OxePod container detail', () => {
     expect(await within(detail).findByText(/started .*2 hours ago/)).toBeInTheDocument()
     for (const name of ['Stop pg-dev', 'Restart pg-dev', 'Terminal', 'Remove pg-dev…']) expect(within(detail).getByRole('button', { name })).toBeInTheDocument()
     await waitFor(() => expect(api.callsOf('containers.logsStart')).toHaveLength(1))
-    emit({ type: 'container-log', streamId: 's1', lines: ['\u001b[32mready\u001b[0m to accept connections'] } as OxeQueryEvent)
+    emit({ type: 'container-log', streamId: 's1', lines: ['\u001b[32mready\u001b[0m to accept connections'] } as OxePodEvent)
     expect(await within(detail).findByLabelText('Container logs')).toHaveTextContent('ready to accept connections')
     const usage = await within(detail).findByLabelText('Usage')
     expect(usage).toHaveTextContent('CPU')
@@ -210,7 +210,7 @@ describe('OxePod view', () => {
     expect(await screen.findByRole('note')).toHaveTextContent('staging-host')
     await waitFor(() => expect(api.callsOf('containers.list').length).toBeGreaterThan(0))
     const before = api.callsOf('containers.list').length
-    emit({ type: 'containers-changed' } as OxeQueryEvent)
+    emit({ type: 'containers-changed' } as OxePodEvent)
     await waitFor(() => expect(api.callsOf('containers.list').length).toBeGreaterThan(before))
   })
 

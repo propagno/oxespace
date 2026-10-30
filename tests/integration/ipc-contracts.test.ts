@@ -30,6 +30,14 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.semantic.getLogs).toBe('semantic:get-logs')
   })
 
+  test('uses stable 1.4 contract channel names', () => {
+    expect(IPC_CHANNELS.app.connectivity).toBe('app:connectivity')
+    expect(IPC_CHANNELS.app.onConnectivity).toBe('app:connectivity-changed')
+    expect(IPC_CHANNELS.app.about).toBe('app:about')
+    expect(IPC_CHANNELS.thread.pendingRequestsAll).toBe('thread:pending-requests-all')
+    expect(IPC_CHANNELS.thread.respondPending).toBe('thread:respond-pending')
+  })
+
   test('uses stable workspace and terminal channel names', () => {
     expect(IPC_CHANNELS.workspace.create).toBe('workspace:create')
     expect(IPC_CHANNELS.workspace.shellProfiles).toBe('workspace:shell-profiles')
