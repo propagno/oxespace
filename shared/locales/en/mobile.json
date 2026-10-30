@@ -131,11 +131,70 @@
     "unknownItems_one": "{{count}} item from a newer OXESpace isn't shown.",
     "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
     "showOutput": "Show output",
-    "hideOutput": "Hide output"
+    "hideOutput": "Hide output",
+    "loadOlder": "Load earlier"
   },
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
     "redacted_other": "{{count}} secret values hidden by your computer.",
     "empty": "No output yet."
+  },
+  "approval": {
+    "prompt": {
+      "accept": "Approve this request",
+      "decline": "Decline this request",
+      "cancel": "Cancel this request",
+      "answer": "Send these answers"
+    }
+  },
+  "request": {
+    "title": "Request",
+    "from": "From {{thread}}",
+    "command": "Command",
+    "cwd": "Folder",
+    "paths": "Files it would change",
+    "reason": "Why",
+    "warnings": "Worth a second look",
+    "tool": "Tool",
+    "risk": {
+      "green": "Only reads",
+      "orange": "Changes something",
+      "red": "Deletes, escalates or publishes"
+    },
+    "decision": {
+      "accept": "Approve",
+      "decline": "Decline",
+      "cancel": "Cancel request"
+    },
+    "declineReason": "Reason, told to the agent (optional)",
+    "sendAnswers": "Send answers",
+    "desktopOnly": "Only your computer can answer this one. Open OXESpace there.",
+    "notConfirmed": "Not sent: the confirmation on this phone was cancelled.",
+    "answered": "Answered.",
+    "gone": "This request is no longer waiting.",
+    "refused": {
+      "notPending": "It was already answered or no longer waits.",
+      "staleGeneration": "The conversation moved on; this request no longer applies.",
+      "forbidden": "Only your computer can answer this one.",
+      "rateLimited": "Too many actions in a minute. Try again shortly.",
+      "other": "Your computer didn't accept the answer."
+    }
+  },
+  "action": {
+    "offline": "Not connected to your computer. Nothing was sent.",
+    "noAnswer": "Your computer didn't answer. Check it before trying again.",
+    "rateLimited": "Too many actions in a minute. Try again shortly.",
+    "refused": "Your computer didn't accept it."
+  },
+  "composer": {
+    "placeholder": "Message the agent",
+    "send": "Send",
+    "steer": "Steer",
+    "stop": "Stop"
+  },
+  "terminalInput": {
+    "placeholder": "Type in this terminal",
+    "send": "Send",
+    "notShared": "Typing from the phone is off for this terminal. Turn it on in OXESpace on your computer."
   }
 }

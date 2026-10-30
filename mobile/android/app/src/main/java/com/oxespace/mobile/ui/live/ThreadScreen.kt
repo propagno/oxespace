@@ -3,60 +3,81 @@ package com.oxespace.mobile.ui.live
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.oxespace.mobile.R
-import com.oxespace.mobile.protocol.RemoteThreadItem
-import com.oxespace.mobile.protocol.live.ThreadTimeline
+import com.oxespace.mobile.protocol.live.CommandApi
+import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.id
+import com.oxespace.mobile.protocol.live.ThreadTimeline
+import com.oxespace.mobile.protocol.RemoteLimits
+import com.oxespace.mobile.protocol.RemoteThreadHistoryArgs
+import com.oxespace.mobile.protocol.RemoteThreadInterruptArgs
+import com.oxespace.mobile.protocol.RemoteThreadItem
+import com.oxespace.mobile.protocol.RemoteThreadSendArgs
+import com.oxespace.mobile.protocol.RemoteThreadSteerArgs
+import com.oxespace.mobile.R
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
+import java.util.UUID
+import kotlinx.coroutines.launch
 
 /** One conversation, live: messages, reasoning, tools, plans, requests and turn ends, newest at the bottom. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ThreadScreen(watched: Watched<ThreadTimeline>, onBack: () -> Unit) {
+fun ThreadScreen(threadId: String, watched: Watched<ThreadTimeline>, commands: CommandApi, onBack: () -> Unit) {
     val tick by watched.changes.collectAsStateWithLifecycle()
     val timeline = watched.store
     val header = timeline.header
     val entries = remember(tick) { timeline.items }
     val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var loadingOlder by remember { mutableStateOf(false) }
     // Follow the newest item while the person is at the bottom.
     LaunchedEffect(entries.size) {
         if (entries.isNotEmpty() && (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= entries.size - 3) list.animateScrollToItem(entries.size - 1)
@@ -75,6 +96,7 @@ fun ThreadScreen(watched: Watched<ThreadTimeline>, onBack: () -> Unit) {
                 },
             )
         },
+        bottomBar = { Composer(threadId, running = header?.status == "running", canSteer = header?.canSteer == true, commands = commands) },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
@@ -83,6 +105,22 @@ fun ThreadScreen(watched: Watched<ThreadTimeline>, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(OxeSpace.space3),
         ) {
             if (!watched.loaded) item { Text(stringResource(R.string.live_loading), color = Oxe.colors.textSecondary) }
+            if (timeline.hasMore && entries.isNotEmpty()) {
+                item {
+                    TextButton(
+                        enabled = !loadingOlder,
+                        onClick = {
+                            loadingOlder = true
+                            scope.launch {
+                                val result = commands.history(RemoteThreadHistoryArgs(threadId, entries.first().seq))
+                                if (result is CommandResult.Done) result.result?.let { page -> watched.update { it.prepend(page) } }
+                                loadingOlder = false
+                            }
+                        },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) { Text(stringResource(R.string.thread_load_older)) }
+                }
+            }
             if (timeline.skipped > 0) {
                 item { Text(pluralStringResource(R.plurals.thread_unknown_items, timeline.skipped, timeline.skipped), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted) }
             }
@@ -168,5 +206,64 @@ private fun Collapsible(title: String, text: String, color: Color) {
     Column {
         TextButton(onClick = { open = !open }, modifier = Modifier.heightIn(min = 48.dp)) { Text(title, color = color) }
         if (open) Text(text, style = MaterialTheme.typography.bodyMedium, color = color)
+    }
+}
+
+/**
+ * Message, steer or stop. A message keeps its clientId until the desktop confirms it, so sending it again after a
+ * silent drop can't make it arrive twice; the text stays in the field until then.
+ */
+@Composable
+private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, commands: CommandApi) {
+    val scope = rememberCoroutineScope()
+    var text by rememberSaveable(threadId) { mutableStateOf("") }
+    var clientId by rememberSaveable(threadId) { mutableStateOf(UUID.randomUUID().toString()) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<Int?>(null) }
+    val steer = running && canSteer
+    Column(
+        Modifier.fillMaxWidth().background(Oxe.colors.surfaceChrome).navigationBarsPadding().imePadding().padding(OxeSpace.space3),
+        verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
+    ) {
+        message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it.take(RemoteLimits.MAX_TEXT_LENGTH); message = null },
+            placeholder = { Text(stringResource(R.string.composer_placeholder)) },
+            maxLines = 5,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+            if (running) {
+                OutlinedButton(
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            message = commandMessage(commands.interrupt(RemoteThreadInterruptArgs(threadId)))
+                            busy = false
+                        }
+                    },
+                    enabled = !busy,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) { Text(stringResource(R.string.composer_stop)) }
+            }
+            Spacer(Modifier.weight(1f))
+            Button(
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        val result = if (steer) commands.steer(RemoteThreadSteerArgs(threadId, text, clientId)) else commands.send(RemoteThreadSendArgs(threadId, text, clientId))
+                        message = commandMessage(result)
+                        if (result is CommandResult.Done) {
+                            text = ""
+                            clientId = UUID.randomUUID().toString()
+                        }
+                        busy = false
+                    }
+                },
+                enabled = !busy && text.isNotBlank(),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) { Text(stringResource(if (steer) R.string.composer_steer else R.string.composer_send)) }
+        }
     }
 }

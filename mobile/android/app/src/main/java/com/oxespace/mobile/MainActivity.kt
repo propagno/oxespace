@@ -20,6 +20,7 @@ import com.oxespace.mobile.session.SessionViewModel
 import com.oxespace.mobile.ui.AddressDialog
 import com.oxespace.mobile.ui.HomeScreen
 import com.oxespace.mobile.ui.live.LiveHome
+import com.oxespace.mobile.ui.live.RequestScreen
 import com.oxespace.mobile.ui.live.TerminalScreen
 import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.CameraWithPermission
@@ -74,29 +75,38 @@ class MainActivity : ComponentActivity() {
         val live = session.live
         var threadId by rememberSaveable { mutableStateOf<String?>(null) }
         var paneId by rememberSaveable { mutableStateOf<String?>(null) }
+        var requestKey by rememberSaveable { mutableStateOf<String?>(null) }
+        val requests by live.pendingRequests.items.collectAsStateWithLifecycle()
         var askingAddress by rememberSaveable { mutableStateOf(false) }
         val workspaces by live.workspaces.items.collectAsStateWithLifecycle()
         val name = connected.desktopName ?: connected.desktop.desktopName ?: stringResource(R.string.home_unknown_desktop)
 
         val openThread = threadId
         val openPane = paneId?.let { id -> workspaces.flatMap { it.panes }.firstOrNull { it.id == id } }
+        val openRequest = requestKey
         when {
+            openRequest != null -> {
+                BackHandler { requestKey = null }
+                // The request as it is now; null once answered elsewhere, and the screen says so.
+                RequestScreen(requests.firstOrNull { "${it.threadId}/${it.requestId}" == openRequest }, live.streams.commands, onBack = { requestKey = null })
+            }
             openThread != null -> {
                 val watched = live.openThread(openThread)
                 DisposableEffect(openThread) { onDispose { live.closeThread(openThread) } }
                 BackHandler { threadId = null }
-                ThreadScreen(watched, onBack = { threadId = null })
+                ThreadScreen(openThread, watched, live.streams.commands, onBack = { threadId = null })
             }
             openPane != null -> {
                 val watched = live.openTerminal(openPane.id)
                 DisposableEffect(openPane.id) { onDispose { live.closeTerminal(openPane.id) } }
                 BackHandler { paneId = null }
-                TerminalScreen(openPane, watched, onBack = { paneId = null })
+                TerminalScreen(openPane, watched, live.streams.commands, onBack = { paneId = null })
             }
             else -> LiveHome(
                 desktopName = name,
                 live = live,
                 onOpenThread = { threadId = it },
+                onOpenRequest = { requestKey = "${it.threadId}/${it.requestId}" },
                 onOpenTerminal = { paneId = it.id },
                 onEnterAddress = { askingAddress = true },
                 onUnpair = session::unpair,
