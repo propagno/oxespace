@@ -21,6 +21,7 @@ import { evaluateShellCommand, suggestRules } from '../shell-command-rules'
 import { classifyShellRisk, type ShellRisk } from '../shell-risk'
 import { readsOutsideProject } from '../shell-reads'
 import { checkWorkspacePath, type PathSafetyOptions } from '../path-safety'
+import { commandWritesProtected, protectedConfigKind, protectedConfigReason, PROTECTED_CONFIG_WARNING } from './protected-config'
 
 type Decision = ThreadRequestPolicy['decision']
 
@@ -47,16 +48,27 @@ function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissio
   const reasons: string[] = []
   const suggestions: ThreadPermissionSuggestion[] = []
   let decision: Decision = 'allow'
+  let guarded = false
   for (const candidate of paths) {
     const verdict = checkWorkspacePath(rootPath, candidate, options)
+    const config = protectedConfigKind(candidate)
     if (!verdict.safe) {
       reasons.push(`"${candidate}" ${REASON_FOR[verdict.reason] ?? 'cannot be verified'}.`)
+      if (config) { guarded = true; reasons.push(protectedConfigReason(candidate, config)) }
       decision = 'ask'
       continue
     }
     const local = path.relative(root, verdict.resolved).split(/[\\/]/).join('/') || '.'
     const denied = deny.find(rule => pathMatcher(rule.pattern, windows)(local))
     if (denied) return { decision: 'deny' as const, reasons: [`"${local}" is blocked by the rule ${denied.pattern}.`], suggestions: [] }
+    // Instructions, MCP settings and hooks are never approved by a rule: a person looks at each change.
+    const guard = config ?? protectedConfigKind(local)
+    if (guard) {
+      guarded = true
+      reasons.push(protectedConfigReason(local, guard))
+      decision = 'ask'
+      continue
+    }
     if (allow.some(rule => pathMatcher(rule.pattern, windows)(local))) continue
     reasons.push(`"${local}" is not covered by an edit rule.`)
     if (decision === 'allow') decision = 'ask'
@@ -64,7 +76,7 @@ function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissio
     const pattern = dir ? `${dir}/**` : local
     if (!suggestions.some(item => item.pattern === pattern)) suggestions.push({ kind: 'path', pattern, label: dir ? `edits in ${dir}/` : `edits to ${local}` })
   }
-  return { decision, reasons, suggestions }
+  return { decision, reasons, suggestions, ...(guarded ? { guarded: true as const } : {}) }
 }
 
 /** `mcp__server__tool` (Claude's name for an MCP tool) as server and tool. */
@@ -105,7 +117,7 @@ export function evaluatePermission(
   // Nothing OXESpace can reason about (a web fetch, a native tool): the provider's prompt stands.
   if (!command && !paths.length) return undefined
 
-  const parts: { decision: Decision; reasons: string[]; suggestions: ThreadPermissionSuggestion[]; risk?: 'high' }[] = []
+  const parts: { decision: Decision; reasons: string[]; suggestions: ThreadPermissionSuggestion[]; risk?: 'high'; guarded?: true }[] = []
   let viaDefaults = false
   let shellRisk: ShellRisk | undefined
   if (command) {
@@ -122,7 +134,10 @@ export function evaluatePermission(
     if (outside.length && shellRisk.level === 'green') shellRisk = { ...shellRisk, level: 'orange' }
     if (outside.length) parts.push({ decision: 'ask', reasons: outside.slice(0, 5).map(item => `${item.command} reads "${item.path}", which ${item.why}.`), suggestions: [] })
     else if (shell.decision === 'deny' && shell.byDefault) parts.push({ decision: 'ask', reasons: shell.reasons, suggestions: [], risk: 'high' })
-    else parts.push({
+    else if (shell.decision === 'allow' && commandWritesProtected(command)) {
+      const target = commandWritesProtected(command)!
+      parts.push({ decision: 'ask', reasons: [protectedConfigReason(target.path, target.kind)], suggestions: [], guarded: true })
+    } else parts.push({
       decision: shell.decision,
       reasons: shell.reasons,
       suggestions: shell.decision === 'ask' ? suggestRules(command).map(item => ({ kind: 'command' as const, pattern: item.rule, label: item.label })) : []
@@ -141,6 +156,7 @@ export function evaluatePermission(
     reasons: parts.flatMap(part => part.reasons),
     ...(parts.some(part => part.risk) ? { risk: 'high' as const } : {}),
     ...(shellRisk ? { level: shellRisk.level, ...(shellRisk.warnings.length ? { warnings: shellRisk.warnings } : {}) } : {}),
+    ...(parts.some(part => part.guarded) ? { guarded: true as const, level: shellRisk && shellRisk.level !== 'green' ? shellRisk.level : 'orange' as const, warnings: [...(shellRisk?.warnings ?? []), PROTECTED_CONFIG_WARNING] } : {}),
     // Remembering is only offered when every part has a safe rule to suggest.
     ...(suggestions.length && parts.every(part => part.decision === 'allow' || part.suggestions.length) ? { suggestions } : {})
   }
@@ -154,6 +170,6 @@ export function evaluatePermission(
  */
 export function fullAccessPolicy(request: Pick<ThreadRequest, 'kind' | 'toolName'>, policy: ThreadRequestPolicy | undefined, access: string | undefined): ThreadRequestPolicy | undefined {
   if (access !== 'full-access' || request.kind !== 'approval' || request.toolName === 'ExitPlanMode') return policy
-  if (policy?.decision === 'deny') return policy
+  if (policy?.decision === 'deny' || policy?.guarded) return policy
   return { ...(policy ?? { reasons: [] }), decision: 'allow', reasons: ['Full access: run without asking.', ...(policy?.reasons ?? [])] }
 }

@@ -46,6 +46,16 @@ export class ThreadHistory {
       turns: (this.db.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')").all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)) }
   }
 
+  /**
+   * The conversation's metadata without its events, for callers that only need the thread (its provider, root
+   * path, configuration). Undefined for a pre-journal conversation, which read() migrates first.
+   */
+  readThread(id: string): ConversationThread | undefined {
+    const row = this.db.prepare('SELECT data_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number } | undefined
+    if (!row) throw Error('Thread not found')
+    return row.history_version ? JSON.parse(row.data_json) as ConversationThread : undefined
+  }
+
   /** Bounded projection for the renderer. Main-process operations keep using read(). */
   readWindow(id: string, limit = 250): ThreadSnapshot {
     let row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
