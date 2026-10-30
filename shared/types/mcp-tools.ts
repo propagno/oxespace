@@ -23,7 +23,7 @@ export type ConfigurableMcpToolGroup = typeof CONFIGURABLE_MCP_TOOL_GROUPS[numbe
 export const MCP_TOOL_GROUP_MODES = ['always', 'on-demand', 'off'] as const
 export type McpToolGroupMode = typeof MCP_TOOL_GROUP_MODES[number]
 
-/** Estimated size of what a provider receives. Tokens are characters / 4, an estimate; T8 records the real ratio. */
+/** Estimated size of what a provider receives. Tokens are an estimate from characters (`CHARS_PER_TOKEN`); the page labels them so. */
 export interface McpToolCost {
   chars: number
   tokens: number
@@ -71,4 +71,11 @@ export interface McpToolGroupsApi {
   setToolGroupMode?(input: { rootPath: string; group: ConfigurableMcpToolGroup; mode: McpToolGroupMode }): Promise<McpToolGroupsReport>
 }
 
-export const estimateTokens = (chars: number): number => Math.ceil(chars / 4)
+/**
+ * Characters per token of OXESpace tool definitions, measured in a real Claude session on 2026-10-30 (T8, see
+ * docs/validation/tool-groups-cost-1.4.md: 47,411 characters of definitions were 19,875 tokens). The one place to
+ * recalibrate when the tokenizer changes.
+ */
+export const CHARS_PER_TOKEN = 2.4
+
+export const estimateTokens = (chars: number): number => Math.ceil(chars / CHARS_PER_TOKEN)

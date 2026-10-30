@@ -4,7 +4,7 @@ import { CODE_TOOL_GROUP, MCP_TOOL_GROUPS, OPTIONAL_THREAD_TOOL_GROUPS, THREAD_T
 import { createOxeApi, type PreloadIpc } from '../electron/preload/api'
 import { FORBIDDEN_CAPABILITIES, MCP_COVERAGE } from '../shared/mcp-coverage'
 import { IPC_CHANNELS } from '../shared/types/ipc'
-import { CONFIGURABLE_MCP_TOOL_GROUPS, estimateTokens, MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES } from '../shared/types/mcp-tools'
+import { CHARS_PER_TOKEN, CONFIGURABLE_MCP_TOOL_GROUPS, estimateTokens, MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES } from '../shared/types/mcp-tools'
 
 vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
@@ -40,10 +40,13 @@ describe('Settings › Tools contract (F10)', () => {
     expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => /tool_?group|tools_mode|set_tool/i.test(name))).toEqual([])
   })
 
-  it('estimates tokens as characters / 4, rounded up', () => {
+  it('estimates tokens with the factor measured in T8, rounded up', () => {
+    expect(CHARS_PER_TOKEN).toBe(2.4)
     expect(estimateTokens(0)).toBe(0)
-    expect(estimateTokens(9000)).toBe(2250)
-    expect(estimateTokens(9001)).toBe(2251)
+    expect(estimateTokens(2400)).toBe(1000)
+    expect(estimateTokens(2401)).toBe(1001)
+    // The real session: 47,411 characters of definitions were 19,875 tokens.
+    expect(Math.abs(estimateTokens(47_411) - 19_875) / 19_875).toBeLessThan(0.01)
   })
 
   it('exposes both calls through the preload', async () => {
