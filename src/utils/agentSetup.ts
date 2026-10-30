@@ -1,4 +1,5 @@
 import type { AgentProvider, AgentReadiness } from '../../shared/types/agent'
+import { i18n } from '../i18n'
 
 /**
  * What the first-run card says about the agent CLIs on this machine. Kept apart from the
@@ -35,7 +36,7 @@ export function agentLabel(provider: AgentProvider): string {
 
 function joinNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? ''
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  return i18n.t('agentSetup.join', { first: names.slice(0, -1).join(', '), last: names[names.length - 1] })
 }
 
 export function summarizeAgentSetup(readiness: AgentReadiness[], checking: boolean): AgentSetupSummary {
@@ -48,23 +49,21 @@ export function summarizeAgentSetup(readiness: AgentReadiness[], checking: boole
   if (ready.length > 0) {
     return {
       state: 'ready',
-      headline: `${joinNames(readyNames)} ${ready.length === 1 ? 'is' : 'are'} ready`,
-      detail: threadReady
-        ? 'Code and Thread can use it.'
-        : 'Code can run it. Thread needs Claude Code or Codex.',
+      headline: i18n.t('agentSetup.ready', { names: joinNames(readyNames), count: ready.length }),
+      detail: i18n.t(threadReady ? 'agentSetup.readyBoth' : 'agentSetup.readyCodeOnly'),
       ready: readyNames,
       threadReady
     }
   }
   if (checking) {
-    return { state: 'checking', headline: 'Checking for agent CLIs…', detail: 'Looking for the commands on your PATH.', ready: [], threadReady: false }
+    return { state: 'checking', headline: i18n.t('agentSetup.checking'), detail: i18n.t('agentSetup.checkingDetail'), ready: [], threadReady: false }
   }
   if (partial.length > 0) {
     const names = partial.map(entry => agentLabel(entry.provider))
     return {
       state: 'needs-attention',
-      headline: `${joinNames(names)} ${partial.length === 1 ? 'was' : 'were'} found but not ready`,
-      detail: partial.find(entry => entry.details)?.details ?? 'Open Agents settings to see what is missing.',
+      headline: i18n.t('agentSetup.partial', { names: joinNames(names), count: partial.length }),
+      detail: partial.find(entry => entry.details)?.details ?? i18n.t('agentSetup.partialDetail'),
       ready: [],
       threadReady: false
     }
@@ -72,11 +71,11 @@ export function summarizeAgentSetup(readiness: AgentReadiness[], checking: boole
   if (missing.length > 0) {
     return {
       state: 'none',
-      headline: 'No agent CLI found',
-      detail: 'OXESpace runs agents as local CLIs. Install Claude Code or Codex, make sure the command is on your PATH, then check again.',
+      headline: i18n.t('agentSetup.none'),
+      detail: i18n.t('agentSetup.noneDetail'),
       ready: [],
       threadReady: false
     }
   }
-  return { state: 'unchecked', headline: 'Agent CLIs not checked yet', detail: 'Check which agent CLIs are installed on this machine.', ready: [], threadReady: false }
+  return { state: 'unchecked', headline: i18n.t('agentSetup.unchecked'), detail: i18n.t('agentSetup.uncheckedDetail'), ready: [], threadReady: false }
 }

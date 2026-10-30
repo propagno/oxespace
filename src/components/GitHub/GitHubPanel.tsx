@@ -3,7 +3,9 @@ import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle
 import { Github } from '../Brand/GithubIcon'
 import { openInChanges } from '../../store/changes-request.store'
 import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
-import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState } from '../../ui'
+import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState, ErrorState, LoadingState } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
 import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubFileChange, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -12,8 +14,12 @@ import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 import { GITHUB_PANEL_TABS as TABS, buildStatusHeadline, describeSyncState } from './githubPanelModel'
 import { humanizeError } from '../../utils/humanizeError'
-import { formatDateTime } from '../../utils/formatTime'
+import { RichText } from '../../i18n/RichText'
+import { formatDateTime, formatRelative } from '../../utils/formatTime'
 export { buildStatusHeadline, describeSyncState } from './githubPanelModel'
+
+/** The code catalog in the language on screen; the panel re-renders on a language change through its root's useTranslation. */
+const tc = i18n.getFixedT(null, 'code')
 
 interface GitHubPanelProps {
   workspaceId: string
@@ -31,6 +37,7 @@ interface ConfirmAction {
 }
 
 export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTabChange, rootPath, workspaceId }: GitHubPanelProps): ReactElement {
+  useTranslation('code')
   const selector = useMemo(() => selectGitHubWorkspace(workspaceId), [workspaceId])
   const state = useGitHubStore(selector)
   const input = useMemo(() => ({ workspaceId, rootPath }), [workspaceId, rootPath])
@@ -97,7 +104,7 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
 
   return (
     <section className="github-panel">
-      <nav className="github-tabs" aria-label="GitHub tabs">
+      <nav className="github-tabs" aria-label={tc('github.tabs')}>
         {TABS.map((tab) => (
           <button key={tab.id} type="button" className={activeTab === tab.id ? 'github-tab active' : 'github-tab'} onClick={() => handleTabChange(tab.id)}>
             {tab.label}
@@ -106,12 +113,12 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
         {state.refreshing && !state.loading ? (
           <span className="github-refreshing" aria-live="polite">
             <RefreshCw size={12} className="github-refreshing-spin" aria-hidden="true" />
-            Refreshing…
+            {tc('github.refreshing')}
           </span>
         ) : null}
       </nav>
 
-      {state.error && !blocked ? <div className="github-alert"><AlertTriangle size={14} aria-hidden="true" /><span>{state.error}</span></div> : null}
+      {state.error && !blocked ? <ErrorState compact title={tc('github.failed')} message={state.error} /> : null}
       {state.lastMessage ? <div className="github-message"><CheckCircle2 size={14} aria-hidden="true" />{state.lastMessage}</div> : null}
 
       <div className="github-panel-body">
@@ -127,23 +134,19 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 status={status}
                 onFetch={() => void useGitHubStore.getState().fetch(input)}
                 onPullFfOnly={() => requestConfirm(
-                  'Pull (fast-forward)',
-                  status?.behind
-                    ? `Pull ${status.behind} commit${status.behind === 1 ? '' : 's'} from the remote (git pull --ff-only).`
-                    : 'Update the local branch from the remote (fast-forward only).',
+                  tc('github.confirm.pull'),
+                  status?.behind ? tc('github.confirm.pullCount', { count: status.behind }) : tc('github.confirm.pullAny'),
                   () => useGitHubStore.getState().pullFfOnly(input)
                 )}
                 onPush={() => requestConfirm(
-                  'Push to remote',
-                  status?.ahead
-                    ? `Push ${status.ahead} commit${status.ahead === 1 ? '' : 's'} to the remote.`
-                    : 'Push the current branch to the remote.',
+                  tc('github.confirm.push'),
+                  status?.ahead ? tc('github.confirm.pushCount', { count: status.ahead }) : tc('github.confirm.pushAny'),
                   () => useGitHubStore.getState().push(input)
                 )}
-                onStageAll={() => requestConfirm('Stage all', buildStageAllPreview(status), () => useGitHubStore.getState().stageAll(input))}
+                onStageAll={() => requestConfirm(tc('github.confirm.stageAll'), buildStageAllPreview(status), () => useGitHubStore.getState().stageAll(input))}
                 onStageFile={(path) => void useGitHubStore.getState().stageFile({ ...input, path })}
                 onUnstageFile={(path) => void useGitHubStore.getState().unstageFile({ ...input, path })}
-                onCommit={(msg) => requestConfirm('Commit', msg, () => useGitHubStore.getState().commit({ ...input, message: msg }))}
+                onCommit={(msg) => requestConfirm(tc('github.confirm.commit'), msg, () => useGitHubStore.getState().commit({ ...input, message: msg }))}
                 onGenerateMessage={() => useGitHubStore.getState().generateCommitMessage(input)}
                 onOpenFile={openChangedFile}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'status')}
@@ -153,9 +156,9 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
               <CheckpointsTab
                 checkpoints={state.checkpoints}
                 loading={state.loading}
-                onCreate={(name, description) => requestConfirm('Create checkpoint', name, () => useGitHubStore.getState().createCheckpoint({ ...input, name, description }))}
-                onRestore={(id, name) => requestConfirm('Restaurar checkpoint', name, () => useGitHubStore.getState().restoreCheckpoint({ ...input, checkpointId: id }))}
-                onDelete={(id) => void useGitHubStore.getState().deleteCheckpoint(workspaceId, id)}
+                onCreate={(name, description) => requestConfirm(tc('github.confirm.createCheckpoint'), name, () => useGitHubStore.getState().createCheckpoint({ ...input, name, description }))}
+                onRestore={(id, name) => requestConfirm(tc('github.confirm.restoreCheckpoint'), name, () => useGitHubStore.getState().restoreCheckpoint({ ...input, checkpointId: id }))}
+                onDelete={(id, name) => requestConfirm(tc('github.confirm.deleteCheckpoint'), name, () => useGitHubStore.getState().deleteCheckpoint(workspaceId, id))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'checkpoints')}
               />
             )}
@@ -165,8 +168,9 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 rootPath={rootPath}
                 workspaceId={workspaceId}
                 status={status}
-                onConnect={(fullName) => requestConfirm('Connect repository', fullName, () => useGitHubStore.getState().connectRepository({ ...input, fullName }))}
-                onPush={() => requestConfirm('Push to GitHub', 'Send the current branch to the remote.', () => useGitHubStore.getState().push(input))}
+                onOpenFile={openChangedFile}
+                onConnect={(fullName) => requestConfirm(tc('github.confirm.connect'), fullName, () => useGitHubStore.getState().connectRepository({ ...input, fullName }))}
+                onPush={() => requestConfirm(tc('github.confirm.pushGitHub'), tc('github.confirm.pushAny'), () => useGitHubStore.getState().push(input))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'repos')}
               />
             )}
@@ -174,8 +178,8 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
               <BranchesTab
                 branches={state.branches}
                 status={status}
-                onCheckout={(name) => requestConfirm('Checkout branch', name, () => useGitHubStore.getState().checkoutBranch({ ...input, name }))}
-                onCreate={(name) => requestConfirm('Create branch', name, () => useGitHubStore.getState().createBranch({ ...input, name, checkout: true }))}
+                onCheckout={(name) => requestConfirm(tc('github.confirm.checkout'), name, () => useGitHubStore.getState().checkoutBranch({ ...input, name }))}
+                onCreate={(name) => requestConfirm(tc('github.confirm.createBranch'), name, () => useGitHubStore.getState().createBranch({ ...input, name, checkout: true }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'branches')}
               />
             )}
@@ -185,7 +189,7 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 status={status}
                 loading={state.loading}
                 input={input}
-                onCreate={(title, body) => requestConfirm('Create pull request', title, () => useGitHubStore.getState().createPullRequest({ ...input, title, body }))}
+                onCreate={(title, body) => requestConfirm(tc('github.confirm.createPr'), title, () => useGitHubStore.getState().createPullRequest({ ...input, title, body }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'prs')}
               />
             )}
@@ -204,7 +208,7 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 releases={state.releases}
                 status={status}
                 loading={state.loading}
-                onCreate={(release) => requestConfirm('Create release', release.tagName, () => useGitHubStore.getState().createRelease({ ...input, ...release }))}
+                onCreate={(release) => requestConfirm(tc('github.confirm.createRelease'), release.tagName, () => useGitHubStore.getState().createRelease({ ...input, ...release }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'releases')}
               />
             )}
@@ -217,8 +221,8 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 workspaceId={workspaceId}
                 rootPath={rootPath}
                 onLoadRunDetails={loadWorkflowRunDetails}
-                onRun={(workflowId, ref, fields) => requestConfirm('Run workflow', workflowId, () => useGitHubStore.getState().runWorkflow({ ...input, workflowId, ref, fields }))}
-                onRerun={(runId, failedOnly) => requestConfirm(failedOnly ? 'Re-run failed jobs' : 'Re-run workflow', `Run #${runId}`, () => useGitHubStore.getState().rerunRun({ ...input, runId, failedOnly }))}
+                onRun={(workflowId, ref, fields) => requestConfirm(tc('github.confirm.runWorkflow'), workflowId, () => useGitHubStore.getState().runWorkflow({ ...input, workflowId, ref, fields }))}
+                onRerun={(runId, failedOnly) => requestConfirm(failedOnly ? tc('github.confirm.rerunFailed') : tc('github.confirm.rerun'), tc('github.actions.runNumber', { id: runId }), () => useGitHubStore.getState().rerunRun({ ...input, runId, failedOnly }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'actions')}
               />
             )}
@@ -249,8 +253,8 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
             <strong>{confirmAction.title}</strong>
             <span>{confirmAction.detail}</span>
           </div>
-          <Button variant="ghost" onClick={() => setConfirmAction(null)}>Cancel</Button>
-          <Button variant="primary" disabled={state.loading} onClick={() => { const c = confirmAction; setConfirmAction(null); void c.run() }}>Confirm</Button>
+          <Button variant="ghost" onClick={() => setConfirmAction(null)}>{tc('github.cancel')}</Button>
+          <Button variant="primary" disabled={state.loading} onClick={() => { const c = confirmAction; setConfirmAction(null); void c.run() }}>{tc('github.confirmAction')}</Button>
         </div>
       ) : null}
     </section>
@@ -290,15 +294,8 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
   const sync = describeSyncState({ ahead, behind, dirty, hasRemote, totalFiles })
   const headline = buildStatusHeadline({ ahead, behind, dirty, totalFiles, hasRemote })
 
-  const pullTitle = behind <= 0
-    ? 'Nothing to pull — Fetch if the remote may have changed.'
-    : dirty
-      ? 'Local uncommitted changes. Commit or stash before Pull.'
-      : `Pull ${behind} commit${behind === 1 ? '' : 's'} (git pull --ff-only)`
-
-  const pushTitle = ahead <= 0
-    ? 'Nothing to push — commit locally first.'
-    : `Push ${ahead} commit${ahead === 1 ? '' : 's'} to the remote`
+  const pullTitle = behind <= 0 ? tc('github.status.nothingToPull') : dirty ? tc('github.status.pullBlocked') : tc('github.status.pullTitle', { count: behind })
+  const pushTitle = ahead <= 0 ? tc('github.status.nothingToPush') : tc('github.confirm.pushCount', { count: ahead })
 
   const handleAutoGenerate = async (checked: boolean): Promise<void> => {
     setAutoGenerate(checked)
@@ -320,14 +317,14 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
         <div className="github-tab-header">
           <div className="github-tab-header-title">
             <GitBranch size={14} aria-hidden="true" />
-            <span>{status?.branch ?? 'no branch'}</span>
+            <span>{status?.branch ?? tc('github.noBranch')}</span>
           </div>
           <div className="github-tab-header-actions">
             <Button
              
               variant="ghost" size="sm" square
-              title="Refresh status (branch, ahead/behind, changes)"
-              aria-label="Refresh status"
+              title={tc('github.status.refreshTitle')}
+              aria-label={tc('github.status.refresh')}
               data-testid="github-status-refresh"
               disabled={loading}
               onClick={onRefresh}
@@ -358,14 +355,14 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               <strong data-testid="github-sync-title">{sync.title}</strong>
               <span data-testid="github-sync-detail">{sync.detail}</span>
               {(ahead > 0 || behind > 0) ? (
-                <div className="github-sync-pills" aria-label="Commits vs remote">
-                  <span className={`github-sync-pill${ahead > 0 ? ' active up' : ''}`} title="Local commits not pushed">
+                <div className="github-sync-pills" aria-label={tc('github.status.vsRemote')}>
+                  <span className={`github-sync-pill${ahead > 0 ? ' active up' : ''}`} title={tc('github.status.outgoingTitle')}>
                     <ArrowUpFromLine size={12} aria-hidden="true" />
-                    {ahead} outgoing
+                    {tc('github.status.outgoing', { count: ahead })}
                   </span>
-                  <span className={`github-sync-pill${behind > 0 ? ' active down' : ''}`} title="Remote commits not pulled">
+                  <span className={`github-sync-pill${behind > 0 ? ' active down' : ''}`} title={tc('github.status.incomingTitle')}>
                     <ArrowDownToLine size={12} aria-hidden="true" />
-                    {behind} incoming
+                    {tc('github.status.incoming', { count: behind })}
                   </span>
                 </div>
               ) : null}
@@ -377,11 +374,11 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               size="sm"
               data-testid="github-status-fetch"
               disabled={loading || !status?.isGitRepository || !hasRemote}
-              title="Fetch remote updates without changing your files"
+              title={tc('github.status.fetchTitle')}
               onClick={onFetch}
             >
               <Download size={14} aria-hidden="true" />
-              Fetch
+              {tc('github.status.fetch')}
             </Button>
             <Button
               variant={behind > 0 && !dirty ? 'primary' : 'secondary'}
@@ -392,7 +389,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               onClick={onPullFfOnly}
             >
               <ArrowDownToLine size={14} aria-hidden="true" />
-              Pull{behind > 0 ? ` ${behind}` : ''}
+              {tc('github.status.pull')}{behind > 0 ? ` ${behind}` : ''}
             </Button>
             <Button
               variant={ahead > 0 && behind === 0 ? 'primary' : 'secondary'}
@@ -403,24 +400,19 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               onClick={onPush}
             >
               <ArrowUpFromLine size={14} aria-hidden="true" />
-              Push{ahead > 0 ? ` ${ahead}` : ''}
+              {tc('github.status.push')}{ahead > 0 ? ` ${ahead}` : ''}
             </Button>
           </div>}
           {sync.kind === 'dirty-behind' ? (
             <div className="github-sync-callout" data-testid="github-dirty-behind-callout" role="status">
               <AlertTriangle size={14} aria-hidden="true" />
-              <span>
-                Uncommitted changes block Pull. Commit or stash first.
-              </span>
+              <span>{tc('github.status.dirtyBlocksPull')}</span>
             </div>
           ) : null}
           {sync.kind === 'no-remote' ? (
             <div className="github-sync-callout" data-testid="github-no-remote-callout" role="status">
               <AlertTriangle size={14} aria-hidden="true" />
-              <span>
-                In a terminal: <code>git remote -v</code> then{' '}
-                <code>git remote add origin &lt;url&gt;</code>.
-              </span>
+              <span><RichText text={tc('github.status.addRemote')} /></span>
             </div>
           ) : null}
         </section>
@@ -429,15 +421,15 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
         <section className="github-changes-card" data-testid="github-changes-card">
           <div className="github-changes-header">
             <CircleDot size={14} aria-hidden="true" />
-            <strong>Changes</strong>
+            <strong>{tc('github.status.changes')}</strong>
             <span className={`github-changes-total${totalFiles > 0 ? ' has-changes' : ''}`}>
-              {totalFiles === 0 ? 'No local changes' : `${totalFiles} file${totalFiles === 1 ? '' : 's'}`}
+              {totalFiles === 0 ? tc('github.status.noChanges') : tc('github.status.files', { count: totalFiles })}
             </span>
           </div>
-          <div className="github-changes-rows" aria-label="Changed files">
+          <div className="github-changes-rows" aria-label={tc('changes.files')}>
             {stagedChanges.length > 0 ? (
               <GitChangeGroup
-                title="Staged Changes"
+                title={tc('github.status.staged')}
                 changes={stagedChanges}
                 action="unstage"
                 disabled={loading}
@@ -447,7 +439,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             ) : null}
             {unstagedChanges.length > 0 ? (
               <GitChangeGroup
-                title="Changes"
+                title={tc('github.status.changes')}
                 changes={unstagedChanges}
                 action="stage"
                 disabled={loading}
@@ -455,27 +447,27 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
                 onOpenFile={onOpenFile}
               />
             ) : null}
-            {changes.length === 0 ? <EmptyState compact title="Working tree clean" /> : null}
+            {changes.length === 0 ? <EmptyState compact title={tc('git.control.clean')} /> : null}
           </div>
           <div className="github-changes-meta">
-            <span>Last commit {status?.lastCommitRelative ?? '—'}</span>
+            <span>{tc('github.status.lastCommit', { when: status?.lastCommitRelative ?? '—' })}</span>
             <span>·</span>
-            <span>Upstream {status?.lastPushRelative ?? 'not set'}</span>
+            <span>{tc('github.status.upstream', { when: status?.lastPushRelative ?? tc('github.status.notSet') })}</span>
           </div>
         </section>
       </div>
       {(unstagedChanges.length > 0 || stagedChanges.length > 0) && <div className="github-status-footer">
         {unstagedChanges.length > 0 && <Button variant="ghost" size="sm" disabled={loading} onClick={onStageAll}>
-          Stage all ({unstagedChanges.length})
+          {tc('github.status.stageAll', { count: unstagedChanges.length })}
         </Button>}
         {stagedChanges.length > 0 && <>
           <label className="github-auto-row">
             <input type="checkbox" checked={autoGenerate} disabled={generating || loading} onChange={(e) => void handleAutoGenerate(e.target.checked)} />
-            <span>Auto-generate commit message</span>
+            <span>{tc('github.status.autoMessage')}</span>
           </label>
-          <textarea className="github-commit-ta" aria-label="Commit message" value={message} placeholder="Describe your changes" onChange={(e) => setMessage(e.target.value)} />
+          <textarea className="github-commit-ta" aria-label={tc('git.control.message')} value={message} placeholder={tc('git.control.messagePlaceholder')} onChange={(e) => setMessage(e.target.value)} />
           <Button variant="primary" className="github-block-btn" disabled={loading || !commitMessage} onClick={() => onCommit(commitMessage)}>
-            Commit {stagedChanges.length} staged
+            {tc('git.control.commit', { count: stagedChanges.length })}
           </Button>
         </>}
       </div>}
@@ -508,7 +500,7 @@ function GitChangeGroup({ action, changes, disabled, onAction, onOpenFile, title
               type="button"
               className="github-change-file-name"
               disabled={change.deleted}
-              title={change.deleted ? `${change.path} was deleted` : `Open ${change.path} in editor`}
+              title={change.deleted ? tc('github.status.deleted', { path: change.path }) : tc('git.control.open', { path: change.path })}
               onClick={() => onOpenFile(change.path)}
             >
               <span>{name}</span>
@@ -519,8 +511,8 @@ function GitChangeGroup({ action, changes, disabled, onAction, onOpenFile, title
               type="button"
               className="github-change-action"
               disabled={disabled}
-              aria-label={`${action === 'stage' ? 'Stage' : 'Unstage'} ${change.path}`}
-              title={`${action === 'stage' ? 'Stage' : 'Unstage'} ${change.path}`}
+              aria-label={`${action === 'stage' ? tc('git.control.stage') : tc('git.control.unstage')} ${change.path}`}
+              title={`${action === 'stage' ? tc('git.control.stage') : tc('git.control.unstage')} ${change.path}`}
               onClick={() => onAction(change.path)}
             >
               {action === 'stage' ? <Plus size={14} aria-hidden="true" /> : <Minus size={14} aria-hidden="true" />}
@@ -539,7 +531,7 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
   loading: boolean
   onCreate: (name: string, description?: string) => void
   onRestore: (id: string, name: string) => void
-  onDelete: (id: string) => void
+  onDelete: (id: string, name: string) => void
   onRefresh: () => void
 }): ReactElement {
   const [name, setName] = useState('')
@@ -552,29 +544,25 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
         <div className="github-tab-header">
           <div className="github-tab-header-title">
             <Clock size={14} aria-hidden="true" />
-            <span>Checkpoints ({checkpoints.length})</span>
+            <span>{tc('github.checkpoints.title', { count: checkpoints.length })}</span>
           </div>
-          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
+          <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
         </div>
         <div className="github-tab-sep" />
         {checkpoints.length === 0 ? (
-          <div className="github-empty-center">
-            <Clock size={40} aria-hidden="true" />
-            <strong>No checkpoints yet</strong>
-            <span>Create one below to snapshot your project state</span>
-          </div>
+          <EmptyState icon={<Clock size={20} />} title={tc('github.checkpoints.none')}>{tc('github.checkpoints.noneHint')}</EmptyState>
         ) : (
           <div className="github-list">
             {checkpoints.map((cp) => (
               <div key={cp.id} className="github-list-row">
                 <div className="github-list-row-main">
                   <strong>{cp.name}</strong>
-                  <span>{cp.branch ?? 'no branch'} · {formatDate(cp.createdAt)}</span>
+                  <span>{cp.branch ?? tc('github.noBranch')} · {formatDate(cp.createdAt)}</span>
                   {cp.description ? <p>{cp.description}</p> : null}
                 </div>
                 <div className="github-list-row-actions">
-                  <Button variant="ghost" onClick={() => onRestore(cp.id, cp.name)}>Restore</Button>
-                  <Button variant="ghost" onClick={() => onDelete(cp.id)}>Delete</Button>
+                  <Button variant="ghost" onClick={() => onRestore(cp.id, cp.name)}>{tc('github.checkpoints.restore')}</Button>
+                  <Button variant="ghost" onClick={() => onDelete(cp.id, cp.name)}>{tc('github.checkpoints.delete')}</Button>
                 </div>
               </div>
             ))}
@@ -582,10 +570,10 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
         )}
       </div>
       <div className="github-checkpoints-footer">
-        <TextField value={name} placeholder="Checkpoint name (e.g. before-refactor)..." onChange={(e) => setName(e.target.value)} />
-        <TextField value={description} placeholder="Description (optional)..." onChange={(e) => setDescription(e.target.value)} />
+        <TextField value={name} aria-label={tc('github.checkpoints.name')} placeholder={tc('github.checkpoints.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
+        <TextField value={description} aria-label={tc('github.checkpoints.description')} placeholder={tc('github.checkpoints.descriptionPlaceholder')} onChange={(e) => setDescription(e.target.value)} />
         <Button variant="primary" className="github-block-btn" disabled={loading || !trimmedName} onClick={() => { onCreate(trimmedName, description.trim() || undefined); setName(''); setDescription('') }}>
-          Create Checkpoint
+          {tc('github.checkpoints.create')}
         </Button>
       </div>
     </div>
@@ -594,7 +582,8 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
 
 // ─── Repos ─────────────────────────────────────────────────────────────────
 
-function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConnect, onPush, onRefresh }: {
+function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConnect, onPush, onRefresh, onOpenFile }: {
+  onOpenFile: (path: string) => void
   rootPath: string
   workspaceId: string
   status: GitHubWorkspaceStatus | null
@@ -613,13 +602,13 @@ function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConn
     <div className="github-tab-layout">
       <div className="github-tab-scroll">
         <div className="github-tab-header">
-          <div className="github-tab-header-title"><span>Repository</span></div>
-          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
+          <div className="github-tab-header-title"><span>{tc('github.repos.title')}</span></div>
+          <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
         </div>
         <div className="github-tab-sep" />
 
         <div className="github-repo-dir-card">
-          <span className="github-repo-dir-label">Project Directory</span>
+          <span className="github-repo-dir-label">{tc('github.repos.directory')}</span>
           <span className="github-repo-dir-path">{rootPath}</span>
         </div>
 
@@ -628,37 +617,37 @@ function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConn
             <>
               <div className="github-git-status-title">
                 <span className="github-git-check">✓</span>
-                <strong>Git Repository</strong>
+                <strong>{tc('github.repos.isGit')}</strong>
               </div>
               <div className="github-git-status-lines">
-                {branch ? <span>Branch: <strong className="github-cyan">{branch}</strong></span> : null}
-                {!repo?.fullName && !repo?.remoteUrl ? <span className="github-amber">No GitHub remote</span> : null}
-                {status?.hasUncommittedChanges ? <span className="github-amber">Uncommitted changes</span> : null}
+                {branch ? <span>{tc('github.repos.branch')} <strong className="github-cyan">{branch}</strong></span> : null}
+                {!repo?.fullName && !repo?.remoteUrl ? <span className="github-amber">{tc('github.repos.noRemote')}</span> : null}
+                {status?.hasUncommittedChanges ? <span className="github-amber">{tc('github.repos.uncommitted')}</span> : null}
               </div>
             </>
           ) : (
-            <span className="github-muted">Not a Git repository</span>
+            <span className="github-muted">{tc('github.repos.notGit')}</span>
           )}
         </div>
 
-        <Button variant="primary" className="github-block-btn" onClick={onPush}>
-          Push to GitHub
+        <Button variant="primary" className="github-block-btn" disabled={!isGitRepo || (!repo?.fullName && !repo?.remoteUrl)} onClick={onPush}>
+          {tc('github.confirm.pushGitHub')}
         </Button>
 
-        <GitignoreRow rootPath={rootPath} workspaceId={workspaceId} />
+        <GitignoreRow rootPath={rootPath} workspaceId={workspaceId} onOpenFile={onOpenFile} />
 
         <div className="github-connected-header">
-          <span>Connected Repositories</span>
-          <Button variant="ghost" size="sm" onClick={() => setShowConnectForm((v) => !v)}>+ Connect</Button>
+          <span>{tc('github.repos.connected')}</span>
+          <Button variant="ghost" size="sm" aria-expanded={showConnectForm} onClick={() => setShowConnectForm((v) => !v)}>{tc('github.repos.connectOpen')}</Button>
         </div>
         {showConnectForm ? (
           <div className="github-connect-form">
-            <TextField value={connectInput} placeholder="owner/repo" onChange={(e) => setConnectInput(e.target.value)} />
-            <Button variant="ghost" disabled={!connectInput.trim()} onClick={() => { onConnect(connectInput.trim()); setConnectInput(''); setShowConnectForm(false) }}>Connect</Button>
+            <TextField value={connectInput} aria-label={tc('github.repos.repoName')} placeholder="owner/repo" onChange={(e) => setConnectInput(e.target.value)} />
+            <Button variant="ghost" disabled={!/^[\w.-]+\/[\w.-]+$/.test(connectInput.trim())} onClick={() => { onConnect(connectInput.trim()); setConnectInput(''); setShowConnectForm(false) }}>{tc('github.repos.connect')}</Button>
           </div>
         ) : null}
         {connectedRepositories.length === 0 ? (
-          <span className="github-empty-inline">No repositories connected for issue sync and other features.</span>
+          <EmptyState compact title={tc('github.repos.noneConnected')} />
         ) : (
           <div className="github-list">
             {connectedRepositories.map((r) => (
@@ -676,7 +665,7 @@ function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConn
   )
 }
 
-function GitignoreRow({ rootPath, workspaceId }: { rootPath: string; workspaceId: string }): ReactElement {
+function GitignoreRow({ rootPath, workspaceId, onOpenFile }: { rootPath: string; workspaceId: string; onOpenFile: (path: string) => void }): ReactElement {
   const [info, setInfo] = useState<{ exists: boolean; lines: number } | null>(null)
 
   useEffect(() => {
@@ -686,21 +675,21 @@ function GitignoreRow({ rootPath, workspaceId }: { rootPath: string; workspaceId
     }).catch(() => setInfo({ exists: false, lines: 0 }))
   }, [rootPath])
 
-  if (!info) return <div className="github-gitignore-row"><span>.gitignore</span><span className="github-muted">loading…</span></div>
+  if (!info) return <div className="github-gitignore-row"><span>.gitignore</span><span className="github-muted">{tc('github.repos.gitignoreLoading')}</span></div>
 
   return (
     <div className="github-gitignore-row">
       <span>.gitignore</span>
       {info.exists ? (
         <>
-          <span className="github-gitignore-exists">exists</span>
+          <span className="github-gitignore-exists">{tc('github.repos.gitignoreExists')}</span>
           <div className="github-gitignore-right">
-            <span className="github-muted">{info.lines} lines</span>
-            <Button variant="ghost" className="github-edit-btn">Edit <ChevronDown size={12} aria-hidden="true" /></Button>
+            <span className="github-muted">{tc('github.repos.lines', { count: info.lines })}</span>
+            <Button variant="ghost" className="github-edit-btn" onClick={() => onOpenFile('.gitignore')}>{tc('github.repos.edit')}</Button>
           </div>
         </>
       ) : (
-        <span className="github-muted">not found</span>
+        <span className="github-muted">{tc('github.repos.gitignoreMissing')}</span>
       )}
     </div>
   )
@@ -724,10 +713,10 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
     <div className="github-tab-layout">
       <div className="github-tab-scroll">
         <div className="github-tab-header">
-          <div className="github-tab-header-title"><span>Branches</span></div>
+          <div className="github-tab-header-title"><span>{tc('git.tabs.branches')}</span></div>
           <div className="github-tab-header-actions">
-            <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
-            <Button variant="secondary" size="sm" onClick={() => setShowCreate((v) => !v)}>+ New Branch</Button>
+            <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
+            <Button variant="secondary" size="sm" aria-expanded={showCreate} onClick={() => setShowCreate((v) => !v)}>{tc('github.branches.new')}</Button>
           </div>
         </div>
         <div className="github-tab-sep" />
@@ -736,15 +725,15 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
           <div className="github-repo-badge">
             <Link2 size={14} aria-hidden="true" />
             <span>{repoName}</span>
-            {detected ? <span className="github-detected">(detected)</span> : null}
+            {detected ? <span className="github-detected">{tc('github.detected')}</span> : null}
           </div>
         ) : null}
 
         {showCreate ? (
           <div className="github-connect-form">
-            <TextField value={newName} placeholder="new-branch-name" autoFocus onChange={(e) => setNewName(e.target.value)} />
-            <Button variant="ghost" disabled={!newName.trim()} onClick={() => { onCreate(newName.trim()); setNewName(''); setShowCreate(false) }}>Create</Button>
-            <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <TextField value={newName} aria-label={tc('worktree.create.branch')} placeholder="new-branch-name" autoFocus onChange={(e) => setNewName(e.target.value)} />
+            <Button variant="ghost" disabled={!newName.trim()} onClick={() => { onCreate(newName.trim()); setNewName(''); setShowCreate(false) }}>{tc('github.create')}</Button>
+            <Button variant="ghost" onClick={() => setShowCreate(false)}>{tc('github.cancel')}</Button>
           </div>
         ) : null}
 
@@ -759,16 +748,16 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
                 </div>
               </div>
               <div className="github-branch-right">
-                {branch.isProtected ? <span className="github-protected-badge">Protected</span> : null}
+                {branch.isProtected ? <span className="github-protected-badge">{tc('github.branches.protected')}</span> : null}
                 {branch.current ? (
-                  <span className="github-current-badge">current</span>
+                  <span className="github-current-badge">{tc('github.branches.current')}</span>
                 ) : (
-                  <Button variant="ghost" className="github-branch-action-btn" onClick={() => onCheckout(branch.name)}>Checkout</Button>
+                  <Button variant="ghost" className="github-branch-action-btn" aria-label={tc('github.branches.checkoutLabel', { name: branch.name })} onClick={() => onCheckout(branch.name)}>{tc('github.branches.checkout')}</Button>
                 )}
               </div>
             </div>
           ))}
-          {branches.length === 0 ? <EmptyState compact title="No branches found." /> : null}
+          {branches.length === 0 ? <EmptyState compact title={tc('github.branches.none')} /> : null}
         </div>
       </div>
     </div>
@@ -808,16 +797,16 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <Button variant="ghost" size="sm" square aria-label="Back" onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
+            <Button variant="ghost" size="sm" square aria-label={tc('github.back')} onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
             <span className="github-detail-title">#{selected.number} {selected.title}</span>
           </div>
           <div className="github-tab-sep" />
           <div className="github-pr-meta-row">
-            <span className={`github-pr-state-badge ${selected.state.toLowerCase()}`}>{selected.state}</span>
+            <span className={`github-pr-state-badge ${selected.state.toLowerCase()}`}>{tc(`github.prs.state.${selected.state.toLowerCase() === 'merged' ? 'merged' : selected.state.toLowerCase() === 'closed' ? 'closed' : 'open'}`)}</span>
             <span className="github-pr-branches-text">{selected.headRefName ?? '?'} {'→'} {selected.baseRefName ?? 'main'}</span>
           </div>
-          {selected.author ? <div className="github-detail-line">Author: <strong>{selected.author}</strong></div> : null}
-          {selected.createdAt ? <div className="github-detail-line">Created: <strong>{formatDate(selected.createdAt)}</strong></div> : null}
+          {selected.author ? <div className="github-detail-line">{tc('github.author')} <strong>{selected.author}</strong></div> : null}
+          {selected.createdAt ? <div className="github-detail-line">{tc('github.created')} <strong>{formatDate(selected.createdAt)}</strong></div> : null}
           {selected.body ? (
             <div className="github-detail-body-card">
               <pre className="github-detail-body-text">{selected.body}</pre>
@@ -827,14 +816,14 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
         <div className="github-detail-footer">
           {selected.headRefName ? (
             <Button variant="ghost" size="sm" data-testid="github-pr-open-in-changes"
-              title={`Compare ${selected.baseRefName ?? 'main'} with ${selected.headRefName} in ${WORKBENCH_PANELS.changes.label}, without checking it out`}
+              title={tc('github.prs.compareTitle', { base: selected.baseRefName ?? 'main', head: selected.headRefName, panel: WORKBENCH_PANELS.changes.label })}
               onClick={() => openInChanges(input.workspaceId, { base: selected.baseRefName ?? 'main', head: selected.headRefName ?? undefined })}>
-              View in {WORKBENCH_PANELS.changes.label} <GitCompareArrows size={12} aria-hidden="true" />
+              {tc('github.prs.viewIn', { panel: WORKBENCH_PANELS.changes.label })} <GitCompareArrows size={12} aria-hidden="true" />
             </Button>
           ) : null}
           {selected.url ? (
             <Button variant="ghost" size="sm" onClick={() => window.open(selected.url ?? '', '_blank')}>
-              View on GitHub <ExternalLink size={12} aria-hidden="true" />
+              {tc('github.viewOnGitHub')} <ExternalLink size={12} aria-hidden="true" />
             </Button>
           ) : null}
         </div>
@@ -846,10 +835,10 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
     <div className="github-tab-layout">
       <div className="github-tab-scroll">
         <div className="github-tab-header">
-          <div className="github-tab-header-title"><span>Pull Requests</span></div>
+          <div className="github-tab-header-title"><span>{tc('github.prs.title')}</span></div>
           <div className="github-tab-header-actions">
-            <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
-            <Button variant="secondary" size="sm" onClick={() => repoName && window.open(`https://github.com/${repoName}/compare`, '_blank')}>+ New PR</Button>
+            <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
+            <Button variant="secondary" size="sm" disabled={!repoName} title={tc('github.prs.newTitle')} onClick={() => repoName && window.open(`https://github.com/${repoName}/compare`, '_blank')}>{tc('github.prs.new')}</Button>
           </div>
         </div>
         <div className="github-tab-sep" />
@@ -858,14 +847,14 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
           <div className="github-repo-badge">
             <Link2 size={14} aria-hidden="true" />
             <span>{repoName}</span>
-            {detected ? <span className="github-detected">(detected)</span> : null}
+            {detected ? <span className="github-detected">{tc('github.detected')}</span> : null}
           </div>
         ) : null}
 
         <div className="github-filter-tabs">
           {(['open', 'closed', 'all'] as const).map((f) => (
-            <button key={f} type="button" className={`github-filter-tab${filter === f ? ' active' : ''}`} onClick={() => void changeFilter(f)}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+            <button key={f} type="button" className={`github-filter-tab${filter === f ? ' active' : ''}`} aria-pressed={filter === f} onClick={() => void changeFilter(f)}>
+              {tc(`github.prs.filter.${f}`)}
             </button>
           ))}
         </div>
@@ -881,7 +870,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
               <span className="github-pr-author-name">{pr.author ?? ''}</span>
             </button>
           ))}
-          {filtered.length === 0 ? <EmptyState compact title="No pull requests found." /> : null}
+          {filtered.length === 0 ? <EmptyState compact title={tc('github.prs.none')} /> : null}
         </div>
       </div>
     </div>
@@ -913,11 +902,11 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <Button variant="ghost" size="sm" square aria-label="Back" onClick={() => setSelectedOid(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
+            <Button variant="ghost" size="sm" square aria-label={tc('github.back')} onClick={() => setSelectedOid(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
             <code className="github-detail-sha">{selected?.shortOid ?? selectedOid.slice(0, 7)}</code>
           </div>
           <div className="github-tab-sep" />
-          {!selected && loading ? <EmptyState compact title="Loading commit…" /> : null}
+          {!selected && loading ? <EmptyState compact title={tc('github.commits.loading')} /> : null}
           {selected ? <CommitDetailView details={selected} /> : null}
         </div>
       </div>
@@ -928,8 +917,8 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
     <div className="github-tab-layout">
       <div className="github-tab-scroll">
         <div className="github-tab-header">
-          <div className="github-tab-header-title"><span>Commits</span></div>
-          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
+          <div className="github-tab-header-title"><span>{tc('git.tabs.commits')}</span></div>
+          <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
         </div>
         <div className="github-tab-sep" />
 
@@ -937,16 +926,9 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
           <div className="github-repo-badge">
             <Link2 size={14} aria-hidden="true" />
             <span>{repoName}</span>
-            {detected ? <span className="github-detected">(detected)</span> : null}
+            {detected ? <span className="github-detected">{tc('github.detected')}</span> : null}
           </div>
         ) : null}
-
-        <div className="github-branch-select-row">
-          <select className="github-branch-select" defaultValue="">
-            <option value="">Default branch</option>
-          </select>
-          <ChevronDown size={14} className="github-select-chevron" aria-hidden="true" />
-        </div>
 
         <div className="github-list">
           {commits.map((commit) => (
@@ -958,7 +940,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
               </div>
             </button>
           ))}
-          {commits.length === 0 ? <EmptyState compact title="No commits found." /> : null}
+          {commits.length === 0 ? <EmptyState compact title={tc('github.commits.none')} /> : null}
         </div>
       </div>
     </div>
@@ -974,27 +956,27 @@ function CommitDetailView({ details }: { details: GitHubCommitDetails }): ReactE
         </div>
       ) : null}
       <div className="github-detail-meta-rows">
-        <div>Author: <strong>{details.author ?? '-'}</strong></div>
-        <div>Date: <strong>{formatDate(details.committedDate)}</strong></div>
+        <div>{tc('github.author')} <strong>{details.author ?? '-'}</strong></div>
+        <div>{tc('github.date')} <strong>{formatDate(details.committedDate)}</strong></div>
         <div className="github-sha-line">SHA: <code>{details.oid}</code></div>
       </div>
       <div className="github-change-summary">
         <span className="github-addition">+{details.additions}</span>
         <span className="github-deletion">-{details.deletions}</span>
-        <span>{details.files.length} changes</span>
+        <span>{tc('github.commits.changes', { count: details.files.length })}</span>
       </div>
       <div className="github-changed-files-section">
-        <strong className="github-changed-files-title">Changed Files ({details.files.length})</strong>
+        <strong className="github-changed-files-title">{tc('github.commits.files', { count: details.files.length })}</strong>
         {details.files.map((file) => (
           <div key={file.path} className="github-file-row">
             <span>{file.path}</span>
-            <small>{file.binary ? 'binary' : <><span className="github-addition">+{file.additions}</span>{' '}<span className="github-deletion">-{file.deletions}</span></>}</small>
+            <small>{file.binary ? tc('github.commits.binary') : <><span className="github-addition">+{file.additions}</span>{' '}<span className="github-deletion">-{file.deletions}</span></>}</small>
           </div>
         ))}
       </div>
       {details.url ? (
         <Button variant="ghost" size="sm" onClick={() => window.open(details.url ?? '', '_blank')}>
-          View on GitHub <ExternalLink size={12} aria-hidden="true" />
+          {tc('github.viewOnGitHub')} <ExternalLink size={12} aria-hidden="true" />
         </Button>
       ) : null}
     </>
@@ -1025,18 +1007,18 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <Button variant="ghost" size="sm" square aria-label="Back" onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
+            <Button variant="ghost" size="sm" square aria-label={tc('github.back')} onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></Button>
             <span className="github-detail-title">{selected.name ?? selected.tagName}</span>
           </div>
           <div className="github-tab-sep" />
           <div className="github-release-tag-badge">{selected.tagName}</div>
           <div className="github-detail-meta-rows">
-            {selected.publishedAt ? <div>Published: <strong>{formatDate(selected.publishedAt)}</strong></div> : null}
-            <div>{selected.isDraft ? 'Draft' : selected.isPrerelease ? 'Pre-release' : 'Release'}</div>
+            {selected.publishedAt ? <div>{tc('github.releases.published')} <strong>{formatDate(selected.publishedAt)}</strong></div> : null}
+            <div>{selected.isDraft ? tc('github.releases.draft') : selected.isPrerelease ? tc('github.releases.prerelease') : tc('github.releases.release')}</div>
           </div>
           {selected.url ? (
             <Button variant="ghost" size="sm" onClick={() => window.open(selected.url ?? '', '_blank')}>
-              View on GitHub <ExternalLink size={12} aria-hidden="true" />
+              {tc('github.viewOnGitHub')} <ExternalLink size={12} aria-hidden="true" />
             </Button>
           ) : null}
         </div>
@@ -1049,20 +1031,20 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <Button variant="ghost" size="sm" square aria-label="Back" onClick={() => setShowCreate(false)}><ArrowLeft size={14} aria-hidden="true" /></Button>
-            <span className="github-detail-title">New Release</span>
+            <Button variant="ghost" size="sm" square aria-label={tc('github.back')} onClick={() => setShowCreate(false)}><ArrowLeft size={14} aria-hidden="true" /></Button>
+            <span className="github-detail-title">{tc('github.releases.newTitle')}</span>
           </div>
           <div className="github-tab-sep" />
           <div className="github-release-form-body">
-            <label>Tag<TextField value={tagName} placeholder="v1.0.0" onChange={(e) => setTagName(e.target.value)} /></label>
-            <label>Title (optional)<TextField value={title} placeholder="Release title" onChange={(e) => setTitle(e.target.value)} /></label>
-            <label>Release Notes (optional)<TextArea value={notes} placeholder="Describe the release…" onChange={(e) => setNotes(e.target.value)} /></label>
+            <label>{tc('github.releases.tag')}<TextField value={tagName} placeholder="v1.0.0" onChange={(e) => setTagName(e.target.value)} /></label>
+            <label>{tc('github.releases.titleOptional')}<TextField value={title} placeholder={tc('github.releases.titlePlaceholder')} onChange={(e) => setTitle(e.target.value)} /></label>
+            <label>{tc('github.releases.notes')}<TextArea value={notes} placeholder={tc('github.releases.notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} /></label>
             <div className="github-check-row">
-              <Checkbox checked={draft} onChange={(e) => setDraft(e.target.checked)} label="Draft" />
-              <Checkbox checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} label="Pre-release" />
+              <Checkbox checked={draft} onChange={(e) => setDraft(e.target.checked)} label={tc('github.releases.draft')} />
+              <Checkbox checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} label={tc('github.releases.prerelease')} />
             </div>
             <Button variant="primary" className="github-block-btn" disabled={loading || !tagName.trim()} onClick={() => onCreate({ tagName: tagName.trim(), title: title.trim() || undefined, notes: notes.trim() || undefined, draft, prerelease, generateNotes: !notes.trim() })}>
-              Create Release
+              {tc('github.releases.create')}
             </Button>
           </div>
         </div>
@@ -1074,10 +1056,10 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
     <div className="github-tab-layout">
       <div className="github-tab-scroll">
         <div className="github-tab-header">
-          <div className="github-tab-header-title"><span>Releases</span></div>
+          <div className="github-tab-header-title"><span>{tc('git.tabs.releases')}</span></div>
           <div className="github-tab-header-actions">
-            <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
-            <Button variant="secondary" size="sm" onClick={() => setShowCreate(true)}>+ New Release</Button>
+            <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowCreate(true)}>{tc('github.releases.new')}</Button>
           </div>
         </div>
         <div className="github-tab-sep" />
@@ -1086,7 +1068,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
           <div className="github-repo-badge">
             <Link2 size={14} aria-hidden="true" />
             <span>{repoName}</span>
-            {detected ? <span className="github-detected">(detected)</span> : null}
+            {detected ? <span className="github-detected">{tc('github.detected')}</span> : null}
           </div>
         ) : null}
 
@@ -1101,7 +1083,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
               </div>
             </button>
           ))}
-          {releases.length === 0 ? <EmptyState compact title="No releases found." /> : null}
+          {releases.length === 0 ? <EmptyState compact title={tc('github.releases.none')} /> : null}
         </div>
       </div>
     </div>
@@ -1140,7 +1122,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
     })
     const byWorkflow = new Map<string, GitHubWorkflowRun[]>()
     for (const run of filtered) {
-      const key = run.name ?? 'Unknown workflow'
+      const key = run.name ?? tc('github.actions.unknownWorkflow')
       const bucket = byWorkflow.get(key) ?? []
       bucket.push(run)
       byWorkflow.set(key, bucket)
@@ -1192,7 +1174,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
       <header className="github-actions-v2-toolbar">
         <div className="github-actions-v2-title">
           <Play size={14} aria-hidden="true" />
-          <span>Actions</span>
+          <span>{tc('git.tabs.actions')}</span>
         </div>
         <div className="github-actions-v2-filters">
           {(['all', 'failed', 'in_progress'] as const).map((f) => (
@@ -1200,15 +1182,16 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
               key={f}
               type="button"
               className={`github-actions-v2-filter${filter === f ? ' active' : ''}`}
+              aria-pressed={filter === f}
               onClick={() => setFilter(f)}
             >
-              {f === 'all' ? 'All' : f === 'failed' ? 'Failed' : 'In progress'}
+              {tc(`github.actions.filter.${f}`)}
             </button>
           ))}
-          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}>
+          <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}>
             <RefreshCw size={14} aria-hidden="true" className={loading ? 'usage-spin' : undefined} />
           </Button>
-          <Button variant="ghost" size="sm" square title="Run workflow" onClick={() => setShowRunForm((v) => !v)}>
+          <Button variant="ghost" size="sm" square title={tc('github.confirm.runWorkflow')} aria-label={tc('github.confirm.runWorkflow')} aria-expanded={showRunForm} onClick={() => setShowRunForm((v) => !v)}>
             <Play size={14} aria-hidden="true" />
           </Button>
         </div>
@@ -1226,7 +1209,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
       <div className="github-actions-v2-split">
         <aside className="github-actions-v2-tree">
           {groups.length === 0 ? (
-            <EmptyState compact title="No workflows found." />
+            <EmptyState compact title={tc('github.actions.noWorkflows')} />
           ) : (
             groups.map(({ workflow, runs }) => {
               const collapsed = collapsedWorkflows.has(workflow.name)
@@ -1244,7 +1227,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
                   </button>
                   {!collapsed && (
                     runs.length === 0 ? (
-                      <EmptyState compact title="No runs" />
+                      <EmptyState compact title={tc('github.actions.noRuns')} />
                     ) : (
                       runs.map((run) => (
                         <button
@@ -1255,10 +1238,10 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
                         >
                           <RunStatusIcon status={run.status} conclusion={run.conclusion} />
                           <span className="github-actions-v2-run-title">
-                            {run.displayTitle ?? `Run ${run.databaseId}`}
+                            {run.displayTitle ?? tc('github.actions.runNumber', { id: run.databaseId })}
                           </span>
                           {run.branch ? <span className="github-actions-v2-run-branch">{run.branch}</span> : null}
-                          {run.createdAt ? <span className="github-actions-v2-run-time">{formatRelative(run.createdAt)}</span> : null}
+                          {run.createdAt ? <span className="github-actions-v2-run-time">{formatAgo(run.createdAt)}</span> : null}
                         </button>
                       ))
                     )
@@ -1280,7 +1263,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
               onRerun={(failedOnly) => onRerun(selectedRun.databaseId, failedOnly)}
             />
           ) : (
-            <EmptyState compact title="Select a workflow run to view details." />
+            <EmptyState compact title={tc('github.actions.selectRun')} />
           )}
         </section>
       </div>
@@ -1332,7 +1315,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
       // of letting the renderer swallow a silent TypeError.
       const api = window.oxe?.github as { getRunLogs?: (input: { rootPath: string; runId: number; failedOnly: boolean }) => Promise<{ logs: string; truncated: boolean; bytes: number }> } | undefined
       if (!api?.getRunLogs) {
-        throw new Error('Log fetching is not available in this build. Restart the app to load the latest preload.')
+        throw new Error(tc('github.actions.logsUnavailable'))
       }
       console.info('[GitHubActions] fetching logs', { runId: run.databaseId, mode })
       const result = await api.getRunLogs({ rootPath, runId: run.databaseId, failedOnly: mode === 'failed' })
@@ -1352,25 +1335,25 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
       <header className="github-actions-v2-detail-header">
         <RunStatusIcon status={run.status} conclusion={run.conclusion} size={16} />
         <div className="github-actions-v2-detail-title">
-          <strong>{run.displayTitle ?? run.name ?? `Run ${run.databaseId}`}</strong>
+          <strong>{run.displayTitle ?? run.name ?? tc('github.actions.runNumber', { id: run.databaseId })}</strong>
           <span>{[run.status, run.conclusion, run.event, run.actor].filter(Boolean).join(' · ')}</span>
         </div>
       </header>
 
       <dl className="github-actions-v2-detail-meta">
-        {run.branch ? (<><dt>Branch</dt><dd>{run.branch}</dd></>) : null}
-        {run.actor ? (<><dt>Actor</dt><dd>{run.actor}</dd></>) : null}
-        {run.event ? (<><dt>Event</dt><dd>{run.event}</dd></>) : null}
-        {run.createdAt ? (<><dt>Created</dt><dd>{formatDate(run.createdAt)}</dd></>) : null}
+        {run.branch ? (<><dt>{tc('github.actions.branch')}</dt><dd>{run.branch}</dd></>) : null}
+        {run.actor ? (<><dt>{tc('github.actions.actor')}</dt><dd>{run.actor}</dd></>) : null}
+        {run.event ? (<><dt>{tc('github.actions.event')}</dt><dd>{run.event}</dd></>) : null}
+        {run.createdAt ? (<><dt>{tc('github.actions.created')}</dt><dd>{formatDate(run.createdAt)}</dd></>) : null}
       </dl>
 
       <div className="github-actions-v2-detail-actions">
         <Button variant="ghost" onClick={() => onRerun(false)}>
-          <RefreshCw size={12} aria-hidden="true" /> Re-run all
+          <RefreshCw size={12} aria-hidden="true" /> {tc('github.actions.rerunAll')}
         </Button>
         {isFailed ? (
           <Button variant="ghost" onClick={() => onRerun(true)}>
-            <RefreshCw size={12} aria-hidden="true" /> Re-run failed
+            <RefreshCw size={12} aria-hidden="true" /> {tc('github.actions.rerunFailed')}
           </Button>
         ) : null}
         <Button
@@ -1380,7 +1363,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
           disabled={logsLoading}
           onClick={() => void fetchLogs('all')}
         >
-          <Terminal size={12} aria-hidden="true" /> {logsLoading && logsMode === 'all' ? `Loading… ${logsElapsed}s` : 'View logs'}
+          <Terminal size={12} aria-hidden="true" /> {logsLoading && logsMode === 'all' ? tc('github.actions.loadingFor', { seconds: logsElapsed }) : tc('github.actions.viewLogs')}
         </Button>
         {isFailed ? (
           <Button
@@ -1390,52 +1373,52 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
             disabled={logsLoading}
             onClick={() => void fetchLogs('failed')}
           >
-            <Terminal size={12} aria-hidden="true" /> {logsLoading && logsMode === 'failed' ? `Loading… ${logsElapsed}s` : 'Failed-only logs'}
+            <Terminal size={12} aria-hidden="true" /> {logsLoading && logsMode === 'failed' ? tc('github.actions.loadingFor', { seconds: logsElapsed }) : tc('github.actions.failedLogs')}
           </Button>
         ) : null}
         {run.url ? (
           <Button variant="ghost" onClick={() => window.open(run.url ?? '', '_blank')}>
-            <ExternalLink size={12} aria-hidden="true" /> Open in GitHub
+            <ExternalLink size={12} aria-hidden="true" /> {tc('github.viewOnGitHub')}
           </Button>
         ) : null}
         <Button variant="ghost" onClick={onRefresh}>
-          <RefreshCw size={12} aria-hidden="true" /> Refresh steps
+          <RefreshCw size={12} aria-hidden="true" /> {tc('github.actions.refreshSteps')}
         </Button>
       </div>
 
       <WorkflowRuntimeTree run={details ?? run} jobs={details?.jobs ?? []} workspaceId={workspaceId} />
 
-      {logsError ? <div className="github-actions-v2-logs-error">{logsError}</div> : null}
+      {logsError ? <ErrorState compact title={tc('github.actions.logsFailed')} message={logsError} onRetry={() => void fetchLogs(logsMode ?? 'all')} /> : null}
 
       {logsLoading && !logs ? (
         <div className="github-actions-v2-logs-progress">
-          Fetching logs from GitHub via <code>gh</code>… elapsed {logsElapsed}s.
-          {logsElapsed >= 30 ? ' Large runs can take 30–90s.' : null}
-          {logsElapsed >= 120 ? ' Still working — will time out at 240s.' : null}
+          {tc('github.actions.fetchingLogs', { seconds: logsElapsed })}
+          {logsElapsed >= 30 ? ` ${tc('github.actions.slow')}` : null}
+          {logsElapsed >= 120 ? ` ${tc('github.actions.verySlow')}` : null}
         </div>
       ) : null}
 
       {logs ? (
         <div className="github-actions-v2-logs-viewer">
           <header className="github-actions-v2-logs-header">
-            <span>{logsMode === 'failed' ? 'Failed-step logs' : 'Full run logs'}</span>
+            <span>{logsMode === 'failed' ? tc('github.actions.failedStepLogs') : tc('github.actions.fullLogs')}</span>
             <div className="github-actions-v2-logs-header-actions">
-              {logs.truncated ? <span className="github-actions-v2-logs-truncated">truncated</span> : null}
+              {logs.truncated ? <span className="github-actions-v2-logs-truncated">{tc('github.actions.truncated')}</span> : null}
               <Button
                
                 variant="ghost" size="sm"
-                onClick={() => void copyText(logs.text, 'Logs')}
-                title="Copy logs to clipboard"
+                onClick={() => void copyText(logs.text, tc('github.actions.logs'))}
+                title={tc('github.actions.copyLogs')}
               >
-                <Copy size={12} aria-hidden="true" /> Copy
+                <Copy size={12} aria-hidden="true" /> {tc('github.actions.copy')}
               </Button>
               <Button
                
                 variant="ghost" size="sm"
                 onClick={() => { setLogs(null); setLogsMode(null) }}
-                aria-label="Close logs"
+                aria-label={tc('github.actions.closeLogs')}
               >
-                Hide
+                {tc('github.actions.hide')}
               </Button>
             </div>
           </header>
@@ -1445,7 +1428,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
 
       {!logs && !logsLoading && !logsError ? (
         <div className="github-actions-v2-detail-hint">
-          Steps update while the run is active. Use <strong>View logs</strong> only for completed output or deeper text diagnostics.
+          <RichText text={tc('github.actions.stepsHint')} />
         </div>
       ) : null}
     </div>
@@ -1463,18 +1446,13 @@ function WorkflowRuntimeTree({ run, jobs, workspaceId }: { run: GitHubWorkflowRu
   }
 
   if (jobs.length === 0) {
-    return (
-      <div className="github-actions-runtime-empty">
-        <Clock size={14} aria-hidden="true" />
-        <span>Loading runtime jobs and steps…</span>
-      </div>
-    )
+    return <LoadingState label={tc('github.actions.loadingJobs')} />
   }
 
   return (
-    <div className="github-actions-runtime" aria-label="Workflow runtime steps">
+    <div className="github-actions-runtime" aria-label={tc('github.actions.steps')}>
       <div className="github-actions-runtime-heading">
-        <span>Runtime pipeline</span>
+        <span>{tc('github.actions.pipeline')}</span>
         <small>{run.status}{run.conclusion ? ` · ${run.conclusion}` : ''}</small>
       </div>
       {jobs.map((job) => {
@@ -1486,12 +1464,12 @@ function WorkflowRuntimeTree({ run, jobs, workspaceId }: { run: GitHubWorkflowRu
               {collapsed ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
               <RunStatusIcon status={job.status} conclusion={job.conclusion} />
               <span className="github-actions-job-name">{job.name}</span>
-              <span className="github-actions-job-meta">{job.steps.length} steps</span>
+              <span className="github-actions-job-meta">{tc('github.actions.stepCount', { count: job.steps.length })}</span>
             </button>
             {!collapsed ? (
               <div className="github-actions-step-list">
                 {job.steps.length === 0 ? (
-                  <span className="github-actions-step-empty">No steps reported yet.</span>
+                  <span className="github-actions-step-empty">{tc('github.actions.noSteps')}</span>
                 ) : (
                   job.steps.map((step) => (
                     <div key={`${key}:${step.number ?? step.name}`} className="github-actions-step-row">
@@ -1534,26 +1512,27 @@ function RunWorkflowForm({ workflows, loading, onRun, onCancel }: {
   return (
     <div className="github-actions-v2-runform">
       <div className="github-actions-v2-runform-row">
-        <Select value={workflowId} onChange={(e) => setWorkflowId(e.currentTarget.value)}>
-          <option value="">Select workflow…</option>
+        <Select value={workflowId} aria-label={tc('github.actions.workflow')} onChange={(e) => setWorkflowId(e.currentTarget.value)}>
+          <option value="">{tc('github.actions.selectWorkflow')}</option>
           {workflows.map((w) => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
         </Select>
-        <TextField value={ref} placeholder="ref (optional)" onChange={(e) => setRef(e.currentTarget.value)} />
+        <TextField value={ref} aria-label={tc('github.actions.ref')} placeholder={tc('github.actions.refPlaceholder')} onChange={(e) => setRef(e.currentTarget.value)} />
       </div>
       <TextArea
         value={fieldsText}
-        placeholder="inputs (optional) — one key=value per line"
+        aria-label={tc('github.actions.inputs')}
+        placeholder={tc('github.actions.inputsPlaceholder')}
         rows={3}
         onChange={(e) => setFieldsText(e.currentTarget.value)}
       />
       <div className="github-actions-v2-runform-actions">
-        <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button variant="ghost" onClick={onCancel}>{tc('github.cancel')}</Button>
         <Button
           variant="primary"
           disabled={loading || !selected}
           onClick={() => selected ? onRun(String(selected.id), ref.trim() || undefined, Object.keys(fields).length > 0 ? fields : undefined) : undefined}
         >
-          Run workflow
+          {tc('github.confirm.runWorkflow')}
         </Button>
       </div>
     </div>
@@ -1572,19 +1551,9 @@ function RunStatusIcon({ status, conclusion, size = 12 }: { status: string; conc
   return <Clock size={size} aria-hidden="true" className="github-actions-v2-icon-neutral" />
 }
 
-function formatRelative(iso: string): string {
-  try {
-    const diff = Date.now() - new Date(iso).getTime()
-    const sec = Math.floor(diff / 1000)
-    if (sec < 60) return `${sec}s ago`
-    const min = Math.floor(sec / 60)
-    if (min < 60) return `${min}m ago`
-    const hr = Math.floor(min / 60)
-    if (hr < 24) return `${hr}h ago`
-    return `${Math.floor(hr / 24)}d ago`
-  } catch {
-    return iso
-  }
+/** "3 minutes ago" in the interface language; the raw text when it is not a date. */
+function formatAgo(iso: string): string {
+  return Number.isNaN(new Date(iso).getTime()) ? iso : formatRelative(iso)
 }
 
 function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, onRefresh }: {
@@ -1602,8 +1571,8 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
     <div className="github-tab-layout">
       <div className="github-tab-scroll">
         <div className="github-tab-header">
-          <div className="github-tab-header-title"><span>Settings</span></div>
-          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
+          <div className="github-tab-header-title"><span>{tc('git.tabs.settings')}</span></div>
+          <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
         </div>
         <div className="github-tab-sep" />
 
@@ -1611,8 +1580,8 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
           <div className="github-settings-card-header">
             <Github size={20} aria-hidden="true" />
             <div>
-              <strong>GitHub Integration</strong>
-              <span>Sync issues with GitHub repositories</span>
+              <strong>{tc('github.settings.title')}</strong>
+              <span>{tc('github.settings.subtitle')}</span>
             </div>
           </div>
 
@@ -1623,11 +1592,11 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
                 <strong>{username}</strong>
                 <span>@{username}</span>
               </div>
-              <span className="github-connected-badge">✓ Connected</span>
+              <span className="github-connected-badge">✓ {tc('github.settings.connected')}</span>
             </div>
           ) : (
             <div className="github-not-connected-row">
-              <span>{cli?.available ? 'Not authenticated — run gh auth login' : 'GitHub CLI not installed'}</span>
+              <span>{cli?.available ? tc('github.settings.notSignedIn') : tc('github.settings.noCli')}</span>
               <Button variant="ghost" onClick={() => onRunCommand('gh auth login')}>
                 <Terminal size={12} aria-hidden="true" />
                 gh auth login
@@ -1637,11 +1606,10 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
 
           <div className="github-settings-repos-section">
             <div className="github-settings-repos-header">
-              <span>Repositories</span>
-              <Button variant="ghost" size="sm">+ Add repository</Button>
+              <span>{tc('github.repos.connected')}</span>
             </div>
             {connectedRepositories.length === 0 ? (
-              <EmptyState compact title="No repositories connected. Add one to start syncing issues." />
+              <EmptyState compact title={tc('github.repos.noneConnected')} />
             ) : (
               <div className="github-list">
                 {connectedRepositories.map((r) => (
@@ -1653,7 +1621,7 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
             )}
             {isConnected ? (
               <span className="github-cli-note">
-                Using GitHub CLI for authentication. Run <code>gh auth status</code> to check.
+                <RichText text={tc('github.settings.cliNote')} />
               </span>
             ) : null}
           </div>
@@ -1676,25 +1644,21 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
     ? ['winget install GitHub.cli', 'scoop install gh']
     : ['sudo apt install gh', 'sudo dnf install gh']
 
-  const copyCmd = (cmd: string): void => { void copyText(cmd, 'Command') }
+  const copyCmd = (cmd: string): void => { void copyText(cmd, tc('github.setup.command')) }
 
   return (
     <div className="github-cli-setup">
       <AlertTriangle size={28} aria-hidden="true" />
-      <h3>{isMissing ? 'GitHub CLI Required' : 'Authentication Required'}</h3>
-      <p>
-        {isMissing
-          ? 'Install the GitHub CLI to use PRs, Releases, and more GitHub features.'
-          : 'You need to authenticate with GitHub before using this feature.'}
-      </p>
+      <h3>{isMissing ? tc('github.setup.cliTitle') : tc('github.setup.authTitle')}</h3>
+      <p>{isMissing ? tc('github.setup.cliBody') : tc('github.setup.authBody')}</p>
 
       {isMissing ? (
         <div className="github-setup-block">
-          <span className="github-setup-block-label">Install GitHub CLI</span>
+          <span className="github-setup-block-label">{tc('github.setup.install')}</span>
           {installCmds.map((cmd) => (
             <div key={cmd} className="github-setup-cmd-row">
               <code>{cmd}</code>
-              <Button variant="ghost" title="Copy" onClick={() => copyCmd(cmd)}><Copy size={12} aria-hidden="true" /></Button>
+              <Button variant="ghost" title={tc('github.actions.copy')} aria-label={tc('github.setup.copy', { command: cmd })} onClick={() => copyCmd(cmd)}><Copy size={12} aria-hidden="true" /></Button>
             </div>
           ))}
           <a className="github-setup-link" href="https://cli.github.com" target="_blank" rel="noreferrer">
@@ -1705,12 +1669,12 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
       ) : null}
 
       <div className="github-setup-block">
-        <span className="github-setup-block-label">Authenticate</span>
+        <span className="github-setup-block-label">{tc('github.setup.authenticate')}</span>
         <div className="github-setup-cmd-row">
           <code>gh auth login</code>
           <Button variant="primary" onClick={() => onRunCommand('gh auth login')}>
             <Terminal size={12} aria-hidden="true" />
-            Run
+            {tc('github.setup.run')}
           </Button>
         </div>
       </div>
@@ -1743,7 +1707,7 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
         if (cancelled) return
         setRunning(true)
       } catch (err) {
-        if (!cancelled) setError(humanizeError(err, 'Terminal error'))
+        if (!cancelled) setError(humanizeError(err))
       }
     }
     void setup()
@@ -1756,15 +1720,15 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
     void window.oxe.terminal.write({ paneId, data: command + '\r' })
   }, [running, paneId, command])
 
-  if (error) return <div className="github-terminal-error">{error}</div>
-  if (!paneId || !running) return <div className="github-terminal-loading"><Terminal size={12} aria-hidden="true" /><span>Starting terminal…</span></div>
+  if (error) return <ErrorState compact title={tc('github.terminal.failed')} message={error} actions={<Button size="sm" variant="ghost" onClick={onDismiss}>{tc('github.terminal.close')}</Button>} />
+  if (!paneId || !running) return <div className="github-terminal-loading"><Terminal size={12} aria-hidden="true" /><span>{tc('github.terminal.starting')}</span></div>
 
   return (
     <div className="github-terminal-embed">
       <div className="github-terminal-header">
         <Terminal size={12} aria-hidden="true" />
-        <span>Terminal</span>
-        <Button variant="ghost" size="sm" square title="Close" onClick={onDismiss}>×</Button>
+        <span>{tc('panels.terminal')}</span>
+        <Button variant="ghost" size="sm" square title={tc('github.terminal.close')} aria-label={tc('github.terminal.close')} onClick={onDismiss}>×</Button>
       </div>
       <div className="github-terminal-body">
         <TerminalView
@@ -1783,15 +1747,6 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
 
 // ─── Shared ─────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: 'blue' | 'green' | 'amber' }): ReactElement {
-  return (
-    <div className={`github-stat-card${accent ? ` github-stat-${accent}` : ''}`}>
-      <span className="github-stat-label">{label}</span>
-      <strong className="github-stat-value">{value}</strong>
-    </div>
-  )
-}
-
 function formatDate(value: string | number | null | undefined): string {
   if (!value) return '-'
   const date = new Date(value)
@@ -1802,9 +1757,8 @@ function buildStageAllPreview(status: GitHubWorkspaceStatus | null): string {
   const staged = status?.staged ?? 0
   const modified = status?.modified ?? 0
   const untracked = status?.untracked ?? 0
-  const parts = [`staged ${staged}`, `modified ${modified}`, `untracked ${untracked}`]
-  const warning = untracked > 0 ? ' Untracked files will also be added; review secrets before confirming.' : ''
-  return `Stage all changes (${parts.join(', ')}).${warning}`
+  const summary = tc('github.confirm.stageAllDetail', { staged, modified, untracked })
+  return untracked > 0 ? `${summary} ${tc('github.confirm.stageAllUntracked')}` : summary
 }
 
 // ─── Skeleton ───────────────────────────────────────────────────────────────

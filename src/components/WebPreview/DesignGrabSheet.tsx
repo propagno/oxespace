@@ -2,6 +2,7 @@ import { Send, X } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import { formatDesignGrab, type DesignGrabPayload } from '../../../shared/types/design-mode'
 import { Button } from '../../ui'
+import { useTranslation } from 'react-i18next'
 
 interface DesignGrabSheetProps {
   payload: DesignGrabPayload
@@ -17,32 +18,33 @@ interface DesignGrabSheetProps {
  * carries page markup, so it must never leave silently.
  */
 export function DesignGrabSheet({ onDismiss, onSend, payload, screenshot }: DesignGrabSheetProps): ReactElement {
+  const { t } = useTranslation('code')
   const [note, setNote] = useState('')
 
   return (
-    <div className="design-grab-sheet" role="dialog" aria-label="Design Mode selection" data-testid="design-grab-sheet">
+    <div className="design-grab-sheet" role="dialog" aria-label={t('preview.grab.label')} data-testid="design-grab-sheet">
       <header className="design-grab-header">
         <div className="design-grab-title">
           <strong>{payload.tagName}</strong>
           <code>{payload.selector}</code>
         </div>
-        <Button variant="ghost" size="sm" square aria-label="Discard selection" onClick={onDismiss}>
+        <Button variant="ghost" size="sm" square aria-label={t('preview.grab.discard')} title={t('preview.grab.discard')} onClick={onDismiss}>
           <X size={14} aria-hidden="true" />
         </Button>
       </header>
 
       <div className="design-grab-body scrollbar-sleek">
-        {screenshot ? <img className="design-grab-shot" src={screenshot} alt={`Capture of ${payload.selector}`} /> : null}
+        {screenshot ? <img className="design-grab-shot" src={screenshot} alt={t('preview.grab.capture', { selector: payload.selector })} /> : null}
         <dl className="design-grab-facts">
           <div>
-            <dt>Box</dt>
+            <dt>{t('preview.grab.box')}</dt>
             <dd>
               {Math.round(payload.rect.width)}×{Math.round(payload.rect.height)}
             </dd>
           </div>
           {payload.text ? (
             <div>
-              <dt>Text</dt>
+              <dt>{t('preview.grab.text')}</dt>
               <dd className="design-grab-text">{payload.text}</dd>
             </div>
           ) : null}
@@ -58,7 +60,8 @@ export function DesignGrabSheet({ onDismiss, onSend, payload, screenshot }: Desi
       <footer className="design-grab-footer">
         <textarea
           className="design-grab-note"
-          placeholder="What should the agent change here? (Ctrl+Enter to send)"
+          aria-label={t('preview.grab.note')}
+          placeholder={t('preview.grab.notePlaceholder')}
           value={note}
           data-testid="design-grab-note"
           onChange={(event) => setNote(event.currentTarget.value)}
@@ -76,7 +79,7 @@ export function DesignGrabSheet({ onDismiss, onSend, payload, screenshot }: Desi
           onClick={() => onSend(formatDesignGrab(payload, note))}
         >
           <Send size={12} aria-hidden="true" />
-          Send to agent
+          {t('preview.grab.send')}
         </button>
       </footer>
     </div>

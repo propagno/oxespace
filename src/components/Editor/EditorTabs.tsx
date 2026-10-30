@@ -1,6 +1,7 @@
 import { Pin, PinOff, X, XSquare } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import type { EditorTab } from '../../store/editor.store'
 
 interface EditorTabsProps {
@@ -25,6 +26,7 @@ export function EditorTabs({
   onTogglePin,
   tabs
 }: EditorTabsProps): ReactElement | null {
+  const { t } = useTranslation('code')
   const [draggingPath, setDraggingPath] = useState<string | null>(null)
   const [dropPath, setDropPath] = useState<string | null>(null)
   const stripRef = useRef<HTMLDivElement | null>(null)
@@ -63,7 +65,7 @@ export function EditorTabs({
   if (tabs.length === 0) return null
 
   return (
-    <div ref={stripRef} className="editor-tabs scrollbar-sleek" role="tablist" aria-label="Open files" data-testid="editor-tabs">
+    <div ref={stripRef} className="editor-tabs scrollbar-sleek" role="tablist" aria-label={t('editor.tabs.label')} data-testid="editor-tabs">
       {tabs.map((tab) => {
         const isActive = tab.relativePath === activePath
         const isDirty = dirtyPaths.has(tab.relativePath)
@@ -133,7 +135,7 @@ export function EditorTabs({
           >
             {tab.pinned ? <Pin size={12} aria-hidden="true" className="editor-tab-pin" /> : null}
             <span className="editor-tab-label">{basename(tab.relativePath)}</span>
-            {isDirty ? <span className="editor-tab-dot" aria-label="Unsaved changes" /> : null}
+            {isDirty ? <span className="editor-tab-dot" role="img" aria-label={t('editor.unsavedChanges')} /> : null}
             {/* A tab cannot own a control: keyboard and assistive tech close with Delete, the pointer uses this. */}
             <span
               className="editor-tab-close"
@@ -154,15 +156,15 @@ export function EditorTabs({
         const run = (action: () => void) => () => { setMenu(null); action() }
         // Outside the tablist, which may only own tabs.
         return createPortal(
-          <div ref={menuRef} className="ws-group-context-menu" role="menu" aria-label={`Actions for ${basename(tab.relativePath)}`} style={{ left: menu.x, top: menu.y }} data-testid="editor-tab-menu">
+          <div ref={menuRef} className="ws-group-context-menu" role="menu" aria-label={t('editor.tabs.menu', { name: basename(tab.relativePath) })} style={{ left: menu.x, top: menu.y }} data-testid="editor-tab-menu">
             <button type="button" role="menuitem" onClick={run(() => onTogglePin(tab.relativePath))}>
-              {tab.pinned ? <PinOff size={12} aria-hidden="true" /> : <Pin size={12} aria-hidden="true" />}{tab.pinned ? 'Unpin tab' : 'Pin tab'}
+              {tab.pinned ? <PinOff size={12} aria-hidden="true" /> : <Pin size={12} aria-hidden="true" />}{tab.pinned ? t('editor.tabs.unpin') : t('editor.tabs.pin')}
             </button>
-            <button type="button" role="menuitem" disabled={tabs.length < 2} title="Pinned tabs and tabs with unsaved changes stay open" onClick={run(() => onCloseOthers(tab.relativePath))}>
-              <XSquare size={12} aria-hidden="true" />Close other tabs
+            <button type="button" role="menuitem" disabled={tabs.length < 2} title={t('editor.tabs.closeOthersTitle')} onClick={run(() => onCloseOthers(tab.relativePath))}>
+              <XSquare size={12} aria-hidden="true" />{t('editor.tabs.closeOthers')}
             </button>
             <button type="button" role="menuitem" onClick={run(() => onClose(tab.relativePath))}>
-              <X size={12} aria-hidden="true" />Close tab
+              <X size={12} aria-hidden="true" />{t('editor.tabs.close')}
             </button>
           </div>,
           document.body

@@ -1,3 +1,4 @@
+import { i18n } from '../i18n'
 import { formatDateTime } from './formatTime'
 
 /**
@@ -45,11 +46,11 @@ export function quotaNotificationText(
   resetsAtMs: number | null
 ): { title: string; body: string } {
   const name = provider === 'claude' ? 'Claude' : 'Codex'
-  const window = kind === 'weekly' ? 'semanal' : 'de 5 horas'
-  const severity = threshold >= 95 ? 'quase esgotada' : threshold >= 90 ? 'muito alta' : 'em uso'
-  const reset = resetsAtMs ? ` Renova em ${formatDateTime(resetsAtMs)}.` : ''
+  const window = i18n.t(kind === 'weekly' ? 'quota.window.weekly' : 'quota.window.session')
+  const severity = i18n.t(threshold >= 95 ? 'quota.severity.almostOut' : threshold >= 90 ? 'quota.severity.veryHigh' : 'quota.severity.inUse')
+  const reset = resetsAtMs ? ` ${i18n.t('quota.resets', { when: formatDateTime(resetsAtMs) })}` : ''
   return {
-    title: `${name} — cota ${window} ${severity} (${threshold}%)`,
-    body: `A janela ${window} do ${name} passou de ${threshold}% do limite.${reset}`
+    title: i18n.t('quota.title', { name, window, severity, threshold }),
+    body: i18n.t('quota.body', { name, window, threshold }) + reset
   }
 }

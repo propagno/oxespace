@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import type { AgentProfile } from '../../shared/types/agent'
 import type { SlashCommandDefinition, SlashCommandId } from '../../shared/types/slash'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
+import { i18n } from '../i18n'
 import { useAgentStore } from '../store/agent.store'
 import { useBackgroundStore } from '../store/background.store'
 import { findMemberForPane, useIntegrationStore } from '../store/integration.store'
@@ -66,7 +67,7 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
         if (!arg) return
         const match = findAgentProfile(allProfiles, arg)
         if (!match) {
-          throw new Error(`Agent "${arg}" not found. Try: ${allProfiles.map((p) => p.name).slice(0, 4).join(', ')}…`)
+          throw new Error(i18n.t('terminal.agentNotFound', { ns: 'code', name: arg, options: allProfiles.map((p) => p.name).slice(0, 4).join(', ') }))
         }
         await setPaneAgent(paneId, match.agentProfileId)
         // Restart pane so the new agent's CLI is launched
@@ -78,7 +79,7 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
         return
       case 'bg': {
         const command = argument.trim()
-        if (!command) throw new Error('/bg requer um comando, ex: /bg npm run build')
+        if (!command) throw new Error(i18n.t('terminal.bgNeedsCommand', { ns: 'code' }))
         await startBackgroundJob({
           workspaceId: workspace.id,
           workspaceRootPath: workspace.rootPath,

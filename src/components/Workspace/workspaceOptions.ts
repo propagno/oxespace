@@ -1,38 +1,27 @@
 import type { WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
+/** Terminal theme names are product names, the same in every language. */
+const theme = (id: WorkspaceThemeId, name: string): { id: WorkspaceThemeId; label: string } => ({ id, label: name })
 
 export const WORKSPACE_THEMES: Array<{ id: WorkspaceThemeId; label: string }> = [
-  { id: 'midnight', label: 'Workbench' },
-  { id: 'nord', label: 'Nord' },
-  { id: 'dracula', label: 'Dracula' },
-  { id: 'ocean', label: 'Ocean' },
-  { id: 'monokai', label: 'Monokai' },
-  { id: 'amber', label: 'Amber' },
-  { id: 'rose-pine', label: 'Rose Pine' },
-  { id: 'gruvbox', label: 'Gruvbox' },
-  { id: 'one-dark', label: 'One Dark' },
-  { id: 'synthwave84', label: "Synthwave '84" },
-  { id: 'github-dark', label: 'GitHub Dark' }
+  theme('midnight', 'Workbench'),
+  theme('nord', 'Nord'),
+  theme('dracula', 'Dracula'),
+  theme('ocean', 'Ocean'),
+  theme('monokai', 'Monokai'),
+  theme('amber', 'Amber'),
+  theme('rose-pine', 'Rose Pine'),
+  theme('gruvbox', 'Gruvbox'),
+  theme('one-dark', 'One Dark'),
+  theme('synthwave84', "Synthwave '84"),
+  theme('github-dark', 'GitHub Dark')
 ]
 
-/** 'default' follows Settings › Appearance; the others override it for one workspace. */
-export const WORKSPACE_DENSITIES: Array<{ id: WorkspaceDensity; label: string }> = [
-  { id: 'default', label: 'App default' },
-  { id: 'compact', label: 'Compact' },
-  { id: 'comfortable', label: 'Comfortable' }
-]
+/** 'default' follows Settings › Appearance; the others override it for one workspace. Labels are read in the interface language. */
+export const WORKSPACE_DENSITIES: Array<{ id: WorkspaceDensity; readonly label: string }> = (['default', 'compact', 'comfortable'] as const)
+  .map(id => ({ id, get label() { return tc(`workspace.density.${id}`) } }))
 
 export const LAYOUT_PRESETS: WorkspaceLayoutPreset[] = [1, 2, 4, 6, 8, 10, 12, 14, 16]
 
-export const WORKSPACE_TEMPLATES: Array<{
-  id: string
-  label: string
-  description: string
-  themeId: WorkspaceThemeId
-  uiDensity: WorkspaceDensity
-  layoutPreset: WorkspaceLayoutPreset
-}> = [
-  { id: 'focused', label: 'Focused', description: 'Single agent focus', themeId: 'midnight', uiDensity: 'default', layoutPreset: 1 },
-  { id: 'pairing', label: 'Pairing', description: 'Two agents side by side', themeId: 'nord', uiDensity: 'default', layoutPreset: 2 },
-  { id: 'review', label: 'Review', description: 'Review and verify grid', themeId: 'dracula', uiDensity: 'comfortable', layoutPreset: 4 },
-  { id: 'automation', label: 'Automation', description: 'Large automation surface', themeId: 'monokai', uiDensity: 'default', layoutPreset: 8 }
-]

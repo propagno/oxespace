@@ -1,4 +1,5 @@
 import type { ThreadMcpServerStatus } from '../../../shared/types/thread'
+import { i18n } from '../../i18n'
 
 /**
  * Whether the agent itself connected to a server, which is what decides if its
@@ -17,24 +18,11 @@ export function agentStatusFor(name: string, conversation: ThreadMcpServerStatus
   return conversation.find(server => server.name === key || server.name === name)?.status ?? 'not-loaded'
 }
 
-export const AGENT_STATE_LABEL: Record<McpAgentState, string> = {
-  connected: 'Agent connected',
-  failed: 'Agent failed to connect',
-  'needs-auth': 'Agent needs sign-in',
-  pending: 'Agent connecting',
-  disabled: 'Disabled in the agent',
-  unknown: 'Agent state unknown',
-  'not-loaded': 'Not in this conversation',
-  'not-checked': 'Agent not checked'
-}
+const STATES: McpAgentState[] = ['connected', 'failed', 'needs-auth', 'pending', 'disabled', 'unknown', 'not-loaded', 'not-checked']
 
-export const AGENT_STATE_HINT: Record<McpAgentState, string> = {
-  connected: 'The agent of this conversation connected and can call its tools.',
-  failed: 'The agent could not start or reach it when the session began.',
-  'needs-auth': 'Run /mcp in Claude Code, or start a conversation, to sign in.',
-  pending: 'The agent was still connecting when it last reported.',
-  disabled: 'The agent has this server turned off.',
-  unknown: 'The agent did not say.',
-  'not-loaded': 'The session started without it. New conversations pick it up.',
-  'not-checked': 'Open a Thread conversation to see whether the agent connected. Terminals pick it up when the agent restarts.'
-}
+/** Short name and explanation of each state, read in the interface language each time. */
+const byState = (kind: 'label' | 'hint'): Record<McpAgentState, string> => Object.defineProperties({} as Record<McpAgentState, string>,
+  Object.fromEntries(STATES.map(state => [state, { enumerable: true, get: () => i18n.t(`mcp.agentState.${kind}.${state}`, { ns: 'code' }) }])))
+
+export const AGENT_STATE_LABEL = byState('label')
+export const AGENT_STATE_HINT = byState('hint')

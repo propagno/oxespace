@@ -61,14 +61,6 @@
 
 .skills-browser-search input:focus { border-color: var(--accent); }
 
-.skills-browser-error {
-  padding: 9px 16px;
-  background: var(--intent-danger-bg);
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-2xs);
-  border-bottom: 1px solid var(--intent-danger-border);
-}
-
 .skills-browser-notice {
   padding: 8px 16px;
   background: color-mix(in srgb, var(--accent) 8%, transparent);
@@ -189,15 +181,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
-}
-
-.skills-create-error {
-  padding: 8px 10px;
-  background: var(--intent-danger-bg);
-  border: 1px solid var(--intent-danger-border);
-  border-radius: var(--radius-sm);
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-2xs);
 }
 
 .skills-create-actions {
@@ -361,7 +344,7 @@
   }
 }
 
-.skills-browser-empty {
+.skills-browser-start {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -370,24 +353,6 @@
   padding: 38px 24px;
   text-align: center;
   color: var(--tx-muted);
-}
-
-.skills-browser-empty svg { opacity: 0.45; margin-bottom: 4px; }
-.skills-browser-empty strong { color: var(--tx-primary); font-size: var(--fs-sm); }
-
-.skills-browser-empty span {
-  font-size: var(--fs-2xs);
-  line-height: 1.5;
-  max-width: 420px;
-}
-
-.skills-browser-empty code {
-  padding: 1px 6px;
-  border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
 }
 
 .skills-browser-example {

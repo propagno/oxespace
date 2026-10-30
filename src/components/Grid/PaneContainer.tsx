@@ -12,6 +12,10 @@ import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
+const detailRows = (items: string[][]): Array<{ label: string; detail: string }> => items.map(([label, detail]) => ({ label, detail }))
 // Opened on request only, so it stays out of the startup bundle.
 const ProviderSessionFinder = lazy(() => import('./ProviderSessionFinder').then(module => ({ default: module.ProviderSessionFinder })))
 
@@ -86,8 +90,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
     if (!detailsOpen) return
     let active = true
     setSessionDetails(null); setSessionDetailsError('')
-    if (!window.oxe?.terminal?.status) { setSessionDetailsError('Session details unavailable'); return }
-    void window.oxe.terminal.status(pane.id).then(value => { if (active) setSessionDetails(value) }).catch(() => { if (active) setSessionDetailsError('Could not read the session') })
+    if (!window.oxe?.terminal?.status) { setSessionDetailsError(tc('paneMenu.detailsUnavailable')); return }
+    void window.oxe.terminal.status(pane.id).then(value => { if (active) setSessionDetails(value) }).catch(() => { if (active) setSessionDetailsError(tc('paneMenu.detailsFailed')) })
     return () => { active = false }
   }, [detailsOpen, pane.id, terminalState.status])
   const [menuHeight, setMenuHeight] = useState(320)
@@ -196,13 +200,13 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                 if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
               }}
               onBlur={() => void commitRename()}
-              aria-label="Rename pane"
+              aria-label={tc('paneMenu.rename')}
             />
           ) : (
             <button
               type="button"
               className="pane-intent pane-intent-button"
-              title={`${display.title}\n(double-click to rename)`}
+              title={tc('paneMenu.titleHint', { title: display.title })}
               onDoubleClick={(e) => startRename(e)}
               onClick={(e) => e.stopPropagation()}
             >
@@ -216,8 +220,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
             <button
               type="button"
               className="tile-btn pane-search-btn"
-              aria-label="Search in terminal"
-              title="Search (Ctrl+F)"
+              aria-label={tc('paneMenu.search')}
+              title={tc('paneMenu.searchTitle')}
               disabled={!terminalCanMutate}
               onClick={(e) => {
                 e.stopPropagation()
@@ -230,8 +234,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           <button
             type="button"
             className="tile-btn"
-            aria-label={isMaximized ? 'Restore pane' : 'Maximize pane'}
-            title={isMaximized ? 'Restore' : 'Expand'}
+            aria-label={isMaximized ? tc('paneMenu.restore') : tc('paneMenu.maximize')}
+            title={isMaximized ? tc('paneMenu.restore') : tc('paneMenu.maximize')}
             onClick={(e) => {
               e.stopPropagation()
               onToggleMaximize(pane.id)
@@ -243,8 +247,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
             <button
               type="button"
               className={`tile-btn${menuOpen ? ' active' : ''}`}
-              aria-label="More pane actions"
-              title="More actions"
+              aria-label={tc('paneMenu.more')}
+              title={tc('paneMenu.more')}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={(e) => {
@@ -261,7 +265,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" style={{ position: 'fixed', top: menuAnchor.top, right: menuAnchor.right, left: 'auto', maxHeight: menuHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
                 {isTerminalPane ? (
                   <>
-                    <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />Details</button>
+                    <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />{tc('paneMenu.details')}</button>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                     <button
                       type="button"
@@ -276,7 +280,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       }}
                     >
                       <Eraser size={14} aria-hidden="true" />
-                      Clear terminal
+                      {tc('paneMenu.clear')}
                     </button>
                     <button
                       type="button"
@@ -291,7 +295,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       }}
                     >
                       <RotateCcw size={14} aria-hidden="true" />
-                      New session
+                      {tc('paneMenu.newSession')}
                     </button>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                   </>
@@ -306,7 +310,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                   }}
                 >
                   <PanelRight size={14} aria-hidden="true" />
-                  Split pane right
+                  {tc('paneMenu.splitRight')}
                 </button>
                 <button
                   type="button"
@@ -318,13 +322,13 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                   }}
                 >
                   <PanelBottom size={14} aria-hidden="true" />
-                  Split pane down
+                  {tc('paneMenu.splitDown')}
                 </button>
                 {onArrange ? <>
                   <div className="pane-actions-popover-sep" aria-hidden="true" />
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />Move below the previous pane</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />Move to the right of the previous pane</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />Balance panes</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.moveBelow')}</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.moveRight')}</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.balance')}</button>
                 </> : null}
                 {onClose ? (
                   <>
@@ -339,7 +343,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       }}
                     >
                       <X size={14} aria-hidden="true" />
-                      Close pane
+                      {tc('paneMenu.close')}
                     </button>
                   </>
                 ) : null}
@@ -349,28 +353,28 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
         </div>
       </header>
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
-      {detailsOpen && <Dialog className="desktop-details-dialog" title="Terminal details" description="Terminal state and agent sessions in this directory." onClose={() => setDetailsOpen(false)}>
-        <p className="terminal-session-identity-note">The terminal does not report which Codex or Claude conversation is open. Find the native session by the start of the conversation and its time to get the ID used to resume.</p>
-        <DetailList rows={[
-          { label: 'Terminal', detail: display.title },
-          { label: 'Status', detail: ({ idle: 'Not started', starting: 'Starting', running: 'Running', exited: 'Exited', error: 'Error' })[terminalState.status] },
-          { label: 'Activity', detail: terminalState.status === 'running' ? terminalState.isWorking ? 'Working' : 'No recent activity' : '—' },
-          { label: 'Agent', detail: agentProfile?.name ?? '—' },
-          { label: 'Shell', detail: shellProfileName ?? 'Workspace default' },
-          { label: 'Directory', detail: pane.rootPath ?? workspace.rootPath },
-          ...(terminalState.error ? [{ label: 'Error', detail: terminalState.error }] : [])
-        ]} />
-        <Button size="sm" className="terminal-provider-session-action" onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>Find Codex or Claude sessions</Button>
-        <details className="terminal-technical-details"><summary>Internal IDs and terminal process</summary><DetailList rows={[
-          { label: 'PTY session ID (terminal)', detail: sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? 'No running session' : 'Reading…')) },
-          { label: 'Pane ID (OXESpace)', detail: pane.id },
-          { label: 'Workspace ID (OXESpace)', detail: workspace.id },
-          ...(sessionDetails?.launchDirectory ? [{ label: 'Start directory', detail: sessionDetails.launchDirectory }] : []),
-          ...(pane.rootPath !== workspace.rootPath ? [{ label: 'Workspace path', detail: workspace.rootPath }] : []),
-          ...(sessionDetails?.executable ? [{ label: 'Executable', detail: sessionDetails.executable }] : []),
-          ...(sessionDetails?.pid ? [{ label: 'Process ID', detail: String(sessionDetails.pid) }] : []),
-          ...(sessionDetails?.startedAt ? [{ label: 'Terminal started at', detail: formatDateTime(sessionDetails.startedAt) }] : [])
-        ]} /></details>
+      {detailsOpen && <Dialog className="desktop-details-dialog" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
+        <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>
+        <DetailList rows={detailRows([
+          [tc('panels.terminal'), display.title],
+          [tc('paneMenu.status'), tc(`paneMenu.state.${terminalState.status}`)],
+          [tc('paneMenu.activity'), terminalState.status === 'running' ? terminalState.isWorking ? tc('paneMenu.working') : tc('paneMenu.noActivity') : '—'],
+          [tc('paneMenu.agent'), agentProfile?.name ?? '—'],
+          [tc('paneMenu.shell'), shellProfileName ?? tc('paneMenu.workspaceDefault')],
+          [tc('workspace.shell.directory'), pane.rootPath ?? workspace.rootPath],
+          ...(terminalState.error ? [[tc('paneMenu.error'), terminalState.error]] : [])
+        ])} />
+        <Button size="sm" className="terminal-provider-session-action" onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>{tc('paneMenu.findSessions')}</Button>
+        <details className="terminal-technical-details"><summary>{tc('paneMenu.internal')}</summary><DetailList rows={detailRows([
+          [tc('paneMenu.ptyId'), sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? tc('paneMenu.noSession') : tc('paneMenu.reading')))],
+          [tc('paneMenu.paneId'), pane.id],
+          [tc('paneMenu.workspaceId'), workspace.id],
+          ...(sessionDetails?.launchDirectory ? [[tc('paneMenu.startDirectory'), sessionDetails.launchDirectory]] : []),
+          ...(pane.rootPath !== workspace.rootPath ? [[tc('paneMenu.workspacePath'), workspace.rootPath]] : []),
+          ...(sessionDetails?.executable ? [[tc('workspace.shell.executable'), sessionDetails.executable]] : []),
+          ...(sessionDetails?.pid ? [[tc('paneMenu.pid'), String(sessionDetails.pid)]] : []),
+          ...(sessionDetails?.startedAt ? [[tc('paneMenu.startedAt'), formatDateTime(sessionDetails.startedAt)]] : [])
+        ])} /></details>
       </Dialog>}
       {providerSessionsOpen && <Suspense fallback={null}><ProviderSessionFinder workspaceId={workspace.id} rootPath={pane.rootPath ?? workspace.rootPath} onClose={() => setProviderSessionsOpen(false)} /></Suspense>}
     </section>

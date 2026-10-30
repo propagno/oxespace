@@ -6,6 +6,9 @@ import { useAgentStore } from '../../store/agent.store'
 import { UsageStatus } from './UsageStatus'
 import { cx } from '../../ui'
 import styles from './AppStatusBar.module.css'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 interface AppStatusBarProps {
   workspace: Workspace | null
@@ -46,19 +49,19 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
   }
 
   return (
-    <footer className={cx('app-statusbar', styles.bar, docked && styles.docked)} aria-label="Workspace status bar">
+    <footer className={cx('app-statusbar', styles.bar, docked && styles.docked)} aria-label={tc('workspace.status.bar')}>
       <div className={styles.group}>
-        <span className={cx(styles.item, styles.strong)} title={path ?? 'No project selected'}>
+        <span className={cx(styles.item, styles.strong)} title={path ?? tc('workspace.status.noProject')}>
           <FolderGit2 size={12} aria-hidden="true" />
-          <span className={styles.path}>{path ?? 'No project selected'}</span>
+          <span className={styles.path}>{path ?? tc('workspace.status.noProject')}</span>
         </span>
       </div>
       <div className={styles.group}>
         {provider ? <UsageStatus provider={provider} /> : null}
         {workspace ? (
-          <span className={styles.item} title="Open workspace panes">
+          <span className={styles.item} title={tc('workspace.status.panesTitle')}>
             <PanelsTopLeft size={12} aria-hidden="true" />
-            {workspace.panes.length} {workspace.panes.length === 1 ? 'pane' : 'panes'}
+            {tc('workspace.status.panes', { count: workspace.panes.length })}
           </span>
         ) : null}
         {activePane ? <span className={styles.item}>{activePane.displayName ?? activePane.agentName ?? activePane.type}</span> : null}
@@ -67,11 +70,11 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
             type="button"
             className={cx(styles.item, styles.action)}
             onClick={stopBackgroundSessions}
-            title={`${backgroundPaneIds.length} terminal${backgroundPaneIds.length === 1 ? '' : 's'} still running in workspaces that are not open. Click to stop them.`}
+            title={tc('workspace.status.backgroundTitle', { count: backgroundPaneIds.length })}
             data-testid="background-sessions"
           >
             <Moon size={12} aria-hidden="true" />
-            {backgroundPaneIds.length} background
+            {tc('workspace.status.background', { count: backgroundPaneIds.length })}
           </button>
         ) : null}
       </div>

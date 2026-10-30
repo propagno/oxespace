@@ -9,18 +9,20 @@ import { buildChangeTree, chooseBase, comparisonKey, filterChangedFiles, formatC
 import { RefPicker, type RefPickerBranch } from './RefPicker'
 import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes-request.store'
 import './ChangesPanel.css'
-import { TextField, EmptyState, LoadingState, Menu, Spinner } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
+import { TextField, EmptyState, ErrorState, LoadingState, Menu, Spinner } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
 
 type Scope = 'branch' | 'uncommitted'
-const SCOPE_LABEL: Record<Scope, string> = { branch: 'Branch', uncommitted: 'Uncommitted' }
 const POLL_MS = 10_000
 
 function StatusIcon({ file }: { file: GitDiffSummaryFile }): ReactElement {
   const Icon = file.status === 'A' ? FilePlus2 : file.status === 'D' ? FileMinus2 : file.status === 'R' ? FileSymlink : FileDiff
-  return <Icon size={14} className={`changes-status is-${file.status}`} aria-label={file.status === 'A' ? 'Added' : file.status === 'D' ? 'Deleted' : file.status === 'R' ? 'Renamed' : 'Modified'} />
+  const status = file.status === 'A' ? 'added' : file.status === 'D' ? 'deleted' : file.status === 'R' ? 'renamed' : 'modified'
+  return <Icon size={14} className={`changes-status is-${file.status}`} role="img" aria-label={i18n.t(`changes.status.${status}`, { ns: 'code' })} />
 }
 
 const KIND: Record<string, [string, string]> = {
@@ -92,6 +94,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   /** Receives the formatted review comments; resolve true when they were delivered so they can be cleared. */
   onSendComments?: (text: string) => boolean | Promise<boolean>
 }): ReactElement {
+  const { t } = useTranslation('code')
   const [scope, setScope] = useState<Scope>('branch')
   const [base, setBase] = useState<string | null>(null)
   const [branches, setBranches] = useState<RefPickerBranch[]>([])
@@ -205,7 +208,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       if (id !== request.current) return
       setSummary(value); setError(value.error ?? '')
     } catch (cause) {
-      if (id === request.current) setError(humanizeError(cause, 'Could not read changes.'))
+      if (id === request.current) setError(humanizeError(cause))
     } finally { if (id === request.current) setLoading(false) }
   }, [workspaceId, diffRoot, effectiveBase, headRef, effectiveMode])
 
@@ -239,7 +242,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       : window.oxe.fs.readFile({ workspaceId, rootPath: diffRoot, relativePath: selected.path }).then(result => result.content, () => '')
     void Promise.all([original, modified]).then(([originalValue, modifiedValue]) => {
       if (active) setContent({ path: selected.path, original: originalValue, modified: modifiedValue })
-    }, cause => { if (active) setContentError(humanizeError(cause, 'Could not load this file.')) })
+    }, cause => { if (active) setContentError(humanizeError(cause)) })
     return () => { active = false }
   }, [selected?.path, selected?.status, selected?.oldPath, selected?.binary, effectiveBase, compiledAt, workspaceId, rootPath, diffRoot, headRef, effectiveMode])
 
@@ -247,7 +250,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     if (!onSendComments || !workspaceComments.length) return
     const count = workspaceComments.length
     const delivered = await onSendComments(formatDiffComments(workspaceComments))
-    if (delivered) { clearComments(workspaceId); setSendNotice(`${count} ${count === 1 ? 'comment' : 'comments'} sent`) } else setSendNotice('Could not deliver the comments')
+    if (delivered) { clearComments(workspaceId); setSendNotice(t('changes.comments.sent', { count })) } else setSendNotice(t('changes.comments.notSent'))
     window.setTimeout(() => setSendNotice(''), 5000)
   }
   const go = (offset: number): void => { const next = ordered[index + offset]; if (next) setSelectedPath(next.path) }
@@ -265,65 +268,65 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   } : undefined, [workspaceComments, selectedPathForReview, removeComment, addComment, workspaceId])
   const viewedCount = (summary?.files ?? []).filter(file => viewed.has(signature(file))).length
 
-  return <section className="changes-panel" aria-label="Changes" data-testid="changes-panel">
+  return <section className="changes-panel" aria-label={t('panels.changes')} data-testid="changes-panel">
     <header className="changes-toolbar">
-      <Menu label="Change scope" trigger={<button type="button" className="changes-pill" aria-label={`Change scope: ${SCOPE_LABEL[scope]}${effectiveMode === 'direct' ? ' · direct' : ''}`}>{SCOPE_LABEL[scope]}{effectiveMode === 'direct' ? ' · direct' : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
-        { type: 'check', label: 'Compare branches', checked: scope === 'branch', onSelect: () => { setScope('branch'); setSelectedPath(null) } },
-        { type: 'check', label: 'Uncommitted changes', checked: scope === 'uncommitted', onSelect: () => { setScope('uncommitted'); setSelectedPath(null) } },
+      <Menu label={t('changes.scope.label')} trigger={<button type="button" className="changes-pill" aria-label={`${t('changes.scope.label')}: ${t(`changes.scope.${scope}`)}${effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}`}>{t(`changes.scope.${scope}`)}{effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
+        { type: 'check', label: t('changes.scope.compareBranches'), checked: scope === 'branch', onSelect: () => { setScope('branch'); setSelectedPath(null) } },
+        { type: 'check', label: t('changes.scope.uncommittedChanges'), checked: scope === 'uncommitted', onSelect: () => { setScope('uncommitted'); setSelectedPath(null) } },
         { type: 'separator' },
-        { type: 'label', label: 'Compare from' },
-        { type: 'check', label: 'Common ancestor (like a pull request)', checked: mode === 'merge-base', disabled: scope === 'uncommitted', onSelect: () => choose({ mode: 'merge-base' }) },
-        { type: 'check', label: 'Base directly', checked: mode === 'direct', disabled: scope === 'uncommitted', onSelect: () => choose({ mode: 'direct' }) }
+        { type: 'label', label: t('changes.scope.from') },
+        { type: 'check', label: t('changes.scope.mergeBase'), checked: mode === 'merge-base', disabled: scope === 'uncommitted', onSelect: () => choose({ mode: 'merge-base' }) },
+        { type: 'check', label: t('changes.scope.direct'), checked: mode === 'direct', disabled: scope === 'uncommitted', onSelect: () => choose({ mode: 'direct' }) }
       ]} />
-      {summary && <span className="changes-totals" aria-label="Total changes"><span className="is-add">+{formatCount(summary.additions)}</span><span className="is-del">−{formatCount(summary.deletions)}</span></span>}
-      <span className="changes-sides" role="group" aria-label="Compared sides">
-        <RefPicker label="Base (side A)" value={effectiveBase ?? '…'} branches={branches} selected={`ref:${effectiveBase ?? ''}`} disabled={scope === 'uncommitted'} onPickRef={ref => choose({ base: ref })} />
-        <button type="button" className="changes-icon" aria-label="Swap sides" title={swapped ? 'Swap sides' : 'A detached work tree cannot become the base'} disabled={scope === 'uncommitted' || !swapped} onClick={() => { if (swapped) choose({ base: swapped.base, head: swapped.head }) }}><ArrowLeftRight size={14} aria-hidden="true" /></button>
-        <RefPicker label="Compare (side B)" value={headText} icon={head.kind === 'worktree' ? <FolderGit2 size={14} aria-hidden="true" /> : undefined} branches={branches} worktrees={worktrees} selected={headSelected} disabled={scope === 'uncommitted'}
+      {summary && <span className="changes-totals" role="img" aria-label={t('changes.totals', { additions: formatCount(summary.additions), deletions: formatCount(summary.deletions) })}><span className="is-add" aria-hidden="true">+{formatCount(summary.additions)}</span><span className="is-del" aria-hidden="true">−{formatCount(summary.deletions)}</span></span>}
+      <span className="changes-sides" role="group" aria-label={t('changes.sides')}>
+        <RefPicker label={t('changes.base')} value={effectiveBase ?? '…'} branches={branches} selected={`ref:${effectiveBase ?? ''}`} disabled={scope === 'uncommitted'} onPickRef={ref => choose({ base: ref })} />
+        <button type="button" className="changes-icon" aria-label={t('changes.swap')} title={swapped ? t('changes.swap') : t('changes.swapDetached')} disabled={scope === 'uncommitted' || !swapped} onClick={() => { if (swapped) choose({ base: swapped.base, head: swapped.head }) }}><ArrowLeftRight size={14} aria-hidden="true" /></button>
+        <RefPicker label={t('changes.head')} value={headText} icon={head.kind === 'worktree' ? <FolderGit2 size={14} aria-hidden="true" /> : undefined} branches={branches} worktrees={worktrees} selected={headSelected} disabled={scope === 'uncommitted'}
           onPickRef={ref => choose({ head: { kind: 'ref', ref } })}
           onPickWorktree={tree => choose({ head: samePath(tree.path, rootPath) ? null : { kind: 'worktree', path: tree.path, branch: tree.branch } })} />
       </span>
       <span className="changes-toolbar-spacer" />
-      {workspaceComments.length > 0 && <span className="changes-review-comments" role="group" aria-label="Review comments">
-        <span><b>{workspaceComments.length}</b><span className="changes-review-label"> {workspaceComments.length === 1 ? 'comment' : 'comments'}</span></span>
-        {onSendComments && <button type="button" className="is-primary" aria-label="Send comments to agent" title="Send the review comments to the agent" onClick={() => void sendComments()}>Send</button>}
-        <button type="button" aria-label="Discard review comments" title="Discard all review comments" onClick={() => clearComments(workspaceId)}><X size={14} /></button>
+      {workspaceComments.length > 0 && <span className="changes-review-comments" role="group" aria-label={t('changes.comments.label')}>
+        <span><b>{workspaceComments.length}</b><span className="changes-review-label"> {t('changes.comments.count', { count: workspaceComments.length })}</span></span>
+        {onSendComments && <button type="button" className="is-primary" aria-label={t('changes.comments.sendLabel')} title={t('changes.comments.sendTitle')} onClick={() => void sendComments()}>{t('changes.comments.send')}</button>}
+        <button type="button" aria-label={t('changes.comments.discard')} title={t('changes.comments.discardTitle')} onClick={() => clearComments(workspaceId)}><X size={14} aria-hidden="true" /></button>
       </span>}
-      <button type="button" className="changes-icon" aria-label="Refresh changes" title="Refresh" onClick={() => void load()} disabled={loading}>{loading ? <Spinner size="sm" decorative /> : <RefreshCw size={14} />}</button>
-      {onClose && <button type="button" className="changes-icon" aria-label="Close changes" title="Close" onClick={onClose}><X size={14} /></button>}
+      <button type="button" className="changes-icon" aria-label={t('changes.refresh')} title={t('changes.refresh')} onClick={() => void load()} disabled={loading}>{loading ? <Spinner size="sm" decorative /> : <RefreshCw size={14} aria-hidden="true" />}</button>
+      {onClose && <button type="button" className="changes-icon" aria-label={t('changes.close')} title={t('changes.close')} onClick={onClose}><X size={14} aria-hidden="true" /></button>}
     </header>
-    {large && <div className="changes-banner" role="note"><Info size={14} aria-hidden="true" /><span>This diff is large; showing one file at a time.</span>
-      <span className="changes-banner-nav"><button type="button" aria-label="Previous file" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} /></button><button type="button" aria-label="Next file" onClick={() => go(1)} disabled={index < 0 || index >= ordered.length - 1}><ChevronRight size={14} /></button></span></div>}
-    {error && <p role="alert" className="changes-error">{error}</p>}
+    {large && <div className="changes-banner" role="note"><Info size={14} aria-hidden="true" /><span>{t('changes.large')}</span>
+      <span className="changes-banner-nav"><button type="button" aria-label={t('changes.previousFile')} onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} aria-hidden="true" /></button><button type="button" aria-label={t('changes.nextFile')} onClick={() => go(1)} disabled={index < 0 || index >= ordered.length - 1}><ChevronRight size={14} aria-hidden="true" /></button></span></div>}
+    {error && <ErrorState compact title={t('changes.readFailed')} message={error} onRetry={() => void load()} />}
     {sendNotice && <p role="status" className="changes-note">{sendNotice}</p>}
     <div className="changes-body">
       <div className="changes-diff">
-        {!summary && loading ? <div className="changes-state"><LoadingState label="Loading changes…" /></div>
-          : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? 'No file matches the filter' : 'No changes'}>{summary?.files.length ? 'Clear the filter to see every changed file.' : `Nothing differs from ${effectiveBase ?? 'the base'}.`}</EmptyState></div>
+        {!summary && loading ? <div className="changes-state"><LoadingState label={t('changes.loading')} /></div>
+          : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? t('changes.noMatch') : t('changes.none')}>{summary?.files.length ? t('changes.noMatchHint') : t('changes.noneHint', { base: effectiveBase ?? t('changes.theBase') })}</EmptyState></div>
           : <>
             <div className="changes-file-header">
               <StatusIcon file={selected} /><span className="changes-file-path" title={selected.path}><span>{name!.directory}</span><strong>{name!.name}</strong></span>
-              {selected.oldPath && <small>from {selected.oldPath}</small>}
+              {selected.oldPath && <small>{t('changes.renamedFrom', { path: selected.oldPath })}</small>}
               <Counts additions={selected.additions} deletions={selected.deletions} />
               <span className="changes-toolbar-spacer" />
-              <button type="button" className="changes-viewed" aria-label="Viewed" title="Mark as viewed" aria-pressed={viewed.has(signature(selected))} onClick={() => toggleViewed(selected)}>{viewed.has(signature(selected)) ? <CheckCircle2 size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}<span className="changes-viewed-label">Viewed</span></button>
-              {!large && <span className="changes-banner-nav"><button type="button" aria-label="Previous file" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} /></button><button type="button" aria-label="Next file" onClick={() => go(1)} disabled={index >= ordered.length - 1}><ChevronRight size={14} /></button></span>}
+              <button type="button" className="changes-viewed" aria-label={t('changes.viewed')} title={t('changes.markViewed')} aria-pressed={viewed.has(signature(selected))} onClick={() => toggleViewed(selected)}>{viewed.has(signature(selected)) ? <CheckCircle2 size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}<span className="changes-viewed-label">{t('changes.viewed')}</span></button>
+              {!large && <span className="changes-banner-nav"><button type="button" aria-label={t('changes.previousFile')} onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} aria-hidden="true" /></button><button type="button" aria-label={t('changes.nextFile')} onClick={() => go(1)} disabled={index >= ordered.length - 1}><ChevronRight size={14} aria-hidden="true" /></button></span>}
             </div>
             <div className="changes-editor">
-              {selected.binary ? <EmptyState compact title="Binary file; no text diff available." />
-                : contentError ? <p role="alert" className="changes-error">{contentError}</p>
-                : content?.path !== selected.path ? <div className="changes-state"><LoadingState label="Loading diff…" /></div>
+              {selected.binary ? <EmptyState compact title={t('changes.binary')} />
+                : contentError ? <ErrorState compact title={t('changes.fileFailed')} message={contentError} />
+                : content?.path !== selected.path ? <div className="changes-state"><LoadingState label={t('changes.loadingDiff')} /></div>
                 : <>
-                  {content.original.truncated && <p className="changes-note">The base version is larger than 2 MB and was truncated.</p>}
-                  <Suspense fallback={<div className="changes-state"><LoadingState label="Loading editor…" /></div>}><MonacoDiff path={selected.path} original={content.original.content} modified={content.modified} language={languageFor(selected.path)} review={fileReview} /></Suspense>
+                  {content.original.truncated && <p className="changes-note">{t('changes.truncated')}</p>}
+                  <Suspense fallback={<div className="changes-state"><LoadingState label={t('editor.loadingEditor')} /></div>}><MonacoDiff path={selected.path} original={content.original.content} modified={content.modified} language={languageFor(selected.path)} review={fileReview} /></Suspense>
                 </>}
             </div>
           </>}
       </div>
-      <aside className="changes-files" aria-label="Changed files">
-        <label className="changes-filter"><Search size={14} aria-hidden="true" /><TextField aria-label="Filter files" placeholder="Filter files…" value={query} onChange={event => setQuery(event.target.value)} /></label>
-        <ul className="changes-tree" role="tree" aria-label="Changed files" ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
-        {!!summary?.files.length && <footer className="changes-files-footer">{viewedCount}/{summary.files.length} viewed</footer>}
+      <aside className="changes-files" aria-label={t('changes.files')}>
+        <label className="changes-filter"><Search size={14} aria-hidden="true" /><TextField aria-label={t('changes.filter')} placeholder={t('changes.filterPlaceholder')} value={query} onChange={event => setQuery(event.target.value)} /></label>
+        <ul className="changes-tree" role="tree" aria-label={t('changes.files')} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
+        {!!summary?.files.length && <footer className="changes-files-footer">{t('changes.viewedCount', { viewed: viewedCount, total: summary.files.length })}</footer>}
       </aside>
     </div>
   </section>

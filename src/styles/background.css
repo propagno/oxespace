@@ -301,15 +301,6 @@
   tab-size: 2;
 }
 
-.bg-jobs-dock-output-empty {
-  padding: 10px;
-  border: 1px dashed var(--bd-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  text-align: center;
-}
-
 .workspace-background-panel .workspace-editor-header {
   height: 42px;
   padding: 6px 8px;

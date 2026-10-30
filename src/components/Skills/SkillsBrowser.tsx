@@ -1,10 +1,17 @@
 import { Copy, Download, Edit3, FileText, FolderOpen, Play, Plus, RotateCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { ToolPanel, Button, TextField, Select } from '../../ui'
+import { ToolPanel, Button, EmptyState, ErrorState, TextField, Select } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
+import { RichText } from '../../i18n/RichText'
+import { shortcutLabel } from '../../keyboard/keybindings'
 import { BUILTIN_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { useSkillStore } from '../../store/skill.store'
 import { humanizeError } from '../../utils/humanizeError'
+
+/** The code catalog; rows and the form re-render with the browser, which subscribes to the language. */
+const tc = i18n.getFixedT(null, 'code'), t = tc
 
 interface SkillsBrowserProps {
   workspaceId: string | null
@@ -15,6 +22,7 @@ interface SkillsBrowserProps {
 }
 
 export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId, workspaceRootPath }: SkillsBrowserProps): ReactElement {
+  useTranslation('code')
   const skills = useSkillStore((s) => s.skills)
   const loading = useSkillStore((s) => s.loading)
   const error = useSkillStore((s) => s.error)
@@ -59,14 +67,14 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
 
   const handleUseSkill = async (skill: SkillDefinition): Promise<void> => {
     if (!activePaneId) {
-      setNotice('Select or start a terminal before using a skill.')
+      setNotice(tc('skills.needTerminal'))
       return
     }
     setBusySkill(skill.name)
     setNotice(null)
     try {
       await invoke(skill.name, activePaneId, argumentBySkill[skill.name] ?? '')
-      setNotice(`/${skill.name} sent to the active terminal.`)
+      setNotice(tc('skills.sent', { name: skill.name }))
     } catch (err) {
       setNotice(toMessage(err))
     } finally {
@@ -79,24 +87,24 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
     const prompt = renderSkillPrompt(skill.body, argument)
     try {
       await navigator.clipboard.writeText(prompt)
-      setNotice(`Prompt for /${skill.name} copied.`)
+      setNotice(tc('skills.copied', { name: skill.name }))
     } catch {
-      setNotice('Could not copy the prompt.')
+      setNotice(tc('skills.copyFailed'))
     }
   }
 
   const handleEditSkill = (skill: SkillDefinition): void => {
     if (!workspaceId || !workspaceRootPath) {
-      setNotice('Open a workspace first to edit in OXESpace.')
+      setNotice(tc('skills.needWorkspace'))
       return
     }
     const relativePath = toWorkspaceRelativePath(workspaceRootPath, skill.filePath)
     if (!relativePath) {
-      setNotice('This is a global skill. Copy it into <workspace>/.oxe/skills/ to edit in the workspace editor.')
+      setNotice(tc('skills.globalSkill'))
       return
     }
     onOpenEditor(relativePath)
-    setNotice(`Opening /${skill.name} in the editor.`)
+    setNotice(tc('skills.opening', { name: skill.name }))
   }
 
   const handleInstallSdlcPack = async (): Promise<void> => {
@@ -107,7 +115,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
       const scope = workspaceRootPath ? 'workspace' : 'user'
       const templates = SDLC_SKILL_TEMPLATES.filter((template) => !existingNames.has(template.name))
       if (templates.length === 0) {
-        setNotice('SDLC skills already installed.')
+        setNotice(tc('skills.packInstalled'))
         return
       }
 
@@ -122,7 +130,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
           workspaceRootPath: scope === 'workspace' ? workspaceRootPath ?? undefined : undefined
         })
       }
-      setNotice(`${templates.length} SDLC skills installed ${scope === 'workspace' ? 'in this workspace' : 'for the user'}.`)
+      setNotice(scope === 'workspace' ? tc('skills.packDoneWorkspace', { count: templates.length }) : tc('skills.packDoneUser', { count: templates.length }))
       void refresh(workspaceRootPath ?? undefined)
     } catch (err) {
       setNotice(toMessage(err))
@@ -134,35 +142,33 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
   return (
     <ToolPanel
       className="skills-browser"
-      label="Skills" onClose={onClose}>
+      label={tc('tools.skills.label')} onClose={onClose}>
       <header className="skills-browser-header">
         <div className="skills-browser-title">
           <Sparkles size={14} aria-hidden="true" />
-          <strong>Agent skills</strong>
-          <span className="skills-browser-count">{skills.length} total</span>
+          <strong>{tc('skills.title')}</strong>
+          <span className="skills-browser-count">{tc('skills.total', { count: skills.length })}</span>
         </div>
         <div className="skills-browser-actions">
           {sdlcFullyInstalled ? null : (
             <Button
-             
               variant="ghost" size="sm" className="skills-pack-btn"
               disabled={installingPack}
               onClick={() => void handleInstallSdlcPack()}
-              title={workspaceRootPath ? 'Install recommended SDLC skills in this workspace' : 'Install recommended SDLC skills for the user'}
+              title={workspaceRootPath ? tc('skills.packTitleWorkspace') : tc('skills.packTitleUser')}
             >
               <Download size={12} aria-hidden="true" />
               {installingPack
-                ? 'Installing…'
+                ? tc('skills.installing')
                 : sdlcPartial
-                  ? `Install SDLC pack (${sdlcMissingCount} missing)`
-                  : 'Install SDLC pack'}
+                  ? tc('skills.packMissing', { count: sdlcMissingCount })
+                  : tc('skills.pack')}
             </Button>
           )}
           <Button
-           
             variant="ghost" size="sm" square
-            aria-label="New skill"
-            title="New skill"
+            aria-label={tc('skills.new')}
+            title={tc('skills.new')}
             disabled={creating}
             onClick={() => setCreating(true)}
             data-testid="btn-new-skill"
@@ -170,15 +176,15 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
             <Plus size={14} aria-hidden="true" />
           </Button>
           <Button
-           
             variant="ghost" size="sm" square
-            aria-label="Refresh"
+            aria-label={tc('github.refresh')}
+            title={tc('github.refresh')}
             disabled={loading}
             onClick={() => void refresh(workspaceRootPath ?? undefined)}
           >
             <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label={tc('mcp.close')} title={tc('mcp.close')} onClick={onClose}>
             <X size={14} aria-hidden="true" />
           </Button>
         </div>
@@ -191,7 +197,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
           onCreate={async (input) => {
             const created = await createSkill(input)
             setCreating(false)
-            setNotice(`/${created.name} created at ${compactPath(created.filePath)}`)
+            setNotice(tc('skills.created', { name: created.name, path: compactPath(created.filePath) }))
             // Open workspace skills in the editor right away — gets the user
             // into the file to flesh out the prompt body. User skills can't
             // be opened in the workspace editor since they live outside it.
@@ -206,19 +212,20 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
       <div className="skills-browser-search">
         <TextField
           type="search"
-          placeholder="Search by name, description or category…"
+          aria-label={tc('skills.search')}
+          placeholder={tc('skills.searchPlaceholder')}
           value={filter}
           onChange={(event) => setFilter(event.currentTarget.value)}
         />
       </div>
 
-      {error ? <div className="skills-browser-error">{error}</div> : null}
+      {error ? <ErrorState compact title={tc('skills.failed')} message={error} onRetry={() => void refresh(workspaceRootPath ?? undefined)} /> : null}
       {notice ? <div className="skills-browser-notice">{notice}</div> : null}
 
       <div className="skills-browser-list">
         {workspaceSkills.length > 0 ? (
           <>
-            <div className="skills-section-label">Workspace ({workspaceSkills.length})</div>
+            <div className="skills-section-label">{tc('skills.workspaceSection', { count: workspaceSkills.length })}</div>
             {workspaceSkills.map((skill) => (
               <SkillRow
                 key={skill.filePath}
@@ -238,7 +245,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
 
         {userSkills.length > 0 ? (
           <>
-            <div className="skills-section-label">User · ~/.oxe/skills ({userSkills.length})</div>
+            <div className="skills-section-label">{tc('skills.userSection', { count: userSkills.length })}</div>
             {userSkills.map((skill) => (
               <SkillRow
                 key={skill.filePath}
@@ -257,13 +264,8 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
         ) : null}
 
         {filtered.length === 0 && !loading ? (
-          <div className="skills-browser-empty">
-            <Sparkles size={32} aria-hidden="true" />
-            <strong>No skills</strong>
-            <span>
-              Create <code>.md</code> files in <code>~/.oxe/skills/</code> or{' '}
-              <code>&lt;workspace&gt;/.oxe/skills/</code> with YAML frontmatter to extend your agents.
-            </span>
+          <div className="skills-browser-start">
+            <EmptyState icon={<Sparkles size={20} />} title={filter.trim() ? tc('skills.noMatch') : tc('skills.none')}><RichText text={tc('skills.noneHint')} /></EmptyState>
             <pre className="skills-browser-example">{`---
 name: refactor
 description: Refactor code in the project's style
@@ -277,9 +279,7 @@ You are a refactorer. Analyze {{argument}} and propose improvements.`}</pre>
       </div>
 
       <footer className="skills-browser-footer">
-        <span>
-          Skills appear in <kbd>Ctrl+/</kbd> automatically. Workspace skills override user skills with the same name.
-        </span>
+        <span><RichText text={tc('skills.footer', { shortcut: shortcutLabel('terminal.slash') ?? 'Ctrl+/' })} /></span>
       </footer>
     </ToolPanel>
   )
@@ -306,12 +306,12 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
           <strong>/{skill.name}</strong>
           {skill.category ? <span className="skill-row-category">{skill.category}</span> : null}
         </div>
-        <span className="skill-row-description">{skill.description || '(no description)'}</span>
+        <span className="skill-row-description">{skill.description || t('skills.noDescription')}</span>
         <div className="skill-row-meta">
           {skill.agents.length > 0 ? (
             <span className="skill-row-agents">{skill.agents.join(', ')}</span>
           ) : (
-            <span className="skill-row-agents">all agents</span>
+            <span className="skill-row-agents">{t('skills.allAgents')}</span>
           )}
           <span className="skill-row-path" title={skill.filePath}>
             <FolderOpen size={12} aria-hidden="true" /> {compactPath(skill.filePath)}
@@ -322,18 +322,18 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
             type="text"
             value={argument}
             onChange={(event) => onArgumentChange(event.currentTarget.value)}
-            placeholder="Optional skill argument…"
-            aria-label={`Argument for /${skill.name}`}
+            placeholder={t('skills.argumentPlaceholder')}
+            aria-label={t('skills.argument', { name: skill.name })}
           />
           <div className="skill-row-buttons">
-            <Button variant="primary" size="sm" disabled={!canUse || busy} onClick={onUse} title={canUse ? 'Send to the active terminal' : 'Select an active terminal'}>
-              <Play size={12} aria-hidden="true" /> Use
+            <Button variant="primary" size="sm" disabled={!canUse || busy} onClick={onUse} title={canUse ? t('skills.useTitle') : t('skills.useDisabled')}>
+              <Play size={12} aria-hidden="true" /> {t('skills.use')}
             </Button>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={onCopy} title="Copy rendered prompt">
-              <Copy size={12} aria-hidden="true" /> Copy
+            <Button variant="ghost" size="sm" disabled={busy} onClick={onCopy} title={t('skills.copyTitle')}>
+              <Copy size={12} aria-hidden="true" /> {t('github.actions.copy')}
             </Button>
-            <Button variant="ghost" size="sm" disabled={!canEdit || busy} onClick={onEdit} title={skill.source === 'workspace' ? 'Edit in the editor' : 'Global skills must be copied into the workspace before editing'}>
-              <Edit3 size={12} aria-hidden="true" /> Edit
+            <Button variant="ghost" size="sm" disabled={!canEdit || busy || skill.source !== 'workspace'} onClick={onEdit} title={skill.source === 'workspace' ? t('skills.editTitle') : t('skills.editGlobal')}>
+              <Edit3 size={12} aria-hidden="true" /> {t('github.repos.edit')}
             </Button>
           </div>
         </div>
@@ -404,15 +404,15 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
     setSubmitError(null)
     const trimmedName = name.trim()
     if (!/^[a-z0-9][a-z0-9-]*$/i.test(trimmedName)) {
-      setSubmitError('Name must be kebab-case (letters, digits, hyphens). Starts with a letter or digit.')
+      setSubmitError(t('skills.form.nameInvalid'))
       return
     }
     if (!description.trim()) {
-      setSubmitError('Description is required.')
+      setSubmitError(t('skills.form.descriptionRequired'))
       return
     }
     if (scope === 'workspace' && !workspaceRootPath) {
-      setSubmitError('Open a workspace before creating a workspace-scoped skill.')
+      setSubmitError(t('skills.form.needWorkspace'))
       return
     }
     setSubmitting(true)
@@ -436,15 +436,15 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
   return (
     <form className="skills-create-form" onSubmit={(e) => void handleSubmit(e)}>
       <header className="skills-create-header">
-        <strong>New skill</strong>
-        <span>The file is written to disk; you can edit the prompt body afterwards.</span>
+        <strong>{t('skills.new')}</strong>
+        <span>{t('skills.form.intro')}</span>
       </header>
 
       <div className="skills-create-grid">
         <label className="skills-create-field">
-          <span>Template</span>
+          <span>{t('mcp.form.template')}</span>
           <Select value={templateId} onChange={(e) => applyTemplate(e.currentTarget.value)}>
-            <option value="custom">Custom skill</option>
+            <option value="custom">{t('skills.form.custom')}</option>
             {SDLC_SKILL_TEMPLATES.map((template) => (
               <option key={template.name} value={template.name}>{template.name}</option>
             ))}
@@ -452,7 +452,7 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
         </label>
 
         <label className="skills-create-field">
-          <span>Name (kebab-case)</span>
+          <span>{t('skills.form.name')}</span>
           <TextField
             type="text"
             value={name}
@@ -463,7 +463,7 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
         </label>
 
         <label className="skills-create-field">
-          <span>Category (optional)</span>
+          <span>{t('skills.form.category')}</span>
           <TextField
             type="text"
             value={category}
@@ -474,17 +474,17 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
       </div>
 
       <label className="skills-create-field">
-        <span>Description</span>
+        <span>{t('skills.form.description')}</span>
         <TextField
           type="text"
           value={description}
-          placeholder="Refactor React components in the project's style"
+          placeholder={t('skills.form.descriptionPlaceholder')}
           onChange={(e) => setDescription(e.currentTarget.value)}
         />
       </label>
 
       <fieldset className="skills-create-field">
-        <legend>Scope</legend>
+        <legend>{t('mcp.form.scope')}</legend>
         <label className="skills-create-radio">
           <input
             type="radio"
@@ -493,7 +493,7 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
             checked={scope === 'user'}
             onChange={() => setScope('user')}
           />
-          User — <code>~/.oxe/skills/</code> (every workspace sees it)
+          <RichText text={t('skills.form.scopeUser')} />
         </label>
         <label className={`skills-create-radio${!workspaceRootPath ? ' disabled' : ''}`}>
           <input
@@ -504,12 +504,12 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
             disabled={!workspaceRootPath}
             onChange={() => setScope('workspace')}
           />
-          Workspace — <code>&lt;root&gt;/.oxe/skills/</code> (overrides user skills with the same name)
+          <RichText text={t('skills.form.scopeWorkspace')} />
         </label>
       </fieldset>
 
       <fieldset className="skills-create-field">
-        <legend>Providers (empty = all)</legend>
+        <legend>{t('skills.form.providers')}</legend>
         <div className="skills-create-providers">
           {BUILTIN_PROVIDERS.map((provider) => (
             <label key={provider} className="skills-create-checkbox">
@@ -524,20 +524,20 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
         </div>
       </fieldset>
 
-      {templateId !== 'custom' ? (
+      {scope === 'workspace' ? (
         <div className="skills-create-template-note">
-          Workspace skills open in the editor after creation.
+          {t('skills.form.opensInEditor')}
         </div>
       ) : null}
 
-      {submitError ? <div className="skills-create-error">{submitError}</div> : null}
+      {submitError ? <ErrorState compact title={t('skills.form.failed')} message={submitError} /> : null}
 
       <footer className="skills-create-actions">
         <Button variant="ghost" size="sm" disabled={submitting} onClick={onCancel}>
-          Cancel
+          {t('github.cancel')}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? 'Creating…' : 'Create skill'}
+          {submitting ? t('worktree.create.creating') : t('skills.form.create')}
         </Button>
       </footer>
     </form>
@@ -545,7 +545,7 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
 }
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'The skill action did not complete.')
+  return humanizeError(error, tc('skills.failedAction'))
 }
 
 interface SkillTemplate {

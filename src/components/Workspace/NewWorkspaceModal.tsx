@@ -6,8 +6,9 @@ import { isSameRootPath } from '../../../shared/utils/path'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
-import { Button, Dialog, EmptyState } from '../../ui'
+import { Button, Dialog, EmptyState, ErrorState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { useTranslation } from 'react-i18next'
 
 export interface WizardLaunchInput {
   rootPath: string
@@ -35,16 +36,10 @@ interface NewWorkspaceModalProps {
  *  (builtin-powershell on Windows, builtin-bash on Linux/macOS). */
 const AGENT_SHELL_PROFILE_IDS = new Set(['builtin-claude', 'builtin-copilot'])
 
-const PRESET_LABELS: Record<WorkspaceLayoutPreset, { label: string; description: string; cols: number; rows: number }> = {
-  1:  { label: '1 pane',  description: 'One terminal',     cols: 1, rows: 1 },
-  2:  { label: '2 panes', description: 'Side by side',     cols: 2, rows: 1 },
-  4:  { label: '4 panes', description: '2×2 grid',         cols: 2, rows: 2 },
-  6:  { label: '6 panes', description: '2×3 grid',         cols: 3, rows: 2 },
-  8:  { label: '8 panes', description: '2×4 grid',         cols: 4, rows: 2 },
-  10: { label: '10 panes', description: '2×5 grid',        cols: 5, rows: 2 },
-  12: { label: '12 panes', description: '3×4 grid',        cols: 4, rows: 3 },
-  14: { label: '14 panes', description: '2×7 grid',        cols: 7, rows: 2 },
-  16: { label: '16 panes', description: '4×4 grid',        cols: 4, rows: 4 }
+/** Columns × rows of each layout; its name and description come from the catalog. */
+const PRESET_GRID: Record<WorkspaceLayoutPreset, { cols: number; rows: number }> = {
+  1: { cols: 1, rows: 1 }, 2: { cols: 2, rows: 1 }, 4: { cols: 2, rows: 2 }, 6: { cols: 3, rows: 2 }, 8: { cols: 4, rows: 2 },
+  10: { cols: 5, rows: 2 }, 12: { cols: 4, rows: 3 }, 14: { cols: 7, rows: 2 }, 16: { cols: 4, rows: 4 }
 }
 
 export function NewWorkspaceModal({
@@ -59,6 +54,7 @@ export function NewWorkspaceModal({
   returnFocusTo,
   onClose
 }: NewWorkspaceModalProps): ReactElement {
+  const { t } = useTranslation('code')
   const [rootPath, setRootPath] = useState('')
   const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(4)
   const [agentCounts, setAgentCounts] = useState<Record<string, number>>({})
@@ -76,7 +72,7 @@ export function NewWorkspaceModal({
   // the chip is labelled from the profile the main process actually seeded
   // rather than from a hardcoded product name.
   const shellProfile = shellProfiles.find((profile) => !AGENT_SHELL_PROFILE_IDS.has(profile.id)) ?? null
-  const shellLabel = shellProfile?.name ?? 'Shell'
+  const shellLabel = shellProfile?.name ?? t('newWorkspace.shell')
 
   const totalSelected = Object.values(agentCounts).reduce((a, b) => a + b, 0) + shellCount
   const remaining = Math.max(0, layoutPreset - totalSelected)
@@ -94,6 +90,8 @@ export function NewWorkspaceModal({
     try {
       const folder = await onPickFolder()
       if (folder) setRootPath(folder)
+    } catch (err) {
+      setError(humanizeError(err))
     } finally {
       setIsPickingFolder(false)
     }
@@ -119,7 +117,7 @@ export function NewWorkspaceModal({
 
   const handleLaunch = async (): Promise<void> => {
     if (!rootPath.trim()) {
-      setError('Choose a folder to continue.')
+      setError(t('newWorkspace.needFolder'))
       return
     }
     setIsSubmitting(true)
@@ -131,7 +129,7 @@ export function NewWorkspaceModal({
       }
       const defaultShellCount = layoutPreset - Object.values(agentCounts).reduce((a, b) => a + b, 0)
       if (defaultShellCount > 0 && !shellProfile) {
-        throw new Error(`${shellLabel} profile is unavailable.`)
+        throw new Error(t('newWorkspace.shellMissing', { name: shellLabel }))
       }
       const counts: AgentCount[] = Object.entries(agentCounts)
         .filter(([, c]) => c > 0)
@@ -164,7 +162,7 @@ export function NewWorkspaceModal({
         agentBindings: [...agentBindings, ...shellBindings]
       })
     } catch (err) {
-      setError(humanizeError(err, 'Failed to create workspace'))
+      setError(humanizeError(err, t('newWorkspace.failed')))
       setIsSubmitting(false)
     }
   }
@@ -175,23 +173,23 @@ export function NewWorkspaceModal({
     <Dialog
       size="lg"
       className="new-workspace-modal-v2"
-      title={selectedExisting ? 'Open existing workspace' : 'Create new workspace'}
-      description={selectedExisting ? 'Choose the workspace to continue where you left off.' : 'Pick a folder, layout, and optional agents.'}
+      title={selectedExisting ? t('newWorkspace.openTitle') : t('newWorkspace.createTitle')}
+      description={selectedExisting ? t('newWorkspace.openDescription') : t('newWorkspace.createDescription')}
       onClose={closeAndRestoreFocus}
       returnFocusTo={() => {
         const opener = returnFocusTo?.isConnected ? returnFocusTo : returnFocusRef.current
         return opener?.isConnected && opener !== document.body ? opener : document.querySelector<HTMLElement>('[data-testid="btn-new-workspace"]')
       }}
       footer={<>
-        <Button variant="secondary" onClick={closeAndRestoreFocus}>Cancel</Button>
-        <Button variant="primary" onClick={() => void handleLaunch()} disabled={!canLaunch} loading={isSubmitting} data-testid="wizard-launch-btn" title={!hasFolder ? 'Choose a folder first' : undefined}>
-          {selectedExisting ? 'Open workspace' : 'Create workspace'}
+        <Button variant="secondary" onClick={closeAndRestoreFocus}>{t('github.cancel')}</Button>
+        <Button variant="primary" onClick={() => void handleLaunch()} disabled={!canLaunch} loading={isSubmitting} data-testid="wizard-launch-btn" title={!hasFolder ? t('newWorkspace.needFolder') : undefined}>
+          {selectedExisting ? t('newWorkspace.open') : t('newWorkspace.create')}
         </Button>
       </>}
     >
         <div className="new-workspace-body">
           <section className="new-workspace-section">
-            <div className="new-workspace-section-title">Folder</div>
+            <div className="new-workspace-section-title">{t('worktree.create.folder')}</div>
             <div className={`new-workspace-folder-zone${hasFolder ? ' has-path' : ''}`}>
               <div className="new-workspace-folder-zone-icon" aria-hidden="true">
                 {hasFolder ? <Check size={16} /> : <FolderOpen size={16} />}
@@ -207,12 +205,12 @@ export function NewWorkspaceModal({
                       onChange={(event) => setRootPath(event.currentTarget.value)}
                       data-testid="wizard-dir-input"
                       spellCheck={false}
-                      aria-label="Workspace folder path"
+                      aria-label={t('newWorkspace.path')}
                     />
                   </>
                 ) : (
                   <>
-                    <span className="new-workspace-folder-prompt">Choose a project folder</span>
+                    <span className="new-workspace-folder-prompt">{t('newWorkspace.choose')}</span>
                     <input
                       type="text"
                       className="new-workspace-folder-input"
@@ -222,27 +220,27 @@ export function NewWorkspaceModal({
                       data-testid="wizard-dir-input"
                       spellCheck={false}
                       autoFocus
-                      aria-label="Workspace folder path"
+                      aria-label={t('newWorkspace.path')}
                     />
                   </>
                 )}
               </div>
               <Button icon={<FolderOpen size={14} aria-hidden="true" />} onClick={() => void handlePickFolder()} disabled={isPickingFolder}>
-                {isPickingFolder ? 'Picking…' : 'Browse'}
+                {isPickingFolder ? t('newWorkspace.picking') : t('worktree.create.browse')}
               </Button>
             </div>
           </section>
 
           {selectedExisting && onOpenExisting ? (
-            <section className="new-workspace-section new-workspace-existing" aria-label="Existing workspaces">
-              <div className="new-workspace-section-title">Already open in Code</div>
-              <p>This folder already has {matchingWorkspaces.length === 1 ? 'a workspace' : `${matchingWorkspaces.length} workspaces`}. Opening one preserves its terminals and layout.</p>
+            <section className="new-workspace-section new-workspace-existing" aria-label={t('newWorkspace.existing')}>
+              <div className="new-workspace-section-title">{t('newWorkspace.alreadyOpen')}</div>
+              <p>{t('newWorkspace.alreadyHint', { count: matchingWorkspaces.length })}</p>
               {matchingWorkspaces.length > 1 && <div className="new-workspace-existing-list">
                 {matchingWorkspaces.map((workspace, index) => (
                   <button key={workspace.id} type="button" className={`new-workspace-existing-choice${selectedExisting.id === workspace.id ? ' selected' : ''}`}
                     aria-pressed={selectedExisting.id === workspace.id} onClick={() => setSelectedExistingId(workspace.id)}>
                     <span>{workspace.name} #{index + 1}</span>{' '}
-                    <span>{workspace.panes.filter((pane) => pane.type === 'terminal' && pane.rowIndex >= 0).length} terminals</span>
+                    <span>{t('sidebar.terminals', { count: workspace.panes.filter((pane) => pane.type === 'terminal' && pane.rowIndex >= 0).length })}</span>
                   </button>
                 ))}
               </div>}
@@ -250,10 +248,10 @@ export function NewWorkspaceModal({
           ) : null}
 
           {!selectedExisting && <section className="new-workspace-section">
-            <div className="new-workspace-section-title">Layout</div>
-            <div className="new-workspace-layout-grid" role="radiogroup" aria-label="Layout preset" data-testid="wizard-layout-grid">
+            <div className="new-workspace-section-title">{t('workspace.settings.layout')}</div>
+            <div className="new-workspace-layout-grid" role="radiogroup" aria-label={t('workspace.settings.layoutPreset')} data-testid="wizard-layout-grid">
               {LAYOUT_PRESETS.map((preset) => {
-                const meta = PRESET_LABELS[preset]
+                const meta = { ...PRESET_GRID[preset], label: t('workspace.status.panes', { count: preset }), description: preset === 1 ? t('newWorkspace.oneTerminal') : preset === 2 ? t('newWorkspace.sideBySide') : t('newWorkspace.grid', { rows: PRESET_GRID[preset].rows, cols: PRESET_GRID[preset].cols }) }
                 const selected = layoutPreset === preset
                 return (
                   <button
@@ -276,14 +274,14 @@ export function NewWorkspaceModal({
 
           {!selectedExisting && <section className="new-workspace-section">
             <div className="new-workspace-section-title">
-              <span>Agents</span>
+              <span>{t('newWorkspace.agents')}</span>
               <span className="new-workspace-fleet-badges" data-testid="wizard-agent-counter">
                 <span className="new-workspace-fleet-badge">
-                  {totalSelected}/{layoutPreset} slots filled
+                  {t('newWorkspace.slots', { filled: totalSelected, total: layoutPreset })}
                 </span>
                 {remaining > 0 ? (
                   <span className="new-workspace-fleet-badge muted">
-                    {remaining} default shell{remaining === 1 ? '' : 's'}
+                    {t('newWorkspace.defaultShells', { count: remaining })}
                   </span>
                 ) : null}
               </span>
@@ -299,12 +297,12 @@ export function NewWorkspaceModal({
                 onDecrement={() => setShellCount((c) => Math.max(0, c - 1))}
                 testId="wizard-shell-only"
                 countTestId="agent-count-shell"
-                addLabel={`Add ${shellLabel}`}
-                removeLabel={`Remove one ${shellLabel}`}
-                incLabel={`Add another ${shellLabel}`}
+                addLabel={t('newWorkspace.add', { name: shellLabel })}
+                removeLabel={t('newWorkspace.removeOne', { name: shellLabel })}
+                incLabel={t('newWorkspace.addAnother', { name: shellLabel })}
               />
               {agentProfiles.length === 0 ? (
-                <EmptyState compact title="No agents configured. The workspace will start with default shells." />
+                <EmptyState compact title={t('newWorkspace.noAgents')} />
               ) : (
                 agentProfiles.map((agent) => {
                   const count = agentCounts[agent.agentProfileId] ?? 0
@@ -320,9 +318,9 @@ export function NewWorkspaceModal({
                       onDecrement={() => decrementAgent(agent.agentProfileId)}
                       testId={`agent-row-${agent.agentProfileId}`}
                       countTestId={`agent-count-${agent.agentProfileId}`}
-                      addLabel={`Add ${agent.name}`}
-                      removeLabel={`Remove one ${agent.name}`}
-                      incLabel={`Add another ${agent.name}`}
+                      addLabel={t('newWorkspace.add', { name: agent.name })}
+                      removeLabel={t('newWorkspace.removeOne', { name: agent.name })}
+                      incLabel={t('newWorkspace.addAnother', { name: agent.name })}
                       decTestId={`agent-dec-${agent.agentProfileId}`}
                       incTestId={`agent-inc-${agent.agentProfileId}`}
                     />
@@ -332,12 +330,12 @@ export function NewWorkspaceModal({
             </div>
             {totalSelected > 0 ? (
               <Button variant="link" size="sm" className="new-workspace-clear" onClick={clearAgents}>
-                Clear selection
+                {t('newWorkspace.clear')}
               </Button>
             ) : null}
           </section>}
 
-          {error ? <div className="modal-error" role="alert">{error}</div> : null}
+          {error ? <ErrorState compact title={selectedExisting ? t('newWorkspace.openFailed') : t('newWorkspace.failed')} message={error} /> : null}
         </div>
 
     </Dialog>

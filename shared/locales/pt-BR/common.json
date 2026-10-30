@@ -232,5 +232,72 @@
       "label": "Limpar contêineres parados",
       "detail": "Pergunta antes"
     }
+  },
+  "quota": {
+    "window": {
+      "weekly": "semanal",
+      "session": "de 5 horas"
+    },
+    "severity": {
+      "almostOut": "quase esgotada",
+      "veryHigh": "muito alta",
+      "inUse": "em uso"
+    },
+    "title": "{{name}}: cota {{window}} {{severity}} ({{threshold}}%)",
+    "body": "A janela {{window}} do {{name}} passou de {{threshold}}% do limite.",
+    "resets": "Renova em {{when}}."
+  },
+  "ui": {
+    "loading": "Carregando",
+    "loadingEllipsis": "Carregando…",
+    "tryAgain": "Tentar de novo",
+    "details": "Detalhes",
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "dismiss": "Dispensar",
+    "copy": {
+      "text": "Texto",
+      "done": "Copiado: {{what}}",
+      "failed": "Não foi possível copiar: {{what}}",
+      "unavailable": "A área de transferência não está disponível."
+    }
+  },
+  "errors": {
+    "generic": "Algo deu errado. Tente de novo.",
+    "commandMissing": "{{command}} não foi encontrado. Instale-o ou adicione-o ao PATH e tente de novo.",
+    "pathMissing": "{{path}} não existe.",
+    "somethingMissing": "Um arquivo ou pasta necessário não existe.",
+    "noPermissionPath": "Sem permissão para usar {{path}}.",
+    "noPermission": "Sem permissão para usar um arquivo ou pasta necessário.",
+    "busy": "Um arquivo necessário está em uso por outro programa. Feche-o e tente de novo.",
+    "diskFull": "O disco está cheio.",
+    "databaseBusy": "O banco de dados local está ocupado. Tente de novo em instantes.",
+    "unresolved": "Não foi possível falar com o servidor: o endereço não foi encontrado. Verifique sua conexão.",
+    "refused": "A conexão foi recusada. Verifique se o serviço está rodando.",
+    "reset": "A conexão caiu de repente. Tente de novo.",
+    "timeout": "Demorou demais para responder. Tente de novo.",
+    "offline": "Não foi possível conectar. Verifique sua internet ou o proxy.",
+    "signedOut": "Você não está conectado, ou a sessão expirou. Entre de novo.",
+    "forbidden": "Sua conta não tem acesso a isto.",
+    "rateLimited": "Muitas solicitações por enquanto. Espere um pouco e tente de novo.",
+    "notGit": "Esta pasta não é um repositório Git."
+  },
+  "agentSetup": {
+    "join": "{{first}} e {{last}}",
+    "ready_one": "{{names}} está pronto",
+    "ready_many": "{{names}} estão prontos",
+    "ready_other": "{{names}} estão prontos",
+    "readyBoth": "O Code e o Thread podem usá-lo.",
+    "readyCodeOnly": "O Code consegue rodá-lo. O Thread precisa do Claude Code ou do Codex.",
+    "checking": "Procurando as CLIs de agentes…",
+    "checkingDetail": "Procurando os comandos no seu PATH.",
+    "partial_one": "{{names}} foi encontrado, mas não está pronto",
+    "partial_many": "{{names}} foram encontrados, mas não estão prontos",
+    "partial_other": "{{names}} foram encontrados, mas não estão prontos",
+    "partialDetail": "Abra as configurações de Agentes para ver o que falta.",
+    "none": "Nenhuma CLI de agente encontrada",
+    "noneDetail": "O OXESpace roda os agentes como CLIs locais. Instale o Claude Code ou o Codex, confira se o comando está no PATH e verifique de novo.",
+    "unchecked": "CLIs de agentes ainda não verificadas",
+    "uncheckedDetail": "Verifique quais CLIs de agentes estão instaladas nesta máquina."
   }
 }

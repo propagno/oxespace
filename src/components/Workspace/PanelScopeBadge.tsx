@@ -4,6 +4,9 @@ import { useGitBranch } from '../../hooks/useGitBranch'
 import { useUIStore } from '../../store/ui.store'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
 import { gitBranchLabel } from '../../utils/paneGitContext'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 interface PanelScopeBadgeProps {
   workspaceId: string
@@ -30,10 +33,10 @@ export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): R
 
   const label = gitBranchLabel(branch)
   const title = pinned
-    ? `Panels pinned to the workspace root (${scope.rootPath}). Click to follow the active pane again.`
+    ? tc('workspace.scope.pinned', { path: scope.rootPath })
     : scope.isWorktree
-      ? `Panels are reading the worktree at ${scope.rootPath}. Click to pin them to the workspace root.`
-      : `Panels are reading ${scope.rootPath}. Click to pin them here even when a worktree pane is active.`
+      ? tc('workspace.scope.worktree', { path: scope.rootPath })
+      : tc('workspace.scope.root', { path: scope.rootPath })
 
   return (
     <button

@@ -1,6 +1,7 @@
 import { useEffect, type ReactElement } from 'react'
 import { create } from 'zustand'
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react'
+import { i18n } from '../i18n'
 import { Button, IconButton } from './Button'
 import { cx } from './cx'
 import styles from './Display.module.css'
@@ -50,7 +51,7 @@ function ToastView({ item }: { item: ToastItem }): ReactElement {
       {item.description && <p>{item.description}</p>}
       {item.action && <div className={styles.toastActions}><Button size="sm" onClick={() => { item.action!.run(); dismissToast(item.id) }}>{item.action.label}</Button></div>}
     </div>
-    <IconButton label="Dismiss" icon={<X size={14} />} size="sm" onClick={() => dismissToast(item.id)} />
+    <IconButton label={i18n.t('ui.dismiss')}icon={<X size={14} />} size="sm" onClick={() => dismissToast(item.id)} />
   </div>
 }
 
