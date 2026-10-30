@@ -7,14 +7,18 @@ import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { createFakeIpcMain, type FakeIpcMain } from '../helpers/fake-ipc-main'
+import type { FakeIpcMain } from '../helpers/fake-ipc-main'
 import { removeTempDir } from '../helpers/removeTempDir'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { checkWorkspaceRoot } from '../../electron/main/services/workspace-root'
 import type { SemanticService } from '../../electron/main/services/semantic.service'
 
-const ipcMain: FakeIpcMain = createFakeIpcMain()
+// vi.mock is hoisted above the imports, so the fake it hands out must be hoisted with it.
+const { ipcMain } = await vi.hoisted(async () => {
+  const { createFakeIpcMain } = await import('../helpers/fake-ipc-main')
+  return { ipcMain: createFakeIpcMain() as FakeIpcMain }
+})
 vi.mock('electron', () => ({
   ipcMain,
   BrowserWindow: { getAllWindows: () => [], fromWebContents: () => null },
