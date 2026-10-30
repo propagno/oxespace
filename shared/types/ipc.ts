@@ -208,7 +208,8 @@ export const IPC_CHANNELS = {
   oxePod: { call: 'oxePod:call', onEvent: 'oxePod:event' },
   remote: {
     status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
-    cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename'
+    cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
+    setDesktopName: 'remote:set-desktop-name'
   },
   oxePost: { call: 'oxePost:call' },
   automations: {
