@@ -143,10 +143,12 @@ function exclusionArguments(provider: 'claude' | 'codex', denied: DeniedMcpTool[
     const names = [...denied.map(rule => rule.tool === '*' ? `mcp__${rule.server}` : `mcp__${rule.server}__${rule.tool}`), ...deniedTools]
     return names.length ? ['--disallowedTools', names.join(',')] : []
   }
-  if (!denied.length) return []
+  // Codex has no flag for names; a policy that denies an MCP tool by name (B7.3) joins the per-server exclusions.
+  const byPolicy = deniedTools.flatMap(name => { const match = name.match(/^mcp__(.+?)__(.+)$/); return match ? [{ server: match[1], tool: match[2] }] : [] })
+  if (!denied.length && !byPolicy.length) return []
   const out: string[] = []
   for (const server of codexServers) {
-    const rules = denied.filter(rule => rule.server === server)
+    const rules = [...denied, ...byPolicy].filter(rule => rule.server === server)
     if (rules.some(rule => rule.tool === '*')) out.push('-c', `mcp_servers.${server}.enabled=false`)
     else if (rules.length) out.push('-c', `mcp_servers.${server}.disabled_tools=${JSON.stringify(rules.map(rule => rule.tool))}`)
   }
@@ -169,7 +171,7 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
   const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
   if (provider === 'codex') {
     config[3] = `mcp_servers.oxespace-delegation.args=${JSON.stringify(bridgeArgs)}`
-    return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])]), ...args]
+    return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])], deniedTools), ...args]
   }
   const clean = args.filter((arg, i) => !['--mcp-config', '--strict-mcp-config'].includes(arg) && args[i - 1] !== '--mcp-config')
   // Keep Claude's user and project MCP configuration. The extra config adds

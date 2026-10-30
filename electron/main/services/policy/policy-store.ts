@@ -14,7 +14,9 @@ const MAX_BYTES = 256 * 1024
 /**
  * Reads the policy files: the project's `.oxespace/policy.json`, the user's `<userData>/policy.json` and the
  * managed file. Each is read again when its modification time changes, so an edit applies without a restart.
- * Policy is only read here; nothing in the app, a plugin or an MCP server writes it.
+ * Policy is only read here. The one writer is Settings › Tools (B7.3, mcp-tool-rules.ts), which changes the project
+ * layer at the person's request from the app's window; nothing writes the user or managed layers, and no plugin or MCP
+ * tool writes any.
  */
 export class PolicyStore {
   private readonly cache = new Map<string, { mtimeMs: number; result: { source: PolicySource } | { problem: string } | null }>()
@@ -41,6 +43,9 @@ export class PolicyStore {
     }
     return policy
   }
+
+  /** Drops what was read from a file, so a write in the same millisecond as the last read is never missed. */
+  forget(path: string): void { this.cache.delete(path) }
 
   decide(action: PolicyAction, resource: string, projectRoot?: string | null): PolicyDecision {
     return evaluatePolicy(this.load(projectRoot), action, resource)

@@ -1,0 +1,228 @@
+import http from 'node:http'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
+import { FileSystemService } from '../../electron/main/services/file-system.service'
+import { ThreadPermissionStore } from '../../electron/main/services/conversation/thread-permissions'
+import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
+import { threadMcpArguments } from '../../electron/main/services/conversation/thread-mcp'
+import { confirmLevelTools, setToolRule, toolRules, type ToolRulesDeps } from '../../electron/main/services/mcp-tool-rules'
+import { policyDeniedToolNames, setPolicyStore } from '../../electron/main/services/policy'
+import { PolicyStore } from '../../electron/main/services/policy/policy-store'
+import { createLocalRpcServer } from '../../electron/main/mcp-internal/local-rpc-server'
+import { WorkspaceService } from '../../electron/main/services/workspace.service'
+import type { AgentConversationAdapter, ThreadEvent, ThreadRequest, ThreadRequestResponse } from '../../shared/types/thread'
+import type { McpToolRule } from '../../shared/types/mcp-tools'
+import { removeTempDir } from '../helpers/removeTempDir'
+
+vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
+
+const roots: string[] = []
+const databases: AppDatabase[] = []
+afterEach(() => {
+  setPolicyStore(null)
+  for (const db of databases.splice(0)) db.close()
+  for (const root of roots.splice(0)) removeTempDir(root)
+})
+
+const temp = (prefix: string) => { const dir = mkdtempSync(join(tmpdir(), prefix)); roots.push(dir); return dir }
+
+function project() {
+  const root = temp('oxe-tool-rules-')
+  const userData = temp('oxe-tool-rules-user-')
+  const db = openInMemoryDatabase(); databases.push(db)
+  db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('A', 'A', ?, '1x1', 'builtin-claude')").run(root)
+  const files = new FileSystemService((workspaceId, requested) => {
+    const row = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
+    return row && row.root_path === requested ? row.root_path : null
+  })
+  const policy = new PolicyStore({ userData, managed: join(userData, 'managed.json') })
+  setPolicyStore(policy)
+  const deps: ToolRulesDeps = { db, files, policy }
+  const policyFile = join(root, '.oxespace', 'policy.json')
+  const readPolicy = () => JSON.parse(readFileSync(policyFile, 'utf8')) as { rules: unknown[] } & Record<string, unknown>
+  const projectRules = () => new ThreadPermissionStore(db).rules(root).filter(rule => rule.projectRoot === root).map(rule => [rule.kind, rule.pattern, rule.decision])
+  const audit = () => new ThreadPermissionStore(db).auditLog({ projectRoot: root }).map(entry => [entry.action, entry.summary]).reverse()
+  return { root, userData, db, files, policy, deps, policyFile, readPolicy, projectRules, audit }
+}
+
+const find = (rules: McpToolRule[], server: string, tool: string) => rules.find(rule => rule.server === server && rule.tool === tool)
+
+describe('Per-tool rules (B7.3)', () => {
+  it('lists OXESpace tools and configured servers\' tools, asking by default', async () => {
+    const { root, db, deps } = project()
+    db.prepare('INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, created_at, updated_at, guard_json) VALUES (?, ?, ?, ?, ?, 1, 1, 0, 0, ?)')
+      .run('g', null, 'GitHub', 'stdio', '{"transport":"stdio","command":"gh"}', JSON.stringify({ pin: { hash: 'x', at: 0 }, tools: [{ name: 'create_issue', hash: 'h' }], quarantine: null }))
+    const rules = await toolRules(deps, root)
+    expect(find(rules, 'oxespace-delegation', 'oxespace_project_context')).toEqual({ server: 'oxespace-delegation', tool: 'oxespace_project_context', decision: 'ask', source: 'default', editable: true, scope: null })
+    expect(find(rules, 'github', 'create_issue')).toMatchObject({ decision: 'ask', source: 'default' })
+    expect(rules[0].server).toBe('oxespace-delegation')
+  })
+
+  it('deny creates policy.json, blocks the tool at launch, in approvals and at tools/call, and is audited', async () => {
+    const { root, deps, policyFile, readPolicy, audit, db } = project()
+    expect(existsSync(join(root, '.oxespace'))).toBe(false)
+    const rules = await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_list_workspaces', decision: 'deny' })
+    expect(readFileSync(policyFile, 'utf8')).toBe('{\n  "rules": [\n    {\n      "effect": "deny",\n      "action": "tool.use",\n      "resource": "mcp__oxespace-delegation__oxespace_list_workspaces"\n    }\n  ]\n}\n')
+    expect(readPolicy().rules).toHaveLength(1)
+    expect(find(rules, 'oxespace-delegation', 'oxespace_list_workspaces')).toEqual({ server: 'oxespace-delegation', tool: 'oxespace_list_workspaces', decision: 'deny', source: 'project', editable: true, scope: 'everywhere' })
+    expect(audit()).toEqual([['configuration', 'Blocked the MCP tool oxespace-delegation/oxespace_list_workspaces in .oxespace/policy.json']])
+
+    // OxeChat: hidden from Claude and Codex at launch.
+    const denied = policyDeniedToolNames(root)
+    expect(threadMcpArguments('claude', [], '/bridge.cjs', undefined, [], undefined, denied).join(' ')).toContain('--disallowedTools mcp__oxespace-delegation__oxespace_list_workspaces')
+    expect(threadMcpArguments('codex', [], '/bridge.cjs', undefined, [], undefined, denied)).toContain('mcp_servers.oxespace-delegation.disabled_tools=["oxespace_list_workspaces"]')
+
+    // The internal MCP server refuses the call, whichever client makes it; other tools still run.
+    const server = createLocalRpcServer({ db, workspaceServ: new WorkspaceService(db) } as never)
+    server.setToken('t'.repeat(64))
+    const { port } = await server.start(0)
+    try {
+      const call = (name: string) => post(port, { name })
+      expect(await call('oxespace_list_workspaces')).toMatchObject({ result: { isError: true, content: [{ text: expect.stringContaining('blocked by this project’s policy') }] } })
+      expect(await call('oxespace_execution_context')).not.toMatchObject({ result: { content: [{ text: expect.stringContaining('blocked') }] } })
+    } finally { await server.stop() }
+  })
+
+  it('deny keeps the other rules and fields of an existing policy.json', async () => {
+    const { root, deps, policyFile, readPolicy } = project()
+    mkdirSync(join(root, '.oxespace'))
+    writeFileSync(policyFile, JSON.stringify({ organization: 'Acme', rules: [{ effect: 'deny', action: 'provider.use', resource: 'codex' }] }))
+    await setToolRule(deps, { rootPath: root, server: 'github', tool: 'delete_repository', decision: 'deny' })
+    expect(readPolicy()).toEqual({ organization: 'Acme', rules: [
+      { effect: 'deny', action: 'provider.use', resource: 'codex' },
+      { effect: 'deny', action: 'tool.use', resource: 'mcp__github__delete_repository' }
+    ] })
+    expect(readFileSync(policyFile, 'utf8')).toMatch(/^\{\n {2}"organization": "Acme",\n/)
+  })
+
+  it('allow adds a project permission rule that auto-approves the tool in an OxeChat conversation', { timeout: 30_000 }, async () => {
+    const { root, db, deps, projectRules, audit } = project()
+    const rules = await setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'allow' })
+    expect(find(rules, 'github', 'create_issue')).toEqual({ server: 'github', tool: 'create_issue', decision: 'allow', source: 'project', editable: true, scope: 'oxechat' })
+    expect(projectRules()).toEqual([['tool', 'github/create_issue', 'allow']])
+    expect(audit()).toEqual([['rule-added', 'Allow tool github/create_issue']])
+
+    let emit: (event: ThreadEvent) => void = () => {}
+    const responses: { id: string; response: ThreadRequestResponse }[] = []
+    const factory = vi.fn(async () => ({
+      capabilities: { resume: true, approvals: true, attachments: false, modelSelection: false },
+      start: vi.fn(async (_context, listener) => { emit = listener; listener({ type: 'session', nativeSessionId: 'n' }) }),
+      send: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}), dispose: vi.fn(async () => {}), configure: vi.fn(async () => {}),
+      respondRequest: vi.fn(async (id: string, response: ThreadRequestResponse) => {
+        responses.push({ id, response })
+        emit({ type: 'request-resolved', id, state: 'resolved', resolution: response.decision === 'accept' ? 'approved' : 'declined', resolvedAt: Date.now() })
+      })
+    }) as AgentConversationAdapter)
+    const manager = new ThreadManager(db, factory, vi.fn())
+    vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
+    const id = manager.create({ workspaceId: 'A', projectId: 'p', rootPath: root, provider: 'claude' }).thread.id
+    await manager.send(id, 'Go')
+    const request = (requestId: string, toolName: string) => emit({ type: 'request', id: requestId, request: {
+      id: requestId, nativeId: requestId, nativeMethod: `can_use_tool:${toolName}`, kind: 'approval', title: `Approve ${toolName}`, generation: 0, createdAt: Date.now(), state: 'pending', availableDecisions: ['accept', 'decline'], toolName
+    } as ThreadRequest })
+    await setToolRule(deps, { rootPath: root, server: 'github', tool: 'delete_repository', decision: 'deny' })
+    request('r1', 'mcp__github__create_issue'); await settle()
+    request('r2', 'mcp__github__delete_repository'); await settle()
+    request('r3', 'mcp__github__list_issues'); await settle()
+    expect(responses).toEqual([
+      { id: 'r1', response: { decision: 'accept' } },
+      { id: 'r2', response: { decision: 'decline', reason: expect.stringContaining('blocked by this project’s policy') } }
+    ])
+    await manager.stop()
+  })
+
+  it('ask removes both, and deny → allow → ask leaves nothing behind', async () => {
+    const { root, deps, readPolicy, projectRules, audit } = project()
+    const target = { rootPath: root, server: 'github', tool: 'create_issue' }
+    await setToolRule(deps, { ...target, decision: 'deny' })
+    await setToolRule(deps, { ...target, decision: 'allow' })
+    expect(readPolicy().rules).toEqual([])
+    expect(projectRules()).toEqual([['tool', 'github/create_issue', 'allow']])
+    await setToolRule(deps, { ...target, decision: 'deny' })
+    expect(projectRules()).toEqual([])
+    const rules = await setToolRule(deps, { ...target, decision: 'ask' })
+    expect(readPolicy().rules).toEqual([])
+    expect(projectRules()).toEqual([])
+    // Listed only while a rule named it: with no rule and no configured server, the tool leaves the list.
+    expect(find(rules, 'github', 'create_issue')).toBeUndefined()
+    expect(audit()).toEqual([
+      ['configuration', 'Blocked the MCP tool github/create_issue in .oxespace/policy.json'],
+      ['configuration', 'Removed the block on the MCP tool github/create_issue from .oxespace/policy.json'],
+      ['rule-added', 'Allow tool github/create_issue'],
+      ['configuration', 'Blocked the MCP tool github/create_issue in .oxespace/policy.json'],
+      ['rule-removed', 'Removed allow tool github/create_issue'],
+      ['configuration', 'Removed the block on the MCP tool github/create_issue from .oxespace/policy.json']
+    ])
+  })
+
+  it('shows user and managed rules as not editable and never changes them', async () => {
+    const { root, userData, deps, policyFile } = project()
+    const user = JSON.stringify({ rules: [{ effect: 'deny', action: 'tool.use', resource: 'mcp__github__delete_repository' }] })
+    const managed = JSON.stringify({ organization: 'Acme', rules: [{ effect: 'deny', action: 'tool.use', resource: 'mcp__slack__*' }] })
+    writeFileSync(join(userData, 'policy.json'), user)
+    writeFileSync(join(userData, 'managed.json'), managed)
+    new ThreadPermissionStore(deps.db).add({ projectRoot: null, kind: 'tool', pattern: 'linear/create_issue', decision: 'allow' })
+    const rules = await toolRules(deps, root)
+    expect(find(rules, 'github', 'delete_repository')).toEqual({ server: 'github', tool: 'delete_repository', decision: 'deny', source: 'user', editable: false, scope: 'everywhere' })
+    expect(find(rules, 'linear', 'create_issue')).toMatchObject({ decision: 'allow', source: 'user', editable: false })
+    for (const decision of ['ask', 'allow', 'deny'] as const) {
+      await expect(setToolRule(deps, { rootPath: root, server: 'github', tool: 'delete_repository', decision })).rejects.toThrow('mcp.toolRule.locked')
+    }
+    await expect(setToolRule(deps, { rootPath: root, server: 'slack', tool: 'post_message', decision: 'ask' })).rejects.toMatchObject({ code: 'mcp.toolRule.locked', params: { tool: 'slack/post_message' } })
+    expect(readFileSync(join(userData, 'policy.json'), 'utf8')).toBe(user)
+    expect(readFileSync(join(userData, 'managed.json'), 'utf8')).toBe(managed)
+    expect(existsSync(policyFile)).toBe(false)
+  })
+
+  it('refuses allow on an OXESpace tool of the confirm level, with its code, writing nothing', async () => {
+    const { root, deps, projectRules, audit } = project()
+    expect(confirmLevelTools().has('oxespace_db_execute')).toBe(true)
+    expect(confirmLevelTools().has('oxespace_project_context')).toBe(false)
+    await expect(setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_db_execute', decision: 'allow' }))
+      .rejects.toMatchObject({ code: 'mcp.toolRule.confirmLevel', params: { tool: 'oxespace-delegation/oxespace_db_execute' }, message: 'mcp.toolRule.confirmLevel' })
+    expect(projectRules()).toEqual([])
+    expect(audit()).toEqual([])
+    // Blocking it stays possible, and another server's tool of the same name is not OXESpace's.
+    await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_db_execute', decision: 'deny' })
+    await setToolRule(deps, { rootPath: root, server: 'other', tool: 'oxespace_db_execute', decision: 'allow' })
+  })
+
+  it('refuses an unregistered folder and an invalid policy.json, writing nothing', async () => {
+    const { root, deps, policyFile, projectRules, audit } = project()
+    const stranger = temp('oxe-stranger-')
+    await expect(setToolRule(deps, { rootPath: stranger, server: 'github', tool: 'create_issue', decision: 'deny' })).rejects.toThrow('not a project')
+    await expect(toolRules(deps, stranger)).rejects.toThrow('not a project')
+    expect(existsSync(join(stranger, '.oxespace'))).toBe(false)
+    mkdirSync(join(root, '.oxespace'))
+    for (const invalid of ['{ not json', '{"rules":[{"effect":"maybe","action":"tool.use","resource":"x"}]}']) {
+      writeFileSync(policyFile, invalid)
+      for (const decision of ['deny', 'allow', 'ask'] as const) {
+        await expect(setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision })).rejects.toMatchObject({ code: 'mcp.toolRule.invalidPolicy' })
+      }
+      expect(readFileSync(policyFile, 'utf8')).toBe(invalid)
+    }
+    expect(projectRules()).toEqual([])
+    expect(audit()).toEqual([])
+  })
+})
+
+const settle = () => new Promise(resolve => setTimeout(resolve, 20))
+
+async function post(port: number, params: object): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params })
+    const req = http.request({ host: '127.0.0.1', port, path: '/rpc', method: 'POST', headers: {
+      'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload), Authorization: `Bearer ${'t'.repeat(64)}`, 'X-OXE-Workspace-Id': 'A'
+    } }, res => {
+      let body = ''
+      res.setEncoding('utf8')
+      res.on('data', chunk => { body += chunk })
+      res.on('end', () => { try { resolve(JSON.parse(body)) } catch (error) { reject(error) } })
+    })
+    req.on('error', reject)
+    req.end(payload)
+  })
+}

@@ -48,6 +48,22 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
 | `mcp.tool_rules_admin` | `mcpInternal.setToolRule` |
 
+### Per-tool rules (B7.3): where each one holds
+
+Settings › Tools sets, per MCP tool of a project, `allow`, `ask` or `deny` (`electron/main/services/mcp-tool-rules.ts`).
+
+- **`deny`** is `{ "effect": "deny", "action": "tool.use", "resource": "mcp__<server>__<tool>" }` in the project's
+  `.oxespace/policy.json`. It holds everywhere: OxeChat hides the tool at launch (Claude `--disallowedTools`, Codex
+  `disabled_tools` for the servers OXESpace attaches) and declines its approvals; the internal MCP server refuses
+  `tools/call` for an OXESpace tool (`mcp__oxespace-delegation__<tool>`) whatever key the caller's CLI uses, which covers
+  agents in OxeCode terminals.
+- **`allow`** is a project permission rule (`tool`, `<server>/<tool>`). It answers OxeChat approvals only. Agents in
+  OxeCode terminals keep following their own CLI's permissions (`.claude/settings*.json`, Codex approval policy); OXESpace
+  does not write those. An OXESpace tool with any action of the `confirm` level cannot be allowed
+  (`mcp.toolRule.confirmLevel`): it asks the person every time.
+- **`ask`** removes both. Rules from the user or managed policy, and permission rules saved for all projects, are shown
+  as not editable (`mcp.toolRule.locked`) and never written.
+
 ## New in X21
 
 | Tool / action | Level | Thread group | What it reads or does |
