@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
-const { notePatch } = await import('../../electron/main/ipc/memory.ipc')
+const { notePatch } = await import('../../electron/main/ipc/memory-manage.ipc')
 
 describe('what a person may change about a memory note', () => {
   test('keeps only the known fields, each of the right type', () => {

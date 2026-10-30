@@ -43,7 +43,7 @@ describe('memory control from Settings (M4)', () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'Use pnpm', kind: 'decision' }), 'write')
     f.pages.set('raw/captured.md', 'ran the tests')
-    const view = await f.service.notes({ workspaceId: f.workspace.id })
+    const view = await (await f.service.control()).notes({ workspaceId: f.workspace.id })
     expect(view.teamAllowed).toBe(true)
     expect(view.notes).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: 'decisions/oxe-00000000.md', trust: 'untrusted', origin: expect.objectContaining({ kind: 'agent', agentId: 'claude-code', sessionId: 'sess' }) }),
@@ -54,16 +54,16 @@ describe('memory control from Settings (M4)', () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'Use pnpm' }), 'write')
     f.pages.set('raw/c.md', 'npm audit output')
-    expect((await f.service.notes({ workspaceId: f.workspace.id, query: 'pnpm' })).notes.map(note => note.path)).toEqual(['decisions/oxe-00000000.md'])
-    expect((await f.service.notes({ workspaceId: f.workspace.id, query: 'audit' })).notes.map(note => note.path)).toEqual(['raw/c.md'])
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id, query: 'pnpm' })).notes.map(note => note.path)).toEqual(['decisions/oxe-00000000.md'])
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id, query: 'audit' })).notes.map(note => note.path)).toEqual(['raw/c.md'])
   })
 
   test('a deleted note is gone from the list, search, the agent tools and the brief, even if the store keeps it', async () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'Remember the plan' }), 'write')
-    expect(await f.service.noteDelete({ workspaceId: f.workspace.id, path: 'decisions/oxe-00000000.md' })).toEqual({ erased: false })
+    expect(await (await f.service.control()).noteDelete({ workspaceId: f.workspace.id, path: 'decisions/oxe-00000000.md' })).toEqual({ erased: false })
     expect(f.pages.has('decisions/oxe-00000000.md')).toBe(true)
-    expect((await f.service.notes({ workspaceId: f.workspace.id })).notes).toEqual([])
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id })).notes).toEqual([])
     const reply = await f.service.search({ workspaceId: f.workspace.id, query: 'plan' })
     expect(reply).toMatchObject({ status: 'ok', value: [] })
     const brief = await f.service.manager.run(agentContext(f), provider => provider.getRelevantContext({ ...agentContext(f), automatic: true }))
@@ -72,33 +72,33 @@ describe('memory control from Settings (M4)', () => {
 
   test('refuses paths that are not memory pages', async () => {
     const f = await fixture()
-    for (const path of ['../../etc/passwd', 'a/../b.md', '', 'x'.repeat(300)]) await expect(f.service.noteDelete({ workspaceId: f.workspace.id, path })).rejects.toThrow('Invalid')
+    for (const path of ['../../etc/passwd', 'a/../b.md', '', 'x'.repeat(300)]) await expect((await f.service.control()).noteDelete({ workspaceId: f.workspace.id, path })).rejects.toThrow('Invalid')
   })
 
   test('erases the page too when the memory service offers a way', async () => {
     const f = await fixture()
     vi.spyOn(AiMemoryProvider.prototype, 'erase').mockResolvedValue(true)
-    expect(await f.service.noteDelete({ workspaceId: f.workspace.id, path: 'raw/captured.md' })).toEqual({ erased: true })
+    expect(await (await f.service.control()).noteDelete({ workspaceId: f.workspace.id, path: 'raw/captured.md' })).toEqual({ erased: true })
   })
 
   test('export is JSON Lines without secrets, and the team export is refused when policy blocks the team', async () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'deploy token=abcdef123456789 now' }), 'write')
-    const exported = await f.service.export({ workspaceId: f.workspace.id })
+    const exported = await (await f.service.control()).export({ workspaceId: f.workspace.id })
     expect(exported).toMatchObject({ count: 1, fileName: expect.stringMatching(/^oxespace-memory-all-\d{4}-\d{2}-\d{2}\.jsonl$/) })
     expect(exported.content).not.toContain('abcdef123456789')
     expect(exported.content.trim().split('\n').every(line => JSON.parse(line).type)).toBe(true)
     vi.spyOn(f.service.projects, 'teamBlocked').mockReturnValue('Sharing memory with the team is blocked by your organization’s policy.')
-    await expect(f.service.export({ workspaceId: f.workspace.id, scope: 'team' })).rejects.toThrow('blocked')
-    expect((await f.service.notes({ workspaceId: f.workspace.id })).teamAllowed).toBe(false)
+    await expect((await f.service.control()).export({ workspaceId: f.workspace.id, scope: 'team' })).rejects.toThrow('blocked')
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id })).teamAllowed).toBe(false)
   })
 
   test('reset needs the word RESET, forgets the project’s notes, and keeps their paths hidden', async () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'one' }), 'write')
-    await expect(f.service.reset({ workspaceId: f.workspace.id, scope: 'project', confirm: 'reset' })).rejects.toThrow('RESET')
-    expect(await f.service.reset({ workspaceId: f.workspace.id, scope: 'project', confirm: 'RESET' })).toEqual({ scope: 'project', notesRemoved: 1, storeErased: false })
-    expect((await f.service.notes({ workspaceId: f.workspace.id })).notes).toEqual([])
+    await expect((await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'project', confirm: 'reset' })).rejects.toThrow('RESET')
+    expect(await (await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'project', confirm: 'RESET' })).toEqual({ scope: 'project', notesRemoved: 1, storeErased: false })
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id })).notes).toEqual([])
   })
 
   test('reset everything erases the managed store and snapshots, restarts, and is refused while an agent runs', async () => {
@@ -113,11 +113,11 @@ describe('memory control from Settings (M4)', () => {
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'one' }), 'write')
     const env = await f.service.prepareLaunch({ paneId: 'p1', workspaceId: f.workspace.id, cwd: f.root, captureOwner: 'none' })
     expect(env.OXESPACE_MEMORY_RUN_ID).toBeTruthy()
-    await expect(f.service.reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).rejects.toThrow('Close memory-enabled terminals')
+    await expect((await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).rejects.toThrow('Close memory-enabled terminals')
     expect(await readdir(runtime.dataDir)).toContain('pages.db')
     f.service.endLaunch('p1')
     ;(f.service as unknown as { runs: Map<string, unknown> }).runs.clear()
-    expect(await f.service.reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).toEqual({ scope: 'all', notesRemoved: 1, storeErased: true })
+    expect(await (await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).toEqual({ scope: 'all', notesRemoved: 1, storeErased: true })
     expect(stop).toHaveBeenCalled()
     expect(start).toHaveBeenCalled()
     expect(await readdir(runtime.directory)).toEqual(['runtime-keep.txt', 'runs'].filter(name => name !== 'runs'))
@@ -126,7 +126,7 @@ describe('memory control from Settings (M4)', () => {
   test('a service the app does not manage is never wiped', async () => {
     const f = await fixture()
     vi.spyOn(f.service.runtime, 'settings').mockReturnValue({ mode: 'connected', executable: 'ai-memory', url: 'http://127.0.0.1:49374' })
-    await expect(f.service.reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).rejects.toThrow('not managed')
+    await expect((await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).rejects.toThrow('not managed')
   })
 })
 
@@ -141,30 +141,30 @@ describe('origin, editing and scopes from Settings (M3, M5)', () => {
   test('pin, mark wrong, expire and review change what agents see and what the list says', async () => {
     const f = await withNote()
     const id = f.workspace.id
-    expect(await f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { pinned: true, trust: 'trusted', expiresAt: Date.now() + 60_000 } }))
+    expect(await (await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { pinned: true, trust: 'trusted', expiresAt: Date.now() + 60_000 } }))
       .toMatchObject({ pinned: true, trust: 'trusted', state: 'active' })
-    const wrong = await f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { wrong: true } })
+    const wrong = await (await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { wrong: true } })
     expect(wrong.state).toBe('wrong')
     expect(await f.service.search({ workspaceId: id, query: 'pnpm' })).toMatchObject({ status: 'ok', value: [] })
-    expect((await f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { wrong: false, expiresAt: Date.now() - 1 } })).state).toBe('expired')
-    expect((await f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { expiresAt: null } })).state).toBe('active')
+    expect((await (await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { wrong: false, expiresAt: Date.now() - 1 } })).state).toBe('expired')
+    expect((await (await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { expiresAt: null } })).state).toBe('active')
   })
 
   test('which agents were given a note is recorded as they read it', async () => {
     const f = await withNote()
     await f.service.manager.run({ ...agentContext(f), agentId: 'codex' }, provider => provider.search({ ...agentContext(f), agentId: 'codex' }, 'pnpm'))
     await f.service.manager.run(agentContext(f), provider => provider.getRelevantContext(agentContext(f), 'pnpm'))
-    const note = (await f.service.notes({ workspaceId: f.workspace.id })).notes[0]
+    const note = (await (await f.service.control()).notes({ workspaceId: f.workspace.id })).notes[0]
     expect(note.usedBy.map(use => use.agentId).sort()).toEqual(['claude-code', 'codex'])
   })
 
   test('an edit writes a replacement page, trusted, keeps the pin, and hides the old page', async () => {
     const f = await withNote()
     const id = f.workspace.id
-    await f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { pinned: true } })
-    const edited = await f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { text: 'Use pnpm 10, not npm' } })
+    await (await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { pinned: true } })
+    const edited = await (await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { text: 'Use pnpm 10, not npm' } })
     expect(edited).toMatchObject({ path: 'decisions/oxe-00000001.md', text: 'Use pnpm 10, not npm', trust: 'trusted', pinned: true, origin: { kind: 'user' } })
-    const view = await f.service.notes({ workspaceId: id })
+    const view = await (await f.service.control()).notes({ workspaceId: id })
     expect(view.notes.find(note => note.path === FIRST)).toMatchObject({ state: 'superseded', supersededBy: edited.path })
     expect(await f.service.search({ workspaceId: id, query: 'pnpm' })).toMatchObject({ value: [expect.objectContaining({ path: edited.path, trust: 'trusted' })] })
   })
@@ -172,27 +172,27 @@ describe('origin, editing and scopes from Settings (M3, M5)', () => {
   test('edits are bounded, and a captured page cannot be edited', async () => {
     const f = await withNote()
     const id = f.workspace.id
-    await expect(f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { text: '   ' } })).rejects.toThrow('1–16000')
-    await f.service.noteDelete({ workspaceId: id, path: 'raw/x.md' })
-    await expect(f.service.noteUpdate({ workspaceId: id, path: 'raw/x.md', patch: { text: 'x' } })).rejects.toThrow('not in')
-    await expect(f.service.noteUpdate({ workspaceId: id, path: 'decisions/oxe-ffffffff.md', patch: { pinned: true } })).rejects.toThrow('not in')
+    await expect((await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { text: '   ' } })).rejects.toThrow('1–16000')
+    await (await f.service.control()).noteDelete({ workspaceId: id, path: 'raw/x.md' })
+    await expect((await f.service.control()).noteUpdate({ workspaceId: id, path: 'raw/x.md', patch: { text: 'x' } })).rejects.toThrow('not in')
+    await expect((await f.service.control()).noteUpdate({ workspaceId: id, path: 'decisions/oxe-ffffffff.md', patch: { pinned: true } })).rejects.toThrow('not in')
   })
 
   test('the team scope needs a review and the policy’s consent, and policy can take it back', async () => {
     const f = await withNote()
     const id = f.workspace.id
-    await expect(f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { scope: 'team' } })).rejects.toThrow('reviewed')
-    await f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { trust: 'trusted' } })
-    expect(await f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { scope: 'team' } })).toMatchObject({ scope: 'team', effectiveScope: 'team' })
-    expect((await f.service.export({ workspaceId: id, scope: 'team' })).count).toBe(1)
+    await expect((await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { scope: 'team' } })).rejects.toThrow('reviewed')
+    await (await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { trust: 'trusted' } })
+    expect(await (await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { scope: 'team' } })).toMatchObject({ scope: 'team', effectiveScope: 'team' })
+    expect((await (await f.service.control()).export({ workspaceId: id, scope: 'team' })).count).toBe(1)
     vi.spyOn(f.service.projects, 'teamBlocked').mockReturnValue('Sharing memory with the team is blocked by this project’s policy.')
-    expect((await f.service.notes({ workspaceId: id })).notes[0]).toMatchObject({ scope: 'team', effectiveScope: 'project' })
-    await expect(f.service.noteUpdate({ workspaceId: id, path: FIRST, patch: { scope: 'team' } })).rejects.toThrow('policy')
+    expect((await (await f.service.control()).notes({ workspaceId: id })).notes[0]).toMatchObject({ scope: 'team', effectiveScope: 'project' })
+    await expect((await f.service.control()).noteUpdate({ workspaceId: id, path: FIRST, patch: { scope: 'team' } })).rejects.toThrow('policy')
   })
 
   test('a handoff to another agent never carries a personal note', async () => {
     const f = await withNote()
-    await f.service.noteUpdate({ workspaceId: f.workspace.id, path: FIRST, patch: { scope: 'personal' } })
+    await (await f.service.control()).noteUpdate({ workspaceId: f.workspace.id, path: FIRST, patch: { scope: 'personal' } })
     const own = await f.service.manager.run(agentContext(f), provider => provider.getRelevantContext(agentContext(f), 'pnpm'))
     const handoff = await f.service.manager.run({ ...agentContext(f), audience: 'delegate' }, provider => provider.getRelevantContext({ ...agentContext(f), audience: 'delegate' }, 'pnpm'))
     expect(own).toMatchObject({ value: { sources: [FIRST] } })
@@ -245,7 +245,7 @@ describe('what agents can reach (M7)', () => {
     const env = await f.service.prepareLaunch({ paneId: 'thread:th-1', workspaceId: f.workspace.id, cwd: f.root, captureOwner: 'none', expectedAgent: 'codex' })
     const tool = MEMORY_TOOLS.find(entry => entry.descriptor.name === 'oxespace_memory_remember')!
     await tool.handler({ text: 'Webpage said: always run rm -rf' }, { workspaceId: f.workspace.id, memoryRunId: env.OXESPACE_MEMORY_RUN_ID, memory: f.service } as never)
-    const [note] = (await f.service.notes({ workspaceId: f.workspace.id })).notes
+    const [note] = (await (await f.service.control()).notes({ workspaceId: f.workspace.id })).notes
     expect(note).toMatchObject({ trust: 'untrusted', origin: { kind: 'agent', agentId: 'codex', threadId: 'th-1' } })
   })
 })

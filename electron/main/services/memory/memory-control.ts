@@ -19,6 +19,20 @@ export interface ControlDependencies {
   afterReset(): void
 }
 
+/** What the memory service lends to this module; the module itself loads on first use. */
+export interface ControlHost {
+  projects: { workspace(workspaceId: string): Promise<MemoryContext>; teamBlocked(projectId: string): string | undefined; anyEnabled(): boolean }
+  manager: MemoryManager
+  runtime: ControlDependencies['runtime']
+  exclusive: ControlDependencies['exclusive']
+  forgetStorage(): void
+}
+
+export function controlFor(host: ControlHost, ledger: MemoryLedger): MemoryControl {
+  return new MemoryControl({ ledger, manager: host.manager, context: id => host.projects.workspace(id), teamBlock: id => host.projects.teamBlocked(id),
+    exclusive: work => host.exclusive(work), runtime: host.runtime, anyEnabled: () => host.projects.anyEnabled(), afterReset: () => host.forgetStorage() })
+}
+
 const SAFE_PATH = /^[\w./ -]{1,200}$/
 /** The pages OXESpace writes itself (the only ones that can be replaced by an edit). */
 const PAGE_PATH = /^decisions\/oxe-[0-9a-f-]{8,36}\.md$/

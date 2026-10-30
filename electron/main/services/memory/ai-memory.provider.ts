@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { MEMORY_KINDS, type MemoryContext, MemoryHandoff, MemoryHealth, MemoryInput, MemoryResult, MemorySession, ProjectContext } from '../../../../shared/types/memory'
 import type { MemoryProvider } from './memory-provider'
-import { buildProjectContext } from './memory-context'
 import { AiMemoryClient, MemoryClientError } from './ai-memory.client'
 
 export class AiMemoryProvider implements MemoryProvider {
@@ -66,7 +65,8 @@ export class AiMemoryProvider implements MemoryProvider {
     ])
     const terms = task?.toLowerCase().split(/\s+/).filter(term => term.length > 2)
     const handoffs = history.filter(h => h.summary && (!terms?.length || terms.some(term => h.summary.toLowerCase().includes(term)))).slice(0, 2)
-    return buildProjectContext(items, handoffs)
+    // Fencing is loaded when a brief is built, not at start-up.
+    return (await import('./memory-context')).buildProjectContext(items, handoffs)
   }
   async getRecentSessions(ctx: MemoryContext): Promise<MemorySession[]> {
     const result = await this.client.request(`${this.base(ctx)}/sessions?limit=20&include_open=true`) as { sessions?: Record<string, unknown>[] }

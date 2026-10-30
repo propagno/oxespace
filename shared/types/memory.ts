@@ -93,15 +93,8 @@ export interface MemoryWorkspaceStatus {
 /** Physical bytes per top-level entry of the memory directory. Informational only: nothing here is deleted by the app. */
 export interface MemoryStorageUsage { categories: Record<string, number>; totalBytes: number; truncated: boolean; measuredAt: number }
 export type MemoryReply<T> = { status: 'ok'; value: T } | { status: 'disabled' | 'unavailable'; message: string }
-export interface MemoryApi {
-  status(workspaceId: string): Promise<MemoryWorkspaceStatus>
-  configure(input: { workspaceId: string; settings: MemorySettings; runtime: MemoryRuntimeSettings; token?: string }): Promise<MemoryWorkspaceStatus>
-  install(): Promise<string>
-  rollback(workspaceId: string): Promise<MemoryWorkspaceStatus>
-  setupAgents(workspaceId: string): Promise<string>
-  search(input: { workspaceId: string; query: string }): Promise<MemoryReply<MemoryResult[]>>
-  recent(workspaceId: string): Promise<MemoryReply<MemoryResult[]>>
-  storage(): Promise<MemoryStorageUsage>
+/** What a person does with stored memory from Settings. Served by a module that loads on first use, not by the service itself. */
+export interface MemoryManageApi {
   /** Every note the app knows for the workspace's project, with its origin and state; searched by text when `query` is given. */
   notes(input: { workspaceId: string; query?: string }): Promise<MemoryNotesView>
   /** Pin, mark wrong, expire, change scope, review or edit a note. A refusal says why (for example, why a note cannot be shared with the team). */
@@ -112,6 +105,16 @@ export interface MemoryApi {
   export(input: { workspaceId: string; scope?: 'all' | 'team' }): Promise<MemoryExport>
   /** `confirm` must be the word RESET. `all` also erases the managed store of every project. */
   reset(input: { workspaceId: string; scope: MemoryResetScope; confirm: string }): Promise<MemoryResetResult>
+}
+export interface MemoryApi extends MemoryManageApi {
+  status(workspaceId: string): Promise<MemoryWorkspaceStatus>
+  configure(input: { workspaceId: string; settings: MemorySettings; runtime: MemoryRuntimeSettings; token?: string }): Promise<MemoryWorkspaceStatus>
+  install(): Promise<string>
+  rollback(workspaceId: string): Promise<MemoryWorkspaceStatus>
+  setupAgents(workspaceId: string): Promise<string>
+  search(input: { workspaceId: string; query: string }): Promise<MemoryReply<MemoryResult[]>>
+  recent(workspaceId: string): Promise<MemoryReply<MemoryResult[]>>
+  storage(): Promise<MemoryStorageUsage>
   /** Offers are listed without being consumed. */
   handoffs(workspaceId: string): Promise<MemoryReply<MemoryHandoff[]>>
   /** Consumes exactly this offer; stale or already accepted offers are refused. */
