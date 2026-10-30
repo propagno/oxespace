@@ -677,7 +677,7 @@ describe('thread persistence and ownership', () => {
     const stopped = f.manager.read(id)
     expect(stopped.thread.status).toBe('interrupted')
     expect(stopped.turns?.at(-1)).toMatchObject({ status: 'interrupted', completedAt: expect.any(Number) })
-    expect(stopped.events.find(event => event.type === 'tool')).toMatchObject({ state: 'unknown', output: expect.stringContaining('OXESpace closed'), files: [{ state: 'unknown' }] })
+    expect(stopped.events.find(event => event.type === 'tool')).toMatchObject({ state: 'unknown', output: expect.stringContaining('app closed'), files: [{ state: 'unknown' }] })
     expect(stopped.thread.providerObservation).toMatchObject({ state: 'unknown', detail: expect.stringContaining('provider outcome remains unknown') })
     expect(stopped.events.find(event => event.type === 'request')).toMatchObject({ request: { state: 'cancelled' } })
     expect(stopped.thread.queue).toEqual([expect.objectContaining({ state: 'unknown', error: expect.stringContaining('could not be confirmed') })])
