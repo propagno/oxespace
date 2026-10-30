@@ -71,6 +71,6 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
       </article>)}
     </div>}
     {content && content.hits.length === 0 && content.indexing && <p className="terminal-session-identity-note" role="status">Indexing conversations…</p>}
-    <p className="desktop-provider-session-help">In Thread, use <code>/resume &lt;native session ID&gt;</code> to open the same conversation in this project.</p>
+    <p className="desktop-provider-session-help">In OxeChat, use <code>/resume &lt;native session ID&gt;</code> to open the same conversation in this project.</p>
   </Dialog>
 }

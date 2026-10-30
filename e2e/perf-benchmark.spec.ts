@@ -632,15 +632,15 @@ test('boot: window interactive', async () => {
 })
 
 /** Click→painted inside the renderer: a synchronous click, then two frames so layout and paint are included. */
-async function timeModeSwitch(page: Page, label: 'Code' | 'Thread' | 'OxeQuery'): Promise<number> {
+async function timeModeSwitch(page: Page, mode: 'code' | 'thread' | 'data'): Promise<number> {
   return page.evaluate(async (name) => {
-    const button = document.querySelector<HTMLButtonElement>(`nav[aria-label="Application view"] button[aria-label="${name}"]`)!
+    const button = document.querySelector<HTMLButtonElement>(`button[data-app-mode="${name}"]`)!
     const started = performance.now()
     button.click()
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     if (button.getAttribute('aria-pressed') !== 'true') throw new Error(`${name} did not become the active view`)
     return performance.now() - started
-  }, label)
+  }, mode)
 }
 
 /**
@@ -664,9 +664,9 @@ test('mode switch: Code ↔ Thread ↔ OxeQuery', async () => {
     const toData: number[] = []
     const toCode: number[] = []
     for (let i = 0; i < REPEATS; i++) {
-      toThread.push(await timeModeSwitch(page, 'Thread'))
-      toData.push(await timeModeSwitch(page, 'OxeQuery'))
-      toCode.push(await timeModeSwitch(page, 'Code'))
+      toThread.push(await timeModeSwitch(page, 'thread'))
+      toData.push(await timeModeSwitch(page, 'data'))
+      toCode.push(await timeModeSwitch(page, 'code'))
     }
     report('mode switch: Code→Thread', toThread)
     report('mode switch: Thread→OxeQuery', toData)

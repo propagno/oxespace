@@ -7,8 +7,8 @@ import styles from './ModeSwitch.module.css'
 
 // Product names, never translated.
 const MODES: Array<{ mode: NavigationMode; label: string }> = [
-  { mode: 'code', label: 'Code' },
-  { mode: 'thread', label: 'Thread' },
+  { mode: 'code', label: 'OxeCode' },
+  { mode: 'thread', label: 'OxeChat' },
   { mode: 'data', label: 'OxeQuery' },
   { mode: 'pods', label: 'OxePod' },
   { mode: 'post', label: 'OxePost' }
@@ -25,7 +25,7 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
       const counts = item.mode === 'code' ? attention.code : item.mode === 'thread' ? attention.thread : null
       const attentionId = counts && counts.needsYou + counts.failed + counts.working > 0 ? `mode-attention-${item.mode}` : undefined
       // The badge sits beside the button, not inside it: its count would otherwise be visible text missing from
-      // the button's name (WCAG 2.5.3). It describes the button instead, so focus reads "Thread … 1 needs you".
+      // the button's name (WCAG 2.5.3). It describes the button instead, so focus reads "OxeChat … 1 needs you".
       return <span key={item.mode} className={styles.item}>
         <button type="button" className={styles.option} aria-label={item.label} data-app-mode={item.mode} aria-pressed={mode === item.mode} title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
           onClick={() => { if (item.mode !== mode) onSelect(item.mode) }}>

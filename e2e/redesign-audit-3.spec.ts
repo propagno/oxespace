@@ -163,7 +163,7 @@ test('coverage audit', async () => {
     await surface(page, '60-thread-empty', () => modeButton(page, 'thread').click())
     await surface(page, '61-thread-add-project', () => page.getByRole('button', { name: /Add project/ }).first().click())
     await surface(page, '62-thread-accounts', () => page.getByRole('button', { name: /Agent accounts|Provider accounts/ }).first().click())
-    await surface(page, '63-thread-new-conversation', () => page.getByRole('button', { name: /New conversation|New thread/ }).first().click())
+    await surface(page, '63-thread-new-conversation', () => page.getByRole('button', { name: /New conversation/ }).first().click())
     await surface(page, '64-oxequery-entry', () => page.getByRole('button', { name: /OxeQuery|Data|Databases/ }).first().click())
   } finally {
     writeFileSync(join(OUT, 'step-failures.json'), JSON.stringify(failures, null, 2))

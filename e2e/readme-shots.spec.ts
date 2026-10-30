@@ -183,8 +183,8 @@ for (const theme of THEMES) {
       }, { workspaceId: workspace.id, rootPath: repo })
       await installThreadDemo(app, repo)
       await modeButton(page, 'thread').click()
-      await page.getByRole('button', { name: /^New thread in/ }).first().click()
-      await page.getByRole('button', { name: 'Create thread', exact: true }).click()
+      await page.getByRole('button', { name: /^New conversation in/ }).first().click()
+      await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
       await page.locator('.thread-timeline').waitFor()
       await app.evaluate((_context, payload) => {
         ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)

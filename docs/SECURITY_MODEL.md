@@ -37,11 +37,11 @@ Internal MCP bridge tokens are local secrets. Generated `.mcp.json` files are ig
 One function, `redactSecrets` in `shared/secrets.ts`, recognizes secrets by shape: provider tokens (Anthropic, OpenAI, GitHub, GitLab, Slack, Google, AWS, Stripe, npm, Linear), JWTs, `Bearer`/`Basic` credentials, named values (`password=`, `"api_key": …`, `Authorization: …`), passwords in URLs and private key blocks. It runs:
 
 - on every line `electron-log` writes to `main.log` (`services/log-redaction.ts`);
-- on diagnostics reports, on a conversation's Markdown export and on Thread failure details;
-- on what shared memory captures from a Thread, before it is queued;
+- on diagnostics reports, on a conversation's Markdown export and on OxeChat failure details;
+- on what shared memory captures from an OxeChat conversation, before it is queued;
 - on the audit export.
 
-Settings › Agents › Agent activity exports the audit as JSON lines: Thread permission decisions (`thread_audit`), agent actions through the MCP tools (`agent_action_audit`) and OxeQuery requests (`oxequery_audit`), oldest first, each line with its `source` and `at`. Add new secret formats to `tests/secrets.test.ts` when integrations evolve.
+Settings › Agents › Agent activity exports the audit as JSON lines: OxeChat permission decisions (`thread_audit`), agent actions through the MCP tools (`agent_action_audit`) and OxeQuery requests (`oxequery_audit`), oldest first, each line with its `source` and `at`. Add new secret formats to `tests/secrets.test.ts` when integrations evolve.
 
 ## OxeQuery (containers and databases)
 

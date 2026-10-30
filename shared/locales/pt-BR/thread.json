@@ -170,7 +170,7 @@
       "spending": "Quanto custaram esta conversa, o projeto dela e todos os projetos.",
       "delegations": "Trabalho delegado deste projeto para outras worktrees."
     },
-    "noSavedConversation": "Esta delegação não tem uma conversa do Thread salva. Abra Trabalho delegado para ver as opções de recuperação.",
+    "noSavedConversation": "Esta delegação não tem uma conversa do OxeChat salva. Abra Trabalho delegado para ver as opções de recuperação.",
     "rename": "Renomear conversa",
     "openBrowser": "Abrir no navegador",
     "copyFailed": "Não foi possível copiar o texto.",
@@ -309,7 +309,7 @@
     "newUnavailable": "Nova conversa não está disponível.",
     "accountsUnavailable": "As contas dos agentes não estão disponíveis.",
     "nothingToStop": "Não há turno em execução para parar.",
-    "notIntegrated": "/{{name}} ainda não está integrado ao Thread.",
+    "notIntegrated": "/{{name}} ainda não está integrado ao OxeChat.",
     "title": "Comandos e skills",
     "refresh": "Atualizar comandos",
     "list": "Comandos da conversa",
@@ -325,7 +325,7 @@
       "help": "Mostrar os comandos e skills disponíveis",
       "accounts": "Conectar a sua assinatura do Claude ou do Codex",
       "settings": "Abrir as configurações",
-      "capabilities": "Mostrar os recursos verificados do Thread",
+      "capabilities": "Mostrar os recursos verificados do OxeChat",
       "delegations": "Abrir o trabalho delegado",
       "delegation": "Abrir o trabalho delegado",
       "rules": "Regras de permissão que respondem às aprovações, e as decisões registradas",
@@ -514,7 +514,7 @@
     "chooseFolder": "Escolha a pasta do projeto.",
     "addFailed": "Não foi possível adicionar este projeto.",
     "addTitle": "Adicionar projeto",
-    "addDescription": "Escolha uma pasta para ela ficar disponível nas suas conversas do Thread.",
+    "addDescription": "Escolha uma pasta para ela ficar disponível nas suas conversas do OxeChat.",
     "adding": "Adicionando…",
     "add": "Adicionar projeto",
     "folder": "Pasta do projeto",
@@ -522,7 +522,7 @@
     "pickerFailed": "Não foi possível abrir o seletor de pastas.",
     "choosing": "Escolhendo…",
     "browse": "Procurar",
-    "addHint": "O projeto vai aparecer na barra lateral do Thread. Você escolhe entre Claude e Codex ao criar uma conversa."
+    "addHint": "O projeto vai aparecer na barra lateral do OxeChat. Você escolhe entre Claude e Codex ao criar uma conversa."
   },
   "dockChanges": {
     "undoFailed": "Não foi possível desfazer esta alteração.",
@@ -732,7 +732,7 @@
     "unpin": "Desafixar conversa",
     "mcp": "Servidores MCP",
     "textSize": "Tamanho do texto",
-    "textSizeValue": "Tamanho do texto do Thread",
+    "textSizeValue": "Tamanho do texto do OxeChat",
     "smaller": "Diminuir texto",
     "larger": "Aumentar texto",
     "resetSize": "Restaurar tamanho do texto",
@@ -1017,8 +1017,8 @@
   },
   "projectSettings": {
     "saveFailed": "Não foi possível salvar as configurações do projeto.",
-    "title": "Projeto do Thread · {{name}}",
-    "description": "Estas configurações valem para este projeto do Thread. As configurações do workspace do Code são separadas.",
+    "title": "Projeto do OxeChat · {{name}}",
+    "description": "Estas configurações valem para este projeto do OxeChat. As configurações do workspace do OxeCode são separadas.",
     "directory": "Diretório do projeto",
     "unavailable": "Este diretório não está disponível. Escolha o novo local para retomar o trabalho.",
     "relinkMissing": "Religar o diretório ausente",
@@ -1028,7 +1028,7 @@
     "newDirectoryPlaceholder": "Caminho absoluto do projeto",
     "relink": "Religar o diretório",
     "delegation": "Delegação entre agentes",
-    "allow": "Permitir que os agentes deste projeto do Thread deleguem trabalho",
+    "allow": "Permitir que os agentes deste projeto do OxeChat deleguem trabalho",
     "optIn": "Cada destino também precisa da própria autorização. Transferências entre projetos exigem uma autorização separada.",
     "destination": "Diretório de destino",
     "destinationPlaceholder": "Caminho absoluto de outro repositório local",
@@ -1197,11 +1197,11 @@
     "addProject": "Adicionar projeto",
     "accounts": "Contas",
     "agentAccounts": "Contas dos agentes",
-    "region": "Barra lateral do Thread",
-    "width": "Largura da barra lateral do Thread",
+    "region": "Barra lateral do OxeChat",
+    "width": "Largura da barra lateral do OxeChat",
     "conversations": "Conversas",
     "filter": "Filtrar conversas",
-    "projectsRegion": "Projetos do Thread",
+    "projectsRegion": "Projetos do OxeChat",
     "loading": "Carregando conversas…",
     "projects": "Projetos",
     "compact": "Lista de conversas compacta",
@@ -1212,8 +1212,8 @@
     "newIn": "Nova conversa neste projeto",
     "projectActions": "Ações do projeto {{name}}",
     "projectSettings": "Configurações do projeto",
-    "openInCode": "Abrir no Code",
-    "openInCodeFailed": "Não foi possível abrir o projeto no Code.",
+    "openInCode": "Abrir no OxeCode",
+    "openInCodeFailed": "Não foi possível abrir o projeto no OxeCode.",
     "removeProjectMenu": "Remover projeto…",
     "showMore_one": "Mostrar mais {{count}}",
     "showMore_many": "Mostrar mais {{count}}",
@@ -1232,7 +1232,7 @@
     "removeProject": {
       "title": "Remover este projeto?",
       "confirm": "Remover projeto",
-      "description": "Remover “{{name}}” da barra lateral do Thread? As conversas, os arquivos e os workspaces do Code continuam. Restaure o projeto em Projetos removidos ou adicione a pasta de novo."
+      "description": "Remover “{{name}}” da barra lateral do OxeChat? As conversas, os arquivos e os workspaces do OxeCode continuam. Restaure o projeto em Projetos removidos ou adicione a pasta de novo."
     },
     "restartToDelete": "Reinicie o aplicativo atualizado para excluir conversas."
   },
@@ -1423,7 +1423,7 @@
     "retryAfter": "Você pode tentar de novo depois das {{time}}.",
     "recoverBody": "Recupere a conversa salva para continuar aqui.",
     "recover": "Recuperar conversa",
-    "serviceUnavailable": "O serviço do Thread está indisponível. Reinicie o aplicativo atualizado.",
+    "serviceUnavailable": "O serviço do OxeChat está indisponível. Reinicie o aplicativo atualizado.",
     "dismissError": "Dispensar erro",
     "retry": "Tentar de novo"
   },
@@ -1481,7 +1481,7 @@
     "cancel": "Cancelar a execução"
   },
   "workbench": {
-    "label": "Bancada do Thread",
+    "label": "Bancada do OxeChat",
     "panels": "Painéis da bancada",
     "select": "Escolher painel da bancada: {{panel}}",
     "restore": "Restaurar o painel da bancada",

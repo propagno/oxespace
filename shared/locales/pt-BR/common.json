@@ -10,8 +10,8 @@
   "nav": {
     "applicationView": "Visão do aplicativo",
     "modeTitle": {
-      "code": "Code: terminais e agentes nos seus workspaces",
-      "thread": "Thread: conversas com um agente",
+      "code": "OxeCode: terminais e agentes nos seus workspaces",
+      "thread": "OxeChat: conversas com um agente",
       "data": "OxeQuery: bancos de dados",
       "pods": "OxePod: contêineres",
       "post": "OxePost: requisições de API"
@@ -154,8 +154,8 @@
         "shortcuts": "Mostrar os atalhos de teclado"
       },
       "view": {
-        "code": "Mostrar o Code",
-        "thread": "Mostrar o Thread",
+        "code": "Mostrar o OxeCode",
+        "thread": "Mostrar o OxeChat",
         "data": "Mostrar o OxeQuery",
         "pods": "Mostrar o OxePod",
         "post": "Mostrar o OxePost"
@@ -287,8 +287,8 @@
     "ready_one": "{{names}} está pronto",
     "ready_many": "{{names}} estão prontos",
     "ready_other": "{{names}} estão prontos",
-    "readyBoth": "O Code e o Thread podem usá-lo.",
-    "readyCodeOnly": "O Code consegue rodá-lo. O Thread precisa do Claude Code ou do Codex.",
+    "readyBoth": "O OxeCode e o OxeChat podem usá-lo.",
+    "readyCodeOnly": "O OxeCode consegue rodá-lo. O OxeChat precisa do Claude Code ou do Codex.",
     "checking": "Procurando as CLIs de agentes…",
     "checkingDetail": "Procurando os comandos no seu PATH.",
     "partial_one": "{{names}} foi encontrado, mas não está pronto",

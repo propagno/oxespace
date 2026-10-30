@@ -256,11 +256,11 @@ for (const theme of THEMES) {
         await expect(dialog()).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined)
       }
       page.setDefaultTimeout(10_000)
-      await dialogScan('thread-new', () => page.getByRole('button', { name: /^New thread/ }).first().click(), () => page.getByRole('dialog', { name: 'New thread' }))
+      await dialogScan('thread-new', () => page.getByRole('button', { name: /^New conversation/ }).first().click(), () => page.getByRole('dialog', { name: 'New conversation' }))
       await dialogScan('thread-new-worktree', async () => {
-        await page.getByRole('button', { name: /^New thread/ }).first().click()
-        await page.getByRole('dialog', { name: 'New thread' }).getByRole('checkbox', { name: 'Create in a new worktree' }).check()
-      }, () => page.getByRole('dialog', { name: 'New thread' }))
+        await page.getByRole('button', { name: /^New conversation/ }).first().click()
+        await page.getByRole('dialog', { name: 'New conversation' }).getByRole('checkbox', { name: 'Create in a new worktree' }).check()
+      }, () => page.getByRole('dialog', { name: 'New conversation' }))
       // Row actions show on hover; the row is hovered first, as a person would.
       const rowMenu = async (item: string): Promise<void> => {
         const row = page.locator('.thread-navigation-row').first()
@@ -274,7 +274,7 @@ for (const theme of THEMES) {
         await actions.locator('xpath=..').hover()
         await actions.click()
         await page.getByRole('menuitem', { name: 'Project settings' }).click()
-      }, () => page.getByRole('dialog', { name: /^Thread project/ }))
+      }, () => page.getByRole('dialog', { name: /^OxeChat project/ }))
       await dialogScan('thread-accounts', () => page.getByRole('button', { name: 'Agent accounts', exact: true }).click(), () => page.getByRole('dialog', { name: 'Agent accounts' }))
       // Command confirmations come from the real command router; Escape cancels them, so nothing is archived.
       // The fixtures stand in for the main process, so the confirmations are opened from the row menu (the

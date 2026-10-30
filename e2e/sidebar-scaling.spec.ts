@@ -38,9 +38,9 @@ test('the Thread sidebar keeps rows readable at every width and zoom', async () 
       ipcMain.handle('thread:models', () => ({ defaultModel: 'm', models: [{ id: 'm', label: 'Model', description: '', efforts: ['low'], defaultEffort: 'low' }] }))
     }, { rootPath: repo, titles: TITLES })
     await modeButton(page, 'thread').click()
-    const sidebar = page.getByRole('complementary', { name: 'Thread sidebar' })
+    const sidebar = page.getByRole('complementary', { name: 'OxeChat sidebar' })
     await expect(sidebar.locator('.thread-navigation-item').first()).toBeVisible()
-    const separator = page.getByRole('separator', { name: 'Thread sidebar width' })
+    const separator = page.getByRole('separator', { name: 'OxeChat sidebar width' })
 
     for (const zoom of [1, 1.25, 1.5]) {
       await app.evaluate(({ BrowserWindow }, factor) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(factor), zoom)

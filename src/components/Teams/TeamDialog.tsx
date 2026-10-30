@@ -24,13 +24,13 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
     catch (e) { setError(String(e)); if (api) { try { setTeam(await api.read(scope)) } catch { /* Preserve the original error. */ } } }
     finally { setBusy(false) }
   }
-  return <Dialog className="team-dialog" size="lg" title="Team" description="Persistent roles for this project, shared by Code and Thread." onClose={onClose}>
+  return <Dialog className="team-dialog" size="lg" title="Team" description="Persistent roles for this project, shared by OxeCode and OxeChat." onClose={onClose}>
     <div className="team-dialog-body">
       {error && <p role="alert">{error}</p>}
       {!team && !error && <p role="status">Loading team…</p>}
       {team && <>
         <h3>{team.name}</h3>
-        <p className="team-note">Members are saved independently of sessions. Creating a role does not start an agent. Automatic delivery sends inbox messages to a connected idle Thread. It pauses after failure, interruption or restart; Code sessions read their inbox through MCP.</p>
+        <p className="team-note">Members are saved independently of sessions. Creating a role does not start an agent. Automatic delivery sends inbox messages to a connected idle OxeChat conversation. It pauses after failure, interruption or restart; OxeCode sessions read their inbox through MCP.</p>
         <ul className="team-members" aria-label="Team members">
           {team.members.filter(m => !m.archived).map(member => <li key={member.id}>
             <div><strong>{member.name}</strong><span>{roles[member.role]}</span><span>{member.connection?.state === 'connected' ? member.connection.suspended ? 'Session connected · idle, a message starts it again' : 'Session connected' : member.connection ? 'Session disconnected · reconnect to authorize MCP' : 'No session connected'}</span></div>

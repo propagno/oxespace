@@ -10,8 +10,8 @@
   "nav": {
     "applicationView": "Application view",
     "modeTitle": {
-      "code": "Code: terminals and agents in your workspaces",
-      "thread": "Thread: conversations with an agent",
+      "code": "OxeCode: terminals and agents in your workspaces",
+      "thread": "OxeChat: conversations with an agent",
       "data": "OxeQuery: databases",
       "pods": "OxePod: containers",
       "post": "OxePost: API requests"
@@ -151,8 +151,8 @@
         "shortcuts": "Show keyboard shortcuts"
       },
       "view": {
-        "code": "Show Code",
-        "thread": "Show Thread",
+        "code": "Show OxeCode",
+        "thread": "Show OxeChat",
         "data": "Show OxeQuery",
         "pods": "Show OxePod",
         "post": "Show OxePost"
@@ -283,8 +283,8 @@
     "join": "{{first}} and {{last}}",
     "ready_one": "{{names}} is ready",
     "ready_other": "{{names}} are ready",
-    "readyBoth": "Code and Thread can use it.",
-    "readyCodeOnly": "Code can run it. Thread needs Claude Code or Codex.",
+    "readyBoth": "OxeCode and OxeChat can use it.",
+    "readyCodeOnly": "OxeCode can run it. OxeChat needs Claude Code or Codex.",
     "checking": "Checking for agent CLIs…",
     "checkingDetail": "Looking for the commands on your PATH.",
     "partial_one": "{{names}} was found but not ready",

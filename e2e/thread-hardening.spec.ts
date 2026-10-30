@@ -124,9 +124,9 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
 
     await modeButton(page, 'thread').click()
-    await page.getByRole('button', { name: 'New thread in repo' }).click()
+    await page.getByRole('button', { name: 'New conversation in repo' }).click()
     await page.getByRole('radio', { name: /Codex/ }).check()
-    await page.getByRole('button', { name: 'Create thread', exact: true }).click()
+    await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
     await expect(page.locator('.thread-composer textarea')).toBeVisible()
     const calls = async () => app.evaluate(() => (globalThis as Record<string, any>).hardeningCalls as Record<string, unknown[][]>)
 

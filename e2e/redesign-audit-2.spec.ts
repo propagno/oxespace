@@ -41,7 +41,7 @@ test('redesign audit part 2', async () => {
     try {
       await modeButton(page, 'thread').click({ timeout: 5000 })
       await shot('14-thread-mode')
-      const btn = page.getByRole('button', { name: /new thread|new chat|nova/i }).first()
+      const btn = page.getByRole('button', { name: /new conversation|new chat|nova/i }).first()
       if (await btn.count()) { await btn.click(); await shot('15-thread-new') }
     } catch (e) { log.push(`thread: ${(e as Error).message.split('\n')[0]}`) }
     await modeButton(page, 'code').click().catch(() => undefined)

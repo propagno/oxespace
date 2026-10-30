@@ -12,7 +12,7 @@
     "unreadable": "Erro",
     "noMatch": "Nenhuma requisição corresponde.",
     "empty": "Nenhuma requisição ainda. Crie uma, ou importe um comando cURL ou um arquivo OpenAPI. Elas são salvas como arquivos em .oxespace/requests.",
-    "noWorkspace": "Abra um workspace no Code para guardar requisições nele.",
+    "noWorkspace": "Abra um workspace no OxeCode para guardar requisições nele.",
     "failed": "Não foi possível ler as requisições.",
     "more": "Mais",
     "import": "Importar cURL ou OpenAPI",
@@ -20,7 +20,7 @@
   },
   "view": {
     "noWorkspaceTitle": "O OxePost precisa de um workspace",
-    "noWorkspaceText": "As requisições são salvas como arquivos na pasta .oxespace/requests do workspace, então ficam versionadas junto com o código. Abra um workspace no Code e volte.",
+    "noWorkspaceText": "As requisições são salvas como arquivos na pasta .oxespace/requests do workspace, então ficam versionadas junto com o código. Abra um workspace no OxeCode e volte.",
     "failed": "Não foi possível ler as requisições",
     "retry": "Tentar de novo",
     "loading": "Carregando o OxePost"

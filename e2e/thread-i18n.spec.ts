@@ -16,7 +16,7 @@ test('Thread main flow in Brazilian Portuguese', async () => {
     await registerThreadProject(app, page, workspaceRoot)
     await modeButton(page, 'thread').click()
 
-    const sidebar = page.getByRole('complementary', { name: 'Barra lateral do Thread' })
+    const sidebar = page.getByRole('complementary', { name: 'Barra lateral do OxeChat' })
     await expect(sidebar.getByText('Conversas', { exact: true })).toBeVisible()
     await sidebar.getByRole('button', { name: 'Nova conversa em repo', exact: true }).click()
     await page.getByRole('button', { name: 'Criar conversa', exact: true }).click()
@@ -79,9 +79,9 @@ test('captures the Thread states for review', async () => {
     await registerThreadProject(app, page, workspaceRoot)
     const pt = locale === 'pt-BR'
     await modeButton(page, 'thread').click()
-    await page.getByRole('button', { name: pt ? 'Nova conversa em repo' : 'New thread in repo', exact: true }).click()
+    await page.getByRole('button', { name: pt ? 'Nova conversa em repo' : 'New conversation in repo', exact: true }).click()
     await shot(page, 'create-dialog')
-    await page.getByRole('button', { name: pt ? 'Criar conversa' : 'Create thread', exact: true }).click()
+    await page.getByRole('button', { name: pt ? 'Criar conversa' : 'Create conversation', exact: true }).click()
     await page.locator('.thread-timeline').waitFor()
     for (const state of Object.keys(THREAD_STATES) as ThreadStateName[]) {
       await setThreadState(app, workspaceRoot, state)

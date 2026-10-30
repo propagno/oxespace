@@ -191,7 +191,7 @@ test.describe('offer audit', () => {
         // A command that needs Code's workspace is offered there; come back to Code when the last command left it.
         if (!(await runCommand(page, id))) {
           await selectView(page, 'code')
-          if (!(await runCommand(page, id))) { failures.push(`${id}: not offered in Code`); continue }
+          if (!(await runCommand(page, id))) { failures.push(`${id}: not offered in OxeCode`); continue }
         }
         try {
           if (id === 'split-vertical' || id === 'split-horizontal') await expect.poll(() => paneCount(page)).toBe(panesBefore + 1)
@@ -235,7 +235,7 @@ test.describe('offer audit', () => {
       const received = (): Promise<string[]> => app.evaluate(() => [...((globalThis as { offerAuditCommands?: string[] }).offerAuditCommands ?? [])])
       const sent = (text: string): Check => async () => { await expect.poll(received).toContain(text) }
       const THREAD_EFFECTS: Record<string, Check> = {
-        'thread.new': both(view('thread'), dialog('New thread')),
+        'thread.new': both(view('thread'), dialog('New conversation')),
         'thread.add-project': both(view('thread'), dialog('Add project')),
         'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current="page"]')).toContainText('Offer audit') }),
         'thread.resume': sent('/resume'), 'thread.rename': sent('/rename'), 'thread.spending': sent('/spending'),
@@ -313,7 +313,7 @@ test.describe('offer audit', () => {
         'File/Exit': 'native',
         'Edit/Undo': 'native', 'Edit/Redo': 'native', 'Edit/Cut': 'native', 'Edit/Copy': 'native', 'Edit/Paste': 'native', 'Edit/Select all': 'native',
         'View/Command palette…': async p => { await expect(paletteInput(p)).toBeVisible() },
-        'View/Code': view('code'), 'View/Thread': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'), 'View/OxePost': view('post'),
+        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'), 'View/OxePost': view('post'),
         'View/Toggle sidebar': async p => { await expect(p.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
         'View/Files': testId('workspace-editor-panel'),
         'View/Commit & pull request': testId('workspace-github-panel'),
