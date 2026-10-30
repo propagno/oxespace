@@ -19,6 +19,23 @@ describe('files that steer agents', () => {
     ] as const) expect(protectedConfigKind(path), path).toBe(kind)
   })
 
+  it('are found in Windows spellings: drive letters, backslashes, a leading dot, mixed slashes and case', () => {
+    for (const [path, kind] of [
+      ['C:\\repo\\AGENTS.md', 'instructions'], ['c:/repo/.MCP.JSON', 'mcp'], ['.\\.claude\\settings.json', 'hooks'], ['C:\\repo/.claude\\hooks/pre.ps1', 'hooks'],
+      ['.CLAUDE\\SETTINGS.LOCAL.JSON', 'hooks'], ['C:\\repo\\\\docs\\CLAUDE.md', 'instructions'], ['\\\\server\\share\\repo\\.git\\hooks\\pre-commit', 'hooks']
+    ] as const) expect(protectedConfigKind(path), path).toBe(kind)
+    expect(protectedConfigKind('C:\\repo\\src\\app.ts')).toBeNull()
+  })
+
+  it('are asked about as a Windows path, and an ordinary file under a rule is still allowed', () => {
+    const windows = { windows: true } as const
+    const rules = [rule('path', 'src/**'), rule('path', '*.md')]
+    expect(evaluatePermission({ kind: 'approval', toolName: 'Edit', paths: ['C:\\repo\\AGENTS.md'] }, 'C:\\repo', rules, windows)).toMatchObject({ decision: 'ask', guarded: true })
+    expect(evaluatePermission({ kind: 'approval', toolName: 'Edit', paths: ['C:\\repo\\.claude\\settings.json'] }, 'C:\\repo', rules, windows)).toMatchObject({ decision: 'ask', guarded: true })
+    expect(evaluatePermission({ kind: 'approval', toolName: 'Edit', paths: ['C:\\repo\\src\\a.ts'] }, 'C:\\repo', rules, windows)).toMatchObject({ decision: 'allow' })
+    expect(evaluatePermission({ kind: 'approval', toolName: 'Edit', paths: ['C:\\repo\\AGENTS.md'] }, 'C:\\repo', [rule('path', 'AGENTS.md', 'deny')], windows)).toMatchObject({ decision: 'deny' })
+  })
+
   it('leave ordinary files alone', () => {
     for (const path of ['README.md', 'src/agents.ts', 'AGENTS.md.bak', 'notes/my-agents.md', '.mcp.json.example', '.claude/commands.txt', 'docs/hooks/readme.md', 'constructor', '__proto__', '', 'src/.mcp/config.ts']) {
       expect(protectedConfigKind(path), path).toBeNull()

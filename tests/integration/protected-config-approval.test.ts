@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -13,11 +13,12 @@ const dbs: AppDatabase[] = []
 afterEach(() => { for (const db of dbs.splice(0)) db.close(); for (const dir of dirs.splice(0)) removeTempDir(dir) })
 
 function setup() {
-  const root = mkdtempSync(join(tmpdir(), 'oxe-guarded-')); dirs.push(root)
+  // The real path: on a Windows runner the temp folder is an 8.3 short name (RUNNER~1), which the path check refuses on purpose.
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-guarded-'))); dirs.push(root)
   const db = openInMemoryDatabase(); dbs.push(db)
   const store = new ThreadPermissionStore(db)
   const policy = new ThreadPolicy(store, () => root, async () => undefined)
-  const edit = (path: string, id = 'r1'): ThreadRequest => ({ id, nativeId: id, nativeMethod: 'can_use_tool:Edit', kind: 'approval', title: 'Edit', detail: '', generation: 1, createdAt: 0, state: 'pending', toolName: 'Edit', paths: [join(root, path)] })
+  const edit = (path: string, id = 'r1'): ThreadRequest => ({ id, nativeId: id, nativeMethod: 'can_use_tool:Edit', kind: 'approval', title: 'Edit', detail: '', generation: 1, createdAt: 0, state: 'pending', toolName: 'Edit', paths: [path] })
   return { root, store, policy, edit }
 }
 
