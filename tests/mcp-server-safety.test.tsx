@@ -33,7 +33,7 @@ describe('McpServerSafety', () => {
   it('explains a quarantine and what changed, and says it is not offered to agents', () => {
     render(<McpServerSafety server={server({ trusted: false, guard: { toolsRemembered: true, quarantine: { at: 1, reasons: ['The description or inputs of "read" changed after you trusted it.'], added: [], removed: [], changed: ['read'] } } })} />)
     const box = screen.getByTestId('mcp-quarantine')
-    expect(box).toHaveAttribute('role', 'alert')
+    expect(box).toHaveAttribute('role', 'status')
     expect(box).toHaveTextContent('"read" changed')
     expect(box).toHaveTextContent('not offered to agents')
   })

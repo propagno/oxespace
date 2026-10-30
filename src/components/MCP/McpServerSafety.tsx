@@ -17,7 +17,7 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
   return (
     <div className="mcp-safety" data-testid="mcp-safety">
       {quarantine ? (
-        <div className="mcp-safety-box is-danger" role="alert" data-testid="mcp-quarantine">
+        <div className="mcp-safety-box is-danger" role="status" data-testid="mcp-quarantine">
           <ShieldAlert size={14} aria-hidden="true" />
           <div>
             <strong>Quarantined: it changed after you trusted it</strong>
@@ -27,7 +27,7 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
         </div>
       ) : null}
       {findings.length > 0 ? (
-        <div className="mcp-safety-box is-warning" role="alert" data-testid="mcp-description-warning">
+        <div className="mcp-safety-box is-warning" role="status" data-testid="mcp-description-warning">
           <TriangleAlert size={14} aria-hidden="true" />
           <div>
             <strong>Tool descriptions with instructions for the model</strong>
