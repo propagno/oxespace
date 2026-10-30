@@ -20,8 +20,17 @@ const catalog = (language: string): Record<string, unknown> => JSON.parse(readFi
 
 describe('Android sources generated from the contracts', () => {
   it('match the committed Kotlin of the C5 protocol (run npm run android:generate after a contract change)', () => {
-    const committed = readFileSync(join(root, PROTOCOL_KOTLIN_PATH), 'utf8').replace(/\r\n/g, '\n')
-    expect(committed).toBe(protocolKotlin(protocolSource, protocol))
+    expect(committed(PROTOCOL_KOTLIN_PATH)).toBe(protocolKotlin(protocolSource, protocol))
+  })
+
+  it('match the committed Kotlin tokens (run npm run android:generate after editing a token)', () => {
+    expect(committed(THEME_KOTLIN_PATH)).toBe(themeKotlin(tokens))
+  })
+
+  it('match the committed string resources (run npm run android:generate after editing mobile.json)', () => {
+    for (const [language, path] of Object.entries(STRINGS_XML_PATHS as Record<string, string>)) {
+      expect(committed(path), language).toBe(stringsXml(catalog('en'), catalog(language), language))
+    }
   })
 
   it('carries every frame, command, subscription and error code to Kotlin', () => {
