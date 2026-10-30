@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { TOOL_REGISTRY } from '../electron/main/mcp-internal/tool-registry'
-import { OPTIONAL_THREAD_TOOL_GROUPS, THREAD_TOOL_GROUPS } from '../electron/main/services/conversation/thread-mcp'
+import { CODE_TOOL_GROUP, MCP_TOOL_GROUPS, OPTIONAL_THREAD_TOOL_GROUPS, THREAD_TOOL_GROUPS } from '../electron/main/services/conversation/thread-mcp'
 import { createOxeApi, type PreloadIpc } from '../electron/preload/api'
 import { FORBIDDEN_CAPABILITIES, MCP_COVERAGE } from '../shared/mcp-coverage'
 import { IPC_CHANNELS } from '../shared/types/ipc'
@@ -10,10 +10,19 @@ vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: cla
 
 describe('Settings › Tools contract (F10)', () => {
   it('names the same groups the Thread runtime offers, and the same configurable ones', () => {
-    expect([...MCP_TOOL_GROUP_IDS].sort()).toEqual(Object.keys(THREAD_TOOL_GROUPS).sort())
+    expect([...MCP_TOOL_GROUP_IDS].sort()).toEqual(Object.keys(MCP_TOOL_GROUPS).sort())
     expect([...CONFIGURABLE_MCP_TOOL_GROUPS].sort()).toEqual([...OPTIONAL_THREAD_TOOL_GROUPS].sort())
-    for (const fixed of ['core', 'team', 'worker']) expect(CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).not.toContain(fixed)
+    for (const fixed of ['core', 'team', 'worker', 'code']) expect(CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).not.toContain(fixed)
     expect(MCP_TOOL_GROUP_MODES).toEqual(['always', 'on-demand', 'off'])
+  })
+
+  it('puts every registered tool in a group, and keeps the Code terminal\'s group out of OxeChat', () => {
+    const grouped = new Set<string>(Object.values(MCP_TOOL_GROUPS).flat())
+    // The enable tool belongs to no group: a session is given it only when it has something to turn on (B7.2).
+    expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => !grouped.has(name) && name !== 'oxespace_tools_enable')).toEqual([])
+    const thread = new Set<string>(Object.values(THREAD_TOOL_GROUPS).flat())
+    expect(CODE_TOOL_GROUP.filter(tool => thread.has(tool))).toEqual([])
+    expect(Object.keys(THREAD_TOOL_GROUPS)).not.toContain('code')
   })
 
   it('uses stable channel names', () => {

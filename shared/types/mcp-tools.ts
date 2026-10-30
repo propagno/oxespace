@@ -4,11 +4,14 @@
  * cost is computed by the same code the CI budget test uses (T8).
  */
 
-/** The groups, as the Thread runtime knows them. `team` and `worker` follow the conversation's role. */
-export const MCP_TOOL_GROUP_IDS = ['core', 'orchestration', 'data', 'docs', 'app', 'team', 'worker'] as const
+/**
+ * The groups. `team` and `worker` follow the conversation's role; `code` is the Code terminal's own, always on there and
+ * never offered to an OxeChat conversation.
+ */
+export const MCP_TOOL_GROUP_IDS = ['core', 'orchestration', 'data', 'docs', 'app', 'team', 'worker', 'code'] as const
 export type McpToolGroupId = typeof MCP_TOOL_GROUP_IDS[number]
 
-/** Groups a project can switch between modes. `core` is always on; `team` and `worker` follow the role. */
+/** Groups a project can switch between modes. `core` is always on; `team`, `worker` and `code` follow the role. */
 export const CONFIGURABLE_MCP_TOOL_GROUPS = ['orchestration', 'data', 'docs', 'app'] as const satisfies readonly McpToolGroupId[]
 export type ConfigurableMcpToolGroup = typeof CONFIGURABLE_MCP_TOOL_GROUPS[number]
 
