@@ -16,6 +16,8 @@ export interface MessageParams {
   'mcp.quarantine.added': { tools: string[] }
   /** MCP quarantine: tools the server removed after it was trusted. */
   'mcp.quarantine.removed': { tools: string[] }
+  /** MCP quarantine: the server's command, arguments, environment or URL no longer match what was trusted. */
+  'mcp.quarantine.configChanged': Record<string, never>
   /** A pending request was answered, cancelled or expired before this answer arrived. */
   'thread.request.notPending': Record<string, never>
   /** The conversation restarted since the request was listed; the answer belongs to an older generation. */
@@ -42,6 +44,7 @@ export const MESSAGE_CODES = [
   'mcp.quarantine.changed',
   'mcp.quarantine.added',
   'mcp.quarantine.removed',
+  'mcp.quarantine.configChanged',
   'thread.request.notPending',
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',

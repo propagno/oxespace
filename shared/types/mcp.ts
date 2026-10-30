@@ -1,3 +1,5 @@
+import type { MainMessage } from '../messages'
+
 export type McpTransport = 'stdio' | 'http' | 'sse'
 
 export interface McpStdioConfig {
@@ -26,7 +28,11 @@ export type McpServerConfig = McpStdioConfig | McpHttpConfig
 export interface McpServerGuard {
   /** The tools and descriptions seen since trust are remembered, so a later change can be told. */
   toolsRemembered: boolean
-  quarantine: { at: number; reasons: string[]; added: string[]; removed: string[]; changed: string[] } | null
+  /**
+   * `reasons` are English sentences, kept for records written before `codes` existed and for anything that reads
+   * them. `codes` say the same as message codes the window translates (shared/messages.ts); absent on older records.
+   */
+  quarantine: { at: number; reasons: string[]; codes?: MainMessage[]; added: string[]; removed: string[]; changed: string[] } | null
 }
 
 /**

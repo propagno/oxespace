@@ -12,6 +12,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.quarantine.changed': ['tools'],
   'mcp.quarantine.added': ['tools'],
   'mcp.quarantine.removed': ['tools'],
+  'mcp.quarantine.configChanged': [],
   'thread.request.notPending': [],
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],

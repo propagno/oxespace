@@ -1309,11 +1309,8 @@
 }
 
 .settings-term-cursor.blink {
-  animation: settings-cursor-blink var(--duration-blink) step-end infinite;
-}
-
-@keyframes settings-cursor-blink {
-  50% { opacity: 0; }
+  --pulse-opacity: 0;
+  animation: oxe-pulse var(--duration-blink) step-end infinite;
 }
 
 .settings-term-preview-meta {
@@ -1675,11 +1672,6 @@
 .danger-action:hover { background: var(--intent-danger-bg); border-color: var(--intent-danger-border); }
 /* ─── Issues / Kanban ───────────────────────────────────────────────────── */
 
-@keyframes tasks-pulse {
-  0%, 100% { opacity: 0.35; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1); }
-}
-
 .status-idle { background: var(--dot-gray, var(--surface-overlay)); }
 .status-running { background: var(--dot-yellow, var(--intent-warning-solid)); }
 .status-verifying { background: var(--dot-blue, var(--intent-info-solid)); }
@@ -1758,13 +1750,10 @@
      other modal backdrops and lets the dialog stand on its own. */
   background: var(--scrim);
   backdrop-filter: blur(8px);
-  animation: slash-overlay-fade var(--duration-fast) var(--ease-out);
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
 
-@keyframes slash-overlay-fade {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+@starting-style { .slash-overlay-backdrop { opacity: 0; } }
 
 .slash-overlay {
   width: min(560px, calc(100vw - 48px));
@@ -1777,13 +1766,11 @@
   border-radius: var(--radius-md);
   background: var(--bg-modal);
   box-shadow: var(--shadow-modal);
-  animation: slash-overlay-pop var(--duration-base) var(--ease-out);
+  transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
 
-@keyframes slash-overlay-pop {
-  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
+/* Command surfaces drop in from above (docs/design/motion.md). */
+@starting-style { :is(.slash-overlay, .mcp-panel, .skills-browser, .bg-jobs-panel) { opacity: 0; translate: 0 calc(var(--motion-shift) * -1); } }
 
 .slash-overlay-header {
   display: flex;
@@ -1984,11 +1971,6 @@
 }
 
 /* ─── Model Selector ─────────────────────────────────────────────────────── */
-
-@keyframes model-selector-fade {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 
 /* ─── Shared spin animation (reused by refresh buttons across the app) ───── */
 
