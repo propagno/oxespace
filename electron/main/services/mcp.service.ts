@@ -20,7 +20,7 @@ import type {
 import { McpConfigSync } from './mcp-sync.service'
 import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
 import { probeHttpServer } from './mcp-http-probe'
-import { checkConfig, checkTools, parseGuard, summarizeGuard, trustState, configHash, type GuardState, type GuardVerdict } from './mcp-guard'
+import { checkConfig, parseGuard, summarizeGuard, trustState, configHash, type GuardState, type GuardVerdict } from './mcp-pin'
 
 interface McpServerRow {
   id: string
@@ -253,7 +253,7 @@ export class McpManager {
         const result = await probeHttpServer(server.config as McpHttpConfig)
         if (result.status === 'needs-auth') return record('needs-auth', 'Answers and asks for a sign-in. The agent opens it on first use.')
         if (result.status === 'reachable') return record('healthy', 'Answers. Its tools show once the agent connects.')
-        this.verifyTools(server, result.tools)
+        await this.verifyTools(server, result.tools)
         return record('healthy', `${result.tools.length} tool(s)`, result.tools)
       } catch (err) {
         return record('unhealthy', err instanceof Error ? err.message : String(err))
@@ -435,7 +435,7 @@ export class McpManager {
 
       const toolsResult = await this.request<{ tools: McpToolDescriptor[] }>(runtime, 'tools/list', {})
       const tools = Array.isArray(toolsResult.tools) ? toolsResult.tools : []
-      this.verifyTools(server, tools)
+      await this.verifyTools(server, tools)
 
       // Cache tools on the runtime; not persisted to DB (refreshed on each connect).
       runtime.server = { ...runtime.server, tools, health: 'healthy', healthMessage: null }
@@ -512,7 +512,9 @@ export class McpManager {
     throw new Error(message)
   }
 
-  private verifyTools(server: McpServer, tools: McpToolDescriptor[]): void {
+  /** The comparison of tool lists is loaded when a server connects, not at start-up. */
+  private async verifyTools(server: McpServer, tools: McpToolDescriptor[]): Promise<void> {
+    const { checkTools } = await import('./mcp-guard')
     const state = this.guardOf(server.id) ?? trustState(server.config, Date.now())
     this.verify(server, checkTools(state, tools, Date.now()))
   }
