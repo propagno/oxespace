@@ -143,6 +143,33 @@ describe('tool.use policy enforcement for OXESpace tools', () => {
     })
   })
 
+  // The two cases homologation found open on #212's first commit (e2e/homologation/hml-212), kept as regressions.
+  describe('regressions from homologation of #212', () => {
+    it('a managed deny on the whole server key, in Claude’s syntax, hides the server in both CLIs and refuses tools/call', async () => {
+      const { root, db, layers } = setup()
+      layers.managed('mcp__oxespace-delegation')
+      const denied = policyDeniedToolNames(root)
+      expect(threadMcpArguments('claude', [], '/bridge.cjs', undefined, [], undefined, denied).join(' ')).toContain('--disallowedTools mcp__oxespace-delegation')
+      expect(threadMcpArguments('codex', [], '/bridge.cjs', undefined, [], undefined, denied)).toContain('mcp_servers.oxespace-delegation.enabled=false')
+      await withServer(db, undefined, async call => {
+        expect(await call('oxespace_list_workspaces')).toMatchObject(blocked('your organization’s policy'))
+      })
+    })
+
+    it('a project deny in A holds for a caller naming A, B or an unknown workspace, whichever is active', async () => {
+      const { db, layers } = setup()
+      layers.project('MCP__OXESPACE__OXESPACE_LIST_WORKSPACES')
+      for (const active of ['A', 'B']) {
+        db.prepare('UPDATE workspaces SET is_active = CASE id WHEN ? THEN 1 ELSE 0 END').run(active)
+        await withServer(db, undefined, async call => {
+          for (const workspaceId of ['A', 'B', 'nope']) {
+            expect(await call('oxespace_list_workspaces', { workspaceId }), `active ${active}, header ${workspaceId}`).toMatchObject(blocked('this project’s policy'))
+          }
+        })
+      }
+    })
+  })
+
   it('without a policy store nothing is refused', async () => {
     const { db } = setup()
     setPolicyStore(null)
