@@ -22,7 +22,7 @@ function fakePty() {
 }
 
 /** A started terminal whose output, activity and agent observer are recorded. */
-async function setup(ringCapacityBytes?: number) {
+async function setup(ringCapacityBytes?: number, beforeStart?: (manager: TerminalManager, paneId: string) => void) {
   const db = openInMemoryDatabase()
   db.prepare("INSERT OR IGNORE INTO shell_profiles(id,name,executable,args_json,is_builtin) VALUES ('builtin-bash','Bash','/bin/bash','[]',1)").run()
   const workspace = new WorkspaceService(db).create({ rootPath: process.cwd(), layout: '1x1', autoStart: false })
@@ -32,6 +32,7 @@ async function setup(ringCapacityBytes?: number) {
   const manager = new TerminalManager(db, { pty: pty.module, platform: 'linux', ringCapacityBytes, observer: observer as never,
     emitData: event => data.push(event.data), emitActivity: event => activity.push(event.bytes) })
   const paneId = workspace.panes[0].id
+  beforeStart?.(manager, paneId)
   await manager.start({ workspaceId: workspace.id, paneId, disableRtk: true })
   vi.useFakeTimers()
   return { db, manager, paneId, emit: pty.instance.emit, data, activity, observed, close: () => { vi.useRealTimers(); manager.stopAll(); db.close() } }
@@ -130,6 +131,33 @@ describe('output pace by presence (B2.3)', () => {
       vi.advanceTimersByTime(250)
       f.manager.setPresence({ paneId: f.paneId, state: 'visible' })
       expect(f.data).toEqual(['new'])
+    } finally { f.close() }
+  })
+
+  test('presence sent before the session starts applies when it starts', async () => {
+    const f = await setup(undefined, (manager, paneId) => {
+      manager.setPresence({ paneId, state: 'focused' })
+      manager.setPresence({ paneId, state: 'hidden' })
+    })
+    try {
+      f.emit('h')
+      vi.advanceTimersByTime(1000)
+      expect(f.data).toEqual([])
+      expect(f.activity.length).toBeGreaterThan(0)
+      f.manager.setPresence({ paneId: f.paneId, state: 'visible' })
+      expect(f.data).toEqual(['h'])
+    } finally { f.close() }
+  })
+
+  test('presence for a pane that was stopped before starting is forgotten', async () => {
+    const f = await setup(undefined, (manager, paneId) => {
+      manager.setPresence({ paneId, state: 'hidden' })
+      manager.stop({ paneId })
+    })
+    try {
+      f.emit('s')
+      vi.advanceTimersByTime(16)
+      expect(f.data).toEqual(['s'])
     } finally { f.close() }
   })
 

@@ -150,6 +150,8 @@ export class TerminalManager {
   private readonly platform: NodeJS.Platform
   private readonly emitData: (event: TerminalDataEvent) => void
   private windowFocused = true
+  /** Presence the window sent before its pane's session existed; it applies when the session starts. */
+  private readonly pendingPresence = new Map<string, TerminalPresence>()
   private readonly emitExit: (event: TerminalExitEvent) => void
   private readonly emitActivity: (event: TerminalActivityEvent) => void
   private readonly rtkService: RtkService
@@ -386,6 +388,9 @@ export class TerminalManager {
       rows,
       activityNotifiedAt: 0
     })
+    const presence = this.pendingPresence.get(input.paneId)
+    this.pendingPresence.delete(input.paneId)
+    if (presence) this.setPresence({ paneId: input.paneId, state: presence })
 
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : input.agentCommand ?? executable)
     ptyProcess.onData((data) => {
@@ -542,7 +547,14 @@ export class TerminalManager {
    */
   setPresence(input: TerminalPresenceInput): void {
     const session = this.sessions.get(input.paneId)
-    if (!session || session.presence === input.state) return
+    if (!session) {
+      // A view can report itself before its process starts; the oldest of too many unclaimed reports is dropped.
+      this.pendingPresence.delete(input.paneId)
+      this.pendingPresence.set(input.paneId, input.state)
+      if (this.pendingPresence.size > 256) this.pendingPresence.delete(this.pendingPresence.keys().next().value!)
+      return
+    }
+    if (session.presence === input.state) return
     // Whatever is waiting goes out under the presence it was produced in.
     session.outputBatcher.flush()
     const wasHidden = session.presence === 'hidden'
@@ -649,6 +661,7 @@ export class TerminalManager {
 
   stop(input: TerminalStopInput): void {
     this.launchControllers.get(input.paneId)?.abort()
+    this.pendingPresence.delete(input.paneId)
     const session = this.sessions.get(input.paneId)
     if (!session) return
     recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })
