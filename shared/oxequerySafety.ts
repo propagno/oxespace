@@ -14,6 +14,9 @@ export const DEFAULT_ENVIRONMENT_LIMITS: EnvironmentLimits = {
   prod: { maxRows: 1000, statementTimeoutMs: 30_000 }
 }
 
+/** The most rows any query may ask for, whatever the environment (the same bound the service puts on `maxRows`). */
+export const MAX_ROWS = 100_000
+
 export interface SafetyConnection { environment: ConnectionEnvironment; readOnly: boolean; maxRows: number; statementTimeoutMs: number }
 
 /** The lower of the connection's value and the environment's ceiling; a missing ceiling changes nothing. */
@@ -30,6 +33,7 @@ export function effectiveSafety(connection: SafetyConnection, limits: Environmen
     readOnlyBy: readOnlyByPolicy ? 'policy' : connection.readOnly ? 'connection' : null,
     typedConfirmation: connection.environment === 'prod',
     maxRows: capped(connection.maxRows, limit.maxRows),
+    maxRowsCeiling: limit.maxRows ?? MAX_ROWS,
     statementTimeoutMs: capped(connection.statementTimeoutMs, limit.statementTimeoutMs)
   }
 }

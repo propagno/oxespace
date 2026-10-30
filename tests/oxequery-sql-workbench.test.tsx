@@ -144,7 +144,7 @@ describe('SqlWorkbench', () => {
   describe('production', () => {
     const production = { id: 'p1', name: 'shop-prod', environment: 'prod' as const }
     beforeEach(() => {
-      api.on('safety.get', { readOnly: false, readOnlyBy: null, typedConfirmation: true, maxRows: 500, statementTimeoutMs: 30_000 })
+      api.on('safety.get', { readOnly: false, readOnlyBy: null, typedConfirmation: true, maxRows: 500, maxRowsCeiling: 1000, statementTimeoutMs: 30_000 })
     })
 
     it('asks for the connection name before a write, and sends it with the run', async () => {
@@ -234,12 +234,12 @@ describe('SqlWorkbench', () => {
       expect(await screen.findByText('30 s')).toBeInTheDocument()
       const limit = screen.getByLabelText('Limit')
       const offered = within(limit).getAllByRole('option').map(option => option.textContent)
-      expect(offered).toEqual(['100 rows', '500 rows'])
+      expect(offered).toEqual(['100 rows', '500 rows', '1,000 rows'])
     })
   })
 
   it('shows a connection that policy keeps read-only, and does not offer a transaction', async () => {
-    api.on('safety.get', { readOnly: true, readOnlyBy: 'policy', typedConfirmation: false, maxRows: 500, statementTimeoutMs: 60_000 })
+    api.on('safety.get', { readOnly: true, readOnlyBy: 'policy', typedConfirmation: false, maxRows: 500, maxRowsCeiling: 100_000, statementTimeoutMs: 60_000 })
     render(<SqlWorkbench connection={connection()} />)
     const badge = await screen.findByText('read-only by policy')
     expect(badge).toHaveAttribute('title', expect.stringContaining('policy'))

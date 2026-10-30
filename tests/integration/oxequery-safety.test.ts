@@ -137,8 +137,8 @@ describe('environment limits', () => {
     const prod = await save({ maxRows: 50_000, statementTimeoutMs: 600_000 })
     const dev = await save({ name: 'Shop dev', environment: 'dev', readOnly: true })
     const read = async (id: string): Promise<ConnectionSafety> => { const response = await service.call('safety.get', { connectionId: id }); if (!response.ok) throw Error(response.error.message); return response.value }
-    expect(await read(prod.id)).toEqual({ readOnly: false, readOnlyBy: null, typedConfirmation: true, maxRows: 1000, statementTimeoutMs: 30_000 })
-    expect(await read(dev.id)).toEqual({ readOnly: true, readOnlyBy: 'connection', typedConfirmation: false, maxRows: 500, statementTimeoutMs: 60_000 })
+    expect(await read(prod.id)).toEqual({ readOnly: false, readOnlyBy: null, typedConfirmation: true, maxRows: 1000, maxRowsCeiling: 1000, statementTimeoutMs: 30_000 })
+    expect(await read(dev.id)).toEqual({ readOnly: true, readOnlyBy: 'connection', typedConfirmation: false, maxRows: 500, maxRowsCeiling: 100_000, statementTimeoutMs: 60_000 })
     expect((await failure(service.call('safety.get', { connectionId: 'gone' }))).code).toBe('invalid')
   })
 })

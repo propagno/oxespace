@@ -58,7 +58,7 @@ export function checkWrite(guarded: Guarded, sql: string, typedName: unknown): v
   }
 }
 
-/** A row limit the person asked for, held to what the connection allows; `undefined` leaves the connection's own. */
+/** A row limit the person asked for, held to the environment's ceiling; `undefined` leaves the connection's own. */
 export function capRows(requested: number | undefined, safety: ConnectionSafety): number | undefined {
-  return requested === undefined ? undefined : Math.min(requested, safety.maxRows)
+  return requested === undefined ? undefined : Math.min(requested, safety.maxRowsCeiling)
 }

@@ -218,7 +218,7 @@ export function registerOxeQueryMock(): void {
         const target = connection(input.connectionId)
         if (!target) return fail('invalid', 'That connection no longer exists.')
         const prod = target.environment === 'prod'
-        return ok({ readOnly: target.readOnly, readOnlyBy: target.readOnly ? 'connection' : null, typedConfirmation: prod, maxRows: prod ? Math.min(target.maxRows, 1000) : target.maxRows, statementTimeoutMs: prod ? Math.min(target.statementTimeoutMs, 30000) : target.statementTimeoutMs })
+        return ok({ readOnly: target.readOnly, readOnlyBy: target.readOnly ? 'connection' : null, typedConfirmation: prod, maxRows: prod ? Math.min(target.maxRows, 1000) : target.maxRows, maxRowsCeiling: prod ? 1000 : 100000, statementTimeoutMs: prod ? Math.min(target.statementTimeoutMs, 30000) : target.statementTimeoutMs })
       }
       case 'mongo.databases': return ok([{ name: 'shop' }, { name: 'admin' }])
       case 'mongo.collections': return ok(input.database === 'shop' ? [{ name: 'items', type: 'collection' }, { name: 'orders', type: 'collection' }] : [])

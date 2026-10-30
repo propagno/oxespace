@@ -67,7 +67,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const safety = useConnectionSafety(connection)
   const [chosenRows, setMaxRows] = useState(connection.maxRows)
   // A lower ceiling (the environment's, after a change in settings) takes the editor's choice down with it.
-  const maxRows = Math.min(chosenRows, safety.maxRows)
+  const maxRows = Math.min(chosenRows, safety.maxRowsCeiling)
   const [pending, setPending] = useState<Pending | null>(null)
   const [typedName, setTypedName] = useState('')
   const [paramsAsk, setParamsAsk] = useState<ParamsAsk | null>(null)
@@ -348,7 +348,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <Button size="sm" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title={t('workbench.analyzeTitle')}>{t('workbench.analyze')}</Button>
           <Button size="sm" onClick={format} title={t('workbench.formatTitle')}>{t('workbench.format')}</Button>
         </div>
-        <label className="oq-inline" title={safety.maxRows < Math.max(...ROW_LIMITS) ? t('workbench.limitTitle', { formatted: formatNumber(safety.maxRows) }) : undefined}>{t('workbench.limit')}<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows, safety.maxRows])].filter(value => value <= safety.maxRows).sort((a, b) => a - b).map(value => <option key={value} value={value}>{t('common.rows', { count: value, formatted: formatNumber(value) })}</option>)}</Select></label>
+        <label className="oq-inline" title={safety.maxRowsCeiling < Math.max(...ROW_LIMITS) ? t('workbench.limitTitle', { formatted: formatNumber(safety.maxRowsCeiling) }) : undefined}>{t('workbench.limit')}<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows, safety.maxRowsCeiling])].filter(value => value <= safety.maxRowsCeiling).sort((a, b) => a - b).map(value => <option key={value} value={value}>{t('common.rows', { count: value, formatted: formatNumber(value) })}</option>)}</Select></label>
         <span className="oq-badge" data-oq-timeout title={t('workbench.timeoutTitle', { seconds: formatNumber(Math.round(safety.statementTimeoutMs / 1000)) })}>{t('workbench.timeout', { seconds: formatNumber(Math.round(safety.statementTimeoutMs / 1000)) })}</span>
         <div className="oq-tb-group oq-tb-end">
         {!safety.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}

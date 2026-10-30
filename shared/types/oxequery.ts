@@ -199,7 +199,10 @@ export interface ConnectionSafety {
   readOnlyBy: 'connection' | 'policy' | null
   /** Writes and DDL on this connection need the person to type its name. */
   typedConfirmation: boolean
+  /** Rows a query returns unless the person asks for another number: the connection's own, held to the ceiling. */
   maxRows: number
+  /** The most rows a query may ask for here: the environment's ceiling, else the largest the product allows. */
+  maxRowsCeiling: number
   statementTimeoutMs: number
 }
 

@@ -19,11 +19,11 @@ describe('effective safety', () => {
   const base = { readOnly: false, maxRows: 500, statementTimeoutMs: 60_000 }
 
   it('holds production to 1,000 rows and 30 seconds by default and leaves the other kinds alone', () => {
-    expect(effectiveSafety({ ...base, environment: 'prod' }, DEFAULT_ENVIRONMENT_LIMITS, false)).toMatchObject({ maxRows: 500, statementTimeoutMs: 30_000, typedConfirmation: true })
+    expect(effectiveSafety({ ...base, environment: 'prod' }, DEFAULT_ENVIRONMENT_LIMITS, false)).toMatchObject({ maxRows: 500, maxRowsCeiling: 1000, statementTimeoutMs: 30_000, typedConfirmation: true })
     expect(effectiveSafety({ ...base, environment: 'prod', maxRows: 50_000 }, DEFAULT_ENVIRONMENT_LIMITS, false).maxRows).toBe(1000)
     for (const environment of ['local', 'dev'] as const) {
       expect(effectiveSafety({ ...base, environment, maxRows: 50_000, statementTimeoutMs: 600_000 }, DEFAULT_ENVIRONMENT_LIMITS, false))
-        .toEqual({ readOnly: false, readOnlyBy: null, typedConfirmation: false, maxRows: 50_000, statementTimeoutMs: 600_000 })
+        .toEqual({ readOnly: false, readOnlyBy: null, typedConfirmation: false, maxRows: 50_000, maxRowsCeiling: 100_000, statementTimeoutMs: 600_000 })
     }
   })
 
@@ -34,7 +34,7 @@ describe('effective safety', () => {
 
   it('applies ceilings chosen for any environment', () => {
     const limits = { ...DEFAULT_ENVIRONMENT_LIMITS, dev: { maxRows: 200, statementTimeoutMs: 10_000 } }
-    expect(effectiveSafety({ ...base, environment: 'dev' }, limits, false)).toMatchObject({ maxRows: 200, statementTimeoutMs: 10_000, typedConfirmation: false })
+    expect(effectiveSafety({ ...base, environment: 'dev' }, limits, false)).toMatchObject({ maxRows: 200, maxRowsCeiling: 200, statementTimeoutMs: 10_000, typedConfirmation: false })
   })
 
   it('says who made the connection read-only, and policy has the last word', () => {
@@ -145,7 +145,8 @@ describe('write guard', () => {
     const { safety } = guarded()
     expect(capRows(undefined, safety)).toBeUndefined()
     expect(capRows(100, safety)).toBe(100)
-    expect(capRows(100_000, safety)).toBe(safety.maxRows)
+    expect(capRows(100_000, safety)).toBe(1000)
+    expect(capRows(900, safety)).toBe(900)
   })
 })
 
