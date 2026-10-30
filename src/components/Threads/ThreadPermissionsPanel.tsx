@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { ThreadAuditEntry, ThreadPermissionRule } from '../../../shared/types/thread'
-import { Checkbox, Select, TextField, LoadingState } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { Checkbox, EmptyState, ErrorState, Select, TextField, LoadingState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
 
-const ACTOR: Record<ThreadAuditEntry['actor'], string> = { user: 'You', policy: 'Rule', system: 'OXESpace' }
-const KIND: Record<ThreadPermissionRule['kind'], string> = { command: 'Command', path: 'Files', tool: 'MCP tool' }
+/** Examples of the pattern syntax; code, so the same in every language. */
 const PLACEHOLDER: Record<ThreadPermissionRule['kind'], string> = { command: 'npm run test   or   /^git (status|diff)/', path: 'src/**   or   .env*', tool: 'github/create_issue   or   github/*' }
 
 /** Saved permission rules for the conversation's project, and the decisions recorded for it. */
 export default function ThreadPermissionsPanel({ threadId }: { threadId: string }) {
+  const { t } = useTranslation('thread')
   const api = window.oxe?.thread
   const [rules, setRules] = useState<ThreadPermissionRule[] | null>(null)
   const [autoReads, setAutoReads] = useState<boolean | null>(null)
@@ -30,51 +31,51 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
     setAutoReads(nextReads)
     setAudit(nextAudit)
   }, [api, threadId, scope])
-  useEffect(() => { void load().catch(cause => setError(humanizeError(cause, 'Could not load permission rules'))) }, [load])
+  useEffect(() => { void load().catch(cause => setError(humanizeError(cause, t('permissions.loadFailed')))) }, [load])
 
   const run = async (work: () => Promise<unknown>) => {
     setBusy(true); setError('')
-    try { await work(); await load() } catch (cause) { setError(humanizeError(cause, 'The change was not saved')) } finally { setBusy(false) }
+    try { await work(); await load() } catch (cause) { setError(humanizeError(cause, t('permissions.saveFailed'))) } finally { setBusy(false) }
   }
 
-  if (!api?.permissionRules) return <p>Permission rules are not available in this build.</p>
+  if (!api?.permissionRules) return <EmptyState compact title={t('permissions.unavailable')} />
   return <div className="thread-permissions">
-    {error && <p role="alert">{error}</p>}
+    {error && <ErrorState compact title={error} />}
     {autoReads !== null && api.setAutoApproveReads && <section>
-      <h3>Read-only commands</h3>
-      <Checkbox checked={autoReads} disabled={busy} label="Approve read-only commands automatically" onChange={event => void run(() => api.setAutoApproveReads!(event.target.checked))} />
-      <p>Commands such as ls, cat, grep, find, git status, git log and git diff are approved without asking when they only read files inside the project. A command that reads outside the project, writes a file, runs another program or uses the network still asks. Rules you saved keep working whether this is on or off.</p>
+      <h3>{t('permissions.readOnly')}</h3>
+      <Checkbox checked={autoReads} disabled={busy} label={t('permissions.autoReads')} onChange={event => void run(() => api.setAutoApproveReads!(event.target.checked))} />
+      <p>{t('permissions.autoReadsHint')}</p>
     </section>}
     <section>
-      <h3>Rules</h3>
-      <p>OXESpace answers the agent's approval prompts with these rules. Allow rules approve only when every command in a line, or every file, is covered; deny rules decline. Anything else still asks you. A denied MCP tool is also removed from the agent's tools when its next session starts.</p>
-      {rules === null ? <LoadingState label="Loading rules…" /> : rules.length === 0 ? <p>No rules yet. Use "Always allow" on an approval, or add one below.</p> : <ul className="thread-permissions-rules">
+      <h3>{t('permissions.rules')}</h3>
+      <p>{t('permissions.rulesHint')}</p>
+      {rules === null ? <LoadingState label={t('permissions.loading')} /> : rules.length === 0 ? <EmptyState compact title={t('permissions.none')}>{t('permissions.noneHint')}</EmptyState> : <ul className="thread-permissions-rules">
         {rules.map(rule => <li key={rule.id}>
-          <span className={`thread-permissions-decision is-${rule.decision}`}>{rule.decision === 'allow' ? 'Allow' : 'Deny'}</span>
-          <span>{KIND[rule.kind]}</span>
+          <span className={`thread-permissions-decision is-${rule.decision}`}>{t(`permissions.${rule.decision}`)}</span>
+          <span>{t(`permissions.kind.${rule.kind}`)}</span>
           <code>{rule.pattern}</code>
-          <small>{rule.projectRoot ? 'This project' : 'All projects'}</small>
-          <button type="button" aria-label={`Remove rule ${rule.pattern}`} title="Remove rule" disabled={busy} onClick={() => void run(() => api.removePermissionRule!(threadId, rule.id))}><Trash2 size={14} /></button>
+          <small>{rule.projectRoot ? t('permissions.thisProject') : t('permissions.allProjects')}</small>
+          <button type="button" aria-label={t('permissions.remove', { pattern: rule.pattern })} title={t('permissions.removeTitle')} disabled={busy} onClick={() => void run(() => api.removePermissionRule!(threadId, rule.id))}><Trash2 size={14} /></button>
         </li>)}
       </ul>}
       <form className="thread-permissions-add" onSubmit={event => { event.preventDefault(); void run(async () => { await api.addPermissionRule!(threadId, { kind, pattern, decision, scope: global ? 'global' : 'project' }); setPattern('') }) }}>
-        <Select aria-label="Rule decision" value={decision} onChange={event => setDecision(event.target.value as ThreadPermissionRule['decision'])}><option value="allow">Allow</option><option value="deny">Deny</option></Select>
-        <Select aria-label="Rule kind" value={kind} onChange={event => setKind(event.target.value as ThreadPermissionRule['kind'])}><option value="command">Command</option><option value="path">Files</option><option value="tool">MCP tool</option></Select>
-        <TextField aria-label="Rule pattern" value={pattern} maxLength={500} placeholder={PLACEHOLDER[kind]} onChange={event => setPattern(event.target.value)} />
-        <Checkbox checked={global} onChange={event => setGlobal(event.target.checked)} label="All projects" />
-        <button type="submit" disabled={busy || !pattern.trim()}>Add rule</button>
+        <Select aria-label={t('permissions.decision')} value={decision} onChange={event => setDecision(event.target.value as ThreadPermissionRule['decision'])}><option value="allow">{t('permissions.allow')}</option><option value="deny">{t('permissions.deny')}</option></Select>
+        <Select aria-label={t('permissions.kindLabel')} value={kind} onChange={event => setKind(event.target.value as ThreadPermissionRule['kind'])}><option value="command">{t('permissions.kind.command')}</option><option value="path">{t('permissions.kind.path')}</option><option value="tool">{t('permissions.kind.tool')}</option></Select>
+        <TextField aria-label={t('permissions.pattern')} value={pattern} maxLength={500} placeholder={PLACEHOLDER[kind]} onChange={event => setPattern(event.target.value)} />
+        <Checkbox checked={global} onChange={event => setGlobal(event.target.checked)} label={t('permissions.allProjects')} />
+        <button type="submit" disabled={busy || !pattern.trim()}>{t('permissions.add')}</button>
       </form>
     </section>
     <section>
-      <h3>Recent decisions</h3>
-      <div className="thread-permissions-scope" role="radiogroup" aria-label="Audit scope">
-        <label><input type="radio" name="audit-scope" checked={scope === 'thread'} onChange={() => setScope('thread')} />This conversation</label>
-        <label><input type="radio" name="audit-scope" checked={scope === 'project'} onChange={() => setScope('project')} />Whole project</label>
+      <h3>{t('permissions.recent')}</h3>
+      <div className="thread-permissions-scope" role="radiogroup" aria-label={t('permissions.scope')}>
+        <label><input type="radio" name="audit-scope" checked={scope === 'thread'} onChange={() => setScope('thread')} />{t('permissions.thisConversation')}</label>
+        <label><input type="radio" name="audit-scope" checked={scope === 'project'} onChange={() => setScope('project')} />{t('permissions.wholeProject')}</label>
       </div>
-      {audit.length === 0 ? <p>No decisions recorded yet. Approvals, rule changes, undo and rewind appear here for 180 days.</p> : <ol className="thread-permissions-audit">
+      {audit.length === 0 ? <EmptyState compact title={t('permissions.noDecisions')}>{t('permissions.noDecisionsHint')}</EmptyState> : <ol className="thread-permissions-audit">
         {audit.map(entry => <li key={entry.id} title={entry.detail}>
           <time dateTime={new Date(entry.at).toISOString()}>{formatDateTime(entry.at)}</time>
-          <span className={`thread-permissions-actor is-${entry.actor}`}>{ACTOR[entry.actor]}</span>
+          <span className={`thread-permissions-actor is-${entry.actor}`}>{t(`permissions.actor.${entry.actor}`)}</span>
           <span>{entry.summary}</span>
         </li>)}
       </ol>}

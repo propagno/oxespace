@@ -1,10 +1,12 @@
 import { ChevronRight, ListChecks } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ThreadEvent, ThreadTurn } from '../../../shared/types/thread'
+import { i18n } from '../../i18n'
 import type { ThreadTurnFold } from './threadTimelineModel'
 
-/** `65 s` → `1m 5s`, the same wording as the turn footer. */
+/** `65 s` → `1m 5s`, the same wording as the turn footer and the reasoning label. */
 export function formatTurnSeconds(seconds: number): string {
-  return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`
+  return seconds >= 60 ? i18n.t('thread:reasoning.minutes', { minutes: Math.floor(seconds / 60), seconds: seconds % 60 }) : i18n.t('thread:reasoning.seconds', { seconds })
 }
 
 /**
@@ -36,7 +38,7 @@ export function turnTimes(turn: ThreadTurn | undefined, events: readonly ThreadE
 export function turnFoldLabel(steps: number, turn?: ThreadTurn, events?: readonly ThreadEvent[]): string {
   const times = turnTimes(turn, events)
   const seconds = times ? Math.round(times.workedMs / 1000) : undefined
-  return `Completed ${steps} ${steps === 1 ? 'step' : 'steps'}${seconds !== undefined ? ` in ${formatTurnSeconds(seconds)}` : ''}`
+  return seconds !== undefined ? i18n.t('thread:fold.labelTimed', { count: steps, duration: formatTurnSeconds(seconds) }) : i18n.t('thread:fold.label', { count: steps })
 }
 
 /**
@@ -44,8 +46,9 @@ export function turnFoldLabel(steps: number, turn?: ThreadTurn, events?: readonl
  * answers. It is a real button: the expanded state is announced, and the rows reappear right below it.
  */
 export function ThreadTurnFoldRow({ fold, turn, events, onToggle }: { fold: ThreadTurnFold; turn?: ThreadTurn; events?: readonly ThreadEvent[]; onToggle: () => void }) {
+  const { t } = useTranslation('thread')
   return <button type="button" className="thread-turn-fold" aria-expanded={fold.expanded} onClick={onToggle}
-    title={fold.expanded ? 'Hide the steps of this turn' : 'Show every step of this turn'} data-testid="thread-turn-fold">
+    title={fold.expanded ? t('fold.hide') : t('fold.show')} data-testid="thread-turn-fold">
     <ChevronRight size={14} aria-hidden="true" className="thread-turn-fold-chevron" />
     <ListChecks size={14} aria-hidden="true" />
     <span>{turnFoldLabel(fold.steps, turn, events)}</span>

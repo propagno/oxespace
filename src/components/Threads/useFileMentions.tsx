@@ -1,5 +1,6 @@
 import { File } from 'lucide-react'
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /** Matches the `@partial/path` the caret is currently inside. */
 const MENTION = /(^|\s)@([^\s@]*)$/
@@ -34,6 +35,7 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
   /** Receives the new text and the caret position that should follow it. */
   onApply(text: string, caret: number): void
 }): { popup: ReactElement | null; onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): boolean } {
+  const { t } = useTranslation('thread')
   const mention = enabled ? activeMention(draft, caret) : null
   const [files, setFiles] = useState<string[]>([])
   const [selected, setSelected] = useState(0)
@@ -73,7 +75,7 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
     return false
   }
 
-  const popup = open ? <div className="thread-mention-menu" role="listbox" aria-label="Project files">
+  const popup = open ? <div className="thread-mention-menu" role="listbox" aria-label={t('composer.files')}>
     {results.map((file, index) => {
       const slash = file.lastIndexOf('/')
       return <button key={file} type="button" role="option" aria-selected={index === selected} className={index === selected ? 'is-selected' : undefined}
