@@ -150,7 +150,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Pré-homologado (ressalvas resolvidas na reverificação) |
 | A4 worktree por conversa | #151 | FRONTEND | Homologado com ressalvas (na `main` 9e4a9307) |
 | F8 gate visual | #193 | FRONTEND | Pré-homologado |
-| F1 OfflineState + F2 About | #178 | FRONTEND (+ BACKEND no texto do OxePost) | Pré-homologado com ressalvas |
+| F1 OfflineState + F2 About | #178 | FRONTEND (+ BACKEND no texto do OxePost) | Homologado com ressalvas (na `main`: offline e About ok; pendem "Sobre" na paleta em pt-BR e o detalhe do erro de rede, que dependem do #197) |
 | F1 estados do OxeQuery | #171 | FRONTEND | Pré-homologado (a ressalva foi corrigida em a13868d7; conferir na `main`) |
 | F1 estados de Settings | #176 | FRONTEND | Pré-homologado com ressalva |
 | F1 estados do Code | #179 | FRONTEND | Pré-homologado |
@@ -158,13 +158,13 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Ajustes visuais do A4 | #207 | FRONTEND | Homologado (na `main` 277ce4bd) |
 | F1 estados do Code | #179 (main) | FRONTEND | Homologado (na `main` a412f04b) |
 | B1.1 respondPending | #166 | BACKEND | Homologado (contrato; na `main` a412f04b) |
-| B8 conectividade e About (handlers) | #168 | BACKEND | Homologado (teste de unidade; e2e depois do #185) |
+| B8 conectividade e About (handlers) | #168 + #185 | BACKEND | Homologado (no e2e da `main` f211ca7f o About traz 1.3.3, a versão do pacote) |
 | Payloads C5 (assinaturas e comandos, M4) | #187 | BACKEND | Homologado (contrato), com uma nota baixa |
 | Protocolo C5 em Kotlin gerado | #165 | MOBILE | Homologado (job Android verde na `main` 14504372) |
 | Tema Mandacaru e strings para o Android | #169 | MOBILE | Homologado (job Android verde na `main` 15e04898; visual depois do M4/M5) |
 | Android 17 / API 37 com Compose | #170 | MOBILE | Aguardando o job Android na `main` |
 | Esqueleto do app Android + CI | #164 | MOBILE | Homologado (na `main` c82cff0a) |
-| Correção de segurança do `tool.use` | #212 | BACKEND | Pré-homologado (0da8d604): os dois desvios estão fechados |
+| Correção de segurança do `tool.use` | #212 + #223 | BACKEND | Homologado (na `main` f211ca7f: 25/25, com os casos adversariais como regressão) |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 
@@ -371,6 +371,19 @@ Sonda de caixa-preta no `readRemoteFrame` da `main`, com 17 entradas de um celul
 Nota baixa para o BACKEND: um JSON aninhado em 20 mil níveis passa como `hello` válido. O leitor aguenta, mas um
 código recursivo depois dele (redator, validação de `args`) pode estourar a pilha. Sugestão: limite de profundidade
 no `readRemoteFrame` (por exemplo, 64 níveis), com teste.
+
+### Conferências na `main` f211ca7f (#185, #168, #178, #212/#223)
+
+- A1 fechado (#185): o OxeChat num perfil novo com workspace não mostra mais "Não foi possível carregar as pastas dos
+  projetos".
+- #168 + #185: o `about()` no e2e devolve 1.3.3, a versão do pacote, e não a do Electron.
+- #178:
+  - offline e OxePost certos, e "A requisição não saiu…" corrigido;
+  - em pt-BR, "Sobre" na paleta ainda não acha o About (o PR curto do FRONTEND vem depois do #197);
+  - o detalhe "The host name was not found…" continua em inglês: o #201 já manda o código, mas o renderer só o
+    traduz com a F6 (#197).
+- #212 + #223: `policy-tool-use-enforcement` com 25/25 na `main`, com os casos adversariais da homologação como
+  regressão.
 
 ### B8.1 main minificado (#162): Homologado
 
