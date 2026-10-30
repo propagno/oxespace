@@ -133,6 +133,10 @@ export function protocolKotlin(text, values) {
     out.push(`${kdoc(statement, source, '')}@Serializable\nenum class ${alias}(val wire: String) {`, ...entries, '    ;', '', '    companion object {', `        fun fromWire(wire: String): ${alias}? = entries.firstOrNull { it.wire == wire }`, '    }', '}', '')
   }
 
+  for (const [name, { statement }] of consts) {
+    if (typeof values[name] === 'string') out.push(`${kdoc(statement, source, '')}const val ${name}: String = ${JSON.stringify(values[name])}`, '')
+  }
+
   for (const [name, { statement, declaration }] of consts) {
     if (!Array.isArray(values[name]) || [...enums.values()].includes(name)) continue
     const satisfies = declaration.initializer && ts.isSatisfiesExpression(declaration.initializer) ? declaration.initializer.type : null
@@ -151,6 +155,13 @@ export function protocolKotlin(text, values) {
     if (!tag) continue
     const name = declaration.name.text
     out.push(kdoc(declaration, source, '') + dataClass(name, declaration.members, tag, { ...context, where: name }, '', ' : RemoteFrame'))
+  }
+
+  // The other plain-data interfaces (pairing bodies, results); FrameBase is the frames' generic parent, not data.
+  for (const declaration of interfaces) {
+    if (frameTag(declaration) || declaration.typeParameters?.length) continue
+    const name = declaration.name.text
+    out.push(kdoc(declaration, source, '') + dataClass(name, declaration.members, null, { ...context, where: name }, '', ''))
   }
   return `${out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`
 }

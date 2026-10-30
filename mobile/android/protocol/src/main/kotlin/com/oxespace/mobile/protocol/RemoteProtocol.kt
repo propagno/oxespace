@@ -149,6 +149,13 @@ enum class RemotePairingErrorCode(val wire: String) {
     }
 }
 
+const val REMOTE_PAIRING_SCHEME: String = "oxespace"
+
+const val REMOTE_PAIRING_PATH: String = "/pair"
+
+/** The WebSocket endpoint, on the same pinned TLS port. */
+const val REMOTE_WS_PATH: String = "/v1/ws"
+
 /** Never a command, a subscription or an argument of the remote protocol. */
 val REMOTE_FORBIDDEN: Set<String> = setOf(
     "oxequery.approve",
@@ -291,3 +298,38 @@ data class RemoteErrorFrame(
     /** Milliseconds before retrying, for `rate-limited`. */
     val retryAfterMs: Long? = null,
 ) : RemoteFrame
+
+/** `ack.result` of an `auth`: a fresh access token whose validity the desktop computed. */
+@Serializable
+data class RemoteAuthResult(
+    val accessToken: String,
+    val expiresInMs: Long,
+)
+
+/** What the QR carries. `fp` is the SHA-256 of the certificate's DER, as 64 lowercase hex characters. */
+@Serializable
+data class RemotePairingQr(
+    val v: Long,
+    val host: String,
+    val port: Long,
+    val fp: String,
+    /** One-time code: 128 random bits, base64url without padding (22 characters). */
+    val code: String,
+    /** The desktop's display name ("OXESpace" or the person's choice), never the host name, an account or a path. */
+    val name: String? = null,
+)
+
+@Serializable
+data class RemotePairRequest(
+    val code: String,
+    val deviceName: String,
+    /** EC P-256 public key, SubjectPublicKeyInfo DER, base64url without padding. The private key stays in the Keystore. */
+    val publicKey: String,
+)
+
+@Serializable
+data class RemotePairResponse(
+    val deviceId: String,
+    val accessToken: String,
+    val expiresInMs: Long,
+)
