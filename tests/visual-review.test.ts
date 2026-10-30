@@ -15,7 +15,7 @@ describe('visual review page', () => {
 
   it('pairs each surface that differs with its baseline and difference, and marks a new one', () => {
     const entries = collect(root) as Array<{ name: string; expected?: string; diff?: string }>
-    expect(entries.map(entry => entry.name)).toEqual(['anchor-surfaces-empty-chromium / empty-light-desktop', 'anchor-surfaces-empty-chromium / splash-dark'])
+    expect(entries.map(entry => entry.name)).toEqual(['empty-light-desktop', 'splash-dark'])
     expect(entries[0].expected).toBeTruthy()
     expect(entries[0].diff).toBeTruthy()
     expect(entries[1].expected).toBeUndefined()

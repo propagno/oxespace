@@ -28,7 +28,8 @@ export function collect(dir) {
   return all.filter(path => path.endsWith('-actual.png')).map(actual => {
     const base = actual.slice(0, -'-actual.png'.length)
     const pick = suffix => all.find(path => path === `${base}${suffix}`)
-    return { name: base.split(sep).slice(-2).join(' / '), actual, expected: pick('-expected.png'), diff: pick('-diff.png') }
+    // The image's own name (empty-light-desktop-pt-BR); the folder is Playwright's slug of the test title.
+    return { name: base.split(sep).at(-1), actual, expected: pick('-expected.png'), diff: pick('-diff.png') }
   }).sort((a, b) => a.name.localeCompare(b.name))
 }
 
