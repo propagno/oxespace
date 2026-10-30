@@ -131,6 +131,7 @@ export const IPC_CHANNELS = {
     attach: 'terminal:attach',
     detach: 'terminal:detach',
     status: 'terminal:status',
+    setPresence: 'terminal:set-presence',
     onData: 'terminal:data',
     onExit: 'terminal:exit',
     onActivity: 'terminal:activity'
@@ -440,6 +441,8 @@ export interface TerminalApi {
   attach(input: TerminalAttachInput): Promise<TerminalAttachResult>
   detach(input: TerminalStopInput): Promise<void>
   status(paneId: string): Promise<TerminalStatusResult>
+  /** How much the person sees of a pane, which sets how often its output is drawn (B2.3). */
+  setPresence?(input: import('./ipc/terminal').TerminalPresenceInput): Promise<void>
   onData(paneId: string, listener: (event: TerminalDataEvent) => void): () => void
   onExit(paneId: string, listener: (event: TerminalExitEvent) => void): () => void
   onActivity(paneId: string, listener: (event: TerminalActivityEvent) => void): () => void

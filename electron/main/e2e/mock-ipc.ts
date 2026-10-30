@@ -253,6 +253,9 @@ export function registerE2eMockIpcHandlers(): void {
     running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false
   }))
   ipcMain.handle(IPC_CHANNELS.terminal.detach, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.terminal.setPresence, (_event: IpcMainInvokeEvent, input: { paneId?: unknown; state?: unknown }) => {
+    if (typeof input?.paneId !== 'string' || !input.paneId || !['focused', 'visible', 'hidden'].includes(String(input.state))) throw new Error('Invalid presence input')
+  })
   ipcMain.handle(IPC_CHANNELS.terminal.status, () => ({ running: false, seq: 0, altScreen: false }))
   ipcMain.handle(IPC_CHANNELS.voice.transcribe, () => ({ text: '', durationMs: 0 }))
   ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))

@@ -223,6 +223,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       restart: (input) => ipc.invoke(IPC_CHANNELS.terminal.restart, input) as Promise<void>,
       attach: (input) => ipc.invoke(IPC_CHANNELS.terminal.attach, input) as Promise<TerminalAttachResult>,
       detach: (input) => ipc.invoke(IPC_CHANNELS.terminal.detach, input) as Promise<void>,
+      setPresence: (input) => ipc.invoke(IPC_CHANNELS.terminal.setPresence, input) as Promise<void>,
       status: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.status, paneId) as Promise<TerminalStatusResult>,
       onData: terminalData,
       onExit: terminalExit,
