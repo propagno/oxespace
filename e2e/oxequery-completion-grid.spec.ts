@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer } from './helpers/oxepod'
 
 /** Schema-aware completion in the SQL editor, and the grid's client-side filter, pinned columns and cell viewers. */
 const OUT = join(process.cwd(), 'e2e/screenshots/oxequery-q2-q3')
@@ -19,8 +20,7 @@ test('completes columns by alias, then filters, pins and opens json cells', asyn
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
 
     // Completion: the alias resolves to users, so its columns are offered; nothing runs.
