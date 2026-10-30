@@ -29,7 +29,7 @@ Build `ce62e277` (main de 30/10/2026, versão do pacote 1.3.3), Windows 11, homo
 | B3.1 OxePod separado do OxeQuery | #161 | BACKEND | Homologado |
 | Correção OxePost (#520) | #167 | FRONTEND | Homologado |
 | Contratos da onda 1 | #158 | BACKEND | Homologado (contrato; sem tela ainda) |
-| Contrato de pareamento C5 (B9) | #172 | BACKEND | Homologado com ressalvas (contrato; sem tela) |
+| Contrato de pareamento C5 (B9) | #172 + #183 | BACKEND | Homologado (contrato; a ressalva foi fechada pelo #183, na `main` c3685b90) |
 
 ### F3 Motion (#159): Homologado
 
@@ -132,7 +132,8 @@ num caminho de entrada. Mas a divergência vai crescer quando o gateway (B9) pas
 
 Correção no #183 (`618c479f`), pré-verificada na branch com a mesma sonda e mais 6 entradas (`+7443`, `v=01`, DEL,
 quebra de linha e `name` repetido no nome): todas são recusadas; o QR válido e o nome com espaço continuam aceitos;
-o host público continua sendo regra só do app. Falta reverificar na `main` depois do merge, para fechar a ressalva.
+o host público continua sendo regra só do app. Reverificado na `main` (c3685b90): as 14 entradas da sonda se comportam igual à branch, e o teste de contrato traz
+"reads a QR as strictly as the Android reader". Ressalva fechada.
 
 ## Onda 2 e fila (pré-homologação)
 
