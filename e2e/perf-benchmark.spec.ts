@@ -884,17 +884,17 @@ test('memory: main process with 10 Threads open', async () => {
  * drew all six at 60 fps: renderer 21% + GPU 20% of one core. With presence the focused pane is drawn every
  * 16 ms and the others every 100 ms, and only the budgeted panes hold WebGL. CPU is the time each Electron
  * process spent over the window (app.getAppMetrics cumulativeCPUUsage), as a share of one core; the PTY
- * processes are not Electron's and are left out, and the result is the median of three 10 s windows (single
+ * processes are not Electron's and are left out, and the result is the median of five 10 s windows (single
  * windows vary by tens of points).
  * Gate for 1.4, recorded scenario: main + renderer + GPU at least 25% below the base before presence (80.5% of one
- * core, median of 3 on the reference machine), and the focused pane keeps keystroke→paint p95 <= 50 ms. The
+ * core, median on the reference machine), and the focused pane keeps keystroke→paint p95 <= 50 ms. The
  * 25%-of-one-core goal belongs to R1 (terminal state in Rust).
  */
 const TUI_PANES = 6
 const TUI_CPU_WINDOW_MS = 10_000
 const TUI_CPU_BASE_PCT = 80.5
 const TUI_CPU_BUDGET_PCT = Math.round(TUI_CPU_BASE_PCT * 0.75 * 10) / 10
-const TUI_CPU_WINDOWS = 3
+const TUI_CPU_WINDOWS = 5
 // Same bar as typing in a 5,000-event Thread: 50 ms is three dropped frames at 60 Hz.
 const FOCUSED_KEY_BUDGET_MS = 50
 // Shell-neutral (PowerShell and bash): no $, no !, no double quotes inside; node turns the escapes into bytes.
@@ -988,15 +988,15 @@ const RECORDINGS = ['tui-claude.jsonl', 'tui-codex.jsonl'].map(name => join(proc
 const REPLAY = (index: number): string => `node ${join(process.cwd(), 'scripts', 'replay-tui.cjs')} ${RECORDINGS[index % RECORDINGS.length]}`
 
 test('terminals: 6 recorded agent TUIs, 1 focused, CPU', async () => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
   await benchTuis('6 recorded agent TUIs, 1 focused', REPLAY, TUI_CPU_BUDGET_PCT)
 })
 
-// The worst case: every pane redraws its whole screen every 16 ms. Kept to catch regressions, with its own
-// budget: no worse than before pane presence (106.7% of one core on the reference machine; 103.7% with it). Lowering it is R1's job.
+// The worst case: every pane redraws its whole screen every 16 ms. A regression gate, not a target: no worse than
+// before pane presence (106.7% of one core on the reference machine; 103.7% with it). Its 64% target belongs to R1.
 const SYNTHETIC_BUDGET_PCT = 106.7
 
 test('terminals: 6 synthetic full-screen TUIs, 1 focused, CPU (worst case)', async () => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
   await benchTuis('6 synthetic TUIs, 1 focused', () => FAKE_TUI, SYNTHETIC_BUDGET_PCT)
 })
