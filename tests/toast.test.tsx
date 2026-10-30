@@ -1,19 +1,22 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { REPEAT_ANNOUNCE_MS, Toaster, dismissToast, toast, toastDuration } from '../src/ui/Toast'
+import { PRELOAD_FALLBACK_MS, REPEAT_ANNOUNCE_MS, Toaster, dismissToast, toast, toastDuration } from '../src/ui/Toast'
+import { ANNOUNCE_AFTER_MOUNT_MS } from '../src/ui/ToastStack'
 
 const shown: number[] = []
 const raise = (...args: Parameters<typeof toast>): number => { let id = 0; act(() => { id = toast(...args) }); shown.push(id); return id }
 const region = (): HTMLElement => screen.getByRole('region', { name: 'Notifications' })
 const toasts = (): HTMLElement[] => [...region().querySelectorAll<HTMLElement>('[data-toast]')]
-/** The stack is a lazy chunk; rendering inside an async act lets it resolve. */
-const mount = async (ui: ReactElement): Promise<void> => { await act(async () => { render(ui) }) }
+/** The stack is a lazy chunk; async acts let its import and the preload resolve. */
+const settle = async (): Promise<void> => { for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve() }) }
+const mount = async (ui: ReactElement): Promise<void> => { await act(async () => { render(ui) }); await settle() }
 const tick = (ms: number): void => { act(() => { vi.advanceTimersByTime(ms) }) }
 
 beforeAll(async () => { await import('../src/ui/ToastStack') })
-beforeEach(() => { vi.useFakeTimers() })
-afterEach(() => { act(() => { for (const id of shown.splice(0)) dismissToast(id) }); cleanup(); vi.useRealTimers() })
+// The idle preload runs at once here; the preload tests below replace it.
+beforeEach(() => { vi.useFakeTimers(); vi.stubGlobal('requestIdleCallback', (run: () => void) => { run(); return 1 }) })
+afterEach(() => { act(() => { for (const id of shown.splice(0)) dismissToast(id) }); cleanup(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('toastDuration', () => {
   it('is 4 s plus about 60 ms a character, between 4 and 12 s', () => {
@@ -151,5 +154,46 @@ describe('Toaster', () => {
     raise({ title: 'Push failed', intent: 'danger' })
     fireEvent.keyDown(screen.getByRole('button', { name: 'Editor' }), { key: 'Escape' })
     expect(toasts()).toHaveLength(1)
+  })
+})
+
+describe('Toaster before the stack loads', () => {
+  it('preloads the stack at idle after the first paint', async () => {
+    let idle: (() => void) | undefined
+    const requestIdleCallback = vi.fn((run: () => void) => { idle = run; return 7 })
+    vi.stubGlobal('requestIdleCallback', requestIdleCallback)
+    await mount(<Toaster />)
+    expect(requestIdleCallback).toHaveBeenCalledWith(expect.any(Function), { timeout: PRELOAD_FALLBACK_MS })
+    expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull()
+    await act(async () => { idle!() }); await settle()
+    expect(region()).toBeEmptyDOMElement()
+  })
+
+  it('falls back to a timer without requestIdleCallback', async () => {
+    vi.stubGlobal('requestIdleCallback', undefined)
+    await mount(<Toaster />)
+    tick(PRELOAD_FALLBACK_MS - 1); await settle()
+    expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull()
+    tick(1); await settle()
+    expect(region()).toBeEmptyDOMElement()
+  })
+
+  it('keeps toasts raised before it loads, then shows and announces them in the region', async () => {
+    vi.stubGlobal('requestIdleCallback', () => 1)
+    raise({ title: 'Could not read the settings', intent: 'danger' })
+    raise({ title: 'Workspace restored', intent: 'info' })
+    await mount(<Toaster />)
+    // The live region comes first, empty, so the toasts that follow are a change screen readers hear.
+    expect(region()).toHaveAttribute('aria-live', 'polite')
+    expect(region()).toBeEmptyDOMElement()
+    const observer = new MutationObserver(() => {})
+    observer.observe(region(), { childList: true })
+    tick(ANNOUNCE_AFTER_MOUNT_MS)
+    const added = observer.takeRecords().flatMap(record => [...record.addedNodes])
+    observer.disconnect()
+    expect(added).toHaveLength(2)
+    expect(toasts().map(item => item.textContent)).toEqual([expect.stringContaining('Could not read the settings'), expect.stringContaining('Workspace restored')])
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not read the settings')
+    expect(toasts()[1]).not.toHaveAttribute('role')
   })
 })

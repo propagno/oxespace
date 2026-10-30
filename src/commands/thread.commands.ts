@@ -8,6 +8,11 @@ import { humanizeError } from '../utils/humanizeError'
 import { navigableThreads } from '../utils/threadNavigation'
 import { useCommandSource } from './useCommandSource'
 
+/** Agent accounts are checked inside a project; without one there is nothing to show yet. */
+export function sayAddProjectFirst(): void {
+  toast({ title: i18n.t('thread:accounts.needProject'), description: i18n.t('thread:accounts.needProjectText') })
+}
+
 /** ThreadView runs `{ text }` as if it was typed in the composer of the active conversation. */
 export const THREAD_RUN_COMMAND_EVENT = 'oxe:thread-run-command'
 

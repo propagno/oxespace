@@ -102,7 +102,9 @@ describe('Toast', () => {
   it('shows, auto-dismisses, and keeps failures until dismissed', async () => {
     vi.useFakeTimers()
     await act(async () => { render(<Toaster />) })
-    act(() => { toast({ title: 'Committed', intent: 'success' }) })
+    await act(async () => { toast({ title: 'Committed', intent: 'success' }) })
+    await act(async () => { await import('../src/ui/ToastStack') })
+    act(() => { vi.advanceTimersByTime(200) }) // the stack takes toasts raised before it mounted just after its region
     expect(screen.getByRole('region', { name: 'Notifications' })).toHaveTextContent('Committed')
     act(() => { vi.advanceTimersByTime(5100) })
     expect(screen.queryByText('Committed')).toBeNull()
