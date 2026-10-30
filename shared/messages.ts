@@ -82,6 +82,14 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** A workspace root that is not an absolute path (a relative one would depend on where the app started). */
+  'workspace.root.notAbsolute': { path: string }
+  /** A workspace root that does not exist. */
+  'workspace.root.notFound': { path: string }
+  /** A workspace root that is a file, not a folder. */
+  'workspace.root.notDirectory': { path: string }
+  /** A workspace root the app is not allowed to open or list. */
+  'workspace.root.unreadable': { path: string }
 }
 
 export type MessageCode = keyof MessageParams
@@ -144,7 +152,11 @@ export const MESSAGE_CODES = [
   'remote.port.privileged',
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
-  'remote.certificate.failed'
+  'remote.certificate.failed',
+  'workspace.root.notAbsolute',
+  'workspace.root.notFound',
+  'workspace.root.notDirectory',
+  'workspace.root.unreadable'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

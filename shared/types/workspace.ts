@@ -91,6 +91,25 @@ export interface CreateWorkspaceInput {
   agentBindings?: PaneAgentBinding[]
 }
 
+/**
+ * Why the main process refused a workspace root: it must be an absolute path to a folder that exists and
+ * can be listed. Each refusal has its own C3 code, `workspace.root.<refusal>`.
+ */
+export const WORKSPACE_ROOT_REFUSALS = ['notAbsolute', 'notFound', 'notDirectory', 'unreadable'] as const
+export type WorkspaceRootRefusal = typeof WORKSPACE_ROOT_REFUSALS[number]
+
+/** What `workspace:create` returns instead of a workspace when the root is refused; nothing was written. */
+export interface WorkspaceCreateRefusal {
+  ok: false
+  refusal: WorkspaceRootRefusal
+  message: import('../messages').MainMessage
+}
+
+export function isWorkspaceCreateRefusal(value: unknown): value is WorkspaceCreateRefusal {
+  return !!value && typeof value === 'object' && (value as { ok?: unknown }).ok === false
+    && (WORKSPACE_ROOT_REFUSALS as readonly unknown[]).includes((value as { refusal?: unknown }).refusal)
+}
+
 export interface UpdateWorkspaceEditorStateInput {
   workspaceId: string
   editorVisible?: boolean

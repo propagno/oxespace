@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
+import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
+import { messageKey, messageValues } from '../../shared/messages'
+import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
 
@@ -66,6 +69,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   createWorkspace: async (input) => {
     const workspace = await window.oxe.workspace.create(input)
+    if (isWorkspaceCreateRefusal(workspace)) {
+      // The main process wrote nothing: say why in the interface language and fail the call, as before.
+      const { message } = workspace
+      throw new Error(i18n.getFixedT(null, 'main')(messageKey(message.code), messageValues(message, i18n.language)))
+    }
     set((state) => ({
       // The main process can return an existing workspace for this folder.
       // Replace that row instead of inserting the same ID a second time.

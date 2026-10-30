@@ -165,6 +165,14 @@
         "failed": "The request failed.",
         "failedWith": "The request failed: {{detail}}"
       }
+    },
+    "workspace": {
+      "root": {
+        "notAbsolute": "Use the full path of the folder, starting at the drive or at /. “{{path}}” is a relative path.",
+        "notFound": "The folder {{path}} does not exist. Create it or choose another folder.",
+        "notDirectory": "{{path}} is a file, not a folder. Choose a folder.",
+        "unreadable": "OXESpace cannot open the folder {{path}}. Check its permissions or choose another folder."
+      }
     }
   }
 }

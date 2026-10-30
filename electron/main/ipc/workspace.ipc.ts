@@ -4,6 +4,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { AgentService } from '../services/agent.service'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
+import { checkWorkspaceRoot } from '../services/workspace-root'
 import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseUpdateWorkspaceWorktreeStateInput, parseWorkspaceCreateInput } from './validation'
 import type { SemanticService } from '../services/semantic.service'
 
@@ -33,9 +34,13 @@ export function registerWorkspaceIpc(
   const agentService = services.agentService ?? new AgentService(db)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaceService.list())
-  ipcMain.handle(IPC_CHANNELS.workspace.create, (_event, input: unknown) =>
-    workspaceService.create(parseWorkspaceCreateInput(input))
-  )
+  ipcMain.handle(IPC_CHANNELS.workspace.create, (_event, input: unknown) => {
+    const parsed = parseWorkspaceCreateInput(input)
+    // A root that is not an existing folder is refused before the service runs:
+    // no row, no panes, and no terminals started in a folder that is not there.
+    const root = checkWorkspaceRoot(parsed.rootPath)
+    return root.ok ? workspaceService.create(parsed) : root
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.setActive, (_event, id: unknown) => {
     const workspaceId = parseId(id)
     const workspace = workspaceService.setActive(workspaceId)
