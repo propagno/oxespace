@@ -8,7 +8,7 @@ import { approvalsApi, realApprovalsApi, resetApprovalsApi } from '../src/compon
 import { PRELOAD_FALLBACK_MS, resetApprovalsBoot, schedulePreload, SHOW_TIMEOUT_MS, startApprovals, type CenterModule } from '../src/components/Approvals/approvalsBoot'
 import { useApprovalsStore } from '../src/components/Approvals/approvals.store'
 import { ApprovalsHost } from '../src/components/Approvals/ApprovalsHost'
-import type { ApprovalsApi } from '../shared/types/approvals'
+import { APPROVAL_ACK_TIMEOUT_MS, type ApprovalsApi } from '../shared/types/approvals'
 import { createApprovalsMock, installApprovalsMock } from '../src/components/Approvals/approvalsMock'
 
 /** F18 · what loads at boot: the adapter, the idle preload and the fail-safe that hands a request back to main. */
@@ -35,13 +35,13 @@ function spyApi() {
 }
 
 describe('approvals adapter', () => {
-  it('uses window.oxe.approvals when the preload exposes the whole surface; without it, a channel that never asks', async () => {
+  it('uses window.oxe.approvals when the preload exposes the whole surface; without it, no channel and no hook', async () => {
     expect(realApprovalsApi()).toBeNull()
-    const fallback = approvalsApi()
-    expect(await fallback.list()).toEqual([])
-    expect(await fallback.respond({ id: 'x', optionId: 'allow', generation: 1 })).toMatchObject({ ok: false, refusal: 'notPending' })
+    expect(approvalsApi()).toBeNull()
     expect(window.__oxeApprovalsMock).toBeUndefined()
-    expect(approvalsApi()).toBe(fallback)
+    render(<ApprovalsHost />)
+    expect(screen.queryByTestId('approval-dialog')).toBeNull()
+    cleanup()
 
     resetApprovalsApi()
     const real: ApprovalsApi = { list: vi.fn(), respond: vi.fn(), ack: vi.fn(), history: vi.fn(), unavailable: vi.fn(), onRequested: vi.fn(), onResolved: vi.fn() }
@@ -51,7 +51,7 @@ describe('approvals adapter', () => {
     resetApprovalsApi()
     ;(window as unknown as { oxe: unknown }).oxe = { approvals: { list: vi.fn() } }
     expect(realApprovalsApi()).toBeNull()
-    expect(approvalsApi()).not.toBe(real)
+    expect(approvalsApi()).toBeNull()
 
     resetApprovalsApi()
     const mock = installApprovalsMock()
@@ -73,6 +73,10 @@ describe('approvals adapter', () => {
 })
 
 describe('approvals at boot', () => {
+  it('gives a request as long to show as main gives an ackRequired one', () => {
+    expect(SHOW_TIMEOUT_MS).toBe(APPROVAL_ACK_TIMEOUT_MS)
+  })
+
   it('preloads the approval window when the renderer is idle', async () => {
     const importer = vi.fn(async () => ({}) as CenterModule)
     resetApprovalsBoot(importer)

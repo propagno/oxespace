@@ -1,6 +1,5 @@
-import { Activity, ArrowUpCircle, Bell, Bot, Bug, History, Info, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react'
 import { OPEN_ABOUT_EVENT } from '../components/About/AboutHost'
-import { OPEN_APPROVAL_HISTORY_EVENT } from '../components/Approvals/approvalsBoot'
 import { OPEN_REPORT_PROBLEM_EVENT } from '../components/Diagnostics/ReportProblemHost'
 import { OPEN_SHORTCUT_GUIDE_EVENT } from '../components/Keyboard/ShortcutGuideHost'
 import { useUIStore, type SettingsPageId } from '../store/ui.store'
@@ -33,8 +32,5 @@ registerCommands('settings', [
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) } },
   // The version, channel and build of this copy, its license and links; the details copy into a support message.
   { id: 'help.about', label: 'About OXESpace', icon: Info, category: 'Help', keywords: ['version', 'build', 'license', 'electron', 'release'],
-    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_ABOUT_EVENT))) } },
-  // What was approved or denied in this session, and who asked (F18).
-  { id: 'help.approvals', label: 'Approval history', icon: History, category: 'Help', keywords: ['approvals', 'permissions', 'allowed', 'denied', 'decisions', 'security'],
-    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_HISTORY_EVENT))) } }
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_ABOUT_EVENT))) } }
 ])

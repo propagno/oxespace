@@ -1,12 +1,22 @@
 import { useEffect, useRef, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ShieldCheck } from 'lucide-react'
 import { toast } from '../../ui'
+import type { ApprovalsApi } from '../../../shared/types/approvals'
 import { approvalsApi } from './approvalsApi'
 import { OPEN_APPROVAL_HISTORY_EVENT, reportShown, takeHistoryRequest } from './approvalsBoot'
 import { useApprovalsStore } from './approvals.store'
 import { ApprovalDialog } from './ApprovalDialog'
 import { ApprovalHistory } from './ApprovalHistory'
 import { approvalT } from './approvalText'
+import { registerCommands } from '../../utils/commandRegistry'
+
+// What was approved or denied in this session, and who asked. Registered with this chunk, which loads at idle right
+// after boot, so the boot bundle does not carry it.
+registerCommands('approvals', [{
+  id: 'help.approvals', label: 'Approval history', icon: ShieldCheck, category: 'Help', keywords: ['approvals', 'permissions', 'allowed', 'denied', 'decisions', 'security'],
+  run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_HISTORY_EVENT))) }
+}])
 
 /**
  * The approval window, loaded on demand by ApprovalsHost. One request at a time, oldest first; the next opens after
@@ -14,7 +24,8 @@ import { approvalT } from './approvalText'
  */
 export function ApprovalCenter({ armMs }: { armMs?: number } = {}): ReactElement | null {
   useTranslation()
-  const api = approvalsApi()
+  // Mounted only once ApprovalsHost found a channel (or a test installed the mock).
+  const api = approvalsApi() as ApprovalsApi
   const queue = useApprovalsStore(state => state.queue)
   const historyOpen = useApprovalsStore(state => state.historyOpen)
   const notice = useApprovalsStore(state => state.notice)

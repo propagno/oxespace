@@ -1,32 +1,27 @@
-import { Component, lazy, Suspense, useEffect, useState, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useState, type ComponentType, type ReactElement } from 'react'
+import { ErrorBoundary } from '../common/ErrorBoundary'
 import { approvalsApi } from './approvalsApi'
-import { loadCenter, schedulePreload, startApprovals } from './approvalsBoot'
+import { schedulePreload, startApprovals } from './approvalsBoot'
 
 export { OPEN_APPROVAL_HISTORY_EVENT } from './approvalsBoot'
-
-// Rendered only after loadCenter() settled, so this never suspends and a failed load is handled by the fail-safe.
-const ApprovalCenter = lazy(() => loadCenter().then(module => ({ default: module.ApprovalCenter })))
-
-/** A crash inside the approval window renders nothing; the fail-safe hands the request back to main. */
-class Quiet extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false }
-  static getDerivedStateFromError(): { failed: boolean } { return { failed: true } }
-  componentDidCatch(error: unknown): void { console.error('[approvals] the approval window failed', error) }
-  render(): ReactNode { return this.state.failed ? null : this.props.children }
-}
 
 /**
  * Mounted at boot: listens for approval requests and mounts the approval window (its own chunk) when the first one
  * arrives or the history is asked for. The chunk is fetched at idle after the first paint so a request never waits.
+ * A window without the preload has no channel and listens to nothing. A crash inside the approval window renders
+ * nothing (it sits outside the page's boundary); the fail-safe hands its request back to main.
  */
 export function ApprovalsHost(): ReactElement | null {
-  const [ready, setReady] = useState(false)
+  // The approval window's component, from its own chunk (loadCenter, a dynamic import), once it is loaded and needed.
+  // Held in state instead of React.lazy: the chunk has settled before it renders, so there is nothing to suspend for,
+  // and a failed load stays with the fail-safe instead of throwing during render.
+  const [Center, setCenter] = useState<ComponentType | null>(null)
   useEffect(() => {
     const api = approvalsApi()
-    const stop = startApprovals({ api, onReady: () => setReady(true) })
+    if (!api) return
+    const stop = startApprovals({ api, onReady: module => setCenter(() => module.ApprovalCenter) })
     const cancelPreload = schedulePreload()
     return () => { stop(); cancelPreload() }
   }, [])
-  if (!ready) return null
-  return <Quiet><Suspense fallback={null}><ApprovalCenter /></Suspense></Quiet>
+  return Center && <ErrorBoundary fallback={null}><Center /></ErrorBoundary>
 }

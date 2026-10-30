@@ -71,7 +71,7 @@ export const useApprovalsStore = create<ApprovalsState & ApprovalsActions>()((se
     set({
       queue: queue.filter(item => item.id !== resolution.id),
       history: history.some(entry => entry.id === resolution.id) ? history : mergeHistory(history, [rowOf(request, resolution)]),
-      ...(onScreen && resolution.by !== 'user' ? { notice: { kind: 'settled', by: resolution.by } as const } : {}),
+      ...(onScreen && (resolution.by === 'timeout' || resolution.by === 'cancelled' || resolution.by === 'native') ? { notice: { kind: 'settled', by: resolution.by } as const } : {}),
       ...(busyId === resolution.id ? { busyId: null } : {})
     })
   },
