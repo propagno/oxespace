@@ -1,5 +1,7 @@
 import type { ThreadEvent, ThreadSnapshot } from '../../../../shared/types/thread'
 
+import { interruptTool } from './thread-crash-recovery'
+
 export type ThreadRecoveryCause = 'restart' | 'shutdown'
 
 /**
@@ -26,8 +28,7 @@ export function settleVolatileThreadSnapshot(snapshot: ThreadSnapshot, cause: Th
     } else if (event.type === 'approval' && !resolvedApprovals.has(event.id)) {
       approvalResolutions.push({ type: 'approval-resolved', id: event.id })
     } else if (event.type === 'tool' && event.state === 'running') {
-      event.state = 'unknown'; event.completedAt = completedAt
-      event.output = event.output || `Outcome unconfirmed because ${reason} before the provider reported a result.`
+      interruptTool(event, completedAt)
       if (event.files) event.files = event.files.map(file => file.state === 'running' ? { ...file, state: 'unknown' } : file)
     } else if (event.type === 'subagent' && event.state === 'running') {
       event.state = 'unknown'; event.completedAt = completedAt

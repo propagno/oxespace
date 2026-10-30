@@ -6,6 +6,7 @@ if (typeof window !== 'undefined') {
   await initI18n('en')
   // Lazy views load their catalog on first render (in the app, under Suspense); tests render them directly.
   await loadNamespace('oxequery')
+  await loadNamespace('pods')
 }
 
 // jsdom intentionally omits Canvas. Returning null models a machine without

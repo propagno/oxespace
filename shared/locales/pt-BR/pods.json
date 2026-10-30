@@ -1,0 +1,286 @@
+{
+  "common": {
+    "close": "Fechar",
+    "cancel": "Cancelar",
+    "refresh": "Atualizar",
+    "run": "Executar",
+    "clear": "Limpar",
+    "remove": "Remover",
+    "tryAgain": "Tentar de novo"
+  },
+  "sidebar": {
+    "label": "Barra lateral do OxePod",
+    "refresh": "Atualizar contêineres",
+    "filter": "Filtrar contêineres",
+    "project": "Projeto {{name}}",
+    "others": "Outros",
+    "noMatch": "Nenhum contêiner corresponde ao filtro.",
+    "empty": "Nenhum contêiner ainda.",
+    "more": "Mais no OxePod",
+    "activity": "Atividade dos agentes",
+    "width": "Largura da barra lateral do OxePod"
+  },
+  "state": {
+    "running": "em execução",
+    "exited": "encerrado",
+    "created": "criado",
+    "paused": "pausado",
+    "restarting": "reiniciando",
+    "dead": "morto",
+    "removing": "removendo"
+  },
+  "engine": {
+    "label": "Motor de contêineres",
+    "ready": "ativo {{version}}",
+    "state": {
+      "stopped": "instalado, parado",
+      "denied": "sem permissão",
+      "missing": "não encontrado"
+    },
+    "missingTitle": "Nenhum motor de contêineres encontrado",
+    "deniedTitle": "Sem permissão para usar o Docker",
+    "stoppedTitle": "{{engine}} não está em execução",
+    "unavailableTitle": "Contêineres indisponíveis",
+    "deniedFix": "Adicione seu usuário ao grupo <code>docker</code> e entre de novo.",
+    "startLinux": "Inicie-o com <code>sudo systemctl start docker</code>.",
+    "startDesktop": "Abra o Docker Desktop e espere até ele dizer que está em execução.",
+    "startPodman": "Inicie a máquina com <code>podman machine start</code>.",
+    "checksAgain": "Esta página verifica de novo sozinha.",
+    "install": "Instale o Docker Desktop, o Docker Engine ou o Podman. O OxeQuery usa a ferramenta de linha de comando deles, então o que funciona no seu terminal funciona aqui.",
+    "checkAgain": "Verificar de novo",
+    "checking": "Verificando…"
+  },
+  "engineBar": {
+    "label": "Motor Docker",
+    "thisEngine": "este motor",
+    "elsewhere_one": "Nenhum contêiner em “{{selected}}”, mas “{{other}}” tem {{count}}. Escolha-o abaixo.",
+    "elsewhere_other": "Nenhum contêiner em “{{selected}}”, mas “{{other}}” tem {{count}}. Escolha-o abaixo.",
+    "refused": "“{{label}}” é um motor Docker neste computador, mas seu usuário não tem permissão para usá-lo ({{endpoint}}). Adicione seu usuário ao grupo docker e entre de novo, ou escolha outro motor.",
+    "state": {
+      "denied": "sem permissão",
+      "unreachable": "parado",
+      "not-checked": "remoto, não usado"
+    },
+    "elsewhere_many": "Nenhum contêiner em “{{selected}}”, mas “{{other}}” tem {{count}}. Escolha-o abaixo."
+  },
+  "detail": {
+    "label": "Detalhes de {{name}}",
+    "runningSince": "iniciado {{when}}",
+    "actions": "Ações do contêiner",
+    "sections": "Seções do contêiner",
+    "context": "Sobre este contêiner",
+    "unreadable": "Não foi possível ler este contêiner",
+    "loading": "Carregando detalhes do contêiner…"
+  },
+  "actions": {
+    "start": "Iniciar",
+    "stop": "Parar",
+    "restart": "Reiniciar",
+    "terminal": "Terminal",
+    "remove": "Remover…",
+    "startNamed": "Iniciar {{name}}",
+    "stopNamed": "Parar {{name}}",
+    "restartNamed": "Reiniciar {{name}}",
+    "removeNamed": "Remover {{name}}…",
+    "failed": "O motor recusou",
+    "stopTitle": "Parar {{name}}?",
+    "restartTitle": "Reiniciar {{name}}?",
+    "databaseWarning": "Este é um contêiner de banco de dados; as conexões abertas e as consultas em execução são interrompidas.",
+    "managedVolume": "Ele foi criado pelo OxeQuery; os dados ficam guardados num volume nomeado."
+  },
+  "tab": {
+    "logs": "Logs",
+    "stats": "Estatísticas",
+    "environment": "Ambiente",
+    "ports": "Portas",
+    "terminal": "Terminal",
+    "command": "Comando"
+  },
+  "stats": {
+    "label": "Uso",
+    "cpu": "CPU",
+    "memory": "Memória",
+    "memoryOf": "{{used}} / {{limit}}",
+    "network": "Rede entrada / saída",
+    "disk": "Disco leitura / escrita",
+    "processes": "Processos",
+    "notRunning": "Inicie o contêiner para ver o que ele usa.",
+    "measuring": "Medindo…"
+  },
+  "remove": {
+    "title": "Remover o contêiner {{name}}?",
+    "confirm": "Remover",
+    "running": "Ele é parado antes.",
+    "volumes_one": "Os dados no volume <strong>{{volumes}}</strong> ficam.",
+    "volumes_other": "Os dados nos volumes <strong>{{volumes}}</strong> ficam.",
+    "volumes_many": "Os dados nos volumes <strong>{{volumes}}</strong> ficam.",
+    "noVolumes": "Ele não tem volume nomeado; os arquivos gravados dentro dele se perdem.",
+    "final": "Esta ação não pode ser desfeita."
+  },
+  "environment": {
+    "empty": "Este contêiner não define variáveis de ambiente.",
+    "name": "Variável",
+    "value": "Valor",
+    "hidden": "oculto",
+    "hiddenTitle": "Oculto porque é, ou pode ser, um segredo",
+    "hiddenNote_one": "{{count}} valor está oculto porque é, ou pode ser, um segredo. Ele nunca sai do processo principal, e os agentes nunca o veem.",
+    "hiddenNote_other": "{{count}} valores estão ocultos porque são, ou podem ser, segredos. Eles nunca saem do processo principal, e os agentes nunca os veem.",
+    "hiddenNote_many": "{{count}} valores estão ocultos porque são, ou podem ser, segredos. Eles nunca saem do processo principal, e os agentes nunca os veem."
+  },
+  "ports": {
+    "none": "Este contêiner não publica nenhuma porta.",
+    "host": "Neste computador",
+    "container": "No contêiner",
+    "protocol": "Protocolo",
+    "internal": "só para outros contêineres"
+  },
+  "bridge": {
+    "title": "Banco detectado",
+    "where": "{{engine}} em {{host}}:{{port}}",
+    "unpublished": "A porta do banco não está publicada, então nada fora do motor chega a ele. Recrie o contêiner com uma porta publicada (por exemplo -p 5432:5432).",
+    "saved": "Salvo como a conexão {{name}}.",
+    "open": "Abrir no OxeQuery",
+    "connect": "Conectar no OxeQuery",
+    "startFirst": "Inicie o contêiner para conectar a ele.",
+    "failed": "Não foi possível preparar a conexão",
+    "password": "O OxeQuery pede a senha e a guarda no cofre; os agentes nunca a veem."
+  },
+  "about": {
+    "title": "Sobre",
+    "image": "Imagem",
+    "command": "Comando",
+    "health": "Saúde",
+    "restartPolicy": "Reinício",
+    "started": "Iniciado em",
+    "ports": "Portas",
+    "networks": "Redes",
+    "mounts": "Montagens"
+  },
+  "logs": {
+    "filter": "Filtrar logs",
+    "filterPlaceholder": "Filtrar",
+    "pause": "Pausar",
+    "resume": "Retomar",
+    "label": "Logs do contêiner",
+    "waiting": "Aguardando saída…",
+    "failed": "O log parou",
+    "noMatch": "Nenhuma linha corresponde ao filtro.",
+    "live": "— ao vivo —"
+  },
+  "run": {
+    "explain": "Executa uma vez dentro de <strong>{{name}}</strong> sem shell, então pipes e aspas não são interpretados. Use a aba Shell para trabalho interativo.",
+    "command": "Comando",
+    "startFirst": "Inicie o contêiner para executar comandos.",
+    "timedOut": "Tempo esgotado após 30 s",
+    "exitCode": "Código de saída {{code}}",
+    "truncated": "saída truncada",
+    "output": "Saída do comando",
+    "failed": "Não foi possível executar o comando"
+  },
+  "shell": {
+    "startFirst": "Inicie o contêiner para abrir um shell.",
+    "opening": "Abrindo shell…",
+    "paneName": "Shell de {{name}}",
+    "shell": "Shell",
+    "newSession": "Nova sessão",
+    "failed": "Não foi possível abrir um shell"
+  },
+  "compose": {
+    "running_one": "{{running}} de {{count}} em execução",
+    "running_other": "{{running}} de {{count}} em execução",
+    "up": "Subir",
+    "start": "Iniciar",
+    "stop": "Parar",
+    "restart": "Reiniciar",
+    "logs": "Logs",
+    "down": "Derrubar",
+    "downAsk": "Derrubar…",
+    "done": "Concluído.",
+    "downTitle": "Derrubar {{project}}?",
+    "downConfirm": "Derrubar",
+    "downDescription": "Os contêineres e as redes são removidos. Os volumes nomeados são mantidos.",
+    "closeOutput": "Fechar saída",
+    "outputTitle": "{{project}} · {{action}}",
+    "running_many": "{{running}} de {{count}} em execução",
+    "label": "Projeto Compose {{project}}",
+    "services_one": "{{count}} serviço",
+    "services_other": "{{count}} serviços",
+    "services_many": "{{count}} serviços",
+    "failed": "O Compose falhou"
+  },
+  "resources": {
+    "label": "Imagens, volumes e redes",
+    "tab": {
+      "images_one": "Imagens ({{count}})",
+      "images_other": "Imagens ({{count}})",
+      "volumes_one": "Volumes ({{count}})",
+      "volumes_other": "Volumes ({{count}})",
+      "networks_one": "Redes ({{count}})",
+      "networks_other": "Redes ({{count}})",
+      "images_many": "Imagens ({{count}})",
+      "volumes_many": "Volumes ({{count}})",
+      "networks_many": "Redes ({{count}})"
+    },
+    "usage": "{{type}}: {{size}}",
+    "usageReclaimable": "{{type}}: {{size}} ({{reclaimable}} recuperáveis)",
+    "removeTitle": {
+      "image": "Remover a imagem {{name}}?",
+      "volume": "Remover o volume {{name}}?",
+      "network": "Remover a rede {{name}}?"
+    },
+    "removeWarning": {
+      "image": "Não será mais possível criar contêineres a partir dela até baixá-la de novo.",
+      "volume": "Os dados deste volume são apagados e não podem ser recuperados.",
+      "network": "Os contêineres ligados a esta rede não são afetados, mas ela é removida."
+    },
+    "inUse": "O motor recusa se ainda estiver em uso.",
+    "removeNamed": {
+      "image": "Remover a imagem {{name}}",
+      "volume": "Remover o volume {{name}}",
+      "network": "Remover a rede {{name}}"
+    },
+    "column": {
+      "repository": "Repositório",
+      "tag": "Tag",
+      "size": "Tamanho",
+      "created": "Criada",
+      "name": "Nome",
+      "driver": "Driver",
+      "scope": "Escopo",
+      "actions": "Ações"
+    },
+    "kind": "Tipo",
+    "failed": "Não foi possível ler o motor",
+    "empty": {
+      "images": "Nenhuma imagem.",
+      "volumes": "Nenhum volume.",
+      "networks": "Nenhuma rede."
+    }
+  },
+  "prune": {
+    "containers": "Limpar parados…",
+    "images": "Limpar imagens órfãs…",
+    "title": {
+      "containers": "Remover todos os contêineres parados?",
+      "images": "Remover todas as imagens órfãs?"
+    },
+    "description": {
+      "containers": "Os contêineres que não estão em execução são removidos com o que gravaram dentro deles. Os volumes nomeados ficam. Esta ação não pode ser desfeita.",
+      "images": "As camadas de imagem que nenhuma tag ou contêiner usa são removidas. As imagens com tag ficam. Esta ação não pode ser desfeita."
+    },
+    "confirm": "Limpar",
+    "done": {
+      "containers": "Contêineres parados removidos",
+      "images": "Imagens órfãs removidas"
+    }
+  },
+  "activity": {
+    "loading": "Carregando a atividade dos agentes…"
+  },
+  "view": {
+    "loading": "Procurando contêineres…",
+    "emptyTitle": "Nenhum contêiner ainda",
+    "emptyText": "Os contêineres que você inicia com Docker ou Podman aparecem aqui, agrupados pelo projeto Compose.",
+    "remoteContext": "O contexto Docker <strong>{{where}}</strong> está ativo. Tudo aqui — inclusive parar, remover e executar comando — age naquele host, não neste computador."
+  }
+}

@@ -198,7 +198,7 @@ for (const theme of THEMES) {
 
       // OxeQuery: the demo PostgreSQL connection and a table.
       await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-      await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+      await connectFromContainer(page, 'pg-dev')
       await page.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
       await expect(page.getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()
       await shoot(page, 'oxequery', theme)
@@ -275,6 +275,7 @@ const RATE_LIMIT_TEST = `import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { isLimited, record, resetForTests } from '../src/auth/rate-limit.js'
 import { togglePanel, openConnections } from './helpers/panels'
+import { connectFromContainer } from './helpers/oxepod'
 
 beforeEach(resetForTests)
 

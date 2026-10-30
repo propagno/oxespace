@@ -1,17 +1,19 @@
-import { useEffect, type ReactElement } from 'react'
+import { Suspense, lazy, useEffect, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { Database, Plus, X } from 'lucide-react'
 import { EmptyState } from '../../ui/Display'
+import { Button } from '../../ui/Button'
 import { ConnectionDialog } from './ConnectionDialog'
 import { ActivityPanel } from './ActivityPanel'
-import { ContainersPanel } from './ContainersPanel'
 import { MongoWorkbench } from './MongoWorkbench'
 import { SqlWorkbench } from './SqlWorkbench'
 import { useOxeQueryCatalog } from './catalog'
 import { useOxeQueryStore, type OxeQueryTab } from './oxequery.store'
 import './OxeQuery.css'
 
-/** Main area of the OxeQuery mode: a tab for containers and one per opened connection. */
+const NewDatabaseDialog = lazy(() => import('./NewDatabaseDialog').then(module => ({ default: module.NewDatabaseDialog })))
+
+/** Main area of the OxeQuery mode: one tab per opened connection, plus agent activity when asked for. */
 export function OxeQueryView({ active }: { active: boolean }): ReactElement {
   useOxeQueryCatalog()
   const { t } = useTranslation('oxequery')
@@ -20,22 +22,27 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
   const connections = useOxeQueryStore(state => state.connections)
   const setActiveTab = useOxeQueryStore(state => state.setActiveTab)
   const closeTab = useOxeQueryStore(state => state.closeTab)
+  const newDatabase = useOxeQueryStore(state => state.newDatabaseOpen)
 
   useEffect(() => { if (active) void useOxeQueryStore.getState().refreshConnections() }, [active])
 
-  const titleOf = (tab: OxeQueryTab): string => tab.kind === 'connection' ? tab.title : t(`view.tab.${tab.kind}`)
+  const titleOf = (tab: OxeQueryTab): string => tab.kind === 'connection' ? tab.title : t('view.tab.activity')
   return <div className="oq-view" aria-label="OxeQuery">
-    <div className="oq-tabs" role="tablist" aria-label={t('view.openViews')}>
+    {tabs.length > 0 && <div className="oq-tabs" role="tablist" aria-label={t('view.openViews')}>
       {tabs.map(tab => <span key={tab.id} className="oq-tab" data-active={tab.id === activeTab} data-color={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.color || undefined : undefined}
         data-environment={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.environment : undefined}>
         <button type="button" role="tab" aria-selected={tab.id === activeTab} data-oq-tab={tab.kind} onClick={() => setActiveTab(tab.id)}>{titleOf(tab)}</button>
-        {tab.kind === 'connection' && <button type="button" aria-label={t('view.closeTab', { name: tab.title })} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>}
+        <button type="button" aria-label={t('view.closeTab', { name: titleOf(tab) })} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>
       </span>)}
-    </div>
+    </div>}
     <div className="oq-panels">
+      {tabs.length === 0 && <div className="oq-panel oq-welcome"><EmptyState icon={<Database size={22} aria-hidden="true" />} title={t('welcome.title')}
+        actions={<>
+          <Button variant="primary" icon={<Plus size={13} aria-hidden="true" />} data-oq-action="newConnection" onClick={() => useOxeQueryStore.getState().openDialog(null)}>{t('connections.new')}</Button>
+          <Button icon={<Database size={13} aria-hidden="true" />} title={t('welcome.newDatabaseTitle')} onClick={() => useOxeQueryStore.getState().setNewDatabaseOpen(true)}>{t('welcome.newDatabase')}</Button>
+        </>}>{connections.length ? t('welcome.textSaved') : t('welcome.text')}</EmptyState></div>}
       {tabs.map(tab => {
         const visible = tab.id === activeTab
-        if (tab.kind === 'containers') return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel"><ContainersPanel active={active && visible} /></div>
         if (tab.kind === 'activity') return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel"><ActivityPanel active={active && visible} /></div>
         const connection = connections.find(item => item.id === tab.connectionId)
         return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel">
@@ -45,5 +52,6 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
       })}
     </div>
     <ConnectionDialog />
+    <Suspense fallback={null}>{newDatabase && <NewDatabaseDialog onClose={() => useOxeQueryStore.getState().setNewDatabaseOpen(false)} />}</Suspense>
   </div>
 }

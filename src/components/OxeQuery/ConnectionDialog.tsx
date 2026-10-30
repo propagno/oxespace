@@ -8,7 +8,7 @@ import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type Connect
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
 import { useShallow } from 'zustand/react/shallow'
-import { useOxeQueryStore } from './oxequery.store'
+import { useOxeQueryStore, type ConnectionDraft } from './oxequery.store'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
@@ -28,9 +28,9 @@ const ENVIRONMENTS: ConnectionEnvironment[] = ['local', 'dev', 'prod']
 const TLS_MODES: SslMode[] = ['prefer', 'disable', 'require', 'verify-ca', 'verify-full']
 
 export function ConnectionDialog(): ReactElement | null {
-  const { open, editing } = useOxeQueryStore(state => state.dialog)
+  const { open, editing, draft } = useOxeQueryStore(state => state.dialog)
   if (!open) return null
-  return <ConnectionForm key={editing?.id ?? 'new'} editing={editing} />
+  return <ConnectionForm key={editing?.id ?? `new:${draft?.containerRef ?? ''}`} editing={editing} draft={draft} />
 }
 
 type Outcome =
@@ -66,15 +66,18 @@ function FilePick({ label, kind, picked, existing, onPicked, onClear }: { label:
   </div>
 }
 
-function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): ReactElement {
+function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null; draft?: ConnectionDraft }): ReactElement {
   const { t } = useTranslation('oxequery')
   const close = useOxeQueryStore(state => state.closeDialog)
-  const [engine, setEngine] = useState<DatabaseEngine>(editing?.engine ?? 'postgres')
-  const [name, setName] = useState(editing?.name ?? '')
-  const [host, setHost] = useState(editing?.host ?? '127.0.0.1')
-  const [port, setPort] = useState(String(editing?.port ?? DEFAULT_PORT.postgres))
-  const [database, setDatabase] = useState(editing?.database ?? '')
-  const [username, setUsername] = useState(editing?.username ?? '')
+  // A draft comes from a database container in OxePod: everything but the password is filled in.
+  const seed = editing ?? draft
+  const containerRef = editing?.containerRef ?? draft?.containerRef
+  const [engine, setEngine] = useState<DatabaseEngine>(seed?.engine ?? 'postgres')
+  const [name, setName] = useState(seed?.name ?? '')
+  const [host, setHost] = useState(seed?.host ?? '127.0.0.1')
+  const [port, setPort] = useState(String(seed?.port ?? DEFAULT_PORT[seed?.engine ?? 'postgres']))
+  const [database, setDatabase] = useState(seed?.database ?? '')
+  const [username, setUsername] = useState(seed?.username ?? '')
   const [password, setPassword] = useState('')
   const [clearPassword, setClearPassword] = useState(false)
   const [environment, setEnvironment] = useState<ConnectionEnvironment>(editing?.environment ?? 'local')
@@ -161,7 +164,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
 
   const input = (): OxeQueryConnectionInput => ({
     ...(recordId ? { id: recordId } : {}), name: name.trim() || derivedName, engine, host, port: Number(port), database, username, sslMode, environment, readOnly,
-    ...(editing?.containerRef ? { containerRef: editing.containerRef } : {}),
+    ...(containerRef ? { containerRef } : {}),
     ...(password ? { password } : {}), ...(clearPassword ? { clearPassword: true } : {}),
     ...(ca ? { caHandle: ca.handle } : {}), ...(clearCa ? { clearCa: true } : {}),
     ...(cert && certKey ? { clientCertHandle: cert.handle, clientKeyHandle: certKey.handle } : {}), ...(clearClient ? { clearClientCert: true } : {}),
@@ -232,7 +235,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const toggle = (key: keyof typeof open): void => setOpen(current => ({ ...current, [key]: !current[key] }))
 
   const title = editing ? t('form.editTitle') : t('connections.new')
-  const description = editing?.containerRef ? t('form.fromContainer', { name: editing.containerRef }) : t('form.description')
+  const description = editing?.containerRef ? t('form.fromContainer', { name: editing.containerRef }) : draft?.containerRef ? t('form.fromContainerDraft', { name: draft.containerRef }) : t('form.description')
   return <Dialog className="oq-scope" title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={() => { if (!busy) close() }}
     footer={<>
       <Button disabled={busy} loading={busy} onClick={() => void check()}>{t('form.test')}</Button>
@@ -257,7 +260,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
         {urlError ? <em role="alert">{urlError}</em> : <small>{t('form.urlHint')}</small>}</label>}
 
       <div className="oq-form">
-        <label className="oq-form-wide">{t('server.column.name')}<input value={name} onChange={event => setName(event.target.value)} placeholder={derivedName.trim() && derivedName !== '127.0.0.1' ? derivedName : t(`form.namePlaceholder.${engine}`)} autoFocus /></label>
+        <label className="oq-form-wide">{t('server.column.name')}<input value={name} onChange={event => setName(event.target.value)} placeholder={derivedName.trim() && derivedName !== '127.0.0.1' ? derivedName : t(`form.namePlaceholder.${engine}`)} autoFocus={!draft} /></label>
         <label>{t('form.group')}<input list="oq-groups" value={group} onChange={event => setGroup(event.target.value)} placeholder={t('form.noGroup')} maxLength={60} /></label>
         <datalist id="oq-groups">{groups.map(item => <option key={item} value={item} />)}</datalist>
         <div className="oq-form-pair"><div role="radiogroup" aria-label={t('form.color')} className="oq-swatches">
@@ -273,8 +276,9 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
         }} required spellCheck={false} /></label>
         {!srv && <label>{t('form.port')}<input type="number" min={1} max={65535} value={port} onChange={event => setPort(event.target.value)} required /></label>}
         <label>{t('form.user')}<input value={username} onChange={event => setUsername(event.target.value)} autoComplete="off" spellCheck={false} /></label>
-        <label>{t('form.password')}<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"
-          placeholder={editing?.hasPassword && !clearPassword ? t('form.keepSaved') : ''} /></label>
+        <label>{t('form.password')}<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" autoFocus={Boolean(draft)}
+          placeholder={editing?.hasPassword && !clearPassword ? t('form.keepSaved') : ''} aria-describedby={draft ? 'oq-draft-password' : undefined} /></label>
+        {draft && <small id="oq-draft-password" className="oq-muted oq-form-wide">{t('form.containerPassword')}</small>}
         <label className="oq-form-wide">{t('form.database')}<input value={database} onChange={event => setDatabase(event.target.value)} spellCheck={false}
           placeholder={engine === 'postgres' ? 'postgres' : t('form.optional')} /></label>
         {editing?.hasPassword && <label className="oq-check oq-form-wide"><input type="checkbox" checked={clearPassword} onChange={event => setClearPassword(event.target.checked)} />{t('form.clearPassword')}</label>}

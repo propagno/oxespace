@@ -127,8 +127,8 @@ before. Code panes receive the whole registry.
 | `oxequery.write` | Change data or schema | **confirm**: `oxespace_db_execute`, `oxespace_mongo_write` |
 | `oxequery.saved_queries` | Saved queries, history, import and export of data | Excluded: The person's notebook and bulk data moves; agents run one approved statement at a time. |
 | `oxequery.secrets` | Connection credentials, SSH host keys, export and import of connections | **Forbidden**: Secrets and trust. |
-| `containers.runtime` | Containers: list, logs, start, stop, restart | **read**: `oxespace_containers_list`, `oxespace_container_logs`<br>**confirm**: `oxespace_container_action` |
-| `containers.resources` | Images, volumes, networks, compose, exec and shell, stats, database containers | Planned (P7): OxePod mode owns container resources. |
+| `containers.runtime` | Containers (OxePod): list, logs, start, stop, restart | **read**: `oxespace_containers_list`, `oxespace_container_logs`<br>**confirm**: `oxespace_container_action` |
+| `containers.resources` | Images, volumes, networks, compose, exec and shell, stats, database containers | Planned (P7): OxePod shows them to the person; tools for them come with P7. Removing a container and cleaning up are the person's confirmed actions in OxePod and are not tools. A container's environment reaches the page redacted and never an agent. |
 | `skills.use` | Skills: list, read, add | **read**: `oxespace_skills#list`, `oxespace_skills#get`<br>**confirm**: `oxespace_skills_change#create` |
 | `skills.invoke` | Invoke a skill in a pane | Excluded: Types the skill into a terminal. Agents read its body with oxespace_skills get. |
 | `automations.use` | Scheduled automations | **read**: `oxespace_automations#list`, `oxespace_automations#runs`<br>**write**: `oxespace_automations_change#disable`<br>**confirm**: `oxespace_automations_change#create`, `oxespace_automations_change#enable`, `oxespace_automations_change#run_now`, `oxespace_automations_change#remove` |

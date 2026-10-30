@@ -8,7 +8,7 @@ let api: FakeOxeQuery
 beforeEach(() => {
   api = installFakeOxeQuery()
   api.on('connections.list', [])
-  useOxeQueryStore.setState({ connections: [connection({ id: 'x', group: 'Client A' })], tabs: useOxeQueryStore.getState().tabs.slice(0, 2), activeTab: 'containers', dialog: { open: false, editing: null } })
+  useOxeQueryStore.setState({ connections: [connection({ id: 'x', group: 'Client A' })], tabs: [], activeTab: '', dialog: { open: false, editing: null } })
 })
 afterEach(() => { cleanup(); act(() => useOxeQueryStore.setState({ dialog: { open: false, editing: null } })) })
 
@@ -91,5 +91,24 @@ describe('ConnectionDialog', () => {
     expect(within(dialog).getByLabelText('Host')).toHaveValue('db.internal')
     expect(within(dialog).getByLabelText('Port')).toHaveValue(6543)
     expect(within(dialog).getByLabelText('Database')).toHaveValue('shop')
+  })
+
+  it('opens filled in from a database container, asks only for the password and remembers the container', async () => {
+    api.on('connections.save', (input: Record<string, unknown>) => connection({ id: 'from-pod', name: String(input.name), containerRef: 'pg-dev' }))
+    render(<ConnectionDialog />)
+    act(() => useOxeQueryStore.getState().openDialog(null, { engine: 'postgres', name: 'pg-dev', host: '127.0.0.1', port: 15432, database: 'app', username: 'app', containerRef: 'pg-dev' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New connection' })
+    expect(dialog).toHaveTextContent('From the container pg-dev')
+    expect(within(dialog).getByLabelText('Host')).toHaveValue('127.0.0.1')
+    expect(within(dialog).getByLabelText('Port')).toHaveValue(15432)
+    expect(within(dialog).getByLabelText('User')).toHaveValue('app')
+    const password = within(dialog).getByLabelText('Password')
+    expect(password).toHaveFocus()
+    expect(password).toHaveAccessibleDescription(/agents never see it/)
+    fireEvent.change(password, { target: { value: 's3cret' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save and open' }))
+    await waitFor(() => expect(api.callsOf('connections.save')).toHaveLength(1))
+    expect(api.callsOf('connections.save')[0]).toMatchObject({ name: 'pg-dev', host: '127.0.0.1', port: 15432, username: 'app', database: 'app', password: 's3cret', containerRef: 'pg-dev' })
+    await waitFor(() => expect(useOxeQueryStore.getState().activeTab).toBe('connection:from-pod'))
   })
 })

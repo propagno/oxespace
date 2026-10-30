@@ -70,7 +70,7 @@ export function registerOxeQueryMock(): void {
       case 'containers.inspect': {
         const target = containers.find(container => container.id === input.id)
         if (!target) return fail('not-found', 'That container no longer exists.')
-        return ok({ id: target.id, name: target.name, image: target.image, state: target.state, command: 'docker-entrypoint.sh', envNames: ['POSTGRES_PASSWORD', 'PATH'], mounts: [{ source: '/data', destination: '/var/lib/data' }], networks: ['bridge'], ports: target.ports, restartPolicy: 'always' })
+        return ok({ id: target.id, name: target.name, image: target.image, state: target.state, command: 'docker-entrypoint.sh', startedAt: Date.now() - 2 * 3_600_000, environment: [{ name: 'POSTGRES_USER', value: 'app' }, { name: 'POSTGRES_PASSWORD' }, { name: 'PGDATA', value: '/var/lib/postgresql/data' }], mounts: [{ source: '/var/lib/docker/volumes/pg-data/_data', destination: '/var/lib/postgresql/data', volume: 'pg-data' }], networks: ['bridge'], ports: target.ports, restartPolicy: 'always' })
       }
       case 'containers.exec': return ok({ exitCode: 0, stdout: `hello from ${String(input.id)}\n`, stderr: '', truncated: false, timedOut: false })
       case 'containers.logsStart': {
@@ -109,7 +109,7 @@ export function registerOxeQueryMock(): void {
       case 'connections.save': {
         const saved: OxeQueryConnection = { id: String(input.id ?? randomUUID()), name: String(input.name), engine: input.engine as 'postgres' | 'mongodb', host: String(input.host), port: Number(input.port),
           database: String(input.database ?? ''), username: String(input.username ?? ''), readOnly: input.readOnly !== false, environment: (input.environment as 'local') ?? 'local',
-          hasPassword: Boolean(input.password), ...extras, group: String(input.group ?? ''), favorite: input.favorite === true, color: (input.color as OxeQueryConnection['color']) ?? '', sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
+          hasPassword: Boolean(input.password), ...extras, ...(input.containerRef ? { containerRef: String(input.containerRef) } : {}), group: String(input.group ?? ''), favorite: input.favorite === true, color: (input.color as OxeQueryConnection['color']) ?? '', sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
           ...((input.ssh as { enabled?: boolean; host?: string; port?: number; user?: string; auth?: 'key' | 'password' } | undefined)?.enabled
             ? { ssh: { host: String((input.ssh as { host?: string }).host), port: Number((input.ssh as { port?: number }).port ?? 22), user: String((input.ssh as { user?: string }).user), auth: (input.ssh as { auth?: 'key' | 'password' }).auth ?? 'key', hasSecret: true } } : {}),
           createdAt: Date.now(), updatedAt: Date.now() }
@@ -139,6 +139,26 @@ export function registerOxeQueryMock(): void {
       case 'resources.networks': return ok([{ id: 'n1', name: 'bridge', driver: 'bridge', scope: 'local' }, { id: 'n2', name: 'app-net', driver: 'bridge', scope: 'local' }])
       case 'resources.usage': return ok([{ type: 'Images', total: 3, active: 1, size: '1.2GB', reclaimable: '800MB (66%)' }])
       case 'resources.remove': return ok({ ok: true })
+      case 'resources.prune': {
+        if (input.confirmed !== true) return fail('confirm', 'Every stopped container is removed.')
+        if (input.kind === 'containers') for (let index = containers.length - 1; index >= 0; index--) if (containers[index].state !== 'running') containers.splice(index, 1)
+        send({ type: 'containers-changed' })
+        return ok({ output: 'Total reclaimed space: 0B' })
+      }
+      case 'containers.remove': {
+        if (input.confirmed !== true) return fail('confirm', 'Removing a container cannot be undone.')
+        const index = containers.findIndex(container => container.id === input.id)
+        if (index < 0) return fail('not-found', 'That container no longer exists.')
+        containers.splice(index, 1)
+        send({ type: 'containers-changed' })
+        return ok({ ok: true })
+      }
+      case 'containers.suggestConnection': {
+        const target = containers.find(container => container.id === input.id)
+        if (!target || !/postgres|mongo/.test(target.image)) return ok(null)
+        const mongo = /mongo/.test(target.image)
+        return ok({ engine: mongo ? 'mongodb' : 'postgres', name: target.name, host: '127.0.0.1', port: mongo ? 27017 : 5432, database: mongo ? '' : 'app', username: mongo ? 'root' : 'app', hasPassword: true })
+      }
       case 'containers.createDatabase': return ok({ ...connections[0], id: 'new-db', name: String((input as { name?: string }).name) })
       case 'audit.list': return ok([{ id: 1, ts: Date.now(), actor: 'thread:abc', connectionId: 'c1', connectionName: 'pg-dev', engine: 'postgres', environment: 'dev', tool: 'oxespace_db_query', textHash: 'h', text: "SELECT * FROM users WHERE email = '?'", decision: 'approved', outcome: 'ok', rows: 3, durationMs: 5, errorCode: null }])
       case 'library.list': return ok({ saved: [{ id: 's1', connectionId: String(input.connectionId), name: 'Active users', sql: 'SELECT * FROM users', createdAt: 1, updatedAt: 1 }], history: [{ id: 1, sql: 'SELECT now()', ranAt: Date.now(), durationMs: 3, rows: 1, ok: true }] })

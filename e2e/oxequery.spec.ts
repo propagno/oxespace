@@ -2,13 +2,14 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer } from './helpers/oxepod'
 
 /**
  * The OxeQuery mode in the real renderer, backed by the in-memory mock in
  * electron/main/e2e/oxequery-mock.ts. Database behaviour against real engines is
  * covered by tests/live/oxequery-live.test.ts.
  */
-test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoDB', async () => {
+test('OxeQuery opens on its connections and queries PostgreSQL and MongoDB from containers', async () => {
   test.setTimeout(120000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
@@ -39,46 +40,13 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     expect(sidebar!.height).toBeGreaterThan(300)
     await expect(page.locator('main.app-shell')).toHaveCSS('display', 'grid')
 
-    // Containers
-    const list = page.getByRole('table', { name: 'Container list' })
-    await expect(list.getByRole('button', { name: 'pg-dev', exact: true })).toBeVisible()
-    await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('running')
-    await expect(list.getByRole('row', { name: /old-job/ })).toContainText('exited')
-    await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('5432→5432')
-    await page.getByRole('checkbox', { name: 'Running only' }).check()
-    await expect(list.getByRole('row', { name: /old-job/ })).toHaveCount(0)
-    await page.getByRole('checkbox', { name: 'Running only' }).uncheck()
-    await page.getByRole('searchbox', { name: 'Filter containers' }).fill('mongo')
-    await expect(list.getByRole('row', { name: /pg-dev/ })).toHaveCount(0)
-    await page.getByRole('searchbox', { name: 'Filter containers' }).fill('')
+    // OxeQuery starts at the connections: no container list, a welcome page that points to OxePod.
+    await expect(page.getByRole('tab', { name: 'Containers' })).toHaveCount(0)
+    await expect(page.locator('.oq-welcome')).toContainText('Open a database')
+    await expect(page.locator('.oq-welcome')).toContainText('OxePod')
 
-    await page.getByRole('button', { name: 'Stop pg-dev' }).click()
-    // A database container asks before it is interrupted.
-    const stopConfirm = page.getByRole('dialog', { name: /^(Stop|Restart) .+ ?$/ })
-    await expect(stopConfirm).toContainText('interrupted')
-    await stopConfirm.getByRole('button', { name: 'Cancel' }).click()
-    await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('running')
-    await page.getByRole('button', { name: 'Stop pg-dev' }).click()
-    await stopConfirm.getByRole('button', { name: 'Stop', exact: true }).click()
-    await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('exited')
-    await page.getByRole('button', { name: 'Start pg-dev' }).click()
-    await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('running')
-
-    await list.getByRole('button', { name: 'pg-dev', exact: true }).click()
-    const details = page.getByRole('complementary', { name: 'pg-dev details' })
-    await expect(details).toContainText('postgres:16')
-    await expect(details).toContainText('POSTGRES_PASSWORD')
-    await details.getByRole('button', { name: 'Logs' }).click()
-    await expect(details.getByLabel('Container logs')).toContainText('ready to accept connections')
-    await details.getByRole('button', { name: 'Run command' }).click()
-    await details.getByLabel('Command').fill('ls -la')
-    await details.getByRole('button', { name: 'Run', exact: true }).click()
-    await expect(details.getByLabel('Command output')).toContainText('hello from c1')
-    await details.getByRole('button', { name: 'Close details' }).click()
-
-    // PostgreSQL from the container
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
-    await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
+    // PostgreSQL from its container, through OxePod's Connect in OxeQuery
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.locator('.oq-sidebar').getByRole('region', { name: 'Connections' }).getByRole('button', { name: /^pg-dev/ }).first()).toBeVisible()
     const tree = page.getByRole('navigation', { name: 'Schema' })
     await expect(tree.getByRole('treeitem', { name: 'users', exact: true })).toBeVisible()
@@ -126,9 +94,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     await expect(page.locator('.oq-results-bar')).toContainText('3 rows affected')
 
     // MongoDB from its container
-    await page.getByRole('tab', { name: 'Containers' }).click()
-    await page.getByRole('button', { name: 'Connect to mongo-dev' }).click()
-    await expect(page.getByRole('tab', { name: 'mongo-dev' })).toBeVisible()
+    await connectFromContainer(page, 'mongo-dev')
     await page.getByRole('navigation', { name: 'Databases' }).getByRole('button', { name: 'shop' }).click()
     await page.getByRole('navigation', { name: 'Databases' }).getByRole('button', { name: 'items', exact: true }).click()
     await expect(page.getByText('_id: 507f1f77bcf86cd799439011')).toBeVisible()
@@ -147,7 +113,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
   }
 })
 
-test('OxeQuery explains a stopped container engine and keeps checking', async () => {
+test('OxeQuery works without a container engine', async () => {
   test.setTimeout(60000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-engine-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
@@ -162,11 +128,8 @@ test('OxeQuery explains a stopped container engine and keeps checking', async ()
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    const problem = page.getByRole('alert').filter({ hasText: 'Docker is not running' })
-    await expect(problem).toBeVisible()
-    await expect(problem).toContainText('Start Docker Desktop')
-    await expect(problem.getByRole('button', { name: 'Check again' })).toBeEnabled()
-    // Connections remain usable without an engine.
+    // Containers are OxePod's: OxeQuery says nothing about the engine, and connections work without one.
+    await expect(page.getByRole('alert').filter({ hasText: 'Docker is not running' })).toHaveCount(0)
     await page.getByRole('button', { name: 'New connection' }).first().click()
     await expect(page.getByRole('dialog', { name: 'New connection' })).toBeVisible()
   } finally { await app.close() }
@@ -283,7 +246,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     await page.getByRole('navigation', { name: 'Schema' }).getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
 
@@ -338,7 +301,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await page.getByRole('button', { name: 'Library' }).click()
 
     // What agents asked for is listed in the Activity tab.
-    await page.getByRole('tab', { name: 'Activity' }).click()
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Agent activity' }).click()
     await expect(page.getByRole('region', { name: 'Agent activity' })).toContainText('thread:abc')
     await expect(page.getByRole('region', { name: 'Agent activity' })).toContainText('db_query')
     await page.getByRole('tab', { name: 'pg-dev' }).click()
@@ -358,7 +321,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
   }
 })
 
-test('OxeQuery shows container stats and resources and creates a database from a wizard', async () => {
+test('OxeQuery creates a local database from its wizard', async () => {
   test.setTimeout(120000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
@@ -375,17 +338,7 @@ test('OxeQuery shows container stats and resources and creates a database from a
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
 
-    await expect(page.getByRole('table', { name: 'Container list' })).toContainText('1.5%')
-
-    await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
-    const resources = page.getByRole('region', { name: 'Images, volumes and networks' })
-    await expect(resources.getByRole('table', { name: 'Images' })).toContainText('postgres')
-    await resources.getByRole('tab', { name: /^Volumes/ }).click()
-    await resources.getByRole('button', { name: 'Remove volume pg-dev-data' }).click()
-    await expect(page.getByRole('dialog', { name: /^Remove (volume|image|network) / })).toContainText('cannot be recovered')
-    await page.getByRole('dialog', { name: /^Remove (volume|image|network) / }).getByRole('button', { name: 'Cancel' }).click()
-
-    await page.getByRole('button', { name: 'New database' }).click()
+    await page.getByRole('button', { name: 'New local database' }).click()
     const wizard = page.getByRole('dialog', { name: 'New database' })
     await wizard.getByLabel('Name').fill('orders-db')
     await wizard.getByRole('button', { name: 'Create and connect' }).click()
@@ -421,15 +374,14 @@ test('every control in the OxeQuery views has an accessible name', async () => {
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await expect(page.getByRole('table', { name: 'Container list' })).toBeVisible()
+    await expect(page.locator('.oq-welcome')).toBeVisible()
     expect(await page.evaluate(unnamed())).toEqual([])
 
-    await page.getByRole('tab', { name: 'Activity' }).click()
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Agent activity' }).click()
     await expect(page.getByRole('region', { name: 'Agent activity' })).toBeVisible()
     expect(await page.evaluate(unnamed())).toEqual([])
 
-    await page.getByRole('tab', { name: 'Containers' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await page.getByRole('navigation', { name: 'Schema' }).getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
     await expect(page.locator('.oq-grid')).toBeVisible()
     await page.getByRole('button', { name: 'Library' }).click()
@@ -456,7 +408,7 @@ test('the SQL workbench runs scripts, asks for parameters, keeps a transaction a
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     const editor = page.locator('.oq-editor .monaco-editor')
     // Escape closes the suggestion list, which would otherwise take the Enter of a shortcut.
@@ -526,7 +478,7 @@ test('a long SELECT shows its first rows and loads the rest page by page', async
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     const editor = page.locator('.oq-editor .monaco-editor')
     await editor.click()
     await expect(page.locator('.oq-editor .monaco-editor.focused')).toBeVisible()
@@ -560,7 +512,7 @@ test('the structure editor reviews the SQL of a new table and of an altered one 
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
 
     // A read-only connection can look but not change: no way to start.
@@ -621,7 +573,7 @@ test('the schema tree groups objects, searches every schema, pins tables and wor
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     const tree = page.getByRole('tree', { name: 'Schema objects' })
     const item = (name: string) => tree.getByRole('treeitem', { name, exact: true })
 
@@ -718,7 +670,7 @@ test('the MongoDB workbench validates its fields, explains a plan, shows a tree,
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to mongo-dev' }).click()
+    await connectFromContainer(page, 'mongo-dev')
     await expect(page.getByRole('tab', { name: 'mongo-dev' })).toBeVisible()
     await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit mongo-dev' }).click()
     const settings = page.getByRole('dialog', { name: 'Edit connection' })
@@ -800,7 +752,7 @@ test('connections can be favorited, grouped, colored, duplicated, found by searc
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     const list = page.getByRole('region', { name: 'Connections' })
 
@@ -843,38 +795,6 @@ test('connections can be favorited, grouped, colored, duplicated, found by searc
     await page.getByRole('searchbox', { name: 'Search connections' }).fill('scratch')
     await expect(list.getByRole('button', { name: /^Matches/ })).toBeVisible()
     await expect(list.getByRole('button', { name: 'Close scratch' })).toBeVisible()
-  } finally { await app.close() }
-})
-
-test('a Compose project can be brought up, read and taken down from the containers page', async () => {
-  test.setTimeout(120000)
-  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-compose-'))
-  const repo = join(root, 'repo'); mkdirSync(repo)
-  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
-    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
-  } })
-  try {
-    const page = await app.firstWindow()
-    await page.waitForLoadState('domcontentloaded')
-    await page.getByTestId('btn-new-workspace').click()
-    await page.getByTestId('wizard-dir-input').fill(repo)
-    await page.getByTestId('wizard-layout-card-1').click()
-    await page.getByTestId('wizard-launch-btn').click()
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await expect(page.getByRole('region', { name: 'Compose project actions' })).toHaveCount(0)
-    await page.getByRole('combobox', { name: 'Compose project' }).selectOption('shop')
-    const actions = page.getByRole('region', { name: 'Compose project actions' })
-    await expect(actions).toContainText('shop')
-    await actions.getByRole('button', { name: 'Logs' }).click()
-    await expect(actions).toContainText('web-1  | ready')
-    await actions.getByRole('button', { name: 'Close output' }).click()
-    await actions.getByRole('button', { name: 'Restart' }).click()
-    await expect(actions.getByRole('button', { name: 'Restart' })).toBeEnabled()
-    await actions.getByRole('button', { name: 'Down…' }).click()
-    const confirm = page.getByRole('dialog', { name: /^Take .+ down.$/ })
-    await expect(confirm).toContainText('Named volumes are kept')
-    await confirm.getByRole('button', { name: 'Cancel' }).click()
-    await expect(confirm).toHaveCount(0)
   } finally { await app.close() }
 })
 
