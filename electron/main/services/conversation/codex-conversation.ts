@@ -52,6 +52,9 @@ function dynamicToolOutput(value: unknown): string {
   }).filter(Boolean).join('\n').slice(-65536)
 }
 
+/** The installed Codex cannot open a side chat: no `thread/fork`, or no ephemeral copy. */
+export class CodexForkUnsupportedError extends Error {}
+
 /** Codex stable App Server protocol. The transport owns process spawning/cleanup. */
 export class CodexConversationAdapter implements AgentConversationAdapter {
   readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: true, queue: true, steering: true, nativeSessions: true, rewind: true }
@@ -96,7 +99,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
 
   get closed(): boolean { return this.disposed }
 
-  constructor(private readonly transport: ConversationTransport) {}
+  /** `fork` (side chat, B1.2): start as an ephemeral copy of the session instead of resuming it. */
+  constructor(private readonly transport: ConversationTransport, private readonly fork?: { ephemeral: true }) {}
 
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
     if (this.rpc || this.disposed) throw new Error('Conversation adapter cannot be started twice')
@@ -135,6 +139,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       if (protocolVersion) this.evidence.protocolVersion = protocolVersion.slice(0, 80)
       this.evidence.verified = 'native'
       rpc.notify('initialized')
+      if (this.fork) { await this.startFork(rpc, context, emit); return }
       const response = record(await rpc.request(context.nativeSessionId ? 'thread/resume' : 'thread/start', {
         ...(context.nativeSessionId ? { threadId: context.nativeSessionId } : {}),
         // Thread renders its bounded local history separately. Hydrating all
@@ -157,6 +162,35 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       await this.dispose()
       throw error
     }
+  }
+
+  /**
+   * A side chat: `thread/fork` with `ephemeral`, so nothing reaches disk. Support is read from the answer, never assumed:
+   * a server without the method, or one that returns a copy it would keep, is reported as unsupported.
+   */
+  private async startFork(rpc: AgentRpcPeer, context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
+    if (!context.nativeSessionId) throw new CodexForkUnsupportedError('There is no session to copy')
+    let response: Record<string, unknown>
+    try {
+      response = record(await rpc.request('thread/fork', { threadId: context.nativeSessionId, ephemeral: true, excludeTurns: true, cwd: context.rootPath,
+        approvalPolicy: this.approvalPolicy, sandbox: this.nativeSandbox, ...(context.model ? { model: context.model } : {}) }))
+    } catch (error) {
+      // The provider's own words travel in the failure detail; the message is OXESpace's summary.
+      const message = [error instanceof Error ? error.message : String(error), error instanceof ThreadAgentError ? error.failure.detail ?? '' : ''].join(' ')
+      if (/method not found|unknown (?:variant|method)|not supported|unsupported|unknown field/i.test(message)) throw new CodexForkUnsupportedError(message)
+      throw error
+    }
+    const thread = record(response.thread)
+    this.threadId = text(thread.id)
+    if (!this.threadId || this.threadId === context.nativeSessionId) throw new CodexForkUnsupportedError('The app-server did not return a copy')
+    if (thread.ephemeral !== true) {
+      // A copy this version would keep is removed again by its own id; the original is never named.
+      await rpc.request('thread/delete', { threadId: this.threadId }).catch(() => {})
+      throw new CodexForkUnsupportedError('This Codex version cannot keep a copy off disk')
+    }
+    this.model = context.model || text(response.model)
+    emit({ type: 'session', nativeSessionId: this.threadId })
+    emit({ type: 'configuration', model: this.model || undefined, access: this.access, networkAccess: false, approvalPolicy: this.approvalPolicy, confirmed: true })
   }
 
   async send(input: string, skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
