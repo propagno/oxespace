@@ -67,6 +67,7 @@ Cada item tem: Objetivo e porquê · Escopo / Fora · Dependências e contratos 
 - offer-audit verde;
 - ferramentas MCP declaradas em `shared/mcp-coverage.ts`;
 - validação do coordenador contra o aceite;
+- o item só conta como feito depois de mergeado na `main` **e** homologado (sessão de homologação, registro em `docs/validation/homologacao-1.4.md`);
 - nota no roadmap.
 
 
