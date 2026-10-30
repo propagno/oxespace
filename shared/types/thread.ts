@@ -181,6 +181,8 @@ export interface ThreadRequestPolicy {
   safeList?: true
   /** Facts worth a second look, such as web content that may carry prompt injection. */
   warnings?: string[]
+  /** Touches the files that steer agents (instructions, MCP settings, hooks): only a person approves it, whatever the access level. */
+  guarded?: true
   suggestions?: ThreadPermissionSuggestion[]
 }
 /** The answer of the command analysis for one command line. */

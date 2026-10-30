@@ -197,7 +197,7 @@ export const APP_READ_TOOLS: ToolEntry[] = [
     list: {
       level: 'read', description: 'Servers and their health.',
       run: async (_a, scope, ctx) => service(ctx, 'mcpServers').list(scope.workspaceId?.startsWith('thread:') ? null : scope.workspaceId).map(server => ({
-        id: server.id, name: server.name, scope: server.workspaceId ? 'workspace' : 'global', transport: server.transport, enabled: server.enabled, trusted: server.trusted,
+        id: server.id, name: server.name, scope: server.workspaceId ? 'workspace' : 'global', transport: server.transport, enabled: server.enabled, trusted: server.trusted, quarantined: server.guard?.quarantine != null,
         health: server.health, healthMessage: server.healthMessage ? maskLogLine(server.healthMessage).slice(0, 300) : null, tools: server.tools.map(tool => tool.name)
       }))
     }

@@ -145,6 +145,7 @@ const MCP_SERVERS_CHANGE = domainTool('oxespace_mcp_servers_change', 'Start or s
     level: 'confirm', description: 'Start a trusted server (it runs its command on this machine).', properties: { serverId: { type: 'string', maxLength: 200 } }, required: ['serverId'],
     confirm: (args, scope, ctx) => {
       const server = visibleServer(args, scope.workspaceId, ctx)
+      if (server.guard?.quarantine) throw new ActionRefused('This server is quarantined: its tools changed after the person trusted it. Only the person can trust it again, in Connections.', 'untrusted')
       if (!server.trusted) throw new ActionRefused('This server is not trusted. Only the person can trust it, in Connections.', 'untrusted')
       return { summary: `start the MCP server "${server.name}"`, text: `Start "${server.name}" (${server.transport})` }
     },
