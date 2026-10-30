@@ -336,23 +336,10 @@
     "uncheckedDetail": "Verifique quais CLIs de agentes estão instaladas nesta máquina."
   },
   "approvals": {
-    "title": {
-      "action": "Permitir esta ação do agente?",
-      "mcp-confirm": "Permitir esta chamada de ferramenta MCP?",
-      "oxequery": "Permitir este comando no banco de dados?",
-      "preview-automation": "Permitir esta ação no navegador?",
-      "crash": "Reiniciar depois da falha?"
-    },
-    "kind": {
-      "action": "Ação do agente",
-      "mcp-confirm": "Chamada de ferramenta MCP",
-      "oxequery": "Comando no banco de dados",
-      "preview-automation": "Ação no navegador",
-      "crash": "Recuperação de falha"
-    },
-    "summary": "{{what}}, pedido de {{requester}}. Risco: {{risk}}.",
-    "summaryEnvironment": "{{what}} em {{environment}}, pedido de {{requester}}. Risco: {{risk}}.",
-    "summaryProduction": "{{what}} em {{environment}}, um ambiente de produção, pedido de {{requester}}. Risco: {{risk}}.",
+    "summaryTarget": "{{summary}} · {{target}}",
+    "facts": "Risco: {{risk}}. Pedido por {{requester}}.",
+    "factsEnvironment": "Risco: {{risk}}. Ambiente: {{environment}}. Pedido por {{requester}}.",
+    "factsProduction": "Risco: {{risk}}. Ambiente de produção: {{environment}}. Pedido por {{requester}}.",
     "queue": "Pedido {{position}} de {{total}}",
     "closeDeny": "Negar e fechar",
     "risk": {
@@ -363,7 +350,12 @@
       "critical": "Crítico"
     },
     "environment": {
-      "label": "Ambiente: {{name}}",
+      "label": "Ambiente de {{kind}}: {{name}}",
+      "kind": {
+        "local": "trabalho local",
+        "dev": "desenvolvimento",
+        "prod": "produção"
+      },
       "productionLabel": "Produção · {{name}}",
       "productionHint": "Mudanças aqui afetam usuários e dados reais."
     },
@@ -379,14 +371,18 @@
       "heading": "Conteúdo do agente",
       "hint": "Escrito pelo agente e mostrado como foi enviado. O OXESpace não verificou: leia como uma afirmação, não como um fato.",
       "empty": "O agente não enviou texto.",
-      "length": "{{length}} caracteres",
-      "truncated": "O OXESpace encurtou este conteúdo em {{limit}} caracteres."
+      "length": "{{length}} caracteres"
     },
     "expires": "Se você não responder até {{time}}, o pedido será negado.",
+    "hold": {
+      "waiting": "Risco crítico: Permitir fica disponível em {{seconds}} s. Leia o pedido antes.",
+      "ready": "Permitir está disponível. Com risco crítico, Enter não aprova; use Espaço ou clique."
+    },
     "refused": "Sua resposta não foi aplicada",
     "settled": {
       "timeout": "O pedido expirou sem resposta e foi negado.",
-      "cancelled": "O pedido foi cancelado antes de uma resposta."
+      "cancelled": "O pedido foi cancelado antes de uma resposta.",
+      "native": "O pedido foi respondido na caixa de diálogo do sistema."
     },
     "outcome": {
       "deny": "Negado",
@@ -395,7 +391,9 @@
     },
     "by": {
       "timeout": "Expirou, negado",
-      "cancelled": "Cancelado"
+      "cancelled": "Cancelado",
+      "native": "Respondido na caixa de diálogo do sistema",
+      "queueFull": "Negado pelo OXESpace: fila cheia"
     },
     "history": {
       "open": "Histórico",
@@ -411,28 +409,7 @@
         "decision": "Decisão"
       }
     },
-    "unknownCode": "O OXESpace enviou uma mensagem que esta versão não consegue mostrar.",
-    "codes": {
-      "approvals": {
-        "option": {
-          "deny": "Negar",
-          "allowOnce": "Permitir uma vez",
-          "allowSession": "Permitir nesta sessão",
-          "restart": "Reiniciar",
-          "closeTab": "Fechar a aba"
-        },
-        "note": {
-          "production": "Isto roda em {{name}}, um ambiente de produção.",
-          "destructive": "Esta ação apaga ou sobrescreve dados e não pode ser desfeita.",
-          "outsideWorkspace": "Isto mexe em {{path}}, fora do workspace.",
-          "crashed": "O OXESpace parou inesperadamente {{times}} vezes seguidas."
-        },
-        "notFound": "Este pedido não está mais pendente.",
-        "stale": "Este pedido mudou desde que foi mostrado. Confira de novo antes de responder.",
-        "invalidOption": "Essa resposta não é uma das opções deste pedido.",
-        "unavailable": "A janela não conseguiu mostrar este pedido; o OXESpace pergunta na própria caixa de diálogo."
-      }
-    }
+    "unknownCode": "O OXESpace enviou uma mensagem que esta versão não consegue mostrar."
   },
   "about": {
     "title": "Sobre o OXESpace",

@@ -1,10 +1,12 @@
-import { useEffect, useId, useRef, type ReactElement } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { History, OctagonAlert, ShieldAlert, ShieldCheck, ShieldQuestion, type LucideIcon } from 'lucide-react'
+import { mainMessage } from '../../../shared/messages'
+import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequest, type ApprovalRisk, type ApprovalsApi } from '../../../shared/types/approvals'
 import { Badge, Button, Dialog, Notice, type Intent } from '../../ui'
-import type { ApprovalOption, ApprovalRequest, ApprovalRisk, ApprovalsApi } from './approvalsContract'
 import { useApprovalsStore, type ApprovalNotice } from './approvals.store'
-import { approvalT as t, formatApprovalMessage, formatCount, formatTime, kindTitle, requesterKindName, riskName, summaryOf } from './approvalText'
+import { CRITICAL_ALLOW_DELAY_MS, denyOption, holdsAllow, visibleOptions } from './approvalsRules'
+import { approvalT as t, factsSentence, formatCount, formatMainMessage, formatTime, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
 import styles from './Approvals.module.css'
 
 /**
@@ -12,6 +14,7 @@ import styles from './Approvals.module.css'
  * previous request's button, must not answer the next one.
  */
 export const ARM_MS = 400
+// Timed with performance.now(): monotonic, and not frozen by a fixed clock (e2e) or moved by a clock change.
 
 const RISK: Record<ApprovalRisk, { intent: Intent; icon: LucideIcon }> = {
   low: { intent: 'info', icon: ShieldCheck },
@@ -21,13 +24,28 @@ const RISK: Record<ApprovalRisk, { intent: Intent; icon: LucideIcon }> = {
 }
 
 function noticeText(notice: ApprovalNotice): { intent: 'info' | 'warning' | 'danger'; title: string; body: string } {
-  if (notice.kind === 'refused') return { intent: 'warning', title: t('approvals.refused'), body: formatApprovalMessage({ code: notice.code, params: {} }) }
+  if (notice.kind === 'refused') return { intent: 'warning', title: t('approvals.refused'), body: formatMainMessage(notice.message) }
   if (notice.kind === 'failed') return { intent: 'danger', title: t('approvals.refused'), body: notice.text }
   return { intent: 'info', title: t(`approvals.settled.${notice.by}`), body: '' }
 }
 
-/** Deny options first, then the rest in main's order. */
-const ordered = (options: ApprovalOption[]): ApprovalOption[] => [...options.filter(option => option.intent === 'deny'), ...options.filter(option => option.intent !== 'deny')]
+/** Milliseconds left before allow options unlock at critical risk; 0 once they are available. Restarts per generation. */
+function useHold(critical: boolean, instance: string, delayMs: number): number {
+  const [hold, setHold] = useState({ instance, left: critical ? delayMs : 0 })
+  useEffect(() => {
+    if (!critical || delayMs <= 0) { setHold({ instance, left: 0 }); return }
+    const started = performance.now()
+    setHold({ instance, left: delayMs })
+    const timer = setInterval(() => {
+      const left = Math.max(0, delayMs - (performance.now() - started))
+      setHold({ instance, left })
+      if (!left) clearInterval(timer)
+    }, 100)
+    return () => clearInterval(timer)
+  }, [critical, instance, delayMs])
+  // A new request renders before its effect runs: it starts held, never with the previous request's countdown.
+  return hold.instance === instance ? hold.left : critical ? delayMs : 0
+}
 
 export interface ApprovalDialogProps {
   request: ApprovalRequest
@@ -35,41 +53,59 @@ export interface ApprovalDialogProps {
   total: number
   api: ApprovalsApi
   armMs?: number
+  holdMs?: number
 }
 
 /** One approval request: what is asked, by whom, where, how risky; the app's notes apart from the agent's words. */
-export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }: ApprovalDialogProps): ReactElement {
+export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS, holdMs = CRITICAL_ALLOW_DELAY_MS }: ApprovalDialogProps): ReactElement {
   useTranslation()
   const busyId = useApprovalsStore(state => state.busyId)
   const notice = useApprovalsStore(state => state.notice)
   const agentHeading = useId()
   const notesHeading = useId()
-  const shownAt = useRef(Date.now())
+  const shownAt = useRef(performance.now())
   const instance = `${request.id}:${request.generation}`
-  useEffect(() => { shownAt.current = Date.now() }, [instance])
+  useEffect(() => { shownAt.current = performance.now() }, [instance])
+  const critical = holdsAllow(request)
+  const holdLeft = useHold(critical, instance, holdMs)
 
+  const fallback = denyOption(request)
+  const options = visibleOptions(request)
   const busy = busyId === request.id
   const choose = (optionId: string): void => {
-    if (Date.now() - shownAt.current < armMs) return
+    if (performance.now() - shownAt.current < armMs) return
+    const option = options.find(item => item.id === optionId)
+    if (!option || (option.intent !== 'deny' && holdLeft > 0)) return
     void useApprovalsStore.getState().respond(api, optionId)
   }
-  const deny = (): void => { if (!busy) choose(request.defaultOptionId) }
+  const deny = (): void => { if (!busy && fallback) choose(fallback.id) }
+  // At critical risk Enter never approves; Space or a click does, once the hold is over.
+  const guardEnter = (event: KeyboardEvent<HTMLButtonElement>): void => { if (event.key === 'Enter') event.preventDefault() }
 
   const risk = RISK[request.risk]
   const RiskIcon = risk.icon
-  const production = request.environment?.production === true
+  const environment = request.environment
+  const production = environment?.production === true
   const dangerous = production || request.risk === 'high' || request.risk === 'critical'
   const shownNotice = notice ? noticeText(notice) : null
+  const hasAllow = options.some(option => option.intent !== 'deny')
+  // A cut text can only be denied; the app says why, in its own notes, unless main already did.
+  const notes = request.agentText.truncated && !request.appNotes.some(note => note.code === 'approvals.note.textCut')
+    ? [...request.appNotes, mainMessage('approvals.note.textCut', { max: APPROVAL_AGENT_TEXT_MAX })]
+    : request.appNotes
 
-  return <Dialog title={kindTitle(request.kind)} description={summaryOf(request)} size="lg" onClose={deny} closeLabel={t('approvals.closeDeny')} testId="approval-dialog"
+  return <Dialog title={formatMainMessage(request.title)} size="lg" onClose={deny} closeLabel={t('approvals.closeDeny')} testId="approval-dialog"
+    description={<><span data-testid="approval-summary">{summaryLine(request)}</span><span className={styles.srOnly}> {factsSentence(request)}</span></>}
     footer={<>
       <Button variant="ghost" data-align="start" icon={<History size={14} aria-hidden="true" />} onClick={() => useApprovalsStore.getState().setHistoryOpen(true)}>{t('approvals.history.open')}</Button>
-      {ordered(request.options).map(option => {
-        const isDefault = option.id === request.defaultOptionId
-        const variant = option.intent === 'deny' ? 'secondary' : option.intent === 'allow-session' ? 'secondary' : dangerous ? 'danger' : 'primary'
-        return <Button key={`${instance}:${option.id}`} variant={variant} autoFocus={isDefault} disabled={!!busyId}
-          data-intent={option.intent} data-default={isDefault ? 'true' : undefined} onClick={() => choose(option.id)}>
-          {formatApprovalMessage(option.label)}
+      {options.map(option => {
+        const isDefault = option.id === fallback?.id
+        const allow = option.intent !== 'deny'
+        const variant = !allow || option.intent === 'allow-session' ? 'secondary' : dangerous ? 'danger' : 'primary'
+        return <Button key={`${instance}:${option.id}`} variant={variant} autoFocus={isDefault} disabled={!!busyId || (allow && holdLeft > 0)}
+          data-intent={option.intent} data-default={isDefault ? 'true' : undefined} onClick={() => choose(option.id)}
+          onKeyDown={allow && critical ? guardEnter : undefined}>
+          {formatMainMessage(option.label)}
         </Button>
       })}
     </>}>
@@ -78,21 +114,21 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
       <Badge intent={risk.intent} className={request.risk === 'critical' ? styles.critical : undefined}>
         <RiskIcon size={12} aria-hidden="true" />{t('approvals.risk.label', { level: riskName(request.risk) })}
       </Badge>
-      {request.environment && !production && <Badge>{t('approvals.environment.label', { name: request.environment.name })}</Badge>}
+      {environment && !production && <Badge>{t('approvals.environment.label', { name: environment.name, kind: t(`approvals.environment.kind.${environment.kind}`) })}</Badge>}
     </div>
-    {production && request.environment && <p className={styles.production} data-testid="approval-production">
+    {production && environment && <p className={styles.production} data-testid="approval-production">
       <OctagonAlert size={16} aria-hidden="true" />
-      <strong>{t('approvals.environment.productionLabel', { name: request.environment.name })}</strong>
+      <strong>{t('approvals.environment.productionLabel', { name: environment.name })}</strong>
       <span>{t('approvals.environment.productionHint')}</span>
     </p>}
     <dl className={styles.requester}>
       <dt>{t('approvals.requester.label')}</dt>
-      <dd><strong>{request.requester.label}</strong> <span className={styles.muted}>{requesterKindName(request.requester)} · {t('approvals.requester.verified')}</span></dd>
+      <dd><strong>{requesterText(request.requester)}</strong> <span className={styles.muted}>{requesterKindName(request.requester)} · {t('approvals.requester.verified')}</span></dd>
     </dl>
     {shownNotice && <Notice intent={shownNotice.intent} title={shownNotice.title}>{shownNotice.body || null}</Notice>}
-    {request.appNotes.length > 0 && <section className={styles.appNotes} aria-labelledby={notesHeading} data-testid="approval-app-notes">
+    {notes.length > 0 && <section className={styles.appNotes} aria-labelledby={notesHeading} data-testid="approval-app-notes">
       <h3 id={notesHeading} className={styles.sectionTitle}>{t('approvals.appNotes')}</h3>
-      <ul>{request.appNotes.map((note, index) => <li key={index}>{formatApprovalMessage(note)}</li>)}</ul>
+      <ul>{notes.map((note, index) => <li key={index}>{formatMainMessage(note)}</li>)}</ul>
     </section>}
     <section className={styles.agent} aria-labelledby={agentHeading} data-testid="approval-agent-block">
       <header className={styles.agentHeader}>
@@ -100,12 +136,14 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
         <span className={styles.muted}>{t('approvals.agent.length', { length: formatCount(request.agentText.length) })}</span>
       </header>
       <p className={styles.agentHint}>{t('approvals.agent.hint')}</p>
-      {request.agentText
+      {request.agentText.text
         // Plain text in a text node: never HTML, never markdown, never links. pre-wrap keeps the agent's spacing.
-        ? <pre className={styles.agentText} tabIndex={0} aria-labelledby={agentHeading} data-testid="approval-agent-text">{request.agentText}</pre>
+        ? <pre className={styles.agentText} tabIndex={0} aria-labelledby={agentHeading} data-testid="approval-agent-text">{request.agentText.text}</pre>
         : <p className={styles.muted}>{t('approvals.agent.empty')}</p>}
-      {request.truncated && <p className={styles.truncated} data-testid="approval-truncated">{t('approvals.agent.truncated', { limit: formatCount(request.agentTextLimit) })}</p>}
     </section>
-    {request.expiresAt && <p className={styles.expires}>{t('approvals.expires', { time: formatTime(request.expiresAt) })}</p>}
+    {hasAllow && critical && <p className={styles.hold} role="status" data-testid="approval-hold">
+      {holdLeft > 0 ? t('approvals.hold.waiting', { seconds: Math.ceil(holdLeft / 1000) }) : t('approvals.hold.ready')}
+    </p>}
+    <p className={styles.expires}>{t('approvals.expires', { time: formatTime(request.expiresAt) })}</p>
   </Dialog>
 }

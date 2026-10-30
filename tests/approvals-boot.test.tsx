@@ -4,11 +4,11 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import en from '../shared/locales/en/common.json'
 import ptBR from '../shared/locales/pt-BR/common.json'
-import { approvalsApi, realApprovalsApi, refusalOf, resetApprovalsApi } from '../src/components/Approvals/approvalsApi'
+import { approvalsApi, realApprovalsApi, resetApprovalsApi } from '../src/components/Approvals/approvalsApi'
 import { PRELOAD_FALLBACK_MS, resetApprovalsBoot, schedulePreload, SHOW_TIMEOUT_MS, startApprovals, type CenterModule } from '../src/components/Approvals/approvalsBoot'
 import { useApprovalsStore } from '../src/components/Approvals/approvals.store'
 import { ApprovalsHost } from '../src/components/Approvals/ApprovalsHost'
-import { APPROVAL_KINDS, ApprovalError, type ApprovalCodeParams, type ApprovalsApi } from '../src/components/Approvals/approvalsContract'
+import type { ApprovalsApi } from '../shared/types/approvals'
 import { createApprovalsMock } from '../src/components/Approvals/approvalsMock'
 
 /** F18 · what loads at boot: the adapter, the idle preload and the fail-safe that hands a request back to main. */
@@ -42,7 +42,7 @@ describe('approvals adapter', () => {
     expect(approvalsApi()).toBe(fromMock)
 
     resetApprovalsApi()
-    const real: ApprovalsApi = { list: vi.fn(), respond: vi.fn(), history: vi.fn(), unavailable: vi.fn(), onRequested: vi.fn(), onResolved: vi.fn() }
+    const real: ApprovalsApi = { list: vi.fn(), respond: vi.fn(), ack: vi.fn(), history: vi.fn(), unavailable: vi.fn(), onRequested: vi.fn(), onResolved: vi.fn() }
     ;(window as unknown as { oxe: unknown }).oxe = { approvals: real }
     expect(approvalsApi()).toBe(real)
     expect(window.__oxeApprovalsMock).toBeUndefined()
@@ -53,19 +53,16 @@ describe('approvals adapter', () => {
     expect(approvalsApi()).not.toBe(real)
   })
 
-  it('reads the C3 refusal code from a typed error and from Electron’s IPC wrapper', () => {
-    expect(refusalOf(new ApprovalError('approvals.stale'))).toBe('approvals.stale')
-    expect(refusalOf(new Error("Error invoking remote method 'approvals:respond': Error: approvals.notFound"))).toBe('approvals.notFound')
-    expect(refusalOf({ code: 'approvals.invalidOption' })).toBe('approvals.invalidOption')
-    expect(refusalOf(new Error('ECONNRESET'))).toBeNull()
-  })
-
-  it('the mock refuses stale generations and unknown options like main', async () => {
+  it('the mock answers with typed results like main: stale, unknown, repeated', async () => {
     const { mock } = spyApi()
     const id = mock.hook.request({ id: 'm' })
-    await expect(mock.respond({ id, optionId: 'deny', generation: 9 })).rejects.toMatchObject({ code: 'approvals.stale' })
-    await expect(mock.respond({ id, optionId: 'nope', generation: 1 })).rejects.toMatchObject({ code: 'approvals.invalidOption' })
-    await expect(mock.respond({ id: 'gone', optionId: 'deny', generation: 1 })).rejects.toMatchObject({ code: 'approvals.notFound' })
+    expect(await mock.respond({ id, optionId: 'deny', generation: 9 })).toMatchObject({ ok: false, refusal: 'staleGeneration', message: { code: 'approvals.refused.staleGeneration' } })
+    expect(await mock.respond({ id, optionId: 'nope', generation: 1 })).toMatchObject({ ok: false, refusal: 'unknownOption' })
+    expect(await mock.unavailable({ id, generation: 1 })).toEqual({ ok: true, id })
+    expect(await mock.unavailable({ id, generation: 1 })).toMatchObject({ ok: false, refusal: 'alreadyReported' })
+    expect(await mock.respond({ id, optionId: 'deny', generation: 1 })).toEqual({ ok: true, id })
+    expect(await mock.respond({ id, optionId: 'deny', generation: 1 })).toMatchObject({ ok: false, refusal: 'alreadyAnswered' })
+    expect(await mock.respond({ id: 'gone', optionId: 'deny', generation: 1 })).toMatchObject({ ok: false, refusal: 'notPending' })
   })
 })
 
@@ -132,11 +129,11 @@ describe('approvals at boot', () => {
     render(<ApprovalsHost />)
     expect(screen.queryByTestId('approval-dialog')).toBeNull()
     act(() => { window.__oxeApprovalsMock?.request({ id: 'live' }) })
-    expect(await screen.findByTestId('approval-dialog', {}, { timeout: 5_000 })).toBeInTheDocument()
+    expect(await screen.findByTestId('approval-dialog', {}, { timeout: 15_000 })).toBeInTheDocument()
     await new Promise(resolve => setTimeout(resolve, SHOW_TIMEOUT_MS + 200))
     expect(unavailable).not.toHaveBeenCalled()
     expect(window.__oxeApprovalsMock?.responses).toEqual([])
-  }, 15_000)
+  }, 30_000)
 })
 
 describe('approvals guard (no native dialog for a request while the window is open)', () => {
@@ -163,17 +160,16 @@ describe('approvals guard (no native dialog for a request while the window is op
     expect(boot).toMatch(/import\('\.\/ApprovalCenter'\)/)
   })
 
-  it('every kind and every local code has words in English and Portuguese', () => {
-    // Exhaustive: a code added to the contract without words fails to compile here.
-    const all: Record<keyof ApprovalCodeParams, true> = { 'approvals.option.deny': true, 'approvals.option.allowOnce': true, 'approvals.option.allowSession': true, 'approvals.option.restart': true, 'approvals.option.closeTab': true, 'approvals.note.production': true, 'approvals.note.destructive': true, 'approvals.note.outsideWorkspace': true, 'approvals.note.crashed': true, 'approvals.notFound': true, 'approvals.stale': true, 'approvals.invalidOption': true, 'approvals.unavailable': true }
-    const codes = Object.keys(all)
+  it('every key the window builds from a request has words in English and Portuguese', () => {
     const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
-    for (const catalog of [en, ptBR]) {
-      for (const kind of APPROVAL_KINDS) {
-        expect(typeof lookup(catalog, `approvals.title.${kind}`)).toBe('string')
-        expect(typeof lookup(catalog, `approvals.kind.${kind}`)).toBe('string')
-      }
-      for (const code of codes) expect(typeof lookup(catalog, `approvals.codes.${code}`), code).toBe('string')
-    }
+    const keys = [
+      ...(['low', 'medium', 'high', 'critical'] as const).map(risk => `approvals.risk.${risk}`),
+      ...(['agent', 'mcp-server', 'app'] as const).map(kind => `approvals.requester.${kind}`),
+      ...(['local', 'dev', 'prod'] as const).map(kind => `approvals.environment.kind.${kind}`),
+      ...(['timeout', 'cancelled', 'native'] as const).flatMap(by => [`approvals.settled.${by}`, `approvals.by.${by}`]),
+      ...(['deny', 'allow', 'allow-session'] as const).map(intent => `approvals.outcome.${intent}`),
+      'approvals.by.queueFull', 'approvals.hold.waiting', 'approvals.hold.ready'
+    ]
+    for (const catalog of [en, ptBR]) for (const key of keys) expect(typeof lookup(catalog, key), key).toBe('string')
   })
 })

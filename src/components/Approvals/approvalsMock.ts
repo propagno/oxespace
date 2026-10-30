@@ -1,22 +1,33 @@
-import { ApprovalError, byCreatedAt, type ApprovalHistoryEntry, type ApprovalRequest, type ApprovalResolution, type ApprovalResolvedBy, type ApprovalsApi, type ApprovalUnavailableInput } from './approvalsContract'
+import { mainMessage } from '../../../shared/messages'
+import {
+  APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalRefusal,
+  type ApprovalRequest, type ApprovalResolved, type ApprovalResolvedBy, type ApprovalsApi
+} from '../../../shared/types/approvals'
+import { byCreatedAt } from './approvalsRules'
 
 /**
- * Stand-in for `window.oxe.approvals` while main does not expose it (TODO(CCR B10)). It keeps requests in memory, answers
- * like main would (stale generations and unknown options are refused) and never approves anything by itself. Tests and
- * e2e drive it through `window.__oxeApprovalsMock`, which exists only when this mock is the adapter in use.
+ * Stand-in for `window.oxe.approvals` when the preload does not expose it (unit tests in jsdom, a window opened
+ * without the preload). It answers like main's E2E mock (electron/main/e2e/approvals-mock.ts) and never approves
+ * anything by itself. Tests drive it through `window.__oxeApprovalsMock`, which exists only when this mock is in use;
+ * the e2e specs use main's mock (OXESPACE_E2E_APPROVALS) instead.
  */
 export interface ApprovalsMockHook {
   /** Adds a request; missing fields get safe defaults (deny is the default option). Returns its id. */
-  request(partial?: Partial<ApprovalRequest>): string
-  /** Settles a pending request without the person, as main does on a timeout or a cancel. */
+  request(partial?: MockRequestInput): string
+  /** Settles a pending request without the person, as main does on a timeout, a cancel or the native fallback. */
   settle(id: string, by: Exclude<ApprovalResolvedBy, 'user'>): void
   /** Re-issues a pending request with a new generation, so an answer to the old one is stale. `silent` skips the event. */
   bump(id: string, options?: { silent?: boolean }): void
-  /** What the window sent, for assertions. */
+  /** Adds a history entry main settled without showing it (queue full). */
+  record(entry: ApprovalHistoryEntry & { reason?: { code: string; params: Record<string, unknown> } }): void
   readonly responses: ReadonlyArray<{ id: string; optionId: string; generation: number }>
-  readonly unavailable: ReadonlyArray<ApprovalUnavailableInput>
+  readonly acks: ReadonlyArray<ApprovalAnswerInput>
+  readonly unavailable: ReadonlyArray<ApprovalAnswerInput>
   reset(): void
 }
+
+/** A request with its agent text given as a string, for brevity. */
+export type MockRequestInput = Partial<Omit<ApprovalRequest, 'agentText'>> & { agentText?: string | ApprovalRequest['agentText'] }
 
 declare global {
   interface Window { __oxeApprovalsMock?: ApprovalsMockHook }
@@ -24,43 +35,56 @@ declare global {
 
 let sequence = 0
 
-export function mockRequest(partial: Partial<ApprovalRequest> = {}): ApprovalRequest {
+export function mockRequest(partial: MockRequestInput = {}): ApprovalRequest {
   sequence += 1
-  const id = partial.id ?? `mock-${sequence}`
+  const now = Date.now()
+  const { agentText, ...rest } = partial
+  const text = typeof agentText === 'string' ? { text: agentText, untrusted: true as const, length: [...agentText].length, truncated: false } : agentText
   return {
+    schemaVersion: APPROVAL_SCHEMA_VERSION,
     generation: 1,
     kind: 'action',
-    requester: { kind: 'agent', id: 'agent-1', label: 'Claude Code' },
-    risk: 'medium',
+    requester: { kind: 'agent', id: 'pane:p1', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 1 }) },
+    risk: 'low',
+    title: mainMessage('approvals.title.agent', {}),
+    summary: mainMessage('approvals.summary.mcpConfirm', { tool: 'oxespace_agents_change', action: 'prompt' }),
     appNotes: [],
-    agentText: '',
-    truncated: false,
-    agentTextLimit: 200_000,
     options: [
-      { id: 'deny', intent: 'deny', label: { code: 'approvals.option.deny', params: {} } },
-      { id: 'allow', intent: 'allow', label: { code: 'approvals.option.allowOnce', params: {} } },
-      { id: 'allow-session', intent: 'allow-session', label: { code: 'approvals.option.allowSession', params: {} } }
+      { id: 'deny', intent: 'deny', label: mainMessage('approvals.option.deny', {}) },
+      { id: 'allow', intent: 'allow', label: mainMessage('approvals.option.allowOnce', {}) },
+      { id: 'allow-session', intent: 'allow-session', label: mainMessage('approvals.option.allowSessionReads', {}) }
     ],
     defaultOptionId: 'deny',
-    createdAt: Date.now(),
-    ...partial,
-    id
+    ackRequired: false,
+    createdAt: now,
+    expiresAt: now + APPROVAL_TIMEOUT_MS,
+    ...rest,
+    agentText: text ?? { text: '', untrusted: true, length: 0, truncated: false },
+    id: partial.id ?? `mock-${sequence}`
   }
 }
 
 export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook } {
   const pending = new Map<string, ApprovalRequest>()
-  let history: ApprovalHistoryEntry[] = []
+  let history: Array<ApprovalHistoryEntry & { reason?: { code: string; params: Record<string, unknown> } }> = []
+  const reported = new Set<string>()
   const requested = new Set<(request: ApprovalRequest) => void>()
-  const resolved = new Set<(resolution: ApprovalResolution) => void>()
+  const resolved = new Set<(resolution: ApprovalResolved) => void>()
   const responses: Array<{ id: string; optionId: string; generation: number }> = []
-  const unavailable: ApprovalUnavailableInput[] = []
+  const acks: ApprovalAnswerInput[] = []
+  const unavailable: ApprovalAnswerInput[] = []
 
-  const settle = (request: ApprovalRequest, resolution: ApprovalResolution): void => {
+  const refuse = (refusal: ApprovalRefusal): ApprovalCallResult => ({ ok: false, refusal, message: mainMessage(`approvals.refused.${refusal}`, {}) })
+  const current = (input: ApprovalAnswerInput): ApprovalRequest | ApprovalRefusal => {
+    const request = pending.get(input.id)
+    if (!request) return history.some(entry => entry.id === input.id) ? 'alreadyAnswered' : 'notPending'
+    return input.generation === request.generation ? request : 'staleGeneration'
+  }
+  const settle = (request: ApprovalRequest, optionId: string, by: ApprovalResolvedBy): void => {
+    const option = request.options.find(item => item.id === optionId) ?? request.options.find(item => item.id === request.defaultOptionId)!
     pending.delete(request.id)
-    const at = resolution.at ?? Date.now()
-    history = [...history, { id: request.id, kind: request.kind, requester: request.requester, risk: request.risk, environment: request.environment, outcome: resolution.outcome, by: resolution.by, at }]
-    for (const listener of resolved) listener({ ...resolution, at })
+    history = [{ id: request.id, kind: request.kind, requester: request.requester, risk: request.risk, title: request.title, summary: request.summary, outcome: option.intent, by, textSha256: '', createdAt: request.createdAt, resolvedAt: Date.now() }, ...history]
+    for (const listener of resolved) listener({ id: request.id, generation: request.generation, outcome: option.intent, optionId: option.id, by })
   }
 
   const hook: ApprovalsMockHook = {
@@ -72,7 +96,7 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
     },
     settle(id, by) {
       const request = pending.get(id)
-      if (request) settle(request, { id, outcome: 'deny', by })
+      if (request) settle(request, request.defaultOptionId, by)
     },
     bump(id, options) {
       const request = pending.get(id)
@@ -81,10 +105,12 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
       pending.set(id, next)
       if (!options?.silent) for (const listener of requested) listener(next)
     },
+    record(entry) { history = [entry, ...history] },
     responses,
+    acks,
     unavailable,
     reset() {
-      pending.clear(); history = []; responses.length = 0; unavailable.length = 0
+      pending.clear(); history = []; reported.clear(); responses.length = 0; acks.length = 0; unavailable.length = 0
     }
   }
 
@@ -94,17 +120,25 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
     history: async () => [...history],
     async respond(input) {
       responses.push(input)
-      const request = pending.get(input.id)
-      if (!request) throw new ApprovalError('approvals.notFound')
-      if (request.generation !== input.generation) throw new ApprovalError('approvals.stale')
-      const option = request.options.find(item => item.id === input.optionId)
-      if (!option) throw new ApprovalError('approvals.invalidOption')
-      settle(request, { id: request.id, outcome: option.intent, by: 'user' })
+      const request = current(input)
+      if (typeof request === 'string') return refuse(request)
+      if (!request.options.some(option => option.id === input.optionId)) return refuse('unknownOption')
+      settle(request, input.optionId, 'user')
+      return { ok: true, id: request.id }
+    },
+    async ack(input) {
+      acks.push(input)
+      const request = current(input)
+      return typeof request === 'string' ? refuse(request) : { ok: true, id: request.id }
     },
     async unavailable(input) {
-      // Main would show its own dialog now; the mock only records the hand-off and forgets the request.
       unavailable.push(input)
-      pending.delete(input.id)
+      const request = current(input)
+      if (typeof request === 'string') return refuse(request)
+      const key = `${request.id}#${request.generation}`
+      if (reported.has(key)) return refuse('alreadyReported')
+      reported.add(key)
+      return { ok: true, id: request.id }
     },
     onRequested(listener) { requested.add(listener); return () => { requested.delete(listener) } },
     onResolved(listener) { resolved.add(listener); return () => { resolved.delete(listener) } }

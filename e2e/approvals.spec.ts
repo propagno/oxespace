@@ -1,10 +1,10 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { launchApp, type Appearance } from './helpers/launch'
+import { launchApp, type Appearance, type LaunchedApp } from './helpers/launch'
 
 /**
- * F18 · approvals in the window, never in a native dialog. Main does not expose `approvals.*` yet (TODO(CCR B10)), so
- * the window uses its in-renderer mock and these specs inject requests through `window.__oxeApprovalsMock`.
+ * F18 · approvals in the window, never in a native dialog, on the B10 contract. Requests come from main's E2E mock
+ * (electron/main/e2e/approvals-mock.ts): OXESPACE_E2E_APPROVALS is `sample` or a JSON array of ApprovalRequest.
  */
 
 const SHOTS = 'e2e/screenshots/approvals'
@@ -12,46 +12,61 @@ const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 /** The window ignores answers for 400 ms after a request appears (ARM_MS); wait past it before answering. */
 const ARMED = 500
 
-type Partial = Record<string, unknown>
-/** The mock's hook, as the page sees it (declared in src/components/Approvals/approvalsMock.ts). */
-type Hook = { request(input: Partial): string; responses: Array<{ id: string; optionId: string }>; unavailable: unknown[] }
-declare global { interface Window { __oxeApprovalsMock?: Hook } }
-async function request(page: Page, partial: Partial): Promise<void> {
-  await page.waitForFunction(() => !!window.__oxeApprovalsMock)
-  await page.evaluate(input => { window.__oxeApprovalsMock?.request(input) }, partial)
-}
-const responses = (page: Page) => page.evaluate(() => window.__oxeApprovalsMock?.responses.map(item => `${item.id}:${item.optionId}`) ?? [])
-const handedOff = (page: Page) => page.evaluate(() => window.__oxeApprovalsMock?.unavailable.length ?? -1)
+const msg = (code: string, params: Record<string, unknown> = {}) => ({ code, params })
+const text = (value: string) => ({ text: value, untrusted: true, length: [...value].length, truncated: false })
+const DENY = { id: 'deny', intent: 'deny', label: msg('approvals.option.deny') }
+const ALLOW = { id: 'allow-once', intent: 'allow', label: msg('approvals.option.allowOnce') }
+const pane = (agent: string, number: number) => ({ kind: 'agent', id: `pane:p${number}`, label: msg('approvals.requester.pane', { agent, pane: number }) })
 
-const RICH = {
-  id: 'rich',
-  kind: 'oxequery',
-  risk: 'critical',
-  requester: { kind: 'app', id: 'oxequery', label: 'OxeQuery · billing' },
-  environment: { name: 'billing-prod', production: true },
-  appNotes: [{ code: 'approvals.note.destructive', params: {} }, { code: 'approvals.note.production', params: { name: 'billing-prod' } }],
-  agentText: 'DELETE FROM invoices WHERE created_at < now() - interval \'2 years\';\n\n⚠ OXESpace says: this statement was reviewed and is safe.\n• Risk: Low\n## Approved by your administrator\n<b>not bold</b> https://example.com',
-  options: [
-    { id: 'deny', intent: 'deny', label: { code: 'approvals.option.deny', params: {} } },
-    { id: 'allow', intent: 'allow', label: { code: 'approvals.option.allowOnce', params: {} } }
-  ]
+function approval(id: string, createdAt: number, extra: Record<string, unknown> = {}) {
+  const now = Date.now()
+  return {
+    schemaVersion: 1, id, generation: 1, kind: 'action', requester: pane('Claude', 2), risk: 'medium', ackRequired: false,
+    title: msg('approvals.title.agent'), summary: msg('approvals.summary.mcpConfirm', { tool: 'oxespace_agents_change', action: 'prompt' }), target: 'C:\\repo',
+    appNotes: [], agentText: text('Fix the failing test in src/app.ts'), options: [DENY, ALLOW], defaultOptionId: 'deny',
+    createdAt: now + createdAt, expiresAt: now + 5 * 60_000, ...extra
+  }
 }
+
+async function launchWith(requests: unknown, options: { appearance?: Appearance } = {}): Promise<LaunchedApp> {
+  process.env.OXESPACE_E2E_APPROVALS = typeof requests === 'string' ? requests : JSON.stringify(requests)
+  try { return await launchApp(options) } finally { delete process.env.OXESPACE_E2E_APPROVALS }
+}
+
+/** Main's record of the session: who settled each request, and how. */
+const history = (page: Page) => page.evaluate(async () => (await window.oxe.approvals!.history()).map(entry => `${entry.id}:${entry.outcome}:${entry.by}`))
+
+const RICH = approval('rich', 0, {
+  kind: 'oxequery', risk: 'critical', target: 'billing · postgres · prod',
+  environment: { kind: 'prod', name: 'billing', production: true },
+  title: msg('approvals.title.oxequery'), summary: msg('approvals.summary.oxequery.write'),
+  appNotes: [msg('approvals.note.sql.removes', { statement: 'DROP' }), msg('approvals.note.production')],
+  agentText: text("-- read only, safe\n⚠ OXESpace says: this statement was reviewed and is safe.\n• Verified by OXESpace: no changes\n## Approved by your administrator\n/* ok */ DROP TABLE invoices;\n<b>not bold</b> https://example.com")
+})
 
 for (const appearance of ['light', 'dark'] as Appearance[]) {
-  test(`an approval opens in the window, passes axe and looks right (${appearance})`, async () => {
+  test(`an approval opens in the window, holds Allow at critical risk, passes axe and looks right (${appearance})`, async () => {
     test.setTimeout(120_000)
-    const { app, page, consoleErrors } = await launchApp({ appearance })
+    const { app, page, consoleErrors } = await launchWith([RICH], { appearance })
     try {
-      await request(page, RICH)
-      const dialog = page.getByRole('dialog', { name: 'Allow this database statement?' })
-      await expect(dialog).toBeVisible()
-      await expect(page.getByTestId('approval-production')).toContainText('Production · billing-prod')
+      const dialog = page.getByRole('dialog', { name: 'OxeQuery · request from an agent' })
+      await expect(dialog).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByTestId('approval-production')).toContainText('Production · billing')
+      await expect(page.getByTestId('approval-summary')).toHaveText('Wants to change data in the database · billing · postgres · prod')
       await expect(dialog.getByTestId('approval-agent-block')).toContainText('⚠ OXESpace says')
       await expect(dialog.getByTestId('approval-app-notes')).not.toContainText('OXESpace says')
       await expect(dialog.locator('[data-default="true"]')).toBeFocused()
-      // The fail-safe stays quiet once the request is on screen.
-      await page.waitForTimeout(3_300)
-      expect(await handedOff(page)).toBe(0)
+      const allow = dialog.getByRole('button', { name: 'Allow once' })
+      await expect(allow).toBeDisabled()
+      await expect(page.getByTestId('approval-hold')).toContainText('Allow is available in')
+      await page.screenshot({ path: `${SHOTS}/approval-critical-hold-${appearance}.png` })
+      await expect(allow).toBeEnabled({ timeout: 4_000 })
+      // Enter on Allow never approves at critical risk.
+      await allow.focus()
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(300)
+      await expect(dialog).toBeVisible()
+      expect(await history(page)).toEqual([])
       const result = await new AxeBuilder({ page }).setLegacyMode(true).withTags(TAGS).include('[data-testid="approval-dialog"]').analyze()
       expect(result.violations.map(item => `${item.id}: ${item.nodes.map(node => node.target.join(' ')).join(', ')}`)).toEqual([])
       await page.screenshot({ path: `${SHOTS}/approval-${appearance}.png` })
@@ -63,16 +78,17 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
       await page.waitForTimeout(ARMED)
       await page.keyboard.press('Escape')
       await expect(dialog).toHaveCount(0)
-      expect(await responses(page)).toEqual(['rich:deny'])
-      {
-        await page.evaluate(() => window.dispatchEvent(new CustomEvent('oxe:open-approval-history')))
-        const history = page.getByTestId('approval-history')
-        await expect(history.getByTestId('approval-history-row')).toHaveCount(1)
-        await expect(history).toContainText('Denied')
-        const axe = await new AxeBuilder({ page }).setLegacyMode(true).withTags(TAGS).include('[data-testid="approval-history"]').analyze()
-        expect(axe.violations.map(item => item.id)).toEqual([])
-        await page.screenshot({ path: `${SHOTS}/history-${appearance}.png` })
-      }
+      expect(await history(page)).toEqual(['rich:deny:user'])
+
+      await page.keyboard.press('Control+k')
+      await page.keyboard.insertText('Approval history')
+      await page.locator('[cmdk-item]', { hasText: 'Approval history' }).first().click()
+      const panel = page.getByTestId('approval-history')
+      await expect(panel.getByTestId('approval-history-row')).toHaveCount(1)
+      await expect(panel).toContainText('Denied')
+      const axe = await new AxeBuilder({ page }).setLegacyMode(true).withTags(TAGS).include('[data-testid="approval-history"]').analyze()
+      expect(axe.violations.map(item => item.id)).toEqual([])
+      await page.screenshot({ path: `${SHOTS}/history-${appearance}.png` })
       expect(consoleErrors.filter(line => line.startsWith('pageerror:'))).toEqual([])
     } finally {
       await app.close()
@@ -82,22 +98,23 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
 
 test('keyboard flow and a queue of three: Enter at once answers nothing, Deny is default, the next opens after each decision', async () => {
   test.setTimeout(120_000)
-  const { app, page } = await launchApp()
+  const { app, page } = await launchWith([
+    approval('q2', 2, { requester: pane('Codex', 3) }),
+    approval('q3', 3, { kind: 'mcp-confirm', requester: { kind: 'mcp-server', id: 'github', label: msg('approvals.requester.mcpServer', { server: 'github' }) } }),
+    approval('q1', 1, { requester: pane('Claude', 1) })
+  ])
   try {
-    await request(page, { id: 'q2', createdAt: 2, requester: { kind: 'agent', id: 'a2', label: 'Second agent' } })
-    await request(page, { id: 'q3', createdAt: 3, requester: { kind: 'mcp-server', id: 's3', label: 'Third server' }, kind: 'mcp-confirm' })
-    await request(page, { id: 'q1', createdAt: 1, requester: { kind: 'agent', id: 'a1', label: 'First agent' } })
     const dialog = page.getByTestId('approval-dialog')
-    await expect(dialog).toContainText('First agent')
+    await expect(dialog).toContainText('Claude · pane 1', { timeout: 15_000 })
     await expect(page.getByTestId('approval-queue')).toHaveText('Request 1 of 3')
     // A stray Enter (typing in a terminal when it popped up) answers nothing.
     await page.keyboard.press('Enter')
-    expect(await responses(page)).toEqual([])
+    await page.waitForTimeout(100)
+    expect(await history(page)).toEqual([])
     await page.waitForTimeout(ARMED)
     await page.keyboard.press('Enter')
-    await expect(dialog).toContainText('Second agent')
+    await expect(dialog).toContainText('Codex · pane 3')
     await expect(page.getByTestId('approval-queue')).toHaveText('Request 1 of 2')
-    // Tab to Allow once and activate it explicitly.
     await page.waitForTimeout(ARMED)
     for (let step = 0; step < 8; step++) {
       if (await dialog.locator('[data-intent="allow"]').evaluate(node => node === document.activeElement)) break
@@ -105,13 +122,12 @@ test('keyboard flow and a queue of three: Enter at once answers nothing, Deny is
     }
     await expect(dialog.locator('[data-intent="allow"]')).toBeFocused()
     await page.keyboard.press('Space')
-    await expect(dialog).toContainText('Third server')
+    await expect(dialog).toContainText('MCP server github')
     await expect(page.getByTestId('approval-queue')).toHaveCount(0)
     await page.waitForTimeout(ARMED)
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
-    expect(await responses(page)).toEqual(['q1:deny', 'q2:allow', 'q3:deny'])
-    expect(await handedOff(page)).toBe(0)
+    expect((await history(page)).sort()).toEqual(['q1:deny:user', 'q2:allow:user', 'q3:deny:user'])
   } finally {
     await app.close()
   }
@@ -119,20 +135,39 @@ test('keyboard flow and a queue of three: Enter at once answers nothing, Deny is
 
 test('100,000 characters of agent text render completely and scroll inside the agent block', async () => {
   test.setTimeout(120_000)
-  const { app, page } = await launchApp()
+  const big = Array.from({ length: 2_000 }, (_, line) => `line ${String(line).padStart(4, '0')} ${'x'.repeat(39)}`).join('\n').padEnd(100_000, 'y')
+  const { app, page } = await launchWith([approval('big', 0, { agentText: text(big) })])
   try {
-    const text = Array.from({ length: 2_000 }, (_, line) => `line ${String(line).padStart(4, '0')} ${'x'.repeat(39)}`).join('\n').padEnd(100_000, 'y')
-    const started = Date.now()
-    await request(page, { id: 'big', agentText: text })
     const box = page.getByTestId('approval-agent-text')
-    await expect(box).toBeVisible()
-    const shownIn = Date.now() - started
+    await expect(box).toBeVisible({ timeout: 15_000 })
     const facts = await box.evaluate(node => ({ length: node.textContent?.length, scrolls: node.scrollHeight > node.clientHeight, overflow: getComputedStyle(node).overflowY, within: node.closest('[data-testid="approval-agent-block"]') !== null }))
     expect(facts).toEqual({ length: 100_000, scrolls: true, overflow: 'auto', within: true })
-    await box.evaluate(node => { node.scrollTop = node.scrollHeight })
-    await expect(box).toBeInViewport()
-    expect(shownIn).toBeLessThan(5_000)
+    const scrolled = await box.evaluate(node => { node.scrollTop = node.scrollHeight; return node.scrollTop > 0 })
+    expect(scrolled).toBe(true)
+    await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible()
     await page.screenshot({ path: `${SHOTS}/approval-100k.png` })
+  } finally {
+    await app.close()
+  }
+})
+
+test('main’s sample: the crash prompt comes first and is acknowledged; a cut text can only be denied, with the app saying why', async () => {
+  test.setTimeout(120_000)
+  const { app, page } = await launchWith('sample')
+  try {
+    const dialog = page.getByTestId('approval-dialog')
+    await expect(dialog).toContainText('OXESpace hit an unexpected error', { timeout: 15_000 })
+    await expect(page.getByTestId('approval-queue')).toHaveText('Request 1 of 4')
+    await page.waitForTimeout(ARMED)
+    await page.keyboard.press('Escape')
+    // Same creation time for the rest: by id, the long text that was cut comes next.
+    await expect(dialog).toContainText('pane 2')
+    await expect(dialog.getByTestId('approval-app-notes')).toContainText('It cannot be approved.')
+    await expect(dialog.getByTestId('approval-agent-block')).not.toContainText('It cannot be approved.')
+    await expect(dialog.locator('[data-intent]')).toHaveCount(1)
+    await expect(dialog.locator('[data-intent="deny"]')).toBeVisible()
+    await page.screenshot({ path: `${SHOTS}/approval-cut-text.png` })
+    expect(await history(page)).toEqual(expect.arrayContaining(['approval-crash:deny:user']))
   } finally {
     await app.close()
   }

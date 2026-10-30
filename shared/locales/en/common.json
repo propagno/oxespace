@@ -331,23 +331,10 @@
     "uncheckedDetail": "Check which agent CLIs are installed on this machine."
   },
   "approvals": {
-    "title": {
-      "action": "Allow this agent action?",
-      "mcp-confirm": "Allow this MCP tool call?",
-      "oxequery": "Allow this database statement?",
-      "preview-automation": "Allow this browser action?",
-      "crash": "Restart after the crash?"
-    },
-    "kind": {
-      "action": "Agent action",
-      "mcp-confirm": "MCP tool call",
-      "oxequery": "Database statement",
-      "preview-automation": "Browser action",
-      "crash": "Crash recovery"
-    },
-    "summary": "{{what}} asked by {{requester}}. Risk: {{risk}}.",
-    "summaryEnvironment": "{{what}} asked by {{requester}} in {{environment}}. Risk: {{risk}}.",
-    "summaryProduction": "{{what}} asked by {{requester}} in {{environment}}, a production environment. Risk: {{risk}}.",
+    "summaryTarget": "{{summary}} · {{target}}",
+    "facts": "Risk: {{risk}}. Asked by {{requester}}.",
+    "factsEnvironment": "Risk: {{risk}}. Environment: {{environment}}. Asked by {{requester}}.",
+    "factsProduction": "Risk: {{risk}}. Production environment: {{environment}}. Asked by {{requester}}.",
     "queue": "Request {{position}} of {{total}}",
     "closeDeny": "Deny and close",
     "risk": {
@@ -358,7 +345,12 @@
       "critical": "Critical"
     },
     "environment": {
-      "label": "Environment: {{name}}",
+      "label": "{{kind}} environment: {{name}}",
+      "kind": {
+        "local": "Local",
+        "dev": "Development",
+        "prod": "Production"
+      },
       "productionLabel": "Production · {{name}}",
       "productionHint": "Changes here affect real users and data."
     },
@@ -374,14 +366,18 @@
       "heading": "Content from the agent",
       "hint": "Written by the agent, shown exactly as sent. OXESpace did not check it: read it as a claim, not as a fact.",
       "empty": "The agent sent no text.",
-      "length": "{{length}} characters",
-      "truncated": "OXESpace shortened this content at {{limit}} characters."
+      "length": "{{length}} characters"
     },
     "expires": "If you do not answer by {{time}}, the request is denied.",
+    "hold": {
+      "waiting": "Critical risk: Allow is available in {{seconds}} s. Read the request first.",
+      "ready": "Allow is available. Enter does not approve at critical risk; use Space or click."
+    },
     "refused": "Your answer was not applied",
     "settled": {
       "timeout": "The request expired before an answer and was denied.",
-      "cancelled": "The request was cancelled before an answer."
+      "cancelled": "The request was cancelled before an answer.",
+      "native": "The request was answered in the system dialog."
     },
     "outcome": {
       "deny": "Denied",
@@ -390,7 +386,9 @@
     },
     "by": {
       "timeout": "Expired, denied",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "native": "Answered in the system dialog",
+      "queueFull": "Denied by OXESpace: queue full"
     },
     "history": {
       "open": "History",
@@ -406,28 +404,7 @@
         "decision": "Decision"
       }
     },
-    "unknownCode": "OXESpace sent a message this version cannot show.",
-    "codes": {
-      "approvals": {
-        "option": {
-          "deny": "Deny",
-          "allowOnce": "Allow once",
-          "allowSession": "Allow for this session",
-          "restart": "Restart",
-          "closeTab": "Close the tab"
-        },
-        "note": {
-          "production": "This runs against {{name}}, a production environment.",
-          "destructive": "This action deletes or overwrites data and cannot be undone.",
-          "outsideWorkspace": "This touches {{path}}, outside the workspace.",
-          "crashed": "OXESpace stopped unexpectedly {{times}} times in a row."
-        },
-        "notFound": "This request is no longer pending.",
-        "stale": "This request changed since it was shown. Check it again before answering.",
-        "invalidOption": "That answer is not one of this request's options.",
-        "unavailable": "The window could not show this request; OXESpace asks in its own dialog."
-      }
-    }
+    "unknownCode": "OXESpace sent a message this version cannot show."
   },
   "about": {
     "title": "About OXESpace",
