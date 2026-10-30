@@ -262,7 +262,10 @@ export const isDevicePublicKey = (value: unknown): value is string => base64urlO
 
 const isHost = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9.:-]{1,253}$/.test(value)
 const isPort = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 65_535
-const isDisplayName = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0 && value.length <= REMOTE_LIMITS.maxDeviceNameLength && !/[\u0000-\u001f\u007f]/.test(value)
+/** Control characters, C0, DEL and C1, the set Kotlin's `isISOControl` refuses. */
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/
+const isDisplayName = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0 && value.length <= REMOTE_LIMITS.maxDeviceNameLength && !CONTROL.test(value)
+const PAIRING_KEYS = ['v', 'host', 'port', 'fp', 'code', 'name'] as const
 
 /** `oxespace://pair?v=…&host=…&port=…&fp=…&code=…[&name=…]` */
 export function pairingUri(qr: RemotePairingQr): string {
@@ -271,13 +274,20 @@ export function pairingUri(qr: RemotePairingQr): string {
   return `${REMOTE_PAIRING_SCHEME}://pair?${query.toString()}`
 }
 
+/**
+ * Reads a pairing QR, as strictly as the Android reader: each key at most once (two readers must never see different
+ * codes), `v` exactly this protocol's version, the port in plain decimal digits, and no control character in the name.
+ * The phone also refuses a host outside the LAN; that rule is the app's, not the contract's.
+ */
 export function readPairingUri(uri: string): { ok: true; qr: RemotePairingQr } | { ok: false } {
   const prefix = `${REMOTE_PAIRING_SCHEME}://pair?`
   if (typeof uri !== 'string' || !uri.startsWith(prefix) || uri.length > 1024) return { ok: false }
   const query = new URLSearchParams(uri.slice(prefix.length))
-  const v = Number(query.get('v')), port = Number(query.get('port')), name = query.get('name') ?? undefined
-  const qr: RemotePairingQr = { v, host: query.get('host') ?? '', port, fp: query.get('fp') ?? '', code: query.get('code') ?? '', ...(name !== undefined ? { name } : {}) }
-  const valid = Number.isInteger(v) && v >= 1 && isHost(qr.host) && isPort(port) && isCertificateFingerprint(qr.fp) && isPairingCode(qr.code) && (name === undefined || isDisplayName(name))
+  if (PAIRING_KEYS.some(key => query.getAll(key).length > 1)) return { ok: false }
+  const portText = query.get('port') ?? '', name = query.get('name') ?? undefined
+  if (query.get('v') !== String(REMOTE_PROTOCOL_VERSION) || !/^[0-9]{1,5}$/.test(portText)) return { ok: false }
+  const qr: RemotePairingQr = { v: REMOTE_PROTOCOL_VERSION, host: query.get('host') ?? '', port: Number(portText), fp: query.get('fp') ?? '', code: query.get('code') ?? '', ...(name !== undefined ? { name } : {}) }
+  const valid = isHost(qr.host) && isPort(qr.port) && isCertificateFingerprint(qr.fp) && isPairingCode(qr.code) && (name === undefined || isDisplayName(name))
   return valid ? { ok: true, qr } : { ok: false }
 }
 
