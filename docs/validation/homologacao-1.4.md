@@ -155,7 +155,9 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados de Settings | #176 | FRONTEND | Pré-homologado com ressalva |
 | F1 estados do Code | #179 | FRONTEND | Pré-homologado |
 | F1 estados de OxeChat, OxePod e OxePost | #173 | FRONTEND | Pré-homologado |
-| Ajustes visuais do A4 | #207 | FRONTEND | Reprovado na pré-homologação: os cartões de agente regrediram |
+| Ajustes visuais do A4 | #207 | FRONTEND | Pré-homologado (regressão corrigida em 8a2437f8) |
+| Esqueleto do app Android + CI | #164 | MOBILE | Homologado (na `main` c82cff0a) |
+| Correção de segurança do `tool.use` | #212 | BACKEND | Bloqueado: dois desvios confirmados, aguardando a correção |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 
@@ -302,6 +304,28 @@ Regressão nos cartões Claude Code e Codex da Nova conversa: o ícone vai para 
 ficam desalinhados. Causa: o seletor novo `.thread-create-dialog label:not(:has(> input[type='checkbox']))` ganha
 especificidade com o `:not(:has(...))` e vence a regra própria dos cartões, que são `label` com rádio. Enviado ao
 FRONTEND, com a sugestão de usar uma classe ou `:where(...)`.
+
+Reverificação com 8a2437f8 (regra com `:where(...)`): o roteiro passou em pt-BR e en, e os cartões voltaram ao lugar,
+com o ícone à esquerda e os dois alinhados (`a4/en-US-new-with-worktree.png`). Pré-homologado.
+
+### Esqueleto do app Android (#164): Homologado
+
+- O job `android.yml` (lint, testes de unidade e `assembleDebug`) passou na `main` (run 41110737104).
+- Backup desligado: `allowBackup="false"`, e `data_extraction_rules.xml` e `backup_rules.xml` excluem todos os domínios
+  (root, file, database, sharedpref, external), na nuvem e na transferência entre aparelhos. Ainda não há
+  funcionalidade de produto.
+
+### Correção de segurança do `tool.use` (#212): Bloqueado
+
+Testes adversariais (`tests/integration/hml-212.test.ts`, só local) sobre a primeira versão (3e1b8fa9):
+- um deny com curinga (`mcp__oxespace-delegation__*`) e um deny com outra caixa bloqueiam no `tools/call`;
+- dois desvios, confirmados pelo BACKEND:
+  1. a raiz vem do `X-OXE-Workspace-Id`, que o agente controla (`OXESPACE_WORKSPACE_ID` no ambiente dele). Sem token de
+     execução, um agente no projeto A que se declare no B escapa do deny de projeto de A;
+  2. um deny no servidor inteiro (`mcp__oxespace-delegation`, a sintaxe do Claude) bloqueia no Claude, mas não casa
+     no `tools/call` nem no Codex.
+
+O coordenador voltou o PR para rascunho. O veredito desta homologação é condição para o merge.
 
 ### B8.1 main minificado (#162): Homologado
 

@@ -1,0 +1,110 @@
+import http from 'node:http'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
+import { threadMcpArguments } from '../../electron/main/services/conversation/thread-mcp'
+import { policyDeniedToolNames, setPolicyStore } from '../../electron/main/services/policy'
+import { PolicyStore } from '../../electron/main/services/policy/policy-store'
+import { createLocalRpcServer } from '../../electron/main/mcp-internal/local-rpc-server'
+import { WorkspaceService } from '../../electron/main/services/workspace.service'
+import { removeTempDir } from '../helpers/removeTempDir'
+
+vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
+
+const roots: string[] = []
+const databases: AppDatabase[] = []
+afterEach(() => {
+  setPolicyStore(null)
+  for (const db of databases.splice(0)) db.close()
+  for (const root of roots.splice(0)) removeTempDir(root)
+})
+
+const temp = (prefix: string) => { const dir = mkdtempSync(join(tmpdir(), prefix)); roots.push(dir); return dir }
+const deny = (resource: string) => JSON.stringify({ rules: [{ effect: 'deny', action: 'tool.use', resource }] })
+
+function setup() {
+  const root = temp('oxe-policy-tool-')
+  const userData = temp('oxe-policy-tool-user-')
+  const managed = join(userData, 'managed.json')
+  const db = openInMemoryDatabase(); databases.push(db)
+  db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('A', 'A', ?, '1x1', 'builtin-claude')").run(root)
+  setPolicyStore(new PolicyStore({ userData, managed }))
+  const layers = {
+    project: (resource: string) => { mkdirSync(join(root, '.oxespace'), { recursive: true }); writeFileSync(join(root, '.oxespace', 'policy.json'), deny(resource)) },
+    user: (resource: string) => writeFileSync(join(userData, 'policy.json'), deny(resource)),
+    managed: (resource: string) => writeFileSync(managed, deny(resource))
+  }
+  return { root, db, layers }
+}
+
+async function withServer(db: AppDatabase, run: (call: (name: string) => Promise<unknown>) => Promise<void>) {
+  const server = createLocalRpcServer({ db, workspaceServ: new WorkspaceService(db) } as never)
+  server.setToken('t'.repeat(64))
+  const { port } = await server.start(0)
+  try { await run(name => post(port, { name })) } finally { await server.stop() }
+}
+
+const _unused = (owner: string) => ({ result: { isError: true, content: [{ text: `oxespace_list_workspaces is blocked by ${owner}.` }] } })
+const notBlocked = { result: { content: [{ text: expect.stringContaining('blocked') }] } }
+
+
+const isBlocked = (result: unknown) => JSON.stringify(result).includes('is blocked by')
+
+function setupTwo() {
+  const base = setup()
+  const other = temp('oxe-policy-tool-b-')
+  base.db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('B', 'B', ?, '1x1', 'builtin-claude')").run(other)
+  return { ...base, other }
+}
+
+async function serve(db: AppDatabase, run: (call: (name: string, workspace?: string) => Promise<unknown>) => Promise<void>) {
+  const server = createLocalRpcServer({ db, workspaceServ: new WorkspaceService(db) } as never)
+  server.setToken('t'.repeat(64))
+  const { port } = await server.start(0)
+  try { await run((name, workspace) => post(port, { name }, workspace)) } finally { await server.stop() }
+}
+
+describe('homologation #212: adversarial tool.use cases', () => {
+  it('a wildcard deny on the delegation server blocks the tool', async () => {
+    const { db, layers } = setup(); layers.managed('mcp__oxespace-delegation__*')
+    await serve(db, async call => { expect(isBlocked(await call('oxespace_list_workspaces'))).toBe(true) })
+  })
+  it('a deny in another case still blocks', async () => {
+    const { db, layers } = setup(); layers.managed('MCP__OXESPACE__OXESPACE_LIST_WORKSPACES')
+    await serve(db, async call => { expect(isBlocked(await call('oxespace_list_workspaces'))).toBe(true) })
+  })
+  it('REPORT: a deny on the whole server key (Claude syntax, no tool part)', async () => {
+    const { db, layers, root } = setup(); layers.managed('mcp__oxespace-delegation')
+    const denied = policyDeniedToolNames(root)
+    expect.soft(threadMcpArguments('claude', [], '/bridge.cjs', undefined, [], undefined, denied).join(' '), 'claude excludes the whole server').toContain('--disallowedTools mcp__oxespace-delegation')
+    expect.soft(threadMcpArguments('codex', [], '/bridge.cjs', undefined, [], undefined, denied).join(' '), 'codex turns the server off').toContain('mcp_servers.oxespace-delegation.enabled=false')
+    await serve(db, async call => { expect.soft(isBlocked(await call('oxespace_list_workspaces')), 'tools/call blocked by a server-level deny').toBe(true) })
+  })
+  it('REPORT: a project deny in A, the caller names workspace B (allowed) or an unknown id', async () => {
+    const { db, layers } = setupTwo(); layers.project('mcp__oxespace__oxespace_list_workspaces')
+    db.prepare("UPDATE workspaces SET is_active = CASE id WHEN 'A' THEN 1 ELSE 0 END").run()
+    await serve(db, async call => {
+      expect.soft(isBlocked(await call('oxespace_list_workspaces', 'A')), 'header A').toBe(true)
+      expect.soft(isBlocked(await call('oxespace_list_workspaces', 'B')), 'header B: a caller in A claiming B').toBe(true)
+      expect.soft(isBlocked(await call('oxespace_list_workspaces', 'nope')), 'unknown header').toBe(true)
+    })
+  })
+})
+
+async function post(port: number, params: object, workspace = 'A'): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params })
+    const req = http.request({ host: '127.0.0.1', port, path: '/rpc', method: 'POST', headers: {
+      'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload), Authorization: `Bearer ${'t'.repeat(64)}`, 'X-OXE-Workspace-Id': workspace
+    } }, res => {
+      let body = ''
+      res.setEncoding('utf8')
+      res.on('data', chunk => { body += chunk })
+      res.on('end', () => { try { resolve(JSON.parse(body)) } catch (error) { reject(error) } })
+    })
+    req.on('error', reject)
+    req.end(payload)
+  })
+}
