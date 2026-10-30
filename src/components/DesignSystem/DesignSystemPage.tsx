@@ -3,14 +3,14 @@ import { Bell, Copy, GitBranch, MoreHorizontal, Plus, Search, Trash2, X } from '
 import { OxeLogo } from '../Brand/OxeLogo'
 import { colorRoles } from '../../design/tokens/semantic'
 import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
-import { RADIUS, SPACE, TEXT } from '../../design/tokens/scales'
-import { Badge, Button, ButtonGroup, Checkbox, EmptyState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
+import { MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT } from '../../design/tokens/scales'
+import { Badge, BrandLoader, Button, ButtonGroup, Checkbox, Dialog, EmptyState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
 import styles from './DesignSystemPage.module.css'
 
-type Section = 'brand' | 'color' | 'type' | 'shape' | 'components' | 'states'
+type Section = 'brand' | 'color' | 'type' | 'shape' | 'motion' | 'components' | 'states'
 const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'brand', label: 'Brand' }, { id: 'color', label: 'Color' }, { id: 'type', label: 'Type' },
-  { id: 'shape', label: 'Space, shape, depth' }, { id: 'components', label: 'Components' }, { id: 'states', label: 'States' }
+  { id: 'shape', label: 'Space, shape, depth' }, { id: 'motion', label: 'Motion' }, { id: 'components', label: 'Components' }, { id: 'states', label: 'States' }
 ]
 
 /** Renders `children` twice, once per mode, using data-mode subtrees. */
@@ -89,6 +89,25 @@ function ShapeSection(): ReactElement {
   </>
 }
 
+/** The motion tokens with what reduced motion turns them into, the loops, and a live entrance (docs/design/motion.md). */
+function MotionSection(): ReactElement {
+  const [dialog, setDialog] = useState(false)
+  // Under reduced motion a loop other than the spin runs once in 0ms, and an easing has nothing left to shape.
+  const reduced = (name: string): string => (REDUCED_MOTION as Record<string, string>)[name] ?? (name.startsWith('ease-') ? '—' : 'stops')
+  return <>
+    <h2 className={styles.sectionTitle}>Tokens</h2>
+    <table className={styles.tokenTable}>
+      <thead><tr><th scope="col">Token</th><th scope="col">Full</th><th scope="col">Reduced</th></tr></thead>
+      <tbody>{Object.entries(MOTION).map(([name, value]) => <tr key={name}><td><code>--{name}</code></td><td><code>{value}</code></td><td><code>{reduced(name)}</code></td></tr>)}</tbody>
+    </table>
+    <h2 className={styles.sectionTitle}>Loops</h2>
+    <BothModes>{() => <div className={styles.row}><BrandLoader label="Loading the view" /><Spinner /><StatusDot status="running" label="Running" /><div className={styles.loopSkeleton}><Skeleton lines={2} /></div></div>}</BothModes>
+    <h2 className={styles.sectionTitle}>Entrance and press</h2>
+    <div className={styles.row}><Button variant="primary" onClick={() => setDialog(true)}>Open a dialog</Button><Button onClick={() => toast({ title: 'Copied the branch name', intent: 'success' })}>Show a toast</Button></div>
+    {dialog && <Dialog title="A dialog enters" description="It rises by --motion-shift while it fades in; reduced motion shows it at once." onClose={() => setDialog(false)} footer={<Button variant="primary" onClick={() => setDialog(false)}>Done</Button>}><p>Exits are instant: what the person dismissed should not linger.</p></Dialog>}
+  </>
+}
+
 /** The four states every place in the app uses, so no screen invents its own: empty, loading, failed and unavailable. */
 function StatesGallery(): ReactElement {
   return <div className={styles.stack}>
@@ -103,6 +122,7 @@ function StatesGallery(): ReactElement {
     <h2 className={styles.sectionTitle}>Failed</h2>
     <Panel title="Pull requests"><ErrorState title="Could not load pull requests" message="GitHub did not answer. Check your connection and try again." detail="HTTP 502 from api.github.com" onRetry={() => {}} /></Panel>
     <Panel title="Branches"><ErrorState compact title="Could not list branches." onRetry={() => {}} /></Panel>
+    <Panel title="A whole view"><ErrorState brand title="Something went wrong while showing OxeQuery." message="The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu." detail="TypeError: rows is undefined" onRetry={() => {}} /></Panel>
     <h2 className={styles.sectionTitle}>Unavailable and focus</h2>
     <div className={styles.row}><Button disabled>Disabled</Button><Checkbox label="Disabled option" disabled /><Switch checked={false} onChange={() => {}} label="Disabled switch" disabled /></div>
     <TextField label="With an error" defaultValue="wip" error="Describe what changed in a sentence." />
@@ -160,7 +180,7 @@ export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactEle
         <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Mandacaru, the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode.</p></div>
         <IconButton label="Close design system" icon={<X size={16} />} onClick={onClose} />
       </header>
-      {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : section === 'states' ? <BothModes>{() => <StatesGallery />}</BothModes> : <BothModes>{() => <Gallery />}</BothModes>}
+      {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : section === 'motion' ? <MotionSection /> : section === 'states' ? <BothModes>{() => <StatesGallery />}</BothModes> : <BothModes>{() => <Gallery />}</BothModes>}
     </main>
   </div>
 }

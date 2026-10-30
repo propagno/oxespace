@@ -30,7 +30,7 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  animation: none;
+  transition: none;
 }
 
 .scripts-panel-embedded .scripts-panel-header,

@@ -1,4 +1,4 @@
-import type { ContainerPort, ContainerStat, ContainerSummary } from '../../../shared/types/oxequery'
+import type { ContainerPort, ContainerStat, ContainerSummary } from '../../../shared/types/oxepod'
 import type { Status } from '../../ui'
 
 /** The label Docker Compose and Podman Compose put on every container of a project. */

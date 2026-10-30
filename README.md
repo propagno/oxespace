@@ -6,10 +6,10 @@
   <p><strong>A desktop workspace for working with coding agents — terminals, native Claude&nbsp;Code and Codex conversations, review, connectors and memory in one window.</strong></p>
 
   <p>
-    <a href="https://github.com/propagno/oxespace/releases/latest"><img src="https://img.shields.io/github/v/release/propagno/oxespace?color=00d6c9&label=release&style=flat-square" alt="Latest release" /></a>
+    <a href="https://github.com/propagno/oxespace/releases/latest"><img src="https://img.shields.io/github/v/release/propagno/oxespace?color=1f6b4a&label=release&style=flat-square" alt="Latest release" /></a>
     <a href="https://github.com/propagno/oxespace/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/propagno/oxespace/ci.yml?branch=main&label=CI&style=flat-square" alt="CI" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/propagno/oxespace?color=1e3d31&style=flat-square" alt="MIT license" /></a>
-    <img src="https://img.shields.io/badge/platforms-Windows%20x64%20%C2%B7%20Linux%20x64-5297ff?style=flat-square" alt="Windows x64 and Linux x64" />
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/propagno/oxespace?color=1f6b4a&style=flat-square" alt="MIT license" /></a>
+    <img src="https://img.shields.io/badge/platforms-Windows%20x64%20%C2%B7%20Linux%20x64-e8a33d?style=flat-square" alt="Windows x64 and Linux x64" />
   </p>
 
   <p>

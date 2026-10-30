@@ -260,6 +260,11 @@
       "done": "Copiado: {{what}}",
       "failed": "Não foi possível copiar: {{what}}",
       "unavailable": "A área de transferência não está disponível."
+    },
+    "crash": {
+      "title": "O OXESpace não conseguiu mostrar esta janela.",
+      "message": "Seus terminais, agentes e conversas continuam rodando. Tente de novo; se acontecer outra vez, recarregue a janela e relate o problema pelo menu Ajuda.",
+      "reload": "Recarregar janela"
     }
   },
   "errors": {

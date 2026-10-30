@@ -1,81 +1,16 @@
 /**
- * OxeQuery: containers (Docker/Podman) plus PostgreSQL and MongoDB access.
+ * OxeQuery: PostgreSQL and MongoDB access. Containers are OxePod's (`./oxepod`).
  *
  * Everything crosses a single IPC call, `oxeQuery:call`, described by
  * `OxeQueryOps`. Secrets (database passwords) never appear in an output type.
  */
 
 import type { MaintenanceAction, StructureAction, StructurePlan, StructureResult } from './oxequery-structure'
+import type { ContainerEngine } from './oxepod'
 
-export type ContainerEngine = 'docker' | 'podman'
 export type DatabaseEngine = 'postgres' | 'mongodb'
 
-export type ContainerEngineState = 'ready' | 'missing' | 'stopped' | 'denied'
-
-export interface ContainerEngineInfo {
-  engine: ContainerEngine
-  available: boolean
-  /** ready: usable; missing: CLI not found; stopped: CLI found but the daemon does not answer; denied: socket permission. */
-  state?: ContainerEngineState
-  /** The executable that answered (a full path when PATH did not have it). */
-  binary?: string
-  version?: string
-  /** `docker context show`; a remote context means the daemon is not local. */
-  context?: string
-  error?: string
-}
-
-/** A Docker daemon this computer can reach: a named context or the system socket. */
-export interface ContainerEngineCandidate {
-  /** `context:<name>` or `socket:system`; the only values `containers.useCandidate` accepts. */
-  id: string
-  label: string
-  endpoint: string
-  /** The one the Docker CLI uses when nothing is chosen. */
-  current: boolean
-  /** The one OxeQuery is using now. */
-  selected: boolean
-  /** ready: answered; denied: the socket refuses this user; unreachable: no daemon; not-checked: remote endpoints are never contacted. */
-  state: 'ready' | 'denied' | 'unreachable' | 'not-checked'
-  containers?: number
-}
-
-export interface ContainerPort {
-  hostIp?: string
-  hostPort?: number
-  containerPort: number
-  protocol: 'tcp' | 'udp'
-}
-
-export type ContainerState = 'running' | 'exited' | 'paused' | 'restarting' | 'created' | 'dead' | 'removing' | 'unknown'
-
-export interface ContainerSummary {
-  id: string
-  name: string
-  image: string
-  state: ContainerState
-  status: string
-  ports: ContainerPort[]
-  createdAt?: number
-  labels: Record<string, string>
-}
-
-export interface ContainerStat {
-  id: string
-  name: string
-  cpuPercent: number
-  memoryPercent: number
-  memoryUsage: string
-  netIO: string
-  blockIO: string
-  pids: number
-}
-export interface ImageInfo { id: string; repository: string; tag: string; size: string; created: string }
-export interface VolumeInfo { name: string; driver: string }
-export interface NetworkInfo { id: string; name: string; driver: string; scope: string }
-export interface DiskUsageRow { type: string; total: number; active: number; size: string; reclaimable: string }
-export type ResourceKind = 'image' | 'volume' | 'network'
-export type PruneKind = 'containers' | 'images'
+/** A new database server in a container, made by OxePod and saved as a connection (`connections.createInContainer`). */
 export interface CreateDatabaseInput {
   engine: DatabaseEngine
   /** Container name; also names the data volume. */
@@ -85,48 +20,6 @@ export interface CreateDatabaseInput {
   /** Host port; the next free one is chosen when omitted. */
   port?: number
   engineName?: ContainerEngine
-}
-
-/** One environment variable; `value` is absent when it is, or may be, a secret. */
-export interface ContainerEnvEntry { name: string; value?: string }
-
-export interface ContainerInspect {
-  id: string
-  name: string
-  image: string
-  state: ContainerState
-  startedAt?: number
-  restartPolicy?: string
-  health?: string
-  command: string
-  workingDir?: string
-  /** The environment with secrets already removed in the main process: a hidden value never reaches the renderer. */
-  environment: ContainerEnvEntry[]
-  /** `volume` names a named volume; it outlives the container. */
-  mounts: { source: string; destination: string; mode?: string; volume?: string }[]
-  networks: string[]
-  ports: ContainerPort[]
-}
-
-export type ContainerAction = 'start' | 'stop' | 'restart' | 'pause' | 'unpause'
-
-export interface ContainerExecResult {
-  exitCode: number | null
-  stdout: string
-  stderr: string
-  truncated: boolean
-  timedOut: boolean
-}
-
-export interface ConnectionSuggestion {
-  engine: DatabaseEngine
-  name: string
-  host: string
-  port: number
-  database?: string
-  username?: string
-  /** True when the container environment holds a password the main process can use. */
-  hasPassword: boolean
 }
 
 /**
@@ -610,8 +503,7 @@ export type SqlDefinitionTarget =
   | { kind: 'trigger'; oid: number }
   | { kind: 'type'; oid: number }
 
-export type ContainerLogEvent = { type: 'container-log'; streamId: string; lines: string[] } | { type: 'container-log-end'; streamId: string; reason: string }
-export type OxeQueryEvent = ContainerLogEvent | { type: 'containers-changed' } | { type: 'export-progress'; exportId: string; rows: number; bytes: number } | { type: 'import-progress'; importId: string; rows: number }
+export type OxeQueryEvent = { type: 'export-progress'; exportId: string; rows: number; bytes: number } | { type: 'import-progress'; importId: string; rows: number }
 
 export type PickKind = 'ca' | 'cert' | 'key' | 'sshKey'
 export interface KnownHost { host: string; port: number; fingerprint: string; firstSeen: number }
@@ -619,18 +511,6 @@ export interface KnownHost { host: string; port: number; fingerprint: string; fi
 export interface OxeQueryOps {
   /** Proves the database worker loads and its bundled drivers are present. */
   'system.ping': { input: Record<string, never>; output: { ok: true; drivers: { postgres: boolean; mongodb: boolean; ssh: boolean }; node: string } }
-  'containers.engines': { input: { refresh?: boolean }; output: ContainerEngineInfo[] }
-  'containers.candidates': { input: Record<string, never>; output: ContainerEngineCandidate[] }
-  'containers.useCandidate': { input: { id: string | null }; output: ContainerEngineCandidate[] }
-  'containers.list': { input: { engine?: ContainerEngine }; output: { engine: ContainerEngine; containers: ContainerSummary[] } }
-  'containers.inspect': { input: { engine?: ContainerEngine; id: string }; output: ContainerInspect }
-  'containers.compose': { input: { engine?: ContainerEngine; id: string; action: 'up' | 'down' | 'start' | 'stop' | 'restart' | 'logs'; confirmed?: boolean; tail?: number }; output: { output: string } }
-  'containers.action': { input: { engine?: ContainerEngine; id: string; action: ContainerAction }; output: { ok: true } }
-  'containers.exec': { input: { engine?: ContainerEngine; id: string; argv: string[]; timeoutMs?: number }; output: ContainerExecResult }
-  'containers.logsStart': { input: { engine?: ContainerEngine; id: string; tail?: number }; output: { streamId: string } }
-  'containers.logsStop': { input: { streamId: string }; output: { ok: true } }
-  'containers.shell': { input: { engine?: ContainerEngine; id: string; shell?: 'sh' | 'bash' }; output: { paneId: string } }
-  'containers.suggestConnection': { input: { engine?: ContainerEngine; id: string }; output: ConnectionSuggestion | null }
   'connections.list': { input: Record<string, never>; output: OxeQueryConnection[] }
   'connections.update': { input: { id: string; group?: string; favorite?: boolean; color?: ConnectionColor | '' }; output: OxeQueryConnection }
   'connections.duplicate': { input: { id: string }; output: OxeQueryConnection }
@@ -649,6 +529,7 @@ export interface OxeQueryOps {
   'connections.forgetHostKey': { input: { host: string; port: number }; output: { ok: true } }
   /** Opens a native chooser. Returns a handle for `connections.save`; the content stays in the main process. */
   'files.pick': { input: { kind: PickKind }; output: { handle: string; name: string } | null }
+  /** A connection to the database an OxePod container runs, its password read in the main process and never returned. */
   'connections.fromContainer': { input: { engine?: ContainerEngine; id: string; name?: string }; output: OxeQueryConnection }
   'sql.schemas': { input: { connectionId: string }; output: string[] }
   'sql.tables': { input: { connectionId: string; schema: string }; output: SqlTables }
@@ -698,17 +579,8 @@ export interface OxeQueryOps {
   'mongo.document': { input: { connectionId: string; database: string; collection: string; id: string }; output: { text: string } }
   'export.run': { input: ExportInput; output: ExportResult }
   'sql.explain': { input: SqlExplainInput; output: SqlExplain }
-  'containers.stats': { input: { engine?: ContainerEngine }; output: ContainerStat[] }
-  'resources.images': { input: { engine?: ContainerEngine }; output: ImageInfo[] }
-  'resources.volumes': { input: { engine?: ContainerEngine }; output: VolumeInfo[] }
-  'resources.networks': { input: { engine?: ContainerEngine }; output: NetworkInfo[] }
-  'resources.usage': { input: { engine?: ContainerEngine }; output: DiskUsageRow[] }
-  'resources.remove': { input: { kind: ResourceKind; id: string; engine?: ContainerEngine; confirmed?: boolean }; output: { ok: true } }
-  /** Stopped containers or dangling images, all at once. Refused unless the person confirmed. */
-  'resources.prune': { input: { kind: PruneKind; engine?: ContainerEngine; confirmed?: boolean }; output: { output: string } }
-  /** Removes one container (stopping it first). Its volumes stay. Refused unless the person confirmed. */
-  'containers.remove': { input: { id: string; engine?: ContainerEngine; confirmed?: boolean }; output: { ok: true } }
-  'containers.createDatabase': { input: CreateDatabaseInput; output: OxeQueryConnection }
+  /** OxePod makes the container; OxeQuery saves it as a connection. The password goes to secure storage only. */
+  'connections.createInContainer': { input: CreateDatabaseInput; output: OxeQueryConnection }
   'audit.list': { input: { connectionId?: string; limit?: number }; output: OxeQueryAuditEntry[] }
   'library.list': { input: { connectionId: string }; output: { saved: SavedQuery[]; history: QueryHistoryItem[] } }
   'library.save': { input: { connectionId: string; id?: string; name: string; sql: string }; output: SavedQuery }

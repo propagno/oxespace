@@ -257,6 +257,11 @@
       "done": "{{what}} copied",
       "failed": "Could not copy: {{what}}",
       "unavailable": "The clipboard is not available."
+    },
+    "crash": {
+      "title": "OXESpace could not show this window.",
+      "message": "Your terminals, agents and conversations keep running. Try again; if it happens again, reload the window and report the problem from the Help menu.",
+      "reload": "Reload window"
     }
   },
   "errors": {
