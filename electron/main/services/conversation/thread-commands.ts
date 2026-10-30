@@ -155,7 +155,7 @@ export class ThreadCommandService {
     if (entry?.source === 'codex' && entry.path) return { text: `$${entry.name}${argument ? ` ${argument}` : ''}`, skill: { name: entry.name, path: entry.path } }
     if (thread.provider === 'claude' && entry?.execution === 'conversation') return { text: text.trim() }
     // A TUI-only command is offered as an explicit auxiliary action in Thread.
-    if (entry?.execution === 'unavailable' || entry?.execution === 'cli') throw Error(`/${match[1]} is not available in Thread yet. ${entry.unavailableReason ?? ''}`)
+    if (entry?.execution === 'unavailable' || entry?.execution === 'cli') throw Error(`/${match[1]} is not available in OxeChat yet. ${entry.unavailableReason ?? ''}`)
     if (match[1] === 'compact') {
       if (thread.provider === 'codex' && argument) throw Error('/compact does not take arguments in Codex.')
       return { text: text.trim() }
