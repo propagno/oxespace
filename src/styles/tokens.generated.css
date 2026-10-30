@@ -331,6 +331,21 @@
   --control-lg: 36px;
 }
 
+@media (prefers-contrast: more) {
+  :root, [data-mode='light'] {
+    --border-subtle: #bbc9bf;
+    --border-default: #bbc9bf;
+    --text-muted: #404742;
+    --text-disabled: #555d57;
+  }
+  :root[data-mode='dark'], [data-mode='dark'] {
+    --border-subtle: #3c4940;
+    --border-default: #3c4940;
+    --text-muted: #c4cdc7;
+    --text-disabled: #9ea7a1;
+  }
+}
+
 :root[data-motion='reduce'] {
   --duration-fast: 0ms;
   --duration-base: 0ms;

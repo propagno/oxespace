@@ -53,9 +53,9 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
   }
   if (provider === 'claude' && (configuration?.access ?? 'read-only') === 'read-only') {
     for (const name of ['mcpManagement', 'hooks', 'subagentObservation'] as const) {
-      manifest.features[name] = { ...manifest.features[name], enabled: false, authorized: false, reason: 'Disabled by this conversation’s read-only tool policy' }
+      manifest.features[name] = { ...manifest.features[name], enabled: false, authorized: false, reason: 'Disabled by this conversation’s read-only tool policy', messageCode: { code: 'thread.capability.readOnly', params: {} } }
     }
-    manifest.features.mcp = { ...manifest.features.mcp, reason: 'Restricted by this conversation’s read-only policy: OXESpace lookups only, no user MCP servers' }
+    manifest.features.mcp = { ...manifest.features.mcp, reason: 'Restricted by this conversation’s read-only policy: OXESpace lookups only, no user MCP servers', messageCode: { code: 'thread.capability.mcpReadOnly', params: {} } }
   }
   return manifest
 
