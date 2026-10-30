@@ -308,7 +308,8 @@
 .thread-connection-notice.is-warning { color: var(--dot-yellow); }
 .thread-connection-notice.is-connected { color: var(--text-muted); }
 .thread-action-error { max-height: 120px; overflow: auto; overflow-wrap: anywhere; }
-.thread-create-dialog label:not(:has(> input[type='checkbox'])), .thread-auth-code label { display: grid; gap: 8px; margin: 16px 0; font-size: var(--fs-xs); }
+/* :where keeps this at the specificity it always had, so the agent cards' own label rule still wins. */
+.thread-create-dialog label:where(:not(:has(> input[type='checkbox']))), .thread-auth-code label { display: grid; gap: 8px; margin: 16px 0; font-size: var(--fs-xs); }
 .thread-create-dialog select, .thread-create-dialog input:not([type='checkbox'], [type='radio']), .thread-auth-code input { min-height: var(--control-h); min-width: 0; width: 100%; padding: 8px 10px; background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: var(--nav-radius); font: inherit; }
 .thread-project-folder-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .thread-create-dialog .thread-dialog-error { color: var(--dot-red); }
