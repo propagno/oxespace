@@ -130,6 +130,10 @@ documentar outra política de versão) e recusar também os controles C1. També
 contrato dos dois lados. O risco hoje é baixo: quem gera o QR é o próprio desktop, e o `readPairingUri` não está
 num caminho de entrada. Mas a divergência vai crescer quando o gateway (B9) passar a ler o mesmo formato.
 
+Correção no #183 (`618c479f`), pré-verificada na branch com a mesma sonda e mais 6 entradas (`+7443`, `v=01`, DEL,
+quebra de linha e `name` repetido no nome): todas são recusadas; o QR válido e o nome com espaço continuam aceitos;
+o host público continua sendo regra só do app. Falta reverificar na `main` depois do merge, para fechar a ressalva.
+
 ### Achados fora dos itens da onda
 
 Coisas vistas durante a passada. Não reprovam itens da onda 1, mas têm dono.
