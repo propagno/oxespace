@@ -156,6 +156,9 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados do Code | #179 | FRONTEND | Pré-homologado |
 | F1 estados de OxeChat, OxePod e OxePost | #173 | FRONTEND | Pré-homologado |
 | Ajustes visuais do A4 | #207 | FRONTEND | Pré-homologado (regressão corrigida em 8a2437f8) |
+| F1 estados do Code | #179 (main) | FRONTEND | Homologado (na `main` a412f04b) |
+| B1.1 respondPending | #166 | BACKEND | Homologado (contrato; na `main` a412f04b) |
+| B8 conectividade e About (handlers) | #168 | BACKEND | Homologado (teste de unidade; e2e depois do #185) |
 | Esqueleto do app Android + CI | #164 | MOBILE | Homologado (na `main` c82cff0a) |
 | Correção de segurança do `tool.use` | #212 | BACKEND | Pré-homologado (0da8d604): os dois desvios estão fechados |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
@@ -335,6 +338,19 @@ Correção 0da8d604, mesclada com a `main`:
 
 Efeito esperado: sem token de execução, o deny de qualquer projeto vale para a chamada. É o lado seguro, e convém
 dizer isso na documentação de política. Sugestão: incorporar os dois casos ao teste do PR.
+
+### Conferências na `main` a412f04b (#179, #166, #168)
+
+- #179: a varredura de estados na `main` não acha alerta solto nem vazio feito à mão no OxeCode e na tela inicial, em
+  pt-BR e en. Nenhum `pageerror`.
+- #166 + #168: `thread-pending-response` e `app-info` passam com 12/12 (`test:electron`, pela trava).
+  - #166: de duas respostas concorrentes ao mesmo pedido, uma é entregue e a outra recusada, assim como qualquer
+    resposta posterior. Geração antiga e pedido desconhecido são recusados.
+  - #168: a versão vem do `package.json`, nunca do Electron. Sem caminho, conta ou host. Offline vem com código de
+    mensagem.
+- No e2e, `about().version` ainda vale `44.9.3` porque o mock responde no lugar do handler; a correção do mock é o #185.
+- Incidente da homologação: um comando com glob vazio rodou o `test:electron` inteiro por cerca de 6 minutos dentro
+  da trava. O processo foi encerrado, e o `hml-heavy.sh` agora recusa suíte sem arquivo explícito.
 
 ### B8.1 main minificado (#162): Homologado
 
