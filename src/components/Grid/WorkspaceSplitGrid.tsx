@@ -293,6 +293,12 @@ export function WorkspaceSplitGrid({
                   setDividerMenu(handleKey(h))
                 }
               }}
+              // Shift+F10 and the context-menu key reach the page as a contextmenu event, not always as a keydown
+              // (on Linux, Chromium turns Shift+F10 into contextmenu): open the same menu from it, and from a right click.
+              onContextMenu={event => {
+                event.preventDefault()
+                setDividerMenu(handleKey(h))
+              }}
               style={style}
               onPointerDown={beginDrag(h)}
             >
