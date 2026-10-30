@@ -91,7 +91,7 @@ interface FrameBase<Type extends RemoteFrameType> { type: Type }
 /** First frame each side sends. The gateway answers with the version both speak, or `unsupported-version`. */
 export interface RemoteHelloFrame extends FrameBase<'hello'> {
   versions: number[]
-  /** Set by the gateway: its display name, never the machine's account or path. */
+  /** Set by the gateway: "OXESpace", or the name the person chose in Settings › Devices. Never the host name, an account or a path. */
   desktopName?: string
   /** Set by the gateway: 32 random bytes, base64url, new for every connection; a refresh signs it as its `nonce`. */
   challenge?: string
@@ -99,8 +99,9 @@ export interface RemoteHelloFrame extends FrameBase<'hello'> {
 
 /**
  * Access token, or a refresh signed with the device key (proof of possession): ECDSA P-256 with SHA-256 over
- * `refreshSigningInput(fp, deviceId, nonce)`, where `nonce` is this connection's `hello.challenge`. The `ack` carries a
- * `RemoteAuthResult`; a removed device gets `revoked`.
+ * `refreshSigningInput(fp, deviceId, nonce)`, where `nonce` is this connection's `hello.challenge`. `signature` is the
+ * ASN.1 DER ECDSA signature (SEQUENCE of r and s) in base64url without padding; no other encoding is accepted. The `ack`
+ * carries a `RemoteAuthResult`; a removed device gets `revoked`.
  */
 export interface RemoteAuthFrame extends FrameBase<'auth'> {
   id: string
@@ -210,10 +211,15 @@ export function readRemoteFrame(text: string, from: 'client' | 'desktop'): { ok:
 // `RemotePairRequest` to `https://host:port/pair` over that pinned TLS. The desktop asks "Pair <deviceName>?" and
 // answers only after the person clicks. A code is good for one attempt, whatever its outcome, and attempts are limited
 // per IP address (`REMOTE_LIMITS.pairingAttemptsPerWindow`). Failures are 4xx with `{ code }` from
-// `REMOTE_PAIRING_ERROR_CODES`.
+// `REMOTE_PAIRING_ERROR_CODES`; a code that matches no offer on screen is `pairing-invalid`.
+//
+// The certificate is self-signed and names no host: the phone trusts it only by comparing the SHA-256 of the DER it
+// receives with the `fp` it read from the QR, and never by host name. A mismatch closes the connection.
 
 export const REMOTE_PAIRING_SCHEME = 'oxespace'
 export const REMOTE_PAIRING_PATH = '/pair'
+/** The WebSocket endpoint, on the same pinned TLS port. */
+export const REMOTE_WS_PATH = '/v1/ws'
 
 /** What the QR carries. `fp` is the SHA-256 of the certificate's DER, as 64 lowercase hex characters. */
 export interface RemotePairingQr {
@@ -223,7 +229,7 @@ export interface RemotePairingQr {
   fp: string
   /** One-time code: 128 random bits, base64url without padding (22 characters). */
   code: string
-  /** The desktop's display name, never the machine's account or path. */
+  /** The desktop's display name ("OXESpace" or the person's choice), never the host name, an account or a path. */
   name?: string
 }
 
@@ -240,7 +246,7 @@ export interface RemotePairResponse {
   expiresInMs: number
 }
 
-export const REMOTE_PAIRING_ERROR_CODES = ['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed'] as const
+export const REMOTE_PAIRING_ERROR_CODES = ['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid'] as const
 export type RemotePairingErrorCode = typeof REMOTE_PAIRING_ERROR_CODES[number]
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/
@@ -282,6 +288,17 @@ export function readPairRequest(value: unknown): { ok: true; request: RemotePair
   if (Object.keys(input).some(key => !['code', 'deviceName', 'publicKey'].includes(key))) return { ok: false, code: 'malformed' }
   if (!isPairingCode(input.code) || !isDisplayName(input.deviceName) || !isDevicePublicKey(input.publicKey)) return { ok: false, code: 'malformed' }
   return { ok: true, request: { code: input.code, deviceName: input.deviceName, publicKey: input.publicKey } }
+}
+
+/**
+ * Shape check of a refresh signature: base64url of an ASN.1 DER ECDSA signature (SEQUENCE of two INTEGERs, 8 to 72
+ * bytes for P-256). The signature itself is verified by the desktop's crypto; anything else is refused before that.
+ */
+export function isDerSignature(value: unknown): value is string {
+  if (typeof value !== 'string' || !BASE64URL.test(value) || value.length < 11 || value.length > 96) return false
+  let binary: string
+  try { binary = atob(value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4)) } catch { return false }
+  return binary.length >= 8 && binary.length <= 72 && binary.charCodeAt(0) === 0x30 && binary.charCodeAt(1) === binary.length - 2 && binary.charCodeAt(2) === 0x02
 }
 
 /** The exact text a refresh signs (UTF-8): binds the signature to this desktop's certificate, the device and the connection. */
