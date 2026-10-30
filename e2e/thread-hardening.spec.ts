@@ -65,7 +65,7 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
       ipcMain.handle('thread:read-since', (_event, _id, cursor) => { calls.readSince.push([cursor]); return delta })
       ipcMain.handle('thread:create', (_event, input) => {
         snapshot = { thread: { id: 'e2e-thread', workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot, provider: input.provider, nativeSessionId: null,
-          title: 'New thread', pinned: false, status: 'idle', createdAt: Date.now(), updatedAt: Date.now() }, events: [] }
+          title: 'New conversation', pinned: false, status: 'idle', createdAt: Date.now(), updatedAt: Date.now() }, events: [] }
         changed(); return snapshot
       })
       ipcMain.handle('thread:send', (_event, _id, text, attachments) => { calls.send.push([text, attachments]) })

@@ -31,7 +31,7 @@ const user = (id: string, text: string) => ({ type: 'message', id, role: 'user',
 const answer = (id: string, text: string) => ({ type: 'message', id, role: 'assistant', text })
 
 export const THREAD_STATES: Record<ThreadStateName, ThreadStateDefinition> = {
-  empty: { status: 'idle', title: 'New thread', events: () => [] },
+  empty: { status: 'idle', title: 'New conversation', events: () => [] },
   conversation: {
     status: 'idle',
     title: 'Authentication flow',
@@ -154,7 +154,7 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
     // The real handler returns null for a thread that only exists in this fake.
     ipcMain.handle('thread:turn-files', () => [])
     ipcMain.handle('thread:create', (_event, input) => {
-      snapshot = { thread: { id: 'e2e-thread', workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot, provider: input.provider, nativeSessionId: null, title: 'New thread', pinned: false, status: 'idle', createdAt: now, updatedAt: now }, events: [] }
+      snapshot = { thread: { id: 'e2e-thread', workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot, provider: input.provider, nativeSessionId: null, title: 'New conversation', pinned: false, status: 'idle', createdAt: now, updatedAt: now }, events: [] }
       changed(); return snapshot
     })
     ipcMain.handle('thread:list', () => snapshot ? [snapshot.thread] : [])

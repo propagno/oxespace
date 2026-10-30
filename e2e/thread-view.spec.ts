@@ -149,7 +149,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       }) : snapshot)
       ipcMain.handle('thread:create', (_event, input) => {
         snapshot = { thread: { id: 'e2e-thread', workspaceId: (globalThis as Record<string, unknown>).e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot,
-          provider: input.provider, nativeSessionId: null, title: 'New thread', pinned: false, status: 'idle', createdAt: Date.now(), updatedAt: Date.now() }, events: [] }
+          provider: input.provider, nativeSessionId: null, title: 'New conversation', pinned: false, status: 'idle', createdAt: Date.now(), updatedAt: Date.now() }, events: [] }
         changed(); return snapshot
       })
       ipcMain.handle('thread:send', (_event, _id, text) => {
@@ -368,7 +368,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(projectTree.locator('.thread-project-name')).toHaveText('repo')
     await expect(projectTree.locator('.thread-project-count')).toHaveCount(0)
     await expect(projectTree.locator('.thread-project-rows .thread-navigation-row')).toHaveCount(1)
-    await expect(projectTree.locator('.thread-project-rows .thread-session-title')).toHaveText('New thread')
+    await expect(projectTree.locator('.thread-project-rows .thread-session-title')).toHaveText('New conversation')
     await expect(projectTree.locator('.thread-project-rows .thread-session-meta')).toContainText('Codex')
     await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toBeVisible()
     await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toHaveCSS('background-color', await page.evaluate(() => { const el = document.createElement('span'); el.style.backgroundColor = 'var(--provider-codex)'; document.body.append(el); const color = getComputedStyle(el).backgroundColor; el.remove(); return color }))

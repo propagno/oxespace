@@ -344,7 +344,7 @@ describe('Thread workspace UI', () => {
   it('shows the provider resume ID separately from internal OXESpace IDs', async () => {
     const f = fixture()
     f.api.command = vi.fn(async () => ({ kind: 'panel', title: 'Conversation status', rows: [
-      { label: 'Thread ID', detail: 'local-thread-id' }, { label: 'Project ID', detail: 'local-project-id' },
+      { label: 'Conversation ID', detail: 'local-thread-id' }, { label: 'Project ID', detail: 'local-project-id' },
       { label: 'Workspace ID', detail: 'local-workspace-id' }, { label: 'Provider', detail: 'claude' },
       { label: 'Status', detail: 'idle' }, { label: 'Native session ID (resume)', detail: 'native-claude-id' },
       { label: 'Directory', detail: '/repo' }
