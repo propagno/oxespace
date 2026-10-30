@@ -178,6 +178,7 @@ export class LinearService {
       return {
         ok: true,
         message: `Worktree for ${issue.identifier} already exists at ${alreadyThere.path}.`,
+        messageCode: { code: 'linear.worktree.exists', params: { issue: issue.identifier, path: alreadyThere.path } },
         branch,
         worktreePath: alreadyThere.path
       }

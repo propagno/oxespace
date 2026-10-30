@@ -56,7 +56,7 @@ export interface ThreadCommand {
   execution?: 'conversation' | 'cli' | 'desktop' | 'unavailable'
   unavailableReason?: string
 }
-export interface ThreadCommandCatalog { commands: ThreadCommand[]; warning?: string }
+export interface ThreadCommandCatalog { commands: ThreadCommand[]; warning?: string; /** `warning` as a message code (C3). */ messageCode?: import('../messages').MainMessage }
 export interface ThreadModel { id: string; label: string; description: string; efforts: string[]; defaultEffort?: string; isDefault?: boolean }
 export interface ThreadConfiguration {
   model?: string
@@ -73,6 +73,8 @@ export interface ThreadConfiguration {
 export interface ThreadModelCatalog { models: ThreadModel[]; defaultModel?: string; defaultEffort?: string; defaultKnown?: boolean }
 export type ThreadCapabilityAvailability = 'supported' | 'unavailable' | 'experimental'
 export interface ThreadCapability {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   availability: ThreadCapabilityAvailability
   enabled: boolean
   authorized: boolean
@@ -275,6 +277,8 @@ export interface ThreadRequestResponse {
 }
 
 export interface ThreadQueuedInput {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   id: string
   operationId?: string
   nativeId?: string
@@ -414,6 +418,8 @@ export interface ConversationThread {
 }
 
 export interface ThreadProviderObservation {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   state: 'running' | 'awaiting-input' | 'completed' | 'interrupted' | 'failed' | 'idle' | 'unknown'
   observedAt: number
   source: 'codex-app-server' | 'unavailable'

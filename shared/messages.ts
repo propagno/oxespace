@@ -26,6 +26,36 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  // Main-process sentences the window used to receive ready-made in English (C3 sweep).
+  'linear.worktree.exists': { issue: string; path: string }
+  'worktree.cleanup.notRemovable': Record<string, never>
+  'worktree.cleanup.blocked': { reasons: string[] }
+  'worktree.cleanup.needsConfirmation': { reasons: string[] }
+  'mcp.signIn.waiting': Record<string, never>
+  'mcp.server.quarantined': Record<string, never>
+  'mcp.server.untrusted': Record<string, never>
+  'github.cli.missing': Record<string, never>
+  'git.base.unresolved': { base: string }
+  'oxe.status.unreadable': Record<string, never>
+  'oxe.dashboard.timeout': Record<string, never>
+  'memory.disabled': Record<string, never>
+  'memory.unavailable': Record<string, never>
+  'memory.runtimeUnavailable': Record<string, never>
+  'thread.commands.configure': Record<string, never>
+  'thread.commands.busy': Record<string, never>
+  'thread.commands.claudeFailed': Record<string, never>
+  'thread.commands.codexFailed': Record<string, never>
+  'thread.capability.readOnly': Record<string, never>
+  'thread.capability.mcpReadOnly': Record<string, never>
+  'thread.observe.unsupported': Record<string, never>
+  'thread.observe.changed': Record<string, never>
+  'thread.queue.deliveryUnconfirmed': Record<string, never>
+  'oxequery.edit.readOnly': Record<string, never>
+  'oxequery.edit.notTable': Record<string, never>
+  'oxequery.edit.noKey': Record<string, never>
+  'oxequery.test.connected': Record<string, never>
+  'oxequery.startFailed': { reason: string }
+  'oxepod.startFailed': { reason: string }
 }
 
 export type MessageCode = keyof MessageParams
@@ -38,7 +68,36 @@ export const MESSAGE_CODES = [
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
-  'app.connectivity.offline'
+  'app.connectivity.offline',
+  'linear.worktree.exists',
+  'worktree.cleanup.notRemovable',
+  'worktree.cleanup.blocked',
+  'worktree.cleanup.needsConfirmation',
+  'mcp.signIn.waiting',
+  'mcp.server.quarantined',
+  'mcp.server.untrusted',
+  'github.cli.missing',
+  'git.base.unresolved',
+  'oxe.status.unreadable',
+  'oxe.dashboard.timeout',
+  'memory.disabled',
+  'memory.unavailable',
+  'memory.runtimeUnavailable',
+  'thread.commands.configure',
+  'thread.commands.busy',
+  'thread.commands.claudeFailed',
+  'thread.commands.codexFailed',
+  'thread.capability.readOnly',
+  'thread.capability.mcpReadOnly',
+  'thread.observe.unsupported',
+  'thread.observe.changed',
+  'thread.queue.deliveryUnconfirmed',
+  'oxequery.edit.readOnly',
+  'oxequery.edit.notTable',
+  'oxequery.edit.noKey',
+  'oxequery.test.connected',
+  'oxequery.startFailed',
+  'oxepod.startFailed'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

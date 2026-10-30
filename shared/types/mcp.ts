@@ -36,6 +36,8 @@ export interface McpServerGuard {
 export type McpHealthStatus = 'unknown' | 'starting' | 'healthy' | 'needs-auth' | 'unhealthy'
 
 export interface McpServer {
+  /** `healthMessage` as a message code the window translates (C3). */
+  healthMessageCode?: import('../messages').MainMessage
   id: string
   /** Null = global (cross-workspace). */
   workspaceId: string | null
@@ -96,6 +98,8 @@ export interface McpCallToolResult {
 }
 
 export interface McpServerHealthEvent {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   serverId: string
   status: McpHealthStatus
   message: string | null

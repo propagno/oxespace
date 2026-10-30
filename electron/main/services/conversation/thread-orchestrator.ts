@@ -376,14 +376,14 @@ export class ThreadOrchestrator {
         ? await adapter!.observe!(nativeTurnId)
         : canRecover && this.stateReader?.recover ? await this.stateReader.recover({ ...snapshot.thread }, nativeTurnId)
         : this.stateReader ? await this.stateReader.observe({ ...snapshot.thread }, nativeTurnId)
-        : { state: 'unknown', observedAt: Date.now(), source: 'unavailable', detail: 'No connected provider supports a state query for this conversation. The execution outcome remains unconfirmed.' }
+        : { state: 'unknown', observedAt: Date.now(), source: 'unavailable', detail: 'No connected provider supports a state query for this conversation. The execution outcome remains unconfirmed.', messageCode: { code: 'thread.observe.unsupported', params: {} } }
       if (connected && canRecover && this.stateReader?.recover && ['completed', 'failed'].includes(result.state)) {
         const recovered = await this.stateReader.recover({ ...snapshot.thread }, nativeTurnId)
         const confirmed = await adapter!.observe!(nativeTurnId)
         // An intervening execution or conflicting provider result must not be
         // overwritten by a passive journal snapshot.
         if (confirmed.state === recovered.state && confirmed.nativeTurnId === nativeTurnId) result = recovered
-        else result = { ...confirmed, state: 'unknown', detail: 'Provider state changed during recovery. The local conversation was preserved; check again.' }
+        else result = { ...confirmed, state: 'unknown', detail: 'Provider state changed during recovery. The local conversation was preserved; check again.', messageCode: { code: 'thread.observe.changed', params: {} } }
       }
       if (this.stopping) throw Error('Thread service is shutting down')
       const current = this.read(id)
