@@ -726,10 +726,19 @@
     "analyzeTitle": "Executar a instrução e mostrar os tempos reais. Uma instrução que altera dados é desfeita.",
     "formatTitle": "Formatar o SQL (Shift+Alt+F)",
     "limit": "Limite",
+    "limitTitle": "Linhas que uma consulta devolve. Limitado a {{formatted}} nesta conexão.",
+    "timeout": "{{seconds}} s",
+    "timeoutTitle": "O servidor interrompe uma instrução depois de {{seconds}} segundos nesta conexão.",
+    "readOnlyPolicy": "somente leitura pela política",
+    "readOnlyPolicyTitle": "A política da sua organização mantém esta conexão somente leitura. Não dá para desligar aqui.",
     "editorHeight": "Altura do editor de consultas",
     "confirm": {
       "analyzeTitle": "Analisar executa esta instrução",
       "destructiveTitle": "Esta instrução é destrutiva",
+      "typedTitle": "Alterar dados em produção?",
+      "runOnProduction": "Executar em produção",
+      "typedHint": "Esta instrução altera dados em uma conexão de produção.",
+      "typeName": "Digite {{name}} para continuar",
       "analyzeAnyway": "Analisar mesmo assim",
       "runAnyway": "Executar mesmo assim",
       "production": "Esta é uma conexão de produção.",
@@ -770,6 +779,15 @@
     "tabLimit_other": "Feche uma aba de consulta antes: no máximo {{count}} podem ficar abertas.",
     "tabLimit_many": "Feche uma aba de consulta antes: no máximo {{count}} podem ficar abertas."
   },
+  "lint": {
+    "updateNoWhere": "UPDATE sem WHERE altera todas as linhas da tabela.",
+    "deleteNoWhere": "DELETE sem WHERE remove todas as linhas da tabela.",
+    "drop": "{{statement}} remove o objeto e o que ele guarda, para sempre.",
+    "truncate": "TRUNCATE remove todas as linhas da tabela.",
+    "alterDrop": "{{statement}} remove para sempre uma coluna ou restrição e os dados dela.",
+    "selectStarLarge": "SELECT * lê todas as colunas de {{table}}, cerca de {{formatted}} linhas. Liste as colunas de que precisa ou adicione um LIMIT.",
+    "selectNoLimit": "Sem LIMIT: esta consulta pode devolver todas as linhas. Em produção, adicione um LIMIT."
+  },
   "preferences": {
     "title": "Configurações do OxeQuery",
     "description": "O que é guardado, e até onde os agentes podem ir.",
@@ -789,6 +807,13 @@
       "write": "Leitura e escrita, com aprovação"
     },
     "ceilingHint": "A configuração de agentes de cada conexão só pode ficar abaixo disto. Agentes nunca escrevem em produção.",
+    "limits": "Limites por ambiente",
+    "limitsHint": "O máximo de linhas que uma consulta devolve e o maior tempo que uma instrução pode rodar numa conexão de cada tipo. A configuração da própria conexão só pode ser menor.",
+    "rowsFor": "Linhas, {{environment}}",
+    "timeoutFor": "Tempo da instrução, {{environment}}",
+    "noLimit": "Sem limite",
+    "seconds": "{{seconds}} segundos",
+    "minutes": "{{minutes}} minutos",
     "saved": "Salvo.",
     "days_many": "{{count}} dias"
   },

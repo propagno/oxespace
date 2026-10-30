@@ -81,7 +81,8 @@ export function registerOxeQueryMock(): void {
       case 'containers.logsStop': return ok({ ok: true })
       case 'containers.shell': return ok({ paneId: `oxequery-shell:${randomUUID()}` })
       case 'connections.list': return ok(connections.map(item => ({ ...item })))
-      case 'preferences.get': case 'preferences.set': return ok({ historyLimit: Number(input.historyLimit ?? 200), auditRetentionDays: Number(input.auditRetentionDays ?? 90), agentCeiling: { local: 'write', dev: 'write', prod: 'read', ...(input.agentCeiling as object | undefined) } })
+      case 'preferences.get': case 'preferences.set': return ok({ historyLimit: Number(input.historyLimit ?? 200), auditRetentionDays: Number(input.auditRetentionDays ?? 90), agentCeiling: { local: 'write', dev: 'write', prod: 'read', ...(input.agentCeiling as object | undefined) },
+        environmentLimits: { local: { maxRows: null, statementTimeoutMs: null }, dev: { maxRows: null, statementTimeoutMs: null }, prod: { maxRows: 1000, statementTimeoutMs: 30000 }, ...(input.environmentLimits as object | undefined) } })
       case 'connections.update': {
         const target = connections.find(item => item.id === input.id)
         if (!target) return fail('invalid', 'That connection no longer exists.')
@@ -190,6 +191,7 @@ export function registerOxeQueryMock(): void {
         const sql = String(input.sql ?? '')
         const mutating = /^\s*(insert|update|delete|drop|truncate|create|alter)/i.test(sql)
         if (target?.readOnly && mutating) return fail('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.')
+        if (target?.environment === 'prod' && mutating && String(input.confirmName ?? '').trim() !== target.name) return fail('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.')
         if (/^\s*delete\s+from\s+\w+\s*;?\s*$/i.test(sql) && input.confirmed !== true) return fail('confirm', 'This statement is destructive and needs confirmation.', ['DELETE without a WHERE clause affects every row'])
         if (/^\s*selec\s/i.test(sql)) return fail('query', 'syntax error at or near "SELEC"')
         if (mutating) return ok({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 2, command: 'DELETE', affectedRows: 3 })
@@ -211,6 +213,13 @@ export function registerOxeQueryMock(): void {
       case 'workspace.save': workspaces.set(String(input.connectionId), input.state); return ok({ ok: true })
       case 'sql.cancel': return ok({ cancelled: false })
       case 'sql.check': return ok({ kind: 'read', reasons: [], statements: 1 })
+      // Safe production: the same answer the real service gives (see oxequery-guard.ts), without policy files.
+      case 'safety.get': {
+        const target = connection(input.connectionId)
+        if (!target) return fail('invalid', 'That connection no longer exists.')
+        const prod = target.environment === 'prod'
+        return ok({ readOnly: target.readOnly, readOnlyBy: target.readOnly ? 'connection' : null, typedConfirmation: prod, maxRows: prod ? Math.min(target.maxRows, 1000) : target.maxRows, statementTimeoutMs: prod ? Math.min(target.statementTimeoutMs, 30000) : target.statementTimeoutMs })
+      }
       case 'mongo.databases': return ok([{ name: 'shop' }, { name: 'admin' }])
       case 'mongo.collections': return ok(input.database === 'shop' ? [{ name: 'items', type: 'collection' }, { name: 'orders', type: 'collection' }] : [])
       case 'mongo.document': return ok({ text: JSON.stringify({ _id: { $oid: '507f1f77bcf86cd799439011' }, sku: 'sku-1', qty: 5 }) })

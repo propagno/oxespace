@@ -98,19 +98,152 @@ describe('SqlWorkbench', () => {
     expect(screen.getByRole('group', { name: 'Connection lost' })).toBeInTheDocument()
   })
 
-  it('asks before a destructive statement and runs it only when confirmed', async () => {
+  it('asks before a destructive statement the server flags, and runs it only when confirmed', async () => {
     render(<SqlWorkbench connection={connection()} />)
     await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
     api.on('sql.run', (input: Record<string, unknown>) => {
-      if (input.confirmed !== true) throw refusal('confirm', 'This statement is destructive and needs confirmation.', ['DROP TABLE removes the table and its data.'])
-      return { columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 1, command: 'DROP TABLE' }
+      if (input.confirmed !== true) throw refusal('confirm', 'This statement is destructive and needs confirmation.', ['DELETE inside WITH has no WHERE clause.'])
+      return { columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 1, command: 'DELETE' }
     })
+    type('WITH gone AS (SELECT 1) DELETE FROM users')
+    run()
+    const confirm = await screen.findByRole('dialog', { name: 'This statement is destructive' })
+    expect(confirm).toHaveTextContent('DELETE inside WITH has no WHERE clause')
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Run anyway' }))
+    await waitFor(() => expect(api.callsOf('sql.run').at(-1)).toMatchObject({ confirmed: true }))
+  })
+
+  it('asks about a statement the lint marks as destructive before it reaches the server', async () => {
+    render(<SqlWorkbench connection={connection()} />)
+    await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
     type('DROP TABLE users')
     run()
     const confirm = await screen.findByRole('dialog', { name: 'This statement is destructive' })
-    expect(confirm).toHaveTextContent('DROP TABLE removes the table')
-    fireEvent.click(within(confirm).getByRole('button', { name: 'Run anyway' }))
-    await waitFor(() => expect(api.callsOf('sql.run').at(-1)).toMatchObject({ confirmed: true }))
+    expect(confirm).toHaveTextContent('DROP TABLE permanently removes the object')
+    expect(api.callsOf('sql.run')).toHaveLength(0)
+    expect(within(confirm).queryByLabelText(/^Type /)).toBeNull()
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(api.callsOf('sql.run')).toHaveLength(0)
+    run()
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'This statement is destructive' })).getByRole('button', { name: 'Run anyway' }))
+    await waitFor(() => expect(api.callsOf('sql.run').at(-1)).toMatchObject({ sql: 'DROP TABLE users', confirmed: true }))
+  })
+
+  it('does not interrupt a read, a safe write or a statement with a WHERE', async () => {
+    render(<SqlWorkbench connection={connection()} />)
+    await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+    for (const [index, sql] of ['SELECT * FROM users', "UPDATE users SET name = 'x' WHERE id = 1", 'DELETE FROM users WHERE id = 2'].entries()) {
+      type(sql)
+      run()
+      await waitFor(() => expect(api.callsOf('sql.run')).toHaveLength(index + 1))
+      expect(screen.queryByRole('dialog')).toBeNull()
+    }
+  })
+
+  describe('production', () => {
+    const production = { id: 'p1', name: 'shop-prod', environment: 'prod' as const }
+    beforeEach(() => {
+      api.on('safety.get', { readOnly: false, readOnlyBy: null, typedConfirmation: true, maxRows: 500, statementTimeoutMs: 30_000 })
+    })
+
+    it('asks for the connection name before a write, and sends it with the run', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      api.on('sql.run', (input: Record<string, unknown>) => {
+        if (input.confirmName !== 'shop-prod') throw refusal('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.')
+        return { columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 1, command: 'UPDATE', affectedRows: 1 }
+      })
+      type("UPDATE users SET name = 'x' WHERE id = 1")
+      run()
+      const confirm = await screen.findByRole('dialog', { name: 'Change data on production?' })
+      const go = within(confirm).getByRole('button', { name: 'Run on production' })
+      expect(go).toBeDisabled()
+      const field = within(confirm).getByLabelText('Type shop-prod to continue')
+      fireEvent.change(field, { target: { value: 'shop-pro' } })
+      expect(go).toBeDisabled()
+      fireEvent.change(field, { target: { value: 'Shop-Prod' } })
+      expect(go).toBeDisabled()
+      fireEvent.change(field, { target: { value: ' shop-prod ' } })
+      expect(go).toBeEnabled()
+      fireEvent.click(go)
+      await waitFor(() => expect(api.callsOf('sql.run').at(-1)).toMatchObject({ confirmed: true, confirmName: 'shop-prod' }))
+      expect((await screen.findAllByText(/1 row affected/)).length).toBeGreaterThan(0)
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('does not run when the dialog is cancelled, and does not carry a typed name into the next one', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      api.on('sql.run', () => { throw refusal('confirm-name', 'Type its name.') })
+      type("UPDATE users SET name = 'x' WHERE id = 1")
+      run()
+      let confirm = await screen.findByRole('dialog', { name: 'Change data on production?' })
+      fireEvent.change(within(confirm).getByLabelText('Type shop-prod to continue'), { target: { value: 'shop-prod' } })
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      run()
+      confirm = await screen.findByRole('dialog', { name: 'Change data on production?' })
+      expect(within(confirm).getByLabelText('Type shop-prod to continue')).toHaveValue('')
+      expect(within(confirm).getByRole('button', { name: 'Run on production' })).toBeDisabled()
+    })
+
+    it('puts the name in the same dialog as the destructive warning', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      type('DELETE FROM users')
+      run()
+      const confirm = await screen.findByRole('dialog', { name: 'This statement is destructive' })
+      expect(confirm).toHaveTextContent('DELETE without WHERE')
+      expect(within(confirm).getByRole('button', { name: 'Run on production' })).toBeDisabled()
+      expect(api.callsOf('sql.run')).toHaveLength(0)
+      fireEvent.change(within(confirm).getByLabelText('Type shop-prod to continue'), { target: { value: 'shop-prod' } })
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Run on production' }))
+      await waitFor(() => expect(api.callsOf('sql.run').at(-1)).toMatchObject({ sql: 'DELETE FROM users', confirmed: true, confirmName: 'shop-prod' }))
+      expect(api.callsOf('sql.run')).toHaveLength(1)
+    })
+
+    it('does not ask for the name to read', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      type('SELECT id FROM users LIMIT 10')
+      run()
+      expect(await screen.findByRole('gridcell', { name: 'alice' })).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(api.callsOf('sql.run')[0]).not.toHaveProperty('confirmName')
+    })
+
+    it('asks for the name before an ANALYZE of a write, and sends it', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      api.on('sql.explain', (input: Record<string, unknown>) => {
+        if (input.confirmName !== 'shop-prod') throw refusal('confirm-name', 'Type its name.', ['ANALYZE runs the statement.'])
+        return { analyze: true, plan: { nodeType: 'Update', startupCost: 0, totalCost: 1, planRows: 1, selfCostShare: 1, children: [] }, nodeCount: 1, hints: [] }
+      })
+      type("UPDATE users SET name = 'x' WHERE id = 1")
+      fireEvent.click(screen.getByRole('button', { name: 'Analyze' }))
+      const confirm = await screen.findByRole('dialog', { name: 'Analyze runs this statement' })
+      fireEvent.change(within(confirm).getByLabelText('Type shop-prod to continue'), { target: { value: 'shop-prod' } })
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Analyze anyway' }))
+      await waitFor(() => expect(api.callsOf('sql.explain').at(-1)).toMatchObject({ analyze: true, confirmed: true, confirmName: 'shop-prod' }))
+    })
+
+    it('shows the statement time and offers no more rows than the connection may read', async () => {
+      render(<SqlWorkbench connection={connection({ ...production, maxRows: 5000 })} />)
+      await waitFor(() => expect(api.callsOf('safety.get')).toHaveLength(1))
+      expect(await screen.findByText('30 s')).toBeInTheDocument()
+      const limit = screen.getByLabelText('Limit')
+      const offered = within(limit).getAllByRole('option').map(option => option.textContent)
+      expect(offered).toEqual(['100 rows', '500 rows'])
+    })
+  })
+
+  it('shows a connection that policy keeps read-only, and does not offer a transaction', async () => {
+    api.on('safety.get', { readOnly: true, readOnlyBy: 'policy', typedConfirmation: false, maxRows: 500, statementTimeoutMs: 60_000 })
+    render(<SqlWorkbench connection={connection()} />)
+    const badge = await screen.findByText('read-only by policy')
+    expect(badge).toHaveAttribute('title', expect.stringContaining('policy'))
+    expect(screen.queryByRole('group', { name: 'Transaction' })).toBeNull()
   })
 
   it('saves its tabs when it goes away, so they come back', async () => {

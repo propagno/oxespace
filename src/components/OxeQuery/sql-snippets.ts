@@ -53,8 +53,12 @@ export function registerSqlExtras(monaco: Monaco): void {
   })
 }
 
-/** Formats PostgreSQL text; loaded on first use so the formatter stays out of the initial chunk. */
-export async function formatSql(sql: string): Promise<string> {
+/** The formatter's name for each dialect the editor speaks; a new engine adds its line here. */
+export const SQL_DIALECTS = { postgres: 'postgresql' } as const
+export type SqlDialect = keyof typeof SQL_DIALECTS
+
+/** Formats SQL in the connection's dialect; loaded on first use so the formatter stays out of the initial chunk. */
+export async function formatSql(sql: string, dialect: SqlDialect = 'postgres'): Promise<string> {
   const { format } = await import('sql-formatter')
-  try { return format(sql, { language: 'postgresql', keywordCase: 'upper', tabWidth: 2, linesBetweenQueries: 1 }) } catch { return sql }
+  try { return format(sql, { language: SQL_DIALECTS[dialect], keywordCase: 'upper', tabWidth: 2, linesBetweenQueries: 1 }) } catch { return sql }
 }
