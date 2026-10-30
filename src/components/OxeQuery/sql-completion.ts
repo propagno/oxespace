@@ -47,7 +47,8 @@ const RETRY_AFTER_MS = 3000
 /** Per-connection cache of what the editor can suggest; loaded lazily and never blocks typing. */
 export class SchemaCache {
   private schemas: string[] | null = null
-  private readonly tables = new Map<string, { name: string; kind: string }[]>()
+  private readonly tables = new Map<string, { name: string; kind: string; approxRows?: number }[]>()
+  private readonly listeners = new Set<() => void>()
   private readonly columns = new Map<string, { name: string; type: string }[]>()
   private readonly inflight = new Map<string, Promise<void>>()
   constructor(private readonly connectionId: string) {}
@@ -63,12 +64,31 @@ export class SchemaCache {
     if (!this.schemas) this.once('schemas', async () => { this.schemas = await oq('sql.schemas', { connectionId: this.connectionId }) })
     return this.schemas ?? []
   }
-  tablesOf(schema: string): { name: string; kind: string }[] {
+  tablesOf(schema: string): { name: string; kind: string; approxRows?: number }[] {
     if (!this.tables.has(schema)) this.once(`t:${schema}`, async () => {
       const { tables } = await oq('sql.tables', { connectionId: this.connectionId, schema })
-      this.tables.set(schema, tables.map(table => ({ name: table.name, kind: table.kind })))
+      this.tables.set(schema, tables.map(table => ({ name: table.name, kind: table.kind, ...(table.approxRows !== undefined ? { approxRows: table.approxRows } : {}) })))
+      for (const listener of this.listeners) listener()
     })
     return this.tables.get(schema) ?? []
+  }
+  /**
+   * The catalog's row estimate for a table, once its schema has been read; an unqualified name is looked up in `public`
+   * first and then in the other schemas read so far. Asking starts the read, and `subscribe` says when it is in.
+   */
+  rowEstimate(schema: string | undefined, table: string): number | undefined {
+    const wanted = table.toLowerCase()
+    const find = (name: string): number | undefined => this.tablesOf(name).find(entry => entry.name.toLowerCase() === wanted)?.approxRows
+    if (schema) return find(schema)
+    const found = find('public')
+    if (found !== undefined) return found
+    for (const name of this.tables.keys()) if (name !== 'public') { const rows = find(name); if (rows !== undefined) return rows }
+    return undefined
+  }
+  /** Called when a table list arrives, so advice that depends on it can be given again. */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
   }
   columnsOf(schema: string, table: string): { name: string; type: string }[] {
     const key = `${schema}.${table}`
