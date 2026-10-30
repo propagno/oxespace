@@ -18,6 +18,7 @@ import type {
   UpdateMcpServerInput
 } from '../../../shared/types/mcp'
 import { McpConfigSync } from './mcp-sync.service'
+import { inheritedEnvironment } from './policy'
 import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
 import { probeHttpServer } from './mcp-http-probe'
 import { checkConfig, parseGuard, summarizeGuard, trustState, configHash, type GuardState, type GuardVerdict } from './mcp-pin'
@@ -669,7 +670,7 @@ function validateConfig(transport: McpTransport, config: McpServerConfig, truste
 }
 
 function buildProcessEnv(extraEnv: Record<string, string>): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, ...extraEnv }
+  const env: NodeJS.ProcessEnv = { ...inheritedEnvironment('mcp'), ...extraEnv }
   const pathKey = getPathKey(env)
   env[pathKey] = mergePathEntries(env[pathKey] ?? process.env[pathKey] ?? process.env.PATH ?? '', commonExecutableDirs(env))
   return env

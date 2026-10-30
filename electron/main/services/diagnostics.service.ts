@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { withheldSummary } from '../../../shared/env-scrub'
 import { exportRuntimeDiagnostics, runtimeDiagnosticsAvailable } from './runtime-diagnostics'
 import { statfsSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -35,6 +36,10 @@ export class DiagnosticsService {
       tone: mcp.running ? 'ok' : mcp.lastError ? 'error' : 'warning',
       detail: mcp.running ? `127.0.0.1:${mcp.port} · ${mcp.toolCount} tools` : (mcp.lastError ?? 'not running')
     })
+    // Names only: which inherited variables the last agent launches left out (roadmap S7).
+    const withheld = withheldSummary().filter(item => item.names.length)
+    checks.push({ id: 'env-withheld', label: 'Withheld environment variables', tone: 'ok',
+      detail: withheld.length ? withheld.map(item => `${item.scope}: ${item.names.slice(0, 12).join(', ')}${item.names.length > 12 ? ` +${item.names.length - 12}` : ''}`).join(' · ') : 'none since start' })
     checks.push({ id: 'sandbox', label: 'Renderer sandbox', tone: 'ok', detail: 'enabled · context isolation enabled' })
 
     const workspaceCount = (this.db.prepare('SELECT COUNT(*) AS count FROM workspaces').get() as { count: number }).count
