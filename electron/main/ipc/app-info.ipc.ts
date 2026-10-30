@@ -17,8 +17,8 @@ export function registerAppInfoIpc(): () => void {
   })
   ipcMain.handle(IPC_CHANNELS.app.about, async event => {
     requireAppFrame(event, 'About')
-    const { aboutFacts } = await service()
-    return aboutFacts({ version: app.getVersion(), packaged: app.isPackaged, versions: process.versions, platform: process.platform, arch: process.arch, osRelease: release() })
+    const { aboutFacts, APP_VERSION } = await service()
+    return aboutFacts({ version: APP_VERSION, packaged: app.isPackaged, versions: process.versions, platform: process.platform, arch: process.arch, osRelease: release() })
   })
   return () => watcher?.stop()
 }

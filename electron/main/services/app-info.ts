@@ -1,5 +1,12 @@
 import { mainMessage } from '../../../shared/messages'
 import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
+import { version as packageVersion } from '../../../package.json'
+
+/**
+ * The app's version, from its package.json. Electron's app.getVersion() reports Electron's own version when the app runs
+ * unpackaged (dev, E2E), so About never reads it.
+ */
+export const APP_VERSION: string = packageVersion
 
 /** `dev` for an unpackaged run; a packaged pre-release (`-beta.1`, `-rc.2`, `-alpha`) is `beta`. */
 export function appChannel(version: string, packaged: boolean): AppAbout['channel'] {

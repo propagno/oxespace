@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { aboutFacts, appChannel, connectivityOf, ConnectivityWatcher } from '../electron/main/services/app-info'
+import { readFileSync } from 'node:fs'
+import { aboutFacts, APP_VERSION, appChannel, connectivityOf, ConnectivityWatcher } from '../electron/main/services/app-info'
 import { sameClipboardText } from '../electron/main/ipc/clipboard.ipc'
 
 vi.mock('electron', () => ({ clipboard: {}, ipcMain: { handle: vi.fn() } }))
@@ -26,6 +27,12 @@ describe('About facts', () => {
     for (const commit of ['', 'not-a-sha', 'abc', '<script>', 'g'.repeat(40)]) expect(aboutFacts({ ...source, commit }).commit, commit).toBeNull()
     for (const builtAt of ['', 'yesterday', 'C:/Users/me']) expect(aboutFacts({ ...source, builtAt }).builtAt, builtAt).toBeNull()
     expect(aboutFacts({ ...source, versions: {} }).versions).toEqual({ electron: '', chrome: '', node: '', v8: '' })
+  })
+
+  it('reports the app version from package.json, never the Electron version', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }
+    expect(APP_VERSION).toBe(pkg.version)
+    expect(APP_VERSION).not.toBe(process.versions.electron)
   })
 
   it('carries no path, account or host name', () => {
