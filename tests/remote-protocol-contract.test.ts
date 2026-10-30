@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createHash, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto'
 import {
   isCertificateFingerprint,
+  isDerSignature,
   isDevicePublicKey,
   isHelloChallenge,
   isPairingCode,
@@ -12,6 +13,7 @@ import {
   refreshSigningInput,
   REMOTE_PAIRING_ERROR_CODES,
   REMOTE_PAIRING_SCHEME,
+  REMOTE_WS_PATH,
   readRemoteFrame,
   REMOTE_CLIENT_FRAMES,
   REMOTE_COMMANDS,
@@ -115,7 +117,8 @@ describe('C5 pairing', () => {
       { code: 'short', deviceName: 'Pixel 8', publicKey }, { code, deviceName: 'Pixel 8', publicKey: 'AAAA' }]) {
       expect(readPairRequest(body), JSON.stringify(body)).toEqual({ ok: false, code: 'malformed' })
     }
-    expect(REMOTE_PAIRING_ERROR_CODES).toEqual(['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed'])
+    expect(REMOTE_PAIRING_ERROR_CODES).toEqual(['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid'])
+    expect(REMOTE_WS_PATH).toBe('/v1/ws')
     expect(REMOTE_LIMITS.pairingAttemptsPerWindow).toBe(5)
   })
 
@@ -127,6 +130,18 @@ describe('C5 pairing', () => {
     const signature = sign('sha256', Buffer.from(text), privateKey)
     expect(verify('sha256', Buffer.from(text), key, signature)).toBe(true)
     expect(verify('sha256', Buffer.from(refreshSigningInput(fp, 'device-1', randomBytes(32).toString('base64url'))), key, signature)).toBe(false)
+  })
+
+  it('takes a refresh signature only as DER, never as raw r and s', () => {
+    const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+    for (let round = 0; round < 20; round += 1) {
+      const der = sign('sha256', randomBytes(32), privateKey)
+      expect(isDerSignature(der.toString('base64url'))).toBe(true)
+      const raw = sign('sha256', randomBytes(32), { key: privateKey, dsaEncoding: 'ieee-p1363' })
+      expect(raw.length).toBe(64)
+      expect(isDerSignature(raw.toString('base64url'))).toBe(false)
+    }
+    for (const value of ['', 'MAY', 'MEQCIA', 'not base64!', 'A'.repeat(200), null, 7]) expect(isDerSignature(value), String(value)).toBe(false)
   })
 
   it('derives the same 6-character verification from the device key on both sides', () => {
