@@ -148,6 +148,8 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | R1 + A4 (splash na aparência salva; visualizador só em dev) | #190 | FRONTEND | Pré-homologado |
 | F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Pré-homologado com ressalvas |
 | A4 worktree por conversa | #151 | FRONTEND | Homologado com ressalvas (na `main` 9e4a9307) |
+| F8 gate visual | #193 | FRONTEND | Pré-homologado |
+| F1 OfflineState + F2 About | #178 | FRONTEND (+ BACKEND no texto do OxePost) | Pré-homologado com ressalvas |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 
@@ -226,6 +228,33 @@ Ressalvas visuais para o FRONTEND (`a4/pt-BR-refused-dirty-base.png` e `a4/pt-BR
 4. O estado vazio da conversa diz "No que o Claude deve trabalhar em feature-a4-cd34?", com o nome da pasta e o
    sufixo aleatório. Para quem lê, faz mais sentido a branch (`feature/a4`) ou o projeto (`repo`).
 5. Com a F12, "Abrir no Code" passa a ser "Abrir no OxeCode".
+
+### F8 gate visual (#193): Pré-homologado
+
+- Com uma baseline trocada (`empty-light-desktop`), a comparação falhou. O `scripts/visual-review.mjs` gerou a revisão
+  com baseline, esta execução e a diferença lado a lado, e marcou as 6 variações novas (pt-BR, comfortable e
+  forced-colors × empty/workspace) como "none: a new surface without a baseline".
+- As variações estão corretas. No forced-colors, bordas e anéis aparecem, e o ponto de status continua visível.
+- Observações:
+  - a baseline pt-BR vai registrar "Team" e a tela inicial em inglês se entrar antes do #197 (F6). Convém casar a
+    ordem;
+  - o título de cada superfície na revisão leva o slug do Playwright (cosmético).
+
+### F1 OfflineState + F2 About (#178): Pré-homologado com ressalvas
+
+- About (en/claro): marca, versão, canal, commit, runtimes, sistema, 4 links, e os botões Relatar, Copiar detalhes e
+  Fechar. "Copiar detalhes" não leva caminho, conta nem nome de máquina. A versão `44.9.3` é do mock e é corrigida
+  no #185.
+- Com `OXESPACE_E2E_OFFLINE=1`, "Você está sem conexão" aparece na barra do OxeCode e do OxeChat e some com o
+  push online.
+- No OxePost, sem rede, um host inválido mostra o OfflineState ("Enviar de novo"). Com rede, mostra "Não foi possível
+  alcançar o servidor". Uma requisição local responde mesmo com o app em offline: o app não afirma offline sem saber.
+- Ressalvas:
+  1. FRONTEND: em pt-BR, "Sobre" na paleta não encontra o About (rótulo literal `About OXESpace`). A verificar no
+     #197.
+  2. FRONTEND: `post.json` em pt-BR diz "O request não saiu…". Sugestão: "A requisição…".
+  3. BACKEND: o detalhe do erro de rede do OxePost vem em inglês do main (`oxepost/send.ts`, "The host name was not
+     found…"). Deveria passar por um código C3.
 
 ### B8.1 main minificado (#162): Homologado
 
