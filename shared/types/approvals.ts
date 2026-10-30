@@ -3,7 +3,8 @@
  * modal, never through a native dialog while an app window exists.
  *
  *   main → window   `approvals.onRequested`  an ApprovalRequest, built entirely by the main process
- *   window → main   `approvals.ack`          the modal is on screen (required for `ackRequired` requests, within APPROVAL_ACK_TIMEOUT_MS)
+ *   window → main   `approvals.ack`          the modal shows this request; sent for every request. Starts the critical allow
+ *                                            delay, and is required within APPROVAL_ACK_TIMEOUT_MS for `ackRequired` ones
  *   window → main   `approvals.unavailable`  the modal cannot be shown (chunk failed, did not mount): native fallback for that request only
  *   window → main   `approvals.respond`      exactly one answer per request and generation, validated against its options
  *   main → window   `approvals.onResolved`   answered, expired as denied, cancelled, or answered in the native fallback
@@ -11,6 +12,10 @@
  * The native dialog is a fallback only: when no app window exists, when the window reports `unavailable` for a request,
  * or when an `ackRequired` request is not acknowledged in time. Everything the person reads is a C3 MainMessage except
  * `agentText`, which is the requester's text verbatim, bounded and always shown as untrusted.
+ *
+ * At `critical` risk an allow is never the default, Enter does nothing, and an allow answer is refused (`tooSoon`) unless
+ * main recorded the window's ack at least APPROVAL_CRITICAL_ALLOW_DELAY_MS earlier. Main enforces it; the window also
+ * honours `allowDelayMs` and `enterDisabled` so the person sees why.
  *
  * These channels are never MCP tools (`approvals.admin` is a forbidden capability in shared/mcp-coverage.ts).
  */
@@ -33,10 +38,15 @@ export type ApprovalIntent = typeof APPROVAL_INTENTS[number]
 export const APPROVAL_TIMEOUT_MS = 5 * 60_000
 /** An `ackRequired` request the window has not acknowledged by then goes to the native dialog. */
 export const APPROVAL_ACK_TIMEOUT_MS = 3_000
-/** The most of the requester's text a request carries; longer text is cut and flagged, and then only deny is offered. */
+/**
+ * The most of the requester's text a person reviews, the same in every door. Above it a change (any risk but `low`) is
+ * refused before it is shown (`approvals.denied.tooLong`); only a `low` request is cut, flagged and offered deny only.
+ */
 export const APPROVAL_AGENT_TEXT_MAX = 100_000
-/** Pending requests kept at once; a request past this is denied without being shown. */
+/** Pending requests kept at once; a new request past this is denied (`approvals.denied.queueFull`) and logged. */
 export const APPROVAL_QUEUE_MAX = 50
+/** At `critical` risk, how long after the window's ack an allow answer is first accepted. */
+export const APPROVAL_CRITICAL_ALLOW_DELAY_MS = 2_000
 /** Decisions `approvals.history()` keeps for this app session, newest first. */
 export const APPROVAL_HISTORY_MAX = 200
 /** Agent notifications (`oxespace_workspace_change notify`) allowed per execution per minute. */
@@ -95,8 +105,12 @@ export interface ApprovalRequest {
   options: ApprovalOption[]
   /** Always a deny option. */
   defaultOptionId: string
-  /** The window must call `approvals.ack` within APPROVAL_ACK_TIMEOUT_MS, or the request goes native. */
+  /** The window must call `approvals.ack` within APPROVAL_ACK_TIMEOUT_MS, or the request goes native (crash only). */
   ackRequired: boolean
+  /** Allow options stay disabled this long after the modal shows (APPROVAL_CRITICAL_ALLOW_DELAY_MS at critical, else 0). */
+  allowDelayMs: number
+  /** Enter does not answer (critical); the person clicks or uses the option's own key. */
+  enterDisabled: boolean
   createdAt: number
   expiresAt: number
 }
@@ -105,14 +119,15 @@ export interface ApprovalAnswerInput { id: string; generation: number }
 export interface ApprovalRespondInput extends ApprovalAnswerInput { optionId: string }
 
 /** Why a window → main call was refused; each is also a C3 code (`approvals.refused.<reason>`). */
-export const APPROVAL_REFUSALS = ['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported'] as const
+export const APPROVAL_REFUSALS = ['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported', 'tooSoon'] as const
 export type ApprovalRefusal = typeof APPROVAL_REFUSALS[number]
 
 export type ApprovalCallResult =
   | { ok: true; id: string }
   | { ok: false; refusal: ApprovalRefusal; message: MainMessage }
 
-export type ApprovalResolvedBy = 'user' | 'native' | 'timeout' | 'cancelled'
+/** `refused`: denied by main before it was shown (queue full, too long, or a request that breaks the rules); history only. */
+export type ApprovalResolvedBy = 'user' | 'native' | 'timeout' | 'cancelled' | 'refused'
 
 export interface ApprovalResolved {
   id: string

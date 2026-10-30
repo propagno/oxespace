@@ -1,7 +1,7 @@
 /**
  * B10 · Pure rules behind the approvals contract (shared/types/approvals.ts), the same in main, the window and tests.
  */
-import { APPROVAL_AGENT_TEXT_MAX, APPROVAL_RISKS, type ApprovalAgentText, type ApprovalRequest, type ApprovalRisk } from './types/approvals'
+import { APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_RISKS, type ApprovalAgentText, type ApprovalIntent, type ApprovalRequest, type ApprovalRisk } from './types/approvals'
 
 // ---- reserved names ------------------------------------------------------------------------
 
@@ -76,9 +76,32 @@ export function boundAgentText(text: string, max = APPROVAL_AGENT_TEXT_MAX): App
 }
 
 /**
+ * Whether a text of `length` characters may be shown at `risk`: whole up to the cap; above it a change is refused before
+ * it is shown, and only a low-risk request is cut and offered deny only.
+ */
+export function agentTextAdmission(length: number, risk: ApprovalRisk, max = APPROVAL_AGENT_TEXT_MAX): 'show' | 'truncate' | 'refuse' {
+  if (length <= max) return 'show'
+  return risk === 'low' ? 'truncate' : 'refuse'
+}
+
+/** The window-facing pacing for a risk: critical holds Allow back and turns Enter off. */
+export function approvalPacing(risk: ApprovalRisk): { allowDelayMs: number; enterDisabled: boolean } {
+  return risk === 'critical' ? { allowDelayMs: APPROVAL_CRITICAL_ALLOW_DELAY_MS, enterDisabled: true } : { allowDelayMs: 0, enterDisabled: false }
+}
+
+/**
+ * Main's own check of the critical delay: an allow is refused before the window acknowledged showing the request, or
+ * sooner than `allowDelayMs` after that. A deny is never held back.
+ */
+export function allowTooSoon(request: Pick<ApprovalRequest, 'allowDelayMs'>, intent: ApprovalIntent, displayedAt: number | undefined, now: number): boolean {
+  if (intent === 'deny' || request.allowDelayMs <= 0) return false
+  return displayedAt === undefined || now - displayedAt < request.allowDelayMs
+}
+
+/**
  * What every request main emits must satisfy: unique option ids, a deny option as the default, no allow option when
- * the text was cut (the person must see all of what they approve), and "allow for this session" only for low risk.
- * Returns the broken rules, empty when the request is sound.
+ * the text was cut (the person must see all of what they approve), "allow for this session" only for low risk, and the
+ * critical pacing. Returns the broken rules, empty when the request is sound.
  */
 export function approvalRequestProblems(request: ApprovalRequest): string[] {
   const problems: string[] = []
@@ -91,6 +114,7 @@ export function approvalRequestProblems(request: ApprovalRequest): string[] {
   if (request.risk !== 'low' && request.options.some(option => option.intent === 'allow-session')) problems.push('allow-session above low risk')
   if (request.agentText.untrusted !== true) problems.push('agent text not marked untrusted')
   if (request.expiresAt <= request.createdAt) problems.push('expires before it is created')
+  if (request.risk === 'critical' && (request.allowDelayMs < APPROVAL_CRITICAL_ALLOW_DELAY_MS || !request.enterDisabled)) problems.push('critical without the allow delay and Enter off')
   return problems
 }
 

@@ -174,7 +174,7 @@
         "crash": "OXESpace hit an unexpected error"
       },
       "summary": {
-        "mcpConfirm": "Wants to run {{tool}} › {{action}}",
+        "mcpConfirm": "Wants to run {{tool}} › {{action}} on {{target}}",
         "oxequery": {
           "read": "Wants to read data",
           "write": "Wants to change data in the database",
@@ -258,7 +258,12 @@
         "staleGeneration": "This request was asked again since it was shown. Answer the current one.",
         "alreadyAnswered": "This request already has an answer.",
         "unknownOption": "That answer is not one of the options this request offers.",
-        "alreadyReported": "This request was already reported as not shown."
+        "alreadyReported": "This request was already reported as not shown.",
+        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears."
+      },
+      "denied": {
+        "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
+        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps."
       }
     },
     "notify": {

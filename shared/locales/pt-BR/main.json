@@ -174,7 +174,7 @@
         "crash": "O OXESpace encontrou um erro inesperado"
       },
       "summary": {
-        "mcpConfirm": "Quer executar {{tool}} › {{action}}",
+        "mcpConfirm": "Quer executar {{tool}} › {{action}} em {{target}}",
         "oxequery": {
           "read": "Quer ler dados",
           "write": "Quer alterar dados no banco",
@@ -258,7 +258,12 @@
         "staleGeneration": "Este pedido foi feito de novo desde que apareceu. Responda ao atual.",
         "alreadyAnswered": "Este pedido já tem uma resposta.",
         "unknownOption": "Essa resposta não é uma das opções deste pedido.",
-        "alreadyReported": "Este pedido já foi informado como não exibido."
+        "alreadyReported": "Este pedido já foi informado como não exibido.",
+        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece."
+      },
+      "denied": {
+        "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
+        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores."
       }
     },
     "notify": {

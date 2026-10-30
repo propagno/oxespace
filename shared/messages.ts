@@ -87,8 +87,11 @@ export interface MessageParams {
   'approvals.title.oxequery': Record<string, never>
   'approvals.title.previewAutomation': Record<string, never>
   'approvals.title.crash': Record<string, never>
-  /** A `confirm`-level MCP tool; `tool` and `action` are the tool's identifiers (`oxespace_git`, `push`), not sentences. */
-  'approvals.summary.mcpConfirm': { tool: string; action: string }
+  /**
+   * A `confirm`-level MCP tool; `tool` and `action` are the tool's identifiers (`oxespace_git`, `push`), not sentences, and
+   * `target` is what it applies to from the app's records (a project path, a server, a resource).
+   */
+  'approvals.summary.mcpConfirm': { tool: string; action: string; target: string }
   'approvals.summary.oxequery.read': Record<string, never>
   'approvals.summary.oxequery.write': Record<string, never>
   'approvals.summary.oxequery.action': Record<string, never>
@@ -148,6 +151,12 @@ export interface MessageParams {
   'approvals.refused.alreadyAnswered': Record<string, never>
   'approvals.refused.unknownOption': Record<string, never>
   'approvals.refused.alreadyReported': Record<string, never>
+  /** An allow at critical risk before the modal had been shown for APPROVAL_CRITICAL_ALLOW_DELAY_MS. */
+  'approvals.refused.tooSoon': Record<string, never>
+  /** Denied before it was shown: APPROVAL_QUEUE_MAX requests were already waiting. */
+  'approvals.denied.queueFull': { max: number }
+  /** Denied before it was shown: the text to approve is longer than a person reviews. */
+  'approvals.denied.tooLong': { max: number }
   /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
   'notify.prefix.pane': { agent: string; pane: number; title: string }
   'notify.prefix.conversation': { agent: string; conversation: string; title: string }
@@ -275,6 +284,9 @@ export const MESSAGE_CODES = [
   'approvals.refused.alreadyAnswered',
   'approvals.refused.unknownOption',
   'approvals.refused.alreadyReported',
+  'approvals.refused.tooSoon',
+  'approvals.denied.queueFull',
+  'approvals.denied.tooLong',
   'notify.prefix.pane',
   'notify.prefix.conversation',
   'notify.refused.reservedName',
