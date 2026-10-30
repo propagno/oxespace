@@ -1,6 +1,7 @@
 import type { OnMount } from '@monaco-editor/react'
 import type { OxeQueryConnection } from '../../../shared/types/oxequery'
 import { oq } from './client'
+import { i18n } from '../../i18n'
 import { cteSuggestions, functionSuggestions, joinConditionSuggestions, joinPosition, joinTargetSuggestions, parseForeignKeys, type ExtraSuggestion } from './sql-completion-extra'
 import { parseStatement, statementAt, type ForeignKeyRef } from './sql-statement'
 
@@ -142,7 +143,7 @@ export function suggest(cache: SchemaCache, fullText: string, textBeforeCursor: 
     const source = parsed.sources.find(entry => entry.key === qualifier)
     // A CTE or derived table exposes the columns of its own select list.
     if (source && source.kind !== 'table' && source.columns) {
-      return source.columns.filter(matches).map(column => ({ label: column, kind: 'column' as const, detail: source.kind === 'cte' ? 'CTE' : 'subquery', insert: quote(column) }))
+      return source.columns.filter(matches).map(column => ({ label: column, kind: 'column' as const, detail: i18n.t(source.kind === 'cte' ? 'completion.cte' : 'completion.subquery', { ns: 'oxequery' }), insert: quote(column) }))
     }
     const found = source?.kind === 'table' && source.table ? { schema: source.schema ?? 'public', table: source.table } : undefined
     // `FROM audit.` names a schema, not a table called audit.

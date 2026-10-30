@@ -33,6 +33,11 @@ export function registerOxeQueryMock(): void {
     columns: [{ name: 'id', type: 'int4' }, { name: 'name', type: 'text' }, { name: 'email', type: 'text' }],
     rows: [[1, 'alice', 'alice@example.com'], [2, 'bob', null], [3, 'carol', 'carol@example.com']], rowCount: 3, truncated: false, durationMs: 4
   }
+  /** A row with a jsonb document and a text[] column, for the cell viewers. */
+  const docs: SqlResult = {
+    columns: [{ name: 'id', type: 'int4' }, { name: 'payload', type: 'jsonb' }, { name: 'tags', type: '_text' }],
+    rows: [[1, '{"name":"alice","roles":["admin","dev"],"profile":{"city":"Recife","geo":{"lat":-8.05,"lng":-34.9}}}', '{admin,"dev ops",NULL}']], rowCount: 1, truncated: false, durationMs: 3
+  }
   const BIG_ROWS = 1200
   /** Rows from `offset` of a 1,200-row result; a paged run leaves a page id that says where the next page starts. */
   const bigPage = (offset: number, limit: number, paged: boolean): SqlResult => {
@@ -182,7 +187,7 @@ export function registerOxeQueryMock(): void {
       }
       case 'sql.schemas': return ok(['public', 'audit'])
       case 'sql.tables': return ok(input.schema === 'public' ? { tables: [{ schema: 'public', name: 'users', kind: 'table', approxRows: 3 }, { schema: 'public', name: 'orders', kind: 'table', approxRows: 10 }, { schema: 'public', name: 'active_users', kind: 'view' }, { schema: 'public', name: 'daily_totals', kind: 'materialized view' }], total: 4 } : { tables: [], total: 0 })
-      case 'sql.table': return ok({ columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true, position: 1 }, { name: 'name', type: 'text', nullable: false, primaryKey: false, position: 2 }], indexes: [{ name: 'users_pkey', definition: 'CREATE UNIQUE INDEX users_pkey ON users (id)', unique: true, primary: true }], foreignKeys: [], constraints: [{ name: 'users_pkey', kind: 'primary', definition: 'PRIMARY KEY (id)' }], properties: { kind: 'table', owner: 'oxe', sizeBytes: 16384, estimatedRows: 2 }, dependents: [{ kind: 'view', schema: 'public', name: 'active_users' }], privileges: [{ grantee: 'oxe', privilege: 'SELECT', grantable: true }] })
+      case 'sql.table': return ok({ columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true, position: 1 }, { name: 'name', type: 'text', nullable: false, primaryKey: false, position: 2 }], indexes: [{ name: 'users_pkey', definition: 'CREATE UNIQUE INDEX users_pkey ON users (id)', unique: true, primary: true }], foreignKeys: input.table === 'orders' ? [{ name: 'orders_user_fk', definition: 'FOREIGN KEY (user_id) REFERENCES users(id)' }] : [], constraints: [{ name: 'users_pkey', kind: 'primary', definition: 'PRIMARY KEY (id)' }], properties: { kind: 'table', owner: 'oxe', sizeBytes: 16384, estimatedRows: 2 }, dependents: [{ kind: 'view', schema: 'public', name: 'active_users' }], privileges: [{ grantee: 'oxe', privilege: 'SELECT', grantable: true }] })
       case 'sql.browse': return ok(users)
       // 1,200 rows read page by page, as a long SELECT is in the editor.
       case 'sql.more': return ok(bigPage(Number(String(input.pageId).split(':')[1]), Number(input.maxRows ?? 500), true))
@@ -195,6 +200,7 @@ export function registerOxeQueryMock(): void {
         if (/^\s*delete\s+from\s+\w+\s*;?\s*$/i.test(sql) && input.confirmed !== true) return fail('confirm', 'This statement is destructive and needs confirmation.', ['DELETE without a WHERE clause affects every row'])
         if (/^\s*selec\s/i.test(sql)) return fail('query', 'syntax error at or near "SELEC"')
         if (mutating) return ok({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 2, command: 'DELETE', affectedRows: 3 })
+        if (/\bfrom\s+docs\b/i.test(sql)) return ok(docs)
         if (/\bfrom\s+big\b/i.test(sql)) return ok(bigPage(0, Number(input.maxRows ?? 500), input.paged === true))
         return ok(users)
       }

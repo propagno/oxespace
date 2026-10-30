@@ -413,6 +413,15 @@
     "resize": "Redimensionar a coluna {{name}}",
     "openRow": "Abrir esta linha",
     "nullTitle": "NULL (sem valor)",
+    "filterScope": "Coluna do filtro",
+    "filterAll": "Todas as colunas",
+    "filterLabel": "Filtrar linhas carregadas",
+    "filterPlaceholder": "Filtrar linhas carregadas…",
+    "filterCount": "{{shown}} de {{total}} linhas carregadas",
+    "filterClear": "Limpar filtro",
+    "pin": "Fixar a coluna {{name}}",
+    "unpin": "Desafixar a coluna {{name}}",
+    "pinTitle": "Fixar à esquerda",
     "hiddenTitle_many": "{{count}} ocultas — mostrar todas",
     "showHidden_many": "Mostrar {{count}} colunas ocultas"
   },
@@ -698,10 +707,24 @@
       "in": "é um de"
     }
   },
+  "completion": {
+    "cte": "CTE",
+    "subquery": "subconsulta",
+    "foreignKey": "chave estrangeira {{name}}"
+  },
   "cell": {
     "label": "Célula",
     "row": "linha {{number}}",
-    "close": "Fechar visualizador de célula"
+    "close": "Fechar visualizador de célula",
+    "collapseAll": "Recolher tudo",
+    "expandAll": "Expandir tudo",
+    "collapseNode": "Recolher {{name}}",
+    "expandNode": "Expandir {{name}}",
+    "items_one": "{{count}} item",
+    "items_many": "{{count}} itens",
+    "items_other": "{{count}} itens",
+    "jsonLabel": "Documento JSON",
+    "arrayLabel": "Elementos do array"
   },
   "workbench": {
     "queryTitle": "Consulta {{number}}",

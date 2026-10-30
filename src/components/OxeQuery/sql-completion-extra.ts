@@ -3,6 +3,7 @@
  * and the PostgreSQL functions worth typing. Everything here works from the catalog cache and the statement
  * text; no query is ever run and no row data is involved.
  */
+import { i18n } from '../../i18n'
 import { parseForeignKey, type ForeignKeyRef, type ParsedStatement, type SqlSource } from './sql-statement'
 
 export interface ExtraSuggestion { label: string; kind: 'function' | 'cte' | 'join'; detail?: string; insert: string }
@@ -45,7 +46,7 @@ export function functionSuggestions(prefix: string): ExtraSuggestion[] {
 export function cteSuggestions(parsed: ParsedStatement, prefix: string): ExtraSuggestion[] {
   const needle = prefix.toLowerCase()
   return parsed.ctes.filter(cte => !needle || cte.name.toLowerCase().startsWith(needle))
-    .map(cte => ({ label: cte.name, kind: 'cte' as const, detail: 'CTE', insert: quote(cte.name) }))
+    .map(cte => ({ label: cte.name, kind: 'cte' as const, detail: i18n.t('completion.cte', { ns: 'oxequery' }), insert: quote(cte.name) }))
 }
 
 /** Where the cursor is relative to a JOIN: choosing the target, or writing its ON condition. */
@@ -100,7 +101,7 @@ export function joinTargetSuggestions(catalog: CatalogView, parsed: ParsedStatem
     for (const fk of catalog.foreignKeysOf(schema, source.table)) {
       const refSchema = fk.schema ?? schema
       const condition = (alias: string): string => fk.columns.map((column, index) => `${alias}.${quote(fk.refColumns[index] ?? 'id')} = ${source.key}.${quote(column)}`).join(' AND ')
-      if (!parsed.sources.some(other => sameRelation(other, refSchema, fk.table))) push(fk.table, refSchema, condition, `FK ${source.key}.${fk.columns.join(', ')}`)
+      if (!parsed.sources.some(other => sameRelation(other, refSchema, fk.table))) push(fk.table, refSchema, condition, i18n.t('completion.foreignKey', { ns: 'oxequery', name: `${source.key}.${fk.columns.join(', ')}` }))
     }
     // Tables elsewhere in the schema that reference this one.
     for (const candidate of catalog.tablesOf(schema)) {
@@ -108,7 +109,7 @@ export function joinTargetSuggestions(catalog: CatalogView, parsed: ParsedStatem
       for (const fk of catalog.foreignKeysOf(schema, candidate.name)) {
         if ((fk.schema ?? schema).toLowerCase() !== schema.toLowerCase() || fk.table.toLowerCase() !== source.table.toLowerCase()) continue
         const condition = (alias: string): string => fk.columns.map((column, index) => `${alias}.${quote(column)} = ${source.key}.${quote(fk.refColumns[index] ?? 'id')}`).join(' AND ')
-        push(candidate.name, schema, condition, `FK ${candidate.name}.${fk.columns.join(', ')}`)
+        push(candidate.name, schema, condition, i18n.t('completion.foreignKey', { ns: 'oxequery', name: `${candidate.name}.${fk.columns.join(', ')}` }))
       }
     }
   }
@@ -122,7 +123,7 @@ export function joinConditionSuggestions(catalog: CatalogView, parsed: ParsedSta
   const needle = prefix.toLowerCase()
   const out: ExtraSuggestion[] = []
   const targetSchema = target.schema ?? 'public'
-  const add = (text: string): void => { if (!needle || text.toLowerCase().startsWith(needle)) out.push({ label: text, kind: 'join', detail: 'FK', insert: text }) }
+  const add = (text: string): void => { if (!needle || text.toLowerCase().startsWith(needle)) out.push({ label: text, kind: 'join', detail: i18n.t('completion.foreignKey', { ns: 'oxequery', name: '' }).trim(), insert: text }) }
   for (const other of parsed.sources) {
     if (other.key === target.key || other.kind !== 'table' || !other.table) continue
     const otherSchema = other.schema ?? 'public'
