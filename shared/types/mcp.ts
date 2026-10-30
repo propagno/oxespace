@@ -24,12 +24,6 @@ export type McpServerConfig = McpStdioConfig | McpHttpConfig
  * trusts it again. Secrets never appear here, only what to tell the person.
  */
 export interface McpServerGuard {
-  /** The package a runner such as npx or uvx starts, when the config names one. */
-  package: string | null
-  /** The version written in the config, when it names an exact one. */
-  version: string | null
-  /** A package runner without an exact version: each start may run a different release. */
-  floating: boolean
   /** The tools and descriptions seen since trust are remembered, so a later change can be told. */
   toolsRemembered: boolean
   quarantine: { at: number; reasons: string[]; added: string[]; removed: string[]; changed: string[] } | null

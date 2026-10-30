@@ -72,7 +72,10 @@ describe('an MCP server whose tools change after it was trusted', () => {
     const server = add()
     await manager.test(server.id)
     say(tool('read'), tool('write'), tool('exec'))
-    expect((await manager.test(server.id)).guard!.quarantine).toMatchObject({ added: ['exec'] })
+    const flagged = await manager.test(server.id)
+    expect(flagged.guard!.quarantine).toMatchObject({ added: ['exec'] })
+    // What it says now stays readable, so the person can look before trusting it again.
+    expect(flagged.tools.map(item => item.name)).toEqual(['read', 'write', 'exec'])
     say(tool('read'), tool('write'))
     const other = add(true, 'other')
     await manager.test(other.id)

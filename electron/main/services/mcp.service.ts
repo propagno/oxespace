@@ -93,6 +93,8 @@ export class McpManager {
   /** Starts in flight, so a second click joins the first instead of killing a sign-in half way. */
   private readonly starting = new Map<string, Promise<McpToolDescriptor[]>>()
   private readonly tested = new Map<string, TestResult>()
+  /** The tools a quarantined server announced, for this run of the app. */
+  private readonly said = new Map<string, McpToolDescriptor[]>()
   private readonly emitHealth: (event: McpServerHealthEvent) => void
   private readonly configSync: McpConfigSync
 
@@ -202,6 +204,7 @@ export class McpManager {
     // If runtime is running, restart so changes take effect
     this.stopRuntime(input.id)
     this.tested.delete(input.id)
+    this.said.delete(input.id)
     this.syncFile(current.workspaceId)
     return this.get(input.id)!
   }
@@ -210,6 +213,7 @@ export class McpManager {
     const current = this.get(id)
     this.stopRuntime(id)
     this.tested.delete(id)
+    this.said.delete(id)
     this.db.prepare('DELETE FROM mcp_servers WHERE id = ?').run(id)
     if (current) this.syncFile(current.workspaceId)
   }
@@ -516,7 +520,13 @@ export class McpManager {
   private async verifyTools(server: McpServer, tools: McpToolDescriptor[]): Promise<void> {
     const { checkTools } = await import('./mcp-guard')
     const state = this.guardOf(server.id) ?? trustState(server.config, Date.now())
-    this.verify(server, checkTools(state, tools, Date.now()))
+    try {
+      this.verify(server, checkTools(state, tools, Date.now()))
+      this.said.delete(server.id)
+    } catch (err) {
+      this.said.set(server.id, tools)
+      throw err
+    }
   }
 
   private hydrateServer(server: McpServer): McpServer {
@@ -528,7 +538,10 @@ export class McpManager {
       return { ...server, health: 'starting' }
     }
     const tested = this.tested.get(server.id)
-    return tested ? { ...server, health: tested.health, healthMessage: tested.message, tools: tested.tools, testedAtMs: tested.at } : server
+    const hydrated = tested ? { ...server, health: tested.health, healthMessage: tested.message, tools: tested.tools, testedAtMs: tested.at } : server
+    // A quarantined server shows what it said, so the person can read it before trusting it again.
+    const said = server.guard?.quarantine ? this.said.get(server.id) : undefined
+    return said ? { ...hydrated, tools: said } : hydrated
   }
 
   private request<T>(runtime: RuntimeServer, method: string, params: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
@@ -599,7 +612,7 @@ function mapRow(row: McpServerRow): McpServer {
     config: JSON.parse(row.config_json) as McpServerConfig,
     enabled: row.enabled === 1,
     trusted: row.trusted === 1,
-    guard: summarizeGuard(parseGuard(row.guard_json), JSON.parse(row.config_json) as McpServerConfig),
+    guard: summarizeGuard(parseGuard(row.guard_json)),
     health: 'unknown',
     healthMessage: null,
     tools: [],

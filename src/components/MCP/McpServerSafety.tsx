@@ -1,6 +1,7 @@
 import { ShieldAlert, TriangleAlert } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { McpServer } from '../../../shared/types/mcp'
+import { launcherPackage } from '../../../shared/mcp-launcher'
 import { MCP_SCAN_KIND_LABEL, scanToolDescriptions } from '../../../shared/mcp-scan'
 
 /**
@@ -10,7 +11,8 @@ import { MCP_SCAN_KIND_LABEL, scanToolDescriptions } from '../../../shared/mcp-s
 export function McpServerSafety({ server }: { server: McpServer }): ReactElement | null {
   const findings = useMemo(() => scanToolDescriptions(server.tools), [server.tools])
   const quarantine = server.guard?.quarantine ?? null
-  const floating = server.trusted && server.guard?.floating === true
+  const launcher = launcherPackage(server.config)
+  const floating = server.trusted && launcher !== null && launcher.version === null
   if (!quarantine && findings.length === 0 && !floating) return null
   return (
     <div className="mcp-safety" data-testid="mcp-safety">
@@ -20,7 +22,7 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
           <div>
             <strong>Quarantined: it changed after you trusted it</strong>
             {quarantine.reasons.map((reason) => <p key={reason}>{reason}</p>)}
-            <p>It is not offered to agents and does not start. Read the tools below, then use Test to trust it again, or remove it.</p>
+            <p>It is not offered to agents and does not start. Read what it says now below, then use Test to trust it again, or remove it.</p>
           </div>
         </div>
       ) : null}
@@ -43,7 +45,7 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
           <TriangleAlert size={14} aria-hidden="true" />
           <div>
             <strong>No fixed version</strong>
-            <p>{`It starts ${server.guard?.package ?? 'a package'} without an exact version, so a new release changes what runs. Add one (for example @1.2.3) to the arguments.`}</p>
+            <p>{`It starts ${launcher?.package ?? 'a package'} without an exact version, so a new release changes what runs. Add one (for example @1.2.3) to the arguments.`}</p>
           </div>
         </div>
       ) : null}

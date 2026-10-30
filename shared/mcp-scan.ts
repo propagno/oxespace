@@ -48,7 +48,8 @@ function visible(text: string): string {
 }
 
 function excerpt(text: string, index: number, length: number): string {
-  const from = Math.max(0, index - 10)
+  // From the start of the word before the match, so the excerpt does not begin in the middle of one.
+  const from = Math.max(0, text.lastIndexOf(' ', Math.max(0, index - 12)) + 1)
   const piece = visible(text.slice(from, index + Math.min(length, MAX_EXCERPT))).replace(/\s+/g, ' ').trim()
   return piece.length > MAX_EXCERPT ? `${piece.slice(0, MAX_EXCERPT)}…` : piece
 }

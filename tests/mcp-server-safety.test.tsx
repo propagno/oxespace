@@ -8,7 +8,7 @@ afterEach(cleanup)
 const server = (patch: Partial<McpServer> = {}): McpServer => ({
   id: 's', workspaceId: null, name: 'docs', transport: 'stdio', config: { transport: 'stdio', command: 'npx', args: ['-y', 'pkg@1.2.3'], env: {} },
   enabled: true, trusted: true, health: 'healthy', healthMessage: null, tools: [], createdAtMs: 0, updatedAtMs: 0,
-  guard: { package: 'pkg', version: '1.2.3', floating: false, toolsRemembered: true, quarantine: null }, ...patch
+  guard: { toolsRemembered: true, quarantine: null }, ...patch
 })
 
 describe('McpServerSafety', () => {
@@ -31,7 +31,7 @@ describe('McpServerSafety', () => {
   })
 
   it('explains a quarantine and what changed, and says it is not offered to agents', () => {
-    render(<McpServerSafety server={server({ trusted: false, guard: { package: null, version: null, floating: false, toolsRemembered: true, quarantine: { at: 1, reasons: ['The description or inputs of "read" changed after you trusted it.'], added: [], removed: [], changed: ['read'] } } })} />)
+    render(<McpServerSafety server={server({ trusted: false, guard: { toolsRemembered: true, quarantine: { at: 1, reasons: ['The description or inputs of "read" changed after you trusted it.'], added: [], removed: [], changed: ['read'] } } })} />)
     const box = screen.getByTestId('mcp-quarantine')
     expect(box).toHaveAttribute('role', 'alert')
     expect(box).toHaveTextContent('"read" changed')
@@ -39,10 +39,10 @@ describe('McpServerSafety', () => {
   })
 
   it('says a trusted server runs a floating version, but not an untrusted one or a pinned one', () => {
-    const floating = { package: 'pkg', version: null, floating: true, toolsRemembered: false, quarantine: null }
-    render(<McpServerSafety server={server({ guard: floating })} />)
+    const config = { transport: 'stdio' as const, command: 'npx', args: ['-y', 'pkg'], env: {} }
+    render(<McpServerSafety server={server({ config })} />)
     expect(screen.getByTestId('mcp-floating-version')).toHaveTextContent('pkg')
     cleanup()
-    expect(render(<McpServerSafety server={server({ guard: floating, trusted: false })} />).container).toBeEmptyDOMElement()
+    expect(render(<McpServerSafety server={server({ config, trusted: false })} />).container).toBeEmptyDOMElement()
   })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { checkConfig, checkTools, configHash, diffTools, launcherPackage, parseGuard, printTools, summarizeGuard, trustState } from '../../electron/main/services/mcp-guard'
+import { checkConfig, checkTools, configHash, diffTools, parseGuard, printTools, summarizeGuard, trustState } from '../../electron/main/services/mcp-guard'
+import { launcherPackage } from '../../shared/mcp-launcher'
 import type { McpServerConfig, McpToolDescriptor } from '../../shared/types/mcp'
 
 const stdio = (command: string, args: string[], env: Record<string, string> = {}): McpServerConfig => ({ transport: 'stdio', command, args, env })
@@ -82,16 +83,13 @@ describe('launcher version', () => {
   it('treats latest, ranges and no version as floating', () => {
     for (const spec of ['pkg', 'pkg@latest', 'pkg@^1.2.0', 'pkg@1']) {
       expect(launcherPackage(stdio('npx', ['-y', spec]))?.version, spec).toBeNull()
-      expect(summarizeGuard(null, stdio('npx', ['-y', spec])).floating, spec).toBe(true)
     }
-    expect(summarizeGuard(null, stdio('npx', ['-y', 'pkg@1.2.3'])).floating).toBe(false)
   })
 
   it('has nothing to say about a local program or a URL', () => {
     expect(launcherPackage(stdio('node', ['server.js']))).toBeNull()
     expect(launcherPackage(stdio('/usr/bin/my-server', []))).toBeNull()
     expect(launcherPackage({ transport: 'http', url: 'https://x.example', headers: {} })).toBeNull()
-    expect(summarizeGuard(null, stdio('node', ['server.js'])).floating).toBe(false)
   })
 })
 
@@ -107,7 +105,7 @@ describe('guard state', () => {
   it('tells the panel about a quarantine without any hash', () => {
     const remembered = checkTools(trustState(stdio('x', []), 1), [tool('a')], 2).state
     const verdict = checkTools(remembered, [tool('b')], 3)
-    const summary = summarizeGuard(verdict.state, stdio('x', []))
+    const summary = summarizeGuard(verdict.state)
     expect(summary.quarantine).toMatchObject({ added: ['b'], removed: ['a'] })
     expect(JSON.stringify(summary)).not.toMatch(/[0-9a-f]{16}/)
   })
