@@ -59,6 +59,8 @@ describe('an MCP server whose tools change after it was trusted', () => {
     expect(result).toMatchObject({ health: 'unhealthy', trusted: false })
     expect(result.healthMessage).toMatch(/Quarantined: The description or inputs of "read" changed/)
     expect(result.guard!.quarantine).toMatchObject({ changed: ['read'], added: [], removed: [] })
+    // Stored with the record (guard_json) and read back: the window words the code, older readers keep the reason.
+    expect(manager.get(server.id)!.guard!.quarantine!.codes).toEqual([{ code: 'mcp.quarantine.changed', params: { tools: ['"read"'] } }])
     expect(Object.keys(mcpJson())).not.toContain('fake')
     expect(events.at(-1)).toMatchObject({ serverId: server.id, status: 'unhealthy' })
     await expect(manager.start(server.id)).rejects.toThrow(/Quarantined/)
@@ -122,6 +124,7 @@ describe('an MCP server whose command changed after it was trusted', () => {
     const edited = manager.update({ id: server.id, config: { transport: 'stdio', command: process.execPath, args: [SERVER, '--evil'], env: { FAKE_MCP_TOOLS: toolsFile } } })
     expect(edited.trusted).toBe(false)
     expect(edited.guard!.quarantine!.reasons[0]).toMatch(/command, arguments, environment or URL changed/)
+    expect(edited.guard!.quarantine!.codes).toEqual([{ code: 'mcp.quarantine.configChanged', params: {} }])
     expect(Object.keys(mcpJson())).not.toContain('fake')
   })
 
