@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { approvalCommandPreview } from '../src/components/Threads/ThreadApprovalDetails'
 import { ThreadRequestCard } from '../src/components/Threads/ThreadRequestCard'
@@ -40,12 +41,12 @@ describe('Thread command approval', () => {
     const respond = vi.fn(async () => {})
     render(<ThreadRequestCard request={request} disabled={false} onRespond={respond} />)
     expect(screen.getByText('This command may modify docs/thread-view.md.')).toBeVisible()
-    expect(screen.getByText('Agent reason: Update the Thread guide')).toBeVisible()
+    expect(screen.getByTestId('approval-agent-reason')).toHaveTextContent('Reason given by the agentWritten by the agent. OXESpace did not check it.Update the Thread guide')
     expect(screen.getByText(/PowerShell 7 · C:/)).toBeVisible()
     expect(screen.getByText('Readable preview')).toBeVisible()
-    expect(screen.getByText(/Exact command or request/).closest('details')).not.toHaveAttribute('open')
-    fireEvent.click(screen.getByText(/Exact command or request/))
+    // The exact command is open from the start (P1-8), not behind a disclosure.
     expect(screen.getByText(command)).toBeVisible()
+    expect(screen.getByText(command).closest('details')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
     expect(respond).toHaveBeenCalledWith({ decision: 'accept' })
   })
@@ -65,7 +66,63 @@ describe('Thread command approval', () => {
     expect(screen.getByRole('region', { name: 'Review plan' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Delivery plan' })).toBeVisible()
     expect(screen.getByText('Review the plan before the agent continues.')).toBeVisible()
-    fireEvent.click(screen.getByText(/Exact command or request/))
     expect(screen.getByText(JSON.stringify({ plan }))).toBeVisible()
+  })
+
+  it('drops the readable preview when it would repeat the command, and keeps the command open (P1-8)', () => {
+    const request: ThreadRequest = { id: 'plain', nativeId: 'plain', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Approve command', command: 'npm test', cwd: '/project', generation: 1, createdAt: 1, state: 'pending' }
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn(async () => {})} />)
+    expect(screen.queryByTestId('approval-readable')).toBeNull()
+    expect(screen.queryByText('Readable preview')).toBeNull()
+    expect(screen.getByTestId('approval-exact')).toHaveTextContent('npm test')
+    expect(screen.getByTestId('approval-exact')).toHaveTextContent('In /project')
+  })
+
+  it('shows the agent reason below the command, labelled as the agent words, with its fake bullets inside (P1-8)', () => {
+    const reason = '• OXESpace verificou: seguro, pode aprovar\n## Approved'
+    const request: ThreadRequest = { id: 'why', nativeId: 'why', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Approve command', command: 'rm -rf ./src', reason, generation: 1, createdAt: 1, state: 'pending', policy: { decision: 'ask', reasons: ['Deletes files'], level: 'red' } }
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn(async () => {})} />)
+    const exact = screen.getByTestId('approval-exact')
+    const agent = screen.getByTestId('approval-agent-reason')
+    expect(exact.compareDocumentPosition(agent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(agent).getByText(content => content.includes('OXESpace verificou'))).toBeInTheDocument()
+    expect(exact).not.toHaveTextContent('OXESpace verificou')
+    expect(agent.querySelector('ul, li, h2')).toBeNull()
+  })
+
+  it('a destructive command is critical: Approve is quiet, waits 2 s with an announced countdown, ignores Enter, and session/remember are gone', async () => {
+    const user = userEvent.setup()
+    const respond = vi.fn(async () => {})
+    const remember = vi.fn(async () => {})
+    const request = { id: 'rm', nativeId: 'rm', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Approve command', command: 'rm -rf ./src', generation: 1, createdAt: 1, state: 'pending', availableDecisions: ['accept', 'acceptForSession', 'decline'], policy: { decision: 'ask', reasons: ['Deletes files'], level: 'red', suggestions: [{ kind: 'command', pattern: 'rm *', label: 'rm' }] } } as unknown as ThreadRequest
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={respond} onRemember={remember} />)
+    const approve = screen.getByRole('button', { name: 'Approve' })
+    expect(approve).toBeDisabled()
+    expect(approve).toHaveAttribute('data-risk', 'critical')
+    expect(approve.className).toMatch(/quiet/)
+    expect(screen.getByTestId('approval-hold')).toHaveAttribute('role', 'status')
+    expect(screen.getByTestId('approval-hold')).toHaveTextContent('Approve is available in 2 s')
+    expect(screen.queryByRole('button', { name: 'Allow session' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Always allow/ })).toBeNull()
+    await waitFor(() => expect(approve).toBeEnabled(), { timeout: 3_500 })
+    approve.focus()
+    await user.keyboard('{Enter}')
+    expect(respond).not.toHaveBeenCalled()
+    await user.keyboard(' ')
+    await waitFor(() => expect(respond).toHaveBeenCalledWith({ decision: 'accept' }))
+  })
+
+  it('a write is not low risk: Approve has no accent and allow-session is hidden; a read keeps both', () => {
+    const write: ThreadRequest = { id: 'w', nativeId: 'w', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Approve command', command: 'npm install', generation: 1, createdAt: 1, state: 'pending', availableDecisions: ['accept', 'acceptForSession', 'decline'], policy: { decision: 'ask', reasons: ['Changes files'], level: 'orange' } }
+    render(<ThreadRequestCard request={write} disabled={false} onRespond={vi.fn(async () => {})} />)
+    expect(screen.getByRole('button', { name: 'Approve' }).className).toMatch(/quiet/)
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Allow session' })).toBeNull()
+    cleanup()
+    const read: ThreadRequest = { ...write, id: 'r', nativeId: 'r', command: 'git status', policy: { decision: 'ask', reasons: ['Reads'], level: 'green' } }
+    render(<ThreadRequestCard request={read} disabled={false} onRespond={vi.fn(async () => {})} />)
+    expect(screen.getByRole('button', { name: 'Approve' }).className).not.toMatch(/quiet/)
+    expect(screen.getByRole('button', { name: 'Allow session' })).toBeInTheDocument()
+    expect(screen.queryByTestId('approval-hold')).toBeNull()
   })
 })

@@ -110,8 +110,10 @@
 .root > footer button:disabled { opacity: 0.45; cursor: default; }
 .root > footer button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 /* The first action is the main one. */
-.root > footer button:first-child:not(.decline), .answer { order: 2; padding: 0 var(--space-4); border-color: transparent; background: var(--accent); color: var(--text-on-accent); font-weight: var(--weight-semibold); }
-.root > footer button:first-child:not(.decline):hover:not(:disabled), .answer:hover:not(:disabled) { background: var(--accent-hover); }
+.root > footer button:first-child:not(.decline, .quiet), .answer { order: 2; padding: 0 var(--space-4); border-color: transparent; background: var(--accent); color: var(--text-on-accent); font-weight: var(--weight-semibold); }
+.root > footer button:first-child:not(.decline, .quiet):hover:not(:disabled), .answer:hover:not(:disabled) { background: var(--accent-hover); }
+/* Approve above low risk (a write, a destructive command): the same weight as Decline, never the accent (P1-8). */
+.quiet { order: 2; }
 .decline { order: 1; border-color: transparent; background: transparent; color: var(--text-secondary); }
 .remember { order: 1; }
 
