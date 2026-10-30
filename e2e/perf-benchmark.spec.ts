@@ -877,3 +877,123 @@ test('memory: main process with 10 Threads open', async () => {
     await killApp(app, pid)
   }
 })
+
+/**
+ * F16: six agents in full-screen TUIs, one focused. Each pane runs a stand-in TUI that repaints its whole
+ * alternate screen every 16 ms (the worst an agent spinner and status line do). Before presence, the window
+ * drew all six at 60 fps: renderer 21% + GPU 20% of one core. With presence the focused pane is drawn every
+ * 16 ms and the others every 100 ms, and only the budgeted panes hold WebGL. CPU is the time each Electron
+ * process spent over the window (app.getAppMetrics cumulativeCPUUsage), as a share of one core; the PTY
+ * processes are not Electron's and are left out, and the result is the median of five 10 s windows (single
+ * windows vary by tens of points).
+ * Gate for 1.4, recorded scenario: main + renderer + GPU at least 25% below the base before presence (80.5% of one
+ * core, median on the reference machine), and the focused pane keeps keystroke→paint p95 <= 50 ms. The
+ * 25%-of-one-core goal belongs to R1 (terminal state in Rust).
+ */
+const TUI_PANES = 6
+const TUI_CPU_WINDOW_MS = 10_000
+const TUI_CPU_BASE_PCT = 80.5
+const TUI_CPU_BUDGET_PCT = Math.round(TUI_CPU_BASE_PCT * 0.75 * 10) / 10
+const TUI_CPU_WINDOWS = 5
+// Same bar as typing in a 5,000-event Thread: 50 ms is three dropped frames at 60 Hz.
+const FOCUSED_KEY_BUDGET_MS = 50
+// Shell-neutral (PowerShell and bash): no $, no !, no double quotes inside; node turns the escapes into bytes.
+const FAKE_TUI = String.raw`node -e "process.stdout.write('\x1b[?1049h');let n=0;setInterval(()=>{n++;let s='\x1b[H';for(let r=0;r<40;r++)s+=('row '+r+' frame '+n+' ').padEnd(110,'=')+'\r\n';process.stdout.write(s)},16)"`
+
+async function benchTuis(scenario: string, command: (index: number) => string, budgetPct: number): Promise<void> {
+  const { app, page, pid } = await launchApp({ mockNative: false })
+  try {
+    // OXESPACE_BENCH_WEBGL=<n> compares WebGL budgets (src/components/Terminal/webglBudget.ts) without a build.
+    if (process.env.OXESPACE_BENCH_WEBGL) {
+      await page.evaluate(n => localStorage.setItem('oxe.terminal.webglPanes', n), process.env.OXESPACE_BENCH_WEBGL)
+      await page.reload()
+      await page.getByTestId('btn-new-workspace').waitFor()
+    }
+    const root = join(tmpdir(), `oxe-tui-${Date.now()}`, 'repo')
+    mkdirSync(root, { recursive: true })
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(root)
+    await page.getByTestId(`wizard-layout-card-${TUI_PANES}`).click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.getByTestId('terminal-status-label').filter({ hasText: 'running' })).toHaveCount(TUI_PANES, { timeout: 60_000 })
+    const panes = page.getByTestId('terminal-pane')
+    for (let index = 0; index < TUI_PANES; index++) {
+      await panes.nth(index).locator('.terminal-view').click()
+      await page.keyboard.type(command(index))
+      await page.keyboard.press('Enter')
+    }
+    // One focused pane, in a focused window (an unfocused window draws its focused pane at the visible pace).
+    await panes.first().locator('.terminal-view').click()
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.focus())
+    await page.waitForTimeout(5_000)
+
+    const cpuSeconds = (): Promise<Array<{ pid: number; type: string; seconds: number }>> => app.evaluate(({ app: electronApp }) =>
+      electronApp.getAppMetrics().map(metric => ({ pid: metric.pid, type: metric.type, seconds: metric.cpu.cumulativeCPUUsage ?? NaN })))
+    const webglPanes = await page.evaluate(() => document.querySelectorAll('.xterm-screen canvas.xterm-webgl, .xterm-screen > canvas:not(.xterm-link-layer)').length)
+    const totals: number[] = []
+    for (let run = 1; run <= TUI_CPU_WINDOWS; run++) {
+      const start = await cpuSeconds()
+      const startedAt = performance.now()
+      await page.waitForTimeout(TUI_CPU_WINDOW_MS)
+      const end = await cpuSeconds()
+      const elapsedSeconds = (performance.now() - startedAt) / 1000
+      const byType: Record<string, number> = {}
+      for (const metric of end) {
+        const before = start.find(item => item.pid === metric.pid)
+        if (!before || !Number.isFinite(metric.seconds) || !Number.isFinite(before.seconds)) continue
+        byType[metric.type] = (byType[metric.type] ?? 0) + (metric.seconds - before.seconds) / elapsedSeconds * 100
+      }
+      expect(Object.keys(byType).length, 'Electron reports cumulative CPU time per process').toBeGreaterThan(0)
+      const total = (byType.Browser ?? 0) + (byType.Tab ?? 0) + (byType.GPU ?? 0)
+      totals.push(total)
+      console.log(
+        `[RESULT] terminals: ${scenario.padEnd(32)} ${run}/${TUI_CPU_WINDOWS} main=${(byType.Browser ?? 0).toFixed(1)}% renderer=${(byType.Tab ?? 0).toFixed(1)}% ` +
+        `gpu=${(byType.GPU ?? 0).toFixed(1)}% total=${total.toFixed(1)}% of one core over ${elapsedSeconds.toFixed(1)}s · webglPanes=${webglPanes} · ${JSON.stringify(byType)}`
+      )
+    }
+    const counted = [...totals].sort((a, b) => a - b)[Math.floor(totals.length / 2)]
+    console.log(`[RESULT] terminals: ${scenario.padEnd(32)} median=${counted.toFixed(1)}% of one core (budget ${budgetPct}%)`)
+    // The focused pane must stay fluid while the others draw: key to the second frame painted after it (the echo).
+    const input = panes.first().locator('textarea.xterm-helper-textarea')
+    await input.evaluate((field) => {
+      const samples: number[] = []
+      ;(window as unknown as { __keySamples: number[] }).__keySamples = samples
+      // On the window, in the capture phase: xterm handles and stops most keys on its textarea.
+      window.addEventListener('keydown', (event) => {
+        if (event.target !== field) return
+        const started = performance.now()
+        requestAnimationFrame(() => requestAnimationFrame(() => samples.push(performance.now() - started)))
+      }, true)
+    })
+    await input.focus()
+    await page.keyboard.type('typing while five agents draw', { delay: 40 })
+    await page.waitForTimeout(100)
+    const keys = await page.evaluate(() => (window as unknown as { __keySamples: number[] }).__keySamples)
+    report(`terminals: ${scenario}, focused keystroke→paint`, keys)
+    if (ENFORCE_BUDGETS) {
+      expect(counted, `main + renderer + GPU, ${scenario}: ${counted.toFixed(1)}% of one core exceeded ${budgetPct}%`).toBeLessThanOrEqual(budgetPct)
+      expect(stats(keys).p95, `focused pane keystroke→paint p95, ${scenario}`).toBeLessThanOrEqual(FOCUSED_KEY_BUDGET_MS)
+    }
+  } finally {
+    await killApp(app, pid)
+  }
+}
+
+// The main scenario: what real agent CLIs draw (Claude Code answering, Codex starting up), recorded with
+// scripts/capture-tui.cjs in a test project and played back at its own pace, three panes each.
+const RECORDINGS = ['tui-claude.jsonl', 'tui-codex.jsonl'].map(name => join(process.cwd(), 'e2e', 'fixtures', name))
+const REPLAY = (index: number): string => `node ${join(process.cwd(), 'scripts', 'replay-tui.cjs')} ${RECORDINGS[index % RECORDINGS.length]}`
+
+test('terminals: 6 recorded agent TUIs, 1 focused, CPU', async () => {
+  test.setTimeout(240_000)
+  await benchTuis('6 recorded agent TUIs, 1 focused', REPLAY, TUI_CPU_BUDGET_PCT)
+})
+
+// The worst case: every pane redraws its whole screen every 16 ms. A regression gate, not a target: no worse than
+// before pane presence (106.7% of one core on the reference machine; 103.7% with it). Its 64% target belongs to R1.
+const SYNTHETIC_BUDGET_PCT = 106.7
+
+test('terminals: 6 synthetic full-screen TUIs, 1 focused, CPU (worst case)', async () => {
+  test.setTimeout(240_000)
+  await benchTuis('6 synthetic TUIs, 1 focused', () => FAKE_TUI, SYNTHETIC_BUDGET_PCT)
+})

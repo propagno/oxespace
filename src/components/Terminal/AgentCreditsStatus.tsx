@@ -1,8 +1,9 @@
 import { Bot, Sparkles } from 'lucide-react'
-import { useEffect, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
+import { useStatusTicker } from '../../hooks/useStatusTicker'
 import { ViewportTooltip } from '../common/ViewportTooltip'
 import { formatDate } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
@@ -24,16 +25,8 @@ export function AgentCreditsStatus({ provider }: { provider: AgentProvider }): R
   const snapshot = useAgentCreditsStore((s) => s.byProvider[provider])
   const refresh = useAgentCreditsStore((s) => s.refresh)
 
-  useEffect(() => {
-    void refresh(provider)
-    const onFocus = (): void => { void refresh(provider) }
-    window.addEventListener('focus', onFocus)
-    const id = window.setInterval(() => void refresh(provider), REFRESH_INTERVAL_MS)
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      window.clearInterval(id)
-    }
-  }, [refresh, provider])
+  // One refresh per provider for the whole window, however many panes show it.
+  useStatusTicker(`agent-credits:${provider}`, REFRESH_INTERVAL_MS, () => void refresh(provider))
 
   if (!snapshot || !snapshot.available || !snapshot.display) return null
 

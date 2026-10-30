@@ -2,8 +2,6 @@ import { FitAddon } from '@xterm/addon-fit'
 import { useColorMode } from '../../design/useColorMode'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
-import type { WebglAddon } from '@xterm/addon-webgl'
-import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -13,7 +11,10 @@ import { useTranslation } from 'react-i18next'
 import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ipc'
-import { MAX_WEBGL_CONTEXTS } from './webglBudget'
+import { webglPaneBudget } from './webglBudget'
+import { createLazyWebglRenderer } from './lazyWebglRenderer'
+import { useTerminalPresence } from './useTerminalPresence'
+import { resendPanePresence } from './terminalPresence'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
@@ -22,11 +23,6 @@ import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
-
-// Browsers cap WebGL contexts per tab (Chrome: 16). When exceeded, the oldest
-// context is lost, unexpectedly breaking older terminals. Shared with the MRU
-// trim in App.tsx, which budgets mounted panes against the same limit.
-let activeWebglContexts = 0
 
 // readAgentPreview only needs the most recent agent line. Cap how far back it
 // scans so it stays O(1) regardless of scrollback depth — without this it walks
@@ -186,6 +182,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
   onExitRef.current = onExit
   onInputRef.current = onInput
   onResizeRef.current = onResize
+  // Thread's native CLI is not a Code pane: its presence only picks its renderer, main never hears it.
+  const { presence, presenceRef } = useTerminalPresence({ paneId, workspaceId, hostRef, report: !transport })
 
   useEffect(() => {
     if (!hostRef.current) return
@@ -219,92 +217,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
     terminal.open(hostRef.current)
 
-    // GPU-accelerated renderer. The default DOM renderer repaints every visible
-    // row each frame and degrades badly with large scrollback (and several open
-    // panes), which is what makes the terminal — and selection/copy — feel
-    // sluggish "after a while of use". WebGL offloads that to the GPU.
-    //
-    // In GPU-less environments (corporate VMs, RDP, some VPN/remote desktops)
-    // WebGL is unavailable or unstable. The @xterm/addon-webgl failure surfaces
-    // ASYNCHRONOUSLY (render tick / context loss), so a synchronous try/catch
-    // around loadAddon can't contain it — the classic "Cannot read properties
-    // of undefined (reading '_isDisposed')" then escapes and (without a boundary)
-    // blanks the whole app. So we PREFLIGHT a real WebGL2 context first and only
-    // load the addon when it actually works; otherwise we stay on the DOM
-    // renderer. Disposal is also guarded so teardown can never throw.
-    let webglAddon: WebglAddon | null = null
-    let webglContextCounted = false
-    // A pane in a hidden workspace (or while Thread/OxeQuery is showing) paints nothing, yet each WebGL
-    // renderer holds a glyph atlas and framebuffers in the GPU process. Hidden panes give theirs back and
-    // rebuild it when revealed; the scrollback lives in xterm's buffer, not the renderer.
-    const workspaceHost = hostRef.current?.closest('.workspace-host') ?? null
-    const isHidden = (): boolean => workspaceHost?.classList.contains('workspace-host-hidden') ?? false
-    const releaseWebgl = (): void => {
-      const addon = webglAddon
-      webglAddon = null
-      try { addon?.dispose() } catch { /* already torn down */ }
-      if (webglContextCounted) { activeWebglContexts--; webglContextCounted = false }
-    }
-    const loadWebgl = (): void => {
-    if (webglAddon) return
-    if (activeWebglContexts >= MAX_WEBGL_CONTEXTS) {
-      console.warn(`[OXESpace] WebGL context limit reached (${MAX_WEBGL_CONTEXTS}), using DOM renderer`)
-    } else if (supportsWebgl2() && !loadedWebglAddon()) {
-      // The pane may be gone or hidden by the time the addon arrives; loadWebgl then does nothing or waits.
-      loadWebglAddon()
-        .then(() => {
-          if (disposed || isHidden() || webglAddon) return
-          loadWebgl()
-          try { terminal.refresh(0, terminal.rows - 1) } catch { /* disposed */ }
-        })
-        .catch((err: unknown) => { console.warn('[OXESpace] WebGL renderer did not load, using DOM renderer', err) })
-    } else if (supportsWebgl2()) {
-      try {
-        const WebglAddonClass = loadedWebglAddon()!
-        const addon = new WebglAddonClass()
-        addon.onContextLoss(() => {
-          try { addon.dispose() } catch { /* already torn down */ }
-          if (webglAddon === addon) {
-             webglAddon = null
-             if (webglContextCounted) {
-               activeWebglContexts--
-               webglContextCounted = false
-             }
-             
-             // The WebGL canvas has just been removed. We need to force xterm
-             // to fall back to the DOM renderer immediately, otherwise the
-             // terminal stays completely blank.
-             setTimeout(() => {
-               try {
-                 const t = terminalRef.current
-                 if (t) {
-                   // Re-apply a cloned theme to trigger xterm's DOM-renderer
-                   // color rebuild without a no-op self-assignment.
-                   t.options.theme = { ...(t.options.theme ?? {}) }
-                   t.refresh(0, t.rows - 1)
-                 }
-               } catch { /* ignore if already unmounted */ }
-             }, 50)
-          }
-        })
-        terminal.loadAddon(addon)
-        webglAddon = addon
-        activeWebglContexts++
-        webglContextCounted = true
-      } catch (err) {
-        console.warn('[OXESpace] WebGL renderer unavailable, using DOM renderer', err)
-        webglAddon = null
-      }
-    } else {
-      console.warn('[OXESpace] WebGL2 not available, using DOM renderer')
-    }
-    }
-    if (!isHidden()) loadWebgl()
-    const visibilityObserver = workspaceHost ? new MutationObserver(() => {
-      if (isHidden()) { releaseWebgl(); return }
-      if (!webglAddon) { loadWebgl(); try { terminal.refresh(0, terminal.rows - 1) } catch { /* disposed */ } }
-    }) : null
-    visibilityObserver?.observe(workspaceHost!, { attributes: true, attributeFilter: ['class'] })
+    // WebGL for the panes the person sees most, the focused one first (F16); the rest draw with the DOM
+    // renderer, and a hidden pane gives its GPU context back. See webglBudget.ts and webglRenderer.ts.
+    const webgl = createLazyWebglRenderer(terminal)
+    const unregisterWebgl = webglPaneBudget.join(paneId, presenceRef.current, (granted) => webgl.setEnabled(granted))
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
     // Vite-bundled dev builds the proposed-API check throws even with
     // allowProposedApi: true (xterm exports get duplicated across module
@@ -668,9 +584,17 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     let attachPending = true
     let disposed = false
     const queuedWhileAttaching: string[] = []
+    // Main keeps presence only for a session it has. A view that attached before its session
+    // existed says it again on the first output, which is when the session is there.
+    let presenceSynced = false
+    const syncPresence = (): void => {
+      presenceSynced = true
+      if (!transport) resendPanePresence(paneId)
+    }
 
     const bridge = transport ?? window.oxe.terminal
     const unsubscribeData = bridge.onData(paneId, (event) => {
+      if (!presenceSynced) syncPresence()
       if (attachPending) {
         queuedWhileAttaching.push(event.data)
         return
@@ -723,6 +647,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
         // Main could not answer — fall through and render as a fresh view.
       }
       if (disposed) return
+      if (attached?.running) syncPresence()
 
       if (attached?.running || attached?.exit) {
         // The buffer we are restoring may be missing its head, so start from a
@@ -767,7 +692,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       unsubscribeData()
       unsubscribeExit()
       resizeObserver.disconnect()
-      visibilityObserver?.disconnect()
       dataDisposable.dispose()
       selectionDisposable.dispose()
       osc52Disposable.dispose()
@@ -777,16 +701,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       window.removeEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
       window.removeEventListener('oxe:workspace-activated', handleWorkspaceActivated)
       window.removeEventListener(UI_SCALE_EVENT, handleUiScale)
-      try { 
-        if (webglAddon) {
-          webglAddon.dispose()
-          webglAddon = null
-        }
-      } catch { /* WebGL addon teardown raced — ignore */ }
-      if (webglContextCounted) {
-        activeWebglContexts--
-        webglContextCounted = false
-      }
+      unregisterWebgl()
+      webgl.dispose()
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       hostRef.current?.removeEventListener('copy', handleCopy, { capture: true })
       if (usesHostWheelFallback) {
@@ -799,7 +715,21 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [paneId, workspaceId, transport])
+  }, [paneId, workspaceId, transport, presenceRef])
+
+  // Presence picks the renderer (F16). A pane coming back from hidden is sent what it missed by the
+  // main process; refit it, since its box may have changed while nothing was drawn.
+  const lastPresenceRef = useRef(presence)
+  useEffect(() => {
+    // The ref, not the rendered value: on mount the hook has already read the DOM this render has not seen.
+    const current = presenceRef.current
+    const previous = lastPresenceRef.current
+    lastPresenceRef.current = current
+    webglPaneBudget.setPresence(paneId, current)
+    if (previous !== 'hidden' || current === 'hidden') return
+    const frame = window.requestAnimationFrame(() => refitRef.current?.())
+    return () => window.cancelAnimationFrame(frame)
+  }, [paneId, presence, presenceRef])
 
   const colorMode = useColorMode()
   // Apply prefs + theme to the live terminal without recreating it. Font/cursor
@@ -818,7 +748,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     term.options.lineHeight = prefs.lineHeight
     term.options.letterSpacing = prefs.letterSpacing
     term.options.cursorStyle = prefs.cursorStyle
-    term.options.cursorBlink = prefs.cursorBlink
+    term.options.cursorBlink = prefs.cursorBlink && presenceRef.current === 'focused'
     term.options.scrollback = prefs.scrollback
 
     const raf = window.requestAnimationFrame(() => {
@@ -849,6 +779,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     prefs.scrollback,
     prefs.backgroundOpacity
   ])
+
+  // Only the pane being typed in blinks its cursor: a blink is a repaint every half second in every visible pane.
+  useEffect(() => {
+    const term = terminalRef.current
+    if (term) term.options.cursorBlink = prefs.cursorBlink && presence === 'focused'
+  }, [presence, prefs.cursorBlink])
 
   useEffect(() => {
     if (isRunning) terminalRef.current?.focus()

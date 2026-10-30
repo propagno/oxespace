@@ -264,7 +264,7 @@ export default defineConfig({
             if (id.includes('vite/preload-helper') || id.includes('commonjsHelpers')) return 'vendor'
             if (!id.includes('node_modules')) return undefined
             if (id.includes('monaco-editor')) return 'monaco'
-            // The WebGL addon loads on first use (Terminal/TerminalView.tsx), so it stays out of the boot chunk.
+            // The WebGL addon loads on first use (Terminal/lazyWebglRenderer.ts), so it stays out of the boot chunk.
             if (id.includes('@xterm/addon-webgl')) return 'xterm-webgl'
             if (id.includes('@xterm')) return 'xterm'
             // Brand marks for the MCP catalog, which loads on demand; the boot path must not carry them.

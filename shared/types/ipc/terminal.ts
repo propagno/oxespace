@@ -106,3 +106,13 @@ export interface UpdatePaneNameInput {
   paneId: string
   displayName: string | null
 }
+
+/**
+ * How much the person sees of a pane (B2.3). `focused` draws at 16 ms, `visible` at 100 ms, and `hidden` draws nothing:
+ * output stays in the pane's ring buffer and the view gets it when it attaches again. A pane never told is `visible`;
+ * a `focused` pane is drawn at the `visible` pace while the app window is not focused. Status, activity, notifications
+ * and "waiting for you" keep working whatever the presence.
+ */
+export const TERMINAL_PRESENCE_STATES = ['focused', 'visible', 'hidden'] as const
+export type TerminalPresence = typeof TERMINAL_PRESENCE_STATES[number]
+export interface TerminalPresenceInput { paneId: string; state: TerminalPresence }
