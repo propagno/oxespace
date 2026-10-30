@@ -629,32 +629,8 @@
   color: var(--text-on-accent);
 }
 
-.settings-header-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
-  background: transparent;
-  color: var(--tx-secondary);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-}
 
-.settings-header-action:hover:not(:disabled) {
-  color: var(--tx-primary);
-  background: var(--ov-2);
-  border-color: color-mix(in srgb, var(--text-primary) 22%, transparent);
-}
 
-.settings-header-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* Provider discovery hero + cards — elevated surface, subtle border */
 .settings-providers-hero {

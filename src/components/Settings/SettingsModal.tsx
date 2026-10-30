@@ -423,23 +423,22 @@ function ProvidersSettingsSection({
         description={t('providers.description')}
         onClose={onClose}
         actions={
-          <button
-            type="button"
-            className="settings-header-action"
+          <Button
+            size="sm"
             aria-label={t('providers.runHealthCheck')}
             title={t('providers.healthCheckTitle')}
             data-testid="btn-discover-agents"
             disabled={isDiscoveringAgents}
             onClick={onDiscoverAgents}
+            icon={<RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />}
           >
-            <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
-            <span>{isDiscoveringAgents ? t('providers.checking') : t('providers.healthCheck')}</span>
-          </button>
+            {isDiscoveringAgents ? t('providers.checking') : t('providers.healthCheck')}
+          </Button>
         }
       />
 
       <div className="settings-content-body">
-        <div className="settings-providers-hero" data-testid="providers-summary">
+        {agentProfiles.length > 0 ? <div className="settings-providers-hero" data-testid="providers-summary">
           <div className="settings-providers-hero-text">
             <strong>{summaryPrimary}</strong>
             {summarySecondary ? <span>{summarySecondary}</span> : null}
@@ -464,7 +463,7 @@ function ProvidersSettingsSection({
               </span>
             ) : null}
           </div>
-        </div>
+        </div> : null}
 
         {allMissing ? <AgentCliOnboarding checking={isDiscoveringAgents} onCheck={onDiscoverAgents} /> : null}
 
@@ -510,8 +509,9 @@ function ProvidersSettingsSection({
           </>
         )}
 
+        {/* With no agent yet the empty state's health check is the one main action. */}
         <Button
-          variant="primary" className="settings-new-agent-btn"
+          variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
           onClick={onNewCustomAgent}
           data-testid="btn-new-custom-agent"
         >
