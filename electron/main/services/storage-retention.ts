@@ -53,7 +53,6 @@ export function scheduleStorageRetention(userData: string, delayMs = 60_000): vo
   setTimeout(() => {
     try {
       const { removed, freedBytes } = pruneStorage(userData)
-      // eslint-disable-next-line no-console
       if (removed.length) console.log(`[storage] removed ${removed.length} stale file(s), ${Math.round(freedBytes / 1048576)} MB`)
     } catch { /* housekeeping only; the next start retries */ }
   }, delayMs).unref()
