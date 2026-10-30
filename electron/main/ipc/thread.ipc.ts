@@ -12,7 +12,9 @@ import { MemoryProjectService } from '../services/memory/memory-project.service'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { parsePermissionRuleInput } from '../services/conversation/thread-permissions'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
-import { createThreadWorktree, discardThreadWorktree, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
+import { createThreadWorktree, discardThreadWorktree, ThreadWorktreeError, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
+import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
+import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 
@@ -218,10 +220,18 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     const request = value.worktree as Record<string, unknown> | null
     if (!request || typeof request !== 'object') throw new Error('Invalid worktree input')
     for (const key of ['branch', 'baseRef'] as const) if (request[key] !== undefined && (typeof request[key] !== 'string' || (request[key] as string).length > 240)) throw new Error(`Invalid worktree ${key}`)
-    const created = await createThreadWorktree(worktrees, context.rootPath, { branch: request.branch as string | undefined, baseRef: request.baseRef as string | undefined })
+    if (request.allowDirtyBase !== undefined && typeof request.allowDirtyBase !== 'boolean') throw new Error('Invalid worktree allowDirtyBase')
+    let created: Awaited<ReturnType<typeof createThreadWorktree>>
+    try {
+      created = await createThreadWorktree(worktrees, context.rootPath, { branch: request.branch as string | undefined, baseRef: request.baseRef as string | undefined, allowDirtyBase: request.allowDirtyBase === true })
+    } catch (error) {
+      // The cause travels in the text: Electron keeps nothing but the message of an error crossing IPC.
+      throw error instanceof ThreadWorktreeError ? new Error(tagThreadWorktreeError(error.code, error.message)) : error
+    }
     try {
       threadProjects.addContext(context.projectId, created.rootPath)
-      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider })
+      const ownedWorktree = { path: created.rootPath, branch: created.branch, projectRoot: context.rootPath, baseSha: created.baseSha, createdAt: Date.now() }
+      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider, ownedWorktree })
     } catch (error) {
       threadProjects.removeContext(context.projectId, created.rootPath)
       await discardThreadWorktree(context.rootPath, created.rootPath, created.branch)
@@ -305,5 +315,6 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     if (typeof pinned !== 'boolean') throw new Error('Invalid pin input')
     return manager.then(service => service.pin(string(id), pinned))
   })
+  registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, sender, id: string })
   return { manager, stop: async () => { await (await accounts).stop(); await (await manager).stop() } }
 }

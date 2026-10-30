@@ -20,6 +20,8 @@ import { threadNavigationStatus } from './threadNavigationStatus'
 import { threadConfirmation } from '../../../shared/threadConfirmations'
 import { threadConfirmationText } from './threadConfirmationText'
 import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
+import { ThreadWorktreeFinishDialog } from './ThreadWorktreeFinishDialog'
+import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
 import { humanizeError } from '../../utils/humanizeError'
 import { useListKeyboard } from '../../hooks/useListKeyboard'
 
@@ -40,6 +42,9 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     threads: state.threads, projects: state.projects, unavailableProjects: state.unavailableProjects, selectedId: state.selectedId, secondaryId: state.secondaryId, expanded: state.expanded, errors: state.errors, loading: state.loading,
     select: state.select, openSecondary: state.openSecondary, toggle: state.toggle, hiddenProjects: state.hiddenProjects, unreadIds: state.unreadIds, markRead: state.markRead, markUnread: state.markUnread })))
   const sideBySideBlocked = (id: string): boolean => id === selectedId || id === secondaryId
+  // A conversation that owns a worktree asks what to do with it before it is archived or deleted.
+  const finishRequest = useThreadWorktreeFinishStore(state => state.request), askWorktreeFinish = useThreadWorktreeFinishStore(state => state.ask)
+  const finishThread = finishRequest ? threads.find(thread => thread.id === finishRequest.threadId) : undefined
   const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -105,8 +110,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     { label: thread.pinned ? t('sidebar.unpin') : t('sidebar.pin'), icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
     { label: unreadIds.includes(thread.id) ? t('sidebar.markRead') : t('sidebar.markUnread'), icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
     { type: 'separator' },
-    { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) } },
-    { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'thread', id: thread.id, title: thread.title }) } }
+    { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'archive'); else setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) } },
+    { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'delete'); else setConfirmation({ kind: 'thread', id: thread.id, title: thread.title }) } }
   ]} trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: thread.title })} title={t('sidebar.conversationActions')}><MoreHorizontal size={14} /></button>} /></div>
   }
   const railPrimary: RailAction[] = [{ id: 'add-project', label: t('sidebar.addProject'), icon: FolderPlus, onClick: onAddProject }]
@@ -177,6 +182,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         <label>{t('sidebar.name')}<TextField aria-label={t('sidebar.name')} autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
       </form>
     </Dialog>}
+    {finishRequest && finishThread && <ThreadWorktreeFinishDialog key={finishRequest.threadId} thread={finishThread} action={finishRequest.action} onOpenInCode={onOpenInCode} onClose={() => useThreadWorktreeFinishStore.getState().clear()} />}
     {confirmation && <ConfirmDialog cancelLabel={t('common.cancel')}
       {...(confirmation.kind === 'project'
         ? { title: t('sidebar.removeProject.title'), confirmLabel: t('sidebar.removeProject.confirm'), danger: true, description: t('sidebar.removeProject.description', { name: confirmation.title }) }

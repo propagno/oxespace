@@ -275,6 +275,25 @@
       "done": "Copiado: {{what}}",
       "failed": "Não foi possível copiar: {{what}}",
       "unavailable": "A área de transferência não está disponível."
+    },
+    "offline": {
+      "title": "Você está sem conexão",
+      "message": "Isto precisa da rede. Volta sozinho quando a conexão voltar.",
+      "retry": "Verificar de novo"
+    },
+    "palette": {
+      "title": "Paleta de comandos",
+      "description": "Busque um comando, arquivo ou workspace"
+    },
+    "boundary": {
+      "title": "Algo deu errado ao mostrar {{what}}.",
+      "titlePart": "Algo deu errado ao mostrar esta parte do app.",
+      "message": "O resto do OXESpace continua funcionando. Tente de novo e, se acontecer outra vez, relate pelo menu Ajuda."
+    },
+    "crash": {
+      "title": "O OXESpace não conseguiu mostrar esta janela.",
+      "message": "Seus terminais, agentes e conversas continuam rodando. Tente de novo; se acontecer outra vez, recarregue a janela e relate o problema pelo menu Ajuda.",
+      "reload": "Recarregar janela"
     }
   },
   "errors": {

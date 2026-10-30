@@ -434,6 +434,11 @@
 .thread-create-dialog .thread-create-section>label, .thread-agent-choice legend { margin: 0; color: var(--text-primary); font-size: var(--fs-xs); font-weight: 600; }
 .thread-create-dialog .thread-create-section>p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-create-dialog .thread-worktree-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.thread-create-dialog .thread-worktree-failure { display: grid; gap: 8px; margin-top: 12px; }
+.thread-create-dialog .thread-worktree-failure>p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
+.thread-create-dialog .thread-worktree-failure-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.thread-worktree-finish .thread-worktree-finish-list { margin: 0 0 12px; padding-left: 18px; color: var(--text-primary); font-size: var(--fs-xs); }
+.thread-worktree-finish p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-create-dialog .thread-create-section select { min-height: 40px; padding-inline: 12px; background: var(--surface-canvas); }
 .thread-project-settings-body { min-height: 0; overflow-y: auto; padding: 0 4px 4px; }
 .thread-project-settings .thread-create-section { padding-top: 16px; border-top: 1px solid var(--border-default); }

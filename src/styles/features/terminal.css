@@ -453,7 +453,9 @@
 
 .oxe-voice-hud.listening .oxe-voice-pulse,
 .oxe-voice-hud.downloading .oxe-voice-pulse {
-  animation: voice-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-scale: 0.8;
+  --pulse-opacity: 0.65;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .oxe-voice-pulse.spin {
@@ -487,11 +489,6 @@
   transform-origin: center;
   transform: scaleY(0.18);
   transition: transform var(--duration-fast) var(--ease-linear);
-}
-
-@keyframes voice-pulse {
-  0%, 100% { transform: scale(0.8); opacity: 0.65; }
-  50% { transform: scale(1.15); opacity: 1; }
 }
 
 /* Voice settings section */

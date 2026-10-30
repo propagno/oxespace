@@ -3,7 +3,7 @@
  * `src/styles/tokens.generated.css`; a test fails when the file drifts from
  * this source, so edit the tokens here and rebuild.
  */
-import { IDENTITY, type Mode } from './palette'
+import { IDENTITY, LOGO, type Mode } from './palette'
 import { colorRoles, elevations } from './semantic'
 import { CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT, WEIGHT } from './scales'
 
@@ -39,6 +39,7 @@ function staticTokens(): Record<string, string | number> {
   for (const [name, value] of Object.entries(CONTROL.compact)) out[`control-${name}`] = `${value}px`
   for (const [name, value] of Object.entries(LAYER)) out[`layer-${name}`] = value
   for (const [name, value] of Object.entries(MOTION)) out[name] = value
+  for (const [name, value] of Object.entries(LOGO)) out[`logo-${name}`] = value
   for (const [name, value] of Object.entries(IDENTITY.provider)) out[`provider-${name}`] = value
   IDENTITY.avatar.forEach((value, index) => { out[`avatar-${index + 1}`] = value })
   return out
@@ -54,6 +55,8 @@ export function tokensCss(): string {
     // A subtree can force a mode with data-mode (previews, the design-system viewer).
     block(":root, [data-mode='light']", modeTokens('light'), ['color-scheme: light;']),
     block(":root[data-mode='dark'], [data-mode='dark']", modeTokens('dark'), ['color-scheme: dark;']),
+    // Before the first script sets data-mode (the boot splash), the operating system's choice decides, as System would.
+    `@media (prefers-color-scheme: dark) {\n${block(':root:not([data-mode])', modeTokens('dark'), ['color-scheme: dark;']).replace(/^/gm, '  ')}\n}`,
     block(":root[data-density='comfortable']", comfortable),
     `@media (prefers-contrast: more) {\n${[block(":root, [data-mode='light']", moreContrastTokens('light')), block(":root[data-mode='dark'], [data-mode='dark']", moreContrastTokens('dark'))].join('\n').replace(/^/gm, '  ')}\n}`,
     // Motion collapses for people who ask for less of it: Settings › Appearance sets data-motion on the
