@@ -85,6 +85,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.summary.crash': [],
   'approvals.requester.pane': ['agent', 'pane'],
   'approvals.requester.conversation': ['agent', 'conversation'],
+  'approvals.requester.unknownPane': ['pane'],
+  'approvals.requester.unknownConversation': ['conversation'],
   'approvals.requester.mcpServer': ['server'],
   'approvals.requester.app': [],
   'approvals.option.deny': [],
@@ -130,6 +132,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.denied.tooLong': ['max'],
   'notify.prefix.pane': ['agent', 'pane', 'title'],
   'notify.prefix.conversation': ['agent', 'conversation', 'title'],
+  'notify.prefix.unknownPane': ['pane', 'title'],
+  'notify.prefix.unknownConversation': ['conversation', 'title'],
   'notify.refused.reservedName': ['name'],
   'notify.refused.rateLimit': ['perMinute'],
   'agents.name.reserved': ['name']

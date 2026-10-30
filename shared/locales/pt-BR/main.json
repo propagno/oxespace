@@ -194,7 +194,9 @@
         "pane": "{{agent}} · painel {{pane}}",
         "conversation": "{{agent}} · conversa {{conversation}}",
         "mcpServer": "Servidor MCP {{server}}",
-        "app": "OXESpace"
+        "app": "OXESpace",
+        "unknownPane": "Agente desconhecido · painel {{pane}}",
+        "unknownConversation": "Agente desconhecido · conversa {{conversation}}"
       },
       "option": {
         "deny": "Negar",
@@ -269,7 +271,9 @@
     "notify": {
       "prefix": {
         "pane": "{{agent}} no painel {{pane}}: {{title}}",
-        "conversation": "{{agent}} na conversa {{conversation}}: {{title}}"
+        "conversation": "{{agent}} na conversa {{conversation}}: {{title}}",
+        "unknownPane": "Agente desconhecido no painel {{pane}}: {{title}}",
+        "unknownConversation": "Agente desconhecido na conversa {{conversation}}: {{title}}"
       },
       "refused": {
         "reservedName": "Uma notificação não pode usar o nome \"{{name}}\"; ele pertence ao app.",

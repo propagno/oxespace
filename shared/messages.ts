@@ -106,6 +106,9 @@ export interface MessageParams {
   'approvals.requester.pane': { agent: string; pane: number }
   /** A conversation, by provider and a short id the app assigned. */
   'approvals.requester.conversation': { agent: string; conversation: string }
+  /** The provider is not known to the app: never a provider name, so it cannot pass for a trusted one. */
+  'approvals.requester.unknownPane': { pane: number }
+  'approvals.requester.unknownConversation': { conversation: string }
   'approvals.requester.mcpServer': { server: string }
   'approvals.requester.app': Record<string, never>
   'approvals.option.deny': Record<string, never>
@@ -160,6 +163,8 @@ export interface MessageParams {
   /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
   'notify.prefix.pane': { agent: string; pane: number; title: string }
   'notify.prefix.conversation': { agent: string; conversation: string; title: string }
+  'notify.prefix.unknownPane': { pane: number; title: string }
+  'notify.prefix.unknownConversation': { conversation: string; title: string }
   'notify.refused.reservedName': { name: string }
   'notify.refused.rateLimit': { perMinute: number }
   /** A pane name an agent chose contains a name only the app uses. */
@@ -244,6 +249,8 @@ export const MESSAGE_CODES = [
   'approvals.summary.crash',
   'approvals.requester.pane',
   'approvals.requester.conversation',
+  'approvals.requester.unknownPane',
+  'approvals.requester.unknownConversation',
   'approvals.requester.mcpServer',
   'approvals.requester.app',
   'approvals.option.deny',
@@ -289,6 +296,8 @@ export const MESSAGE_CODES = [
   'approvals.denied.tooLong',
   'notify.prefix.pane',
   'notify.prefix.conversation',
+  'notify.prefix.unknownPane',
+  'notify.prefix.unknownConversation',
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
   'agents.name.reserved'
