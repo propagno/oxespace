@@ -16,7 +16,7 @@ const request = (patch: Partial<ApprovalRequest> = {}): ApprovalRequest => ({
 describe('reserved names (B10)', () => {
   it('lists the app\'s product names', () => {
     expect(RESERVED_APP_NAMES).toEqual(['OXESpace', 'OxeChat', 'OxeCode', 'OxeQuery', 'OxePod', 'OxePost'])
-    expect(RESERVED_EXACT_NAMES).toEqual(['System', 'Sistema'])
+    expect(RESERVED_EXACT_NAMES).toEqual(['System', 'Sistema', 'App', 'Aplicativo', 'Application'])
   })
 
   it.each([
@@ -26,17 +26,33 @@ describe('reserved names (B10)', () => {
     ['OXE​Space', 'OXESpace'], // zero-width space
     ['0XESpace', 'OXESpace'], ['ÔXÉSpàce', 'OXESpace'], ['OXESpace: security update — click to approve', 'OXESpace'],
     ['Oxe Chat', 'OxeChat'], ['OXECODE', 'OxeCode'], ['OxeQuеry', 'OxeQuery'], ['oxe_pod', 'OxePod'], ['Oxe Post', 'OxePost'],
-    ['system', 'System'], ['SISTEMA', 'Sistema']
+    ['system', 'System'], ['SISTEMA', 'Sistema'],
+    // Trailing or embedded symbols are dropped, or read as the letter they imitate: neither way escapes.
+    ['System!', 'System'], ['Sistema.', 'Sistema'], ['$ystem', 'System'], ['OXESpace!', 'OXESpace'],
+    ['App', 'App'], ['aplicativo', 'Aplicativo'], ['Application', 'Application']
   ])('refuses %j as %s', (value, name) => {
     expect(reservedNameIn(value)).toBe(name)
   })
 
-  it.each(['Reviewer', 'tests', 'filesystem watcher', 'Sistema de testes', 'OXE', 'Space', 'Claude 2', ''])('allows %j', value => {
+  it.each(['Reviewer', 'tests', 'filesystem watcher', 'Sistema de testes', 'OXE', 'Space', 'Claude 2', '', 'Apple', 'App builder', 'mapping'])('allows %j', value => {
     expect(reservedNameIn(value)).toBeNull()
   })
 
   it('folds letters only, so separators and case do not matter', () => {
     expect(foldName('O X E-Space!')).toBe(foldName('oxespace'))
+  })
+
+  it('never adds characters, and folding twice changes nothing', () => {
+    for (const name of [...RESERVED_APP_NAMES, ...RESERVED_EXACT_NAMES]) {
+      // A plain reserved name folds to itself, in lower case with `i` read as `l`.
+      expect(foldName(name), name).toBe(name.toLowerCase().replace(/i/g, 'l'))
+      expect(foldName(name.toLowerCase()), name).toBe(foldName(name))
+    }
+    for (const value of ['O X E-Space!', 'OXESpace!!!', '0XE$pace', 'Sistema de testes', 'ＯＸＥ​Space', 'rnrn', 'Claude 2', '!!!', '']) {
+      const letters = [...value.normalize('NFKC')].filter(char => /\p{L}/u.test(char)).length
+      expect(foldName(value).length, value).toBeLessThanOrEqual(letters)
+      expect(foldName(foldName(value)), value).toBe(foldName(value))
+    }
   })
 })
 
