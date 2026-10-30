@@ -2,7 +2,7 @@ import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, 
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { Button, Dialog, TextField } from '../../ui'
+import { Button, Dialog, EmptyState, TextField } from '../../ui'
 import { SettingsContent, type SettingsModalProps, type SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
 import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
@@ -95,7 +95,7 @@ export function SettingsCenter(props: SettingsModalProps & {
           <div className="settings-category-choices" role="group" aria-label={t('center.categoryGroup')}>
             {filtered.map(page => <button type="button" key={page.id} aria-pressed={destination.page === page.id}
               onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{page.label}</button>)}
-            {!filtered.length && <span className="settings-category-empty">{t('center.noMatch')}</span>}
+            {!filtered.length && <EmptyState compact title={t('center.noMatch')} />}
           </div>
         </div>
         <nav aria-label={t('center.categories')}>

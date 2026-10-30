@@ -16,7 +16,7 @@ import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
-import { Button, SegmentedControl, Switch, TextField, Select } from '../../ui'
+import { Button, EmptyState, Notice, SegmentedControl, Switch, TextField, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -469,10 +469,7 @@ function ProvidersSettingsSection({
         {allMissing ? <AgentCliOnboarding checking={isDiscoveringAgents} onCheck={onDiscoverAgents} /> : null}
 
         {agentProfiles.length === 0 ? (
-          <div className="settings-empty" role="status">
-            <Bot size={20} aria-hidden="true" />
-            <p>{t('providers.empty.title')}</p>
-            <span>{t('providers.empty.hint')}</span>
+          <EmptyState icon={<Bot size={20} />} title={t('providers.empty.title')} actions={
             <Button
               variant="primary"
               disabled={isDiscoveringAgents}
@@ -481,7 +478,7 @@ function ProvidersSettingsSection({
               <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
               {t('providers.runHealthCheck')}
             </Button>
-          </div>
+          }>{t('providers.empty.hint')}</EmptyState>
         ) : (
           <>
             {primary.length > 0 ? (
@@ -564,7 +561,7 @@ function IdleConversationsSetting(): ReactElement | null {
         </Select>
         <span className="settings-field-hint">{t('idle.hint')}</span>
       </label>
-      {error && <p className="settings-field-hint" role="alert">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
     </div>
   )
 }
@@ -670,7 +667,7 @@ function SemanticIndexSetting(): ReactElement | null {
         {t('semantic.hint', { model: status.modelId })}
         {calls && (calls.withVector + calls.withoutVector) > 0 && ` ${t('semantic.usage', { without: calls.withoutVector, with: calls.withVector })}`}
       </span>
-      {error && <p className="settings-field-hint" role="alert">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
     </div>
   )
 }
