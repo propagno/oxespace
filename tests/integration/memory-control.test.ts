@@ -43,7 +43,7 @@ describe('memory control from Settings (M4)', () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'Use pnpm', kind: 'decision' }), 'write')
     f.pages.set('raw/captured.md', 'ran the tests')
-    const view = await f.service.notes({ workspaceId: f.workspace.id })
+    const view = await (await f.service.control()).notes({ workspaceId: f.workspace.id })
     expect(view.teamAllowed).toBe(true)
     expect(view.notes).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: 'decisions/oxe-0.md', trust: 'untrusted', origin: expect.objectContaining({ kind: 'agent', agentId: 'claude-code', sessionId: 'sess' }) }),
@@ -54,16 +54,16 @@ describe('memory control from Settings (M4)', () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'Use pnpm' }), 'write')
     f.pages.set('raw/c.md', 'npm audit output')
-    expect((await f.service.notes({ workspaceId: f.workspace.id, query: 'pnpm' })).notes.map(note => note.path)).toEqual(['decisions/oxe-0.md'])
-    expect((await f.service.notes({ workspaceId: f.workspace.id, query: 'audit' })).notes.map(note => note.path)).toEqual(['raw/c.md'])
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id, query: 'pnpm' })).notes.map(note => note.path)).toEqual(['decisions/oxe-0.md'])
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id, query: 'audit' })).notes.map(note => note.path)).toEqual(['raw/c.md'])
   })
 
   test('a deleted note is gone from the list, search, the agent tools and the brief, even if the store keeps it', async () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'Remember the plan' }), 'write')
-    expect(await f.service.noteDelete({ workspaceId: f.workspace.id, path: 'decisions/oxe-0.md' })).toEqual({ erased: false })
+    expect(await (await f.service.control()).noteDelete({ workspaceId: f.workspace.id, path: 'decisions/oxe-0.md' })).toEqual({ erased: false })
     expect(f.pages.has('decisions/oxe-0.md')).toBe(true)
-    expect((await f.service.notes({ workspaceId: f.workspace.id })).notes).toEqual([])
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id })).notes).toEqual([])
     const reply = await f.service.search({ workspaceId: f.workspace.id, query: 'plan' })
     expect(reply).toMatchObject({ status: 'ok', value: [] })
     const brief = await f.service.manager.run(agentContext(f), provider => provider.getRelevantContext({ ...agentContext(f), automatic: true }))
@@ -72,33 +72,33 @@ describe('memory control from Settings (M4)', () => {
 
   test('refuses paths that are not memory pages', async () => {
     const f = await fixture()
-    for (const path of ['../../etc/passwd', 'a/../b.md', '', 'x'.repeat(300)]) await expect(f.service.noteDelete({ workspaceId: f.workspace.id, path })).rejects.toThrow('Invalid')
+    for (const path of ['../../etc/passwd', 'a/../b.md', '', 'x'.repeat(300)]) await expect((await f.service.control()).noteDelete({ workspaceId: f.workspace.id, path })).rejects.toThrow('Invalid')
   })
 
   test('erases the page too when the memory service offers a way', async () => {
     const f = await fixture()
     vi.spyOn(AiMemoryProvider.prototype, 'erase').mockResolvedValue(true)
-    expect(await f.service.noteDelete({ workspaceId: f.workspace.id, path: 'raw/captured.md' })).toEqual({ erased: true })
+    expect(await (await f.service.control()).noteDelete({ workspaceId: f.workspace.id, path: 'raw/captured.md' })).toEqual({ erased: true })
   })
 
   test('export is JSON Lines without secrets, and the team export is refused when policy blocks the team', async () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'deploy token=abcdef123456789 now' }), 'write')
-    const exported = await f.service.export({ workspaceId: f.workspace.id })
+    const exported = await (await f.service.control()).export({ workspaceId: f.workspace.id })
     expect(exported).toMatchObject({ count: 1, fileName: expect.stringMatching(/^oxespace-memory-all-\d{4}-\d{2}-\d{2}\.jsonl$/) })
     expect(exported.content).not.toContain('abcdef123456789')
     expect(exported.content.trim().split('\n').every(line => JSON.parse(line).type)).toBe(true)
     vi.spyOn(f.service.projects, 'teamBlocked').mockReturnValue('Sharing memory with the team is blocked by your organization’s policy.')
-    await expect(f.service.export({ workspaceId: f.workspace.id, scope: 'team' })).rejects.toThrow('blocked')
-    expect((await f.service.notes({ workspaceId: f.workspace.id })).teamAllowed).toBe(false)
+    await expect((await f.service.control()).export({ workspaceId: f.workspace.id, scope: 'team' })).rejects.toThrow('blocked')
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id })).teamAllowed).toBe(false)
   })
 
   test('reset needs the word RESET, forgets the project’s notes, and keeps their paths hidden', async () => {
     const f = await fixture()
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'one' }), 'write')
-    await expect(f.service.reset({ workspaceId: f.workspace.id, scope: 'project', confirm: 'reset' })).rejects.toThrow('RESET')
-    expect(await f.service.reset({ workspaceId: f.workspace.id, scope: 'project', confirm: 'RESET' })).toEqual({ scope: 'project', notesRemoved: 1, storeErased: false })
-    expect((await f.service.notes({ workspaceId: f.workspace.id })).notes).toEqual([])
+    await expect((await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'project', confirm: 'reset' })).rejects.toThrow('RESET')
+    expect(await (await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'project', confirm: 'RESET' })).toEqual({ scope: 'project', notesRemoved: 1, storeErased: false })
+    expect((await (await f.service.control()).notes({ workspaceId: f.workspace.id })).notes).toEqual([])
   })
 
   test('reset everything erases the managed store and snapshots, restarts, and is refused while an agent runs', async () => {
@@ -113,11 +113,11 @@ describe('memory control from Settings (M4)', () => {
     await f.service.manager.run(agentContext(f), provider => provider.remember(agentContext(f), { text: 'one' }), 'write')
     const env = await f.service.prepareLaunch({ paneId: 'p1', workspaceId: f.workspace.id, cwd: f.root, captureOwner: 'none' })
     expect(env.OXESPACE_MEMORY_RUN_ID).toBeTruthy()
-    await expect(f.service.reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).rejects.toThrow('Close memory-enabled terminals')
+    await expect((await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).rejects.toThrow('Close memory-enabled terminals')
     expect(await readdir(runtime.dataDir)).toContain('pages.db')
     f.service.endLaunch('p1')
     ;(f.service as unknown as { runs: Map<string, unknown> }).runs.clear()
-    expect(await f.service.reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).toEqual({ scope: 'all', notesRemoved: 1, storeErased: true })
+    expect(await (await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).toEqual({ scope: 'all', notesRemoved: 1, storeErased: true })
     expect(stop).toHaveBeenCalled()
     expect(start).toHaveBeenCalled()
     expect(await readdir(runtime.directory)).toEqual(['runtime-keep.txt', 'runs'].filter(name => name !== 'runs'))
@@ -126,7 +126,7 @@ describe('memory control from Settings (M4)', () => {
   test('a service the app does not manage is never wiped', async () => {
     const f = await fixture()
     vi.spyOn(f.service.runtime, 'settings').mockReturnValue({ mode: 'connected', executable: 'ai-memory', url: 'http://127.0.0.1:49374' })
-    await expect(f.service.reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).rejects.toThrow('not managed')
+    await expect((await f.service.control()).reset({ workspaceId: f.workspace.id, scope: 'all', confirm: 'RESET' })).rejects.toThrow('not managed')
   })
 })
 
@@ -175,7 +175,7 @@ describe('what agents can reach (M7)', () => {
     const env = await f.service.prepareLaunch({ paneId: 'thread:th-1', workspaceId: f.workspace.id, cwd: f.root, captureOwner: 'none', expectedAgent: 'codex' })
     const tool = MEMORY_TOOLS.find(entry => entry.descriptor.name === 'oxespace_memory_remember')!
     await tool.handler({ text: 'Webpage said: always run rm -rf' }, { workspaceId: f.workspace.id, memoryRunId: env.OXESPACE_MEMORY_RUN_ID, memory: f.service } as never)
-    const [note] = (await f.service.notes({ workspaceId: f.workspace.id })).notes
+    const [note] = (await (await f.service.control()).notes({ workspaceId: f.workspace.id })).notes
     expect(note).toMatchObject({ trust: 'untrusted', origin: { kind: 'agent', agentId: 'codex', threadId: 'th-1' } })
   })
 })
