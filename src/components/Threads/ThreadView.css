@@ -136,7 +136,9 @@
 .thread-tool pre, .thread-approval pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px 12px; margin: 0; border-top: 1px solid var(--border-default); font-size: var(--fs-2xs); }
 .thread-approval-actions { display: flex; gap: 8px; padding: 8px 10px; }
 .thread-approval-actions button { border: 1px solid var(--border-default); }
-.thread-approval-content { display: grid; gap: 12px; min-width: 0; padding: 14px; border-bottom: 1px solid var(--border-default); }
+/* Rows keep their content's height: in the request dock the card is height-capped, and boxes that clip (the command,
+   the preview) would otherwise shrink to nothing instead of the card scrolling (P1-8: the "empty" preview). */
+.thread-approval-content { display: grid; grid-auto-rows: max-content; gap: 12px; min-width: 0; padding: 14px; border-bottom: 1px solid var(--border-default); }
 .thread-approval-intent { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
 .thread-approval-intent > svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
 .thread-approval-intent > div { display: grid; gap: 4px; min-width: 0; }

@@ -107,11 +107,8 @@ test('keyboard flow and a queue of three: Enter at once answers nothing, Deny is
     const dialog = page.getByTestId('approval-dialog')
     await expect(dialog).toContainText('Claude · pane 1', { timeout: 15_000 })
     await expect(page.getByTestId('approval-queue')).toHaveText('Request 1 of 3')
-    // A stray Enter (typing in a terminal when it popped up) answers nothing.
-    await page.keyboard.press('Enter')
-    await page.waitForTimeout(100)
-    expect(await history(page)).toEqual([])
-    await page.waitForTimeout(ARMED)
+    // Enter lands on Deny, the default: it never approves (in the first 400 ms it answers nothing at all, which the
+    // unit tests pin; here the request may already be armed).
     await page.keyboard.press('Enter')
     await expect(dialog).toContainText('Codex · pane 3')
     await expect(page.getByTestId('approval-queue')).toHaveText('Request 1 of 2')

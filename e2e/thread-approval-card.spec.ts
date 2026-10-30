@@ -41,6 +41,10 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
       const exact = card.getByTestId('approval-exact')
       await expect(exact).toBeVisible()
       await expect(exact).toContainText('rm -rf ./src')
+      // In the height-capped request dock the boxes keep their height and the card scrolls; they used to collapse to a
+      // line, which is the "empty preview" the audit saw.
+      expect((await exact.boundingBox())!.height).toBeGreaterThan(60)
+      expect((await card.getByTestId('approval-agent-reason').boundingBox())!.height).toBeGreaterThan(60)
       await expect(card.getByTestId('approval-readable')).toHaveCount(0)
       const reason = card.getByTestId('approval-agent-reason')
       await expect(reason).toContainText('Reason given by the agent')
