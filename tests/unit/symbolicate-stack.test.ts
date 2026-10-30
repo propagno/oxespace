@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -44,6 +44,10 @@ async function minifiedStack(): Promise<{ stack: string, outMain: string, code: 
 }
 
 describe('symbolicate-stack', () => {
+  it('has no shebang, so the test runner can import it when Windows checks it out with CRLF', () => {
+    expect(readFileSync(join('scripts', 'symbolicate-stack.mjs'), 'utf8').startsWith('#!')).toBe(false)
+  })
+
   it('maps a real minified stack frame back to the source line, keeping names and untouched frames', async () => {
     const { stack, outMain, code } = await minifiedStack()
     expect(code).not.toContain('sourceMappingURL')

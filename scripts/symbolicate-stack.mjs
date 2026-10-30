@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Turns the minified main-process frames of a stack trace (from a problem report, main.log or a crash dialog) back
  * into source files and lines, using the private source maps the build writes next to each chunk in out/main.
