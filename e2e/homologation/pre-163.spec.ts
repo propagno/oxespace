@@ -19,6 +19,8 @@ async function seed(page: Page, appearance: 'light' | 'dark') {
   })), appearance)
   await page.reload()
   await page.waitForLoadState('load')
+  // The palette's shortcut is registered on the first render, after the language catalog loads.
+  await page.waitForFunction(() => performance.getEntriesByName('oxe:interactive').length > 0)
 }
 
 for (const [mode, locale] of [['light', 'en-US'], ['dark', 'pt-BR'], ['dark', 'en-US'], ['light', 'pt-BR']] as const) {
