@@ -160,6 +160,9 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | B1.1 respondPending | #166 | BACKEND | Homologado (contrato; na `main` a412f04b) |
 | B8 conectividade e About (handlers) | #168 | BACKEND | Homologado (teste de unidade; e2e depois do #185) |
 | Payloads C5 (assinaturas e comandos, M4) | #187 | BACKEND | Homologado (contrato), com uma nota baixa |
+| Protocolo C5 em Kotlin gerado | #165 | MOBILE | Homologado (job Android verde na `main` 14504372) |
+| Tema Mandacaru e strings para o Android | #169 | MOBILE | Homologado (job Android verde na `main` 15e04898; visual depois do M4/M5) |
+| Android 17 / API 37 com Compose | #170 | MOBILE | Aguardando o job Android na `main` |
 | Esqueleto do app Android + CI | #164 | MOBILE | Homologado (na `main` c82cff0a) |
 | Correção de segurança do `tool.use` | #212 | BACKEND | Pré-homologado (0da8d604): os dois desvios estão fechados |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
