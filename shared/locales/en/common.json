@@ -260,6 +260,20 @@
       "unavailable": "The clipboard is not available."
     },
     "notSaved": "The change was not saved.",
+    "offline": {
+      "title": "You are offline",
+      "message": "This needs the network. It comes back by itself when the connection does.",
+      "retry": "Check again"
+    },
+    "palette": {
+      "title": "Command palette",
+      "description": "Search for a command, file or workspace"
+    },
+    "boundary": {
+      "title": "Something went wrong while showing {{what}}.",
+      "titlePart": "Something went wrong while showing this part of the app.",
+      "message": "The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu."
+    },
     "crash": {
       "title": "OXESpace could not show this window.",
       "message": "Your terminals, agents and conversations keep running. Try again; if it happens again, reload the window and report the problem from the Help menu.",
@@ -603,10 +617,6 @@
       "empty": "No results",
       "terminal": "Terminal",
       "terminalAt": "Terminal {{index}}"
-    },
-    "palette": {
-      "title": "Command palette",
-      "description": "Search for a command, file or workspace"
     }
   },
   "agentNotify": {
@@ -617,11 +627,6 @@
     "attention": "{{label}} — needs attention",
     "errorDetail": "{{workspace}}: {{error}}",
     "genericError": "the agent hit an error."
-  },
-  "boundary": {
-    "title": "Something went wrong while showing {{what}}.",
-    "fallback": "this part of the app",
-    "message": "The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu."
   },
   "activityDot": {
     "thinking": "Agent is thinking",

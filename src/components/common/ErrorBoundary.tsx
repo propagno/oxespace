@@ -44,8 +44,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         actions={<Button onClick={() => window.location.reload()}>{i18n.t('ui.crash.reload')}</Button>} />
     </div>
     return <div className="error-boundary-fallback">
-      <ErrorState brand compact={this.props.compact} title={i18n.t('boundary.title', { what: this.props.label ?? i18n.t('boundary.fallback') })}
-        message={i18n.t('boundary.message')}
+      <ErrorState brand compact={this.props.compact} title={this.props.label ? i18n.t('ui.boundary.title', { what: this.props.label }) : i18n.t('ui.boundary.titlePart')}
+        message={i18n.t('ui.boundary.message')}
         detail={this.state.error.message} onRetry={this.reset} />
     </div>
   }

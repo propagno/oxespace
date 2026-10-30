@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, type ComponentProps, type ReactElement, type ReactNode } from 'react'
-import { i18n } from '../i18n'
 import { Command as Cmdk } from 'cmdk'
 import { Search } from 'lucide-react'
 import { Dialog as RadixDialog } from 'radix-ui'
+import { i18n } from '../i18n'
 import styles from './CommandPalette.module.css'
 
 /**
@@ -10,7 +10,7 @@ import styles from './CommandPalette.module.css'
  * filtering and keyboard behavior. Item parts take `commandStyles.label`,
  * `.detail` and `.trailing`.
  */
-export function CommandDialog({ open, onOpenChange, children, title = i18n.t('commands.palette.title'), description = i18n.t('commands.palette.description'), shouldFilter, onCloseAutoFocus }: {
+export function CommandDialog({ open, onOpenChange, children, title = i18n.t('ui.palette.title'), description = i18n.t('ui.palette.description'), shouldFilter, onCloseAutoFocus }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   children: ReactNode
