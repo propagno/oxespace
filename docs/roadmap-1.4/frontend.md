@@ -126,3 +126,12 @@ Dono de `src/**`, `shared/locales/**`, `e2e/visual/**`, `docs/design/**` e `mobi
 - **Testes:** unidade; e2e ligando um grupo no projeto.
 - **Riscos:** números de custo desatualizados → vêm do mesmo cálculo do teste T8, não de valor fixo.
 
+### F11 · Ajuda › Diagnóstico (M)
+- **Objetivo:** a pessoa entende a saúde do app e entrega os problemas para análise em um clique.
+- **Escopo:** cartões no visual Mandacaru (CPU, memória, disco, banco, processos e agentes, rede e celular), cada um com alerta em linguagem simples e a ação sugerida; linha do tempo do diário de problemas com filtro por área; "Copiar informações", "Exportar pacote" (com prévia do conteúdo) e "Pedir análise", que abre um Thread com o resumo do pacote anexado.
+- **Fora:** gráficos históricos longos; telemetria.
+- **Contratos:** consome o B8.3; até lá, mock do contrato.
+- **Aceite:** o painel só mede enquanto aberto; en e pt-BR; offer-audit verde; e2e exportando o pacote e abrindo a análise.
+- **Testes:** unidade; e2e; visual no lote.
+- **Riscos:** alerta alarmista → limites e textos revisados com o BACKEND; cada alerta diz o que fazer.
+

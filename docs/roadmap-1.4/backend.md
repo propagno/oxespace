@@ -75,6 +75,19 @@ Os itens de cada WS têm o mesmo formato da seção 1. Os de maior risco:
 - **Aceite:** o teste falha se qualquer limite subir; relatório da medição em docs/validation.
 - **Riscos:** descrição de ferramenta crescer → o teste mede por grupo e aponta qual cresceu.
 
+### B8.3 · Diagnóstico e diário de problemas (G)
+- **Objetivo:** ver a saúde do app e guardar os problemas do uso para exportar ou pedir análise.
+- **Escopo:**
+  - medição sob demanda (só com o painel aberto): CPU e memória por processo do app (principal, telas, GPU, worker do OxeQuery, CodeGraph, terminais e agentes), espaço livre no volume dos dados, tamanho do banco e dos logs, conectividade, gateway do celular, CLIs, contas e servidores MCP;
+  - diário de problemas local: queda, erro de canal interno, falha ao iniciar agente, quarentena de MCP, banco ocupado, tempo esgotado no OxeQuery, atualização que falhou, interação acima do orçamento (F7); cada incidente com código C3, horário, área e contagem, nunca conteúdo; retenção e tamanho limitados;
+  - pacote de exportação (zip): retrato do sistema, diário, registro de eventos, fim dos logs já redigido, versões e configuração sem segredos; prévia do conteúdo antes de salvar; nada é enviado;
+  - ferramenta MCP `oxespace_diagnostics`, nível read, no grupo `app`, com o resumo do diário e do retrato.
+- **Fora:** telemetria remota (X4); envio automático de qualquer coisa.
+- **Contratos:** canais de diagnóstico (métricas por inscrição, incidentes, exportar pacote) por CCR antes do PR; códigos C3 dos incidentes; manifesto de cobertura.
+- **Aceite:** nenhuma medição roda com o painel fechado (teste); o pacote não contém segredo, caminho de usuário fora do projeto nem conteúdo de conversa (teste com dados plantados); o diário sobrevive a reinício e respeita o teto.
+- **Testes:** unidade do diário e da redação; integração do pacote; e2e pelo mock.
+- **Riscos:** vazamento de dado sensível → só campos escalares ou códigos, redação reaproveitada de log-redaction e environment-redaction, teste com segredos plantados.
+
 ### Protocolo de handoff entre subagentes do BACKEND
 1. Brief: WS, itens, contrato que consome e que produz, arquivos de que é dono.
 2. Commits em branch própria `be/<ws>/<item>`.

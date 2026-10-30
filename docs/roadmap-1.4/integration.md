@@ -7,8 +7,8 @@
 |---|---|---|---|
 | 0 · Fechar lote | #151 A4, Q4/Q5 PR | — | — |
 | 1 · Fundações | B8.1 (minify + C3), contratos C1–C5 (só tipos), B3.1 | F1, F2, F3 | esqueleto `mobile/android` + CI; C4 exporta tokens |
-| 2 · Segurança e gateway | B6.1 em modo auditar, B9 M1–M3, B1.1, B7.2, B2.2, T8 | F4, F6, F8 | M2, M3 (app) |
-| 3 · Produto | B1 (A5, A7, T*), B3 (Q6, Q7, P4, P7), B4 (H4–H9), B5 | F5, F7, F9, F10 | M4, M5 |
+| 2 · Segurança e gateway | B6.1 em modo auditar, B9 M1–M3, B1.1, B7.2, B2.2, T8, contrato do B8.3 | F4, F6, F8 | M2, M3 (app) |
+| 3 · Produto | B1 (A5, A7, T*), B3 (Q6, Q7, P4, P7), B4 (H4–H9), B5, B8.3 | F5, F7, F9, F10, F11 | M4, M5 |
 | 4 · Endurecimento | B6 negar por padrão, S8/S10/S11, X6/X8 | F9 restantes, roteiro NVDA/Orca | M6, M7, M8 |
 | 5 · Candidata | só correções | só correções | só correções |
 
