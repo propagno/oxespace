@@ -390,6 +390,7 @@ export const IPC_CHANNELS = {
     getSnapshot: 'diagnostics:get-snapshot',
     exportReport: 'diagnostics:export-report',
     reportInteractive: 'diagnostics:report-interactive',
+    buildIssueReport: 'diagnostics:build-issue-report',
     recordFirstAnswer: 'diagnostics:record-first-answer'
   },
   policy: {

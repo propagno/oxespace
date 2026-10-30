@@ -67,7 +67,23 @@
     "commandPalette": "Command palette…",
     "tools": "Tools",
     "keyboardShortcuts": "Keyboard shortcuts",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "reportProblem": "Report a problem…"
+  },
+  "report": {
+    "title": "Report a problem",
+    "description": "This is the issue we would open on GitHub. Nothing is sent until you choose what to do with it.",
+    "titleLabel": "Title",
+    "bodyLabel": "Report",
+    "bodyHint": "Version, system and recent diagnostics are included with secrets and your home folder removed. Read it, add the steps, and edit anything you do not want to share.",
+    "loading": "Preparing the report…",
+    "failed": "The report could not be prepared.",
+    "retry": "Try again",
+    "copy": "Copy text",
+    "copyWhat": "Report",
+    "open": "Open on GitHub",
+    "opened": "GitHub opened in your browser",
+    "truncated": "The text is too long for a link, so GitHub receives the first part. Use Copy text to share all of it."
   },
   "keys": {
     "or": "or",
