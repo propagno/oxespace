@@ -282,5 +282,9 @@
     "emptyTitle": "Nenhum contêiner ainda",
     "emptyText": "Os contêineres que você inicia com Docker ou Podman aparecem aqui, agrupados pelo projeto Compose.",
     "remoteContext": "O contexto Docker <strong>{{where}}</strong> está ativo. Tudo aqui — inclusive parar, remover e executar comando — age naquele host, não neste computador."
+  },
+  "client": {
+    "unavailable": "O OxePod está indisponível. Reinicie o aplicativo atualizado.",
+    "unknown": "Algo deu errado."
   }
 }

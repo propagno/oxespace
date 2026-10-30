@@ -1,12 +1,16 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() }, BrowserWindow: { getAllWindows: () => [], fromWebContents: () => null } }))
+const { OXEQUERY_OPS } = await import('../../electron/main/ipc/oxequery.ipc')
 
 const read = (path: string): string => readFileSync(path, 'utf8')
 
 /** The operations declared in the shared type, the IPC allowlist, the service and the worker must be one list. */
-const declared = [...read('shared/types/oxequery.ts').matchAll(/^\s+'([a-z]+\.[A-Za-z]+)': \{ input:/gm)].map(match => match[1])
-const allowed = [...read('electron/main/ipc/oxequery.ipc.ts').split('const OPS = new Set')[1].split(']')[0].matchAll(/'([a-z]+\.[A-Za-z]+)'/g)].map(match => match[1])
-const serviced = new Set([...read('electron/main/services/oxequery/service.ts').matchAll(/case '([a-z]+\.[A-Za-z]+)'/g)].map(match => match[1]))
+const declared = [...read('shared/types/oxequery.ts').matchAll(/^\s+'([a-z]+(?:\.[A-Za-z]+)+)': \{ input:/gm)].map(match => match[1])
+/** The allowlist the IPC handler checks, as it exports it. */
+const allowed: string[] = [...OXEQUERY_OPS]
+const serviced = new Set([...read('electron/main/services/oxequery/service.ts').matchAll(/case '([a-z]+(?:\.[A-Za-z]+)+)'/g)].map(match => match[1]))
 const worker = read('electron/main/workers/oxequery-worker.ts')
 
 describe('OxeQuery operations', () => {
@@ -14,6 +18,8 @@ describe('OxeQuery operations', () => {
     expect(declared.length).toBeGreaterThan(40)
     expect([...allowed].sort()).toEqual([...declared].sort())
     expect(new Set(allowed).size).toBe(allowed.length)
+    // Containers are OxePod's channel now (tests/unit/oxepod-op-contract.test.ts).
+    expect(declared.filter(op => /^(containers|resources)\./.test(op))).toEqual([])
   })
 
   it('are all handled by the service', () => {

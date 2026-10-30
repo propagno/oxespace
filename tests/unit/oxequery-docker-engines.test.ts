@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProbe, isLocalEndpoint, parseContexts } from '../../electron/main/services/oxequery/container-parse'
-import { ContainerRuntime } from '../../electron/main/services/oxequery/container-runtime'
+import { classifyProbe, isLocalEndpoint, parseContexts } from '../../electron/main/services/oxepod/container-parse'
+import { ContainerRuntime } from '../../electron/main/services/oxepod/container-runtime'
 
 const CONTEXTS = [
   '{"Name":"default","DockerEndpoint":"unix:///var/run/docker.sock","Current":false}',
