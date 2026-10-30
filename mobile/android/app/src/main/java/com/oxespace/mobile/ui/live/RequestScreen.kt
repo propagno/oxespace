@@ -91,7 +91,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.request_title)) },
+                title = { Text(stringResource(R.string.request_title), modifier = Modifier.semantics { heading() }) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(ImageVector.vectorResource(R.drawable.ic_back), contentDescription = stringResource(R.string.live_back)) } },
             )
         },
@@ -200,7 +200,8 @@ private fun riskLabel(risk: String): String = when (risk) {
 
 @Composable
 private fun Field(label: String, value: String, mono: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+    // Read as one: "Command, rm -rf dist build".
+    Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
         Text(
             value,

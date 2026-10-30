@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Screenshots of every screen in every state, light and dark, en and pt-BR (src/test/snapshots).
+    alias(libs.plugins.paparazzi)
 }
 
 android {
