@@ -5,6 +5,7 @@ import {
   isDevicePublicKey,
   isHelloChallenge,
   isPairingCode,
+  pairingVerification,
   pairingUri,
   readPairingUri,
   readPairRequest,
@@ -126,5 +127,20 @@ describe('C5 pairing', () => {
     const signature = sign('sha256', Buffer.from(text), privateKey)
     expect(verify('sha256', Buffer.from(text), key, signature)).toBe(true)
     expect(verify('sha256', Buffer.from(refreshSigningInput(fp, 'device-1', randomBytes(32).toString('base64url'))), key, signature)).toBe(false)
+  })
+
+  it('derives the same 6-character verification from the device key on both sides', () => {
+    const digest = (key: string) => createHash('sha256').update(Buffer.from(key, 'base64url')).digest()
+    const code = pairingVerification(digest(publicKey))
+    expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{6}$/)
+    expect(pairingVerification(digest(publicKey))).toBe(code)
+    const other = generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey.export({ type: 'spki', format: 'der' }).toString('base64url')
+    expect(pairingVerification(digest(other))).not.toBe(code)
+    // Fixed vector for the Kotlin side: first 30 bits of 0xFFFFFFFF... are all ones.
+    expect(pairingVerification(new Uint8Array(32).fill(255))).toBe('ZZZZZZ')
+    expect(pairingVerification(new Uint8Array(32))).toBe('000000')
+    const vector = new Uint8Array(32); vector.set([0x12, 0x34, 0x56, 0x78])
+    expect(pairingVerification(vector)).toBe('28T5CY')
+    expect(() => pairingVerification(new Uint8Array(31))).toThrow()
   })
 })

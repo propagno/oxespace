@@ -288,3 +288,21 @@ export function readPairRequest(value: unknown): { ok: true; request: RemotePair
 export function refreshSigningInput(fp: string, deviceId: string, nonce: string): string {
   return `oxespace-refresh:1:${fp}:${deviceId}:${nonce}`
 }
+
+/** Crockford base32: no I, L, O or U, so the code reads aloud without confusion. */
+const VERIFICATION_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+
+/**
+ * The 6 characters both screens show while pairing ("Check the code <verification> on the phone"): the first 30 bits
+ * of SHA-256 over the device public key's SPKI DER bytes, in Crockford base32. Each side hashes with its own crypto
+ * and passes the 32-byte digest here.
+ */
+export function pairingVerification(spkiSha256: Uint8Array): string {
+  if (spkiSha256.length !== 32) throw new Error('Expected a SHA-256 digest')
+  let bits = 0
+  for (let index = 0; index < 4; index += 1) bits = bits * 256 + spkiSha256[index]
+  bits = Math.floor(bits / 4)
+  let text = ''
+  for (let index = 0; index < 6; index += 1) { text = VERIFICATION_ALPHABET[bits % 32] + text; bits = Math.floor(bits / 32) }
+  return text
+}
