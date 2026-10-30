@@ -528,4 +528,27 @@
 .oq-query-error-detail summary small { margin-left: var(--space-2); color: var(--text-muted); }
 .oq-query-error-detail pre { margin: var(--space-2) 0 0; }
 
+/* Grid: filter bar, pinned columns, JSON and array viewers */
+.oq-grid-wrap { display: flex; flex: 1; flex-direction: column; min-height: 120px; min-width: 0; }
+.oq-grid-wrap > .oq-grid { min-height: 0; }
+.oq-grid-filter { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--border-default); }
+.oq-grid-filter input { flex: 1; min-width: 0; max-width: 320px; height: var(--control-sm); font-size: var(--text-xs); }
+.oq-grid-pin { margin-left: 6px; padding: 0 4px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; opacity: 0; }
+.oq-grid-header > span:hover .oq-grid-pin, .oq-grid-pin:focus-visible, .oq-grid-pin.is-on { opacity: 1; }
+.oq-grid-pin.is-on { color: var(--accent); }
+.oq-grid-header > span.is-pinned, .oq-grid-row [role='gridcell'].is-pinned { z-index: var(--layer-raised); background: var(--surface-raised); }
+.oq-grid-row [role='gridcell'].is-pinned.is-range { background: color-mix(in srgb, var(--accent) 22%, var(--surface-raised)); }
+.oq-json { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.oq-json-tools { display: flex; gap: 6px; padding: 6px 10px 0; }
+.oq-json-tree { flex: 1; padding: 8px 10px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-json-children { margin-left: 14px; padding-left: 6px; border-left: 1px solid var(--border-default); }
+.oq-json-toggle { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.oq-json-key { color: var(--text-secondary); }
+.oq-json-string { color: var(--text-primary); word-break: break-word; }
+.oq-json-number, .oq-json-bool { color: var(--accent); }
+.oq-json-null, .oq-json-summary { color: var(--text-muted); font-style: italic; }
+.oq-array { flex: 1; padding: 8px 10px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-array ol { margin: 6px 0 0; padding-left: 28px; }
+.oq-array li.is-null { color: var(--text-muted); font-style: italic; }
+
 .oq-welcome { align-items: center; justify-content: center; padding: 24px; }

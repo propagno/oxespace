@@ -258,7 +258,16 @@
     "hideNamed": "Hide column {{name}}",
     "resize": "Resize column {{name}}",
     "openRow": "Open this row",
-    "nullTitle": "NULL (no value)"
+    "nullTitle": "NULL (no value)",
+    "filterScope": "Filter column",
+    "filterAll": "All columns",
+    "filterLabel": "Filter loaded rows",
+    "filterPlaceholder": "Filter loaded rows…",
+    "filterCount": "{{shown}} of {{total}} loaded rows",
+    "filterClear": "Clear filter",
+    "pin": "Pin column {{name}}",
+    "unpin": "Unpin column {{name}}",
+    "pinTitle": "Pin to the left"
   },
   "library": {
     "saved": "Query saved",
@@ -526,10 +535,23 @@
       "in": "is one of"
     }
   },
+  "completion": {
+    "cte": "CTE",
+    "subquery": "subquery",
+    "foreignKey": "foreign key {{name}}"
+  },
   "cell": {
     "label": "Cell",
     "row": "row {{number}}",
-    "close": "Close cell viewer"
+    "close": "Close cell viewer",
+    "collapseAll": "Collapse all",
+    "expandAll": "Expand all",
+    "collapseNode": "Collapse {{name}}",
+    "expandNode": "Expand {{name}}",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "jsonLabel": "JSON document",
+    "arrayLabel": "Array elements"
   },
   "workbench": {
     "queryTitle": "Query {{number}}",
