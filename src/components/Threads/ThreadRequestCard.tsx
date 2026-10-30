@@ -76,7 +76,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
   }
   if (request.state !== 'pending') return <details className={cx(`thread-request-history is-${request.state}`, styles.history)}>
     <summary className={cx('thread-request is-resolved', styles.resolved)}>
-    {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={14} /> : <AlertCircle size={14} />}
+    {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={14} className="oxe-confirm" /> : <AlertCircle size={14} />}
     <span><strong>{request.questions?.[0]?.question ?? request.title}</strong><small>{requestOutcomeText(request)}{policy && policy.decision !== 'ask' && (request.resolution === 'approved' || request.resolution === 'declined') ? t('request.byRule') : ''}{request.resolution === 'answered' && turnResult === 'failed' ? t('request.failedAfter') : request.resolution === 'answered' && turnResult === 'interrupted' ? t('request.interruptedAfter') : ''}</small></span>
     {request.resolvedAt && <time title={formatDateTime(request.resolvedAt)}>{formatDateTime(request.resolvedAt, { hour: '2-digit', minute: '2-digit' })}</time>}
     </summary>
