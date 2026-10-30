@@ -160,7 +160,14 @@
   },
   "production": {
     "title": "Enviar para {{name}}?",
-    "text": "Isto envia {{method}} {{url}} para um ambiente de produção.",
+    "lead": "{{name}} é um ambiente de produção. Confira para onde o pedido vai antes de enviar.",
+    "request": "Pedido",
+    "environment": "Ambiente",
+    "secretsMasked": "Os valores secretos ficam ocultos.",
+    "unknownTitle": "O endereço não é conhecido",
+    "missing_one": "{{names}} não tem valor em {{name}}, então não se sabe para qual endereço isto iria. Adicione o valor ao ambiente antes de enviar.",
+    "missing_many": "{{names}} não têm valor em {{name}}, então não se sabe para qual endereço isto iria. Adicione os valores ao ambiente antes de enviar.",
+    "missing_other": "{{names}} não têm valor em {{name}}, então não se sabe para qual endereço isto iria. Adicione os valores ao ambiente antes de enviar.",
     "confirm": "Enviar"
   },
   "import": {
