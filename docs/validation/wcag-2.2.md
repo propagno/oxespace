@@ -12,7 +12,9 @@ and the documented exceptions.
   from the report alone.
 - **End-to-end tests** for what axe cannot see (focus position after scrolling, alternatives to dragging).
 - **The screen-reader script** (docs/validation/screen-reader-1.4.md), run by a person with NVDA on Windows and Orca
-  on Linux, and recorded with date and build in its table.
+  on Linux, and recorded with date and build in its table. Before that, `e2e/screen-reader-script.spec.ts` checks the
+  accessibility tree of each step it can reach without a real agent or Docker (names, roles, states, order, live
+  regions and where focus goes), so the person's pass is the final check, not the first.
 
 ## Criteria added in 2.2
 
@@ -22,7 +24,7 @@ and the documented exceptions.
 | 2.5.7 Dragging Movements | AA | Pass | Every drag has a single-click way: a click on a splitter, a sidebar's edge or a pane-grid divider (a press that does not travel), or Enter on it, opens Smaller / Larger / Restore (Move the divider for the grid); editor tabs move left or right from their menu; workspaces move up or down from theirs; panes move with the pane menu's Arrange; the file tree's menu copies a path instead of dragging it into a terminal. `e2e/drag-alternatives.spec.ts`, `tests/ui-splitter.test.tsx`, offer-audit. |
 | 2.5.8 Target Size (Minimum) | AA | Pass, with one documented exception | axe `target-size` on every surface. Control heights come from `--control-*` (24, 28 and 32 px). Exception below. |
 | 3.2.6 Consistent Help | A | Pass | Help is always in the same place: the Help menu of the title bar (keyboard shortcuts, diagnostics, report a problem, About) and the same entries in the command palette. |
-| 3.3.7 Redundant Entry | A | Audit pending (F4, third part) | Forms are being reviewed for information asked twice in the same process. |
+| 3.3.7 Redundant Entry | A | Pass | The multi-step flows carry what was already given: Connect on a database container opens the connection form filled from the container (OxeQuery); a new conversation starts in the project it was created from; New workspace keeps the chosen folder through the launch; delegation offers the workspaces already open; a request opened again keeps its draft. No form asks for something the same process already has. |
 | 3.3.8 Accessible Authentication (Minimum) | AA | Pass | OXESpace has no password of its own. Agent sign-in happens in the provider's own page in the browser; the codes and tokens fields allow paste and password managers (no paste blocking, no cognitive test). |
 
 2.4.12, 2.4.13 and 3.3.9 are level AAA and outside the claim.
