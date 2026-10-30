@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "oxespace-android"
-include(":app")
+include(":app", ":protocol")
