@@ -44,6 +44,13 @@
         "added": "It added {{tools}}.",
         "removed": "It removed {{tools}}.",
         "configChanged": "Its command, arguments, environment or URL changed after you trusted it."
+      },
+      "signIn": {
+        "waiting": "Waiting for you to sign in in the browser…"
+      },
+      "server": {
+        "quarantined": "Quarantined: it changed after you trusted it. Review it and trust it again to use it.",
+        "untrusted": "Not trusted yet. Review its command and trust it before testing."
       }
     },
     "thread": {
@@ -52,6 +59,23 @@
         "staleGeneration": "The conversation restarted since this request was shown. Open it to see what is waiting now.",
         "alreadyResponding": "An answer to this request is already being sent.",
         "unanswered": "Answer every question before continuing."
+      },
+      "commands": {
+        "configure": "Configure the provider in Agent Settings and use Refresh commands to try again.",
+        "busy": "Command discovery is busy. Use Refresh commands to try again.",
+        "claudeFailed": "Could not load Claude commands. Check the CLI in Agent Settings and use Refresh commands to try again.",
+        "codexFailed": "Could not load Codex skills. Check the CLI in Agent Settings and use Refresh commands to try again."
+      },
+      "capability": {
+        "readOnly": "Turned off by this conversation’s read-only tool policy.",
+        "mcpReadOnly": "Limited by this conversation’s read-only policy: OXESpace lookups only, no MCP servers of your own."
+      },
+      "observe": {
+        "unsupported": "No connected provider can report this conversation’s state. The outcome is still unconfirmed.",
+        "changed": "The provider’s state changed during recovery. The conversation here was kept; check again."
+      },
+      "queue": {
+        "deliveryUnconfirmed": "Delivery of this message could not be confirmed."
       }
     },
     "app": {
@@ -69,6 +93,77 @@
       },
       "certificate": {
         "failed": "The connection certificate could not be created or read from secure storage."
+      }
+    },
+    "linear": {
+      "worktree": {
+        "exists": "A worktree for {{issue}} already exists at {{path}}."
+      }
+    },
+    "worktree": {
+      "cleanup": {
+        "notRemovable": "This is not a removable worktree of this repository.",
+        "blocked": "Blocked: {{reasons}}.",
+        "needsConfirmation": "Needs confirmation: {{reasons}}."
+      }
+    },
+    "github": {
+      "cli": {
+        "missing": "GitHub CLI not found. Install it from https://cli.github.com/ and run gh auth login."
+      }
+    },
+    "git": {
+      "base": {
+        "unresolved": "Base “{{base}}” could not be resolved and the repository has no commits."
+      }
+    },
+    "oxe": {
+      "status": {
+        "unreadable": "Could not read the output of oxe status."
+      },
+      "dashboard": {
+        "timeout": "The dashboard did not respond in time."
+      }
+    },
+    "memory": {
+      "disabled": "Project memory is turned off.",
+      "unavailable": "Project memory is temporarily unavailable. Agents keep working.",
+      "runtimeUnavailable": "Memory credentials or runtime are unavailable."
+    },
+    "oxequery": {
+      "edit": {
+        "readOnly": "This connection is read-only. Turn read-only off to edit data.",
+        "notTable": "Only tables can be edited, not views or foreign tables.",
+        "noKey": "This table has no primary key or unique NOT NULL index, so a row cannot be identified safely."
+      },
+      "test": {
+        "connected": "Connected"
+      },
+      "startFailed": "OxeQuery did not start: {{reason}}"
+    },
+    "oxepod": {
+      "startFailed": "OxePod did not start: {{reason}}"
+    },
+    "oxepost": {
+      "network": {
+        "notFound": "The host name was not found. Check the URL and the connection.",
+        "refused": "The connection was refused: nothing is listening at that address and port.",
+        "reset": "The server closed the connection before answering.",
+        "timedOut": "The connection timed out.",
+        "lookupFailed": "The host name could not be looked up right now.",
+        "hostUnreachable": "The host cannot be reached.",
+        "networkUnreachable": "The network cannot be reached."
+      },
+      "send": {
+        "invalidUrl": "The URL is not valid. It needs a scheme, such as https://example.com/path",
+        "scheme": "Only http and https URLs can be sent.",
+        "bodyNotAllowed": "{{method}} cannot carry a body. Change the method or clear the body.",
+        "bodyTooLarge": "The body is larger than 5 MB.",
+        "invalidHeader": "“{{name}}” is not a valid header.",
+        "timeout": "No complete answer within {{seconds}} seconds.",
+        "tls": "The server's certificate was not accepted ({{code}}). OxePost always verifies certificates: trust the certificate on this computer or use the address it was issued for.",
+        "failed": "The request failed.",
+        "failedWith": "The request failed: {{detail}}"
       }
     }
   }

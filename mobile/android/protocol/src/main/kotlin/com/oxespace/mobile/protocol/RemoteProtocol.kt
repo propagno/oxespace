@@ -26,6 +26,8 @@ const val REMOTE_PROTOCOL_VERSION: Int = 1
 object RemoteLimits {
     /** Largest frame either side accepts, in UTF-8 bytes. */
     const val MAX_FRAME_BYTES: Int = 65536
+    /** Deepest nesting of objects and arrays a frame may have, so no later recursive step can overflow the stack. */
+    const val MAX_FRAME_DEPTH: Int = 64
     /** Open subscriptions per connection. */
     const val MAX_SUBSCRIPTIONS: Int = 32
     /** Commands per device per minute before `rate-limited`. */
@@ -45,6 +47,10 @@ object RemoteLimits {
     const val PAIRING_ATTEMPT_WINDOW_MS: Long = 120000L
     /** Characters of the device name a phone may give when pairing. */
     const val MAX_DEVICE_NAME_LENGTH: Int = 64
+    /** Bytes a `terminal.write` may carry. */
+    const val TERMINAL_WRITE_BYTES: Int = 4096
+    /** How long the desktop remembers a `clientId` of `thread.send` / `thread.steer`, so a resend is applied once. */
+    const val CLIENT_ID_DEDUPE_MS: Long = 600000L
 }
 
 @Serializable
@@ -84,7 +90,9 @@ enum class RemoteSubscription(val wire: String) {
 
 /**
  * What the phone can do. `thread.respondRequest` answers a Thread request by id and generation (B1.1) after biometric
- * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop.
+ * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop;
+ * `thread.history` reads older items of a conversation. Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
+ * and is recorded in the desktop's audit with the device id.
  */
 @Serializable
 enum class RemoteCommand(val wire: String) {
@@ -93,6 +101,7 @@ enum class RemoteCommand(val wire: String) {
     @SerialName("thread.interrupt") THREAD_INTERRUPT("thread.interrupt"),
     @SerialName("thread.respondRequest") THREAD_RESPOND_REQUEST("thread.respondRequest"),
     @SerialName("terminal.write") TERMINAL_WRITE("terminal.write"),
+    @SerialName("thread.history") THREAD_HISTORY("thread.history"),
     ;
 
     companion object {
@@ -208,6 +217,11 @@ data class RemoteSubscribeFrame(
     val target: String? = null,
     /** Resume after this sequence; the gateway sends what came after, without gaps or repeats. */
     val sinceSeq: Long? = null,
+    /**
+     * Resume after this point exactly: an opaque cursor the gateway built (`epoch:revision` of a conversation, the ring
+     * sequence of a terminal). The phone never reads it; an unknown or expired one gets a fresh snapshot.
+     */
+    val cursor: String? = null,
 ) : RemoteFrame
 
 @Serializable
@@ -226,9 +240,14 @@ data class RemoteEventFrame(
     /** The ThreadEvent `schemaVersion`, or this protocol's version for other topics. */
     val schemaVersion: Long,
     val data: JsonElement,
+    /** The point this event brings the phone to, to resume from. */
+    val cursor: String? = null,
 ) : RemoteFrame
 
-/** The whole state of a subscription, sent first and whenever resuming is not possible. */
+/**
+ * The whole state of a subscription, sent first and whenever resuming is not possible. A snapshot over a frame comes
+ * in pages, in order; the phone applies it only when the page marked `last` arrives.
+ */
 @Serializable
 @SerialName("snapshot")
 data class RemoteSnapshotFrame(
@@ -236,7 +255,15 @@ data class RemoteSnapshotFrame(
     val seq: Long,
     val schemaVersion: Long,
     val data: JsonElement,
-) : RemoteFrame
+    val cursor: String? = null,
+    val page: Page? = null,
+) : RemoteFrame {
+    @Serializable
+    data class Page(
+        val index: Long,
+        val last: Boolean,
+    )
+}
 
 @Serializable
 @SerialName("command")
