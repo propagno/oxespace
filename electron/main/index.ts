@@ -391,7 +391,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
-  registerRemoteIpc(db)
+  registerRemoteIpc(db, { threads: threadManager.manager, terminals: terminalManager, agentState })
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()

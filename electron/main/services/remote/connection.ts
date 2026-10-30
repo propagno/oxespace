@@ -11,25 +11,38 @@ import { WS_CLOSE } from './websocket'
  * subscriptions and commands. Everything the phone sends is untrusted: each frame passes `readRemoteFrame`, then a
  * strict check of its own fields, and only then reaches the gateway.
  *
- * In this release (M1–M3) no command runs and no topic has data yet: commands are answered `forbidden` and topics
- * without a source `not-found`. M4 registers topic sources; M5 adds the commands.
+ * Topics (M4) come from the sources the gateway registers; a topic without one is `not-found`. Commands (M5) are
+ * handed to the gateway, which counts, checks, runs and records them; their answers may arrive in any order, each
+ * naming the frame it answers.
  */
 
 export type AuthOutcome = { ok: true; deviceId: string; expiresAt: number; result: RemoteAuthResult } | { ok: false; code: RemoteErrorCode }
 
-export interface RemoteTopicFrame { kind: 'snapshot' | 'event'; seq: number; schemaVersion: number; data: unknown }
+export interface RemoteTopicFrame {
+  kind: 'snapshot' | 'event'
+  seq: number
+  schemaVersion: number
+  data: unknown
+  cursor?: string
+  page?: { index: number; last: boolean }
+}
 
 /** Where a topic's data comes from (M4). `open` returns null when the target does not exist. */
 export interface RemoteTopicSource {
-  open(request: { deviceId: string; target?: string; sinceSeq?: number }, emit: (frame: RemoteTopicFrame) => void): { close(): void } | null
+  open(request: { deviceId: string; target?: string; sinceSeq?: number; cursor?: string }, emit: (frame: RemoteTopicFrame) => void): { close(): void } | null
 }
+
+export type RemoteCommandAnswer = { ok: true; result?: unknown } | { ok: false; code: RemoteErrorCode; retryAfterMs?: number }
 
 export interface ConnectionHost {
   readonly desktopName: string
   now(): number
   authenticate(frame: RemoteAuthFrame, challenge: string, address: string): AuthOutcome
   isRevoked(deviceId: string): boolean
-  takeCommand(deviceId: string): { ok: true } | { ok: false; retryAfterMs: number }
+  /** Counts, checks, runs and records one command; `args` is undefined when the frame itself was malformed. */
+  runCommand(deviceId: string, command: RemoteCommandFrame['command'], args: unknown): Promise<RemoteCommandAnswer>
+  /** A command name the protocol does not know, from a signed-in device: counted and recorded too. */
+  unknownCommand(deviceId: string): RemoteCommandAnswer
   topic(topic: RemoteSubscription): RemoteTopicSource | undefined
   authenticated(connection: RemoteConnection): void
   seen(deviceId: string): void
@@ -44,6 +57,7 @@ export interface FrameSocket {
 
 const FRAME_ID = /^[A-Za-z0-9._:-]{1,128}$/
 const TARGET = /^[A-Za-z0-9._:-]{1,200}$/
+const CURSOR = /^[A-Za-z0-9._:-]{1,200}$/
 /** Any frame, of any kind, per connection per minute. Commands have their own, lower limit per device. */
 const MAX_FRAMES_PER_MINUTE = 600
 const FORBIDDEN = new Set<string>(REMOTE_FORBIDDEN)
@@ -90,6 +104,7 @@ export class RemoteConnection {
     if (!this.withinFrameRate()) return this.fail('rate-limited')
     const read = readRemoteFrame(text, 'client')
     if (!read.ok) {
+      if (read.code === 'unknown-command' && this.state === 'ready' && this.deviceId) return this.answer(frameId(text), this.host.unknownCommand(this.deviceId))
       this.error(read.code, read.code === 'frame-too-large' ? undefined : frameId(text))
       if (this.state !== 'ready') this.close()
       return
@@ -110,6 +125,7 @@ export class RemoteConnection {
 
   /** The device was revoked: say so and close; the socket is gone within a second whatever the phone does. */
   revoke(): void {
+    this.closeSubscriptions()
     this.error('revoked')
     this.close(WS_CLOSE.policy)
   }
@@ -123,9 +139,13 @@ export class RemoteConnection {
     if (this.ended) return
     this.ended = true
     clearTimeout(this.authTimer)
+    this.closeSubscriptions()
+    this.host.closed(this)
+  }
+
+  private closeSubscriptions(): void {
     for (const subscription of this.subscriptions.values()) { try { subscription.close() } catch { /* a source failing to close does not matter now */ } }
     this.subscriptions.clear()
-    this.host.closed(this)
   }
 
   /** Sent by the WebSocket layer when a message is over the limit, just before it closes with 1009. */
@@ -166,8 +186,9 @@ export class RemoteConnection {
 
   private subscribe(frame: RemoteSubscribeFrame): void {
     const id = frameId(frame)
-    if (!id || !hasOnlyKeys(frame, ['type', 'id', 'topic', 'target', 'sinceSeq']) || typeof frame.topic !== 'string' ||
+    if (!id || !hasOnlyKeys(frame, ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor']) || typeof frame.topic !== 'string' ||
       (frame.target !== undefined && (typeof frame.target !== 'string' || !TARGET.test(frame.target))) ||
+      (frame.cursor !== undefined && (typeof frame.cursor !== 'string' || !CURSOR.test(frame.cursor))) ||
       (frame.sinceSeq !== undefined && (!Number.isSafeInteger(frame.sinceSeq) || frame.sinceSeq < 0))) return this.error('malformed', id)
     if (!this.session(id)) return
     if (FORBIDDEN.has(frame.topic)) return this.error('forbidden', id)
@@ -180,10 +201,12 @@ export class RemoteConnection {
     let pending: RemoteTopicFrame[] | null = []
     const emit = (data: RemoteTopicFrame) => {
       if (pending) pending.push(data)
-      else if (this.subscriptions.has(subscription)) this.send({ type: data.kind, subscription, seq: data.seq, schemaVersion: data.schemaVersion, data: data.data })
+      else if (this.subscriptions.has(subscription)) {
+        this.send({ type: data.kind, subscription, seq: data.seq, schemaVersion: data.schemaVersion, data: data.data, ...(data.cursor ? { cursor: data.cursor } : {}), ...(data.page ? { page: data.page } : {}) })
+      }
     }
     let handle: { close(): void } | null
-    try { handle = source.open({ deviceId: this.deviceId!, ...(frame.target !== undefined ? { target: frame.target } : {}), ...(frame.sinceSeq !== undefined ? { sinceSeq: frame.sinceSeq } : {}) }, emit) } catch { return this.error('internal', id) }
+    try { handle = source.open({ deviceId: this.deviceId!, ...(frame.target !== undefined ? { target: frame.target } : {}), ...(frame.sinceSeq !== undefined ? { sinceSeq: frame.sinceSeq } : {}), ...(frame.cursor !== undefined ? { cursor: frame.cursor } : {}) }, emit) } catch { return this.error('internal', id) }
     if (!handle) return this.error('not-found', id)
     this.subscriptions.set(subscription, handle)
     this.send({ type: 'ack', id, subscription })
@@ -205,13 +228,16 @@ export class RemoteConnection {
 
   private command(frame: RemoteCommandFrame): void {
     const id = frameId(frame)
-    if (!id || !hasOnlyKeys(frame, ['type', 'id', 'command', 'args']) || !isPlainObject(frame.args)) return this.error('malformed', id)
+    if (!id) return this.error('malformed')
     if (!this.session(id)) return
-    const allowed = this.host.takeCommand(this.deviceId!)
-    if (!allowed.ok) return this.send({ type: 'error', id, code: 'rate-limited', retryAfterMs: allowed.retryAfterMs })
-    if (mentionsForbidden(frame.args)) return this.error('forbidden', id)
-    // M5 runs commands; until then none reaches anything.
-    this.error('forbidden', id)
+    const args = hasOnlyKeys(frame, ['type', 'id', 'command', 'args']) && isPlainObject(frame.args) ? frame.args : undefined
+    this.host.runCommand(this.deviceId!, frame.command, args).then(answer => this.answer(id, answer), () => this.error('internal', id))
+  }
+
+  private answer(id: string | undefined, answer: RemoteCommandAnswer): void {
+    if (this.ended) return
+    if (answer.ok) return this.send({ type: 'ack', ...(id ? { id } : { id: '' }), ...(answer.result !== undefined ? { result: answer.result } : {}) })
+    this.send({ type: 'error', ...(id ? { id } : {}), code: answer.code, ...(answer.retryAfterMs !== undefined ? { retryAfterMs: answer.retryAfterMs } : {}) })
   }
 
   /** The device is still paired and its token still valid; otherwise answers why and returns false. */

@@ -190,7 +190,7 @@ describe('remote gateway: frames, limits and what the phone may never do', () =>
     expect(await TestSocket.open(p.target, { headers: { 'Sec-WebSocket-Key': 'short' } })).toBe(400)
   })
 
-  test('commands never reach anything yet; forbidden capabilities are refused; commands are rate-limited per device', async () => {
+  test('without a desktop no command reaches anything; forbidden capabilities are refused; commands are rate-limited per device', async () => {
     const open = vi.fn()
     const p = await paired({ topics: { threads: { open } } })
     const socket = await signedIn(p)
@@ -204,8 +204,8 @@ describe('remote gateway: frames, limits and what the phone may never do', () =>
     }
     expect(open).not.toHaveBeenCalled()
 
-    // 60 per minute per device, counted across its connections.
-    const used = REMOTE_COMMANDS.length + REMOTE_FORBIDDEN.length
+    // 60 per minute per device, counted across its connections; an unknown command counts too.
+    const used = REMOTE_COMMANDS.length + 2 * REMOTE_FORBIDDEN.length
     for (let index = used; index < REMOTE_LIMITS.commandsPerMinute; index += 1) await socket.ask({ type: 'command', id: `n${index}`, command: 'thread.interrupt', args: {} })
     const second = await signedIn(p)
     const limited = await second.ask({ type: 'command', id: 'over', command: 'thread.interrupt', args: {} })

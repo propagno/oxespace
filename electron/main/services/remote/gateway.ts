@@ -9,16 +9,19 @@ import type { AppDatabase } from '../../db'
 import { mainMessage } from '../../../../shared/messages'
 import {
   isHelloChallenge, pairingUri, pairingVerification, readPairRequest, REMOTE_LIMITS, REMOTE_PAIRING_PATH, REMOTE_PROTOCOL_VERSION, REMOTE_WS_PATH,
-  type RemoteAuthFrame, type RemotePairingErrorCode, type RemotePairResponse, type RemoteSubscription
+  type RemoteAuthFrame, type RemoteCommand, type RemotePairingErrorCode, type RemotePairResponse, type RemoteSubscription
 } from '../../../../shared/remote/protocol'
 import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingOffer } from '../../../../shared/types/remote'
 import { createSecretCipher, type SafeStorageLike } from '../oxequery/secret-cipher'
 import { certificateFingerprint, createGatewayCertificate } from './certificate'
-import { RemoteConnection, type AuthOutcome, type ConnectionHost, type RemoteTopicSource } from './connection'
-import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput } from './inputs'
+import { auditDetail, RemoteCommands } from './commands'
+import { mentionsForbidden, RemoteConnection, type AuthOutcome, type ConnectionHost, type RemoteCommandAnswer, type RemoteTopicSource } from './connection'
+import type { RemoteDesktop } from './desktop'
+import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput } from './inputs'
 import { isPrivateAddress, listenAddresses, peerAddress, type ListenAddress } from './network'
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
+import { createTopics } from './topics'
 import { AccessTokens, readDevicePublicKey, sameSecret, verifyRefreshSignature } from './tokens'
 import { frameSocket, refuseUpgrade, upgradeRefusal, WS_CLOSE } from './websocket'
 
@@ -28,7 +31,7 @@ import { frameSocket, refuseUpgrade, upgradeRefusal, WS_CLOSE } from './websocke
  * the person accepts on screen; the WebSocket at `REMOTE_WS_PATH` (`/v1/ws`) speaks the C5 protocol, framed by `ws`.
  *
  * Nothing here can reach the internal MCP server, agent executions or accounts: the gateway is built from the database,
- * `safeStorage` and the topic sources it is given, and nothing else.
+ * `safeStorage` and the `RemoteDesktop` it is given (M4 topics, M5 commands), and nothing else.
  */
 
 const MAX_CONNECTIONS = 16
@@ -45,7 +48,12 @@ export interface RemoteGatewayDeps {
   /** Which interface addresses may be listened on; private ones only, unless a test says otherwise. */
   isAllowedAddress?: (address: string) => boolean
   promptTimeoutMs?: number
+  /** What phones may watch and do (M4, M5). Without it no topic has data and every command is `forbidden`. */
+  desktop?: RemoteDesktop
+  /** Overrides of single topic sources (tests). */
   topics?: Partial<Record<RemoteSubscription, RemoteTopicSource>>
+  /** Topic timings, for tests. */
+  topicTiming?: { pollMs?: number; debounceMs?: number }
   platform?: NodeJS.Platform
   env?: NodeJS.ProcessEnv
 }
@@ -86,6 +94,12 @@ export class RemoteGateway implements ConnectionHost {
   private readonly commandTimes = new Map<string, number[]>()
   private readonly lastSeenWrite = new Map<string, number>()
   private authAudits = { windowStart: 0, count: 0 }
+  /** Panes the person let phones type into: in memory only, so off on every launch, and never set by a phone or MCP. */
+  private readonly phoneWritePanes = new Set<string>()
+  private readonly workspaceListeners = new Set<() => void>()
+  private readonly rateLimitAudited = new Map<string, number>()
+  private readonly topics: Partial<Record<RemoteSubscription, RemoteTopicSource>>
+  private readonly commands: RemoteCommands | null
   /** Signs access tokens. Made at each launch and kept only in memory: a restart ends every access token, never a pairing. */
   private readonly tokenKey = randomBytes(32)
   /** `ws` with compression off and the C5 frame cap; it never listens itself, upgrades are handed to it. */
@@ -95,6 +109,15 @@ export class RemoteGateway implements ConnectionHost {
     this.store = new RemoteStore(deps.db, this.now)
     this.pairing = new PairingDesk(this.now, deps.promptTimeoutMs ?? PAIRING_PROMPT_TIMEOUT_MS, prompt => this.deps.broadcast({ pairing: prompt }))
     this.store.pruneAudit()
+    const desktop = deps.desktop
+    this.topics = {
+      ...(desktop ? createTopics({
+        desktop, phoneWrite: () => this.phoneWritePanes, ...deps.topicTiming,
+        onWorkspacesChanged: listener => { this.workspaceListeners.add(listener); return () => { this.workspaceListeners.delete(listener) } }
+      }) : {}),
+      ...deps.topics
+    }
+    this.commands = desktop ? new RemoteCommands({ desktop, now: this.now, phoneWrite: () => this.phoneWritePanes }) : null
   }
 
   readonly now = (): number => (this.deps.now ?? Date.now)()
@@ -116,6 +139,7 @@ export class RemoteGateway implements ConnectionHost {
       fingerprint: running?.fingerprint ?? (der ? certificateFingerprint(der) : null),
       devices: this.store.activeCount(),
       maxDevices: REMOTE_LIMITS.maxDevices,
+      phoneWritePanes: [...this.phoneWritePanes].sort(),
       ...(this.error ? { error: this.error } : {})
     }
   }
@@ -131,6 +155,8 @@ export class RemoteGateway implements ConnectionHost {
       if (!input.enabled) {
         await this.shutdown('person')
         this.error = undefined
+        // Turning it off also takes back every pane the phone could type into.
+        this.clearPhoneWrite()
       } else {
         const port = input.port ?? this.store.settings().port
         if (this.running?.port !== port) {
@@ -177,6 +203,7 @@ export class RemoteGateway implements ConnectionHost {
     if (!this.store.revoke(deviceId)) throw new Error('Unknown device')
     for (const connection of this.connections) if (connection.deviceId === deviceId) connection.revoke()
     this.commandTimes.delete(deviceId)
+    this.commands?.forget(deviceId)
     this.store.audit({ action: 'revoke', outcome: 'ok', deviceId })
     this.deps.broadcast({ devices: this.devices(), status: this.status() })
   }
@@ -197,6 +224,32 @@ export class RemoteGateway implements ConnectionHost {
     const status = this.status()
     this.deps.broadcast({ status })
     return status
+  }
+
+  /** Lets phones type into one pane, or stops it. The window's own action: never a phone command or an MCP tool. */
+  setPhoneWrite(value: unknown): RemoteGatewayStatus {
+    const { paneId, allowed } = parseSetPhoneWriteInput(value)
+    const changed = allowed !== this.phoneWritePanes.has(paneId)
+    if (allowed) this.phoneWritePanes.add(paneId)
+    else this.phoneWritePanes.delete(paneId)
+    if (changed) {
+      this.store.audit({ action: 'phone-write', outcome: allowed ? 'on' : 'off', detail: paneId })
+      this.workspacesChanged()
+    }
+    const status = this.status()
+    this.deps.broadcast({ status })
+    return status
+  }
+
+  private clearPhoneWrite(): void {
+    if (!this.phoneWritePanes.size) return
+    this.phoneWritePanes.clear()
+    this.store.audit({ action: 'phone-write', outcome: 'cleared' })
+    this.workspacesChanged()
+  }
+
+  private workspacesChanged(): void {
+    for (const listener of [...this.workspaceListeners]) { try { listener() } catch { /* a closed subscription */ } }
   }
 
   /** On quit: closes everything, like switching it off. */
@@ -421,7 +474,40 @@ export class RemoteGateway implements ConnectionHost {
     return this.store.device(deviceId)?.revoked !== false
   }
 
-  takeCommand(deviceId: string): { ok: true } | { ok: false; retryAfterMs: number } {
+  async runCommand(deviceId: string, command: RemoteCommand, args: unknown): Promise<RemoteCommandAnswer> {
+    const taken = this.takeCommand(deviceId)
+    if (!taken.ok) {
+      this.auditRateLimited(deviceId, command)
+      return { ok: false, code: 'rate-limited', retryAfterMs: taken.retryAfterMs }
+    }
+    let answer: RemoteCommandAnswer
+    if (args !== undefined && mentionsForbidden(args)) answer = { ok: false, code: 'forbidden' }
+    else if (!this.commands) answer = { ok: false, code: 'forbidden' }
+    else answer = await this.commands.run(deviceId, command, args)
+    this.store.audit({ action: 'command', outcome: answer.ok ? 'ok' : answer.code, deviceId, detail: auditDetail(command, args) })
+    return answer
+  }
+
+  unknownCommand(deviceId: string): RemoteCommandAnswer {
+    const taken = this.takeCommand(deviceId)
+    if (!taken.ok) {
+      this.auditRateLimited(deviceId, 'unknown')
+      return { ok: false, code: 'rate-limited', retryAfterMs: taken.retryAfterMs }
+    }
+    // The name the phone sent is not recorded: it is anything the phone chose.
+    this.store.audit({ action: 'command', outcome: 'unknown-command', deviceId, detail: 'unknown' })
+    return { ok: false, code: 'unknown-command' }
+  }
+
+  /** The first refusal of each minute per device is recorded, so a phone hammering the limit cannot flood the trail. */
+  private auditRateLimited(deviceId: string, command: string): void {
+    const now = this.now(), last = this.rateLimitAudited.get(deviceId)
+    if (last !== undefined && now - last < 60_000) return
+    this.rateLimitAudited.set(deviceId, now)
+    this.store.audit({ action: 'command', outcome: 'rate-limited', deviceId, detail: command })
+  }
+
+  private takeCommand(deviceId: string): { ok: true } | { ok: false; retryAfterMs: number } {
     const now = this.now(), times = (this.commandTimes.get(deviceId) ?? []).filter(at => at > now - 60_000)
     if (times.length >= REMOTE_LIMITS.commandsPerMinute) {
       this.commandTimes.set(deviceId, times)
@@ -433,7 +519,7 @@ export class RemoteGateway implements ConnectionHost {
   }
 
   topic(topic: RemoteSubscription): RemoteTopicSource | undefined {
-    return this.deps.topics?.[topic]
+    return this.topics[topic]
   }
 
   authenticated(connection: RemoteConnection): void {

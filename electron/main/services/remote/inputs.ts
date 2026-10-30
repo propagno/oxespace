@@ -69,3 +69,13 @@ export function parseDesktopNameInput(value: unknown): { name: string | null } {
   if (!name || name.length > REMOTE_MAX_DESKTOP_NAME_LENGTH || /[\u0000-\u001f\u007f]/.test(name)) throw new Error('Invalid desktop name')
   return { name }
 }
+
+const PANE_ID = /^[A-Za-z0-9._:-]{1,200}$/
+
+/** `{ paneId, allowed }`: one pane the phone may type into, or not. */
+export function parseSetPhoneWriteInput(value: unknown): { paneId: string; allowed: boolean } {
+  const input = record(value, 'Phone write input', ['paneId', 'allowed'])
+  if (typeof input.paneId !== 'string' || !PANE_ID.test(input.paneId)) throw new Error('Invalid pane')
+  if (typeof input.allowed !== 'boolean') throw new Error('allowed must be a boolean')
+  return { paneId: input.paneId, allowed: input.allowed }
+}
