@@ -104,7 +104,7 @@
     "deleteTitle": "Delete “{{name}}”?",
     "deleteDescription": "Its saved password, keys and certificates are removed too. The database itself is not touched.",
     "emptyTitle": "No connections yet",
-    "emptyText": "Press Connect on a database container, or add one by hand.",
+    "emptyText": "Add one, or use Connect in OxeQuery on a database container in OxePod.",
     "section": {
       "matches_one": "Matches ({{count}})",
       "matches_other": "Matches ({{count}})",
