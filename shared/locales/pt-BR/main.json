@@ -34,6 +34,11 @@
       "connectivity": {
         "offline": "Sem conexão de rede."
       }
+    },
+    "delegation": {
+      "requester": {
+        "live": "A conversa que delegou esta tarefa ainda está rodando; só ela pode controlar a tarefa."
+      }
     }
   }
 }

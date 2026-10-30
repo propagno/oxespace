@@ -38,6 +38,8 @@ export class ExecutionRegistry {
     }
     return execution
   }
+  /** Whether the execution is still running in this app process; an app restart or a new session of its owner ends it. */
+  isLive(id: string | undefined): boolean { return id !== undefined && this.executions.has(id) }
   forPane(paneId: string): AgentExecution | undefined { return [...this.executions.values()].find(e => e.paneId === paneId) }
   forOwner(owner: ExecutionOwner): AgentExecution | undefined { return [...this.executions.values()].find(e => this.key(e.owner) === this.key(owner)) }
   end(paneId: string): void { this.endOwner({ kind: 'pane', id: paneId }) }

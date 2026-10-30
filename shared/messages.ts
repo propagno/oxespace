@@ -26,6 +26,8 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** Another session tried to control a delegation whose requester is still running (B6.2). */
+  'delegation.requester.live': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -38,7 +40,8 @@ export const MESSAGE_CODES = [
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
-  'app.connectivity.offline'
+  'app.connectivity.offline',
+  'delegation.requester.live'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */
