@@ -301,7 +301,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await page.getByRole('button', { name: 'Library' }).click()
 
     // What agents asked for is listed in the Activity tab.
-    await page.getByRole('tab', { name: 'Activity' }).click()
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Agent activity' }).click()
     await expect(page.getByRole('region', { name: 'Agent activity' })).toContainText('thread:abc')
     await expect(page.getByRole('region', { name: 'Agent activity' })).toContainText('db_query')
     await page.getByRole('tab', { name: 'pg-dev' }).click()
