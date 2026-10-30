@@ -24,23 +24,28 @@ export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: 
   const [projectQuery, setProjectQuery] = useState('')
   const [provider, setProvider] = useState<ThreadProvider>('claude')
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
+  // Text another view handed over (Ask for analysis): named here, put in the draft on create, dropped on cancel.
+  const pendingDraft = useThreadStore(state => state.pendingDraft)
+  const cancel = () => { useThreadStore.getState().setPendingDraft(null); onClose() }
   // A new branch in its own worktree, next to the repository; the conversation starts there.
   const [inWorktree, setInWorktree] = useState(false)
   const [branch, setBranch] = useState(''), [baseRef, setBaseRef] = useState('')
   const filteredProjects = unique.map((context, index) => ({ context, index })).filter(({ context }) => `${context.projectName} ${context.rootPath}`.toLowerCase().includes(projectQuery.toLowerCase()))
-  return <Dialog closeLabel={t('common.close')} className="thread-create-dialog" title={t('dialogs.newTitle')} description={t('dialogs.newDescription')} onClose={() => { if (!pending) onClose() }}
+  return <Dialog closeLabel={t('common.close')} className="thread-create-dialog" title={t('dialogs.newTitle')} description={t('dialogs.newDescription')} onClose={() => { if (!pending) cancel() }}
     footer={<>
-      <Button disabled={pending} onClick={onClose}>{t('common.cancel')}</Button>
+      <Button disabled={pending} onClick={cancel}>{t('common.cancel')}</Button>
       <Button variant="primary" type="submit" form="new-thread-form" disabled={!unique[choice] || pending || !window.oxe?.thread}>{pending ? t('dialogs.creating') : t('dialogs.create')}</Button>
     </>}>
     <form id="new-thread-form" onSubmit={async e => {
       e.preventDefault(); if (pending) return; const context = unique[choice]; if (!context) return
       setPending(true); setError('')
       const worktree = inWorktree ? { ...(branch.trim() ? { branch: branch.trim() } : {}), ...(baseRef.trim() ? { baseRef: baseRef.trim() } : {}) } : undefined
-      try { const snapshot = await window.oxe.thread!.create({ projectId: context.projectId, rootPath: context.rootPath, provider, ...(worktree ? { worktree } : {}) }); useThreadStore.getState().adopt(snapshot); onClose() }
+      try { const snapshot = await window.oxe.thread!.create({ projectId: context.projectId, rootPath: context.rootPath, provider, ...(worktree ? { worktree } : {}) }); const store = useThreadStore.getState(); store.adopt(snapshot)
+        if (store.pendingDraft) { store.setDraft(snapshot.thread.id, store.pendingDraft.text); store.setPendingDraft(null) }
+        onClose() }
       // A worktree refusal names its cause (branch exists, unknown base…); show it instead of a generic line.
       catch (cause) { setError(worktree ? ipcErrorText(cause) ?? t('dialogs.worktreeFailed') : t('dialogs.createFailed')) } finally { setPending(false) }
-    }}><div className="thread-create-section thread-project-selection"><strong>{t('dialogs.project')}</strong><span>{unique[choice]?.projectName ?? t('dialogs.noProject')}</span><code>{unique[choice]?.rootPath}</code>{unique.length > 1 && <Button variant="link" size="sm" className="thread-project-change" aria-expanded={choosingProject} onClick={() => setChoosingProject(value => !value)}>{t('dialogs.changeProject')}</Button>}{choosingProject && <fieldset className="thread-project-options"><legend>{t('dialogs.chooseProject')}</legend><TextField aria-label={t('dialogs.filterProjects')} value={projectQuery} onChange={event => setProjectQuery(event.target.value)} />{filteredProjects.map(({ context, index }) => <label key={context.rootPath}><input type="radio" name="thread-project" checked={choice === index} onChange={() => { setChoice(index); setChoosingProject(false) }} /><span>{context.projectName}<small>{context.rootPath}</small></span></label>)}{!filteredProjects.length && <EmptyState compact title={t('dialogs.noProjectMatch')} />}</fieldset>}<p>{t('dialogs.projectHint')}</p></div>
+    }}>{pendingDraft && <p className="thread-create-section" role="note" data-testid="new-thread-pending-draft">{t(`dialogs.pendingDraft.${pendingDraft.source}`)}</p>}<div className="thread-create-section thread-project-selection"><strong>{t('dialogs.project')}</strong><span>{unique[choice]?.projectName ?? t('dialogs.noProject')}</span><code>{unique[choice]?.rootPath}</code>{unique.length > 1 && <Button variant="link" size="sm" className="thread-project-change" aria-expanded={choosingProject} onClick={() => setChoosingProject(value => !value)}>{t('dialogs.changeProject')}</Button>}{choosingProject && <fieldset className="thread-project-options"><legend>{t('dialogs.chooseProject')}</legend><TextField aria-label={t('dialogs.filterProjects')} value={projectQuery} onChange={event => setProjectQuery(event.target.value)} />{filteredProjects.map(({ context, index }) => <label key={context.rootPath}><input type="radio" name="thread-project" checked={choice === index} onChange={() => { setChoice(index); setChoosingProject(false) }} /><span>{context.projectName}<small>{context.rootPath}</small></span></label>)}{!filteredProjects.length && <EmptyState compact title={t('dialogs.noProjectMatch')} />}</fieldset>}<p>{t('dialogs.projectHint')}</p></div>
       <fieldset className="thread-agent-choice"><legend>{t('dialogs.agent')}</legend><div className="thread-agent-options">{(['claude', 'codex'] as const).map(id => <label key={id} className="thread-agent-option" data-selected={provider === id}><input type="radio" name="thread-provider" value={id} checked={provider === id} onChange={() => setProvider(id)} /><span className="thread-agent-option-icon"><AgentProviderIcon provider={id} size={20} /></span><span><strong>{id === 'claude' ? 'Claude Code' : 'Codex'}</strong><small>{id === 'claude' ? t('accounts.claudePlan') : t('accounts.codexPlan')}</small></span>{provider === id && <Check size={14} className="thread-agent-option-check" />}</label>)}</div></fieldset>
       <div className="thread-create-section thread-worktree-choice">
         <Checkbox label={t('dialogs.inWorktree')} checked={inWorktree} onChange={event => setInWorktree(event.target.checked)} disabled={pending} />

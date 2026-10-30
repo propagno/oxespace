@@ -493,6 +493,9 @@
   "dialogs": {
     "newTitle": "Nova conversa",
     "newDescription": "Uma conversa separada no seu projeto.",
+    "pendingDraft": {
+      "diagnostics": "O resumo do diagnóstico vai para o rascunho desta conversa. Revise e envie você mesmo."
+    },
     "creating": "Criando…",
     "create": "Criar conversa",
     "worktreeFailed": "Não foi possível criar a worktree.",

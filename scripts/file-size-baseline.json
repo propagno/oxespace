@@ -5,6 +5,6 @@
   "electron/main/services/semantic.service.ts": 1065,
   "src/App.tsx": 1120,
   "src/components/GitHub/GitHubPanel.tsx": 1800,
-  "src/components/Settings/SettingsModal.tsx": 1396,
+  "src/components/Settings/SettingsModal.tsx": 1388,
   "src/components/Skills/SkillsBrowser.tsx": 1391
 }

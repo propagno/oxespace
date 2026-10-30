@@ -34,6 +34,7 @@ const MIGRATED = [
   'src/components/Threads',
   // Code mode (V9 4.3)
   'src/components/Background',
+  'src/components/Diagnostics',
   'src/components/Changes',
   'src/components/Editor',
   'src/components/GitHub',

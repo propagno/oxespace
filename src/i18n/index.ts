@@ -17,10 +17,14 @@ const BUNDLES: Record<Language, () => Promise<{ default: Bundle }>> = {
   'pt-BR': () => import('./locales/pt-BR')
 }
 
-/** Namespaces of lazy views: their catalogs load with the view, never at boot. */
-export type LazyNamespace = 'oxequery' | 'pods' | 'post'
+/**
+ * Namespaces of lazy views: their catalogs load with the view, never at boot. `main` holds the words of the codes the
+ * main process sends (C3); views that show them (Settings › Diagnostics) load it, see i18n/messages.ts.
+ */
+export type LazyNamespace = 'oxequery' | 'pods' | 'post' | 'main'
 type Catalog = { default: Record<string, unknown> }
 const LAZY: Record<LazyNamespace, Record<Language, () => Promise<Catalog>>> = {
+  main: { en: () => import('../../shared/locales/en/main.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/main.json') },
   oxequery: { en: () => import('../../shared/locales/en/oxequery.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/oxequery.json') },
   pods: { en: () => import('../../shared/locales/en/pods.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/pods.json') },
   post: { en: () => import('../../shared/locales/en/post.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/post.json') }

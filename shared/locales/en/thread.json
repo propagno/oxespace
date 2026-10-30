@@ -485,6 +485,9 @@
   "dialogs": {
     "newTitle": "New thread",
     "newDescription": "A separate conversation in your project.",
+    "pendingDraft": {
+      "diagnostics": "The diagnostics summary goes into this conversation's draft. Review it, then send it yourself."
+    },
     "creating": "Creating…",
     "create": "Create thread",
     "worktreeFailed": "Could not create the worktree.",

@@ -142,8 +142,6 @@
     "description": "Diagnóstico local e compacto: até 1,5 MiB por sete dias. A exportação deixa de fora prompts, saída do terminal e argumentos de comandos.",
     "refresh": "Atualizar",
     "refreshTitle": "Rodar as verificações de novo",
-    "savedReport": "Relatório sem dados sensíveis salvo em {{path}}",
-    "exportCancelled": "Exportação cancelada.",
     "checking": "Verificando…",
     "failing": "{{count}} com falha",
     "warning_zero": "{{count}} avisos",
@@ -157,7 +155,226 @@
     "healthy": "saudável",
     "platform": "Plataforma",
     "workspaces": "Workspaces",
-    "export": "Exportar relatório"
+    "checksTitle": "Verificações do ambiente",
+    "health": {
+      "title": "Saúde",
+      "measuring": "Medido a cada poucos segundos, só enquanto esta página está aberta.",
+      "loading": "Fazendo a primeira medição…",
+      "unavailable": "As medições ao vivo não estão disponíveis nesta versão do OXESpace.",
+      "failed": "Não foi possível começar a medir.",
+      "allClear": "Tudo parece normal.",
+      "attention": "Precisa de atenção: {{cards}}.",
+      "whatToDo": "O que fazer:"
+    },
+    "tone": {
+      "ok": "Normal",
+      "warning": "Atenção",
+      "error": "Problema",
+      "unknown": "Desconhecido"
+    },
+    "processKind": {
+      "main": "O núcleo do app",
+      "renderer": "A interface",
+      "gpu": "Gráficos",
+      "oxequery-worker": "OxeQuery",
+      "codegraph": "CodeGraph",
+      "utility": "Um processo auxiliar",
+      "other": "Outro processo"
+    },
+    "cards": {
+      "cpu": {
+        "title": "CPU",
+        "meter": "Uso de CPU do OXESpace",
+        "figure": "{{percent}}%",
+        "alerts": {
+          "normal": { "text": "Média das últimas medições. Normal." },
+          "high": {
+            "text": "O OXESpace está ocupado: {{percent}}% de CPU em média.",
+            "action": "Veja qual parte está ocupada em Processos e agentes, e pare terminais ou agentes que você não está usando."
+          },
+          "veryHigh": {
+            "text": "O OXESpace está usando {{percent}}% de CPU em média; o computador pode ficar lento.",
+            "action": "Pare terminais ou agentes que você não está usando. Se continuar alto assim, peça uma análise."
+          }
+        }
+      },
+      "memory": {
+        "title": "Memória",
+        "meter": "Uso de memória do OXESpace",
+        "figure": "{{bytes}}",
+        "alerts": {
+          "normal": { "text": "Todos os processos do OXESpace juntos. Normal." },
+          "high": {
+            "text": "O OXESpace está usando {{bytes}} de memória.",
+            "action": "Feche painéis, conversas e abas do OxeQuery que você não está usando."
+          },
+          "veryHigh": {
+            "text": "O OXESpace está usando {{bytes}} de memória; o computador pode começar a ficar lento.",
+            "action": "Feche o que não está usando ou reinicie o OXESpace. Se crescer de novo, peça uma análise."
+          }
+        }
+      },
+      "disk": {
+        "title": "Disco",
+        "figure": "{{bytes}} livres",
+        "figureUnknown": "—",
+        "alerts": {
+          "normal": { "text": "Espaço de sobra para o banco de dados e os logs." },
+          "low": {
+            "text": "Só {{bytes}} livres no disco que guarda os dados do OXESpace.",
+            "action": "Libere espaço logo: o banco de dados e os logs precisam de espaço para salvar seu trabalho."
+          },
+          "almostFull": {
+            "text": "Só {{bytes}} livres: salvar pode falhar.",
+            "action": "Libere espaço agora: esvazie a lixeira ou apague arquivos grandes de que não precisa."
+          },
+          "unknown": {
+            "text": "Não foi possível ler o espaço livre.",
+            "action": "Nada a fazer aqui. Se salvar falhar, verifique o disco nas configurações do sistema."
+          }
+        }
+      },
+      "database": {
+        "title": "Banco de dados",
+        "figure": "{{bytes}}",
+        "detail": "Logs: {{logs}}",
+        "alerts": {
+          "normal": { "text": "Conversas, configurações e histórico. Normal." },
+          "large": {
+            "text": "O banco de dados local cresceu para {{bytes}}.",
+            "action": "Arquive ou apague conversas de que você não precisa mais."
+          },
+          "busy": {
+            "text_one": "O banco de dados ficou ocupado uma vez no último dia.",
+            "text_many": "O banco de dados ficou ocupado {{count}} vezes no último dia.",
+            "text_other": "O banco de dados ficou ocupado {{count}} vezes no último dia.",
+            "action": "Feche outras janelas do OXESpace. Se continuar acontecendo, peça uma análise."
+          }
+        }
+      },
+      "processes": {
+        "title": "Processos e agentes",
+        "figure": "{{processes}} processos",
+        "detail": "Terminais: {{terminals}} · Agentes: {{agents}} · Servidores MCP saudáveis: {{mcpHealthy}} de {{mcpTotal}}",
+        "alerts": {
+          "normal": { "text": "Nada fora do comum." },
+          "mcpFailing": {
+            "text_one": "{{count}} servidor MCP está falhando.",
+            "text_many": "{{count}} servidores MCP estão falhando.",
+            "text_other": "{{count}} servidores MCP estão falhando.",
+            "action": "Abra Ferramentas › Servidores MCP para ver o erro e reiniciar o servidor."
+          },
+          "mcpQuarantined": {
+            "text_one": "{{count}} servidor MCP está em quarentena depois de mudar.",
+            "text_many": "{{count}} servidores MCP estão em quarentena depois de mudar.",
+            "text_other": "{{count}} servidores MCP estão em quarentena depois de mudar.",
+            "action": "Revise a mudança em Ferramentas › Servidores MCP antes de confiar nele de novo."
+          },
+          "heavyProcess": {
+            "text": "{{kind}} sozinho está usando {{bytes}} de memória.",
+            "action": "Feche painéis e conversas que não está usando. Se continuar crescendo, reinicie o OXESpace."
+          }
+        }
+      },
+      "network": {
+        "title": "Rede e celular",
+        "state": {
+          "online": "Conectado",
+          "offline": "Sem conexão",
+          "unknown": "Ainda não verificado"
+        },
+        "phone": {
+          "phoneUnavailable": "O acesso pelo celular não faz parte desta versão.",
+          "phoneOff": "O acesso pelo celular está desligado.",
+          "phoneNone": "O acesso pelo celular está ligado; nenhum celular pareado.",
+          "phoneConnected": "Celulares pareados conectados: {{connected}} de {{devices}}.",
+          "phoneAway": "Nenhum celular pareado está conectado."
+        },
+        "alerts": {
+          "normal": { "text": "Conectado à rede." },
+          "offline": {
+            "text": "Sem conexão de rede.",
+            "action": "Agentes, atualizações e o celular precisam da rede. Verifique o Wi-Fi ou o cabo; o OXESpace reconecta sozinho."
+          },
+          "phoneAway": {
+            "text": "Seu celular pareado não está conectado.",
+            "action": "Abra o OXESpace no celular, na mesma rede, ou pareie de novo."
+          },
+          "unknown": {
+            "text": "A conexão ainda não foi verificada.",
+            "action": "Nada a fazer ainda; a próxima medição verifica."
+          }
+        }
+      }
+    },
+    "journal": {
+      "title": "Diário de problemas",
+      "description": "Problemas que o OXESpace anotou neste computador nos últimos 30 dias, agrupados por tipo. Sem conteúdo, prompts ou caminhos.",
+      "area": "Área",
+      "allAreas": "Todas as áreas ({{count}})",
+      "areaOption": "{{area}} ({{count}})",
+      "list": "Problemas anotados",
+      "areas": {
+        "app": "App",
+        "window": "Janela",
+        "ipc": "Pedidos em segundo plano",
+        "agent": "Agentes",
+        "mcp": "Servidores MCP",
+        "database": "Banco de dados",
+        "oxequery": "OxeQuery",
+        "updater": "Atualizações",
+        "interaction": "Tempo de resposta"
+      },
+      "actions": {
+        "app": "Nada a fazer; o diário recomeça sozinho. Se acontecer de novo, peça uma análise.",
+        "window": "Reinicie o OXESpace se a janela se comportar mal. Se acontecer de novo, peça uma análise.",
+        "ipc": "Tente a ação de novo. Se continuar falhando, peça uma análise.",
+        "agent": "Verifique se a CLI do agente está instalada e conectada, em Configurações › Agentes.",
+        "mcp": "Revise a mudança do servidor em Ferramentas › Servidores MCP antes de confiar nele de novo.",
+        "database": "Feche outras janelas do OXESpace. Se continuar acontecendo, peça uma análise.",
+        "oxequery": "Verifique a conexão com o banco de dados e tente uma consulta menor.",
+        "updater": "Verifique sua conexão e tente de novo em Configurações › Atualizações.",
+        "interaction": "Se o app parecer lento, feche painéis e conversas que você não está usando."
+      },
+      "times_one": "uma vez",
+      "times_many": "{{count}} vezes",
+      "times_other": "{{count}} vezes",
+      "when": "Última vez {{last}} · {{times}}",
+      "loading": "Lendo o diário…",
+      "empty": "Nenhum problema anotado nos últimos 30 dias.",
+      "emptyArea": "Nada anotado nesta área.",
+      "failed": "Não foi possível ler o diário de problemas.",
+      "clear": "Limpar diário",
+      "clearTitle": "Limpar o diário de problemas?",
+      "clearDescription": "Todos os problemas anotados são apagados deste computador. A partir de agora, novos problemas voltam a ser anotados.",
+      "cleared": "Diário de problemas limpo",
+      "clearFailed": "Não foi possível limpar o diário de problemas"
+    },
+    "actions": {
+      "label": "Ações de diagnóstico",
+      "copy": "Copiar informações",
+      "copyWhat": "Informações de diagnóstico",
+      "export": "Exportar pacote",
+      "ask": "Pedir análise",
+      "askHint": "Abre uma conversa nova com o resumo do diagnóstico no rascunho. Nada é enviado até você enviar.",
+      "summaryFailed": "Não foi possível preparar o resumo do diagnóstico",
+      "askFailed": "Não foi possível abrir uma conversa nova"
+    },
+    "bundle": {
+      "title": "Exportar pacote de diagnóstico",
+      "description": "O que o .zip vai conter, já sem dados sensíveis. Nada é enviado a lugar nenhum.",
+      "loading": "Preparando a prévia…",
+      "failed": "Não foi possível preparar a prévia",
+      "files": "Arquivos no pacote",
+      "redactions_one": "{{count}} valor foi ocultado (caminhos, nomes e segredos).",
+      "redactions_many": "{{count}} valores foram ocultados (caminhos, nomes e segredos).",
+      "redactions_other": "{{count}} valores foram ocultados (caminhos, nomes e segredos).",
+      "redactionsNone": "Nada precisou ser ocultado.",
+      "save": "Salvar pacote…",
+      "saved": "Pacote de diagnóstico salvo",
+      "cancelled": "Exportação cancelada.",
+      "saveFailed": "Não foi possível salvar o pacote"
+    }
   },
   "checked": {
     "justNow": "Verificado agora mesmo",
