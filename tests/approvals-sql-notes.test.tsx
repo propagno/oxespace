@@ -4,7 +4,8 @@ import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
 import { mainMessage } from '../shared/messages'
 import { changeLanguage } from '../src/i18n'
-import { approvalsApi, resetApprovalsApi } from '../src/components/Approvals/approvalsApi'
+import { resetApprovalsApi } from '../src/components/Approvals/approvalsApi'
+import { installApprovalsMock } from '../src/components/Approvals/approvalsMock'
 import { resetApprovalsBoot } from '../src/components/Approvals/approvalsBoot'
 import { useApprovalsStore } from '../src/components/Approvals/approvals.store'
 import { ApprovalCenter } from '../src/components/Approvals/ApprovalCenter'
@@ -30,8 +31,7 @@ const expected = (catalog: typeof en) => {
 let hook: ApprovalsMockHook
 beforeEach(() => {
   resetApprovalsApi(); resetApprovalsBoot(); useApprovalsStore.getState().reset()
-  approvalsApi()
-  hook = window.__oxeApprovalsMock as ApprovalsMockHook
+  hook = installApprovalsMock().hook
 })
 afterEach(cleanup)
 afterAll(async () => { await changeLanguage('en') })

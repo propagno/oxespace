@@ -4,7 +4,8 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mainMessage } from '../shared/messages'
-import { approvalsApi, resetApprovalsApi } from '../src/components/Approvals/approvalsApi'
+import { resetApprovalsApi } from '../src/components/Approvals/approvalsApi'
+import { installApprovalsMock } from '../src/components/Approvals/approvalsMock'
 import { resetApprovalsBoot, OPEN_APPROVAL_HISTORY_EVENT } from '../src/components/Approvals/approvalsBoot'
 import { useApprovalsStore } from '../src/components/Approvals/approvals.store'
 import { ApprovalCenter } from '../src/components/Approvals/ApprovalCenter'
@@ -18,8 +19,7 @@ beforeEach(() => {
   resetApprovalsApi()
   resetApprovalsBoot()
   useApprovalsStore.getState().reset()
-  approvalsApi()
-  hook = window.__oxeApprovalsMock as ApprovalsMockHook
+  hook = installApprovalsMock().hook
 })
 afterEach(() => cleanup())
 

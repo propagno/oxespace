@@ -9,7 +9,7 @@ import { PRELOAD_FALLBACK_MS, resetApprovalsBoot, schedulePreload, SHOW_TIMEOUT_
 import { useApprovalsStore } from '../src/components/Approvals/approvals.store'
 import { ApprovalsHost } from '../src/components/Approvals/ApprovalsHost'
 import type { ApprovalsApi } from '../shared/types/approvals'
-import { createApprovalsMock } from '../src/components/Approvals/approvalsMock'
+import { createApprovalsMock, installApprovalsMock } from '../src/components/Approvals/approvalsMock'
 
 /** F18 · what loads at boot: the adapter, the idle preload and the fail-safe that hands a request back to main. */
 
@@ -35,22 +35,28 @@ function spyApi() {
 }
 
 describe('approvals adapter', () => {
-  it('uses window.oxe.approvals when main exposes the whole surface, and the mock (with its hook) otherwise', () => {
+  it('uses window.oxe.approvals when the preload exposes the whole surface; without it, a channel that never asks', async () => {
     expect(realApprovalsApi()).toBeNull()
-    const fromMock = approvalsApi()
-    expect(window.__oxeApprovalsMock).toBeDefined()
-    expect(approvalsApi()).toBe(fromMock)
+    const fallback = approvalsApi()
+    expect(await fallback.list()).toEqual([])
+    expect(await fallback.respond({ id: 'x', optionId: 'allow', generation: 1 })).toMatchObject({ ok: false, refusal: 'notPending' })
+    expect(window.__oxeApprovalsMock).toBeUndefined()
+    expect(approvalsApi()).toBe(fallback)
 
     resetApprovalsApi()
     const real: ApprovalsApi = { list: vi.fn(), respond: vi.fn(), ack: vi.fn(), history: vi.fn(), unavailable: vi.fn(), onRequested: vi.fn(), onResolved: vi.fn() }
     ;(window as unknown as { oxe: unknown }).oxe = { approvals: real }
     expect(approvalsApi()).toBe(real)
-    expect(window.__oxeApprovalsMock).toBeUndefined()
 
     resetApprovalsApi()
     ;(window as unknown as { oxe: unknown }).oxe = { approvals: { list: vi.fn() } }
     expect(realApprovalsApi()).toBeNull()
     expect(approvalsApi()).not.toBe(real)
+
+    resetApprovalsApi()
+    const mock = installApprovalsMock()
+    expect(approvalsApi()).toBe(mock)
+    expect(window.__oxeApprovalsMock).toBe(mock.hook)
   })
 
   it('the mock answers with typed results like main: stale, unknown, repeated', async () => {
@@ -124,8 +130,7 @@ describe('approvals at boot', () => {
   })
 
   it('mounts the approval window from its own chunk when a request arrives; once shown, the fail-safe stays quiet', async () => {
-    approvalsApi()
-    const unavailable = vi.spyOn(approvalsApi(), 'unavailable')
+    const unavailable = vi.spyOn(installApprovalsMock(), 'unavailable')
     render(<ApprovalsHost />)
     expect(screen.queryByTestId('approval-dialog')).toBeNull()
     act(() => { window.__oxeApprovalsMock?.request({ id: 'live' }) })

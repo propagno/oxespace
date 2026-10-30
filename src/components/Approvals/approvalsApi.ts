@@ -1,5 +1,4 @@
 import type { ApprovalsApi } from '../../../shared/types/approvals'
-import { createApprovalsMock } from './approvalsMock'
 
 const METHODS = ['list', 'respond', 'ack', 'unavailable', 'history', 'onRequested', 'onResolved'] as const
 
@@ -9,20 +8,38 @@ export function realApprovalsApi(): ApprovalsApi | null {
   return candidate && METHODS.every(name => typeof candidate[name] === 'function') ? candidate as ApprovalsApi : null
 }
 
-let current: ApprovalsApi | null = null
-
-/** The approvals channel: main's, or the in-window mock when there is no preload (tests). The mock's hook exists only then. */
-export function approvalsApi(): ApprovalsApi {
-  if (current) return current
-  const real = realApprovalsApi()
-  if (real) return (current = real)
-  const mock = createApprovalsMock()
-  window.__oxeApprovalsMock = mock.hook
-  return (current = mock)
+/**
+ * A channel that never asks: what a window without the preload (a plain browser tab) listens to. Nothing can be
+ * requested through it, so nothing can be answered either.
+ */
+const silent: ApprovalsApi = {
+  list: async () => [],
+  history: async () => [],
+  respond: async () => ({ ok: false, refusal: 'notPending', message: { code: 'approvals.refused.notPending', params: {} } }),
+  ack: async () => ({ ok: false, refusal: 'notPending', message: { code: 'approvals.refused.notPending', params: {} } }),
+  unavailable: async () => ({ ok: false, refusal: 'notPending', message: { code: 'approvals.refused.notPending', params: {} } }),
+  onRequested: () => () => {},
+  onResolved: () => () => {}
 }
 
-/** Forgets the chosen adapter (tests). */
+let current: ApprovalsApi | null = null
+
+/**
+ * The approvals channel: main's through the preload. Tests put the in-window mock in its place with
+ * installApprovalsMock() (approvalsMock.ts), which is never part of the boot bundle.
+ */
+export function approvalsApi(): ApprovalsApi {
+  current ??= realApprovalsApi() ?? silent
+  return current
+}
+
+/** Replaces the channel (the mock, in tests); null goes back to choosing on the next call. */
+export function setApprovalsApi(api: ApprovalsApi | null): void {
+  current = api
+}
+
+/** Forgets the chosen channel and the mock's hook (tests). */
 export function resetApprovalsApi(): void {
   current = null
-  delete window.__oxeApprovalsMock
+  if (typeof window !== 'undefined') delete window.__oxeApprovalsMock
 }

@@ -3,11 +3,11 @@ import {
   APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalRefusal,
   type ApprovalRequest, type ApprovalResolved, type ApprovalResolvedBy, type ApprovalsApi
 } from '../../../shared/types/approvals'
+import { setApprovalsApi } from './approvalsApi'
 import { byCreatedAt } from './approvalsRules'
 
 /**
- * Stand-in for `window.oxe.approvals` when the preload does not expose it (unit tests in jsdom, a window opened
- * without the preload). It answers like main's E2E mock (electron/main/e2e/approvals-mock.ts) and never approves
+ * Stand-in for `window.oxe.approvals` in unit tests (jsdom has no preload); installApprovalsMock() puts it in place. It answers like main's E2E mock (electron/main/e2e/approvals-mock.ts) and never approves
  * anything by itself. Tests drive it through `window.__oxeApprovalsMock`, which exists only when this mock is in use;
  * the e2e specs use main's mock (OXESPACE_E2E_APPROVALS) instead.
  */
@@ -143,4 +143,12 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
     onRequested(listener) { requested.add(listener); return () => { requested.delete(listener) } },
     onResolved(listener) { resolved.add(listener); return () => { resolved.delete(listener) } }
   }
+}
+
+/** Makes the mock the approvals channel and exposes its hook as `window.__oxeApprovalsMock` (tests). */
+export function installApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook } {
+  const mock = createApprovalsMock()
+  window.__oxeApprovalsMock = mock.hook
+  setApprovalsApi(mock)
+  return mock
 }
