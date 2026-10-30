@@ -10,13 +10,16 @@ import { ApprovalDialog } from './ApprovalDialog'
 import { ApprovalHistory } from './ApprovalHistory'
 import { approvalT } from './approvalText'
 import { registerCommands } from '../../utils/commandRegistry'
+import { i18n } from '../../i18n'
 
 // What was approved or denied in this session, and who asked. Registered with this chunk, which loads at idle right
-// after boot, so the boot bundle does not carry it.
-registerCommands('approvals', [{
-  id: 'help.approvals', label: 'Approval history', icon: ShieldCheck, category: 'Help', keywords: ['approvals', 'permissions', 'allowed', 'denied', 'decisions', 'security'],
+// after boot, so the boot bundle does not carry it; registered again when the language changes.
+const registerHistoryCommand = (): void => { registerCommands('approvals', [{
+  id: 'help.approvals', label: approvalT('approvals.history.command'), icon: ShieldCheck, category: 'Help', keywords: ['approvals', 'permissions', 'allowed', 'denied', 'decisions', 'security'],
   run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_HISTORY_EVENT))) }
-}])
+}]) }
+registerHistoryCommand()
+i18n.on('languageChanged', registerHistoryCommand)
 
 /**
  * The approval window, loaded on demand by ApprovalsHost. One request at a time, oldest first; the next opens after

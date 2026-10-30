@@ -399,6 +399,7 @@
     },
     "history": {
       "open": "Histórico",
+      "command": "Histórico de aprovações",
       "title": "Decisões de aprovação",
       "description": "Pedidos respondidos nesta sessão, do mais recente ao mais antigo.",
       "empty": "Nenhuma decisão nesta sessão ainda.",

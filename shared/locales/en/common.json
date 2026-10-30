@@ -394,6 +394,7 @@
     },
     "history": {
       "open": "History",
+      "command": "Approval history",
       "title": "Approval decisions",
       "description": "Requests answered in this session, newest first.",
       "empty": "No decisions in this session yet.",
