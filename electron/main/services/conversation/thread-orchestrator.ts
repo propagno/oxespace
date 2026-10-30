@@ -24,6 +24,7 @@ import { briefBlock, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
+import { insertThreadRow, withParent } from './thread-nesting'
 import { ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
@@ -215,20 +216,20 @@ export class ThreadOrchestrator {
   }
 
   list(): ConversationThread[] {
-    return (this.db.prepare(`SELECT data_json,
+    return (this.db.prepare(`SELECT data_json, parent_thread_id, parent_via,
       (SELECT json_extract(turn.data_json, '$.status') FROM conversation_turns turn
        WHERE turn.thread_id = conversation_threads.id
        ORDER BY CAST(json_extract(turn.data_json, '$.sequence') AS INTEGER) DESC LIMIT 1) AS last_turn_status
-      FROM conversation_threads`).all() as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
+      FROM conversation_threads`).all() as { data_json: string; parent_thread_id: string | null; parent_via: string | null; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
       .map(row => {
-        const thread = JSON.parse(row.data_json) as ConversationThread
+        const thread = withParent(JSON.parse(row.data_json) as ConversationThread, row)
         if (!thread.lastTurnStatus && row.last_turn_status) thread.lastTurnStatus = row.last_turn_status
         return thread
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
 
-  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId'>): ThreadSnapshot {
+  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'parent'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
       title: 'New thread', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
@@ -239,8 +240,7 @@ export class ThreadOrchestrator {
         VALUES (?, ?, ?, ?, ?, ?)`).run(context.projectId, context.rootPath, context.rootPath,
         context.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? context.rootPath, now, now)
       this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(context.projectId, context.rootPath)
-      this.db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, ?, ?, ?)')
-        .run(snapshot.thread.id, context.workspaceId, context.projectId, JSON.stringify(snapshot.thread), '[]')
+      insertThreadRow(this.db, snapshot.thread)
     })()
     this.snapshots.set(snapshot.thread.id, snapshot)
     this.trimSnapshots()
@@ -862,7 +862,7 @@ export class ThreadOrchestrator {
       connectAdapter: (id, thread) => this.connectAdapter(id, thread),
       assertNativeSessionAvailable: (id, provider, nativeSessionId) => this.assertNativeSessionAvailable(id, provider, nativeSessionId),
       adapterCapabilities: id => this.adapters.get(id)?.capabilities,
-      isBusy: id => this.busy.has(id),
+      isBusy: id => this.busy.has(id), audit: (id, entry) => this.audit(id, entry),
       isConfiguring: id => this.configuring.has(id),
       withConfiguring: async (id, run) => {
         this.configuring.add(id)

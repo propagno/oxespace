@@ -226,7 +226,7 @@ export interface ThreadAuditEntry {
   threadId?: string
   projectRoot?: string
   at: number
-  action: 'approval' | 'policy' | 'rule-added' | 'rule-removed' | 'undo-file' | 'rewind' | 'configuration'
+  action: 'approval' | 'policy' | 'rule-added' | 'rule-removed' | 'undo-file' | 'rewind' | 'configuration' | 'archive'
   actor: 'user' | 'policy' | 'system'
   summary: string
   detail?: string

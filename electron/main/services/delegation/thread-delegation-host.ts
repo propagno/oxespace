@@ -47,7 +47,9 @@ export class ThreadDelegationHost {
       this.assertIdentity(task, current.rootPath, current.provider)
     } else {
       const projectId = this.projectForPath ? await this.projectForPath(task.path) : task.project
-      const snapshot = manager.create({ workspaceId: task.workspaceId, projectId, rootPath: task.path, provider, agentProfileId: task.agentProfileId })
+      // A delegation started from a Thread is that conversation's child (B1.3); a terminal origin has none.
+      const origin = task.originPaneId.startsWith('thread:') ? task.originPaneId.slice('thread:'.length) : undefined
+      const snapshot = manager.create({ workspaceId: task.workspaceId, projectId, rootPath: task.path, provider, agentProfileId: task.agentProfileId, ...(origin ? { parent: { threadId: origin, via: 'delegation' as const } } : {}) })
       threadId = snapshot.thread.id
       task.destinationThreadId = threadId
       persistThread?.(threadId)

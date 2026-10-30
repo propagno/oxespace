@@ -18,7 +18,7 @@ import { turnVerdict } from '../../../../shared/threadTurnVerdict'
 
 export interface WorkHost {
   read(id: string): ThreadSnapshot
-  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId'>): ThreadSnapshot
+  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'parent'>): ThreadSnapshot
   configure(id: string, input: ThreadConfiguration, revision: number): Promise<unknown>
   command(id: string, text: string): Promise<unknown>
   send(id: string, text: string): Promise<void>
@@ -326,7 +326,7 @@ export class WorkService {
         const supervisor = this.host.read(run.supervisor_thread_id).thread
         if (supervisor.provider === task.provider) profile = supervisor.agentProfileId
       } catch { /* The supervisor may be gone; the provider's default profile is used. */ }
-      const snapshot = this.host.create({ workspaceId: run.workspace_id, projectId: run.project_id, rootPath: run.project_root, provider: task.provider, ...(profile ? { agentProfileId: profile } : {}) })
+      const snapshot = this.host.create({ workspaceId: run.workspace_id, projectId: run.project_id, rootPath: run.project_root, provider: task.provider, ...(profile ? { agentProfileId: profile } : {}), parent: { threadId: run.supervisor_thread_id, via: 'work' } })
       const threadId = snapshot.thread.id
       this.db.prepare('UPDATE work_tasks SET thread_id = ?, turn_base = 0 WHERE id = ?').run(threadId, taskId)
       await this.host.configure(threadId, { access: task.access, approvalPolicy: 'on-request', networkAccess: false, mode: 'default', hooksEnabled: false }, snapshot.thread.configurationRevision ?? 0)

@@ -118,6 +118,8 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   ipcMain.handle(IPC_CHANNELS.thread.list, event => { sender(event); return manager.then(service => service.list()) })
   // Read-only summary for the activity center; answering a request stays in the conversation.
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => { sender(event); return manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsAll()) })
+  // B1.3: direct children and their combined state, read-only.
+  ipcMain.handle(IPC_CHANNELS.thread.children, (event, id: unknown) => { sender(event); const threadId = string(id); return manager.then(() => import('../services/conversation/thread-nesting')).then(module => module.threadChildren(db, threadId)) })
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => { sender(event); return manager.then(service => service.readForRenderer(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
     sender(event)

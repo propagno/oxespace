@@ -4,6 +4,7 @@ import { app } from 'electron'
 import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { backfillThreadParents } from './thread-parent-backfill'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -11,7 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 83
+export const LATEST_DB_VERSION = 84
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
@@ -515,6 +516,7 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 80) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('080_turn_usage_steps.sql'))))()
   if (startingVersion < 82) db.transaction(() => db.exec(readMigration('082_memory_notes.sql')))()
   if (startingVersion < 83) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('083_mcp_guard.sql'))))()
+  if (startingVersion < 84) db.transaction(() => { db.exec(withoutExistingColumns(db, readMigration('084_thread_parent.sql'))); backfillThreadParents(db) })()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */
