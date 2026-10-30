@@ -189,22 +189,21 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     }
   })
 
-  test(`${label}: OxeQuery opens, lists containers and gives focus back when the connection dialog closes`, async () => {
+  test(`${label}: OxePod lists containers; OxeQuery opens and gives focus back when the connection dialog closes`, async () => {
     test.setTimeout(120_000)
     guard()
     const dirs = scratch('oxequery')
     const { app, page } = await boot(options, dirs.database)
     try {
+      // The containers screen, now OxePod. A runner may have no container engine, or an engine with nothing running:
+      // the view must render either way, with its filter, instead of an error.
+      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxePod' }).click()
+      await expect(page.locator('.pod-host')).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByRole('complementary', { name: 'OxePod sidebar' }).getByLabel('Filter containers')).toBeVisible()
+
       await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
       await expect(page.locator('.oq-view')).toBeVisible({ timeout: 15_000 })
       await expect(page.getByRole('complementary', { name: 'OxeQuery sidebar' })).toBeVisible()
-
-      // The containers screen. A runner may have no container engine, or an engine with nothing running:
-      // the screen must render either way, with its filter, instead of an error.
-      await page.getByRole('button', { name: 'All containers' }).click()
-      const containers = page.locator('.oq-containers')
-      await expect(containers).toBeVisible()
-      await expect(containers.getByLabel('Filter containers')).toBeVisible()
 
       // The connection dialog: focus moves into it, Escape closes it and focus returns to the trigger.
       const trigger = page.getByRole('button', { name: 'New connection' }).first()

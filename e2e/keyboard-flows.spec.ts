@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
+import { connectFromContainer } from './helpers/oxepod'
 
 /**
  * Keyboard-only flows through the places people spend the most time: the Thread composer, the two
@@ -162,7 +163,7 @@ test('OxeQuery grid: arrows, extend, jump, open a row and let go of the selectio
     await resizeWindow(app, 1280, 800)
     await openDemoWorkspace(page, workspaceRoot)
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     const tree = page.getByRole('tree', { name: 'Schema objects' })
     await tree.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
     const grid = page.locator('.oq-grid')

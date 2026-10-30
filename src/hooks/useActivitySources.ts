@@ -34,7 +34,7 @@ function useUpdateActivity(): void {
  * Every producer of the activity center in one place: agents in Code panes, conversations,
  * quota windows and app updates. Background jobs report from their store.
  */
-export function useActivitySources(applicationView: 'code' | 'thread' | 'data'): void {
+export function useActivitySources(applicationView: import('../keyboard/keybindings').AppView): void {
   useAgentNotifications()
   useThreadAttention(applicationView)
   useQuotaAlerts()

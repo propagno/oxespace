@@ -11,7 +11,7 @@ import type { ContributedCommand } from '../utils/commandRegistry'
 import { useCommandSource } from './useCommandSource'
 
 export interface CodeCommandContext {
-  applicationView: 'code' | 'thread' | 'data'
+  applicationView: import('../keyboard/keybindings').AppView
   activeWorkspace: Workspace | null | undefined
   activePane: WorkspacePane | null | undefined
   /** Team needs a project: the workspace in Code, the project in Thread. */

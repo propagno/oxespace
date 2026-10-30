@@ -21,7 +21,7 @@ export interface RailAction {
   menu?: MenuEntry[]
 }
 
-export type NavigationMode = 'code' | 'thread' | 'data'
+export type NavigationMode = import('../../keyboard/keybindings').AppView
 
 /** One sidebar action as an icon button; the same names and test ids wherever it is drawn. */
 function ActionButton({ action, size = 16, returnFocus }: { action: RailAction; size?: number; returnFocus?: boolean }) {

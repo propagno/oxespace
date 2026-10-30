@@ -11,7 +11,7 @@ import { useSettingsStore } from '../../store/settings.store'
 import { KeyChords } from '../Keyboard/KeyChord'
 import styles from '../Keyboard/Keyboard.module.css'
 
-const SCOPES: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery']
+const SCOPES: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery', 'oxepod']
 
 /** Settings › Keyboard: every shortcut, changeable one by one, with a warning when two share a key. */
 export function KeyboardSettings(): ReactElement {

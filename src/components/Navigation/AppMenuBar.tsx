@@ -10,7 +10,7 @@ function Nodes({ nodes }: { nodes: AppMenuNode[] }): ReactElement {
     if (node.kind === 'separator') return <DropdownMenu.Separator key={node.id} className="app-menu-separator" />
     if (node.kind === 'radio') {
       return <DropdownMenu.CheckboxItem key={node.id} className="app-menu-item" checked={node.checked} onSelect={node.onSelect}>
-        <span className="app-menu-indicator"><DropdownMenu.ItemIndicator><Check size={12} aria-hidden="true" /></DropdownMenu.ItemIndicator></span>{node.label}
+        <span className="app-menu-indicator"><DropdownMenu.ItemIndicator><Check size={12} aria-hidden="true" /></DropdownMenu.ItemIndicator></span>{node.label}{node.shortcut && <kbd>{node.shortcut}</kbd>}
       </DropdownMenu.CheckboxItem>
     }
     if (node.kind === 'submenu') return <Submenu key={node.id} label={node.label} nodes={node.children} disabled={node.disabled} />

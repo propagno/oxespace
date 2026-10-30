@@ -220,6 +220,19 @@ export class OxeQueryService {
         await this.containers.removeResource(kind, str(input.id, 'Resource', 200), engine(input.engine))
         return { ok: true }
       }
+      // Removing and cleaning up cannot be undone: the main process refuses until the person confirmed (roadmap P6).
+      case 'resources.prune': {
+        const kind = str(input.kind, 'Kind', 16)
+        if (kind !== 'containers' && kind !== 'images') throw new OxeQueryError('invalid', 'Unsupported clean-up.')
+        if (input.confirmed !== true) throw new OxeQueryError('confirm', kind === 'containers' ? 'Every stopped container is removed.' : 'Every dangling image is removed.', ['This cannot be undone.'])
+        return this.containers.prune(kind, engine(input.engine))
+      }
+      case 'containers.remove': {
+        const id = str(input.id, 'Container', 128)
+        if (input.confirmed !== true) throw new OxeQueryError('confirm', 'Removing a container cannot be undone.', ['Its volumes are kept.'])
+        await this.containers.removeContainer(id, engine(input.engine))
+        return { ok: true }
+      }
       case 'containers.createDatabase': {
         const kind = str(input.engine, 'Engine', 16)
         if (kind !== 'postgres' && kind !== 'mongodb') throw new OxeQueryError('invalid', 'Choose PostgreSQL or MongoDB.')
