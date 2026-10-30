@@ -68,8 +68,15 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
     expect(tools).not.toContain('oxespace_delegation_update')
   })
 
-  it('gives Codex core and the Code group, and lets it turn the on-demand groups on', async () => {
+  it('gives Codex every group that is not off from the start, since it loads definitions as it needs them', async () => {
     const args = (await codeAgentMcpLaunch(db, 'codex', '/bridge.cjs', 'w1', [], {})).args
+    expect(new Set(allowed(args))).toEqual(new Set([...thread('core'), ...CODE_TOOL_GROUP, ...thread('orchestration'), ...thread('data'), ...thread('docs'), ...thread('app')]))
+    expect(allowed(args)).not.toContain('oxespace_tools_enable')
+    expect(enableable(args)).toEqual({})
+  })
+
+  it('gives Claude without tool search core, the Code group and the enable tool for the on-demand groups', async () => {
+    const args = (await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).args
     expect(allowed(args)).toEqual([...thread('core'), ...CODE_TOOL_GROUP, 'oxespace_tools_enable'])
     expect(Object.keys(enableable(args)).sort()).toEqual(['app', 'data', 'docs', 'orchestration'])
   })
@@ -80,9 +87,12 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
     const claude = allowed((await codeAgentMcpLaunch(inProject, 'claude', '/bridge.cjs', 'w1', [], {})).args)
     expect(claude).not.toContain('oxespace_db_query')
     expect(claude).toContain('oxespace_open_web_preview')
-    const codex = (await codeAgentMcpLaunch(inProject, 'codex', '/bridge.cjs', 'w1', [], {})).args
-    expect(allowed(codex)).toEqual(expect.arrayContaining(thread('docs')))
-    expect(Object.keys(enableable(codex)).sort()).toEqual(['app', 'orchestration'])
+    const codex = allowed((await codeAgentMcpLaunch(inProject, 'codex', '/bridge.cjs', 'w1', [], {})).args)
+    expect(codex).toEqual(expect.arrayContaining([...thread('docs'), ...thread('app'), ...thread('orchestration')]))
+    expect(codex).not.toContain('oxespace_db_query')
+    const noSearch = (await codeAgentMcpLaunch(inProject, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).args
+    expect(allowed(noSearch)).toEqual(expect.arrayContaining(thread('docs')))
+    expect(Object.keys(enableable(noSearch)).sort()).toEqual(['app', 'orchestration'])
   })
 })
 

@@ -95,13 +95,13 @@ describe('tool groups on demand: measured cost (T8)', () => {
     expect(asClaudeLists(terminal.tools)).toBeLessThan(definitionChars([...THREAD_TOOL_GROUPS.core, ...MCP_TOOL_GROUPS.code]))
   })
 
-  it('keeps a Codex conversation that turns nothing on within today\'s budget', () => {
+  it('keeps a conversation without tool search (Claude with auto:N or false) that turns nothing on within today\'s budget', () => {
     const plain = sessionToolPlan(false, {}, defaults)
     expect(plain.tools).toEqual([...THREAD_TOOL_GROUPS.core, 'oxespace_tools_enable'])
     expect(definitionChars(plain.tools)).toBeLessThanOrEqual(9000)
   })
 
-  // What turning a group on costs Codex, in characters of definitions. A group may only grow past its line here on
+  // What a group's definitions cost once loaded (Codex as it needs them, Claude without tool search once turned on). A group may only grow past its line here on
   // purpose: raise the line in the same change and say why.
   const CODEX_GROUP_BUDGET = { orchestration: 13_500, data: 6_700, docs: 4_400, app: 21_000, code: 11_500 } as const
 

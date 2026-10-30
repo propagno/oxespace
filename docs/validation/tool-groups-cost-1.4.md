@@ -23,8 +23,9 @@ Measured on 2026-10-30 on `be/mcp/b7-2-tools-on-demand` (B7.2 and B2.2).
 |---|---|---|---|
 | OxeChat, Claude with tool search (default `ENABLE_TOOL_SEARCH=true`) | every group not off, 72 tools, by name | 3,691 (names with the `mcp__oxespace-delegation__` prefix) | less than core's definitions (5,978) |
 | Code terminal, Claude with tool search | the same plus the code group | names only | less than core + code definitions |
-| OxeChat, Codex, nothing turned on | core and `oxespace_tools_enable` | 6,386 | ≤ 9,000 (as in 1.3) |
-| Codex, a group turned on | that group's definitions | per group, above | per-group budget in the test |
+| OxeChat, Codex (0.155.1) | every group not off, loaded as Codex needs them | none measured at start (plain run equals the baseline) | per-group budget in the test |
+| OxeChat, Claude without tool search (`auto:N`, `false`), nothing turned on | core and `oxespace_tools_enable` | 6,386 | ≤ 9,000 (as in 1.3) |
+| Claude without tool search, a group turned on | that group's definitions | per group, above | per-group budget in the test |
 
 ## Real session (T6 method), 2026-10-30
 
@@ -65,7 +66,9 @@ How it was measured:
 **Second run, with `oxespace_tools_enable` marked `readOnlyHint: true`:**
 - Codex ran the enable call **without asking for approval**. It is read-only for real: it changes nothing outside the session, and the tools it lists keep their own level and approval.
 - Codex **did not reload its tool list** after `notifications/tools/list_changed`, so `oxespace_containers_list` stayed out of reach in that session (126,080 input tokens across the turn, 82,432 of them cached).
-- So in this Codex version, turning a group on in the middle of a session does not work yet. Since Codex also sends no MCP definitions up front (the plain run above), offering every group that is not off costs Codex nothing at start. That is the proposed plan for Codex, pending the coordinator's decision.
+- So in this Codex version, turning a group on in the middle of a session does not work. Codex also sends no MCP definitions up front (the plain run above), so offering every group that is not off costs Codex nothing at start.
+- **Decision (coordinator, 2026-10-30), for Codex CLI 0.155.1:** Codex is offered every group that is not off from the start, and is no longer offered `oxespace_tools_enable`. That tool stays for Claude without tool search (`auto:N` or `false`) and keeps its read-only annotations. Settings › Tools shows, for Codex, that every tool is available from the start.
+- Repeating this measurement is a required step before every release (`docs/RELEASE_PIPELINE.md`). If a later Codex sends MCP definitions up front, the plan changes back.
 
 **What the first run showed:**
 - **Turning a group on needs approval.** Codex asks the person to approve each MCP call, `oxespace_tools_enable` included, even though it only changes the tool list. So the cost of one group turned on could not be measured without loosening approvals, and that was not done.

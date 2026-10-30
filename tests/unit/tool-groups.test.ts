@@ -69,6 +69,7 @@ describe('session tool plan (B7.2)', () => {
     expect(usesToolSearch('claude', { ENABLE_TOOL_SEARCH: '1' })).toBe(true)
     // auto:N defers only above a share of the context window, which a large window never reached in T8.
     for (const value of ['auto:5', 'auto', 'false', '0', '', undefined]) expect(usesToolSearch('claude', { ENABLE_TOOL_SEARCH: value }), String(value)).toBe(false)
-    expect(usesToolSearch('codex', { ENABLE_TOOL_SEARCH: 'auto:5' })).toBe(false)
+    // Codex loads MCP definitions as it needs them (T8, 0.155.1), whatever ENABLE_TOOL_SEARCH says.
+    for (const value of ['auto:5', 'false', undefined]) expect(usesToolSearch('codex', { ENABLE_TOOL_SEARCH: value }), String(value)).toBe(true)
   })
 })

@@ -33,8 +33,9 @@ export interface SessionToolPlan {
  * What a session is offered (B7.2): an OxeChat conversation, or with `code` an agent in a Code terminal (B2.2). Core
  * and the role's groups always; then each configurable group by its mode.
  * With tool search (Claude unless the person turned it off), every group that is not off is offered and Claude loads a
- * definition only when it searches for it, so the fixed cost is the names. Without it (Codex, or Claude with tool search
- * off), `always` groups are offered and `on-demand` ones wait for oxespace_tools_enable. `off` is never offered.
+ * definition only when it searches for it, so the fixed cost is the names; Codex loads them as it needs them too.
+ * Without it (Claude with `auto:N` or tool search off), `always` groups are offered and `on-demand` ones wait for
+ * oxespace_tools_enable. `off` is never offered.
  */
 export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { code?: boolean }, modes: ProjectToolModes): SessionToolPlan {
   const groups: (keyof typeof MCP_TOOL_GROUPS)[] = ['core', ...(roles.code ? ['code' as const] : []), ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : [])]
@@ -50,11 +51,15 @@ export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { 
 }
 
 /**
- * Whether Claude Code will defer MCP definitions for sure. Only `true` does: `auto:N` defers only above N% of the
- * context window, which on a large window never happened in the T8 measurement, so it gets the plan without tool search.
+ * Whether the provider loads MCP definitions only when it needs them, so every group that is not off can be offered
+ * at no fixed cost (measured in T8, docs/validation/tool-groups-cost-1.4.md).
+ * - Codex (0.155.1) sends no MCP definitions up front, and does not reload its tool list mid-session, so a group must
+ *   be offered from the start to work at all.
+ * - Claude Code defers them for sure only with `ENABLE_TOOL_SEARCH=true`: `auto:N` defers only above N% of the context
+ *   window, which a large window never reached, so it gets the plan without tool search.
  */
 export function usesToolSearch(provider: 'claude' | 'codex', env: Record<string, string | undefined>): boolean {
-  if (provider !== 'claude') return false
+  if (provider === 'codex') return true
   const value = env.ENABLE_TOOL_SEARCH?.trim().toLowerCase()
   return value === 'true' || value === '1'
 }

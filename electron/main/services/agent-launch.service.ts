@@ -35,7 +35,8 @@ export async function codeAgentMcpLaunch(db: AppDatabase, provider: string, brid
   try { root = (db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined)?.root_path } catch { /* defaults */ }
   const modes = projectToolModes(root ? (await loadRepoConfig(root).catch(() => null))?.thread : undefined)
   const search = provider === 'claude' || provider === 'codex' ? toolSearchEnvironment(provider, source) : {}
-  const plan = sessionToolPlan(usesToolSearch(provider === 'claude' ? 'claude' : 'codex', { ...source, ...search }), { code: true }, modes)
+  // Other agents read the workspace's .mcp.json and get no bridge arguments here; the plan only matters for these two.
+  const plan = sessionToolPlan(provider === 'claude' || provider === 'codex' ? usesToolSearch(provider, { ...source, ...search }) : false, { code: true }, modes)
   const own = agentMcpArguments(provider, bridge, plan)
   if (provider !== 'codex') return { args: [...own, ...args], env: search }
   try {
