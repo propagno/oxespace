@@ -135,6 +135,7 @@
     "timeout": "Sem resposta a tempo",
     "tls": "O certificado não foi aceito",
     "network": "Não foi possível alcançar o servidor",
+    "offline": "A requisição não saiu deste computador: não há rede. Envie de novo quando a conexão voltar.",
     "missing": "Uma variável está sem valor",
     "failed": "Não foi possível enviar a requisição",
     "retry": "Enviar de novo",

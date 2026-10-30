@@ -1,4 +1,5 @@
-import { Activity, ArrowUpCircle, Bell, Bot, Bug, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { OPEN_ABOUT_EVENT } from '../components/About/AboutHost'
 import { OPEN_REPORT_PROBLEM_EVENT } from '../components/Diagnostics/ReportProblemHost'
 import { OPEN_SHORTCUT_GUIDE_EVENT } from '../components/Keyboard/ShortcutGuideHost'
 import { i18n } from '../i18n'
@@ -32,5 +33,10 @@ registerTranslated(() => registerCommands('settings', [
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_SHORTCUT_GUIDE_EVENT))) } },
   // Builds a GitHub issue to read and edit; nothing is sent unless the person opens or copies it.
   { id: 'help.report-problem', label: tCommand('reportProblem'), icon: Bug, category: 'Help', keywords: ['bug', 'issue', 'feedback', 'github', 'diagnostics', 'support'],
-    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) } }
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) } },
+  // The version, channel and build of this copy, its license and links; the details copy into a support message.
+  // The English words match in any language; the translated ones ("sobre", "versão"…) in the language on screen.
+  { id: 'help.about', label: tCommand('about'), icon: Info, category: 'Help',
+    keywords: ['about', 'version', 'build', 'license', 'electron', 'release', ...tCommand('aboutKeywords').split(/\s+/).filter(Boolean)],
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_ABOUT_EVENT))) } }
 ]))

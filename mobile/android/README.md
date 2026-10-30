@@ -6,7 +6,7 @@ Plan and scope: [docs/roadmap-1.4/mobile.md](../../docs/roadmap-1.4/mobile.md).
 
 ## Build
 
-Needs JDK 17 or newer and the Android SDK with platform 36. Point Gradle at the SDK with `ANDROID_HOME` or a
+Needs JDK 17 or newer and the Android SDK with platform 37 (`platforms;android-37.0`, cmdline-tools 23 or newer). Point Gradle at the SDK with `ANDROID_HOME` or a
 `local.properties` file (not versioned):
 
 ```properties
@@ -16,7 +16,7 @@ sdk.dir=C\:/Users/you/AppData/Local/Android/Sdk
 Then, from `mobile/android`:
 
 ```sh
-./gradlew lint testDebugUnitTest assembleDebug
+./gradlew lint testDebugUnitTest :protocol:test assembleDebug
 ```
 
 The debug APK lands in `app/build/outputs/apk/debug/`. CI runs the same command (`.github/workflows/android.yml`).

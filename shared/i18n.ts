@@ -9,8 +9,12 @@ export type Language = (typeof LANGUAGES)[number]
 /** What the person chose in Settings: follow the operating system, or one language. */
 export type LanguagePreference = 'system' | Language
 
-/** Namespaces, one JSON file each. `main` holds the main process's own text and the words of its message codes (C3). */
-export const NAMESPACES = ['common', 'code', 'thread', 'oxequery', 'pods', 'post', 'settings', 'main'] as const
+/**
+ * Namespaces, one JSON file each. `main` is only loaded by the main process and holds its own text and the words of
+ * its message codes (C3); `mobile` is the Android app's, turned into its string resources by
+ * scripts/android/generate.mjs.
+ */
+export const NAMESPACES = ['common', 'code', 'thread', 'oxequery', 'pods', 'post', 'settings', 'main', 'mobile'] as const
 export type Namespace = (typeof NAMESPACES)[number]
 
 /** Any Portuguese locale (pt, pt-BR, pt_PT…) opens in Brazilian Portuguese; everything else in English. */

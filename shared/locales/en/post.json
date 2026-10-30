@@ -135,6 +135,7 @@
     "timeout": "No answer in time",
     "tls": "The certificate was not accepted",
     "network": "The server could not be reached",
+    "offline": "The request could not leave this computer: there is no network. Send it again when the connection is back.",
     "missing": "A variable has no value",
     "failed": "The request could not be sent",
     "retry": "Send again",

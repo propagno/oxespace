@@ -1,7 +1,8 @@
 import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy, Send } from 'lucide-react'
-import { Badge, Button, EmptyState, ErrorState, Skeleton, Tabs, copyText, toast } from '../../ui'
+import { Badge, Button, EmptyState, ErrorState, OfflineState, Skeleton, Tabs, copyText, toast } from '../../ui'
+import { useConnectivity } from '../../hooks/useConnectivity'
 import { useOxePostStore } from './oxepost.store'
 import { cookiesOf, formatBytes, formatMs, prettyBody, statusTone } from './post-model'
 import styles from './OxePost.module.css'
@@ -16,9 +17,12 @@ export function ResponsePanel(): ReactElement {
   const failure = useOxePostStore(state => state.failure)
   const sending = useOxePostStore(state => state.sending)
   const [tab, setTab] = useState<ResponseTab>('body')
+  const offline = useConnectivity() === 'offline'
 
   let content: ReactElement
   if (sending && !response) content = <div className={styles.center}><Skeleton lines={5} label={t('response.waiting')} /></div>
+  // A request that could not leave because the computer has no network: say that, not a server error.
+  else if (failure?.code === 'network' && offline) content = <div className={styles.center}><OfflineState message={t('response.offline')} onRetry={() => void useOxePostStore.getState().send()} retryLabel={t('response.retry')} /></div>
   else if (failure && failure.code !== 'confirm') {
     const title = failure.code === 'timeout' ? t('response.timeout') : failure.code === 'tls' ? t('response.tls') : failure.code === 'network' ? t('response.network') : failure.code === 'missing' ? t('response.missing') : t('response.failed')
     content = <div className={styles.center}><ErrorState title={title} message={failure.message} onRetry={failure.code === 'network' || failure.code === 'timeout' ? () => void useOxePostStore.getState().send() : undefined} retryLabel={t('response.retry')} /></div>

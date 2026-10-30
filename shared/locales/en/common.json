@@ -72,7 +72,8 @@
     "tools": "Tools",
     "keyboardShortcuts": "Keyboard shortcuts",
     "diagnostics": "Diagnostics",
-    "reportProblem": "Report a problem…"
+    "reportProblem": "Report a problem…",
+    "checkUpdates": "Check for updates…"
   },
   "report": {
     "title": "Report a problem",
@@ -555,6 +556,8 @@
     },
     "settingsPage": "Settings: {{page}}",
     "reportProblem": "Report a problem",
+    "about": "About OXESpace",
+    "aboutKeywords": "about version",
     "activity": {
       "markAllRead": "Activity: Mark all as read",
       "nothing": "Nothing to mark as read",
@@ -653,5 +656,31 @@
       "reorder": "Failed to reorder workspaces",
       "settings": "Could not save the workspace settings"
     }
+  },
+  "about": {
+    "title": "About OXESpace",
+    "versionLine": "Version {{version}}",
+    "tagline": "Agents and terminals for your projects",
+    "channel": {
+      "stable": "Stable",
+      "beta": "Beta",
+      "dev": "Development"
+    },
+    "commit": "Commit",
+    "built": "Built",
+    "system": "System",
+    "loading": "Reading the build details",
+    "unavailable": "The build details are not available in this version.",
+    "license": "Open source under the MIT license.",
+    "links": "Links",
+    "link": {
+      "repository": "Source code",
+      "releaseNotes": "Release notes",
+      "licenseText": "License",
+      "notices": "Third-party licenses"
+    },
+    "copy": "Copy details",
+    "details": "Build details",
+    "report": "Report a problem"
   }
 }
