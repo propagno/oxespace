@@ -53,6 +53,18 @@ export const THREAD_TOOL_GROUPS = {
 } as const satisfies Record<string, readonly string[]>
 
 export type ThreadToolGroup = keyof typeof THREAD_TOOL_GROUPS
+
+/**
+ * An agent in a Code terminal: panes, terminals, scripts, background jobs, worktrees, tasks, agents and integration.
+ * Always on there, never offered to an OxeChat conversation.
+ */
+export const CODE_TOOL_GROUP = ['oxespace_list_panes', 'oxespace_terminal', 'oxespace_list_scripts', 'oxespace_run_script',
+  'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_stop_background_job', 'oxespace_list_worktrees',
+  'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_tasks', 'oxespace_tasks_change', 'oxespace_agents',
+  'oxespace_agents_change', 'oxespace_integration', 'oxespace_memory_diagnostics'] as const
+
+/** Every group of OXESpace tools, the Code terminal's included (Settings › Tools lists these). */
+export const MCP_TOOL_GROUPS = { ...THREAD_TOOL_GROUPS, code: CODE_TOOL_GROUP } as const satisfies Record<string, readonly string[]>
 /** Groups a project can turn on in oxe.yaml; core is always on and roles are detected. */
 export const OPTIONAL_THREAD_TOOL_GROUPS: ThreadToolGroup[] = ['orchestration', 'data', 'docs', 'app']
 

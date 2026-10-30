@@ -3,7 +3,7 @@
  * measured ones (the measurement needs the whole tool registry, which the mock chunk does not load).
  */
 import { ipcMain } from 'electron'
-import { THREAD_TOOL_GROUPS } from '../services/conversation/thread-mcp'
+import { MCP_TOOL_GROUPS } from '../services/conversation/thread-mcp'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import {
   CONFIGURABLE_MCP_TOOL_GROUPS, estimateTokens, MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES,
@@ -17,12 +17,12 @@ export function registerMcpToolsMock(): void {
   const report = (rootPath: string | null): McpToolGroupsReport => {
     const chosen = (rootPath && modes.get(rootPath)) || {}
     const groups = MCP_TOOL_GROUP_IDS.map((id): McpToolGroupInfo => {
-      const tools = [...THREAD_TOOL_GROUPS[id]]
+      const tools = [...MCP_TOOL_GROUPS[id]]
       const configurable = (CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(id)
       const project = configurable ? chosen[id as ConfigurableMcpToolGroup] : undefined
       const mode: McpToolGroupMode = id === 'core' ? 'always' : project ?? 'on-demand'
       return {
-        id, tools, mode, configurable, source: id === 'team' || id === 'worker' ? 'role' : project ? 'project' : 'default',
+        id, tools, mode, configurable, source: id === 'team' || id === 'worker' || id === 'code' ? 'role' : project ? 'project' : 'default',
         cost: { claude: { loaded: cost(tools.length * 600), deferred: cost(tools.join(' ').length) }, codex: { loaded: cost(tools.length * 600) } }
       }
     })
