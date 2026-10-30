@@ -4,7 +4,7 @@
  * Every capability is one of:
  *   tools      reachable: each tool, or each action of a domain tool (`oxespace_git#status`), with its level
  *   excluded   deliberately not a tool, with the reason
- *   planned    belongs to a future item (P7 OxePod containers, H8 OxePost)
+ *   planned    belongs to a future item (P7 OxePod containers, H8 OxePost, B8.3 diagnostics)
  *   forbidden  never a tool: approvals or raising access, sign-in and tokens, secrets, MCP server trust
  *
  * `ipc` names the app's IPC channels (`group.key` from IPC_CHANNELS, `*` as a wildcard) the capability
@@ -18,7 +18,7 @@ interface Base { label: string; ipc?: readonly string[] }
 export type McpCapability =
   | Base & { tools: Readonly<Record<string, McpLevel>> }
   | Base & { excluded: string }
-  | Base & { planned: 'P7' | 'H8'; reason: string }
+  | Base & { planned: 'P7' | 'H8' | 'B8.3'; reason: string }
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
@@ -367,7 +367,18 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'The person\'s app maintenance; installing hooks writes into the agents\' own configuration.',
     ipc: ['app.*', 'rtk.*', 'agentHooks.*']
   },
-  'settings.diagnostics': { label: 'Diagnostics snapshot and reports', excluded: 'Whole-app paths and logs; the person exports them.', ipc: ['diagnostics.*'] },
+  'settings.diagnostics': {
+    label: 'Diagnostics snapshot, live measurements, problem bundles and reports',
+    excluded: 'Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them.',
+    ipc: ['diagnostics.getSnapshot', 'diagnostics.exportReport', 'diagnostics.reportInteractive', 'diagnostics.buildIssueReport', 'diagnostics.recordFirstAnswer',
+      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary']
+  },
+  'diagnostics.read': {
+    label: 'Summary of the incident journal and a snapshot of the app',
+    planned: 'B8.3',
+    reason: 'oxespace_diagnostics (read, app group) returns the same Markdown summary as the window\'s "Ask for an analysis": incident codes, areas and counts, with aggregate processes and storage. Never content, paths or raw errors.',
+    ipc: ['diagnostics.incidents']
+  },
   'settings.agent_audit': {
     label: 'Audit of agent actions; internal MCP status',
     excluded: 'The person\'s review of what agents did. OxeQuery\'s trail is oxespace_db_activity.',

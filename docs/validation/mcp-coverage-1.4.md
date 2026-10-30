@@ -141,7 +141,8 @@ before. Code panes receive the whole registry.
 | `usage.copilot` | GitHub Copilot allowance | Excluded: No agent OXESpace starts runs on Copilot; the panel is for Copilot panes. |
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
 | `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
-| `settings.diagnostics` | Diagnostics snapshot and reports | Excluded: Whole-app paths and logs; the person exports them. |
+| `settings.diagnostics` | Diagnostics snapshot, live measurements, problem bundles and reports | Excluded: Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them. |
+| `diagnostics.read` | Summary of the incident journal and a snapshot of the app | Planned (B8.3): `oxespace_diagnostics` (read, app group) returns the same Markdown summary as the window's "Ask for an analysis". |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |

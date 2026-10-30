@@ -34,6 +34,36 @@
       "connectivity": {
         "offline": "Sem conexão de rede."
       }
+    },
+    "incident": {
+      "window": {
+        "crashed": "A janela travou.",
+        "rendererGone": "A interface parou de responder e foi reiniciada."
+      },
+      "ipc": {
+        "handlerFailed": "Um pedido da janela falhou em segundo plano."
+      },
+      "agent": {
+        "startFailed": "Um agente não conseguiu iniciar."
+      },
+      "mcp": {
+        "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar."
+      },
+      "database": {
+        "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."
+      },
+      "oxequery": {
+        "timeout": "Um pedido do OxeQuery esgotou o tempo."
+      },
+      "updater": {
+        "failed": "Não foi possível verificar ou instalar uma atualização."
+      },
+      "interaction": {
+        "overBudget": "Uma interação demorou mais do que o orçamento."
+      },
+      "app": {
+        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou."
+      }
     }
   }
 }

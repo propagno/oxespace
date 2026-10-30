@@ -510,7 +510,16 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       exportReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportReport) as Promise<string | null>,
       reportInteractive: () => ipc.invoke(IPC_CHANNELS.diagnostics.reportInteractive) as Promise<void>,
       buildIssueReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.buildIssueReport) as Promise<import('../../shared/issue-report').IssueReport>,
-      recordFirstAnswer: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.recordFirstAnswer, input) as Promise<void>
+      recordFirstAnswer: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.recordFirstAnswer, input) as Promise<void>,
+      watch: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.watch, input ?? {}) as Promise<{ subscriptionId: string }>,
+      unwatch: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.unwatch, input) as Promise<void>,
+      onMetrics: (listener) => subscribe<import('../../shared/types/diagnostics').DiagnosticsMetrics>(ipc, IPC_CHANNELS.diagnostics.onMetrics, listener),
+      incidents: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.incidents, input ?? {}) as Promise<import('../../shared/types/diagnostics').DiagnosticsIncident[]>,
+      clearIncidents: () => ipc.invoke(IPC_CHANNELS.diagnostics.clearIncidents) as Promise<void>,
+      onIncidentsChanged: (listener) => subscribe<{ count: number }>(ipc, IPC_CHANNELS.diagnostics.onIncidentsChanged, listener),
+      previewBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.previewBundle) as Promise<import('../../shared/types/diagnostics').DiagnosticsBundlePreview>,
+      exportBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportBundle) as Promise<string | null>,
+      analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>
     },
     policy: {
       get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>

@@ -399,7 +399,10 @@ export const IPC_CHANNELS = {
     exportReport: 'diagnostics:export-report',
     reportInteractive: 'diagnostics:report-interactive',
     buildIssueReport: 'diagnostics:build-issue-report',
-    recordFirstAnswer: 'diagnostics:record-first-answer'
+    recordFirstAnswer: 'diagnostics:record-first-answer',
+    watch: 'diagnostics:watch', unwatch: 'diagnostics:unwatch', onMetrics: 'diagnostics:metrics', incidents: 'diagnostics:incidents',
+    clearIncidents: 'diagnostics:clear-incidents', onIncidentsChanged: 'diagnostics:incidents-changed', previewBundle: 'diagnostics:preview-bundle',
+    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary'
   },
   policy: {
     get: 'policy:get'

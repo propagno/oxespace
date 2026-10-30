@@ -34,6 +34,36 @@
       "connectivity": {
         "offline": "No network connection."
       }
+    },
+    "incident": {
+      "window": {
+        "crashed": "The window crashed.",
+        "rendererGone": "The interface stopped responding and was restarted."
+      },
+      "ipc": {
+        "handlerFailed": "A request from the window failed in the background."
+      },
+      "agent": {
+        "startFailed": "An agent could not start."
+      },
+      "mcp": {
+        "quarantined": "An MCP server was quarantined after it changed."
+      },
+      "database": {
+        "busy": "The local database was busy and a write had to wait."
+      },
+      "oxequery": {
+        "timeout": "An OxeQuery request ran out of time."
+      },
+      "updater": {
+        "failed": "An update could not be checked or installed."
+      },
+      "interaction": {
+        "overBudget": "An interaction took longer than its budget."
+      },
+      "app": {
+        "journalReset": "The diagnostics journal was unreadable and started over."
+      }
     }
   }
 }

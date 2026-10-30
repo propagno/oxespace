@@ -16,7 +16,17 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
   'thread.request.unanswered': [],
-  'app.connectivity.offline': []
+  'app.connectivity.offline': [],
+  'incident.window.crashed': [],
+  'incident.window.rendererGone': [],
+  'incident.ipc.handlerFailed': [],
+  'incident.agent.startFailed': [],
+  'incident.mcp.quarantined': [],
+  'incident.database.busy': [],
+  'incident.oxequery.timeout': [],
+  'incident.updater.failed': [],
+  'incident.interaction.overBudget': [],
+  'incident.app.journalReset': []
 }
 
 describe('C3 message codes', () => {

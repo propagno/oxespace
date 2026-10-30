@@ -26,6 +26,17 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** Diagnostics journal (B8.3): one kind of incident. */
+  'incident.window.crashed': Record<string, never>
+  'incident.window.rendererGone': Record<string, never>
+  'incident.ipc.handlerFailed': Record<string, never>
+  'incident.agent.startFailed': Record<string, never>
+  'incident.mcp.quarantined': Record<string, never>
+  'incident.database.busy': Record<string, never>
+  'incident.oxequery.timeout': Record<string, never>
+  'incident.updater.failed': Record<string, never>
+  'incident.interaction.overBudget': Record<string, never>
+  'incident.app.journalReset': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -38,7 +49,17 @@ export const MESSAGE_CODES = [
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
-  'app.connectivity.offline'
+  'app.connectivity.offline',
+  'incident.window.crashed',
+  'incident.window.rendererGone',
+  'incident.ipc.handlerFailed',
+  'incident.agent.startFailed',
+  'incident.mcp.quarantined',
+  'incident.database.busy',
+  'incident.oxequery.timeout',
+  'incident.updater.failed',
+  'incident.interaction.overBudget',
+  'incident.app.journalReset'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */
