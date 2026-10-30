@@ -24,20 +24,21 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
  * only grows: each migration PR adds its area.
  */
 const MIGRATED = [
+  'src/components/Keyboard',
   'src/components/Navigation',
   'src/components/OxeQuery',
   'src/components/OxePod',
-  'src/components/Settings/AppearanceSettings.tsx'
+  'src/components/Onboarding/AgentCliOnboarding.tsx',
+  'src/components/Settings'
 ]
-/** Text that stays the same in every language: product names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OxePod', 'OXESpace'])
+/** Text that stays the same in every language: product and tool names. */
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OxePod', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph'])
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/
 const LITERAL = /'([^'\n]{4,})'|"([^"\n]{4,})"|`([^`\n]{4,})`|>([^<>{}\n]{4,})</g
 /** Interface text written in code: JSX text, naming attributes and the label-like fields of objects. */
 const UI_LITERAL = [
-  // JSX text; an arrow's `>` (`=> Promise<T>`) starts a type, not text.
   /(?<!=)>([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
   /\s(?:aria-label|title|placeholder|alt|label|hint|description)=(?:"([^"]*[A-Za-z][^"]*)"|\{['`]([^'`]*[A-Za-z][^'`]*)['`]\})/g,
   /\b(?:label|title|hint|description|placeholder|message|detail|ariaLabel)\s*:\s*['"`]([^'"`]*[A-Za-z][^'"`]*)['"`]/g
@@ -82,7 +83,8 @@ describe('interface copy', () => {
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {
           const text = (match[1] ?? match[2] ?? '').trim()
-          if (text && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
+          // A template made only of ${…} values holds no words of its own.
+          if (/[A-Za-z]/.test(text.replace(/\$\{[^}]*\}/g, '')) && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
         }
       }
     }

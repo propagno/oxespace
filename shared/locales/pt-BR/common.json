@@ -54,16 +54,16 @@
     "view": "Exibir",
     "toggleSidebar": "Mostrar ou ocultar a barra lateral",
     "files": "Arquivos",
-    "sourceControl": "Controle de versão",
+    "sourceControl": "Commit e pull request",
     "backgroundActivity": "Atividade em segundo plano",
-    "splitLayout": "Layout dividido",
+    "splitLayout": "Alternar layout dividido",
     "balancePanes": "Equilibrar painéis",
     "appearance": "Aparência",
     "density": "Densidade",
     "layout": "Layout",
     "splitRight": "Dividir painel à direita",
     "splitDown": "Dividir painel abaixo",
-    "maximizePane": "Maximizar painel",
+    "maximizePane": "Maximizar ou restaurar painel",
     "help": "Ajuda",
     "mcpServers": "Servidores MCP",
     "skills": "Skills",
@@ -74,6 +74,78 @@
     "tools": "Ferramentas",
     "keyboardShortcuts": "Atalhos de teclado",
     "diagnostics": "Diagnóstico"
+  },
+  "keys": {
+    "or": "ou",
+    "notSet": "Sem atalho",
+    "everywhere": "Em todo lugar",
+    "guide": {
+      "title": "Atalhos de teclado",
+      "description": "O que funciona no {{view}} agora.",
+      "customize": "Personalizar atalhos"
+    },
+    "bindings": {
+      "palette": {
+        "open": "Abrir a paleta de comandos",
+        "search": "Buscar arquivos e comandos"
+      },
+      "settings": {
+        "open": "Abrir as configurações"
+      },
+      "sidebar": {
+        "toggle": "Mostrar ou ocultar a barra lateral"
+      },
+      "activity": {
+        "open": "Abrir a central de atividade"
+      },
+      "voice": {
+        "toggle": "Ligar ou desligar a entrada por voz"
+      },
+      "code": {
+        "changes": "Alterações",
+        "browser": "Navegador",
+        "files": "Arquivos",
+        "search": "Buscar nos arquivos",
+        "splitLayout": "Alternar o layout dividido"
+      },
+      "pane": {
+        "splitRight": "Dividir painel à direita",
+        "splitDown": "Dividir painel abaixo",
+        "maximize": "Maximizar / restaurar painel"
+      },
+      "terminal": {
+        "restart": "Reiniciar o terminal",
+        "slash": "Comandos do terminal",
+        "zoomIn": "Aumentar a fonte do terminal",
+        "zoomOut": "Diminuir a fonte do terminal",
+        "zoomReset": "Restaurar a fonte do terminal"
+      },
+      "thread": {
+        "new": "Nova conversa",
+        "next": "Próxima conversa",
+        "previous": "Conversa anterior",
+        "find": "Buscar na conversa",
+        "viewMode": "Visão da transcrição",
+        "terminal": "Terminal",
+        "changes": "Alterações",
+        "browser": "Navegador",
+        "permissions": "Permissões",
+        "model": "Modelo",
+        "effort": "Esforço de raciocínio"
+      },
+      "help": {
+        "shortcuts": "Mostrar os atalhos de teclado"
+      },
+      "view": {
+        "code": "Mostrar o Code",
+        "thread": "Mostrar o Thread",
+        "data": "Mostrar o OxeQuery",
+        "pods": "Mostrar o OxePod"
+      },
+      "oxepod": {
+        "filter": "Encontrar um contêiner"
+      }
+    }
   },
   "oxequeryCommands": {
     "open": {

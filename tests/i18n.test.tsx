@@ -4,6 +4,7 @@ import { languageFor, resolveLanguage } from '../shared/i18n'
 import { AppearanceSettings } from '../src/components/Settings/AppearanceSettings'
 import { describeAttention } from '../src/hooks/useAttentionSummary'
 import { changeLanguage, i18n } from '../src/i18n'
+import { RichText } from '../src/i18n/RichText'
 import { useSettingsStore } from '../src/store/settings.store'
 import { formatDate, formatNumber, formatRelative } from '../src/utils/formatTime'
 
@@ -33,6 +34,12 @@ describe('interface language', () => {
     expect(formatNumber(1234.5)).toBe('1.234,5')
     expect(formatDate(Date.UTC(2026, 9, 14, 12), { timeZone: 'UTC' })).toBe('14/10/2026')
     expect(formatRelative(Date.now() - 3 * 60_000)).toBe('há 3 minutos')
+  })
+
+  it('renders the <strong> markup of a translation and nothing else', () => {
+    const { container } = render(<p><RichText text="Only for terminals you are <strong>not watching</strong>, <em>really</em>." /></p>)
+    expect(container.querySelector('strong')?.textContent).toBe('not watching')
+    expect(container.textContent).toBe('Only for terminals you are not watching, <em>really</em>.')
   })
 
   it('switches from Settings › Appearance › Language and keeps the choice', async () => {
