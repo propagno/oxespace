@@ -22,6 +22,5 @@
 .desktop-provider-session-id > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .desktop-provider-session-id button { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 4px 8px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: transparent; color: var(--tx-primary); cursor: pointer; }
 .desktop-provider-session-id button:hover { background: var(--bg-hover); }
-.desktop-provider-session-error, .desktop-provider-session-empty { color: var(--tx-muted); font-size: var(--fs-xs); }
 .desktop-provider-session-help { margin: 12px 0 0; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-status-summary .terminal-technical-details { margin-top: 12px; }

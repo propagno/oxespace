@@ -1134,13 +1134,6 @@
   gap: 1px;
 }
 
-.sidebar-integration-row-empty {
-  padding: 4px 8px;
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  font-style: italic;
-}
-
 .sidebar-integration-row-member {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

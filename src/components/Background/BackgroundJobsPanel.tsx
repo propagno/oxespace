@@ -6,7 +6,7 @@ import { selectJobs, selectOutput, useBackgroundStore } from '../../store/backgr
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'
 import { shortcutLabel } from '../../keyboard/keybindings'
-import { Button, EmptyState, ErrorState, Skeleton, toast } from '../../ui'
+import { Button, EmptyState, ErrorState, Notice, Skeleton, toast } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
 
@@ -142,7 +142,7 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
           <div><strong>{task.objective}</strong><span data-state={task.state}>{t(`background.delegationState.${task.state}`)}</span></div>
           <small>{task.nativeSession?.provider ?? task.agentProfileId} · {task.branch} · {formatDateTime(task.updatedAt)}</small>
           {task.lastReport ? <p>{task.lastReport}</p> : null}
-          {task.error ? <p role="alert">{task.error}</p> : null}
+          {task.error ? <Notice intent="danger">{task.error}</Notice> : null}
         </article>)}
       </div> : <div className="bg-jobs-dock-list">
         {filtered.length === 0 ? (
