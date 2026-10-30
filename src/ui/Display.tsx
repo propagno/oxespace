@@ -59,13 +59,22 @@ export function EmptyState({ icon, title, children, actions, compact = false }: 
  * The technical detail stays folded. Compact is a one-line version for lists and small panels; `brand` puts the mark
  * above a failure that takes a whole view or the window, so it reads as OXESpace speaking, not a broken page.
  */
-export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false, brand = false }: {
+export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false, brand = false, icon, heading, children }: {
   title: ReactNode; message?: ReactNode; detail?: string; onRetry?: () => void; retryLabel?: string; actions?: ReactNode; compact?: boolean; brand?: boolean
+  /** What the failure is about (the containers engine, a server), drawn like EmptyState's icon. */
+  icon?: ReactNode
+  /** How to fix it, when it takes more than Try again: steps or a command, below the message. */
+  children?: ReactNode
+  /** The title as a heading of this level, when the failure takes the place of a whole view's content. */
+  heading?: 2 | 3
 }): ReactElement {
+  const Title = heading ? (`h${heading}` as const) : 'p'
   return <div className={cx(styles.error, compact && styles.errorCompact)} role="alert">
     {brand && !compact && <BrandMark size={40} />}
-    <p className={styles.errorTitle}>{title}</p>
+    {icon && !brand && !compact && <span className={styles.emptyIcon} aria-hidden="true">{icon}</span>}
+    <Title className={styles.errorTitle}>{title}</Title>
     {message && <p className={styles.errorText}>{message}</p>}
+    {children && <div className={styles.errorFix}>{children}</div>}
     {detail && <details className={styles.errorDetail}><summary>{i18n.t('ui.details')}</summary><code>{detail}</code></details>}
     {(onRetry || actions) && <div className={styles.errorActions}>
       {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}

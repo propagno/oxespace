@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Boxes, RefreshCw } from 'lucide-react'
 import type { ContainerEngineInfo } from '../../../shared/types/oxequery'
-import { Button, EmptyState, LoadingState } from '../../ui'
+import { Button, EmptyState, ErrorState, LoadingState } from '../../ui'
 import { loadOxeQueryCatalog } from '../OxeQuery/catalog'
 import { ContainerDetail } from './ContainerDetail'
 import { ResourcesPanel } from './ResourcesPanel'
@@ -66,13 +66,10 @@ function EngineProblem({ message, engines, loading, onRetry }: { message: string
   const missing = !stopped && engines.length > 0 && engines.every(info => info.state === 'missing')
   const linux = typeof navigator !== 'undefined' && /linux/i.test(navigator.userAgent)
   const heading = missing ? t('engine.missingTitle') : stopped?.state === 'denied' ? t('engine.deniedTitle') : stopped ? t('engine.stoppedTitle', { engine: stopped.engine === 'docker' ? 'Docker' : 'Podman' }) : t('engine.unavailableTitle')
-  return <div className={styles.center}><section className={styles.problem} role="alert">
-    <span className={styles.problemIcon} aria-hidden="true"><Boxes size={22} /></span>
-    <h2 className={styles.title}>{heading}</h2>
-    <p>{message}</p>
-    {stopped?.state === 'denied' && <p className={styles.muted}><Trans t={t} i18nKey="engine.deniedFix" components={{ code: <code /> }} /></p>}
-    {stopped?.state === 'stopped' && <p className={styles.muted}>{linux ? <Trans t={t} i18nKey="engine.startLinux" components={{ code: <code /> }} /> : stopped.engine === 'docker' ? t('engine.startDesktop') : <Trans t={t} i18nKey="engine.startPodman" components={{ code: <code /> }} />} {t('engine.checksAgain')}</p>}
-    {missing && <p className={styles.muted}>{t('engine.install')}</p>}
-    <Button icon={<RefreshCw size={13} aria-hidden="true" />} loading={loading} onClick={onRetry}>{loading ? t('engine.checking') : t('engine.checkAgain')}</Button>
-  </section></div>
+  return <div className={styles.center}><ErrorState icon={<Boxes size={22} />} heading={2} title={heading} message={message}
+    actions={<Button icon={<RefreshCw size={13} aria-hidden="true" />} loading={loading} onClick={onRetry}>{loading ? t('engine.checking') : t('engine.checkAgain')}</Button>}>
+    {stopped?.state === 'denied' && <p><Trans t={t} i18nKey="engine.deniedFix" components={{ code: <code /> }} /></p>}
+    {stopped?.state === 'stopped' && <p>{linux ? <Trans t={t} i18nKey="engine.startLinux" components={{ code: <code /> }} /> : stopped.engine === 'docker' ? t('engine.startDesktop') : <Trans t={t} i18nKey="engine.startPodman" components={{ code: <code /> }} />} {t('engine.checksAgain')}</p>}
+    {missing && <p>{t('engine.install')}</p>}
+  </ErrorState></div>
 }
