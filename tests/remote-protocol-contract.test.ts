@@ -64,6 +64,13 @@ describe('C5 remote protocol', () => {
     // Size is counted in bytes, not characters.
     expect(readRemoteFrame(JSON.stringify({ type: 'hello', versions: [1], pad: 'é'.repeat(REMOTE_LIMITS.maxFrameBytes / 2) }), 'client')).toEqual({ ok: false, code: 'frame-too-large' })
     for (const text of ['', 'not json', '[]', 'null', '1', '{"type":"teleport"}']) expect(readRemoteFrame(text, 'client'), text).toEqual({ ok: false, code: 'malformed' })
+    // Homologation #187: deep nesting is refused before parsing, so nothing recursive downstream can overflow the stack.
+    const nested = (levels: number) => `{"type":"hello","versions":[1],"x":${'['.repeat(levels)}${']'.repeat(levels)}}`
+    expect(readRemoteFrame(nested(20_000), 'client')).toEqual({ ok: false, code: 'malformed' })
+    expect(readRemoteFrame(nested(REMOTE_LIMITS.maxFrameDepth), 'client')).toEqual({ ok: false, code: 'malformed' })
+    expect(readRemoteFrame(nested(REMOTE_LIMITS.maxFrameDepth - 1), 'client').ok).toBe(true)
+    // Brackets inside a string, escaped quotes included, are text, not nesting.
+    expect(readRemoteFrame(JSON.stringify({ type: 'hello', versions: [1], note: `\\"${'['.repeat(500)}` }), 'client').ok).toBe(true)
     expect(readRemoteFrame('{"type":"event","subscription":"s","seq":1,"schemaVersion":1,"data":{}}', 'client')).toEqual({ ok: false, code: 'malformed' })
     expect(readRemoteFrame('{"type":"command","id":"1","command":"host.exec","args":{}}', 'client')).toEqual({ ok: false, code: 'unknown-command' })
     expect(readRemoteFrame('{"type":"command","id":"1","command":"oxequery.approve","args":{}}', 'client')).toEqual({ ok: false, code: 'unknown-command' })
