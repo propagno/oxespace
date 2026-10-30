@@ -40,6 +40,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `delegation.authorize` | `delegation.configure`, `delegation.configureTarget`, `delegation.adopt` |
 | `web_preview.access` | `browserPreview.setAccess` (external sites) |
 | `git.repo_hook_approval` | `github.getRepoConfig`, `github.approveRepoHook` |
+| `thread.coordinator_admin` | `thread.setCoordinator` |
 | `accounts.sign_in` | `agentAccount.*` |
 | `linear.token` | `linear.setApiKey`, `linear.clearApiKey` |
 | `mcp_internal.token` | `mcpInternal.regenerateToken` |
@@ -113,6 +114,8 @@ before. Code panes receive the whole registry.
 | `thread.history_edit` | Rewind, undo a turn's edits, export, import, recover, attach files, slash commands | Excluded: Rewrites or acts inside another conversation's session; the person does it. Agents drive Threads with send and steer. |
 | `thread.project_admin` | Add, relink or hide Thread projects; idle suspension; shell check | Excluded: The person's settings. |
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
+| `thread.coordinator_admin` | Make a conversation the project's coordinator | **Forbidden**: Raises what an agent can reach. |
+| `thread.coordinator_read` | The coordinator's summary of the project's pending requests | Planned (B1.4): `oxespace_threads#pending` (read), offered only to the coordinator; titles and kinds inside the untrusted-output block; nothing that answers a request. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |
 | `team.messaging` | Team status and messages | **read**: `oxespace_team_status`, `oxespace_team_inbox`<br>**write**: `oxespace_team_message`, `oxespace_team_acknowledge` |

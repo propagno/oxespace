@@ -114,6 +114,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       approve: (id, request, decision) => ipc.invoke(IPC_CHANNELS.thread.approve, id, request, decision) as Promise<void>,
       respond: (id, request, response) => ipc.invoke(IPC_CHANNELS.thread.respond, id, request, response) as Promise<void>,
       pin: (id, pinned) => ipc.invoke(IPC_CHANNELS.thread.pin, id, pinned) as Promise<void>,
+      setCoordinator: (id, coordinator) => ipc.invoke(IPC_CHANNELS.thread.setCoordinator, id, coordinator) as Promise<void>,
       onChanged: listener => {
         const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
         ipc.on(IPC_CHANNELS.thread.changed, handler)
