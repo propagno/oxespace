@@ -21,7 +21,8 @@ const remaining = (ms: number): string => {
  * Shows a one-time pairing code as a QR, with its text alternative (address, code and certificate fingerprint), and
  * asks the person to confirm the phone that answers it. Leaving the page withdraws the code.
  * TODO(CCR F9-1): show `remote:pairing-failed` (MainMessage remote.pairing.failed, reason invalid | expired | refused |
- * limit) as a Notice here; today a failed attempt never reaches the window.
+ * limit | peer-closed) as a Notice here and stop waiting; today a failed attempt never reaches the window, and a phone
+ * that hangs up mid-pairing (peer-closed) must not leave the code spinning.
  */
 export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; blockedReason: string | null }): ReactElement {
   const { t } = useTranslation('settings')

@@ -13,7 +13,8 @@ import styles from './DevicesSettings.module.css'
 // TODO(CCR F9-3): use RemoteGatewayStatus.listenedBefore (persisted per profile) in place of localStorage.
 export const FIREWALL_EXPLAINED_KEY = 'oxe.remote.firewallExplained'
 // TODO(CCR F9-2): remote.* rejections carry C3 codes (remote.gateway.offline, remote.pairing.limit, remote.device.notFound,
-// remote.device.invalidName, remote.desktop.invalidName, remote.pane.invalid); show them through formatMainMessage.
+// remote.device.invalidName, remote.desktop.invalidName, remote.pane.invalid), serialized as "English #c3 {json}":
+// replace errorText with the shared messageFromError(cause) → formatMainMessage (BACKEND, #225/#204); never parse by hand.
 const errorText = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause)
 const firewallExplained = (): boolean => { try { return localStorage.getItem(FIREWALL_EXPLAINED_KEY) === '1' } catch { return false } }
 const rememberFirewallExplained = (): void => { try { localStorage.setItem(FIREWALL_EXPLAINED_KEY, '1') } catch { /* Shown again next time. */ } }

@@ -310,6 +310,15 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     sender(event)
     return manager.then(service => service.respond(string(id), string(request), requestResponse(response)))
   })
+  ipcMain.handle(IPC_CHANNELS.thread.respondPending, async (event, value: unknown) => {
+    sender(event)
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid pending response')
+    const input = value as Record<string, unknown>
+    if (Object.keys(input).some(key => !['threadId', 'requestId', 'generation', 'response'].includes(key))) throw new Error('Unknown pending response field')
+    const pending = await import('../services/conversation/thread-pending-response')
+    const parsed = { threadId: string(input.threadId), requestId: string(input.requestId), generation: pending.listedGeneration(input.generation), response: requestResponse(input.response) }
+    return pending.respondPending(await manager, parsed)
+  })
   ipcMain.handle(IPC_CHANNELS.thread.pin, (event, id: unknown, pinned: unknown) => {
     sender(event)
     if (typeof pinned !== 'boolean') throw new Error('Invalid pin input')
