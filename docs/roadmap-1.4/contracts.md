@@ -24,4 +24,23 @@
   - teste de capacidades proibidas.
 - **C6 · Migrações:** faixas reservadas por WS a partir de 084 (B1 084–089, B3 090–095, B5 096–099, B6 100–103, B9 104–107); o coordenador mantém `LATEST_DB_VERSION`.
 - **C7 · Arquivos compartilhados:** `ipc.ts`, `preload/api.ts`, `mcp-coverage.ts`, `index.ts`, `db/index.ts`, `fs-allowlist.test.ts`, `file-size-baseline.json`, `verify-bundle-budgets.mjs` e `mock-ipc.ts` só mudam no PR de contrato do item, com o coordenador avisado.
+- **B10 · Aprovações (`approvals.*`):** todo pedido que um agente (ou o próprio app) faz à pessoa aparece no modal do app, nunca num diálogo nativo enquanto existir uma janela do app.
+  - Tipos em `shared/types/approvals.ts`, regras puras em `shared/approval-rules.ts`, mock em `electron/main/e2e/approvals-mock.ts` (`OXESPACE_E2E_APPROVALS=sample`).
+  - **main → janela:**
+    - `approvals:requested` leva um `ApprovalRequest` montado só pelo main, com `id`, `generation`, `kind` (origem: `action`, `mcp-confirm`, `oxequery`, `preview-automation`, `crash`), `risk` (`low`…`critical`), `environment` (local/dev/prod) e `requester`.
+    - Título, resumo, notas do app e rótulos das opções são códigos C3. O texto do agente vai em `agentText` (`untrusted: true`, até `APPROVAL_AGENT_TEXT_MAX` = 100 000 caracteres, com `truncated` e `length`).
+    - `approvals:resolved` avisa quando o pedido foi respondido, expirou (`timeout`, como negado), foi cancelado pela origem ou foi respondido no nativo.
+  - **janela → main** (só o frame principal):
+    - `respond({ id, generation, optionId })` aceita uma resposta por pedido e geração. O main valida `optionId` contra as opções daquele pedido.
+    - `ack({ id, generation })` confirma que o modal está na tela. É obrigatório quando `ackRequired`: o pedido de `crash` vai para o nativo se o ack não chegar em `APPROVAL_ACK_TIMEOUT_MS` (3 000 ms).
+    - `unavailable({ id, generation })` informa que o modal não pôde ser mostrado (o chunk falhou ou o modal não montou). Não aprova nem nega: o main pergunta no nativo uma vez, só para esse pedido.
+    - `list()` devolve a fila pendente e `history()` as decisões da sessão, sem o texto, só o hash.
+    - Recusas tipadas `{ ok: false, refusal, message }` com `approvals.refused.<notPending|staleGeneration|alreadyAnswered|unknownOption|alreadyReported>`.
+  - **Expiração:** sem resposta em `APPROVAL_TIMEOUT_MS` (5 min), o pedido é negado. Fila de no máximo `APPROVAL_QUEUE_MAX` (50); acima disso, é negado sem aparecer.
+  - **Nativo só como reserva:** `dialog.showMessageBox` só quando não existe janela, quando a janela informa `unavailable` para aquele pedido ou quando um pedido `ackRequired` fica sem ack. O aviso "renderer caiu" (`index.ts:892`) continua nativo, porque o renderer que mostraria o modal morreu.
+  - **Solicitante:** atribuído pelo main a partir da execução autenticada e do dono dela (painel ou conversa), com o nome do próprio app (`approvals.requester.pane` = provedor + posição do painel). Nunca usa `actor.label`, nome de painel ou título escolhidos pelo agente.
+  - **Nomes reservados:** `reservedNameIn()` recusa OXESpace, OxeChat, OxeCode, OxeQuery, OxePod e OxePost por contenção, e System/Sistema como nome inteiro. A comparação ignora caixa e acentos e passa por NFKC, caracteres invisíveis e letras parecidas de outros alfabetos. Vale para nome de painel (`agents.name.reserved`) e para notificações.
+  - **Risco:** calculado pelo main com os classificadores que já existem: `guardSql` (`riskFromSql`, com produção subindo um nível; um `DROP` atrás de comentário continua `critical`) e `classifyShellRisk` (`riskFromShell`). "Permitir nesta execução" só existe para risco `low`, e texto truncado só oferece negar (`approvalRequestProblems`).
+  - **`notify` de agente:** sai com o prefixo do app (`notify.prefix.pane`/`conversation`), recusa nomes reservados (`notify.refused.reservedName`) e tem limite de `NOTIFY_PER_MINUTE` (6) por execução (`notify.refused.rateLimit`).
+  - **MCP:** `approvals.admin` é capacidade proibida; aprovações nunca viram ferramenta.
 - **CCR (pedido de mudança de contrato):** quem precisa manda ao coordenador o contrato, a mudança, o porquê e o impacto. O coordenador aprova, ajusta ou recusa, e avisa a outra sessão antes de qualquer código.
