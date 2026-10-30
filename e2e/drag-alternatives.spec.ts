@@ -41,7 +41,8 @@ test('dividers and the file tree work without dragging', async () => {
     // A divider of the pane grid moves with its menu.
     const divider = page.getByTestId('split-resize-handle').first()
     const left = await divider.evaluate(element => (element as HTMLElement).style.left)
-    await click(page, divider)
+    // Playwright's own click: a press without travel, after checking the divider itself receives the pointer.
+    await divider.click()
     const dividerMenu = page.getByRole('menu', { name: /Divider between (columns|rows)/ })
     await expect(dividerMenu).toBeVisible()
     await dividerMenu.getByRole('menuitem').last().click()
