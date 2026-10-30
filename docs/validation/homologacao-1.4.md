@@ -157,7 +157,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados de OxeChat, OxePod e OxePost | #173 | FRONTEND | Pré-homologado |
 | Ajustes visuais do A4 | #207 | FRONTEND | Pré-homologado (regressão corrigida em 8a2437f8) |
 | Esqueleto do app Android + CI | #164 | MOBILE | Homologado (na `main` c82cff0a) |
-| Correção de segurança do `tool.use` | #212 | BACKEND | Bloqueado: dois desvios confirmados, aguardando a correção |
+| Correção de segurança do `tool.use` | #212 | BACKEND | Pré-homologado (0da8d604): os dois desvios estão fechados |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 
@@ -315,7 +315,7 @@ com o ícone à esquerda e os dois alinhados (`a4/en-US-new-with-worktree.png`).
   (root, file, database, sharedpref, external), na nuvem e na transferência entre aparelhos. Ainda não há
   funcionalidade de produto.
 
-### Correção de segurança do `tool.use` (#212): Bloqueado
+### Correção de segurança do `tool.use` (#212): Pré-homologado
 
 Testes adversariais (`tests/integration/hml-212.test.ts`, só local) sobre a primeira versão (3e1b8fa9):
 - um deny com curinga (`mcp__oxespace-delegation__*`) e um deny com outra caixa bloqueiam no `tools/call`;
@@ -326,6 +326,15 @@ Testes adversariais (`tests/integration/hml-212.test.ts`, só local) sobre a pri
      no `tools/call` nem no Codex.
 
 O coordenador voltou o PR para rascunho. O veredito desta homologação é condição para o merge.
+
+Correção 0da8d604, mesclada com a `main`:
+- 27/27 com a suíte do PR e os 6 adversariais;
+- os mesmos adversariais na versão antiga (3e1b8fa9) falham nos três pontos dos dois desvios, o que prova que o teste
+  detecta os dois: "header B" (false), "tools/call blocked by a server-level deny" (false) e "codex turns the server
+  off" (sem `enabled=false`).
+
+Efeito esperado: sem token de execução, o deny de qualquer projeto vale para a chamada. É o lado seguro, e convém
+dizer isso na documentação de política. Sugestão: incorporar os dois casos ao teste do PR.
 
 ### B8.1 main minificado (#162): Homologado
 
