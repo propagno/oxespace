@@ -6,6 +6,8 @@
  * - `provider.use`: `claude`, `codex`;
  * - `tool.use`: a tool name as the agent reports it (`Bash`, `mcp__github__create_issue`);
  * - `integration.use`: `mcp:<server>`, `skill:<id>`, `db:<connection>`, `memory`;
+ * - `integration.use` also takes `env:<NAME>` (an allow lets a secret-looking variable reach agent child processes; a deny withholds
+ *   one, see env-scrub.ts) and `net:<domain>` (network reach; evaluated by net-policy.ts, not enforced yet);
  * - `db.write`: `<environment>:<connection>` (`prod:*`, `*:reports-db`). A `deny` makes the connection read-only in OxeQuery.
  *
  * Rules are read from three layers, in this order: the project (`.oxespace/policy.json`), the user

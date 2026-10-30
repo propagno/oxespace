@@ -146,6 +146,23 @@ describe('TerminalManager', () => {
       expect(pty.spawn).toHaveBeenCalledTimes(1)
     } finally { manager.stopAll(); db.close(); rmSync(root, { recursive: true, force: true }) }
   })
+  test('a provider launch withholds unrelated secrets but keeps its own auth; a plain shell keeps everything', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const env = { PATH: '/bin', ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o', GITHUB_TOKEN: 'g', AWS_ACCESS_KEY_ID: 'k' }
+    const manager = new TerminalManager(db, { pty, platform: 'linux', env })
+    const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id, disableRtk: true }
+    try {
+      await manager.start({ ...input, agentCommand: 'claude' })
+      const claudeEnv = pty.spawn.mock.calls.at(-1)![2].env as Record<string, string>
+      expect(claudeEnv).toMatchObject({ PATH: '/bin', ANTHROPIC_API_KEY: 'a' })
+      for (const name of ['OPENAI_API_KEY', 'GITHUB_TOKEN']) expect(claudeEnv[name]).toBeUndefined()
+      manager.stop(input)
+      await manager.start(input)
+      expect(pty.spawn.mock.calls.at(-1)![2].env).toMatchObject({ GITHUB_TOKEN: 'g', OPENAI_API_KEY: 'o' })
+    } finally { manager.stopAll(); db.close() }
+  })
   test('stopping an in-flight optional launch cannot spawn a late process', async () => {
     const db = openInMemoryDatabase()
     const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
