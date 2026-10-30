@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { parseContainerList, parseDockerPorts, parseInspect, suggestFromInspect } from '../../electron/main/services/oxequery/container-parse'
-import { assertContainerId, assertExecArgv, explainEngineError } from '../../electron/main/services/oxequery/container-runtime'
+import { parseContainerList, parseDockerPorts, parseInspect, suggestFromInspect } from '../../electron/main/services/oxepod/container-parse'
+import { assertContainerId, assertExecArgv, explainEngineError } from '../../electron/main/services/oxepod/container-runtime'
 
 describe('container list parsing', () => {
   it('reads Docker one-object-per-line output', () => {
@@ -86,7 +86,7 @@ describe('container runtime input validation', () => {
 
 describe('engine discovery', () => {
   it('lists the platform install locations used when PATH does not have the CLI', async () => {
-    const { engineInstallPaths } = await import('../../electron/main/services/oxequery/container-runtime')
+    const { engineInstallPaths } = await import('../../electron/main/services/oxepod/container-runtime')
     expect(engineInstallPaths('docker', 'win32', { ProgramFiles: String.raw`C:\Program Files` })).toEqual([String.raw`C:\Program Files\Docker\Docker\resources\bin\docker.exe`])
     expect(engineInstallPaths('podman', 'win32', { ProgramFiles: String.raw`C:\Program Files`, LOCALAPPDATA: String.raw`C:\Users\me\AppData\Local` })).toContain(String.raw`C:\Users\me\AppData\Local\Programs\Podman\podman.exe`)
     expect(engineInstallPaths('docker', 'darwin', {})).toContain('/Applications/Docker.app/Contents/Resources/bin/docker')
@@ -94,7 +94,7 @@ describe('engine discovery', () => {
   })
 
   it('finds the CLI at an install path, reports a stopped daemon and recovers when it starts', async () => {
-    const { ContainerRuntime } = await import('../../electron/main/services/oxequery/container-runtime')
+    const { ContainerRuntime } = await import('../../electron/main/services/oxepod/container-runtime')
     let daemonUp = false
     const seen: string[] = []
     const host = {
@@ -125,7 +125,7 @@ describe('engine discovery', () => {
 describe('listings in every shape an engine prints them', () => {
   const volumes = [{ Name: 'a-data', Driver: 'local' }, { Name: 'b {odd} "name"', Driver: 'local' }]
   it('reads one object per line, one array, and objects spread over several lines', async () => {
-    const { parseVolumes } = await import('../../electron/main/services/oxequery/container-parse')
+    const { parseVolumes } = await import('../../electron/main/services/oxepod/container-parse')
     const names = (text: string): string[] => parseVolumes(text).map(item => item.name)
     expect(names(volumes.map(entry => JSON.stringify(entry)).join('\n'))).toEqual(['a-data', 'b {odd} "name"'])
     expect(names(JSON.stringify(volumes))).toEqual(['a-data', 'b {odd} "name"'])
@@ -137,7 +137,7 @@ describe('listings in every shape an engine prints them', () => {
 
 describe('networks as Docker and Podman print them', () => {
   it('reads upper-case and lower-case fields', async () => {
-    const { parseNetworks } = await import('../../electron/main/services/oxequery/container-parse')
+    const { parseNetworks } = await import('../../electron/main/services/oxepod/container-parse')
     expect(parseNetworks('{"ID":"abc","Name":"bridge","Driver":"bridge","Scope":"local"}')).toEqual([{ id: 'abc', name: 'bridge', driver: 'bridge', scope: 'local' }])
     expect(parseNetworks('[{"id":"def","name":"podman","driver":"bridge"}]')).toEqual([{ id: 'def', name: 'podman', driver: 'bridge', scope: '' }])
   })

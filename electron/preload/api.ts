@@ -303,6 +303,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       call: (op, input) => ipc.invoke(IPC_CHANNELS.oxeQuery.call, { op, input }) as never,
       onEvent: listener => subscribe<import('../../shared/types/oxequery').OxeQueryEvent>(ipc, IPC_CHANNELS.oxeQuery.onEvent, listener)
     },
+    oxePod: {
+      call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePod.call, { op, input }) as never,
+      onEvent: listener => subscribe<import('../../shared/types/oxepod').OxePodEvent>(ipc, IPC_CHANNELS.oxePod.onEvent, listener)
+    },
     oxePost: { call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePost.call, { op, input }) as never },
     automations: {
       list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,

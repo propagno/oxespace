@@ -205,6 +205,7 @@ export const IPC_CHANNELS = {
     call: 'oxeQuery:call',
     onEvent: 'oxeQuery:event'
   },
+  oxePod: { call: 'oxePod:call', onEvent: 'oxePod:event' },
   oxePost: { call: 'oxePost:call' },
   automations: {
     list: 'automations:list',
@@ -686,6 +687,7 @@ export interface OxeApi {
   agentHooks: AgentHooksApi
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
+  oxePod: import('./oxepod').OxePodApi
   oxePost: import('../oxepost/types').OxePostApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
