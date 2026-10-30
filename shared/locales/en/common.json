@@ -248,13 +248,14 @@
     "divider": {
       "columns": "Divider between columns",
       "rows": "Divider between rows",
+      "hint": "Drag, or use the arrow keys; Enter for more",
       "left": "Move the divider left",
       "right": "Move the divider right",
       "up": "Move the divider up",
       "down": "Move the divider down"
     },
     "splitter": {
-      "menu": "Size of {{name}}",
+      "menu": "{{name}}: size options",
       "smaller": "Smaller",
       "larger": "Larger",
       "restore": "Restore the default size"

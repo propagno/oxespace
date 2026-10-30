@@ -272,15 +272,25 @@ export function WorkspaceSplitGrid({
               data-divider={handleKey(h)}
               role="separator"
               tabIndex={0}
-              aria-label={horizontal ? 'Resize columns' : 'Resize rows'}
+              aria-label={i18n.t(horizontal ? 'ui.divider.columns' : 'ui.divider.rows')}
               aria-orientation={horizontal ? 'vertical' : 'horizontal'}
-              title={horizontal ? 'Drag to resize columns · Arrow keys to adjust' : 'Drag to resize rows · Arrow keys to adjust'}
+              // A focusable separator says where it is: the divider's position across the grid, in percent.
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(horizontal ? h.left : h.top)}
+              aria-keyshortcuts="Enter"
+              title={i18n.t('ui.divider.hint')}
               onKeyDown={event => {
                 const decrease = horizontal ? 'ArrowLeft' : 'ArrowUp'
                 const increase = horizontal ? 'ArrowRight' : 'ArrowDown'
                 if (event.key === decrease || event.key === increase) {
                   event.preventDefault()
                   onResize(h.path, h.index, event.key === decrease ? -2 : 2)
+                }
+                // The same menu as a click, like the other dividers: Enter, Space or the context-menu keys.
+                if (event.key === 'Enter' || event.key === ' ' || event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
+                  event.preventDefault()
+                  setDividerMenu(handleKey(h))
                 }
               }}
               style={style}

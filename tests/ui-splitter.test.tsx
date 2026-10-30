@@ -49,7 +49,7 @@ describe('Splitter', () => {
     fireEvent.pointerMove(separator, { clientX: 102, pointerId: 1 })
     fireEvent.pointerUp(separator, { clientX: 102, pointerId: 1 })
     expect(onChange).not.toHaveBeenCalled()
-    const menu = await screen.findByRole('menu', { name: 'Size of Sidebar width' })
+    const menu = await screen.findByRole('menu', { name: 'Sidebar width: size options' })
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Larger' }))
     // Larger keeps the menu open, so it can be repeated.
     expect(screen.getByRole('menu')).toBeInTheDocument()

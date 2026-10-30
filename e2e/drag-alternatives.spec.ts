@@ -28,7 +28,7 @@ test('dividers and the file tree work without dragging', async () => {
     const sidebar = page.getByRole('separator', { name: 'Sidebar width' })
     const before = Number(await sidebar.getAttribute('aria-valuenow'))
     await click(page, sidebar)
-    const sidebarMenu = page.getByRole('menu', { name: 'Size of Sidebar width' })
+    const sidebarMenu = page.getByRole('menu', { name: 'Sidebar width: size options' })
     await expect(sidebarMenu).toBeVisible()
     await sidebarMenu.getByRole('menuitem', { name: 'Larger' }).click()
     await sidebarMenu.getByRole('menuitem', { name: 'Larger' }).click()
@@ -47,6 +47,15 @@ test('dividers and the file tree work without dragging', async () => {
     await dividerMenu.getByRole('menuitem').last().click()
     await expect.poll(() => divider.evaluate(element => (element as HTMLElement).style.left + (element as HTMLElement).style.top)).not.toBe(left)
     await page.keyboard.press('Escape')
+    // The same menu from the keyboard: Space and Shift+F10, like the other dividers; Escape gives focus back.
+    for (const key of ['Space', 'Shift+F10']) {
+      await divider.focus()
+      await page.keyboard.press(key)
+      await expect(dividerMenu).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(dividerMenu).toHaveCount(0)
+    }
+    await expect(divider).toHaveAttribute('aria-valuenow', /\d+/)
 
     // The file tree copies a path instead of dragging it into a terminal.
     await page.keyboard.press('Control+k')
@@ -62,7 +71,7 @@ test('dividers and the file tree work without dragging', async () => {
     await page.keyboard.press('Control+2')
     const threadSidebar = page.getByRole('separator', { name: /sidebar width/i })
     await click(page, threadSidebar)
-    await expect(page.getByRole('menu', { name: /^Size of / })).toBeVisible()
+    await expect(page.getByRole('menu', { name: /: size options$/ })).toBeVisible()
     expect(consoleErrors.filter(line => line.startsWith('pageerror:'))).toEqual([])
   } finally {
     await app.close()
