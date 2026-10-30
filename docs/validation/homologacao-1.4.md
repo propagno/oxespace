@@ -145,7 +145,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 |---|---|---|---|
 | Roadmap 1.4 (documentação) | #157 | coordenador | Homologado (na `main` 8e1d8c14) |
 | F1 primitivas | #163 | FRONTEND | Homologado (na `main` 7c8cb949) |
-| F4 WCAG 2.2, partes 1 e 2 | #186 | FRONTEND | Pré-homologado com ressalvas |
+| F4 WCAG 2.2, partes 1 e 2 | #186 | FRONTEND | Pré-homologado (ressalvas corrigidas em 1ceaee6a, reverificado em a5d04da9) |
 | R1 + A4 (splash na aparência salva; visualizador só em dev) | #190 | FRONTEND | Pré-homologado |
 | F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Pré-homologado (ressalvas resolvidas na reverificação) |
 | A4 worktree por conversa | #151 | FRONTEND | Homologado com ressalvas (na `main` 9e4a9307) |
@@ -196,6 +196,10 @@ Ressalvas para o FRONTEND:
    - é um `separator` focável sem `aria-valuenow`;
    - o nome é "Resize columns"/"Resize rows", em inglês no pt-BR.
 2. **Nome do menu:** sai "Tamanho de Largura da barra lateral". Sugestão: "Tamanho da barra lateral".
+
+Reverificação (a5d04da9 mesclado com a `main`): o divisor do grid abre com Enter o menu "Divisor entre colunas"
+(Mover o divisor para a esquerda/direita), o menu do Splitter é "Largura da barra lateral: opções de tamanho", o
+Escape devolve o foco e não há erros. Ressalvas fechadas.
 
 ### #190 R1 + A4: Pré-homologado
 
