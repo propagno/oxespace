@@ -2,13 +2,14 @@
  * A pretend remote gateway for the E2E runs of Settings › Devices: no socket, no certificate. One phone is paired
  * unless `OXESPACE_E2E_REMOTE_DEVICES=0`; with `OXESPACE_E2E_REMOTE_PAIR_PROMPT=1`, a phone asks to pair shortly after a
  * pairing code is shown, so a spec can answer it. With `OXESPACE_E2E_REMOTE_PAIR_FAIL=<reason>` (invalid, expired,
- * refused, limit), a pairing attempt fails that way shortly after a code is shown. `OXESPACE_E2E_REMOTE_LISTENED=1`
+ * refused, limit, peer-closed), a pairing attempt fails that way shortly after a code is shown. `OXESPACE_E2E_REMOTE_LISTENED=1`
  * starts as if the gateway had listened before on this profile.
  *
  * Rejections carry the same C3 codes as the real gateway; malformed input stays a plain Error.
  */
 import { BrowserWindow, ipcMain } from 'electron'
-import { mainMessage, MainMessageError } from '../../../shared/messages'
+import { mainMessage } from '../../../shared/messages'
+import { MainMessageError } from '../ipc/main-message-error'
 import { pairingUri, REMOTE_LIMITS, REMOTE_PROTOCOL_VERSION } from '../../../shared/remote/protocol'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import {

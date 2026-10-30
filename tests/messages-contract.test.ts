@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
-import { isMainMessage, isMessageCode, MAIN_MESSAGE_ERROR_TAG, mainMessage, MainMessageError, MESSAGE_CODES, messageFromError, messageKey, messageValues, type MessageCode } from '../shared/messages'
+import { isMainMessage, isMessageCode, MAIN_MESSAGE_ERROR_TAG, mainMessage, MESSAGE_CODES, messageFromError, messageKey, messageValues, type MessageCode } from '../shared/messages'
 import { REMOTE_PAIRING_FAILURE_REASONS } from '../shared/types/remote'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
 
@@ -70,15 +70,13 @@ describe('C3 message codes', () => {
     for (const reason of REMOTE_PAIRING_FAILURE_REASONS) expect(typeof words[reason] === 'string' && (words[reason] as string).length > 0, reason).toBe(true)
   })
 
-  it('carries a code through a rejection, in this process and as the text Electron passes across invoke', () => {
+  it('reads a code after the fixed marker, also inside the text Electron passes across invoke', () => {
     const message = mainMessage('remote.pairing.limit', { max: 5 })
-    const error = new MainMessageError(message, 'Too many devices')
-    expect(error.message.startsWith('Too many devices')).toBe(true)
-    expect(messageFromError(error)).toEqual(message)
-    // What `ipcRenderer.invoke` rejects with: only the text survives, wrapped.
-    const crossed = new Error(`Error invoking remote method 'remote:start-pairing': ${String(error)}`)
-    expect(messageFromError(crossed)).toEqual(message)
-    expect(messageFromError(String(crossed.message))).toEqual(message)
+    const text = `Too many devices${MAIN_MESSAGE_ERROR_TAG}${JSON.stringify(message)}`
+    expect(MAIN_MESSAGE_ERROR_TAG).toBe(' #c3 ')
+    expect(messageFromError(new Error(text))).toEqual(message)
+    expect(messageFromError(`Error invoking remote method 'remote:start-pairing': MainMessageError: ${text}`)).toEqual(message)
+    expect(messageFromError({ message: text })).toEqual(message)
   })
 
   it('finds no code in a plain error, a forged tag or anything else', () => {

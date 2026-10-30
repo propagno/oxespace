@@ -69,6 +69,7 @@
     "invalid": "Um celular tentou parear com um código inválido. Mostre um novo código e escaneie de novo.",
     "expired": "O código de pareamento ou a pergunta neste computador expirou. Mostre um novo código e tente de novo.",
     "refused": "O pareamento foi recusado neste computador.",
-    "limit": "O celular não conseguiu parear: este computador já tem o número máximo de dispositivos."
+    "limit": "O celular não conseguiu parear: este computador já tem o número máximo de dispositivos.",
+    "peer-closed": "O celular desistiu do pareamento antes da sua resposta. Mostre um novo código para tentar de novo."
   }
 }

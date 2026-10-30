@@ -35,7 +35,7 @@ export interface MessageParams {
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
   /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
-  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' }
+  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' }
   /** A pairing code was asked for while the gateway is off. */
   'remote.gateway.offline': Record<string, never>
   /** Pairing another phone would pass the device limit. */
@@ -95,24 +95,23 @@ export function mainMessage<Code extends MessageCode>(code: Code, params: Messag
 }
 
 /**
- * Marks a C3 message inside a rejection. Electron passes only an error's text across `invoke`, so a handler that
- * rejects with something the person should read throws `MainMessageError`: its text is the English sentence (for logs)
- * followed by this tag and the message as JSON. The window reads it back with `messageFromError`. Malformed input
- * (wrong types, unknown fields) stays a plain `Error`.
+ * C3 in a rejection. Electron passes only an error's text across `invoke`, so a handler that rejects with something
+ * the person should read throws `MainMessageError` (`electron/main/ipc/main-message-error.ts`, the one serializer):
+ * its text is the English sentence, readable on its own in logs and crash reports, then this fixed marker, then the
+ * message as JSON with its parameters redacted and capped. The window reads it back with `messageFromError` (the one
+ * reader) and words it with `formatMainMessage`; without the marker it shows its generic text. Malformed input (wrong
+ * types, unknown fields) stays a plain `Error`.
  */
 export const MAIN_MESSAGE_ERROR_TAG = ' #c3 '
 
-export class MainMessageError extends Error {
-  constructor(readonly mainMessage: MainMessage, text: string) {
-    super(`${text}${MAIN_MESSAGE_ERROR_TAG}${JSON.stringify(mainMessage)}`)
-    this.name = 'MainMessageError'
-  }
-}
+/** Caps on what a rejection's parameters may carry: characters per text value, and values per list. */
+export const MAIN_MESSAGE_PARAM_LIMITS = { textLength: 200, listLength: 20 } as const
 
 /** The C3 message a rejection carries, in this process or after crossing IPC; `null` for any other error. */
 export function messageFromError(cause: unknown): MainMessage | null {
-  if (cause instanceof MainMessageError) return cause.mainMessage
-  const text = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : ''
+  const text = cause instanceof Error ? cause.message
+    : typeof cause === 'string' ? cause
+      : cause && typeof cause === 'object' && typeof (cause as { message?: unknown }).message === 'string' ? (cause as { message: string }).message : ''
   const at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG)
   if (at < 0) return null
   try {
