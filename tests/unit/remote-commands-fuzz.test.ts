@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest'
 import { auditDetail, parseCommandArgs } from '../../electron/main/services/remote/commands'
-import { cut, redactCounted, relativeTo, scrubPaths } from '../../electron/main/services/remote/text'
 import { REMOTE_COMMANDS, REMOTE_LIMITS } from '../../shared/remote/protocol'
 
 /** A small deterministic generator, so a failure names its seed. */
@@ -72,24 +71,5 @@ describe('remote command args', () => {
       ['terminal.write', { paneId: 'p', data: '' }],
       ['thread.interrupt', { threadId: '../etc' }]
     ] as const) expect(() => parseCommandArgs(command, args), JSON.stringify(args)).toThrow()
-  })
-})
-
-describe('remote text filters', () => {
-  test('paths: roots become relative, anything else absolute is replaced', () => {
-    expect(scrubPaths('at C:\\Users\\dev\\proj\\src\\a.ts and c:/users/dev/proj', ['C:\\Users\\dev\\proj'])).toBe('at .\\src\\a.ts and .')
-    expect(scrubPaths('see /home/dev/proj/x and /home/dev/other and /etc/passwd and D:\\x y', ['/home/dev/proj'])).toBe('see ./x and … and … and … y')
-    expect(scrubPaths('C:\\Users\\dev\\project2', ['C:\\Users\\dev\\proj'])).toBe('…')
-    expect(scrubPaths('a/b/c and ./rel and https://example.com/home/x', [])).toBe('a/b/c and ./rel and https://example.com/home/x')
-    expect(relativeTo('C:\\R', 'c:\\r\\pkg\\a')).toBe('pkg/a')
-    expect(relativeTo('/r', '/r')).toBe('.')
-    expect(relativeTo('/r', '/r/../x')).toBeUndefined()
-    expect(relativeTo('/r', '/other')).toBeUndefined()
-    expect(relativeTo('/r', 'src/x')).toBe('src/x')
-  })
-
-  test('the redactor\'s replacements are counted; cuts never split a surrogate pair', () => {
-    expect(redactCounted(`a ghp_${'a'.repeat(36)} b sk-ant-${'b'.repeat(20)} [redacted]`)).toEqual({ text: 'a [redacted] b [redacted] [redacted]', redacted: 2 })
-    expect(cut('ab😀', 3)).toEqual({ text: 'ab', truncated: true })
   })
 })

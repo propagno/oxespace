@@ -8,7 +8,7 @@ import type { RemoteTopicFrame, RemoteTopicSource } from './connection'
 import type { RemoteDesktop } from './desktop'
 import { toDelegation, toJob, toPendingRequest, toThreadHeader, toThreadItem, toThreadSummary, toWorkspace } from './filters'
 import { fitItem, FRAME_BUDGET, pageList, splitText } from './frames'
-import { clean } from './text'
+import { clean, TerminalWindow } from './text'
 
 /**
  * The M4 topics. Each subscription sends a snapshot first (in pages when it is over a frame), then events, and every
@@ -37,6 +37,8 @@ export interface TopicOptions {
   pollMs?: number
   /** Changes closer together than this go out as one. */
   debounceMs?: number
+  /** How long terminal output carried for redaction may wait for the next batch. */
+  flushMs?: number
 }
 
 type Emit = (frame: RemoteTopicFrame) => void
@@ -230,8 +232,14 @@ class ThreadTopic implements RemoteTopicSource {
 
 // ---- Terminal (read-only) -----------------------------------------------------------------------------------------
 
+/**
+ * A pane's ring, read-only. Two positions in the ring are kept: `read` (taken from the ring) and `sent` (released to
+ * the phone, the cursor). Between them is the tail the `TerminalWindow` carries so a secret printed across two
+ * batches is redacted whole; it goes out with the next batch, or `flushMs` after it was first held. A cursor always
+ * names `sent`, so a phone that resumes gets the held tail again, never anything twice.
+ */
 class TerminalTopic implements RemoteTopicSource {
-  constructor(private readonly desktop: RemoteDesktop, private readonly debounceMs: number) {}
+  constructor(private readonly desktop: RemoteDesktop, private readonly debounceMs: number, private readonly flushMs: number) {}
 
   open(request: Request, emit: Emit): { close(): void } | null {
     const paneId = request.target
@@ -240,35 +248,66 @@ class TerminalTopic implements RemoteTopicSource {
     const head = desktop.terminal(paneId, Number.MAX_SAFE_INTEGER)
     if (!head) return null
     const stream = new Stream(emit, REMOTE_PROTOCOL_VERSION)
+    const window = new TerminalWindow(text => { const filtered = clean(text, desktop.roots(), Number.MAX_SAFE_INTEGER); return { text: filtered.text, redacted: filtered.redacted } })
     let session = digest(head.session)
-    let seq = 0
-    const pieces = (data: string, truncated: boolean) => {
-      const filtered = clean(data, desktop.roots(), Number.MAX_SAFE_INTEGER)
-      return splitText(filtered.text, REMOTE_TEXT_LIMITS.terminalChunk)
-        .map((text, index) => ({ data: text, truncated: index === 0 && truncated, ...(index === 0 && filtered.redacted ? { redacted: filtered.redacted } : {}) }))
+    let read = 0
+    let flushTimer: ReturnType<typeof setTimeout> | null = null
+    let closed = false
+    const sent = () => read - window.heldLength
+    const pieces = (out: { text: string; redacted: number }, truncated: boolean) =>
+      splitText(out.text, REMOTE_TEXT_LIMITS.terminalChunk)
+        .map((text, index) => ({ data: text, truncated: index === 0 && truncated, ...(index === 0 && out.redacted ? { redacted: out.redacted } : {}) }))
+    const holdTimer = (): void => {
+      if (flushTimer || closed || !window.heldLength) return
+      flushTimer = setTimeout(() => {
+        flushTimer = null
+        if (closed) return
+        try { release(window.flush(), 'event', false) } catch { /* the pane went away */ }
+      }, this.flushMs)
+      flushTimer.unref?.()
+    }
+    const release = (out: { text: string; redacted: number }, kind: 'snapshot' | 'event', truncated: boolean): void => {
+      const pages = pieces(out, truncated)
+      const cursor = `${session}:${sent()}`
+      if (kind === 'snapshot') stream.snapshot(pages.length ? pages : [{ data: '', truncated: false }], cursor)
+      else if (pages.length) stream.events(pages, cursor)
+      else if (truncated) stream.events([{ data: '', truncated: true }], cursor)
+      holdTimer()
+    }
+    const restart = (): void => {
+      if (flushTimer) clearTimeout(flushTimer)
+      flushTimer = null
+      window.reset()
     }
     const snapshot = (): void => {
-      const read = desktop.terminal(paneId, 0)
-      if (!read) return
-      session = digest(read.session)
-      seq = read.seq
-      const pages = pieces(read.data, false)
-      stream.snapshot(pages.length ? pages : [{ data: '', truncated: false }], `${session}:${seq}`)
+      const now = desktop.terminal(paneId, 0)
+      if (!now) return
+      restart()
+      session = digest(now.session)
+      read = now.seq
+      // `since(0)` hands back everything retained, which ends at `seq`.
+      release(window.take(now.data), 'snapshot', false)
     }
     const push = (): void => {
-      const read = desktop.terminal(paneId, seq)
-      if (!read) return
-      if (digest(read.session) !== session) return snapshot()
-      if (read.seq === seq) return
-      seq = read.seq
-      const pages = pieces(read.data, read.truncated)
-      if (pages.length) stream.events(pages, `${session}:${seq}`)
+      const now = desktop.terminal(paneId, read)
+      if (!now) return
+      if (digest(now.session) !== session) return snapshot()
+      if (now.seq === read) return
+      if (now.truncated) {
+        // The phone's place fell off the ring: what was held goes first, then everything kept, marked so the view clears.
+        if (window.heldLength) release(window.flush(), 'event', false)
+        restart()
+        read = now.seq
+        return release(window.take(now.data), 'event', true)
+      }
+      read = now.seq
+      release(window.take(now.data), 'event', false)
     }
     const resume = request.cursor ? /^([A-Za-z0-9_-]{22}):(\d{1,15})$/.exec(request.cursor) : null
-    if (resume && resume[1] === session && Number(resume[2]) <= head.seq) { seq = Number(resume[2]); push() } else snapshot()
+    if (resume && resume[1] === session && Number(resume[2]) <= head.seq) { read = Number(resume[2]); push() } else snapshot()
     const trigger = debounced(() => { try { push() } catch { /* the pane went away */ } }, this.debounceMs)
     const stop = desktop.onTerminalOutput(pane => { if (pane === paneId) trigger.fire() })
-    return { close() { trigger.cancel(); stop() } }
+    return { close() { closed = true; trigger.cancel(); stop(); if (flushTimer) clearTimeout(flushTimer) } }
   }
 }
 
@@ -280,7 +319,7 @@ export function isCursor(value: unknown): value is string {
 
 export function createTopics(options: TopicOptions): Record<RemoteSubscription, RemoteTopicSource> {
   const { desktop } = options
-  const pollMs = options.pollMs ?? 2_000, debounceMs = options.debounceMs ?? 150
+  const pollMs = options.pollMs ?? 2_000, debounceMs = options.debounceMs ?? 150, flushMs = options.flushMs ?? 250
   const anyThread = (listener: () => void) => desktop.onThreadChanged('*', listener)
   const pendingByThread = () => {
     const counts = new Map<string, number>()
@@ -305,7 +344,7 @@ export function createTopics(options: TopicOptions): Record<RemoteSubscription, 
       code: 'p', field: 'requests', id: item => `${item.threadId}/${item.requestId}`, watch: anyThread,
       read: () => { const roots = desktop.roots(); return desktop.pendingRequests().map(row => toPendingRequest(row, roots)) }
     }, debounceMs),
-    terminal: new TerminalTopic(desktop, debounceMs),
+    terminal: new TerminalTopic(desktop, debounceMs, flushMs),
     jobs: new ListTopic({
       code: 'j', field: 'jobs', id: item => item.id, watch: polled(pollMs),
       read: () => { const roots = desktop.roots(); return desktop.jobs().map(row => toJob(row, roots)) }

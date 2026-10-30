@@ -10,12 +10,12 @@ export type Frame = Record<string, unknown>
 
 export interface Phone { h: Harness; desk: Desk; target: Target; accessToken: string; deviceId: string }
 
-export async function phoneWithDesktop(harnesses: Harness[], seed?: (desk: Desk, h: Harness) => void): Promise<Phone> {
+export async function phoneWithDesktop(harnesses: Harness[], seed?: (desk: Desk, h: Harness) => void, timing: { flushMs?: number } = {}): Promise<Phone> {
   const h = new Harness()
   harnesses.push(h)
   const desk = seedDesktop(h.db)
   seed?.(desk, h)
-  h.gateway = h.create({ desktop: desk.desktop, topicTiming: { pollMs: 40, debounceMs: 10 } })
+  h.gateway = h.create({ desktop: desk.desktop, topicTiming: { pollMs: 40, debounceMs: 10, flushMs: 60, ...timing } })
   const target = await h.enable()
   const { res } = await h.pair()
   const body = res.body as { deviceId: string; accessToken: string }
@@ -65,4 +65,28 @@ export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, 
 export function away(phone: Phone, socket: TestSocket): void {
   socket.close()
   phone.h.clock += 30_000
+}
+
+/** Subscribes and returns the stream's name, leaving its frames to read. */
+export async function subscribeOnly(socket: TestSocket, topic: string, extra: Record<string, unknown> = {}): Promise<string> {
+  const ack = await socket.ask({ type: 'subscribe', id: `s-${topic}`, topic, ...extra })
+  expect(ack).toMatchObject({ type: 'ack', subscription: expect.any(String) })
+  return ack.subscription as string
+}
+
+/** A terminal stream's frames until its text so far satisfies `done`; the text, the frames and the last cursor. */
+export async function terminalUntil(socket: TestSocket, subscription: string, done: (text: string) => boolean, timeoutMs = 3000): Promise<{ text: string; frames: Frame[]; cursor?: string; redacted: number }> {
+  const frames: Frame[] = []
+  let text = '', cursor: string | undefined, redacted = 0
+  while (!done(text)) {
+    const frame = await socket.next(timeoutMs)
+    expect(frame.subscription).toBe(subscription)
+    expect(Buffer.byteLength(JSON.stringify(frame))).toBeLessThanOrEqual(REMOTE_LIMITS.maxFrameBytes)
+    frames.push(frame)
+    const body = frame.data as { data: string; redacted?: number }
+    text += body.data
+    redacted += body.redacted ?? 0
+    if (frame.cursor) cursor = frame.cursor as string
+  }
+  return { text, frames, cursor, redacted }
 }

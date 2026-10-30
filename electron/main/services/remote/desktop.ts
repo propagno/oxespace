@@ -1,4 +1,3 @@
-import { homedir } from 'node:os'
 import type { AppDatabase } from '../../db'
 import type { BackgroundJobStatus } from '../../../../shared/types/background'
 import type { AgentLifecycleState } from '../../../../shared/types/agent-state'
@@ -29,7 +28,7 @@ export interface RemoteTerminalRead { session: string; seq: number; data: string
 export type RemoteRespondOutcome = { ok: true; resolution: string } | { ok: false; refusal: ThreadPendingRefusal }
 
 export interface RemoteDesktop {
-  /** Directories whose absolute paths become `.` or `…` in what is sent: project roots and the home directory. */
+  /** The registered roots (workspaces and conversation projects): paths under them are sent relative, any other as `…`. */
   roots(): string[]
   workspaces(): RemoteWorkspaceRow[]
   threads(): ConversationThread[]
@@ -95,12 +94,10 @@ export function refusalOf(error: unknown): ThreadPendingRefusal | undefined {
 
 export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
   const { db, threads, terminals, agentState } = hosts
-  const home = homedir()
   return {
     roots() {
-      const rows = db.prepare(`SELECT root_path AS root FROM workspaces UNION SELECT root_path FROM thread_project_contexts
-        UNION SELECT json_extract(data_json, '$.rootPath') FROM conversation_threads`).all() as Array<{ root: string | null }>
-      return [...rows.map(row => row.root).filter((root): root is string => typeof root === 'string' && root.length > 0), home]
+      const rows = db.prepare('SELECT root_path AS root FROM workspaces UNION SELECT root_path FROM thread_project_contexts').all() as Array<{ root: string | null }>
+      return rows.map(row => row.root).filter((root): root is string => typeof root === 'string' && root.length > 0)
     },
     workspaces() {
       const states = new Map(agentState.list().map(state => [state.paneId, state]))

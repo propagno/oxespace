@@ -4,7 +4,7 @@ import { REMOTE_LIMITS, REMOTE_TEXT_LIMITS, type RemoteThreadItem } from '../../
 import { received } from '../helpers/remote-client'
 import { addDelegation, addJob, pendingRequest, ROOT } from '../helpers/remote-desktop'
 import type { Harness } from '../helpers/remote-gateway-harness'
-import { away, collect, ended, lastCursor, phoneWithDesktop, quiet, signIn, sleep, subscribe, type Frame } from '../helpers/remote-session'
+import { away, collect, ended, lastCursor, phoneWithDesktop, quiet, signIn, sleep, subscribe, subscribeOnly, terminalUntil, type Frame } from '../helpers/remote-session'
 
 const harnesses: Harness[] = []
 afterEach(async () => { await Promise.all(harnesses.splice(0).map(value => value.close())) })
@@ -117,30 +117,92 @@ describe('remote topics: snapshot, events, resume by cursor', () => {
     expect(data<{ requests: Array<{ requestId: string }> }>(resumed.frames[0]).requests.map(request => request.requestId)).toEqual(['r2'])
   })
 
-  test('terminal: what the ring keeps, then what came after; resume by cursor; a new process gets a snapshot', async () => {
+  test('terminal: what the ring keeps, then what came after, each once; resume by cursor; a new process gets a snapshot', async () => {
     const phone = await phoneWithDesktop(harnesses, desk => { desk.terminals.start('p1'); desk.terminals.print('p1', 'one\r\n') })
     const { terminals } = phone.desk
     let socket = await signIn(phone)
     expect(await socket.ask({ type: 'subscribe', id: 'x', topic: 'terminal', target: 'p2' })).toMatchObject({ code: 'not-found' })
-    const first = await subscribe(socket, 'terminal', { target: 'p1' })
-    expect(data(first.frames[0])).toEqual({ data: 'one\r\n', truncated: false })
+    let stream = await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    let got = await terminalUntil(socket, stream, text => text === 'one\r\n')
+    expect(got.frames[0]).toMatchObject({ type: 'snapshot' })
     terminals.print('p1', 'two\r\n')
-    const [event] = await collect(socket, ended)
-    expect(data(event)).toEqual({ data: 'two\r\n', truncated: false })
+    got = await terminalUntil(socket, stream, text => text === 'two\r\n')
+    expect(got.frames.every(frame => frame.type === 'event')).toBe(true)
+    await quiet(socket, 150)
 
     away(phone, socket)
     terminals.print('p1', 'three\r\n')
     terminals.print('p1', 'four\r\n')
     socket = await signIn(phone)
-    const resumed = await subscribe(socket, 'terminal', { target: 'p1', cursor: event.cursor })
-    expect(resumed.frames.map(frame => frame.type)).toEqual(['event'])
-    expect(data(resumed.frames[0])).toEqual({ data: 'three\r\nfour\r\n', truncated: false })
+    stream = await subscribeOnly(socket, 'terminal', { target: 'p1', cursor: got.cursor })
+    got = await terminalUntil(socket, stream, text => text === 'three\r\nfour\r\n')
+    expect(got.frames.every(frame => frame.type === 'event')).toBe(true)
+    await quiet(socket, 150)
 
     terminals.start('p1', 'restarted')
     terminals.print('p1', 'fresh')
-    const [replaced] = await collect(socket, ended)
-    expect(replaced).toMatchObject({ type: 'snapshot', data: { data: 'fresh', truncated: false } })
-    expect((await subscribe(socket, 'terminal', { target: 'p1', cursor: 'bogus:1' })).frames[0].type).toBe('snapshot')
+    got = await terminalUntil(socket, stream, text => text === 'fresh')
+    expect(got.frames[0]).toMatchObject({ type: 'snapshot' })
+    await quiet(socket, 150)
+    const bogus = await subscribeOnly(socket, 'terminal', { target: 'p1', cursor: 'bogus:1' })
+    expect((await terminalUntil(socket, bogus, text => text === 'fresh')).frames[0].type).toBe('snapshot')
+  })
+
+  test('terminal: a secret printed across two batches is redacted; a held tail goes out after the flush timeout', async () => {
+    const SECRET = `sk-ant-${'q'.repeat(40)}`
+    const phone = await phoneWithDesktop(harnesses, desk => desk.terminals.start('p1'), { flushMs: 400 })
+    const { terminals } = phone.desk
+    const socket = await signIn(phone)
+    const stream = await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    expect((await socket.next()).type).toBe('snapshot')
+    const start = received.length
+    terminals.print('p1', `key ${SECRET.slice(0, 20)}`)
+    await sleep(60)
+    // Read, but held: it may be the start of a secret.
+    expect(socket.frames).toEqual([])
+    terminals.print('p1', `${SECRET.slice(20)} done\r\n`)
+    const got = await terminalUntil(socket, stream, text => text.endsWith('done\r\n'))
+    expect(got.text).toBe('key [redacted] done\r\n')
+    expect(got.redacted).toBe(1)
+    const sent = received.slice(start).join('\n')
+    for (const part of [SECRET.slice(0, 20), SECRET.slice(20), SECRET.slice(7, 30)]) expect(sent).not.toContain(part)
+
+    // Nothing follows a prompt: it goes out on its own once the flush timeout passes.
+    const before = Date.now()
+    terminals.print('p1', 'prompt$ ')
+    const prompt = await terminalUntil(socket, stream, text => text === 'prompt$ ')
+    expect(Date.now() - before).toBeGreaterThanOrEqual(350)
+    expect(prompt.frames.map(frame => frame.type)).toEqual(['event'])
+    await quiet(socket, 150)
+  })
+
+  test('terminal: output without secrets arrives whole, in order, once; resuming over a held tail loses and repeats nothing', async () => {
+    const phone = await phoneWithDesktop(harnesses, desk => desk.terminals.start('p1'), { flushMs: 300 })
+    const { terminals } = phone.desk
+    let socket = await signIn(phone)
+    let stream = await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    await socket.next()
+    const batches = Array.from({ length: 40 }, (_, index) => `${index}: ${'abc '.repeat(index % 9)}line\r\n`)
+    for (const [index, batch] of batches.entries()) {
+      terminals.print('p1', batch)
+      if (index % 5 === 0) await sleep(15)
+    }
+    let got = await terminalUntil(socket, stream, text => text.length >= batches.join('').length)
+    expect(got.text).toBe(batches.join(''))
+    await quiet(socket, 400)
+
+    // Held when the phone leaves: never sent, so it comes back on resume, exactly once.
+    terminals.print('p1', 'held-part ')
+    await sleep(60)
+    expect(socket.frames).toEqual([])
+    away(phone, socket)
+    terminals.print('p1', 'after\r\n')
+    socket = await signIn(phone)
+    stream = await subscribeOnly(socket, 'terminal', { target: 'p1', cursor: got.cursor })
+    got = await terminalUntil(socket, stream, text => text.length >= 'held-part after\r\n'.length)
+    expect(got.text).toBe('held-part after\r\n')
+    expect(got.frames.every(frame => frame.type === 'event')).toBe(true)
+    await quiet(socket, 400)
   })
 
   test('jobs and delegations: the whole list each time, resumed by cursor', async () => {
@@ -184,11 +246,12 @@ describe('remote topics: frames stay under the cap', () => {
     expect(frames.every(frame => data<{ hasMore: boolean }>(frame).hasMore)).toBe(true)
     for (const { item } of items) { expect(item.text.length).toBeLessThanOrEqual(REMOTE_TEXT_LIMITS.itemText); expect(item.truncated).toBe(true) }
 
-    const terminal = await subscribe(socket, 'terminal', { target: 'p1' })
+    const full = `\u001b[31m${'x'.repeat(150_000)}\u001b[0m`
+    const terminal = await terminalUntil(socket, await subscribeOnly(socket, 'terminal', { target: 'p1' }), text => text.length >= full.length)
     expect(terminal.frames.length).toBeGreaterThan(4)
-    const pieces = terminal.frames.map(frame => data<{ data: string }>(frame).data)
-    for (const piece of pieces) expect(piece.length).toBeLessThanOrEqual(REMOTE_TEXT_LIMITS.terminalChunk)
-    expect(pieces.join('')).toBe(`\u001b[31m${'x'.repeat(150_000)}\u001b[0m`)
+    expect(terminal.frames[0].type).toBe('snapshot')
+    for (const frame of terminal.frames) expect(data<{ data: string }>(frame).data.length).toBeLessThanOrEqual(REMOTE_TEXT_LIMITS.terminalChunk)
+    expect(terminal.text).toBe(full)
     for (const frame of [...frames, ...terminal.frames]) expect(Buffer.byteLength(JSON.stringify(frame))).toBeLessThanOrEqual(REMOTE_LIMITS.maxFrameBytes)
   })
 })
@@ -197,21 +260,28 @@ describe('remote topics: what never reaches the phone', () => {
   test('absolute paths, session ids, cost, secrets, secret questions, job command lines and delegation handoffs are filtered', async () => {
     const SESSION = 'native-session-5f1c2b9a', COMMAND_LINE = 'deploy --password=hunter2-cli', HANDOFF = 'HANDOFF-CONTEXT-77'
     const GH = `ghp_${'a'.repeat(36)}`, SK = `sk-ant-${'b'.repeat(30)}`, SECRET_Q = 'What is the vault passphrase?'
+    const sep = process.platform === 'win32' ? '\\' : '/'
     const elsewhere = process.platform === 'win32' ? 'D:\\secret\\other\\file.txt' : '/var/secret/other/file.txt'
+    // Outside every registered root: an unusual POSIX top-level dir, another drive, a UNC share, and a folder that
+    // only shares a prefix with the project root. Inside it: a file that must come out relative.
+    const OUTSIDE = ['/srv/acme/secret.txt', '/zzz/a', 'E:\\vault\\keys.txt', '\\\\fileserver\\share\\plans.docx', `${ROOT}-other${sep}leak.txt`]
+    const INSIDE = `${ROOT}${sep}src${sep}main.ts`
     const phone = await phoneWithDesktop(harnesses, (desk, h) => {
-      desk.threads.create('t1', { status: 'approval', nativeSessionId: SESSION, title: `Fix ${ROOT}${process.platform === 'win32' ? '\\' : '/'}src`,
+      desk.threads.create('t1', { status: 'approval', nativeSessionId: SESSION, title: `Fix ${ROOT}${sep}src`,
         costReport: { totalUsd: 4.2137, turns: 1, updatedAt: 1, source: 'claude-result' } }, [
         { type: 'session', nativeSessionId: SESSION },
         { type: 'turn-cost', usd: 4.2137 },
         { type: 'message', id: 'u', role: 'user', text: `look at ${elsewhere}`, attachments: [{ id: 'att', name: 'private-screenshot.png', mimeType: 'image/png', bytes: 1 }], context: [{ path: `${ROOT}/ctx.md`, bytes: 1 }] },
-        { type: 'tool', id: 'tool', name: 'Bash', state: 'completed', detail: `curl -H "Authorization: Bearer ${GH}" x`, output: `token=${SK}\nat ${elsewhere}` },
-        pendingRequest('r1', { command: `export GITHUB_TOKEN=${GH} && git push`, cwd: `${ROOT}${process.platform === 'win32' ? '\\' : '/'}pkg`, paths: [`${ROOT}/a.ts`, elsewhere],
-          policy: { decision: 'ask', reasons: [], warnings: [`reads ${SK}`] } }),
+        { type: 'tool', id: 'tool', name: 'Bash', state: 'completed', detail: `curl -H "Authorization: Bearer ${GH}" ${OUTSIDE[1]}`, output: `token=${SK}\nat ${elsewhere} ${OUTSIDE.join(' ')} ${INSIDE}` },
+        pendingRequest('r1', { command: `export GITHUB_TOKEN=${GH} && cat ${OUTSIDE[0]} && git push`, detail: `writes ${OUTSIDE[3]} and ${INSIDE}`,
+          cwd: `${ROOT}${sep}pkg`, paths: [`${ROOT}/a.ts`, elsewhere, OUTSIDE[4]],
+          policy: { decision: 'ask', reasons: [], warnings: [`reads ${SK}`, `touches ${OUTSIDE[2]}`] } }),
         pendingRequest('r2', { kind: 'question', title: 'Questions', questions: [{ id: 'q1', question: 'Which branch?' }, { id: 'q2', question: SECRET_Q, secret: true }] }),
-        pendingRequest('r3', { cwd: elsewhere, policy: { decision: 'ask', reasons: [], guarded: true } })
+        pendingRequest('r3', { cwd: elsewhere, policy: { decision: 'ask', reasons: [], guarded: true } }),
+        pendingRequest('r4', { cwd: OUTSIDE[4] })
       ])
       desk.terminals.start('p1')
-      desk.terminals.print('p1', `$ echo ${SK}\r\n${SK}\r\nPS ${elsewhere}> `)
+      desk.terminals.print('p1', `$ echo ${SK}\r\n${SK}\r\n${OUTSIDE.join(' ')} ${INSIDE}\r\nPS ${elsewhere}> `)
       addJob(h.db, 'j1', { command: COMMAND_LINE })
       addDelegation(h.db, 'd1', { handoff: HANDOFF, context: HANDOFF, evidence: [{ path: elsewhere, text: HANDOFF }], path: elsewhere, baseSha: 'abc123def', cwd: ROOT },
         { objective: `${'Refactor the parser at '.repeat(40)}${elsewhere}` })
@@ -219,28 +289,34 @@ describe('remote topics: what never reaches the phone', () => {
     const start = received.length
     const socket = await signIn(phone)
     const topics: Record<string, Frame[]> = {}
-    for (const [topic, extra] of [['workspaces', {}], ['threads', {}], ['thread', { target: 't1' }], ['pendingRequests', {}], ['terminal', { target: 'p1' }], ['jobs', {}], ['delegations', {}]] as const) {
+    for (const [topic, extra] of [['workspaces', {}], ['threads', {}], ['thread', { target: 't1' }], ['pendingRequests', {}], ['jobs', {}], ['delegations', {}]] as const) {
       topics[topic] = (await subscribe(socket, topic, extra)).frames
     }
+    const terminal = await terminalUntil(socket, await subscribeOnly(socket, 'terminal', { target: 'p1' }), text => text.endsWith('> '))
     const everything = received.slice(start).join('\n')
-    for (const needle of [SESSION, '4.2137', 'private-screenshot', 'ctx.md', GH, SK, 'hunter2', COMMAND_LINE, SECRET_Q, HANDOFF, 'abc123def', elsewhere, ROOT]) {
+    for (const needle of [SESSION, '4.2137', 'private-screenshot', 'ctx.md', GH, SK, 'hunter2', COMMAND_LINE, SECRET_Q, HANDOFF, 'abc123def', elsewhere, ROOT, ...OUTSIDE, 'acme', 'fileserver', 'vault', 'proj-other', 'leak.txt']) {
       // As sent, a Windows path's backslashes are escaped in the JSON.
       for (const form of [needle, JSON.stringify(needle).slice(1, -1)]) expect(everything, needle).not.toContain(form)
     }
     const thread = data<{ items: Array<{ item: RemoteThreadItem }> }>(topics.thread[0]).items.map(entry => entry.item)
     expect(thread.find(item => item.id === 'u')).toMatchObject({ attachments: 1, text: 'look at …' })
-    expect(thread.find(item => item.id === 'tool')).toMatchObject({ redacted: 2 })
+    expect(thread.find(item => item.id === 'tool')).toMatchObject({ redacted: 2, detail: 'curl -H "Authorization: [redacted]" …', output: 'token=[redacted]\nat … … … … … … ./src/main.ts' })
     const requests = data<{ requests: Array<Record<string, unknown>> }>(topics.pendingRequests[0]).requests
-    expect(requests[0]).toMatchObject({ requestId: 'r1', cwd: 'pkg', paths: ['a.ts'], redacted: 2, answerable: true })
+    expect(requests[0]).toMatchObject({
+      requestId: 'r1', cwd: 'pkg', paths: ['a.ts'], redacted: 2, answerable: true,
+      command: 'export GITHUB_TOKEN=[redacted] && cat … && git push', detail: 'writes … and ./src/main.ts', warnings: ['reads [redacted]', 'touches …']
+    })
     expect(requests[1]).toMatchObject({ requestId: 'r2', questions: [{ id: 'q1', question: 'Which branch?' }], answerable: false })
     expect(requests[2]).toMatchObject({ requestId: 'r3', answerable: false })
     expect(requests[2].cwd).toBeUndefined()
-    expect(data<{ data: string; redacted: number }>(topics.terminal[0])).toMatchObject({ redacted: 2 })
+    expect(requests[3].cwd).toBeUndefined()
+    expect(terminal.text).toBe('$ echo [redacted]\r\n[redacted]\r\n… … … … … ./src/main.ts\r\nPS …> ')
+    expect(terminal.redacted).toBe(2)
     expect(data<{ jobs: unknown[] }>(topics.jobs[0]).jobs[0]).not.toHaveProperty('command')
     const delegation = data<{ delegations: Array<{ objective: string }> }>(topics.delegations[0]).delegations[0]
     expect(Object.keys(delegation).sort()).toEqual(['branch', 'id', 'objective', 'state', 'updatedAt', 'workspaceId'])
     expect(delegation.objective.length).toBe(REMOTE_TEXT_LIMITS.objective)
-    expect(data<{ threads: Array<{ title: string }> }>(topics.threads[0]).threads[0].title).toMatch(/^Fix \.[\\/]src$/)
+    expect(data<{ threads: Array<{ title: string }> }>(topics.threads[0]).threads[0].title).toBe('Fix ./src')
   })
 })
 

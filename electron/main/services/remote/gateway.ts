@@ -53,7 +53,7 @@ export interface RemoteGatewayDeps {
   /** Overrides of single topic sources (tests). */
   topics?: Partial<Record<RemoteSubscription, RemoteTopicSource>>
   /** Topic timings, for tests. */
-  topicTiming?: { pollMs?: number; debounceMs?: number }
+  topicTiming?: { pollMs?: number; debounceMs?: number; flushMs?: number }
   platform?: NodeJS.Platform
   env?: NodeJS.ProcessEnv
 }
