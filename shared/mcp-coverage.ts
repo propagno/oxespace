@@ -37,7 +37,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   // ---- context ----------------------------------------------------------------
   'context.discovery': {
     label: 'Discover tools, the caller\'s execution and the project context',
-    tools: { oxespace_capabilities: 'read', oxespace_execution_context: 'read', oxespace_project_context: 'read' },
+    tools: { oxespace_capabilities: 'read', oxespace_tools_enable: 'read', oxespace_execution_context: 'read', oxespace_project_context: 'read' },
     ipc: ['oxeContext.buildPaneManifest']
   },
 

@@ -72,7 +72,7 @@ before. Code panes receive the whole registry.
 
 | Id | Capability | MCP tools by level, or the decision |
 |---|---|---|
-| `context.discovery` | Discover tools, the caller's execution and the project context | **read**: `oxespace_capabilities`, `oxespace_execution_context`, `oxespace_project_context` |
+| `context.discovery` | Discover tools, the caller's execution and the project context | **read**: `oxespace_capabilities`, `oxespace_tools_enable`, `oxespace_execution_context`, `oxespace_project_context` |
 | `code.workspaces` | List workspaces | **read**: `oxespace_list_workspaces` |
 | `code.workspace_settings` | Read the workspace's settings | **read**: `oxespace_settings#workspace` |
 | `code.workspace_admin` | Create, delete, reorder or switch workspaces; change their settings and panel layout | Excluded: The person's layout and preferences. Deleting a workspace is never exposed. |

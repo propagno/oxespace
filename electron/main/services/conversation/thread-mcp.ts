@@ -142,7 +142,7 @@ function exclusionArguments(provider: 'claude' | 'codex', denied: DeniedMcpTool[
 }
 
 export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
-  tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = []): string[] {
+  tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = [], enableable: Readonly<Record<string, readonly string[]>> = {}): string[] {
   if (provider === 'claude' && args.includes('--strict-mcp-config')) {
     // A read-only conversation keeps its strict surface (no user servers, which
     // may write), but gets the OXESpace bridge limited to read-only lookups.
@@ -154,7 +154,8 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
     return [...readOnly, ...exclusionArguments(provider, denied, [], deniedTools)]
   }
   const config = agentMcpArguments(provider, bridge)
-  const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
+  // Groups the session may turn on later with oxespace_tools_enable; the bridge owns that list (B7.2).
+  const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools), ...(Object.keys(enableable).length ? ['--enableable-groups', JSON.stringify(enableable)] : [])]
   if (provider === 'codex') {
     config[3] = `mcp_servers.oxespace-delegation.args=${JSON.stringify(bridgeArgs)}`
     return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])]), ...args]
