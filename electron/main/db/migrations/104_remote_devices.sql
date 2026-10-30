@@ -14,14 +14,16 @@ CREATE TABLE IF NOT EXISTS remote_devices (
 );
 CREATE INDEX IF NOT EXISTS idx_remote_devices_active ON remote_devices(revoked, paired_at);
 
--- One row. The certificate DER is public; its private key and the access-token signing key are stored only as
--- `safeStorage` ciphertext. Whether the gateway is on is never stored: it starts off on every launch.
+-- One row. The certificate DER is public; its private key is stored only as `safeStorage` ciphertext. The
+-- access-token signing key is never stored: it is made at each launch and kept in memory. Whether the gateway is on
+-- is never stored either: it starts off on every launch. `desktop_name` is the name phones see; NULL means the
+-- default ("OXESpace"), never the host name.
 CREATE TABLE IF NOT EXISTS remote_gateway (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   port INTEGER NOT NULL DEFAULT 47321,
   certificate_der BLOB,
   certificate_key BLOB,
-  token_key BLOB,
+  desktop_name TEXT,
   updated_at INTEGER NOT NULL
 );
 

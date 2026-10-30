@@ -1,4 +1,5 @@
 import { REMOTE_LIMITS } from '../../../../shared/remote/protocol'
+import { REMOTE_MAX_DESKTOP_NAME_LENGTH } from '../../../../shared/types/remote'
 
 /**
  * Strict readers for what the window sends on the `remote.*` channels. Unknown fields, wrong types and out-of-range
@@ -57,4 +58,14 @@ export function parseDeviceName(value: unknown): string {
   const name = value.trim()
   if (!name || name.length > REMOTE_LIMITS.maxDeviceNameLength || /[\u0000-\u001f\u007f]/.test(name)) throw new Error('Invalid device name')
   return name
+}
+
+/** `{ name }`: the name phones see, trimmed, 1–32 characters without control characters; `null` goes back to the default. */
+export function parseDesktopNameInput(value: unknown): { name: string | null } {
+  const input = record(value, 'Desktop name input', ['name'])
+  if (input.name === null) return { name: null }
+  if (typeof input.name !== 'string') throw new Error('Invalid desktop name')
+  const name = input.name.trim()
+  if (!name || name.length > REMOTE_MAX_DESKTOP_NAME_LENGTH || /[\u0000-\u001f\u007f]/.test(name)) throw new Error('Invalid desktop name')
+  return { name }
 }

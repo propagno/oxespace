@@ -1,16 +1,14 @@
 // @vitest-environment node
 import { createPrivateKey, generateKeyPairSync, sign, X509Certificate } from 'node:crypto'
-import { PassThrough } from 'node:stream'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { certificateFingerprint, createGatewayCertificate, derInteger, derOid, derTime } from '../../electron/main/services/remote/certificate'
 import { RemoteConnection, mentionsForbidden, type ConnectionHost, type FrameSocket } from '../../electron/main/services/remote/connection'
-import { parseAnswerPairingInput, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput } from '../../electron/main/services/remote/inputs'
+import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput } from '../../electron/main/services/remote/inputs'
 import { isPrivateAddress, listenAddresses, peerAddress } from '../../electron/main/services/remote/network'
 import { PairingDesk } from '../../electron/main/services/remote/pairing'
 import { AccessTokens, readDevicePublicKey, sameSecret, verifyRefreshSignature } from '../../electron/main/services/remote/tokens'
-import { encodeFrame, upgradeRefusal, WebSocketConnection, websocketAccept } from '../../electron/main/services/remote/websocket'
+import { upgradeRefusal } from '../../electron/main/services/remote/websocket'
 import { REMOTE_LIMITS, refreshSigningInput } from '../../shared/remote/protocol'
-import { maskedFrame } from '../helpers/remote-client'
 
 afterEach(() => { vi.useRealTimers() })
 
@@ -87,14 +85,14 @@ describe('tokens', () => {
     expect(() => new AccessTokens(Buffer.alloc(16))).toThrow()
   })
 
-  test('refresh signatures: DER and raw r‖s by the paired key over the exact text', () => {
+  test('refresh signatures: DER only, by the paired key, over the exact text', () => {
     const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
     const spki = publicKey.export({ format: 'der', type: 'spki' })
     const text = Buffer.from(refreshSigningInput('ab'.repeat(32), 'dev', 'nonce'))
     const der = sign('sha256', text, privateKey).toString('base64url')
     const raw = sign('sha256', text, { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')
     expect(verifyRefreshSignature(spki, 'ab'.repeat(32), 'dev', 'nonce', der)).toBe(true)
-    expect(verifyRefreshSignature(spki, 'ab'.repeat(32), 'dev', 'nonce', raw)).toBe(true)
+    expect(verifyRefreshSignature(spki, 'ab'.repeat(32), 'dev', 'nonce', raw)).toBe(false) // r‖s is not DER
     expect(verifyRefreshSignature(spki, 'ab'.repeat(32), 'dev', 'other', der)).toBe(false)
     expect(verifyRefreshSignature(spki, 'ab'.repeat(32), 'dev2', 'nonce', der)).toBe(false)
     expect(verifyRefreshSignature(Buffer.from('junk'), 'ab'.repeat(32), 'dev', 'nonce', der)).toBe(false)
@@ -113,7 +111,7 @@ describe('pairing desk', () => {
     const desk = new PairingDesk(() => now, 50, prompt => prompts.push(prompt))
     const first = desk.start(), second = desk.start()
     expect(first.code).toHaveLength(22)
-    expect(desk.claim(first.code)).toBe('pairing-expired') // replaced
+    expect(desk.claim(first.code)).toBe('pairing-invalid') // replaced
     expect(desk.claim(second.code)).toBe('ok')
     expect(desk.claim(second.code)).toBe('pairing-used')
     const third = desk.start()
@@ -158,52 +156,18 @@ describe('window inputs', () => {
     expect(() => parseRenameInput({ deviceId: 'x', name: 'a' })).toThrow()
     expect(parseDeviceName('  Phone ')).toBe('Phone')
     expect(() => parseDeviceName('a\nb')).toThrow()
+    expect(parseDesktopNameInput({ name: ' Desk ' })).toEqual({ name: 'Desk' })
+    expect(parseDesktopNameInput({ name: null })).toEqual({ name: null })
+    for (const input of [{ name: 'x'.repeat(33) }, { name: '' }, { name: 'a\u0000' }, { name: undefined }, {}]) expect(() => parseDesktopNameInput(input)).toThrow()
   })
 })
 
-class FakeSocket extends PassThrough {
-  readonly written: Buffer[] = []
-  constructor() {
-    super()
-    const write = this.write.bind(this)
-    this.write = ((chunk: Buffer | string, ...rest: never[]) => { this.written.push(Buffer.from(chunk)); return write(chunk, ...rest) }) as typeof this.write
-  }
-}
-
-describe('websocket', () => {
-  test('handshake checks and accept key (RFC 6455 example)', () => {
-    expect(websocketAccept('dGhlIHNhbXBsZSBub25jZQ==')).toBe('s3pPLMBiTxaQ9kYGzzhZRbK+xOo=')
-    const req = (headers: Record<string, string>, method = 'GET') => ({ method, headers: { upgrade: 'websocket', connection: 'keep-alive, Upgrade', 'sec-websocket-version': '13', 'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==', ...headers } }) as never
+describe('websocket upgrade', () => {
+  test('only GET, and never from a browser page; `ws` checks the rest of the handshake', () => {
+    const req = (headers: Record<string, string>, method = 'GET') => ({ method, headers }) as never
     expect(upgradeRefusal(req({}))).toBeNull()
     expect(upgradeRefusal(req({}, 'POST'))).toBe(405)
     expect(upgradeRefusal(req({ origin: 'null' }))).toBe(403)
-    expect(upgradeRefusal(req({ upgrade: 'h2c' }))).toBe(400)
-    expect(upgradeRefusal(req({ 'sec-websocket-version': '12' }))).toBe(426)
-    expect(upgradeRefusal(req({ 'sec-websocket-key': 'abc' }))).toBe(400)
-  })
-
-  test('reassembles fragments, answers pings, and caps a message across its fragments', () => {
-    const socket = new FakeSocket(), texts: string[] = [], tooLarge = vi.fn()
-    const ws = new WebSocketConnection(socket, 16, { onText: text => texts.push(text), onTooLarge: tooLarge, onClose: () => {} })
-    ws.accept('dGhlIHNhbXBsZSBub25jZQ==', Buffer.alloc(0))
-    ws.receive(Buffer.concat([maskedFrame(0x1, Buffer.from('hel'), { fin: false }), maskedFrame(0x9, Buffer.from('p')), maskedFrame(0x0, Buffer.from('lo'))]))
-    expect(texts).toEqual(['hello'])
-    expect(socket.written.some(chunk => chunk.equals(encodeFrame(0xa, Buffer.from('p'))))).toBe(true)
-    // Byte by byte works too.
-    for (const byte of maskedFrame(0x1, Buffer.from('ok'))) ws.receive(Buffer.from([byte]))
-    expect(texts).toEqual(['hello', 'ok'])
-    ws.receive(Buffer.concat([maskedFrame(0x1, Buffer.alloc(10, 97), { fin: false }), maskedFrame(0x0, Buffer.alloc(10, 97))]))
-    expect(tooLarge).toHaveBeenCalledTimes(1)
-    expect(ws.isOpen).toBe(false)
-    expect(texts).toHaveLength(2)
-  })
-
-  test('a 64-bit length beyond 32 bits is refused from the header', () => {
-    const socket = new FakeSocket(), tooLarge = vi.fn()
-    const ws = new WebSocketConnection(socket, 1024, { onText: () => {}, onTooLarge: tooLarge, onClose: () => {} })
-    ws.accept('dGhlIHNhbXBsZSBub25jZQ==', Buffer.alloc(0))
-    ws.receive(Buffer.from([0x81, 0xff, 0, 0, 0, 1, 0, 0, 0, 0]))
-    expect(tooLarge).toHaveBeenCalled()
   })
 })
 

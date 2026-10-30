@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import https from 'node:https'
 import tls from 'node:tls'
+import { REMOTE_WS_PATH } from '../../shared/remote/protocol'
 
 /**
  * A phone, as far as the gateway can tell: real TLS with the certificate pinned by fingerprint (as the QR says), HTTP
@@ -86,7 +87,7 @@ export class TestSocket {
     const socket = await connectPinned(target)
     const key = randomBytes(16).toString('base64')
     const headers = { Host: `${target.host}:${target.port}`, Upgrade: 'websocket', Connection: 'Upgrade', 'Sec-WebSocket-Key': key, 'Sec-WebSocket-Version': '13', ...options.headers }
-    socket.write(`GET ${options.path ?? '/'} HTTP/1.1\r\n${Object.entries(headers).map(([name, value]) => `${name}: ${value}`).join('\r\n')}\r\n\r\n`)
+    socket.write(`GET ${options.path ?? REMOTE_WS_PATH} HTTP/1.1\r\n${Object.entries(headers).map(([name, value]) => `${name}: ${value}`).join('\r\n')}\r\n\r\n`)
     const { head, rest } = await new Promise<{ head: string; rest: Buffer }>((resolve, reject) => {
       let data = Buffer.alloc(0)
       const onData = (chunk: Buffer) => {

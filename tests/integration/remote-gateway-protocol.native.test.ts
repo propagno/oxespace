@@ -43,7 +43,7 @@ describe('remote gateway: hello and auth', () => {
     expect(isHelloChallenge(first.challenge) && isHelloChallenge(second.challenge)).toBe(true)
     expect(first.challenge).not.toBe(second.challenge)
     const socket = await TestSocket.connect(p.target)
-    expect(await socket.ask({ type: 'hello', versions: [1] })).toEqual({ type: 'hello', versions: [1], desktopName: 'Test desk', challenge: expect.any(String) })
+    expect(await socket.ask({ type: 'hello', versions: [1] })).toEqual({ type: 'hello', versions: [1], desktopName: 'OXESpace', challenge: expect.any(String) })
 
     const old = await TestSocket.connect(p.target)
     expect(await old.ask({ type: 'hello', versions: [7, 8] })).toEqual({ type: 'error', code: 'unsupported-version' })
@@ -101,6 +101,12 @@ describe('remote gateway: hello and auth', () => {
     // Another certificate fingerprint in the signed text.
     const wrongFp = await hello(p.target)
     expect(await wrongFp.socket.ask({ type: 'auth', id: 'r6', refresh: { deviceId: p.deviceId, nonce: wrongFp.challenge, signature: signRefresh(p.phone, 'cd'.repeat(32), p.deviceId, wrongFp.challenge) } })).toMatchObject({ code: 'unauthenticated' })
+    // A raw r‖s (IEEE P1363) signature over the right text: not DER, refused.
+    const raw = await hello(p.target)
+    const { sign } = await import('node:crypto')
+    const { refreshSigningInput } = await import('../../shared/remote/protocol')
+    const p1363 = sign('sha256', Buffer.from(refreshSigningInput(p.target.fp, p.deviceId, raw.challenge)), { key: p.phone.keys.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')
+    expect(await raw.socket.ask({ type: 'auth', id: 'r8', refresh: { deviceId: p.deviceId, nonce: raw.challenge, signature: p1363 } })).toMatchObject({ code: 'unauthenticated' })
     // Malformed auth frames.
     const malformed = await hello(p.target)
     expect(await malformed.socket.ask({ type: 'auth', id: 'r7', accessToken: p.accessToken, refresh: { deviceId: p.deviceId, nonce: 'x', signature: 'y' } })).toMatchObject({ code: 'malformed' })
@@ -147,7 +153,7 @@ describe('remote gateway: frames, limits and what the phone may never do', () =>
     const p = await paired()
     const big = await signedIn(p)
     big.sendText(JSON.stringify({ type: 'command', id: 'c', command: 'thread.send', args: { text: 'x'.repeat(REMOTE_LIMITS.maxFrameBytes) } }))
-    expect(await big.next()).toEqual({ type: 'error', code: 'frame-too-large' })
+    // `ws` refuses it from the frame header and closes with 1009 ("message too big"); nothing of it is read.
     expect((await big.closed).code).toBe(1009)
 
     const malformed = await signedIn(p)
@@ -179,8 +185,8 @@ describe('remote gateway: frames, limits and what the phone may never do', () =>
   test('upgrades from a browser page, on another path or without the handshake headers are refused', async () => {
     const p = await paired()
     expect(await TestSocket.open(p.target, { headers: { Origin: 'https://evil.example' } })).toBe(403)
-    expect(await TestSocket.open(p.target, { path: '/ws' })).toBe(404)
-    expect(await TestSocket.open(p.target, { headers: { 'Sec-WebSocket-Version': '8' } })).toBe(426)
+    for (const path of ['/', '/ws', '/v1/ws/', '/v1/ws?x=1', '/v2/ws', '/pair']) expect(await TestSocket.open(p.target, { path }), path).toBe(404)
+    expect(await TestSocket.open(p.target, { headers: { 'Sec-WebSocket-Version': '7' } })).toBe(400)
     expect(await TestSocket.open(p.target, { headers: { 'Sec-WebSocket-Key': 'short' } })).toBe(400)
   })
 
@@ -292,9 +298,9 @@ describe('remote gateway: no internal token ever crosses it', () => {
     // The phone's own command echo is not something the gateway returns: errors carry only codes.
     for (const secret of [mcpToken, execution.OXESPACE_EXECUTION_TOKEN, Buffer.from(mcpToken, 'hex').toString('base64url')]) expect(everything).not.toContain(secret)
     // Nor the gateway's own secrets.
-    const row = p.h.db.prepare('SELECT certificate_key, token_key FROM remote_gateway').get() as { certificate_key: Buffer; token_key: Buffer }
+    const tokenKey = (p.h.gateway as unknown as { tokenKey: Buffer }).tokenKey
     expect(everything).not.toContain('PRIVATE KEY')
-    expect(everything).not.toContain(row.token_key.toString('base64'))
+    for (const encoding of ['hex', 'base64', 'base64url'] as const) expect(everything).not.toContain(tokenKey.toString(encoding))
     // And nothing in the audit trail is a token or a code.
     const audit = JSON.stringify(new RemoteStore(p.h.db).auditEntries(500))
     expect(audit).not.toContain(p.accessToken)
@@ -320,3 +326,47 @@ describe('remote gateway: no internal token ever crosses it', () => {
     expect(seen.size).toBeGreaterThan(5)
   })
 })
+
+describe('remote gateway: the token signing key lives only in memory', () => {
+  test('it is never written to the database; a restart ends access tokens, and refresh by the device key still works', async () => {
+    const p = await paired()
+    const key = (p.h.gateway as unknown as { tokenKey: Buffer }).tokenKey
+    expect(key).toHaveLength(32)
+    const columns = (p.h.db.prepare("PRAGMA table_info('remote_gateway')").all() as Array<{ name: string }>).map(column => column.name)
+    expect(columns).toEqual(['id', 'port', 'certificate_der', 'certificate_key', 'desktop_name', 'updated_at'])
+    // No cell of any table holds the key, in any encoding.
+    const tables = (p.h.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map(row => row.name)
+    const needles = [key.toString('hex'), key.toString('base64'), key.toString('base64url')]
+    for (const table of tables) {
+      for (const row of p.h.db.prepare(`SELECT * FROM "${table}"`).all() as Array<Record<string, unknown>>) {
+        for (const value of Object.values(row)) {
+          if (Buffer.isBuffer(value)) expect(value.includes(key), table).toBe(false)
+          else if (typeof value === 'string') for (const needle of needles) expect(value.includes(needle), table).toBe(false)
+        }
+      }
+    }
+
+    await p.h.gateway.stop()
+    p.h.gateway = p.h.create()
+    const target = await p.h.enable()
+    const stale = await hello(target)
+    expect(await stale.socket.ask({ type: 'auth', id: 'old', accessToken: p.accessToken })).toMatchObject({ type: 'error', code: 'unauthenticated' })
+    const fresh = await hello(target)
+    expect(await fresh.socket.ask({ type: 'auth', id: 'new', refresh: { deviceId: p.deviceId, nonce: fresh.challenge, signature: signRefresh(p.phone, target.fp, p.deviceId, fresh.challenge) } }))
+      .toMatchObject({ type: 'ack', id: 'new' })
+  })
+
+  test('random bytes after the handshake never take the gateway down', async () => {
+    const p = await paired()
+    for (let round = 0; round < 40; round += 1) {
+      const socket = await TestSocket.connect(p.target)
+      socket.sendRaw(round % 2 ? randomBytes(1 + round * 37) : maskedFrame(round % 16, randomBytes(round * 13)))
+      await Promise.race([socket.closed, new Promise(resolve => setTimeout(resolve, 100))])
+      socket.socket.destroy()
+    }
+    expect(p.h.gateway.status().enabled).toBe(true)
+    const socket = await signedIn(p)
+    expect(await socket.ask({ type: 'subscribe', id: 'alive', topic: 'jobs' })).toEqual({ type: 'error', id: 'alive', code: 'not-found' })
+  })
+})
+

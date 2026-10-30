@@ -2,11 +2,11 @@
 import { X509Certificate } from 'node:crypto'
 import http from 'node:http'
 import net from 'node:net'
-import { networkInterfaces } from 'node:os'
+import { hostname, networkInterfaces } from 'node:os'
 import { afterEach, describe, expect, test } from 'vitest'
 import { isPrivateAddress } from '../../electron/main/services/remote/network'
 import { RemoteStore } from '../../electron/main/services/remote/store'
-import { isCertificateFingerprint, isPairingCode, pairingVerification, REMOTE_LIMITS } from '../../shared/remote/protocol'
+import { isCertificateFingerprint, isPairingCode, pairingVerification, readPairingUri, REMOTE_LIMITS } from '../../shared/remote/protocol'
 import { connectPinned, peerFingerprint, request } from '../helpers/remote-client'
 import { fakeSafeStorage, freePort, Harness, LOOPBACK, newPhone, spkiDigest, tcpOpen } from '../helpers/remote-gateway-harness'
 
@@ -106,7 +106,7 @@ describe('remote gateway: off by default, on only by the person', () => {
     const first = await h.enable()
     await h.gateway.setEnabled({ enabled: false })
     expect((await h.enable()).fp).toBe(first.fp)
-    const row = h.db.prepare('SELECT certificate_key, token_key FROM remote_gateway').get() as { certificate_key: Buffer; token_key: Buffer }
+    const row = h.db.prepare('SELECT certificate_key FROM remote_gateway').get() as { certificate_key: Buffer }
     expect(row.certificate_key.toString('latin1')).not.toContain('PRIVATE KEY')
     expect(row.certificate_key.subarray(0, 4).toString()).toBe('ENC1')
 
@@ -144,7 +144,7 @@ describe('remote gateway: pairing', () => {
     const h = harness()
     await h.enable()
     const qr = h.offer()
-    expect(qr).toMatchObject({ v: 1, host: '127.0.0.1', port: h.port, name: 'Test desk' })
+    expect(qr).toMatchObject({ v: 1, host: '127.0.0.1', port: h.port, name: 'OXESpace' })
     expect(isPairingCode(qr.code)).toBe(true)
     const { res, phone, prompt } = await h.pair({ qr })
     expect(res.status).toBe(200)
@@ -193,11 +193,11 @@ describe('remote gateway: pairing', () => {
 
     const cancelled = h.offer()
     h.gateway.cancelPairing()
-    expect((await h.pair({ qr: cancelled })).res.body).toEqual({ code: 'pairing-expired' })
+    expect((await h.pair({ qr: cancelled })).res).toMatchObject({ status: 403, body: { code: 'pairing-invalid' } })
 
     const real = h.offer()
     const wrong = { ...real, code: 'A'.repeat(22) }
-    for (let attempt = 0; attempt < 3; attempt += 1) expect((await h.pair({ qr: wrong })).res.body).toEqual({ code: 'pairing-expired' })
+    for (let attempt = 0; attempt < 3; attempt += 1) expect((await h.pair({ qr: wrong })).res.body).toEqual({ code: 'pairing-invalid' })
     // Five attempts used (expired, cancelled, three wrong): even the right code is locked out now.
     expect((await h.pair({ qr: real })).res).toMatchObject({ status: 429, body: { code: 'pairing-locked' } })
     // Wrong codes did not spend the one on screen; after the window a fresh one pairs.
@@ -260,5 +260,43 @@ describe('remote gateway: pairing', () => {
     const otherTarget = await other.enable()
     expect(otherTarget.fp).not.toBe(target.fp)
     await expect(connectPinned({ ...otherTarget, fp: target.fp })).rejects.toThrow('certificate pin mismatch')
+  })
+})
+
+describe('remote gateway: the desktop name phones see', () => {
+  test('"OXESpace" by default, the person\'s name once set, back to the default on null; never the host name', async () => {
+    const h = harness()
+    expect(h.gateway.status().desktopName).toBe('OXESpace')
+    const target = await h.enable()
+    const named = h.gateway.setDesktopName({ name: '  Office desk  ' })
+    expect(named.desktopName).toBe('Office desk')
+    expect(h.changes.at(-1)).toEqual({ status: expect.objectContaining({ desktopName: 'Office desk' }) })
+    expect(h.offer().name).toBe('Office desk')
+    const { TestSocket } = await import('../helpers/remote-client')
+    const socket = await TestSocket.connect(target)
+    expect(await socket.ask({ type: 'hello', versions: [1] })).toMatchObject({ desktopName: 'Office desk' })
+    // Kept with the gateway settings: a new process sees it.
+    await h.gateway.stop()
+    h.gateway = h.create()
+    expect(h.gateway.status().desktopName).toBe('Office desk')
+    expect(h.gateway.setDesktopName({ name: null }).desktopName).toBe('OXESpace')
+    for (const input of [{ name: 'x'.repeat(33) }, { name: '' }, { name: '   ' }, { name: 'tab\there' }, { name: 5 }, {}, { name: 'ok', more: 1 }, null, 'name']) {
+      expect(() => h.gateway.setDesktopName(input), JSON.stringify(input)).toThrow()
+    }
+    expect(h.gateway.setDesktopName({ name: 'x'.repeat(32) }).desktopName).toHaveLength(32)
+  })
+
+  test('the host name appears in no hello, QR or status', async () => {
+    const h = harness()
+    const host = hostname()
+    const target = await h.enable()
+    const { TestSocket } = await import('../helpers/remote-client')
+    const socket = await TestSocket.connect(target)
+    const hello = await socket.ask({ type: 'hello', versions: [1] })
+    const uri = h.gateway.startPairing().uri
+    const qr = readPairingUri(uri)
+    for (const text of [JSON.stringify(hello), uri, decodeURIComponent(uri), JSON.stringify(qr), JSON.stringify(h.gateway.status())]) {
+      expect(text.toLowerCase()).not.toContain(host.toLowerCase())
+    }
   })
 })

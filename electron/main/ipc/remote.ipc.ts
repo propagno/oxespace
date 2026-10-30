@@ -33,6 +33,7 @@ export function registerRemoteIpc(db: AppDatabase): void {
   handle(IPC_CHANNELS.remote.answerPairing, (gateway, input) => gateway.answerPairing(input))
   handle(IPC_CHANNELS.remote.revoke, (gateway, input) => gateway.revoke(input))
   handle(IPC_CHANNELS.remote.rename, (gateway, input) => gateway.rename(input))
+  handle(IPC_CHANNELS.remote.setDesktopName, (gateway, input) => gateway.setDesktopName(input))
 
   app.on('before-quit', () => { void gateway?.then(loaded => loaded.stop()) })
 }

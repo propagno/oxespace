@@ -19,11 +19,11 @@ export interface GatewaySettings {
   certificateDer: Buffer | null
   /** `safeStorage` ciphertext of the certificate's PKCS#8 PEM key. */
   certificateKey: Buffer | null
-  /** `safeStorage` ciphertext of the access-token signing key. */
-  tokenKey: Buffer | null
+  /** The name phones see, or null for the default. */
+  desktopName: string | null
 }
 
-export type RemoteAuditAction = 'enable' | 'disable' | 'pairing-start' | 'pairing-cancel' | 'pairing' | 'revoke' | 'rename' | 'auth-failure' | 'certificate'
+export type RemoteAuditAction = 'enable' | 'disable' | 'pairing-start' | 'pairing-cancel' | 'pairing' | 'revoke' | 'rename' | 'desktop-name' | 'auth-failure' | 'certificate'
 
 export interface RemoteAuditRecord {
   action: RemoteAuditAction
@@ -49,9 +49,9 @@ export class RemoteStore {
   constructor(private readonly db: AppDatabase, private readonly now: () => number = Date.now) {}
 
   settings(): GatewaySettings {
-    const row = this.db.prepare('SELECT port, certificate_der, certificate_key, token_key FROM remote_gateway WHERE id = 1').get() as
-      { port: number; certificate_der: Buffer | null; certificate_key: Buffer | null; token_key: Buffer | null } | undefined
-    return { port: row?.port ?? REMOTE_DEFAULT_PORT, certificateDer: row?.certificate_der ?? null, certificateKey: row?.certificate_key ?? null, tokenKey: row?.token_key ?? null }
+    const row = this.db.prepare('SELECT port, certificate_der, certificate_key, desktop_name FROM remote_gateway WHERE id = 1').get() as
+      { port: number; certificate_der: Buffer | null; certificate_key: Buffer | null; desktop_name: string | null } | undefined
+    return { port: row?.port ?? REMOTE_DEFAULT_PORT, certificateDer: row?.certificate_der ?? null, certificateKey: row?.certificate_key ?? null, desktopName: row?.desktop_name ?? null }
   }
 
   savePort(port: number): void {
@@ -59,11 +59,16 @@ export class RemoteStore {
       ON CONFLICT(id) DO UPDATE SET port = excluded.port, updated_at = excluded.updated_at`).run(port, this.now())
   }
 
-  saveSecrets(secrets: { certificateDer: Buffer; certificateKey: Buffer; tokenKey: Buffer }): void {
-    this.db.prepare(`INSERT INTO remote_gateway (id, certificate_der, certificate_key, token_key, updated_at) VALUES (1, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET certificate_der = excluded.certificate_der, certificate_key = excluded.certificate_key,
-        token_key = excluded.token_key, updated_at = excluded.updated_at`)
-      .run(secrets.certificateDer, secrets.certificateKey, secrets.tokenKey, this.now())
+  saveDesktopName(name: string | null): void {
+    this.db.prepare(`INSERT INTO remote_gateway (id, desktop_name, updated_at) VALUES (1, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET desktop_name = excluded.desktop_name, updated_at = excluded.updated_at`).run(name, this.now())
+  }
+
+  /** The certificate and its key (already `safeStorage` ciphertext). */
+  saveCertificate(certificate: { der: Buffer; encryptedKey: Buffer }): void {
+    this.db.prepare(`INSERT INTO remote_gateway (id, certificate_der, certificate_key, updated_at) VALUES (1, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET certificate_der = excluded.certificate_der, certificate_key = excluded.certificate_key, updated_at = excluded.updated_at`)
+      .run(certificate.der, certificate.encryptedKey, this.now())
   }
 
   /** Paired devices that are not revoked, oldest first. */

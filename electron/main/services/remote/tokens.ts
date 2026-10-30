@@ -1,5 +1,5 @@
 import { createHmac, createPublicKey, randomBytes, timingSafeEqual, verify } from 'node:crypto'
-import { REMOTE_LIMITS, refreshSigningInput, type RemoteAuthResult } from '../../../../shared/remote/protocol'
+import { isDerSignature, REMOTE_LIMITS, refreshSigningInput, type RemoteAuthResult } from '../../../../shared/remote/protocol'
 
 /**
  * Access tokens for paired phones: `v1.<payload>.<mac>`, where the payload names the device and the expiry in the
@@ -42,17 +42,15 @@ export class AccessTokens {
 
 /**
  * Proof of possession for a refresh: an ECDSA P-256 / SHA-256 signature, by the key the device paired with, over
- * `refreshSigningInput(fp, deviceId, nonce)`. DER signatures (what Android's `SHA256withECDSA` gives) and raw
- * 64-byte r‖s are both read.
+ * `refreshSigningInput(fp, deviceId, nonce)`. ASN.1 DER only (what Android's `SHA256withECDSA` gives); anything that is
+ * not DER is refused before it reaches the crypto.
  */
 export function verifyRefreshSignature(publicKeySpki: Buffer, fingerprint: string, deviceId: string, nonce: string, signature: string): boolean {
-  if (typeof signature !== 'string' || !/^[A-Za-z0-9_-]{16,200}$/.test(signature)) return false
-  const bytes = Buffer.from(signature, 'base64url')
+  if (!isDerSignature(signature)) return false
   const input = Buffer.from(refreshSigningInput(fingerprint, deviceId, nonce), 'utf8')
   try {
     const key = createPublicKey({ key: publicKeySpki, format: 'der', type: 'spki' })
-    if (verify('sha256', input, { key, dsaEncoding: 'der' }, bytes)) return true
-    return bytes.length === 64 && verify('sha256', input, { key, dsaEncoding: 'ieee-p1363' }, bytes)
+    return verify('sha256', input, { key, dsaEncoding: 'der' }, Buffer.from(signature, 'base64url'))
   } catch { return false }
 }
 

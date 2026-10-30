@@ -1,11 +1,8 @@
 // @vitest-environment node
 import { randomBytes } from 'node:crypto'
-import { PassThrough } from 'node:stream'
 import { describe, expect, test } from 'vitest'
 import { RemoteConnection, type ConnectionHost } from '../../electron/main/services/remote/connection'
-import { WebSocketConnection } from '../../electron/main/services/remote/websocket'
 import { readPairRequest, readRemoteFrame, REMOTE_ERROR_CODES, REMOTE_FRAME_TYPES } from '../../shared/remote/protocol'
-import { maskedFrame } from '../helpers/remote-client'
 
 /** A seeded generator, so a failure reproduces. */
 function random(seed: number) {
@@ -52,23 +49,11 @@ describe('fuzz: frame and pairing readers', () => {
   })
 })
 
-describe('fuzz: the WebSocket reader and the connection', () => {
+describe('fuzz: the connection (raw bytes over a real socket are in remote-gateway-protocol)', () => {
   const host: ConnectionHost = {
     desktopName: 'Desk', now: () => 0, isRevoked: () => false, takeCommand: () => ({ ok: true }), topic: () => undefined,
     authenticate: () => ({ ok: false, code: 'unauthenticated' }), authenticated: () => {}, seen: () => {}, closed: () => {}
   }
-
-  test('random bytes never throw; at worst the connection closes', () => {
-    for (let round = 0; round < 500; round += 1) {
-      const socket = new PassThrough()
-      let texts = 0
-      const ws = new WebSocketConnection(socket, 1024, { onText: () => { texts += 1 }, onClose: () => {} })
-      ws.accept('dGhlIHNhbXBsZSBub25jZQ==', Buffer.alloc(0))
-      expect(() => { for (let chunk = 0; chunk < 5; chunk += 1) ws.receive(randomBytes(1 + (round % 200))) }).not.toThrow()
-      expect(texts).toBeGreaterThanOrEqual(0)
-      socket.destroy()
-    }
-  })
 
   test('random frames through a connection only ever produce protocol frames', () => {
     const r = random(3)
@@ -88,20 +73,5 @@ describe('fuzz: the WebSocket reader and the connection', () => {
       // Nothing was ever authenticated, so nothing beyond hello and errors went out.
       expect(frame.type).not.toBe('ack')
     }
-  })
-
-  test('valid frames wrapped in random fragmentation still arrive whole', () => {
-    const r = random(4)
-    const socket = new PassThrough(), texts: string[] = []
-    const ws = new WebSocketConnection(socket, 4096, { onText: text => texts.push(text), onClose: () => {} })
-    ws.accept('dGhlIHNhbXBsZSBub25jZQ==', Buffer.alloc(0))
-    const expected: string[] = []
-    for (let round = 0; round < 50; round += 1) {
-      const text = JSON.stringify({ round, pad: 'é'.repeat(r.int(500)) })
-      expected.push(text)
-      const bytes = maskedFrame(0x1, Buffer.from(text))
-      for (let offset = 0; offset < bytes.length;) { const size = 1 + r.int(64); ws.receive(bytes.subarray(offset, offset + size)); offset += size }
-    }
-    expect(texts).toEqual(expected)
   })
 })

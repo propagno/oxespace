@@ -1,36 +1,36 @@
 import { createHash, createPrivateKey, randomBytes, X509Certificate } from 'node:crypto'
 import https from 'node:https'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { hostname, networkInterfaces, type NetworkInterfaceInfo } from 'node:os'
+import { networkInterfaces, type NetworkInterfaceInfo } from 'node:os'
 import type { Socket } from 'node:net'
 import type { Duplex } from 'node:stream'
+import { WebSocketServer } from 'ws'
 import type { AppDatabase } from '../../db'
 import { mainMessage } from '../../../../shared/messages'
 import {
-  isHelloChallenge, pairingUri, pairingVerification, readPairRequest, REMOTE_LIMITS, REMOTE_PAIRING_PATH, REMOTE_PROTOCOL_VERSION,
+  isHelloChallenge, pairingUri, pairingVerification, readPairRequest, REMOTE_LIMITS, REMOTE_PAIRING_PATH, REMOTE_PROTOCOL_VERSION, REMOTE_WS_PATH,
   type RemoteAuthFrame, type RemotePairingErrorCode, type RemotePairResponse, type RemoteSubscription
 } from '../../../../shared/remote/protocol'
-import { REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingOffer } from '../../../../shared/types/remote'
+import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingOffer } from '../../../../shared/types/remote'
 import { createSecretCipher, type SafeStorageLike } from '../oxequery/secret-cipher'
 import { certificateFingerprint, createGatewayCertificate } from './certificate'
 import { RemoteConnection, type AuthOutcome, type ConnectionHost, type RemoteTopicSource } from './connection'
-import { parseAnswerPairingInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput } from './inputs'
+import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput } from './inputs'
 import { isPrivateAddress, listenAddresses, peerAddress, type ListenAddress } from './network'
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
 import { AccessTokens, readDevicePublicKey, sameSecret, verifyRefreshSignature } from './tokens'
-import { refuseUpgrade, upgradeRefusal, WebSocketConnection } from './websocket'
+import { frameSocket, refuseUpgrade, upgradeRefusal, WS_CLOSE } from './websocket'
 
 /**
  * The desktop side of the remote gateway (B9 · M1–M3): HTTPS and WSS on one port, on private interfaces only, off
  * until the person turns it on in Settings › Devices, and off again on every launch. `POST /pair` pairs a phone after
- * the person accepts on screen; the WebSocket at `/` speaks the C5 protocol.
+ * the person accepts on screen; the WebSocket at `REMOTE_WS_PATH` (`/v1/ws`) speaks the C5 protocol, framed by `ws`.
  *
  * Nothing here can reach the internal MCP server, agent executions or accounts: the gateway is built from the database,
  * `safeStorage` and the topic sources it is given, and nothing else.
  */
 
-export const REMOTE_SOCKET_PATH = '/'
 const MAX_CONNECTIONS = 16
 const MAX_UNAUTHENTICATED_PER_ADDRESS = 4
 const SEEN_WRITE_INTERVAL_MS = 60_000
@@ -44,7 +44,6 @@ export interface RemoteGatewayDeps {
   interfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>
   /** Which interface addresses may be listened on; private ones only, unless a test says otherwise. */
   isAllowedAddress?: (address: string) => boolean
-  desktopName?: string
   promptTimeoutMs?: number
   topics?: Partial<Record<RemoteSubscription, RemoteTopicSource>>
   platform?: NodeJS.Platform
@@ -73,17 +72,10 @@ const json = (res: ServerResponse, status: number, body: unknown): void => {
 }
 
 const PAIRING_STATUS: Record<RemotePairingErrorCode, number> = {
-  malformed: 400, 'pairing-refused': 403, 'pairing-used': 409, 'too-many-devices': 409, 'pairing-expired': 410, 'pairing-locked': 429
-}
-
-/** The machine's name as the phone sees it: printable, at most 64 characters. Never an account or a path. */
-export function displayName(name: string): string {
-  const clean = name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, REMOTE_LIMITS.maxDeviceNameLength)
-  return clean || 'OXESpace'
+  malformed: 400, 'pairing-invalid': 403, 'pairing-refused': 403, 'pairing-used': 409, 'too-many-devices': 409, 'pairing-expired': 410, 'pairing-locked': 429
 }
 
 export class RemoteGateway implements ConnectionHost {
-  readonly desktopName: string
   private readonly store: RemoteStore
   private readonly pairing: PairingDesk
   private running: Running | null = null
@@ -94,15 +86,23 @@ export class RemoteGateway implements ConnectionHost {
   private readonly commandTimes = new Map<string, number[]>()
   private readonly lastSeenWrite = new Map<string, number>()
   private authAudits = { windowStart: 0, count: 0 }
+  /** Signs access tokens. Made at each launch and kept only in memory: a restart ends every access token, never a pairing. */
+  private readonly tokenKey = randomBytes(32)
+  /** `ws` with compression off and the C5 frame cap; it never listens itself, upgrades are handed to it. */
+  private readonly websockets = new WebSocketServer({ noServer: true, maxPayload: REMOTE_LIMITS.maxFrameBytes, perMessageDeflate: false, clientTracking: false })
 
   constructor(private readonly deps: RemoteGatewayDeps) {
     this.store = new RemoteStore(deps.db, this.now)
-    this.desktopName = displayName(deps.desktopName ?? hostname())
     this.pairing = new PairingDesk(this.now, deps.promptTimeoutMs ?? PAIRING_PROMPT_TIMEOUT_MS, prompt => this.deps.broadcast({ pairing: prompt }))
     this.store.pruneAudit()
   }
 
   readonly now = (): number => (this.deps.now ?? Date.now)()
+
+  /** What phones see in `hello` and the QR: "OXESpace" or the person's choice, never the host name. */
+  get desktopName(): string {
+    return this.store.settings().desktopName ?? REMOTE_DEFAULT_DESKTOP_NAME
+  }
 
   // ---- The window's channels ----------------------------------------------------------------------------------
 
@@ -111,6 +111,7 @@ export class RemoteGateway implements ConnectionHost {
     const der = running ? null : this.store.settings().certificateDer
     return {
       enabled: !!running,
+      desktopName: this.desktopName,
       listening: running ? { addresses: running.addresses.map(entry => entry.address), port: running.port } : null,
       fingerprint: running?.fingerprint ?? (der ? certificateFingerprint(der) : null),
       devices: this.store.activeCount(),
@@ -189,6 +190,15 @@ export class RemoteGateway implements ConnectionHost {
     return devices.find(device => device.deviceId === deviceId)!
   }
 
+  setDesktopName(value: unknown): RemoteGatewayStatus {
+    const { name } = parseDesktopNameInput(value)
+    this.store.saveDesktopName(name)
+    this.store.audit({ action: 'desktop-name', outcome: name === null ? 'default' : 'set' })
+    const status = this.status()
+    this.deps.broadcast({ status })
+    return status
+  }
+
   /** On quit: closes everything, like switching it off. */
   stop(): Promise<void> {
     return this.serialize(() => this.shutdown('quit'))
@@ -225,23 +235,22 @@ export class RemoteGateway implements ConnectionHost {
       }
     }
     if (!servers.length) throw new GatewayStartError(mainMessage('remote.network.noPrivateInterface', {}))
-    return { port, addresses: bound, servers, fingerprint: material.fingerprint, tokens: new AccessTokens(material.tokenKey, this.now) }
+    return { port, addresses: bound, servers, fingerprint: material.fingerprint, tokens: new AccessTokens(this.tokenKey, this.now) }
   }
 
-  /** The certificate and token key, made the first time and read back from `safeStorage` after that. */
-  private material(): { certificatePem: string; keyPem: string; fingerprint: string; tokenKey: Buffer } {
+  /** The certificate, made the first time and read back from `safeStorage` after that. */
+  private material(): { certificatePem: string; keyPem: string; fingerprint: string } {
     const cipher = createSecretCipher(this.deps.storage, this.deps.platform, this.deps.env)
     if (!cipher.available()) throw new GatewayStartError(mainMessage('remote.certificate.failed', {}))
     const settings = this.store.settings()
-    if (settings.certificateDer && settings.certificateKey && settings.tokenKey) {
+    if (settings.certificateDer && settings.certificateKey) {
       try {
         const certificate = new X509Certificate(settings.certificateDer)
         const keyPem = cipher.decrypt(settings.certificateKey)
-        const tokenKey = Buffer.from(cipher.decrypt(settings.tokenKey), 'base64')
-        if (!certificate.checkPrivateKey(createPrivateKey(keyPem)) || tokenKey.length !== 32) throw new Error('mismatch')
-        return { certificatePem: certificate.toString(), keyPem, fingerprint: certificateFingerprint(settings.certificateDer), tokenKey }
+        if (!certificate.checkPrivateKey(createPrivateKey(keyPem))) throw new Error('mismatch')
+        return { certificatePem: certificate.toString(), keyPem, fingerprint: certificateFingerprint(settings.certificateDer) }
       } catch {
-        // The stored secrets cannot be read back (the system key changed): a new certificate means every phone's pin
+        // The stored key cannot be read back (the system key changed): a new certificate means every phone's pin
         // is wrong, so every device is revoked and pairs again.
         const revoked = this.store.revokeAll()
         this.store.audit({ action: 'certificate', outcome: 'replaced', detail: `${revoked} devices revoked` })
@@ -249,10 +258,9 @@ export class RemoteGateway implements ConnectionHost {
     }
     try {
       const certificate = createGatewayCertificate(this.now())
-      const tokenKey = randomBytes(32)
-      this.store.saveSecrets({ certificateDer: certificate.der, certificateKey: cipher.encrypt(certificate.keyPem), tokenKey: cipher.encrypt(tokenKey.toString('base64')) })
+      this.store.saveCertificate({ der: certificate.der, encryptedKey: cipher.encrypt(certificate.keyPem) })
       this.store.audit({ action: 'certificate', outcome: 'created' })
-      return { certificatePem: new X509Certificate(certificate.der).toString(), keyPem: certificate.keyPem, fingerprint: certificateFingerprint(certificate.der), tokenKey }
+      return { certificatePem: new X509Certificate(certificate.der).toString(), keyPem: certificate.keyPem, fingerprint: certificateFingerprint(certificate.der) }
     } catch {
       throw new GatewayStartError(mainMessage('remote.certificate.failed', {}))
     }
@@ -281,8 +289,8 @@ export class RemoteGateway implements ConnectionHost {
     this.running = null
     this.pairing.reset()
     if (!running) return
-    for (const connection of this.connections) connection.close()
-    // Gone as far as anyone asks from here on; each still records its last-seen time when its socket closes.
+    for (const connection of this.connections) { connection.close(WS_CLOSE.goingAway); connection.closed() }
+    // Each was settled above (last-seen written); the late close events from `ws` find nothing left to do.
     this.connections.clear()
     const closing = Promise.all(running.servers.map(closeServer))
     for (const socket of this.sockets) socket.destroy()
@@ -347,24 +355,28 @@ export class RemoteGateway implements ConnectionHost {
 
   private upgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
     socket.on('error', () => socket.destroy())
-    if (!this.running || req.url !== REMOTE_SOCKET_PATH) return refuseUpgrade(socket, 404)
+    if (!this.running || req.url !== REMOTE_WS_PATH) return refuseUpgrade(socket, 404)
     const refusal = upgradeRefusal(req)
     if (refusal !== null) return refuseUpgrade(socket, refusal)
     const address = peerAddress(req.socket.remoteAddress)
     if (this.connections.size >= MAX_CONNECTIONS) return refuseUpgrade(socket, 503)
     const waiting = [...this.connections].filter(connection => connection.address === address && !connection.deviceId).length
     if (waiting >= MAX_UNAUTHENTICATED_PER_ADDRESS) return refuseUpgrade(socket, 429)
-    const connection = new RemoteConnection(address, this)
-    const ws = new WebSocketConnection(socket, REMOTE_LIMITS.maxFrameBytes, {
-      onText: text => connection.receive(text),
-      onTooLarge: () => connection.tooLarge(),
-      onClose: () => connection.closed()
+    // `ws` checks the handshake itself (version, key) and answers 400 to a bad one.
+    this.websockets.handleUpgrade(req, socket, head, ws => {
+      const connection = new RemoteConnection(address, this)
+      connection.attach(frameSocket(ws))
+      this.connections.add(connection)
+      ;(socket as Socket).setNoDelay?.(true)
+      ;(socket as Socket).setKeepAlive?.(true, 30_000)
+      ws.on('message', (data, isBinary) => {
+        if (isBinary) return connection.close(WS_CLOSE.unsupportedData)
+        connection.receive(Buffer.isBuffer(data) ? data.toString('utf8') : Buffer.concat(data as Buffer[]).toString('utf8'))
+      })
+      // A frame over the cap, bad UTF-8, an unmasked frame: `ws` closes with the matching code by itself.
+      ws.on('error', () => { setTimeout(() => ws.terminate(), 500).unref?.() })
+      ws.on('close', () => connection.closed())
     })
-    connection.attach(ws)
-    this.connections.add(connection)
-    ;(socket as Socket).setNoDelay?.(true)
-    ;(socket as Socket).setKeepAlive?.(true, 30_000)
-    ws.accept(req.headers['sec-websocket-key'] as string, head)
   }
 
   authenticate(frame: RemoteAuthFrame, challenge: string, address: string): AuthOutcome {

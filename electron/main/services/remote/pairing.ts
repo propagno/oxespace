@@ -6,7 +6,7 @@ import type { RemotePairingPrompt } from '../../../../shared/types/remote'
  * The pairing state of the desktop: at most one code on screen, the codes already spent, the attempts per address,
  * and at most one "Pair <phone>?" question waiting for the person.
  *
- * A code is good for one attempt, whatever its outcome. A wrong code does not spend the one on screen (anyone on the
+ * A code is good for one attempt, whatever its outcome. A wrong code (`pairing-invalid`) does not spend the one on screen (anyone on the
  * LAN could otherwise keep the person from pairing); it counts towards that address's attempt limit instead, and
  * 128 random bits leave nothing to guess.
  */
@@ -14,7 +14,7 @@ import type { RemotePairingPrompt } from '../../../../shared/types/remote'
 export const PAIRING_PROMPT_TIMEOUT_MS = 60_000
 const MAX_TRACKED_ADDRESSES = 1024
 
-export type ClaimResult = 'ok' | 'pairing-expired' | 'pairing-used'
+export type ClaimResult = 'ok' | 'pairing-expired' | 'pairing-used' | 'pairing-invalid'
 
 interface Prompt {
   prompt: RemotePairingPrompt
@@ -84,7 +84,8 @@ export class PairingDesk {
     this.spent = this.spent.filter(entry => entry.expiresAt > now)
     if (this.spent.some(entry => timingSafeEqual(entry.hash, hash))) return 'pairing-used'
     const offer = this.offer
-    if (!offer || !timingSafeEqual(offer.hash, hash)) return 'pairing-expired'
+    // No code on screen, or not this one (cancelled, replaced, mistyped): it matches no offer.
+    if (!offer || !timingSafeEqual(offer.hash, hash)) return 'pairing-invalid'
     this.offer = null
     if (offer.expiresAt <= now) return 'pairing-expired'
     this.spent.push({ hash, expiresAt: offer.expiresAt })

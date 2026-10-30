@@ -73,6 +73,7 @@ export class RemoteConnection {
   private framesInWindow = 0
   private readonly authTimer: ReturnType<typeof setTimeout>
   private socket: FrameSocket | null = null
+  private ended = false
 
   constructor(readonly address: string, private readonly host: ConnectionHost) {
     this.authTimer = setTimeout(() => {
@@ -119,6 +120,8 @@ export class RemoteConnection {
 
   /** The socket closed, from either side. */
   closed(): void {
+    if (this.ended) return
+    this.ended = true
     clearTimeout(this.authTimer)
     for (const subscription of this.subscriptions.values()) { try { subscription.close() } catch { /* a source failing to close does not matter now */ } }
     this.subscriptions.clear()
