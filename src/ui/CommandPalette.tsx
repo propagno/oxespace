@@ -19,10 +19,27 @@ export function CommandDialog({ open, onOpenChange, children, title = i18n.t('ui
   shouldFilter?: boolean
   onCloseAutoFocus?: (event: Event) => void
 }): ReactElement {
+  // Opened from the keyboard there is no trigger to return to: remember where focus was and put it back on close,
+  // so a screen reader reads that control again instead of the page from the top.
+  const previous = useRef<HTMLElement | null>(null)
+  const content = useRef<HTMLDivElement | null>(null)
+  // Radix calls this before it moves focus into the dialog, so the active element is still the one to return to.
+  const remember = (): void => { previous.current = document.activeElement instanceof HTMLElement ? document.activeElement : null }
+  const returnFocus = (event: Event): void => {
+    onCloseAutoFocus?.(event)
+    const target = previous.current
+    previous.current = null
+    if (event.defaultPrevented || !target?.isConnected) return
+    event.preventDefault()
+    // A command may have opened something that took focus already (a panel, a dialog): leave it there.
+    const active = document.activeElement
+    if (active && active !== document.body && !content.current?.contains(active)) return
+    target.focus()
+  }
   return <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
     <RadixDialog.Portal>
       <RadixDialog.Overlay className={styles.scrim} />
-      <RadixDialog.Content className={styles.content} onCloseAutoFocus={onCloseAutoFocus}>
+      <RadixDialog.Content ref={content} className={styles.content} onOpenAutoFocus={remember} onCloseAutoFocus={returnFocus}>
         <RadixDialog.Title className="sr-only">{title}</RadixDialog.Title>
         <RadixDialog.Description className="sr-only">{description}</RadixDialog.Description>
         <Cmdk className={styles.command} shouldFilter={shouldFilter}>{children}</Cmdk>

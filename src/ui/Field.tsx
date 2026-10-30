@@ -118,6 +118,6 @@ export function Kbd({ children }: { children: ReactNode }): ReactElement {
  * The error under a control the primitives do not draw (a code editor, a textarea inside a custom layout). Point the
  * control at it with aria-describedby={id} and aria-invalid; it is announced when it appears.
  */
-export function FieldError({ id, children }: { id?: string; children: ReactNode }): ReactElement {
-  return <span id={id} className={styles.error} role="alert">{children}</span>
+export function FieldError({ id, children, className }: { id?: string; children: ReactNode; className?: string }): ReactElement {
+  return <span id={id} className={cx(styles.error, className)} role="alert">{children}</span>
 }

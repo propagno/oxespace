@@ -44,6 +44,6 @@ export function settleVolatileThreadSnapshot(snapshot: ThreadSnapshot, cause: Th
     const alreadySettled = turnStart >= 0 && snapshot.events.slice(turnStart).some(event => event.type === 'completed')
     if (!alreadySettled) snapshot.events.push({ type: 'completed', status: 'interrupted', error: `${reason} before this turn completed.` })
   }
-  snapshot.thread.queue = snapshot.thread.queue?.map(item => item.state === 'sending' ? { ...item, state: 'unknown', error: `Delivery could not be confirmed because ${reason}.` } : item)
+  snapshot.thread.queue = snapshot.thread.queue?.map(item => item.state === 'sending' ? { ...item, state: 'unknown', error: `Delivery could not be confirmed because ${reason}.`, messageCode: { code: 'thread.queue.deliveryUnconfirmed', params: {} } } : item)
   snapshot.thread.cliActive = false
 }

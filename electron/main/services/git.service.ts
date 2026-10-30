@@ -433,7 +433,7 @@ export class GitService {
     if (!from) {
       // Unknown base: fall back to the work tree against HEAD.
       const head = await this.spawnGit(['rev-parse', '--verify', 'HEAD'], rootPath)
-      if (head.status !== 0) return { ...empty, error: `Base “${base}” could not be resolved and the repository has no commits.` }
+      if (head.status !== 0) return { ...empty, error: `Base “${base}” could not be resolved and the repository has no commits.`, messageCode: { code: 'git.base.unresolved', params: { base } } }
     }
     const range = [from ?? 'HEAD', ...(includeUncommitted ? [] : ['HEAD'])]
     const common = ['-c', 'core.quotePath=false', 'diff', '-M', '-z']
