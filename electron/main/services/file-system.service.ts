@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { watch, type FSWatcher } from 'node:fs'
 import { readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
-import { normalize, relative, resolve, sep } from 'node:path'
+import { dirname, normalize, relative, resolve, sep } from 'node:path'
 import type {
   FileSystemFileChangedEvent,
   FileSystemListTreeInput,
@@ -140,6 +140,18 @@ export class FileSystemService {
       size: updatedStat.size,
       mtimeMs: updatedStat.mtimeMs
     }
+  }
+
+  /** Creates a file that does not exist yet, under the same root checks as writeFile. Not reachable from the window. */
+  async createFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult> {
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, dirname(filePath))
+    if (Buffer.byteLength(input.content, 'utf8') > MAX_TEXT_FILE_BYTES) throw new Error('File is larger than 2 MB')
+    // `wx` fails when the file appeared meanwhile instead of replacing it.
+    await writeFile(filePath, input.content, { encoding: 'utf8', flag: 'wx' })
+    const created = await stat(filePath)
+    return { relativePath: normalizeRelativePath(input.relativePath), size: created.size, mtimeMs: created.mtimeMs }
   }
 
   async watchFile(input: FileSystemWatchFileInput, onChanged: (event: FileSystemFileChangedEvent) => void): Promise<FileSystemWatchFileResult> {

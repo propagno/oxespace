@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 // Loaded through the registry, as the app does: the handlers and the registry import each other.
 import { TOOL_REGISTRY } from '../../electron/main/mcp-internal/tool-registry'
+import { toolDefinitionChars } from '../../electron/main/mcp-internal/tool-cost'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import {
   OPTIONAL_THREAD_TOOL_GROUPS, THREAD_MCP_TOOLS, THREAD_TOOL_GROUPS, threadMcpArguments, threadToolList, threadToolRoles, toolSearchEnvironment
@@ -8,11 +9,8 @@ import {
 
 vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
-/** What a provider receives for each tool on every request. */
-function definitionChars(names: readonly string[]): number {
-  return JSON.stringify(TOOL_REGISTRY.map(entry => entry.descriptor).filter(descriptor => names.includes(descriptor.name))
-    .map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))).length
-}
+/** What a provider receives for each tool on every request, measured like Settings › Tools. */
+const definitionChars = (names: readonly string[]): number => toolDefinitionChars(TOOL_REGISTRY, names)
 
 function bridgeTools(args: string[]): string[] {
   const config = JSON.parse(args[args.indexOf('--mcp-config') + 1]) as { mcpServers: Record<string, { args: string[] }> }
