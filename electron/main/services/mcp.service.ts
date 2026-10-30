@@ -20,6 +20,7 @@ import type {
 import { McpConfigSync } from './mcp-sync.service'
 import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
 import { probeHttpServer } from './mcp-http-probe'
+import { checkConfig, parseGuard, summarizeGuard, trustState, configHash, type GuardState, type GuardVerdict } from './mcp-pin'
 
 interface McpServerRow {
   id: string
@@ -29,6 +30,7 @@ interface McpServerRow {
   config_json: string
   enabled: number
   trusted: number
+  guard_json: string | null
   created_at: number
   updated_at: number
 }
@@ -91,6 +93,8 @@ export class McpManager {
   /** Starts in flight, so a second click joins the first instead of killing a sign-in half way. */
   private readonly starting = new Map<string, Promise<McpToolDescriptor[]>>()
   private readonly tested = new Map<string, TestResult>()
+  /** The tools a quarantined server announced, for this run of the app. */
+  private readonly said = new Map<string, McpToolDescriptor[]>()
   private readonly emitHealth: (event: McpServerHealthEvent) => void
   private readonly configSync: McpConfigSync
 
@@ -160,10 +164,10 @@ export class McpManager {
     validateConfig(input.transport, input.config, input.trusted === true)
     this.db
       .prepare(
-        `INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, guard_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(id, input.workspaceId, input.name.trim(), input.transport, JSON.stringify(input.config), input.enabled === false ? 0 : 1, input.trusted === true ? 1 : 0, now, now)
+      .run(id, input.workspaceId, input.name.trim(), input.transport, JSON.stringify(input.config), input.enabled === false ? 0 : 1, input.trusted === true ? 1 : 0, input.trusted === true ? JSON.stringify(trustState(input.config, now)) : null, now, now)
     this.syncFile(input.workspaceId)
     return this.get(id)!
   }
@@ -174,6 +178,7 @@ export class McpManager {
     const transport = input.transport ?? current.transport
     const config = input.config ?? current.config
     validateConfig(transport, config, input.trusted ?? current.trusted)
+    const guard = this.guardAfterEdit(current, config, input.trusted)
     this.db
       .prepare(
         `UPDATE mcp_servers
@@ -182,6 +187,7 @@ export class McpManager {
              config_json = ?,
              enabled = COALESCE(?, enabled),
              trusted = COALESCE(?, trusted),
+             guard_json = COALESCE(?, guard_json),
              updated_at = ?
          WHERE id = ?`
       )
@@ -190,13 +196,15 @@ export class McpManager {
         transport,
         JSON.stringify(config),
         input.enabled === undefined ? null : input.enabled ? 1 : 0,
-        input.trusted === undefined ? null : input.trusted ? 1 : 0,
+        guard.trusted === undefined ? null : guard.trusted ? 1 : 0,
+        guard.state ? JSON.stringify(guard.state) : null,
         Date.now(),
         input.id
       )
     // If runtime is running, restart so changes take effect
     this.stopRuntime(input.id)
     this.tested.delete(input.id)
+    this.said.delete(input.id)
     this.syncFile(current.workspaceId)
     return this.get(input.id)!
   }
@@ -205,6 +213,7 @@ export class McpManager {
     const current = this.get(id)
     this.stopRuntime(id)
     this.tested.delete(id)
+    this.said.delete(id)
     this.db.prepare('DELETE FROM mcp_servers WHERE id = ?').run(id)
     if (current) this.syncFile(current.workspaceId)
   }
@@ -213,7 +222,8 @@ export class McpManager {
   async start(id: string): Promise<McpToolDescriptor[]> {
     const server = this.get(id)
     if (!server) throw new Error(`MCP server ${id} not found`)
-    if (!server.trusted) throw new Error('MCP server is not trusted. Review its command/env and mark it trusted before starting.')
+    if (!server.trusted) throw new Error(server.guard?.quarantine ? quarantineMessage(server.guard.quarantine.reasons) : 'MCP server is not trusted. Review its command/env and mark it trusted before starting.')
+    this.verify(server, checkConfig(this.guardOf(id), server.config, Date.now()))
     if (server.transport !== 'stdio') {
       throw new Error('Only the stdio transport is supported in this version. HTTP and SSE are not available yet.')
     }
@@ -239,13 +249,15 @@ export class McpManager {
       this.emitHealth({ serverId: id, status: health, message })
       return this.get(id)!
     }
-    if (!server.trusted) return record('unhealthy', 'Not trusted yet. Review its command and trust it before testing.')
+    if (!server.trusted) return record('unhealthy', server.guard?.quarantine ? quarantineMessage(server.guard.quarantine.reasons) : 'Not trusted yet. Review its command and trust it before testing.')
     if (server.transport !== 'stdio') {
       this.emitHealth({ serverId: id, status: 'starting', message: null })
       try {
+        this.verify(server, checkConfig(this.guardOf(id), server.config, Date.now()))
         const result = await probeHttpServer(server.config as McpHttpConfig)
         if (result.status === 'needs-auth') return record('needs-auth', 'Answers and asks for a sign-in. The agent opens it on first use.')
         if (result.status === 'reachable') return record('healthy', 'Answers. Its tools show once the agent connects.')
+        await this.verifyTools(server, result.tools)
         return record('healthy', `${result.tools.length} tool(s)`, result.tools)
       } catch (err) {
         return record('unhealthy', err instanceof Error ? err.message : String(err))
@@ -427,6 +439,7 @@ export class McpManager {
 
       const toolsResult = await this.request<{ tools: McpToolDescriptor[] }>(runtime, 'tools/list', {})
       const tools = Array.isArray(toolsResult.tools) ? toolsResult.tools : []
+      await this.verifyTools(server, tools)
 
       // Cache tools on the runtime; not persisted to DB (refreshed on each connect).
       runtime.server = { ...runtime.server, tools, health: 'healthy', healthMessage: null }
@@ -464,6 +477,58 @@ export class McpManager {
     return typeof row?.root_path === 'string' && row.root_path.trim() ? row.root_path : undefined
   }
 
+  private guardOf(id: string): GuardState | null {
+    const row = this.db.prepare('SELECT guard_json FROM mcp_servers WHERE id = ?').get(id) as { guard_json: string | null } | undefined
+    return parseGuard(row?.guard_json)
+  }
+
+  /**
+   * What an edit does to the pin. Trusting (again) pins the config as saved and keeps the tools the person
+   * has seen, or accepts the ones that caused a quarantine; a config edit that is not a trust quarantines
+   * a trusted server; anything else leaves the guard alone.
+   */
+  private guardAfterEdit(current: McpServer, config: McpServerConfig, trusted: boolean | undefined): { trusted: boolean | undefined; state: GuardState | null } {
+    const old = this.guardOf(current.id)
+    const now = Date.now()
+    if (trusted === true) return { trusted, state: trustState(config, now, old?.quarantine?.observed ?? (old?.pin.hash === configHash(config) ? old.tools : null)) }
+    if (trusted === undefined && current.trusted) {
+      // A server trusted before pins existed is pinned by what it was before this edit.
+      const verdict = checkConfig(old ?? trustState(current.config, now), config, now)
+      return verdict.ok ? { trusted, state: old ? null : trustState(config, now) } : { trusted: false, state: verdict.state }
+    }
+    return { trusted, state: null }
+  }
+
+  /** Records what a check found; a server that no longer matches what was trusted is quarantined, and the caller stops. */
+  private verify(server: McpServer, verdict: GuardVerdict): void {
+    if (verdict.ok) {
+      this.db.prepare('UPDATE mcp_servers SET guard_json = ? WHERE id = ?').run(JSON.stringify(verdict.state), server.id)
+      return
+    }
+    const message = quarantineMessage(verdict.quarantine.reasons)
+    this.db.prepare('UPDATE mcp_servers SET guard_json = ?, trusted = 0, updated_at = ? WHERE id = ?').run(JSON.stringify(verdict.state), Date.now(), server.id)
+    this.stopRuntime(server.id, true)
+    this.tested.delete(server.id)
+    this.syncFile(server.workspaceId)
+    // eslint-disable-next-line no-console
+    console.warn(`[mcp] quarantined "${server.name}": ${verdict.quarantine.reasons.join(' ')}`)
+    this.emitHealth({ serverId: server.id, status: 'unhealthy', message })
+    throw new Error(message)
+  }
+
+  /** The comparison of tool lists is loaded when a server connects, not at start-up. */
+  private async verifyTools(server: McpServer, tools: McpToolDescriptor[]): Promise<void> {
+    const { checkTools } = await import('./mcp-guard')
+    const state = this.guardOf(server.id) ?? trustState(server.config, Date.now())
+    try {
+      this.verify(server, checkTools(state, tools, Date.now()))
+      this.said.delete(server.id)
+    } catch (err) {
+      this.said.set(server.id, tools)
+      throw err
+    }
+  }
+
   private hydrateServer(server: McpServer): McpServer {
     const runtime = this.runtimes.get(server.id)
     if (runtime && runtime.initialized) {
@@ -473,7 +538,10 @@ export class McpManager {
       return { ...server, health: 'starting' }
     }
     const tested = this.tested.get(server.id)
-    return tested ? { ...server, health: tested.health, healthMessage: tested.message, tools: tested.tools, testedAtMs: tested.at } : server
+    const hydrated = tested ? { ...server, health: tested.health, healthMessage: tested.message, tools: tested.tools, testedAtMs: tested.at } : server
+    // A quarantined server shows what it said, so the person can read it before trusting it again.
+    const said = server.guard?.quarantine ? this.said.get(server.id) : undefined
+    return said ? { ...hydrated, tools: said } : hydrated
   }
 
   private request<T>(runtime: RuntimeServer, method: string, params: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
@@ -544,6 +612,7 @@ function mapRow(row: McpServerRow): McpServer {
     config: JSON.parse(row.config_json) as McpServerConfig,
     enabled: row.enabled === 1,
     trusted: row.trusted === 1,
+    guard: summarizeGuard(parseGuard(row.guard_json)),
     health: 'unknown',
     healthMessage: null,
     tools: [],
@@ -551,6 +620,8 @@ function mapRow(row: McpServerRow): McpServer {
     updatedAtMs: row.updated_at
   }
 }
+
+const quarantineMessage = (reasons: string[]): string => `Quarantined: ${reasons.join(' ')} Review it and trust it again to use it.`
 
 /** The authorization URL an OAuth bridge prints on its own line, or null. */
 export function extractSignInUrl(line: string): string | null {
