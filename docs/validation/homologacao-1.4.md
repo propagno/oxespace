@@ -159,6 +159,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados do Code | #179 (main) | FRONTEND | Homologado (na `main` a412f04b) |
 | B1.1 respondPending | #166 | BACKEND | Homologado (contrato; na `main` a412f04b) |
 | B8 conectividade e About (handlers) | #168 + #185 | BACKEND | Homologado (no e2e da `main` f211ca7f o About traz 1.3.3, a versão do pacote) |
+| Risco de SQL (P1-13) + fixture de quarentena | #237 | BACKEND | Pré-homologado (b4969fe3): sonda de 24+3 entradas sem regressão; COPY PROGRAM, DO, CALL, FOR UPDATE, SET ROLE, VACUUM FULL, o desvio `foo$a$` e PREPARE com DELETE são tratados |
 | Payloads C5 (assinaturas e comandos, M4) | #187 | BACKEND | Homologado (contrato), com uma nota baixa |
 | Protocolo C5 em Kotlin gerado | #165 | MOBILE | Homologado (job Android verde na `main` 14504372) |
 | Tema Mandacaru e strings para o Android | #169 | MOBILE | Homologado (job Android verde na `main` 15e04898; visual depois do M4/M5) |
