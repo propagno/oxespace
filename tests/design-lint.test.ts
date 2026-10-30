@@ -91,7 +91,7 @@ describe('design lint', () => {
     const count = (paths: string[], pattern: RegExp): number => paths.reduce((sum, path) => sum + (readFileSync(path, 'utf8').match(pattern)?.length ?? 0), 0)
 
     it('hand-made spinners (lucide Loader2) do not grow; use <Spinner>', () => {
-      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(13)
+      expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(0)
     })
     it('spin keyframes do not grow; the Spinner primitive has the one animation', () => {
       // `:global(oxe-spin)` in src/ui/Display.module.css; everything else animates with that name.
@@ -99,10 +99,10 @@ describe('design lint', () => {
       expect(readFileSync(join(ROOT, 'src', 'ui', 'Display.module.css'), 'utf8')).toContain('@keyframes :global(oxe-spin)')
     })
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
-      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(27)
+      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(17)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
-      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(80)
+      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(40)
     })
     it('CSS modules time motion with the --duration tokens; fixed timings do not grow', () => {
       const modules = files(join(ROOT, 'src'), path => path.endsWith('.module.css'))

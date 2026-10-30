@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ThreadTimelineItem } from './threadTimelineModel'
 import { findRows, textRanges } from './threadFind'
 import { TextField } from '../../ui'
@@ -20,6 +21,7 @@ export function ThreadFindBar({ rows, scrollRoot, scrollTo, onClose }: {
   scrollTo: (index: number) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation('thread')
   const [query, setQuery] = useState('')
   const [current, setCurrent] = useState(0)
   const input = useRef<HTMLInputElement>(null)
@@ -52,15 +54,15 @@ export function ThreadFindBar({ rows, scrollRoot, scrollTo, onClose }: {
   }, [activeKey, query, scrollRoot])
   useEffect(() => () => highlights()?.delete('thread-find'), [])
   const step = (delta: number) => { if (matches.length) setCurrent(value => (Math.min(value, matches.length - 1) + delta + matches.length) % matches.length) }
-  return <div className="thread-find" role="search" aria-label="Find in conversation">
-    <TextField ref={input} type="search" aria-label="Find in conversation" placeholder="Find in conversation" value={query} onChange={event => setQuery(event.target.value)}
+  return <div className="thread-find" role="search" aria-label={t('find.label')}>
+    <TextField ref={input} type="search" aria-label={t('find.label')} placeholder={t('find.label')} value={query} onChange={event => setQuery(event.target.value)}
       onKeyDown={event => {
         if (event.key === 'Enter') { event.preventDefault(); step(event.shiftKey ? -1 : 1) }
         else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose() }
       }} />
-    <span role="status" aria-live="polite">{query.trim() ? matches.length ? `${Math.min(current, matches.length - 1) + 1} of ${matches.length}` : 'No results' : ''}</span>
-    <button type="button" aria-label="Previous match" title="Previous · Shift+Enter" disabled={!matches.length} onClick={() => step(-1)}><ChevronUp size={14} /></button>
-    <button type="button" aria-label="Next match" title="Next · Enter" disabled={!matches.length} onClick={() => step(1)}><ChevronDown size={14} /></button>
-    <button type="button" aria-label="Close find" title="Close · Esc" onClick={onClose}><X size={14} /></button>
+    <span role="status" aria-live="polite">{query.trim() ? matches.length ? t('find.position', { current: Math.min(current, matches.length - 1) + 1, total: matches.length }) : t('find.none') : ''}</span>
+    <button type="button" aria-label={t('find.previous')} title={t('find.previousTitle')} disabled={!matches.length} onClick={() => step(-1)}><ChevronUp size={14} /></button>
+    <button type="button" aria-label={t('find.next')} title={t('find.nextTitle')} disabled={!matches.length} onClick={() => step(1)}><ChevronDown size={14} /></button>
+    <button type="button" aria-label={t('find.close')} title={t('find.closeTitle')} onClick={onClose}><X size={14} /></button>
   </div>
 }

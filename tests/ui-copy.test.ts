@@ -49,14 +49,15 @@ const MIGRATED = [
   'src/utils/agentSetup.ts',
   'src/utils/humanizeError.ts',
   'src/utils/paneDisplay.ts',
-  'src/utils/quotaThresholds.ts'
+  'src/utils/quotaThresholds.ts',
+  'src/components/Threads'
 ]
 /** Text that stays the same in every language: product and tool names, commands and sample values. */
 const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph',
   'GitHub', 'MCP', 'RTK · Caveman · Semantic', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
   'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000',
   'stdio', 'command:', 'args:', 'env:', 'url:', 'headers:', 'filesystem', 'github', 'npx', '-y @modelcontextprotocol/server-filesystem /tmp',
-  'GITHUB_TOKEN=ghp_...\\nDEBUG=1', 'refactor-react', 'refactor'])
+  'GITHUB_TOKEN=ghp_...\\nDEBUG=1', 'refactor-react', 'refactor', 'claude.ai'])
 /** Lines in migrated areas that are not interface text, with the reason. */
 const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = [
   { file: 'src/components/Skills/SkillsBrowser.tsx', includes: "    description: '", why: 'frontmatter of the SDLC skill files written for agents' }
@@ -113,8 +114,9 @@ describe('interface copy', () => {
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {
           const text = (match[1] ?? match[2] ?? '').trim()
-          // A template made only of ${…} values holds no words of its own.
-          if (/[A-Za-z]/.test(text.replace(/\$\{[^}]*\}/g, '')) && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
+          // A template made only of ${…} values holds no words of its own; text that starts with `:` `,` or `?` is a
+          // ternary between two elements or the next argument after a generic type (`Set<string>, b: Set<`), not JSX text.
+          if (/[A-Za-z]/.test(text.replace(/\$\{[^}]*\}/g, '')) && !/^[:,?]/.test(text) && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
         }
       }
     }
