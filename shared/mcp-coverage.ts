@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'mcp_internal.tool_groups_admin', 'mcp.tool_rules_admin'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'mcp_internal.tool_groups_admin', 'mcp.tool_rules_admin'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -223,7 +223,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Rewind, undo a turn\'s edits, export, import, recover, attach files, slash commands',
     excluded: 'Rewrites or acts inside another conversation\'s session; the person does it. Agents drive Threads with send and steer.',
     ipc: ['thread.rewind', 'thread.redoRewind', 'thread.undoTurnFile', 'thread.undoTurnHunk', 'thread.exportPortable', 'thread.importPortable', 'thread.recover',
-      'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents']
+      'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents', 'thread.worktreeInspect', 'thread.worktreeFinish']
   },
   'thread.project_admin': {
     label: 'Add, relink or hide Thread projects; idle suspension; shell check',
@@ -366,6 +366,12 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Appearance, UI scale, app updates, RTK, agent hooks',
     excluded: 'The person\'s app maintenance; installing hooks writes into the agents\' own configuration.',
     ipc: ['app.*', 'rtk.*', 'agentHooks.*', 'mcpInternal.toolGroups', 'mcpInternal.toolRules']
+  },
+  'remote.devices_read': { label: 'Remote gateway status and paired phones', excluded: 'The person\'s devices, shown in Settings › Devices; agents have no use for them.', ipc: ['remote.status', 'remote.devices'] },
+  'remote.gateway_admin': {
+    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop',
+    forbidden: 'Opens a network surface and grants device access.',
+    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName']
   },
   'mcp_internal.tool_groups_admin': { label: 'Choose how a project offers each group of OXESpace tools', forbidden: 'Raises what agents can reach.', ipc: ['mcpInternal.setToolGroupMode'] },
   'mcp.tool_rules_admin': { label: 'Choose, per MCP tool, to run it without asking, ask, or block it', forbidden: 'Approvals and access stay with the person.', ipc: ['mcpInternal.setToolRule'] },

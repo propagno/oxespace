@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { AgentTeam, TeamRole, TeamScope } from '../../../shared/types/team'
 import './TeamDialog.css'
 import { TeamMessages } from './TeamMessages'
-import { Button, Dialog, TextField } from '../../ui'
+import { Button, Dialog, Notice, TextField } from '../../ui'
 
 const roles: Record<TeamRole, string> = { coordinator: 'Coordinator / integrator', 'project-manager': 'Project manager', 'product-manager': 'Product manager', developer: 'Developer', reviewer: 'Reviewer' }
 export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?: { kind: 'thread' | 'pane'; id: string }; onClose: () => void }) {
@@ -26,7 +26,7 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
   }
   return <Dialog className="team-dialog" size="lg" title="Team" description="Persistent roles for this project, shared by Code and Thread." onClose={onClose}>
     <div className="team-dialog-body">
-      {error && <p role="alert">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
       {!team && !error && <p role="status">Loading team…</p>}
       {team && <>
         <h3>{team.name}</h3>

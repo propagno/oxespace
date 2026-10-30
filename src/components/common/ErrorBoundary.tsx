@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { ErrorState } from '../../ui'
+import { i18n } from '../../i18n'
+import { Button, ErrorState } from '../../ui'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -9,6 +10,8 @@ interface ErrorBoundaryProps {
   fallback?: ReactNode
   /** One line instead of a card, for small panels. */
   compact?: boolean
+  /** The whole window: the app's root boundary, with a way to reload. */
+  page?: boolean
 }
 
 interface ErrorBoundaryState {
@@ -36,9 +39,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render(): ReactNode {
     if (!this.state.error) return this.props.children
     if (this.props.fallback !== undefined) return this.props.fallback
+    if (this.props.page) return <div className="error-boundary-fallback error-boundary-page">
+      <ErrorState brand title={i18n.t('ui.crash.title')} message={i18n.t('ui.crash.message')} detail={this.state.error.message} onRetry={this.reset}
+        actions={<Button onClick={() => window.location.reload()}>{i18n.t('ui.crash.reload')}</Button>} />
+    </div>
     return <div className="error-boundary-fallback">
-      <ErrorState compact={this.props.compact} title={`Something went wrong while showing ${this.props.label ?? 'this part of the app'}.`}
-        message="The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu."
+      <ErrorState brand compact={this.props.compact} title={this.props.label ? i18n.t('ui.boundary.title', { what: this.props.label }) : i18n.t('ui.boundary.titlePart')}
+        message={i18n.t('ui.boundary.message')}
         detail={this.state.error.message} onRetry={this.reset} />
     </div>
   }

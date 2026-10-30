@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import type { CapturedPage } from './documentation.service'
 import type { ExecutionOwner } from '../execution-registry'
 import { browserPreviewService } from '../browser-preview.service'
+import { tMain } from '../../i18n'
 
 export interface PreviewRequest {
   action: 'inspect' | 'status' | 'console' | 'network' | 'tabs' | 'newTab' | 'selectTab' | 'closeTab' | 'click' | 'fill' | 'navigate' | 'wait' | 'scroll'
@@ -25,6 +26,12 @@ export function safePageUrl(raw: string): string {
   // Bind approval to the full route without sending query or fragment values to the agent.
   const privateRoute = `${url.search}${url.hash}`
   return `${url.origin}${url.pathname}${privateRoute ? `?route=${createHash('sha256').update(privateRoute).digest('hex').slice(0, 16)}` : ''}`
+}
+const CONFIRMED_ACTIONS = ['click', 'fill', 'navigate', 'scroll'] as const
+/** The question of the confirmation dialog, in the interface's language. */
+export function actionQuestion(action: PreviewRequest['action']): string {
+  const known = CONFIRMED_ACTIONS.find(item => item === action)
+  return known ? tMain(`dialogs.previewAutomation.action.${known}`) : tMain('dialogs.previewAutomation.action.other', { action })
 }
 export class PreviewAutomation {
   private locks = new Set<number>()
@@ -60,8 +67,8 @@ export class PreviewAutomation {
     }
     if (!input.tabId || !verifiedTabs.some(tab => tab.id === input.tabId)) throw new Error('Select a tab ID returned by tabs')
     if (input.action === 'closeTab') {
-      const confirmation = await dialog.showMessageBox(window, { type:'warning', buttons:['Cancel','Close tab'], defaultId:0, cancelId:0,
-        title:'Agent browser action', message:'Allow agent to close this browser tab?', detail:`Tab: ${verifiedTabs.find(tab=>tab.id===input.tabId)?.label}\nUnsaved page changes may be lost.` })
+      const confirmation = await dialog.showMessageBox(window, { type:'warning', buttons:[tMain('dialogs.previewAutomation.cancel'),tMain('dialogs.previewAutomation.closeTab')], defaultId:0, cancelId:0,
+        title:tMain('dialogs.previewAutomation.title'), message:tMain('dialogs.previewAutomation.closeTabMessage'), detail:tMain('dialogs.previewAutomation.closeTabDetail', { tab: verifiedTabs.find(tab=>tab.id===input.tabId)?.label }) })
       if (confirmation.response !== 1) throw new Error('User declined browser action')
     }
     verify()
@@ -162,9 +169,9 @@ export class PreviewAutomation {
         await this.assertAccess(workspaceId, verify, owner)
         return { sessionId: this.sessionId(workspaceId, owner), tabId, found, url: safePageUrl(guest.getURL()) }
       }
-      const confirmation = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Cancel', 'Allow once'], defaultId: 0, cancelId: 0,
-        title: 'Agent browser action', message: `Allow agent to ${input.action} in Web Preview?`,
-        detail: `Page: ${safePageUrl(initialUrl)}\nTarget: ${input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.selector}\nThis may change real system data. Text values are not recorded in the operation history.` })
+      const confirmation = await dialog.showMessageBox(window, { type: 'warning', buttons: [tMain('dialogs.previewAutomation.cancel'), tMain('dialogs.previewAutomation.allowOnce')], defaultId: 0, cancelId: 0,
+        title: tMain('dialogs.previewAutomation.title'), message: actionQuestion(input.action),
+        detail: tMain('dialogs.previewAutomation.actionDetail', { page: safePageUrl(initialUrl), target: input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.selector }) })
       if (confirmation.response !== 1) throw new Error('User declined browser action')
       verify()
       const current = await this.target(workspaceId, owner)

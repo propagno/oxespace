@@ -95,8 +95,7 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
 /* Empty panels read the same everywhere: quiet text, one size, comfortable line height. */
 :where(
   .bg-jobs-panel-empty, .changes-empty, .git-control-empty, .github-empty, .github-empty-center, .github-empty-inline,
-  .github-actions-v2-empty, .github-changes-empty, .integration-empty, .integration-empty-inline, .linear-empty,
-  .semantic-activity-empty, 
+  .github-actions-v2-empty, .github-changes-empty, .linear-empty,
   .thread-review-empty, .editor-empty, .editor-browser-empty, .settings-empty, .worktree-menu-empty,
   .workspace-list-empty, .sidebar-empty-state
 ) {
