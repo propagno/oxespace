@@ -7,6 +7,7 @@ import type {
 import { INTERNAL_MCP_ERROR_CODES } from '../../../shared/types/mcp-internal'
 import { activeTools, findTool, type ToolContext } from './tool-registry'
 import { errorResult } from './tool-registry'
+import { fenceUntrusted } from './untrusted-output'
 import { boundToolResult, DEFAULT_TOOL_OUTPUT_LIMIT, toolOutputSaver } from './tool-result-bound'
 
 /**
@@ -166,7 +167,7 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
         }
         const result = await tool.handler(params.arguments, ctx)
         const save = deps.toolOutputRoot ? toolOutputSaver(deps.toolOutputRoot, name) : undefined
-        return { jsonrpc: '2.0', id, result: boundToolResult(result, tool.outputLimit ?? DEFAULT_TOOL_OUTPUT_LIMIT, save) }
+        return { jsonrpc: '2.0', id, result: fenceUntrusted(name, params.arguments, boundToolResult(result, tool.outputLimit ?? DEFAULT_TOOL_OUTPUT_LIMIT, save)) }
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : String(caught)
         const errBlock = errorResult(message)
