@@ -1,10 +1,10 @@
 import { i18n } from '../../i18n'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
-import { shortcutLabel } from '../../keyboard/keybindings'
+import { shortcutLabel, type AppView } from '../../keyboard/keybindings'
 
 export type AppMenuNode =
   | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; onSelect(): void }
-  | { kind: 'radio'; id: string; label: string; checked: boolean; onSelect(): void }
+  | { kind: 'radio'; id: string; label: string; shortcut?: string; checked: boolean; onSelect(): void }
   | { kind: 'separator'; id: string }
   | { kind: 'submenu'; id: string; label: string; disabled?: boolean; children: AppMenuNode[] }
 
@@ -13,8 +13,8 @@ export interface AppMenu { id: string; label: string; items: AppMenuNode[] }
 export interface AppMenuContext {
   /** The same actions the command palette runs; menus never own behaviour. */
   actions: CommandPaletteAction[]
-  applicationView: 'code' | 'thread' | 'data'
-  setApplicationView(view: 'code' | 'thread' | 'data'): void
+  applicationView: AppView
+  setApplicationView(view: AppView): void
   openSettings(): void
   addThreadProject(): void
   openCommandMenu(): void
@@ -22,11 +22,13 @@ export interface AppMenuContext {
 }
 
 const sep = (id: string): AppMenuNode => ({ kind: 'separator', id })
+/** The views in the order of the switch; product names, never translated. */
+const VIEWS: Array<[AppView, string]> = [['code', 'Code'], ['thread', 'Thread'], ['data', 'OxeQuery'], ['pods', 'OxePod'], ['post', 'OxePost']]
 
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
   'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
-  'tool-mcp', 'tool-skills', 'open-usage', 'open-linear', 'help.shortcuts', 'settings.diagnostics', 'settings.updates'] as const
+  'tool-mcp', 'tool-skills', 'open-usage', 'open-linear', 'help.shortcuts', 'help.report-problem', 'settings.diagnostics', 'settings.updates'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -79,9 +81,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'view', label: t('menu.view'), items: compact([
         { kind: 'item', id: 'command-palette', label: t('menu.commandPalette'), shortcut: shortcutLabel('palette.open'), onSelect: ctx.openCommandMenu },
         sep('view-0'),
-        { kind: 'radio', id: 'view-code', label: 'Code', checked: ctx.applicationView === 'code', onSelect: () => ctx.setApplicationView('code') },
-        { kind: 'radio', id: 'view-thread', label: 'Thread', checked: ctx.applicationView === 'thread', onSelect: () => ctx.setApplicationView('thread') },
-        { kind: 'radio', id: 'view-data', label: 'OxeQuery', checked: ctx.applicationView === 'data', onSelect: () => ctx.setApplicationView('data') },
+        ...VIEWS.map(([view, label]): AppMenuNode => ({ kind: 'radio', id: `view-${view}`, label, shortcut: shortcutLabel(`view.${view}`), checked: ctx.applicationView === view, onSelect: () => ctx.setApplicationView(view) })),
         sep('view-1'),
         fromAction('toggle-sidebar', t('menu.toggleSidebar'), shortcutLabel('sidebar.toggle')),
         fromAction('tool-editor', t('menu.files'), shortcutLabel('code.files')),
@@ -112,6 +112,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'help', label: t('menu.help'), items: compact([
         fromAction('help.shortcuts', t('menu.keyboardShortcuts'), shortcutLabel('help.shortcuts')),
         fromAction('settings.diagnostics', t('menu.diagnostics')),
+        fromAction('help.report-problem', t('menu.reportProblem')),
         sep('help-1'),
         // Settings › Updates shows the version and checks for a newer one.
         fromAction('settings.updates', t('menu.about', { version: ctx.version }))

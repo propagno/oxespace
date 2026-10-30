@@ -13,6 +13,7 @@ import { MemoryMigration } from './memory-migration'
 
 const exec = promisify(execFile)
 export const MEMORY_RELEASE = '2.6.2'
+const TOKEN_FILE = 'auth-token'
 export function memoryEnvironment(): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('AI_MEMORY_')))
 }
@@ -164,11 +165,27 @@ export class MemoryRuntime {
     return token
   }
   client(): AiMemoryClient { return new AiMemoryClient(this.settings().url, this.token()) }
+  /**
+   * The native hooks read the token from a file in the data directory. The store of record is the OS secure store
+   * (above); this copy exists only while a memory-enabled agent can run a hook, and is removed when the last one
+   * ends. The owner wires this to its live runs; by default the file stays, as before.
+   */
+  tokenInUse: () => boolean = () => true
+  async publishToken(): Promise<void> {
+    if (this.settings().mode !== 'managed') return
+    await mkdir(this.dataDir, { recursive: true })
+    await writeFile(join(this.dataDir, TOKEN_FILE), this.token(), { mode: 0o600 })
+  }
+  async withdrawToken(): Promise<void> {
+    if (this.tokenInUse()) return
+    await rm(join(this.dataDir, TOKEN_FILE), { force: true }).catch(() => {})
+  }
 
   async start(): Promise<void> {
     if (this.changing) await this.changing
-    if (!this.starting) this.starting = this.startOnce().then(() => { this.lastError = undefined }).catch(error => {
+    if (!this.starting) this.starting = this.startOnce().then(() => { this.lastError = undefined; return this.withdrawToken() }).catch(async error => {
       this.lastError = error instanceof Error ? error.message : 'Memory startup failed'
+      await this.withdrawToken()
       throw error
     }).finally(() => { this.starting = null })
     return this.starting
@@ -187,7 +204,7 @@ export class MemoryRuntime {
     await mkdir(this.dataDir, { recursive: true })
     // Dedicated explicit config, no inherited user/provider settings. No cloud model calls.
     await writeFile(this.configPath, this.configuration(settings), { mode: 0o600 })
-    await writeFile(join(this.dataDir, 'auth-token'), this.token(), { mode: 0o600 })
+    await this.publishToken()
     const bind = new URL(settings.url)
     if (bind.pathname !== '/') throw new Error('Managed memory requires a root URL without a base path')
     const version = await this.version(settings.executable)

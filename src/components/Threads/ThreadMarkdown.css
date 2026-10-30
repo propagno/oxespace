@@ -36,5 +36,4 @@
 .thread-code-toolbar button { font-size: var(--fs-2xs); }
 .thread-markdown .thread-code-block pre { margin: 0; padding: 12px 14px; border-radius: 0; overflow-x: auto; white-space: pre; overflow-wrap: normal; line-height: 1.6; tab-size: 2; }
 .thread-code-block pre code { padding: 0; border: 0; background: transparent; font-size: var(--fs-xs); white-space: inherit; }
-.thread-code-copy-error { padding: 8px 12px; font-size: var(--fs-2xs); color: var(--tx-muted); }
 .thread-markdown-reference { color: var(--tx-secondary); }

@@ -5,6 +5,7 @@ import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCach
 import { threadConfirmation } from '../../shared/threadConfirmations'
 import { createDraftWriter, loadStoredDrafts } from '../utils/threadDrafts'
 import { optimistic } from './optimistic'
+import { i18n } from '../i18n'
 
 // Read once, before the store exists: the writer needs the saved edit times to let old drafts expire.
 const storedDrafts = loadStoredDrafts()
@@ -61,29 +62,29 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   hideProject: async id => {
     const saved = await optimistic(set, get, state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }), async () => { await window.oxe.thread!.setProjectHidden(id, true); return true },
-      { rollbackMessage: 'Could not remove the project', revert: state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) }) })
+      { rollbackMessage: i18n.t('thread:store.removeProjectFailed'), revert: state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) }) })
     if (saved && get().snapshot?.thread.projectId === id) await get().select(null)
   },
   restoreProject: async id => {
     await optimistic(set, get, state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) }), () => window.oxe.thread!.setProjectHidden(id, false),
-      { rollbackMessage: 'Could not restore the project', revert: state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }) })
+      { rollbackMessage: i18n.t('thread:store.restoreProjectFailed'), revert: state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }) })
   },
   pinThread: async (id, pinned) => {
     const saved = await optimistic(set, get, state => patchThread(state, id, { pinned }), async () => { await window.oxe.thread!.pin(id, pinned); return true },
-      { rollbackMessage: pinned ? 'Could not pin the conversation' : 'Could not unpin the conversation', revert: state => patchThread(state, id, { pinned: !pinned }) })
+      { rollbackMessage: pinned ? i18n.t('thread:store.pinFailed') : i18n.t('thread:store.unpinFailed'), revert: state => patchThread(state, id, { pinned: !pinned }) })
     if (saved) await get().refresh(id)
   },
   renameThread: async (id, title) => {
     const previous = get().threads.find(thread => thread.id === id)?.title
     if (previous === undefined || !window.oxe.thread?.command) return
     const saved = await optimistic(set, get, state => patchThread(state, id, { title }), async () => { await window.oxe.thread!.command!(id, `/rename ${title}`); return true },
-      { rollbackMessage: 'Could not rename the conversation', revert: state => patchThread(state, id, { title: previous }) })
+      { rollbackMessage: i18n.t('thread:store.renameFailed'), revert: state => patchThread(state, id, { title: previous }) })
     if (saved) await get().refresh(id)
   },
   archiveThread: async id => {
     if (!window.oxe.thread?.command) return false
     const saved = await optimistic(set, get, state => patchThread(state, id, { archived: true }), async () => { await window.oxe.thread!.command!(id, threadConfirmation('archive').command); return true },
-      { rollbackMessage: 'Could not archive the conversation', revert: state => patchThread(state, id, { archived: false }) })
+      { rollbackMessage: i18n.t('thread:store.archiveFailed'), revert: state => patchThread(state, id, { archived: false }) })
     // The catalog reload moves the selection off the archived conversation.
     if (saved) await get().load()
     return saved === true
@@ -101,7 +102,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
         return { snapshot, snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order }
       })
     }
-    catch { if (version === generation) set({ errors: { ...get().errors, selection: 'Could not open conversation. Select it to retry.' } }) }
+    catch { if (version === generation) set({ errors: { ...get().errors, selection: i18n.t('thread:store.openFailed') } }) }
   },
   openSecondary: async id => {
     // The selected conversation is already on screen; a second copy beside it shows nothing new.
@@ -109,7 +110,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     const cached = get().snapshotCache[id]
     if (cached) { set(state => ({ secondaryId: id, activeCell: 'secondary', unreadIds: state.unreadIds.filter(value => value !== id) })); return }
     const snapshot = await window.oxe.thread!.read(id)
-    if (!get().threads.some(thread => thread.id === id)) throw Error('Conversation is no longer available')
+    if (!get().threads.some(thread => thread.id === id)) throw Error(i18n.t('thread:store.gone'))
     set(state => {
       const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
       return { secondaryId: id, activeCell: 'secondary', unreadIds: state.unreadIds.filter(value => value !== id), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order }
@@ -140,15 +141,15 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     try {
       const catalog = await window.oxe.thread.projects()
       if (version === projectGeneration) set(state => ({ projects: catalog.projects, unavailableProjects: catalog.unavailable, hiddenProjects: catalog.projects.filter(project => project.hidden).map(project => project.projectId), errors: { ...Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'projects')),
-        ...(catalog.unavailable.length ? { projects: 'Some project directories are unavailable. Check their location and retry.' } : {}) } }))
-    } catch { if (version === projectGeneration) set(state => ({ errors: { ...state.errors, projects: 'Could not load project directories.' } })) }
+        ...(catalog.unavailable.length ? { projects: i18n.t('thread:store.projectsUnavailable') } : {}) } }))
+    } catch { if (version === projectGeneration) set(state => ({ errors: { ...state.errors, projects: i18n.t('thread:store.projectsFailed') } })) }
   },
   load: async () => {
     const version = ++catalogGeneration
     set({ loading: true })
     let threads: ConversationThread[], errors: Record<string, string> = {}
     try { threads = await window.oxe.thread!.list() }
-    catch { errors = { catalog: 'Could not load conversations.' }; threads = get().threads }
+    catch { errors = { catalog: i18n.t('thread:store.catalogFailed') }; threads = get().threads }
     if (version !== catalogGeneration) return
     threads.sort((a, b) => b.updatedAt - a.updatedAt)
     const valid = new Set(threads.map(t => t.id))

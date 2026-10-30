@@ -25,13 +25,16 @@ import { bindCompletion, cacheFor } from './sql-completion'
 import { registerSqlExtras } from './sql-snippets'
 import { CellViewer, FilterBar, ParamsBar, TxBar } from './WorkbenchPanels'
 import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputError, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
-import { Select } from '../../ui/Field'
+import { Select, TextField } from '../../ui/Field'
 import { EmptyState, ErrorState, LoadingState } from '../../ui/Display'
 import { copyText, formatMs, tq } from './catalog'
 import { Splitter } from '../../ui/Splitter'
 import { toast } from '../../ui/Toast'
 import { EDITOR_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 import { formatNumber } from '../../utils/formatTime'
+import { nameMatches } from '../../../shared/oxequerySafety'
+import { useConnectionSafety } from './useConnectionSafety'
+import { useSqlLint } from './useSqlLint'
 
 const ROW_LIMITS = [100, 500, 1000, 5000, 10_000, 50_000, 100_000]
 const PAGE = 100
@@ -40,7 +43,8 @@ const MAX_GRID_ROWS = 1_000_000
 const SAVE_DELAY_MS = 700
 
 /** What waits for a confirmation or for parameter values: the text to run and where it sits in the editor. */
-interface Pending { text: string; base: number; reasons: string[]; explain?: 'analyze' }
+/** `typed`: the connection's name has to be typed before it goes on (production); `destructive`: the statement removes data for good. */
+interface Pending { text: string; base: number; reasons: string[]; explain?: 'analyze'; typed?: boolean; destructive?: boolean }
 interface ParamsAsk { text: string; base: number; names: string[]; confirmed: boolean }
 
 function copy(text: string, what = tq('workbench.copiedText')): void {
@@ -60,8 +64,12 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const [loaded, setLoaded] = useState(false)
   const [pinned, setPinned] = useState<NonNullable<WorkspaceState['pinned']>>([])
   const [running, setRunning] = useState(false)
-  const [maxRows, setMaxRows] = useState(connection.maxRows)
+  const safety = useConnectionSafety(connection)
+  const [chosenRows, setMaxRows] = useState(connection.maxRows)
+  // A lower ceiling (the environment's, after a change in settings) takes the editor's choice down with it.
+  const maxRows = Math.min(chosenRows, safety.maxRowsCeiling)
   const [pending, setPending] = useState<Pending | null>(null)
+  const [typedName, setTypedName] = useState('')
   const [paramsAsk, setParamsAsk] = useState<ParamsAsk | null>(null)
   const [paramValues, setParamValues] = useState<Record<string, ParamValue>>({})
   const [selectedRow, setSelectedRow] = useState<number | null>(null)
@@ -72,6 +80,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const editor = useRef<Parameters<OnMount>[0] | null>(null)
   const pendingExplain = useRef<{ text: string; base: number } | null>(null)
   const monacoRef = useRef<Parameters<OnMount>[1] | null>(null)
+  const lint = useSqlLint(connection, editor, monacoRef)
   const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
   const activeRef = useRef(active)
   activeRef.current = active
@@ -123,9 +132,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
 
   // ---- transaction state ---------------------------------------------------------------------------
   const refreshTx = useCallback(async (): Promise<void> => {
-    if (connection.readOnly) return
+    if (safety.readOnly) return
     try { setTx(await oq('sql.tx', { connectionId: connection.id, action: 'status' })) } catch { /* the state is a convenience */ }
-  }, [connection.id, connection.readOnly])
+  }, [connection.id, safety.readOnly])
   useEffect(() => { void refreshTx() }, [refreshTx])
   const txAction = async (action: 'begin' | 'commit' | 'rollback'): Promise<void> => {
     setRunning(true); setNotice('')
@@ -166,19 +175,24 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   }, [])
 
   // ---- running -------------------------------------------------------------------------------------
-  const run = useCallback(async (text: string, base: number, confirmed = false, values: Record<string, ParamValue> = paramValues): Promise<void> => {
+  const run = useCallback(async (text: string, base: number, confirmed = false, values: Record<string, ParamValue> = paramValues, confirmName?: string): Promise<void> => {
     const tab = activeRef.current
     if (!text.trim()) return
     const spans = splitStatements(text)
     const scan = scanParameters(text)
     if (scan.kind !== 'none' && spans.length > 1) { patch(tab.id, { outputs: [{ id: 's0', label: t('params.title'), start: base, text, error: { message: t('params.oneStatement') } }], outputIndex: 0, browse: null, details: null, explain: null }); return }
     if (scan.kind !== 'none' && scan.names.some(name => values[name] === undefined)) { setParamsAsk({ text, base, names: scan.names, confirmed }); return }
+    // Advice the editor already marked becomes a question before a statement that removes data runs.
+    if (!confirmed && !safety.readOnly) {
+      const risky = lint.check(text).filter(finding => finding.destructive)
+      if (risky.length) { setPending({ text, base, reasons: risky.map(lint.describe), typed: safety.typedConfirmation, destructive: true }); return }
+    }
     setRunning(true); setPending(null); setParamsAsk(null); setSelectedRow(null); setCell(null); setNotice('')
     patch(tab.id, { browse: null, details: null, explain: null })
     clearMarkers()
     try {
       if (spans.length > 1) {
-        const outcome = await oq('sql.script', { connectionId: connection.id, sql: text, maxRows, confirmed })
+        const outcome = await oq('sql.script', { connectionId: connection.id, sql: text, maxRows, confirmed, ...(confirmName ? { confirmName } : {}) })
         const outputs = outputsFromScript(outcome.statements, base, text)
         patch(tab.id, { outputs, outputIndex: Math.max(0, outputs.length - 1) })
         const failed = outputs[outputs.length - 1]
@@ -194,19 +208,20 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           const highest = Math.max(...scan.names.map(Number))
           params = Array.from({ length: highest }, (_, index) => { const entry = values[String(index + 1)]; return entry ? (entry.isNull ? null : entry.value) : null })
         }
-        const result = await oq('sql.run', { connectionId: connection.id, sql, maxRows, confirmed, paged: true, ...(params ? { params } : {}) })
+        const result = await oq('sql.run', { connectionId: connection.id, sql, maxRows, confirmed, paged: true, ...(params ? { params } : {}), ...(confirmName ? { confirmName } : {}) })
         patch(tab.id, { outputs: [{ id: 's0', label: text.replace(/\s+/g, ' ').slice(0, 40), start: base, text, result }], outputIndex: 0 })
         // New or dropped tables and columns must show up in suggestions without reconnecting.
         if (/^(CREATE|ALTER|DROP)/i.test(result.command ?? '')) cacheFor(connection).clear()
       }
     } catch (cause) {
-      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ text, base, reasons: cause.reasons })
+      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ text, base, reasons: cause.reasons, typed: safety.typedConfirmation, destructive: true })
+      else if (cause instanceof OxeQueryClientError && cause.code === 'confirm-name') setPending({ text, base, reasons: cause.reasons, typed: true })
       else {
         patch(tab.id, { outputs: [{ id: 's0', label: text.replace(/\s+/g, ' ').slice(0, 40), start: base, text, error: outputError(cause, errorMessage(cause)) }], outputIndex: 0 })
         if (cause instanceof OxeQueryClientError && cause.position) markError(base + cause.position - 1, cause.message)
       }
     } finally { setRunning(false); setLibraryTick(value => value + 1); void refreshTx() }
-  }, [clearMarkers, connection, markError, maxRows, paramValues, patch, refreshTx, t])
+  }, [clearMarkers, connection, lint, markError, maxRows, paramValues, patch, refreshTx, safety, t])
 
   /** Appends the next rows of a long SELECT; the server keeps its cursor until they run out or another statement runs. */
   const loadMore = useCallback(async (): Promise<void> => {
@@ -229,19 +244,28 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     } finally { setRunning(false) }
   }, [connection, maxRows, patch])
 
-  const explain = useCallback(async (analyze: boolean, confirmed = false): Promise<void> => {
+  const explain = useCallback(async (analyze: boolean, confirmed = false, confirmName?: string): Promise<void> => {
     const tab = activeRef.current
     const target = pendingExplain.current ?? currentStatement()
     if (!target || !target.text.trim()) return
     setRunning(true); setPending(null)
     try {
-      patch(tab.id, { explain: await oq('sql.explain', { connectionId: connection.id, sql: target.text, analyze, confirmed }), outputs: [], browse: null, details: null })
+      patch(tab.id, { explain: await oq('sql.explain', { connectionId: connection.id, sql: target.text, analyze, confirmed, ...(confirmName ? { confirmName } : {}) }), outputs: [], browse: null, details: null })
       pendingExplain.current = null
     } catch (cause) {
-      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') { pendingExplain.current = target; setPending({ text: target.text, base: target.base, reasons: cause.reasons, explain: 'analyze' }) }
+      if (cause instanceof OxeQueryClientError && (cause.code === 'confirm' || cause.code === 'confirm-name')) { pendingExplain.current = target; setPending({ text: target.text, base: target.base, reasons: cause.reasons, explain: 'analyze', typed: safety.typedConfirmation }) }
       else patch(tab.id, { explain: null, outputs: [{ id: 's0', label: t('workbench.explain'), start: target.base, text: target.text, error: outputError(cause, errorMessage(cause)) }], outputIndex: 0 })
     } finally { setRunning(false) }
-  }, [connection.id, currentStatement, patch, t])
+  }, [connection.id, currentStatement, patch, safety.typedConfirmation, t])
+
+  /** Goes on with what the dialog holds, handing over the typed name when one was asked for. */
+  const confirmPending = (): void => {
+    if (!pending) return
+    const name = pending.typed ? typedName.trim() : undefined
+    setTypedName('')
+    if (pending.explain) void explain(true, true, name)
+    else void run(pending.text, pending.base, true, paramValues, name)
+  }
 
   const runCurrent = useCallback((): void => { const target = currentStatement(); if (target) void run(target.text, target.base) }, [currentStatement, run])
   const runAll = useCallback((): void => { const sql = editor.current?.getValue() ?? activeRef.current.sql; const selection = editor.current?.getSelection(); void run(selection && !selection.isEmpty() ? editor.current?.getModel()?.getValueInRange(selection) ?? sql : sql, 0) }, [run])
@@ -311,7 +335,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <button type="button" className="oq-qtab-add" data-oq-action="newQuery" aria-label={t('workbench.newQuery')} title={t('workbench.newQueryTitle')} disabled={tabs.length >= MAX_TABS} onClick={() => addTab('')}><Plus size={13} aria-hidden="true" /></button>
         <span className="oq-spacer" />
         <span className="oq-badge" data-environment={connection.environment}>{t(`environment.short.${connection.environment}`)}</span>
-        <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{connection.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
+        <span className="oq-badge" data-readonly={safety.readOnly} data-policy={safety.readOnlyBy === 'policy' ? 'true' : undefined} title={safety.readOnlyBy === 'policy' ? t('workbench.readOnlyPolicyTitle') : safety.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{safety.readOnlyBy === 'policy' ? t('workbench.readOnlyPolicy') : safety.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
       </div>
       <div className="oq-editor-toolbar">
         <div className="oq-tb-group" role="group" aria-label={t('common.run')}>
@@ -324,9 +348,10 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <Button size="sm" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title={t('workbench.analyzeTitle')}>{t('workbench.analyze')}</Button>
           <Button size="sm" onClick={format} title={t('workbench.formatTitle')}>{t('workbench.format')}</Button>
         </div>
-        <label className="oq-inline">{t('workbench.limit')}<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{t('common.rows', { count: value, formatted: formatNumber(value) })}</option>)}</Select></label>
+        <label className="oq-inline" title={safety.maxRowsCeiling < Math.max(...ROW_LIMITS) ? t('workbench.limitTitle', { formatted: formatNumber(safety.maxRowsCeiling) }) : undefined}>{t('workbench.limit')}<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows, safety.maxRowsCeiling])].filter(value => value <= safety.maxRowsCeiling).sort((a, b) => a - b).map(value => <option key={value} value={value}>{t('common.rows', { count: value, formatted: formatNumber(value) })}</option>)}</Select></label>
+        <span className="oq-badge" data-oq-timeout title={t('workbench.timeoutTitle', { seconds: formatNumber(Math.round(safety.statementTimeoutMs / 1000)) })}>{t('workbench.timeout', { seconds: formatNumber(Math.round(safety.statementTimeoutMs / 1000)) })}</span>
         <div className="oq-tb-group oq-tb-end">
-        {!connection.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
+        {!safety.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
         <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => replaceText(active.id, sql)} />
         <AskAgent hasError={Boolean(error)} hasPlan={Boolean(active.explain)} context={{
           connectionName: connection.name, engine: 'postgres', environment: connection.environment, sql: active.sql,
@@ -339,9 +364,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}
       <div className="oq-editor" style={{ height: editorHeight }} onKeyDownCapture={event => {
         if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); runAllRef.current() }
-      }}><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
+      }}><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => { patch(active.id, { sql: value ?? '' }); lint.schedule() }}
         onMount={(instance, monaco) => {
-          editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); registerSqlExtras(monaco)
+          editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); registerSqlExtras(monaco); lint.mark()
           instance.onDidFocusEditorText(() => bindCompletion(monaco, connection))
           instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current())
           instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => runAllRef.current())
@@ -353,12 +378,16 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       {paramsAsk && <ParamsBar names={paramsAsk.names} values={paramValues}
         onChange={(name, value) => setParamValues(current => ({ ...current, [name]: value }))}
         onRun={() => { const ask = paramsAsk; setParamsAsk(null); void run(ask.text, ask.base, ask.confirmed) }} onCancel={() => setParamsAsk(null)} />}
-      {pending && <ConfirmDialog danger title={pending.explain ? t('workbench.confirm.analyzeTitle') : t('workbench.confirm.destructiveTitle')}
-        confirmLabel={pending.explain ? t('workbench.confirm.analyzeAnyway') : t('workbench.confirm.runAnyway')} cancelLabel={t('common.cancel')}
-        description={connection.environment === 'prod' ? t('workbench.confirm.production') : t('workbench.confirm.check')}
-        onCancel={() => { pendingExplain.current = null; setPending(null) }}
-        onConfirm={() => pending.explain ? void explain(true, true) : void run(pending.text, pending.base, true)}>
-        <ul>{pending.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+      {pending && <ConfirmDialog danger title={pending.explain ? t('workbench.confirm.analyzeTitle') : pending.destructive ? t('workbench.confirm.destructiveTitle') : t('workbench.confirm.typedTitle')} testId="oxequery-confirm"
+        confirmLabel={pending.explain ? t('workbench.confirm.analyzeAnyway') : pending.typed ? t('workbench.confirm.runOnProduction') : t('workbench.confirm.runAnyway')} cancelLabel={t('common.cancel')}
+        confirmDisabled={pending.typed === true && !nameMatches(typedName, connection.name)}
+        description={pending.typed ? t('workbench.confirm.typedHint') : connection.environment === 'prod' ? t('workbench.confirm.production') : t('workbench.confirm.check')}
+        onCancel={() => { pendingExplain.current = null; setPending(null); setTypedName('') }}
+        onConfirm={() => confirmPending()}>
+        {pending.reasons.length > 0 && <ul>{pending.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
+        {pending.typed && <TextField label={t('workbench.confirm.typeName', { name: connection.name })} value={typedName} autoComplete="off" spellCheck={false} mono
+          onChange={event => setTypedName(event.target.value)}
+          onKeyDown={event => { if (event.key === 'Enter' && nameMatches(typedName, connection.name)) { event.preventDefault(); confirmPending() } }} />}
       </ConfirmDialog>}
       <div className="oq-results">
         {active.outputs.length > 1 && <div className="oq-output-tabs" role="tablist" aria-label={t('workbench.results')}>

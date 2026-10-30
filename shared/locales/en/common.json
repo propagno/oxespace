@@ -12,7 +12,9 @@
     "modeTitle": {
       "code": "Code: terminals and agents in your workspaces",
       "thread": "Thread: conversations with an agent",
-      "data": "OxeQuery: containers and databases"
+      "data": "OxeQuery: databases",
+      "pods": "OxePod: containers",
+      "post": "OxePost: API requests"
     },
     "primary": "Primary navigation",
     "switchToLight": "Switch to light mode",
@@ -23,7 +25,9 @@
     "expandSidebar": "Expand sidebar",
     "clearSearch": "Clear search",
     "applicationMenu": "Application menu",
-    "menu": "Menu"
+    "menu": "Menu",
+    "loadingView": "Loading {{name}}…",
+    "viewSidebar": "{{name}} sidebar"
   },
   "attention": {
     "needsYou_one": "{{count}} needs you",
@@ -67,7 +71,23 @@
     "commandPalette": "Command palette…",
     "tools": "Tools",
     "keyboardShortcuts": "Keyboard shortcuts",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "reportProblem": "Report a problem…"
+  },
+  "report": {
+    "title": "Report a problem",
+    "description": "This is the issue we would open on GitHub. Nothing is sent until you choose what to do with it.",
+    "titleLabel": "Title",
+    "bodyLabel": "Report",
+    "bodyHint": "Version, system and recent diagnostics are included with secrets and your home folder removed. Read it, add the steps, and edit anything you do not want to share.",
+    "loading": "Preparing the report…",
+    "failed": "The report could not be prepared.",
+    "retry": "Try again",
+    "copy": "Copy text",
+    "copyWhat": "Report",
+    "open": "Open on GitHub",
+    "opened": "GitHub opened in your browser",
+    "truncated": "The text is too long for a link, so GitHub receives the first part. Use Copy text to share all of it."
   },
   "keys": {
     "or": "or",
@@ -129,13 +149,27 @@
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts"
+      },
+      "view": {
+        "code": "Show Code",
+        "thread": "Show Thread",
+        "data": "Show OxeQuery",
+        "pods": "Show OxePod",
+        "post": "Show OxePost"
+      },
+      "oxepod": {
+        "filter": "Find a container"
+      },
+      "oxepost": {
+        "send": "Send the request",
+        "filter": "Find a request"
       }
     }
   },
   "oxequeryCommands": {
     "open": {
       "label": "Open OxeQuery",
-      "detail": "Containers and databases"
+      "detail": "Databases"
     },
     "newConnection": {
       "label": "New database connection"
@@ -162,8 +196,38 @@
       "label": "Export connections",
       "detail": "Without passwords"
     },
-    "compose": {
-      "label": "Containers & Compose projects"
+    "newDatabase": {
+      "label": "New local database",
+      "detail": "PostgreSQL or MongoDB in a container"
+    },
+    "activity": {
+      "label": "Agent activity on databases"
+    }
+  },
+  "postCommands": {
+    "open": { "label": "Open OxePost", "detail": "API requests, environments and cURL" },
+    "newRequest": { "label": "New API request", "detail": "Saved in .oxespace/requests" },
+    "filter": { "label": "Find an API request" },
+    "import": { "label": "Import cURL or OpenAPI", "detail": "Becomes request files" },
+    "environments": { "label": "API environments", "detail": "Variables and secrets" }
+  },
+  "podsCommands": {
+    "open": {
+      "label": "Open OxePod",
+      "detail": "Containers, Docker and Podman"
+    },
+    "filter": {
+      "label": "Find a container"
+    },
+    "resources": {
+      "label": "Images, volumes and networks"
+    },
+    "activity": {
+      "label": "Agent activity on containers"
+    },
+    "pruneContainers": {
+      "label": "Clean up stopped containers",
+      "detail": "Asks first"
     }
   },
   "quota": {

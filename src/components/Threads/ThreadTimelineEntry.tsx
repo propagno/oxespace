@@ -1,4 +1,7 @@
-import { AlertCircle, Check, ChevronDown, Loader2 } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
+import { Spinner } from '../../ui'
 import type { ThreadEvent, ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import type { ThreadViewMode } from '../../store/thread-view-mode.store'
 import { useThreadStore } from '../../store/thread.store'
@@ -25,10 +28,10 @@ import type { ThreadTimelineItem } from './threadTimelineModel'
  */
 async function undoTurnChanges(threadId: string, turnId: string): Promise<void> {
   const commands = window.oxe.thread
-  if (!commands?.command) throw Error('Restart the updated application to undo changes.')
+  if (!commands?.command) throw Error(i18n.t('thread:timeline.restartUndo'))
   const listing = await commands.command(threadId, '/checkpoint')
   const target = listing.rows?.find(row => row.turnId === turnId && row.id?.startsWith('/checkpoint restore '))
-  if (!target?.id) throw Error('No restorable checkpoint exists for this turn.')
+  if (!target?.id) throw Error(i18n.t('thread:timeline.noCheckpoint'))
   await commands.command(threadId, target.id)
   await useThreadStore.getState().refresh(threadId)
 }
@@ -59,6 +62,7 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   /** Set aside by a pending rewind. */
   superseded?: boolean
 }) {
+  const { t } = useTranslation('thread')
   const { event, key, turnId, turnEvents, firstInTurn, lastInTurn } = row
   const api = window.oxe?.thread
   const openFile = (entry: ThreadChangeEntry) => {
@@ -71,19 +75,19 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   }
   const body = (() => {
     if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} onToggle={() => onToggleFold?.(turnId)} />
-    if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} />
+    if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} onResolveInterrupted={command => void action(() => runCommand(command))} />
     if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
     if (event.type === 'reasoning') return event.text.trim() ? <ThreadReasoning key={key} event={event} running={running && snapshot?.turns?.at(-1)?.id === turnId} /> : null
     if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact stopping={pending} onStop={snapshot?.thread.capabilities?.features.subagentLifecycle?.enabled && api?.stopTask && event.receiverThreadIds[0] ? () => void action(() => api.stopTask!(snapshot.thread.id, event.receiverThreadIds[0])) : undefined} />
     if (event.type === 'tool' && event.files?.length) return <ThreadFileActivity key={key} event={event} root={snapshot?.thread.rootPath ?? ''} roots={[snapshot?.thread.observedLocation?.checkoutRoot]} threadId={snapshot!.thread.id} onOpen={openFile} />
     if (event.type === 'message') return <ThreadMessageRow key={key} event={event} turnEvents={turnEvents} snapshot={snapshot} running={running} pending={pending} copied={copiedMessageId === event.id} action={action} onCopy={onCopy}
       quickReplies={event.id === lastMessageId ? quickReplies : []} onQuickReply={onQuickReply} onQuote={onQuote} />
-    if (event.type === 'tool') return <details key={key} className="thread-tool"><summary><ChevronDown size={12} />{event.state === 'running' ? <Loader2 size={12} className="thread-spin" aria-hidden="true" /> : event.state === 'failed' ? <AlertCircle size={12} /> : <Check size={12} />}{event.name}<small>{event.state}</small></summary>{event.detail && <pre>{event.detail}</pre>}</details>
+    if (event.type === 'tool') return <details key={key} className="thread-tool"><summary><ChevronDown size={12} />{event.state === 'running' ? <Spinner size="sm" decorative /> : event.state === 'failed' ? <AlertCircle size={12} /> : <Check size={12} />}{event.name}<small>{t(`activity.state.${event.state === 'running' || event.state === 'failed' || event.state === 'unknown' ? event.state : 'completed'}`)}</small></summary>{event.detail && <pre>{event.detail}</pre>}</details>
     if (event.type === 'request') return pendingRequests.some(request => request.id === event.request.id) ? null : <ThreadRequestCard key={key} conversationId={snapshot!.thread.id} request={event.request} turnResult={turnEvents.find((value): value is Extract<ThreadEvent, { type: 'completed' }> => value.type === 'completed')?.status} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot!.thread.id, event.id, response))} />
     if (event.type === 'approval') {
       if (snapshot?.events.some(value => value.type === 'request' && value.id === event.id)) return null
       const unresolved = snapshot?.thread.status === 'approval' && !snapshot.events.some(e => e.type === 'approval-resolved' && e.id === event.id)
-      return <details key={key} className="thread-approval" open={Boolean(unresolved)}><summary><AlertCircle size={14} />{event.title}</summary><ThreadApprovalDetails command={event.detail} fileChanges={event.title === 'Approve file changes'} />{unresolved && <div className="thread-approval-actions"><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'accept'))}>Approve</button><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'decline'))}>Decline</button></div>}</details>
+      return <details key={key} className="thread-approval" open={Boolean(unresolved)}><summary><AlertCircle size={14} />{event.title}</summary><ThreadApprovalDetails command={event.detail} fileChanges={event.title === 'Approve file changes'} />{unresolved && <div className="thread-approval-actions"><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'accept'))}>{t('timeline.approve')}</button><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'decline'))}>{t('timeline.decline')}</button></div>}</details>
     }
     if (event.type === 'completed') return event.status === 'failed' ? <ThreadFailureCard key={key} event={event} latest={event === lastResult} onAccounts={onAccounts} disabled={pending} onCompact={() => void action(() => runCommand('/compact'))} onPermissions={onPermissions} onRetry={(() => {
       const prompt = turnEvents.find(value => value.type === 'message' && value.role === 'user')
@@ -94,9 +98,9 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
         : api!.send(snapshot!.thread.id, prompt.text, prompt.attachments?.map(attachment => attachment.id) ?? []))
     })()} hasChanges={turnEvents.some(value => (value.type === 'turn-diff' || value.type === 'tool') && Boolean(value.files?.length))} refreshUsage={snapshot?.thread.provider === 'codex' && api?.command ? async () => {
       const result = await api.command!(snapshot.thread.id, '/usage')
-      if (!result.usage) throw Error('Usage unavailable')
+      if (!result.usage) throw Error(t('timeline.usageUnavailable'))
       return result.usage
-    } : undefined} /> : event.status === 'interrupted' ? <p key={key} className="thread-turn-status"><AlertCircle size={14} />{event.error || 'Interrupted'}</p> : null
+    } : undefined} /> : event.status === 'interrupted' ? <p key={key} className="thread-turn-status"><AlertCircle size={14} />{event.error || t('timeline.interrupted')}</p> : null
     return null
   })()
   const finished = lastInTurn && turnEvents.some(value => value.type === 'completed')

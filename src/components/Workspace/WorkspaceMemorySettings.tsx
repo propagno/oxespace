@@ -6,6 +6,7 @@ import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
+import { WorkspaceMemoryNotes } from './WorkspaceMemoryNotes'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -160,6 +161,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
         <pre>{handoffText(resumed)}</pre>
         <button type="button" onClick={() => void navigator.clipboard?.writeText(`Historical handoff (${resumed.cwd ?? 'unknown checkout'}; read-only):\n${handoffText(resumed)}`).then(() => setMessage(t('memory.handoffCopied'))).catch(() => setMessage(t('memory.handoffCopyFailed')))}>{t('memory.copyForComposer')}</button></div>}
     </section>}
+    {status?.settings.enabled && <WorkspaceMemoryNotes workspaceId={workspaceId} />}
     {status?.health.pipeline && <dl className="memory-pipeline" aria-label={t('memory.pipeline')}>
       <div><dt>{t('memory.captureStage')}</dt><dd>{stageLabel(status.health.pipeline.capture)}</dd></div>
       <div><dt>{t('memory.delivery')}</dt><dd>{stageLabel(status.health.pipeline.delivery)}</dd></div>

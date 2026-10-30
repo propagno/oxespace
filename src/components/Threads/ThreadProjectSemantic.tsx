@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SemanticStatus } from '../../../shared/types/ipc'
-import { Checkbox } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { Checkbox, ErrorState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatNumber } from '../../utils/formatTime'
 
@@ -9,6 +10,7 @@ import { formatNumber } from '../../utils/formatTime'
  * indexed locally and agents can search them by meaning (oxespace_semantic_search, oxespace_hybrid_explore).
  */
 export function ThreadProjectSemantic({ rootPath, disabled }: { rootPath: string; disabled?: boolean }) {
+  const { t } = useTranslation('thread')
   const api = window.oxe.semantic
   const [state, setState] = useState<{ on: boolean; status: SemanticStatus } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -33,15 +35,15 @@ export function ThreadProjectSemantic({ rootPath, disabled }: { rootPath: string
     setBusy(true); setError('')
     setState(current => current && { ...current, on: enabled })
     try { setState(await api.setProjectEnabled({ rootPath, enabled })) }
-    catch (cause) { setState(before); setError(humanizeError(cause, 'Could not change semantic search.')) }
+    catch (cause) { setState(before); setError(humanizeError(cause, t('semantic.failed'))) }
     finally { setBusy(false) }
   }
   const files = state?.status.coverage?.lexicalDocuments ?? 0
-  return <div className="thread-create-section"><strong>Semantic search</strong>
+  return <div className="thread-create-section"><strong>{t('semantic.title')}</strong>
     <Checkbox className="thread-project-check" checked={state?.on ?? false} disabled={!state || busy || disabled}
-      onChange={event => void toggle(event.target.checked)} label="Index this project so agents can search it by meaning" />
-    <p>The index stays on this computer. Agents still read the files they need; this only helps them find them.</p>
-    {state?.on && <p role="status">{!state.status.enabled ? 'Starting the index…' : state.status.indexing ? `Indexing… ${formatNumber(files)} files so far` : `${formatNumber(files)} files indexed`}</p>}
-    {error && <p role="alert">{error}</p>}
+      onChange={event => void toggle(event.target.checked)} label={t('semantic.toggle')} />
+    <p>{t('semantic.hint')}</p>
+    {state?.on && <p role="status">{!state.status.enabled ? t('semantic.starting') : state.status.indexing ? t('semantic.indexing', { files: formatNumber(files) }) : t('semantic.indexed', { files: formatNumber(files) })}</p>}
+    {error && <ErrorState compact title={error} />}
   </div>
 }

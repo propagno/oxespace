@@ -212,6 +212,31 @@ describe('destructive resource operations', () => {
     await expect(service.call('resources.remove', { kind: 'volume', id: 'pgdata', confirmed: true })).resolves.toMatchObject({ ok: true })
     expect(calls.some(call => call.args[0] === 'volume' && call.args.includes('rm'))).toBe(true)
   })
+
+  it('removes a container only when the request carries the confirmation, and keeps its volumes', async () => {
+    const { service, calls, events } = fixture()
+    const id = 'a'.repeat(64)
+    await expect(service.call('containers.remove', { id })).resolves.toMatchObject({ ok: false, error: { code: 'confirm' } })
+    expect(calls.some(call => call.args.includes('rm'))).toBe(false)
+    await expect(service.call('containers.remove', { id, confirmed: true })).resolves.toEqual({ ok: true, value: { ok: true } })
+    const removal = calls.find(call => call.args.includes('rm'))
+    expect(removal?.args.slice(-3)).toEqual(['rm', '--force', id])
+    expect(removal?.args).not.toContain('--volumes')
+    expect(events).toContainEqual({ type: 'containers-changed' })
+    await expect(service.call('containers.remove', { id: 'x; rm -rf /', confirmed: true })).resolves.toMatchObject({ ok: false })
+  })
+
+  it('cleans up stopped containers or dangling images only when confirmed, and nothing else', async () => {
+    const { service, calls } = fixture()
+    for (const kind of ['containers', 'images'] as const) {
+      await expect(service.call('resources.prune', { kind })).resolves.toMatchObject({ ok: false, error: { code: 'confirm' } })
+      expect(calls.some(call => call.args.includes('prune'))).toBe(false)
+    }
+    await expect(service.call('resources.prune', { kind: 'containers', confirmed: true })).resolves.toMatchObject({ ok: true })
+    await expect(service.call('resources.prune', { kind: 'images', confirmed: true })).resolves.toMatchObject({ ok: true })
+    expect(calls.filter(call => call.args.includes('prune')).map(call => call.args.slice(-3))).toEqual([['container', 'prune', '--force'], ['image', 'prune', '--force']])
+    await expect(service.call('resources.prune', { kind: 'volumes', confirmed: true })).resolves.toMatchObject({ ok: false, error: { code: 'invalid' } })
+  })
 })
 
 describe('private keys', () => {

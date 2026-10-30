@@ -1,5 +1,8 @@
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
+import { Spinner } from '../../ui'
 import type { ThreadEvent, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStateCheck } from './useThreadStateCheck'
 import { threadToolSummary } from '../../../shared/threadToolSummary'
@@ -10,15 +13,16 @@ type ActivityEvent = Extract<ThreadEvent, { type: 'activity' }>
 
 function duration(milliseconds: number): string {
   const seconds = Math.max(0, Math.floor(milliseconds / 1_000))
-  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`
+  return seconds < 60 ? i18n.t('thread:live.seconds', { seconds }) : i18n.t('thread:live.minutes', { minutes: Math.floor(seconds / 60), seconds: String(seconds % 60).padStart(2, '0') })
 }
 
 function runningToolLabel(tool: Tool, verbose = true): string {
-  if (tool.name === 'commandExecution' || tool.name === 'Bash') return verbose ? `Running command${tool.detail ? `: ${threadToolSummary(tool)}` : ''}` : 'Running a command'
-  if (tool.name === 'Read') return 'Reading file'
-  if (tool.name === 'Grep' || tool.name === 'Glob') return 'Searching the project'
-  if (tool.name === 'fileChange' || tool.name === 'Edit' || tool.name === 'Write') return 'Editing files'
-  return `Using ${tool.name}`
+  const t = i18n.t.bind(i18n)
+  if (tool.name === 'commandExecution' || tool.name === 'Bash') return verbose ? tool.detail ? t('thread:live.runningCommandDetail', { detail: threadToolSummary(tool) }) : t('thread:live.runningCommand') : t('thread:live.runningACommand')
+  if (tool.name === 'Read') return t('thread:live.reading')
+  if (tool.name === 'Grep' || tool.name === 'Glob') return t('thread:live.searching')
+  if (tool.name === 'fileChange' || tool.name === 'Edit' || tool.name === 'Write') return t('thread:live.editing')
+  return t('thread:live.using', { tool: tool.name })
 }
 
 /** A running tool is slow past three times its usual run in this conversation, and never before this. */
@@ -79,15 +83,16 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
   const connection = thread.connection
   const lastSignal = connection?.lastNativeSignalAt && connection.lastNativeSignalAt >= startedAt ? connection.lastNativeSignalAt : undefined
   const signalAgeMs = now - (lastSignal ?? startedAt)
-  let label = 'Waiting for the next agent update'
-  if (awaitingInput) label = thread.status === 'approval' && !actionableRequest && signalAgeMs >= 60_000 ? 'Input request unavailable' : 'Waiting for your input'
-  else if (connection?.state === 'degraded' || connection?.state === 'reconnecting') label = 'Reconnecting to the agent'
-  else if (background.length && !turnRunning) label = `Waiting for ${background.length} background ${background.length === 1 ? 'task' : 'tasks'}`
+  const t = i18n.t.bind(i18n)
+  let label = t('thread:live.waitingUpdate')
+  if (awaitingInput) label = thread.status === 'approval' && !actionableRequest && signalAgeMs >= 60_000 ? t('thread:live.requestUnavailable') : t('thread:live.waitingInput')
+  else if (connection?.state === 'degraded' || connection?.state === 'reconnecting') label = t('thread:live.reconnecting')
+  else if (background.length && !turnRunning) label = t('thread:live.waitingBackground', { count: background.length })
   else if (runningTool) label = runningToolLabel(runningTool, verbose)
-  else if (activity?.phase === 'preparing') label = 'Preparing project context'
-  else if (connection?.state === 'starting' || activity?.phase === 'connecting' && connection?.state !== 'connected') label = 'Connecting to the agent'
-  else if (activity?.phase === 'responding' && now - activity.at < 15_000) label = 'Receiving response'
-  else if (activity?.phase === 'reasoning') label = 'Analyzing request'
+  else if (activity?.phase === 'preparing') label = t('thread:live.preparing')
+  else if (connection?.state === 'starting' || activity?.phase === 'connecting' && connection?.state !== 'connected') label = t('thread:live.connecting')
+  else if (activity?.phase === 'responding' && now - activity.at < 15_000) label = t('thread:live.receiving')
+  else if (activity?.phase === 'reasoning') label = t('thread:live.analyzing')
   const toolRunMs = !awaitingInput && runningTool?.startedAt !== undefined ? now - runningTool.startedAt : undefined
   const usual = runningTool ? usualToolRun(snapshot.events, runningTool.name) : null
   const slowTool = toolRunMs !== undefined && toolRunMs >= Math.max(SLOW_TOOL_MIN_MS, (usual ?? 0) * 3)
@@ -95,7 +100,7 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
     label, elapsed: duration(now - startedAt),
     ...(toolRunMs !== undefined ? { toolElapsed: duration(toolRunMs) } : {}),
     slowTool,
-    signalAge: !turnRunning ? 'Background work reported by the provider' : lastSignal ? `Last provider signal ${duration(signalAgeMs)} ago` : `No provider signal yet · ${duration(signalAgeMs)}`,
+    signalAge: !turnRunning ? t('thread:live.backgroundReported') : lastSignal ? t('thread:live.lastSignal', { age: duration(signalAgeMs) }) : t('thread:live.noSignal', { age: duration(signalAgeMs) }),
     // Quiet background work is normal; only a running turn that goes silent is a doubt worth showing.
     stale: turnRunning && signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
     awaitingInput,
@@ -107,6 +112,7 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
 }
 
 export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
+  const { t } = useTranslation('thread')
   const [now, setNow] = useState(Date.now())
   const [stopping, setStopping] = useState(false)
   useEffect(() => {
@@ -120,20 +126,20 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
   const terminalObserved = check.observation && ['completed', 'failed', 'interrupted'].includes(check.observation.state)
   // Waiting on a request whose card is on screen: that card is the status, a banner above it would repeat it.
   if (!activity || activity.awaitingInput && activity.actionableRequest && !activity.stale) return null
-  return <section className={`thread-live-activity${activity.stale ? ' is-stale' : ''}${activity.awaitingInput ? ' is-awaiting-input' : ''}${activity.reconnecting ? ' is-reconnecting' : ''}`} aria-label="Current agent activity">
+  return <section className={`thread-live-activity${activity.stale ? ' is-stale' : ''}${activity.awaitingInput ? ' is-awaiting-input' : ''}${activity.reconnecting ? ' is-reconnecting' : ''}`} aria-label={t('live.label')}>
     <div className="thread-live-activity-main">
-      {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Loader2 size={14} className="thread-spin" aria-hidden="true" />}
-      <span role="status"><strong title={activity.label}>{activity.stale && !activity.awaitingInput ? terminalObserved ? 'Provider result available · synchronizing required' : check.observation?.state === 'running' ? 'Provider confirms execution is active' : check.observation?.state === 'awaiting-input' ? 'Provider is waiting for input' : 'Waiting for a confirmed provider update' : activity.label}</strong>
+      {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Spinner size="sm" decorative />}
+      <span role="status"><strong title={activity.label}>{activity.stale && !activity.awaitingInput ? terminalObserved ? t('live.resultAvailable') : check.observation?.state === 'running' ? t('live.confirmsActive') : check.observation?.state === 'awaiting-input' ? t('live.waitingProviderInput') : t('live.waitingConfirmed') : activity.label}</strong>
         {activity.toolElapsed && !activity.stale && <span className="thread-live-activity-tool"> · {activity.toolElapsed}</span>}
-        {activity.slowTool && !activity.stale && <span className="thread-live-activity-slow" title="This step is taking much longer than the same step took earlier in this conversation"> · taking longer than usual</span>}</span><time title="Total time for this turn, including previous commands and waiting for input" aria-label={`Turn elapsed ${activity.elapsed}`}>Turn · {activity.elapsed}</time>
+        {activity.slowTool && !activity.stale && <span className="thread-live-activity-slow" title={t('live.slowTitle')}>{t('live.slow')}</span>}</span><time title={t('live.turnTitle')} aria-label={t('live.turnElapsed', { time: activity.elapsed })}>{t('live.turn', { time: activity.elapsed })}</time>
     </div>
     {!activity.turnRunning && activity.taskIds.length > 0 && <button type="button" className="thread-live-activity-stop" disabled={stopping} onClick={() => {
       setStopping(true)
       void Promise.allSettled(activity.taskIds.map(taskId => window.oxe.thread?.stopTask?.(snapshot.thread.id, taskId))).finally(() => setStopping(false))
-    }}>{stopping ? 'Stopping…' : 'Stop waiting'}</button>}
-    <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>Execution may still be active.</span>}</>}</div>
+    }}>{stopping ? t('live.stopping') : t('live.stopWaiting')}</button>}
+    <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>{t('live.mayBeActive')}</span>}</>}</div>
     {activity.stale && <div className="thread-live-activity-meta" role="status">
-      {check.checking ? <span>Checking provider state…</span> : check.observation && <span>{check.observation.state === 'running' ? 'Provider confirms execution is active.' : check.observation.state === 'awaiting-input' ? 'Provider is waiting for input. Open Diagnostics to inspect the request.' : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? `Provider reports ${check.observation.state}. Local output still needs reconciliation.` : 'Execution outcome is not confirmed. Your message was not resent.'}</span>}
+      {check.checking ? <span>{t('live.checking')}</span> : check.observation && <span>{check.observation.state === 'running' ? t('live.confirmsActiveFull') : check.observation.state === 'awaiting-input' ? t('live.waitingInputFull') : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? t('live.reportsState', { state: t(`live.state.${check.observation.state}`) }) : t('live.notConfirmed')}</span>}
     </div>}
   </section>
 }

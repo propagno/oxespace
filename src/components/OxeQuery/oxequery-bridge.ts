@@ -6,8 +6,12 @@
  * a toast says what is needed instead of the palette doing nothing.
  */
 export type OxeQueryAction =
-  | 'open' | 'newConnection' | 'newQuery' | 'runAll' | 'searchObjects' | 'newTable' | 'settings'
-  | 'importConnections' | 'exportConnections' | 'compose'
+  | 'open' | 'newConnection' | 'newDatabase' | 'newQuery' | 'runAll' | 'searchObjects' | 'newTable' | 'settings'
+  | 'importConnections' | 'exportConnections' | 'activity' | 'connect'
+
+/** Where `connect` goes: a saved connection, or a new one filled in from a container (roadmap P5). */
+export type ConnectTarget = { connectionId: string } | { draft: import('./oxequery.store').ConnectionDraft }
+let pendingConnect: ConnectTarget | null = null
 
 type Listener = (action: OxeQueryAction) => void
 const listeners = new Set<Listener>()
@@ -20,6 +24,12 @@ export function onOxeQueryAction(listener: Listener): () => void {
 
 export function requestOxeQueryAction(action: OxeQueryAction): void {
   listeners.forEach(listener => listener(action))
+}
+
+/** OxePod's "Connect in OxeQuery": opens OxeQuery on the saved connection, or on a new one with host and port filled in. */
+export function requestOxeQueryConnect(target: ConnectTarget): void {
+  pendingConnect = target
+  requestOxeQueryAction('connect')
 }
 
 /** Actions that act on a control of the panel on screen, found by its `data-oq-action` hook (never by its text, which is translated). */
@@ -39,8 +49,18 @@ async function viaStore(action: Exclude<OxeQueryAction, ControlAction | 'open'>)
   const store = useOxeQueryStore.getState()
   if (action === 'newConnection') { store.openDialog(null); return }
   if (action === 'settings') { store.setPreferencesOpen(true); return }
-  // Compose projects are chosen on the Containers tab (moving to OxePod as it is).
-  if (action === 'compose') { store.setActiveTab('containers'); return }
+  if (action === 'newDatabase') { store.setNewDatabaseOpen(true); return }
+  if (action === 'activity') { store.openActivity(); return }
+  if (action === 'connect') {
+    const target = pendingConnect
+    pendingConnect = null
+    if (!target) return
+    if ('draft' in target) { store.openDialog(null, target.draft); return }
+    await store.refreshConnections()
+    const saved = useOxeQueryStore.getState().connections.find(item => item.id === target.connectionId)
+    if (saved) store.openConnection(saved)
+    return
+  }
   const [{ importConnections, exportConnections }, { loadOxeQueryCatalog, tq }, { toast }, { errorMessage }] = await Promise.all([import('./connection-transfer'), import('./catalog'), import('../../ui/Toast'), import('./client')])
   // The palette can run before the view has listed the connections (or loaded its catalog): export counts them first.
   await loadOxeQueryCatalog()

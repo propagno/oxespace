@@ -28,7 +28,10 @@ const MIGRATED = [
   'src/components/Navigation',
   'src/components/Onboarding/AgentCliOnboarding.tsx',
   'src/components/OxeQuery',
+  'src/components/OxePod',
+  'src/components/OxePost',
   'src/components/Settings',
+  'src/components/Threads',
   // Code mode (V9 4.3)
   'src/components/Background',
   'src/components/Changes',
@@ -52,7 +55,7 @@ const MIGRATED = [
   'src/utils/quotaThresholds.ts'
 ]
 /** Text that stays the same in every language: product and tool names, commands and sample values. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph',
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'OxePod', 'OxePost', 'cURL', 'OpenAPI 3', 'claude.ai',
   'GitHub', 'MCP', 'RTK · Caveman · Semantic', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
   'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000',
   'stdio', 'command:', 'args:', 'env:', 'url:', 'headers:', 'filesystem', 'github', 'npx', '-y @modelcontextprotocol/server-filesystem /tmp',
@@ -113,8 +116,9 @@ describe('interface copy', () => {
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {
           const text = (match[1] ?? match[2] ?? '').trim()
-          // A template made only of ${…} values holds no words of its own.
-          if (/[A-Za-z]/.test(text.replace(/\$\{[^}]*\}/g, '')) && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
+          // A template made only of ${…} values holds no words of its own; text that starts with `:` `,` or `?` is a
+          // ternary between two elements or the next argument after a generic type (`Set<string>, b: Set<`), not JSX text.
+          if (/[A-Za-z]/.test(text.replace(/\$\{[^}]*\}/g, '')) && !/^[:,?]/.test(text) && !UNTRANSLATED.has(text)) found.push(`${file}:${number} ${text.slice(0, 80)}`)
         }
       }
     }

@@ -10,6 +10,9 @@ export interface WorkbenchPanelItem {
   active: boolean
   onToggle: () => void
   disabled?: boolean
+  /** The name in the interface language, when the caller translates it; the catalog's English name otherwise. */
+  label?: string
+  title?: string
 }
 
 /** Menu entries for panels: checked when open, so several can be stacked in Code. Without a workspace, a line says why it is empty. */
@@ -21,8 +24,8 @@ export function panelMenuEntries(items: WorkbenchPanelItem[]): MenuEntry[] {
 /** A bar button that opens or closes one panel, with the shared label and shortcut. */
 export function WorkbenchPanelToggle({ item, className }: { item: WorkbenchPanelItem; className: string }): ReactElement {
   useTranslation('code')
-  const { label, icon: Icon } = WORKBENCH_PANELS[item.id]
-  return <button type="button" className={className} aria-label={label} title={panelTitle(item.id)} aria-pressed={item.active} disabled={item.disabled} onClick={item.onToggle}>
+  const { icon: Icon } = WORKBENCH_PANELS[item.id], label = item.label ?? WORKBENCH_PANELS[item.id].label
+  return <button type="button" className={className} aria-label={label} title={item.title ?? panelTitle(item.id)} aria-pressed={item.active} disabled={item.disabled} onClick={item.onToggle}>
     <Icon size={14} aria-hidden="true" /><span>{label}</span>
   </button>
 }

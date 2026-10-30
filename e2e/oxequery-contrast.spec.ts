@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type Page } from '@playwright/test
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer, openView } from './helpers/oxepod'
 
 /**
  * Text in OxeQuery must be readable in both modes: WCAG AA asks 4.5:1 for normal text and 3:1 for large text.
@@ -26,7 +27,7 @@ const AUDIT = `(() => {
     return base
   }
   const failures = []
-  const roots = [...document.querySelectorAll('.oq-view, [role="dialog"], .oq-sidebar')]
+  const roots = [...document.querySelectorAll('.oq-view, [role="dialog"], .oq-sidebar, .pod-host:not([aria-hidden="true"]), aside[aria-label="OxePod sidebar"]')]
   const seen = new Set()
   for (const root of roots) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
@@ -74,7 +75,7 @@ test('OxeQuery text is readable in light and dark mode', async () => {
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await page.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
     await expect(page.getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()
 
@@ -86,8 +87,9 @@ test('OxeQuery text is readable in light and dark mode', async () => {
       await page.getByRole('dialog', { name: /Server of/ }).waitFor()
       report[`${mode} server dialog`] = await page.evaluate(AUDIT) as unknown[]
       await page.keyboard.press('Escape')
-      await page.getByRole('tab', { name: 'Containers' }).click()
+      await openView(page, 'OxePod')
       report[`${mode} containers`] = await page.evaluate(AUDIT) as unknown[]
+      await openView(page, 'OxeQuery')
       await page.getByRole('tab', { name: 'pg-dev' }).click()
     }
     const failing = Object.fromEntries(Object.entries(report).filter(([, list]) => list.length > 0))

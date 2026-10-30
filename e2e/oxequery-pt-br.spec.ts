@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchApp, openDemoWorkspace } from './helpers/launch'
+import { connectFromContainer } from './helpers/oxepod'
 import type Catalog from '../shared/locales/en/oxequery.json'
 
 const pt = JSON.parse(readFileSync(join(process.cwd(), 'shared', 'locales', 'pt-BR', 'oxequery.json'), 'utf8')) as typeof Catalog & { workbench: { affected_other: string } }
@@ -21,11 +22,12 @@ test('OxeQuery runs the main query flow in Brazilian Portuguese', async () => {
     const view = page.locator('.oq-view')
     await view.waitFor()
 
-    // The view's own tabs and the sidebar come from the lazily loaded catalog.
-    await expect(view.getByRole('tab', { name: pt.view.tab.containers })).toBeVisible()
+    // The welcome page and the sidebar come from the lazily loaded catalog.
+    await expect(view.locator('.oq-welcome')).toContainText(pt.welcome.title)
     await expect(page.locator('.oq-sidebar').getByRole('region', { name: pt.connections.title })).toBeVisible()
 
-    await page.getByRole('button', { name: pt.containers.connectNamed.replace('{{name}}', 'pg-dev') }).click()
+    // The connection comes from its container in OxePod, with the form in Portuguese.
+    await connectFromContainer(page, 'pg-dev', { connect: /no OxeQuery$/, save: pt.form.saveOpen })
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     const tree = page.getByRole('navigation', { name: pt.tree.label })
     await tree.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })

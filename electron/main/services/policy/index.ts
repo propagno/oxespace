@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { evaluatePolicy, policyBlockedMessage } from '../../../../shared/policy'
+import { noteWithheld, scrubEnvironment, type EnvScope } from '../../../../shared/env-scrub'
 import { PolicyStore } from './policy-store'
 
 /**
@@ -65,4 +66,16 @@ export function integrationBlocked(resource: string, what: string, projectRoot?:
   if (!policy) return undefined
   const decision = policy.decide('integration.use', resource, projectRoot)
   return decision.allowed ? undefined : policyBlockedMessage(decision, what)
+}
+
+/**
+ * The environment an agent-side child process (a provider CLI, a hook, an MCP server) inherits: secret-looking
+ * variables are left out unless the provider needs them or policy allows `env:<NAME>` (roadmap S7). Names withheld
+ * are remembered, names only, for Settings and diagnostics.
+ */
+export function inheritedEnvironment(scope: EnvScope, projectRoot?: string | null, source: NodeJS.ProcessEnv = process.env,
+  policy: PolicyStore | null = policyStore()): NodeJS.ProcessEnv {
+  const result = scrubEnvironment(source, { scope, policy: policy ? policy.load(projectRoot) : null })
+  noteWithheld(scope, result.withheld)
+  return result.env
 }

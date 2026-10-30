@@ -1,4 +1,4 @@
-/* OxeQuery: containers and databases. Everything here loads with the lazy chunk. */
+/* OxeQuery: databases. Everything here loads with the lazy chunk. Containers are in OxePod (OxePod.module.css). */
 .app-shell.oq-shell { grid-template-columns: var(--thread-sidebar-width, 280px) minmax(0, 1fr); min-height: 0; overflow: hidden; }
 .workspace-surface.oq-surface { min-height: 0; overflow: hidden; }
 .oq-host { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
@@ -44,44 +44,9 @@
 .oq-view textarea, .oq-form input { border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; font-size: var(--text-xs); }
 .oq-empty { display: grid; place-content: center; gap: 8px; width: 100%; padding: 32px; text-align: center; color: var(--text-secondary); }
 
-.oq-containers { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
-.oq-containers-body { display: flex; flex: 1; min-height: 0; }
-.oq-table-wrap { flex: 1; min-width: 0; overflow: auto; }
-.oq-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
-.oq-table th { position: sticky; top: 0; padding: 6px 10px; text-align: left; color: var(--text-muted); background: var(--surface-canvas); font-weight: 500; }
-.oq-table td { padding: 6px 10px; border-top: 1px solid var(--border-default); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.oq-table tbody tr { cursor: pointer; }
-.oq-table tbody tr:hover, .oq-table tbody tr.is-selected { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
 .oq-link { padding: 0; border: 0; color: var(--text-primary); background: transparent; font-weight: 500; cursor: pointer; }
-.oq-state { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: var(--radius-pill, 999px); font-size: var(--text-2xs); background: var(--ov-3); }
-.oq-state[data-state='running'] { color: var(--intent-success-fg); background: var(--intent-success-bg); }
-.oq-state[data-state='exited'], .oq-state[data-state='dead'] { color: var(--text-muted); }
-.oq-state[data-state='paused'], .oq-state[data-state='restarting'] { color: var(--intent-warning-fg); background: var(--intent-warning-bg); }
-.oq-actions { display: flex; gap: 4px; justify-content: flex-end; }
-.oq-actions button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--text-xs); white-space: nowrap; cursor: pointer; }
-.oq-actions button:hover { background: color-mix(in srgb, var(--text-primary) 8%, transparent); }
-.oq-actions .oq-connect { border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); }
-.oq-actions-head { text-align: right !important; }
-.oq-hint { display: flex; align-items: center; gap: 8px; margin: 0 10px 6px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--text-secondary); font-size: var(--text-xs); }
-.oq-hint svg { flex: none; color: var(--accent); }
-.oq-engine-bar { display: grid; gap: 6px; margin: 0 10px 6px; }
-.oq-engine-bar label { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--text-secondary); }
-.oq-engine-bar select { min-width: 0; flex: 1; }
-.oq-engine-bar .oq-hint { margin: 0; }
 
-.oq-details { display: flex; flex-direction: column; width: min(380px, 40%); min-width: 300px; border-left: 1px solid var(--border-default); background: var(--surface-raised); }
-.oq-details > header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; }
-.oq-details > header button { border: 0; color: inherit; background: transparent; font-size: 18px; cursor: pointer; }
-.oq-details > nav { display: flex; gap: 6px; padding: 0 12px 8px; }
-.oq-overview { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0; padding: 4px 12px 12px; font-size: var(--text-xs); overflow: auto; }
-.oq-overview dt { color: var(--text-muted); }
-.oq-overview dd { margin: 0; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
-.oq-logs, .oq-run, .oq-term { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0 4px 8px; }
-.oq-logs pre, .oq-run pre, .oq-columns pre, .oq-documents pre { margin: 0; padding: 8px 12px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; line-height: 1.45; }
-.oq-logs pre { flex: 1; min-height: 0; background: var(--surface-canvas); white-space: pre-wrap; word-break: break-word; }
-.oq-run { padding: 0 12px; gap: 6px; }
-.oq-run-result pre { max-height: 360px; background: var(--surface-canvas); border: 1px solid var(--border-default); border-radius: var(--radius-sm); }
-.oq-shell-terminal { flex: 1; min-height: 240px; position: relative; }
+.oq-columns pre, .oq-documents pre { margin: 0; padding: 8px 12px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; line-height: 1.45; }
 
 .oq-workbench { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .oq-workbench-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
@@ -89,6 +54,7 @@
 .oq-badge { padding: 1px 8px; border-radius: var(--radius-pill, 999px); font-size: var(--text-2xs); background: var(--ov-3); }
 .oq-badge[data-environment='prod'] { color: var(--text-on-solid); background: var(--intent-danger-solid); }
 .oq-badge[data-readonly='false'] { color: var(--intent-warning-solid); }
+.oq-badge[data-policy='true'] { color: var(--intent-danger-solid); }
 .oq-confirm { margin: 8px 10px; padding: 10px 12px; border: 1px solid var(--intent-danger-solid); border-radius: var(--radius-md); background: color-mix(in srgb, var(--intent-danger-solid) 8%, transparent); font-size: var(--text-xs); }
 .oq-confirm ul { margin: 6px 0; padding-left: 18px; }
 .oq-confirm div { display: flex; gap: 8px; justify-content: flex-end; }
@@ -175,19 +141,8 @@
 .oq-outcome-ok { color: var(--intent-success-solid); background: color-mix(in srgb, var(--intent-success-solid) 10%, transparent); }
 
 /* ── Containers: summary and engine problems ─────────────────────────────── */
-.oq-summary { display: flex; gap: 18px; padding: 2px 12px 8px; color: var(--text-muted); font-size: var(--text-xs); }
-.oq-summary strong { margin-right: 4px; color: var(--text-primary); font-size: var(--text-sm); }
-.oq-engine-problem { max-width: 480px; margin: auto; justify-items: center; }
-.oq-engine-problem h3 { margin: 4px 0 0; color: var(--text-primary); font-size: var(--text-lg, 16px); }
-.oq-engine-problem p { margin: 0; line-height: 1.5; }
-.oq-engine-problem code { padding: 1px 6px; border-radius: var(--radius-sm); background: var(--ov-3); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
 
 /* ── Sidebar details ─────────────────────────────────────────────────────── */
-.oq-container-item { padding-left: 14px; }
-.oq-side-note { margin: 2px 8px; font-size: var(--text-2xs); }
-.oq-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
-.oq-dot[data-state='running'] { background: var(--intent-success-solid); }
-.oq-dot[data-state='paused'], .oq-dot[data-state='restarting'] { background: var(--intent-warning-solid); }
 .oq-engine-tag { padding: 0 6px; border: 1px solid var(--border-default); border-radius: var(--radius-pill, 999px); color: var(--text-muted); font-size: 10px; line-height: 16px; }
 .oq-env { color: var(--intent-warning-solid); }
 
@@ -248,6 +203,8 @@
 .oq-preferences-ceiling { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .oq-preferences-ceiling > legend { margin-bottom: 8px; padding: 0; font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
 .oq-preferences-ceiling > small { font-size: var(--text-xs); color: var(--text-muted); }
+.oq-preferences-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.oq-preferences-limits > legend { margin-bottom: 4px; padding: 0; font-size: var(--text-xs); color: var(--text-muted); }
 .oq-hostkey div { display: flex; justify-content: flex-end; gap: 8px; }
 .oq-hostkey button { padding: 4px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--text-xs); cursor: pointer; }
 .oq-hostkey-danger { border-color: var(--intent-danger-solid); background: color-mix(in srgb, var(--intent-danger-solid) 10%, transparent); }
@@ -324,12 +281,9 @@
 .oq-activity-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .oq-activity-table th, .oq-activity-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-default); vertical-align: top; }
 .oq-activity-table code { display: block; opacity: 0.75; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.oq-activity-table tr[data-decision="denied"] td:nth-child(5), .oq-activity-table tr[data-decision="refused"] td:nth-child(5) { color: var(--intent-danger-solid); }
+.oq-activity-table tr[data-decision="denied"] .oq-decision, .oq-activity-table tr[data-decision="refused"] .oq-decision { color: var(--intent-danger-solid); }
 
 /* ---- Container resources and stats --------------------------------------- */
-.oq-resources { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border-default); max-height: 45%; overflow: auto; }
-.oq-resources > header { display: flex; align-items: center; gap: 8px; }
-.oq-stats { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
 
 /* Grid: sticky header and row numbers, a block selection and column resizing. */
 .oq-grid:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -421,11 +375,6 @@
 .oq-import-options label.oq-inline { display: inline-flex; }
 .oq-import-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; width: 100%; }
 
-.oq-compose { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 10px; padding: 8px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); font-size: var(--text-xs); }
-.oq-compose button { padding: 4px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: transparent; cursor: pointer; }
-.oq-compose-output { flex-basis: 100%; }
-.oq-compose-output header { display: flex; justify-content: space-between; align-items: center; }
-.oq-compose-output pre { max-height: 220px; overflow: auto; margin: 4px 0 0; padding: 8px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--text-primary) 6%, transparent); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; white-space: pre-wrap; }
 .oq-ask { position: relative; display: inline-flex; align-items: center; gap: 6px; }
 .oq-ask-menu { position: absolute; top: calc(100% + 4px); right: 0; display: grid; gap: 4px; min-width: 240px; padding: 8px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 18%, transparent); }
 .oq-ask-menu > button { text-align: left; }
@@ -457,9 +406,6 @@
 .oq-documents > details > pre { padding-top: 6px; }
 .oq-doc-actions { float: none; }
 /* Container table: one rule under each row, not under each cell. */
-.oq-table td { vertical-align: middle; }
-.oq-table tbody tr { border-top: 1px solid var(--border-default); }
-.oq-table td { border-top: 0; }
 /* Only an open filter or an open editor needs the full width; collapsed, they stay chips in the row. */
 .oq-extras > form:not(:has(select, input)), .oq-extras > .oq-editor-bar:not(:has(.oq-edit-form, .oq-staged)) { flex-basis: auto; }
 .oq-extras > form:not(:has(select, input)) { border: 0; background: transparent; padding: 0; }
@@ -480,7 +426,6 @@
 .oq-connection-row > .oq-icon:nth-last-child(2) { right: 28px; }
 .oq-connection-row > .oq-icon:nth-last-child(3) { right: 54px; }
 .oq-connection-row > .oq-icon:nth-last-child(4) { right: 80px; }
-.oq-containers > .oq-disclosure { width: 100%; margin: 0; padding: 8px 12px; border-top: 1px solid var(--border-default); text-align: left; }
 .oq-library li > button:first-child { align-items: flex-start; text-align: left; }
 .oq-library li > button:first-child strong { font-weight: 600; }
 .oq-dialog-form { display: flex; flex-direction: column; gap: 10px; }
@@ -521,11 +466,6 @@
 .oq-safety > .oq-segment { background: var(--surface-base); }
 
 /* Container table: cells keep their table layout; the row carries the rule. */
-.oq-actions, .oq-stats { display: flex; }
-.oq-actions { justify-content: flex-end; gap: var(--space-1); }
-.oq-stats { flex-direction: column; }
-td:has(> .oq-actions) { width: 1%; }
-.oq-actions button { height: var(--control-sm); }
 
 /* Agent activity header: title, hint, filter and refresh sit on one baseline. */
 .oq-activity-head { align-items: center; row-gap: var(--space-2); }
@@ -574,11 +514,7 @@ td:has(> .oq-actions) { width: 1%; }
 .oq-view .oq-toolbar input:not([type='checkbox']) { min-width: 120px; }
 
 /* Narrow panes: the containers table keeps its actions in view by dropping the image column and the button labels. */
-.oq-table-wrap { container-type: inline-size; }
 @container (max-width: 860px) {
-  .oq-table th:nth-child(2), .oq-table td:nth-child(2) { display: none; }
-  .oq-actions button { min-width: var(--control-sm); padding: 0 var(--space-1); }
-  .oq-actions button > span { display: none; }
 }
 .oq-nav-item { min-height: var(--control-md); }
 
@@ -591,3 +527,28 @@ td:has(> .oq-actions) { width: 1%; }
 .oq-query-error-detail summary { cursor: pointer; color: var(--text-secondary); }
 .oq-query-error-detail summary small { margin-left: var(--space-2); color: var(--text-muted); }
 .oq-query-error-detail pre { margin: var(--space-2) 0 0; }
+
+/* Grid: filter bar, pinned columns, JSON and array viewers */
+.oq-grid-wrap { display: flex; flex: 1; flex-direction: column; min-height: 120px; min-width: 0; }
+.oq-grid-wrap > .oq-grid { min-height: 0; }
+.oq-grid-filter { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--border-default); }
+.oq-grid-filter input { flex: 1; min-width: 0; max-width: 320px; height: var(--control-sm); font-size: var(--text-xs); }
+.oq-grid-pin { margin-left: 6px; padding: 0 4px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; opacity: 0; }
+.oq-grid-header > span:hover .oq-grid-pin, .oq-grid-pin:focus-visible, .oq-grid-pin.is-on { opacity: 1; }
+.oq-grid-pin.is-on { color: var(--accent); }
+.oq-grid-header > span.is-pinned, .oq-grid-row [role='gridcell'].is-pinned { z-index: var(--layer-raised); background: var(--surface-raised); }
+.oq-grid-row [role='gridcell'].is-pinned.is-range { background: color-mix(in srgb, var(--accent) 22%, var(--surface-raised)); }
+.oq-json { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.oq-json-tools { display: flex; gap: 6px; padding: 6px 10px 0; }
+.oq-json-tree { flex: 1; padding: 8px 10px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-json-children { margin-left: 14px; padding-left: 6px; border-left: 1px solid var(--border-default); }
+.oq-json-toggle { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.oq-json-key { color: var(--text-secondary); }
+.oq-json-string { color: var(--text-primary); word-break: break-word; }
+.oq-json-number, .oq-json-bool { color: var(--accent); }
+.oq-json-null, .oq-json-summary { color: var(--text-muted); font-style: italic; }
+.oq-array { flex: 1; padding: 8px 10px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-array ol { margin: 6px 0 0; padding-left: 28px; }
+.oq-array li.is-null { color: var(--text-muted); font-style: italic; }
+
+.oq-welcome { align-items: center; justify-content: center; padding: 24px; }

@@ -98,6 +98,11 @@ item with no expected effect in the spec fails CI. Context menus that changed ha
 | oxequery.importConnections | Import connections | KEEP | Opens the system file dialog. The e2e checks only that the control exists. |
 | oxequery.settings | OxeQuery settings | KEEP | Opens OxeQuery settings. |
 | oxequery.compose | Containers & Compose projects | MOVES | Opens the Containers tab. Renamed so it can be found. Moves to OxePod (Q20/P1). |
+| oxepost.open | Open OxePost | KEEP | Opens the API client (H1). |
+| oxepost.newRequest | New API request | KEEP | Starts an empty request; Save writes it to .oxespace/requests. |
+| oxepost.filter | Find an API request | KEEP | Focuses the request filter. |
+| oxepost.import | Import cURL or OpenAPI | KEEP | Opens the Import requests dialog. |
+| oxepost.environments | API environments | KEEP | Opens the Environments dialog. |
 
 ## Panel menus and bars
 

@@ -17,6 +17,7 @@ import { humanizeError } from '../../utils/humanizeError'
 import { AGENT_STATE_HINT, AGENT_STATE_LABEL, agentStatusFor, type McpAgentState } from './mcpAgentStatus'
 import { formatClock } from '../../utils/formatTime'
 import { RichText } from '../../i18n/RichText'
+import { McpServerSafety } from './McpServerSafety'
 
 interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and tested as soon as it is saved. */ fromCatalog?: boolean; /** A remote catalog server: the values fill its headers. */ remote?: McpCatalogEntry }
 
@@ -395,7 +396,7 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
             <span className="mcp-server-tag" title={server.testedAtMs ? tc('mcp.testedAt', { time: formatClock(server.testedAtMs) }) : tc('mcp.notTested')}>{testLabel(server.health)}</span>
             <span className="mcp-server-tag">{server.transport}</span>
             {server.workspaceId ? <span className="mcp-server-tag scope-ws">{tc('mcp.scope.workspace')}</span> : <span className="mcp-server-tag scope-global">{tc('mcp.scope.global')}</span>}
-            {server.trusted ? <span className="mcp-server-tag">{tc('mcp.trusted')}</span> : <span className="mcp-server-tag">{tc('mcp.reviewRequired')}</span>}
+            {server.trusted ? <span className="mcp-server-tag">{tc('mcp.trusted')}</span> : <span className="mcp-server-tag">{server.guard?.quarantine ? tc('mcp.quarantined') : tc('mcp.reviewRequired')}</span>}
             {server.tools.length > 0 ? <span>{tc('mcp.tools', { count: server.tools.length })}</span> : null}
             {server.healthMessage && server.health !== 'healthy' ? <span className={server.health === 'unhealthy' ? 'mcp-server-err' : undefined}>{server.healthMessage}</span> : null}
           </span>
@@ -420,6 +421,7 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
 
       {expanded ? (
         <div className="mcp-server-detail">
+          <McpServerSafety server={server} />
           {!server.trusted ? (
             <div className="mcp-server-trust-box">
               <ShieldCheck size={14} aria-hidden="true" />

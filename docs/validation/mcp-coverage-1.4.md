@@ -127,13 +127,13 @@ before. Code panes receive the whole registry.
 | `oxequery.write` | Change data or schema | **confirm**: `oxespace_db_execute`, `oxespace_mongo_write` |
 | `oxequery.saved_queries` | Saved queries, history, import and export of data | Excluded: The person's notebook and bulk data moves; agents run one approved statement at a time. |
 | `oxequery.secrets` | Connection credentials, SSH host keys, export and import of connections | **Forbidden**: Secrets and trust. |
-| `containers.runtime` | Containers: list, logs, start, stop, restart | **read**: `oxespace_containers_list`, `oxespace_container_logs`<br>**confirm**: `oxespace_container_action` |
-| `containers.resources` | Images, volumes, networks, compose, exec and shell, stats, database containers | Planned (P7): OxePod mode owns container resources. |
+| `containers.runtime` | Containers (OxePod): list, logs, start, stop, restart | **read**: `oxespace_containers_list`, `oxespace_container_logs`<br>**confirm**: `oxespace_container_action` |
+| `containers.resources` | Images, volumes, networks, compose, exec and shell, stats, database containers | Planned (P7): OxePod shows them to the person; tools for them come with P7. Removing a container and cleaning up are the person's confirmed actions in OxePod and are not tools. A container's environment reaches the page redacted and never an agent. |
 | `skills.use` | Skills: list, read, add | **read**: `oxespace_skills#list`, `oxespace_skills#get`<br>**confirm**: `oxespace_skills_change#create` |
 | `skills.invoke` | Invoke a skill in a pane | Excluded: Types the skill into a terminal. Agents read its body with oxespace_skills get. |
 | `automations.use` | Scheduled automations | **read**: `oxespace_automations#list`, `oxespace_automations#runs`<br>**write**: `oxespace_automations_change#disable`<br>**confirm**: `oxespace_automations_change#create`, `oxespace_automations_change#enable`, `oxespace_automations_change#run_now`, `oxespace_automations_change#remove` |
 | `mcp.servers` | MCP servers: list, health, start, stop | **read**: `oxespace_mcp_servers#list`<br>**write**: `oxespace_mcp_servers_change#stop`<br>**confirm**: `oxespace_mcp_servers_change#start` |
-| `mcp.server_trust` | Add, edit, import, trust or sign in to MCP servers | **Forbidden**: MCP server trust; commands, environment and headers carry secrets. |
+| `mcp.server_trust` | Add, edit, import, trust (also again after a quarantine) or sign in to MCP servers | **Forbidden**: MCP server trust, including trusting a quarantined server again; commands, environment and headers carry secrets. An agent can only read that a server is quarantined (oxespace_mcp_servers#list). |
 | `mcp.call_tool` | Call another server's tool from the app | Excluded: Agents reach those servers through their own MCP client, as the person trusted them. |
 | `linear.read` | Linear issues | **read**: `oxespace_linear#status`, `oxespace_linear#teams`, `oxespace_linear#issues`, `oxespace_linear#issue` |
 | `linear.token` | Linear API key | **Forbidden**: A token. |
@@ -146,4 +146,4 @@ before. Code panes receive the whole registry.
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |
 | `app.events` | Change notifications sent to the window | Excluded: Events, not actions: agents read the state they describe with the tools above. |
-| `oxepost.all` | OxePost | Planned (H8): A future product; no IPC yet. |
+| `oxepost.all` | OxePost: collections, environments, sending | Planned (H8): OxePost (H1-H4) is the person's API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system's secure storage and are never a tool, an argument or a result. |

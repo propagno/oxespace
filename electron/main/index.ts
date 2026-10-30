@@ -450,7 +450,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         const context = await memoryService.projects.resolve(task.path)
         const settings = memoryService.effectiveSettings(context.projectId)
         if (settings.enabled && (task.includeMemory ?? settings.automaticContext)) {
-          const reply = await memoryService.manager.run(context, provider => provider.getRelevantContext(context, task.objective))
+          const reply = await memoryService.manager.run(context, provider => provider.getRelevantContext({ ...context, audience: 'delegate' }, task.objective))
           memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : ''
         }
       } catch { /* Optional memory must not block the explicit handoff. */ }

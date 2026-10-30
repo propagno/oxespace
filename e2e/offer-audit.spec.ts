@@ -15,8 +15,9 @@ type Check = (page: Page) => Promise<void>
 const dialog = (name: string | RegExp): Check => async page => { await expect(page.getByRole('dialog', { name }).first()).toBeVisible() }
 const testId = (id: string): Check => async page => { await expect(page.getByTestId(id).first()).toBeVisible() }
 // CSS, not roles: a modal hides the rest of the page from the accessibility tree.
-const view = (shell: 'code' | 'thread' | 'data'): Check => async page => {
-  await expect(page.locator(`nav[aria-label="Application view"] button[aria-label="${shell === 'data' ? 'OxeQuery' : shell === 'code' ? 'Code' : 'Thread'}"]`)).toHaveAttribute('aria-pressed', 'true')
+const VIEW_NAMES = { code: 'Code', thread: 'Thread', data: 'OxeQuery', pods: 'OxePod', post: 'OxePost' } as const
+const view = (shell: keyof typeof VIEW_NAMES): Check => async page => {
+  await expect(page.locator(`nav[aria-label="Application view"] button[aria-label="${VIEW_NAMES[shell]}"]`)).toHaveAttribute('aria-pressed', 'true')
 }
 const both = (...checks: Check[]): Check => async page => { for (const check of checks) await check(page) }
 const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
@@ -45,11 +46,23 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'oxequery.newTable': both(view('data'), toast('Nothing to do here yet')),
   'oxequery.exportConnections': both(view('data'), toast('Nothing to do here yet')),
   'oxequery.settings': both(view('data'), dialog('OxeQuery settings')),
-  'oxequery.compose': both(view('data'), async page => { await expect(page.getByRole('tab', { name: 'Containers' })).toHaveAttribute('aria-selected', 'true') }),
+  'oxequery.newDatabase': both(view('data'), dialog('New database')),
+  'oxequery.activity': both(view('data'), async page => { await expect(page.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true') }),
+  'oxepod.open': view('pods'),
+  'oxepod.filter': both(view('pods'), async page => { await expect(page.getByRole('searchbox', { name: 'Filter containers' })).toBeFocused() }),
+  'oxepod.resources': both(view('pods'), async page => { await expect(page.getByRole('region', { name: 'Images, volumes and networks' })).toBeVisible() }),
+  'oxepod.activity': both(view('pods'), async page => { await expect(page.locator('.pod-host').getByRole('region', { name: 'Agent activity' })).toBeVisible() }),
+  'oxepod.pruneContainers': both(view('pods'), dialog('Remove every stopped container?')),
+  'oxepost.open': view('post'),
+  'oxepost.newRequest': both(view('post'), async page => { await expect(page.getByRole('textbox', { name: 'Request name' })).toHaveValue('New request') }),
+  'oxepost.filter': both(view('post'), async page => { await expect(page.getByRole('searchbox', { name: 'Filter requests' })).toBeFocused() }),
+  'oxepost.import': both(view('post'), dialog('Import requests')),
+  'oxepost.environments': both(view('post'), dialog('Environments')),
   // Kept-ready workspaces is a General preference, shown once.
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
   'help.shortcuts': dialog('Keyboard shortcuts'),
+  'help.report-problem': both(dialog('Report a problem'), testId('report-problem')),
   'activity.open': testId('activity-center'),
   'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
   'new-workspace': dialog('Create new workspace'),
@@ -139,7 +152,7 @@ async function dismiss(page: Page): Promise<void> {
   }
 }
 
-async function selectView(page: Page, name: 'Code' | 'Thread' | 'OxeQuery'): Promise<void> {
+async function selectView(page: Page, name: 'Code' | 'Thread' | 'OxeQuery' | 'OxePod'): Promise<void> {
   await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name }).click()
 }
 
@@ -163,8 +176,8 @@ test.describe('offer audit', () => {
     const launched = await launchWithWorkspace()
     const { app, page } = launched
     try {
-      // OxeQuery's commands register after first paint.
-      await expect.poll(async () => (await listedCommandIds(page)).some(id => id.startsWith('oxequery.'))).toBe(true)
+      // OxeQuery's and OxePod's commands register after first paint.
+      await expect.poll(async () => { const ids = await listedCommandIds(page); return ids.some(id => id.startsWith('oxequery.')) && ids.some(id => id.startsWith('oxepod.')) && ids.some(id => id.startsWith('oxepost.')) }).toBe(true)
       const ids = await listedCommandIds(page)
       const untested = ids.filter(id => !effectFor(id) && !NATIVE_DIALOG.has(id))
       expect(untested, 'palette commands without an expected effect in e2e/offer-audit.spec.ts').toEqual([])
@@ -248,11 +261,11 @@ test.describe('offer audit', () => {
     }
   })
 
-  test('a Code panel command run from Thread or OxeQuery opens Code with the panel, and Ctrl+, opens Settings', async () => {
+  test('a Code panel command run from Thread, OxeQuery or OxePod opens Code with the panel, and Ctrl+, opens Settings', async () => {
     const launched = await launchWithWorkspace()
     const { app, page } = launched
     try {
-      for (const name of ['Thread', 'OxeQuery'] as const) {
+      for (const name of ['Thread', 'OxeQuery', 'OxePod'] as const) {
         await selectView(page, name)
         await runCommand(page, 'tool-editor')
         await view('code')(page)
@@ -300,7 +313,7 @@ test.describe('offer audit', () => {
         'File/Exit': 'native',
         'Edit/Undo': 'native', 'Edit/Redo': 'native', 'Edit/Cut': 'native', 'Edit/Copy': 'native', 'Edit/Paste': 'native', 'Edit/Select all': 'native',
         'View/Command palette…': async p => { await expect(paletteInput(p)).toBeVisible() },
-        'View/Code': view('code'), 'View/Thread': view('thread'), 'View/OxeQuery': view('data'),
+        'View/Code': view('code'), 'View/Thread': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'), 'View/OxePost': view('post'),
         'View/Toggle sidebar': async p => { await expect(p.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
         'View/Files': testId('workspace-editor-panel'),
         'View/Commit & pull request': testId('workspace-github-panel'),
@@ -315,7 +328,8 @@ test.describe('offer audit', () => {
         'Tools/Usage & limits': dialog('Usage & rate limits'),
         'Tools/Linear issues': dialog('Linear issues'),
         'Help/Keyboard shortcuts': dialog('Keyboard shortcuts'),
-        'Help/Diagnostics': settingsPage('Diagnostics')
+        'Help/Diagnostics': settingsPage('Diagnostics'),
+        'Help/Report a problem…': dialog('Report a problem')
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
         Appearance: label => label === 'Follow system' ? async () => undefined : rootData('mode', label.toLowerCase()),
@@ -360,7 +374,7 @@ test.describe('offer audit', () => {
           await dismiss(page)
           if (label === 'Toggle sidebar' || label === 'Toggle split layout' || label.startsWith('Maximize')) await runCommand(page, label === 'Toggle sidebar' ? 'toggle-sidebar' : label.startsWith('Maximize') ? 'maximize-pane' : 'toggle-split-layout')
           if (label.startsWith('Split pane')) await runCommand(page, 'layout-2')
-          if (label === 'Thread' || label === 'OxeQuery') await selectView(page, 'Code')
+          if (label === 'Thread' || label === 'OxeQuery' || label === 'OxePod' || label === 'OxePost') await selectView(page, 'Code')
           await dismiss(page)
         }
       }

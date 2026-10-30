@@ -283,9 +283,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['memory.status', 'memory.search', 'memory.recent', 'memory.handoffs', 'memory.storage', 'memory.acceptHandoff']
   },
   'memory.admin': {
-    label: 'Install, configure or roll back memory; wire it into agents',
-    excluded: 'Memory is the person\'s opt-in.',
-    ipc: ['memory.configure', 'memory.install', 'memory.rollback', 'memory.setupAgents']
+    label: 'Install, configure or roll back memory; wire it into agents; list, export, delete or reset what is stored',
+    excluded: 'Memory is the person\'s opt-in, and so is looking through, exporting, deleting or resetting what it holds. Agents only search and record.',
+    ipc: ['memory.configure', 'memory.install', 'memory.rollback', 'memory.setupAgents', 'memory.notes', 'memory.noteUpdate', 'memory.noteDelete', 'memory.export', 'memory.reset']
   },
 
   // ---- documentation ------------------------------------------------------------------------
@@ -297,7 +297,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     }
   },
 
-  // ---- OxeQuery -----------------------------------------------------------------------------
+  // ---- OxeQuery (databases) and OxePod (containers) -------------------------------------------
   'oxequery.read': {
     label: 'Connections, schemas, read queries, plans, activity',
     tools: {
@@ -318,13 +318,13 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['oxeQuery.call']
   },
   'containers.runtime': {
-    label: 'Containers: list, logs, start, stop, restart',
+    label: 'Containers (OxePod): list, logs, start, stop, restart',
     tools: { oxespace_containers_list: 'read', oxespace_container_logs: 'read', oxespace_container_action: 'confirm' },
     ipc: ['oxeQuery.call']
   },
   'containers.resources': {
     label: 'Images, volumes, networks, compose, exec and shell, stats, database containers',
-    planned: 'P7', reason: 'OxePod mode owns container resources.',
+    planned: 'P7', reason: 'OxePod shows them to the person (P1-P3); tools for them come with P7. Removing a container and cleaning up stopped containers or dangling images are confirmed actions of the person in OxePod and are not tools. The environment of a container reaches the page redacted (P6) and never an agent.',
     ipc: ['oxeQuery.call']
   },
 
@@ -346,8 +346,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['mcp.list', 'mcp.start', 'mcp.stop', 'mcp.test', 'mcp.diagnose']
   },
   'mcp.server_trust': {
-    label: 'Add, edit, import, trust or sign in to MCP servers',
-    forbidden: 'MCP server trust; commands, environment and headers carry secrets.',
+    label: 'Add, edit, import, trust (also again after a quarantine) or sign in to MCP servers',
+    forbidden: 'MCP server trust, including trusting a quarantined server again; commands, environment and headers carry secrets. An agent can only read that a server is quarantined (oxespace_mcp_servers#list).',
     ipc: ['mcp.create', 'mcp.update', 'mcp.delete', 'mcp.discover', 'mcp.importDiscovered', 'mcp.openSignIn']
   },
   'mcp.call_tool': { label: 'Call another server\'s tool from the app', excluded: 'Agents reach those servers through their own MCP client, as the person trusted them.', ipc: ['mcp.callTool'] },
@@ -384,5 +384,5 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
 
   // ---- future products ----------------------------------------------------------------------
-  'oxepost.all': { label: 'OxePost', planned: 'H8', reason: 'A future product; no IPC yet.' }
+  'oxepost.all': { label: 'OxePost: collections, environments, sending', planned: 'H8', reason: 'OxePost (H1-H4) is the person\'s API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system\'s secure storage and are never a tool, an argument or a result.', ipc: ['oxePost.call'] }
 }

@@ -11,9 +11,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 80
+export const LATEST_DB_VERSION = 83
 /** How many pre-migration backups to retain. */
-const MAX_DB_BACKUPS = 5
+const MAX_DB_BACKUPS = 3
 
 export type AppDatabase = DatabaseHandle
 
@@ -35,7 +35,11 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
   let lastErr: unknown
   for (let attempt = 1; attempt <= OPEN_MAX_ATTEMPTS; attempt++) {
     try {
-      return openAndMigrate(databasePath)
+      const db = openAndMigrate(databasePath)
+      // Loaded after the window is up, so the retention code stays out of the main entry.
+      const dataDirectory = dirname(databasePath)
+      setTimeout(() => { void import('../services/storage-retention').then(module => module.scheduleStorageRetention(dataDirectory)).catch(() => undefined) }, 0)
+      return db
     } catch (err) {
       lastErr = err
       if (!isTransientDbError(err)) break // corruption/ABI — retrying won't help
@@ -509,6 +513,8 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 78) db.transaction(() => db.exec(readMigration('078_agent_action_audit.sql')))()
   if (startingVersion < 79) db.transaction(() => db.exec(readMigration('079_pane_agent_sessions.sql')))()
   if (startingVersion < 80) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('080_turn_usage_steps.sql'))))()
+  if (startingVersion < 82) db.transaction(() => db.exec(readMigration('082_memory_notes.sql')))()
+  if (startingVersion < 83) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('083_mcp_guard.sql'))))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

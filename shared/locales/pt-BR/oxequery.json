@@ -1,7 +1,7 @@
 {
   "activity": {
     "label": "Atividade dos agentes",
-    "intro": "Cada pedido de banco ou contêiner que um agente de IA fez, e o que você decidiu.",
+    "intro": "Cada pedido de banco que um agente de IA fez, e o que você decidiu.",
     "filter": "Filtro",
     "show": {
       "all": "Todos",
@@ -28,7 +28,9 @@
     },
     "rowsUnknown": "– linhas",
     "notRun": "não executado",
-    "failedCode": "falhou ({{code}})"
+    "failedCode": "falhou ({{code}})",
+    "introContainers": "Cada pedido de contêiner que um agente de IA fez, e o que você decidiu.",
+    "emptyContainers": "Os agentes só chegam a um contêiner quando você ativa o acesso de agentes numa conexão a ele no OxeQuery. Cada pedido que fizerem aparece aqui, com o que você decidiu."
   },
   "common": {
     "close": "Fechar",
@@ -117,159 +119,6 @@
     "imported_many": "{{count}} conexões importadas",
     "importSkipped_many": "{{count}} ignoradas: um túnel com chave ou senha não pode ser importado.",
     "exported_many": "{{count}} conexões exportadas"
-  },
-  "containers": {
-    "filter": "Filtrar contêineres",
-    "onlyRunning": "Só em execução",
-    "composeProject": "Projeto Compose",
-    "allProjects": "Todos os projetos",
-    "engine": "Motor de contêineres",
-    "engineVersion": "Motor de contêineres {{version}}",
-    "engineName": "Motor: {{engine}}",
-    "engineWithContext": "Motor: {{engine}} ({{where}})",
-    "newDatabase": "Novo banco",
-    "newDatabaseTitle": "Iniciar um contêiner PostgreSQL ou MongoDB e conectar a ele",
-    "summary": "Resumo",
-    "runningCount_one": "<strong>{{value}}</strong> em execução",
-    "runningCount_other": "<strong>{{value}}</strong> em execução",
-    "stoppedCount_one": "<strong>{{value}}</strong> parado",
-    "stoppedCount_other": "<strong>{{value}}</strong> parados",
-    "databaseCount_one": "<strong>{{value}}</strong> banco de dados",
-    "databaseCount_other": "<strong>{{value}}</strong> bancos de dados",
-    "updating": "Atualizando…",
-    "queryHint": "Para consultar um banco, clique em <strong>Conectar</strong> num contêiner PostgreSQL ou MongoDB abaixo, ou use <strong>Nova conexão</strong> para um servidor que não está em contêiner.",
-    "remoteContext": "O contexto Docker <strong>{{where}}</strong> está ativo. Tudo aqui — inclusive parar, remover e executar comando — age naquele host, não neste computador.",
-    "stopTitle": "Parar {{name}}?",
-    "restartTitle": "Reiniciar {{name}}?",
-    "stop": "Parar",
-    "restart": "Reiniciar",
-    "start": "Iniciar",
-    "databaseWarning": "Este é um contêiner de banco de dados; as conexões abertas e as consultas em execução são interrompidas.",
-    "managedVolume": "Ele foi criado pelo OxeQuery; os dados ficam guardados num volume nomeado.",
-    "noMatch": "Nenhum contêiner corresponde ao filtro.",
-    "emptyTitle": "Nenhum contêiner ainda.",
-    "list": "Lista de contêineres",
-    "column": {
-      "name": "Nome",
-      "image": "Imagem",
-      "state": "Estado",
-      "usage": "CPU / memória",
-      "ports": "Portas",
-      "actions": "Ações"
-    },
-    "state": {
-      "running": "em execução",
-      "exited": "encerrado",
-      "created": "criado",
-      "paused": "pausado",
-      "restarting": "reiniciando",
-      "dead": "morto",
-      "removing": "removendo"
-    },
-    "restartNamed": "Reiniciar {{name}}",
-    "stopNamed": "Parar {{name}}",
-    "startNamed": "Iniciar {{name}}",
-    "connectNamed": "Conectar a {{name}}",
-    "restartTitleShort": "Reiniciar este contêiner",
-    "stopTitleShort": "Parar este contêiner",
-    "startTitleShort": "Iniciar este contêiner",
-    "connectTitle": "Criar uma conexão com este banco e abri-la",
-    "runningCount_many": "<strong>{{value}}</strong> em execução",
-    "stoppedCount_many": "<strong>{{value}}</strong> parados",
-    "databaseCount_many": "<strong>{{value}}</strong> bancos de dados",
-    "connect": "Conectar"
-  },
-  "compose": {
-    "label": "Ações do projeto Compose",
-    "running_one": "{{running}} de {{count}} em execução",
-    "running_other": "{{running}} de {{count}} em execução",
-    "up": "Subir",
-    "start": "Iniciar",
-    "stop": "Parar",
-    "restart": "Reiniciar",
-    "logs": "Logs",
-    "down": "Derrubar",
-    "downAsk": "Derrubar…",
-    "done": "Concluído.",
-    "downTitle": "Derrubar {{project}}?",
-    "downConfirm": "Derrubar",
-    "downDescription": "Os contêineres e as redes são removidos. Os volumes nomeados são mantidos.",
-    "closeOutput": "Fechar saída",
-    "outputTitle": "{{project}} · {{action}}",
-    "running_many": "{{running}} de {{count}} em execução"
-  },
-  "details": {
-    "label": "Detalhes de {{name}}",
-    "close": "Fechar detalhes",
-    "sections": "Seções do contêiner",
-    "tab": {
-      "overview": "Visão geral",
-      "logs": "Logs",
-      "run": "Executar comando",
-      "shell": "Shell"
-    },
-    "loading": "Carregando detalhes do contêiner…",
-    "image": "Imagem",
-    "command": "Comando",
-    "health": "Saúde",
-    "restartPolicy": "Reinício",
-    "started": "Iniciado em",
-    "ports": "Portas",
-    "networks": "Redes",
-    "environment": "Ambiente",
-    "namesOnly": "(só os nomes)",
-    "mounts": "Montagens"
-  },
-  "logs": {
-    "filter": "Filtrar logs",
-    "filterPlaceholder": "Filtrar",
-    "pause": "Pausar",
-    "resume": "Retomar",
-    "label": "Logs do contêiner",
-    "waiting": "Aguardando saída…"
-  },
-  "run": {
-    "explain": "Executa uma vez dentro de <strong>{{name}}</strong> sem shell, então pipes e aspas não são interpretados. Use a aba Shell para trabalho interativo.",
-    "command": "Comando",
-    "startFirst": "Inicie o contêiner para executar comandos.",
-    "timedOut": "Tempo esgotado após 30 s",
-    "exitCode": "Código de saída {{code}}",
-    "truncated": "saída truncada",
-    "output": "Saída do comando"
-  },
-  "shell": {
-    "startFirst": "Inicie o contêiner para abrir um shell.",
-    "opening": "Abrindo shell…",
-    "paneName": "Shell de {{name}}",
-    "shell": "Shell",
-    "newSession": "Nova sessão"
-  },
-  "engine": {
-    "missingTitle": "Nenhum motor de contêineres encontrado",
-    "deniedTitle": "Sem permissão para usar o Docker",
-    "stoppedTitle": "{{engine}} não está em execução",
-    "unavailableTitle": "Contêineres indisponíveis",
-    "deniedFix": "Adicione seu usuário ao grupo <code>docker</code> e entre de novo.",
-    "startLinux": "Inicie-o com <code>sudo systemctl start docker</code>.",
-    "startDesktop": "Abra o Docker Desktop e espere até ele dizer que está em execução.",
-    "startPodman": "Inicie a máquina com <code>podman machine start</code>.",
-    "checksAgain": "Esta página verifica de novo sozinha.",
-    "install": "Instale o Docker Desktop, o Docker Engine ou o Podman. O OxeQuery usa a ferramenta de linha de comando deles, então o que funciona no seu terminal funciona aqui.",
-    "checkAgain": "Verificar de novo",
-    "checking": "Verificando…"
-  },
-  "engineBar": {
-    "label": "Motor Docker",
-    "thisEngine": "este motor",
-    "elsewhere_one": "Nenhum contêiner em “{{selected}}”, mas “{{other}}” tem {{count}}. Escolha-o abaixo.",
-    "elsewhere_other": "Nenhum contêiner em “{{selected}}”, mas “{{other}}” tem {{count}}. Escolha-o abaixo.",
-    "refused": "“{{label}}” é um motor Docker neste computador, mas seu usuário não tem permissão para usá-lo ({{endpoint}}). Adicione seu usuário ao grupo docker e entre de novo, ou escolha outro motor.",
-    "state": {
-      "denied": "sem permissão",
-      "unreachable": "parado",
-      "not-checked": "remoto, não usado"
-    },
-    "elsewhere_many": "Nenhum contêiner em “{{selected}}”, mas “{{other}}” tem {{count}}. Escolha-o abaixo."
   },
   "url": {
     "empty": "Cole uma string de conexão como postgres://usuario:senha@localhost:5432/app",
@@ -399,7 +248,9 @@
     "keyChanged": "<strong>A chave de host do servidor SSH mudou.</strong> Isso pode significar que o servidor foi reconstruído, ou que alguém está interceptando a conexão. Não continue até confirmar com quem administra o servidor.",
     "trusted": "confiável: {{fingerprint}}",
     "now": "agora: {{fingerprint}}",
-    "testFailed": "O teste de conexão falhou"
+    "testFailed": "O teste de conexão falhou",
+    "fromContainerDraft": "Do contêiner {{name}}: host e porta já preenchidos.",
+    "containerPassword": "Digite a senha com que o contêiner foi criado. Ela fica no cofre; os agentes nunca a veem."
   },
   "grid": {
     "label": "Resultado",
@@ -413,6 +264,15 @@
     "resize": "Redimensionar a coluna {{name}}",
     "openRow": "Abrir esta linha",
     "nullTitle": "NULL (sem valor)",
+    "filterScope": "Coluna do filtro",
+    "filterAll": "Todas as colunas",
+    "filterLabel": "Filtrar linhas carregadas",
+    "filterPlaceholder": "Filtrar linhas carregadas…",
+    "filterCount": "{{shown}} de {{total}} linhas carregadas",
+    "filterClear": "Limpar filtro",
+    "pin": "Fixar a coluna {{name}}",
+    "unpin": "Desafixar a coluna {{name}}",
+    "pinTitle": "Fixar à esquerda",
     "hiddenTitle_many": "{{count}} ocultas — mostrar todas",
     "showHidden_many": "Mostrar {{count}} colunas ocultas"
   },
@@ -698,10 +558,24 @@
       "in": "é um de"
     }
   },
+  "completion": {
+    "cte": "CTE",
+    "subquery": "subconsulta",
+    "foreignKey": "chave estrangeira {{name}}"
+  },
   "cell": {
     "label": "Célula",
     "row": "linha {{number}}",
-    "close": "Fechar visualizador de célula"
+    "close": "Fechar visualizador de célula",
+    "collapseAll": "Recolher tudo",
+    "expandAll": "Expandir tudo",
+    "collapseNode": "Recolher {{name}}",
+    "expandNode": "Expandir {{name}}",
+    "items_one": "{{count}} item",
+    "items_many": "{{count}} itens",
+    "items_other": "{{count}} itens",
+    "jsonLabel": "Documento JSON",
+    "arrayLabel": "Elementos do array"
   },
   "workbench": {
     "queryTitle": "Consulta {{number}}",
@@ -726,10 +600,19 @@
     "analyzeTitle": "Executar a instrução e mostrar os tempos reais. Uma instrução que altera dados é desfeita.",
     "formatTitle": "Formatar o SQL (Shift+Alt+F)",
     "limit": "Limite",
+    "limitTitle": "Linhas que uma consulta devolve. Limitado a {{formatted}} nesta conexão.",
+    "timeout": "{{seconds}} s",
+    "timeoutTitle": "O servidor interrompe uma instrução depois de {{seconds}} segundos nesta conexão.",
+    "readOnlyPolicy": "somente leitura pela política",
+    "readOnlyPolicyTitle": "A política da sua organização mantém esta conexão somente leitura. Não dá para desligar aqui.",
     "editorHeight": "Altura do editor de consultas",
     "confirm": {
       "analyzeTitle": "Analisar executa esta instrução",
       "destructiveTitle": "Esta instrução é destrutiva",
+      "typedTitle": "Alterar dados em produção?",
+      "runOnProduction": "Executar em produção",
+      "typedHint": "Esta instrução altera dados em uma conexão de produção.",
+      "typeName": "Digite {{name}} para continuar",
       "analyzeAnyway": "Analisar mesmo assim",
       "runAnyway": "Executar mesmo assim",
       "production": "Esta é uma conexão de produção.",
@@ -770,6 +653,15 @@
     "tabLimit_other": "Feche uma aba de consulta antes: no máximo {{count}} podem ficar abertas.",
     "tabLimit_many": "Feche uma aba de consulta antes: no máximo {{count}} podem ficar abertas."
   },
+  "lint": {
+    "updateNoWhere": "UPDATE sem WHERE altera todas as linhas da tabela.",
+    "deleteNoWhere": "DELETE sem WHERE remove todas as linhas da tabela.",
+    "drop": "{{statement}} remove o objeto e o que ele guarda, para sempre.",
+    "truncate": "TRUNCATE remove todas as linhas da tabela.",
+    "alterDrop": "{{statement}} remove para sempre uma coluna ou restrição e os dados dela.",
+    "selectStarLarge": "SELECT * lê todas as colunas de {{table}}, cerca de {{formatted}} linhas. Liste as colunas de que precisa ou adicione um LIMIT.",
+    "selectNoLimit": "Sem LIMIT: esta consulta pode devolver todas as linhas. Em produção, adicione um LIMIT."
+  },
   "preferences": {
     "title": "Configurações do OxeQuery",
     "description": "O que é guardado, e até onde os agentes podem ir.",
@@ -789,6 +681,13 @@
       "write": "Leitura e escrita, com aprovação"
     },
     "ceilingHint": "A configuração de agentes de cada conexão só pode ficar abaixo disto. Agentes nunca escrevem em produção.",
+    "limits": "Limites por ambiente",
+    "limitsHint": "O máximo de linhas que uma consulta devolve e o maior tempo que uma instrução pode rodar numa conexão de cada tipo. A configuração da própria conexão só pode ser menor.",
+    "rows": "Linhas",
+    "statementTime": "Tempo da instrução",
+    "noLimit": "Sem limite",
+    "seconds": "{{seconds}} segundos",
+    "minutes": "{{minutes}} minutos",
     "saved": "Salvo.",
     "days_many": "{{count}} dias"
   },
@@ -894,47 +793,6 @@
     "connected": "Conectado.",
     "connectedTo": "Conectado a {{version}}.",
     "failed": "Não foi possível reconectar"
-  },
-  "resources": {
-    "label": "Imagens, volumes e redes",
-    "tab": {
-      "images_one": "Imagens ({{count}})",
-      "images_other": "Imagens ({{count}})",
-      "volumes_one": "Volumes ({{count}})",
-      "volumes_other": "Volumes ({{count}})",
-      "networks_one": "Redes ({{count}})",
-      "networks_other": "Redes ({{count}})",
-      "images_many": "Imagens ({{count}})",
-      "volumes_many": "Volumes ({{count}})",
-      "networks_many": "Redes ({{count}})"
-    },
-    "usage": "{{type}}: {{size}}",
-    "usageReclaimable": "{{type}}: {{size}} ({{reclaimable}} recuperáveis)",
-    "removeTitle": {
-      "image": "Remover a imagem {{name}}?",
-      "volume": "Remover o volume {{name}}?",
-      "network": "Remover a rede {{name}}?"
-    },
-    "removeWarning": {
-      "image": "Não será mais possível criar contêineres a partir dela até baixá-la de novo.",
-      "volume": "Os dados deste volume são apagados e não podem ser recuperados.",
-      "network": "Os contêineres ligados a esta rede não são afetados, mas ela é removida."
-    },
-    "inUse": "O motor recusa se ainda estiver em uso.",
-    "removeNamed": {
-      "image": "Remover a imagem {{name}}",
-      "volume": "Remover o volume {{name}}",
-      "network": "Remover a rede {{name}}"
-    },
-    "column": {
-      "repository": "Repositório",
-      "tag": "Tag",
-      "size": "Tamanho",
-      "created": "Criada",
-      "name": "Nome",
-      "driver": "Driver",
-      "scope": "Escopo"
-    }
   },
   "newDatabase": {
     "title": "Novo banco de dados",
@@ -1111,18 +969,9 @@
   },
   "sidebar": {
     "label": "Barra lateral do OxeQuery",
-    "refresh": "Atualizar contêineres",
+    "refresh": "Atualizar conexões",
     "settings": "Configurações do OxeQuery",
-    "allContainers": "Todos os contêineres",
-    "running_one": "{{count}} em execução",
-    "running_other": "{{count}} em execução",
-    "engineRefused": "O motor de contêineres negou o acesso. Abra Todos os contêineres para ver como resolver.",
-    "noEngine": "Nenhum motor de contêineres está acessível ainda.",
-    "more_one": "+{{count}} em Todos os contêineres",
-    "more_other": "+{{count}} em Todos os contêineres",
-    "width": "Largura da barra lateral do OxeQuery",
-    "running_many": "{{count}} em execução",
-    "more_many": "+{{count}} em Todos os contêineres"
+    "width": "Largura da barra lateral do OxeQuery"
   },
   "snippet": {
     "sel": "SELECT … FROM … WHERE",
@@ -1317,7 +1166,6 @@
   },
   "view": {
     "tab": {
-      "containers": "Contêineres",
       "activity": "Atividade"
     },
     "openViews": "Visões abertas",
@@ -1347,5 +1195,12 @@
     "unique": "única",
     "columns_many": "{{count}} colunas",
     "indexes_many": "{{count}} índices"
+  },
+  "welcome": {
+    "title": "Abra um banco de dados",
+    "text": "Conecte a um PostgreSQL ou MongoDB, ou inicie um num contêiner. Os contêineres que você já roda estão no OxePod, com o botão Conectar no OxeQuery.",
+    "textSaved": "Escolha uma conexão à esquerda, ou adicione uma. Os contêineres estão no OxePod.",
+    "newDatabase": "Novo banco local",
+    "newDatabaseTitle": "Iniciar um contêiner PostgreSQL ou MongoDB e conectar a ele"
   }
 }
