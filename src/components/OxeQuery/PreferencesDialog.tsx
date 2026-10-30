@@ -57,12 +57,13 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactEl
           const set = (patch: Partial<EnvironmentLimit>): void => change({ environmentLimits: { ...value.environmentLimits, [environment]: { ...limit, ...patch } } })
           const timeouts = [...new Set([...TIMEOUT_CEILINGS_MS, ...(limit.statementTimeoutMs === null ? [] : [limit.statementTimeoutMs])])].sort((a, b) => a - b)
           const rows = [...new Set([...ROW_CEILINGS, ...(limit.maxRows === null ? [] : [limit.maxRows])])].sort((a, b) => a - b)
-          return <div key={environment} className="oq-preferences-limits">
-            <Select label={t('preferences.rowsFor', { environment: t(`environment.${environment}`) })} value={asValue(limit.maxRows)} onChange={event => set({ maxRows: fromValue(event.target.value) })}
+          return <fieldset key={environment} className="oq-preferences-limits">
+            <legend>{t(`environment.${environment}`)}</legend>
+            <Select label={t('preferences.rows')} value={asValue(limit.maxRows)} onChange={event => set({ maxRows: fromValue(event.target.value) })}
               options={[{ value: 'none', label: t('preferences.noLimit') }, ...rows.map(item => ({ value: String(item), label: t('common.rows', { count: item, formatted: formatNumber(item) }) }))]} />
-            <Select label={t('preferences.timeoutFor', { environment: t(`environment.${environment}`) })} value={asValue(limit.statementTimeoutMs)} onChange={event => set({ statementTimeoutMs: fromValue(event.target.value) })}
+            <Select label={t('preferences.statementTime')} value={asValue(limit.statementTimeoutMs)} onChange={event => set({ statementTimeoutMs: fromValue(event.target.value) })}
               options={[{ value: 'none', label: t('preferences.noLimit') }, ...timeouts.map(item => ({ value: String(item), label: item >= 60_000 && item % 60_000 === 0 ? t('preferences.minutes', { minutes: formatNumber(item / 60_000) }) : t('preferences.seconds', { seconds: formatNumber(item / 1000) }) }))]} />
-          </div>
+          </fieldset>
         })}
         <small>{t('preferences.limitsHint')}</small>
       </fieldset>
