@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, Copy, Database, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react'
 import type { MongoCollectionInfo, MongoDatabaseInfo, MongoExplainSummary, MongoResult, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { describeMongoQuery, parseMongoQuery, stringifyMongoQuery } from '../../../shared/mongoQueryText'
@@ -21,8 +22,9 @@ import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Splitter } from '../../ui/Splitter'
 import { MONGO_INPUTS_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 import { Dialog } from '../../ui/Overlay'
-import { copyText } from '../../ui/clipboard'
-import { EmptyState } from '../../ui/Display'
+import { EmptyState, ErrorState } from '../../ui/Display'
+import { copyText, formatMs, tq } from './catalog'
+import { formatNumber } from '../../utils/formatTime'
 
 // Dialogs are only needed when opened: they load on first use and stay out of the workbench's own chunk.
 const BulkPanel = lazy(() => import('./MongoDialogs').then(module => ({ default: module.BulkPanel })))
@@ -33,7 +35,7 @@ type View = 'documents' | 'tree' | 'table'
 type Target = { database: string; collection: string }
 type CollectionDialogState = { kind: 'create'; database: string } | { kind: 'rename'; database: string; collection: string } | { kind: 'drop'; database: string; collection: string }
 
-function copy(text: string, what = 'Text'): void {
+function copy(text: string, what = tq('workbench.copiedText')): void {
   void copyText(text, what)
 }
 
@@ -41,6 +43,7 @@ function copy(text: string, what = 'Text'): void {
 const INPUTS_CHROME = 50
 
 export function MongoWorkbench({ connection }: { connection: OxeQueryConnection }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const layout = useOxeQueryLayout()
   const main = useRef<HTMLDivElement>(null)
   const mainHeight = useHeight(main)
@@ -107,12 +110,12 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
       setLibraryTick(value => value + 1)
     } catch (cause) {
       setResult(null)
-      setError(cause instanceof OxeQueryClientError && cause.code === 'cancelled' ? 'The query was cancelled.' : errorMessage(cause))
+      setError(cause instanceof OxeQueryClientError && cause.code === 'cancelled' ? t('mongo.cancelled') : errorMessage(cause))
     } finally { setRunning(false) }
-  }, [connection.id, filter, limit, mode, pipeline, projection, sort, target])
+  }, [connection.id, filter, limit, mode, pipeline, projection, sort, target, t])
 
   const cancel = async (): Promise<void> => {
-    try { if (!(await oq('mongo.cancel', { connectionId: connection.id })).cancelled) setError('The server could not stop the query (it may have just finished, or this user cannot stop operations).') } catch (cause) { setError(errorMessage(cause)) }
+    try { if (!(await oq('mongo.cancel', { connectionId: connection.id })).cancelled) setError(t('mongo.cancelFailed')) } catch (cause) { setError(errorMessage(cause)) }
   }
 
   const explainQuery = async (): Promise<void> => {
@@ -164,7 +167,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
       void run(skip)
     } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirm(cause.reasons)
-      else setWriteError(cause instanceof OxeQueryClientError && cause.code === 'conflict' ? `${cause.message} Run the query again to see the current document.` : errorMessage(cause))
+      else setWriteError(cause instanceof OxeQueryClientError && cause.code === 'conflict' ? `${cause.message} ${t('mongo.conflict')}` : errorMessage(cause))
     } finally { setWriting(false) }
   }
 
@@ -174,10 +177,10 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   const inputsMax = Math.max(MONGO_INPUTS_HEIGHT.min, mainHeight - RESULTS_MIN_HEIGHT - INPUTS_CHROME)
   const inputsHeight = mainHeight ? Math.min(layout.mongoInputsHeight, inputsMax) : layout.mongoInputsHeight
   return <div className="oq-workbench" style={{ '--oq-tree-width': `${layout.treeWidth}px` } as CSSProperties}>
-    <nav className="oq-tree oq-mtree" aria-label="Databases">
+    <nav className="oq-tree oq-mtree" aria-label={t('server.databases')}>
       <div className="oq-tree-head">
-        <label className="oq-tree-search"><input type="search" aria-label="Filter collections" placeholder="Filter collections" value={search} onChange={event => setSearch(event.target.value)} /></label>
-        <button type="button" className="oq-icon" aria-label="Refresh databases" title="Refresh" onClick={() => { setCollections({}); void loadDatabases(); for (const database of open) void loadCollections(database) }}><RefreshCw size={13} aria-hidden="true" /></button>
+        <label className="oq-tree-search"><input type="search" data-oq-action="searchObjects" aria-label={t('mongo.filterCollections')} placeholder={t('mongo.filterCollections')} value={search} onChange={event => setSearch(event.target.value)} /></label>
+        <button type="button" className="oq-icon" aria-label={t('mongo.refresh')} title={t('common.refresh')} onClick={() => { setCollections({}); void loadDatabases(); for (const database of open) void loadCollections(database) }}><RefreshCw size={13} aria-hidden="true" /></button>
       </div>
       <div className="oq-mtree-body">
         {databases.map(database => {
@@ -187,26 +190,26 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             <div className="oq-mnode-row">
               <button type="button" className="oq-mnode" aria-expanded={expanded} onClick={() => toggle(database.name)}>
                 {expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}{database.name}</button>
-              {!connection.readOnly && <button type="button" className="oq-icon" aria-label={`New collection in ${database.name}`} title="New collection" onClick={() => setDialog({ kind: 'create', database: database.name })}><Plus size={12} aria-hidden="true" /></button>}
+              {!connection.readOnly && <button type="button" className="oq-icon" aria-label={t('mongo.newCollectionIn', { database: database.name })} title={t('mongo.newCollection')} onClick={() => setDialog({ kind: 'create', database: database.name })}><Plus size={12} aria-hidden="true" /></button>}
             </div>
             {expanded && list.map(collection => <div key={collection.name} className="oq-mleaf">
               <button type="button" aria-pressed={target?.database === database.name && target.collection === collection.name} onClick={() => select(database.name, collection.name)}>{collection.name}<small>{collection.type === 'collection' ? '' : collection.type}</small></button>
               {!connection.readOnly && collection.type === 'collection' && <span className="oq-mleaf-actions">
-                <button type="button" aria-label={`Rename ${collection.name}`} title="Rename" onClick={() => setDialog({ kind: 'rename', database: database.name, collection: collection.name })}><Pencil size={11} aria-hidden="true" /></button>
-                <button type="button" aria-label={`Drop ${collection.name}`} title="Drop" onClick={() => setDialog({ kind: 'drop', database: database.name, collection: collection.name })}><Trash2 size={11} aria-hidden="true" /></button>
+                <button type="button" aria-label={t('mongo.renameNamed', { name: collection.name })} title={t('common.rename')} onClick={() => setDialog({ kind: 'rename', database: database.name, collection: collection.name })}><Pencil size={11} aria-hidden="true" /></button>
+                <button type="button" aria-label={t('mongo.dropNamed', { name: collection.name })} title={t('mongo.drop')} onClick={() => setDialog({ kind: 'drop', database: database.name, collection: collection.name })}><Trash2 size={11} aria-hidden="true" /></button>
               </span>}
             </div>)}
           </div>
         })}
-        {databases.length === 0 && !error && <p className="oq-muted">No databases visible.</p>}
+        {databases.length === 0 && !error && <EmptyState compact title={t('mongo.noDatabases')} />}
       </div>
     </nav>
-    <Splitter orientation="vertical" label="Collection list width" value={layout.treeWidth} min={TREE_WIDTH.min} max={TREE_WIDTH.max} defaultValue={TREE_WIDTH.default} onChange={treeWidth => layout.set({ treeWidth })} />
+    <Splitter orientation="vertical" label={t('mongo.treeWidth')} value={layout.treeWidth} min={TREE_WIDTH.min} max={TREE_WIDTH.max} defaultValue={TREE_WIDTH.default} onChange={treeWidth => layout.set({ treeWidth })} />
     <div className="oq-workbench-main" ref={main}>
-      {!target ? <div className="oq-empty"><EmptyState icon={<Database size={20} />} title="Pick a collection">Choose one in the list on the left to find, aggregate or edit its documents.</EmptyState>{error && <QueryError error={{ message: error }} />}</div> : <>
+      {!target ? <div className="oq-placeholder"><EmptyState icon={<Database size={20} />} title={t('mongo.pickTitle')}>{t('mongo.pickText')}</EmptyState>{error && <QueryError error={{ message: error }} />}</div> : <>
         <div className="oq-editor-toolbar">
           <strong>{target.database}.{target.collection}</strong>
-          <div role="group" aria-label="Query type" className="oq-segment"><button type="button" aria-pressed={mode === 'find'} onClick={() => setMode('find')}>Find</button><button type="button" aria-pressed={mode === 'aggregate'} onClick={() => setMode('aggregate')}>Aggregate</button></div>
+          <div role="group" aria-label={t('mongo.queryType')} className="oq-segment"><button type="button" aria-pressed={mode === 'find'} onClick={() => setMode('find')}>{t('mongo.find')}</button><button type="button" aria-pressed={mode === 'aggregate'} onClick={() => setMode('aggregate')}>{t('mongo.aggregate')}</button></div>
           <span className="oq-spacer" />
           <AskAgent hasError={Boolean(error)} hasPlan={false} context={{
             connectionName: connection.name, engine: 'mongodb', environment: connection.environment,
@@ -214,52 +217,52 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             ...(error ? { errorMessage: error } : {}), tables: [`${target.database}.${target.collection}`]
           }} />
           <LibraryMenu connection={connection} currentSql={queryText} refreshKey={libraryTick} onPick={pick} describe={describeMongoQuery} />
-          <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
-          <span className="oq-badge" data-readonly={connection.readOnly}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
-          <label className="oq-inline">Limit <Select className="oq-select" aria-label="Documents per page" value={limit} onChange={event => setLimit(Number(event.target.value))}>{PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}</Select></label>
-          <button type="button" disabled={running || invalid} onClick={() => void explainQuery()}>Explain</button>
-          {running ? <button type="button" onClick={() => void cancel()}><Square size={13} aria-hidden="true" />Cancel</button>
-            : <button type="button" className="oq-primary" disabled={invalid} onClick={() => void run(0)}><Play size={13} aria-hidden="true" />Run</button>}
+          <span className="oq-badge" data-environment={connection.environment}>{t(`environment.short.${connection.environment}`)}</span>
+          <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{connection.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
+          <label className="oq-inline">{t('workbench.limit')} <Select className="oq-select" aria-label={t('mongo.perPage')} value={limit} onChange={event => setLimit(Number(event.target.value))}>{PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}</Select></label>
+          <button type="button" disabled={running || invalid} title={t('mongo.explainTitle')} onClick={() => void explainQuery()}>{t('workbench.explain')}</button>
+          {running ? <button type="button" onClick={() => void cancel()}><Square size={13} aria-hidden="true" />{t('common.cancel')}</button>
+            : <button type="button" className="oq-primary" disabled={invalid} onClick={() => void run(0)}><Play size={13} aria-hidden="true" />{t('common.run')}</button>}
         </div>
         <div className="oq-mongo-inputs" style={{ height: inputsHeight }}>
           {mode === 'find' ? <>
-            <label>Filter<textarea aria-label="Filter" aria-invalid={problems.filter ? true : undefined} spellCheck={false} value={filter} onChange={event => setFilter(event.target.value)} rows={3} />{problems.filter && <small className="oq-field-error" role="alert">{problems.filter}</small>}</label>
-            <label>Projection<textarea aria-label="Projection" aria-invalid={problems.projection ? true : undefined} spellCheck={false} value={projection} onChange={event => setProjection(event.target.value)} rows={3} placeholder='{ "field": 1 }' />{problems.projection && <small className="oq-field-error" role="alert">{problems.projection}</small>}</label>
-            <label>Sort<textarea aria-label="Sort" aria-invalid={problems.sort ? true : undefined} spellCheck={false} value={sort} onChange={event => setSort(event.target.value)} rows={3} placeholder='{ "createdAt": -1 }' />{problems.sort && <small className="oq-field-error" role="alert">{problems.sort}</small>}</label>
-          </> : <label className="oq-mongo-wide">Pipeline<textarea aria-label="Pipeline" aria-invalid={problems.pipeline ? true : undefined} spellCheck={false} value={pipeline} onChange={event => setPipeline(event.target.value)} rows={7} />{problems.pipeline && <small className="oq-field-error" role="alert">{problems.pipeline}</small>}</label>}
+            <label>{t('mongo.filter')}<textarea aria-label={t('mongo.filter')} aria-invalid={problems.filter ? true : undefined} spellCheck={false} value={filter} onChange={event => setFilter(event.target.value)} rows={3} />{problems.filter && <small className="oq-field-error" role="alert">{problems.filter}</small>}</label>
+            <label>{t('mongo.projection')}<textarea aria-label={t('mongo.projection')} aria-invalid={problems.projection ? true : undefined} spellCheck={false} value={projection} onChange={event => setProjection(event.target.value)} rows={3} placeholder='{ "field": 1 }' />{problems.projection && <small className="oq-field-error" role="alert">{problems.projection}</small>}</label>
+            <label>{t('mongo.sort')}<textarea aria-label={t('mongo.sort')} aria-invalid={problems.sort ? true : undefined} spellCheck={false} value={sort} onChange={event => setSort(event.target.value)} rows={3} placeholder='{ "createdAt": -1 }' />{problems.sort && <small className="oq-field-error" role="alert">{problems.sort}</small>}</label>
+          </> : <label className="oq-mongo-wide">{t('mongo.pipeline')}<textarea aria-label={t('mongo.pipeline')} aria-invalid={problems.pipeline ? true : undefined} spellCheck={false} value={pipeline} onChange={event => setPipeline(event.target.value)} rows={7} />{problems.pipeline && <small className="oq-field-error" role="alert">{problems.pipeline}</small>}</label>}
         </div>
-        <Splitter orientation="horizontal" label="Query fields height" value={inputsHeight} min={MONGO_INPUTS_HEIGHT.min} max={inputsMax} defaultValue={MONGO_INPUTS_HEIGHT.default} onChange={height => layout.set({ mongoInputsHeight: height })} />
+        <Splitter orientation="horizontal" label={t('mongo.inputsHeight')} value={inputsHeight} min={MONGO_INPUTS_HEIGHT.min} max={inputsMax} defaultValue={MONGO_INPUTS_HEIGHT.default} onChange={height => layout.set({ mongoInputsHeight: height })} />
         {error && <QueryError error={{ message: error }}>{looksLikeLostConnection(error) && <ReconnectBar connection={connection} onReconnected={() => void run(0)} />}</QueryError>}
         {explain && <ExplainCard explain={explain} onClose={() => setExplain(null)} />}
         <div className="oq-results">
           <div className="oq-results-bar">
-            {result ? <span>{skip > 0 ? `${skip + 1}–${skip + result.documents.length}` : result.documents.length} document{result.documents.length === 1 ? '' : 's'}{result.total !== undefined ? ` of ${result.total}` : ''}{more ? ' (more available)' : ''} · {result.durationMs} ms</span> : <span className="oq-muted">{running ? 'Running…' : 'Results appear here.'}</span>}
+            {result ? <span>{documentsSummary(result, skip, more)}</span> : <span className="oq-muted">{running ? t('workbench.running') : t('workbench.resultsHere')}</span>}
             <span className="oq-spacer" />
-            <button type="button" disabled={running || skip === 0} onClick={() => void run(Math.max(0, skip - limit))}>Previous</button>
-            <button type="button" disabled={running || !more} onClick={() => void run(skip + limit)}>Next</button>
-            <div role="group" aria-label="Result view" className="oq-segment">
-              {(['documents', 'tree', 'table'] as const).map(name => <button key={name} type="button" role="radio" aria-checked={view === name} data-selected={view === name} onClick={() => setView(name)}>{name === 'documents' ? 'Documents' : name === 'tree' ? 'Tree' : 'Table'}</button>)}
+            <button type="button" disabled={running || skip === 0} onClick={() => void run(Math.max(0, skip - limit))}>{t('common.previous')}</button>
+            <button type="button" disabled={running || !more} onClick={() => void run(skip + limit)}>{t('common.next')}</button>
+            <div role="radiogroup" aria-label={t('mongo.resultView')} className="oq-segment">
+              {(['documents', 'tree', 'table'] as const).map(name => <button key={name} type="button" role="radio" aria-checked={view === name} data-selected={view === name} onClick={() => setView(name)}>{t(`mongo.view.${name}`)}</button>)}
             </div>
-            {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`, 'Documents')}>Copy JSON</button>}
-            <ExportButton connection={connection} label="Export collection" source={{ kind: 'collection', ...target, ...(mode === 'find' && filter.trim() && filter.trim() !== '{}' && !problems.filter ? { filter } : {}) }} />
+            {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`, t('mongo.copiedDocuments'))}>{t('mongo.copyJson')}</button>}
+            <ExportButton connection={connection} label={t('export.collection')} source={{ kind: 'collection', ...target, ...(mode === 'find' && filter.trim() && filter.trim() !== '{}' && !problems.filter ? { filter } : {}) }} />
             <ImportButton connection={connection} target={{ kind: 'collection', ...target }} onImported={() => void run(0)} />
-            {!connection.readOnly && <button type="button" onClick={() => { setWriteError(''); setConfirm(null); setEditing({ original: null, text: '{\n  \n}', mode: 'edit' }) }}><Plus size={13} aria-hidden="true" />New document</button>}
-            {!connection.readOnly && mode === 'find' && <button type="button" onClick={() => setBulk(true)}>Change many…</button>}
+            {!connection.readOnly && <button type="button" onClick={() => { setWriteError(''); setConfirm(null); setEditing({ original: null, text: '{\n  \n}', mode: 'edit' }) }}><Plus size={13} aria-hidden="true" />{t('mongo.newDocument')}</button>}
+            {!connection.readOnly && mode === 'find' && <button type="button" onClick={() => setBulk(true)}>{t('mongo.changeMany')}</button>}
           </div>
           <MongoInsights connection={connection} database={target.database} collection={target.collection} />
-          {editing && <Dialog className="oq-scope" size="lg" onClose={() => { if (!writing) { setEditing(null); setConfirm(null); setWriteError('') } }}
-            title={editing.mode === 'delete' ? 'Delete this document?' : editing.original === null ? 'New document' : 'Edit document'}
-            description={editing.mode === 'delete' ? 'The document is removed from the collection. This cannot be undone.' : 'Extended JSON: types such as ObjectId, dates and Long keep their type when saved.'}
+          {editing && <Dialog className="oq-scope" size="lg" closeLabel={t('common.close')} onClose={() => { if (!writing) { setEditing(null); setConfirm(null); setWriteError('') } }}
+            title={editing.mode === 'delete' ? t('mongo.deleteTitle') : editing.original === null ? t('mongo.newDocument') : t('mongo.editDocument')}
+            description={editing.mode === 'delete' ? t('mongo.deleteDescription') : t('mongo.ejsonDescription')}
             footer={<>
-              <Button disabled={writing} onClick={() => { setEditing(null); setConfirm(null); setWriteError('') }}>Cancel</Button>
+              <Button disabled={writing} onClick={() => { setEditing(null); setConfirm(null); setWriteError('') }}>{t('common.cancel')}</Button>
               <Button variant={editing.mode === 'delete' ? 'danger' : 'primary'} loading={writing} onClick={() => void write(false)}>
-                {editing.mode === 'delete' ? 'Delete' : editing.original === null ? 'Insert' : 'Save'}</Button>
+                {editing.mode === 'delete' ? t('common.delete') : editing.original === null ? t('mongo.insert') : t('common.save')}</Button>
             </>}>
-            {editing.mode === 'edit' && <TextArea mono aria-label="Document (EJSON)" spellCheck={false} rows={14} value={editing.text} onChange={event => setEditing({ ...editing, text: event.target.value })} />}
+            {editing.mode === 'edit' && <TextArea mono aria-label={t('mongo.documentEjson')} spellCheck={false} rows={14} value={editing.text} onChange={event => setEditing({ ...editing, text: event.target.value })} />}
             {editing.mode === 'delete' && <pre className="oq-doc-preview">{prettyDocument(editing.original ?? '')}</pre>}
-            {writeError && <p role="alert" className="oq-error">{writeError}</p>}
-            {confirm && <ConfirmDialog danger title="Confirm this change" confirmLabel="Confirm" busy={writing}
-              description={connection.environment === 'prod' ? 'This is a production connection.' : 'Check these before it is written.'}
+            {writeError && <ErrorState compact title={t('mongo.writeFailed')} message={writeError} />}
+            {confirm && <ConfirmDialog danger title={t('mongo.confirmTitle')} confirmLabel={t('common.confirm')} cancelLabel={t('common.cancel')} busy={writing}
+              description={connection.environment === 'prod' ? t('workbench.confirm.production') : t('mongo.confirmCheck')}
               onCancel={() => setConfirm(null)} onConfirm={() => void write(true)}>
               <ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
             </ConfirmDialog>}
@@ -267,9 +270,9 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>
             : <div className="oq-documents">{result?.documents.map((document, index) => <details key={index} open={index < 3}>
               <summary>{documentLabel(document)}{!connection.readOnly && <span className="oq-doc-actions">
-                <button type="button" aria-label="Edit document" onClick={event => { event.preventDefault(); void openDocument(index, document, 'edit') }}><Pencil size={12} aria-hidden="true" /></button>
-                <button type="button" aria-label="Clone document" onClick={event => { event.preventDefault(); void openDocument(index, document, 'clone') }}><Copy size={12} aria-hidden="true" /></button>
-                <button type="button" aria-label="Delete document" onClick={event => { event.preventDefault(); void openDocument(index, document, 'delete') }}><Trash2 size={12} aria-hidden="true" /></button>
+                <button type="button" aria-label={t('mongo.editDocument')} onClick={event => { event.preventDefault(); void openDocument(index, document, 'edit') }}><Pencil size={12} aria-hidden="true" /></button>
+                <button type="button" aria-label={t('mongo.cloneDocument')} onClick={event => { event.preventDefault(); void openDocument(index, document, 'clone') }}><Copy size={12} aria-hidden="true" /></button>
+                <button type="button" aria-label={t('mongo.deleteDocument')} onClick={event => { event.preventDefault(); void openDocument(index, document, 'delete') }}><Trash2 size={12} aria-hidden="true" /></button>
               </span>}</summary>{view === 'tree' ? <DocumentTree text={document} /> : <pre>{prettyDocument(document)}</pre>}</details>)}</div>}
         </div>
       </>}
@@ -284,4 +287,12 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
     }} />}
     </Suspense>
   </div>
+}
+
+/** "1–50 documents of 120 (more available) · 4 ms" in the language on screen. */
+function documentsSummary(result: MongoResult, skip: number, more: boolean): string {
+  const shown = result.documents.length
+  const count = skip > 0 ? tq('mongo.range', { from: formatNumber(skip + 1), to: formatNumber(skip + shown), count: shown }) : tq('mongo.documents', { count: shown, formatted: formatNumber(shown) })
+  const total = result.total !== undefined ? ` ${tq('mongo.ofTotal', { total: formatNumber(result.total) })}` : ''
+  return `${count}${total}${more ? ` ${tq('mongo.more')}` : ''} · ${formatMs(result.durationMs)}`
 }

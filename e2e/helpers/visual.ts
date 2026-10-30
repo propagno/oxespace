@@ -34,12 +34,12 @@ const HIDDEN_WHEN_LIVE = [
 ]
 
 /**
- * Removed from layout rather than hidden: the top bar's agent count and integration chips
+ * Removed from layout rather than hidden: the top bar's integration chips
  * follow real PTY activity and change width, and as hidden boxes they would still move the
  * actions next to them. Without them the title and the Panels, MCP and Activity actions sit
  * in the same place every run and are compared.
  */
-const REMOVED_FROM_LAYOUT = ['.workspace-topbar .workspace-status-summary', '.workspace-topbar .workspace-integrations']
+const REMOVED_FROM_LAYOUT = ['.workspace-topbar .workspace-integrations']
 
 const VOLATILE_SELECTORS = [
   '[data-visual-volatile]',

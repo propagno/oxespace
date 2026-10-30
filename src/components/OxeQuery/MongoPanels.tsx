@@ -1,13 +1,17 @@
 import type { ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { MongoExplainSummary } from '../../../shared/types/oxequery'
 import { Button } from '../../ui'
 import { isBranch, leafText } from './mongo-model'
 import styles from './MongoPanels.module.css'
+import { formatMs } from './catalog'
+import { formatNumber } from '../../utils/formatTime'
 /** One document as a tree: objects and arrays open and close, typed values keep their type. */
 export function DocumentTree({ text, open = 1 }: { text: string; open?: number }): ReactElement {
+  const { t } = useTranslation('oxequery')
   let value: unknown
   try { value = JSON.parse(text) } catch { return <pre className={styles.raw}>{text}</pre> }
-  return <div className={styles.tree} role="tree" aria-label="Document"><TreeNode name={null} value={value} depth={0} open={open} /></div>
+  return <div className={styles.tree} role="tree" aria-label={t('explainCard.document')}><TreeNode name={null} value={value} depth={0} open={open} /></div>
 }
 
 function TreeNode({ name, value, depth, open }: { name: string | null; value: unknown; depth: number; open: number }): ReactElement {
@@ -26,18 +30,19 @@ function TreeNode({ name, value, depth, open }: { name: string | null; value: un
 
 /** What the planner said, in words, with the raw answer one click away. */
 export function ExplainCard({ explain, onClose }: { explain: MongoExplainSummary; onClose: () => void }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const scan = explain.stage === 'COLLSCAN'
-  return <section className={styles.explain} aria-label="Query plan">
-    <header><strong>Query plan</strong><Button size="sm" variant="ghost" onClick={onClose}>Close</Button></header>
+  return <section className={styles.explain} aria-label={t('explainCard.title')}>
+    <header><strong>{t('explainCard.title')}</strong><Button size="sm" variant="ghost" onClick={onClose}>{t('common.close')}</Button></header>
     <dl className={styles.facts}>
-      <div><dt>Access</dt><dd data-warn={scan || undefined}>{explain.stage}{explain.index ? ` on ${explain.index}` : ''}</dd></div>
-      {explain.docsExamined !== undefined && <div><dt>Documents read</dt><dd>{explain.docsExamined}</dd></div>}
-      {explain.keysExamined !== undefined && <div><dt>Index keys read</dt><dd>{explain.keysExamined}</dd></div>}
-      {explain.returned !== undefined && <div><dt>Returned</dt><dd>{explain.returned}</dd></div>}
-      {explain.timeMs !== undefined && <div><dt>Server time</dt><dd>{explain.timeMs} ms</dd></div>}
+      <div><dt>{t('explainCard.access')}</dt><dd data-warn={scan || undefined}>{explain.index ? t('explainCard.stageOn', { stage: explain.stage, index: explain.index }) : explain.stage}</dd></div>
+      {explain.docsExamined !== undefined && <div><dt>{t('explainCard.docsRead')}</dt><dd>{formatNumber(explain.docsExamined)}</dd></div>}
+      {explain.keysExamined !== undefined && <div><dt>{t('explainCard.keysRead')}</dt><dd>{formatNumber(explain.keysExamined)}</dd></div>}
+      {explain.returned !== undefined && <div><dt>{t('explainCard.returned')}</dt><dd>{formatNumber(explain.returned)}</dd></div>}
+      {explain.timeMs !== undefined && <div><dt>{t('explainCard.serverTime')}</dt><dd>{formatMs(explain.timeMs)}</dd></div>}
     </dl>
     {explain.warnings.length > 0 && <ul className={styles.warnings}>{explain.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>}
-    <details><summary>Full plan</summary><pre className={styles.raw}>{explain.raw}</pre></details>
+    <details><summary>{t('explainCard.full')}</summary><pre className={styles.raw}>{explain.raw}</pre></details>
   </section>
 }
 

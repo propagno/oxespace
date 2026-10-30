@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { OxeQueryConnection, SqlTableDetails } from '../../../shared/types/oxequery'
 import type { MaintenanceAction, StructureAction, StructurePlan } from '../../../shared/types/oxequery-structure'
-import { Button, Checkbox, Dialog, Tabs, TextArea, TextField } from '../../ui'
+import { Button, Checkbox, Dialog, ErrorState, LoadingState, Tabs, TextArea, TextField } from '../../ui'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { changesFromDraft, createFromDraft, draftFromDetails, draftProblems, emptyDraft, type StructureDraft } from './structure-model'
 import { ColumnsTab, ConstraintsTab, IndexesTab } from './StructureParts'
 import styles from './StructureEditor.module.css'
 import { formatNumber } from '../../utils/formatTime'
+import { formatBytes, formatMs } from './catalog'
 
 type TabId = 'columns' | 'constraints' | 'indexes' | 'table'
+/** Maintenance buttons carry the PostgreSQL command they run, the same in every language. */
+const MAINTENANCE_SQL: Record<MaintenanceAction, string> = { vacuum: 'VACUUM', analyze: 'ANALYZE', 'vacuum-analyze': 'VACUUM ANALYZE', reindex: 'REINDEX' }
 export type StructureOutcome = { kind: 'created' | 'altered'; table: string } | { kind: 'dropped' | 'truncated' | 'duplicated'; table: string }
 
 interface Props {
@@ -20,14 +24,13 @@ interface Props {
   onChanged: (outcome: StructureOutcome) => void
 }
 
-const bytes = (value: number): string => value < 1024 ? `${value} B` : value < 1024 ** 2 ? `${(value / 1024).toFixed(1)} KB` : value < 1024 ** 3 ? `${(value / 1024 ** 2).toFixed(1)} MB` : `${(value / 1024 ** 3).toFixed(2)} GB`
-
 /**
  * Create a table or change its structure. Every edit is staged in a draft; "Review" asks the main
  * process for the exact DDL and its warnings, and "Apply" runs it in one transaction. The page never
  * sends SQL text: the shapes in `oxequery-structure` are turned into statements on the other side.
  */
 export function StructureEditor({ connection, schema, table, onClose, onChanged }: Props): ReactElement {
+  const { t } = useTranslation('oxequery')
   const creating = table === null
   const [details, setDetails] = useState<SqlTableDetails | null>(null)
   const [draft, setDraft] = useState<StructureDraft>(() => emptyDraft())
@@ -67,7 +70,7 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
     } catch (cause) { setPlan(null); setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
-  const reviewDraft = (): Promise<void> => review(creating ? { kind: 'create', table: createFromDraft(draft) } : { kind: 'alter', changes }, creating ? 'Create table' : 'Apply changes')
+  const reviewDraft = (): Promise<void> => review(creating ? { kind: 'create', table: createFromDraft(draft) } : { kind: 'alter', changes }, creating ? t('structure.createTable') : t('structure.applyChanges'))
 
   const apply = async (): Promise<void> => {
     if (!plan) return
@@ -92,7 +95,7 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
     setBusy(true); setError(''); setNote('')
     try {
       const done = await oq('sql.maintenance', { connectionId: connection.id, schema, table, action, confirmed: confirmedRun })
-      setNote(`${done.statement} finished in ${done.durationMs} ms.`)
+      setNote(t('structure.maintenanceDone', { statement: done.statement, duration: formatMs(done.durationMs) }))
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
@@ -100,75 +103,75 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
   const readOnly = connection.readOnly
   const tableTab = !creating && <div className={styles.section}>
     {details?.properties && <dl className={styles.facts}>
-      <div><dt>Kind</dt><dd>{details.properties.kind}</dd></div>
-      <div><dt>Owner</dt><dd>{details.properties.owner}</dd></div>
-      <div><dt>Size</dt><dd>{bytes(details.properties.sizeBytes)}</dd></div>
-      <div><dt>Rows (estimate)</dt><dd>{formatNumber(details.properties.estimatedRows)}</dd></div>
+      <div><dt>{t('structure.kind')}</dt><dd>{details.properties.kind}</dd></div>
+      <div><dt>{t('server.column.owner')}</dt><dd>{details.properties.owner}</dd></div>
+      <div><dt>{t('server.column.size')}</dt><dd>{formatBytes(details.properties.sizeBytes)}</dd></div>
+      <div><dt>{t('structure.rowsEstimate')}</dt><dd>{formatNumber(details.properties.estimatedRows)}</dd></div>
     </dl>}
     {details && details.dependents.length > 0 && <>
-      <h4 className={styles.heading}>Used by</h4>
-      <ul className={styles.list} aria-label="Dependents">{details.dependents.map(item => <li key={`${item.kind}:${item.schema}.${item.name}`}><span>{item.schema}.{item.name}</span><span className={styles.note}>{item.kind}</span></li>)}</ul>
+      <h4 className={styles.heading}>{t('structure.usedBy')}</h4>
+      <ul className={styles.list} aria-label={t('structure.dependents')}>{details.dependents.map(item => <li key={`${item.kind}:${item.schema}.${item.name}`}><span>{item.schema}.{item.name}</span><span className={styles.note}>{item.kind}</span></li>)}</ul>
     </>}
     {details && details.privileges.length > 0 && <>
-      <h4 className={styles.heading}>Privileges</h4>
-      <ul className={styles.list} aria-label="Privileges">{details.privileges.map(item => <li key={`${item.grantee}:${item.privilege}`}><span>{item.grantee}</span><span className={styles.note}>{item.privilege}{item.grantable ? ' (can grant)' : ''}</span></li>)}</ul>
+      <h4 className={styles.heading}>{t('structure.privileges')}</h4>
+      <ul className={styles.list} aria-label={t('structure.privileges')}>{details.privileges.map(item => <li key={`${item.grantee}:${item.privilege}`}><span>{item.grantee}</span><span className={styles.note}>{item.privilege}{item.grantable ? ` ${t('structure.canGrant')}` : ''}</span></li>)}</ul>
     </>}
-    <TextField mono label="Name" value={draft.tableName} onChange={event => edit({ ...draft, tableName: event.target.value })} />
-    <TextArea label="Comment" rows={2} value={draft.comment} onChange={event => edit({ ...draft, comment: event.target.value })} />
-    <h4 className={styles.heading}>Maintenance</h4>
+    <TextField mono label={t('server.column.name')} value={draft.tableName} onChange={event => edit({ ...draft, tableName: event.target.value })} />
+    <TextArea label={t('structure.comment')} rows={2} value={draft.comment} onChange={event => edit({ ...draft, comment: event.target.value })} />
+    <h4 className={styles.heading}>{t('structure.maintenance')}</h4>
     <div className={styles.actions}>
-      <Button size="sm" disabled={busy || readOnly} onClick={() => void maintain('vacuum')}>Vacuum</Button>
-      <Button size="sm" disabled={busy || readOnly} onClick={() => void maintain('analyze')}>Analyze</Button>
-      <Button size="sm" disabled={busy || readOnly} onClick={() => void maintain('vacuum-analyze')}>Vacuum + analyze</Button>
-      <Button size="sm" disabled={busy || readOnly} onClick={() => void maintain('reindex', true)} title="Locks the table while its indexes are rebuilt">Reindex</Button>
+      <Button size="sm" disabled={busy || readOnly} title={t('structure.vacuumTitle')} onClick={() => void maintain('vacuum')}>{MAINTENANCE_SQL.vacuum}</Button>
+      <Button size="sm" disabled={busy || readOnly} title={t('structure.analyzeTitle')} onClick={() => void maintain('analyze')}>{MAINTENANCE_SQL.analyze}</Button>
+      <Button size="sm" disabled={busy || readOnly} title={t('structure.vacuumAnalyzeTitle')} onClick={() => void maintain('vacuum-analyze')}>{MAINTENANCE_SQL['vacuum-analyze']}</Button>
+      <Button size="sm" disabled={busy || readOnly} onClick={() => void maintain('reindex', true)} title={t('structure.reindexTitle')}>{MAINTENANCE_SQL.reindex}</Button>
     </div>
-    <h4 className={styles.heading}>Copy</h4>
+    <h4 className={styles.heading}>{t('structure.copy')}</h4>
     <div className={styles.row}>
-      <TextField mono aria-label="Name of the copy" value={copyName} onChange={event => setCopyName(event.target.value)} />
-      <Checkbox label="Copy the rows too" checked={copyData} onChange={event => setCopyData(event.target.checked)} />
-      <Button size="sm" disabled={busy || readOnly || !copyName.trim()} onClick={() => void review({ kind: 'duplicate', to: copyName.trim(), withData: copyData }, 'Duplicate table')}>Review copy</Button>
+      <TextField mono aria-label={t('structure.copyName')} value={copyName} onChange={event => setCopyName(event.target.value)} />
+      <Checkbox label={t('structure.copyRows')} checked={copyData} onChange={event => setCopyData(event.target.checked)} />
+      <Button size="sm" disabled={busy || readOnly || !copyName.trim()} onClick={() => void review({ kind: 'duplicate', to: copyName.trim(), withData: copyData }, t('structure.duplicateTable'))}>{t('structure.reviewCopy')}</Button>
     </div>
-    <h4 className={styles.heading}>Danger zone</h4>
+    <h4 className={styles.heading}>{t('structure.danger')}</h4>
     <div className={styles.row}>
-      <Checkbox label="Restart identity" checked={restartIdentity} onChange={event => setRestartIdentity(event.target.checked)} />
-      <Checkbox label="Cascade to referencing tables" checked={cascade} onChange={event => setCascade(event.target.checked)} />
-      <Button size="sm" variant="danger" disabled={busy || readOnly} onClick={() => void review({ kind: 'truncate', restartIdentity, cascade }, 'Truncate table')}>Review truncate</Button>
-      <Button size="sm" variant="danger" disabled={busy || readOnly} onClick={() => void review({ kind: 'drop' }, 'Drop table')}>Review drop</Button>
+      <Checkbox label={t('structure.restartIdentity')} checked={restartIdentity} onChange={event => setRestartIdentity(event.target.checked)} />
+      <Checkbox label={t('structure.cascade')} checked={cascade} onChange={event => setCascade(event.target.checked)} />
+      <Button size="sm" variant="danger" disabled={busy || readOnly} onClick={() => void review({ kind: 'truncate', restartIdentity, cascade }, t('structure.truncateTable'))}>{t('structure.reviewTruncate')}</Button>
+      <Button size="sm" variant="danger" disabled={busy || readOnly} onClick={() => void review({ kind: 'drop' }, t('structure.dropTable'))}>{t('structure.reviewDrop')}</Button>
     </div>
   </div>
 
   const body = loadError
-    ? <p role="alert" className={styles.error}>{loadError}</p>
-    : !creating && !details ? <p className={styles.note}>Loading the structure…</p>
+    ? <ErrorState compact title={t('structure.loadFailed')} message={loadError} />
+    : !creating && !details ? <LoadingState label={t('structure.loading')} />
       : <>
-        {creating && <div className={styles.name}><TextField mono autoFocus label="Table name" value={draft.tableName} onChange={event => edit({ ...draft, tableName: event.target.value })} />
-          <TextField label="Comment (optional)" value={draft.comment} onChange={event => edit({ ...draft, comment: event.target.value })} /></div>}
-        <Tabs<TabId> label="Structure" value={tab} onChange={setTab} tabs={[
-          { value: 'columns', label: 'Columns', content: <ColumnsTab draft={draft} details={details} onChange={edit} /> },
-          { value: 'constraints', label: 'Constraints', content: <ConstraintsTab draft={draft} details={details} onChange={edit} /> },
-          { value: 'indexes', label: 'Indexes', content: <IndexesTab draft={draft} details={details} onChange={edit} /> },
-          ...(creating ? [] : [{ value: 'table' as const, label: 'Table', content: tableTab }])
+        {creating && <div className={styles.name}><TextField mono autoFocus label={t('structure.tableName')} value={draft.tableName} onChange={event => edit({ ...draft, tableName: event.target.value })} />
+          <TextField label={t('structure.commentOptional')} value={draft.comment} onChange={event => edit({ ...draft, comment: event.target.value })} /></div>}
+        <Tabs<TabId> label={t('tree.structure')} value={tab} onChange={setTab} tabs={[
+          { value: 'columns', label: t('structure.columns'), content: <ColumnsTab draft={draft} details={details} onChange={edit} /> },
+          { value: 'constraints', label: t('structure.constraints'), content: <ConstraintsTab draft={draft} details={details} onChange={edit} /> },
+          { value: 'indexes', label: t('structure.indexes'), content: <IndexesTab draft={draft} details={details} onChange={edit} /> },
+          ...(creating ? [] : [{ value: 'table' as const, label: t('structure.table'), content: tableTab }])
         ]} />
-        {!plan && problems.length > 0 && <ul className={styles.problems} aria-label="To fix">{problems.map(problem => <li key={problem}>{problem}</li>)}</ul>}
-        {plan && <section className={styles.plan} aria-label="Review">
+        {!plan && problems.length > 0 && <ul className={styles.problems} aria-label={t('structure.toFix')}>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul>}
+        {plan && <section className={styles.plan} aria-label={t('structure.review')}>
           <h4 className={styles.heading}>{plan.label}</h4>
           {plan.value.warnings.length > 0 && <ul className={styles.warnings}>{plan.value.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>}
           <pre className={styles.sql} tabIndex={0}>{plan.value.statements.map(statement => `${statement};`).join('\n\n')}</pre>
-          <p className={styles.note}>Runs in one transaction: if a statement fails, none of them is kept.</p>
-          {needsConfirm && <Checkbox label={plan.value.destructive ? 'I understand this cannot be undone' : 'This is a production connection: apply the change'} checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />}
+          <p className={styles.note}>{t('structure.oneTransaction')}</p>
+          {needsConfirm && <Checkbox label={plan.value.destructive ? t('structure.understand') : t('structure.productionApply')} checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />}
         </section>}
-        {error && <p role="alert" className={styles.error}>{error}</p>}
+        {error && <ErrorState compact title={t('structure.failed')} message={error} />}
         {note && <p role="status" className={styles.ok}>{note}</p>}
       </>
 
-  return <Dialog className="oq-scope" title={creating ? `New table in ${schema}` : `${schema}.${table}`} description={creating ? 'Define the columns, keys and indexes, then review the SQL before it runs.' : 'Edit the columns, keys and indexes. Nothing changes until you apply.'}
+  return <Dialog className="oq-scope" title={creating ? t('tree.newTableIn', { schema }) : `${schema}.${table}`} description={creating ? t('structure.createDescription') : t('structure.editDescription')} closeLabel={t('common.close')}
     size="xl" onClose={onClose} testId="structure-editor"
     footer={<>
-      <Button variant="ghost" onClick={onClose}>Close</Button>
+      <Button variant="ghost" onClick={onClose}>{t('common.close')}</Button>
       {plan && <Button variant={plan.value.destructive ? 'danger' : 'primary'} loading={busy} disabled={readOnly || (needsConfirm && !confirmed)} onClick={() => void apply()}>{plan.label}</Button>}
-      {!plan && !loadError && <Button variant="primary" loading={busy} disabled={readOnly || !pending || problems.length > 0} onClick={() => void reviewDraft()}>Review SQL</Button>}
+      {!plan && !loadError && <Button variant="primary" loading={busy} disabled={readOnly || !pending || problems.length > 0} onClick={() => void reviewDraft()}>{t('structure.reviewSql')}</Button>}
     </>}>
-    {readOnly && <p role="note" className={styles.note}>This connection is read-only. You can look at the structure but not change it.</p>}
+    {readOnly && <p role="note" className={styles.note}>{t('structure.readOnly')}</p>}
     {body}
   </Dialog>
 }

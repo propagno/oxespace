@@ -1,6 +1,8 @@
 import { useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { MongoCollectionAction, OxeQueryConnection } from '../../../shared/types/oxequery'
-import { Button, Checkbox, Dialog, Select, TextArea, TextField } from '../../ui'
+import { Button, Checkbox, Dialog, ErrorState, Select, TextArea, TextField } from '../../ui'
+import { formatNumber } from '../../utils/formatTime'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { jsonProblem } from './mongo-model'
 import styles from './MongoPanels.module.css'
@@ -17,6 +19,7 @@ export function BulkPanel({ connection, database, collection, filter, onClose, o
   onClose: () => void
   onDone: () => void
 }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [op, setOp] = useState<'updateMany' | 'deleteMany'>('updateMany')
   const [where, setWhere] = useState(filter.trim() || '{}')
   const [update, setUpdate] = useState('{\n  "$set": { "field": "value" }\n}')
@@ -42,7 +45,7 @@ export function BulkPanel({ connection, database, collection, filter, onClose, o
     setBusy(true); setError('')
     try {
       const result = await oq('mongo.bulk', { ...input, confirmed: true, expectedCount: counted })
-      setDone(op === 'deleteMany' ? `${result.deleted} deleted.` : `${result.matched} matched, ${result.modified} changed.`)
+      setDone(op === 'deleteMany' ? t('bulk.deleted', { count: result.deleted, formatted: formatNumber(result.deleted) }) : t('bulk.updated', { matched: formatNumber(result.matched), count: result.modified, formatted: formatNumber(result.modified) }))
       setCounted(null); setConfirmed(false)
       onDone()
     } catch (cause) {
@@ -51,24 +54,23 @@ export function BulkPanel({ connection, database, collection, filter, onClose, o
     } finally { setBusy(false) }
   }
 
-  const verb = op === 'deleteMany' ? 'deleted' : 'changed'
-  return <Dialog className="oq-scope" title={`Change many in ${collection}`} description="Count the documents first; the change runs only for the number you confirm." size="lg" onClose={onClose} testId="mongo-bulk"
-    footer={<><Button variant="ghost" onClick={onClose}>Close</Button>
-      <Button variant="secondary" loading={busy} disabled={problem !== null} onClick={() => void count()}>Count matches</Button>
+  return <Dialog className="oq-scope" title={t('bulk.title', { collection })} description={t('bulk.description')} closeLabel={t('common.close')} size="lg" onClose={onClose} testId="mongo-bulk"
+    footer={<><Button variant="ghost" onClick={onClose}>{t('common.close')}</Button>
+      <Button variant="secondary" loading={busy} disabled={problem !== null} onClick={() => void count()}>{t('bulk.count')}</Button>
       <Button variant={op === 'deleteMany' ? 'danger' : 'primary'} loading={busy} disabled={counted === null || counted === 0 || !confirmed || connection.readOnly} onClick={() => void apply()}>
-        {op === 'deleteMany' ? 'Delete documents' : 'Update documents'}</Button></>}>
+        {op === 'deleteMany' ? t('bulk.deleteDocuments') : t('bulk.updateDocuments')}</Button></>}>
     <div className={styles.form}>
-      <Select label="Operation" value={op} onChange={event => { setOp(event.target.value as typeof op); reset() }} options={[{ value: 'updateMany', label: 'Update many' }, { value: 'deleteMany', label: 'Delete many' }]} />
-      <TextArea mono label="Filter" rows={3} value={where} error={jsonProblem(where, 'object') ?? undefined} onChange={event => { setWhere(event.target.value); reset() }} />
-      {op === 'updateMany' && <TextArea mono label="Update" rows={5} value={update} hint="Update operators such as $set, $unset, $inc — not a replacement document"
+      <Select label={t('bulk.operation')} value={op} onChange={event => { setOp(event.target.value as typeof op); reset() }} options={[{ value: 'updateMany', label: t('bulk.updateMany') }, { value: 'deleteMany', label: t('bulk.deleteMany') }]} />
+      <TextArea mono label={t('mongo.filter')} rows={3} value={where} error={jsonProblem(where, 'object') ?? undefined} onChange={event => { setWhere(event.target.value); reset() }} />
+      {op === 'updateMany' && <TextArea mono label={t('bulk.update')} rows={5} value={update} hint={t('bulk.updateHint')}
         error={updateProblem ?? undefined} onChange={event => { setUpdate(event.target.value); reset() }} />}
-      {connection.readOnly && <p role="note" className={styles.note}>This connection is read-only: you can count, not change.</p>}
-      {counted !== null && <section className={styles.count} aria-label="Matches" role="status">
-        <strong>{counted} document{counted === 1 ? '' : 's'} match</strong>
-        {where.trim() === '{}' && <p className={styles.warn}>The filter is empty: every document in the collection matches.</p>}
-        {counted > 0 && !connection.readOnly && <Checkbox label={`${counted} document${counted === 1 ? '' : 's'} will be ${verb}${op === 'deleteMany' ? ' for good' : ''}`} checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />}
+      {connection.readOnly && <p role="note" className={styles.note}>{t('bulk.readOnly')}</p>}
+      {counted !== null && <section className={styles.count} aria-label={t('bulk.matchesLabel')} role="status">
+        <strong>{t('bulk.matches', { count: counted, formatted: formatNumber(counted) })}</strong>
+        {where.trim() === '{}' && <p className={styles.warn}>{t('bulk.emptyFilter')}</p>}
+        {counted > 0 && !connection.readOnly && <Checkbox label={t(op === 'deleteMany' ? 'bulk.willDelete' : 'bulk.willChange', { count: counted, formatted: formatNumber(counted) })} checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />}
       </section>}
-      {error && <p role="alert" className={styles.error}>{error}</p>}
+      {error && <ErrorState compact title={t('bulk.failed')} message={error} />}
       {done && <p role="status" className={styles.ok}>{done}</p>}
     </div>
   </Dialog>
@@ -78,6 +80,7 @@ type CollectionDialogMode = { kind: 'create'; database: string } | { kind: 'rena
 
 /** Create, rename or drop a collection. A drop names what it deletes and waits for a tick. */
 export function CollectionDialog({ connection, mode, onClose, onDone }: { connection: OxeQueryConnection; mode: CollectionDialogMode; onClose: () => void; onDone: (name?: string) => void }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [name, setName] = useState(mode.kind === 'rename' ? mode.collection : '')
   const [capped, setCapped] = useState(false)
   const [sizeMb, setSizeMb] = useState('64')
@@ -98,23 +101,23 @@ export function CollectionDialog({ connection, mode, onClose, onDone }: { connec
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
-  const title = mode.kind === 'create' ? `New collection in ${mode.database}` : mode.kind === 'rename' ? `Rename ${mode.collection}` : `Drop ${mode.collection}`
-  return <Dialog className="oq-scope" title={title} size="sm" onClose={onClose} testId="mongo-collection"
-    footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button>
+  const title = mode.kind === 'create' ? t('mongo.newCollectionIn', { database: mode.database }) : mode.kind === 'rename' ? t('mongo.renameNamed', { name: mode.collection }) : t('mongo.dropNamed', { name: mode.collection })
+  return <Dialog className="oq-scope" title={title} size="sm" onClose={onClose} closeLabel={t('common.close')} testId="mongo-collection"
+    footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
       <Button variant={mode.kind === 'drop' ? 'danger' : 'primary'} loading={busy} disabled={connection.readOnly || (mode.kind !== 'drop' && !name.trim()) || (mode.kind === 'drop' && !confirmed)} onClick={() => void submit()}>
-        {mode.kind === 'create' ? 'Create' : mode.kind === 'rename' ? 'Rename' : 'Drop collection'}</Button></>}>
+        {mode.kind === 'create' ? t('common.create') : mode.kind === 'rename' ? t('common.rename') : t('collection.drop')}</Button></>}>
     <div className={styles.form}>
-      {mode.kind !== 'drop' && <TextField mono autoFocus label={mode.kind === 'create' ? 'Name' : 'New name'} value={name} onChange={event => setName(event.target.value)} />}
+      {mode.kind !== 'drop' && <TextField mono autoFocus label={mode.kind === 'create' ? t('server.column.name') : t('collection.newName')} value={name} onChange={event => setName(event.target.value)} />}
       {mode.kind === 'create' && <>
-        <Checkbox label="Capped (a fixed size; the oldest documents are replaced)" checked={capped} onChange={event => setCapped(event.target.checked)} />
-        {capped && <TextField label="Size (MB)" inputMode="numeric" value={sizeMb} onChange={event => setSizeMb(event.target.value)} />}
+        <Checkbox label={t('collection.capped')} checked={capped} onChange={event => setCapped(event.target.checked)} />
+        {capped && <TextField label={t('collection.size')} inputMode="numeric" value={sizeMb} onChange={event => setSizeMb(event.target.value)} />}
       </>}
       {mode.kind === 'drop' && <>
-        <p className={styles.error}>This deletes “{mode.collection}” and all of its documents for good.</p>
-        <Checkbox label="I understand it cannot be recovered" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
+        <p className={styles.error}>{t('collection.dropWarning', { name: mode.collection })}</p>
+        <Checkbox label={t('collection.understand')} checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
       </>}
-      {connection.readOnly && <p role="note" className={styles.note}>This connection is read-only.</p>}
-      {error && <p role="alert" className={styles.error}>{error}</p>}
+      {connection.readOnly && <p role="note" className={styles.note}>{t('collection.readOnly')}</p>}
+      {error && <ErrorState compact title={t('collection.failed')} message={error} />}
     </div>
   </Dialog>
 }

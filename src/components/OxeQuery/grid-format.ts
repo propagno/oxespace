@@ -2,6 +2,9 @@
 
 export type CopyFormat = 'csv' | 'tsv' | 'json' | 'markdown' | 'insert'
 
+/** How a missing value is written in every language: it is the SQL keyword, not a word to translate. */
+export const SQL_NULL = 'NULL'
+
 export function displayCell(value: unknown): string {
   if (value === null || value === undefined) return 'NULL'
   return typeof value === 'string' ? value : String(value)

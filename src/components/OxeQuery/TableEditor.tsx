@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Download, Eye, Pencil, Plus, Trash2, Undo2, X } from 'lucide-react'
 import type { ExportFormat, OxeQueryConnection, SqlCellValue, SqlEditability, SqlResult, SqlRowChange } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { displayCell } from './ResultGrid'
 import { toast } from '../../ui/Toast'
+import { ErrorState, LoadingState } from '../../ui/Display'
+import { tq } from './catalog'
+import { SQL_NULL } from './grid-format'
 import { formatNumber } from '../../utils/formatTime'
 
 interface Props {
@@ -25,10 +29,10 @@ function cellText(value: unknown): string {
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 
-function describe(change: SqlRowChange): string {
-  if (change.kind === 'insert') return `Insert a row (${Object.keys(change.values).join(', ') || 'defaults'})`
+export function describeChange(change: SqlRowChange): string {
+  if (change.kind === 'insert') return tq('rows.change.insert', { columns: Object.keys(change.values).join(', ') || tq('rows.change.defaults') })
   const key = Object.entries(change.key).map(([name, value]) => `${name} = ${cellText(value)}`).join(', ')
-  return change.kind === 'delete' ? `Delete row where ${key}` : `Update ${Object.keys(change.set).join(', ')} where ${key}`
+  return change.kind === 'delete' ? tq('rows.change.delete', { key }) : tq('rows.change.update', { columns: Object.keys(change.set).join(', '), key })
 }
 
 /**
@@ -38,6 +42,7 @@ function describe(change: SqlRowChange): string {
  * runs. "View SQL" shows exactly what Apply would execute.
  */
 export function TableEditor({ connection, schema, table, result, selectedRow, onClearSelection, onApplied }: Props): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [editability, setEditability] = useState<SqlEditability | null>(null)
   const [enabled, setEnabled] = useState(false)
   const [staged, setStaged] = useState<SqlRowChange[]>([])
@@ -69,7 +74,7 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
     setDraft(Object.fromEntries(names.map((name, index) => [name, { value: cellText(row[index]), isNull: row[index] === null || row[index] === undefined }])))
   }, [row, names])
 
-  const reason = connection.readOnly ? 'This connection is read-only. Turn that off in the connection settings to edit.' : editability && !editability.editable ? editability.reason ?? 'This table cannot be edited.' : ''
+  const reason = connection.readOnly ? t('rows.readOnly') : editability && !editability.editable ? editability.reason ?? t('rows.notEditable') : ''
 
   const stage = (change: SqlRowChange): void => { setStaged(current => [...current, change]); setStatements(null); setError(''); setConflict(false) }
 
@@ -91,7 +96,7 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
       set[name] = next
       old[name] = before as SqlCellValue
     })
-    if (Object.keys(set).length === 0) { setError('Nothing changed in this row.'); return }
+    if (Object.keys(set).length === 0) { setError(t('rows.nothingChanged')); return }
     stage({ kind: 'update', key, set, old })
     onClearSelection()
   }
@@ -126,7 +131,7 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
     setBusy(true); setError(''); setConflict(false)
     try {
       await oq('sql.apply', { ...input, confirmed })
-      toast({ title: `${staged.length} change${staged.length === 1 ? '' : 's'} applied`, intent: 'success', duration: 3000 })
+      toast({ title: t('rows.applied', { count: staged.length }), intent: 'success', duration: 3000 })
       setStaged([]); setStatements(null); setConfirmReasons(null)
       onApplied()
     } catch (cause) {
@@ -143,70 +148,71 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
     setDraft(Object.fromEntries(editability.columns.filter(column => !column.generated).map(column => [column.name, { value: '', isNull: false }])))
   }
 
-  if (!editability) return <div className="oq-editor-bar" aria-busy="true"><span className="oq-muted">Checking whether this table can be edited…</span></div>
+  if (!editability) return <div className="oq-editor-bar"><LoadingState label={t('rows.checking')} /></div>
 
-  return <section className="oq-editor-bar" aria-label="Edit rows">
+  return <section className="oq-editor-bar" aria-label={t('rows.edit')}>
     <div className="oq-editor-bar-row">
-      <button type="button" aria-pressed={enabled} disabled={Boolean(reason)} title={reason || 'Stage changes to rows, review the SQL, then apply them in one transaction'}
-        onClick={() => { setEnabled(value => !value); setInserting(false); onClearSelection() }}><Pencil size={13} aria-hidden="true" />{enabled ? 'Editing' : 'Edit rows'}</button>
+      <button type="button" aria-pressed={enabled} disabled={Boolean(reason)} title={reason || t('rows.editTitle')}
+        onClick={() => { setEnabled(value => !value); setInserting(false); onClearSelection() }}><Pencil size={13} aria-hidden="true" />{enabled ? t('rows.editing') : t('rows.edit')}</button>
       {reason && <span className="oq-muted">{reason}</span>}
       {enabled && <>
-        <button type="button" onClick={startInsert}><Plus size={13} aria-hidden="true" />Add row</button>
-        <span className="oq-muted">{staged.length === 0 ? 'Select a row to change or delete it.' : `${staged.length} pending change${staged.length === 1 ? '' : 's'}`}</span>
+        <button type="button" onClick={startInsert}><Plus size={13} aria-hidden="true" />{t('rows.add')}</button>
+        <span className="oq-muted">{staged.length === 0 ? t('rows.selectHint') : t('rows.pending', { count: staged.length })}</span>
       </>}
-      {connection.environment === 'prod' && enabled && <span className="oq-badge" data-environment="prod">production</span>}
+      {connection.environment === 'prod' && enabled && <span className="oq-badge" data-environment="prod">{t('environment.short.prod')}</span>}
     </div>
 
-    {enabled && (row || inserting) && <div className="oq-edit-form" role="group" aria-label={inserting ? 'New row' : 'Edit row'}>
-      <header><strong>{inserting ? 'New row' : `Row ${selectedRow! + 1}`}</strong>
-        <button type="button" aria-label="Close editor" onClick={() => { setInserting(false); onClearSelection() }}><X size={13} aria-hidden="true" /></button></header>
+    {enabled && (row || inserting) && <div className="oq-edit-form" role="group" aria-label={inserting ? t('rows.newRow') : t('rows.editRow')}>
+      <header><strong>{inserting ? t('rows.newRow') : t('workbench.row', { number: selectedRow! + 1 })}</strong>
+        <button type="button" aria-label={t('rows.closeEditor')} onClick={() => { setInserting(false); onClearSelection() }}><X size={13} aria-hidden="true" /></button></header>
       <div className="oq-edit-fields">{Object.keys(draft).map(name => {
         const meta = editability.columns.find(column => column.name === name)
         const locked = Boolean(meta?.generated) || (!inserting && Boolean(meta?.key))
         const entry = draft[name]
         return <label key={name}>
-          <span>{name}<small>{meta?.type}{meta?.key ? ' · key' : ''}{meta?.generated ? ' · generated' : ''}{inserting && meta?.hasDefault ? ' · default' : ''}</small></span>
-          <input value={entry.isNull ? '' : entry.value} disabled={locked || entry.isNull} placeholder={entry.isNull ? 'NULL' : inserting && meta?.hasDefault ? 'default' : ''}
+          <span>{name}<small>{meta?.type}{meta?.key ? ` · ${t('rows.key')}` : ''}{meta?.generated ? ` · ${t('rows.generated')}` : ''}{inserting && meta?.hasDefault ? ` · ${t('rows.default')}` : ''}</small></span>
+          <input value={entry.isNull ? '' : entry.value} disabled={locked || entry.isNull} placeholder={entry.isNull ? SQL_NULL : inserting && meta?.hasDefault ? t('rows.default') : ''}
             onChange={event => setDraft(current => ({ ...current, [name]: { value: event.target.value, isNull: false } }))} />
-          {meta?.nullable && !locked && <button type="button" className="oq-null-toggle" aria-pressed={entry.isNull} title="Set to NULL"
-            onClick={() => setDraft(current => ({ ...current, [name]: { value: '', isNull: !entry.isNull } }))}>NULL</button>}
+          {meta?.nullable && !locked && <button type="button" className="oq-null-toggle" aria-pressed={entry.isNull} title={t('rows.setNull')}
+            onClick={() => setDraft(current => ({ ...current, [name]: { value: '', isNull: !entry.isNull } }))}>{SQL_NULL}</button>}
         </label>
       })}</div>
       <footer>
-        {inserting ? <button type="button" className="oq-primary" onClick={stageInsert}>Stage insert</button>
-          : <><button type="button" className="oq-primary" onClick={stageUpdate}>Stage update</button>
-            <button type="button" className="oq-danger" onClick={stageDelete}><Trash2 size={13} aria-hidden="true" />Stage delete</button></>}
+        {inserting ? <button type="button" className="oq-primary" onClick={stageInsert}>{t('rows.stageInsert')}</button>
+          : <><button type="button" className="oq-primary" onClick={stageUpdate}>{t('rows.stageUpdate')}</button>
+            <button type="button" className="oq-danger" onClick={stageDelete}><Trash2 size={13} aria-hidden="true" />{t('rows.stageDelete')}</button></>}
       </footer>
     </div>}
 
     {enabled && staged.length > 0 && <div className="oq-staged">
-      <ul aria-label="Pending changes">{staged.map((change, index) => <li key={index} data-kind={change.kind}>
-        <span>{describe(change)}</span>
-        <button type="button" aria-label={`Discard change ${index + 1}`} onClick={() => { setStaged(current => current.filter((_, position) => position !== index)); setStatements(null) }}><Undo2 size={12} aria-hidden="true" /></button>
+      <ul aria-label={t('rows.pendingLabel')}>{staged.map((change, index) => <li key={index} data-kind={change.kind}>
+        <span>{describeChange(change)}</span>
+        <button type="button" aria-label={t('rows.discardOne', { number: index + 1 })} onClick={() => { setStaged(current => current.filter((_, position) => position !== index)); setStatements(null) }}><Undo2 size={12} aria-hidden="true" /></button>
       </li>)}</ul>
-      {statements && <pre className="oq-sql-preview" aria-label="SQL that will run">{statements.join('\n')}</pre>}
-      {error && <p role="alert" className="oq-error">{error}{conflict && ' Reload the table to see the current values.'}</p>}
-      {confirmReasons && <ConfirmDialog danger title="Confirm these changes" confirmLabel="Apply changes" cancelLabel="Back" busy={busy}
-        description="Check these before the changes are applied."
+      {statements && <pre className="oq-sql-preview" aria-label={t('rows.sqlPreview')}>{statements.join('\n')}</pre>}
+      {error && <ErrorState compact title={t('rows.applyFailed')} message={conflict ? `${error} ${t('rows.conflict')}` : error} />}
+      {confirmReasons && <ConfirmDialog danger title={t('rows.confirmTitle')} confirmLabel={t('rows.confirmApply')} cancelLabel={t('common.back')} busy={busy}
+        description={t('rows.confirmDescription')}
         onCancel={() => setConfirmReasons(null)} onConfirm={() => void apply(true)}>
         <ul>{confirmReasons.map(item => <li key={item}>{item}</li>)}</ul>
       </ConfirmDialog>}
       <div className="oq-staged-actions">
-        <button type="button" disabled={busy} onClick={() => void viewSql()}><Eye size={13} aria-hidden="true" />View SQL</button>
-        <button type="button" disabled={busy} onClick={() => { setStaged([]); setStatements(null); setError(''); setConfirmReasons(null) }}>Discard all</button>
-        <button type="button" className="oq-primary" disabled={busy} onClick={() => void apply(false)}>Apply {staged.length}</button>
+        <button type="button" disabled={busy} onClick={() => void viewSql()}><Eye size={13} aria-hidden="true" />{t('rows.viewSql')}</button>
+        <button type="button" disabled={busy} onClick={() => { setStaged([]); setStatements(null); setError(''); setConfirmReasons(null) }}>{t('rows.discardAll')}</button>
+        <button type="button" className="oq-primary" disabled={busy} onClick={() => void apply(false)}>{t('rows.applyCount', { count: staged.length })}</button>
       </div>
     </div>}
-    {enabled && staged.length === 0 && error && <p role="alert" className="oq-error">{error}</p>}
+    {enabled && staged.length === 0 && error && <ErrorState compact title={error} />}
   </section>
 }
 
 /** Export of the table being browsed. The path is chosen in a native dialog in the main process. */
-export function ExportButton({ connection, source, label = 'Export' }: {
+export function ExportButton({ connection, source, label }: {
   connection: OxeQueryConnection
   source: { kind: 'table'; schema: string; table: string } | { kind: 'sql'; sql: string } | { kind: 'collection'; database: string; collection: string; filter?: string }
   label?: string
 }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<{ phase: 'idle' | 'running' | 'done' | 'error'; rows: number; text: string }>({ phase: 'idle', rows: 0, text: '' })
   const [exportId, setExportId] = useState('')
@@ -225,19 +231,19 @@ export function ExportButton({ connection, source, label = 'Export' }: {
     try {
       const outcome = await oq('export.run', { connectionId: connection.id, exportId: id, source, format })
       if (outcome.dismissed) setState({ phase: 'idle', rows: 0, text: '' })
-      else if (outcome.cancelled) setState({ phase: 'error', rows: outcome.rows, text: 'Export cancelled. No file was kept.' })
-      else setState({ phase: 'done', rows: outcome.rows, text: `${formatNumber(outcome.rows)} rows saved to ${outcome.fileName ?? 'the chosen file'}.` })
+      else if (outcome.cancelled) setState({ phase: 'error', rows: outcome.rows, text: t('export.cancelled') })
+      else setState({ phase: 'done', rows: outcome.rows, text: t('export.saved', { count: outcome.rows, formatted: formatNumber(outcome.rows), file: outcome.fileName ?? t('export.chosenFile') }) })
     } catch (cause) { setState({ phase: 'error', rows: 0, text: errorMessage(cause) }) }
   }
 
   const formats: ExportFormat[] = connection.engine === 'postgres' ? ['csv', 'xlsx', 'json', 'ndjson', 'sql'] : ['json', 'ndjson', 'csv', 'xlsx']
   return <span className="oq-export">
-    <button type="button" aria-haspopup="menu" aria-expanded={open} disabled={state.phase === 'running'} onClick={() => setOpen(value => !value)}><Download size={13} aria-hidden="true" />{label}</button>
-    {open && <ul role="menu" aria-label="Export format">{formats.map(format => <li key={format} role="none"><button type="button" role="menuitem" onClick={() => void run(format)}>{format.toUpperCase()}</button></li>)}</ul>}
-    {state.phase === 'running' && <span className="oq-muted" role="status">Exporting… {formatNumber(state.rows)} rows
-      <button type="button" onClick={() => void oq('export.cancel', { exportId }).catch(() => undefined)}>Cancel</button></span>}
+    <button type="button" aria-haspopup="menu" aria-expanded={open} disabled={state.phase === 'running'} onClick={() => setOpen(value => !value)}><Download size={13} aria-hidden="true" />{label ?? t('export.label')}</button>
+    {open && <ul role="menu" aria-label={t('export.format')}>{formats.map(format => <li key={format} role="none"><button type="button" role="menuitem" onClick={() => void run(format)}>{format.toUpperCase()}</button></li>)}</ul>}
+    {state.phase === 'running' && <span className="oq-muted" role="status">{t('export.running', { count: state.rows, formatted: formatNumber(state.rows) })}
+      <button type="button" onClick={() => void oq('export.cancel', { exportId }).catch(() => undefined)}>{t('common.cancel')}</button></span>}
     {state.phase === 'done' && <span className="oq-muted" role="status">{state.text}</span>}
-    {state.phase === 'error' && <span className="oq-error" role="alert">{state.text}</span>}
+    {state.phase === 'error' && <ErrorState compact title={state.text} />}
   </span>
 }
 
