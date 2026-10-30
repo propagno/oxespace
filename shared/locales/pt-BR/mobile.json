@@ -55,5 +55,92 @@
       "unreachable": "Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
       "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador."
     }
+  },
+  "live": {
+    "tabs": {
+      "threads": "Conversas",
+      "requests": "Pedidos",
+      "terminals": "Terminais",
+      "tasks": "Tarefas"
+    },
+    "requestsBadge_one": "{{count}} pedido esperando",
+    "requestsBadge_other": "{{count}} pedidos esperando",
+    "requestsBadge_many": "{{count}} pedidos esperando",
+    "emptyThreads": "Ainda não há conversas em {{desktop}}.",
+    "emptyRequests": "Nada esperando por você.",
+    "emptyTerminals": "Nenhum terminal aberto.",
+    "emptyTasks": "Nenhuma tarefa em segundo plano nem delegação.",
+    "loading": "Carregando…",
+    "status": {
+      "idle": "Parada",
+      "running": "Trabalhando",
+      "approval": "Esperando você",
+      "interrupted": "Interrompida",
+      "failed": "Falhou"
+    },
+    "pendingCount_one": "{{count}} esperando",
+    "pendingCount_other": "{{count}} esperando",
+    "pendingCount_many": "{{count}} esperando",
+    "back": "Voltar",
+    "menu": "Mais opções",
+    "jobs": "Tarefas em segundo plano",
+    "delegations": "Delegações",
+    "job": {
+      "pending": "Iniciando",
+      "running": "Rodando",
+      "exited": "Terminou",
+      "failed": "Falhou",
+      "killed": "Parada"
+    },
+    "exitCode": "código de saída {{code}}",
+    "paneAgent": "{{agent}} · {{state}}",
+    "agentState": {
+      "working": "trabalhando",
+      "blocked": "esperando",
+      "done": "concluiu",
+      "idle": "parado",
+      "unknown": "desconhecido"
+    },
+    "readOnly": "Só leitura",
+    "phoneWrite": "Digitação liberada pelo celular"
+  },
+  "thread": {
+    "you": "Você",
+    "agent": "Agente",
+    "reasoning": "Pensando",
+    "tool": {
+      "running": "Rodando",
+      "completed": "Concluído",
+      "failed": "Falhou",
+      "unknown": "Desconhecido"
+    },
+    "filesChanged_one": "{{count}} arquivo alterado",
+    "filesChanged_other": "{{count}} arquivos alterados",
+    "filesChanged_many": "{{count}} arquivos alterados",
+    "plan": "Plano",
+    "request": "Pedido: {{title}}",
+    "requestState": {
+      "pending": "esperando você",
+      "resolved": "respondido",
+      "cancelled": "cancelado",
+      "expired": "expirou"
+    },
+    "completed": {
+      "completed": "Turno concluído",
+      "interrupted": "Turno interrompido",
+      "failed": "Turno falhou"
+    },
+    "truncated": "Encurtado no celular; o texto completo está no computador.",
+    "unknownItems_one": "{{count}} item de um OXESpace mais novo não aparece.",
+    "unknownItems_other": "{{count}} itens de um OXESpace mais novo não aparecem.",
+    "unknownItems_many": "{{count}} itens de um OXESpace mais novo não aparecem.",
+    "showOutput": "Mostrar saída",
+    "hideOutput": "Esconder saída"
+  },
+  "terminal": {
+    "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
+    "redacted_other": "{{count}} valores secretos escondidos pelo seu computador.",
+    "redacted_many": "{{count}} valores secretos escondidos pelo seu computador.",
+    "empty": "Ainda sem saída."
   }
 }
