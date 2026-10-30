@@ -80,6 +80,8 @@ export interface ToolEntry {
   handler: (args: unknown, ctx: ToolContext) => Promise<InternalMcpToolCallResult>
   /** Characters of text the result may carry before it is cut; DEFAULT_TOOL_OUTPUT_LIMIT when absent. */
   outputLimit?: number
+  /** The descriptor a caller with these roles is listed, when some actions are kept for a role (DomainAction.role). */
+  offered?: (roles: ReadonlySet<import('./domain-tool').ActionRole>) => InternalMcpToolDescriptor
 }
 
 export const TOOL_REGISTRY: ToolEntry[] = [

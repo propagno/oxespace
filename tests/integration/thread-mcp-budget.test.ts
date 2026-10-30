@@ -60,13 +60,14 @@ describe('Thread MCP token budget', () => {
   it('finds a conversation’s roles in the database', () => {
     const db = openInMemoryDatabase()
     try {
-      expect(threadToolRoles(db, 'plain')).toEqual({ team: false, worker: false })
-      expect(threadToolRoles({ prepare: () => { throw Error('no such table') } }, 'plain')).toEqual({ team: false, worker: false })
+      expect(threadToolRoles(db, 'plain')).toEqual({ team: false, worker: false, coordinator: false })
+      expect(threadToolRoles({ prepare: () => { throw Error('no such table') } }, 'plain')).toEqual({ team: false, worker: false, coordinator: false })
       const answers = (match: string) => ({ prepare: (sql: string) => ({ get: () => sql.includes(match) ? { 1: 1 } : undefined }) })
-      expect(threadToolRoles(answers('agent_team_execution_links'), 'member')).toEqual({ team: true, worker: false })
-      expect(threadToolRoles(answers('destinationThreadId'), 'delegated')).toEqual({ team: false, worker: true })
-      expect(threadToolRoles(answers('FROM work_tasks'), 'task')).toEqual({ team: false, worker: true })
-      expect(threadToolRoles(answers('supervisor_thread_id'), 'supervisor')).toEqual({ team: false, worker: true })
+      expect(threadToolRoles(answers('agent_team_execution_links'), 'member')).toEqual({ team: true, worker: false, coordinator: false })
+      expect(threadToolRoles(answers('destinationThreadId'), 'delegated')).toEqual({ team: false, worker: true, coordinator: false })
+      expect(threadToolRoles(answers('FROM work_tasks'), 'task')).toEqual({ team: false, worker: true, coordinator: false })
+      expect(threadToolRoles(answers('supervisor_thread_id'), 'supervisor')).toEqual({ team: false, worker: true, coordinator: false })
+      expect(threadToolRoles(answers('thread_project_coordinators'), 'coordinator')).toEqual({ team: false, worker: false, coordinator: true })
     } finally { db.close() }
   })
 

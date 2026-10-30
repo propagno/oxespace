@@ -13,7 +13,9 @@ const FENCED: Record<string, { source: string; actions?: readonly string[] }> = 
   oxespace_get_job_output: { source: 'a background job' },
   oxespace_terminal: { source: 'a terminal', actions: ['output'] },
   oxespace_agents: { source: 'another agent\'s terminal', actions: ['read'] },
-  oxespace_preview_interact: { source: 'a web page' }
+  oxespace_preview_interact: { source: 'a web page' },
+  // The coordinator's summary: request and conversation titles that other agents wrote.
+  oxespace_threads: { source: 'other conversations of this project', actions: ['pending'] }
 }
 
 const END = '[end of untrusted data'

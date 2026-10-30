@@ -7,6 +7,7 @@ import type {
 import { INTERNAL_MCP_ERROR_CODES } from '../../../shared/types/mcp-internal'
 import { activeTools, findTool, type ToolContext } from './tool-registry'
 import { errorResult } from './tool-registry'
+import { callerRoles } from './domain-tool'
 import { boundToolResult, DEFAULT_TOOL_OUTPUT_LIMIT, toolOutputSaver } from './tool-result-bound'
 
 /**
@@ -116,7 +117,12 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
     }
 
     if (parsed.method === 'tools/list') {
-      const tools = activeTools().map((entry) => entry.descriptor)
+      const entries = activeTools()
+      // Actions kept for a role (the coordinator's `pending`) are listed only to a live execution that has it.
+      const roles = entries.some(entry => entry.offered)
+        ? await callerRoles({ db: deps.db, executions: deps.executions, executionId, executionToken, workspaceId })
+        : new Set<never>()
+      const tools = entries.map((entry) => entry.offered?.(roles) ?? entry.descriptor)
       return { jsonrpc: '2.0', id, result: { tools } }
     }
 

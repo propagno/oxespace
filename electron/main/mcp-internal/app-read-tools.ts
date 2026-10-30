@@ -124,6 +124,15 @@ export const APP_READ_TOOLS: ToolEntry[] = [
     native_sessions: {
       level: 'read', description: 'Claude Code or Codex CLI sessions run in this folder: id, model, tokens, first message.',
       properties: { provider: { type: 'string', enum: ['claude', 'codex'] } }, required: ['provider'], run: lazy('native_sessions')
+    },
+    // Offered to the project's coordinator conversation alone (B1.4). Nothing here answers a request: approvals stay with the person.
+    pending: {
+      level: 'read', role: 'coordinator',
+      description: 'Requests waiting for the person in this project\'s conversations: title, kind, conversation and age. Only the person answers them.',
+      run: async (args, scope, ctx) => {
+        if (scope.owner?.kind !== 'thread' || !ctx.db) throw new ActionRefused('Only the project\'s coordinator conversation reads its pending requests.', 'invalid')
+        return (await import('../services/conversation/thread-coordinator')).coordinatorPendingRequests(ctx.db, scope.owner.id, int(args, 'limit', 30, 1, 100))
+      }
     }
   }),
 

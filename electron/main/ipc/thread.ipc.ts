@@ -305,5 +305,12 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     if (typeof pinned !== 'boolean') throw new Error('Invalid pin input')
     return manager.then(service => service.pin(string(id), pinned))
   })
+  // The person's choice only: the window's main frame, never an MCP tool (thread.coordinator_admin is forbidden).
+  ipcMain.handle(IPC_CHANNELS.thread.setCoordinator, (event, id: unknown, coordinator: unknown) => {
+    sender(event)
+    const threadId = string(id)
+    if (typeof coordinator !== 'boolean') throw new Error('Invalid coordinator input')
+    return manager.then(service => service.setCoordinator(threadId, coordinator))
+  })
   return { manager, stop: async () => { await (await accounts).stop(); await (await manager).stop() } }
 }

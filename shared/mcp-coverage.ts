@@ -211,11 +211,10 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'session.list']
   },
   'thread.coordinator_admin': { label: 'Make a conversation the project\'s coordinator', forbidden: 'Raises what an agent can reach.', ipc: ['thread.setCoordinator'] },
-  'thread.coordinator_read': {
-    label: 'The coordinator\'s summary of the project\'s pending requests',
-    planned: 'B1.4',
-    reason: 'An oxespace_threads action, pending (read), offered only to the coordinator conversation: title, kind, conversation and age of each pending request, inside the untrusted-output block since other agents wrote them. No command, argument or path, and nothing that answers a request; approvals stay with the person.'
-  },
+  // B1.4: oxespace_threads `pending` is listed and run only for the project's coordinator conversation (DomainAction.role):
+  // title, kind, conversation and age of each pending request, inside the untrusted-output block since other agents wrote
+  // them. No command, argument or path, and nothing that answers a request; approvals stay with the person.
+  'thread.coordinator_read': { label: 'The coordinator\'s summary of the project\'s pending requests', tools: each('oxespace_threads', 'read', ['pending']) },
   'thread.drive': {
     label: 'Create Threads, send, steer, stop, set the model, rename, archive',
     tools: {

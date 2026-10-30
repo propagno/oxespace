@@ -89,7 +89,7 @@ export class ThreadOrchestrator {
     listeners.add(listener); this.changeListeners.set(id, listeners)
     return () => { listeners.delete(listener); if (!listeners.size) this.changeListeners.delete(id) }
   }
-  private changed(id: string): void {
+  protected changed(id: string): void {
     this.notifyChanged(id)
     for (const listener of this.changeListeners.get(id) ?? []) listener()
   }
@@ -133,7 +133,7 @@ export class ThreadOrchestrator {
   /** Daily retention pass for an app left open for days. */
   private readonly retentionSweep: ReturnType<typeof setInterval>
 
-  constructor(private readonly db: AppDatabase,
+  constructor(protected readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
     private readonly notifyChanged: (threadId: string) => void,
     private readonly preflight?: (thread: ConversationThread) => Promise<void>,

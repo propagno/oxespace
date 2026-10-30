@@ -379,6 +379,11 @@ export class DelegationApplicationService {
       this.canonicalPath(execution.canonicalRoot) !== this.canonicalPath(task.originCwd) || this.isDelegatedExecution(task, execution)) {
       throw new Error('Delegation is outside this execution scope')
     }
+    // The project's coordinator conversation (B1.4) controls only the tasks it delegated; it never takes over another requester's.
+    if (execution.owner.kind === 'thread' && execution.paneId !== task.originPaneId
+      && (await import('../conversation/thread-coordinator')).isThreadCoordinator(this.db, execution.owner.id)) {
+      throw new Error('Delegation is outside this execution scope: a coordinator conversation controls only the tasks it delegated')
+    }
     this.coordinator.checkTask(task)
     await this.coordinator.bind(task, 'requester', execution)
     task.originExecutionId = execution.id

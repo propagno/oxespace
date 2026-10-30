@@ -24,10 +24,10 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 36 | 28 | 2 | 10 | 76 |
+| 37 | 28 | 2 | 11 | 78 |
 
-The registry has 88 tools: 65 single-purpose tools and 23 domain tools with 88 actions, so the
-manifest declares 153 tool-or-action entries.
+The registry has 88 tools: 65 single-purpose tools and 23 domain tools with 89 actions, so the
+manifest declares 154 tool-or-action entries.
 
 ## Forbidden, never a tool
 
@@ -115,7 +115,7 @@ before. Code panes receive the whole registry.
 | `thread.project_admin` | Add, relink or hide Thread projects; idle suspension; shell check | Excluded: The person's settings. |
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
 | `thread.coordinator_admin` | Make a conversation the project's coordinator | **Forbidden**: Raises what an agent can reach. |
-| `thread.coordinator_read` | The coordinator's summary of the project's pending requests | Planned (B1.4): `oxespace_threads#pending` (read), offered only to the coordinator; titles and kinds inside the untrusted-output block; nothing that answers a request. |
+| `thread.coordinator_read` | The coordinator's summary of the project's pending requests | **read**: `oxespace_threads#pending`, listed and run only for the project's coordinator conversation; titles, kinds, conversations and ages inside the untrusted-output block; nothing that answers a request. |
 
 > `oxespace_delegation_control` `approve` is the requesting agent accepting the result of a task it delegated: an agreement between agents, never the approval of a person's request, and it never merges. For the coordinator conversation it holds only for tasks the coordinator itself delegated.
 
