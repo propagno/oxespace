@@ -34,6 +34,20 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
+  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' }
+  /** A pairing code was asked for while the gateway is off. */
+  'remote.gateway.offline': Record<string, never>
+  /** Pairing another phone would pass the device limit. */
+  'remote.pairing.limit': { max: number }
+  /** No paired device has this id (revoked, or never paired). */
+  'remote.device.notFound': Record<string, never>
+  /** A device name that is empty, longer than `max` or has control characters. */
+  'remote.device.invalidName': { max: number }
+  /** A desktop name that is empty, longer than `max` or has control characters. */
+  'remote.desktop.invalidName': { max: number }
+  /** A pane id that cannot be a pane. */
+  'remote.pane.invalid': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -50,7 +64,14 @@ export const MESSAGE_CODES = [
   'remote.port.privileged',
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
-  'remote.certificate.failed'
+  'remote.certificate.failed',
+  'remote.pairing.failed',
+  'remote.gateway.offline',
+  'remote.pairing.limit',
+  'remote.device.notFound',
+  'remote.device.invalidName',
+  'remote.desktop.invalidName',
+  'remote.pane.invalid'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */
@@ -71,6 +92,35 @@ export function isMainMessage(value: unknown): value is MainMessage {
 
 export function mainMessage<Code extends MessageCode>(code: Code, params: MessageParams[Code]): { code: Code; params: MessageParams[Code] } {
   return { code, params }
+}
+
+/**
+ * Marks a C3 message inside a rejection. Electron passes only an error's text across `invoke`, so a handler that
+ * rejects with something the person should read throws `MainMessageError`: its text is the English sentence (for logs)
+ * followed by this tag and the message as JSON. The window reads it back with `messageFromError`. Malformed input
+ * (wrong types, unknown fields) stays a plain `Error`.
+ */
+export const MAIN_MESSAGE_ERROR_TAG = ' #c3 '
+
+export class MainMessageError extends Error {
+  constructor(readonly mainMessage: MainMessage, text: string) {
+    super(`${text}${MAIN_MESSAGE_ERROR_TAG}${JSON.stringify(mainMessage)}`)
+    this.name = 'MainMessageError'
+  }
+}
+
+/** The C3 message a rejection carries, in this process or after crossing IPC; `null` for any other error. */
+export function messageFromError(cause: unknown): MainMessage | null {
+  if (cause instanceof MainMessageError) return cause.mainMessage
+  const text = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : ''
+  const at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG)
+  if (at < 0) return null
+  try {
+    const value: unknown = JSON.parse(text.slice(at + MAIN_MESSAGE_ERROR_TAG.length))
+    return isMainMessage(value) ? value : null
+  } catch {
+    return null
+  }
 }
 
 /** The catalog key of a code in the `main` namespace. */
