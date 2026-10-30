@@ -889,6 +889,8 @@ test('memory: main process with 10 Threads open', async () => {
 const TUI_PANES = 6
 const TUI_CPU_WINDOW_MS = 10_000
 const TUI_CPU_BUDGET_PCT = 25
+// Same bar as typing in a 5,000-event Thread: 50 ms is three dropped frames at 60 Hz.
+const FOCUSED_KEY_BUDGET_MS = 50
 // Shell-neutral (PowerShell and bash): no $, no !, no double quotes inside; node turns the escapes into bytes.
 const FAKE_TUI = String.raw`node -e "process.stdout.write('\x1b[?1049h');let n=0;setInterval(()=>{n++;let s='\x1b[H';for(let r=0;r<40;r++)s+=('row '+r+' frame '+n+' ').padEnd(110,'=')+'\r\n';process.stdout.write(s)},16)"`
 
@@ -939,8 +941,29 @@ async function benchTuis(scenario: string, command: (index: number) => string, b
       `gpu=${(byType.GPU ?? 0).toFixed(1)}% total=${counted.toFixed(1)}% of one core over ${elapsedSeconds.toFixed(1)}s · webglPanes=${webglPanes} · ${JSON.stringify(byType)}`
     )
     expect(Object.keys(byType).length, 'Electron reports cumulative CPU time per process').toBeGreaterThan(0)
+
+    // The focused pane must stay fluid while the others draw: typing into it, from key to the second frame painted
+    // after it (the frame that shows the echo at the 16 ms pace).
+    const input = panes.first().locator('textarea.xterm-helper-textarea')
+    await input.evaluate((field) => {
+      const samples: number[] = []
+      ;(window as unknown as { __keySamples: number[] }).__keySamples = samples
+      // On the window, in the capture phase: xterm handles and stops most keys on its textarea.
+      window.addEventListener('keydown', (event) => {
+        if (event.target !== field) return
+        const started = performance.now()
+        requestAnimationFrame(() => requestAnimationFrame(() => samples.push(performance.now() - started)))
+      }, true)
+    })
+    await input.focus()
+    await page.keyboard.type('typing while five agents draw', { delay: 40 })
+    await page.waitForTimeout(100)
+    const keys = await page.evaluate(() => (window as unknown as { __keySamples: number[] }).__keySamples)
+    report(`terminals: ${scenario}, focused keystroke→paint`, keys)
+
     if (ENFORCE_BUDGETS) {
       expect(counted, `main + renderer + GPU, ${scenario}: ${counted.toFixed(1)}% of one core exceeded ${budgetPct}%`).toBeLessThanOrEqual(budgetPct)
+      expect(stats(keys).p95, `focused pane keystroke→paint p95, ${scenario}`).toBeLessThanOrEqual(FOCUSED_KEY_BUDGET_MS)
     }
   } finally {
     await killApp(app, pid)
