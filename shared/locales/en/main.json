@@ -28,6 +28,10 @@
         "staleGeneration": "The conversation restarted since this request was shown. Open it to see what is waiting now.",
         "alreadyResponding": "An answer to this request is already being sent.",
         "unanswered": "Answer every question before continuing."
+      },
+      "side": {
+        "unavailable": "This agent cannot open a side chat yet.",
+        "noSession": "Send a message first: a side chat copies the conversation so far."
       }
     },
     "app": {

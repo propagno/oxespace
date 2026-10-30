@@ -26,6 +26,10 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** The provider cannot fork its session into a side chat (B1.2). */
+  'thread.side.unavailable': Record<string, never>
+  /** The conversation has no native session to copy yet: send a message first. */
+  'thread.side.noSession': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -38,7 +42,9 @@ export const MESSAGE_CODES = [
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
-  'app.connectivity.offline'
+  'app.connectivity.offline',
+  'thread.side.unavailable',
+  'thread.side.noSession'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

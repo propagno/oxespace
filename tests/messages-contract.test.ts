@@ -16,7 +16,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
   'thread.request.unanswered': [],
-  'app.connectivity.offline': []
+  'app.connectivity.offline': [],
+  'thread.side.unavailable': [],
+  'thread.side.noSession': []
 }
 
 describe('C3 message codes', () => {
