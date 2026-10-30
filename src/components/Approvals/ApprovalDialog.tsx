@@ -6,7 +6,7 @@ import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequest, type ApprovalRisk, type 
 import { Badge, Button, Dialog, Notice, type Intent } from '../../ui'
 import { useApprovalsStore, type ApprovalNotice } from './approvals.store'
 import { CRITICAL_ALLOW_DELAY_MS, denyOption, holdsAllow, visibleOptions } from './approvalsRules'
-import { approvalT as t, factsSentence, formatCount, formatMainMessage, formatTime, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
+import { approvalT as t, factsSentence, formatAppNote, formatCount, formatMainMessage, formatTime, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
 import { useAllowHold } from './useAllowHold'
 import styles from './Approvals.module.css'
 
@@ -111,7 +111,7 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS, 
     {shownNotice && <Notice intent={shownNotice.intent} title={shownNotice.title}>{shownNotice.body || null}</Notice>}
     {notes.length > 0 && <section className={styles.appNotes} aria-labelledby={notesHeading} data-testid="approval-app-notes">
       <h3 id={notesHeading} className={styles.sectionTitle}>{t('approvals.appNotes')}</h3>
-      <ul>{notes.map((note, index) => <li key={index}>{formatMainMessage(note)}</li>)}</ul>
+      <ul>{notes.map((note, index) => <li key={index}>{formatAppNote(note, request.kind)}</li>)}</ul>
     </section>}
     <section className={styles.agent} aria-labelledby={agentHeading} data-testid="approval-agent-block">
       <header className={styles.agentHeader}>

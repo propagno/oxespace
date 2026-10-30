@@ -10,8 +10,19 @@ const t = (key: string, values?: Record<string, unknown>): string => (i18n.t as 
  * main; none exists yet, so this mirrors McpServerSafety's lookup.
  */
 export function formatMainMessage(message: MainMessage | { code: string; params: Record<string, unknown> }): string {
-  if (!isMainMessage(message)) return t('approvals.unknownCode')
+  // A code this version does not know never disappears: a generic sentence names it.
+  if (!isMainMessage(message)) return t('approvals.unknownCode', { code: String(message.code) })
   return t(`main:${messageKey(message.code)}`, messageValues(message, currentLanguage()))
+}
+
+/**
+ * One of the app's notes on a request. For OxeQuery, the SQL guard's risk reasons arrive as C3 codes
+ * (`SqlGuardVerdict.codes`, #237): each is worded by the catalog, never by the guard's English string, and an
+ * unknown one reads as a generic "risky SQL" reason with its code.
+ */
+export function formatAppNote(note: MainMessage | { code: string; params: Record<string, unknown> }, kind: ApprovalRequest['kind']): string {
+  if (kind === 'oxequery' && !isMainMessage(note)) return t('approvals.sqlUnknown', { code: String(note.code) })
+  return formatMainMessage(note)
 }
 
 export const riskName = (risk: ApprovalRisk): string => t(`approvals.risk.${risk}`)

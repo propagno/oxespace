@@ -404,7 +404,8 @@
         "decision": "Decision"
       }
     },
-    "unknownCode": "OXESpace sent a message this version cannot show."
+    "unknownCode": "OXESpace sent a note this version cannot show (code {{code}}).",
+    "sqlUnknown": "Risky SQL: OXESpace flagged a risk in this statement that this version cannot describe (code {{code}})."
   },
   "about": {
     "title": "About OXESpace",

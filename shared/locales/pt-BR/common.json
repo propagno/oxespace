@@ -409,7 +409,8 @@
         "decision": "Decisão"
       }
     },
-    "unknownCode": "O OXESpace enviou uma mensagem que esta versão não consegue mostrar."
+    "unknownCode": "O OXESpace enviou um aviso que esta versão não consegue mostrar (código {{code}}).",
+    "sqlUnknown": "SQL arriscado: o OXESpace apontou um risco neste comando que esta versão não consegue descrever (código {{code}})."
   },
   "about": {
     "title": "Sobre o OXESpace",
