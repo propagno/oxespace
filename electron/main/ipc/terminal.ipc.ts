@@ -1,4 +1,6 @@
-import { ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
+import { requireAppFrame } from './ipc-guards'
+import { TERMINAL_PRESENCE_STATES, type TerminalPresenceInput } from '../../../shared/types/ipc/terminal'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import {
   parseTerminalAttachInput,
@@ -19,6 +21,8 @@ export interface TerminalIpcController {
   detach(input: ReturnType<typeof parseTerminalStopInput>): void
   status(paneId: string): TerminalStatusResult
   hasSession?(paneId: string): boolean
+  setPresence?(input: TerminalPresenceInput): void
+  setWindowFocused?(focused: boolean): void
 }
 
 export function registerTerminalIpc(controller: TerminalIpcController = createPendingTerminalController()): void {
@@ -32,6 +36,23 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   ipcMain.handle(IPC_CHANNELS.terminal.attach, (_event, input: unknown) => controller.attach(parseTerminalAttachInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.detach, (_event, input: unknown) => controller.detach(parseTerminalStopInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.status, (_event, paneId: unknown) => controller.status(String(paneId ?? '')))
+  ipcMain.handle(IPC_CHANNELS.terminal.setPresence, (event, input: unknown) => {
+    requireAppFrame(event, 'Terminal presence')
+    controller.setPresence?.(parseTerminalPresenceInput(input))
+  })
+  // A focused pane is drawn at the visible pace while no app window has the system focus (B2.3).
+  app.on('browser-window-focus', () => controller.setWindowFocused?.(true))
+  app.on('browser-window-blur', () => setTimeout(() => controller.setWindowFocused?.(BrowserWindow.getFocusedWindow() !== null), 0))
+}
+
+/** `{ paneId, state }` with a known state and nothing else. */
+export function parseTerminalPresenceInput(value: unknown): TerminalPresenceInput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid terminal presence')
+  const input = value as Record<string, unknown>
+  if (Object.keys(input).some(key => key !== 'paneId' && key !== 'state')) throw new Error('Unknown terminal presence field')
+  if (typeof input.paneId !== 'string' || !input.paneId || input.paneId.length > 200) throw new Error('Invalid terminal presence pane')
+  if (!(TERMINAL_PRESENCE_STATES as readonly unknown[]).includes(input.state)) throw new Error('Invalid terminal presence state')
+  return { paneId: input.paneId, state: input.state as TerminalPresenceInput['state'] }
 }
 
 export function createPendingTerminalController(): TerminalIpcController {
