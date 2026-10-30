@@ -2,6 +2,7 @@ import { ChevronDown, GitBranch, Zap } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { IntegrationGroup } from '../../../shared/types/integration'
+import { EmptyState } from '../../ui'
 
 interface SidebarIntegrationRowProps {
   group: IntegrationGroup
@@ -40,7 +41,7 @@ export function SidebarIntegrationRow({ group, isActive, activeMemberId, default
       {expanded ? (
         <ul className="sidebar-integration-row-members" aria-label={t('sidebar.members', { name: group.name })}>
           {group.members.length === 0 ? (
-            <li className="sidebar-integration-row-empty">{t('sidebar.noMembers')}</li>
+            <li><EmptyState compact title={t('sidebar.noMembers')} /></li>
           ) : (
             group.members.map((member) => (
               <li key={member.id}>
