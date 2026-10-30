@@ -49,7 +49,7 @@ async function stop(app: ElectronApplication, pid?: number): Promise<void> {
   try { if (process.platform === 'win32') execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); else process.kill(pid, 'SIGKILL') } catch { /* gone */ }
 }
 
-interface Metrics { byType: Record<string, number>; totalMb: number; mainHeapMb: number; mainRssMb: number; rendererHeapMb: number; mainHeapTotalMb: number; mainExternalMb: number }
+interface Metrics { webglPanes: number; byType: Record<string, number>; totalMb: number; mainHeapMb: number; mainRssMb: number; rendererHeapMb: number; mainHeapTotalMb: number; mainExternalMb: number }
 const mb = (kb: number): number => Math.round(kb / 1024 * 10) / 10
 
 async function sample(app: ElectronApplication, page: Page): Promise<Metrics> {
@@ -67,7 +67,8 @@ async function sample(app: ElectronApplication, page: Page): Promise<Metrics> {
   const byType: Record<string, number> = {}
   for (const p of main.processes) byType[p.type] = (byType[p.type] ?? 0) + mb(p.privateKb)
   const total = Object.values(byType).reduce((a, b) => a + b, 0)
-  return { byType, totalMb: Math.round(total * 10) / 10, mainHeapMb: Math.round(main.heap / 1048576 * 10) / 10, mainRssMb: Math.round(main.rss / 1048576 * 10) / 10, rendererHeapMb: Math.round(rendererHeap / 1048576 * 10) / 10,
+  const webglPanes = await page.evaluate(() => document.querySelectorAll('.xterm-screen canvas.xterm-webgl, .xterm-screen > canvas:not(.xterm-link-layer)').length)
+  return { webglPanes, byType, totalMb: Math.round(total * 10) / 10, mainHeapMb: Math.round(main.heap / 1048576 * 10) / 10, mainRssMb: Math.round(main.rss / 1048576 * 10) / 10, rendererHeapMb: Math.round(rendererHeap / 1048576 * 10) / 10,
     mainHeapTotalMb: Math.round(main.heapTotal / 1048576 * 10) / 10, mainExternalMb: Math.round(main.external / 1048576 * 10) / 10 }
 }
 
@@ -102,6 +103,17 @@ test('memory footprint: one long Thread, four terminals, seeded history', async 
   try {
     await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { state: 'visible' })
     await expect(page.getByTestId('terminal-status-label').filter({ hasText: 'running' })).toHaveCount(TERMINALS, { timeout: 60_000 })
+    // Agent CLIs that draw into the normal screen (Claude, Codex) leave their whole session in the scrollback.
+    const lines = Number(process.env.MF_OUTPUT_LINES ?? 20_000)
+    if (lines > 0) {
+      const panes = page.getByTestId('terminal-pane')
+      for (let index = 0; index < TERMINALS; index++) {
+        await panes.nth(index).click()
+        await page.keyboard.type(`node -e "for(let i=0;i<${lines};i++)console.log('line '+i+' '+'x'.repeat(100))"`)
+        await page.keyboard.press('Enter')
+      }
+      await page.waitForTimeout(20_000)
+    }
     await page.waitForTimeout(3_000)
     const codeOnly = await sample(app, page)
     console.log(`[MEMORY] code only ${JSON.stringify(codeOnly)}`)
