@@ -34,6 +34,18 @@
       "connectivity": {
         "offline": "Sem conexão de rede."
       }
+    },
+    "remote": {
+      "port": {
+        "privileged": "Escolha uma porta a partir de 1024; a porta {{port}} é reservada pelo sistema.",
+        "inUse": "A porta {{port}} já está em uso por outro programa. Escolha outra porta."
+      },
+      "network": {
+        "noPrivateInterface": "Nenhuma rede privada encontrada para escutar. Conecte-se ao Wi-Fi ou à rede cabeada local e tente de novo."
+      },
+      "certificate": {
+        "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
+      }
     }
   }
 }

@@ -206,6 +206,10 @@ export const IPC_CHANNELS = {
     onEvent: 'oxeQuery:event'
   },
   oxePod: { call: 'oxePod:call', onEvent: 'oxePod:event' },
+  remote: {
+    status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
+    cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename'
+  },
   oxePost: { call: 'oxePost:call' },
   automations: {
     list: 'automations:list',
@@ -688,6 +692,7 @@ export interface OxeApi {
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
   oxePod: import('./oxepod').OxePodApi
+  remote?: import('./remote').RemoteApi
   oxePost: import('../oxepost/types').OxePostApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
