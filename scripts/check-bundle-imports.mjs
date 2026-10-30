@@ -25,15 +25,25 @@ function files(dir) {
 
 const outMain = join(root, 'out', 'main')
 const problems = []
+let scanned = 0
 for (const file of files(outMain)) {
   const source = readFileSync(file, 'utf8')
-  // Static ESM imports are evaluated when the module loads, so any missing one kills the whole bundle.
-  for (const match of source.matchAll(/^\s*import\s+(?:[^'";]*?\s+from\s+)?["']([^"'./][^"']*)["']/gm)) {
+  // Static ESM imports are evaluated when the module loads, so any missing one kills the whole bundle. The main
+  // process is minified, so an import starts a line or follows a `;` and may have no spaces (`import{a as b}from"x"`).
+  for (const match of source.matchAll(/(?:^|;)\s*import\s*(?:[^'";()]*?\s*from\s*)?["']([^"']+)["']/gm)) {
+    scanned++
     const specifier = match[1]
+    if (specifier.startsWith('.') || specifier.startsWith('/')) continue
     const name = packageName(specifier)
     if (builtins.has(specifier) || builtins.has(name) || shipped.has(name)) continue
     problems.push(`${relative(root, file)}: static import of "${specifier}", which is not in package.json dependencies or optionalDependencies`)
   }
+}
+
+// Every bundle imports at least electron or a node builtin; finding none means the pattern no longer matches the output.
+if (scanned === 0) {
+  console.error('check-bundle-imports: no static import was found in out/main; the bundle format changed and this check would pass blindly.')
+  process.exit(1)
 }
 
 if (problems.length) {
@@ -41,4 +51,4 @@ if (problems.length) {
   console.error('Bundle the package, alias it to a stub, or move it to dependencies.')
   process.exit(1)
 }
-console.log(`check-bundle-imports: ${files(outMain).length} bundles, every static import is shipped or built in`)
+console.log(`check-bundle-imports: ${files(outMain).length} bundles, ${scanned} static imports, every one shipped, built in or local`)
