@@ -62,6 +62,11 @@ How it was measured:
 | Core and `oxespace_tools_enable` | 19,880 | no increase: this Codex version does not send MCP definitions up front |
 | "Turn on data, then list containers" | 80,482 across the turn | the enable call was **refused**: "MCP tool call requires approval, but approval policy is never" |
 
-**What this showed:**
+**Second run, with `oxespace_tools_enable` marked `readOnlyHint: true`:**
+- Codex ran the enable call **without asking for approval**. It is read-only for real: it changes nothing outside the session, and the tools it lists keep their own level and approval.
+- Codex **did not reload its tool list** after `notifications/tools/list_changed`, so `oxespace_containers_list` stayed out of reach in that session (126,080 input tokens across the turn, 82,432 of them cached).
+- So in this Codex version, turning a group on in the middle of a session does not work yet. Since Codex also sends no MCP definitions up front (the plain run above), offering every group that is not off costs Codex nothing at start. That is the proposed plan for Codex, pending the coordinator's decision.
+
+**What the first run showed:**
 - **Turning a group on needs approval.** Codex asks the person to approve each MCP call, `oxespace_tools_enable` included, even though it only changes the tool list. So the cost of one group turned on could not be measured without loosening approvals, and that was not done.
 - **Follow-up for B7.2.** Mark `oxespace_tools_enable` read-only for Codex, through the `readOnlyHint` annotation, if Codex honours it, or document that it asks for approval. Then repeat the "data on" run.

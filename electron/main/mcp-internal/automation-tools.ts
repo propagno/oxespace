@@ -22,7 +22,9 @@ const toolsEnable: ToolEntry = {
   descriptor: {
     name: 'oxespace_tools_enable',
     description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs or app. Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
-    inputSchema: { type: 'object', properties: { group: { type: 'string', enum: ['orchestration', 'data', 'docs', 'app'] } }, required: ['group'], additionalProperties: false }
+    inputSchema: { type: 'object', properties: { group: { type: 'string', enum: ['orchestration', 'data', 'docs', 'app'] } }, required: ['group'], additionalProperties: false },
+    // True: it changes nothing outside the session; each tool it lists keeps its own level and approval.
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   },
   requiresWorkspace: false,
   handler: async () => ({ content: [{ type: 'text' as const, text: JSON.stringify({ schemaVersion: 1, status: 'ok', data: { enabled: [], note: 'This session already lists every OXESpace tool it can use.' } }) }] })
