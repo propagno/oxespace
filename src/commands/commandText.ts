@@ -5,8 +5,9 @@ import { i18n } from '../i18n'
  * re-register on `languageChanged`, and the hook sources (useCommandSource) re-render their host with it.
  */
 export function tCommand(key: string, values?: Record<string, unknown>): string {
+  // Commands can register before the translator has started, when t() gives back no text: never hand a caller
+  // (`.split` on keywords) something that is not a string. They register again once the language is known.
   const text: unknown = (i18n.t as unknown as (key: string, options: object) => unknown)(`commands.${key}`, { ns: 'common', ...values })
-  // A static source registers once before the translator starts (no text yet) and again on `languageChanged`.
   return typeof text === 'string' ? text : ''
 }
 

@@ -409,7 +409,7 @@ test.describe('offer audit', () => {
     }
   })
 
-  test('editor tab menu: right-click offers Pin, Close other tabs and Close, and never discards a tab silently', async () => {
+  test('editor tab menu: right-click offers Move, Pin, Close other tabs and Close, and never discards a tab silently', async () => {
     const launched = await launchWithWorkspace()
     const { app, page, workspaceRoot } = launched
     try {
@@ -428,6 +428,13 @@ test.describe('offer audit', () => {
       await expect(menu.getByRole('menuitem').first()).toBeFocused()
       await page.keyboard.press('Escape')
       await expect(menu).toHaveCount(0)
+      // Reordering without a drag (WCAG 2.5.7): the last tab moves left, and the first cannot.
+      await tabs.filter({ hasText: 'gamma.txt' }).click({ button: 'right' })
+      await menu.getByRole('menuitem', { name: 'Move left' }).click()
+      await expect(tabs).toHaveText([/alpha/, /gamma/, /beta/])
+      await tabs.filter({ hasText: 'alpha.txt' }).click({ button: 'right' })
+      await expect(menu.getByRole('menuitem', { name: 'Move left' })).toBeDisabled()
+      await page.keyboard.press('Escape')
       await tabs.filter({ hasText: 'alpha.txt' }).click({ button: 'right' })
       await menu.getByRole('menuitem', { name: 'Pin tab' }).click()
       await expect(tabs.filter({ hasText: 'alpha.txt' })).toHaveClass(/pinned/)

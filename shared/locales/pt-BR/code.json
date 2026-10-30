@@ -120,6 +120,12 @@
     "loadingFolder": "Carregando {{name}}",
     "emptyFolder": "Pasta vazia",
     "noFiles": "Nenhum arquivo",
+    "browser": {
+      "pathMenu": "Caminho de {{name}}",
+      "copyPath": "Copiar caminho",
+      "copyRelativePath": "Copiar caminho relativo",
+      "path": "Caminho"
+    },
     "workspaceFiles": "Arquivos do workspace",
     "fit": "Clique para ajustar",
     "fullSize": "Clique para ver no tamanho real",
@@ -131,6 +137,8 @@
       "closeOthers": "Fechar as outras abas",
       "pin": "Fixar a aba",
       "unpin": "Desafixar a aba",
+      "moveLeft": "Mover para a esquerda",
+      "moveRight": "Mover para a direita",
       "closeOthersTitle": "As abas fixadas e as com alterações não salvas continuam abertas"
     },
     "conflict": {
@@ -2412,11 +2420,7 @@
     "meta_many": "{{model}} · Atualizada em {{updated}} · {{count}} requisições"
   },
   "grid": {
-    "dragPane": "Arraste para reposicionar o painel",
-    "resizeColumns": "Redimensionar colunas",
-    "resizeRows": "Redimensionar linhas",
-    "resizeColumnsTitle": "Arraste para redimensionar as colunas · setas para ajustar",
-    "resizeRowsTitle": "Arraste para redimensionar as linhas · setas para ajustar"
+    "dragPane": "Arraste para reposicionar o painel"
   },
   "slash": {
     "clear": {
