@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ConversationThread } from '../shared/types/thread'
-import { THREAD_STARTERS, ThreadEmptyState } from '../src/components/Threads/ThreadEmptyState'
+import { ThreadEmptyState, threadStarters } from '../src/components/Threads/ThreadEmptyState'
 
 afterEach(cleanup)
 
@@ -23,6 +23,6 @@ describe('empty conversation', () => {
     render(<ThreadEmptyState thread={{ ...thread, access: undefined, model: undefined }} onStarter={onStarter} />)
     expect(screen.getByRole('list', { name: 'Where the agent works' })).toHaveTextContent('Read only')
     fireEvent.click(screen.getByRole('button', { name: /Review my changes/ }))
-    expect(onStarter).toHaveBeenCalledWith(THREAD_STARTERS[1].prompt)
+    expect(onStarter).toHaveBeenCalledWith(threadStarters()[1].prompt)
   })
 })

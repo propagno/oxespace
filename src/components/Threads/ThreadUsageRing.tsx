@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AgentCreditsSnapshot } from '../../../shared/types/agentCredits'
 import type { ThreadContextReport } from '../../../shared/types/thread'
 import { useUIStore } from '../../store/ui.store'
@@ -18,6 +19,7 @@ const compact = (tokens: number): string => tokens >= 1_000_000 ? `${(tokens / 1
  * snapshot (the same one as Usage & rate limits). Hidden when neither exists.
  */
 export function ThreadUsageRing({ provider, idle, threadId, context }: { provider: 'claude' | 'codex'; idle: boolean; threadId?: string; context?: ThreadContextReport }): ReactElement | null {
+  const { t } = useTranslation('thread')
   const [snapshot, setSnapshot] = useState<AgentCreditsSnapshot | null>(null)
   const [open, setOpen] = useState(false)
   const [fresh, setFresh] = useState<ThreadContextReport | null>(null)
@@ -43,13 +45,14 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
   const worst = windows.length ? windows.reduce((best, value) => value.usedPct > best.usedPct ? value : best, windows[0]) : null
   if (!report && !worst) return null
   const planPercent = worst ? Math.max(0, Math.min(100, worst.usedPct)) : 0
-  const planLabel = worst ? `${Math.round(planPercent)}% of ${worst.kind === 'session' ? 'the current session' : 'this week'} used${worst.resetsAtMs ? ` · resets in ${usageResetIn(worst.resetsAtMs)}` : ''}` : ''
+  const planUsed = worst ? t(worst.kind === 'session' ? 'usage.planLabelSession' : 'usage.planLabelWeek', { percent: Math.round(planPercent) }) : ''
+  const planLabel = worst?.resetsAtMs ? t('usage.resetsIn', { label: planUsed, time: usageResetIn(worst.resetsAtMs) }) : planUsed
   const percent = report ? report.percentage : planPercent
-  const label = report ? `${report.percentage}% of the context window used (${compact(report.usedTokens)} of ${compact(report.windowTokens)})` : planLabel
+  const label = report ? t('usage.contextLabel', { percent: report.percentage, used: compact(report.usedTokens), total: compact(report.windowTokens) }) : planLabel
   const high = report ? percent >= 85 : percent >= 90
   const visible = report?.categories.filter(category => category.kind === 'used' || category.kind === 'deferred') ?? []
-  return <Popover open={open} onOpenChange={setOpen} side="top" align="end" label="Usage details"
-    trigger={<button type="button" className="thread-usage-ring" aria-label={`Usage: ${label}`} title={label} data-high={high ? 'true' : undefined}>
+  return <Popover open={open} onOpenChange={setOpen} side="top" align="end" label={t('usage.details')}
+    trigger={<button type="button" className="thread-usage-ring" aria-label={t('usage.trigger', { label })} title={label} data-high={high ? 'true' : undefined}>
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" className="thread-usage-ring-track" />
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" strokeLinecap="round" className="thread-usage-ring-value"
@@ -57,17 +60,17 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
       </svg>
     </button>}>
     <div className="thread-usage-popover">
-      {report && <section aria-label="Context window">
-        <h4>Context window</h4>
-        <div className="thread-usage-bar" role="img" aria-label={`${report.percentage}% used`}><span style={{ width: `${Math.min(100, report.percentage)}%` }} /></div>
-        <p>{compact(report.usedTokens)} / {compact(report.windowTokens)} tokens · {report.percentage}%</p>
-        {report.autoCompactAtTokens !== undefined && <p>Auto-compact near {compact(report.autoCompactAtTokens)} tokens</p>}
-        {visible.length > 0 && <table><tbody>{visible.map(category => <tr key={category.name}><th scope="row">{category.name}{category.kind === 'deferred' ? ' (deferred)' : ''}</th><td>{compact(category.tokens)}</td></tr>)}</tbody></table>}
+      {report && <section aria-label={t('usage.context')}>
+        <h4>{t('usage.context')}</h4>
+        <div className="thread-usage-bar" role="img" aria-label={t('usage.used', { percent: report.percentage })}><span style={{ width: `${Math.min(100, report.percentage)}%` }} /></div>
+        <p>{t('usage.tokens', { used: compact(report.usedTokens), total: compact(report.windowTokens), percent: report.percentage })}</p>
+        {report.autoCompactAtTokens !== undefined && <p>{t('usage.autoCompact', { tokens: compact(report.autoCompactAtTokens) })}</p>}
+        {visible.length > 0 && <table><tbody>{visible.map(category => <tr key={category.name}><th scope="row">{category.kind === 'deferred' ? t('usage.deferred', { name: category.name }) : category.name}</th><td>{compact(category.tokens)}</td></tr>)}</tbody></table>}
       </section>}
-      {worst && <section aria-label="Plan usage">
-        <h4>Plan usage</h4>
+      {worst && <section aria-label={t('usage.plan')}>
+        <h4>{t('usage.plan')}</h4>
         <p>{planLabel}</p>
-        <Button size="sm" onClick={() => { setOpen(false); useUIStore.getState().openUsage() }}>Open usage details</Button>
+        <Button size="sm" onClick={() => { setOpen(false); useUIStore.getState().openUsage() }}>{t('usage.open')}</Button>
       </section>}
     </div>
   </Popover>

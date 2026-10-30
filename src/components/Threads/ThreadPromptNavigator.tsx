@@ -1,4 +1,5 @@
 import { CornerUpLeft } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useEffect, useState, type RefObject } from 'react'
 import type { ThreadTimelineItem } from './threadTimelineModel'
 
@@ -29,6 +30,7 @@ export function ThreadPromptNavigator({ rows, scrollRef, scrollTo }: {
   scrollRef: RefObject<HTMLElement | null>
   scrollTo: (index: number) => void
 }) {
+  const { t } = useTranslation('thread')
   const [inView, setInView] = useState<{ turnId: string; hidden: boolean } | null>(null)
   const prompts = promptRowIndexes(rows)
 
@@ -73,7 +75,7 @@ export function ThreadPromptNavigator({ rows, scrollRef, scrollTo }: {
   const prompt = current >= 0 ? rows[current].event : undefined
   if (!inView?.hidden || prompt?.type !== 'message') return null
   return <button type="button" className="thread-sticky-prompt" data-testid="thread-sticky-prompt" onClick={() => scrollTo(current)}
-    title="Back to this prompt (Alt+Up / Alt+Down move between prompts)">
+    title={t('navigator.back')}>
     <CornerUpLeft size={13} aria-hidden="true" />
     <span>{prompt.text.trim().split(/\r?\n/)[0]}</span>
   </button>

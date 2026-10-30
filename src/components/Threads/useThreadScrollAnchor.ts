@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type UIEvent } from 'react'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
+import { i18n } from '../../i18n'
 import { useThreadStore } from '../../store/thread.store'
 import { threadError } from './threadError'
 
@@ -55,7 +56,7 @@ export function useThreadScrollAnchor(snapshot: ThreadSnapshot | null, selectedI
       const count = await useThreadStore.getState().loadEarlier(loadingId)
       if (visibleThread.current !== loadingId) return
       if (count) requestAnimationFrame(() => { if (visibleThread.current === loadingId && timeline.current === el) el.scrollTop += el.scrollHeight - previousHeight })
-      else setHistoryFeedback({ id: loadingId, text: 'No public messages in this section. Continue loading earlier messages if available.' })
+      else setHistoryFeedback({ id: loadingId, text: i18n.t('thread:timeline.noPublicMessages') })
     } catch (cause) { if (visibleThread.current === loadingId) setHistoryFeedback({ id: loadingId, text: threadError(cause), error: true }) }
     finally { setLoadingEarlier(false) }
   }
