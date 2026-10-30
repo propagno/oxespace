@@ -384,5 +384,5 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
 
   // ---- future products ----------------------------------------------------------------------
-  'oxepost.all': { label: 'OxePost', planned: 'H8', reason: 'A future product; no IPC yet.' }
+  'oxepost.all': { label: 'OxePost: collections, environments, sending', planned: 'H8', reason: 'OxePost (H1-H4) is the person\'s API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system\'s secure storage and are never a tool, an argument or a result.', ipc: ['oxePost.call'] }
 }

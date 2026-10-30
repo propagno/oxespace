@@ -13,7 +13,8 @@
       "code": "Code: terminais e agentes nos seus workspaces",
       "thread": "Thread: conversas com um agente",
       "data": "OxeQuery: bancos de dados",
-      "pods": "OxePod: contêineres"
+      "pods": "OxePod: contêineres",
+      "post": "OxePost: requisições de API"
     },
     "primary": "Navegação principal",
     "switchToLight": "Mudar para o modo claro",
@@ -156,10 +157,15 @@
         "code": "Mostrar o Code",
         "thread": "Mostrar o Thread",
         "data": "Mostrar o OxeQuery",
-        "pods": "Mostrar o OxePod"
+        "pods": "Mostrar o OxePod",
+        "post": "Mostrar o OxePost"
       },
       "oxepod": {
         "filter": "Encontrar um contêiner"
+      },
+      "oxepost": {
+        "send": "Enviar a requisição",
+        "filter": "Encontrar uma requisição"
       }
     }
   },
@@ -200,6 +206,13 @@
     "activity": {
       "label": "Atividade dos agentes nos bancos"
     }
+  },
+  "postCommands": {
+    "open": { "label": "Abrir o OxePost", "detail": "Requisições de API, ambientes e cURL" },
+    "newRequest": { "label": "Nova requisição de API", "detail": "Salva em .oxespace/requests" },
+    "filter": { "label": "Encontrar uma requisição de API" },
+    "import": { "label": "Importar cURL ou OpenAPI", "detail": "Vira arquivos de requisição" },
+    "environments": { "label": "Ambientes de API", "detail": "Variáveis e segredos" }
   },
   "podsCommands": {
     "open": {

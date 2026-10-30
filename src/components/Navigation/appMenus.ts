@@ -23,7 +23,7 @@ export interface AppMenuContext {
 
 const sep = (id: string): AppMenuNode => ({ kind: 'separator', id })
 /** The views in the order of the switch; product names, never translated. */
-const VIEWS: Array<[AppView, string]> = [['code', 'Code'], ['thread', 'Thread'], ['data', 'OxeQuery'], ['pods', 'OxePod']]
+const VIEWS: Array<[AppView, string]> = [['code', 'Code'], ['thread', 'Thread'], ['data', 'OxeQuery'], ['pods', 'OxePod'], ['post', 'OxePost']]
 
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',

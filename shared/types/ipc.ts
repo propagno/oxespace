@@ -200,6 +200,7 @@ export const IPC_CHANNELS = {
     call: 'oxeQuery:call',
     onEvent: 'oxeQuery:event'
   },
+  oxePost: { call: 'oxePost:call' },
   automations: {
     list: 'automations:list',
     create: 'automations:create',
@@ -784,6 +785,7 @@ export interface OxeApi {
   agentHooks: AgentHooksApi
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
+  oxePost: import('../oxepost/types').OxePostApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
   agentCredits: AgentCreditsApi

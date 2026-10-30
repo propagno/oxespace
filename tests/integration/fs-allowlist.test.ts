@@ -228,7 +228,14 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/updater.ts',
   // Reads and writes only <userData>/ui-scale.json (the interface zoom the next
   // window starts at, so boot has no 100% first frame) — never a workspace path.
-  'electron/main/ipc/appearance.ipc.ts'
+  'electron/main/ipc/appearance.ipc.ts',
+  // OxePost collections: request and environment files under <workspace>/.oxespace/requests only. The renderer sends
+  // relative paths that are validated segment by segment (no "..", no backslash, .http files, four levels at most),
+  // resolved under that folder and checked again through realpath; links are skipped, reads are capped at 256 KiB.
+  'electron/main/services/oxepost/store.ts',
+  // OxePost secrets: one encrypted file under <userData> (safeStorage; refused where only obfuscation exists), mode 0600,
+  // written by temp file and rename. No workspace path is read or written, and no value is ever returned to the page.
+  'electron/main/services/oxepost/secrets.ts'
 ])
 
 describe('workspace fs allowlist', () => {

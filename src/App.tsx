@@ -919,7 +919,7 @@ export function App(): ReactElement {
             <div className="empty-state-alt" role="group" aria-label="Other ways to start">
               <span>Or start somewhere else</span>
               <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
-              <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button><Button variant="ghost" size="sm" onClick={() => selectMode('pods')}>Open OxePod</Button>
+              <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button><Button variant="ghost" size="sm" onClick={() => selectMode('pods')}>Open OxePod</Button><Button variant="ghost" size="sm" onClick={() => selectMode('post')}>Open OxePost</Button>
             </div>
             <FirstRunChecklist onNewWorkspace={openNewWorkspaceFromUI} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} />
           </div>

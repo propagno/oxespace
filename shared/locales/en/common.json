@@ -13,7 +13,8 @@
       "code": "Code: terminals and agents in your workspaces",
       "thread": "Thread: conversations with an agent",
       "data": "OxeQuery: databases",
-      "pods": "OxePod: containers"
+      "pods": "OxePod: containers",
+      "post": "OxePost: API requests"
     },
     "primary": "Primary navigation",
     "switchToLight": "Switch to light mode",
@@ -153,10 +154,15 @@
         "code": "Show Code",
         "thread": "Show Thread",
         "data": "Show OxeQuery",
-        "pods": "Show OxePod"
+        "pods": "Show OxePod",
+        "post": "Show OxePost"
       },
       "oxepod": {
         "filter": "Find a container"
+      },
+      "oxepost": {
+        "send": "Send the request",
+        "filter": "Find a request"
       }
     }
   },
@@ -197,6 +203,13 @@
     "activity": {
       "label": "Agent activity on databases"
     }
+  },
+  "postCommands": {
+    "open": { "label": "Open OxePost", "detail": "API requests, environments and cURL" },
+    "newRequest": { "label": "New API request", "detail": "Saved in .oxespace/requests" },
+    "filter": { "label": "Find an API request" },
+    "import": { "label": "Import cURL or OpenAPI", "detail": "Becomes request files" },
+    "environments": { "label": "API environments", "detail": "Variables and secrets" }
   },
   "podsCommands": {
     "open": {

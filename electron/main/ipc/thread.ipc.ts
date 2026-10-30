@@ -5,6 +5,7 @@ import type { ThreadManager } from '../services/conversation/thread-manager'
 import type { AppDatabase } from '../db'
 import { shellCheck } from '../services/conversation/shell-check'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { registerOxePostIpc } from './oxepost.ipc'
 import { AgentService } from '../services/agent.service'
 import type { AgentAccountContext } from '../../../shared/types/agentAuth'
 import { MemoryProjectService } from '../services/memory/memory-project.service'
@@ -67,6 +68,8 @@ function requestResponse(value: unknown): ThreadRequestResponse {
 }
 
 export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, worktrees?: ThreadWorktreeHost): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
+  // OxePost's channel is registered from this lazy module: the main entry bundle has no room for another line.
+  registerOxePostIpc(workspaceId => (db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined)?.root_path)
   const projects = new MemoryProjectService(db)
   const threadProjects = new ThreadProjectService(db)
   // Keep account/project implementation out of the startup entry bundle.
