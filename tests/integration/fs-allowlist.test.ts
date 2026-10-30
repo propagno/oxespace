@@ -35,6 +35,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Read-only size inventory of the private memory directory: counts bytes, never reads
   // file contents, follows no links and deletes nothing.
   'electron/main/services/memory/memory-storage.ts',
+  // "Erase all stored memory" in Settings: removes only the managed store's `data` and `upgrade-2.6.2` folders,
+  // each a direct child of the private memory directory (checked before removing); no workspace path is ever used.
+  'electron/main/services/memory/memory-control.ts',
   // Reads one small JSON flag file (<userData>/experimental.json); no workspace path involved.
   'electron/main/services/experimental-features.ts',
   // Reads the app's own translation catalogs (locales/<language>/main.json next to the bundle); fixed names only.

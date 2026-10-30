@@ -1,11 +1,13 @@
 import type { AppDatabase } from '../../db'
-import type { AgentAccess, ConnectionEnvironment, OxeQueryPreferences } from '../../../../shared/types/oxequery'
+import type { AgentAccess, ConnectionEnvironment, EnvironmentLimit, OxeQueryPreferences } from '../../../../shared/types/oxequery'
+import { DEFAULT_ENVIRONMENT_LIMITS } from '../../../../shared/oxequerySafety'
 
 export const DEFAULT_PREFERENCES: OxeQueryPreferences = {
   historyLimit: 200,
   auditRetentionDays: 90,
   // The most an agent may be given on a connection of each kind, whatever the connection itself says.
-  agentCeiling: { local: 'write', dev: 'write', prod: 'read' }
+  agentCeiling: { local: 'write', dev: 'write', prod: 'read' },
+  environmentLimits: DEFAULT_ENVIRONMENT_LIMITS
 }
 
 const ACCESS: AgentAccess[] = ['off', 'read', 'write']
@@ -38,10 +40,27 @@ export function normalizePreferences(value: unknown, strict = false): OxeQueryPr
   }
   // Agents never write to production, whatever is chosen.
   if (agentCeiling.prod === 'write') agentCeiling.prod = 'read'
+  const limits = raw.environmentLimits && typeof raw.environmentLimits === 'object' ? raw.environmentLimits as Record<string, unknown> : {}
+  const environmentLimits = { ...DEFAULT_ENVIRONMENT_LIMITS }
+  for (const environment of ENVIRONMENTS) {
+    const entry = limits[environment]
+    if (entry === undefined) continue
+    const limit = entry && typeof entry === 'object' ? entry as Record<string, unknown> : null
+    const ceiling = (value: unknown, min: number, max: number, label: string): number | null => {
+      if (value === null) return null
+      if (!Number.isInteger(value) || (value as number) < min || (value as number) > max) { if (strict) bad(`${label} must be between ${min} and ${max}, or empty.`); return NaN }
+      return value as number
+    }
+    const maxRows = limit ? ceiling(limit.maxRows, 1, 100_000, 'The row limit') : NaN
+    const statementTimeoutMs = limit ? ceiling(limit.statementTimeoutMs, 1000, 3_600_000, 'The statement timeout') : NaN
+    if (Number.isNaN(maxRows) || Number.isNaN(statementTimeoutMs)) { if (strict) bad('Environment limits need maxRows and statementTimeoutMs.'); continue }
+    environmentLimits[environment] = { maxRows, statementTimeoutMs } as EnvironmentLimit
+  }
   return {
     historyLimit: integer(raw.historyLimit, 20, 5000, DEFAULT_PREFERENCES.historyLimit, 'The history length'),
     auditRetentionDays: integer(raw.auditRetentionDays, 7, 730, DEFAULT_PREFERENCES.auditRetentionDays, 'The audit retention'),
-    agentCeiling
+    agentCeiling,
+    environmentLimits
   }
 }
 
@@ -64,7 +83,8 @@ export class PreferenceStore {
     const current = this.get()
     const next = normalizePreferences({
       ...current, ...input,
-      agentCeiling: { ...current.agentCeiling, ...(input.agentCeiling && typeof input.agentCeiling === 'object' ? input.agentCeiling as object : {}) }
+      agentCeiling: { ...current.agentCeiling, ...(input.agentCeiling && typeof input.agentCeiling === 'object' ? input.agentCeiling as object : {}) },
+      environmentLimits: { ...current.environmentLimits, ...(input.environmentLimits && typeof input.environmentLimits === 'object' ? input.environmentLimits as object : {}) }
     }, true)
     this.db.prepare("INSERT INTO oxequery_preferences (key, value) VALUES ('all', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify(next))
     this.cached = next

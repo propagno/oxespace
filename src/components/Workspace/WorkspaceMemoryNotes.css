@@ -1,0 +1,21 @@
+.memory-notes { margin-top: 20px; font-size: var(--fs-xs); line-height: 1.6; }
+.memory-notes > p { margin: 8px 0; color: var(--tx-muted); overflow-wrap: anywhere; }
+.memory-notes-search { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.memory-notes-search > :first-child { flex: 1 1 14rem; min-width: 0; }
+.memory-notes-hint { color: var(--intent-warning-fg); }
+.memory-notes-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 10px; }
+.memory-note { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--bg-elevated, var(--surface-canvas)); }
+.memory-note[data-state="wrong"], .memory-note[data-state="expired"], .memory-note[data-state="superseded"] { opacity: .7; }
+.memory-note > header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.memory-note > header strong { color: var(--tx-primary); overflow-wrap: anywhere; min-width: 0; }
+.memory-note-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.memory-note-text { margin: 0; max-height: 9rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--tx-primary); font: inherit; }
+.memory-note-meta { margin: 0; color: var(--tx-secondary); overflow-wrap: anywhere; }
+.memory-note-excerpt { margin: 0; padding-left: 10px; border-left: 2px solid var(--bd-subtle); color: var(--tx-secondary); overflow-wrap: anywhere; }
+.memory-note-edit { display: grid; gap: 8px; }
+.memory-note-edit > div, .memory-note-actions, .memory-notes-danger { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.memory-notes-danger { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--bd-subtle); }
+.memory-settings .memory-notes .memory-note-meta { margin: 0; }
+.memory-settings .memory-notes .memory-note-actions select { display: inline-block; width: auto; min-width: 9rem; padding: 5px 8px; }
+.memory-settings .memory-notes .memory-notes-search > :first-child { width: auto; }
+.memory-settings .memory-notes .memory-notes-search input { width: 100%; }

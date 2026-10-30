@@ -1,0 +1,5 @@
+.form { display: grid; gap: var(--space-3); }
+.body { min-height: 280px; max-height: 50vh; resize: vertical; line-height: 1.5; }
+.status { display: grid; justify-items: start; gap: var(--space-2); margin: 0; font-size: var(--text-sm); color: var(--text-secondary); }
+.status p { margin: 0; }
+.notice { margin: 0; font-size: var(--text-xs); color: var(--intent-warning-fg); }
