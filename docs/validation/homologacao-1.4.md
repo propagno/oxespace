@@ -143,15 +143,17 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Item | PR | Dono | Veredito |
 |---|---|---|---|
 | Roadmap 1.4 (documentação) | #157 | coordenador | Homologado (na `main` 8e1d8c14) |
-| F1 primitivas | #163 | FRONTEND | Pré-homologado |
+| F1 primitivas | #163 | FRONTEND | Homologado (na `main` 7c8cb949) |
 | F4 WCAG 2.2, partes 1 e 2 | #186 | FRONTEND | Pré-homologado com ressalvas |
 | R1 + A4 (splash na aparência salva; visualizador só em dev) | #190 | FRONTEND | Pré-homologado |
 | F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Pré-homologado com ressalvas |
 | A4 worktree por conversa | #151 | FRONTEND | Homologado com ressalvas (na `main` 9e4a9307) |
 | F8 gate visual | #193 | FRONTEND | Pré-homologado |
 | F1 OfflineState + F2 About | #178 | FRONTEND (+ BACKEND no texto do OxePost) | Pré-homologado com ressalvas |
-| F1 estados do OxeQuery | #171 | FRONTEND | Pré-homologado com ressalva |
-| F1 estados de Settings, Code, OxeChat/OxePod/OxePost | #176, #179, #173 | FRONTEND | Pendentes: passada interrompida por falta de memória; o #173 conflita com a `main` |
+| F1 estados do OxeQuery | #171 | FRONTEND | Pré-homologado (a ressalva foi corrigida em a13868d7; conferir na `main`) |
+| F1 estados de Settings | #176 | FRONTEND | Pré-homologado com ressalva |
+| F1 estados do Code | #179 | FRONTEND | Pré-homologado |
+| F1 estados de OxeChat, OxePod e OxePost | #173 | FRONTEND | Pré-homologado |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 
@@ -265,6 +267,23 @@ Ressalvas visuais para o FRONTEND (`a4/pt-BR-refused-dirty-base.png` e `a4/pt-BR
   `-empty` feito à mão. Nenhum `pageerror`.
 - Ressalva para o FRONTEND: o vazio da barra lateral ainda diz "Clique em Conectar num contêiner de banco de dados…",
   mas desde o B3.1 os containers ficam no OxePod. O vazio central já diz isso certo (`pre-oxequery-states/pt-BR-mode-3.png`).
+
+### F1 estados de Settings, Code e OxeChat/OxePod/OxePost (#176, #179, #173)
+
+Cada branch foi mesclada com a `main`, montada e testada sozinha, em primeiro plano dentro da trava:
+- `design-lint` + `ui-copy` + `ui-states`: 27/27 (#176 e #179) e 28/28 (#173).
+- `states-area.spec.ts` em pt-BR/escuro e en/claro: nenhum `role="alert"` solto nem `-empty` feito à mão na área de
+  cada PR, e nenhum `pageerror`.
+- O alerta que sobra no OxeChat ("Could not load project directories") vem da primitiva `ErrorState`
+  (`src/ui/Display.tsx`). O texto é o erro do mock do A1, corrigido no #185.
+- Ressalva do #176 para o FRONTEND (`pre-settings-states/pt-BR-settings-2.png`): Settings › Agentes, sem provedores,
+  repete a mesma coisa três vezes:
+  - o cartão "Nenhum provedor ainda · Use Verificar…";
+  - o EmptyState "Nenhum provedor encontrado · Use Verificar…" com o botão "Verificar agentes";
+  - o botão "VERIFICAR" do cabeçalho, em caixa alta, diferente dos outros botões.
+  
+  Além disso, "Novo agente personalizado" é um segundo botão primário de largura inteira logo abaixo. Esperado: uma
+  mensagem e uma ação principal.
 
 ### B8.1 main minificado (#162): Homologado
 
