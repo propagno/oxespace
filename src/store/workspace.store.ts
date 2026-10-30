@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '../i18n'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
@@ -99,7 +100,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // Rollback the optimistic flip so the UI doesn't lie about state.
       set({
         activeWorkspaceId: previousActiveId,
-        error: humanizeError(err, 'Failed to switch workspace')
+        error: humanizeError(err, i18n.t('failures.workspace.switch'))
       })
     }
   },
@@ -114,7 +115,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         activeWorkspaceId: nextActiveId,
         error: null
       }
-    }, () => window.oxe.workspace.delete(id), { rollbackMessage: 'Could not close the workspace' })
+    }, () => window.oxe.workspace.delete(id), { rollbackMessage: i18n.t('failures.workspace.close') })
   },
 
   closePane: async (id) => {
@@ -199,7 +200,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         error: null
       }))
     } catch (err) {
-      set({ error: humanizeError(err, 'Failed to update review state') })
+      set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
     }
   },
 
@@ -211,7 +212,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         error: null
       }))
     } catch (err) {
-      set({ error: humanizeError(err, 'Failed to update GitHub panel state') })
+      set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
     }
   },
 
@@ -223,7 +224,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         error: null
       }))
     } catch (err) {
-      set({ error: humanizeError(err, 'Failed to update Background panel state') })
+      set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
     }
   },
 
@@ -235,7 +236,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         error: null
       }))
     } catch (err) {
-      set({ error: humanizeError(err, 'Failed to update Worktree panel state') })
+      set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
     }
   },
 
@@ -257,7 +258,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       set({ workspaces: fresh, error: null })
     } catch (err) {
       // Roll back on failure so the UI doesn't lie about persistence.
-      set({ workspaces: previous, error: humanizeError(err, 'Failed to reorder workspaces') })
+      set({ workspaces: previous, error: humanizeError(err, i18n.t('failures.workspace.reorder')) })
     }
   },
 
@@ -269,7 +270,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       workspaces: state.workspaces.map((item) => (item.id === workspaceId ? { ...item, ...next } : item))
     })
     await optimistic(set, get, (state) => ({ ...patch(state, change), error: null }), () => window.oxe.workspace.updateSettings(input), {
-      rollbackMessage: 'Could not save the workspace settings',
+      rollbackMessage: i18n.t('failures.workspace.settings'),
       reconcile: (workspace, state) => ({ workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)) }),
       // Undo only the fields this change touched, so a concurrent update to the same workspace survives.
       revert: (state) => previous ? patch(state, Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]]))) : {}
@@ -284,5 +285,5 @@ export function selectActiveWorkspace(state: WorkspaceState): Workspace | null {
 }
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'Unexpected workspace error')
+  return humanizeError(error, i18n.t('failures.unexpected.workspace'))
 }

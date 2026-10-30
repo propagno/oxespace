@@ -1501,5 +1501,17 @@
     "nativeActivity": "Atividade nativa em segundo plano",
     "providerActivity": "Atividade do provedor · {{count}} em execução",
     "noNativeTasks": "Nenhuma tarefa nativa foi informada nesta conversa."
+  },
+  "notify": {
+    "untitled": "Conversa",
+    "approval": "{{name}} — precisa de aprovação",
+    "approvalBody": "O agente está esperando a sua decisão para continuar.",
+    "failed": "{{name}} — falhou",
+    "failedBody": "O turno terminou com um erro. Abra a conversa para ver o motivo.",
+    "finished": "{{name}} — concluída",
+    "finishedBody": "O agente concluiu o turno.",
+    "requestsWaiting_one": "{{count}} pedido está esperando a sua decisão.",
+    "requestsWaiting_other": "{{count}} pedidos estão esperando a sua decisão.",
+    "requestsWaiting_many": "{{count}} pedidos estão esperando a sua decisão."
   }
 }

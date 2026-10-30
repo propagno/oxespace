@@ -2,20 +2,22 @@ import { Bell, CheckCheck } from 'lucide-react'
 import { useActivityStore } from '../store/activity.store'
 import { toast } from '../ui'
 import { registerCommands } from '../utils/commandRegistry'
+import { i18n } from '../i18n'
+import { registerTranslated, tCommand } from './commandText'
 
 /** Event the palette sends to open the activity center in the title bar. */
 export const OPEN_ACTIVITY_CENTER_EVENT = 'oxe:open-activity-center'
 
-registerCommands('activity', [
-  { id: 'activity.open', label: 'Open activity center', icon: Bell, category: 'View', keywords: ['notifications', 'inbox', 'needs you', 'finished', 'updates'], shortcut: 'activity.open',
+registerTranslated(() => registerCommands('activity', [
+  { id: 'activity.open', label: i18n.t('keys.bindings.activity.open'), icon: Bell, category: 'View', keywords: ['notifications', 'inbox', 'needs you', 'finished', 'updates'], shortcut: 'activity.open',
     // After the palette closes, so the popover keeps focus.
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_ACTIVITY_CENTER_EVENT))) } },
-  { id: 'activity.markAllRead', label: 'Activity: Mark all as read', icon: CheckCheck, category: 'View', keywords: ['notifications', 'clear'],
+  { id: 'activity.markAllRead', label: tCommand('activity.markAllRead'), icon: CheckCheck, category: 'View', keywords: ['notifications', 'clear'],
     // Says so either way, so the command never looks like it did nothing.
     run: () => {
       const activity = useActivityStore.getState()
-      if (!activity.items.some(item => !item.read)) { toast({ title: 'Nothing to mark as read', description: 'Every activity item is already read.' }); return }
+      if (!activity.items.some(item => !item.read)) { toast({ title: tCommand('activity.nothing'), description: tCommand('activity.nothingDetail') }); return }
       activity.markAllRead()
-      toast({ title: 'All activity marked as read' })
+      toast({ title: tCommand('activity.allRead') })
     } }
-])
+]))

@@ -1,5 +1,6 @@
 import { Brain, Copy, Download, Pause, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { copyText, Button, Select } from '../../ui'
 import { ToolPanel } from '../../ui'
 import type { SemanticLogEntry, SemanticLogLevel, SemanticSearchMode, SemanticStatus } from '../../../shared/types/ipc'
@@ -23,6 +24,7 @@ const LEVELS: SemanticLogLevel[] = ['debug', 'info', 'warn', 'error']
  */
 export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivityPanelProps): ReactElement {
   const [logs, setLogs] = useState<SemanticLogEntry[]>([])
+  const { t } = useTranslation('code')
   const [status, setStatus] = useState<SemanticStatus | null>(null)
   const [paused, setPaused] = useState(false)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -74,7 +76,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
     [visible]
   )
 
-  const handleCopy = (): void => { void copyText(asText(), 'Activity log') }
+  const handleCopy = (): void => { void copyText(asText(), t('semantic.panel.log')) }
 
   const handleExport = (): void => {
     const blob = new Blob([asText()], { type: 'text/plain;charset=utf-8' })
@@ -87,15 +89,15 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
   }
 
   const statusLabel = !status
-    ? 'no active workspace'
+    ? t('semantic.panel.noWorkspace')
     : !status.enabled && !status.lastError
-      ? 'disabled · enable the Semantic chip'
+      ? t('semantic.panel.disabled')
       : summarizeSemanticStatus(status, true).label
 
   const vectorLabel = vectorStateLabel(status?.vector)
   const modelLabel = status?.vector?.state === 'ready'
-    ? `exact terms (FTS5) + vectors (${status.vector.modelId})`
-    : 'exact terms (FTS5)'
+    ? t('semantic.panel.modelVectors', { model: status.vector.modelId })
+    : t('semantic.panel.modelExact')
 
   const handleReindex = async (): Promise<void> => {
     if (!workspaceId || reindexing) return
@@ -126,88 +128,88 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
   return (
     <ToolPanel
       className="mcp-panel semantic-activity"
-      label="Semantic activity" onClose={onClose}>
+      label={t('semantic.panel.title')} onClose={onClose}>
       <header className="mcp-panel-header">
         <div className="mcp-panel-title">
           <Brain size={14} aria-hidden="true" />
-          <strong>Semantic activity</strong>
+          <strong>{t('semantic.panel.title')}</strong>
           <span className="mcp-panel-scope" data-testid="semantic-status-label">{statusLabel}</span>
         </div>
         <div className="mcp-panel-actions">
           <Button
            
             variant="ghost" size="sm" square
-            aria-label="Reindex workspace"
-            title="Clear embeddings and re-crawl this workspace"
+            aria-label={t('semantic.panel.reindex')}
+            title={t('semantic.panel.reindexTitle')}
             data-testid="btn-semantic-reindex"
             disabled={!workspaceId || reindexing}
             onClick={() => void handleReindex()}
           >
             <RefreshCw size={14} aria-hidden="true" className={reindexing ? 'spin' : undefined} />
           </Button>
-          <Button variant="ghost" size="sm" square aria-label={paused ? 'Resume' : 'Pause'} title={paused ? 'Resume stream' : 'Pause stream'} onClick={() => setPaused((p) => !p)}>
+          <Button variant="ghost" size="sm" square aria-label={paused ? t('semantic.panel.resume') : t('semantic.panel.pause')} title={paused ? t('semantic.panel.resumeTitle') : t('semantic.panel.pauseTitle')} onClick={() => setPaused((p) => !p)}>
             {paused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
           </Button>
-          <Button variant="ghost" size="sm" square aria-label="Copy logs" title="Copy visible logs" onClick={handleCopy}>
+          <Button variant="ghost" size="sm" square aria-label={t('semantic.panel.copy')} title={t('semantic.panel.copyTitle')} onClick={handleCopy}>
             <Copy size={14} aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" square aria-label="Export logs" title="Export logs (.log)" onClick={handleExport}>
+          <Button variant="ghost" size="sm" square aria-label={t('semantic.panel.export')} title={t('semantic.panel.exportTitle')} onClick={handleExport}>
             <Download size={14} aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" square aria-label="Clear view" title="Clear view" onClick={() => setLogs([])}>
+          <Button variant="ghost" size="sm" square aria-label={t('semantic.panel.clear')} title={t('semantic.panel.clear')} onClick={() => setLogs([])}>
             <Trash2 size={14} aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label={t('ui.close', { ns: 'common' })} onClick={onClose}>
             <X size={14} aria-hidden="true" />
           </Button>
         </div>
       </header>
 
       <div className="semantic-activity-meta" data-testid="semantic-model-label">
-        <span>Sources: <strong>{modelLabel}</strong></span>
+        <span>{t('semantic.panel.sources')} <strong>{modelLabel}</strong></span>
         <span className="semantic-activity-meta-hint">
-          {vectorLabel && status?.vector?.state !== 'ready' ? `local · ${vectorLabel}` : 'local · nothing leaves this machine'}
+          {vectorLabel && status?.vector?.state !== 'ready' ? t('semantic.panel.localNote', { note: vectorLabel }) : t('semantic.panel.local')}
         </span>
         <label className="semantic-mode-control">
-          Retrieval mode
+          {t('semantic.panel.mode')}
           <Select
             value={status?.mode ?? 'auto'}
             disabled={!workspaceId}
-            aria-label="Semantic retrieval mode"
+            aria-label={t('semantic.panel.modeLabel')}
             onChange={(event) => void handleModeChange(event.target.value as SemanticSearchMode)}
           >
-            <option value="auto">Auto · intent-aware</option>
-            <option value="explore">Explore · token-first</option>
-            <option value="exhaustive">Exhaustive · quality-first</option>
+            <option value="auto">{t('semantic.panel.modes.auto')}</option>
+            <option value="explore">{t('semantic.panel.modes.explore')}</option>
+            <option value="exhaustive">{t('semantic.panel.modes.exhaustive')}</option>
           </Select>
         </label>
       </div>
 
-      <div className="semantic-quality-grid" aria-label="Semantic index coverage">
+      <div className="semantic-quality-grid" aria-label={t('semantic.panel.coverage')}>
         <div className="semantic-quality-card">
-          <span className="semantic-quality-label">Indexed coverage</span>
-          <strong>{coverage?.lexicalDocuments ?? 0} searchable documents</strong>
-          <span>source {coverage?.byCategory.source ?? 0} · tests {coverage?.byCategory.test ?? 0} · config {coverage?.byCategory.config ?? 0} · docs {coverage?.byCategory.docs ?? 0}</span>
+          <span className="semantic-quality-label">{t('semantic.panel.indexed')}</span>
+          <strong>{t('semantic.panel.documents', { count: coverage?.lexicalDocuments ?? 0 })}</strong>
+          <span>{t('semantic.panel.categories', { source: coverage?.byCategory.source ?? 0, tests: coverage?.byCategory.test ?? 0, config: coverage?.byCategory.config ?? 0, docs: coverage?.byCategory.docs ?? 0 })}</span>
         </div>
         <div className={`semantic-quality-card semantic-confidence--${lastQuery?.confidence ?? 'idle'}`}>
-          <span className="semantic-quality-label">Last retrieval</span>
+          <span className="semantic-quality-label">{t('semantic.panel.last')}</span>
           {lastQuery ? (
             <>
-              <strong>{lastQuery.confidence} confidence · {lastQuery.resolvedMode}{lastQuery.expanded ? ' · auto-expanded' : ''}</strong>
-              <span>{lastQuery.returnedResults} results · ≈{formatNumber(lastQuery.estimatedTokens)} tokens · ≈{lastQuery.estimatedSavingsPercent}% saved · {lastQuery.durationMs}ms{lastQuery.truncated ? ' · capped' : ''}</span>
+              <strong>{t('semantic.panel.confidence', { confidence: t(`semantic.panel.confidenceLevel.${lastQuery.confidence}`), mode: t(`semantic.panel.resolved.${lastQuery.resolvedMode}`) })}{lastQuery.expanded ? ` · ${t('semantic.panel.expanded')}` : ''}</strong>
+              <span>{t('semantic.panel.results', { count: lastQuery.returnedResults, tokens: formatNumber(lastQuery.estimatedTokens), saved: lastQuery.estimatedSavingsPercent, ms: lastQuery.durationMs })}{lastQuery.truncated ? ` · ${t('semantic.panel.capped')}` : ''}</span>
             </>
           ) : (
-            <><strong>No query yet</strong><span>Coverage and token budget appear after retrieval.</span></>
+            <><strong>{t('semantic.panel.noQuery')}</strong><span>{t('semantic.panel.noQueryHint')}</span></>
           )}
         </div>
       </div>
 
       <p className="semantic-trust-note">
-        Explore ranks best-effort. Exhaustive covers the full local index — runtime references may still need verifying.
+        {t('semantic.panel.trust')}
       </p>
 
       <div className="semantic-activity-toolbar">
-        <div className="semantic-activity-filters" role="group" aria-label="Filter by level">
+        <div className="semantic-activity-filters" role="group" aria-label={t('semantic.panel.levels')}>
           {LEVELS.map((level) => (
             <button
               key={level}
@@ -222,15 +224,15 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
         </div>
         <label className="semantic-activity-autoscroll">
           <input type="checkbox" checked={autoScroll} onChange={(e) => setAutoScroll(e.target.checked)} />
-          Auto-scroll
+          {t('semantic.panel.autoScroll')}
         </label>
-        <span className="semantic-activity-count">{visible.length} / {logs.length} lines</span>
+        <span className="semantic-activity-count">{t('semantic.panel.lines', { visible: visible.length, count: logs.length })}</span>
       </div>
 
       <div className="semantic-activity-log" role="log" aria-live="polite">
         {visible.length === 0 ? (
           <div className="semantic-activity-empty">
-            No activity yet.
+            {t('semantic.panel.empty')}
           </div>
         ) : (
           visible.map((l, i) => (

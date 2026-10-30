@@ -3,6 +3,7 @@ import { useTerminalStore } from '../store/terminal.store'
 import { useWorkspaceStore } from '../store/workspace.store'
 import { useSettingsStore } from '../store/settings.store'
 import { useActivityStore } from '../store/activity.store'
+import { i18n } from '../i18n'
 import { deriveStatusTone, type PaneDisplayTone } from '../utils/paneDisplay'
 
 /**
@@ -91,7 +92,7 @@ export function useAgentNotifications(): void {
             // Same stability gate as the ping, so token gaps do not fill the list.
             if (!existing.recordedAwaiting && existing.awaitingSince !== null && now - existing.awaitingSince >= AWAITING_STABLE_MS) {
               existing.recordedAwaiting = true
-              activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: `${ws.name}: the agent finished and is waiting for your reply.`, read: isViewing })
+              activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: i18n.t('agentNotify.waitingDetail', { workspace: ws.name }), read: isViewing })
             }
             if (
               !existing.notifiedAwaiting &&
@@ -101,7 +102,7 @@ export function useAgentNotifications(): void {
               !windowFocused
             ) {
               existing.notifiedAwaiting = true
-              notify(`${label} — waiting for you`, `${ws.name}: the agent finished and is waiting for your reply.`)
+              notify(i18n.t('agentNotify.waiting', { label }), i18n.t('agentNotify.waitingDetail', { workspace: ws.name }))
             }
           } else {
             existing.awaitingSince = null
@@ -113,14 +114,14 @@ export function useAgentNotifications(): void {
           // exited / error fire once on the transition into that tone.
           if (tone !== existing.tone && (tone === 'exited' || tone === 'error')) {
             activity.record(tone === 'exited'
-              ? { source: 'code', id: pane.id, kind: 'finished', target, title: label, detail: `${ws.name}: the agent terminal was closed.`, read: isViewing }
-              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: `${ws.name}: ${entry.error ?? 'the agent hit an error.'}`, read: isViewing })
+              ? { source: 'code', id: pane.id, kind: 'finished', target, title: label, detail: i18n.t('agentNotify.closedDetail', { workspace: ws.name }), read: isViewing }
+              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: i18n.t('agentNotify.errorDetail', { workspace: ws.name, error: entry.error ?? i18n.t('agentNotify.genericError') }), read: isViewing })
           }
           if (tone !== existing.tone && !isViewing) {
             if (tone === 'exited') {
-              notify(`${label} — session ended`, `${ws.name}: the agent terminal was closed.`)
+              notify(i18n.t('agentNotify.ended', { label }), i18n.t('agentNotify.closedDetail', { workspace: ws.name }))
             } else if (tone === 'error') {
-              notify(`${label} — needs attention`, `${ws.name}: ${entry.error ?? 'the agent hit an error.'}`)
+              notify(i18n.t('agentNotify.attention', { label }), i18n.t('agentNotify.errorDetail', { workspace: ws.name, error: entry.error ?? i18n.t('agentNotify.genericError') }))
             }
           }
 

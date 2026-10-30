@@ -9,7 +9,7 @@ export type Language = (typeof LANGUAGES)[number]
 /** What the person chose in Settings: follow the operating system, or one language. */
 export type LanguagePreference = 'system' | Language
 
-/** Namespaces, one JSON file each. `main` is only loaded by the main process. */
+/** Namespaces, one JSON file each. `main` holds the main process's own text and the words of its message codes (C3). */
 export const NAMESPACES = ['common', 'code', 'thread', 'oxequery', 'pods', 'post', 'settings', 'main'] as const
 export type Namespace = (typeof NAMESPACES)[number]
 

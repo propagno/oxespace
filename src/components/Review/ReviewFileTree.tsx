@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, File } from 'lucide-react'
 import { useId, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import type { GitDiffFile } from '../../../shared/types/git'
 
@@ -104,6 +105,7 @@ interface FileRowProps {
 }
 
 function FileRow({ depth, file, label, onSelect, onToggleReviewed, reviewed, selected }: FileRowProps): ReactElement {
+  const { t } = useTranslation('code')
   return (
     <div
       role="none"
@@ -120,7 +122,7 @@ function FileRow({ depth, file, label, onSelect, onToggleReviewed, reviewed, sel
         checked={reviewed}
         onChange={onToggleReviewed}
         onClick={(e) => e.stopPropagation()}
-        title="Mark as reviewed (on the file, press Space)"
+        title={t('review.markTitle')}
       />
       <button
         type="button"
@@ -226,6 +228,7 @@ export function ReviewFileTree({
   selectedFile,
   treeMode
 }: ReviewFileTreeProps): ReactElement {
+  const { t } = useTranslation('code')
   const reviewedSet = new Set(reviewedFiles)
   const collapsedSet = new Set(collapsedDirs)
   const treeNav = useTreeKeyboard<HTMLDivElement>()
@@ -234,25 +237,25 @@ export function ReviewFileTree({
   return (
     <div className="review-file-tree review-file-tree-v2">
       <div className="review-file-tree-header">
-        <span>Files</span>
+        <span>{t('panels.files')}</span>
         <div className="review-view-toggle">
           <button
             type="button"
             className={`review-view-btn${treeMode === 'structured' ? ' active' : ''}`}
             onClick={() => onTreeModeChange('structured')}
-          >Tree</button>
+          >{t('review.tree')}</button>
           <button
             type="button"
             className={`review-view-btn${treeMode === 'flat' ? ' active' : ''}`}
             onClick={() => onTreeModeChange('flat')}
-          >Flat</button>
+          >{t('review.flat')}</button>
         </div>
       </div>
 
       {/* Read once when the tree is entered; repeating it on every row would be noise. */}
-      <p id={hintId} className="sr-only">Use the arrow keys to move between files. On a file, press Enter to open it and Space to mark it reviewed.</p>
+      <p id={hintId} className="sr-only">{t('review.treeHint')}</p>
       {/* A tree must own tree items; with no files there is no tree, only a note. */}
-      {files.length === 0 ? <p className="review-file-tree-list review-file-tree-empty">No files to review.</p> : <div className="review-file-tree-list" role="tree" aria-label="Review files" aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
+      {files.length === 0 ? <p className="review-file-tree-list review-file-tree-empty">{t('review.noFiles')}</p> : <div className="review-file-tree-list" role="tree" aria-label={t('review.files')} aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
         {treeMode === 'structured' ? (
           <RenderNode
             node={buildTree(files, reviewedSet)}

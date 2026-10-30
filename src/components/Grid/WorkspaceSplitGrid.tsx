@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
 import { computeLayout, isValidPaneTree, type LeafRect, type PaneNode, type ResizeHandle, type SplitDirection } from '../../../shared/types/pane-tree'
@@ -82,6 +83,7 @@ export function WorkspaceSplitGrid({
   onResize,
   onMovePane
 }: WorkspaceSplitGridProps): ReactElement {
+  const { t } = useTranslation('code')
   const containerRef = useRef<HTMLDivElement>(null)
   const dragCleanup = useRef<(() => void) | null>(null)
   const topology = JSON.stringify(tree, (key, value) => key === 'sizes' ? undefined : value)
@@ -237,7 +239,7 @@ export function WorkspaceSplitGrid({
               <div
                 className="split-drag-grip"
                 data-testid="split-drag-grip"
-                title="Drag to reposition pane"
+                title={t('grid.dragPane')}
                 onPointerDown={beginPaneDrag(r.paneId)}
               />
             ) : null}
@@ -262,9 +264,9 @@ export function WorkspaceSplitGrid({
               data-testid="split-resize-handle"
               role="separator"
               tabIndex={0}
-              aria-label={horizontal ? 'Resize columns' : 'Resize rows'}
+              aria-label={horizontal ? t('grid.resizeColumns') : t('grid.resizeRows')}
               aria-orientation={horizontal ? 'vertical' : 'horizontal'}
-              title={horizontal ? 'Drag to resize columns · Arrow keys to adjust' : 'Drag to resize rows · Arrow keys to adjust'}
+              title={horizontal ? t('grid.resizeColumnsTitle') : t('grid.resizeRowsTitle')}
               onKeyDown={event => {
                 const decrease = horizontal ? 'ArrowLeft' : 'ArrowUp'
                 const increase = horizontal ? 'ArrowRight' : 'ArrowDown'

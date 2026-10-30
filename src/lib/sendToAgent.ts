@@ -1,6 +1,7 @@
 import { useTerminalStore } from '../store/terminal.store'
 import { useUIStore } from '../store/ui.store'
 import { useWorkspaceStore } from '../store/workspace.store'
+import { i18n } from '../i18n'
 
 /**
  * Wrap multi-line text in bracketed-paste markers so agent CLIs (Claude Code,
@@ -25,7 +26,7 @@ export async function pasteIntoAgentTerminal(workspaceId: string, prompt: string
   const running = terminalPanes.find((pane) => getStatus(pane.id).status === 'running') ?? null
   const target = active ?? running ?? terminalPanes[0] ?? null
 
-  if (!target) return { ok: false, message: 'No terminal pane available to receive the prompt.' }
+  if (!target) return { ok: false, message: i18n.t('agentPaste.noTerminal', { ns: 'code' }) }
 
   const status = getStatus(target.id).status
   if (status !== 'running' && status !== 'starting') {
@@ -33,5 +34,5 @@ export async function pasteIntoAgentTerminal(workspaceId: string, prompt: string
   }
   await window.oxe.terminal.write({ paneId: target.id, data: asBracketedPaste(prompt) })
 
-  return { ok: true, message: 'Pasted into the agent — press Enter to submit.' }
+  return { ok: true, message: i18n.t('agentPaste.pasted', { ns: 'code' }) }
 }

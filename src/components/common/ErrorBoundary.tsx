@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { i18n } from '../../i18n'
 import { ErrorState } from '../../ui'
 
 interface ErrorBoundaryProps {
@@ -37,8 +38,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (!this.state.error) return this.props.children
     if (this.props.fallback !== undefined) return this.props.fallback
     return <div className="error-boundary-fallback">
-      <ErrorState compact={this.props.compact} title={`Something went wrong while showing ${this.props.label ?? 'this part of the app'}.`}
-        message="The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu."
+      <ErrorState compact={this.props.compact} title={i18n.t('boundary.title', { what: this.props.label ?? i18n.t('boundary.fallback') })}
+        message={i18n.t('boundary.message')}
         detail={this.state.error.message} onRetry={this.reset} />
     </div>
   }

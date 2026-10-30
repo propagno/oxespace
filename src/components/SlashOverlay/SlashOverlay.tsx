@@ -1,5 +1,6 @@
 import { ChevronRight, Slash, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { SlashCommandDefinition } from '../../../shared/types/slash'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { filterSlashCommands } from '../../lib/slashCommands'
@@ -14,6 +15,7 @@ interface SlashOverlayProps {
 }
 
 export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecute }: SlashOverlayProps): ReactElement {
+  const { t } = useTranslation('code')
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [pendingCommand, setPendingCommand] = useState<SlashCommandDefinition | null>(null)
@@ -106,7 +108,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
         className="slash-overlay"
         role="dialog"
         aria-modal="true"
-        aria-label={`Commands for ${paneLabel}`}
+        aria-label={t('slash.overlay.label', { pane: paneLabel })}
         onMouseDown={(event) => event.stopPropagation()}
         // Escape closes the overlay wherever focus is inside it; the input handles its own Escape first.
         onKeyDown={(event) => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); onClose() } }}
@@ -116,7 +118,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
             <Slash size={12} aria-hidden="true" />
             <span>{paneLabel}</span>
           </div>
-          <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label={t('ui.close', { ns: 'common' })} onClick={onClose}>
             <X size={14} aria-hidden="true" />
           </Button>
         </header>
@@ -131,14 +133,14 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
               ref={inputRef}
               autoFocus
               className="slash-overlay-input"
-              placeholder={pendingCommand.argumentPlaceholder ?? 'argument'}
+              placeholder={pendingCommand.argumentPlaceholder ?? t('slash.overlay.argument')}
               value={argument}
               onChange={(event) => setArgument(event.currentTarget.value)}
               onKeyDown={handleKeyDown}
             />
             <div className="slash-overlay-hint">
-              <span>Enter to run</span>
-              <span>Esc to go back</span>
+              <span>{t('slash.overlay.enterRun')}</span>
+              <span>{t('slash.overlay.escBack')}</span>
             </div>
           </div>
         ) : (
@@ -149,7 +151,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
                 ref={inputRef}
                 autoFocus
                 className="slash-overlay-input"
-                placeholder="Type a command…"
+                placeholder={t('slash.overlay.placeholder')}
                 value={query}
                 onChange={(event) => setQuery(event.currentTarget.value)}
                 onKeyDown={handleKeyDown}
@@ -179,15 +181,15 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
                 </button>
               ))}
               {filtered.length === 0 ? (
-                <div className="slash-overlay-empty">No command found for “{query}”</div>
+                <div className="slash-overlay-empty">{t('slash.overlay.empty', { query })}</div>
               ) : null}
             </div>
 
             <footer className="slash-overlay-footer">
-              <span>↑↓ navigate</span>
-              <span>↵ run</span>
-              <span>Tab autocomplete</span>
-              <span>Esc close</span>
+              <span>{t('slash.overlay.navigate')}</span>
+              <span>{t('slash.overlay.run')}</span>
+              <span>{t('slash.overlay.complete')}</span>
+              <span>{t('slash.overlay.close')}</span>
             </footer>
           </>
         )}

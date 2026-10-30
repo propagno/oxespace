@@ -535,5 +535,25 @@
     "offLabel": "Turn off shortcut for {{name}}",
     "off": "Turn off",
     "resetAll": "Reset all shortcuts"
+  },
+  "agentConfig": {
+    "promptRequired": "Skill prompt is required",
+    "saveFailed": "Failed to save agent profile",
+    "commandRequired": "Command is required",
+    "deleteFailed": "Failed to delete agent profile",
+    "deleteTitle": "Delete this agent profile?",
+    "deleteDescription": "“{{name}}” is removed from OXESpace. Terminals already running it keep running.",
+    "delete": "Delete profile",
+    "configure": "Configure agent",
+    "customDescription": "A skill prompt that runs on top of a built-in agent.",
+    "description": "The name and command OXESpace uses to start this agent.",
+    "create": "Create",
+    "save": "Save",
+    "name": "Name",
+    "namePlaceholder": "My agent",
+    "parent": "Parent provider",
+    "prompt": "Skill prompt",
+    "promptPlaceholder": "You are a Java 8+ expert. Review this code for best practices, performance, and correctness.",
+    "command": "Command"
   }
 }

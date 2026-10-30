@@ -1469,5 +1469,16 @@
     "nativeActivity": "Native background activity",
     "providerActivity": "Provider activity · {{count}} running",
     "noNativeTasks": "No native tasks have been reported in this conversation."
+  },
+  "notify": {
+    "untitled": "Conversation",
+    "approval": "{{name}} — needs approval",
+    "approvalBody": "The agent is waiting for your decision to continue.",
+    "failed": "{{name}} — failed",
+    "failedBody": "The turn ended with an error. Open the conversation to see why.",
+    "finished": "{{name}} — finished",
+    "finishedBody": "The agent completed the turn.",
+    "requestsWaiting_one": "{{count}} request is waiting for your decision.",
+    "requestsWaiting_other": "{{count}} requests are waiting for your decision."
   }
 }

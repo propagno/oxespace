@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
@@ -17,6 +18,7 @@ interface ReviewPaneProps {
 }
 
 export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactElement {
+  const { t } = useTranslation('code')
   // Subscribe per slice. Calling useGitStore() without a selector returns a new
   // state-object reference on every set(), which causes useEffect deps that
   // mention destructured actions to re-fire on each unrelated store update.
@@ -99,13 +101,13 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
     if (wsComments.length === 0) return
     const result = await pasteIntoAgentTerminal(workspaceId, formatDiffComments(wsComments))
     if (!result.ok) {
-      setSendNotice('No terminal is available to receive the comments.')
+      setSendNotice(t('review.noTerminal'))
       return
     }
     clearComments(workspaceId)
-    setSendNotice(`${wsComments.length} comment(s) pasted into the agent. Press Enter to submit.`)
+    setSendNotice(t('review.pasted', { count: wsComments.length }))
     window.setTimeout(() => setSendNotice(null), 6000)
-  }, [wsComments, workspaceId, clearComments])
+  }, [wsComments, workspaceId, clearComments, t])
 
   // The panel follows the active pane, so `rootPath` can change without the
   // workspace changing. The diff is cached per workspace, so it now belongs to
@@ -186,7 +188,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
         </div>
       )}
 
-      {ws.isLoading && <EmptyState compact title="Loading diff…" />}
+      {ws.isLoading && <EmptyState compact title={t('changes.loadingDiff')} />}
       {ws.error && (
         <div className="review-pane-alert">
           <span>{ws.error}</span>
@@ -201,10 +203,10 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
               <input
                 type="text"
                 className="review-search-input"
-                placeholder="Filter files…"
+                placeholder={t('changes.filterPlaceholder')}
                 value={ws.search}
                 onChange={(e) => setSearch(workspaceId, e.target.value)}
-                aria-label="Search files"
+                aria-label={t('review.search')}
               />
             </div>
             <ReviewFileTree
@@ -220,10 +222,10 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
             />
           </aside>
 
-          <div className="review-pane-diffs" role="region" aria-label="File diffs" tabIndex={0}>
+          <div className="review-pane-diffs" role="region" aria-label={t('review.diffs')} tabIndex={0}>
             {files.length === 0 ? (
               <div className="review-pane-empty">
-                {ws.diff ? 'No changes match the current filters.' : 'No diff loaded yet.'}
+                {ws.diff ? t('review.noMatch') : t('review.noDiff')}
               </div>
             ) : selectedFile ? (
               // Render only the selected file's diff. Rendering every file at
@@ -241,7 +243,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
                 onSelect={() => undefined}
               />
             ) : (
-              <EmptyState compact title="Select a file in the tree to view its diff." />
+              <EmptyState compact title={t('review.select')} />
             )}
           </div>
         </div>
