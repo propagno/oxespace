@@ -135,7 +135,16 @@ export default defineConfig({
       // package the installer does not ship (OxeQuery could not connect on installed 1.0.0 builds).
       alias: { 'pg-cloudflare': resolve(__dirname, 'electron/main/workers/pg-cloudflare-stub.ts') }
     },
+    // Read by Vite only when it minifies the chunks (its per-file TypeScript transform forces keepNames off).
+    // Classes and functions keep their real `name`: error names, `constructor.name` in the bundled drivers and
+    // stack traces all stay as written.
+    esbuild: { keepNames: true },
     build: {
+      // The main process ships minified. 'hidden' writes a .map next to each chunk without a sourceMappingURL
+      // comment, so nothing in the app loads it; electron-builder leaves *.map out of the package and CI keeps
+      // them as an artifact. scripts/symbolicate-stack.mjs turns a problem report's stack back into source lines.
+      minify: 'esbuild',
+      sourcemap: 'hidden',
       rollupOptions: {
         // Optional driver add-ons are never installed; leave them as runtime requires.
         // ssh2 tries optional native add-ons (cpu-features, its crypto binding) and falls back to pure JS.
