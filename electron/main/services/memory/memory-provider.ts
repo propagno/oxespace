@@ -5,7 +5,8 @@ export interface MemoryProvider {
   start(): Promise<void>
   stop(): Promise<void>
   health(): Promise<MemoryHealth>
-  remember(context: MemoryContext, memory: MemoryInput): Promise<void>
+  /** The page the note was written to, when the provider knows it. */
+  remember(context: MemoryContext, memory: MemoryInput): Promise<{ path: string } | void>
   search(context: MemoryContext, query: string): Promise<MemoryResult[]>
   recent(context: MemoryContext): Promise<MemoryResult[]>
   getRelevantContext(context: MemoryContext, task?: string): Promise<ProjectContext>
