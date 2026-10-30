@@ -36,6 +36,12 @@ can't update the app; they would have to uninstall and pair again), and register
 
 Without the secrets the workflow stops at its first step and names the ones missing; nothing is built or published.
 
+Also check, once:
+- Settings › Actions › General › Workflow permissions lets a job ask for write access (the default "Read repository
+  contents" setting still allows the job's own `contents: write`; an organization policy that forbids it doesn't).
+- Only tags that contain `mobile/android` get an APK: v1.4.0 and later. The workflow never creates a release; run by
+  hand, it attaches to the release that already exists for the tag, and fails if there is none.
+
 ## What each release gets
 
 - `oxespace-android-vX.Y.Z.apk`: release build (minified), signed with APK Signature Scheme v3 (Android 9+).
@@ -60,4 +66,6 @@ Without the secrets the workflow stops at its first step and names the ones miss
    without the colons, in lowercase). Android also refuses an update signed by a different key.
 
 3. Install it (enable "install unknown apps" for the browser or file manager), open OXESpace › Settings › Devices on
-   the computer, and pair by scanning the QR.
+   the computer, and pair by scanning the QR. Google Play Protect may warn about an app from outside the Play Store;
+   that warning is about where it came from, not about this APK, which steps 1 and 2 already checked. Choose to install
+   anyway.
