@@ -12,7 +12,11 @@ const budgets = [
   // the agent state engine took the entry from 777 to 882 kB; the 5% headroom rule still holds.
   // 952 KiB since organization policy (roadmap C1, 2026-10): the policy reader and its enforcement in MCP sync and
   // Thread launches brought the entry to 890 kB, under 5% headroom at 936.
-  { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 952 * 1024 },
+  // 960 KiB since the 1.4 batch (2026-10-30): MCP coverage, config guard and MCP quarantine, memory control, the problem
+  // report, the upgrade rehearsal hooks and the idle CodeGraph close brought the readable, unminified entry to 926 kB,
+  // under 5% headroom at 952 KiB. Each of them already loads its heavy parts lazily; minifying the main process is the
+  // follow-up that would give this back.
+  { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 960 * 1024 },
   { label: 'preload entry', dir: 'out/preload', match: /^index\.cjs$/, max: 40 * 1024 },
   // 320 KiB since the renderer is minified (2026-10): the entry went from 474 kB readable to 246 kB.
   { label: 'renderer entry', dir: 'out/renderer/assets', match: /^index-.*\.js$/, max: 320 * 1024 },

@@ -15,6 +15,14 @@ function fixture() {
 }
 const patch = '--- a/file.ts\n+++ b/file.ts\n@@ -1,2 +1,2 @@\n-old\n+new\n context\n'
 describe('indexed Thread history', () => {
+  it('reads a conversation\'s metadata without its events, and leaves a pre-journal row to read()', () => {
+    const f = fixture()
+    // A legacy row has no journal yet: the metadata read declines so the caller migrates it first.
+    expect(f.history.readThread('thread')).toBeUndefined()
+    f.history.read('thread')
+    expect(f.history.readThread('thread')).toMatchObject({ id: 'thread', provider: 'codex', rootPath: '/repo' })
+    expect(() => f.history.readThread('missing')).toThrow('Thread not found')
+  })
   it('keeps actionable requests outside the renderer history window until resolved', () => {
     const f = fixture()
     f.snapshot.thread.status = 'approval'
