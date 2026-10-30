@@ -13,5 +13,27 @@
       "detail": "Your terminals and agents are still running. Restart OXESpace to bring the interface back; diagnostics can be exported from Settings > Diagnostics.",
       "ok": "OK"
     }
+  },
+  "messages": {
+    "mcp": {
+      "quarantine": {
+        "changed": "The description or inputs of {{tools}} changed after you trusted it.",
+        "added": "It added {{tools}}.",
+        "removed": "It removed {{tools}}."
+      }
+    },
+    "thread": {
+      "request": {
+        "notPending": "This request was already answered, cancelled or expired.",
+        "staleGeneration": "The conversation restarted since this request was shown. Open it to see what is waiting now.",
+        "alreadyResponding": "An answer to this request is already being sent.",
+        "unanswered": "Answer every question before continuing."
+      }
+    },
+    "app": {
+      "connectivity": {
+        "offline": "No network connection."
+      }
+    }
   }
 }

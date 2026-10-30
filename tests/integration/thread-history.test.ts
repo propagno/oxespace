@@ -48,7 +48,7 @@ describe('indexed Thread history', () => {
     expect(f.history.pendingRequestsAll()).toEqual([])
     f.snapshot.thread.status = 'approval'
     f.history.write(f.snapshot)
-    expect(f.history.pendingRequestsAll()).toEqual([{ threadId: 'thread', workspaceId: 'ws', threadTitle: 'Legacy', requestId: 'run', kind: 'approval', title: 'Run the tests', createdAt: 5 }])
+    expect(f.history.pendingRequestsAll()).toEqual([{ threadId: 'thread', workspaceId: 'ws', threadTitle: 'Legacy', requestId: 'run', kind: 'approval', title: 'Run the tests', createdAt: 5, generation: 1 }])
   })
   it('exports persisted earlier pages without changing the live journal and clears them explicitly on native replacement', () => {
     const f = fixture()
