@@ -12,7 +12,8 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
   test.setTimeout(120_000)
   const { app, page, workspaceRoot } = await launchApp()
   try {
-    await resizeWindow(app, 1280, 800)
+    // Wide enough that the header keeps its context row (it folds away at 700px or less, which 1280 is close to on Windows).
+    await resizeWindow(app, 1440, 900)
     await installThreadFixtures(app, workspaceRoot)
     await openDemoWorkspace(page, workspaceRoot)
     await registerThreadProject(app, page, workspaceRoot)
