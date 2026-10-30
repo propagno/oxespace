@@ -251,9 +251,9 @@ export class McpManager {
       try {
         this.verify(server, checkConfig(this.guardOf(id), server.config, Date.now()))
         const result = await probeHttpServer(server.config as McpHttpConfig)
-        if (result.tools.length > 0) this.verifyTools(server, result.tools)
         if (result.status === 'needs-auth') return record('needs-auth', 'Answers and asks for a sign-in. The agent opens it on first use.')
         if (result.status === 'reachable') return record('healthy', 'Answers. Its tools show once the agent connects.')
+        this.verifyTools(server, result.tools)
         return record('healthy', `${result.tools.length} tool(s)`, result.tools)
       } catch (err) {
         return record('unhealthy', err instanceof Error ? err.message : String(err))
