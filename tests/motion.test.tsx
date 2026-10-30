@@ -60,9 +60,9 @@ describe('motion', () => {
     expect(screen.getByText(/busy indicators turn slowly/)).toBeVisible()
   })
 
-  it('makes transitions instant and the one spin slow when motion is reduced', () => {
+  it('makes transitions instant, nothing travel and the one spin slow when motion is reduced', () => {
     const css = tokensCss()
-    expect(css).toContain(":root[data-motion='reduce'] {\n  --duration-fast: 0ms;\n  --duration-base: 0ms;\n  --duration-slow: 0ms;\n  --duration-spin: 2.4s;\n}")
+    expect(css).toContain(":root[data-motion='reduce'] {\n  --duration-fast: 0ms;\n  --duration-base: 0ms;\n  --duration-slow: 0ms;\n  --duration-spin: 2.4s;\n  --motion-shift: 0px;\n}")
     expect(css).toContain(':root:not([data-motion])')
     // The global reset still leaves spinners turning (see its :not([class*="spin"]) exclusion).
     const base = readFileSync(join(__dirname, '..', 'src', 'styles', 'base.css'), 'utf8')

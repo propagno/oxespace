@@ -93,10 +93,15 @@ describe('design lint', () => {
     it('hand-made spinners (lucide Loader2) do not grow; use <Spinner>', () => {
       expect(count(tsx, /<Loader2\b/g)).toBeLessThanOrEqual(0)
     })
-    it('spin keyframes do not grow; the Spinner primitive has the one animation', () => {
-      // `:global(oxe-spin)` in src/ui/Display.module.css; everything else animates with that name.
-      expect(count(css, /@keyframes [\w:(-]*spin/g)).toBeLessThanOrEqual(1)
-      expect(readFileSync(join(ROOT, 'src', 'ui', 'Display.module.css'), 'utf8')).toContain('@keyframes :global(oxe-spin)')
+    it('the app has three keyframes, all in src/styles/motion.css: spin, shimmer and the brand pulse (docs/design/motion.md)', () => {
+      const declared = css.flatMap(path => [...readFileSync(path, 'utf8').matchAll(/@keyframes\s+([\w:()-]+)/g)].map(match => `${relative(ROOT, path)} ${match[1]}`))
+      expect(declared.map(entry => entry.replace(/\\/g, '/'))).toEqual(['src/styles/motion.css oxe-spin', 'src/styles/motion.css oxe-shimmer', 'src/styles/motion.css oxe-pulse'])
+    })
+    it('the keyframes animate only what the compositor moves cheaply: transform, scale, opacity and a background position', () => {
+      const motion = readFileSync(join(ROOT, 'src', 'styles', 'motion.css'), 'utf8')
+      const properties = [...motion.matchAll(/@keyframes[^{]+\{([^@]*?)\}\s*\}/g)].flatMap(match => [...match[1].matchAll(/([\w-]+)\s*:/g)].map(property => property[1]))
+      expect(properties.length).toBeGreaterThan(0)
+      expect(properties.filter(property => !['transform', 'scale', 'opacity', 'background-position'].includes(property))).toEqual([])
     })
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
       expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(15)

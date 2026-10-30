@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
 import { Tabs as RadixTabs } from 'radix-ui'
 import { i18n } from '../i18n'
+import { BrandLoader, BrandMark } from './BrandLoader'
 import { cx } from './cx'
 import styles from './Display.module.css'
 
@@ -54,12 +55,14 @@ export function EmptyState({ icon, title, children, actions, compact = false }: 
 
 /**
  * Something failed: what, why in words a person can act on (pass it through humanizeError), and how to try again.
- * The technical detail stays folded. Compact is a one-line version for lists and small panels.
+ * The technical detail stays folded. Compact is a one-line version for lists and small panels; `brand` puts the mark
+ * above a failure that takes a whole view or the window, so it reads as OXESpace speaking, not a broken page.
  */
-export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false }: {
-  title: ReactNode; message?: ReactNode; detail?: string; onRetry?: () => void; retryLabel?: string; actions?: ReactNode; compact?: boolean
+export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false, brand = false }: {
+  title: ReactNode; message?: ReactNode; detail?: string; onRetry?: () => void; retryLabel?: string; actions?: ReactNode; compact?: boolean; brand?: boolean
 }): ReactElement {
   return <div className={cx(styles.error, compact && styles.errorCompact)} role="alert">
+    {brand && !compact && <BrandMark size={40} />}
     <p className={styles.errorTitle}>{title}</p>
     {message && <p className={styles.errorText}>{message}</p>}
     {detail && <details className={styles.errorDetail}><summary>{i18n.t('ui.details')}</summary><code>{detail}</code></details>}
@@ -89,9 +92,14 @@ export function Spinner({ label = i18n.t('ui.loading'), size = 'md', decorative 
     : <span className={cx(styles.spinner, size === 'sm' && styles.spinnerSm)} role="status" aria-label={label} />
 }
 
-/** A spinner with a short line of text, for a panel or list whose content is on its way. */
-export function LoadingState({ label = i18n.t('ui.loadingEllipsis') }: { label?: string }): ReactElement {
-  return <div className={styles.loading} role="status"><span className={styles.spinner} aria-hidden="true" /><span>{label}</span></div>
+/**
+ * A spinner with a short line of text, for a panel or list whose content is on its way. `brand` is for a whole view
+ * that takes a while: the mandacaru loader, centered, above the text.
+ */
+export function LoadingState({ label = i18n.t('ui.loadingEllipsis'), brand = false }: { label?: string; brand?: boolean }): ReactElement {
+  return brand
+    ? <div className={styles.loadingBrand} role="status"><BrandLoader decorative /><span>{label}</span></div>
+    : <div className={styles.loading} role="status"><span className={styles.spinner} aria-hidden="true" /><span>{label}</span></div>
 }
 
 export function Separator({ orientation = 'horizontal' }: { orientation?: 'horizontal' | 'vertical' }): ReactElement {

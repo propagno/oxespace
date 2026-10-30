@@ -12,6 +12,7 @@ import { App } from './App'
 import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
 import { ReportProblemHost } from './components/Diagnostics/ReportProblemHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
 import { initI18n } from './i18n'
 import { applyMotion, resolveMotion, savedMotion } from './design/motion'
@@ -30,7 +31,8 @@ document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'd
 void initI18n().catch(error => console.error('[i18n] could not start the translator', error)).finally(() => {
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
-      <App />
+      {/* A crash anywhere above the views' own boundaries shows OXESpace's message, never a blank window. */}
+      <ErrorBoundary page label="OXESpace"><App /></ErrorBoundary>
       <ShortcutGuideHost />
       <ReportProblemHost />
       <StartupInteractiveMark />
