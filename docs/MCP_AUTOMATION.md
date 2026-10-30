@@ -44,7 +44,7 @@ never an argument, so a model cannot ask for less checking:
 |---|---|---|
 | `read` | Any caller with a workspace | Runs. Not recorded. |
 | `write` | Only an agent with a live OXESpace execution (a Code pane or a Thread) | Rate limited (30 per minute per execution) and recorded. |
-| `confirm` | As `write` | A native dialog shows the exact text; the grant is bound to its SHA-256, single use, five minutes. Answers `approval-pending` until the person decides; call again with the same arguments. |
+| `confirm` | As `write` | The app's approval modal shows the exact text (up to 100,000 characters; longer is refused `too-long`), with the requester named by the app; the system dialog only when no window exists. The grant is bound to its SHA-256, single use, five minutes. Answers `approval-pending` until the person decides; call again with the same arguments. |
 
 Read tools available now (all `read`):
 
@@ -104,7 +104,10 @@ Starting a task in an agent's terminal (`tasks.run`) is not a tool: it types int
 
 Calls apply to the caller's own directory (the pane's or Thread's root); a caller without an execution
 gets the workspace it names or the active one. Refusals have a stable `code`: `invalid`, `no-execution`,
-`no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `failed`.
+`no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `reserved-name`, `failed`.
+`reserved-name` (B10): a pane name or a notification may not contain OXESpace, OxeChat, OxeCode, OxeQuery, OxePod or
+OxePost (after case, accent and look-alike folding), nor be exactly System or Sistema. Notifications are limited to
+six a minute per execution (`rate-limited`) and are shown with the app's own prefix naming the sender.
 
 Writes and confirmations are kept for 90 days in `agent_action_audit` (append-only). OxeQuery keeps its own
 trail in `oxequery_audit`; both use the same approval broker (`services/agent-actions`).

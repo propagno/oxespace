@@ -1,31 +1,26 @@
 import { createHash, randomUUID } from 'node:crypto'
+import type { ApprovalPresentation } from '../approvals/drafts'
 
 export type ApprovalDecision = 'allow-once' | 'allow-session' | 'deny'
 export type ApprovalRisk = 'read' | 'write' | 'action'
 
-export interface ApprovalRequest {
+/**
+ * What the person is asked, through the approval center (B10). `risk` is the broker's own scope (reads may be allowed for
+ * the run); `level` is the risk the person sees. Title, summary and notes are C3 codes; `text` is exactly what will run.
+ */
+export interface ApprovalRequest extends ApprovalPresentation {
   id: string
-  /** Who is asking, for the prompt. */
+  /** Who is asking, for the audit trail (`pane:abc`, `thread:abc`); the person sees `requester`. */
   actor: string
   tool: string
-  /** Dialog title, e.g. "OxeQuery — request from an agent". */
-  title: string
-  /** One line naming what the actor wants, e.g. "thread:t1 wants to push to origin". */
-  summary: string
-  /** What it applies to, shown above the text: a connection, a repository, a workspace. */
-  target: string
-  /** Label of the "allow for this run" button, offered for reads only. */
-  sessionLabel?: string
   risk: ApprovalRisk
   /** Exactly what will run. */
   text: string
   hash: string
-  /** Extra warnings shown with the text. */
-  reasons: string[]
   expiresAt: number
 }
 
-/** Shows a request to the person and returns their decision. Implemented with a native dialog in the app. */
+/** Shows a request to the person and returns their decision. The app's is the approval center (approval-prompter.ts). */
 export interface ApprovalPrompter {
   ask(request: ApprovalRequest, signal: AbortSignal): Promise<ApprovalDecision>
 }

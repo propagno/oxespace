@@ -1,4 +1,5 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
+import { requesterFor } from '../services/approvals/requester'
 import { AgentToolError } from '../services/oxequery/agent-gateway'
 
 const connection = { type: 'string', minLength: 1, maxLength: 200, description: 'Connection name or id from oxespace_db_connections.' }
@@ -29,7 +30,7 @@ function tool(name: string, description: string, properties: Record<string, unkn
       const execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId)
       if (!execution) throw new Error('Call this tool from a live OXESpace agent execution')
       try {
-        return ok(await gateway.handle(name, args, { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, projectRoot: execution.canonicalRoot }))
+        return ok(await gateway.handle(name, args, { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, projectRoot: execution.canonicalRoot, requester: requesterFor(execution.owner) }))
       } catch (error) {
         if (error instanceof AgentToolError) return refused(error)
         return refused(new AgentToolError('The operation failed.', 'failed'))

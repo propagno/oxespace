@@ -80,7 +80,9 @@ describe('agent tools', () => {
   it('asks the person before prompting a pane it did not start', async () => {
     const { ctx, asked } = harness()
     expect(await call('oxespace_agents_change', { action: 'prompt', paneId: 'user-pane', text: 'hi' }, ctx)).toMatchObject({ ok: true })
-    expect(asked[0]).toMatchObject({ summary: 'pane:me wants to send a prompt to the agent in "Mine"', text: 'hi' })
+    expect(asked[0]).toMatchObject({ summary: expect.objectContaining({ code: 'approvals.summary.mcpConfirm', params: expect.objectContaining({ tool: 'oxespace_agents_change', action: 'prompt' }) }), text: 'hi', notes: [{ code: 'approvals.note.agent.actsOnPrompt', params: {} }] })
+    // The pane name ("Mine") is never what the person sees as the requester.
+    expect(asked[0].requester).toMatchObject({ kind: 'agent', id: 'pane:me', label: { code: 'approvals.requester.pane' } })
   })
 
   it('never writes to a blocked agent, its own pane, or with a bad model', async () => {
@@ -91,6 +93,16 @@ describe('agent tools', () => {
     expect(await call('oxespace_agents_change', { action: 'prompt', paneId: 'me', text: 'x' }, ctx)).toMatchObject({ ok: false, code: 'invalid' })
     expect(await call('oxespace_agents_change', { action: 'start', agent: 'claude', model: '--dangerously-skip-permissions' }, ctx)).toMatchObject({ ok: false, code: 'invalid' })
     expect(agents.terminal.submit).not.toHaveBeenCalled()
+  })
+
+  it('refuses a pane named like the app before the pane exists (B10)', async () => {
+    const { ctx, agents } = harness()
+    for (const name of ['OXESpace', 'oxe space', 'OXESp\u0430ce', 'OxeQuery agent', 'Sistema']) {
+      const result = await call('oxespace_agents_change', { action: 'start', agent: 'claude', name }, ctx)
+      expect(result, name).toMatchObject({ ok: false, code: 'reserved-name' })
+    }
+    expect(workspace.panes.some(pane => pane.id === 'helper')).toBe(false)
+    expect(agents.terminal.start).not.toHaveBeenCalled()
   })
 
   it('closes only panes it started', async () => {

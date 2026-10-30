@@ -78,9 +78,19 @@ describe('oxespace_workspace_change', () => {
     const notify = vi.fn(() => true)
     const semantic = { reindex: vi.fn(() => ({ indexing: true, enabled: true })) }
     expect(await call('oxespace_workspace_change', { action: 'notify', title: 'Build\ndone', body: 'All green' }, setup({ notify } as never).ctx)).toMatchObject({ ok: true, result: { shown: true } })
-    expect(notify).toHaveBeenCalledWith('Build done', 'All green')
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'agent', label: expect.objectContaining({ code: 'approvals.requester.pane' }) }), 'Build done', 'All green')
     expect(await call('oxespace_workspace_change', { action: 'reindex' }, setup({} as never, { semantic }).ctx)).toMatchObject({ ok: true, result: { indexing: true } })
     expect(await call('oxespace_workspace_change', { action: 'reindex' }, setup({} as never, { semantic, owner: { kind: 'thread', id: 't' }, workspaceId: 'thread:p' }).ctx)).toMatchObject({ ok: false, code: 'no-workspace' })
+  })
+
+  it('refuses a notification that speaks as the app, and never shows it (B10)', async () => {
+    const notify = vi.fn(() => true)
+    for (const [title, body] of [['OXESpace: security update', 'Click to approve'], ['Ｏxe Code done', ''], ['Build done', 'OxeQuery approved this change'], ['System', '']]) {
+      const result = await call('oxespace_workspace_change', { action: 'notify', title, body }, setup({ notify } as never).ctx)
+      expect(result, title).toMatchObject({ ok: false, code: 'reserved-name' })
+      expect((result as { message?: string }).message).toMatch(/belongs to the app/)
+    }
+    expect(notify).not.toHaveBeenCalled()
   })
 })
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session, shell } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
@@ -21,6 +21,7 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
+import { showAgentNotice, wireApprovals } from './services/approvals/wiring'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
@@ -90,13 +91,10 @@ process.on('uncaughtException', (error) => {
   // The app keeps running, but its state is no longer known: say so once, and offer a clean restart.
   if (unexpectedErrorShown || !app.isReady() || !app.isPackaged) return
   unexpectedErrorShown = true
-  const window = BrowserWindow.getAllWindows()[0]
-  const options: Electron.MessageBoxOptions = {
-    type: 'error', title: tMain('crash.unexpected.title'), message: tMain('crash.unexpected.message'), detail: tMain('crash.unexpected.detail'),
-    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true }
-  void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options) // icon, or none
-    .then(shown => window ? dialog.showMessageBox(window, shown) : dialog.showMessageBox(shown))
-    .then(({ response }) => { if (response === 0) { app.relaunch(); app.quit() } }).catch(() => {})
+  // B10: the app's modal when a window acknowledges it within 3 s; the system dialog otherwise (the window may be what broke).
+  void Promise.all([import('./services/approvals'), import('./services/approvals/drafts')])
+    .then(([{ approvalCenter }, { crashDraft }]) => approvalCenter.ask(crashDraft()))
+    .then(outcome => { if (outcome.intent === 'allow') { app.relaunch(); app.quit() } }).catch(() => {})
 })
 process.on('unhandledRejection', (reason) => {
   log.error('[main] unhandledRejection', reason)
@@ -438,6 +436,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   app.on('before-quit', () => teamDelivery.stop())
   registerTeamIpc(db, teamAccess)
 
+  wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
     delegation: delegationService, executions, team: teamAccess,
@@ -452,7 +451,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     app: {
       github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
       terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService,
-      notify: (title, body) => { if (!Notification.isSupported()) return false; new Notification({ title, body, silent: false }).show(); return true },
+      notify: showAgentNotice,
       agents: {
         state: agentState, terminal: terminalManager, profiles: () => delegationAgents.list(), resolve: id => launcher.resolve(id),
         mcpArgs: provider => agentMcpArguments(provider, join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs')),
