@@ -22,8 +22,34 @@ Roteiros: `e2e/homologation/audit-*.spec.ts`, no PR de homologação (#184).
 
 ## Fase 1 · Modais de permissão
 
-_Em andamento. O roteiro `audit-permissions.spec.ts` age como um agente: chama o MCP interno com a porta e o token que o
-app entrega aos agentes e registra o diálogo nativo que a pessoa veria, inclusive com pedidos adversariais._
+Método (caixa-preta):
+- o app real, sem os mocks, num perfil temporário, com um repositório Git novo como workspace;
+- o teste age como um agente: chama o MCP interno com a porta e o token que o app entrega aos agentes;
+- o aprovador nativo é aberto na tela de verdade com pedidos montados como `agent-gateway.ts`/`agent-actions.ts`
+  montam e fotografado pelo sistema.
+
+Roteiros no #184: `audit-permissions-real.spec.ts`, `audit-native-dialogs.spec.ts` e `probe-huge-dialog.spec.ts`. As
+capturas de tela inteira ficam só locais, porque mostram a área de trabalho de quem roda.
+
+| # | Tela / componente | Gravidade | Problema | Evidência | Critério de aceite |
+|---|---|---|---|---|---|
+| P1-1 | Aprovador nativo (OxeQuery `db_execute`, ações MCP `confirm`) | **bloqueia** | Um `detail` longo não é exibido pelo Windows. Com 2 mil caracteres, o diálogo mostra só o título, a mensagem e os botões, e a pessoa aprova sem ver o comando. O `db_execute` aceita SQL de até 100 mil caracteres. O diálogo continua aberto, esperando resposta. | Print do usuário (título "t", mensagem "m", sem detalhe); `probe-huge-dialog`: com 2k, 20k e 100k o diálogo fica aberto até o abort | O texto a aprovar aparece inteiro, rolável e copiável, em qualquer tamanho até o limite da ferramenta. Pedido grande demais para mostrar é recusado, e nunca exibido sem o texto. Teste com 100 mil caracteres. |
+| P1-2 | Aprovador nativo | **bloqueia** | O texto do agente se mistura aos avisos do app. Linhas "• Verificado pelo OXESpace: nenhuma alteração" vindas do SQL aparecem iguais ao aviso real "• Changes data on a shared database", logo acima, e um `DROP TABLE` fica atrás de "-- leitura apenas, seguro". | `audit-permissions/native-oxequery-write.png` (local) | Os avisos do OXESpace e o texto do agente ficam em áreas visualmente distintas. O texto do agente vai num bloco monoespaçado rotulado "Texto enviado pelo agente". Um teste com bullets falsos no texto prova que eles não se confundem com os avisos. |
+| P1-3 | Aprovador nativo | **bloqueia** | Um agente pode se passar pelo app. O resumo é "`<actor.label>` wants to …", e o agente controla o nome do painel que abre (`oxespace_agents_change start` com `name`). Um painel chamado "OXESpace" produz "OXESpace wants to start a trusted server". | `audit-permissions/native-agent-action-impersonation.png` (local); schema de `oxespace_agents_change` | O rótulo do solicitante vem só do que o app atribui (provedor e número do painel), nunca de um nome escolhido pelo agente. Nomes reservados ("OXESpace", "Sistema", "OxeQuery"…) são recusados como nome de painel. |
+| P1-4 | Aprovador nativo | atrapalha | O idioma vem misturado: título ("OxeQuery — request from an agent", "OXESpace — request from an agent"), resumo ("… wants to change data") e o botão de sessão ("Allow reads on this connection for this run") ficam fixos em inglês, enquanto Negar e Permitir uma vez saem em pt-BR. | `native-oxequery-write.png`, `native-oxequery-read-session.png` (local); `agent-gateway.ts:167-168`, `agent-actions.ts:66-67` | Todo texto do aprovador vem por código C3, em en e pt-BR. Um teste de catálogo cobre título, resumo, alvo e botões. |
+| P1-5 | Aprovador nativo | atrapalha | O diálogo do sistema não tem a marca nem a hierarquia do app: o ícone de alerta é genérico, não há destaque de risco, produção não é distinguida de desenvolvimento, e o alvo ("shop-db · postgres · development") é uma linha cinza. Ele também não pode ser testado nem capturado pelo e2e. | mesmas capturas | Um modal de aprovação no app (Mandacaru), com cabeçalho de risco (leitura/escrita/ação), ambiente em destaque (produção em vermelho), quem pede, o alvo e o texto. Negar é o padrão e há atalhos de teclado. O e2e e o leitor de tela cobrem o modal. O nativo fica só como reserva quando a janela não existe. |
+| P1-6 | MCP interno, chamadas sem execução | positivo | Toda ação de escrita feita por um cliente MCP genérico, sem token de execução, é recusada com `no-execution` antes de qualquer diálogo: skill, automação, tarefa, checkout, push e notificação. | `audit-permissions/real-*.json` | Manter. A mensagem ao agente vem em inglês, o que é aceitável por ser texto para o agente. |
+| P1-7 | Notificação nativa pedida pelo agente (`oxespace_workspace_change notify`) | atrapalha (risco) | A notificação é de nível escrita, sem aprovação, e título e texto são livres. Um agente com execução pode mostrar "OXESpace: atualização de segurança — clique para aprovar". | descrição e schema da ferramenta; o teste sem execução foi recusado, então não houve captura | Notificações pedidas por agentes saem com o prefixo fixo de origem ("Agente em <painel>: …") e nunca com o nome do app como título. Um teste cobre a tentativa de usar "OXESpace" como título. |
+
+Ainda não cobertos nesta fase:
+- o dock de pedidos do OxeChat;
+- a edição de config protegida;
+- a quarentena e a confiança de MCP;
+- o pareamento do celular (sem tela ainda);
+- o firewall na primeira escuta do gateway;
+- a confirmação de produção do OxePost/OxeQuery.
+
+Entram na próxima rodada da fase 1.
 
 ## Fase 2 · Menus, paleta e feedbacks
 
@@ -37,4 +63,8 @@ _A seguir._
 
 ## Propostas de roadmap (funcionalidades avançadas que faltam)
 
-_A seguir._
+| # | Proposta | Por quê |
+|---|---|---|
+| R-1 | Aprovação dentro do app, com fila e histórico (quem pediu, o quê, a decisão, quando), além do log do OxeQuery | Hoje cada pedido é um diálogo nativo isolado; com vários agentes, a pessoa não vê o que já aprovou nem o que está na fila. |
+| R-2 | Prévia do efeito antes de aprovar SQL de escrita (linhas afetadas por um `EXPLAIN`, ou uma transação de ensaio com rollback) | "Permitir uma vez" num DELETE sem saber quantas linhas ele afeta é decisão às cegas. |
+
