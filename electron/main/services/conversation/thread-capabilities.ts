@@ -48,7 +48,7 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
         : capability(false, provider === 'codex'
           ? 'The Codex app-server version in use does not expose independent, idempotent child lifecycle operations'
           : 'Claude headless mode does not expose spawn, interrupt, resume or retry operations for child agents'),
-      additionalProviders: capability(false, 'Code providers without a supported headless protocol remain Code-only')
+      additionalProviders: capability(false, 'OxeCode providers without a supported headless protocol remain OxeCode-only')
     }
   }
   if (provider === 'claude' && (configuration?.access ?? 'read-only') === 'read-only') {
