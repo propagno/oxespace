@@ -93,7 +93,7 @@ test('memory footprint: one long Thread, four terminals, seeded history', async 
   const dbPath = join(root, 'db.sqlite3')
 
   // Phase 1: let the app create and migrate its own database and a workspace, then stop it.
-  let workspaceId = ''
+  let workspaceId: string
   {
     const { app, page, pid } = await launch(dbPath)
     try {
