@@ -1,5 +1,7 @@
-import { Check, ChevronDown, FileCode2, Loader2, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, FileCode2, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ErrorState, Spinner } from '../../ui'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -38,6 +40,7 @@ export function pendingChanges(results: Array<{ turnId: string; files: Array<{ p
  * turn's checkpoint, which refuses when the file changed afterwards.
  */
 export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapshot: ThreadSnapshot; running: boolean; onViewChanges(): void }) {
+  const { t } = useTranslation('thread')
   const api = window.oxe?.thread
   const threadId = snapshot.thread.id
   const [changes, setChanges] = useState<PendingChange[]>([])
@@ -72,7 +75,7 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
       // Newest turn first, so each restore finds the file as that turn left it.
       for (const change of selected) await api.undoTurnFile(threadId, change.turnId, change.path)
     } catch (cause) {
-      setError(humanizeError(cause, 'Could not undo this change.'))
+      setError(humanizeError(cause, t('dockChanges.undoFailed')))
     } finally {
       setBusy(null)
       await load()
@@ -81,25 +84,25 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
   const files = new Set(changes.map(change => change.path)).size
 
   // A header with one toggle and the actions beside it: controls are never nested inside the toggle.
-  return <section className="thread-dock-changes" data-testid="thread-dock-changes" data-open={open ? 'true' : undefined} aria-label="Changes not reviewed yet">
+  return <section className="thread-dock-changes" data-testid="thread-dock-changes" data-open={open ? 'true' : undefined} aria-label={t('dockChanges.label')}>
     <div className="thread-dock-changes-header">
       <button type="button" className="thread-dock-changes-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(value => !value)}>
         <FileCode2 size={14} aria-hidden="true" />
-        <strong>{files} {files === 1 ? 'file' : 'files'} changed</strong>
-        <span className="thread-dock-changes-hint">not reviewed yet</span>
+        <strong>{t('dockChanges.files', { count: files })}</strong>
+        <span className="thread-dock-changes-hint">{t('dockChanges.hint')}</span>
         <ChevronDown size={14} aria-hidden="true" className="thread-dock-changes-chevron" />
       </button>
       <span className="thread-dock-changes-actions">
-        <button type="button" disabled={busy !== null} onClick={() => keep(changes)}><Check size={13} aria-hidden="true" />Keep all</button>
-        <button type="button" disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo(changes)}>{busy === 'all' ? <Loader2 size={13} aria-hidden="true" className="thread-spin" /> : <Undo2 size={13} aria-hidden="true" />}Undo all</button>
-        <button type="button" onClick={onViewChanges}>Review</button>
+        <button type="button" disabled={busy !== null} onClick={() => keep(changes)}><Check size={13} aria-hidden="true" />{t('dockChanges.keepAll')}</button>
+        <button type="button" disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo(changes)}>{busy === 'all' ? <Spinner size="sm" decorative /> : <Undo2 size={13} aria-hidden="true" />}{t('dockChanges.undoAll')}</button>
+        <button type="button" onClick={onViewChanges}>{t('dockChanges.review')}</button>
       </span>
     </div>
-    {error && <p role="alert" className="thread-dock-changes-error">{error}</p>}
+    {error && <ErrorState compact title={error} />}
     <ul id={listId} hidden={!open}>{changes.map(change => <li key={changeKey(change)}>
       <span className="thread-dock-changes-path" title={change.path}>{change.path}</span>
-      <button type="button" aria-label={`Keep ${change.path}`} disabled={busy !== null} onClick={() => keep([change])}><Check size={13} aria-hidden="true" /></button>
-      <button type="button" aria-label={`Undo ${change.path}`} disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo([change])}>{busy === changeKey(change) ? <Loader2 size={13} aria-hidden="true" className="thread-spin" /> : <Undo2 size={13} aria-hidden="true" />}</button>
+      <button type="button" aria-label={t('dockChanges.keep', { path: change.path })} disabled={busy !== null} onClick={() => keep([change])}><Check size={13} aria-hidden="true" /></button>
+      <button type="button" aria-label={t('dockChanges.undo', { path: change.path })} disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo([change])}>{busy === changeKey(change) ? <Spinner size="sm" label={t('dockChanges.undoing')} /> : <Undo2 size={13} aria-hidden="true" />}</button>
     </li>)}</ul>
   </section>
 }

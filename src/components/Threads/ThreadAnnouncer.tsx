@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ConversationThread } from '../../../shared/types/thread'
+import { i18n } from '../../i18n'
 
 const THROTTLE_MS = 2000
 
 /** What a screen reader should hear when the conversation's state changes; null when nothing is worth saying. */
 export function threadAnnouncement(previous: Pick<ConversationThread, 'status' | 'lastTurnStatus'>, current: Pick<ConversationThread, 'status' | 'lastTurnStatus'>, pendingRequests: number): string | null {
   if (previous.status === current.status) return null
-  if (current.status === 'approval') return pendingRequests > 1 ? `The agent needs your input on ${pendingRequests} requests.` : 'The agent needs your input.'
+  if (current.status === 'approval') return pendingRequests > 1 ? i18n.t('thread:announce.needsInputMany', { count: pendingRequests }) : i18n.t('thread:announce.needsInput')
   // Resuming after an answer is the same turn, not news.
-  if (current.status === 'running') return previous.status === 'approval' ? null : 'The agent is working.'
-  if (current.status === 'failed') return 'The turn failed.'
-  if (current.status === 'interrupted') return 'The turn was stopped.'
+  if (current.status === 'running') return previous.status === 'approval' ? null : i18n.t('thread:announce.working')
+  if (current.status === 'failed') return i18n.t('thread:announce.failed')
+  if (current.status === 'interrupted') return i18n.t('thread:announce.stopped')
   if (previous.status !== 'running' && previous.status !== 'approval') return null
-  return current.lastTurnStatus === 'failed' ? 'The turn failed.' : current.lastTurnStatus === 'interrupted' ? 'The turn was stopped.' : 'The agent finished.'
+  return current.lastTurnStatus === 'failed' ? i18n.t('thread:announce.failed') : current.lastTurnStatus === 'interrupted' ? i18n.t('thread:announce.stopped') : i18n.t('thread:announce.finished')
 }
 
 /**
