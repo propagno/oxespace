@@ -33,9 +33,11 @@ function configureConnection(db: SqliteDatabase): void {
   db.pragma('foreign_keys = ON');
   db.pragma('journal_mode = WAL');       // node:sqlite supports WAL on every platform
   db.pragma('synchronous = NORMAL');     // safe with WAL mode
-  db.pragma('cache_size = -64000');      // 64 MB page cache
+  // OXESpace: bounded for a long-lived desktop process holding one connection per opened project. The
+  // original 64 MB page cache and 256 MB memory map are sized for a short-lived CLI run.
+  db.pragma('cache_size = -8000');       // 8 MB page cache
   db.pragma('temp_store = MEMORY');      // temp tables in memory
-  db.pragma('mmap_size = 268435456');    // 256 MB memory-mapped I/O
+  db.pragma('mmap_size = 33554432');     // 32 MB memory-mapped I/O
 }
 
 /**

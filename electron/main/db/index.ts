@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  version the SQL actually sets. */
 export const LATEST_DB_VERSION = 82
 /** How many pre-migration backups to retain. */
-const MAX_DB_BACKUPS = 5
+const MAX_DB_BACKUPS = 3
 
 export type AppDatabase = DatabaseHandle
 
@@ -35,7 +35,11 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
   let lastErr: unknown
   for (let attempt = 1; attempt <= OPEN_MAX_ATTEMPTS; attempt++) {
     try {
-      return openAndMigrate(databasePath)
+      const db = openAndMigrate(databasePath)
+      // Loaded after the window is up, so the retention code stays out of the main entry.
+      const dataDirectory = dirname(databasePath)
+      setTimeout(() => { void import('../services/storage-retention').then(module => module.scheduleStorageRetention(dataDirectory)).catch(() => undefined) }, 0)
+      return db
     } catch (err) {
       lastErr = err
       if (!isTransientDbError(err)) break // corruption/ABI — retrying won't help

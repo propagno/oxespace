@@ -13,6 +13,7 @@ import { idleSuspendMinutes, setIdleSuspendMinutes, suspendIdle, type IdleHost }
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
+import { ThreadSnapshotCache } from './thread-snapshot-cache'
 import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } from './thread-rewind-flow'
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
@@ -62,8 +63,6 @@ const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
 
 /** How often idle conversations are checked for suspension. */
 const IDLE_SWEEP_MS = 60_000
-/** Full histories kept in memory for conversations with no work in flight. */
-const MAX_IDLE_SNAPSHOTS = 12
 
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {
@@ -96,7 +95,7 @@ export class ThreadOrchestrator {
   }
   private readonly history: ThreadHistory
   /** Full snapshots are retained only for active main-process work. Renderer reads stay paginated. */
-  private readonly snapshots = new Map<string, ThreadSnapshot>()
+  private readonly snapshots = new ThreadSnapshotCache(id => this.busy.has(id) || this.starting.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.nativePageLoads.has(id) || this.deltaBuffers.has(id))
   private readonly deltaBuffers = new Map<string, Map<string, { text: string; generation?: number }>>()
   private readonly deltaTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly adapters = new Map<string, AgentConversationAdapter>()
@@ -152,7 +151,7 @@ export class ThreadOrchestrator {
     this.checkpoints = new ThreadCheckpointService(db)
     this.turns = new ThreadTurnTracker(this.checkpoints, id => this.read(id), (id, event) => this.event(id, event))
     this.permissions = new ThreadPermissionStore(db)
-    this.policy = new ThreadPolicy(this.permissions, id => this.read(id).thread.rootPath, (id, requestId, generation, response) => this.requests.resolve(id, requestId, generation, response))
+    this.policy = new ThreadPolicy(this.permissions, id => this.readThread(id).rootPath, (id, requestId, generation, response) => this.requests.resolve(id, requestId, generation, response))
     this.usage = new ThreadUsageLedger(db)
     try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
     try { pruneThreadData(db) } catch { /* Retention is best effort; nothing is lost by skipping it once. */ }
@@ -254,8 +253,7 @@ export class ThreadOrchestrator {
     const cached = this.snapshots.get(id)
     if (cached) {
       if (this.db.prepare('SELECT 1 FROM conversation_threads WHERE id = ?').get(id)) {
-        // Most recently used last, so trimming drops the conversations nobody touched for longest.
-        this.snapshots.delete(id); this.snapshots.set(id, cached)
+        this.snapshots.touch(id)
         return cached
       }
       this.snapshots.delete(id)
@@ -265,20 +263,18 @@ export class ThreadOrchestrator {
     const firstRepairedEvent = settleCompletedHistoryTools(snapshot.events)
     if (firstRepairedEvent < snapshot.events.length) this.history.persistFrom(snapshot, firstRepairedEvent)
     this.snapshots.set(id, snapshot)
+    this.snapshots.touch(id)
     this.trimSnapshots()
     return snapshot
   }
 
-  /**
-   * Full snapshots hold a conversation's whole history in memory. Conversations with work in flight keep theirs;
-   * the others are dropped beyond a small set, and the next read loads them again from the database.
-   */
-  private trimSnapshots(): void {
-    let idle = 0
-    for (const id of [...this.snapshots.keys()].reverse()) {
-      if (this.busy.has(id) || this.starting.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.nativePageLoads.has(id) || this.deltaBuffers.has(id)) continue
-      if (++idle > MAX_IDLE_SNAPSHOTS) this.snapshots.delete(id)
-    }
+  private trimSnapshots(): void { this.snapshots.trim() }
+
+  /** The thread without its events, for callers that only need its metadata or that it exists. */
+  readThread(id: string): ConversationThread {
+    this.flushDeltas(id)
+    if (this.snapshots.has(id)) return this.read(id).thread
+    return this.history.readThread(id) ?? this.read(id).thread
   }
 
   /** In-memory state of a conversation that no longer exists. */
@@ -322,7 +318,7 @@ export class ThreadOrchestrator {
   }
 
   artifact(id: string, artifactId: string): import('../../../../shared/types/thread').ThreadArtifact {
-    this.read(id)
+    this.readThread(id)
     return this.history.artifact(id, artifactId)
   }
 
@@ -452,19 +448,19 @@ export class ThreadOrchestrator {
   }
 
   async attach(id: string, input: { name: string; mimeType: import('../../../../shared/types/thread').ThreadAttachment['mimeType']; data: ArrayBuffer | Uint8Array }): Promise<import('../../../../shared/types/thread').ThreadAttachment> {
-    this.read(id)
+    this.readThread(id)
     if (!this.attachmentStore) throw Error('Attachments are unavailable')
     return this.attachmentStore.add(id, input)
   }
 
   async removeAttachment(id: string, attachmentId: string): Promise<void> {
-    this.read(id)
+    this.readThread(id)
     if (!this.attachmentStore) throw Error('Attachments are unavailable')
     await this.attachmentStore.remove(id, attachmentId)
   }
 
   async projectDiff(id: string): Promise<import('../../../../shared/types/git').GitDiff> {
-    const { thread } = this.read(id)
+    const thread = this.readThread(id)
     // The project's changes live in the worktree the provider moved into, when it reported one.
     const rootPath = thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
     const run = (args: string[]) => new Promise<string>((resolve, reject) => {
@@ -477,7 +473,7 @@ export class ThreadOrchestrator {
     let raw: string
     try { raw = await run([...args, hasHead ? 'HEAD' : (await run(['hash-object', '-t', 'tree', '--stdin'])).trim(), '--']) }
     catch { throw Error('Could not read tracked project changes. Check the repository and retry.') }
-    this.read(id)
+    this.readThread(id)
     const { parseDiffOutput } = await import('../git.service')
     return { files: parseDiffOutput(raw), base: hasHead ? 'HEAD' : 'Unborn branch', includeUncommitted: true, compiledAt: Date.now() }
   }
@@ -486,7 +482,7 @@ export class ThreadOrchestrator {
     if (this.stopping) throw new Error('Application is shutting down')
     assertThreadMessage(text)
     if (this.configuring.has(id)) throw new Error('Configuration is already being updated')
-    if (this.read(id).thread.cliActive) throw Error('The native CLI already owns this conversation')
+    if (this.readThread(id).cliActive) throw Error('The native CLI already owns this conversation')
     // Decide queue or new turn before the first await: two sends arriving together must not both start a turn.
     const queue = this.busy.has(id) || this.finalizing.has(id) || this.starting.has(id)
     if (!queue) this.starting.add(id)
@@ -494,7 +490,7 @@ export class ThreadOrchestrator {
     try {
       // A rewind waiting for confirmation is applied now, before the new turn: the later turns leave and the
       // provider's history is rewound. A queued message rides on the running turn and waits.
-      if (!queue && this.read(id).thread.rewind) await this.applyPendingRewind(id)
+      if (!queue && this.readThread(id).rewind) await this.applyPendingRewind(id)
       await this.sendReserved(id, text, attachmentIds, queue)
       done = true
     } finally {
@@ -616,7 +612,7 @@ export class ThreadOrchestrator {
 
   async interrupt(id: string): Promise<void> {
     recordRuntime('turn-interrupt', { thread: id })
-    this.read(id)
+    this.readThread(id)
     const adapter = this.adapters.get(id)
     if (!adapter) throw new Error('Thread has no live execution')
     await adapter.interrupt()
@@ -624,14 +620,14 @@ export class ThreadOrchestrator {
 
   /** Per-file standing of a turn's changes, for review (pending / reverted / modified). */
   async turnFiles(id: string, turnId: string): Promise<import('./thread-checkpoints').CheckpointFileStatus[]> {
-    this.read(id)
+    this.readThread(id)
     const checkpoint = this.checkpoints.forTurn(id, turnId)
     return checkpoint ? this.checkpoints.fileStates(id, checkpoint.id) : []
   }
 
   /** Undoes one file of a finished turn. Refused while a turn or configuration owns the conversation. */
   async undoTurnFile(id: string, turnId: string, path: string): Promise<void> {
-    this.read(id)
+    this.readThread(id)
     if (this.busy.has(id) || this.configuring.has(id) || this.finalizing.has(id)) throw Error('Finish the active operation before undoing changes')
     const checkpoint = this.checkpoints.forTurn(id, turnId)
     if (!checkpoint) throw Error('No checkpoint exists for this turn')
@@ -642,14 +638,14 @@ export class ThreadOrchestrator {
 
   /** The change blocks one turn made to a file, for keep/undo review. */
   async turnFileHunks(id: string, turnId: string, path: string): Promise<ThreadFileHunk[]> {
-    this.read(id)
+    this.readThread(id)
     const checkpoint = this.checkpoints.forTurn(id, turnId)
     return checkpoint ? this.checkpoints.fileHunks(id, checkpoint.id, path) : []
   }
 
   /** Undoes one change block of a finished turn. Refused while a turn or configuration owns the conversation. */
   async undoTurnHunk(id: string, turnId: string, path: string, hunkId: string): Promise<void> {
-    this.read(id)
+    this.readThread(id)
     if (this.busy.has(id) || this.configuring.has(id) || this.finalizing.has(id)) throw Error('Finish the active operation before undoing changes')
     const checkpoint = this.checkpoints.forTurn(id, turnId)
     if (!checkpoint) throw Error('No checkpoint exists for this turn')
@@ -776,12 +772,12 @@ export class ThreadOrchestrator {
   }
 
   commands(id: string, forceRefresh = false): Promise<ThreadCommandCatalog> {
-    return this.commandService?.list(this.read(id).thread, forceRefresh) ?? Promise.resolve({ commands: [] })
+    return this.commandService?.list(this.readThread(id), forceRefresh) ?? Promise.resolve({ commands: [] })
   }
 
   models(id: string, refresh = false): Promise<ThreadModelCatalog> {
     if (!this.modelService) return Promise.reject(Error('Model discovery is unavailable. Restart the updated application.'))
-    return this.modelService.list(this.read(id).thread, refresh)
+    return this.modelService.list(this.readThread(id), refresh)
   }
 
   async configure(id: string, input: ThreadConfiguration, revision: number): Promise<ThreadSnapshot> {
@@ -883,6 +879,7 @@ export class ThreadOrchestrator {
   }
 
   async stop(): Promise<void> {
+    this.snapshots.close()
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
     clearInterval(this.idleSweep)
@@ -986,7 +983,7 @@ export class ThreadOrchestrator {
   /** Reads the provider's context report; only while idle, and a failure keeps the previous report. */
   async contextUsage(id: string): Promise<ThreadContextReport | null> {
     const adapter = this.adapters.get(id)
-    const previous = this.read(id).thread.contextReport ?? null
+    const previous = this.readThread(id).contextReport ?? null
     if (!adapter?.contextUsage || this.busy.has(id) || this.finalizing.has(id)) return previous
     const report = await adapter.contextUsage().catch(() => null)
     if (!report) return previous
@@ -1101,7 +1098,7 @@ export class ThreadOrchestrator {
   removePermissionRule(id: string, ruleId: string): void { this.policy.removeRule(id, ruleId) }
 
   workRuns(id: string): WorkRun[] {
-    this.read(id)
+    this.readThread(id)
     return this.work.runsFor(id)
   }
 
@@ -1113,14 +1110,14 @@ export class ThreadOrchestrator {
   }
 
   usageSummary(id: string, options: { scope?: 'thread' | 'project' | 'all'; days?: number } = {}): ThreadUsageSummary {
-    const thread = this.read(id).thread
+    const thread = this.readThread(id)
     const scope = options.scope ?? 'project'
     return this.usage.summary({ scope, threadId: id, projectRoot: thread.rootPath, days: options.days })
   }
 
   /** Saved events of a conversation, newest matches read first and returned oldest first, for the debug inspector. */
   debugEvents(id: string, options: { filter?: string; before?: number; limit?: number } = {}): ThreadDebugPage {
-    this.read(id)
+    this.readThread(id)
     return this.history.debugEvents(id, options)
   }
 
