@@ -116,3 +116,13 @@ Dono de `src/**`, `shared/locales/**`, `e2e/visual/**`, `docs/design/**` e `mobi
 - **Fora:** os itens marcados "Decisão sua" no roadmap continuam esperando a sua decisão.
 - **Contratos:** cada tela consome um contrato do BE já mergeado (regra C0).
 - **Riscos:** depender do BE → stubs `e2e/mock-ipc.ts` a partir do contrato, nunca da implementação.
+
+### F10 · Settings › Ferramentas (M)
+- **Objetivo:** a pessoa vê e controla quais ferramentas do OXESpace cada sessão tem e quanto custam.
+- **Escopo:** página em Settings com os grupos (core, dados, documentação, app, orquestração, OxePost, OxePod), o que cada um faz, se está sempre ligado, sob demanda ou desligado por projeto (`thread.tools` no oxe.yaml), e o custo fixo medido pelo T8; atalho para ligar um grupo no projeto.
+- **Fora:** editar a política da organização (só leitura aqui).
+- **Contratos:** consome o que o B7.2 expuser (lista de grupos e custos); até lá, mock do contrato.
+- **Aceite:** a página reflete o oxe.yaml do projeto e o modo de cada grupo; textos em en e pt-BR; offer-audit verde.
+- **Testes:** unidade; e2e ligando um grupo no projeto.
+- **Riscos:** números de custo desatualizados → vêm do mesmo cálculo do teste T8, não de valor fixo.
+

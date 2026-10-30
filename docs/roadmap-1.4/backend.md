@@ -13,7 +13,7 @@ O BACKEND orquestra até 2 subagentes ao mesmo tempo. Cada workstream tem um don
 | B4 OxePost | `be-post` | `services/oxepost/**`, `shared/oxepost/**` | H4–H9, H12 |
 | B5 Memória | `be-memory` | `services/memory/**`, `ipc/memory*` | M1, M6, M8–M11 |
 | B6 Segurança e política | `be-security` | `services/policy/**`, `shared/{policy,net-policy,env-scrub}.ts`, `agent-actions/**`, `runtime/execution-host.ts` | S3, S4 aplicado, S7 cofre, S8, S10, S11, S13 |
-| B7 MCP interno e cobertura | `be-mcp` | `mcp-internal/**`, `shared/mcp-coverage.ts`, `docs/validation/mcp-coverage-1.4.md` | P7/H8 tools, X21 gate. **Único que edita a cobertura** |
+| B7 MCP interno e cobertura | `be-mcp` | `mcp-internal/**`, `shared/mcp-coverage.ts`, `docs/validation/mcp-coverage-1.4.md` | P7/H8 tools, X21 gate, B7.2 ferramentas sob demanda, T8. **Único que edita a cobertura** |
 | B8 Plataforma | `be-platform` | `db/**`, `runtime-diagnostics`, `startup-timing`, `updater`, `index.ts`, scripts e CI | minificar o main, conectividade, About, códigos de mensagem (C3), X6, X8 |
 | B9 Gateway remoto (mobile) | `be-gateway` | `services/remote/**` (novo), `shared/remote/**` | M1–M6 do mobile (seção 3) |
 
@@ -48,6 +48,32 @@ Os itens de cada WS têm o mesmo formato da seção 1. Os de maior risco:
 - **Escopo:** `services/oxepod/**` e `oxePod:call` com lista de ops própria.
 - **Objetivo:** fim do conflito entre os dois produtos.
 - **Aceite:** testes de contrato de ops dos dois.
+
+### B7.2 · Ferramentas do OXESpace sob demanda (G)
+- **Objetivo:** de uma sessão, pedir qualquer ferramenta do OXESpace por MCP sem aumentar o custo de uma conversa comum.
+- **Escopo:**
+  - Claude: todos os grupos (`core`, `data`, `docs`, `app`, `orchestration`, OxePost e OxePod quando existirem) oferecidos com carregamento sob demanda (`ENABLE_TOOL_SEARCH`); o custo fixo vira a lista de nomes;
+  - Codex (sem carregamento sob demanda): ferramenta do `core` `oxespace_tools_enable(grupo)`, nível read, que liga o grupo na sessão por `tools/list_changed`; a política (`tool.use`) e os níveis read/write/confirm continuam valendo;
+  - `oxespace_capabilities` passa a listar os grupos, o que cada um faz e se está ligado.
+- **Fora:** qualquer ferramenta do que é só do usuário (aprovar, login, segredos, confiança em MCP), que continua proibida.
+- **Contratos:** manifesto de cobertura (único dono B7); nenhum canal IPC novo.
+- **Aceite:** num Thread comum, "use o OxePod" liga o grupo e lista os containers sem reiniciar a conversa; a conversa que não pede nada continua com o mesmo custo de hoje.
+- **Testes:** integração do bridge com `list_changed`; e2e do Thread ligando um grupo; o teste de orçamento (T8).
+- **Riscos:** provedor ignorar `list_changed` → no Codex, a ferramenta devolve a instrução para reabrir com o grupo, e o teste cobre os dois caminhos.
+
+### B2.2 · As mesmas regras no modo Code (M)
+- **Objetivo:** o agente num terminal do Code paga o mesmo que no Thread.
+- **Escopo:** a configuração MCP que o OXESpace entrega aos terminais (Claude e Codex) usa os mesmos grupos e o `ENABLE_TOOL_SEARCH` do Thread, com `core` ligado e o resto sob demanda.
+- **Fora:** servidores MCP de terceiros configurados pela pessoa.
+- **Aceite:** um terminal com Claude recebe só nomes fora do `core`; teste compara a lista entregue ao terminal e ao Thread.
+- **Testes:** unidade da montagem da configuração; e2e de um terminal com agente.
+- **Riscos:** quebrar fluxos que dependem de ferramentas sempre presentes → o grupo `core` é o mesmo do Thread, e o resto aparece ao primeiro uso.
+
+### T8 · Custo das ferramentas medido na CI (M)
+- **Objetivo:** provar que "tudo disponível" não encarece a sessão.
+- **Escopo:** estender `tests/integration/thread-mcp-budget.test.ts`: conversa comum em até 9.000 caracteres (como hoje); com todos os grupos sob demanda no Claude, custo fixo de até ~1,5 mil tokens; no Codex, cada grupo ligado tem custo próprio medido. Repetir a medição real de tokens (T6) com uma sessão que usa todos os grupos.
+- **Aceite:** o teste falha se qualquer limite subir; relatório da medição em docs/validation.
+- **Riscos:** descrição de ferramenta crescer → o teste mede por grupo e aponta qual cresceu.
 
 ### Protocolo de handoff entre subagentes do BACKEND
 1. Brief: WS, itens, contrato que consome e que produz, arquivos de que é dono.
