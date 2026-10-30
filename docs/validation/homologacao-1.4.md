@@ -29,6 +29,7 @@ Build `ce62e277` (main de 30/10/2026, versão do pacote 1.3.3), Windows 11, homo
 | B3.1 OxePod separado do OxeQuery | #161 | BACKEND | Homologado |
 | Correção OxePost (#520) | #167 | FRONTEND | Homologado |
 | Contratos da onda 1 | #158 | BACKEND | Homologado (contrato; sem tela ainda) |
+| Contrato de pareamento C5 (B9) | #172 | BACKEND | Homologado com ressalvas (contrato; sem tela) |
 
 ### F3 Motion (#159): Homologado
 
@@ -99,6 +100,36 @@ Aceite: testes de contrato de ops dos dois (na CI do PR). Na tela:
   handler real precisa usar a versão do pacote (`1.3.3`/`1.4.0`). Vale um teste no B8. Encaminhado: o handler real
   está no #168, com teste contra o `package.json`, e o mock passa a usar a versão do pacote no #185.
 
+### Contrato de pareamento C5 (#172): Homologado com ressalvas
+
+Build `4a092399`. Só contrato: `shared/remote/protocol.ts` e o teste dele. O PR não traz mock nem tela.
+
+- `tests/remote-protocol-contract.test.ts`: 12 de 12 verdes na `main`.
+- `pairingVerification`: os vetores fixos (`ZZZZZZ`, `000000`, `28T5CY`) são os mesmos no teste do Android
+  (`PairingVerificationTest.kt`, worktree `oxespace-mobile-proto`). `28T5CY` confere com a conta feita à mão (os 30
+  primeiros bits de `0x12345678` em Crockford base32).
+- `pairingUri` codifica espaço no nome como `+`, e o leitor Kotlin (`URLDecoder`) decodifica de volta. Os dois
+  lados concordam.
+
+Ressalva para o BACKEND (dono do contrato), com cópia para o MOBILE: `readPairingUri` aceita QR que o leitor do
+Android recusa, embora o Kotlin diga ter "a mesma aceitação, mais a regra de rede local". Verificado chamando
+`readPairingUri` em cada caso:
+
+| Entrada | TS (`readPairingUri`) | Kotlin (`PairingQrs.read`) |
+|---|---|---|
+| `code` repetido (`&code=AAA…&code=BBB…`) | aceita e fica com o primeiro | recusa: dois leitores veriam códigos diferentes |
+| porta `0x1D13` ou `%207443` | aceita (`Number()`) | recusa |
+| `v=2` | aceita | recusa (versão sem suporte) |
+| `v=1e0` | aceita | recusa |
+| controle C1 no nome (`%C2%85`) | aceita | recusa (`isISOControl`) |
+| host público `8.8.8.8` | aceita | recusa: regra própria do app, diferença intencional |
+
+Esperado: o contrato ser a fonte da regra mais estrita, já que o cabeçalho diz que o `RemoteProtocol.kt` é gerado a
+partir dele. Ou seja: recusar chave repetida, aceitar só números decimais, exigir `v === REMOTE_PROTOCOL_VERSION` (ou
+documentar outra política de versão) e recusar também os controles C1. Também vale incluir esses casos no teste de
+contrato dos dois lados. O risco hoje é baixo: quem gera o QR é o próprio desktop, e o `readPairingUri` não está
+num caminho de entrada. Mas a divergência vai crescer quando o gateway (B9) passar a ler o mesmo formato.
+
 ### Achados fora dos itens da onda
 
 Coisas vistas durante a passada. Não reprovam itens da onda 1, mas têm dono.
@@ -121,4 +152,5 @@ OxeQuery") tem efeito visível e se justifica.
 | Data | Build | O quê | Resultado |
 |---|---|---|---|
 | 30/10/2026 | ce62e277 | `e2e/homologation/wave1.spec.ts` (matriz de 6 + motion + OxePod/OxeQuery/OxePost em 2 idiomas + contratos) | 11 verdes |
+| 30/10/2026 | 4a092399 | `tests/remote-protocol-contract.test.ts` + sonda de `readPairingUri` com 8 entradas | 12 de 12 verdes; 6 divergências com o Kotlin (acima) |
 | 30/10/2026 | ce62e277 | `e2e/oxepost.spec.ts` + `e2e/motion.spec.ts`, `--repeat-each=4` | 12 de 12 verdes (a falha intermitente do #520 não voltou) |
