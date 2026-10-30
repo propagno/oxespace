@@ -297,7 +297,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     }
   },
 
-  // ---- OxeQuery -----------------------------------------------------------------------------
+  // ---- OxeQuery (databases) and OxePod (containers) -------------------------------------------
   'oxequery.read': {
     label: 'Connections, schemas, read queries, plans, activity',
     tools: {
@@ -318,13 +318,13 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['oxeQuery.call']
   },
   'containers.runtime': {
-    label: 'Containers: list, logs, start, stop, restart',
+    label: 'Containers (OxePod): list, logs, start, stop, restart',
     tools: { oxespace_containers_list: 'read', oxespace_container_logs: 'read', oxespace_container_action: 'confirm' },
     ipc: ['oxeQuery.call']
   },
   'containers.resources': {
     label: 'Images, volumes, networks, compose, exec and shell, stats, database containers',
-    planned: 'P7', reason: 'OxePod mode owns container resources.',
+    planned: 'P7', reason: 'OxePod shows them to the person (P1-P3); tools for them come with P7. Removing a container and cleaning up stopped containers or dangling images are confirmed actions of the person in OxePod and are not tools. The environment of a container reaches the page redacted (P6) and never an agent.',
     ipc: ['oxeQuery.call']
   },
 
@@ -346,8 +346,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['mcp.list', 'mcp.start', 'mcp.stop', 'mcp.test', 'mcp.diagnose']
   },
   'mcp.server_trust': {
-    label: 'Add, edit, import, trust or sign in to MCP servers',
-    forbidden: 'MCP server trust; commands, environment and headers carry secrets.',
+    label: 'Add, edit, import, trust (also again after a quarantine) or sign in to MCP servers',
+    forbidden: 'MCP server trust, including trusting a quarantined server again; commands, environment and headers carry secrets. An agent can only read that a server is quarantined (oxespace_mcp_servers#list).',
     ipc: ['mcp.create', 'mcp.update', 'mcp.delete', 'mcp.discover', 'mcp.importDiscovered', 'mcp.openSignIn']
   },
   'mcp.call_tool': { label: 'Call another server\'s tool from the app', excluded: 'Agents reach those servers through their own MCP client, as the person trusted them.', ipc: ['mcp.callTool'] },

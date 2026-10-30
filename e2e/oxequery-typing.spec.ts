@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer } from './helpers/oxepod'
 
 test('typing in the SQL editor keeps every character', async () => {
   test.setTimeout(90000)
@@ -16,7 +17,7 @@ test('typing in the SQL editor keeps every character', async () => {
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     // A slow machine renders late while keys keep arriving; this is how a CI runner behaves, so the test asks for it.
     const session = await page.context().newCDPSession(page)

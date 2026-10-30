@@ -75,7 +75,7 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   }
   const body = (() => {
     if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} onToggle={() => onToggleFold?.(turnId)} />
-    if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} />
+    if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} onResolveInterrupted={command => void action(() => runCommand(command))} />
     if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
     if (event.type === 'reasoning') return event.text.trim() ? <ThreadReasoning key={key} event={event} running={running && snapshot?.turns?.at(-1)?.id === turnId} /> : null
     if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact stopping={pending} onStop={snapshot?.thread.capabilities?.features.subagentLifecycle?.enabled && api?.stopTask && event.receiverThreadIds[0] ? () => void action(() => api.stopTask!(snapshot.thread.id, event.receiverThreadIds[0])) : undefined} />

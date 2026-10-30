@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type Page } from '@playwright/test
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer, openView } from './helpers/oxepod'
 
 /** Screenshots of the states the first sweep misses (errors, plans, menus, dialogs, empty views) in both modes. */
 const OUT = join(process.cwd(), 'e2e/screenshots/oxequery-states' + (process.env.SHOTS_W ? '-' + process.env.SHOTS_W : ''))
@@ -31,15 +32,18 @@ test('captures the OxeQuery states', async () => {
     await page.waitForTimeout(600)
     const shot = async (name: string): Promise<void> => { for (const m of ['light', 'dark'] as const) { await mode(page, m); await page.screenshot({ path: join(OUT, `${name}-${m}.png`) }) } }
 
-    // Containers: resources, details, wizard, activity.
-    await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
+    // OxePod: resources and container details.
+    await openView(page, 'OxePod')
+    await page.getByRole('button', { name: 'Images, volumes and networks' }).last().click()
     await page.waitForTimeout(500)
     await shot('01-resources')
-    await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
-    await page.getByRole('button', { name: 'mongo-dev', exact: true }).first().click()
+    await page.getByRole('button', { name: /mongo-dev/ }).first().click()
     await page.waitForTimeout(400)
     await shot('02-container-details')
-    await page.getByRole('button', { name: 'New database' }).click()
+    await openView(page, 'OxeQuery')
+
+    // OxeQuery: wizard, connection form, activity.
+    await page.getByRole('button', { name: 'New local database' }).click()
     await page.getByRole('dialog', { name: 'New database' }).waitFor()
     await shot('03-new-database')
     await page.keyboard.press('Escape')
@@ -52,12 +56,11 @@ test('captures the OxeQuery states', async () => {
     await page.getByRole('dialog').getByRole('button', { name: /SSH tunnel/ }).click()
     await shot('06-connection-sections-open')
     await page.keyboard.press('Escape')
-    await page.getByRole('tab', { name: 'Activity' }).click()
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Agent activity' }).click()
     await shot('07-activity-empty')
-    await page.getByRole('tab', { name: 'Containers' }).click()
 
     // SQL: error, plan, ask menu, filter, params, transaction.
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await page.getByRole('button', { name: 'Edit pg-dev' }).click()
     const dialog = page.getByRole('dialog', { name: 'Edit connection' })
     await dialog.getByRole('switch', { name: /Read-only/ }).setChecked(false)
@@ -124,8 +127,7 @@ test('captures the OxeQuery states', async () => {
     await page.keyboard.press('Escape')
 
     // Mongo: aggregate, edit document, many-change dialog.
-    await page.getByRole('tab', { name: 'Containers' }).click()
-    await page.getByRole('button', { name: 'Connect to mongo-dev' }).click()
+    await connectFromContainer(page, 'mongo-dev')
     const sidebar = page.getByRole('navigation', { name: 'Databases' })
     await sidebar.getByRole('button', { name: 'shop', exact: true }).click()
     await sidebar.getByRole('button', { name: 'items', exact: true }).click()

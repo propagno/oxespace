@@ -12,7 +12,8 @@
     "modeTitle": {
       "code": "Code: terminais e agentes nos seus workspaces",
       "thread": "Thread: conversas com um agente",
-      "data": "OxeQuery: contêineres e bancos de dados"
+      "data": "OxeQuery: bancos de dados",
+      "pods": "OxePod: contêineres"
     },
     "primary": "Navegação principal",
     "switchToLight": "Mudar para o modo claro",
@@ -23,7 +24,9 @@
     "expandSidebar": "Expandir barra lateral",
     "clearSearch": "Limpar busca",
     "applicationMenu": "Menu do aplicativo",
-    "menu": "Menu"
+    "menu": "Menu",
+    "loadingView": "Carregando o {{name}}…",
+    "viewSidebar": "Barra lateral do {{name}}"
   },
   "attention": {
     "needsYou_one": "{{count}} precisa de você",
@@ -148,13 +151,22 @@
       },
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado"
+      },
+      "view": {
+        "code": "Mostrar o Code",
+        "thread": "Mostrar o Thread",
+        "data": "Mostrar o OxeQuery",
+        "pods": "Mostrar o OxePod"
+      },
+      "oxepod": {
+        "filter": "Encontrar um contêiner"
       }
     }
   },
   "oxequeryCommands": {
     "open": {
       "label": "Abrir o OxeQuery",
-      "detail": "Contêineres e bancos de dados"
+      "detail": "Bancos de dados"
     },
     "newConnection": {
       "label": "Nova conexão de banco de dados"
@@ -181,8 +193,31 @@
       "label": "Exportar conexões",
       "detail": "Sem senhas"
     },
-    "compose": {
-      "label": "Contêineres e projetos Compose"
+    "newDatabase": {
+      "label": "Novo banco local",
+      "detail": "PostgreSQL ou MongoDB num contêiner"
+    },
+    "activity": {
+      "label": "Atividade dos agentes nos bancos"
+    }
+  },
+  "podsCommands": {
+    "open": {
+      "label": "Abrir OxePod",
+      "detail": "Contêineres, Docker e Podman"
+    },
+    "filter": {
+      "label": "Encontrar um contêiner"
+    },
+    "resources": {
+      "label": "Imagens, volumes e redes"
+    },
+    "activity": {
+      "label": "Atividade dos agentes nos contêineres"
+    },
+    "pruneContainers": {
+      "label": "Limpar contêineres parados",
+      "detail": "Pergunta antes"
     }
   }
 }

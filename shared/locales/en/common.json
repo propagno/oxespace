@@ -12,7 +12,8 @@
     "modeTitle": {
       "code": "Code: terminals and agents in your workspaces",
       "thread": "Thread: conversations with an agent",
-      "data": "OxeQuery: containers and databases"
+      "data": "OxeQuery: databases",
+      "pods": "OxePod: containers"
     },
     "primary": "Primary navigation",
     "switchToLight": "Switch to light mode",
@@ -23,7 +24,9 @@
     "expandSidebar": "Expand sidebar",
     "clearSearch": "Clear search",
     "applicationMenu": "Application menu",
-    "menu": "Menu"
+    "menu": "Menu",
+    "loadingView": "Loading {{name}}…",
+    "viewSidebar": "{{name}} sidebar"
   },
   "attention": {
     "needsYou_one": "{{count}} needs you",
@@ -145,13 +148,22 @@
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts"
+      },
+      "view": {
+        "code": "Show Code",
+        "thread": "Show Thread",
+        "data": "Show OxeQuery",
+        "pods": "Show OxePod"
+      },
+      "oxepod": {
+        "filter": "Find a container"
       }
     }
   },
   "oxequeryCommands": {
     "open": {
       "label": "Open OxeQuery",
-      "detail": "Containers and databases"
+      "detail": "Databases"
     },
     "newConnection": {
       "label": "New database connection"
@@ -178,8 +190,31 @@
       "label": "Export connections",
       "detail": "Without passwords"
     },
-    "compose": {
-      "label": "Containers & Compose projects"
+    "newDatabase": {
+      "label": "New local database",
+      "detail": "PostgreSQL or MongoDB in a container"
+    },
+    "activity": {
+      "label": "Agent activity on databases"
+    }
+  },
+  "podsCommands": {
+    "open": {
+      "label": "Open OxePod",
+      "detail": "Containers, Docker and Podman"
+    },
+    "filter": {
+      "label": "Find a container"
+    },
+    "resources": {
+      "label": "Images, volumes and networks"
+    },
+    "activity": {
+      "label": "Agent activity on containers"
+    },
+    "pruneContainers": {
+      "label": "Clean up stopped containers",
+      "detail": "Asks first"
     }
   }
 }

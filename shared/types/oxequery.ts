@@ -75,6 +75,7 @@ export interface VolumeInfo { name: string; driver: string }
 export interface NetworkInfo { id: string; name: string; driver: string; scope: string }
 export interface DiskUsageRow { type: string; total: number; active: number; size: string; reclaimable: string }
 export type ResourceKind = 'image' | 'volume' | 'network'
+export type PruneKind = 'containers' | 'images'
 export interface CreateDatabaseInput {
   engine: DatabaseEngine
   /** Container name; also names the data volume. */
@@ -86,6 +87,9 @@ export interface CreateDatabaseInput {
   engineName?: ContainerEngine
 }
 
+/** One environment variable; `value` is absent when it is, or may be, a secret. */
+export interface ContainerEnvEntry { name: string; value?: string }
+
 export interface ContainerInspect {
   id: string
   name: string
@@ -96,9 +100,10 @@ export interface ContainerInspect {
   health?: string
   command: string
   workingDir?: string
-  /** Names only. Values are never sent to the renderer. */
-  envNames: string[]
-  mounts: { source: string; destination: string; mode?: string }[]
+  /** The environment with secrets already removed in the main process: a hidden value never reaches the renderer. */
+  environment: ContainerEnvEntry[]
+  /** `volume` names a named volume; it outlives the container. */
+  mounts: { source: string; destination: string; mode?: string; volume?: string }[]
   networks: string[]
   ports: ContainerPort[]
 }
@@ -699,6 +704,10 @@ export interface OxeQueryOps {
   'resources.networks': { input: { engine?: ContainerEngine }; output: NetworkInfo[] }
   'resources.usage': { input: { engine?: ContainerEngine }; output: DiskUsageRow[] }
   'resources.remove': { input: { kind: ResourceKind; id: string; engine?: ContainerEngine; confirmed?: boolean }; output: { ok: true } }
+  /** Stopped containers or dangling images, all at once. Refused unless the person confirmed. */
+  'resources.prune': { input: { kind: PruneKind; engine?: ContainerEngine; confirmed?: boolean }; output: { output: string } }
+  /** Removes one container (stopping it first). Its volumes stay. Refused unless the person confirmed. */
+  'containers.remove': { input: { id: string; engine?: ContainerEngine; confirmed?: boolean }; output: { ok: true } }
   'containers.createDatabase': { input: CreateDatabaseInput; output: OxeQueryConnection }
   'audit.list': { input: { connectionId?: string; limit?: number }; output: OxeQueryAuditEntry[] }
   'library.list': { input: { connectionId: string }; output: { saved: SavedQuery[]; history: QueryHistoryItem[] } }

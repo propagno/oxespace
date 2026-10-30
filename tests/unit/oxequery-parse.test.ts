@@ -34,10 +34,22 @@ describe('container inspect and connection suggestion', () => {
     Config: { Image: image, Env: env, Cmd: ['postgres'] }, NetworkSettings: { Ports: ports, Networks: { bridge: {} } }, HostConfig: { RestartPolicy: { Name: 'always' } }, Mounts: []
   }])
 
-  it('never exposes environment values in the inspect summary', () => {
-    const summary = parseInspect(inspect('postgres:16', ['POSTGRES_PASSWORD=hunter2'], {}))
-    expect(summary?.envNames).toEqual(['POSTGRES_PASSWORD'])
-    expect(JSON.stringify(summary)).not.toContain('hunter2')
+  it('shows harmless environment values and drops secret ones in the inspect summary', () => {
+    const summary = parseInspect(inspect('postgres:16', ['POSTGRES_USER=dev', 'POSTGRES_PASSWORD=hunter2', 'SECRET_KEY_BASE=abc123', 'DATABASE_URL=postgres://u:p@db/app', 'NOTE=token=xyz', 'PGDATA=/var/lib/postgresql/data', 'POSTGRES_USER=again'], {}))
+    expect(summary?.environment).toEqual([
+      { name: 'POSTGRES_USER', value: 'dev' }, { name: 'POSTGRES_PASSWORD' }, { name: 'SECRET_KEY_BASE' }, { name: 'DATABASE_URL' }, { name: 'NOTE' },
+      { name: 'PGDATA', value: '/var/lib/postgresql/data' }
+    ])
+    for (const secret of ['hunter2', 'abc123', 'u:p@', 'xyz']) expect(JSON.stringify(summary)).not.toContain(secret)
+  })
+
+  it('redacts a secret passed on the command line and names volumes', () => {
+    const raw = JSON.parse(inspect('redis:7', [], {}))
+    raw[0].Config.Cmd = ['redis-server', '--requirepass', 'x', 'password=hunter2']
+    raw[0].Mounts = [{ Type: 'volume', Name: 'redis-data', Source: '/var/lib/docker/volumes/redis-data/_data', Destination: '/data' }, { Type: 'bind', Source: '/home/me', Destination: '/src' }]
+    const summary = parseInspect(JSON.stringify(raw))
+    expect(summary?.command).not.toContain('hunter2')
+    expect(summary?.mounts).toEqual([{ source: '/var/lib/docker/volumes/redis-data/_data', destination: '/data', volume: 'redis-data' }, { source: '/home/me', destination: '/src' }])
   })
 
   it('suggests a Postgres connection from the published port and the container environment', () => {

@@ -121,6 +121,14 @@
       "failed": "Falhou",
       "unknown": "Sem confirmação",
       "completed": "Concluída"
+    },
+    "interrupted": "Interrompida",
+    "interruptedHint": "O app foi fechado enquanto isto rodava. Pode ou não ter surtido efeito. Continuar pede ao agente que verifique primeiro; nada é executado de novo automaticamente.",
+    "continue": "Continuar",
+    "dismiss": "Dispensar",
+    "interruptedHandled": {
+      "continued": "Continuada: o agente foi orientado a verificar o que aconteceu primeiro.",
+      "dismissed": "Dispensada. Nada foi executado de novo."
     }
   },
   "announce": {

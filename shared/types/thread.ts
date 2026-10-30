@@ -181,6 +181,8 @@ export interface ThreadRequestPolicy {
   safeList?: true
   /** Facts worth a second look, such as web content that may carry prompt injection. */
   warnings?: string[]
+  /** Touches the files that steer agents (instructions, MCP settings, hooks): only a person approves it, whatever the access level. */
+  guarded?: true
   suggestions?: ThreadPermissionSuggestion[]
 }
 /** The answer of the command analysis for one command line. */
@@ -440,7 +442,7 @@ export type ThreadEvent =
   | { type: 'delta'; id: string; text: string }
   /** The agent's visible reasoning (Claude thinking, Codex summaries), re-emitted whole as it grows. */
   | { type: 'reasoning'; id: string; text: string; startedAt: number; completedAt?: number }
-  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[] }
+  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[]; /** Set when the app closed while this ran; the effect may or may not have happened. */ interrupted?: boolean; interruptedHandled?: 'continued' | 'dismissed' }
   | { type: 'subagent'; id: string; action: string; state: 'running' | 'completed' | 'failed' | 'interrupted' | 'unknown'; senderThreadId?: string; receiverThreadIds: string[]; agents: ThreadSubagent[]; prompt?: string; model?: string; reasoningEffort?: string; startedAt?: number; completedAt?: number; turnId?: string }
   | { type: 'approval'; id: string; title: string; detail: string }
   | { type: 'approval-resolved'; id: string }

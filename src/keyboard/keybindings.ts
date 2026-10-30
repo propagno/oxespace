@@ -8,8 +8,10 @@ import { chordsCollide, formatChord, matchesChord, parseChord, type ParsedChord 
  * ids with `useKeybindings`; menus, the palette and tooltips read the labels
  * from here, so a shortcut is defined once and shown the same everywhere.
  */
-export type KeybindingScope = 'global' | 'code' | 'thread' | 'oxequery' | 'terminal'
-export type AppView = 'code' | 'thread' | 'data'
+export type KeybindingScope = 'global' | 'code' | 'thread' | 'oxequery' | 'oxepod' | 'terminal'
+/** The application's views: Code, Thread, OxeQuery (`data`) and OxePod (`pods`). */
+export type AppView = 'code' | 'thread' | 'data' | 'pods'
+export const APP_VIEWS: readonly AppView[] = ['code', 'thread', 'data', 'pods']
 
 export interface KeybindingContext {
   view: AppView
@@ -34,7 +36,7 @@ export const inEditor = (target: Element | null): boolean => Boolean(target?.clo
 /** Anywhere a key types text: inputs, text areas, editable content, editors and terminals. */
 export const inTextField = (target: Element | null): boolean => Boolean(target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) || inEditor(target)
 
-export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'Code', terminal: 'Terminal', thread: 'Thread', oxequery: 'OxeQuery' }
+export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'Code', terminal: 'Terminal', thread: 'Thread', oxequery: 'OxeQuery', oxepod: 'OxePod' }
 
 export const KEYBINDINGS = [
   // Global
@@ -43,7 +45,12 @@ export const KEYBINDINGS = [
   { id: 'settings.open', chords: ['Mod+,'], scope: 'global', label: 'Open settings', reservedInTerminal: true },
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', label: 'Toggle sidebar', reservedInTerminal: true },
   { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', label: 'Open activity center', reservedInTerminal: true },
-  { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', label: 'Toggle voice input', when: context => context.view !== 'data' },
+  { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', label: 'Toggle voice input', when: context => context.view === 'code' || context.view === 'thread' },
+  // The four views, in the order of the switch in the title bar.
+  { id: 'view.code', chords: ['Mod+1'], scope: 'global', label: 'Show Code', reservedInTerminal: true },
+  { id: 'view.thread', chords: ['Mod+2'], scope: 'global', label: 'Show Thread', reservedInTerminal: true },
+  { id: 'view.data', chords: ['Mod+3'], scope: 'global', label: 'Show OxeQuery', reservedInTerminal: true },
+  { id: 'view.pods', chords: ['Mod+4'], scope: 'global', label: 'Show OxePod', reservedInTerminal: true },
   // Code
   { id: 'code.changes', chords: ['Mod+Shift+D'], scope: 'code', label: 'Changes' },
   { id: 'code.browser', chords: ['Mod+Shift+B'], scope: 'code', label: 'Browser' },
@@ -73,6 +80,9 @@ export const KEYBINDINGS = [
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread', label: 'Permissions' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread', label: 'Model' },
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread', label: 'Reasoning effort' },
+
+  // OxePod
+  { id: 'oxepod.filter', chords: ['/'], scope: 'oxepod', label: 'Find a container', when: context => !inTextField(context.target) },
 
   // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
   { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', label: 'Show keyboard shortcuts', when: context => !inTextField(context.target) }
@@ -119,7 +129,7 @@ export function conflictsFor(id: KeybindingId): Keybinding[] {
 
 /** The bindings that listen in a view, grouped by scope in registry order. */
 export function bindingsForView(view: AppView): Array<{ scope: KeybindingScope; bindings: Keybinding[] }> {
-  const scopes: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery']
+  const scopes: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery', 'oxepod']
   return scopes.filter(scope => scopeIsActive(scope, view))
     .map(scope => ({ scope, bindings: (KEYBINDINGS as readonly Keybinding[]).filter(binding => binding.scope === scope) }))
     .filter(group => group.bindings.length > 0)
@@ -147,13 +157,13 @@ export function scopeIsActive(scope: KeybindingScope, view: AppView): boolean {
   if (scope === 'global') return true
   if (scope === 'thread') return view === 'thread'
   if (scope === 'oxequery') return view === 'data'
+  if (scope === 'oxepod') return view === 'pods'
   return view === 'code'
 }
 
 /** Bindings two of which the same key press in the same view would fire. */
 export function bindingsCollide(a: Keybinding, b: Keybinding, chordsA: string[], chordsB: string[]): boolean {
-  const views: AppView[] = ['code', 'thread', 'data']
-  if (!views.some(view => scopeIsActive(a.scope, view) && scopeIsActive(b.scope, view))) return false
+  if (!APP_VIEWS.some(view => scopeIsActive(a.scope, view) && scopeIsActive(b.scope, view))) return false
   return chordsA.some(x => chordsB.some(y => chordsCollide(x, y)))
 }
 
