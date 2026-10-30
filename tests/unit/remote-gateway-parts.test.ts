@@ -3,7 +3,10 @@ import { createPrivateKey, generateKeyPairSync, sign, X509Certificate } from 'no
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { certificateFingerprint, createGatewayCertificate, derInteger, derOid, derTime } from '../../electron/main/services/remote/certificate'
 import { RemoteConnection, mentionsForbidden, type ConnectionHost, type FrameSocket } from '../../electron/main/services/remote/connection'
-import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput } from '../../electron/main/services/remote/inputs'
+import {
+  parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput
+} from '../../electron/main/services/remote/inputs'
+import { messageFromError } from '../../shared/messages'
 import { isPrivateAddress, listenAddresses, peerAddress } from '../../electron/main/services/remote/network'
 import { PairingDesk } from '../../electron/main/services/remote/pairing'
 import { AccessTokens, readDevicePublicKey, sameSecret, verifyRefreshSignature } from '../../electron/main/services/remote/tokens'
@@ -128,13 +131,19 @@ describe('pairing desk', () => {
     expect(desk.ask('Other', 'ZZZZZZ')).toBeNull()
     expect(() => desk.answer('nope', true)).toThrow('No such pairing request')
     desk.answer(asked.promptId, true)
-    expect(await asked.answer).toBe(true)
+    expect(await asked.answer).toBe('accepted')
     const timed = desk.ask('Pixel', 'ABCDEF')!
-    expect(await timed.answer).toBe(false)
+    expect(await timed.answer).toBe('expired')
     expect(prompts.filter(prompt => prompt === null)).toHaveLength(2)
     const cancelled = desk.ask('Pixel', 'ABCDEF')!
     expect(desk.cancel()).toBe(true)
-    expect(await cancelled.answer).toBe(false)
+    expect(await cancelled.answer).toBe('cancelled')
+    const declined = desk.ask('Pixel', 'ABCDEF')!
+    desk.answer(declined.promptId, false)
+    expect(await declined.answer).toBe('declined')
+    const abandoned = desk.ask('Pixel', 'ABCDEF')!
+    desk.settle('abandoned', abandoned.promptId)
+    expect(await abandoned.answer).toBe('abandoned')
   })
 
   test('tracks a bounded number of addresses', () => {
@@ -159,6 +168,18 @@ describe('window inputs', () => {
     expect(parseDesktopNameInput({ name: ' Desk ' })).toEqual({ name: 'Desk' })
     expect(parseDesktopNameInput({ name: null })).toEqual({ name: null })
     for (const input of [{ name: 'x'.repeat(33) }, { name: '' }, { name: 'a\u0000' }, { name: undefined }, {}]) expect(() => parseDesktopNameInput(input)).toThrow()
+  })
+
+  test('what the person can fix carries a C3 code; malformed input does not', () => {
+    const code = (run: () => unknown) => { try { run() } catch (error) { return messageFromError(error) } throw new Error('did not throw') }
+    expect(code(() => parseDeviceId('x'))).toEqual({ code: 'remote.device.notFound', params: {} })
+    expect(code(() => parseDeviceName(''))).toEqual({ code: 'remote.device.invalidName', params: { max: REMOTE_LIMITS.maxDeviceNameLength } })
+    expect(code(() => parseDesktopNameInput({ name: 'x'.repeat(33) }))).toEqual({ code: 'remote.desktop.invalidName', params: { max: 32 } })
+    expect(code(() => parseSetPhoneWriteInput({ paneId: 'a b', allowed: true }))).toEqual({ code: 'remote.pane.invalid', params: {} })
+    for (const run of [() => parseDeviceId(5), () => parseDeviceName(null), () => parseDesktopNameInput({ name: 5 }), () => parseSetPhoneWriteInput({ paneId: 5, allowed: true }),
+      () => parseRenameInput({ deviceId: '00000000-0000-4000-8000-000000000000', name: 'a', extra: 1 })]) {
+      expect(code(run)).toBeNull()
+    }
   })
 })
 

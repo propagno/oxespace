@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, safeStorage, type IpcMainInvokeEvent } from 'electron'
 import type { AppDatabase } from '../db'
+import type { MainMessage } from '../../../shared/messages'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { RemoteChange } from '../../../shared/types/remote'
 import type { RemoteAgentStateHost, RemoteTerminalHost, RemoteThreadHost } from '../services/remote/desktop'
@@ -15,11 +16,13 @@ import { requireAppFrame } from './ipc-guards'
  */
 export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<RemoteThreadHost>; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost }): void {
   let gateway: Promise<RemoteGateway> | null = null
-  const broadcast = (change: RemoteChange) => {
-    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.remote.changed, change)
+  const send = (channel: string, payload: unknown) => {
+    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, payload)
   }
+  const broadcast = (change: RemoteChange) => send(IPC_CHANNELS.remote.changed, change)
+  const pairingFailed = (message: MainMessage) => send(IPC_CHANNELS.remote.pairingFailed, message)
   const load = () => gateway ??= Promise.all([import('../services/remote/gateway'), import('../services/remote/desktop'), hosts?.threads]).then(([{ RemoteGateway }, { createRemoteDesktop }, threads]) =>
-    new RemoteGateway({ db, storage: safeStorage, broadcast, ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState }) } : {}) }))
+    new RemoteGateway({ db, storage: safeStorage, broadcast, pairingFailed, ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState }) } : {}) }))
   const handle = (channel: string, run: (gateway: RemoteGateway, input: unknown) => unknown) => {
     ipcMain.handle(channel, async (event: IpcMainInvokeEvent, input: unknown) => {
       requireAppFrame(event, 'Remote devices')

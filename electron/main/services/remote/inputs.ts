@@ -1,9 +1,11 @@
+import { mainMessage, MainMessageError } from '../../../../shared/messages'
 import { REMOTE_LIMITS } from '../../../../shared/remote/protocol'
 import { REMOTE_MAX_DESKTOP_NAME_LENGTH } from '../../../../shared/types/remote'
 
 /**
  * Strict readers for what the window sends on the `remote.*` channels. Unknown fields, wrong types and out-of-range
- * values reject, so nothing unexpected ever reaches the gateway.
+ * values reject, so nothing unexpected ever reaches the gateway. A value of the right type the person can fix (a name
+ * too long, an id that is no device) rejects with a C3 code (`MainMessageError`); malformed input is a plain Error.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
@@ -47,16 +49,22 @@ export function parseRenameInput(value: unknown): { deviceId: string; name: stri
   return { deviceId: parseDeviceId(input.deviceId), name: parseDeviceName(input.name) }
 }
 
+export const deviceNotFound = (): MainMessageError => new MainMessageError(mainMessage('remote.device.notFound', {}), 'Unknown device')
+
+/** A string that is not a device id is no device: `remote.device.notFound`. Anything but a string is malformed. */
 export function parseDeviceId(value: unknown): string {
-  if (typeof value !== 'string' || !UUID.test(value)) throw new Error('Unknown device')
+  if (typeof value !== 'string') throw new Error('deviceId must be a string')
+  if (!UUID.test(value)) throw deviceNotFound()
   return value
 }
 
 /** A display name: trimmed, 1–64 characters, no control characters. */
 export function parseDeviceName(value: unknown): string {
-  if (typeof value !== 'string') throw new Error('Invalid device name')
+  if (typeof value !== 'string') throw new Error('name must be a string')
   const name = value.trim()
-  if (!name || name.length > REMOTE_LIMITS.maxDeviceNameLength || /[\u0000-\u001f\u007f]/.test(name)) throw new Error('Invalid device name')
+  if (!name || name.length > REMOTE_LIMITS.maxDeviceNameLength || /[\u0000-\u001f\u007f]/.test(name)) {
+    throw new MainMessageError(mainMessage('remote.device.invalidName', { max: REMOTE_LIMITS.maxDeviceNameLength }), 'Invalid device name')
+  }
   return name
 }
 
@@ -64,9 +72,11 @@ export function parseDeviceName(value: unknown): string {
 export function parseDesktopNameInput(value: unknown): { name: string | null } {
   const input = record(value, 'Desktop name input', ['name'])
   if (input.name === null) return { name: null }
-  if (typeof input.name !== 'string') throw new Error('Invalid desktop name')
+  if (typeof input.name !== 'string') throw new Error('name must be a string or null')
   const name = input.name.trim()
-  if (!name || name.length > REMOTE_MAX_DESKTOP_NAME_LENGTH || /[\u0000-\u001f\u007f]/.test(name)) throw new Error('Invalid desktop name')
+  if (!name || name.length > REMOTE_MAX_DESKTOP_NAME_LENGTH || /[\u0000-\u001f\u007f]/.test(name)) {
+    throw new MainMessageError(mainMessage('remote.desktop.invalidName', { max: REMOTE_MAX_DESKTOP_NAME_LENGTH }), 'Invalid desktop name')
+  }
   return { name }
 }
 
@@ -75,7 +85,8 @@ const PANE_ID = /^[A-Za-z0-9._:-]{1,200}$/
 /** `{ paneId, allowed }`: one pane the phone may type into, or not. */
 export function parseSetPhoneWriteInput(value: unknown): { paneId: string; allowed: boolean } {
   const input = record(value, 'Phone write input', ['paneId', 'allowed'])
-  if (typeof input.paneId !== 'string' || !PANE_ID.test(input.paneId)) throw new Error('Invalid pane')
+  if (typeof input.paneId !== 'string') throw new Error('paneId must be a string')
+  if (!PANE_ID.test(input.paneId)) throw new MainMessageError(mainMessage('remote.pane.invalid', {}), 'Invalid pane')
   if (typeof input.allowed !== 'boolean') throw new Error('allowed must be a boolean')
   return { paneId: input.paneId, allowed: input.allowed }
 }

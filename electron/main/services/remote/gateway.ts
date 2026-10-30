@@ -6,18 +6,20 @@ import type { Socket } from 'node:net'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer } from 'ws'
 import type { AppDatabase } from '../../db'
-import { mainMessage } from '../../../../shared/messages'
+import { mainMessage, MainMessageError, type MainMessage } from '../../../../shared/messages'
 import {
   isHelloChallenge, pairingUri, pairingVerification, readPairRequest, REMOTE_LIMITS, REMOTE_PAIRING_PATH, REMOTE_PROTOCOL_VERSION, REMOTE_WS_PATH,
   type RemoteAuthFrame, type RemoteCommand, type RemotePairingErrorCode, type RemotePairResponse, type RemoteSubscription
 } from '../../../../shared/remote/protocol'
-import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingOffer } from '../../../../shared/types/remote'
+import {
+  REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingFailureReason, type RemotePairingOffer
+} from '../../../../shared/types/remote'
 import { createSecretCipher, type SafeStorageLike } from '../oxequery/secret-cipher'
 import { certificateFingerprint, createGatewayCertificate } from './certificate'
 import { auditDetail, RemoteCommands } from './commands'
 import { mentionsForbidden, RemoteConnection, type AuthOutcome, type ConnectionHost, type RemoteCommandAnswer, type RemoteTopicSource } from './connection'
 import type { RemoteDesktop } from './desktop'
-import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput } from './inputs'
+import { deviceNotFound, parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput } from './inputs'
 import { isPrivateAddress, listenAddresses, peerAddress, type ListenAddress } from './network'
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
@@ -38,11 +40,15 @@ const MAX_CONNECTIONS = 16
 const MAX_UNAUTHENTICATED_PER_ADDRESS = 4
 const SEEN_WRITE_INTERVAL_MS = 60_000
 const AUTH_FAILURE_AUDITS_PER_MINUTE = 20
+/** Failed pairings told to the window per minute, so a flood of bad requests from the LAN cannot flood the window. */
+const PAIRING_FAILURES_SHOWN_PER_MINUTE = 20
 
 export interface RemoteGatewayDeps {
   db: AppDatabase
   storage: SafeStorageLike
   broadcast(change: RemoteChange): void
+  /** A phone's pairing attempt failed: `remote.pairing.failed` with its reason only, never who or where. */
+  pairingFailed?(message: MainMessage): void
   now?: () => number
   interfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>
   /** Which interface addresses may be listened on; private ones only, unless a test says otherwise. */
@@ -83,6 +89,12 @@ const PAIRING_STATUS: Record<RemotePairingErrorCode, number> = {
   malformed: 400, 'pairing-invalid': 403, 'pairing-refused': 403, 'pairing-used': 409, 'too-many-devices': 409, 'pairing-expired': 410, 'pairing-locked': 429
 }
 
+/** What the window is told for each answer the phone gets. A question that timed out is `expired`, said where it happens. */
+const PAIRING_FAILURE_REASON: Record<RemotePairingErrorCode, RemotePairingFailureReason> = {
+  malformed: 'invalid', 'pairing-invalid': 'invalid', 'pairing-used': 'invalid', 'pairing-locked': 'invalid', 'pairing-expired': 'expired',
+  'pairing-refused': 'refused', 'too-many-devices': 'limit'
+}
+
 export class RemoteGateway implements ConnectionHost {
   private readonly store: RemoteStore
   private readonly pairing: PairingDesk
@@ -94,6 +106,7 @@ export class RemoteGateway implements ConnectionHost {
   private readonly commandTimes = new Map<string, number[]>()
   private readonly lastSeenWrite = new Map<string, number>()
   private authAudits = { windowStart: 0, count: 0 }
+  private pairingFailuresShown = { windowStart: 0, count: 0 }
   /** Panes the person let phones type into: in memory only, so off on every launch, and never set by a phone or MCP. */
   private readonly phoneWritePanes = new Set<string>()
   private readonly workspaceListeners = new Set<() => void>()
@@ -130,16 +143,17 @@ export class RemoteGateway implements ConnectionHost {
   // ---- The window's channels ----------------------------------------------------------------------------------
 
   status(): RemoteGatewayStatus {
-    const running = this.running
-    const der = running ? null : this.store.settings().certificateDer
+    const running = this.running, settings = this.store.settings()
+    const der = running ? null : settings.certificateDer
     return {
       enabled: !!running,
-      desktopName: this.desktopName,
+      desktopName: settings.desktopName ?? REMOTE_DEFAULT_DESKTOP_NAME,
       listening: running ? { addresses: running.addresses.map(entry => entry.address), port: running.port } : null,
       fingerprint: running?.fingerprint ?? (der ? certificateFingerprint(der) : null),
       devices: this.store.activeCount(),
       maxDevices: REMOTE_LIMITS.maxDevices,
       phoneWritePanes: [...this.phoneWritePanes].sort(),
+      listenedBefore: settings.listenedBefore,
       ...(this.error ? { error: this.error } : {})
     }
   }
@@ -166,6 +180,7 @@ export class RemoteGateway implements ConnectionHost {
             this.running = await this.start(port)
             this.error = undefined
             this.store.savePort(port)
+            this.store.markListened()
             this.store.audit({ action: 'enable', outcome: 'ok', detail: `port ${port}` })
           } catch (caught) {
             this.error = caught instanceof GatewayStartError ? caught.reason : mainMessage('remote.certificate.failed', {})
@@ -181,8 +196,10 @@ export class RemoteGateway implements ConnectionHost {
 
   startPairing(): RemotePairingOffer {
     const running = this.running
-    if (!running) throw new Error('Turn the gateway on first')
-    if (this.store.activeCount() >= REMOTE_LIMITS.maxDevices) throw new Error('Too many devices')
+    if (!running) throw new MainMessageError(mainMessage('remote.gateway.offline', {}), 'Turn the gateway on first')
+    if (this.store.activeCount() >= REMOTE_LIMITS.maxDevices) {
+      throw new MainMessageError(mainMessage('remote.pairing.limit', { max: REMOTE_LIMITS.maxDevices }), 'Too many devices')
+    }
     const { code, expiresAt } = this.pairing.start()
     this.store.audit({ action: 'pairing-start', outcome: 'ok' })
     const host = running.addresses[0].address
@@ -200,7 +217,7 @@ export class RemoteGateway implements ConnectionHost {
 
   revoke(value: unknown): void {
     const { deviceId } = parseDeviceInput(value)
-    if (!this.store.revoke(deviceId)) throw new Error('Unknown device')
+    if (!this.store.revoke(deviceId)) throw deviceNotFound()
     for (const connection of this.connections) if (connection.deviceId === deviceId) connection.revoke()
     this.commandTimes.delete(deviceId)
     this.commands?.forget(deviceId)
@@ -210,7 +227,7 @@ export class RemoteGateway implements ConnectionHost {
 
   rename(value: unknown): RemoteDevice {
     const { deviceId, name } = parseRenameInput(value)
-    if (!this.store.rename(deviceId, name)) throw new Error('Unknown device')
+    if (!this.store.rename(deviceId, name)) throw deviceNotFound()
     this.store.audit({ action: 'rename', outcome: 'ok', deviceId })
     const devices = this.devices()
     this.deps.broadcast({ devices })
@@ -383,12 +400,14 @@ export class RemoteGateway implements ConnectionHost {
     const asked = this.pairing.ask(read.request.deviceName, pairingVerification(createHash('sha256').update(publicKey).digest()))
     if (!asked) { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused') }
     // A phone that hangs up takes its question off the screen.
-    const abandon = () => { if (!res.writableEnded) this.pairing.settle(false, asked.promptId) }
+    const abandon = () => { if (!res.writableEnded) this.pairing.settle('abandoned', asked.promptId) }
     res.on('close', abandon)
-    const accepted = await asked.answer
+    const answer = await asked.answer
     res.off('close', abandon)
     if (res.destroyed || res.writableEnded) { outcome('abandoned'); return }
-    if (!accepted || this.running !== running) { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused') }
+    // No answer in time is `expired` for the window; the phone hears `pairing-refused` either way.
+    if (answer === 'expired') { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused', 'expired') }
+    if (answer !== 'accepted' || this.running !== running) { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused') }
     let device: DeviceRecord
     try { device = this.store.addDevice(read.request.deviceName, publicKey) } catch (caught) {
       if (caught instanceof TooManyDevicesError) { outcome('too-many-devices'); return this.pairFailure(res, 'too-many-devices') }
@@ -400,8 +419,13 @@ export class RemoteGateway implements ConnectionHost {
     this.deps.broadcast({ devices: this.devices(), status: this.status() })
   }
 
-  private pairFailure(res: ServerResponse, code: RemotePairingErrorCode): void {
+  /** The phone's answer, and the window's: every failed attempt reaches it once, with the reason and nothing else. */
+  private pairFailure(res: ServerResponse, code: RemotePairingErrorCode, reason = PAIRING_FAILURE_REASON[code]): void {
     json(res, PAIRING_STATUS[code], { code })
+    const now = this.now()
+    if (now - this.pairingFailuresShown.windowStart >= 60_000) this.pairingFailuresShown = { windowStart: now, count: 0 }
+    if (++this.pairingFailuresShown.count > PAIRING_FAILURES_SHOWN_PER_MINUTE) return
+    try { this.deps.pairingFailed?.(mainMessage('remote.pairing.failed', { reason })) } catch { /* a closed window */ }
   }
 
   // ---- WSS: the protocol --------------------------------------------------------------------------------------

@@ -17,13 +17,15 @@ CREATE INDEX IF NOT EXISTS idx_remote_devices_active ON remote_devices(revoked, 
 -- One row. The certificate DER is public; its private key is stored only as `safeStorage` ciphertext. The
 -- access-token signing key is never stored: it is made at each launch and kept in memory. Whether the gateway is on
 -- is never stored either: it starts off on every launch. `desktop_name` is the name phones see; NULL means the
--- default ("OXESpace"), never the host name.
+-- default ("OXESpace"), never the host name. `listened_before` turns 1 the first time the gateway really listens on
+-- this profile and never goes back, so the window explains the system firewall's question before the first time only.
 CREATE TABLE IF NOT EXISTS remote_gateway (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   port INTEGER NOT NULL DEFAULT 47321,
   certificate_der BLOB,
   certificate_key BLOB,
   desktop_name TEXT,
+  listened_before INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER NOT NULL
 );
 
