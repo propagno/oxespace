@@ -16,6 +16,8 @@ export interface MessageParams {
   'mcp.quarantine.added': { tools: string[] }
   /** MCP quarantine: tools the server removed after it was trusted. */
   'mcp.quarantine.removed': { tools: string[] }
+  /** MCP quarantine: the server's command, arguments, environment or URL no longer match what was trusted. */
+  'mcp.quarantine.configChanged': Record<string, never>
   /** A pending request was answered, cancelled or expired before this answer arrived. */
   'thread.request.notPending': Record<string, never>
   /** The conversation restarted since the request was listed; the answer belongs to an older generation. */
@@ -44,6 +46,14 @@ export interface MessageParams {
   'bundle.file.runtime': Record<string, never>
   'bundle.file.versions': Record<string, never>
   'bundle.file.configuration': Record<string, never>
+  /** The person picked a port below 1024 for the remote gateway. */
+  'remote.port.privileged': { port: number }
+  /** Another program already listens on the gateway's port. */
+  'remote.port.inUse': { port: number }
+  /** No private network interface (RFC 1918, link-local, ULA) to listen on. */
+  'remote.network.noPrivateInterface': Record<string, never>
+  /** The gateway's certificate could not be made or read back from secure storage. */
+  'remote.certificate.failed': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -52,6 +62,7 @@ export const MESSAGE_CODES = [
   'mcp.quarantine.changed',
   'mcp.quarantine.added',
   'mcp.quarantine.removed',
+  'mcp.quarantine.configChanged',
   'thread.request.notPending',
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
@@ -72,7 +83,11 @@ export const MESSAGE_CODES = [
   'bundle.file.logTail',
   'bundle.file.runtime',
   'bundle.file.versions',
-  'bundle.file.configuration'
+  'bundle.file.configuration',
+  'remote.port.privileged',
+  'remote.port.inUse',
+  'remote.network.noPrivateInterface',
+  'remote.certificate.failed'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */
