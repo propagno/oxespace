@@ -101,6 +101,8 @@ interface Verdict { kind: Kind; reason?: string; code?: MainMessage }
 
 const COPY_PROGRAM = 'COPY ... PROGRAM runs a shell command on the database server.'
 const ROW_LOCK = 'SELECT ... FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.'
+const SESSION_ROLE = 'SET ROLE / SET SESSION AUTHORIZATION changes the session user, and with it what later statements may do.'
+const TABLE_LOCK = 'VACUUM FULL locks the whole table while it runs.'
 const RUNS_CODE: Record<'DO' | 'CALL', string> = {
   DO: 'DO runs code in the database; its effect is not known before it runs.',
   CALL: 'CALL runs a stored procedure; its effect is not known before it runs.'
@@ -190,6 +192,11 @@ function classifyPlain(words: string[], outer: string[], first: string): Verdict
   }
   if (READ.has(first)) return { kind: 'read' }
   if (WRITE.has(first)) return { kind: 'write' }
+  // Same kind as any other DDL; these only add the reason the confirmation shows.
+  if ((first === 'SET' || first === 'RESET') && (outer.slice(1, 3).includes('ROLE') || (outer.slice(1, 3).includes('SESSION') && outer.includes('AUTHORIZATION')))) {
+    return { kind: 'ddl', reason: SESSION_ROLE, code: mainMessage('oxequery.sql.sessionRole', {}) }
+  }
+  if (first === 'VACUUM' && words.includes('FULL')) return { kind: 'ddl', reason: TABLE_LOCK, code: mainMessage('oxequery.sql.tableLock', {}) }
   if (DDL.has(first)) return { kind: 'ddl' }
   return { kind: 'write', reason: `${first} is not a recognised read-only statement` }
 }

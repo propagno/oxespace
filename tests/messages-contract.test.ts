@@ -51,6 +51,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'oxequery.sql.callProcedure': [],
   'oxequery.sql.destructiveInside': ['keyword', 'statement'],
   'oxequery.sql.rowLock': [],
+  'oxequery.sql.sessionRole': [],
+  'oxequery.sql.tableLock': [],
   'oxepod.startFailed': ['reason'],
   'oxepost.network.notFound': [],
   'oxepost.network.refused': [],
