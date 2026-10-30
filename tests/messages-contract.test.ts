@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
 import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
+import { MCP_TOOL_RULE_REFUSAL_CODES } from '../shared/types/mcp-tools'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
 
 const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
@@ -12,6 +13,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.quarantine.changed': ['tools'],
   'mcp.quarantine.added': ['tools'],
   'mcp.quarantine.removed': ['tools'],
+  'mcp.toolRule.confirmLevel': ['tool'],
+  'mcp.toolRule.locked': ['tool'],
+  'mcp.toolRule.invalidPolicy': [],
   'thread.request.notPending': [],
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
@@ -40,6 +44,10 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of a pending answer its own code', () => {
     for (const refusal of THREAD_PENDING_REFUSALS) expect(isMessageCode(`thread.request.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of a tool rule a code (B7.3)', () => {
+    for (const refusal of MCP_TOOL_RULE_REFUSAL_CODES) expect(isMessageCode(refusal), refusal).toBe(true)
   })
 
   it('accepts a code with parameters and rejects anything else', () => {

@@ -20,6 +20,11 @@
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
         "added": "Ele adicionou {{tools}}.",
         "removed": "Ele removeu {{tools}}."
+      },
+      "toolRule": {
+        "confirmLevel": "{{tool}} faz mudanças que você confirma a cada vez, então sempre pergunta antes de rodar.",
+        "locked": "A regra de {{tool}} vem da sua política ou da sua organização, então este projeto não pode mudá-la.",
+        "invalidPolicy": "O .oxespace/policy.json deste projeto não é uma política válida. Corrija-o à mão e tente de novo."
       }
     },
     "thread": {

@@ -20,6 +20,11 @@
         "changed": "The description or inputs of {{tools}} changed after you trusted it.",
         "added": "It added {{tools}}.",
         "removed": "It removed {{tools}}."
+      },
+      "toolRule": {
+        "confirmLevel": "{{tool}} changes things you confirm each time, so it always asks before it runs.",
+        "locked": "The rule for {{tool}} comes from your policy or your organization’s, so this project cannot change it.",
+        "invalidPolicy": "This project’s .oxespace/policy.json is not a valid policy. Fix it by hand, then try again."
       }
     },
     "thread": {
