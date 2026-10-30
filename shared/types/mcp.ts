@@ -19,6 +19,23 @@ export interface McpHttpConfig {
 export type McpServerConfig = McpStdioConfig | McpHttpConfig
 
 /**
+ * What OXESpace remembers since the person trusted a server (see electron/main/services/mcp-guard.ts).
+ * A server whose tools or descriptions changed afterwards is quarantined: untrusted until the person
+ * trusts it again. Secrets never appear here, only what to tell the person.
+ */
+export interface McpServerGuard {
+  /** The package a runner such as npx or uvx starts, when the config names one. */
+  package: string | null
+  /** The version written in the config, when it names an exact one. */
+  version: string | null
+  /** A package runner without an exact version: each start may run a different release. */
+  floating: boolean
+  /** The tools and descriptions seen since trust are remembered, so a later change can be told. */
+  toolsRemembered: boolean
+  quarantine: { at: number; reasons: string[]; added: string[]; removed: string[]; changed: string[] } | null
+}
+
+/**
  * What OXESpace saw the last time it tested the server. `needs-auth`: the server
  * answered and wants a sign-in, which the agent does on first use.
  */
@@ -33,6 +50,8 @@ export interface McpServer {
   config: McpServerConfig
   enabled: boolean
   trusted: boolean
+  /** Absent for servers that never were trusted. */
+  guard?: McpServerGuard
   health: McpHealthStatus
   healthMessage: string | null
   /** Tools cached after the most recent successful handshake. */
