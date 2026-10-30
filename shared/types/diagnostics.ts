@@ -74,7 +74,9 @@ export interface DiagnosticsMetrics {
   at: number
   processes: DiagnosticsProcess[]
   terminals: { running: number; agents: number }
-  storage: { freeBytes: number | null; databaseBytes: number; logsBytes: number }
+  /** The computer's own size, so meters can show a share. No name or path. */
+  system: { totalMemoryBytes: number }
+  storage: { freeBytes: number | null; diskTotalBytes: number | null; databaseBytes: number; logsBytes: number }
   connectivity: import('./app').AppConnectivity
   /** `null` until the remote gateway exists in this build. */
   gateway: { enabled: boolean; devices: number; connected: number } | null
@@ -116,7 +118,8 @@ export interface DiagnosticsIncident {
 }
 
 export interface DiagnosticsBundlePreview {
-  files: { name: string; bytes: number; summary: string }[]
+  /** `summary` says what the file holds, as a code the window translates (`bundle.file.*`). */
+  files: { name: string; bytes: number; summary: import('../messages').MainMessage }[]
   /** How many values the redaction replaced. */
   redactions: number
 }

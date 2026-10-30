@@ -64,6 +64,16 @@
       "app": {
         "journalReset": "The diagnostics journal was unreadable and started over."
       }
+    },
+    "bundle": {
+      "file": {
+        "snapshot": "Processes, storage, connectivity and versions",
+        "incidents": "The incident journal: codes, areas and counts",
+        "logTail": "Last lines of the app log: time, level and the app's own fixed messages only",
+        "runtime": "Recent runtime events, redacted",
+        "versions": "App, Electron, Chrome, Node and system versions",
+        "configuration": "Settings that help a diagnosis, without secrets"
+      }
     }
   }
 }
