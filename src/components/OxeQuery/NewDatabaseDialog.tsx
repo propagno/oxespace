@@ -22,7 +22,7 @@ export function NewDatabaseDialog({ onClose }: { onClose: () => void }): ReactEl
     event.preventDefault()
     setBusy(true); setError('')
     try {
-      const connection = await oq('containers.createDatabase', { engine: kind, name: name.trim(), tag: tag.trim(), ...(port.trim() ? { port: Number(port) } : {}) })
+      const connection = await oq('connections.createInContainer', { engine: kind, name: name.trim(), tag: tag.trim(), ...(port.trim() ? { port: Number(port) } : {}) })
       await useOxeQueryStore.getState().refreshConnections()
       useOxeQueryStore.getState().openConnection(connection)
       onClose()

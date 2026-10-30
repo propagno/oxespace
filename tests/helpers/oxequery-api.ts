@@ -4,19 +4,26 @@ import type { OxeQueryConnection } from '../../shared/types/oxequery'
 type Handler = (input: Record<string, unknown>) => unknown
 
 export interface FakeOxeQuery {
-  /** Every call, in order. */
-  calls: { op: string; input: Record<string, unknown> }[]
+  /** Every call, in order, with the channel it came through. */
+  calls: { op: string; input: Record<string, unknown>; channel: 'oxeQuery' | 'oxePod' }[]
   /** Answers for one operation; a function sees the input. A thrown value becomes an error response. */
   on(op: string, handler: Handler | unknown): void
   callsOf(op: string): Record<string, unknown>[]
 }
 
-/** A stand-in for `window.oxe.oxeQuery`: the page's only door to the main process, scripted per test. */
+/** OxePod's operations; every other one is OxeQuery's. Asked on the wrong channel, an operation is refused as the main process would. */
+const POD_OP = /^(containers|resources)\./
+
+/**
+ * A stand-in for `window.oxe.oxeQuery` and `window.oxe.oxePod`: the page's doors to the main process, scripted per
+ * test. Each channel answers only its own operations.
+ */
 export function installFakeOxeQuery(): FakeOxeQuery {
   const handlers = new Map<string, Handler>()
   const calls: FakeOxeQuery['calls'] = []
-  const call = vi.fn(async (op: string, input: Record<string, unknown> = {}) => {
-    calls.push({ op, input })
+  const through = (channel: 'oxeQuery' | 'oxePod') => vi.fn(async (op: string, input: Record<string, unknown> = {}) => {
+    if (POD_OP.test(op) !== (channel === 'oxePod')) throw new Error(`Unknown ${channel === 'oxePod' ? 'OxePod' : 'OxeQuery'} operation`)
+    calls.push({ op, input, channel })
     const handler = handlers.get(op)
     if (!handler) return { ok: false, error: { code: 'failed', message: `No answer scripted for ${op}.` } }
     try { return { ok: true, value: handler(input) } } catch (error) {
@@ -25,7 +32,7 @@ export function installFakeOxeQuery(): FakeOxeQuery {
     }
   })
   const target = window as unknown as { oxe?: Record<string, unknown> }
-  target.oxe = { ...(target.oxe ?? {}), oxeQuery: { call, onEvent: () => () => undefined }, clipboard: { writeText: vi.fn(async () => undefined) } }
+  target.oxe = { ...(target.oxe ?? {}), oxeQuery: { call: through('oxeQuery'), onEvent: () => () => undefined }, oxePod: { call: through('oxePod'), onEvent: () => () => undefined }, clipboard: { writeText: vi.fn(async () => undefined) } }
   return {
     calls,
     on: (op, handler) => { handlers.set(op, typeof handler === 'function' ? handler as Handler : () => handler) },

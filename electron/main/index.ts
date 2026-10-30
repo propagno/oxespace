@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, safeStorage, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session, shell } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
@@ -91,11 +91,10 @@ process.on('uncaughtException', (error) => {
   const window = BrowserWindow.getAllWindows()[0]
   const options: Electron.MessageBoxOptions = {
     type: 'error', title: tMain('crash.unexpected.title'), message: tMain('crash.unexpected.message'), detail: tMain('crash.unexpected.detail'),
-    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true
-  }
-  void (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)).then(({ response }) => {
-    if (response === 0) { app.relaunch(); app.quit() }
-  }).catch(() => {})
+    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true }
+  void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options) // icon, or none
+    .then(shown => window ? dialog.showMessageBox(window, shown) : dialog.showMessageBox(shown))
+    .then(({ response }) => { if (response === 0) { app.relaunch(); app.quit() } }).catch(() => {})
 })
 process.on('unhandledRejection', (reason) => {
   log.error('[main] unhandledRejection', reason)
@@ -325,39 +324,16 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
-  // OxeQuery: container runtime + database worker. Loaded lazily so its code stays out of the entry chunk.
-  let oxeQueryAgent: import('./services/oxequery/agent-gateway').AgentGateway | undefined
-  let oxeQueryStartupError: string | undefined
-  try {
-    const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { LocalExecutionHost }] = await Promise.all([
-      import('./services/oxequery/service'), import('./services/oxequery/worker-client'), import('./ipc/oxequery.ipc'), import('./runtime/execution-host')
-    ])
-    const oxeQuery = new OxeQueryService({
-      db, host: new LocalExecutionHost(), emit: broadcastOxeQueryEvent,
-      cipher: (await import('./services/oxequery/secret-cipher')).createSecretCipher(safeStorage),
-      worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js'), undefined, detail => log.error('OxeQuery worker failed', detail)),
-      pickFile: (await import('./services/oxequery/file-picker')).pickCredentialFile,
-      pickSavePath: (await import('./services/oxequery/file-picker')).pickExportPath,
-      pickImportPath: (await import('./services/oxequery/file-picker')).pickImportPath,
-      approvalPrompter: (await import('./services/agent-actions/approval-prompter')).nativeApprovalPrompter
-    })
-    oxeQueryAgent = oxeQuery.agent
-    oxeQueryShells.shellFor = paneId => oxeQuery.shellFor(paneId)
-    registerOxeQueryIpc(oxeQuery)
-    app.once('before-quit', () => { void oxeQuery.dispose() })
-  } catch (error) {
-    log.warn('OxeQuery unavailable', error)
-    const { describeStartupFailure } = await import('./services/oxequery/startup-failure')
-    oxeQueryStartupError = describeStartupFailure(error)
-    // The view asks through this channel; answer with the reason instead of "no handler registered".
-    ipcMain.handle(IPC_CHANNELS.oxeQuery.call, () => ({ ok: false, error: { code: 'failed', message: `OxeQuery did not start: ${oxeQueryStartupError}` } }))
-  }
+  // OxePod (containers) loads on its first request; OxeQuery (databases) reaches a database container through it, in process.
+  const oxePod = (await import('./services/oxepod/startup')).startOxePod()
+  oxeQueryShells.shellFor = paneId => oxePod.peek()?.shellFor(paneId)
+  const oxeQuery = await (await import('./services/oxequery/startup')).startOxeQuery(db, async () => (await oxePod.load()).containers)
   const { registerThreadIpc } = await import('./ipc/thread.ipc')
   const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
   // Conversations started in their own worktree use the same creation path as the Worktrees panel.
   const threadWorktrees = {
     createWorktree: (input: import('../../shared/types/github').GitHubCreateWorktreeInput) => gitHubService.createWorktree(input),
-    resolveBaseRef: async (rootPath: string) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef
+    resolveBaseRef: async (rootPath: string) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef, removeWorktree: (input: import('../../shared/types/github').GitHubRemoveWorktreeInput) => gitHubService.removeWorktree(input)
   }
   const threadManager = registerThreadIpc(db, {
     observed: thread => delegatedThreadObserver.current?.(thread),
@@ -482,8 +458,8 @@ async function registerIpcHandlers(): Promise<() => void> {
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
     }),
     memory: memoryService,
-    oxeQuery: () => oxeQueryAgent,
-    oxeQueryError: () => oxeQueryStartupError,
+    oxeQuery: () => oxeQuery.agent,
+    oxeQueryError: () => oxeQuery.error,
     git: gitService,
     app: {
       github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
@@ -923,8 +899,9 @@ function createMainWindow(): BrowserWindow {
     if (next === 'reload' && !mainWindow.isDestroyed()) {
       setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.webContents.reload() }, 250)
     } else if (next === 'give-up' && !mainWindow.isDestroyed()) {
-      void dialog.showMessageBox(mainWindow, { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
-        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 })
+      const options: Electron.MessageBoxOptions = { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
+        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 }
+      void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options).then(shown => { if (!mainWindow.isDestroyed()) void dialog.showMessageBox(mainWindow, shown) }).catch(() => {})
     }
   })
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
