@@ -18,7 +18,7 @@ grants anything OXESpace would not already do.
 - `effect`: `deny` blocks; `allow` only lifts an earlier `deny`.
 - `action` and `resource` (names with `*` wildcards, compared without case):
   - `provider.use`: `claude`, `codex`;
-  - `tool.use`: a tool name as the agent reports it (`Bash`, `mcp__github__create_issue`);
+  - `tool.use`: a tool name as the agent reports it (`Bash`, `mcp__github__create_issue`). As in Claude, `mcp__<server>` covers each of that server's tools;
   - `integration.use`: `mcp:<server>`, `skill:<id>`, `db:<connection>`, `memory`.
   - `integration.use` also accepts `env:<NAME>` and `net:<domain>` (see below);
   - `db.write`: `<environment>:<connection>`, with the environment `local`, `dev` or `prod` (`prod:*`, `*:reports-db`).
@@ -42,7 +42,7 @@ never applied in part. Nothing in the app, a plugin or an MCP server writes a po
 |---|---|
 | `integration.use` `mcp:<server>` | Yes. A blocked server is not written into a project's `.mcp.json`, an entry with that name added by hand is removed on the next sync, OXESpace does not attach it to a Thread, and a server denied by exact name is excluded from the agent session (`--disallowedTools mcp__<server>` for Claude, `enabled=false` for Codex) even when it was configured directly in the CLI. |
 | `provider.use` | Yes. A Thread whose agent is blocked does not start (the conversation shows why), and a Code pane cannot launch `claude` or `codex` when blocked; a plain shell is never blocked. |
-| `tool.use` | Yes, for tools that ask for approval: the request is declined with the reason, before saved rules and full access are considered. Claude also gets the tools denied by exact name in `--disallowedTools`, so it does not offer them. Codex built-in tools that run without asking are not seen by OXESpace. |
+| `tool.use` | Yes, for tools that ask for approval: the request is declined with the reason, before saved rules and full access are considered. At launch, Claude gets the denied tools in `--disallowedTools` and Codex gets them as per-server `disabled_tools` (or the server off for a whole-server deny), so neither offers them. Codex built-in tools that run without asking are not seen by OXESpace. OXESpace's own MCP tools are also checked when called: a call from an agent OXESpace started answers to that agent's project; a call without that agent's execution token answers to the union of the denies of every registered project, so a generic MCP client working in project B can be refused by a deny written in project A. That is the safe side, not a bug. |
 | `integration.use` `skill:<name>` | Yes, for skills OXESpace hands to the agent: a blocked OXE skill or Codex skill stays in the Thread command list, disabled, with the reason, and is refused when typed; a Code pane does not receive it. A skill the agent loads on its own (Claude's `Skill` tool) is a tool: block it with `tool.use` `Skill`. |
 | `integration.use` `db:<connection>` | Yes. The OxeQuery agent tools refuse a blocked connection (by its name) before any other access rule, and `oxespace_db_connections` lists it as `blocked-by-policy`. People still use the connection in OxeQuery. |
 | `db.write` `<environment>:<connection>` | Yes. A `deny` makes the connection read-only in OxeQuery whatever its own setting says: the editor refuses statements that change data, the toolbar reads "read-only by policy", and the connection form cannot lift it. Agents get the same read-only connection. A `deny` on `prod:*` is the usual rule; a later `allow` on one name lifts it for that connection. |
