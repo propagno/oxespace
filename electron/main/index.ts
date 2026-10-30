@@ -91,11 +91,10 @@ process.on('uncaughtException', (error) => {
   const window = BrowserWindow.getAllWindows()[0]
   const options: Electron.MessageBoxOptions = {
     type: 'error', title: tMain('crash.unexpected.title'), message: tMain('crash.unexpected.message'), detail: tMain('crash.unexpected.detail'),
-    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true
-  }
-  void (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)).then(({ response }) => {
-    if (response === 0) { app.relaunch(); app.quit() }
-  }).catch(() => {})
+    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true }
+  void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options) // icon, or none
+    .then(shown => window ? dialog.showMessageBox(window, shown) : dialog.showMessageBox(shown))
+    .then(({ response }) => { if (response === 0) { app.relaunch(); app.quit() } }).catch(() => {})
 })
 process.on('unhandledRejection', (reason) => {
   log.error('[main] unhandledRejection', reason)
@@ -923,8 +922,9 @@ function createMainWindow(): BrowserWindow {
     if (next === 'reload' && !mainWindow.isDestroyed()) {
       setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.webContents.reload() }, 250)
     } else if (next === 'give-up' && !mainWindow.isDestroyed()) {
-      void dialog.showMessageBox(mainWindow, { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
-        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 })
+      const options: Electron.MessageBoxOptions = { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
+        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 }
+      void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options).then(shown => { if (!mainWindow.isDestroyed()) void dialog.showMessageBox(mainWindow, shown) }).catch(() => {})
     }
   })
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
