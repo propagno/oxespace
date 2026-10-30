@@ -548,9 +548,9 @@ export class OxeQueryCore {
   async sqlEditability(connection: ResolvedConnection, schema: string, table: string): Promise<SqlEditability> {
     const { columns, kind } = await this.columnMeta(connection, schema, table)
     const base = { columns }
-    if (connection.readOnly) return { editable: false, reason: 'This connection is read-only. Turn read-only off to edit data.', ...base }
-    if (kind !== 'r' && kind !== 'p') return { editable: false, reason: 'Only tables can be edited, not views or foreign tables.', ...base }
-    if (!columns.some(column => column.key)) return { editable: false, reason: 'This table has no primary key or unique NOT NULL index, so a row cannot be identified safely.', ...base }
+    if (connection.readOnly) return { editable: false, reason: 'This connection is read-only. Turn read-only off to edit data.', messageCode: { code: 'oxequery.edit.readOnly', params: {} }, ...base }
+    if (kind !== 'r' && kind !== 'p') return { editable: false, reason: 'Only tables can be edited, not views or foreign tables.', messageCode: { code: 'oxequery.edit.notTable', params: {} }, ...base }
+    if (!columns.some(column => column.key)) return { editable: false, reason: 'This table has no primary key or unique NOT NULL index, so a row cannot be identified safely.', messageCode: { code: 'oxequery.edit.noKey', params: {} }, ...base }
     return { editable: true, ...base }
   }
 
@@ -1138,11 +1138,11 @@ export class OxeQueryCore {
     try {
       if (connection.engine === 'postgres') {
         const result = await this.pgRun(connection, 'SELECT version()', [], 1, true)
-        return { ok: true, message: 'Connected', serverVersion: String(result.rows[0]?.[0] ?? '').split(' on ')[0], latencyMs: Date.now() - started }
+        return { ok: true, message: 'Connected', messageCode: { code: 'oxequery.test.connected', params: {} }, serverVersion: String(result.rows[0]?.[0] ?? '').split(' on ')[0], latencyMs: Date.now() - started }
       }
       const client = await this.mongoSession(connection)
       const info = await client.db('admin').command({ buildInfo: 1 })
-      return { ok: true, message: 'Connected', serverVersion: `MongoDB ${String(info.version ?? '')}`.trim(), latencyMs: Date.now() - started }
+      return { ok: true, message: 'Connected', messageCode: { code: 'oxequery.test.connected', params: {} }, serverVersion: `MongoDB ${String(info.version ?? '')}`.trim(), latencyMs: Date.now() - started }
     } catch (error) {
       if (error instanceof OxeQueryError) return { ok: false, message: error.message, code: error.code, ...(error.reasons.length ? { reasons: error.reasons } : {}) }
       return { ok: false, message: error instanceof Error ? withConnectionHint(redact(error.message, connection.password), connection) : 'Connection failed' }

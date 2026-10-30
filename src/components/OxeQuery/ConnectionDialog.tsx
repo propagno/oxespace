@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ErrorState } from '../../ui/Display'
+import { ErrorState, Notice } from '../../ui/Display'
 import { formatMs } from './catalog'
 import { EXAMPLE } from './examples'
 import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
@@ -12,7 +12,7 @@ import { useOxeQueryStore, type ConnectionDraft } from './oxequery.store'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
-import { Select, SegmentedControl, Switch } from '../../ui/Field'
+import { FieldError, Select, SegmentedControl, Switch } from '../../ui/Field'
 import { splitHostInput } from '../../../shared/oxequeryHost'
 
 /** Markup the translated sentences may use. */
@@ -62,7 +62,7 @@ function FilePick({ label, kind, picked, existing, onPicked, onClear }: { label:
     <button type="button" onClick={() => void choose()}><FileKey size={13} aria-hidden="true" />{current ? t('form.replace') : t('form.chooseFile')}</button>
     {current && <code title={current}>{current}</code>}
     {current && <button type="button" className="oq-link" onClick={onClear}>{t('common.remove')}</button>}
-    {error && <em role="alert">{error}</em>}
+    {error && <FieldError className="oq-filepick-error">{error}</FieldError>}
   </div>
 }
 
@@ -255,9 +255,9 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
       </div>
 
       {mode === 'url' && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> {t('form.connectionString')}</span>
-        <textarea rows={2} value={url} required onChange={event => applyUrl(event.target.value)} spellCheck={false} autoComplete="off" aria-label={t('form.connectionString')}
+        <textarea rows={2} value={url} required onChange={event => applyUrl(event.target.value)} spellCheck={false} autoComplete="off" aria-label={t('form.connectionString')} aria-invalid={urlError ? true : undefined} aria-describedby={urlError ? 'oq-url-error' : undefined}
           placeholder={engine === 'mongodb' ? 'mongodb://user:password@localhost:27017/app' : 'postgres://user:password@localhost:5432/app'} />
-        {urlError ? <em role="alert">{urlError}</em> : <small>{t('form.urlHint')}</small>}</label>}
+        {urlError ? <FieldError id="oq-url-error">{urlError}</FieldError> : <small>{t('form.urlHint')}</small>}</label>}
 
       <div className="oq-form">
         <label className="oq-form-wide">{t('server.column.name')}<input value={name} onChange={event => setName(event.target.value)} placeholder={derivedName.trim() && derivedName !== '127.0.0.1' ? derivedName : t(`form.namePlaceholder.${engine}`)} autoFocus={!draft} /></label>
@@ -362,10 +362,10 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
         onCancel={() => setOutcome(null)} onConfirm={() => void trustAndRetry()}>
         <code className="oq-fingerprint">{outcome.fingerprint}</code>
       </ConfirmDialog>}
-      {outcome?.kind === 'hostkey-changed' && <div role="alert" className="oq-hostkey oq-hostkey-danger">
-        <p><ShieldAlert size={15} aria-hidden="true" /> <Trans t={t} i18nKey="form.keyChanged" components={{ strong: <strong /> }} /></p>
+      {outcome?.kind === 'hostkey-changed' && <Notice intent="danger" className="oq-hostkey-notice">
+        <p><Trans t={t} i18nKey="form.keyChanged" components={{ strong: <strong /> }} /></p>
         <code className="oq-fingerprint">{t('form.trusted', { fingerprint: outcome.expected })}</code><code className="oq-fingerprint">{t('form.now', { fingerprint: outcome.actual })}</code>
-      </div>}
+      </Notice>}
     </form>
   </Dialog>
 }
