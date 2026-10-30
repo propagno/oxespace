@@ -63,6 +63,12 @@ OxeQuery connects the app to databases and to the local container engine, and ex
 
 Provider permission prompts are **not** a control for these tools: Claude in `bypassPermissions` and Codex with `approvalPolicy: never` do not ask. The OxeQuery gateway is the authority.
 
+### Closed findings
+
+| Finding | Status | What it was | Why Postgres runs it | Control now | Test |
+|---|---|---|---|---|---|
+| SQL classifier: dollar quote after an identifier (B10, #237) | **Closed** | `SELECT foo$a$ FROM t; DROP TABLE users; --$a$` was classified as a plain **read**. The classifier (`sql-guard.ts`) opened a dollar quote at the `$a$` after `foo`, read everything up to the second `$a$` as a string, and never saw the `;` or the DROP. A read skips the destructive confirmation in the workbench, and an agent's `oxespace_db_query` accepts it (that call still runs on a read-only connection, so the server refuses the DROP there). | Identifiers may contain `$` after their first character, and a dollar quote that follows an identifier must be separated from it by whitespace. So Postgres reads `foo$a$` as one column name, ends the statement at `;`, runs `DROP TABLE users`, and treats `--$a$` as a comment. | `dollarTag()` opens no dollar quote right after an identifier character (letter, digit, `_` or `$`), as Postgres does. Both the tokenizer and `outsideReach` use it. The tag rule itself (`$$`, `$[A-Za-z_]*$`) is unchanged. | `tests/unit/oxequery-sql-risk.test.ts`, "does not open a quote right after an identifier, as Postgres does not": `foo$a$ … DROP` and `x$$ … DELETE` are both destructive. |
+
 ## Dependency and release controls
 
 CI blocks moderate-or-higher production advisories with `npm run security:audit`, blocks high/critical build-tool advisories with `npm run security:audit:tools`, and verifies that the exactly pinned Electron belongs to a supported major line. Electron is a devDependency but ships in the product, so the production audit alone is insufficient. Transitive fixes may be pinned through `overrides`, with the lockfile committed. Build-tool advisories and dated triage are recorded in `docs/validation/stabilization-2026-10-07.md`. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.
