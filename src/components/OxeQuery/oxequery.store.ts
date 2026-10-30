@@ -3,8 +3,8 @@ import type { ContainerEngine, ContainerEngineInfo, ContainerSummary, OxeQueryCo
 import { errorMessage, oq } from './client'
 
 export type OxeQueryTab =
-  | { id: 'containers'; kind: 'containers'; title: string }
-  | { id: 'activity'; kind: 'activity'; title: string }
+  | { id: 'containers'; kind: 'containers' }
+  | { id: 'activity'; kind: 'activity' }
   | { id: string; kind: 'connection'; title: string; connectionId: string }
 
 interface OxeQueryState {
@@ -20,6 +20,8 @@ interface OxeQueryState {
   /** Container whose details are open; shared so the sidebar can open it. */
   selectedContainer: string | null
   dialog: { open: boolean; editing: OxeQueryConnection | null }
+  /** OxeQuery settings dialog; in the store so the palette opens it whether or not the sidebar is expanded. */
+  preferencesOpen: boolean
   refreshContainers(engine?: ContainerEngine): Promise<void>
   refreshConnections(): Promise<void>
   openConnection(connection: OxeQueryConnection): void
@@ -28,17 +30,19 @@ interface OxeQueryState {
   selectContainer(id: string | null): void
   openDialog(editing?: OxeQueryConnection | null): void
   closeDialog(): void
+  setPreferencesOpen(open: boolean): void
   forgetConnection(id: string): void
 }
 
-const CONTAINERS: OxeQueryTab = { id: 'containers', kind: 'containers', title: 'Containers' }
-const ACTIVITY: OxeQueryTab = { id: 'activity', kind: 'activity', title: 'Activity' }
+// The fixed tabs are named by the view, in the language on screen; a connection tab is named after it.
+const CONTAINERS: OxeQueryTab = { id: 'containers', kind: 'containers' }
+const ACTIVITY: OxeQueryTab = { id: 'activity', kind: 'activity' }
 let containerRequest = 0
 let refreshCount = 0
 
 export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
   engines: [], containers: [], containersError: null, containersLoading: false, connections: [], connectionsError: null,
-  tabs: [CONTAINERS, ACTIVITY], activeTab: 'containers', selectedContainer: null, dialog: { open: false, editing: null },
+  tabs: [CONTAINERS, ACTIVITY], activeTab: 'containers', selectedContainer: null, dialog: { open: false, editing: null }, preferencesOpen: false,
 
   refreshContainers: async engine => {
     const request = ++containerRequest
@@ -82,6 +86,7 @@ export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
   selectContainer: id => set({ selectedContainer: id, ...(id ? { activeTab: 'containers' } : {}) }),
   openDialog: editing => set({ dialog: { open: true, editing: editing ?? null } }),
   closeDialog: () => set({ dialog: { open: false, editing: null } }),
+  setPreferencesOpen: open => set({ preferencesOpen: open }),
   forgetConnection: id => set(state => ({
     connections: state.connections.filter(connection => connection.id !== id),
     tabs: state.tabs.filter(tab => tab.kind !== 'connection' || tab.connectionId !== id),

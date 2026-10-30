@@ -17,6 +17,26 @@ const BUNDLES: Record<Language, () => Promise<{ default: Bundle }>> = {
   'pt-BR': () => import('./locales/pt-BR')
 }
 
+/** Namespaces of lazy views: their catalogs load with the view, never at boot. */
+export type LazyNamespace = 'oxequery'
+type Catalog = { default: Record<string, unknown> }
+const LAZY: Record<LazyNamespace, Record<Language, () => Promise<Catalog>>> = {
+  oxequery: { en: () => import('../../shared/locales/en/oxequery.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/oxequery.json') }
+}
+const lazyLoaded = new Set<LazyNamespace>()
+
+async function addLazy(namespace: LazyNamespace, language: Language): Promise<void> {
+  if (i18n.hasResourceBundle(language, namespace)) return
+  i18n.addResourceBundle(language, namespace, (await LAZY[namespace][language]()).default, true, true)
+}
+
+/** Loads a lazy view's catalog in the language on screen (and English, the fallback) before the view renders. */
+export async function loadNamespace(namespace: LazyNamespace): Promise<void> {
+  lazyLoaded.add(namespace)
+  const language = currentLanguage()
+  await Promise.all([addLazy(namespace, language), ...(language === 'en' ? [] : [addLazy(namespace, 'en')])])
+}
+
 /** The operating system's locale as the main process sees it (app.getLocale()). */
 export function systemLocale(): string {
   return (typeof window !== 'undefined' && window.oxe?.app?.locale) || (typeof navigator !== 'undefined' ? navigator.language : '') || 'en'
@@ -73,5 +93,6 @@ export function initI18n(preference: LanguagePreference = useSettingsStore.getSt
 export async function changeLanguage(preference: LanguagePreference): Promise<void> {
   const language = languageFor(preference, systemLocale())
   if (!i18n.hasResourceBundle(language, 'common')) addBundle(language, await load(language))
+  await Promise.all([...lazyLoaded].map(namespace => addLazy(namespace, language)))
   await i18n.changeLanguage(language)
 }

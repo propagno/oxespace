@@ -13,6 +13,9 @@ export interface ParsedConnectionUrl {
 
 const DEFAULT_PORT: Record<DatabaseEngine, number> = { postgres: 5432, mongodb: 27017 }
 
+/** Why a connection string could not be read; the dialog words it in the language on screen (oxequery `url.*`). */
+export type ConnectionUrlError = 'empty' | 'noScheme' | 'unsupported' | 'noHost' | 'severalPostgres' | 'srvOneHost' | 'badHost'
+
 function decode(value: string): string {
   try { return decodeURIComponent(value) } catch { return value }
 }
@@ -28,17 +31,17 @@ function splitHost(value: string, fallbackPort: number): { host: string; port: n
 
 /**
  * Reads a `postgres://` or `mongodb://` (or `mongodb+srv://`) connection string
- * so a pasted URL fills the whole form. Returns an error message rather than
+ * so a pasted URL fills the whole form. Returns an error code rather than
  * throwing.
  */
-export function parseConnectionUrl(input: string): { ok: true; value: ParsedConnectionUrl } | { ok: false; error: string } {
+export function parseConnectionUrl(input: string): { ok: true; value: ParsedConnectionUrl } | { ok: false; error: ConnectionUrlError; scheme?: string } {
   const text = input.trim()
-  if (!text) return { ok: false, error: 'Paste a connection string such as postgres://user:password@localhost:5432/app' }
+  if (!text) return { ok: false, error: 'empty' }
   const match = /^([a-z][a-z0-9+.-]*):\/\/(.*)$/i.exec(text)
-  if (!match) return { ok: false, error: 'A connection string starts with postgres:// or mongodb://' }
+  if (!match) return { ok: false, error: 'noScheme' }
   const scheme = match[1].toLowerCase()
   const engine: DatabaseEngine | null = scheme === 'postgres' || scheme === 'postgresql' ? 'postgres' : scheme === 'mongodb' || scheme === 'mongodb+srv' ? 'mongodb' : null
-  if (!engine) return { ok: false, error: `Unsupported scheme "${scheme}". Use postgres:// or mongodb://` }
+  if (!engine) return { ok: false, error: 'unsupported', scheme }
   const srv = scheme === 'mongodb+srv'
 
   const [rest, fragment] = match[2].split('#', 2)
@@ -52,17 +55,17 @@ export function parseConnectionUrl(input: string): { ok: true; value: ParsedConn
   const atAt = authority.lastIndexOf('@')
   const credentials = atAt === -1 ? '' : authority.slice(0, atAt)
   const hostList = atAt === -1 ? authority : authority.slice(atAt + 1)
-  if (!hostList) return { ok: false, error: 'The connection string has no host.' }
+  if (!hostList) return { ok: false, error: 'noHost' }
 
   const colon = credentials.indexOf(':')
   const username = decode(colon === -1 ? credentials : credentials.slice(0, colon))
   const password = colon === -1 ? '' : decode(credentials.slice(colon + 1))
 
   const hosts = hostList.split(',').map(entry => entry.trim()).filter(Boolean)
-  if (engine === 'postgres' && hosts.length > 1) return { ok: false, error: 'Several PostgreSQL hosts are not supported. Enter a single host.' }
-  if (srv && hosts.length > 1) return { ok: false, error: 'A mongodb+srv address is one DNS name, without a port.' }
+  if (engine === 'postgres' && hosts.length > 1) return { ok: false, error: 'severalPostgres' }
+  if (srv && hosts.length > 1) return { ok: false, error: 'srvOneHost' }
   const parsed = hosts.map(entry => splitHost(entry, DEFAULT_PORT[engine]))
-  if (parsed.some(entry => entry === null || entry.port < 1 || entry.port > 65535)) return { ok: false, error: 'That connection string could not be read: a host or port is invalid.' }
+  if (parsed.some(entry => entry === null || entry.port < 1 || entry.port > 65535)) return { ok: false, error: 'badHost' }
   const [first, ...others] = parsed as { host: string; port: number }[]
 
   const tls = (query.get('sslmode') ?? query.get('tls') ?? query.get('ssl') ?? '').toLowerCase()

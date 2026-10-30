@@ -54,7 +54,6 @@ function prefetchPanelChunks(): void {
   }
 }
 import { IntegrationsStatusChips } from './IntegrationsStatusChips'
-import { WorkspaceStatusSummary } from './WorkspaceStatusSummary'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import './CodeChrome.css'
 
@@ -496,7 +495,6 @@ function WorkspaceSurfaceComponent({
       <button type="button" className="workspace-topbar-action" aria-label="Toggle background activity" title="Local jobs and delegated work" aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
         <Activity size={14} aria-hidden="true" /><span>Activity</span>
       </button>
-      <WorkspaceStatusSummary workspace={workspace} />
       <IntegrationsStatusChips workspace={workspace} isActive={isActive} />
     </header>
   )

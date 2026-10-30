@@ -22,7 +22,7 @@ describe('ConnectionDialog', () => {
     const dialog = await screen.findByRole('dialog', { name: 'New connection' })
     fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'Billing' } })
     fireEvent.change(within(dialog).getByLabelText('Group'), { target: { value: 'Client A' } })
-    fireEvent.click(within(dialog).getByRole('radio', { name: 'violet' }))
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Violet' }))
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Favorite' }))
     fireEvent.click(within(dialog).getByRole('button', { name: /^Limits and agents/ }))
     fireEvent.change(within(dialog).getByLabelText(/Names agents must not see/), { target: { value: 'ssn\n  card_number \n\n' } })

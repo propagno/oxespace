@@ -1,3 +1,5 @@
+import { tq } from './catalog'
+
 export const PAGE_SIZES = [25, 50, 100, 250, 500]
 
 /**
@@ -5,11 +7,11 @@ export const PAGE_SIZES = [25, 50, 100, 250, 500]
  * Mongo's relaxed extended JSON is plain JSON, so `{"$oid": "…"}` and `{"$date": "…"}` pass.
  */
 export function jsonProblem(text: string, shape: 'object' | 'array', optional = false): string | null {
-  if (text.trim() === '') return optional ? null : 'This field is empty.'
+  if (text.trim() === '') return optional ? null : tq('json.empty')
   let value: unknown
-  try { value = JSON.parse(text) } catch (error) { return `Not valid JSON: ${error instanceof Error ? error.message : 'parse error'}` }
-  if (shape === 'array') return Array.isArray(value) ? null : 'Expected a JSON array.'
-  return value && typeof value === 'object' && !Array.isArray(value) ? null : 'Expected a JSON object.'
+  try { value = JSON.parse(text) } catch (error) { return tq('json.invalid', { reason: error instanceof Error ? error.message : tq('json.parseError') }) }
+  if (shape === 'array') return Array.isArray(value) ? null : tq('json.array')
+  return value && typeof value === 'object' && !Array.isArray(value) ? null : tq('json.object')
 }
 
 /** A copy of a document for a new one: the same fields without `_id`, so the server assigns another. */
