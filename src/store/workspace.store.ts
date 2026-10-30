@@ -1,8 +1,6 @@
 import { create } from 'zustand'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
 import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
-import { messageKey, messageValues } from '../../shared/messages'
-import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
 
@@ -71,6 +69,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const workspace = await window.oxe.workspace.create(input)
     if (isWorkspaceCreateRefusal(workspace)) {
       // The main process wrote nothing: say why in the interface language and fail the call, as before.
+      // Loaded on a refusal only, so the message catalogue stays out of the boot bundle.
+      const [{ messageKey, messageValues }, { i18n }] = await Promise.all([import('../../shared/messages'), import('../i18n')])
       const { message } = workspace
       const tm = i18n.getFixedT(null, 'main') as unknown as (key: string, values: Record<string, string>) => string
       throw new Error(tm(messageKey(message.code), messageValues(message, i18n.language)))
