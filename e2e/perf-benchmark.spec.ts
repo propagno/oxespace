@@ -812,6 +812,8 @@ const THREAD_COUNT = 10
 const MAIN_MEMORY_BUDGETS_MB: Record<string, { rss: number; heap: number; growth: number }> = {
   // Windows, 4 runs: rss 162-168 MB, heap 17.0-17.2 MB (after GC), growth 3.7-9.7 MB.
   win32: { rss: 211, heap: 22, growth: 13 },
+  // Linux CI runner (ubuntu-24.04), first run: rss 214.8 MB, heap 16.4 MB, growth 5.7 MB.
+  linux: { rss: 270, heap: 22, growth: 13 },
   default: { rss: 211, heap: 22, growth: 13 }
 }
 
