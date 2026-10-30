@@ -14,12 +14,36 @@
       "ok": "OK"
     }
   },
+  "dialogs": {
+    "approval": {
+      "deny": "Negar",
+      "allowOnce": "Permitir uma vez",
+      "allowSession": "Permitir leituras como esta nesta execução"
+    },
+    "previewAutomation": {
+      "title": "Ação do agente no navegador",
+      "cancel": "Cancelar",
+      "allowOnce": "Permitir uma vez",
+      "closeTab": "Fechar aba",
+      "closeTabMessage": "Permitir que o agente feche esta aba do navegador?",
+      "closeTabDetail": "Aba: {{tab}}\nAlterações não salvas na página podem ser perdidas.",
+      "action": {
+        "click": "Permitir que o agente clique no Navegador?",
+        "fill": "Permitir que o agente digite em um campo do Navegador?",
+        "navigate": "Permitir que o agente abra outra página no Navegador?",
+        "scroll": "Permitir que o agente role a página no Navegador?",
+        "other": "Permitir que o agente execute \"{{action}}\" no Navegador?"
+      },
+      "actionDetail": "Página: {{page}}\nAlvo: {{target}}\nIsso pode alterar dados reais do sistema. Valores de texto não ficam no histórico de operações."
+    }
+  },
   "messages": {
     "mcp": {
       "quarantine": {
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
         "added": "Ele adicionou {{tools}}.",
-        "removed": "Ele removeu {{tools}}."
+        "removed": "Ele removeu {{tools}}.",
+        "configChanged": "O comando, os argumentos, o ambiente ou a URL dele mudaram depois que você confiou no servidor."
       }
     },
     "thread": {
