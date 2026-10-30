@@ -30,7 +30,8 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import type { GitCompareMode } from '../../../shared/types/git'
 import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
-import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult } from '../../../shared/types/thread'
+import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog } from '../../../shared/types/thread'
+import { version as packageVersion } from '../../../package.json'
 import { mainMessage } from '../../../shared/messages'
 import { requestOutcome } from '../../../shared/threadRequestOutcome'
 
@@ -224,7 +225,7 @@ export function registerE2eMockIpcHandlers(): void {
     return projectSemantic(input.rootPath)
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => ({
-    generatedAt: Date.now(), appVersion: app.getVersion(), platform: process.platform, arch: process.arch,
+    generatedAt: Date.now(), appVersion: packageVersion, platform: process.platform, arch: process.arch,
     nodeVersion: process.versions.node, electronVersion: process.versions.electron ?? 'unknown', workspaceCount: workspaces.length,
     checks: [
       { id: 'database', label: 'SQLite', tone: 'ok', detail: 'E2E mock' },
@@ -233,7 +234,7 @@ export function registerE2eMockIpcHandlers(): void {
     ]
   }))
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, () => null)
-  ipcMain.handle(IPC_CHANNELS.diagnostics.buildIssueReport, () => ({ title: '[Bug] ', diagnosticLines: 2, body: ['## What happened', '', '## Environment', '', '- OXESpace: ' + app.getVersion(), '- System: E2E mock', ''].join('\n') }))
+  ipcMain.handle(IPC_CHANNELS.diagnostics.buildIssueReport, () => ({ title: '[Bug] ', diagnosticLines: 2, body: ['## What happened', '', '## Environment', '', '- OXESpace: ' + packageVersion, '- System: E2E mock', ''].join('\n') }))
   ipcMain.handle(IPC_CHANNELS.diagnostics.recordFirstAnswer, () => undefined)
   ipcMain.handle(IPC_CHANNELS.policy.get, () => ({ sources: [], problems: [], locations: [{ layer: 'user', path: 'policy.json' }] }))
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
@@ -265,12 +266,15 @@ export function registerE2eMockIpcHandlers(): void {
     ? { state: 'offline', checkedAt: Date.now(), reason: mainMessage('app.connectivity.offline', {}) }
     : { state: 'online', checkedAt: Date.now() })
   ipcMain.handle(IPC_CHANNELS.app.about, (): AppAbout => ({
-    name: 'OXESpace', version: app.getVersion(), channel: 'dev', commit: 'e2e0000', builtAt: null,
+    // package.json's version: unpackaged, app.getVersion() is Electron's own.
+    name: 'OXESpace', version: packageVersion, channel: 'dev', commit: 'e2e0000', builtAt: null,
     versions: { electron: process.versions.electron ?? '', chrome: process.versions.chrome ?? '', node: process.versions.node, v8: process.versions.v8 },
     platform: process.platform, arch: process.arch, osRelease: 'e2e', license: 'MIT', repositoryUrl: 'https://github.com/propagno/oxespace'
   }))
   // Pending requests across conversations, seeded per run with a JSON list of summaries. An answer is accepted once,
   // for the listed generation, exactly as the registry does.
+  // A new profile has no conversation projects yet; the real catalog answers an empty one, never nothing.
+  ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
   ipcMain.handle(IPC_CHANNELS.thread.respondPending, (_event: IpcMainInvokeEvent, input: ThreadPendingResponseInput): ThreadPendingResponseResult => {
