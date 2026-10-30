@@ -20,12 +20,21 @@ import { join } from 'node:path'
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
 const TERMINALS = Number(process.env.MF_TERMINALS ?? 4)
 
-/** Megabytes. Measured after the memory-footprint work, plus 25% headroom. */
-export const MEMORY_BUDGETS_MB: Record<string, number> = {
-  total: Number(process.env.OXESPACE_MEMORY_BUDGET_TOTAL_MB ?? 0) || 0,
-  browser: Number(process.env.OXESPACE_MEMORY_BUDGET_BROWSER_MB ?? 0) || 0,
-  renderer: Number(process.env.OXESPACE_MEMORY_BUDGET_RENDERER_MB ?? 0) || 0
+/**
+ * Private megabytes per process type with the scenario below, 25% above what the memory-footprint work
+ * measured on Windows (total 544, main 213, renderer 158, with 20,000 lines in each of four terminals).
+ * Other platforms have a different process mix (no separate GPU baseline, zygote), so they take their
+ * numbers from the CI output of this test through the override variables until calibrated.
+ */
+const WINDOWS_BUDGETS_MB = { total: 680, browser: 270, renderer: 200 }
+export const MEMORY_BUDGETS_MB: Record<'total' | 'browser' | 'renderer', number> = {
+  total: Number(process.env.OXESPACE_MEMORY_BUDGET_TOTAL_MB) || (process.platform === 'win32' ? WINDOWS_BUDGETS_MB.total : 0),
+  browser: Number(process.env.OXESPACE_MEMORY_BUDGET_BROWSER_MB) || (process.platform === 'win32' ? WINDOWS_BUDGETS_MB.browser : 0),
+  renderer: Number(process.env.OXESPACE_MEMORY_BUDGET_RENDERER_MB) || (process.platform === 'win32' ? WINDOWS_BUDGETS_MB.renderer : 0)
 }
+/** JS heaps are the same on every platform: what a long Thread and its terminals may retain after a collection. */
+const MAIN_HEAP_GROWTH_MB = 20
+const RENDERER_HEAP_MB = 45
 
 function ensureOutJunction(): void {
   const link = join(process.cwd(), 'e2e', 'out')
@@ -60,6 +69,10 @@ async function sample(app: ElectronApplication, page: Page): Promise<Metrics> {
   const rendererHeap = (await session.send('Runtime.getHeapUsage')).usedSize
   await session.detach()
   const main = await app.evaluate(async ({ app: electronApp }) => {
+    // Same reason as the renderer: count what is retained, not what has not been swept yet.
+    const v8 = process.getBuiltinModule('node:v8')
+    v8.setFlagsFromString('--expose_gc')
+    ;(process.getBuiltinModule('node:vm').runInNewContext('gc') as () => void)()
     const processes = electronApp.getAppMetrics().map(p => ({ type: p.type, name: p.name ?? '', privateKb: p.memory.privateBytes ?? 0, workingSetKb: p.memory.workingSetSize }))
     const usage = process.memoryUsage()
     return { processes, heap: usage.heapUsed, rss: usage.rss, heapTotal: usage.heapTotal, external: usage.external }
@@ -134,6 +147,9 @@ test('memory footprint: one long Thread, four terminals, seeded history', async 
     console.log(`[MEMORY] thread scrolled ${JSON.stringify(scrolled)}`)
 
     if (ENFORCE_BUDGETS) {
+      expect(scrolled.webglPanes, 'hidden terminals give their WebGL renderer back').toBe(0)
+      expect(scrolled.mainHeapMb - codeOnly.mainHeapMb, 'opening a long Thread must not leave its history parsed in the main process').toBeLessThanOrEqual(MAIN_HEAP_GROWTH_MB)
+      expect(scrolled.rendererHeapMb, 'renderer heap with a long Thread and four filled terminals').toBeLessThanOrEqual(RENDERER_HEAP_MB)
       for (const [key, value] of [['total', scrolled.totalMb], ['browser', scrolled.byType.Browser ?? 0], ['renderer', scrolled.byType.Tab ?? 0]] as const) {
         const budget = MEMORY_BUDGETS_MB[key]
         if (budget) expect(value, `${key} private memory ${value} MB exceeded ${budget} MB`).toBeLessThanOrEqual(budget)

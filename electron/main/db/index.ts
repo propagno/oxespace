@@ -4,6 +4,7 @@ import { app } from 'electron'
 import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { scheduleStorageRetention } from '../services/storage-retention'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -13,7 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  version the SQL actually sets. */
 export const LATEST_DB_VERSION = 80
 /** How many pre-migration backups to retain. */
-const MAX_DB_BACKUPS = 5
+const MAX_DB_BACKUPS = 3
 
 export type AppDatabase = DatabaseHandle
 
@@ -35,7 +36,9 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
   let lastErr: unknown
   for (let attempt = 1; attempt <= OPEN_MAX_ATTEMPTS; attempt++) {
     try {
-      return openAndMigrate(databasePath)
+      const db = openAndMigrate(databasePath)
+      scheduleStorageRetention(dirname(databasePath))
+      return db
     } catch (err) {
       lastErr = err
       if (!isTransientDbError(err)) break // corruption/ABI — retrying won't help
