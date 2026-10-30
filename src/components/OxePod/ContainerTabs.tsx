@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { EyeOff } from 'lucide-react'
-import type { ContainerEngine, ContainerExecResult, ContainerInspect, ContainerPort, ContainerStat, ContainerSummary } from '../../../shared/types/oxequery'
+import type { ContainerEngine, ContainerExecResult, ContainerInspect, ContainerPort, ContainerStat, ContainerSummary } from '../../../shared/types/oxepod'
 import { Button, EmptyState, ErrorState, LoadingState, Select, TextField } from '../../ui'
 import { formatNumber } from '../../utils/formatTime'
 import { TerminalPane } from '../Panes/TerminalPane'
-import { errorMessage, oq } from '../OxeQuery/client'
+import { errorMessage, pod } from './client'
 import { EXAMPLE, SHELLS } from '../OxeQuery/examples'
 import styles from './OxePod.module.css'
 
@@ -27,17 +27,17 @@ export function LogsTab({ container, engine }: Props): ReactElement {
   useEffect(() => {
     let streamId = ''
     let cancelled = false
-    const unsubscribe = window.oxe?.oxeQuery?.onEvent(event => {
+    const unsubscribe = window.oxe?.oxePod?.onEvent(event => {
       if (!streamId) return
       if (event.type === 'container-log' && event.streamId === streamId && !pausedRef.current) {
         setLines(current => [...current, ...event.lines.map(line => line.replace(ANSI, ''))].slice(-MAX_LOG_LINES))
       } else if (event.type === 'container-log-end' && event.streamId === streamId && event.reason !== 'stopped' && event.reason !== 'closed') setError(event.reason)
     })
-    oq('containers.logsStart', { id: container.id, tail: 200, engine }).then(result => {
-      if (cancelled) void oq('containers.logsStop', { streamId: result.streamId }).catch(() => undefined)
+    pod('containers.logsStart', { id: container.id, tail: 200, engine }).then(result => {
+      if (cancelled) void pod('containers.logsStop', { streamId: result.streamId }).catch(() => undefined)
       else streamId = result.streamId
     }, cause => { if (!cancelled) setError(errorMessage(cause)) })
-    return () => { cancelled = true; unsubscribe?.(); if (streamId) void oq('containers.logsStop', { streamId }).catch(() => undefined) }
+    return () => { cancelled = true; unsubscribe?.(); if (streamId) void pod('containers.logsStop', { streamId }).catch(() => undefined) }
   }, [container.id, engine])
 
   useEffect(() => { const element = scroller.current; if (element && !paused) element.scrollTop = element.scrollHeight }, [lines, paused])
@@ -112,7 +112,7 @@ export function RunTab({ container, engine }: Props): ReactElement {
     const argv = command.trim().split(/\s+/).filter(Boolean)
     if (!argv.length) return
     setRunning(true); setError(''); setResult(null)
-    try { setResult(await oq('containers.exec', { id: container.id, argv, engine })) }
+    try { setResult(await pod('containers.exec', { id: container.id, argv, engine })) }
     catch (cause) { setError(errorMessage(cause)) } finally { setRunning(false) }
   }
   return <form className={styles.pane} onSubmit={event => { event.preventDefault(); void run() }}>
@@ -139,7 +139,7 @@ export function ShellTab({ container, engine }: Props): ReactElement {
     let active = true
     setPaneId(''); setError('')
     if (container.state !== 'running') return
-    oq('containers.shell', { id: container.id, shell, engine }).then(result => { if (active) setPaneId(result.paneId) }, cause => { if (active) setError(errorMessage(cause)) })
+    pod('containers.shell', { id: container.id, shell, engine }).then(result => { if (active) setPaneId(result.paneId) }, cause => { if (active) setError(errorMessage(cause)) })
     return () => { active = false }
   }, [container.id, container.state, engine, shell, nonce])
   if (container.state !== 'running') return <EmptyState compact title={t('shell.startFirst')} />

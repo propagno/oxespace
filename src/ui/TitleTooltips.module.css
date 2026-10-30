@@ -10,7 +10,7 @@
   line-height: var(--leading-snug);
   pointer-events: none;
   white-space: pre-line;
-  animation: fade var(--duration-fast) var(--ease-standard);
+  transition: opacity var(--duration-fast) var(--ease-standard);
 }
+@starting-style { .tip { opacity: 0; } }
 
-@keyframes fade { from { opacity: 0; } }

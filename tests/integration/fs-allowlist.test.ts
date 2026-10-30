@@ -121,7 +121,7 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/oxequery/connection-transfer.ts',
   // Checks that a Compose project's folder and files exist before running compose there; the paths come from
   // the engine's own container labels, never from the renderer.
-  'electron/main/services/oxequery/compose.ts',
+  'electron/main/services/oxepod/compose.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',

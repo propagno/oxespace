@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, safeStorage, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session, shell } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
@@ -325,33 +325,10 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
-  // OxeQuery: container runtime + database worker. Loaded lazily so its code stays out of the entry chunk.
-  let oxeQueryAgent: import('./services/oxequery/agent-gateway').AgentGateway | undefined
-  let oxeQueryStartupError: string | undefined
-  try {
-    const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { LocalExecutionHost }] = await Promise.all([
-      import('./services/oxequery/service'), import('./services/oxequery/worker-client'), import('./ipc/oxequery.ipc'), import('./runtime/execution-host')
-    ])
-    const oxeQuery = new OxeQueryService({
-      db, host: new LocalExecutionHost(), emit: broadcastOxeQueryEvent,
-      cipher: (await import('./services/oxequery/secret-cipher')).createSecretCipher(safeStorage),
-      worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js'), undefined, detail => log.error('OxeQuery worker failed', detail)),
-      pickFile: (await import('./services/oxequery/file-picker')).pickCredentialFile,
-      pickSavePath: (await import('./services/oxequery/file-picker')).pickExportPath,
-      pickImportPath: (await import('./services/oxequery/file-picker')).pickImportPath,
-      approvalPrompter: (await import('./services/agent-actions/approval-prompter')).nativeApprovalPrompter
-    })
-    oxeQueryAgent = oxeQuery.agent
-    oxeQueryShells.shellFor = paneId => oxeQuery.shellFor(paneId)
-    registerOxeQueryIpc(oxeQuery)
-    app.once('before-quit', () => { void oxeQuery.dispose() })
-  } catch (error) {
-    log.warn('OxeQuery unavailable', error)
-    const { describeStartupFailure } = await import('./services/oxequery/startup-failure')
-    oxeQueryStartupError = describeStartupFailure(error)
-    // The view asks through this channel; answer with the reason instead of "no handler registered".
-    ipcMain.handle(IPC_CHANNELS.oxeQuery.call, () => ({ ok: false, error: { code: 'failed', message: `OxeQuery did not start: ${oxeQueryStartupError}` } }))
-  }
+  // OxePod (containers) loads on its first request; OxeQuery (databases) reaches a database container through it, in process.
+  const oxePod = (await import('./services/oxepod/startup')).startOxePod()
+  oxeQueryShells.shellFor = paneId => oxePod.peek()?.shellFor(paneId)
+  const oxeQuery = await (await import('./services/oxequery/startup')).startOxeQuery(db, async () => (await oxePod.load()).containers)
   const { registerThreadIpc } = await import('./ipc/thread.ipc')
   const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
   // Conversations started in their own worktree use the same creation path as the Worktrees panel.
@@ -482,8 +459,8 @@ async function registerIpcHandlers(): Promise<() => void> {
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
     }),
     memory: memoryService,
-    oxeQuery: () => oxeQueryAgent,
-    oxeQueryError: () => oxeQueryStartupError,
+    oxeQuery: () => oxeQuery.agent,
+    oxeQueryError: () => oxeQuery.error,
     git: gitService,
     app: {
       github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,

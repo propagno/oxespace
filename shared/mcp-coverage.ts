@@ -320,12 +320,12 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'containers.runtime': {
     label: 'Containers (OxePod): list, logs, start, stop, restart',
     tools: { oxespace_containers_list: 'read', oxespace_container_logs: 'read', oxespace_container_action: 'confirm' },
-    ipc: ['oxeQuery.call']
+    ipc: ['oxePod.call']
   },
   'containers.resources': {
     label: 'Images, volumes, networks, compose, exec and shell, stats, database containers',
     planned: 'P7', reason: 'OxePod shows them to the person (P1-P3); tools for them come with P7. Removing a container and cleaning up stopped containers or dangling images are confirmed actions of the person in OxePod and are not tools. The environment of a container reaches the page redacted (P6) and never an agent.',
-    ipc: ['oxeQuery.call']
+    ipc: ['oxePod.call']
   },
 
   // ---- skills, automations, MCP servers, Linear --------------------------------------------

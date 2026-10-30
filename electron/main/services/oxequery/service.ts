@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import { exportConnections, parseConnectionsFile, readImportFile, writeExportFile } from './connection-transfer'
 import type { AppDatabase } from '../../db'
-import type { ExecutionHost } from '../../runtime/execution-host'
+import type { ContainerEngine } from '../../../../shared/types/oxepod'
 import type {
-  ContainerAction, ContainerEngine, OxeQueryConnection, OxeQueryConnectionInput, OxeQueryErrorInfo, OxeQueryEvent, OxeQueryOp, OxeQueryOps, OxeQueryResponse,
+  OxeQueryConnection, OxeQueryConnectionInput, OxeQueryErrorInfo, OxeQueryEvent, OxeQueryOp, OxeQueryOps, OxeQueryResponse,
   SqlBrowseInput, SqlFilter, SqlFilterOp, SqlScriptResult
 } from '../../../../shared/types/oxequery'
 import { ConnectionInputError, ConnectionStore, type SecretCipher } from './connection-store'
-import { ContainerRuntime, ContainerRuntimeError } from './container-runtime'
+import { ContainerRuntimeError } from '../oxepod/container-runtime'
+import type { OxePodSeam } from '../oxepod/seam'
 import { PreferenceInputError, PreferenceStore } from './preferences'
-import { COMPOSE_ACTIONS, type ComposeAction } from './compose'
 import { MongoInputError, OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
 import type { OxeQueryWorkerClient } from './worker-client'
@@ -25,8 +25,6 @@ import type { ExportFormat } from '../../../../shared/types/oxequery'
 import { stringifyMongoQuery, type MongoQueryText } from '../../../../shared/mongoQueryText'
 
 type Raw = Record<string, unknown>
-const ACTIONS = new Set(['start', 'stop', 'restart', 'pause', 'unpause'])
-const MAX_SHELLS = 32
 
 function record(value: unknown): Raw {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new OxeQueryError('invalid', 'Invalid request.')
@@ -108,11 +106,10 @@ export function toErrorInfo(error: unknown): OxeQueryErrorInfo {
 export interface OxeQueryServiceOptions {
   db: AppDatabase
   cipher: SecretCipher
-  host: ExecutionHost
   worker: Pick<OxeQueryWorkerClient, 'call' | 'close'>
   emit: (event: OxeQueryEvent) => void
-  preferredEngine?: () => ContainerEngine | undefined
-  runtime?: ContainerRuntime
+  /** OxePod, loaded on first use: databases in containers and the agents' container tools. Without it they are refused. */
+  pod?: () => Promise<OxePodSeam>
   /** Native chooser for certificates and keys; absent in tests and headless runs. */
   pickFile?: (kind: PickedKind) => Promise<{ name: string; content: string } | null>
   /** Native save dialog for exports; absent in tests and headless runs. */
@@ -123,12 +120,11 @@ export interface OxeQueryServiceOptions {
   approvalPrompter?: ApprovalPrompter
 }
 
-/** Validates every operation, resolves secrets, and routes to containers or the database worker. */
+/** Validates every operation, resolves secrets, and routes to the database worker (or, for a container, to OxePod). */
 export class OxeQueryService {
   readonly connections: ConnectionStore
-  readonly containers: ContainerRuntime
   private readonly worker: OxeQueryServiceOptions['worker']
-  private readonly shells = new Map<string, { file: string; args: string[] }>()
+  private readonly loadPod?: OxeQueryServiceOptions['pod']
   private readonly picked = new PickedFiles()
   private readonly library: QueryLibrary
   private readonly preferences: PreferenceStore
@@ -154,7 +150,7 @@ export class OxeQueryService {
     this.pickSavePath = options.pickSavePath
     this.pickImportPath = options.pickImportPath
     this.emit = options.emit
-    this.containers = options.runtime ?? new ContainerRuntime({ host: options.host, emit: options.emit, preferred: options.preferredEngine })
+    this.loadPod = options.pod
     this.worker = options.worker
     this.auditLog = new AuditLog(options.db)
     this.auditLog.prune(this.preferences.get().auditRetentionDays)
@@ -166,9 +162,9 @@ export class OxeQueryService {
       resolve: id => this.guarded(id).connection,
       call: (op, connection, input) => this.worker.call(op, connection, input),
       containers: {
-        list: () => this.containers.list(),
-        logsTail: (id, tail) => this.containers.logsTail(id, tail),
-        action: (id, action) => this.containers.action(id, action)
+        list: async () => (await this.pod()).list(),
+        logsTail: async (id, tail) => (await this.pod()).logsTail(id, tail),
+        action: async (id, action) => (await this.pod()).action(id, action)
       },
       broker: this.approvals,
       audit: this.auditLog,
@@ -176,9 +172,10 @@ export class OxeQueryService {
     })
   }
 
-  /** Lookup for the terminal service; the renderer can only ask to open a pane it was handed. */
-  shellFor(paneId: string): { file: string; args: string[] } | undefined {
-    return this.shells.get(paneId)
+  /** OxePod, in process: the seam between the two products. */
+  private async pod(): Promise<OxePodSeam> {
+    if (!this.loadPod) throw new Error('OxePod is not available here.')
+    return this.loadPod()
   }
 
   async call<K extends OxeQueryOp>(op: K, rawInput: unknown): Promise<OxeQueryResponse<OxeQueryOps[K]['output']>> {
@@ -202,81 +199,6 @@ export class OxeQueryService {
     const input = record(rawInput ?? {})
     switch (op) {
       case 'system.ping': return this.worker.call('ping')
-      case 'containers.engines': return this.containers.engines(input.refresh === true)
-      case 'containers.candidates': return this.containers.candidates()
-      case 'containers.useCandidate': return this.containers.useCandidate(input && typeof input === 'object' && typeof (input as { id?: unknown }).id === 'string' ? (input as { id: string }).id : null)
-      case 'containers.list': return this.containers.list(engine(input.engine))
-      case 'containers.inspect': return this.containers.inspect(str(input.id, 'Container', 128), engine(input.engine))
-      case 'containers.stats': return this.containers.stats(engine(input.engine))
-      case 'resources.images': return this.containers.images(engine(input.engine))
-      case 'resources.volumes': return this.containers.volumes(engine(input.engine))
-      case 'resources.networks': return this.containers.networks(engine(input.engine))
-      case 'resources.usage': return this.containers.usage(engine(input.engine))
-      case 'resources.remove': {
-        const kind = str(input.kind, 'Kind', 16)
-        if (kind !== 'image' && kind !== 'volume' && kind !== 'network') throw new OxeQueryError('invalid', 'Unsupported resource kind.')
-        // A volume is somebody's data: the main process asks for the confirmation itself.
-        if (kind === 'volume' && input.confirmed !== true) throw new OxeQueryError('confirm', 'Removing a volume deletes the data in it.', ['Removing a volume deletes the data in it for good.'])
-        await this.containers.removeResource(kind, str(input.id, 'Resource', 200), engine(input.engine))
-        return { ok: true }
-      }
-      // Removing and cleaning up cannot be undone: the main process refuses until the person confirmed (roadmap P6).
-      case 'resources.prune': {
-        const kind = str(input.kind, 'Kind', 16)
-        if (kind !== 'containers' && kind !== 'images') throw new OxeQueryError('invalid', 'Unsupported clean-up.')
-        if (input.confirmed !== true) throw new OxeQueryError('confirm', kind === 'containers' ? 'Every stopped container is removed.' : 'Every dangling image is removed.', ['This cannot be undone.'])
-        return this.containers.prune(kind, engine(input.engine))
-      }
-      case 'containers.remove': {
-        const id = str(input.id, 'Container', 128)
-        if (input.confirmed !== true) throw new OxeQueryError('confirm', 'Removing a container cannot be undone.', ['Its volumes are kept.'])
-        await this.containers.removeContainer(id, engine(input.engine))
-        return { ok: true }
-      }
-      case 'containers.createDatabase': {
-        const kind = str(input.engine, 'Engine', 16)
-        if (kind !== 'postgres' && kind !== 'mongodb') throw new OxeQueryError('invalid', 'Choose PostgreSQL or MongoDB.')
-        const name = str(input.name, 'Name', 41)
-        const created = await this.containers.createDatabase({ engine: kind, name, tag: str(input.tag, 'Version', 24), ...(typeof input.port === 'number' ? { port: input.port } : {}) }, engine(input.engineName))
-        // A fresh server needs a moment before it accepts logins; the connection is saved now and the workbench retries.
-        return this.connections.save({
-          name, engine: kind, host: '127.0.0.1', port: created.port, database: created.database, username: created.username, password: created.password,
-          readOnly: false, environment: 'local', containerRef: name
-        })
-      }
-      case 'containers.action': {
-        const action = str(input.action, 'Action', 16)
-        if (!ACTIONS.has(action)) throw new OxeQueryError('invalid', 'Unsupported container action.')
-        await this.containers.action(str(input.id, 'Container', 128), action as ContainerAction, engine(input.engine))
-        return { ok: true }
-      }
-      case 'containers.compose': {
-        const action = str(input.action, 'Action', 16)
-        if (!COMPOSE_ACTIONS.has(action)) throw new OxeQueryError('invalid', 'Unsupported Compose action.')
-        if (action === 'down' && input.confirmed !== true) {
-          throw new OxeQueryError('confirm', 'Taking a project down removes its containers and networks.', ['Named volumes are kept.', 'Anything running from this project stops.'])
-        }
-        return this.containers.compose(str(input.id, 'Container', 128), action as ComposeAction, { ...(optionalInt(input.tail, 1, 500) !== undefined ? { tail: optionalInt(input.tail, 1, 500) } : {}) }, engine(input.engine))
-      }
-      case 'containers.exec': {
-        const argv = input.argv
-        if (!Array.isArray(argv)) throw new OxeQueryError('invalid', 'A command is required.')
-        return this.containers.exec(str(input.id, 'Container', 128), argv as string[], optionalInt(input.timeoutMs, 1000, 120_000), engine(input.engine))
-      }
-      case 'containers.logsStart': return { streamId: await this.containers.logsStart(str(input.id, 'Container', 128), optionalInt(input.tail, 0, 5000), engine(input.engine)) }
-      case 'containers.logsStop': this.containers.logsStop(str(input.streamId, 'Stream', 64)); return { ok: true }
-      case 'containers.shell': {
-        const shell = input.shell === 'bash' ? 'bash' : 'sh'
-        const command = await this.containers.shellCommand(str(input.id, 'Container', 128), shell, engine(input.engine))
-        if (this.shells.size >= MAX_SHELLS) this.shells.delete(this.shells.keys().next().value as string)
-        const paneId = `oxequery-shell:${randomUUID()}`
-        this.shells.set(paneId, { file: command.file, args: command.args })
-        return { paneId }
-      }
-      case 'containers.suggestConnection': {
-        const found = await this.containers.suggestConnection(str(input.id, 'Container', 128), engine(input.engine))
-        return found?.suggestion ?? null
-      }
       case 'preferences.get': return this.preferences.get()
       case 'preferences.set': {
         const next = this.preferences.set(input)
@@ -352,6 +274,17 @@ export class OxeQueryService {
         if (!this.pickFile) throw new OxeQueryError('invalid', 'Choosing files is not available here.')
         const file = await this.pickFile(kind as PickedKind)
         return file ? { handle: this.picked.register(kind as PickedKind, file.name, file.content), name: file.name } : null
+      }
+      case 'connections.createInContainer': {
+        const kind = str(input.engine, 'Engine', 16)
+        if (kind !== 'postgres' && kind !== 'mongodb') throw new OxeQueryError('invalid', 'Choose PostgreSQL or MongoDB.')
+        const name = str(input.name, 'Name', 41)
+        const created = await (await this.pod()).createDatabase({ engine: kind, name, tag: str(input.tag, 'Version', 24), ...(typeof input.port === 'number' ? { port: input.port } : {}) }, engine(input.engineName))
+        // A fresh server needs a moment before it accepts logins; the connection is saved now and the workbench retries.
+        return this.connections.save({
+          name, engine: kind, host: '127.0.0.1', port: created.port, database: created.database, username: created.username, password: created.password,
+          readOnly: false, environment: 'local', containerRef: name
+        })
       }
       case 'connections.fromContainer': return this.fromContainer(str(input.id, 'Container', 128), engine(input.engine), optionalString(input.name, 80))
       case 'sql.schemas': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.schemas', connection))
@@ -714,7 +647,7 @@ export class OxeQueryService {
   }
 
   private async fromContainer(id: string, requested: ContainerEngine | undefined, name: string | undefined): Promise<OxeQueryConnection> {
-    const found = await this.containers.suggestConnection(id, requested)
+    const found = await (await this.pod()).suggestConnection(id, requested)
     if (!found) throw new OxeQueryError('invalid', 'This container does not look like PostgreSQL or MongoDB.')
     const { suggestion, password } = found
     if (!suggestion.port) throw new OxeQueryError('invalid', 'This container does not publish its database port. Recreate it with a published port (for example -p 5432:5432).')
@@ -727,7 +660,6 @@ export class OxeQueryService {
   }
 
   async dispose(): Promise<void> {
-    this.containers.dispose()
     await this.worker.close()
   }
 }

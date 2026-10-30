@@ -1,5 +1,6 @@
 import { effectiveAgentAccess } from './preferences'
-import type { AgentAccess, ContainerAction, ContainerSummary, OxeQueryConnection } from '../../../../shared/types/oxequery'
+import type { AgentAccess, OxeQueryConnection } from '../../../../shared/types/oxequery'
+import type { ContainerAction, ContainerSummary } from '../../../../shared/types/oxepod'
 import { maskLogLine, DEFAULT_ROWS, MAX_ROWS, UNTRUSTED_NOTICE, compilePatterns, redactDocument, redactStatement, shapeDocuments, shapeRows } from './agent-output'
 import { textHash, type ApprovalBroker } from '../agent-actions/approval-broker'
 import type { AuditLog, AuditRecord } from './audit-log'
