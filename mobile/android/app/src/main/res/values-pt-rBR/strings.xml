@@ -30,6 +30,13 @@
     <string name="home_status_connecting">Conectando a %1$s…</string>
     <string name="home_status_incompatible">%1$s usa outra versão do OXESpace. Atualize o app ou o OXESpace no computador.</string>
     <string name="home_status_not_accepted">%1$s não aceita mais este celular. Despareie e pareie de novo.</string>
+    <string name="home_status_off_network">Este celular não está na Wi-Fi. %1$s só é alcançável na mesma rede Wi-Fi; reconecta quando você voltar.</string>
+    <string name="home_status_reconnecting">A conexão com %1$s caiu. Reconectando…</string>
+    <plurals name="home_status_retry_in">
+        <item quantity="one">Tentando de novo em %1$d segundo.</item>
+        <item quantity="many">Tentando de novo em %1$d segundos.</item>
+        <item quantity="other">Tentando de novo em %1$d segundos.</item>
+    </plurals>
     <string name="home_status_unreachable">Não deu para falar com %1$s. Confira se ele está ligado, na mesma Wi-Fi, e com o acesso pelo celular ligado.</string>
     <string name="home_title">Seu computador no bolso</string>
     <string name="home_unknown_desktop">seu computador</string>
@@ -76,6 +83,18 @@
     <string name="live_tabs_tasks">Tarefas</string>
     <string name="live_tabs_terminals">Terminais</string>
     <string name="live_tabs_threads">Conversas</string>
+    <string name="notify_channel_done">Concluído</string>
+    <string name="notify_channel_failed">Falhou</string>
+    <string name="notify_channel_needs_you">Precisa de você</string>
+    <string name="notify_channel_session">Conexão com o computador</string>
+    <string name="notify_disconnect">Desconectar</string>
+    <string name="notify_done">Concluído: %1$s</string>
+    <string name="notify_failed">Falhou: %1$s</string>
+    <string name="notify_needs_you">Precisa de você: %1$s</string>
+    <string name="notify_session_connected">Conectado a %1$s</string>
+    <string name="notify_session_off_network">Esperando a Wi-Fi para falar com %1$s</string>
+    <string name="notify_session_reconnecting">Reconectando a %1$s…</string>
+    <string name="notify_session_stopped">Não deu para manter a conexão com %1$s. Abra o app.</string>
     <string name="pairing_allow_camera">Permitir câmera</string>
     <string name="pairing_bad_code_malformed">Não deu para ler esse código. Mostre um novo no computador e tente de novo.</string>
     <string name="pairing_bad_code_not_pairing">Esse não é um código de pareamento do OXESpace. Aponte a câmera para o código em Configurações › Dispositivos.</string>
