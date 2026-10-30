@@ -72,6 +72,14 @@ export class MemoryProjectService {
     return integrationBlocked('memory', 'Shared memory', root)
   }
 
+  /** Policy decides what may rise to the team: `memory:team` (an `integration.use` rule), and nothing at all if `memory` is blocked. */
+  teamBlocked(projectId: string): string | undefined {
+    const row = this.db.prepare('SELECT identity FROM memory_projects WHERE id = ?').get(projectId) as { identity: string } | undefined
+    if (!row) return undefined
+    const root = basename(row.identity) === '.git' ? dirname(row.identity) : row.identity
+    return integrationBlocked('memory', 'Shared memory', root) ?? integrationBlocked('memory:team', 'Sharing memory with the team', root)
+  }
+
   configure(projectId: string, settings: MemorySettings): void {
     if (settings.enabled) {
       const row = this.db.prepare('SELECT identity FROM memory_projects WHERE id = ?').get(projectId) as { identity: string } | undefined

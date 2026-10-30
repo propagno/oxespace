@@ -39,4 +39,4 @@ CREATE TABLE IF NOT EXISTS memory_note_uses (
   FOREIGN KEY (project_id, path) REFERENCES memory_notes(project_id, path) ON DELETE CASCADE
 );
 
-PRAGMA user_version = 81;
+PRAGMA user_version = 82;

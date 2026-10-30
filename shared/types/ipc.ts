@@ -70,7 +70,8 @@ export const IPC_CHANNELS = {
   memory: {
     status: 'memory:status', configure: 'memory:configure', install: 'memory:install', rollback: 'memory:rollback',
     setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent',
-    handoffs: 'memory:handoffs', storage: 'memory:storage', acceptHandoff: 'memory:accept-handoff'
+    handoffs: 'memory:handoffs', storage: 'memory:storage', acceptHandoff: 'memory:accept-handoff',
+    notes: 'memory:notes', noteDelete: 'memory:note-delete', export: 'memory:export', reset: 'memory:reset'
   },
   app: {
     getUpdateState: 'app:get-update-state',

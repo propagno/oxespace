@@ -12,6 +12,8 @@ export interface MemoryProvider {
   getRelevantContext(context: MemoryContext, task?: string): Promise<ProjectContext>
   getRecentSessions(context: MemoryContext): Promise<MemorySession[]>
   listHandoffs(context: MemoryContext): Promise<MemoryHandoff[]>
+  /** Erases one page from the store, when the service offers a way; false when it does not (the page is then only hidden). */
+  erase?(context: MemoryContext, path: string): Promise<boolean>
   /** Accepts exactly the offer with this ID; never falls back to another eligible offer. */
   acceptHandoff(context: MemoryContext, handoffId: string): Promise<unknown>
 }

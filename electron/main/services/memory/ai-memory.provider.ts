@@ -45,6 +45,12 @@ export class AiMemoryProvider implements MemoryProvider {
     await write
     return { path }
   }
+  /** Only when the server advertises a page-deletion tool; this build of AI Memory is not assumed to have one. */
+  async erase(ctx: MemoryContext, path: string): Promise<boolean> {
+    if (!(await this.client.capabilities()).deletePage) return false
+    await this.client.tool('memory_delete_page', { ...this.scope(ctx), path })
+    return true
+  }
   async search(ctx: MemoryContext, query: string): Promise<MemoryResult[]> {
     if (!query.trim() || query.length > 1000) throw new Error('Query must contain 1–1000 characters')
     const result = await this.client.tool('memory_query', { ...this.scope(ctx), query, limit: 8 })

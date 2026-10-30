@@ -54,7 +54,7 @@ export interface MemorySession { sessionId: string; agentId: string; cwd: string
 export interface MemoryHandoff { id: string; summary: string; cwd?: string; state: string; nextSteps: string[]; openQuestions: string[]; filesTouched: string[] }
 export interface ProjectContext { text: string; sources: string[] }
 export type MemoryErrorCode = 'authentication' | 'timeout' | 'cancelled' | 'transport' | 'http' | 'protocol' | 'rejected' | 'response-too-large'
-export interface MemoryCapabilities { exactHandoff: boolean; createHandoff: boolean; sessionObservations: boolean }
+export interface MemoryCapabilities { exactHandoff: boolean; createHandoff: boolean; sessionObservations: boolean; deletePage?: boolean }
 /** Availability is independent of capture, delivery and asynchronous consolidation. */
 export interface MemoryPipelineStatus {
   capture: 'unknown' | 'disabled' | 'active' | 'suspended' | 'failed'
