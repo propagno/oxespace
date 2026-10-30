@@ -748,7 +748,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     term.options.lineHeight = prefs.lineHeight
     term.options.letterSpacing = prefs.letterSpacing
     term.options.cursorStyle = prefs.cursorStyle
-    term.options.cursorBlink = prefs.cursorBlink
+    term.options.cursorBlink = prefs.cursorBlink && presenceRef.current === 'focused'
     term.options.scrollback = prefs.scrollback
 
     const raf = window.requestAnimationFrame(() => {
@@ -779,6 +779,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     prefs.scrollback,
     prefs.backgroundOpacity
   ])
+
+  // Only the pane being typed in blinks its cursor: a blink is a repaint every half second in every visible pane.
+  useEffect(() => {
+    const term = terminalRef.current
+    if (term) term.options.cursorBlink = prefs.cursorBlink && presence === 'focused'
+  }, [presence, prefs.cursorBlink])
 
   useEffect(() => {
     if (isRunning) terminalRef.current?.focus()

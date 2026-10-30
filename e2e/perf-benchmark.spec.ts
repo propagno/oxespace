@@ -896,6 +896,12 @@ test('terminals: 6 TUIs, 1 focused, CPU', async () => {
   test.setTimeout(180_000)
   const { app, page, pid } = await launchApp({ mockNative: false })
   try {
+    // OXESPACE_BENCH_WEBGL=<n> compares WebGL budgets (src/components/Terminal/webglBudget.ts) without a build.
+    if (process.env.OXESPACE_BENCH_WEBGL) {
+      await page.evaluate(n => localStorage.setItem('oxe.terminal.webglPanes', n), process.env.OXESPACE_BENCH_WEBGL)
+      await page.reload()
+      await page.getByTestId('btn-new-workspace').waitFor()
+    }
     const root = join(tmpdir(), `oxe-tui-${Date.now()}`, 'repo')
     mkdirSync(root, { recursive: true })
     await page.getByTestId('btn-new-workspace').click()
