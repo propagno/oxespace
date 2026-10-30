@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { Brain, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
+import { i18n } from '../../i18n'
 
 type Reasoning = Extract<ThreadEvent, { type: 'reasoning' }>
 
 /** "Thought for 12s", or "Thinking…" while the block still streams. */
 export function reasoningLabel(event: Reasoning, streaming: boolean): string {
-  if (streaming) return 'Thinking…'
-  if (event.completedAt === undefined) return 'Thought'
+  if (streaming) return i18n.t('thread:reasoning.thinking')
+  if (event.completedAt === undefined) return i18n.t('thread:reasoning.thought')
   const seconds = Math.max(1, Math.round((event.completedAt - event.startedAt) / 1000))
-  return `Thought for ${seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`}`
+  const duration = seconds >= 60 ? i18n.t('thread:reasoning.minutes', { minutes: Math.floor(seconds / 60), seconds: seconds % 60 }) : i18n.t('thread:reasoning.seconds', { seconds })
+  return i18n.t('thread:reasoning.thoughtFor', { duration })
 }
 
 /**
@@ -17,6 +20,8 @@ export function reasoningLabel(event: Reasoning, streaming: boolean): string {
  * collapsed once done; a choice the person makes by toggling it is kept.
  */
 export function ThreadReasoning({ event, running }: { event: Reasoning; running: boolean }) {
+  // Subscribes to the language, so the label follows a switch.
+  useTranslation('thread')
   const streaming = running && event.completedAt === undefined
   const [chosen, setChosen] = useState<boolean | null>(null)
   const open = chosen ?? streaming

@@ -1,4 +1,6 @@
 import { useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ThreadRichText } from './ThreadRichText'
 import type { McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { mcpFailureHints } from '../../../shared/mcpFailureHints'
 import { humanizeError } from '../../utils/humanizeError'
@@ -28,6 +30,7 @@ type Result = { state: 'idle' } | { state: 'running' } | { state: 'done'; ok: bo
  * "failed". Servers OXESpace does not manage (claude.ai connectors, ones added in the CLI) are not tested.
  */
 export function ThreadMcpDiagnose({ name, workspaceId }: { name: string; workspaceId: string }): ReactElement | null {
+  const { t } = useTranslation('thread')
   const [result, setResult] = useState<Result>({ state: 'idle' })
   const api = window.oxe?.mcp
   if (!api?.diagnose) return null
@@ -40,18 +43,18 @@ export function ThreadMcpDiagnose({ name, workspaceId }: { name: string; workspa
       const config = tested.transport === 'stdio' ? tested.config as McpStdioConfig : undefined
       const ok = tested.health === 'healthy'
       const hints = mcpFailureHints({ message: tested.healthMessage, command: config?.command, env: config?.env, requiredEnv, node })
-      setResult({ state: 'done', ok, message: tested.healthMessage ?? (ok ? 'Starts now.' : 'Did not start.'), hints: node && !hints.length && !ok ? [`Runs on Node.js ${node}.`] : hints })
+      setResult({ state: 'done', ok, message: tested.healthMessage ?? (ok ? t('mcpDiagnose.startsNow') : t('mcpDiagnose.didNotStart')), hints: node && !hints.length && !ok ? [t('mcpDiagnose.node', { version: node })] : hints })
     } catch (cause) {
-      setResult({ state: 'done', ok: false, message: humanizeError(cause, 'Could not test this server.'), hints: [] })
+      setResult({ state: 'done', ok: false, message: humanizeError(cause, t('mcpDiagnose.testFailed')), hints: [] })
     }
   }
   return <div className="thread-mcp-diagnose">
-    {result.state !== 'done' && result.state !== 'unknown' && <button type="button" disabled={result.state === 'running'} onClick={() => void run()} aria-label={`Diagnose ${name}`}>{result.state === 'running' ? 'Testing…' : 'Diagnose'}</button>}
-    {result.state === 'unknown' && <p>Not managed by OXESpace, so it cannot be tested here. Check it where it was added, for example with <code>claude mcp list</code>.</p>}
+    {result.state !== 'done' && result.state !== 'unknown' && <button type="button" disabled={result.state === 'running'} onClick={() => void run()} aria-label={t('mcpDiagnose.label', { name })}>{result.state === 'running' ? t('mcpDiagnose.testing') : t('mcpDiagnose.diagnose')}</button>}
+    {result.state === 'unknown' && <p><ThreadRichText text={t('mcpDiagnose.unmanaged')} /></p>}
     {result.state === 'done' && <div role="status">
-      <p className={result.ok ? 'is-ok' : 'is-error'}>{result.ok ? `Starts when tested now (${result.message}). Start a new conversation to load it.` : result.message}</p>
+      <p className={result.ok ? 'is-ok' : 'is-error'}>{result.ok ? t('mcpDiagnose.ok', { message: result.message }) : result.message}</p>
       {result.hints.length > 0 && <ul>{result.hints.map(hint => <li key={hint}>{hint}</li>)}</ul>}
-      <button type="button" onClick={() => void run()}>Test again</button>
+      <button type="button" onClick={() => void run()}>{t('mcpDiagnose.again')}</button>
     </div>}
   </div>
 }
