@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, copyText, Dialog, TextArea, TextField, toast } from '../../ui'
+import { Button, copyText, Dialog, ErrorState, TextArea, TextField, toast } from '../../ui'
 import { buildIssueUrl, issueClipboardText, type IssueDraft } from '../../../shared/issue-report'
 import styles from './ReportProblem.module.css'
 
@@ -41,10 +41,8 @@ export function ReportProblem({ onClose }: { onClose: () => void }): ReactElemen
       <Button onClick={open} disabled={!ready || !draft.title.trim()}>{t('report.open')}</Button>
     </>}>
     {state.phase === 'loading' && <p className={styles.status} role="status">{t('report.loading')}</p>}
-    {state.phase === 'failed' && <div className={styles.status} role="alert">
-      <p>{t('report.failed')}</p>
-      <Button variant="secondary" size="sm" onClick={() => { setState({ phase: 'loading' }); setAttempt(count => count + 1) }}>{t('report.retry')}</Button>
-    </div>}
+    {state.phase === 'failed' && <ErrorState title={t('report.failed')} retryLabel={t('report.retry')}
+      onRetry={() => { setState({ phase: 'loading' }); setAttempt(count => count + 1) }} />}
     {ready && <div className={styles.form}>
       <TextField label={t('report.titleLabel')} value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} />
       <TextArea label={t('report.bodyLabel')} hint={t('report.bodyHint')} mono rows={16} className={styles.body}
