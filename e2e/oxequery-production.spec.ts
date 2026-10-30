@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer } from './helpers/oxepod'
 
 /**
  * Safe production and SQL lint (roadmap Q5 and Q4) in the real renderer, backed by the in-memory mock
@@ -23,8 +24,7 @@ test('a production connection asks for its name before a write, shows its limits
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
 
     // Mark the connection as production with writes on.

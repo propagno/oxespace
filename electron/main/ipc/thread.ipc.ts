@@ -75,7 +75,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   // Keep account/project implementation out of the startup entry bundle.
   const accounts: Promise<NativeAccountService> = import('../services/conversation/native-account.service').then(({ NativeAccountService, authScopeId }) => new NativeAccountService({
     resolve: async (context: AgentAccountContext): Promise<NativeAuthScope> => {
-      const thread = context.threadId ? (await manager).read(context.threadId).thread : null
+      const thread = context.threadId ? (await manager).readThread(context.threadId) : null
       if (thread && (thread.workspaceId !== context.workspaceId || thread.provider !== context.provider)) throw Error('Invalid account context')
       const profiles = new AgentService(db).list()
       const selected = thread?.agentProfileId ? profiles.find(p => p.agentProfileId === thread.agentProfileId) : undefined

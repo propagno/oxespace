@@ -176,6 +176,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/ipc/diagnostics.ipc.ts',
   // The list of Thread projects with semantic search turned on: one JSON file under userData.
   'electron/main/services/semantic-projects.ts',
+  // Deletes only the app's own stale backups and crash dumps under userData (fixed directories, age-based); the live database and WAL are never listed.
+  'electron/main/services/storage-retention.ts',
   // The audit export is written only to a path returned by Electron's native save dialog.
   'electron/main/ipc/mcp-internal.ipc.ts',
   // Portable conversation packages are read/written only at a path returned

@@ -675,3 +675,13 @@
 .mcp-import-row code { overflow-wrap: anywhere; font-size: 12px; }
 .mcp-import-row small { grid-column: 2; opacity: 0.75; }
 .mcp-import-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.mcp-safety { display: grid; gap: 6px; }
+.mcp-safety-box { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: var(--radius-md); font-size: var(--fs-2xs); }
+.mcp-safety-box > svg { flex: none; margin-top: 1px; }
+.mcp-safety-box p, .mcp-safety-box ul { margin: 2px 0 0; }
+.mcp-safety-box ul { padding-left: 16px; }
+.mcp-safety-box li { overflow-wrap: anywhere; }
+.mcp-safety-box q { opacity: 0.85; }
+.mcp-safety-box.is-warning { border: 1px solid var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
+.mcp-safety-box.is-danger { border: 1px solid var(--intent-danger-border); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }

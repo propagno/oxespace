@@ -133,7 +133,7 @@ before. Code panes receive the whole registry.
 | `skills.invoke` | Invoke a skill in a pane | Excluded: Types the skill into a terminal. Agents read its body with oxespace_skills get. |
 | `automations.use` | Scheduled automations | **read**: `oxespace_automations#list`, `oxespace_automations#runs`<br>**write**: `oxespace_automations_change#disable`<br>**confirm**: `oxespace_automations_change#create`, `oxespace_automations_change#enable`, `oxespace_automations_change#run_now`, `oxespace_automations_change#remove` |
 | `mcp.servers` | MCP servers: list, health, start, stop | **read**: `oxespace_mcp_servers#list`<br>**write**: `oxespace_mcp_servers_change#stop`<br>**confirm**: `oxespace_mcp_servers_change#start` |
-| `mcp.server_trust` | Add, edit, import, trust or sign in to MCP servers | **Forbidden**: MCP server trust; commands, environment and headers carry secrets. |
+| `mcp.server_trust` | Add, edit, import, trust (also again after a quarantine) or sign in to MCP servers | **Forbidden**: MCP server trust, including trusting a quarantined server again; commands, environment and headers carry secrets. An agent can only read that a server is quarantined (oxespace_mcp_servers#list). |
 | `mcp.call_tool` | Call another server's tool from the app | Excluded: Agents reach those servers through their own MCP client, as the person trusted them. |
 | `linear.read` | Linear issues | **read**: `oxespace_linear#status`, `oxespace_linear#teams`, `oxespace_linear#issues`, `oxespace_linear#issue` |
 | `linear.token` | Linear API key | **Forbidden**: A token. |
