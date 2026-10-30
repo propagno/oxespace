@@ -174,6 +174,7 @@ private fun badCodeText(problem: PairingQrProblem): Int = when (problem) {
 private fun failureText(failure: PairingFailure): Int = when (failure) {
     PairingFailure.CODE_EXPIRED -> R.string.pairing_failed_code_expired
     PairingFailure.CODE_USED -> R.string.pairing_failed_code_used
+    PairingFailure.CODE_INVALID -> R.string.pairing_failed_code_invalid
     PairingFailure.REFUSED_ON_DESKTOP -> R.string.pairing_failed_refused_on_desktop
     PairingFailure.LOCKED -> R.string.pairing_failed_locked
     PairingFailure.TOO_MANY_DEVICES -> R.string.pairing_failed_too_many_devices

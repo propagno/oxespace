@@ -90,6 +90,7 @@ class PairingFlowTest {
         val cases = mapOf(
             PairOutcome.Refused(RemotePairingErrorCode.PAIRING_EXPIRED) to PairingFailure.CODE_EXPIRED,
             PairOutcome.Refused(RemotePairingErrorCode.PAIRING_USED) to PairingFailure.CODE_USED,
+            PairOutcome.Refused(RemotePairingErrorCode.PAIRING_INVALID) to PairingFailure.CODE_INVALID,
             PairOutcome.Refused(RemotePairingErrorCode.PAIRING_REFUSED) to PairingFailure.REFUSED_ON_DESKTOP,
             PairOutcome.Refused(RemotePairingErrorCode.PAIRING_LOCKED) to PairingFailure.LOCKED,
             PairOutcome.Refused(RemotePairingErrorCode.TOO_MANY_DEVICES) to PairingFailure.TOO_MANY_DEVICES,

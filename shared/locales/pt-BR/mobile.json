@@ -10,7 +10,7 @@
   },
   "pairing": {
     "title": "Parear com o computador",
-    "instructions": "No computador, abra OXESpace › Configurações › Dispositivos, ligue o acesso pelo celular e aponte a câmera para o código que aparece lá.",
+    "instructions": "No computador, abra OXESpace › Configurações › Dispositivos, ligue a conexão com o celular e aponte a câmera para o código que aparece lá.",
     "cameraDescription": "Imagem da câmera para ler o código de pareamento",
     "cameraNeeded": "A câmera lê o código de pareamento na tela do computador. Nada do que ela vê sai do celular.",
     "allowCamera": "Permitir câmera",
@@ -32,11 +32,12 @@
     "failed": {
       "codeExpired": "O código expirou. Mostre um novo no computador e leia em até 2 minutos.",
       "codeUsed": "Esse código já foi usado. Mostre um novo no computador.",
+      "codeInvalid": "Esse código não foi aceito. Mostre um novo no computador e leia de novo.",
       "refusedOnDesktop": "O pareamento foi recusado no computador.",
       "locked": "Tentativas de pareamento demais. Espere 2 minutos e tente de novo.",
       "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
       "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
-      "unreachable": "Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com o acesso pelo celular ligado.",
+      "unreachable": "Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
       "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador."
     }
   }

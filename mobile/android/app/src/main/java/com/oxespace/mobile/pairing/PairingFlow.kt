@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
 
 /** Why pairing ended without a paired desktop; each has its own words and next step on screen. */
 enum class PairingFailure {
-    CODE_EXPIRED, CODE_USED, REFUSED_ON_DESKTOP, LOCKED, TOO_MANY_DEVICES, WRONG_CERTIFICATE, UNREACHABLE, PROTOCOL,
+    CODE_EXPIRED, CODE_USED, CODE_INVALID, REFUSED_ON_DESKTOP, LOCKED, TOO_MANY_DEVICES, WRONG_CERTIFICATE, UNREACHABLE, PROTOCOL,
 }
 
 sealed interface PairingState {
@@ -93,6 +93,7 @@ class PairingFlow(
         is PairOutcome.Refused -> when (outcome.error) {
             RemotePairingErrorCode.PAIRING_EXPIRED -> PairingFailure.CODE_EXPIRED
             RemotePairingErrorCode.PAIRING_USED -> PairingFailure.CODE_USED
+            RemotePairingErrorCode.PAIRING_INVALID -> PairingFailure.CODE_INVALID
             RemotePairingErrorCode.PAIRING_REFUSED -> PairingFailure.REFUSED_ON_DESKTOP
             RemotePairingErrorCode.PAIRING_LOCKED -> PairingFailure.LOCKED
             RemotePairingErrorCode.TOO_MANY_DEVICES -> PairingFailure.TOO_MANY_DEVICES
