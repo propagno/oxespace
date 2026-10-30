@@ -65,7 +65,7 @@ export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput
 export const IPC_CHANNELS = {
   team: { command: 'team:command', messages: 'team:messages', send: 'team:send' },
   agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
-  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   memory: {
     status: 'memory:status', configure: 'memory:configure', install: 'memory:install', rollback: 'memory:rollback',
@@ -82,7 +82,8 @@ export const IPC_CHANNELS = {
     onUpdateState: 'app:update-state',
     setAppearance: 'app:set-appearance',
     setLanguage: 'app:set-language',
-    setUiScale: 'app:set-ui-scale'
+    setUiScale: 'app:set-ui-scale',
+    connectivity: 'app:connectivity', onConnectivity: 'app:connectivity-changed', about: 'app:about'
   },
   rtk: {
     getStatus: 'rtk:get-status',
@@ -674,6 +675,8 @@ export interface AgentNotificationPayload {
   /** Pane to focus when the user clicks the notification. */
   paneId: string
   workspaceId: string
+  /** What the notification is about; the main process picks the image. Without it, the app icon. */
+  icon?: import('./app').NotificationIcon
 }
 
 export interface AutomationsApi {
@@ -767,7 +770,7 @@ export interface OxeApi {
     platform: NodeJS.Platform
     /** The operating system's locale (Electron's app.getLocale()), which picks the default interface language. */
     locale: string
-  } & AppUpdateApi
+  } & AppUpdateApi & import('./app').AppInfoApi
   rtk: RtkApi
   workspace: WorkspaceApi
   terminal: TerminalApi

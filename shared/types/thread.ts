@@ -553,7 +553,26 @@ export interface ThreadPendingRequestSummary {
   kind: ThreadRequest['kind']
   title: string
   createdAt: number
+  /** The conversation generation the request belongs to; an answer must name it (`respondPending`). */
+  generation: number
 }
+
+/** An answer to a request listed by `pendingRequestsAll`, from any window or device. */
+export interface ThreadPendingResponseInput {
+  threadId: string
+  requestId: string
+  generation: number
+  response: ThreadRequestResponse
+}
+
+/** Why an answer was refused; each is also a message code (`thread.request.<reason>`, C3). */
+export const THREAD_PENDING_REFUSALS = ['notPending', 'staleGeneration', 'alreadyResponding', 'unanswered'] as const
+export type ThreadPendingRefusal = typeof THREAD_PENDING_REFUSALS[number]
+
+/** The first answer for a generation wins; a repeated, late or stale one is refused, never applied twice. */
+export type ThreadPendingResponseResult =
+  | { ok: true; threadId: string; requestId: string; resolution: ThreadRequestResolution }
+  | { ok: false; refusal: ThreadPendingRefusal; message: import('../messages').MainMessage }
 
 export interface ThreadApi {
   artifact?(id: string, artifactId: string): Promise<ThreadArtifact>
@@ -573,6 +592,8 @@ export interface ThreadApi {
   list(): Promise<ConversationThread[]>
   /** Requests still pending in every conversation that waits for approval. Read-only. */
   pendingRequestsAll?(): Promise<ThreadPendingRequestSummary[]>
+  /** Answers one of those requests by id and generation. Approvals stay with the person: never an MCP tool. */
+  respondPending?(input: ThreadPendingResponseInput): Promise<ThreadPendingResponseResult>
   /**
    * With `worktree`, a new branch is created in its own worktree next to the repository and the conversation
    * starts there. Refusals carry a cause the dialog can show (branch exists, invalid base…).

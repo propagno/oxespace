@@ -27,6 +27,10 @@ import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import type { GitCompareMode } from '../../../shared/types/git'
+import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
+import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult } from '../../../shared/types/thread'
+import { mainMessage } from '../../../shared/messages'
+import { requestOutcome } from '../../../shared/threadRequestOutcome'
 
 export function registerE2eMockIpcHandlers(): void {
   const shellProfiles: ShellProfile[] = fallbackShellProfiles()
@@ -252,6 +256,27 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.voice.ensureModel, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
+  // Offline is opted into per run, so a spec can check the offline state without unplugging the runner.
+  ipcMain.handle(IPC_CHANNELS.app.connectivity, (): AppConnectivity => process.env.OXESPACE_E2E_OFFLINE === '1'
+    ? { state: 'offline', checkedAt: Date.now(), reason: mainMessage('app.connectivity.offline', {}) }
+    : { state: 'online', checkedAt: Date.now() })
+  ipcMain.handle(IPC_CHANNELS.app.about, (): AppAbout => ({
+    name: 'OXESpace', version: app.getVersion(), channel: 'dev', commit: 'e2e0000', builtAt: null,
+    versions: { electron: process.versions.electron ?? '', chrome: process.versions.chrome ?? '', node: process.versions.node, v8: process.versions.v8 },
+    platform: process.platform, arch: process.arch, osRelease: 'e2e', license: 'MIT', repositoryUrl: 'https://github.com/propagno/oxespace'
+  }))
+  // Pending requests across conversations, seeded per run with a JSON list of summaries. An answer is accepted once,
+  // for the listed generation, exactly as the registry does.
+  const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
+  ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
+  ipcMain.handle(IPC_CHANNELS.thread.respondPending, (_event: IpcMainInvokeEvent, input: ThreadPendingResponseInput): ThreadPendingResponseResult => {
+    const index = pendingRequests.findIndex(request => request.threadId === input.threadId && request.requestId === input.requestId)
+    const refuse = (refusal: ThreadPendingRefusal): ThreadPendingResponseResult => ({ ok: false, refusal, message: mainMessage(`thread.request.${refusal}`, {}) })
+    if (index < 0) return refuse('notPending')
+    if (pendingRequests[index].generation !== input.generation) return refuse('staleGeneration')
+    const [request] = pendingRequests.splice(index, 1)
+    return { ok: true, threadId: input.threadId, requestId: input.requestId, resolution: requestOutcome(request.kind, input.response).resolution }
+  })
   ipcMain.handle(IPC_CHANNELS.oxe.detect, () => ({ installed: false, version: null }))
   ipcMain.handle(IPC_CHANNELS.oxe.status, () => ({ installed: false, version: null, isOxeProject: false, status: null, error: null }))
   ipcMain.handle(IPC_CHANNELS.oxe.openDashboard, () => ({ ok: false, error: null }))
