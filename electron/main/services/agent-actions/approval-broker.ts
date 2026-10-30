@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { ApprovalPresentation } from '../approvals/drafts'
+import type { MainMessage } from '../../../../shared/messages'
 
 export type ApprovalDecision = 'allow-once' | 'allow-session' | 'deny'
 export type ApprovalRisk = 'read' | 'write' | 'action'
@@ -25,9 +26,18 @@ export interface ApprovalPrompter {
   ask(request: ApprovalRequest, signal: AbortSignal): Promise<ApprovalDecision>
 }
 
+/**
+ * Thrown by a prompter when the request was never shown (the queue was full): the agent is told why and may retry
+ * later, so it is not remembered as the person's denial.
+ */
+export class PrompterRefusal extends Error {
+  constructor(readonly refusal: MainMessage) { super(refusal.code) }
+}
+
 export type ApprovalState =
   | { state: 'approved'; via: 'once' | 'session' }
   | { state: 'denied' }
+  | { state: 'refused'; refusal: MainMessage }
   | { state: 'pending'; requestId: string }
 
 export const APPROVAL_TTL_MS = 5 * 60_000
@@ -39,7 +49,7 @@ export function textHash(text: string): string {
   return createHash('sha256').update(text).digest('hex')
 }
 
-interface Pending { requestId: string; promise: Promise<ApprovalDecision> }
+interface Pending { requestId: string; promise: Promise<ApprovalDecision | PrompterRefusal> }
 
 /**
  * Decides whether an agent may run a statement. A grant is bound to the execution,
@@ -98,9 +108,10 @@ export class ApprovalBroker {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), APPROVAL_TTL_MS)
       const full: ApprovalRequest = { ...request, id: requestId, hash, expiresAt: now + APPROVAL_TTL_MS }
-      const promise = this.prompter.ask(full, controller.signal).catch((): ApprovalDecision => 'deny').then(decision => {
+      const promise = this.prompter.ask(full, controller.signal).catch((error: unknown): ApprovalDecision | PrompterRefusal => error instanceof PrompterRefusal ? error : 'deny').then(decision => {
         clearTimeout(timer)
         this.pending.delete(key)
+        if (decision instanceof PrompterRefusal) return decision
         const at = this.now()
         if (decision === 'deny') this.denials.set(key, at + DENY_MEMORY_MS)
         else {
@@ -116,6 +127,7 @@ export class ApprovalBroker {
     const settled = await Promise.race([pending.promise, new Promise<'wait'>(resolve => { waiting = setTimeout(() => resolve('wait'), waitMs) })])
     clearTimeout(waiting)
     if (settled === 'wait') return { state: 'pending', requestId: pending.requestId }
+    if (settled instanceof PrompterRefusal) return { state: 'refused', refusal: settled.refusal }
     if (settled === 'deny') return { state: 'denied' }
     // Approved while the caller was waiting: consume the grant now.
     this.grants.delete(key)

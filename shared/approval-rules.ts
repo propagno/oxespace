@@ -42,6 +42,14 @@ export function reservedNameIn(value: string): ReservedAppName | null {
     ?? FOLDED_EXACT.find(([, reserved]) => folded === reserved)?.[0] ?? null
 }
 
+/**
+ * For notices the app composes around agent-supplied text (a pane name, a conversation title, an error): the text, or
+ * `fallback` when it carries a reserved name. The app's own fixed words around it are not checked.
+ */
+export function withoutReservedName(text: string, fallback = ''): string {
+  return reservedNameIn(text) ? fallback : text
+}
+
 // ---- risk ----------------------------------------------------------------------------------
 
 /** The OxeQuery SQL classifier's verdict (`guardSql` in electron/main/services/oxequery/sql-guard.ts). */

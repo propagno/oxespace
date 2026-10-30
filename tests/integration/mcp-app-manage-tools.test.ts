@@ -78,7 +78,7 @@ describe('oxespace_workspace_change', () => {
     const notify = vi.fn(() => true)
     const semantic = { reindex: vi.fn(() => ({ indexing: true, enabled: true })) }
     expect(await call('oxespace_workspace_change', { action: 'notify', title: 'Build\ndone', body: 'All green' }, setup({ notify } as never).ctx)).toMatchObject({ ok: true, result: { shown: true } })
-    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'agent', label: expect.objectContaining({ code: 'approvals.requester.pane' }) }), 'Build done', 'All green')
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'agent', label: expect.objectContaining({ code: 'approvals.requester.unknownPane' }) }), 'Build done', 'All green')
     expect(await call('oxespace_workspace_change', { action: 'reindex' }, setup({} as never, { semantic }).ctx)).toMatchObject({ ok: true, result: { indexing: true } })
     expect(await call('oxespace_workspace_change', { action: 'reindex' }, setup({} as never, { semantic, owner: { kind: 'thread', id: 't' }, workspaceId: 'thread:p' }).ctx)).toMatchObject({ ok: false, code: 'no-workspace' })
   })

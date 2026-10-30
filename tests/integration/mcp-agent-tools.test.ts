@@ -82,7 +82,7 @@ describe('agent tools', () => {
     expect(await call('oxespace_agents_change', { action: 'prompt', paneId: 'user-pane', text: 'hi' }, ctx)).toMatchObject({ ok: true })
     expect(asked[0]).toMatchObject({ summary: expect.objectContaining({ code: 'approvals.summary.mcpConfirm', params: expect.objectContaining({ tool: 'oxespace_agents_change', action: 'prompt' }) }), text: 'hi', notes: [{ code: 'approvals.note.agent.actsOnPrompt', params: {} }] })
     // The pane name ("Mine") is never what the person sees as the requester.
-    expect(asked[0].requester).toMatchObject({ kind: 'agent', id: 'pane:me', label: { code: 'approvals.requester.pane' } })
+    expect(asked[0].requester).toMatchObject({ kind: 'agent', id: 'pane:me', label: { code: 'approvals.requester.unknownPane' } })
   })
 
   it('never writes to a blocked agent, its own pane, or with a bad model', async () => {

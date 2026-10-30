@@ -211,7 +211,7 @@ describe('agent gateway: approval', () => {
   it('names the requester from the execution, never from the label an agent could shape (B10)', async () => {
     const h = harness([connection({})])
     await h.gateway.handle('oxespace_db_query', { connection: 'shop', sql: 'SELECT 1' }, actor)
-    expect(h.asked[0].requester).toMatchObject({ kind: 'agent', id: 'thread:t1', label: { code: 'approvals.requester.conversation' } })
+    expect(h.asked[0].requester).toMatchObject({ kind: 'agent', id: 'thread:t1', label: { code: 'approvals.requester.unknownConversation' } })
     expect(h.asked[0]).toMatchObject({ level: 'low', environment: { kind: 'dev', name: 'shop', production: false } })
   })
 

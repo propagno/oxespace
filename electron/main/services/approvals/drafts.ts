@@ -62,5 +62,7 @@ export function noticeTitle(requester: ApprovalRequester, title: string): MainMe
   const label = requester.label
   if (label.code === 'approvals.requester.conversation') return mainMessage('notify.prefix.conversation', { ...label.params, title })
   if (label.code === 'approvals.requester.pane') return mainMessage('notify.prefix.pane', { ...label.params, title })
-  return mainMessage('notify.prefix.pane', { agent: 'AI', pane: 0, title })
+  if (label.code === 'approvals.requester.unknownConversation') return mainMessage('notify.prefix.unknownConversation', { ...label.params, title })
+  if (label.code === 'approvals.requester.unknownPane') return mainMessage('notify.prefix.unknownPane', { ...label.params, title })
+  return mainMessage('notify.prefix.unknownPane', { pane: 0, title })
 }

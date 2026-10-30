@@ -80,6 +80,14 @@ Every request an agent raises for the person (confirm-level MCP actions, OxeQuer
 
 The native dialog is a fallback only: no app window exists, the window reported `approvals.unavailable` for that one request, or a request that needs a handshake (`crash`) was not acknowledged within `APPROVAL_ACK_TIMEOUT_MS`. The renderer-gone notice stays native because the renderer that would draw the modal is gone.
 
+## Accepted risks
+
+Risks known and accepted for a release, each with what limits it and when it is looked at again.
+
+| Risk | Why it is accepted | What limits it | Revisit |
+|---|---|---|---|
+| A `critical` approval shown in the system dialog has no 2-second hold on Allow and no Enter suppression (the window's modal has both, and main enforces them there) | The system dialog is the fallback only: no app window, the window reported `approvals.unavailable`, or the crash offer was not acknowledged. Native dialogs offer no disabled-for-a-while button | Deny is the default and cancel answer; the dialog offers deny only when the text is longer than it can show whole; every answer is logged in the approval history | After 1.4, with the fallback's usage in diagnostics |
+
 ## Dependency and release controls
 
 CI blocks moderate-or-higher production advisories with `npm run security:audit`, blocks high/critical build-tool advisories with `npm run security:audit:tools`, and verifies that the exactly pinned Electron belongs to a supported major line. Electron is a devDependency but ships in the product, so the production audit alone is insufficient. Transitive fixes may be pinned through `overrides`, with the lockfile committed. Build-tool advisories and dated triage are recorded in `docs/validation/stabilization-2026-10-07.md`. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.

@@ -40,17 +40,23 @@ let lookup: ((owner: ExecutionOwner) => RequesterInfo | undefined) | undefined
 /** Set once at startup, where the workspaces and the conversations are known. */
 export function setRequesterLookup(next: typeof lookup): void { lookup = next }
 
-/** Neutral when the provider is not known; a product word in both languages. */
-const UNKNOWN_AGENT = 'AI'
-
+/**
+ * The app's name for the owner. When the provider is not known the label says "Unknown agent" (its own C3 code), never
+ * a provider name, so it cannot pass for a trusted one.
+ */
 export function requesterFor(owner: ExecutionOwner): ApprovalRequester {
   let info: RequesterInfo | undefined
   try { info = lookup?.(owner) } catch { info = undefined }
-  const agent = info?.agent ?? UNKNOWN_AGENT
+  const agent = info?.agent
   if (owner.kind === 'thread') {
-    return { kind: 'agent', id: `thread:${owner.id}`, label: mainMessage('approvals.requester.conversation', { agent, conversation: owner.id.slice(0, 6) }) }
+    const conversation = owner.id.slice(0, 6)
+    return {
+      kind: 'agent', id: `thread:${owner.id}`,
+      label: agent ? mainMessage('approvals.requester.conversation', { agent, conversation }) : mainMessage('approvals.requester.unknownConversation', { conversation })
+    }
   }
-  return { kind: 'agent', id: `pane:${owner.id}`, label: mainMessage('approvals.requester.pane', { agent, pane: info?.pane ?? 0 }) }
+  const pane = info?.pane ?? 0
+  return { kind: 'agent', id: `pane:${owner.id}`, label: agent ? mainMessage('approvals.requester.pane', { agent, pane }) : mainMessage('approvals.requester.unknownPane', { pane }) }
 }
 
 /** The owner behind an audit label (`pane:abc`, `thread:abc`), for callers that only carry the label. */

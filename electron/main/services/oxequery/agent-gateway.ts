@@ -12,6 +12,7 @@ import { englishText } from '../../agent-text'
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequester, type ApprovalRisk } from '../../../../shared/types/approvals'
 import { ownerFromLabel, requesterFor } from '../approvals/requester'
+import { refusalCode } from '../agent-actions/agent-actions'
 
 /** What the model is told when a call is refused; never carries a stack or a server message that was not redacted. */
 export class AgentToolError extends Error {
@@ -183,6 +184,7 @@ export class AgentGateway {
     })
     if (state.state === 'approved') return state.via === 'session' ? 'approved-session' : 'approved'
     if (state.state === 'denied') throw new AgentToolError('The person declined this request. Do not retry it unchanged.', 'denied')
+    if (state.state === 'refused') throw new AgentToolError(englishText(state.refusal), refusalCode(state.refusal))
     throw new AgentToolError('Waiting for the person to approve this request in OXESpace. Ask them to approve it, then call this tool again with exactly the same arguments.', 'approval-pending')
   }
 

@@ -21,7 +21,6 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
-import { showAgentNotice, wireApprovals } from './services/approvals/wiring'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
@@ -436,7 +435,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   app.on('before-quit', () => teamDelivery.stop())
   registerTeamIpc(db, teamAccess)
 
-  wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
+  // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
+  const approvals = await import('./services/approvals/wiring')
+  approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
     delegation: delegationService, executions, team: teamAccess,
@@ -451,7 +452,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     app: {
       github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
       terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService,
-      notify: showAgentNotice,
+      notify: approvals.showAgentNotice,
       agents: {
         state: agentState, terminal: terminalManager, profiles: () => delegationAgents.list(), resolve: id => launcher.resolve(id),
         mcpArgs: provider => agentMcpArguments(provider, join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs')),

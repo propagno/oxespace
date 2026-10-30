@@ -104,7 +104,8 @@ Starting a task in an agent's terminal (`tasks.run`) is not a tool: it types int
 
 Calls apply to the caller's own directory (the pane's or Thread's root); a caller without an execution
 gets the workspace it names or the active one. Refusals have a stable `code`: `invalid`, `no-execution`,
-`no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `reserved-name`, `failed`.
+`no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `reserved-name`, `queue-full`, `failed`.
+`queue-full` (B10): too many approvals were already waiting, so the request was never shown; back off and call again.
 `reserved-name` (B10): a pane name or a notification may not contain OXESpace, OxeChat, OxeCode, OxeQuery, OxePod or
 OxePost (after case, accent and look-alike folding), nor be exactly System or Sistema. Notifications are limited to
 six a minute per execution (`rate-limited`) and are shown with the app's own prefix naming the sender.

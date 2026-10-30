@@ -40,6 +40,11 @@ export interface ActionRequest {
 }
 
 export const ACTION_RATE_PER_MINUTE = 30
+
+/** The MCP code for a request main denied without showing it (B10): the agent may back off and retry a full queue. */
+export function refusalCode(refusal: MainMessage): string {
+  return refusal.code === 'approvals.denied.queueFull' ? 'queue-full' : refusal.code === 'approvals.denied.tooLong' ? 'too-long' : 'denied'
+}
 /** A person approves exactly what they can read; anything longer is refused rather than shortened (B10: one cap for every door). */
 export const MAX_REVIEWABLE = APPROVAL_AGENT_TEXT_MAX
 
@@ -84,6 +89,10 @@ export class AgentActions {
       if (state.state === 'denied') {
         this.deps.audit?.record({ ...base, decision: 'denied', outcome: 'skipped', errorCode: 'denied' })
         throw new ActionRefused('The person declined this request. Do not retry it unchanged.', 'denied')
+      }
+      if (state.state === 'refused') {
+        this.deps.audit?.record({ ...base, decision: 'refused', outcome: 'skipped', errorCode: refusalCode(state.refusal) })
+        throw new ActionRefused(englishText(state.refusal), refusalCode(state.refusal))
       }
       if (state.state === 'pending') {
         this.deps.audit?.record({ ...base, decision: 'pending', outcome: 'skipped', errorCode: 'approval-pending' })
