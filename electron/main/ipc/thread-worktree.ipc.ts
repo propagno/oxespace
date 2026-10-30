@@ -1,7 +1,7 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { AppDatabase } from '../db'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import type { ThreadWorktreeChoice, ThreadWorktreeFinishAction, ThreadWorktreeFinishResult } from '../../../shared/threadWorktree'
+import type { ThreadWorktreeChoice, ThreadWorktreeFinishResult } from '../../../shared/threadWorktree'
 import type { ThreadManager } from '../services/conversation/thread-manager'
 import type { ThreadProjectService } from '../services/conversation/thread-projects'
 import type { ThreadWorktreeHost } from '../services/conversation/thread-worktree'
@@ -33,20 +33,16 @@ export function registerThreadWorktreeIpc({ db, manager, threadProjects, worktre
     sender(event)
     if (action !== 'archive' && action !== 'delete') throw new Error('Choose archive or delete')
     if (choice !== 'auto' && choice !== 'keep' && choice !== 'discard') throw new Error('Choose keep, clean up or discard')
-    const service = await manager, key = id(threadId)
-    const { thread } = service.read(key)
-    const owned = thread.ownedWorktree
-    // The conversation ends first: this stops its agent, which would otherwise hold the folder open.
-    await service.command(key, `/${action as ThreadWorktreeFinishAction} confirm`)
-    if (!owned) return { removed: false, left: 'missing' }
-    if (choice === 'keep') return { removed: false, left: 'chosen' }
-    if (!worktrees?.removeWorktree) return { removed: false, left: 'refused', detail: 'Worktrees are unavailable in this session.' }
-    const { finishThreadWorktree } = await import('../services/conversation/thread-worktree-lifecycle')
+    const service = await manager
+    const { endThreadWithWorktree } = await import('../services/conversation/thread-worktree-lifecycle')
     const { threadsInWorktree } = await import('../services/conversation/thread-worktree')
-    const remover = worktrees.removeWorktree.bind(worktrees)
-    const others = (): number => { try { return threadsInWorktree(db, owned.path).filter(other => other.id !== key).length } catch { return 0 } }
-    const result = await finishThreadWorktree({ removeWorktree: remover }, owned, choice as ThreadWorktreeChoice, others)
-    if (result.removed) threadProjects.removeContext(thread.projectId, owned.path)
-    return result
+    return endThreadWithWorktree({
+      read: key => service.read(key),
+      command: (key, text) => service.command(key, text),
+      remover: worktrees?.removeWorktree ? { removeWorktree: input => worktrees.removeWorktree!(input) } : undefined,
+      removeContext: (projectId, path) => threadProjects.removeContext(projectId, path),
+      // Reading conversations is best effort: removal keeps its own safeguards when it fails.
+      otherThreadsInside: (path, except) => { try { return threadsInWorktree(db, path).filter(other => other.id !== except).length } catch { return 0 } }
+    }, id(threadId), action, choice as ThreadWorktreeChoice)
   })
 }

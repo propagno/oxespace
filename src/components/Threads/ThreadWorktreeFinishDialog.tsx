@@ -26,8 +26,8 @@ export function ThreadWorktreeFinishDialog({ thread, action, onOpenInCode, onClo
   useEffect(() => {
     let current = true
     const api = window.oxe?.thread
-    if (!api?.worktreeInspect) { setInspection(null); return }
-    api.worktreeInspect(thread.id).then(value => { if (current) setInspection(value) }, () => { if (current) setInspection(null) })
+    const reading = api?.worktreeInspect ? api.worktreeInspect(thread.id) : Promise.resolve(null)
+    reading.then(value => { if (current) setInspection(value) }, () => { if (current) setInspection(null) })
     return () => { current = false }
   }, [thread.id])
 

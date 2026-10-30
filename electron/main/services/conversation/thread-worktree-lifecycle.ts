@@ -41,6 +41,33 @@ export async function inspectThreadWorktree(owned: OwnedThreadWorktree): Promise
   return { owned, state, decision: decideThreadWorktreeFinish(state) }
 }
 
+/** What ending a conversation touches: the conversation, its project's folder list, and the guarded removal. */
+export interface ThreadWorktreeEndDeps {
+  read(threadId: string): { thread: { projectId: string; ownedWorktree?: OwnedThreadWorktree } }
+  command(threadId: string, text: string): Promise<unknown>
+  /** Absent when the session has no Git service; the conversation still ends, the worktree stays. */
+  remover?: ThreadWorktreeRemover
+  removeContext(projectId: string, path: string): void
+  /** Other unarchived conversations that work inside the folder. */
+  otherThreadsInside(path: string, exceptThreadId: string): number
+}
+
+/**
+ * Archives or deletes a conversation, then deals with its own worktree as the person chose. The conversation
+ * ends first, which stops its agent (that would hold the folder open); if that fails nothing is removed.
+ */
+export async function endThreadWithWorktree(deps: ThreadWorktreeEndDeps, threadId: string, action: 'archive' | 'delete', choice: ThreadWorktreeChoice): Promise<ThreadWorktreeFinishResult> {
+  const { thread } = deps.read(threadId)
+  const owned = thread.ownedWorktree
+  await deps.command(threadId, `/${action} confirm`)
+  if (!owned) return { removed: false, left: 'missing' }
+  if (choice === 'keep') return { removed: false, left: 'chosen' }
+  if (!deps.remover) return { removed: false, left: 'refused', detail: 'Worktrees are unavailable in this session.' }
+  const result = await finishThreadWorktree(deps.remover, owned, choice, () => deps.otherThreadsInside(owned.path, threadId))
+  if (result.removed) deps.removeContext(thread.projectId, owned.path)
+  return result
+}
+
 /**
  * Removes the conversation's worktree after the conversation stopped, as far as the person's choice allows.
  * The state is read again here: "auto" removes only a worktree that is still empty, and work written since the
