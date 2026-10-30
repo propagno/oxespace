@@ -210,8 +210,8 @@ private fun Collapsible(title: String, text: String, color: Color) {
 }
 
 /**
- * Message, steer or stop. A message keeps its clientId until the desktop confirms it, so sending it again after a
- * silent drop can't make it arrive twice; the text stays in the field until then.
+ * Message, steer or stop. A message keeps its clientId while its fate is unknown, so sending it again after a silent
+ * drop can't make it arrive twice; after a refusal the next try is a new message. The text stays until it's sent.
  */
 @Composable
 private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, commands: CommandApi) {
@@ -254,10 +254,8 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, comm
                     scope.launch {
                         val result = if (steer) commands.steer(RemoteThreadSteerArgs(threadId, text, clientId)) else commands.send(RemoteThreadSendArgs(threadId, text, clientId))
                         message = commandMessage(result)
-                        if (result is CommandResult.Done) {
-                            text = ""
-                            clientId = UUID.randomUUID().toString()
-                        }
+                        if (result is CommandResult.Done) text = ""
+                        clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
                         busy = false
                     }
                 },

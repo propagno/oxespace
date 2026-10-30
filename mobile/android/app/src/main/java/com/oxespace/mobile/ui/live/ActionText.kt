@@ -4,6 +4,16 @@ import com.oxespace.mobile.R
 import com.oxespace.mobile.protocol.RemoteErrorCode
 import com.oxespace.mobile.protocol.live.CommandResult
 
+/**
+ * The clientId of the next send. The desktop applies a clientId once and replays its result, failures too: while a
+ * message's fate is unknown (no answer, offline) the same id makes a resend safe; after it went through or was
+ * refused, the next try is a new message.
+ */
+fun clientIdAfter(result: CommandResult, current: String, newId: () -> String): String = when (result) {
+    is CommandResult.Done, is CommandResult.Refused -> newId()
+    CommandResult.NoAnswer, CommandResult.Offline -> current
+}
+
 /** What to tell the person after a command, or null when it went through. */
 fun commandMessage(result: CommandResult): Int? = when (result) {
     is CommandResult.Done -> null
