@@ -16,7 +16,7 @@ sdk.dir=C\:/Users/you/AppData/Local/Android/Sdk
 Then, from `mobile/android`:
 
 ```sh
-./gradlew lint testDebugUnitTest assembleDebug
+./gradlew lint testDebugUnitTest :protocol:test assembleDebug
 ```
 
 The debug APK lands in `app/build/outputs/apk/debug/`. CI runs the same command (`.github/workflows/android.yml`).
