@@ -23,6 +23,8 @@ export interface RemoteGatewayStatus {
   fingerprint: string | null
   devices: number
   maxDevices: number
+  /** Panes the person allowed the phone to type into. Empty when the app starts. */
+  phoneWritePanes: string[]
   /** Why it is not listening (port in use, firewall, certificate…), as a code the window translates. */
   error?: MainMessage
 }
@@ -80,4 +82,6 @@ export interface RemoteApi {
   rename(input: { deviceId: string; name: string }): Promise<RemoteDevice>
   /** The name phones see, at most 32 characters; `null` goes back to the default. */
   setDesktopName(input: { name: string | null }): Promise<RemoteGatewayStatus>
+  /** Lets a phone type into one pane, or stops it. Off by default and again when the app restarts. */
+  setPhoneWrite(input: { paneId: string; allowed: boolean }): Promise<RemoteGatewayStatus>
 }

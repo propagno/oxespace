@@ -119,6 +119,12 @@
     "loadingFolder": "Loading {{name}}",
     "emptyFolder": "Empty folder",
     "noFiles": "No files",
+    "browser": {
+      "pathMenu": "Path of {{name}}",
+      "copyPath": "Copy path",
+      "copyRelativePath": "Copy relative path",
+      "path": "Path"
+    },
     "workspaceFiles": "Workspace files",
     "fit": "Click to fit",
     "fullSize": "Click to view at full size",
@@ -130,6 +136,8 @@
       "closeOthers": "Close other tabs",
       "pin": "Pin tab",
       "unpin": "Unpin tab",
+      "moveLeft": "Move left",
+      "moveRight": "Move right",
       "closeOthersTitle": "Pinned tabs and tabs with unsaved changes stay open"
     },
     "conflict": {

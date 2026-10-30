@@ -16,7 +16,7 @@ import { DocumentTree, ExplainCard } from './MongoPanels'
 import { PAGE_SIZES, cloneDocument, documentLabel, jsonProblem, prettyDocument } from './mongo-model'
 import { flattenDocuments } from './mongo-view'
 import { ResultGrid } from './ResultGrid'
-import { Select, TextArea } from '../../ui/Field'
+import { FieldError, Select, TextArea } from '../../ui/Field'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Splitter } from '../../ui/Splitter'
@@ -226,10 +226,10 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
         </div>
         <div className="oq-mongo-inputs" style={{ height: inputsHeight }}>
           {mode === 'find' ? <>
-            <label>{t('mongo.filter')}<textarea aria-label={t('mongo.filter')} aria-invalid={problems.filter ? true : undefined} spellCheck={false} value={filter} onChange={event => setFilter(event.target.value)} rows={3} />{problems.filter && <small className="oq-field-error" role="alert">{problems.filter}</small>}</label>
-            <label>{t('mongo.projection')}<textarea aria-label={t('mongo.projection')} aria-invalid={problems.projection ? true : undefined} spellCheck={false} value={projection} onChange={event => setProjection(event.target.value)} rows={3} placeholder='{ "field": 1 }' />{problems.projection && <small className="oq-field-error" role="alert">{problems.projection}</small>}</label>
-            <label>{t('mongo.sort')}<textarea aria-label={t('mongo.sort')} aria-invalid={problems.sort ? true : undefined} spellCheck={false} value={sort} onChange={event => setSort(event.target.value)} rows={3} placeholder='{ "createdAt": -1 }' />{problems.sort && <small className="oq-field-error" role="alert">{problems.sort}</small>}</label>
-          </> : <label className="oq-mongo-wide">{t('mongo.pipeline')}<textarea aria-label={t('mongo.pipeline')} aria-invalid={problems.pipeline ? true : undefined} spellCheck={false} value={pipeline} onChange={event => setPipeline(event.target.value)} rows={7} />{problems.pipeline && <small className="oq-field-error" role="alert">{problems.pipeline}</small>}</label>}
+            <label>{t('mongo.filter')}<textarea aria-label={t('mongo.filter')} aria-invalid={problems.filter ? true : undefined} aria-describedby={problems.filter ? 'oq-mongo-filter-error' : undefined} spellCheck={false} value={filter} onChange={event => setFilter(event.target.value)} rows={3} />{problems.filter && <FieldError id="oq-mongo-filter-error" className="oq-field-error">{problems.filter}</FieldError>}</label>
+            <label>{t('mongo.projection')}<textarea aria-label={t('mongo.projection')} aria-invalid={problems.projection ? true : undefined} aria-describedby={problems.projection ? 'oq-mongo-projection-error' : undefined} spellCheck={false} value={projection} onChange={event => setProjection(event.target.value)} rows={3} placeholder='{ "field": 1 }' />{problems.projection && <FieldError id="oq-mongo-projection-error" className="oq-field-error">{problems.projection}</FieldError>}</label>
+            <label>{t('mongo.sort')}<textarea aria-label={t('mongo.sort')} aria-invalid={problems.sort ? true : undefined} aria-describedby={problems.sort ? 'oq-mongo-sort-error' : undefined} spellCheck={false} value={sort} onChange={event => setSort(event.target.value)} rows={3} placeholder='{ "createdAt": -1 }' />{problems.sort && <FieldError id="oq-mongo-sort-error" className="oq-field-error">{problems.sort}</FieldError>}</label>
+          </> : <label className="oq-mongo-wide">{t('mongo.pipeline')}<textarea aria-label={t('mongo.pipeline')} aria-invalid={problems.pipeline ? true : undefined} aria-describedby={problems.pipeline ? 'oq-mongo-pipeline-error' : undefined} spellCheck={false} value={pipeline} onChange={event => setPipeline(event.target.value)} rows={7} />{problems.pipeline && <FieldError id="oq-mongo-pipeline-error" className="oq-field-error">{problems.pipeline}</FieldError>}</label>}
         </div>
         <Splitter orientation="horizontal" label={t('mongo.inputsHeight')} value={inputsHeight} min={MONGO_INPUTS_HEIGHT.min} max={inputsMax} defaultValue={MONGO_INPUTS_HEIGHT.default} onChange={height => layout.set({ mongoInputsHeight: height })} />
         {error && <QueryError error={{ message: error }}>{looksLikeLostConnection(error) && <ReconnectBar connection={connection} onReconnected={() => void run(0)} />}</QueryError>}
