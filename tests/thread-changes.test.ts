@@ -1,24 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { sessionChangeGroups, threadFileScope, threadWorkingRoot } from '../src/components/Threads/threadChanges'
+import { threadFileScope, threadWorkingRoot, turnChanges } from '../src/components/Threads/threadChanges'
 import { requestOutcome, requestOutcomeLabel } from '../shared/threadRequestOutcome'
-import type { ThreadEvent, ThreadRequest } from '../shared/types/thread'
-
-describe('session change history', () => {
-  it('groups repeated file operations by turn and prefers verified evidence without hiding steps', () => {
-    const events: ThreadEvent[] = [
-      { type: 'message', id: 'user-1', role: 'user', text: 'Update the guide\nwith examples' },
-      { type: 'tool', id: 'edit-1', name: 'Edit', state: 'completed', detail: '', files: [{ path: 'docs/guide.md', kind: 'update', source: 'tool-input', state: 'completed' }] },
-      { type: 'tool', id: 'edit-2', name: 'Edit', state: 'completed', detail: '', files: [{ path: 'docs/guide.md', kind: 'update', source: 'native-patch', state: 'completed', additions: 2, deletions: 1 }] },
-      { type: 'message', id: 'user-2', role: 'user', text: 'Revise the tests' },
-      { type: 'tool', id: 'edit-3', name: 'Edit', state: 'failed', detail: '', files: [{ path: 'tests/guide.test.ts', kind: 'update', source: 'tool-input', state: 'failed' }] }
-    ]
-    const groups = sessionChangeGroups(events)
-    expect(groups.map(group => [group.sequence, group.label])).toEqual([[2, 'Revise the tests'], [1, 'Update the guide']])
-    expect(groups[0].files[0].primary.file.state).toBe('failed')
-    expect(groups[1].files[0].operations).toHaveLength(2)
-    expect(groups[1].files[0].primary.toolId).toBe('edit-2')
-  })
-})
+import type { ThreadRequest } from '../shared/types/thread'
 
 describe('request outcomes', () => {
   const question = { kind: 'question', state: 'resolved', title: 'Choose', id: 'q', nativeId: 'q', nativeMethod: 'AskUserQuestion', generation: 1, createdAt: 1 } as ThreadRequest
@@ -33,7 +16,7 @@ describe('request outcomes', () => {
 it('keeps Linux case-sensitive paths distinct and labels external agent state', () => {
   expect(threadFileScope('/home/user/.claude/projects/repo/session.jsonl', '/repo')).toBe('Agent state')
   expect(threadFileScope('../elsewhere/file.md', '/repo')).toBe('External')
-  const files = sessionChangeGroups([{ type: 'tool', id: 'edit', name: 'Edit', state: 'completed', detail: '', files: [{ path: '/repo/Readme.md', kind: 'update' }, { path: '/repo/README.md', kind: 'update' }] }])[0].files
+  const files = turnChanges([{ type: 'turn-diff', id: 'turn-diff:1', turnId: 't', files: [{ path: '/repo/Readme.md', kind: 'update' }, { path: '/repo/README.md', kind: 'update' }] }])
   expect(files).toHaveLength(2)
 })
 

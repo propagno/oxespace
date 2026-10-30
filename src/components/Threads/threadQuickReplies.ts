@@ -16,7 +16,7 @@ export function threadQuickReplies(message: string): ThreadQuickReply[] {
     const match = line.match(/^\s*(?:[-*•]\s*)?(?:\*\*)?([A-E])(?:\s*\(([^)\n]{1,48})\))?\s*[:.)](?:\*\*)?(?:\s|$)/i)
     if (!match) continue
     const value = match[1].toUpperCase()
-    if (!options.some(option => option.value === value)) options.push({ label: `${value}${match[2] ? ` (${match[2]})` : ''}`, value })
+    if (!options.some(option => option.value === value)) options.push({ label: match[2] ? `${value} (${match[2]})` : value, value })
   }
   if (options.length >= 2) return options.slice(0, 5)
 

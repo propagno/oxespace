@@ -1,5 +1,7 @@
-import { Check, ChevronDown, Circle, ListChecks, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, Circle, ListChecks } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
+import { Spinner } from '../../ui'
 
 type PlanEvent = Extract<ThreadEvent, { type: 'plan' }>
 
@@ -19,19 +21,21 @@ export function activePlan(events: ThreadEvent[]): PlanEvent | null {
  * conversation scrolls (the timeline keeps the full plan card too).
  */
 export function ThreadDockPlan({ events }: { events: ThreadEvent[] }) {
+  const { t } = useTranslation('thread')
   const plan = activePlan(events)
   if (!plan) return null
   const done = plan.steps.filter(step => step.status === 'completed').length
   const current = plan.steps.find(step => step.status === 'inProgress') ?? plan.steps.find(step => step.status === 'pending')
+  const total = plan.steps.length
   return <details className="thread-dock-plan" data-testid="thread-dock-plan">
-    <summary aria-label={`Plan, ${done} of ${plan.steps.length} done${current ? `. Now: ${current.label}` : ''}`}>
+    <summary aria-label={current ? t('dockPlan.summaryNow', { done, total, current: current.label }) : t('dockPlan.summary', { done, total })}>
       <ListChecks size={14} aria-hidden="true" />
-      <strong>Plan {done}/{plan.steps.length}</strong>
+      <strong>{t('dockPlan.title', { done, total })}</strong>
       {current && <span className="thread-dock-plan-current">{current.label}</span>}
       <ChevronDown size={14} aria-hidden="true" className="thread-dock-plan-chevron" />
     </summary>
     <ol>{plan.steps.map((step, index) => <li key={index} className={`is-${step.status}`}>
-      {step.status === 'completed' ? <Check size={13} aria-hidden="true" /> : step.status === 'inProgress' ? <Loader2 size={13} aria-hidden="true" className="thread-spin" /> : <Circle size={11} aria-hidden="true" />}
+      {step.status === 'completed' ? <Check size={13} aria-hidden="true" /> : step.status === 'inProgress' ? <Spinner size="sm" decorative /> : <Circle size={11} aria-hidden="true" />}
       <span>{step.label}</span>
     </li>)}</ol>
   </details>

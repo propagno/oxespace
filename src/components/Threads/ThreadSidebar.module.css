@@ -7,9 +7,6 @@
 .listHeading button { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; color: var(--text-secondary); border-radius: var(--radius-sm); }
 .listHeading button[aria-pressed='true'] { background: var(--nav-selected); color: var(--text-primary); }
 
-.empty, .error { padding: var(--space-2); color: var(--text-muted); font-size: var(--text-xs); }
-.error { color: var(--intent-danger-fg); }
-.error p { margin: 0 0 var(--space-2); }
 
 /* ── Project group ── */
 .group { margin: 0 0 var(--space-2); }
