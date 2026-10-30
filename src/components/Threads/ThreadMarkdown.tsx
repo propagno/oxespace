@@ -19,7 +19,7 @@ function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
       const code = event.currentTarget.closest('.thread-code-block')?.querySelector('code')?.textContent ?? ''
       try { await navigator.clipboard.writeText(code); setCopied(true); setError(false) }
       catch { setError(true); setCopied(false) }
-    }}>{copied ? <Check size={12} /> : <Copy size={12} />}{copied ? t('markdown.copied') : t('markdown.copy')}</button></div>
+    }}>{copied ? <Check size={12} className="oxe-confirm" /> : <Copy size={12} />}{copied ? t('markdown.copied') : t('markdown.copy')}</button></div>
     <pre {...props}>{children}</pre>
     {error && <ErrorState compact title={t('markdown.copyFailed')} />}
   </div>

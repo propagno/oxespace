@@ -4,23 +4,16 @@ import type { McpServer } from '../../../shared/types/mcp'
 import { launcherPackage } from '../../../shared/mcp-launcher'
 import { scanToolDescriptions } from '../../../shared/mcp-scan'
 import { useTranslation } from 'react-i18next'
-import { mainMessage, type MainMessage } from '../../../shared/messages'
 import { formatMainMessage } from '../../i18n/mainMessage'
 
 type Quarantine = NonNullable<NonNullable<McpServer['guard']>['quarantine']>
-const quoted = (names: string[]): string[] => names.map(name => `"${name.slice(0, 60)}"`)
 
 /**
- * Why a server is quarantined, in the interface language. A change in its tools travels as names, so it is worded here
- * from the message codes (C3); a change in its command has no list and keeps the reason the main process recorded.
+ * Why a server is quarantined, in the interface language. A quarantine recorded since message codes exist is worded
+ * from its codes (C3); an older one keeps the reasons the main process recorded.
  */
 export function quarantineReasons(quarantine: Quarantine): string[] {
-  const messages: MainMessage[] = [
-    ...(quarantine.changed.length ? [mainMessage('mcp.quarantine.changed', { tools: quoted(quarantine.changed) })] : []),
-    ...(quarantine.added.length ? [mainMessage('mcp.quarantine.added', { tools: quoted(quarantine.added) })] : []),
-    ...(quarantine.removed.length ? [mainMessage('mcp.quarantine.removed', { tools: quoted(quarantine.removed) })] : [])
-  ]
-  return messages.length ? messages.map(formatMainMessage) : quarantine.reasons
+  return quarantine.codes?.length ? quarantine.codes.map(formatMainMessage) : quarantine.reasons
 }
 
 /**

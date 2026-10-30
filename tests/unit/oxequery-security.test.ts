@@ -3,7 +3,7 @@ import { guardSql, outsideReach } from '../../electron/main/services/oxequery/sq
 import { buildStatements, type ColumnMeta } from '../../electron/main/services/oxequery/table-editor'
 import { redact } from '../../electron/main/services/oxequery/oxequery-core'
 import { csvField } from '../../electron/main/services/oxequery/export-writer'
-import { assertContainerId, assertExecArgv } from '../../electron/main/services/oxequery/container-runtime'
+import { assertContainerId, assertExecArgv } from '../../electron/main/services/oxepod/container-runtime'
 
 describe('security: SQL that must never be classified as a plain read', () => {
   const reaching = [

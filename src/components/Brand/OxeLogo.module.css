@@ -27,3 +27,8 @@
 }
 
 .mark { flex: none; display: block; }
+/* The app icon's colors come from the --logo-* tokens (src/design/tokens/palette.ts › LOGO); inline, the cactus takes the text color. */
+.tile { fill: var(--logo-tile); }
+.onTile { stroke: var(--logo-mark); }
+.inline { stroke: currentColor; }
+.sun { fill: var(--logo-sun); }

@@ -1,5 +1,5 @@
 /**
- * Live validation of OxeQuery against a real Docker daemon, a real PostgreSQL and
+ * Live validation of OxeQuery and OxePod against a real Docker daemon, a real PostgreSQL and
  * a real MongoDB. Skipped unless OXE_LIVE=1. It needs the built worker
  * (`npx electron-vite build`) because the worker bundle is part of what is tested.
  *
@@ -13,7 +13,12 @@ import { openInMemoryDatabase } from '../../electron/main/db'
 import { LocalExecutionHost } from '../../electron/main/runtime/execution-host'
 import { OxeQueryService } from '../../electron/main/services/oxequery/service'
 import { OxeQueryWorkerClient } from '../../electron/main/services/oxequery/worker-client'
+import { OxePodService } from '../../electron/main/services/oxepod/service'
 import type { OxeQueryEvent, OxeQueryOp, OxeQueryOps } from '../../shared/types/oxequery'
+import type { OxePodEvent, OxePodOp, OxePodOps } from '../../shared/types/oxepod'
+
+type Ops = OxeQueryOps & OxePodOps
+type Op = OxeQueryOp | OxePodOp
 
 /** The server versions under test; CI runs the suite against several (OXE_LIVE_PG_IMAGE / OXE_LIVE_MONGO_IMAGE). */
 const PG_IMAGE = process.env.OXE_LIVE_PG_IMAGE ?? 'docker.io/library/postgres:16-alpine'
@@ -38,17 +43,20 @@ const docker = (...args: string[]): string => {
 }
 
 describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', () => {
-  const events: OxeQueryEvent[] = []
+  const events: (OxeQueryEvent | OxePodEvent)[] = []
   let service: OxeQueryService
+  let pod: OxePodService
   let db: ReturnType<typeof openInMemoryDatabase>
 
-  async function call<K extends OxeQueryOp>(op: K, input: OxeQueryOps[K]['input']): Promise<OxeQueryOps[K]['output']> {
-    const response = await service.call(op, input)
+  /** Each operation through its own product, as the window sends it: containers to OxePod, the rest to OxeQuery. */
+  const send = (op: Op, input: unknown) => /^(containers|resources)\./.test(op) ? pod.call(op as OxePodOp, input) : service.call(op as OxeQueryOp, input)
+  async function call<K extends Op>(op: K, input: Ops[K]['input']): Promise<Ops[K]['output']> {
+    const response = await send(op, input)
     if (!response.ok) throw Object.assign(Error(`${op}: ${response.error.code}: ${response.error.message}`), { info: response.error })
-    return response.value
+    return response.value as Ops[K]['output']
   }
-  async function failure<K extends OxeQueryOp>(op: K, input: OxeQueryOps[K]['input']) {
-    const response = await service.call(op, input)
+  async function failure<K extends Op>(op: K, input: Ops[K]['input']) {
+    const response = await send(op, input)
     if (response.ok) throw Error(`Expected ${op} to fail`)
     return response.error
   }
@@ -66,10 +74,11 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
   beforeAll(async () => {
     expect(existsSync(workerPath), 'run `npx electron-vite build` first').toBe(true)
     db = openInMemoryDatabase()
+    pod = new OxePodService({ host: new LocalExecutionHost(), emit: event => events.push(event), preferredEngine: () => ENGINE })
     service = new OxeQueryService({
-      db, host: new LocalExecutionHost(), emit: event => events.push(event),
+      db, emit: event => events.push(event), pod: async () => pod.containers,
       cipher: { available: () => true, encrypt: value => Buffer.from(`enc:${value}`), decrypt: value => value.toString().replace(/^enc:/, '') },
-      worker: new OxeQueryWorkerClient(workerPath), preferredEngine: () => ENGINE
+      worker: new OxeQueryWorkerClient(workerPath)
     })
     docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PG_PASSWORD}`, '-p', '127.0.0.1::5432', PG_IMAGE)
     docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, '-p', '127.0.0.1::27017', MONGO_IMAGE)
@@ -82,6 +91,7 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
   }, 240_000)
 
   afterAll(async () => {
+    pod?.dispose()
     await service?.dispose().catch(() => undefined)
     for (const name of [PG, MONGO]) { try { docker('rm', '-f', name) } catch { /* already gone */ } }
     db?.close()
@@ -247,8 +257,8 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
   it('opens an interactive shell registration only for a validated container', async () => {
     const { paneId } = await call('containers.shell', { id: PG })
     expect(paneId).toMatch(/^oxequery-shell:[0-9a-f-]{36}$/)
-    expect(service.shellFor(paneId)).toEqual({ file: ENGINE, args: ['exec', '-it', PG, 'sh'] })
-    expect(service.shellFor('oxequery-shell:00000000-0000-0000-0000-000000000000')).toBeUndefined()
+    expect(pod.shellFor(paneId)).toEqual({ file: ENGINE, args: ['exec', '-it', PG, 'sh'] })
+    expect(pod.shellFor('oxequery-shell:00000000-0000-0000-0000-000000000000')).toBeUndefined()
     expect((await failure('containers.shell', { id: 'bad id; rm -rf /' })).code).toBe('invalid')
   })
 })

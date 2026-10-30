@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { engineAdvice } from '../../src/components/OxePod/EngineBar'
-import type { ContainerEngineCandidate } from '../../shared/types/oxequery'
+import type { ContainerEngineCandidate } from '../../shared/types/oxepod'
 
 const entry = (change: Partial<ContainerEngineCandidate>): ContainerEngineCandidate => ({ id: 'context:x', label: 'x', endpoint: 'unix:///x', current: false, selected: false, state: 'ready', ...change })
 

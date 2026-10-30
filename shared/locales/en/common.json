@@ -259,7 +259,12 @@
       "failed": "Could not copy: {{what}}",
       "unavailable": "The clipboard is not available."
     },
-    "notSaved": "The change was not saved."
+    "notSaved": "The change was not saved.",
+    "crash": {
+      "title": "OXESpace could not show this window.",
+      "message": "Your terminals, agents and conversations keep running. Try again; if it happens again, reload the window and report the problem from the Help menu.",
+      "reload": "Reload window"
+    }
   },
   "errors": {
     "generic": "Something went wrong. Try again.",
@@ -304,7 +309,6 @@
       "description": "Provider accounts are checked inside an OxeChat project."
     },
     "loadingWorkspaces": "Loading workspaces",
-    "loadingConversations": "Loading conversations…",
     "boundary": {
       "conversations": "the conversations",
       "window": "this window"

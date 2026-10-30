@@ -20,7 +20,10 @@ import { useContributedCommands } from '../src/utils/commandRegistry'
  */
 afterEach(async () => { await act(async () => { await changeLanguage('en') }) })
 
-const quarantine = { at: 1, reasons: ['The description or inputs of "read" changed after you trusted it.'], added: ['write'], removed: [], changed: ['read'] }
+const quarantine = {
+  at: 1, reasons: ['The description or inputs of "read" changed after you trusted it.', 'It added "write".'], added: ['write'], removed: [], changed: ['read'],
+  codes: [mainMessage('mcp.quarantine.changed', { tools: ['"read"'] }), mainMessage('mcp.quarantine.added', { tools: ['"write"'] })]
+}
 
 describe('messages from the main process (C3)', () => {
   it('are worded from their code, in the language on screen', async () => {
@@ -33,9 +36,9 @@ describe('messages from the main process (C3)', () => {
     expect(formatMainMessage(mainMessage('app.connectivity.offline', {}))).not.toBe('No network connection.')
   })
 
-  it('word an MCP quarantine from what changed, and keep a reason that has no code', async () => {
+  it('word an MCP quarantine from its codes, and keep the reasons of a record that has none', async () => {
     expect(quarantineReasons(quarantine)).toEqual(['The description or inputs of "read" changed after you trusted it.', 'It added "write".'])
-    expect(quarantineReasons({ ...quarantine, added: [], changed: [], reasons: ['Its command changed.'] })).toEqual(['Its command changed.'])
+    expect(quarantineReasons({ ...quarantine, codes: undefined, reasons: ['Its command changed.'] })).toEqual(['Its command changed.'])
     await act(async () => { await changeLanguage('pt-BR') })
     const server = { name: 'files', trusted: false, tools: [], config: { transport: 'stdio', command: 'node', args: [], env: {} }, guard: { toolsRemembered: true, quarantine } } as unknown as McpServer
     render(<McpServerSafety server={server} />)

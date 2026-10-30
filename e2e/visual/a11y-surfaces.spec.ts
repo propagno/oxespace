@@ -259,7 +259,7 @@ for (const theme of THEMES) {
       await dialogScan('thread-new', () => page.getByRole('button', { name: /^New conversation/ }).first().click(), () => page.getByRole('dialog', { name: 'New conversation' }))
       await dialogScan('thread-new-worktree', async () => {
         await page.getByRole('button', { name: /^New conversation/ }).first().click()
-        await page.getByRole('dialog', { name: 'New conversation' }).getByRole('checkbox', { name: 'Create in a new worktree' }).check()
+        await page.getByRole('dialog', { name: 'New conversation' }).getByRole('checkbox', { name: 'Work in an isolated worktree' }).check()
       }, () => page.getByRole('dialog', { name: 'New conversation' }))
       // Row actions show on hover; the row is hovered first, as a person would.
       const rowMenu = async (item: string): Promise<void> => {
