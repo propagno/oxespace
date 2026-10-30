@@ -2,7 +2,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { useColorMode } from '../../design/useColorMode'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
-import { WebglAddon } from '@xterm/addon-webgl'
+import type { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -23,6 +23,13 @@ import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 const AGENT_MARKERS = ['⏺', '●']
 
 let activeWebglContexts = 0
+// @xterm/addon-webgl loads on first use, in its own chunk, so it stays off the boot path
+// (scripts/verify-bundle-budgets.mjs). Until it arrives a pane draws with the DOM renderer.
+let webglAddonClass: typeof WebglAddon | null = null
+let webglAddonLoading: Promise<void> | null = null
+function loadWebglAddonClass(): Promise<void> {
+  return webglAddonLoading ??= import('@xterm/addon-webgl').then(module => { webglAddonClass = module.WebglAddon })
+}
 let webgl2Supported: boolean | null = null
 // Browsers cap WebGL contexts per tab (Chrome: 16). When exceeded, the oldest
 // context is lost, unexpectedly breaking older terminals. Shared with the MRU
@@ -274,9 +281,18 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     if (webglAddon) return
     if (activeWebglContexts >= MAX_WEBGL_CONTEXTS) {
       console.warn(`[OXESpace] WebGL context limit reached (${MAX_WEBGL_CONTEXTS}), using DOM renderer`)
-    } else if (supportsWebgl2()) {
+    } else if (supportsWebgl2() && !webglAddonClass) {
+      // The pane may be gone or hidden by the time the addon arrives; loadWebgl then does nothing or waits.
+      loadWebglAddonClass()
+        .then(() => {
+          if (disposed || isHidden() || webglAddon) return
+          loadWebgl()
+          try { terminal.refresh(0, terminal.rows - 1) } catch { /* disposed */ }
+        })
+        .catch((err: unknown) => { console.warn('[OXESpace] WebGL renderer did not load, using DOM renderer', err) })
+    } else if (supportsWebgl2() && webglAddonClass) {
       try {
-        const addon = new WebglAddon()
+        const addon = new webglAddonClass()
         addon.onContextLoss(() => {
           try { addon.dispose() } catch { /* already torn down */ }
           if (webglAddon === addon) {
