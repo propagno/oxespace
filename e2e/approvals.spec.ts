@@ -96,7 +96,7 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
   })
 }
 
-test('keyboard flow and a queue of three: Enter at once answers nothing, Deny is default, the next opens after each decision', async () => {
+test('keyboard flow and a queue of three: Enter denies (the default), Allow needs its own key, the next opens after each decision', async () => {
   test.setTimeout(120_000)
   const { app, page } = await launchWith([
     approval('q2', 2, { requester: pane('Codex', 3) }),
@@ -107,8 +107,9 @@ test('keyboard flow and a queue of three: Enter at once answers nothing, Deny is
     const dialog = page.getByTestId('approval-dialog')
     await expect(dialog).toContainText('Claude · pane 1', { timeout: 15_000 })
     await expect(page.getByTestId('approval-queue')).toHaveText('Request 1 of 3')
-    // Enter lands on Deny, the default: it never approves (in the first 400 ms it answers nothing at all, which the
-    // unit tests pin; here the request may already be armed).
+    // Enter lands on Deny, the default: it never approves. (In the first 400 ms it answers nothing at all; the unit tests
+    // pin that, since here the request's arrival time is main's.)
+    await page.waitForTimeout(ARMED)
     await page.keyboard.press('Enter')
     await expect(dialog).toContainText('Codex · pane 3')
     await expect(page.getByTestId('approval-queue')).toHaveText('Request 1 of 2')
