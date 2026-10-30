@@ -335,6 +335,105 @@
     "unchecked": "CLIs de agentes ainda não verificadas",
     "uncheckedDetail": "Verifique quais CLIs de agentes estão instaladas nesta máquina."
   },
+  "approvals": {
+    "title": {
+      "action": "Permitir esta ação do agente?",
+      "mcp-confirm": "Permitir esta chamada de ferramenta MCP?",
+      "oxequery": "Permitir este comando no banco de dados?",
+      "preview-automation": "Permitir esta ação no navegador?",
+      "crash": "Reiniciar depois da falha?"
+    },
+    "kind": {
+      "action": "Ação do agente",
+      "mcp-confirm": "Chamada de ferramenta MCP",
+      "oxequery": "Comando no banco de dados",
+      "preview-automation": "Ação no navegador",
+      "crash": "Recuperação de falha"
+    },
+    "summary": "{{what}}, pedido de {{requester}}. Risco: {{risk}}.",
+    "summaryEnvironment": "{{what}} em {{environment}}, pedido de {{requester}}. Risco: {{risk}}.",
+    "summaryProduction": "{{what}} em {{environment}}, um ambiente de produção, pedido de {{requester}}. Risco: {{risk}}.",
+    "queue": "Pedido {{position}} de {{total}}",
+    "closeDeny": "Negar e fechar",
+    "risk": {
+      "label": "Risco: {{level}}",
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "critical": "Crítico"
+    },
+    "environment": {
+      "label": "Ambiente: {{name}}",
+      "productionLabel": "Produção · {{name}}",
+      "productionHint": "Mudanças aqui afetam usuários e dados reais."
+    },
+    "requester": {
+      "label": "Pedido por",
+      "agent": "Agente",
+      "mcp-server": "Servidor MCP",
+      "app": "OXESpace",
+      "verified": "identificado pelo OXESpace"
+    },
+    "appNotes": "Avisos do OXESpace",
+    "agent": {
+      "heading": "Conteúdo do agente",
+      "hint": "Escrito pelo agente e mostrado como foi enviado. O OXESpace não verificou: leia como uma afirmação, não como um fato.",
+      "empty": "O agente não enviou texto.",
+      "length": "{{length}} caracteres",
+      "truncated": "O OXESpace encurtou este conteúdo em {{limit}} caracteres."
+    },
+    "expires": "Se você não responder até {{time}}, o pedido será negado.",
+    "refused": "Sua resposta não foi aplicada",
+    "settled": {
+      "timeout": "O pedido expirou sem resposta e foi negado.",
+      "cancelled": "O pedido foi cancelado antes de uma resposta."
+    },
+    "outcome": {
+      "deny": "Negado",
+      "allow": "Permitido uma vez",
+      "allow-session": "Permitido nesta sessão"
+    },
+    "by": {
+      "timeout": "Expirou, negado",
+      "cancelled": "Cancelado"
+    },
+    "history": {
+      "open": "Histórico",
+      "title": "Decisões de aprovação",
+      "description": "Pedidos respondidos nesta sessão, do mais recente ao mais antigo.",
+      "empty": "Nenhuma decisão nesta sessão ainda.",
+      "back": "Voltar ao pedido",
+      "close": "Fechar",
+      "columns": {
+        "time": "Hora",
+        "what": "O quê",
+        "who": "Pedido por",
+        "decision": "Decisão"
+      }
+    },
+    "unknownCode": "O OXESpace enviou uma mensagem que esta versão não consegue mostrar.",
+    "codes": {
+      "approvals": {
+        "option": {
+          "deny": "Negar",
+          "allowOnce": "Permitir uma vez",
+          "allowSession": "Permitir nesta sessão",
+          "restart": "Reiniciar",
+          "closeTab": "Fechar a aba"
+        },
+        "note": {
+          "production": "Isto roda em {{name}}, um ambiente de produção.",
+          "destructive": "Esta ação apaga ou sobrescreve dados e não pode ser desfeita.",
+          "outsideWorkspace": "Isto mexe em {{path}}, fora do workspace.",
+          "crashed": "O OXESpace parou inesperadamente {{times}} vezes seguidas."
+        },
+        "notFound": "Este pedido não está mais pendente.",
+        "stale": "Este pedido mudou desde que foi mostrado. Confira de novo antes de responder.",
+        "invalidOption": "Essa resposta não é uma das opções deste pedido.",
+        "unavailable": "A janela não conseguiu mostrar este pedido; o OXESpace pergunta na própria caixa de diálogo."
+      }
+    }
+  },
   "about": {
     "title": "Sobre o OXESpace",
     "versionLine": "Versão {{version}}",

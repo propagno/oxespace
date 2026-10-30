@@ -330,6 +330,105 @@
     "unchecked": "Agent CLIs not checked yet",
     "uncheckedDetail": "Check which agent CLIs are installed on this machine."
   },
+  "approvals": {
+    "title": {
+      "action": "Allow this agent action?",
+      "mcp-confirm": "Allow this MCP tool call?",
+      "oxequery": "Allow this database statement?",
+      "preview-automation": "Allow this browser action?",
+      "crash": "Restart after the crash?"
+    },
+    "kind": {
+      "action": "Agent action",
+      "mcp-confirm": "MCP tool call",
+      "oxequery": "Database statement",
+      "preview-automation": "Browser action",
+      "crash": "Crash recovery"
+    },
+    "summary": "{{what}} asked by {{requester}}. Risk: {{risk}}.",
+    "summaryEnvironment": "{{what}} asked by {{requester}} in {{environment}}. Risk: {{risk}}.",
+    "summaryProduction": "{{what}} asked by {{requester}} in {{environment}}, a production environment. Risk: {{risk}}.",
+    "queue": "Request {{position}} of {{total}}",
+    "closeDeny": "Deny and close",
+    "risk": {
+      "label": "Risk: {{level}}",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "environment": {
+      "label": "Environment: {{name}}",
+      "productionLabel": "Production · {{name}}",
+      "productionHint": "Changes here affect real users and data."
+    },
+    "requester": {
+      "label": "Asked by",
+      "agent": "Agent",
+      "mcp-server": "MCP server",
+      "app": "OXESpace",
+      "verified": "identified by OXESpace"
+    },
+    "appNotes": "OXESpace notes",
+    "agent": {
+      "heading": "Content from the agent",
+      "hint": "Written by the agent, shown exactly as sent. OXESpace did not check it: read it as a claim, not as a fact.",
+      "empty": "The agent sent no text.",
+      "length": "{{length}} characters",
+      "truncated": "OXESpace shortened this content at {{limit}} characters."
+    },
+    "expires": "If you do not answer by {{time}}, the request is denied.",
+    "refused": "Your answer was not applied",
+    "settled": {
+      "timeout": "The request expired before an answer and was denied.",
+      "cancelled": "The request was cancelled before an answer."
+    },
+    "outcome": {
+      "deny": "Denied",
+      "allow": "Allowed once",
+      "allow-session": "Allowed for this session"
+    },
+    "by": {
+      "timeout": "Expired, denied",
+      "cancelled": "Cancelled"
+    },
+    "history": {
+      "open": "History",
+      "title": "Approval decisions",
+      "description": "Requests answered in this session, newest first.",
+      "empty": "No decisions in this session yet.",
+      "back": "Back to the request",
+      "close": "Close",
+      "columns": {
+        "time": "Time",
+        "what": "What",
+        "who": "Asked by",
+        "decision": "Decision"
+      }
+    },
+    "unknownCode": "OXESpace sent a message this version cannot show.",
+    "codes": {
+      "approvals": {
+        "option": {
+          "deny": "Deny",
+          "allowOnce": "Allow once",
+          "allowSession": "Allow for this session",
+          "restart": "Restart",
+          "closeTab": "Close the tab"
+        },
+        "note": {
+          "production": "This runs against {{name}}, a production environment.",
+          "destructive": "This action deletes or overwrites data and cannot be undone.",
+          "outsideWorkspace": "This touches {{path}}, outside the workspace.",
+          "crashed": "OXESpace stopped unexpectedly {{times}} times in a row."
+        },
+        "notFound": "This request is no longer pending.",
+        "stale": "This request changed since it was shown. Check it again before answering.",
+        "invalidOption": "That answer is not one of this request's options.",
+        "unavailable": "The window could not show this request; OXESpace asks in its own dialog."
+      }
+    }
+  },
   "about": {
     "title": "About OXESpace",
     "versionLine": "Version {{version}}",

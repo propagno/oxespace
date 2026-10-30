@@ -12,6 +12,7 @@ import { App } from './App'
 import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
 import { ReportProblemHost } from './components/Diagnostics/ReportProblemHost'
 import { AboutHost } from './components/About/AboutHost'
+import { ApprovalsHost } from './components/Approvals/ApprovalsHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
@@ -37,6 +38,8 @@ void initI18n().catch(error => console.error('[i18n] could not start the transla
       <ShortcutGuideHost />
       <ReportProblemHost />
       <AboutHost />
+      {/* Approval requests from main, in the window instead of a native dialog (F18). Its window loads at idle. */}
+      <ApprovalsHost />
       <StartupInteractiveMark />
     </React.StrictMode>
   )
