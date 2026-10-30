@@ -14,9 +14,9 @@ import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
 import { shortcutLabel } from '../../keyboard/keybindings'
 import './ThreadHeaderChrome.css'
 
-/** Thread's own panel ids for the shared panel names. Worktrees is Code only and never listed here. */
+/** Thread's own panel ids for the shared panel names. Worktrees is Code only and never listed here; the session panel is Thread only. */
 const THREAD_PANEL = {
-  terminal: 'terminal', changes: 'changes', browser: 'preview', git: 'git', files: 'files', search: 'search', scripts: 'scripts', background: 'background'
+  session: 'session', terminal: 'terminal', changes: 'changes', browser: 'preview', git: 'git', files: 'files', search: 'search', scripts: 'scripts', background: 'background'
 } as Record<WorkbenchPanelId, ThreadPanel>
 
 /** Title, project and branch, and the conversation's panel, view and pin controls. */

@@ -333,7 +333,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     {delegationOpen && snapshot && <DelegationCreateDialog thread={snapshot.thread} onClose={() => setDelegationOpen(false)} />}
   </section>
     {snapshot && review?.panel && <Suspense fallback={null}><ThreadReviewHost snapshot={snapshot} workspace={workspace} panel={review.panel} drawer={drawer} availableWidth={availableWidth} workbench={workbench}
-      onClose={closeReview} onReturnFocus={() => textarea.current?.focus()} onSendToConversation={appendToConversation} /></Suspense>}
+      onClose={closeReview} onReturnFocus={() => textarea.current?.focus()} onSendToConversation={appendToConversation} onCompact={api?.command ? () => void action(() => runCommand('/compact')) : undefined} /></Suspense>}
   </div>
 }
 
