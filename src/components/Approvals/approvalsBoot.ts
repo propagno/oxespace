@@ -47,7 +47,7 @@ export function loadCenter(): Promise<CenterModule> {
 /** Loads the approval window's code when the renderer is idle, so the first request does not wait for a chunk. */
 export function schedulePreload(): () => void {
   const run = (): void => { void loadCenter().catch(noop) }
-  if (window.requestIdleCallback) {
+  if (typeof requestIdleCallback === 'function') {
     const handle = requestIdleCallback(run)
     return () => cancelIdleCallback(handle)
   }
