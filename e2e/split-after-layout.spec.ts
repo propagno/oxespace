@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { killApp, launchApp, openDemoWorkspace } from './helpers/launch'
+import { launchApp, openDemoWorkspace } from './helpers/launch'
 import { runPaletteCommand } from './helpers/panels'
 
 /**
@@ -8,7 +8,7 @@ import { runPaletteCommand } from './helpers/panels'
  * A split in any layout must give a new pane or a refusal with a reason, and the window must stay usable.
  */
 test('split after the 16-pane preset with the split layout off: the window stays, and the palette still opens', async () => {
-  const { app, page, pid, workspaceRoot, consoleErrors } = await launchApp({ appearance: 'light' })
+  const { app, page, workspaceRoot, consoleErrors } = await launchApp({ appearance: 'light' })
   try {
     await openDemoWorkspace(page, workspaceRoot)
     await runPaletteCommand(page, 'Toggle split layout')
@@ -32,6 +32,6 @@ test('split after the 16-pane preset with the split layout off: the window stays
 
     expect(consoleErrors.filter(line => /reading 'rows'|ErrorBoundary caught/.test(line))).toEqual([])
   } finally {
-    await killApp(app, pid)
+    await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
   }
 })
