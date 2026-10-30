@@ -953,9 +953,7 @@ async function benchTuis(scenario: string, command: (index: number) => string, b
     }
     const counted = [...totals].sort((a, b) => a - b)[Math.floor(totals.length / 2)]
     console.log(`[RESULT] terminals: ${scenario.padEnd(32)} median=${counted.toFixed(1)}% of one core (budget ${budgetPct}%)`)
-
-    // The focused pane must stay fluid while the others draw: typing into it, from key to the second frame painted
-    // after it (the frame that shows the echo at the 16 ms pace).
+    // The focused pane must stay fluid while the others draw: key to the second frame painted after it (the echo).
     const input = panes.first().locator('textarea.xterm-helper-textarea')
     await input.evaluate((field) => {
       const samples: number[] = []
@@ -972,7 +970,6 @@ async function benchTuis(scenario: string, command: (index: number) => string, b
     await page.waitForTimeout(100)
     const keys = await page.evaluate(() => (window as unknown as { __keySamples: number[] }).__keySamples)
     report(`terminals: ${scenario}, focused keystroke→paint`, keys)
-
     if (ENFORCE_BUDGETS) {
       expect(counted, `main + renderer + GPU, ${scenario}: ${counted.toFixed(1)}% of one core exceeded ${budgetPct}%`).toBeLessThanOrEqual(budgetPct)
       expect(stats(keys).p95, `focused pane keystroke→paint p95, ${scenario}`).toBeLessThanOrEqual(FOCUSED_KEY_BUDGET_MS)
