@@ -28,18 +28,22 @@ link it in the table.
 
 Evidence for each step: a screenshot from the phone (`adb exec-out screencap -p > step-N.png`), and when a step names
 it, a desktop screenshot or the desktop audit entry (Settings › Devices › activity). On a crash, also
-`adb logcat -d -b crash`. Keep them in `e2e/homologation/mobile/<date>/` and never in a public issue if a token, path
-or command line shows.
+`adb logcat -d -b crash`. Keep them in `e2e/screenshots/mobile-homologation/<date>/`, which git ignores: phone and
+desktop screenshots can show paths, command lines or tokens. Never attach them to a public issue unredacted.
 
 Who can run it: **A** = AVD is enough; **D** = needs the real phone (the user); **A/D** = both, the real phone confirms.
+Nothing is installed for this pass: the tools are the OS's own (`Get-NetTCPConnection`, `ss`), Git for Windows'
+`openssl`, and the SDK's `adb`.
 
 ## 0. Before pairing
 
 | # | Step | Expected | Who | Evidence |
 |---|---|---|---|---|
-| 0.1 | With the gateway off (the default), scan the desktop's LAN address: `nmap -p 1-65535 <desktop-ip>` from another machine | No OXESpace port open | A | nmap output |
-| 0.2 | Turn the gateway on in Settings › Devices. Scan again | One port, TLS only: `openssl s_client -connect <ip>:<port>` shows the self-signed certificate; plain HTTP on it gets nothing | A | openssl output |
-| 0.3 | Open the app for the first time, pt-BR and then en | "Seu computador no bolso" / "Your desktop, in your pocket", one "Pair" button | A | screenshot |
+| 0.1 | With the gateway off (the default), list what OXESpace listens on. Windows: `Get-NetTCPConnection -State Listen \| ? { (Get-Process -Id $_.OwningProcess).ProcessName -like 'OXESpace*' } \| select LocalAddress,LocalPort`. Linux: `ss -ltnp \| grep -i oxespace` | Nothing, or only `127.0.0.1` / a pipe: no LAN address | A | command output |
+| 0.2 | Turn the gateway on in Settings › Devices, the first time on this machine | Windows shows the Defender Firewall prompt for OXESpace. The desktop explains, before or with it, that only private networks are needed. Allow on private networks only | A/D | desktop screenshot |
+| 0.3 | List again; then `openssl s_client -connect <ip>:<port> </dev/null` from Git Bash | One LAN port. TLS only: s_client shows the self-signed certificate; plain HTTP to it gets no answer | A | command output |
+| 0.4 | Deny the firewall prompt instead (or block the port), then try to pair or connect | The phone says it can't reach the desktop ("Não deu para falar com…"). The desktop says the firewall blocks the phone and how to allow it | A/D | both screenshots |
+| 0.5 | Open the app for the first time, pt-BR and then en | "Seu computador no bolso" / "Your desktop, in your pocket", one "Pair" button | A | screenshot |
 
 ## 1. Pair by QR
 
@@ -136,6 +140,47 @@ Who can run it: **A** = AVD is enough; **D** = needs the real phone (the user); 
 | 9.1 | Download `oxespace-android-vX.Y.Z.apk` and its `.sha256` from the release; `sha256sum -c` | OK | A | terminal output |
 | 9.2 | `apksigner verify --print-certs` | The certificate SHA-256 matches the fingerprint the project published ([RELEASING.md](../../mobile/android/RELEASING.md)) | A | terminal output |
 | 9.3 | Install over the previous release | Updates in place, pairing kept | D | screenshot |
+
+## 10. Hard cases
+
+| # | Step | Expected | Who | Evidence |
+|---|---|---|---|---|
+| 10.1 | **Someone else at the desktop's address.** Turn the gateway off and, on the same port, run a TLS server with another certificate: `openssl req -x509 -newkey rsa:2048 -nodes -keyout k.pem -out c.pem -days 1 -subj /CN=impostor` then `openssl s_server -accept <port> -cert c.pem -key k.pem -www`. Scan a fresh QR first (pairing), then, already paired, reopen the app | Pairing: "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado." Session: never "Conectado"; it keeps saying it can't reach the desktop. s_server logs a failed handshake and never an HTTP request (no code, no key, no token reached it). Delete `k.pem` and `c.pem` afterwards | A | s_server output, screenshots |
+| 10.2 | **Two phones, one request.** AVD and real phone paired; both open the same waiting request; approve on one with the fingerprint, then on the other | The first answer is applied; the second gets "Ele já foi respondido ou não espera mais."; the desktop audit has one answer | D (with A) | both screenshots, audit |
+| 10.3 | **Token past its 15 minutes.** Keep a conversation open for 20 min, and separately leave the phone asleep for 20 min | Open: renewed by itself around minute 12, no interruption. After sleep: reconnects with the device key, no pairing screen, lists up to date | A/D | screenshots with the clock |
+| 10.4 | **60 commands a minute.** In a pane with "allow from phone", paste about 70 KB of text and send (it goes in 1,000-character pieces) | After about 60 pieces: "Ações demais em um minuto. Tente de novo daqui a pouco."; only the part not yet sent stays in the field (sending again doesn't repeat what went through); the desktop stays responsive | A | screenshot, desktop terminal |
+| 10.5 | **App killed while pairing.** On "Confirme no computador", `adb shell am force-stop com.oxespace.mobile`, then accept on the desktop | The phone opens on "Parear" (not paired). The desktop lists a device that never connects: remove it there. See "Not implemented" | A | both screenshots |
+| 10.6 | **App killed while answering.** With the fingerprint prompt open, force-stop | Nothing sent: the desktop still waits, no audit entry. Reopen: the request is still there | A | screenshot, audit (none) |
+| 10.7 | **Killed right after the answer left.** Approve, and force-stop as soon as the prompt closes | The desktop applies the answer once; reopening shows the request gone | A | audit |
+| 10.8 | **Dark mode and language.** Switch the system to dark and back while on a conversation; switch the system language en ↔ pt-BR | Colors follow at once, contrast readable in both; words change to the new language as Android redraws the screen; nothing stays half-translated | A | screenshots |
+| 10.9 | **Recents screen.** Open a risky request, then the Recents (overview) screen | The request's command and paths are visible in the thumbnail. See "Not implemented" (FLAG_SECURE) | A | screenshot |
+
+## 11. The desktop side: Settings › Devices
+
+These belong to the desktop (B9 and the Devices page). They're here because a phone can't be paired, trusted or
+removed without them.
+
+| # | Step | Expected | Who | Evidence |
+|---|---|---|---|---|
+| 11.1 | Open Settings › Devices with the gateway off | It's off by default, says so, and offers to turn it on; no QR | A | desktop screenshot |
+| 11.2 | Turn it on and show the QR | The QR with its countdown (2 min), then a new one when asked; the address and port shown for typing by hand | A | desktop screenshot |
+| 11.3 | While a phone pairs | "Parear <phone>?" with the same 6-character code as the phone; Accept and Decline | A/D | desktop screenshot |
+| 11.4 | With paired phones | Each with its name and last access; Remove asks for confirmation | A | desktop screenshot |
+| 11.5 | "Allow from phone" on a pane | Off by default, per pane, back to off when OXESpace restarts; the phone sees the change at once (4.11, 4.12) | A | screenshots |
+| 11.6 | With 5 phones paired | The page says the limit is reached before showing a QR | A | desktop screenshot |
+| 11.7 | Errors: firewall blocking (0.4), port in use | Each with its own words and what to do | A | desktop screenshot |
+
+## Not implemented (proposals for the roadmap)
+
+- **Recents privacy (10.9).** The app doesn't set `FLAG_SECURE`, so the Recents thumbnail shows what was on screen
+  (commands, paths). Setting it on the request, conversation and terminal screens would also block screenshots,
+  including this script's evidence. A debug-only exception or a setting would avoid that.
+- **Orphaned pairing (10.5).** If the app dies between scanning and the desktop's answer, the desktop may end up with
+  a paired device the phone doesn't know. Today the person removes it on the desktop. Proposal: the phone remembers the
+  attempt and, on the next start, tells the desktop to forget it, or the desktop drops devices that never connect
+  within a few minutes of pairing.
+- **Per-app language (10.8).** The app follows the system language only. Android 13+ can offer a language per app
+  (`localeConfig`); not declared yet.
 
 ## Results
 
