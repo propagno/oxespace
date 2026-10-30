@@ -14,6 +14,19 @@ function modeTokens(mode: Mode): Record<string, string> {
   return { ...colorRoles(mode), ...elevations(mode) }
 }
 
+/**
+ * More contrast (the operating system's "increase contrast", prefers-contrast: more): every border takes the strong
+ * step and muted text reads as secondary, so edges and quiet labels stand out. Forced colors (Windows high contrast)
+ * is a separate stylesheet, src/styles/forced-colors.css.
+ */
+export function moreContrastTokens(mode: Mode): Record<string, string> {
+  const roles = colorRoles(mode)
+  return {
+    'border-subtle': roles['border-strong'], 'border-default': roles['border-strong'],
+    'text-muted': roles['text-secondary'], 'text-disabled': roles['text-muted']
+  }
+}
+
 function staticTokens(): Record<string, string | number> {
   const out: Record<string, string | number> = {
     'font-display': FONT.display, 'font-ui': FONT.ui, 'font-mono': FONT.mono
@@ -42,6 +55,7 @@ export function tokensCss(): string {
     block(":root, [data-mode='light']", modeTokens('light'), ['color-scheme: light;']),
     block(":root[data-mode='dark'], [data-mode='dark']", modeTokens('dark'), ['color-scheme: dark;']),
     block(":root[data-density='comfortable']", comfortable),
+    `@media (prefers-contrast: more) {\n${[block(":root, [data-mode='light']", moreContrastTokens('light')), block(":root[data-mode='dark'], [data-mode='dark']", moreContrastTokens('dark'))].join('\n').replace(/^/gm, '  ')}\n}`,
     // Motion collapses for people who ask for less of it: Settings › Appearance sets data-motion on the
     // root (System resolves the operating system's choice); before that attribute exists, the media query decides.
     block(":root[data-motion='reduce']", REDUCED_MOTION),
