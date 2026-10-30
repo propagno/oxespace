@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 // Loaded through the registry, as the app does: the handlers and the registry import each other.
 import { TOOL_REGISTRY } from '../../electron/main/mcp-internal/tool-registry'
-import { toolDefinitionChars } from '../../electron/main/mcp-internal/tool-cost'
+import { toolDefinitionChars, toolNameChars } from '../../electron/main/mcp-internal/tool-cost'
+import { projectToolModes, sessionToolPlan, type ProjectToolModes } from '../../electron/main/services/conversation/tool-groups'
+import { MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import {
   OPTIONAL_THREAD_TOOL_GROUPS, THREAD_MCP_TOOLS, THREAD_TOOL_GROUPS, threadMcpArguments, threadToolList, threadToolRoles, toolSearchEnvironment
@@ -72,5 +74,46 @@ describe('Thread MCP token budget', () => {
     expect(toolSearchEnvironment('claude', {})).toEqual({ ENABLE_TOOL_SEARCH: 'auto:5' })
     expect(toolSearchEnvironment('claude', { ENABLE_TOOL_SEARCH: 'false' })).toEqual({})
     expect(toolSearchEnvironment('codex', {})).toEqual({})
+  })
+})
+
+/**
+ * T8: what tool groups on demand cost (B7.2, B2.2). Claude lists a deferred tool by its full name, server prefix
+ * included, until it loads the definition; Codex pays a group's definitions once the group is on.
+ */
+describe('tool groups on demand: measured cost (T8)', () => {
+  const defaults = projectToolModes(undefined)
+  const asClaudeLists = (tools: readonly string[]) => toolNameChars(tools.map(tool => `mcp__oxespace-delegation__${tool}`))
+  const tokens = (chars: number) => Math.ceil(chars / 4)
+
+  it('offers Claude every group on demand for a fixed cost of at most about 1,500 tokens', () => {
+    const conversation = sessionToolPlan(true, {}, defaults)
+    expect(new Set(conversation.tools)).toEqual(new Set([...THREAD_TOOL_GROUPS.core, ...OPTIONAL_THREAD_TOOL_GROUPS.flatMap(group => THREAD_TOOL_GROUPS[group])]))
+    expect(tokens(asClaudeLists(conversation.tools))).toBeLessThanOrEqual(1500)
+    const terminal = sessionToolPlan(true, { code: true }, defaults)
+    expect(tokens(asClaudeLists(terminal.tools))).toBeLessThanOrEqual(1500)
+  })
+
+  it('keeps a Codex conversation that turns nothing on within today\'s budget', () => {
+    const plain = sessionToolPlan(false, {}, defaults)
+    expect(plain.tools).toEqual([...THREAD_TOOL_GROUPS.core, 'oxespace_tools_enable'])
+    expect(definitionChars(plain.tools)).toBeLessThanOrEqual(9000)
+  })
+
+  // What turning a group on costs Codex, in characters of definitions. A group may only grow past its line here on
+  // purpose: raise the line in the same change and say why.
+  const CODEX_GROUP_BUDGET = { orchestration: 13_500, data: 6_700, docs: 4_400, app: 21_000, code: 11_500 } as const
+
+  it('measures what each group costs Codex once it is on, against its own budget', () => {
+    for (const [group, budget] of Object.entries(CODEX_GROUP_BUDGET)) {
+      const chars = definitionChars(MCP_TOOL_GROUPS[group as keyof typeof MCP_TOOL_GROUPS])
+      expect(chars, group).toBeGreaterThan(0)
+      expect(chars, `${group}: ${chars} characters`).toBeLessThanOrEqual(budget)
+    }
+  })
+
+  it('never offers a group the project turned off, on either provider', () => {
+    const off = Object.fromEntries(Object.keys(defaults).map(group => [group, { mode: 'off', source: 'project' }])) as ProjectToolModes
+    for (const toolSearch of [true, false]) expect(sessionToolPlan(toolSearch, {}, off)).toEqual({ tools: [...THREAD_TOOL_GROUPS.core], enableable: {} })
   })
 })
