@@ -1,4 +1,8 @@
 import { useEffect, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ErrorState, LoadingState } from '../../ui/Display'
+import { formatBytes } from './catalog'
+import { EXAMPLE } from './examples'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { MongoStats, MongoValidation, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
@@ -6,10 +10,9 @@ import { jsonProblem } from './mongo-model'
 import { Select } from '../../ui/Field'
 import { formatNumber } from '../../utils/formatTime'
 
-const bytes = (value: number): string => value < 1024 ? `${value} B` : value < 1024 ** 2 ? `${(value / 1024).toFixed(1)} KB` : value < 1024 ** 3 ? `${(value / 1024 ** 2).toFixed(1)} MB` : `${(value / 1024 ** 3).toFixed(2)} GB`
-
 /** Size figures and the validation rules of a collection. Rules are shown always and changed only on a read-write connection. */
 export function CollectionFacts({ connection, database, collection }: { connection: OxeQueryConnection; database: string; collection: string }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [statsOpen, setStatsOpen] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [stats, setStats] = useState<MongoStats | null>(null)
@@ -42,7 +45,7 @@ export function CollectionFacts({ connection, database, collection }: { connecti
     setError(''); setSaved('')
     try {
       await oq('mongo.setValidation', { connectionId: connection.id, database, collection, validator: text.trim() === '' ? null : text, level, action })
-      setSaved(text.trim() === '' ? 'Validation removed.' : 'Validation saved.')
+      setSaved(text.trim() === '' ? t('facts.validationRemoved') : t('facts.validationSaved'))
       setRules(null)
     } catch (cause) { setError(errorMessage(cause)) }
   }
@@ -51,37 +54,37 @@ export function CollectionFacts({ connection, database, collection }: { connecti
     <button type="button" className="oq-disclosure" aria-expanded={open} onClick={toggle}>{open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}{label}</button>
 
   return <>
-    <section className="oq-columns" aria-label="Collection statistics">
-      {disclosure(statsOpen, () => setStatsOpen(value => !value), `Statistics${stats ? ` · ${formatNumber(stats.documents)} documents` : ''}`)}
+    <section className="oq-columns" aria-label={t('facts.statsLabel')}>
+      {disclosure(statsOpen, () => setStatsOpen(value => !value), stats ? t('facts.statsSummary', { documents: t('mongo.documents', { count: stats.documents, formatted: formatNumber(stats.documents) }) }) : t('facts.stats'))}
       {statsOpen && (stats
         ? <dl className="oq-facts">
-          <div><dt>Documents</dt><dd>{formatNumber(stats.documents)}</dd></div>
-          <div><dt>Data size</dt><dd>{bytes(stats.sizeBytes)}</dd></div>
-          <div><dt>Average document</dt><dd>{bytes(stats.avgDocumentBytes)}</dd></div>
-          <div><dt>On disk</dt><dd>{bytes(stats.storageBytes)}</dd></div>
-          <div><dt>Indexes</dt><dd>{stats.indexes} · {bytes(stats.indexBytes)}</dd></div>
-          {stats.capped && <div><dt>Kind</dt><dd>capped</dd></div>}
+          <div><dt>{t('mongo.view.documents')}</dt><dd>{formatNumber(stats.documents)}</dd></div>
+          <div><dt>{t('facts.dataSize')}</dt><dd>{formatBytes(stats.sizeBytes)}</dd></div>
+          <div><dt>{t('facts.average')}</dt><dd>{formatBytes(stats.avgDocumentBytes)}</dd></div>
+          <div><dt>{t('facts.onDisk')}</dt><dd>{formatBytes(stats.storageBytes)}</dd></div>
+          <div><dt>{t('structure.indexes')}</dt><dd>{formatNumber(stats.indexes)} · {formatBytes(stats.indexBytes)}</dd></div>
+          {stats.capped && <div><dt>{t('structure.kind')}</dt><dd>{t('facts.capped')}</dd></div>}
         </dl>
-        : <p className="oq-muted" aria-busy="true">Reading statistics…</p>)}
+        : <LoadingState label={t('facts.readingStats')} />)}
     </section>
-    <section className="oq-columns" aria-label="Collection validation">
-      {disclosure(rulesOpen, () => setRulesOpen(value => !value), `Validation${rules ? (rules.validator ? ' · rules set' : ' · none') : ''}`)}
+    <section className="oq-columns" aria-label={t('facts.validationLabel')}>
+      {disclosure(rulesOpen, () => setRulesOpen(value => !value), rules ? t(rules.validator ? 'facts.validationSet' : 'facts.validationNone') : t('facts.validation'))}
       {rulesOpen && (rules
         ? <div className="oq-columns-grid oq-rules">
-          <label>Rules (<code>$jsonSchema</code>)
-            <textarea aria-label="Validation rules" spellCheck={false} rows={8} value={text} readOnly={connection.readOnly} aria-invalid={problem ? true : undefined}
-              placeholder={'{ "$jsonSchema": { "bsonType": "object", "required": ["name"] } }'} onChange={event => setText(event.target.value)} />
+          <label>{t('facts.rules')} (<code>{EXAMPLE.jsonSchemaKeyword}</code>)
+            <textarea aria-label={t('facts.rulesLabel')} spellCheck={false} rows={8} value={text} readOnly={connection.readOnly} aria-invalid={problem ? true : undefined}
+              placeholder={EXAMPLE.jsonSchema} onChange={event => setText(event.target.value)} />
             {problem && <small className="oq-field-error" role="alert">{problem}</small>}
           </label>
-          <label>Applies to<Select className="oq-select" aria-label="Validation level" value={level} disabled={connection.readOnly} onChange={event => setLevel(event.target.value as MongoValidation['level'])}>
-            <option value="strict">all inserts and updates</option><option value="moderate">updates of documents that already pass</option><option value="off">nothing (off)</option></Select></label>
-          <label>On a violation<Select className="oq-select" aria-label="Validation action" value={action} disabled={connection.readOnly} onChange={event => setAction(event.target.value as MongoValidation['action'])}>
-            <option value="error">refuse the write</option><option value="warn">allow it and log a warning</option></Select></label>
-          {!connection.readOnly && <button type="button" className="oq-primary" disabled={problem !== null} onClick={() => void save()}>Save validation</button>}
+          <label>{t('facts.appliesTo')}<Select className="oq-select" aria-label={t('facts.level')} value={level} disabled={connection.readOnly} onChange={event => setLevel(event.target.value as MongoValidation['level'])}>
+            <option value="strict">{t('facts.strict')}</option><option value="moderate">{t('facts.moderate')}</option><option value="off">{t('facts.off')}</option></Select></label>
+          <label>{t('facts.onViolation')}<Select className="oq-select" aria-label={t('facts.action')} value={action} disabled={connection.readOnly} onChange={event => setAction(event.target.value as MongoValidation['action'])}>
+            <option value="error">{t('facts.refuse')}</option><option value="warn">{t('facts.warn')}</option></Select></label>
+          {!connection.readOnly && <button type="button" className="oq-primary" disabled={problem !== null} onClick={() => void save()}>{t('facts.save')}</button>}
           {saved && <p role="status" className="oq-ok">{saved}</p>}
         </div>
-        : <p className="oq-muted" aria-busy="true">Reading rules…</p>)}
+        : <LoadingState label={t('facts.readingRules')} />)}
     </section>
-    {error && <p role="alert" className="oq-error">{error}</p>}
+    {error && <ErrorState compact title={t('facts.failed')} message={error} />}
   </>
 }

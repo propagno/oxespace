@@ -5,6 +5,7 @@ import { parseLinearListIssuesInput, parseSearchInput } from '../ipc/validation'
 import { threadReadout } from './thread-handoff-tools'
 import { stripAnsi } from '../services/github/parsers'
 import { maskLogLine } from '../services/oxequery/agent-output'
+import { lazy } from './app-settings-tools'
 import type { ToolContext } from './tool-registry'
 import type { ConversationThread } from '../../../shared/types/thread'
 
@@ -119,6 +120,10 @@ export const APP_READ_TOOLS: ToolEntry[] = [
         const thread = await projectThread(args, scope, ctx)
         return (await ctx.threads!).usageSummary(thread.id, { scope: str(args, 'scope', 10) === 'thread' ? 'thread' : 'project', days: args.days === undefined ? undefined : int(args, 'days', 30, 1, 365) })
       }
+    },
+    native_sessions: {
+      level: 'read', description: 'Claude Code or Codex CLI sessions run in this folder: id, model, tokens, first message.',
+      properties: { provider: { type: 'string', enum: ['claude', 'codex'] } }, required: ['provider'], run: lazy('native_sessions')
     }
   }),
 

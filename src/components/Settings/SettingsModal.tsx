@@ -1,5 +1,6 @@
 import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Mic, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { RichText } from '../../i18n/RichText'
 import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
@@ -31,19 +32,20 @@ export interface SettingsModalProps {
   onUseProviderInPane?: (profile: AgentProfile) => void | Promise<void>
 }
 
-import { PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
+import { installDocLabel, PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
+import type { TFunction } from 'i18next'
 import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
 import { compatibilityBadge, type ProviderCompatibility } from '../../../shared/providerCompatibility'
 import { formatNumber } from '../../utils/formatTime'
 export { PROVIDER_INSTALL_DOCS }
 
-function formatCheckedAgo(ts: number | null): string | null {
+function formatCheckedAgo(ts: number | null, t: TFunction<'settings'>): string | null {
   if (ts == null) return null
   const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000))
-  if (sec < 45) return 'Checked just now'
-  if (sec < 3600) return `Checked ${Math.floor(sec / 60)} min ago`
-  if (sec < 86400) return `Checked ${Math.floor(sec / 3600)} h ago`
-  return `Checked ${Math.floor(sec / 86400)} d ago`
+  if (sec < 45) return t('checked.justNow')
+  if (sec < 3600) return t('checked.minutes', { value: Math.floor(sec / 60) })
+  if (sec < 86400) return t('checked.hours', { value: Math.floor(sec / 3600) })
+  return t('checked.days', { value: Math.floor(sec / 86400) })
 }
 
 export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
@@ -75,15 +77,6 @@ function resolveProviderStatus(
   return readiness?.status ?? 'unknown'
 }
 
-const STATUS_LABEL: Record<ProviderStatus, string> = {
-  ready: 'Ready',
-  partial: 'Partial',
-  missing: 'Not installed',
-  unknown: 'Not checked',
-  checking: 'Checking…',
-  custom: 'Custom'
-}
-
 const STATUS_RANK: Record<ProviderStatus, number> = {
   ready: 0,
   partial: 1,
@@ -94,8 +87,9 @@ const STATUS_RANK: Record<ProviderStatus, number> = {
 }
 
 function ReadinessBadge({ status }: { status: ProviderStatus }): ReactElement {
+  const { t } = useTranslation('settings')
   const tone = status === 'checking' ? 'unknown' : status === 'custom' ? 'ready' : status
-  return <span className={`agent-badge ${tone}`}>{STATUS_LABEL[status]}</span>
+  return <span className={`agent-badge ${tone}`}>{t(`providers.status.${status}`)}</span>
 }
 
 function SettingsSwitch({ checked, onChange, ariaLabel }: { checked: boolean; onChange: (next: boolean) => void; ariaLabel: string }): ReactElement {
@@ -103,6 +97,7 @@ function SettingsSwitch({ checked, onChange, ariaLabel }: { checked: boolean; on
 }
 
 function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+  const { t } = useTranslation('settings')
   const [snapshot, setSnapshot] = useState<import('../../../shared/types/diagnostics').DiagnosticsSnapshot | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -116,34 +111,34 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
   const exportReport = (): void => {
     setNotice(null)
     void window.oxe.diagnostics.exportReport()
-      .then((path) => setNotice(path ? `Saved sanitized report to ${path}` : 'Export cancelled.'))
+      .then((path) => setNotice(path ? t('diagnostics.savedReport', { path }) : t('diagnostics.exportCancelled')))
       .catch((error) => setNotice(humanizeError(error)))
   }
 
   const failing = snapshot?.checks.filter((check) => check.tone === 'error').length ?? 0
   const warning = snapshot?.checks.filter((check) => check.tone === 'warning').length ?? 0
+  const failingText = t('diagnostics.failing', { count: failing })
+  const warningText = t('diagnostics.warning', { count: warning })
   const summary = !snapshot
-    ? 'Checking…'
+    ? t('diagnostics.checking')
     : failing > 0
-      ? `${failing} failing${warning > 0 ? ` · ${warning} warning` : ''}`
-      : warning > 0
-        ? `${warning} warning`
-        : `All ${snapshot.checks.length} checks passing`
+      ? `${failingText}${warning > 0 ? ` · ${warningText}` : ''}`
+      : warning > 0 ? warningText : t('diagnostics.allPassing', { count: snapshot.checks.length })
 
   return (
     <section className="settings-modal-content" aria-labelledby="settings-diagnostics-title">
       {/* Refresh belongs in the header, matching Health check in AI Providers —
           the section's primary verb should be in the same place on every tab. */}
       <SettingsContentHeader
-        kicker="Runtime"
-        title="Diagnostics"
+        kicker={t('diagnostics.kicker')}
+        title={t('diagnostics.title')}
         titleId="settings-diagnostics-title"
-        description="Compact local diagnostics: up to 1.5 MiB for seven days. Export excludes prompts, terminal output and command arguments."
+        description={t('diagnostics.description')}
         onClose={onClose}
         actions={
-          <Button variant="ghost" onClick={refresh} title="Re-run checks">
+          <Button variant="ghost" onClick={refresh} title={t('diagnostics.refreshTitle')}>
             <RefreshCw size={14} aria-hidden="true" />
-            <span>Refresh</span>
+            <span>{t('diagnostics.refresh')}</span>
           </Button>
         }
       />
@@ -151,12 +146,12 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         <div className="diagnostics-hero" data-testid="diagnostics-summary">
           <div className="diagnostics-hero-text">
             <strong>{summary}</strong>
-            <span>Collected locally · exports redact paths and secrets</span>
+            <span>{t('diagnostics.collected')}</span>
           </div>
           <div className="diagnostics-hero-badges">
-            {failing > 0 ? <span className="diagnostics-badge tone-error">{failing} failing</span> : null}
-            {warning > 0 ? <span className="diagnostics-badge tone-warning">{warning} warning</span> : null}
-            {snapshot && failing === 0 && warning === 0 ? <span className="diagnostics-badge tone-ok">healthy</span> : null}
+            {failing > 0 ? <span className="diagnostics-badge tone-error">{failingText}</span> : null}
+            {warning > 0 ? <span className="diagnostics-badge tone-warning">{warningText}</span> : null}
+            {snapshot && failing === 0 && warning === 0 ? <span className="diagnostics-badge tone-ok">{t('diagnostics.healthy')}</span> : null}
           </div>
         </div>
 
@@ -177,8 +172,8 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
             <div><dt>OXESpace</dt><dd>{snapshot.appVersion}</dd></div>
             <div><dt>Electron</dt><dd>{snapshot.electronVersion}</dd></div>
             <div><dt>Node</dt><dd>{snapshot.nodeVersion}</dd></div>
-            <div><dt>Platform</dt><dd>{snapshot.platform} {snapshot.arch}</dd></div>
-            <div><dt>Workspaces</dt><dd>{snapshot.workspaceCount}</dd></div>
+            <div><dt>{t('diagnostics.platform')}</dt><dd>{snapshot.platform} {snapshot.arch}</dd></div>
+            <div><dt>{t('diagnostics.workspaces')}</dt><dd>{snapshot.workspaceCount}</dd></div>
           </dl>
         ) : null}
 
@@ -186,7 +181,7 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
 
         <div className="settings-inline-actions">
           <Button variant="primary" onClick={exportReport}>
-            <Download size={14} aria-hidden="true" /> Export report
+            <Download size={14} aria-hidden="true" /> {t('diagnostics.export')}
           </Button>
         </div>
 
@@ -211,6 +206,7 @@ function SettingsContentHeader({
   onClose: () => void
   actions?: ReactNode
 }): ReactElement {
+  const { t } = useTranslation('settings')
   return (
     <header className="settings-content-header">
       <div>
@@ -220,7 +216,7 @@ function SettingsContentHeader({
       </div>
       <div className="settings-content-actions">
         {actions}
-        <Button variant="ghost" size="sm" square aria-label="Close" title="Close (Esc)" onClick={onClose}>
+        <Button variant="ghost" size="sm" square aria-label={t('header.close')} title={t('header.closeTitle')} onClick={onClose}>
           <X size={16} aria-hidden="true" />
         </Button>
       </div>
@@ -247,6 +243,7 @@ function ProvidersSettingsSection({
   onNewCustomAgent: () => void
   onUseProviderInPane?: (profile: AgentProfile) => void | Promise<void>
 }): ReactElement {
+  const { t } = useTranslation('settings')
   const [showMissing, setShowMissing] = useState(false)
   const [usingId, setUsingId] = useState<string | null>(null)
   // The last nightly contract check; one network read when the section opens, cached by the main process.
@@ -257,7 +254,7 @@ function ProvidersSettingsSection({
     return () => { active = false }
   }, [])
   const lastHealthCheckAt = useAgentStore((s) => s.lastHealthCheckAt)
-  const checkedLabel = formatCheckedAgo(lastHealthCheckAt)
+  const checkedLabel = formatCheckedAgo(lastHealthCheckAt, t)
 
   // NO auto health check on open. This section is the first tab of Agent
   // Settings, and probing every provider spawns one `<cli> --version` process
@@ -289,11 +286,12 @@ function ProvidersSettingsSection({
   const allMissing = readyCount === 0 && missingCount > 0 && !isDiscoveringAgents
 
   const summaryPrimary = (() => {
-    if (agentProfiles.length === 0) return 'No providers yet'
-    if (isDiscoveringAgents && readyCount === 0 && missingCount === 0) return 'Detecting installed CLIs…'
-    if (uncheckedCount === builtins.length && !isDiscoveringAgents) return 'Not checked yet'
-    if (readyCount === 0 && missingCount > 0) return 'No CLIs detected on PATH'
-    return `${readyCount} ready${missingCount > 0 ? ` · ${missingCount} not installed` : ''}`
+    if (agentProfiles.length === 0) return t('providers.summary.none')
+    if (isDiscoveringAgents && readyCount === 0 && missingCount === 0) return t('providers.summary.detecting')
+    if (uncheckedCount === builtins.length && !isDiscoveringAgents) return t('providers.summary.notChecked')
+    if (readyCount === 0 && missingCount > 0) return t('providers.summary.noneOnPath')
+    const ready = t('providers.summary.ready', { count: readyCount })
+    return missingCount > 0 ? `${ready} · ${t('providers.summary.notInstalled', { count: missingCount })}` : ready
   })()
 
   // Only speaks when there is something to act on. With providers already
@@ -301,8 +299,8 @@ function ProvidersSettingsSection({
   // for is noise the user reads once and then scrolls past forever.
   const summarySecondary = (() => {
     if (isDiscoveringAgents) return ''
-    if (uncheckedCount === builtins.length) return 'Run Health check to detect installed CLIs'
-    if (readyCount === 0 && missingCount > 0) return 'Install a CLI, then run Health check'
+    if (uncheckedCount === builtins.length) return t('providers.summary.runToDetect')
+    if (readyCount === 0 && missingCount > 0) return t('providers.summary.installThenRun')
     return ''
   })()
 
@@ -329,7 +327,7 @@ function ProvidersSettingsSection({
     const install = !isCustom ? PROVIDER_INSTALL_DOCS[profile.provider] : undefined
     const contract = status === 'ready' ? compatibilityBadge(profile.provider, readiness?.version, compatibility) : null
     const detail = isCustom
-      ? `skill · parent ${profile.parentProvider ?? '—'}`
+      ? t('providers.card.skillParent', { parent: profile.parentProvider ?? '—' })
       : readiness?.details && status === 'missing'
         ? readiness.details
         : readiness?.version && status === 'ready'
@@ -358,16 +356,16 @@ function ProvidersSettingsSection({
           {status === 'ready' ? (
             <span className="settings-provider-hint ok">
               <Check size={12} aria-hidden="true" />
-              Available
+              {t('providers.card.available')}
             </span>
           ) : status === 'missing' ? (
-            <span className="settings-provider-hint muted">Not on PATH — install or Fix path</span>
+            <span className="settings-provider-hint muted">{t('providers.card.notOnPath')}</span>
           ) : status === 'checking' ? (
-            <span className="settings-provider-hint muted">Probing…</span>
+            <span className="settings-provider-hint muted">{t('providers.card.probing')}</span>
           ) : status === 'custom' ? (
-            <span className="settings-provider-hint muted">Uses parent CLI + skill prompt</span>
+            <span className="settings-provider-hint muted">{t('providers.card.usesParent')}</span>
           ) : (
-            <span className="settings-provider-hint muted">Run health check to detect</span>
+            <span className="settings-provider-hint muted">{t('providers.card.runToDetect')}</span>
           )}
           <div className="settings-provider-card-btns">
             {/* Also offered for 'unknown': without an automatic probe on open, a
@@ -377,41 +375,38 @@ function ProvidersSettingsSection({
                 moment it actually matters. */}
             {(status === 'ready' || status === 'unknown') && onUseProviderInPane ? (
               <Button
-               
                 variant="primary"
-                aria-label={`Use ${profile.name} in active pane`}
-                title="Bind to the active terminal"
+                aria-label={t('providers.card.useInPaneLabel', { name: profile.name })}
+                title={t('providers.card.bindTitle')}
                 disabled={usingId === profile.agentProfileId}
                 onClick={() => void handleUseInPane(profile)}
                 data-testid={`btn-use-agent-${profile.provider}`}
               >
                 <Play size={14} aria-hidden="true" />
-                {usingId === profile.agentProfileId ? 'Starting…' : 'Use in pane'}
+                {usingId === profile.agentProfileId ? t('providers.card.starting') : t('providers.card.useInPane')}
               </Button>
             ) : null}
             {status === 'missing' && install ? (
               <Button
-               
                 variant="ghost"
-                aria-label={install.label}
+                aria-label={installDocLabel(install)}
                 title={install.url}
                 onClick={() => openInstallDocs(install.url)}
                 data-testid={`btn-install-docs-${profile.provider}`}
               >
                 <ExternalLink size={14} aria-hidden="true" />
-                Install guide
+                {t('providers.card.installGuide')}
               </Button>
             ) : null}
             <Button
-             
               variant="ghost"
-              aria-label={`Configure ${profile.name}`}
-              title="Configure command path or skill"
+              aria-label={t('providers.card.configureLabel', { name: profile.name })}
+              title={t('providers.card.configureTitle')}
               onClick={() => onConfigureAgent(profile)}
               data-testid={`btn-configure-agent-${profile.provider}`}
             >
               <Settings2 size={14} aria-hidden="true" />
-              {status === 'missing' ? 'Fix path' : 'Configure'}
+              {status === 'missing' ? t('providers.card.fixPath') : t('providers.card.configure')}
             </Button>
           </div>
         </div>
@@ -422,23 +417,23 @@ function ProvidersSettingsSection({
   return (
     <section className="settings-modal-content" aria-labelledby="settings-providers-title">
       <SettingsContentHeader
-        kicker="CLIs & discovery"
-        title="Agents"
+        kicker={t('providers.kicker')}
+        title={t('providers.title')}
         titleId="settings-providers-title"
-        description="Manage your agents, CLI installations and custom profiles."
+        description={t('providers.description')}
         onClose={onClose}
         actions={
           <button
             type="button"
             className="settings-header-action"
-            aria-label="Run health check"
-            title="Detect which agent CLIs are installed"
+            aria-label={t('providers.runHealthCheck')}
+            title={t('providers.healthCheckTitle')}
             data-testid="btn-discover-agents"
             disabled={isDiscoveringAgents}
             onClick={onDiscoverAgents}
           >
             <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
-            <span>{isDiscoveringAgents ? 'Checking…' : 'Health check'}</span>
+            <span>{isDiscoveringAgents ? t('providers.checking') : t('providers.healthCheck')}</span>
           </button>
         }
       />
@@ -454,18 +449,18 @@ function ProvidersSettingsSection({
               </span>
             ) : null}
           </div>
-          <div className="settings-providers-stats" aria-label="Provider counts">
+          <div className="settings-providers-stats" aria-label={t('providers.counts')}>
             <span className={`settings-stat${readyCount > 0 ? ' ready' : ''}`}>
-              <em>{readyCount}</em> ready
+              <em>{readyCount}</em> {t('providers.stat.ready', { count: readyCount })}
             </span>
             {missingCount > 0 ? (
               <span className="settings-stat missing">
-                <em>{missingCount}</em> missing
+                <em>{missingCount}</em> {t('providers.stat.missing', { count: missingCount })}
               </span>
             ) : null}
             {customCount > 0 ? (
               <span className="settings-stat custom">
-                <em>{customCount}</em> custom
+                <em>{customCount}</em> {t('providers.stat.custom', { count: customCount })}
               </span>
             ) : null}
           </div>
@@ -476,16 +471,15 @@ function ProvidersSettingsSection({
         {agentProfiles.length === 0 ? (
           <div className="settings-empty" role="status">
             <Bot size={20} aria-hidden="true" />
-            <p>No providers found</p>
-            <span>Run a health check to discover installed agent CLIs.</span>
+            <p>{t('providers.empty.title')}</p>
+            <span>{t('providers.empty.hint')}</span>
             <Button
-             
               variant="primary"
               disabled={isDiscoveringAgents}
               onClick={onDiscoverAgents}
             >
               <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
-              Run health check
+              {t('providers.runHealthCheck')}
             </Button>
           </div>
         ) : (
@@ -506,10 +500,8 @@ function ProvidersSettingsSection({
                   onClick={() => setShowMissing((v) => !v)}
                 >
                   {(showMissing || allMissing) ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-                  <span>
-                    {missing.length} not installed
-                  </span>
-                  <em>install guides · fix paths</em>
+                  <span>{t('providers.notInstalled', { count: missing.length })}</span>
+                  <em>{t('providers.missingHint')}</em>
                 </button>
                 {(showMissing || allMissing) ? (
                   <div className="settings-provider-grid dimmed" data-testid="providers-missing-list">
@@ -522,13 +514,12 @@ function ProvidersSettingsSection({
         )}
 
         <Button
-         
           variant="primary" className="settings-new-agent-btn"
           onClick={onNewCustomAgent}
           data-testid="btn-new-custom-agent"
         >
           <Plus size={14} aria-hidden="true" />
-          New custom agent
+          {t('providers.newCustomAgent')}
         </Button>
 
         <IdleConversationsSetting />
@@ -540,6 +531,7 @@ function ProvidersSettingsSection({
 
 /** How long an idle Thread conversation keeps its agent process (and the MCP servers it started) running. */
 function IdleConversationsSetting(): ReactElement | null {
+  const { t } = useTranslation('settings')
   const api = window.oxe?.thread
   const [minutes, setMinutes] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -557,24 +549,20 @@ function IdleConversationsSetting(): ReactElement | null {
   const change = async (next: number): Promise<void> => {
     setError('')
     try { setMinutes(await api.setIdleSuspendMinutes!(next)) }
-    catch (cause) { setError(humanizeError(cause, 'Could not save this setting')) }
+    catch (cause) { setError(humanizeError(cause, t('idle.saveFailed'))) }
   }
 
   return (
     <div className="settings-form-group">
-      <h3 className="settings-form-group-title">Idle conversations</h3>
+      <h3 className="settings-form-group-title">{t('idle.title')}</h3>
       <label className="settings-field">
-        <span>Close the agent process after</span>
-        <Select aria-label="Close idle conversations after" value={minutes} onChange={(event) => void change(Number(event.target.value))}>
+        <span>{t('idle.after')}</span>
+        <Select aria-label={t('idle.afterLabel')} value={minutes} onChange={(event) => void change(Number(event.target.value))}>
           {THREAD_IDLE_SUSPEND_CHOICES.map((value) => (
-            <option key={value} value={value}>{value === 0 ? 'Never' : `${value} minutes without activity`}</option>
+            <option key={value} value={value}>{value === 0 ? t('idle.never') : t('idle.minutes', { count: value })}</option>
           ))}
         </Select>
-        <span className="settings-field-hint">
-          Each open Thread conversation keeps an agent process and its MCP servers running. Closing idle ones frees
-          memory; your next message resumes the same session. A conversation with a running turn, a question, queued
-          messages, a background task or a permission allowed for the session stays open.
-        </span>
+        <span className="settings-field-hint">{t('idle.hint')}</span>
       </label>
       {error && <p className="settings-field-hint" role="alert">{error}</p>}
     </div>
@@ -592,6 +580,7 @@ function formatMegabytes(bytes: number): string {
  * updates), or imports one from a folder on networks without internet access.
  */
 function SemanticIndexSetting(): ReactElement | null {
+  const { t } = useTranslation('settings')
   const api = window.oxe?.semantic
   const [status, setStatus] = useState<SemanticVectorStatus | null>(null)
   const [usage, setUsage] = useState<SemanticUsage | null>(null)
@@ -617,22 +606,22 @@ function SemanticIndexSetting(): ReactElement | null {
     setError('')
     setBusy(true)
     try { setStatus(await action()) }
-    catch (cause) { setError(humanizeError(cause, 'Could not change the semantic index.')) }
+    catch (cause) { setError(humanizeError(cause, t('semantic.changeFailed'))) }
     finally { setBusy(false) }
   }
 
   const progress = status.progress
   const stateText = status.state === 'off'
-    ? 'Off. Agents search with exact terms (FTS5) and code structure (CodeGraph).'
+    ? t('semantic.state.off')
     : status.state === 'downloading'
-      ? (progress ? `Downloading model… ${formatMegabytes(progress.loaded)} of ${formatMegabytes(progress.total)}` : 'Downloading model…')
+      ? (progress ? t('semantic.state.downloadingProgress', { loaded: formatMegabytes(progress.loaded), total: formatMegabytes(progress.total) }) : t('semantic.state.downloading'))
       : status.state === 'loading'
-        ? 'Loading the model…'
+        ? t('semantic.state.loading')
         : status.state === 'not-installed'
-          ? 'On, but the model is not installed. Download it or import it from a folder.'
+          ? t('semantic.state.notInstalled')
           : status.state === 'error'
-            ? `The model could not load: ${status.error ?? 'unknown error'}`
-            : 'Ready. Agents also search by meaning; files are embedded in the background.'
+            ? t('semantic.state.error', { error: status.error ?? t('semantic.unknownError') })
+            : t('semantic.state.ready')
   const calls = usage
     ? Object.values(usage.tools).reduce((sum, tool) => ({
       withVector: sum.withVector + tool.withVector.calls,
@@ -642,20 +631,20 @@ function SemanticIndexSetting(): ReactElement | null {
 
   return (
     <div className="settings-form-group" data-testid="semantic-index-setting">
-      <h3 className="settings-form-group-title">Semantic index (beta)</h3>
+      <h3 className="settings-form-group-title">{t('semantic.title')}</h3>
       <div className="settings-toggle-row">
         <span>
-          <strong>Search by meaning</strong>
+          <strong>{t('semantic.searchByMeaning')}</strong>
           <small data-testid="semantic-index-state">{stateText}</small>
         </span>
         <SettingsSwitch
           checked={status.enabled}
           onChange={(next) => { if (!busy) void run(() => api.setVectorIndex(next)) }}
-          ariaLabel="Search by meaning with the semantic index"
+          ariaLabel={t('semantic.switchLabel')}
         />
       </div>
       {status.state === 'downloading' && progress && progress.total > 0 && (
-        <div className="settings-progress" role="progressbar" aria-label="Model download" aria-valuenow={Math.floor((progress.loaded / progress.total) * 100)} aria-valuemin={0} aria-valuemax={100}>
+        <div className="settings-progress" role="progressbar" aria-label={t('semantic.downloadLabel')} aria-valuenow={Math.floor((progress.loaded / progress.total) * 100)} aria-valuemin={0} aria-valuemax={100}>
           <div className="settings-progress-bar" style={{ width: `${Math.floor((progress.loaded / progress.total) * 100)}%` }} />
         </div>
       )}
@@ -663,38 +652,34 @@ function SemanticIndexSetting(): ReactElement | null {
         <div className="settings-inline-actions">
           <Button size="sm" disabled={busy} onClick={() => void run(() => api.downloadModel())} data-testid="btn-semantic-download">
             <Download size={14} aria-hidden="true" />
-            Download model (~270 MB)
+            {t('semantic.download')}
           </Button>
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => api.importModel())} data-testid="btn-semantic-import">
-            Import from folder…
+            {t('semantic.import')}
           </Button>
         </div>
       )}
       {status.installed && !status.enabled && (
         <div className="settings-inline-actions">
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => api.removeModel())}>
-            Remove downloaded model
+            {t('semantic.remove')}
           </Button>
         </div>
       )}
       <span className="settings-field-hint">
-        The model ({status.modelId}) runs on this machine and is kept in the app&apos;s data folder, so updates do not
-        download it again. To import, choose a folder with config.json, tokenizer.json, tokenizer_config.json and
-        onnx/model_quantized.onnx.
-        {calls && (calls.withVector + calls.withoutVector) > 0 && ` Agent searches so far: ${calls.withoutVector} without the index, ${calls.withVector} with it (counted on this machine only).`}
+        {t('semantic.hint', { model: status.modelId })}
+        {calls && (calls.withVector + calls.withoutVector) > 0 && ` ${t('semantic.usage', { without: calls.withoutVector, with: calls.withVector })}`}
       </span>
       {error && <p className="settings-field-hint" role="alert">{error}</p>}
     </div>
   )
 }
 
-const MODEL_OPTIONS: Array<{ value: VoiceModelSize; label: string }> = [
-  { value: 'tiny', label: 'Tiny — fastest, least accurate (~75 MB)' },
-  { value: 'base', label: 'Base — balanced (~142 MB)' },
-  { value: 'small', label: 'Small — more accurate, slower (~466 MB)' }
-]
+const MODEL_SIZES: VoiceModelSize[] = ['tiny', 'base', 'small']
+const DEFAULT_PTT_HOTKEY = 'Ctrl+Shift+Space'
 
 function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+  const { t } = useTranslation('settings')
   const { modelSize, pttHotkey, setModelSize, setPttHotkey } = useVoiceStore()
   const [model, setModel] = useState<VoiceModelStatus | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
@@ -754,7 +739,7 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
       const status = await window.oxe.voice.ensureModel(modelSize)
       setModel(status)
     } catch (err) {
-      setError(humanizeError(err, 'Failed to download model.'))
+      setError(humanizeError(err, t('voice.downloadFailed')))
     } finally {
       setBusy(false)
       setProgress(null)
@@ -766,56 +751,56 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
   return (
     <section className="settings-modal-content" aria-labelledby="settings-voice-title">
       <SettingsContentHeader
-        kicker="OXEVoice · local STT"
-        title="Voice"
+        kicker={t('voice.kicker')}
+        title={t('voice.title')}
         titleId="settings-voice-title"
-        description="Dictate with local transcription and your preferred shortcuts."
+        description={t('voice.description')}
         onClose={onClose}
       />
 
       <div className="settings-content-body settings-form">
         <label className="settings-field">
-          <span>Model</span>
+          <span>{t('voice.model')}</span>
           <Select value={modelSize} onChange={(e) => setModelSize(e.target.value as VoiceModelSize)}>
-            {MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {MODEL_SIZES.map((size) => <option key={size} value={size}>{t(`voice.models.${size}`)}</option>)}
           </Select>
         </label>
 
         <div className="settings-field">
-          <span>Push-to-talk shortcut</span>
+          <span>{t('voice.shortcut')}</span>
           <div className="settings-hotkey-row">
             <TextField
               type="text"
               value={pttHotkey}
               spellCheck={false}
               onChange={(e) => setPttHotkey(e.target.value)}
-              placeholder="Ctrl+Shift+Space"
-              aria-label="Push-to-talk shortcut"
+              placeholder={DEFAULT_PTT_HOTKEY}
+              aria-label={t('voice.shortcut')}
             />
             <button
               type="button"
               className={`settings-btn ghost${capturingHotkey ? ' active' : ''}`}
               onClick={() => setCapturingHotkey((v) => !v)}
             >
-              {capturingHotkey ? 'Press keys…' : 'Capture'}
+              {capturingHotkey ? t('voice.pressKeys') : t('voice.capture')}
             </button>
           </div>
           {capturingHotkey ? (
-            <span className="settings-field-hint">Press the shortcut, or Esc to cancel</span>
+            <span className="settings-field-hint">{t('voice.captureHint')}</span>
           ) : null}
         </div>
 
         <div className="settings-status-card">
           <div className="settings-status-row">
-            <strong>Engine</strong>
+            <strong>{t('voice.engine')}</strong>
             <span className={`settings-status-pill ${model?.engineReady ? 'ok' : 'warn'}`}>
-              {model?.engineReady ? 'available' : 'unavailable'}
+              {model?.engineReady ? t('voice.available') : t('voice.unavailable')}
             </span>
           </div>
           <div className="settings-status-row">
-            <strong>Model «{modelSize}»</strong>
+            <strong>{t('voice.modelName', { size: modelSize })}</strong>
             <span className={`settings-status-pill ${model?.ready ? 'ok' : 'warn'}`}>
-              {model?.ready ? 'ready' : progressPct !== null ? `downloading… ${progressPct}%` : 'not downloaded'}
+              {model?.ready ? t('voice.modelReady') : progressPct !== null ? t('voice.downloadingPercent', { percent: progressPct }) : t('voice.notDownloaded')}
             </span>
           </div>
           {progressPct !== null ? (
@@ -824,42 +809,34 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
             </div>
           ) : null}
           {model && !model.engineReady ? (
-            <p className="settings-field-hint" role="note">
-              Voice input needs the whisper.cpp engine, which this version ships for Windows only. The model download starts once the engine is available on this system.
-            </p>
+            <p className="settings-field-hint" role="note">{t('voice.engineMissing')}</p>
           ) : !model?.ready ? (
             <Button
-             
               variant="primary"
               disabled={busy || !model?.engineReady}
               onClick={() => void downloadModel()}
             >
               <Download size={14} aria-hidden="true" />
-              {busy ? 'Downloading…' : 'Download model'}
+              {busy ? t('voice.downloading') : t('voice.download')}
             </Button>
           ) : (
             <div className="settings-status-ok-line">
               <Check size={14} aria-hidden="true" />
-              Model ready for push-to-talk
+              {t('voice.readyLine')}
             </div>
           )}
           {error ? <p className="settings-error">{error}</p> : null}
         </div>
 
-        <div className="settings-callout">
-          Local recognition (whisper.cpp), <strong>Brazilian Portuguese</strong>.
-          Hold the shortcut to speak; tap the mic for hands-free.
-        </div>
+        <div className="settings-callout"><RichText text={t('voice.callout')} /></div>
       </div>
     </section>
   )
 }
 
-const CURSOR_OPTIONS: Array<{ value: TerminalCursorStyle; label: string }> = [
-  { value: 'block', label: 'Block' },
-  { value: 'bar', label: 'Bar' },
-  { value: 'underline', label: 'Underline' }
-]
+const CURSOR_STYLES: TerminalCursorStyle[] = ['block', 'bar', 'underline']
+/** What the preview prints: shell output, the same in every language. */
+const PREVIEW_SAMPLE = { cwd: '~/project', branch: 'main', command: ' npm run dev', output: 'ready in 312 ms' }
 
 const FONT_PRESETS = [
   TERMINAL_PREFS_DEFAULTS.fontFamily,
@@ -878,11 +855,12 @@ const FONT_PRESETS = [
 
 function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
   const sampleSize = prefs.fontSize
+  const { t } = useTranslation('settings')
   return (
     <div className="settings-term-preview" aria-hidden="true">
       <div className="settings-term-preview-chrome">
         <span /><span /><span />
-        <em>terminal preview</em>
+        <em>{t('terminal.preview')}</em>
       </div>
       <div
         className="settings-term-preview-body"
@@ -894,10 +872,10 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
           opacity: Math.max(0.75, prefs.backgroundOpacity)
         }}
       >
-        <div><span className="accent">~/project</span> <span className="muted">main</span></div>
-        <div><span className="accent">❯</span> npm run dev</div>
+        <div><span className="accent">{PREVIEW_SAMPLE.cwd}</span> <span className="muted">{PREVIEW_SAMPLE.branch}</span></div>
+        <div><span className="accent">❯</span>{PREVIEW_SAMPLE.command}</div>
         <div className="muted">
-          ready in 312 ms
+          {PREVIEW_SAMPLE.output}
           <span
             className={`settings-term-cursor cursor-${prefs.cursorStyle}${prefs.cursorBlink ? ' blink' : ''}`}
           />
@@ -924,14 +902,14 @@ function AppearanceSettingsSection({ onClose }: { onClose: () => void }): ReactE
 function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const global = useTerminalPrefsStore((s) => s.global)
   const setGlobal = useTerminalPrefsStore((s) => s.setGlobal)
-
+  const { t } = useTranslation('settings')
   return (
     <section className="settings-modal-content" aria-labelledby="settings-terminal-title">
       <SettingsContentHeader
-        kicker="Global appearance"
-        title="Terminal"
+        kicker={t('appearance.kicker')}
+        title={t('terminal.title')}
         titleId="settings-terminal-title"
-        description="Set the default font, cursor and behavior for every workspace. Workspace overrides remain independent."
+        description={t('terminal.description')}
         onClose={onClose}
       />
 
@@ -939,9 +917,9 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
         <TerminalPreview prefs={global} />
 
         <div className="settings-form-group">
-          <h3 className="settings-form-group-title">Font</h3>
+          <h3 className="settings-form-group-title">{t('terminal.font')}</h3>
           <label className="settings-field">
-            <span>Family</span>
+            <span>{t('terminal.family')}</span>
             <Select value={global.fontFamily} onChange={(e) => setGlobal({ fontFamily: e.target.value })}>
               {FONT_PRESETS.map((f) => <option key={f} value={f}>{f.split(',')[0]}</option>)}
               {FONT_PRESETS.includes(global.fontFamily) ? null : (
@@ -952,7 +930,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
 
           <label className="settings-field">
             <span className="settings-field-label-row">
-              Size
+              {t('terminal.size')}
               <em>{global.fontSize}px</em>
             </span>
             <input
@@ -963,13 +941,13 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
               value={global.fontSize}
               onChange={(e) => setGlobal({ fontSize: Number(e.target.value) })}
             />
-            <span className="settings-field-hint">Ctrl + / Ctrl − / Ctrl 0 in a terminal</span>
+            <span className="settings-field-hint">{t('terminal.sizeHint')}</span>
           </label>
-          {global.fontSize !== TERMINAL_PREFS_DEFAULTS.fontSize && <button type="button" className="settings-reset-font" onClick={() => setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })}>Reset to {TERMINAL_PREFS_DEFAULTS.fontSize}px</button>}
+          {global.fontSize !== TERMINAL_PREFS_DEFAULTS.fontSize && <button type="button" className="settings-reset-font" onClick={() => setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })}>{t('terminal.resetSize', { size: TERMINAL_PREFS_DEFAULTS.fontSize })}</button>}
 
           <label className="settings-field">
             <span className="settings-field-label-row">
-              Line height
+              {t('terminal.lineHeight')}
               <em>{global.lineHeight.toFixed(1)}</em>
             </span>
             <input
@@ -984,7 +962,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
 
           <label className="settings-field">
             <span className="settings-field-label-row">
-              Letter spacing
+              {t('terminal.letterSpacing')}
               <em>{global.letterSpacing}px</em>
             </span>
             <input
@@ -999,45 +977,45 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
         </div>
 
         <div className="settings-form-group">
-          <h3 className="settings-form-group-title">Cursor & buffer</h3>
+          <h3 className="settings-form-group-title">{t('terminal.cursorBuffer')}</h3>
           <label className="settings-field">
-            <span>Cursor style</span>
+            <span>{t('terminal.cursorStyle')}</span>
             <Select
               value={global.cursorStyle}
               onChange={(e) => setGlobal({ cursorStyle: e.target.value as TerminalCursorStyle })}
             >
-              {CURSOR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {CURSOR_STYLES.map((style) => <option key={style} value={style}>{t(`terminal.cursor.${style}`)}</option>)}
             </Select>
           </label>
 
           <div className="settings-toggle-row">
             <span>
-              <strong>Blinking cursor</strong>
-              <small>Animate the caret in focused terminals</small>
+              <strong>{t('terminal.blink')}</strong>
+              <small>{t('terminal.blinkHint')}</small>
             </span>
             <SettingsSwitch
               checked={global.cursorBlink}
               onChange={(next) => setGlobal({ cursorBlink: next })}
-              ariaLabel="Blinking cursor"
+              ariaLabel={t('terminal.blink')}
             />
           </div>
 
           <div className="settings-toggle-row">
             <span>
-              <strong>Resume agent sessions</strong>
-              <small>After OXESpace restarts, Claude Code and Codex panes reopen the session they were in</small>
+              <strong>{t('terminal.resume')}</strong>
+              <small>{t('terminal.resumeHint')}</small>
             </span>
             <SettingsSwitch
               checked={global.resumeAgentSessions !== false}
               onChange={(next) => setGlobal({ resumeAgentSessions: next })}
-              ariaLabel="Resume agent sessions"
+              ariaLabel={t('terminal.resume')}
             />
           </div>
 
           <label className="settings-field">
             <span className="settings-field-label-row">
-              Scrollback
-              <em>{formatNumber(global.scrollback)} lines</em>
+              {t('terminal.scrollback')}
+              <em>{t('terminal.lines', { lines: formatNumber(global.scrollback) })}</em>
             </span>
             <input
               type="range"
@@ -1051,10 +1029,10 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
 
           <label className="settings-field">
             <span className="settings-field-label-row">
-              Background opacity
+              {t('terminal.opacity')}
               <em>
                 {Math.round(global.backgroundOpacity * 100)}%
-                {global.backgroundOpacity < 1 ? ' translucent' : ''}
+                {global.backgroundOpacity < 1 ? ` ${t('terminal.translucent')}` : ''}
               </em>
             </span>
             <input
@@ -1068,9 +1046,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
           </label>
         </div>
 
-        <div className="settings-callout">
-          <strong>Global</strong> defaults. Workspaces can override them.
-        </div>
+        <div className="settings-callout"><RichText text={t('terminal.globalDefaults')} /></div>
       </div>
     </section>
   )
@@ -1086,6 +1062,7 @@ const AGENT_HOOK_LABEL: Record<AgentHookAgent, string> = { 'claude-code': 'Claud
 function AgentHooksSetting(): ReactElement | null {
   const [statuses, setStatuses] = useState<AgentHooksStatus[] | null>(null)
   const [busy, setBusy] = useState<AgentHookAgent | null>(null)
+  const { t } = useTranslation('settings')
 
   useEffect(() => {
     let cancelled = false
@@ -1110,26 +1087,23 @@ function AgentHooksSetting(): ReactElement | null {
 
   return (
     <div className="settings-form-group">
-      <h3 className="settings-form-group-title">Agent status hooks</h3>
-      <div className="settings-callout">
-        Let Claude Code and Codex report <strong>working / waiting / done</strong> themselves instead of
-        guessing from terminal output. Writes to the agent&apos;s own config; your existing hooks are kept.
-      </div>
+      <h3 className="settings-form-group-title">{t('hooks.title')}</h3>
+      <div className="settings-callout"><RichText text={t('hooks.callout')} /></div>
       {statuses.map((status) => (
         <div className="settings-toggle-row" key={status.agent}>
           <span>
             <strong>{AGENT_HOOK_LABEL[status.agent]}</strong>
             <small>
-              {status.state === 'installed' && 'Installed.'}
-              {status.state === 'partial' && `Partially installed (missing: ${status.missing.join(', ')}).`}
-              {status.state === 'not_installed' && 'Not installed — using output heuristics.'}
-              {status.state === 'error' && `Cannot update: ${status.detail ?? 'unknown error'}`}
+              {status.state === 'installed' && t('hooks.installed')}
+              {status.state === 'partial' && t('hooks.partial', { missing: status.missing.join(', ') })}
+              {status.state === 'not_installed' && t('hooks.notInstalled')}
+              {status.state === 'error' && t('hooks.error', { detail: status.detail ?? t('hooks.unknownError') })}
             </small>
           </span>
           <SettingsSwitch
             checked={status.state === 'installed' || status.state === 'partial'}
             onChange={() => { if (busy === null) void toggle(status) }}
-            ariaLabel={`Report ${AGENT_HOOK_LABEL[status.agent]} status through hooks`}
+            ariaLabel={t('hooks.switchLabel', { agent: AGENT_HOOK_LABEL[status.agent] })}
           />
         </div>
       ))}
@@ -1140,11 +1114,11 @@ function AgentHooksSetting(): ReactElement | null {
 function NotificationsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
-
+  const { t } = useTranslation('settings')
   const sendTest = (): void => {
     void window.oxe?.notifications?.notify({
       title: 'OXESpace',
-      body: 'Test notification',
+      body: t('notifications.testBody'),
       paneId: 'test',
       workspaceId: 'test'
     }).catch(() => undefined)
@@ -1153,42 +1127,36 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
   return (
     <section className="settings-modal-content" aria-labelledby="settings-notifications-title">
       <SettingsContentHeader
-        kicker="System"
-        title="Notifications"
+        kicker={t('notifications.kicker')}
+        title={t('notifications.title')}
         titleId="settings-notifications-title"
-        description="Choose when OXESpace gets your attention."
+        description={t('notifications.description')}
         onClose={onClose}
       />
 
       <div className="settings-content-body settings-form">
         <div className="settings-toggle-row featured">
           <span>
-            <strong>Notify when an agent needs you</strong>
-            <small>
-              Desktop alerts when a background agent finishes, exits, or errors.
-              Clicking focuses the terminal.
-            </small>
+            <strong>{t('notifications.notify')}</strong>
+            <small>{t('notifications.notifyHint')}</small>
           </span>
           <SettingsSwitch
             checked={notificationsEnabled}
             onChange={setNotificationsEnabled}
-            ariaLabel="Notify when an agent needs you"
+            ariaLabel={t('notifications.notify')}
           />
         </div>
 
-        <div className="settings-callout">
-          Only for terminals you are <strong>not watching</strong>.
-        </div>
+        <div className="settings-callout"><RichText text={t('notifications.onlyUnwatched')} /></div>
 
         <Button
-         
           variant="ghost"
           onClick={sendTest}
           disabled={!notificationsEnabled}
           data-testid="btn-test-notification"
         >
           <Bell size={14} aria-hidden="true" />
-          Send test notification
+          {t('notifications.sendTest')}
         </Button>
 
         <AgentHooksSetting />
@@ -1209,6 +1177,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const setUpdatePreferences = useUpdaterStore((s) => s.setUpdatePreferences)
   const checkRtk = useUpdaterStore((s) => s.checkRtk)
   const updateRtk = useUpdaterStore((s) => s.updateRtk)
+  const { t } = useTranslation('settings')
 
   useEffect(() => {
     bootstrap()
@@ -1221,27 +1190,27 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const asksToDownload = !manualInstall && (preferences.mode !== 'auto' || pinned)
   const isDevBuild = app.status === 'disabled'
   const versionLabel = app.currentVersion === 'dev' || !app.currentVersion
-    ? 'dev build'
+    ? t('updates.devBuild')
     : `v${app.currentVersion}`
 
   const appStatusLabel = (() => {
     switch (app.status) {
       case 'disabled':
-        return 'Update service unavailable'
+        return t('updates.status.disabled')
       case 'checking':
-        return 'Checking GitHub Releases…'
+        return t('updates.status.checking')
       case 'available':
-        return manualInstall ? `Update ${app.availableVersion} available — install it from Releases` : asksToDownload ? `Update ${app.availableVersion} available` : `Update ${app.availableVersion} available — downloading in the background`
+        return t(manualInstall ? 'updates.status.availableManual' : asksToDownload ? 'updates.status.availableAsk' : 'updates.status.availableAuto', { version: app.availableVersion })
       case 'downloading':
-        return `Downloading ${app.availableVersion ?? 'update'}… ${app.progress ?? 0}%`
+        return app.availableVersion ? t('updates.status.downloading', { version: app.availableVersion, percent: app.progress ?? 0 }) : t('updates.status.downloadingUnknown', { percent: app.progress ?? 0 })
       case 'downloaded':
-        return `Ready to install ${app.availableVersion}`
+        return t('updates.status.downloaded', { version: app.availableVersion })
       case 'not-available':
-        return 'No newer published release found'
+        return t('updates.status.notAvailable')
       case 'error':
-        return 'Update check failed'
+        return t('updates.status.error')
       default:
-        return 'Waiting for update status…'
+        return t('updates.status.idle')
     }
   })()
 
@@ -1255,34 +1224,34 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
           ? 'err'
           : 'muted'
 
-  const appPillLabel = isDevBuild
-    ? 'Dev build'
+  const appPillLabel = t(isDevBuild
+    ? 'updates.pill.devBuild'
     : app.status === 'not-available'
-      ? 'Up to date'
+      ? 'updates.pill.upToDate'
       : app.status === 'available'
-        ? 'Update'
+        ? 'updates.pill.update'
         : app.status === 'downloaded'
-          ? 'Ready'
+          ? 'updates.pill.ready'
           : app.status === 'downloading'
-            ? 'Downloading'
+            ? 'updates.pill.downloading'
             : app.status === 'checking'
-              ? 'Checking'
+              ? 'updates.pill.checking'
               : app.status === 'error'
-                ? 'Error'
-                : 'Idle'
+                ? 'updates.pill.error'
+                : 'updates.pill.idle')
 
   return (
     <section className="settings-modal-content" aria-labelledby="settings-updates-title">
       <SettingsContentHeader
-        kicker="System"
-        title="Updates"
+        kicker={t('updates.kicker')}
+        title={t('updates.title')}
         titleId="settings-updates-title"
-        description="Keep OXESpace and its tools up to date."
+        description={t('updates.description')}
         onClose={onClose}
       />
 
       <div className="settings-content-body settings-form settings-updates-form">
-        <h3 className="settings-update-group-label">Application & tools</h3>
+        <h3 className="settings-update-group-label">{t('updates.group')}</h3>
         <div className="settings-update-group">
           <article
             className={`settings-update-card${isDevBuild ? ' is-dev' : ''}`}
@@ -1303,7 +1272,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
             </div>
             <p className="settings-update-status">{appStatusLabel}</p>
             {app.status === 'downloading' && app.progress != null ? (
-              <div className="settings-progress" role="progressbar" aria-label="Downloading OXESpace update" aria-valuenow={app.progress} aria-valuemin={0} aria-valuemax={100}>
+              <div className="settings-progress" role="progressbar" aria-label={t('updates.downloadingLabel')} aria-valuenow={app.progress} aria-valuemin={0} aria-valuemax={100}>
                 <div className="settings-progress-bar" style={{ width: `${app.progress}%` }} />
               </div>
             ) : null}
@@ -1317,35 +1286,33 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               {asksToDownload && app.status === 'available' ? (
                 <Button variant="primary" onClick={() => void downloadAppUpdate()} data-testid="btn-download-app-update">
                   <Download size={14} aria-hidden="true" />
-                  Download {app.availableVersion}
+                  {t('updates.download', { version: app.availableVersion })}
                 </Button>
               ) : null}
               <Button
-               
                 variant="ghost"
                 disabled={app.status === 'checking' || app.status === 'downloading'}
                 onClick={() => void checkAppUpdates()}
                 data-testid="btn-check-app-updates"
-                title="Check GitHub Releases for a new version"
+                title={t('updates.checkTitle')}
               >
                 <RefreshCw size={14} aria-hidden="true" />
-                Check for updates
+                {t('updates.check')}
               </Button>
               {app.status === 'downloaded' ? (
                 <Button
-                 
                   variant="primary"
                   onClick={() => void quitAndInstall()}
                   data-testid="btn-install-app-update"
                 >
                   <Download size={14} aria-hidden="true" />
-                  Restart & install
+                  {t('updates.restartInstall')}
                 </Button>
               ) : null}
-              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={14} aria-hidden="true" /> Open releases</a> : null}
+              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={14} aria-hidden="true" /> {t('updates.openReleases')}</a> : null}
             </div>
             <p className="settings-update-hint">
-              {manualInstall ? 'Development and Linux package installs cannot update in place. Use the latest release or update your development checkout.' : asksToDownload ? 'Downloaded updates install when you restart.' : 'Downloads in the background. Restart to apply.'}
+              {t(manualInstall ? 'updates.hint.manual' : asksToDownload ? 'updates.hint.ask' : 'updates.hint.auto')}
             </p>
           </article>
 
@@ -1356,72 +1323,70 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               </span>
               <div>
                 <strong>RTK</strong>
-                <span>{rtk.installed ? (rtk.version ?? 'installed (no version file)') : 'not installed'}</span>
+                <span>{rtk.installed ? (rtk.version ?? t('updates.rtk.installedNoVersion')) : t('updates.rtk.notInstalledVersion')}</span>
               </div>
               <span className={`settings-status-pill ${rtk.error ? 'err' : rtk.checking || rtk.updating ? 'muted' : rtk.updateAvailable ? 'warn' : rtk.installed ? 'ok' : 'muted'}`}>
-                {rtk.error ? 'Error' : rtk.checking ? 'Checking' : rtk.updating ? 'Updating' : rtk.updateAvailable ? 'Update available' : rtk.installed ? 'Up to date' : 'Not installed'}
+                {t(rtk.error ? 'updates.rtk.pill.error' : rtk.checking ? 'updates.rtk.pill.checking' : rtk.updating ? 'updates.rtk.pill.updating' : rtk.updateAvailable ? 'updates.rtk.pill.updateAvailable' : rtk.installed ? 'updates.rtk.pill.upToDate' : 'updates.rtk.pill.notInstalled')}
               </span>
             </div>
             <p className="settings-update-status">
               {rtk.checking
-                ? 'Checking GitHub…'
+                ? t('updates.rtk.status.checking')
                 : rtk.updating
-                  ? 'Updating…'
+                  ? t('updates.rtk.status.updating')
                   : rtk.updateAvailable
-                    ? `Update available: ${rtk.latestVersion}`
+                    ? t('updates.rtk.status.available', { version: rtk.latestVersion })
                     : rtk.latestVersion
-                      ? `Latest ${rtk.latestVersion} · up to date`
+                      ? t('updates.rtk.status.latest', { version: rtk.latestVersion })
                       : isDevBuild
-                        ? 'Works in dev — check or install the sidecar anytime'
-                        : 'Not checked yet'}
+                        ? t('updates.rtk.status.dev')
+                        : t('updates.rtk.status.notChecked')}
             </p>
             {rtk.error ? <p className="settings-error">{rtk.error}</p> : null}
             <div className="settings-update-actions">
               <Button
-               
                 variant="ghost"
                 disabled={rtk.checking || rtk.updating}
                 onClick={() => void checkRtk()}
                 data-testid="btn-check-rtk"
               >
                 <RefreshCw size={14} aria-hidden="true" />
-                Check RTK
+                {t('updates.rtk.check')}
               </Button>
               <Button
-               
                 variant="primary"
                 disabled={rtk.checking || rtk.updating || (!rtk.updateAvailable && rtk.installed)}
                 onClick={() => void updateRtk()}
                 data-testid="btn-update-rtk"
               >
                 <Download size={14} aria-hidden="true" />
-                {rtk.installed ? 'Update RTK' : 'Install RTK'}
+                {rtk.installed ? t('updates.rtk.update') : t('updates.rtk.install')}
               </Button>
             </div>
-            <p className="settings-update-hint">Sidecar binary. Updates independently of OXESpace.</p>
+            <p className="settings-update-hint">{t('updates.rtk.hint')}</p>
           </article>
 
         </div>
-        <h3 className="settings-update-group-label">Included with OXESpace</h3>
+        <h3 className="settings-update-group-label">{t('updates.bundled.group')}</h3>
         <article className="settings-update-card bundled" data-testid="settings-bundled-tools">
           <div className="settings-update-card-head">
             <span className="settings-update-icon bundled" aria-hidden="true">
               <Package size={16} />
             </span>
             <div>
-              <strong>Built-in tools</strong>
-              <span>Updated with each application release</span>
+              <strong>{t('updates.bundled.title')}</strong>
+              <span>{t('updates.bundled.subtitle')}</span>
             </div>
-            <span className="settings-status-pill ok">included</span>
+            <span className="settings-status-pill ok">{t('updates.bundled.included')}</span>
           </div>
           <ul className="settings-bundled-list">
             <li>
               <strong>Caveman</strong>
-              <span>In-app prompt / agent workflow</span>
+              <span>{t('updates.bundled.caveman')}</span>
             </li>
             <li>
               <strong>CodeGraph</strong>
-              <span>Vendored code intelligence</span>
+              <span>{t('updates.bundled.codegraph')}</span>
             </li>
           </ul>
         </article>

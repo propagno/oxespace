@@ -1,11 +1,11 @@
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import type { AppUpdatePreferences } from '../../../shared/types/updater'
 import { SegmentedControl, Switch } from '../../ui'
 
-function modeHint(preferences: AppUpdatePreferences): string {
-  if (preferences.pinnedVersion !== null) return `Staying on v${preferences.pinnedVersion}: OXESpace does not check or download updates. Check for updates still tells you what is new.`
-  if (preferences.mode === 'auto') return 'Checks every few hours, downloads in the background and installs when you restart.'
-  if (preferences.mode === 'notify') return 'Checks every few hours and tells you when a version is out. Nothing downloads until you choose.'
-  return 'Never checks on its own. Use Check for updates when you want to know.'
+function modeHint(preferences: AppUpdatePreferences, t: TFunction<'settings'>): string {
+  if (preferences.pinnedVersion !== null) return t('updates.preferences.hint.pinned', { version: preferences.pinnedVersion })
+  return t(`updates.preferences.hint.${preferences.mode}`)
 }
 
 /** How OXESpace updates: the mode, a pinned version and the release channel. */
@@ -14,20 +14,19 @@ export function UpdatePreferences({ preferences, currentVersion, onChange }: {
   currentVersion: string
   onChange: (preferences: AppUpdatePreferences) => void
 }) {
+  const { t } = useTranslation('settings')
   const pinned = preferences.pinnedVersion !== null
   return (
     <div className="settings-update-preferences">
-      <SegmentedControl label="How OXESpace updates" value={preferences.mode}
-        options={[{ value: 'auto', label: 'Automatic' }, { value: 'notify', label: 'Notify me' }, { value: 'off', label: 'Off' }]}
+      <SegmentedControl label={t('updates.preferences.label')} value={preferences.mode}
+        options={(['auto', 'notify', 'off'] as const).map(value => ({ value, label: t(`updates.preferences.${value}`) }))}
         onChange={(mode) => onChange({ ...preferences, mode })} />
-      <Switch checked={pinned} label={`Stay on v${pinned ? preferences.pinnedVersion : currentVersion}`} description="Keep this version until you turn this off."
+      <Switch checked={pinned} label={t('updates.preferences.stay', { version: pinned ? preferences.pinnedVersion : currentVersion })} description={t('updates.preferences.stayHint')}
         onChange={(checked) => onChange({ ...preferences, pinnedVersion: checked ? currentVersion : null })} />
-      <Switch checked={preferences.channel === 'beta'} label="Receive beta versions"
-        description={preferences.channel === 'beta'
-          ? 'You get each beta as it comes out. Turning this off keeps your version until a newer stable one is out.'
-          : 'Try upcoming features early. Betas are tested, but can change before the stable release.'}
+      <Switch checked={preferences.channel === 'beta'} label={t('updates.preferences.beta')}
+        description={preferences.channel === 'beta' ? t('updates.preferences.betaOn') : t('updates.preferences.betaOff')}
         onChange={(checked) => onChange({ ...preferences, channel: checked ? 'beta' : 'stable' })} />
-      <p className="settings-update-mode-hint" data-testid="app-update-mode-hint">{modeHint(preferences)}</p>
+      <p className="settings-update-mode-hint" data-testid="app-update-mode-hint">{modeHint(preferences, t)}</p>
     </div>
   )
 }

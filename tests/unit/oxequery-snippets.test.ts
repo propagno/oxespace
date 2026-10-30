@@ -3,7 +3,7 @@ import { SQL_SNIPPETS, formatSql } from '../../src/components/OxeQuery/sql-snipp
 
 describe('SQL snippets and formatter', () => {
   it('has unique labels and balanced tab stops', () => {
-    expect(new Set(SQL_SNIPPETS.map(snippet => snippet.label)).size).toBe(SQL_SNIPPETS.length)
+    expect(new Set(SQL_SNIPPETS.map(snippet => snippet.trigger)).size).toBe(SQL_SNIPPETS.length)
     for (const snippet of SQL_SNIPPETS) {
       expect((snippet.body.match(/\$\{/g) ?? []).length).toBe((snippet.body.match(/\$\{[^}]*\}/g) ?? []).length)
     }

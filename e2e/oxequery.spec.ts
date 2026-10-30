@@ -380,7 +380,7 @@ test('OxeQuery shows container stats and resources and creates a database from a
     await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
     const resources = page.getByRole('region', { name: 'Images, volumes and networks' })
     await expect(resources.getByRole('table', { name: 'Images' })).toContainText('postgres')
-    await resources.getByRole('tab', { name: /volumes/ }).click()
+    await resources.getByRole('tab', { name: /^Volumes/ }).click()
     await resources.getByRole('button', { name: 'Remove volume pg-dev-data' }).click()
     await expect(page.getByRole('dialog', { name: /^Remove (volume|image|network) / })).toContainText('cannot be recovered')
     await page.getByRole('dialog', { name: /^Remove (volume|image|network) / }).getByRole('button', { name: 'Cancel' }).click()

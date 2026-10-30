@@ -54,7 +54,6 @@ function prefetchPanelChunks(): void {
   }
 }
 import { IntegrationsStatusChips } from './IntegrationsStatusChips'
-import { WorkspaceStatusSummary } from './WorkspaceStatusSummary'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import './CodeChrome.css'
 import { i18n } from '../../i18n'
@@ -502,7 +501,6 @@ function WorkspaceSurfaceComponent({
       <button type="button" className="workspace-topbar-action" aria-label={tc('workspace.topbar.activity')} title={tc('tools.background.detail')} aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
         <Activity size={14} aria-hidden="true" /><span>{tc('workspace.topbar.activityShort')}</span>
       </button>
-      <WorkspaceStatusSummary workspace={workspace} />
       <IntegrationsStatusChips workspace={workspace} isActive={isActive} />
     </header>
   )

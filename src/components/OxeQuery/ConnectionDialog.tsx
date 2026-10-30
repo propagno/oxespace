@@ -1,5 +1,9 @@
 import { useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
-import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck, XCircle } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
+import { ErrorState } from '../../ui/Display'
+import { formatMs } from './catalog'
+import { EXAMPLE } from './examples'
+import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
@@ -11,19 +15,17 @@ import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Select, SegmentedControl, Switch } from '../../ui/Field'
 import { splitHostInput } from '../../../shared/oxequeryHost'
 
+/** Markup the translated sentences may use. */
+const STRONG_AND_CODE = {
+  strong: <strong />,
+  code: <code />
+}
+
 const DEFAULT_PORT: Record<DatabaseEngine, number> = { postgres: 5432, mongodb: 27017 }
-const ENGINES: { id: DatabaseEngine; label: string; hint: string; Icon: typeof Database }[] = [
-  { id: 'postgres', label: 'PostgreSQL', hint: 'SQL editor and schema browser', Icon: Database },
-  { id: 'mongodb', label: 'MongoDB', hint: 'Collections, find and aggregate', Icon: Leaf }
-]
-const ENVIRONMENTS: { id: ConnectionEnvironment; label: string }[] = [{ id: 'local', label: 'Local' }, { id: 'dev', label: 'Development' }, { id: 'prod', label: 'Production' }]
-const TLS_MODES: { id: SslMode; label: string }[] = [
-  { id: 'prefer', label: 'When the server offers it (default)' },
-  { id: 'disable', label: 'Off' },
-  { id: 'require', label: 'Encrypted — certificate NOT verified' },
-  { id: 'verify-ca', label: 'Verify the certificate chain' },
-  { id: 'verify-full', label: 'Verify the chain and the host name (recommended)' }
-]
+/** Product names stay as they are; what each engine is for comes from the catalog. */
+const ENGINES: { id: DatabaseEngine; name: string; Icon: typeof Database }[] = [{ id: 'postgres', name: 'PostgreSQL', Icon: Database }, { id: 'mongodb', name: 'MongoDB', Icon: Leaf }]
+const ENVIRONMENTS: ConnectionEnvironment[] = ['local', 'dev', 'prod']
+const TLS_MODES: SslMode[] = ['prefer', 'disable', 'require', 'verify-ca', 'verify-full']
 
 export function ConnectionDialog(): ReactElement | null {
   const { open, editing } = useOxeQueryStore(state => state.dialog)
@@ -48,22 +50,24 @@ function Section({ title, hint, open, onToggle, children }: { title: string; hin
 }
 
 function FilePick({ label, kind, picked, existing, onPicked, onClear }: { label: string; kind: PickKind; picked: Picked | null; existing: boolean; onPicked(file: Picked): void; onClear(): void }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [error, setError] = useState('')
   const choose = async (): Promise<void> => {
     setError('')
     try { const file = await oq('files.pick', { kind }); if (file) onPicked(file) } catch (cause) { setError(errorMessage(cause)) }
   }
-  const current = picked?.name ?? (existing ? 'Saved' : '')
+  const current = picked?.name ?? (existing ? t('form.saved') : '')
   return <div className="oq-filepick">
     <span>{label}</span>
-    <button type="button" onClick={() => void choose()}><FileKey size={13} aria-hidden="true" />{current ? 'Replace…' : 'Choose file…'}</button>
+    <button type="button" onClick={() => void choose()}><FileKey size={13} aria-hidden="true" />{current ? t('form.replace') : t('form.chooseFile')}</button>
     {current && <code title={current}>{current}</code>}
-    {current && <button type="button" className="oq-link" onClick={onClear}>Remove</button>}
+    {current && <button type="button" className="oq-link" onClick={onClear}>{t('common.remove')}</button>}
     {error && <em role="alert">{error}</em>}
   </div>
 }
 
 function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): ReactElement {
+  const { t } = useTranslation('oxequery')
   const close = useOxeQueryStore(state => state.closeDialog)
   const [engine, setEngine] = useState<DatabaseEngine>(editing?.engine ?? 'postgres')
   const [name, setName] = useState(editing?.name ?? '')
@@ -123,7 +127,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
     setUrl(text)
     if (!text.trim()) { setUrlError(''); return }
     const parsed = parseConnectionUrl(text)
-    if (!parsed.ok) { setUrlError(parsed.error); return }
+    if (!parsed.ok) { setUrlError(t(`url.${parsed.error}`, { scheme: parsed.scheme ?? '' })); return }
     const value = parsed.value
     setUrlError('')
     setEngine(value.engine); setHost(value.host); setPort(String(value.port)); setDatabase(value.database); setUsername(value.username)
@@ -197,7 +201,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const runTest = async (id: string): Promise<void> => {
     const result = await oq('connections.test', { id })
     if (result.ok) {
-      setOutcome({ kind: 'ok', message: `Connected${result.serverVersion ? ` to ${result.serverVersion}` : ''}${result.latencyMs !== undefined ? ` in ${result.latencyMs} ms` : ''}.` })
+      setOutcome({ kind: 'ok', message: [result.serverVersion ? t('reconnect.connectedTo', { version: result.serverVersion }) : t('reconnect.connected'), result.latencyMs !== undefined ? t('form.latency', { duration: formatMs(result.latencyMs) }) : ''].filter(Boolean).join(' ') })
     } else if (result.code === 'host-key-unknown' && result.reasons?.[0]) {
       setOutcome({ kind: 'hostkey', connectionId: id, fingerprint: result.reasons[0], host: `${sshHost}:${sshPort}` })
     } else if (result.code === 'host-key-changed') {
@@ -227,136 +231,136 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
 
   const toggle = (key: keyof typeof open): void => setOpen(current => ({ ...current, [key]: !current[key] }))
 
-  const title = editing ? 'Edit connection' : 'New connection'
-  const description = editing?.containerRef ? `Created from the container ${editing.containerRef}.` : 'Connect to a database running here, in a container or on another server.'
-  return <Dialog className="oq-scope" title={title} description={description} size="lg" onClose={() => { if (!busy) close() }}
+  const title = editing ? t('form.editTitle') : t('connections.new')
+  const description = editing?.containerRef ? t('form.fromContainer', { name: editing.containerRef }) : t('form.description')
+  return <Dialog className="oq-scope" title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={() => { if (!busy) close() }}
     footer={<>
-      <Button disabled={busy} onClick={() => void check()}>{busy ? 'Working…' : 'Test connection'}</Button>
-      {!editing && <Button disabled={busy} onClick={() => void connectOnce()} title="Nothing is saved: the connection, its password, history and tabs are gone when you close the app">Connect without saving</Button>}
+      <Button disabled={busy} loading={busy} onClick={() => void check()}>{t('form.test')}</Button>
+      {!editing && <Button disabled={busy} onClick={() => void connectOnce()} title={t('form.connectOnceTitle')}>{t('form.connectOnce')}</Button>}
       <span className="oq-spacer" />
-      <Button disabled={busy} onClick={close}>Cancel</Button>
-      <Button type="submit" form="oq-connection-form" variant="primary" disabled={busy}>{editing ? 'Save' : 'Save and open'}</Button>
+      <Button disabled={busy} onClick={close}>{t('common.cancel')}</Button>
+      <Button type="submit" form="oq-connection-form" variant="primary" disabled={busy}>{editing ? t('common.save') : t('form.saveOpen')}</Button>
     </>}>
     <form id="oq-connection-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
-      {!editing && <section className="oq-engines" role="radiogroup" aria-label="Engine">
-        {ENGINES.map(({ id, label, hint, Icon }) => <button key={id} type="button" role="radio" aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
-          <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span></button>)}
+      {!editing && <section className="oq-engines" role="radiogroup" aria-label={t('newDatabase.engine')}>
+        {ENGINES.map(({ id, name: label, Icon }) => <button key={id} type="button" role="radio" aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
+          <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span></button>)}
       </section>}
 
-      <div className="oq-connect-by"><span>Connect by</span>
-        <SegmentedControl label="Connect by" value={mode} onChange={switchMode} options={[{ value: 'host', label: 'Host' }, { value: 'url', label: 'URL' }]} />
+      <div className="oq-connect-by"><span>{t('form.connectBy')}</span>
+        <SegmentedControl label={t('form.connectBy')} value={mode} onChange={switchMode} options={[{ value: 'host', label: t('form.host') }, { value: 'url', label: t('form.url') }]} />
       </div>
 
-      {mode === 'url' && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> Connection string</span>
-        <textarea rows={2} value={url} required onChange={event => applyUrl(event.target.value)} spellCheck={false} autoComplete="off" aria-label="Connection string"
+      {mode === 'url' && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> {t('form.connectionString')}</span>
+        <textarea rows={2} value={url} required onChange={event => applyUrl(event.target.value)} spellCheck={false} autoComplete="off" aria-label={t('form.connectionString')}
           placeholder={engine === 'mongodb' ? 'mongodb://user:password@localhost:27017/app' : 'postgres://user:password@localhost:5432/app'} />
-        {urlError ? <em role="alert">{urlError}</em> : <small>The password in the string is kept in the system's secure storage, not in the connection record. Pasting a string fills in the other settings.</small>}</label>}
+        {urlError ? <em role="alert">{urlError}</em> : <small>{t('form.urlHint')}</small>}</label>}
 
       <div className="oq-form">
-        <label className="oq-form-wide">Name<input value={name} onChange={event => setName(event.target.value)} placeholder={derivedName.trim() && derivedName !== '127.0.0.1' ? derivedName : engine === 'postgres' ? 'Local Postgres' : 'Local MongoDB'} autoFocus /></label>
-        <label>Group<input list="oq-groups" value={group} onChange={event => setGroup(event.target.value)} placeholder="No group" maxLength={60} /></label>
+        <label className="oq-form-wide">{t('server.column.name')}<input value={name} onChange={event => setName(event.target.value)} placeholder={derivedName.trim() && derivedName !== '127.0.0.1' ? derivedName : t(`form.namePlaceholder.${engine}`)} autoFocus /></label>
+        <label>{t('form.group')}<input list="oq-groups" value={group} onChange={event => setGroup(event.target.value)} placeholder={t('form.noGroup')} maxLength={60} /></label>
         <datalist id="oq-groups">{groups.map(item => <option key={item} value={item} />)}</datalist>
-        <div className="oq-form-pair"><div role="radiogroup" aria-label="Color" className="oq-swatches">
-          <button type="button" role="radio" aria-checked={color === ''} aria-label="No color" data-color="none" onClick={() => setColor('')} />
-          {CONNECTION_COLORS.map(item => <button key={item} type="button" role="radio" aria-checked={color === item} aria-label={item} data-color={item} onClick={() => setColor(item)} />)}</div>
-          <label className="oq-check"><input type="checkbox" checked={favorite} onChange={event => setFavorite(event.target.checked)} />Favorite</label></div>
+        <div className="oq-form-pair"><div role="radiogroup" aria-label={t('form.color')} className="oq-swatches">
+          <button type="button" role="radio" aria-checked={color === ''} aria-label={t('form.noColor')} data-color="none" onClick={() => setColor('')} />
+          {CONNECTION_COLORS.map(item => <button key={item} type="button" role="radio" aria-checked={color === item} aria-label={t(`form.colors.${item}`)} data-color={item} onClick={() => setColor(item)} />)}</div>
+          <label className="oq-check"><input type="checkbox" checked={favorite} onChange={event => setFavorite(event.target.checked)} />{t('form.favorite')}</label></div>
         {mode === 'host' && <>
-        <label>{srv ? 'Seed list host' : 'Host'}<input value={host} onChange={event => setHost(event.target.value)} onBlur={() => {
+        <label>{srv ? t('form.seedHost') : t('form.host')}<input value={host} onChange={event => setHost(event.target.value)} onBlur={() => {
           // A host pasted as a URL keeps only its name; a port written after it fills the Port field.
           const pasted = splitHostInput(host)
           if (pasted.host !== host) setHost(pasted.host)
           if (pasted.port && !srv) setPort(String(pasted.port))
         }} required spellCheck={false} /></label>
-        {!srv && <label>Port<input type="number" min={1} max={65535} value={port} onChange={event => setPort(event.target.value)} required /></label>}
-        <label>User<input value={username} onChange={event => setUsername(event.target.value)} autoComplete="off" spellCheck={false} /></label>
-        <label>Password<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"
-          placeholder={editing?.hasPassword && !clearPassword ? 'Saved — leave blank to keep' : ''} /></label>
-        <label className="oq-form-wide">Database<input value={database} onChange={event => setDatabase(event.target.value)} spellCheck={false}
-          placeholder={engine === 'postgres' ? 'postgres' : 'optional'} /></label>
-        {editing?.hasPassword && <label className="oq-check oq-form-wide"><input type="checkbox" checked={clearPassword} onChange={event => setClearPassword(event.target.checked)} />Remove the saved password</label>}
+        {!srv && <label>{t('form.port')}<input type="number" min={1} max={65535} value={port} onChange={event => setPort(event.target.value)} required /></label>}
+        <label>{t('form.user')}<input value={username} onChange={event => setUsername(event.target.value)} autoComplete="off" spellCheck={false} /></label>
+        <label>{t('form.password')}<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"
+          placeholder={editing?.hasPassword && !clearPassword ? t('form.keepSaved') : ''} /></label>
+        <label className="oq-form-wide">{t('form.database')}<input value={database} onChange={event => setDatabase(event.target.value)} spellCheck={false}
+          placeholder={engine === 'postgres' ? 'postgres' : t('form.optional')} /></label>
+        {editing?.hasPassword && <label className="oq-check oq-form-wide"><input type="checkbox" checked={clearPassword} onChange={event => setClearPassword(event.target.checked)} />{t('form.clearPassword')}</label>}
         </>}
       </div>
 
-      <section className="oq-safety" aria-label="Safety">
-        <div role="radiogroup" aria-label="Environment" className="oq-segment">
-          {ENVIRONMENTS.map(item => <button key={item.id} type="button" role="radio" aria-checked={environment === item.id} data-selected={environment === item.id} data-environment={item.id}
-            onClick={() => { setEnvironment(item.id); if (item.id === 'prod' && agentAccess === 'write') setAgentAccess('read') }}>{item.label}</button>)}
+      <section className="oq-safety" aria-label={t('form.safety')}>
+        <div role="radiogroup" aria-label={t('form.environment')} className="oq-segment">
+          {ENVIRONMENTS.map(item => <button key={item} type="button" role="radio" aria-checked={environment === item} data-selected={environment === item} data-environment={item}
+            onClick={() => { setEnvironment(item); if (item === 'prod' && agentAccess === 'write') setAgentAccess('read') }}>{t(`environment.${item}`)}</button>)}
         </div>
-        <Switch checked={readOnly} onChange={setReadOnly} label="Read-only" description="The server refuses statements that change data. Turn off to write." />
-        {environment === 'prod' && !readOnly && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> This is a production connection with writes enabled. Destructive statements will still ask first.</p>}
+        <Switch checked={readOnly} onChange={setReadOnly} label={t('form.readOnly')} description={t('form.readOnlyHint')} />
+        {environment === 'prod' && !readOnly && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> {t('form.prodWrites')}</p>}
       </section>
 
-      <Section title="Security (TLS)" hint={sslMode === 'disable' ? 'off' : sslMode === 'prefer' ? 'when offered' : sslMode === 'require' ? 'not verified' : 'verified'} open={open.tls} onToggle={() => toggle('tls')}>
-        <label className="oq-form-wide">Encryption<Select className="oq-select" value={sslMode} onChange={event => setSslMode(event.target.value as SslMode)}>
-          {TLS_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</Select></label>
-        {sslMode === 'require' && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> The connection is encrypted but the server is not authenticated, so someone in the middle could impersonate it.</p>}
+      <Section title={t('form.tls')} hint={t(`form.tlsHint.${sslMode === 'verify-ca' || sslMode === 'verify-full' ? 'verified' : sslMode}`)} open={open.tls} onToggle={() => toggle('tls')}>
+        <label className="oq-form-wide">{t('form.encryption')}<Select className="oq-select" value={sslMode} onChange={event => setSslMode(event.target.value as SslMode)}>
+          {TLS_MODES.map(mode => <option key={mode} value={mode}>{t(`form.tlsMode.${mode}`)}</option>)}</Select></label>
+        {sslMode === 'require' && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> {t('form.requireWarning')}</p>}
         {(sslMode === 'verify-ca' || sslMode === 'verify-full') && <>
-          <FilePick label="CA certificate" kind="ca" picked={ca} existing={Boolean(editing?.hasCa) && !clearCa} onPicked={file => { setCa(file); setClearCa(false) }} onClear={() => { setCa(null); setClearCa(true) }} />
-          <FilePick label="Client certificate" kind="cert" picked={cert} existing={Boolean(editing?.hasClientCert) && !clearClient} onPicked={file => { setCert(file); setClearClient(false) }} onClear={() => { setCert(null); setCertKey(null); setClearClient(true) }} />
-          <FilePick label="Client key" kind="key" picked={certKey} existing={Boolean(editing?.hasClientCert) && !clearClient} onPicked={file => { setCertKey(file); setClearClient(false) }} onClear={() => { setCert(null); setCertKey(null); setClearClient(true) }} />
-          <p className="oq-muted">Without a CA file the system trust store is used.</p>
+          <FilePick label={t('form.ca')} kind="ca" picked={ca} existing={Boolean(editing?.hasCa) && !clearCa} onPicked={file => { setCa(file); setClearCa(false) }} onClear={() => { setCa(null); setClearCa(true) }} />
+          <FilePick label={t('form.clientCert')} kind="cert" picked={cert} existing={Boolean(editing?.hasClientCert) && !clearClient} onPicked={file => { setCert(file); setClearClient(false) }} onClear={() => { setCert(null); setCertKey(null); setClearClient(true) }} />
+          <FilePick label={t('form.clientKey')} kind="key" picked={certKey} existing={Boolean(editing?.hasClientCert) && !clearClient} onPicked={file => { setCertKey(file); setClearClient(false) }} onClear={() => { setCert(null); setCertKey(null); setClearClient(true) }} />
+          <p className="oq-muted">{t('form.caHint')}</p>
         </>}
       </Section>
 
-      <Section title="SSH tunnel" hint={sshEnabled ? `via ${sshHost || '…'}` : 'off'} open={open.ssh} onToggle={() => toggle('ssh')}>
-        <label className="oq-check oq-form-wide"><input type="checkbox" checked={sshEnabled} onChange={event => setSshEnabled(event.target.checked)} />Connect through an SSH server (bastion host)</label>
+      <Section title={t('form.ssh')} hint={sshEnabled ? t('form.via', { host: sshHost || '…' }) : t('form.tlsHint.disable')} open={open.ssh} onToggle={() => toggle('ssh')}>
+        <label className="oq-check oq-form-wide"><input type="checkbox" checked={sshEnabled} onChange={event => setSshEnabled(event.target.checked)} />{t('form.sshEnable')}</label>
         {sshEnabled && <div className="oq-form">
-          <label>SSH host<input value={sshHost} onChange={event => setSshHost(event.target.value)} spellCheck={false} required /></label>
-          <label>SSH port<input type="number" min={1} max={65535} value={sshPort} onChange={event => setSshPort(event.target.value)} /></label>
-          <label>SSH user<input value={sshUser} onChange={event => setSshUser(event.target.value)} spellCheck={false} autoComplete="off" required /></label>
-          <label>Authentication<Select className="oq-select" value={sshAuth} onChange={event => setSshAuth(event.target.value as SshAuth)}><option value="key">Private key</option><option value="password">Password</option><option value="agent">SSH agent</option></Select></label>
-          {sshAuth === 'agent' ? <p className="oq-muted oq-form-wide">Uses the keys loaded in your running SSH agent (SSH_AUTH_SOCK, or the OpenSSH agent on Windows). Nothing is stored here.</p> : sshAuth === 'key'
+          <label>{t('form.sshHost')}<input value={sshHost} onChange={event => setSshHost(event.target.value)} spellCheck={false} required /></label>
+          <label>{t('form.sshPort')}<input type="number" min={1} max={65535} value={sshPort} onChange={event => setSshPort(event.target.value)} /></label>
+          <label>{t('form.sshUser')}<input value={sshUser} onChange={event => setSshUser(event.target.value)} spellCheck={false} autoComplete="off" required /></label>
+          <label>{t('form.auth')}<Select className="oq-select" value={sshAuth} onChange={event => setSshAuth(event.target.value as SshAuth)}><option value="key">{t('form.privateKey')}</option><option value="password">{t('form.password')}</option><option value="agent">{t('form.sshAgent')}</option></Select></label>
+          {sshAuth === 'agent' ? <p className="oq-muted oq-form-wide">{t('form.agentHint')}</p> : sshAuth === 'key'
             ? <div className="oq-form-wide">
-              <FilePick label="Private key" kind="sshKey" picked={sshKey} existing={Boolean(editing?.ssh?.hasSecret && editing.ssh.auth === 'key')}
+              <FilePick label={t('form.privateKey')} kind="sshKey" picked={sshKey} existing={Boolean(editing?.ssh?.hasSecret && editing.ssh.auth === 'key')}
                 onPicked={file => setSshKey(file)} onClear={() => setSshKey(null)} />
-              {editing?.ssh?.keyName && !sshKey && <p className="oq-muted">Saved key: {editing.ssh.keyName}</p>}
-              <label>Key passphrase<input type="password" value={sshPassphrase} onChange={event => setSshPassphrase(event.target.value)} autoComplete="new-password" placeholder="Only if the key is encrypted" /></label>
+              {editing?.ssh?.keyName && !sshKey && <p className="oq-muted">{t('form.savedKey', { name: editing.ssh.keyName })}</p>}
+              <label>{t('form.passphrase')}<input type="password" value={sshPassphrase} onChange={event => setSshPassphrase(event.target.value)} autoComplete="new-password" placeholder={t('form.passphraseHint')} /></label>
             </div>
-            : <label className="oq-form-wide">SSH password<input type="password" value={sshSecret} onChange={event => setSshSecret(event.target.value)} autoComplete="new-password"
-              placeholder={editing?.ssh?.hasSecret && editing.ssh.auth === 'password' ? 'Saved — leave blank to keep' : ''} /></label>}
-          <p className="oq-muted oq-form-wide">The first time, you will be shown the server's key fingerprint to confirm. A different key later is refused.</p>
+            : <label className="oq-form-wide">{t('form.sshPassword')}<input type="password" value={sshSecret} onChange={event => setSshSecret(event.target.value)} autoComplete="new-password"
+              placeholder={editing?.ssh?.hasSecret && editing.ssh.auth === 'password' ? t('form.keepSaved') : ''} /></label>}
+          <p className="oq-muted oq-form-wide">{t('form.hostKeyHint')}</p>
         </div>}
       </Section>
 
-      {engine === 'mongodb' && <Section title="MongoDB options" hint={srv ? 'SRV' : replicaSet || authSource ? 'custom' : 'defaults'} open={open.mongo} onToggle={() => toggle('mongo')}>
+      {engine === 'mongodb' && <Section title={t('form.mongoOptions')} hint={srv ? 'SRV' : replicaSet || authSource ? t('form.custom') : t('form.defaults')} open={open.mongo} onToggle={() => toggle('mongo')}>
         <div className="oq-form">
-          <label>Auth source<input value={authSource} onChange={event => setAuthSource(event.target.value)} placeholder="admin" spellCheck={false} /></label>
-          <label>Replica set<input value={replicaSet} onChange={event => setReplicaSet(event.target.value)} spellCheck={false} /></label>
-          <label className="oq-check oq-form-wide"><input type="checkbox" checked={srv} onChange={event => setSrv(event.target.checked)} />Seed list (mongodb+srv — the host is a DNS name)</label>
-          {!srv && <label className="oq-form-wide">Additional hosts <small>one host:port per line</small><textarea rows={2} value={extraHosts} onChange={event => setExtraHosts(event.target.value)} spellCheck={false} /></label>}
-          <label className="oq-check oq-form-wide"><input type="checkbox" checked={direct} disabled={srv} onChange={event => setDirect(event.target.checked)} />Connect directly to this host (skip replica-set discovery)</label>
+          <label>{t('form.authSource')}<input value={authSource} onChange={event => setAuthSource(event.target.value)} placeholder={EXAMPLE.authSource} spellCheck={false} /></label>
+          <label>{t('form.replicaSet')}<input value={replicaSet} onChange={event => setReplicaSet(event.target.value)} spellCheck={false} /></label>
+          <label className="oq-check oq-form-wide"><input type="checkbox" checked={srv} onChange={event => setSrv(event.target.checked)} />{t('form.srv')}</label>
+          {!srv && <label className="oq-form-wide">{t('form.extraHosts')} <small>{t('form.extraHostsHint')}</small><textarea rows={2} value={extraHosts} onChange={event => setExtraHosts(event.target.value)} spellCheck={false} /></label>}
+          <label className="oq-check oq-form-wide"><input type="checkbox" checked={direct} disabled={srv} onChange={event => setDirect(event.target.checked)} />{t('form.direct')}</label>
         </div>
       </Section>}
 
-      <Section title="Limits and agents" hint={agentAccess === 'off' ? 'agents off' : `agents: ${agentAccess}`} open={open.limits} onToggle={() => toggle('limits')}>
+      <Section title={t('form.limits')} hint={t(`form.agentsHint.${agentAccess}`)} open={open.limits} onToggle={() => toggle('limits')}>
         <div className="oq-form">
-          <label>Statement timeout (seconds)<input type="number" min={1} max={3600} value={timeoutSeconds} onChange={event => setTimeoutSeconds(event.target.value)} /></label>
-          <label>Default row limit<input type="number" min={1} max={100000} value={maxRows} onChange={event => setMaxRows(event.target.value)} /></label>
-          <label className="oq-form-wide">AI agents
+          <label>{t('form.timeout')}<input type="number" min={1} max={3600} value={timeoutSeconds} onChange={event => setTimeoutSeconds(event.target.value)} /></label>
+          <label>{t('form.maxRows')}<input type="number" min={1} max={100000} value={maxRows} onChange={event => setMaxRows(event.target.value)} /></label>
+          <label className="oq-form-wide">{t('form.agents')}
             <Select className="oq-select" value={agentAccess} onChange={event => setAgentAccess(event.target.value as AgentAccess)}>
-              <option value="off">No access (default)</option>
-              <option value="read">Read — agents may ask to read, each request needs your approval</option>
-              <option value="write" disabled={environment === 'prod'}>Read and write — every change needs your approval</option>
+              <option value="off">{t('form.agentOff')}</option>
+              <option value="read">{t('form.agentRead')}</option>
+              <option value="write" disabled={environment === 'prod'}>{t('form.agentWrite')}</option>
             </Select>
           </label>
-          {environment === 'prod' && <p className="oq-muted oq-form-wide">Agents can never write to a production connection.</p>}
-          <label>Keep-alive (seconds)<input type="number" min={0} max={3600} value={keepalive} onChange={event => setKeepalive(event.target.value)} /><small>0 turns it off</small></label>
-          <label className="oq-form-wide">Names agents must not see <small>one per line; any column or field containing it is masked</small>
-            <textarea rows={3} value={maskNames} onChange={event => setMaskNames(event.target.value)} spellCheck={false} placeholder="ssn&#10;card_number" /></label>
+          {environment === 'prod' && <p className="oq-muted oq-form-wide">{t('form.agentProd')}</p>}
+          <label>{t('form.keepalive')}<input type="number" min={0} max={3600} value={keepalive} onChange={event => setKeepalive(event.target.value)} /><small>{t('form.keepaliveHint')}</small></label>
+          <label className="oq-form-wide">{t('form.mask')} <small>{t('form.maskHint')}</small>
+            <textarea rows={3} value={maskNames} onChange={event => setMaskNames(event.target.value)} spellCheck={false} placeholder={EXAMPLE.maskedNames} /></label>
         </div>
       </Section>
 
-      {error && <p role="alert" className="oq-error">{error}</p>}
+      {error && <ErrorState compact title={t('form.failed')} message={error} />}
       {outcome?.kind === 'ok' && <p role="status" className="oq-outcome oq-outcome-ok"><CheckCircle2 size={15} aria-hidden="true" />{outcome.message}</p>}
-      {outcome?.kind === 'fail' && <p role="alert" className="oq-outcome oq-outcome-fail"><XCircle size={15} aria-hidden="true" />{outcome.message}</p>}
-      {outcome?.kind === 'hostkey' && <ConfirmDialog title="Trust this SSH host key?" confirmLabel="Trust this key and test again" busy={busy}
-        description={<><strong>{outcome.host}</strong> has not been seen before. Compare this fingerprint with the one your server reports (for example with <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>).</>}
+      {outcome?.kind === 'fail' && <ErrorState compact title={t('form.testFailed')} message={outcome.message} />}
+      {outcome?.kind === 'hostkey' && <ConfirmDialog title={t('form.trustTitle')} confirmLabel={t('form.trustConfirm')} cancelLabel={t('common.cancel')} busy={busy}
+        description={<Trans t={t} i18nKey="form.trustDescription" values={{ host: outcome.host }} components={STRONG_AND_CODE} />}
         onCancel={() => setOutcome(null)} onConfirm={() => void trustAndRetry()}>
         <code className="oq-fingerprint">{outcome.fingerprint}</code>
       </ConfirmDialog>}
       {outcome?.kind === 'hostkey-changed' && <div role="alert" className="oq-hostkey oq-hostkey-danger">
-        <p><ShieldAlert size={15} aria-hidden="true" /> <strong>The SSH server's host key changed.</strong> This can mean the server was rebuilt, or that someone is intercepting the connection. Do not continue until you have confirmed it with whoever runs the server.</p>
-        <code className="oq-fingerprint">trusted: {outcome.expected}</code><code className="oq-fingerprint">now: {outcome.actual}</code>
+        <p><ShieldAlert size={15} aria-hidden="true" /> <Trans t={t} i18nKey="form.keyChanged" components={{ strong: <strong /> }} /></p>
+        <code className="oq-fingerprint">{t('form.trusted', { fingerprint: outcome.expected })}</code><code className="oq-fingerprint">{t('form.now', { fingerprint: outcome.actual })}</code>
       </div>}
     </form>
   </Dialog>

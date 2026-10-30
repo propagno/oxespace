@@ -135,7 +135,7 @@ export function suggest(cache: SchemaCache, fullText: string, textBeforeCursor: 
     const key = `${target.schema}.${target.table}`
     if (seen.has(key)) continue
     seen.add(key)
-    for (const column of cache.columnsOf(target.schema, target.table)) if (matches(column.name)) result.push({ label: column.name, kind: 'column', detail: `${target.table}.${column.type}`, insert: quote(column.name) })
+    for (const column of cache.columnsOf(target.schema, target.table)) if (matches(column.name)) result.push({ label: column.name, kind: 'column', detail: [target.table, column.type].join('.'), insert: quote(column.name) })
   }
   for (const keyword of KEYWORDS) if (matches(keyword)) result.push({ label: keyword, kind: 'keyword', insert: keyword })
   return result.slice(0, 200)
