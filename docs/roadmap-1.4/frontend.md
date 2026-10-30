@@ -144,3 +144,21 @@ Dono de `src/**`, `shared/locales/**`, `e2e/visual/**`, `docs/design/**` e `mobi
 - **Testes:** catálogo; e2e de troca de modo nos dois idiomas; visual no lote.
 - **Riscos:** e2e quebrarem em massa → trocar os nomes nos helpers primeiro e num PR só.
 
+### F13 · Seções na lista do OxeChat (P)
+- **Objetivo:** organizar muitas conversas sem perder as importantes.
+- **Escopo:** criar, renomear e apagar seções; arrastar conversas para dentro; alternativa por teclado e menu (WCAG 2.5.7); conversas aninhadas (A15) acompanham a principal.
+- **Aceite:** seções persistem; arrastar e o menu fazem a mesma coisa; en e pt-BR.
+
+### F14 · Painel da sessão (V17) (M)
+- **Objetivo:** ver numa barra lateral tudo sobre a conversa.
+- **Escopo:** ambiente (projeto, worktree, branch), contexto detalhado (mensagens, ferramentas, MCP, sistema, skills, livre) com botão de compactar (T5), ferramentas e servidores MCP ligados (F10), saídas (arquivos mudados, previews), trabalho em segundo plano; seções reordenáveis.
+- **Aceite:** os números de contexto batem com os eventos de uso; en e pt-BR; offer-audit verde.
+
+### F15 · Chat lateral, conversas aninhadas e coordenadora (M)
+- **Objetivo:** as telas de B1.2, B1.3 e B1.4.
+- **Escopo:** gaveta do chat lateral com atalho (Ctrl+.) e custo visível; árvore de conversas filhas com status, abrir e levar para a grade; marcar uma conversa como coordenadora (fixada no topo do projeto) com a visão geral das conversas e de quem espera decisão.
+- **Aceite:** e2e de cada fluxo pelo mock; en e pt-BR.
+
+### F10 (extensão) · Aprovação por ferramenta
+- Em cada grupo e servidor MCP, cada ferramenta com permitir / pedir aprovação / bloquear (B7.3).
+

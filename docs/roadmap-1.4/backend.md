@@ -88,6 +88,36 @@ Os itens de cada WS têm o mesmo formato da seção 1. Os de maior risco:
 - **Testes:** unidade do diário e da redação; integração do pacote; e2e pelo mock.
 - **Riscos:** vazamento de dado sensível → só campos escalares ou códigos, redação reaproveitada de log-redaction e environment-redaction, teste com segredos plantados.
 
+### B1.2 · Chat lateral (A12) (M)
+- **Objetivo:** perguntar algo sobre a sessão sem interromper a tarefa em andamento.
+- **Escopo:** cópia efêmera da sessão nativa (Claude: `--resume --fork-session` sem persistir; Codex: equivalente efêmero), que nunca escreve na conversa principal nem dispara ferramentas de escrita; descartada ao fechar.
+- **Fora:** mesclar respostas na conversa principal.
+- **Aceite:** a tarefa principal segue sem pausa; nada do chat lateral aparece no histórico principal; a cópia só tem ferramentas de leitura.
+- **Testes:** integração com os dois provedores; e2e abrindo e fechando a gaveta.
+- **Riscos:** custo de tokens da cópia → só quando a pessoa abre; mostra o custo.
+
+### B1.3 · Conversas aninhadas (A15) (M)
+- **Objetivo:** as conversas que um agente cria (work_plan, thread_create, delegações) aparecem sob a conversa que as criou.
+- **Escopo:** vínculo pai→filha persistido (migração no próximo número livre), status agregado, fechar/arquivar a principal pergunta e leva as filhas junto; contexto de cada filha separado.
+- **Fora:** aninhar mais de 2 níveis na tela.
+- **Contratos:** campo `parentThreadId` e resumo das filhas no contrato do OxeChat (CCR).
+- **Aceite:** filha criada pelo agente aparece aninhada na hora; arquivar a principal com filhas ativas pede confirmação.
+- **Testes:** integração do vínculo; e2e pelo mock.
+
+### B1.4 · Conversa coordenadora do projeto (A16) (M)
+- **Objetivo:** uma conversa fixada no projeto que enxerga as outras, diz quem espera decisão e repassa resultados.
+- **Escopo:** marcar uma conversa como coordenadora (só a pessoa); ela recebe por padrão o grupo de orquestração e uma leitura resumida das conversas do projeto e dos pedidos pendentes (só leitura, sem responder aprovações); usa a memória do projeto.
+- **Fora:** responder aprovações por outras conversas (continua só da pessoa).
+- **Aceite:** "quem está esperando por mim?" responde com as conversas e pedidos reais; nenhuma aprovação é respondida pela coordenadora (teste).
+- **Testes:** integração; teste de capacidade proibida.
+
+### B7.3 · Aprovação por ferramenta (M)
+- **Objetivo:** escolher, por ferramenta MCP, permitir, pedir aprovação ou bloquear.
+- **Escopo:** gravação na política do projeto (`tool.use`), só pela janela; vale para ferramentas do OXESpace e de servidores MCP de terceiros.
+- **Fora:** ferramentas proibidas (continuam inexistentes).
+- **Contratos:** extensão do contrato do F10 (CCR).
+- **Aceite:** a ferramenta marcada "pedir aprovação" pede aprovação na próxima chamada; bloqueada é recusada com mensagem clara.
+
 ### Protocolo de handoff entre subagentes do BACKEND
 1. Brief: WS, itens, contrato que consome e que produz, arquivos de que é dono.
 2. Commits em branch própria `be/<ws>/<item>`.
