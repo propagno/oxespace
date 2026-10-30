@@ -114,7 +114,9 @@ export function threadToolRoles(db: RoleDatabase, threadId: string): ThreadToolR
  * context. A value the person set is kept.
  */
 export function toolSearchEnvironment(provider: 'claude' | 'codex', source: NodeJS.ProcessEnv = process.env): Record<string, string> {
-  return provider === 'claude' && source.ENABLE_TOOL_SEARCH === undefined ? { ENABLE_TOOL_SEARCH: 'auto:5' } : {}
+  // `true`, not `auto:N`: measured in T8, `auto:5` loaded every definition on a large context window (+21.7k tokens
+  // for a plain conversation), while `true` defers them and costs less than 1.3's core group did.
+  return provider === 'claude' && source.ENABLE_TOOL_SEARCH === undefined ? { ENABLE_TOOL_SEARCH: 'true' } : {}
 }
 
 /** The empty strict configuration Claude receives for a read-only conversation. */

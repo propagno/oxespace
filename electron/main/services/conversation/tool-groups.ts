@@ -49,9 +49,12 @@ export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { 
   return { tools: Object.keys(enableable).length ? [...tools, TOOLS_ENABLE] : tools, enableable }
 }
 
-/** Whether the provider's process will run with Claude Code's tool search. */
+/**
+ * Whether Claude Code will defer MCP definitions for sure. Only `true` does: `auto:N` defers only above N% of the
+ * context window, which on a large window never happened in the T8 measurement, so it gets the plan without tool search.
+ */
 export function usesToolSearch(provider: 'claude' | 'codex', env: Record<string, string | undefined>): boolean {
   if (provider !== 'claude') return false
   const value = env.ENABLE_TOOL_SEARCH?.trim().toLowerCase()
-  return value !== undefined && value !== '' && value !== 'false' && value !== '0'
+  return value === 'true' || value === '1'
 }

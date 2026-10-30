@@ -48,7 +48,7 @@ describe('MCP servers for an agent started in a Code terminal', () => {
   it('leaves the person\'s own servers to Claude\'s .mcp.json, and turns on tool search unless the person set it', async () => {
     const launch = await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], {})
     expect(Object.keys((JSON.parse(launch.args[launch.args.indexOf('--mcp-config') + 1]) as { mcpServers: object }).mcpServers)).toEqual(['oxespace-delegation'])
-    expect(launch.env).toEqual({ ENABLE_TOOL_SEARCH: 'auto:5' })
+    expect(launch.env).toEqual({ ENABLE_TOOL_SEARCH: 'true' })
     expect((await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).env).toEqual({})
   })
 
