@@ -2,11 +2,14 @@ import { lazy, Suspense, type ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { TerminalPane } from './TerminalPane'
+import { i18n } from '../../i18n'
+import { Spinner } from '../../ui'
 
 // Editor and Review panes (Monaco, diff cards) are only needed once such a pane exists, so they stay out of the entry chunk.
 const EditorPane = lazy(() => import('../Editor/EditorPane').then(m => ({ default: m.EditorPane })))
 const ReviewPane = lazy(() => import('../Review/ReviewPane').then(m => ({ default: m.ReviewPane })))
-const loading = <div className="pane-loading" role="status" aria-label="Loading pane" />
+const Loading = (): ReactElement => <Spinner label={i18n.t('ui.loading')} />
+const loading = <Loading />
 
 interface PaneContentProps {
   pane: WorkspacePane

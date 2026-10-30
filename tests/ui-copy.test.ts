@@ -37,6 +37,7 @@ const MIGRATED = [
   'src/components/Search',
   'src/components/Skills',
   'src/components/Sidebar',
+  'src/components/Panes',
   'src/components/Terminal',
   'src/components/WebPreview',
   'src/components/Workbench',
@@ -49,7 +50,7 @@ const MIGRATED = [
 ]
 /** Text that stays the same in every language: product and tool names, commands and sample values. */
 const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph',
-  'GitHub', 'MCP', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
+  'GitHub', 'MCP', 'RTK · Caveman · Semantic', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
   'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000',
   'stdio', 'command:', 'args:', 'env:', 'url:', 'headers:', 'filesystem', 'github', 'npx', '-y @modelcontextprotocol/server-filesystem /tmp',
   'GITHUB_TOKEN=ghp_...\\nDEBUG=1', 'refactor-react', 'refactor'])
