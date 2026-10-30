@@ -13,7 +13,8 @@ import kotlinx.serialization.json.JsonObject
  *
  * Frames are JSON text over WSS, one object per message, each at most `REMOTE_LIMITS.maxFrameBytes`. The version is
  * negotiated in `hello`; a change that removes or renames anything bumps `REMOTE_PROTOCOL_VERSION`. Fields are only
- * added. The Kotlin side is generated from the JSON Schema of this file, so everything here stays plain data.
+ * added. The Android app's `RemoteProtocol.kt` is generated from this file (a test there keeps it current), so
+ * everything here stays plain data. A JSON Schema of it is optional.
  *
  * What the phone can never do is listed in `REMOTE_FORBIDDEN`: approvals of OxeQuery and of MCP `confirm`, sign-in and
  * tokens, secrets, MCP trust, policy edits and `host.exec` stay with the person, at the desktop. A test keeps every
@@ -39,6 +40,11 @@ object RemoteLimits {
     const val AUTH_TIMEOUT_MS: Long = 10000L
     /** Characters of message text a command may carry. */
     const val MAX_TEXT_LENGTH: Int = 32000
+    /** Pairing attempts per IP address in `pairingAttemptWindowMs` before `pairing-locked`. */
+    const val PAIRING_ATTEMPTS_PER_WINDOW: Int = 5
+    const val PAIRING_ATTEMPT_WINDOW_MS: Long = 120000L
+    /** Characters of the device name a phone may give when pairing. */
+    const val MAX_DEVICE_NAME_LENGTH: Int = 64
 }
 
 @Serializable
@@ -118,6 +124,22 @@ enum class RemoteErrorCode(val wire: String) {
     }
 }
 
+@Serializable
+enum class RemotePairingErrorCode(val wire: String) {
+    @SerialName("pairing-expired") PAIRING_EXPIRED("pairing-expired"),
+    @SerialName("pairing-used") PAIRING_USED("pairing-used"),
+    @SerialName("pairing-refused") PAIRING_REFUSED("pairing-refused"),
+    @SerialName("pairing-locked") PAIRING_LOCKED("pairing-locked"),
+    @SerialName("too-many-devices") TOO_MANY_DEVICES("too-many-devices"),
+    @SerialName("malformed") MALFORMED("malformed"),
+    @SerialName("pairing-invalid") PAIRING_INVALID("pairing-invalid"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemotePairingErrorCode? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
 /** Never a command, a subscription or an argument of the remote protocol. */
 val REMOTE_FORBIDDEN: Set<String> = setOf(
     "oxequery.approve",
@@ -150,11 +172,18 @@ sealed interface RemoteFrame
 @SerialName("hello")
 data class RemoteHelloFrame(
     val versions: List<Long>,
-    /** Set by the gateway: its display name, never the machine's account or path. */
+    /** Set by the gateway: "OXESpace", or the name the person chose in Settings › Devices. Never the host name, an account or a path. */
     val desktopName: String? = null,
+    /** Set by the gateway: 32 random bytes, base64url, new for every connection; a refresh signs it as its `nonce`. */
+    val challenge: String? = null,
 ) : RemoteFrame
 
-/** Access token, or a refresh signed with the device key (proof of possession). */
+/**
+ * Access token, or a refresh signed with the device key (proof of possession): ECDSA P-256 with SHA-256 over
+ * `refreshSigningInput(fp, deviceId, nonce)`, where `nonce` is this connection's `hello.challenge`. `signature` is the
+ * ASN.1 DER ECDSA signature (SEQUENCE of r and s) in base64url without padding; no other encoding is accepted. The `ack`
+ * carries a `RemoteAuthResult`; a removed device gets `revoked`.
+ */
 @Serializable
 @SerialName("auth")
 data class RemoteAuthFrame(
