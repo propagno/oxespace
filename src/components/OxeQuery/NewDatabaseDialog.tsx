@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
+import { Notice } from '../../ui/Display'
 import { errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
 
@@ -44,7 +45,7 @@ export function NewDatabaseDialog({ onClose }: { onClose: () => void }): ReactEl
       <label>{t('newDatabase.version')}<input value={tag} onChange={event => setTag(event.target.value)} aria-describedby="oq-tag-hint" required /></label>
       <small id="oq-tag-hint" className="oq-muted">{t('newDatabase.versionHint', { examples: kind === 'postgres' ? '17, 16-alpine' : '8, 7' })}</small>
       <label>{t('newDatabase.port')} <small className="oq-muted">{t('newDatabase.optional')}</small><input type="number" min={1024} max={65535} value={port} onChange={event => setPort(event.target.value)} placeholder={t('newDatabase.portPlaceholder')} /></label>
-      {error && <p role="alert" className="oq-error">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
     </form>
   </Dialog>
 }
