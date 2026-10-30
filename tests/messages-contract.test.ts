@@ -12,6 +12,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.quarantine.changed': ['tools'],
   'mcp.quarantine.added': ['tools'],
   'mcp.quarantine.removed': ['tools'],
+  'mcp.quarantine.configChanged': [],
   'thread.request.notPending': [],
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
@@ -35,7 +36,11 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'bundle.file.logTail': [],
   'bundle.file.runtime': [],
   'bundle.file.versions': [],
-  'bundle.file.configuration': []
+  'bundle.file.configuration': [],
+  'remote.port.privileged': ['port'],
+  'remote.port.inUse': ['port'],
+  'remote.network.noPrivateInterface': [],
+  'remote.certificate.failed': []
 }
 
 describe('C3 message codes', () => {

@@ -145,6 +145,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // New-conversation worktree: only checks whether the folder it is about to create already exists and
   // resolves its real path. Never reads files.
   'electron/main/services/conversation/thread-worktree.ts',
+  // Conversation worktree finish: only checks whether the app-owned worktree folder still exists before
+  // asking Git for its state. Never reads or writes files.
+  'electron/main/services/conversation/thread-worktree-lifecycle.ts',
   // Session search index: read-only scan of the agents' own transcript
   // folders (~/.claude/projects, ~/.codex/sessions) into a private cache file.
   // Outside the workspace tree; transcripts are never written.

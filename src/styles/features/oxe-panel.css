@@ -166,11 +166,9 @@
 .oxe-live-dot.live {
   background: var(--dot-green);
   opacity: 1;
-  animation: oxe-live-pulse var(--duration-pulse) var(--ease-out);
-}
-@keyframes oxe-live-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(18, 199, 154, 0.5); }
-  100% { box-shadow: 0 0 0 6px rgba(18, 199, 154, 0); }
+  --pulse-scale: 1.6;
+  --pulse-opacity: 0.6;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-out);
 }
 
 /* Per-agent skills onboarding cards. */
@@ -213,6 +211,8 @@
   min-height: 0;
   padding: 16px;
 }
+/* The root boundary covers the window, on the canvas, so a crash never leaves it blank. */
+.error-boundary-page { position: fixed; inset: 0; background: var(--surface-canvas); color: var(--text-primary); }
 
 .terminal-view {
   width: 100%;

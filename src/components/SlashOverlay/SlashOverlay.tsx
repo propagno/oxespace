@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { SlashCommandDefinition } from '../../../shared/types/slash'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { filterSlashCommands } from '../../lib/slashCommands'
-import { Button } from '../../ui'
+import { Button, EmptyState } from '../../ui'
 
 interface SlashOverlayProps {
   paneId: string
@@ -179,7 +179,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
                 </button>
               ))}
               {filtered.length === 0 ? (
-                <div className="slash-overlay-empty">No command found for “{query}”</div>
+                <EmptyState compact title={<>No command found for “{query}”</>} />
               ) : null}
             </div>
 
