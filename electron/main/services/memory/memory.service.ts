@@ -98,6 +98,7 @@ export class MemoryService implements MemoryApi {
     }))
   }
   async notes(input: Parameters<MemoryApi['notes']>[0]) { return (await this.control()).notes(input) }
+  async noteUpdate(input: Parameters<MemoryApi['noteUpdate']>[0]) { return (await this.control()).noteUpdate(input) }
   async noteDelete(input: Parameters<MemoryApi['noteDelete']>[0]) { return (await this.control()).noteDelete(input) }
   async export(input: Parameters<MemoryApi['export']>[0]) { return (await this.control()).export(input) }
   async reset(input: Parameters<MemoryApi['reset']>[0]) { return (await this.control()).reset(input) }

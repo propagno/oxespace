@@ -285,7 +285,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'memory.admin': {
     label: 'Install, configure or roll back memory; wire it into agents; list, export, delete or reset what is stored',
     excluded: 'Memory is the person\'s opt-in, and so is looking through, exporting, deleting or resetting what it holds. Agents only search and record.',
-    ipc: ['memory.configure', 'memory.install', 'memory.rollback', 'memory.setupAgents', 'memory.notes', 'memory.noteDelete', 'memory.export', 'memory.reset']
+    ipc: ['memory.configure', 'memory.install', 'memory.rollback', 'memory.setupAgents', 'memory.notes', 'memory.noteUpdate', 'memory.noteDelete', 'memory.export', 'memory.reset']
   },
 
   // ---- documentation ------------------------------------------------------------------------
