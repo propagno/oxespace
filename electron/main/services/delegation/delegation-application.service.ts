@@ -379,6 +379,12 @@ export class DelegationApplicationService {
       this.canonicalPath(execution.canonicalRoot) !== this.canonicalPath(task.originCwd) || this.isDelegatedExecution(task, execution)) {
       throw new Error('Delegation is outside this execution scope')
     }
+    // B6.2: reconnecting is for a requester whose session ended (an app restart). While it is still running, another
+    // session of the same checkout cannot take its control over.
+    if (this.deps.executions.isLive(task.originExecutionId)) {
+      this.event(task, 'origin-takeover-refused', 'Another session tried to take over requester control while the requester is running; refused.')
+      throw new DelegationRequesterLiveError()
+    }
     this.coordinator.checkTask(task)
     await this.coordinator.bind(task, 'requester', execution)
     task.originExecutionId = execution.id
@@ -621,4 +627,13 @@ export class DelegationApplicationService {
     }
   }
   async stop(): Promise<void> { this.closing = true; await Promise.allSettled([...this.pending.values(), ...this.recoveries.values()]) }
+}
+
+/** The requester of a delegation is still running: only it controls the task (B6.2, message code delegation.requester.live). */
+export class DelegationRequesterLiveError extends Error {
+  readonly code = 'delegation.requester.live'
+  constructor() {
+    super('The requester of this delegation is still running; only it can control the task.')
+    this.name = 'DelegationRequesterLiveError'
+  }
 }

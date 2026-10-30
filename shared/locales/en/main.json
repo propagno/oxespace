@@ -34,6 +34,11 @@
       "connectivity": {
         "offline": "No network connection."
       }
+    },
+    "delegation": {
+      "requester": {
+        "live": "The conversation that delegated this task is still running; only it can control the task."
+      }
     }
   }
 }
