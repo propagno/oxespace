@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Play, RotateCw, Square, SquareTerminal, Trash2 } from 'lucide-react'
-import type { ContainerAction, ContainerEngine, ContainerInspect, ContainerStat, ContainerSummary } from '../../../shared/types/oxequery'
+import type { ContainerAction, ContainerEngine, ContainerInspect, ContainerStat, ContainerSummary } from '../../../shared/types/oxepod'
 import { Button, ConfirmDialog, ErrorState, Meter, Tabs } from '../../ui'
 import { formatNumber, formatRelative } from '../../utils/formatTime'
-import { errorMessage, oq } from '../OxeQuery/client'
+import { errorMessage, pod } from './client'
 import { useOxePodStore } from './oxepod.store'
 import { KNOWN_STATES, databaseKind, memoryOf, statFor } from './pods-model'
 import { formatBytes } from '../OxeQuery/catalog'
@@ -33,7 +33,7 @@ export function ContainerDetail({ container, engine, active }: { container: Cont
 
   useEffect(() => {
     let alive = true
-    oq('containers.inspect', { id: container.id, engine }).then(value => { if (alive) { setInspect(value); setInspectError('') } }, cause => { if (alive) setInspectError(errorMessage(cause)) })
+    pod('containers.inspect', { id: container.id, engine }).then(value => { if (alive) { setInspect(value); setInspectError('') } }, cause => { if (alive) setInspectError(errorMessage(cause)) })
     return () => { alive = false }
   }, [container.id, container.state, engine])
 
@@ -43,7 +43,7 @@ export function ContainerDetail({ container, engine, active }: { container: Cont
     let alive = true
     const load = async (): Promise<void> => {
       if (document.visibilityState !== 'visible') return
-      try { const list = await oq('containers.stats', engine ? { engine } : {}); if (alive) setStats(list) } catch { /* usage is optional */ }
+      try { const list = await pod('containers.stats', engine ? { engine } : {}); if (alive) setStats(list) } catch { /* usage is optional */ }
     }
     void load()
     const timer = window.setInterval(() => void load(), STATS_MS)
@@ -53,8 +53,8 @@ export function ContainerDetail({ container, engine, active }: { container: Cont
   const act = async (action: ContainerAction | 'remove'): Promise<void> => {
     setBusy(true); setNotice('')
     try {
-      if (action === 'remove') await oq('containers.remove', { id: container.id, engine, confirmed: true })
-      else await oq('containers.action', { id: container.id, action, engine })
+      if (action === 'remove') await pod('containers.remove', { id: container.id, engine, confirmed: true })
+      else await pod('containers.action', { id: container.id, action, engine })
       await useOxePodStore.getState().refresh()
     } catch (cause) { setNotice(errorMessage(cause)) } finally { setBusy(false) }
   }

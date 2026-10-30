@@ -4,7 +4,9 @@ import type { ExecOptions, ExecResult, ExecutionHost } from '../../electron/main
 import { ConnectionStore, normalizeConnectionInput, type SecretCipher } from '../../electron/main/services/oxequery/connection-store'
 import { OxeQueryService } from '../../electron/main/services/oxequery/service'
 import { OxeQueryError, type ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
+import { OxePodService } from '../../electron/main/services/oxepod/service'
 import type { OxeQueryEvent } from '../../shared/types/oxequery'
+import type { OxePodEvent } from '../../shared/types/oxepod'
 
 const databases: AppDatabase[] = []
 afterEach(() => { for (const db of databases.splice(0)) db.close() })
@@ -42,8 +44,10 @@ function fixture(options: { cipherAvailable?: boolean; inspect?: string } = {}) 
   }
   const worker = { call: vi.fn(async (op: string, _connection?: ResolvedConnection, _input?: unknown): Promise<unknown> => ({ op })), close: vi.fn(async () => undefined) }
   const events: OxeQueryEvent[] = []
-  const service = new OxeQueryService({ db, host, worker, cipher: cipher(options.cipherAvailable ?? true), emit: event => events.push(event) })
-  return { db, host, worker, service, events, calls }
+  const podEvents: OxePodEvent[] = []
+  const pod = new OxePodService({ host, emit: event => podEvents.push(event) })
+  const service = new OxeQueryService({ db, worker, cipher: cipher(options.cipherAvailable ?? true), emit: event => events.push(event), pod: async () => pod.containers })
+  return { db, host, worker, service, pod, events, podEvents, calls }
 }
 
 describe('connection store', () => {
@@ -103,35 +107,6 @@ describe('connection store', () => {
 })
 
 describe('OxeQuery service', () => {
-  it('lists containers through the CLI with an argv, never a shell string', async () => {
-    const { service, calls } = fixture()
-    const response = await service.call('containers.list', {})
-    expect(response).toMatchObject({ ok: true, value: { engine: 'docker', containers: [{ name: 'pg-dev', state: 'running' }] } })
-    const ps = calls.find(call => call.args[0] === 'ps')!
-    expect(ps.command).toBe('docker')
-    expect(ps.args).toEqual(['ps', '--all', '--no-trunc', '--format', '{{json .}}'])
-  })
-
-  it('reports an unusable engine with a message a person can act on', async () => {
-    const db = openInMemoryDatabase(); databases.push(db)
-    const host: ExecutionHost = { id: 'x', kind: 'local', exec: async () => ({ code: -1, stdout: '', stderr: 'spawn ENOENT', timedOut: false }), readTextFile: vi.fn(), writeTextFile: vi.fn() }
-    const service = new OxeQueryService({ db, host, cipher: cipher(), emit: () => undefined, worker: { call: vi.fn(), close: vi.fn() } })
-    const response = await service.call('containers.list', {})
-    expect(response.ok).toBe(false)
-    if (!response.ok) expect(response.error).toMatchObject({ code: 'engine-missing' })
-  })
-
-  it('rejects hostile container identifiers and exec arguments before running anything', async () => {
-    const { service, calls } = fixture()
-    for (const id of ['--privileged', 'a;b', '$(id)', '../x', '']) {
-      const response = await service.call('containers.inspect', { id })
-      expect(response.ok).toBe(false)
-    }
-    const exec = await service.call('containers.exec', { id: 'pg-dev', argv: [] })
-    expect(exec.ok).toBe(false)
-    expect(calls.some(call => call.args[0] === 'inspect' || call.args[0] === 'exec')).toBe(false)
-  })
-
   it('creates a connection from a container and keeps its password out of the result', async () => {
     const { service, db } = fixture()
     const response = await service.call('connections.fromContainer', { id: 'pg-dev' })
@@ -179,20 +154,40 @@ describe('OxeQuery service', () => {
     expect(worker.call).not.toHaveBeenCalled()
   })
 
-  it('registers a shell only for a validated container and returns an opaque pane id', async () => {
-    const { service } = fixture()
-    const response = await service.call('containers.shell', { id: 'pg-dev', shell: 'bash' })
-    expect(response.ok).toBe(true)
-    if (!response.ok) return
-    expect(service.shellFor(response.value.paneId)).toEqual({ file: 'docker', args: ['exec', '-it', 'pg-dev', 'bash'] })
-    expect(service.shellFor('oxequery-shell:not-registered')).toBeUndefined()
-    expect((await service.call('containers.shell', { id: '--rm' })).ok).toBe(false)
+  it('rejects an unknown operation, a container operation (now OxePod\'s) and a malformed request', async () => {
+    const { service, calls } = fixture()
+    expect((await service.call('nope' as never, {})).ok).toBe(false)
+    for (const op of ['containers.list', 'containers.action', 'resources.prune', 'containers.createDatabase']) {
+      await expect(service.call(op as never, { id: 'pg-dev', action: 'stop', kind: 'containers', confirmed: true })).resolves.toMatchObject({ ok: false, error: { code: 'invalid', message: 'Unknown OxeQuery operation.' } })
+    }
+    expect(calls).toEqual([])
+    expect((await service.call('connections.list', 'text' as never)).ok).toBe(false)
   })
 
-  it('rejects an unknown operation and a malformed request', async () => {
-    const { service } = fixture()
-    expect((await service.call('nope' as never, {})).ok).toBe(false)
-    expect((await service.call('containers.list', 'text' as never)).ok).toBe(false)
+  it('makes a database container through OxePod and saves it as a connection without returning the password', async () => {
+    const { service, pod } = fixture()
+    const createDatabase = vi.spyOn(pod.containers, 'createDatabase').mockResolvedValue({ containerId: 'c'.repeat(64), port: 55433, password: 'generated-pw', username: 'oxe', database: 'app' })
+    const response = await service.call('connections.createInContainer', { engine: 'postgres', name: 'shop-db', tag: '17' })
+    expect(createDatabase).toHaveBeenCalledWith({ engine: 'postgres', name: 'shop-db', tag: '17' }, undefined)
+    expect(response).toMatchObject({ ok: true, value: { name: 'shop-db', engine: 'postgres', port: 55433, containerRef: 'shop-db', hasPassword: true } })
+    expect(JSON.stringify(response)).not.toContain('generated-pw')
+    if (response.ok) expect(service.connections.resolve(response.value.id).password).toBe('generated-pw')
+    await expect(service.call('connections.createInContainer', { engine: 'mysql' as never, name: 'x', tag: '1' })).resolves.toMatchObject({ ok: false, error: { code: 'invalid' } })
+    await expect(service.call('connections.createInContainer', { engine: 'postgres', name: 'x', tag: '1', engineName: 'lxc' as never })).resolves.toMatchObject({ ok: false, error: { code: 'invalid' } })
+    expect(createDatabase).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses a container connection when OxePod is not there, and loads OxePod only when one is asked for', async () => {
+    const db = openInMemoryDatabase(); databases.push(db)
+    const worker = { call: vi.fn(), close: vi.fn(async () => undefined) }
+    const lone = new OxeQueryService({ db, worker, cipher: cipher(), emit: () => undefined })
+    await expect(lone.call('connections.fromContainer', { id: 'pg-dev' })).resolves.toMatchObject({ ok: false, error: { code: 'failed', message: 'OxePod is not available here.' } })
+    const load = vi.fn(async () => { throw new Error('not loaded') })
+    const lazy = new OxeQueryService({ db, worker, cipher: cipher(), emit: () => undefined, pod: load })
+    await lazy.call('connections.list', {})
+    expect(load).not.toHaveBeenCalled()
+    await expect(lazy.call('connections.fromContainer', { id: 'pg-dev' })).resolves.toMatchObject({ ok: false, error: { message: 'not loaded' } })
+    expect(load).toHaveBeenCalledTimes(1)
   })
 
   it('closes the worker session when a connection is edited or deleted', async () => {
@@ -201,41 +196,6 @@ describe('OxeQuery service', () => {
     await service.call('connections.save', { id: saved.id, name: 'pg2', engine: 'postgres', host: 'h', port: 5432 })
     await service.call('connections.delete', { id: saved.id })
     expect(worker.call.mock.calls.filter(call => call[0] === 'close')).toHaveLength(2)
-  })
-})
-
-describe('destructive resource operations', () => {
-  it('removes a volume only when the request carries the confirmation', async () => {
-    const { service, calls } = fixture()
-    await expect(service.call('resources.remove', { kind: 'volume', id: 'pgdata' })).resolves.toMatchObject({ ok: false, error: { code: 'confirm' } })
-    expect(calls.some(call => call.args[0] === 'volume' && call.args[1] === 'rm')).toBe(false)
-    await expect(service.call('resources.remove', { kind: 'volume', id: 'pgdata', confirmed: true })).resolves.toMatchObject({ ok: true })
-    expect(calls.some(call => call.args[0] === 'volume' && call.args.includes('rm'))).toBe(true)
-  })
-
-  it('removes a container only when the request carries the confirmation, and keeps its volumes', async () => {
-    const { service, calls, events } = fixture()
-    const id = 'a'.repeat(64)
-    await expect(service.call('containers.remove', { id })).resolves.toMatchObject({ ok: false, error: { code: 'confirm' } })
-    expect(calls.some(call => call.args.includes('rm'))).toBe(false)
-    await expect(service.call('containers.remove', { id, confirmed: true })).resolves.toEqual({ ok: true, value: { ok: true } })
-    const removal = calls.find(call => call.args.includes('rm'))
-    expect(removal?.args.slice(-3)).toEqual(['rm', '--force', id])
-    expect(removal?.args).not.toContain('--volumes')
-    expect(events).toContainEqual({ type: 'containers-changed' })
-    await expect(service.call('containers.remove', { id: 'x; rm -rf /', confirmed: true })).resolves.toMatchObject({ ok: false })
-  })
-
-  it('cleans up stopped containers or dangling images only when confirmed, and nothing else', async () => {
-    const { service, calls } = fixture()
-    for (const kind of ['containers', 'images'] as const) {
-      await expect(service.call('resources.prune', { kind })).resolves.toMatchObject({ ok: false, error: { code: 'confirm' } })
-      expect(calls.some(call => call.args.includes('prune'))).toBe(false)
-    }
-    await expect(service.call('resources.prune', { kind: 'containers', confirmed: true })).resolves.toMatchObject({ ok: true })
-    await expect(service.call('resources.prune', { kind: 'images', confirmed: true })).resolves.toMatchObject({ ok: true })
-    expect(calls.filter(call => call.args.includes('prune')).map(call => call.args.slice(-3))).toEqual([['container', 'prune', '--force'], ['image', 'prune', '--force']])
-    await expect(service.call('resources.prune', { kind: 'volumes', confirmed: true })).resolves.toMatchObject({ ok: false, error: { code: 'invalid' } })
   })
 })
 

@@ -121,7 +121,7 @@ export class ThreadHistory {
       ORDER BY e.thread_id, e.seq LIMIT ?`).all(limit) as { thread_id: string; workspace_id: string; thread_title: string | null; data_json: string }[]
     return rows.map(row => {
       const request = (JSON.parse(row.data_json) as Extract<ThreadEvent, { type: 'request' }>).request
-      return { threadId: row.thread_id, workspaceId: row.workspace_id, threadTitle: row.thread_title ?? '', requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt }
+      return { threadId: row.thread_id, workspaceId: row.workspace_id, threadTitle: row.thread_title ?? '', requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation }
     })
   }
 

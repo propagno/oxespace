@@ -74,6 +74,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setProjectHidden: (projectId, hidden) => ipc.invoke(IPC_CHANNELS.thread.setProjectHidden, projectId, hidden) as ReturnType<import('../../shared/types/thread').ThreadApi['setProjectHidden']>,
       list: () => ipc.invoke(IPC_CHANNELS.thread.list) as ReturnType<import('../../shared/types/thread').ThreadApi['list']>,
       pendingRequestsAll: () => ipc.invoke(IPC_CHANNELS.thread.pendingRequestsAll) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['pendingRequestsAll']>>,
+      respondPending: input => ipc.invoke(IPC_CHANNELS.thread.respondPending, input) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['respondPending']>>,
       create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
       read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,
       rewind: (id, turnId, options) => ipc.invoke(IPC_CHANNELS.thread.rewind, id, turnId, options) as Promise<import('../../shared/types/thread').ThreadRewindResult>,
@@ -113,6 +114,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       approve: (id, request, decision) => ipc.invoke(IPC_CHANNELS.thread.approve, id, request, decision) as Promise<void>,
       respond: (id, request, response) => ipc.invoke(IPC_CHANNELS.thread.respond, id, request, response) as Promise<void>,
       pin: (id, pinned) => ipc.invoke(IPC_CHANNELS.thread.pin, id, pinned) as Promise<void>,
+      worktreeInspect: id => ipc.invoke(IPC_CHANNELS.thread.worktreeInspect, id) as Promise<import('../../shared/threadWorktree').ThreadWorktreeInspection | null>,
+      worktreeFinish: (id, action, choice) => ipc.invoke(IPC_CHANNELS.thread.worktreeFinish, id, action, choice) as Promise<import('../../shared/threadWorktree').ThreadWorktreeFinishResult>,
       onChanged: listener => {
         const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
         ipc.on(IPC_CHANNELS.thread.changed, handler)
@@ -177,7 +180,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       quitAndInstall: () => ipc.invoke(IPC_CHANNELS.app.quitAndInstall) as Promise<boolean>,
       downloadUpdate: () => ipc.invoke(IPC_CHANNELS.app.downloadUpdate) as Promise<import('../../shared/types/updater').AppUpdateState>,
       setUpdatePreferences: (preferences) => ipc.invoke(IPC_CHANNELS.app.setUpdatePreferences, preferences) as Promise<import('../../shared/types/updater').AppUpdateState>,
-      onUpdateState: (listener) => subscribe(ipc, IPC_CHANNELS.app.onUpdateState, listener)
+      onUpdateState: (listener) => subscribe(ipc, IPC_CHANNELS.app.onUpdateState, listener),
+      connectivity: () => ipc.invoke(IPC_CHANNELS.app.connectivity) as Promise<import('../../shared/types/app').AppConnectivity>,
+      onConnectivity: (listener) => subscribe(ipc, IPC_CHANNELS.app.onConnectivity, listener),
+      about: () => ipc.invoke(IPC_CHANNELS.app.about) as Promise<import('../../shared/types/app').AppAbout>
     },
     rtk: {
       getStatus: () => ipc.invoke(IPC_CHANNELS.rtk.getStatus) as Promise<import('../../shared/types/updater').RtkUpdateState>,
@@ -299,7 +305,22 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       call: (op, input) => ipc.invoke(IPC_CHANNELS.oxeQuery.call, { op, input }) as never,
       onEvent: listener => subscribe<import('../../shared/types/oxequery').OxeQueryEvent>(ipc, IPC_CHANNELS.oxeQuery.onEvent, listener)
     },
+    oxePod: {
+      call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePod.call, { op, input }) as never,
+      onEvent: listener => subscribe<import('../../shared/types/oxepod').OxePodEvent>(ipc, IPC_CHANNELS.oxePod.onEvent, listener)
+    },
     oxePost: { call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePost.call, { op, input }) as never },
+    remote: {
+      status: () => ipc.invoke(IPC_CHANNELS.remote.status) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      devices: () => ipc.invoke(IPC_CHANNELS.remote.devices) as Promise<import('../../shared/types/remote').RemoteDevice[]>,
+      onChanged: listener => subscribe<import('../../shared/types/remote').RemoteChange>(ipc, IPC_CHANNELS.remote.changed, listener),
+      setEnabled: input => ipc.invoke(IPC_CHANNELS.remote.setEnabled, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      startPairing: () => ipc.invoke(IPC_CHANNELS.remote.startPairing) as Promise<import('../../shared/types/remote').RemotePairingOffer>,
+      cancelPairing: () => ipc.invoke(IPC_CHANNELS.remote.cancelPairing) as Promise<void>,
+      answerPairing: input => ipc.invoke(IPC_CHANNELS.remote.answerPairing, input) as Promise<void>,
+      revoke: input => ipc.invoke(IPC_CHANNELS.remote.revoke, input) as Promise<void>,
+      rename: input => ipc.invoke(IPC_CHANNELS.remote.rename, input) as Promise<import('../../shared/types/remote').RemoteDevice>
+    },
     automations: {
       list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,
       create: (input) => ipc.invoke(IPC_CHANNELS.automations.create, input) as Promise<import('../../shared/types/automation').Automation>,

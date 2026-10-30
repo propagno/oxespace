@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
   ConnectionSuggestion, ContainerAction, ContainerEngine, ContainerEngineCandidate, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerStat, ContainerSummary, DiskUsageRow, ImageInfo, NetworkInfo,
-  OxeQueryEvent, PruneKind, ResourceKind, VolumeInfo
-} from '../../../../shared/types/oxequery'
+  OxePodEvent, PruneKind, ResourceKind, VolumeInfo
+} from '../../../../shared/types/oxepod'
 import { classifyProbe, isLocalEndpoint, parseContainerList, parseContexts, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
 import { createServer } from 'node:net'
 import { composeArgs, composeTarget, missingProjectPart, type ComposeAction } from './compose'
@@ -53,7 +53,7 @@ export type SpawnProcess = (command: string, args: string[]) => ChildProcessWith
 
 export interface ContainerRuntimeOptions {
   host: ExecutionHost
-  emit: (event: OxeQueryEvent) => void
+  emit: (event: OxePodEvent) => void
   spawnProcess?: SpawnProcess
   preferred?: () => ContainerEngine | undefined
   platform?: NodeJS.Platform
@@ -82,7 +82,7 @@ export function engineInstallPaths(engine: ContainerEngine, platform: NodeJS.Pla
 }
 
 /**
- * The container side of OxeQuery. It drives the `docker`/`podman` CLI with an
+ * OxePod's container runtime. It drives the `docker`/`podman` CLI with an
  * argv array (never a shell string) and a fixed set of subcommands, so a hostile
  * container name cannot become a different command.
  */
@@ -151,7 +151,7 @@ export class ContainerRuntime {
       const known = await this.candidates()
       const pick = known.find(entry => entry.id === id)
       if (!pick) throw new ContainerRuntimeError('invalid', 'That Docker engine is not available on this computer.')
-      if (pick.state === 'not-checked') throw new ContainerRuntimeError('invalid', 'Remote Docker contexts are not used by OxeQuery.')
+      if (pick.state === 'not-checked') throw new ContainerRuntimeError('invalid', 'Remote Docker contexts are not used by OxePod.')
       this.selection = { id, args: id === 'socket:system' ? ['-H', 'unix:///var/run/docker.sock'] : ['--context', id.slice('context:'.length)] }
     }
     this.cache = null

@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { composeArgs, composeTarget } from '../../electron/main/services/oxequery/compose'
+import { composeArgs, composeTarget } from '../../electron/main/services/oxepod/compose'
 
 const inspect = (labels: Record<string, string>): string => JSON.stringify([{ Config: { Labels: labels } }])
 const dir = resolve('/work/shop')
@@ -38,7 +38,7 @@ describe('ContainerRuntime.compose', () => {
   async function setup(labels: Record<string, string> | null, exec?: (args: string[]) => { code: number; stdout: string; stderr: string; timedOut: boolean }) {
     const { mkdtempSync, writeFileSync } = await import('node:fs')
     const { tmpdir } = await import('node:os')
-    const { ContainerRuntime } = await import('../../electron/main/services/oxequery/container-runtime')
+    const { ContainerRuntime } = await import('../../electron/main/services/oxepod/container-runtime')
     const folder = mkdtempSync(join(tmpdir(), 'compose-'))
     const compose = join(folder, 'compose.yaml')
     writeFileSync(compose, 'services: {}\n')

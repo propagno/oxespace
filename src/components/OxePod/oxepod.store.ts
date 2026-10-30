@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { ContainerEngine, ContainerEngineInfo, ContainerSummary } from '../../../shared/types/oxequery'
-import { errorMessage, oq } from '../OxeQuery/client'
+import type { ContainerEngine, ContainerEngineInfo, ContainerSummary } from '../../../shared/types/oxepod'
+import { errorMessage, pod } from './client'
 import { defaultSelection } from './pods-model'
 
 /** What the main area of OxePod shows. */
@@ -37,7 +37,7 @@ export const useOxePodStore = create<PodState>((set, get) => ({
     set({ loading: true })
     try {
       const requested = engine ?? get().engine
-      const result = await oq('containers.list', requested ? { engine: requested } : {})
+      const result = await pod('containers.list', requested ? { engine: requested } : {})
       if (current !== request) return
       const selected = get().selected
       // A removed container leaves the details; the first running one takes its place.
@@ -51,7 +51,7 @@ export const useOxePodStore = create<PodState>((set, get) => ({
     // in a while is enough; after a failure, every refresh looks again (the person may have just started it).
     refreshes++
     if (get().error || get().engines.length === 0 || engine || refreshes % 10 === 0) {
-      try { set({ engines: await oq('containers.engines', { refresh: !!get().error }) }) } catch { /* the list error already explains it */ }
+      try { set({ engines: await pod('containers.engines', { refresh: !!get().error }) }) } catch { /* the list error already explains it */ }
     }
   },
 

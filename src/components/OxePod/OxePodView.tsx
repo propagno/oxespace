@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Boxes, RefreshCw } from 'lucide-react'
-import type { ContainerEngineInfo } from '../../../shared/types/oxequery'
+import type { ContainerEngineInfo } from '../../../shared/types/oxepod'
 import { Button, EmptyState, ErrorState, LoadingState } from '../../ui'
 import { loadOxeQueryCatalog } from '../OxeQuery/catalog'
 import { ContainerDetail } from './ContainerDetail'
@@ -40,7 +40,7 @@ export function OxePodView({ active }: { active: boolean }): ReactElement {
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh() }, REFRESH_MS)
     return () => window.clearInterval(timer)
   }, [active, refresh])
-  useEffect(() => window.oxe?.oxeQuery?.onEvent(event => { if (event.type === 'containers-changed') void refresh() }), [refresh])
+  useEffect(() => window.oxe?.oxePod?.onEvent(event => { if (event.type === 'containers-changed') void refresh() }), [refresh])
 
   const context = engines.find(item => item.engine === engine && item.available)?.context
   const remote = context && !LOCAL_CONTEXTS.has(context) ? context : ''
