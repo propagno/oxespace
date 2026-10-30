@@ -107,6 +107,28 @@
     },
     "oxepod": {
       "startFailed": "OxePod did not start: {{reason}}"
+    },
+    "oxepost": {
+      "network": {
+        "notFound": "The host name was not found. Check the URL and the connection.",
+        "refused": "The connection was refused: nothing is listening at that address and port.",
+        "reset": "The server closed the connection before answering.",
+        "timedOut": "The connection timed out.",
+        "lookupFailed": "The host name could not be looked up right now.",
+        "hostUnreachable": "The host cannot be reached.",
+        "networkUnreachable": "The network cannot be reached."
+      },
+      "send": {
+        "invalidUrl": "The URL is not valid. It needs a scheme, such as https://example.com/path",
+        "scheme": "Only http and https URLs can be sent.",
+        "bodyNotAllowed": "{{method}} cannot carry a body. Change the method or clear the body.",
+        "bodyTooLarge": "The body is larger than 5 MB.",
+        "invalidHeader": "“{{name}}” is not a valid header.",
+        "timeout": "No complete answer within {{seconds}} seconds.",
+        "tls": "The server's certificate was not accepted ({{code}}). OxePost always verifies certificates: trust the certificate on this computer or use the address it was issued for.",
+        "failed": "The request failed.",
+        "failedWith": "The request failed: {{detail}}"
+      }
     }
   }
 }

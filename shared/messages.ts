@@ -56,6 +56,22 @@ export interface MessageParams {
   'oxequery.test.connected': Record<string, never>
   'oxequery.startFailed': { reason: string }
   'oxepod.startFailed': { reason: string }
+  'oxepost.network.notFound': Record<string, never>
+  'oxepost.network.refused': Record<string, never>
+  'oxepost.network.reset': Record<string, never>
+  'oxepost.network.timedOut': Record<string, never>
+  'oxepost.network.lookupFailed': Record<string, never>
+  'oxepost.network.hostUnreachable': Record<string, never>
+  'oxepost.network.networkUnreachable': Record<string, never>
+  'oxepost.send.invalidUrl': Record<string, never>
+  'oxepost.send.scheme': Record<string, never>
+  'oxepost.send.bodyNotAllowed': { method: string }
+  'oxepost.send.bodyTooLarge': Record<string, never>
+  'oxepost.send.invalidHeader': { name: string }
+  'oxepost.send.timeout': { seconds: number }
+  'oxepost.send.tls': { code: string }
+  'oxepost.send.failed': Record<string, never>
+  'oxepost.send.failedWith': { detail: string }
 }
 
 export type MessageCode = keyof MessageParams
@@ -97,7 +113,23 @@ export const MESSAGE_CODES = [
   'oxequery.edit.noKey',
   'oxequery.test.connected',
   'oxequery.startFailed',
-  'oxepod.startFailed'
+  'oxepod.startFailed',
+  'oxepost.network.notFound',
+  'oxepost.network.refused',
+  'oxepost.network.reset',
+  'oxepost.network.timedOut',
+  'oxepost.network.lookupFailed',
+  'oxepost.network.hostUnreachable',
+  'oxepost.network.networkUnreachable',
+  'oxepost.send.invalidUrl',
+  'oxepost.send.scheme',
+  'oxepost.send.bodyNotAllowed',
+  'oxepost.send.bodyTooLarge',
+  'oxepost.send.invalidHeader',
+  'oxepost.send.timeout',
+  'oxepost.send.tls',
+  'oxepost.send.failed',
+  'oxepost.send.failedWith'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

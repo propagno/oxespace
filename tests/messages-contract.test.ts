@@ -45,7 +45,23 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'oxequery.edit.noKey': [],
   'oxequery.test.connected': [],
   'oxequery.startFailed': ['reason'],
-  'oxepod.startFailed': ['reason']
+  'oxepod.startFailed': ['reason'],
+  'oxepost.network.notFound': [],
+  'oxepost.network.refused': [],
+  'oxepost.network.reset': [],
+  'oxepost.network.timedOut': [],
+  'oxepost.network.lookupFailed': [],
+  'oxepost.network.hostUnreachable': [],
+  'oxepost.network.networkUnreachable': [],
+  'oxepost.send.invalidUrl': [],
+  'oxepost.send.scheme': [],
+  'oxepost.send.bodyNotAllowed': ['method'],
+  'oxepost.send.bodyTooLarge': [],
+  'oxepost.send.invalidHeader': ['name'],
+  'oxepost.send.timeout': ['seconds'],
+  'oxepost.send.tls': ['code'],
+  'oxepost.send.failed': [],
+  'oxepost.send.failedWith': ['detail']
 }
 
 describe('C3 message codes', () => {
