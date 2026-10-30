@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TeamMember, TeamMessage, TeamScope } from '../../../shared/types/team'
-import { Button, TextArea } from '../../ui'
+import { Button, Notice, TextArea } from '../../ui'
 
 export function TeamMessages({ scope, member, members }: { scope: TeamScope; member: TeamMember; members: TeamMember[] }) {
   const { t } = useTranslation()
@@ -33,7 +33,7 @@ export function TeamMessages({ scope, member, members }: { scope: TeamScope; mem
   return <section className="team-messages" aria-label={t('team.messagesWith', { name: member.name })}>
     <h3>{t('team.messagesTitle', { name: member.name })}</h3>
     <p className="team-note">{t('team.inboxNote')}</p>
-    {error && <p role="alert">{error}</p>}
+    {error && <Notice intent="danger">{error}</Notice>}
     {older && messages.length > 0 && messages.length < 500 && <button type="button" disabled={loadingOlder} onClick={async () => {
       setLoadingOlder(true)
       try {

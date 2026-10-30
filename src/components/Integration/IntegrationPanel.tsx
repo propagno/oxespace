@@ -9,7 +9,7 @@ import { derivePaneDisplayState, formatPaneStatus, type PaneDisplayTone } from '
 import { ActivityDot } from '../Indicators/ActivityDot'
 import { HandoffInbox } from './HandoffInbox'
 import { MemberEditButton, MemberEditor } from './MemberEditor'
-import { Button, TextField, Select, EmptyState } from '../../ui'
+import { Button, TextField, Select, EmptyState, Notice } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { i18n } from '../../i18n'
 
@@ -263,7 +263,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
         </section>
       ) : null}
 
-      {error || memberActionError ? <div className="integration-error" role="alert">{memberActionError ?? error}</div> : null}
+      {error || memberActionError ? <Notice intent="danger">{memberActionError ?? error}</Notice> : null}
       {panelNotice ? <div className="integration-notice" role="status">{panelNotice}</div> : null}
       {isLoading ? <EmptyState compact title={t('integration.loading')} /> : null}
 
@@ -279,21 +279,20 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       ) : null}
 
       {!activeGroup && !isLoading ? (
-        <div className="integration-empty">
-          <Network size={36} aria-hidden="true" />
-          <strong>{statusFilter !== 'all' && groups.length > 0 ? t('integration.noneWithStatus', { status: t(`integration.filters.${statusFilter}`) }) : t('integration.none')}</strong>
-          <span>
-            {groups.length > 0 && statusFilter !== 'all'
-              ? <>{t('integration.switchTo')} <button type="button" className="integration-empty-link" onClick={() => setStatusFilter('all')}>{t('integration.filters.all')}</button> {t('integration.orSetUp')}</>
-              : <>{t('integration.emptyHint')}</>}
-          </span>
-          {groups.length === 0 ? (
+        <EmptyState
+          icon={<Network size={24} />}
+          title={statusFilter !== 'all' && groups.length > 0 ? t('integration.noneWithStatus', { status: t(`integration.filters.${statusFilter}`) }) : t('integration.none')}
+          actions={groups.length === 0 ? (
             <Button variant="primary" size="sm" onClick={() => setShowCreateForm(true)}>
               <Plus size={12} aria-hidden="true" />
               {t('integration.setupShort')}
             </Button>
-          ) : null}
-        </div>
+          ) : undefined}
+        >
+          {groups.length > 0 && statusFilter !== 'all'
+            ? <>{t('integration.switchTo')} <Button variant="link" size="sm" onClick={() => setStatusFilter('all')}>{t('integration.filters.all')}</Button> {t('integration.orSetUp')}</>
+            : <>{t('integration.emptyHint')}</>}
+        </EmptyState>
       ) : null}
 
       {activeGroup ? (

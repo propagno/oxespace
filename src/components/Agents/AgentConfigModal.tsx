@@ -3,7 +3,7 @@ import { type FormEvent, type ReactElement, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
-import { Button, ConfirmDialog, Dialog, IconButton, TextField, Select, TextArea } from '../../ui'
+import { Button, ConfirmDialog, Dialog, IconButton, Notice, TextField, Select, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
@@ -192,7 +192,7 @@ export function AgentConfigModal({
           )}
 
           {submitError ? (
-            <div className="modal-error" role="alert">{submitError}</div>
+            <Notice intent="danger">{submitError}</Notice>
           ) : null}
 
         </form>

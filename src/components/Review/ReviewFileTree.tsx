@@ -3,6 +3,7 @@ import { useId, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import type { GitDiffFile } from '../../../shared/types/git'
+import { EmptyState } from '../../ui'
 
 interface DirNode {
   name: string
@@ -255,7 +256,7 @@ export function ReviewFileTree({
       {/* Read once when the tree is entered; repeating it on every row would be noise. */}
       <p id={hintId} className="sr-only">{t('review.treeHint')}</p>
       {/* A tree must own tree items; with no files there is no tree, only a note. */}
-      {files.length === 0 ? <p className="review-file-tree-list review-file-tree-empty">{t('review.noFiles')}</p> : <div className="review-file-tree-list" role="tree" aria-label={t('review.files')} aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
+      {files.length === 0 ? <div className="review-file-tree-list"><EmptyState compact title={t('review.noFiles')} /></div> : <div className="review-file-tree-list" role="tree" aria-label={t('review.files')} aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
         {treeMode === 'structured' ? (
           <RenderNode
             node={buildTree(files, reviewedSet)}

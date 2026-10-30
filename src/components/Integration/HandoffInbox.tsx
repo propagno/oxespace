@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { IntegrationGroup, IntegrationHandoff } from '../../../shared/types/integration'
 import { useIntegrationStore } from '../../store/integration.store'
-import { Button, Select, TextField, TextArea } from '../../ui'
+import { Button, EmptyState, Notice, Select, TextField, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatRelative } from '../../utils/formatTime'
 
@@ -160,11 +160,9 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
           targetMemberId={targetMemberId}
           title={title}
         />
-        {error ? <div className="integration-error" role="alert">{error}</div> : null}
+        {error ? <Notice intent="danger">{error}</Notice> : null}
         {notice ? <div className="integration-notice" role="status">{notice}</div> : null}
-        <div className="integration-empty-inline">
-          <span>{t('integration.handoff.empty')}</span>
-        </div>
+        <EmptyState compact title={t('integration.handoff.empty')} />
       </div>
     )
   }
@@ -183,7 +181,7 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
         targetMemberId={targetMemberId}
         title={title}
       />
-      {error ? <div className="integration-error" role="alert">{error}</div> : null}
+      {error ? <Notice intent="danger">{error}</Notice> : null}
       {notice ? <div className="integration-notice" role="status">{notice}</div> : null}
       <div className="integration-handoff-list">
         {active.map((handoff) => (

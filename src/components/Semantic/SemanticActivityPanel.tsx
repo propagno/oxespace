@@ -1,7 +1,7 @@
 import { Brain, Copy, Download, Pause, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { copyText, Button, Select } from '../../ui'
+import { copyText, Button, EmptyState, Select } from '../../ui'
 import { ToolPanel } from '../../ui'
 import type { SemanticLogEntry, SemanticLogLevel, SemanticSearchMode, SemanticStatus } from '../../../shared/types/ipc'
 import { useTerminalPrefsStore } from '../../store/terminal-prefs.store'
@@ -231,9 +231,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
 
       <div className="semantic-activity-log" role="log" aria-live="polite">
         {visible.length === 0 ? (
-          <div className="semantic-activity-empty">
-            {t('semantic.panel.empty')}
-          </div>
+          <EmptyState compact title={t('semantic.panel.empty')} />
         ) : (
           visible.map((l, i) => (
             <div key={`${l.ts}-${i}`} className={`semantic-activity-line semantic-log--${l.level}`}>

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { SlashCommandDefinition } from '../../../shared/types/slash'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { filterSlashCommands } from '../../lib/slashCommands'
-import { Button } from '../../ui'
+import { Button, EmptyState } from '../../ui'
 
 interface SlashOverlayProps {
   paneId: string
@@ -181,7 +181,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
                 </button>
               ))}
               {filtered.length === 0 ? (
-                <div className="slash-overlay-empty">{t('slash.overlay.empty', { query })}</div>
+                <EmptyState compact title={t('slash.overlay.empty', { query })} />
               ) : null}
             </div>
 

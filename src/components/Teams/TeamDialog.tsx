@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { AgentTeam, TeamRole, TeamScope } from '../../../shared/types/team'
 import './TeamDialog.css'
 import { TeamMessages } from './TeamMessages'
-import { Button, Dialog, TextField } from '../../ui'
+import { Button, Dialog, Notice, TextField } from '../../ui'
 
 const ROLES: TeamRole[] = ['coordinator', 'project-manager', 'product-manager', 'developer', 'reviewer']
 export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?: { kind: 'thread' | 'pane'; id: string }; onClose: () => void }) {
@@ -29,7 +29,7 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
   }
   return <Dialog className="team-dialog" size="lg" title={t('team.button.label')} description={t('team.description')} onClose={onClose}>
     <div className="team-dialog-body">
-      {error && <p role="alert">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
       {!team && !error && <p role="status">{t('team.loading')}</p>}
       {team && <>
         <h3>{team.name}</h3>

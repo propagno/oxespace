@@ -5,7 +5,7 @@ import type { DelegationBranchIntent, DelegationPreflight, DelegationTask } from
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { ConversationThread } from '../../../shared/types/thread'
 import './DelegationCreateDialog.css'
-import { Button, Checkbox, Dialog, Select, TextArea, TextField } from '../../ui'
+import { Button, Checkbox, Dialog, Notice, Select, TextArea, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDate } from '../../utils/formatTime'
 
@@ -153,7 +153,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
           </section>}
         </section>
       </div>
-      {error && <p role="alert" className="delegation-preview-error">{error}</p>}
+      {error && <Notice intent="danger" className="delegation-preview-error">{error}</Notice>}
     </div>
   </Dialog>
 }

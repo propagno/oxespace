@@ -91,13 +91,6 @@
   line-height: 1.5;
 }
 
-.semantic-activity-empty {
-  padding: 28px 8px;
-  text-align: center;
-  color: var(--tx-muted);
-  font-size: var(--fs-xs);
-}
-
 .semantic-activity-line {
   display: grid;
   grid-template-columns: 72px 52px 1fr;

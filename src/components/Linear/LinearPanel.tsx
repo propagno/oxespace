@@ -1,7 +1,7 @@
 import { ExternalLink, GitBranch, KeyRound, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ToolPanel, Button, EmptyState } from '../../ui'
+import { ToolPanel, Button, EmptyState, Notice } from '../../ui'
 import type { LinearIssue, LinearIssueScope } from '../../../shared/types/linear'
 import { useLinearStore } from '../../store/linear.store'
 
@@ -186,7 +186,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
         </>
       )}
 
-      {state.error ? <div className="linear-error" role="alert">{state.error}</div> : null}
+      {state.error ? <Notice intent="danger" className="linear-error">{state.error}</Notice> : null}
       {state.notice ? (
         <div className="linear-notice" role="status" onClick={() => state.clearNotice()}>
           {state.notice}
