@@ -55,6 +55,14 @@ export function reservedNameIn(value: string): ReservedAppName | null {
   return null
 }
 
+/**
+ * For notices the app composes around agent-supplied text (a pane name, a conversation title, an error): the text, or
+ * `fallback` when it carries a reserved name. The app's own fixed words around it are not checked.
+ */
+export function withoutReservedName(text: string, fallback: string): string {
+  return reservedNameIn(text) ? fallback : text
+}
+
 // ---- risk ----------------------------------------------------------------------------------
 
 /** The OxeQuery SQL classifier's verdict (`guardSql` in electron/main/services/oxequery/sql-guard.ts). */
@@ -63,7 +71,8 @@ export type SqlKind = 'empty' | 'read' | 'write' | 'ddl' | 'destructive'
 export type ShellLevel = 'green' | 'orange' | 'red'
 
 const SQL_RISK: Record<SqlKind, ApprovalRisk> = { empty: 'low', read: 'low', write: 'medium', ddl: 'high', destructive: 'critical' }
-const SHELL_RISK: Record<ShellLevel, ApprovalRisk> = { green: 'low', orange: 'medium', red: 'high' }
+// Red is critical, like a destructive statement and like the OxeChat approval card: the 2 s hold, no allow for the run.
+const SHELL_RISK: Record<ShellLevel, ApprovalRisk> = { green: 'low', orange: 'medium', red: 'critical' }
 
 /** One step up, for a production environment. */
 export function raiseRisk(risk: ApprovalRisk): ApprovalRisk {

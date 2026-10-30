@@ -1,9 +1,12 @@
-import { BrowserWindow, dialog, type WebContents } from 'electron'
+import { BrowserWindow, type WebContents } from 'electron'
 import { createHash, randomUUID } from 'node:crypto'
 import type { CapturedPage } from './documentation.service'
 import type { ExecutionOwner } from '../execution-registry'
 import { browserPreviewService } from '../browser-preview.service'
 import { tMain } from '../../i18n'
+import { approvalCenter } from '../approvals'
+import { previewDraft } from '../approvals/drafts'
+import { requesterFor } from '../approvals/requester'
 
 export interface PreviewRequest {
   action: 'inspect' | 'status' | 'console' | 'network' | 'tabs' | 'newTab' | 'selectTab' | 'closeTab' | 'click' | 'fill' | 'navigate' | 'wait' | 'scroll'
@@ -32,6 +35,10 @@ const CONFIRMED_ACTIONS = ['click', 'fill', 'navigate', 'scroll'] as const
 export function actionQuestion(action: PreviewRequest['action']): string {
   const known = CONFIRMED_ACTIONS.find(item => item === action)
   return known ? tMain(`dialogs.previewAutomation.action.${known}`) : tMain('dialogs.previewAutomation.action.other', { action })
+}
+/** The pane or conversation that drives the preview; a workspace caller without an owner is named by the workspace. */
+function requesterOf(owner: ExecutionOwner | undefined, workspaceId: string) {
+  return requesterFor(owner ?? { kind: 'pane', id: workspaceId })
 }
 export class PreviewAutomation {
   private locks = new Set<number>()
@@ -67,9 +74,9 @@ export class PreviewAutomation {
     }
     if (!input.tabId || !verifiedTabs.some(tab => tab.id === input.tabId)) throw new Error('Select a tab ID returned by tabs')
     if (input.action === 'closeTab') {
-      const confirmation = await dialog.showMessageBox(window, { type:'warning', buttons:[tMain('dialogs.previewAutomation.cancel'),tMain('dialogs.previewAutomation.closeTab')], defaultId:0, cancelId:0,
-        title:tMain('dialogs.previewAutomation.title'), message:tMain('dialogs.previewAutomation.closeTabMessage'), detail:tMain('dialogs.previewAutomation.closeTabDetail', { tab: verifiedTabs.find(tab=>tab.id===input.tabId)?.label }) })
-      if (confirmation.response !== 1) throw new Error('User declined browser action')
+      // B10: the app's approval modal; the tab title comes from the page, so it is the untrusted text.
+      const confirmation = await approvalCenter.ask(previewDraft({ requester: requesterOf(owner, workspaceId), action: 'closeTab', page: verifiedTabs.find(tab => tab.id === input.tabId)?.label ?? '', text: verifiedTabs.find(tab => tab.id === input.tabId)?.label ?? '' }))
+      if (confirmation.intent !== 'allow') throw new Error('User declined browser action')
     }
     verify()
     await this.panel(workspaceId, owner)
@@ -169,10 +176,9 @@ export class PreviewAutomation {
         await this.assertAccess(workspaceId, verify, owner)
         return { sessionId: this.sessionId(workspaceId, owner), tabId, found, url: safePageUrl(guest.getURL()) }
       }
-      const confirmation = await dialog.showMessageBox(window, { type: 'warning', buttons: [tMain('dialogs.previewAutomation.cancel'), tMain('dialogs.previewAutomation.allowOnce')], defaultId: 0, cancelId: 0,
-        title: tMain('dialogs.previewAutomation.title'), message: actionQuestion(input.action),
-        detail: tMain('dialogs.previewAutomation.actionDetail', { page: safePageUrl(initialUrl), target: input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.selector }) })
-      if (confirmation.response !== 1) throw new Error('User declined browser action')
+      // B10: the app's approval modal; the selector or URL the agent sent is the untrusted text, the page the target.
+      const confirmation = await approvalCenter.ask(previewDraft({ requester: requesterOf(owner, workspaceId), action: input.action, page: safePageUrl(initialUrl), text: input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.action === 'fill' ? `${input.selector ?? ''}\n${input.text ?? ''}` : input.selector ?? '' }))
+      if (confirmation.intent !== 'allow') throw new Error('User declined browser action')
       verify()
       const current = await this.target(workspaceId, owner)
       if (current.guest.id !== guest.id || guest.getURL() !== initialUrl) throw new Error('Preview changed while awaiting approval; inspect again')

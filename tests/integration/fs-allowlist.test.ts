@@ -42,6 +42,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/experimental-features.ts',
   // Reads the app's own translation catalogs (locales/<language>/main.json next to the bundle); fixed names only.
   'electron/main/i18n.ts',
+  // The English catalog (locales/en/main.json), for the C3 refusals agents read (B10); a fixed name only.
+  'electron/main/agent-text.ts',
   // Stat only: confirms that a project root sent by the renderer is an existing directory before a process
   // (the oxe CLI, a dashboard server) starts in it. Reads, lists and writes nothing.
   'electron/main/ipc/ipc-guards.ts',

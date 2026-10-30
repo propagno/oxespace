@@ -272,7 +272,9 @@
       },
       "denied": {
         "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
-        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps."
+        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps.",
+        "timeout": "Nobody answered in time, so it was denied.",
+        "cancelled": "The request was withdrawn before anyone answered."
       }
     },
     "notify": {

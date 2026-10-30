@@ -147,6 +147,8 @@ export interface ApprovalHistoryEntry {
   summary: MainMessage
   outcome: ApprovalIntent
   by: ApprovalResolvedBy
+  /** Why it ended without a person's answer (refused, timed out, withdrawn); absent when a person decided. */
+  reason?: MainMessage
   textSha256: string
   createdAt: number
   resolvedAt: number

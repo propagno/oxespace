@@ -134,6 +134,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.refused.alreadyReported': [],
   'approvals.refused.tooSoon': [],
   'approvals.denied.queueFull': ['max'],
+  'approvals.denied.timeout': [],
+  'approvals.denied.cancelled': [],
   'approvals.denied.tooLong': ['max'],
   'notify.prefix.pane': ['agent', 'pane', 'title'],
   'notify.prefix.conversation': ['agent', 'conversation', 'title'],
