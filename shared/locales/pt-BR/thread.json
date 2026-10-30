@@ -562,7 +562,7 @@
     "branch": "Branch",
     "branchPlaceholder": "thread/<data> (gerada)",
     "startFrom": "Começar de",
-    "startFromPlaceholder": "Padrão do repositório (ex.: origin/main)",
+    "startFromPlaceholder": "Padrão (ex.: origin/main)",
     "chooseFolder": "Escolha a pasta do projeto.",
     "addFailed": "Não foi possível adicionar este projeto.",
     "addTitle": "Adicionar projeto",
