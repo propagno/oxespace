@@ -29,7 +29,6 @@
 .changes-banner-nav button { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); cursor: pointer; }
 .changes-banner-nav button:hover:not(:disabled) { background: var(--nav-hover); color: var(--tx-primary); }
 .changes-banner-nav button:disabled { opacity: .35; cursor: default; }
-.changes-error { margin: 0 10px 8px; padding: 8px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--dot-red) 12%, transparent); color: var(--tx-status-failure); }
 .changes-note { margin: 0; padding: 6px 12px; color: var(--tx-muted); }
 
 .changes-body { display: flex; flex: 1; min-height: 0; border-top: 1px solid var(--wb-border); }

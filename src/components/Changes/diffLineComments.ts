@@ -1,6 +1,9 @@
 import type { editor as MonacoEditor, IDisposable } from 'monaco-editor'
 import type { Monaco } from '@monaco-editor/react'
 import type { DiffComment, DiffSide } from '../../../shared/types/diff-comments'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 export interface LineCommentApi {
   /** Latest comments for the file being shown. */
@@ -86,9 +89,9 @@ export function attachLineComments(diff: MonacoEditor.IStandaloneDiffEditor, mon
         const card = element('div', 'oxe-line-comment')
         card.append(element('p', undefined, comment.body))
         const footer = element('div', 'oxe-line-comment-footer')
-        const remove = element('button', 'oxe-line-comment-remove', 'Remove')
+        const remove = element('button', 'oxe-line-comment-remove', tc('changes.comments.remove'))
         remove.type = 'button'
-        remove.setAttribute('aria-label', `Remove comment on line ${comment.lineNo}`)
+        remove.setAttribute('aria-label', tc('changes.comments.removeLabel', { line: comment.lineNo }))
         remove.addEventListener('mousedown', event => event.stopPropagation())
         remove.addEventListener('click', () => api.remove(comment.id))
         footer.append(remove)
@@ -98,16 +101,16 @@ export function attachLineComments(diff: MonacoEditor.IStandaloneDiffEditor, mon
       }
       marks.get(editor)?.set(mine.map(comment => ({
         range: new monaco.Range(comment.lineNo, 1, comment.lineNo, 1),
-        options: { glyphMarginClassName: 'oxe-diff-comment-glyph', glyphMarginHoverMessage: { value: 'Review comment' } }
+        options: { glyphMarginClassName: 'oxe-diff-comment-glyph', glyphMarginHoverMessage: { value: tc('changes.comments.glyph') } }
       })))
       if (composer?.side === side) {
         const box = element('div', 'oxe-line-composer')
         const input = element('textarea')
-        input.placeholder = `Comment on line ${composer.line}…`
-        input.setAttribute('aria-label', `Comment on line ${composer.line}`)
+        input.placeholder = tc('changes.comments.placeholder', { line: composer.line })
+        input.setAttribute('aria-label', tc('changes.comments.inputLabel', { line: composer.line }))
         const row = element('div', 'oxe-line-composer-actions')
-        const cancel = element('button', undefined, 'Cancel'); cancel.type = 'button'
-        const save = element('button', 'is-primary', 'Comment'); save.type = 'button'
+        const cancel = element('button', undefined, tc('changes.comments.cancel')); cancel.type = 'button'
+        const save = element('button', 'is-primary', tc('changes.comments.add')); save.type = 'button'
         const line = composer.line
         const finish = (): void => { composer = null; render() }
         const submit = (): void => {

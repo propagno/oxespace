@@ -8,6 +8,9 @@ import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/ter
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { humanizeError } from '../../utils/humanizeError'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 interface IntegrationsStatusChipsProps {
   workspace: Workspace
@@ -133,21 +136,21 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
   const semanticSummary = summarizeSemanticStatus(semanticStatus, semanticEnabled)
   const semanticClass = semanticSummary.tone === 'ready' ? 'activity-thinking' : semanticSummary.tone === 'busy' ? 'activity-awaiting' : 'activity-idle'
   const semanticTitle = semanticSummary.tone === 'off'
-    ? 'Semantic search: off'
-    : `Semantic: ${semanticSummary.label}${semanticSummary.tone === 'ready' ? ` · ${semanticStatus?.mode ?? semanticMode} mode` : ''}`
+    ? tc('workspace.systems.semanticOff')
+    : tc('workspace.systems.semanticTitle', { label: semanticSummary.label }) + (semanticSummary.tone === 'ready' ? ` · ${tc('workspace.systems.mode', { mode: semanticStatus?.mode ?? semanticMode })}` : '')
 
   const semanticHealthy = semanticEnabled && !semanticStatus?.lastError
   const activeCount = Number(githubStatus?.loggedIn === true) + Number(totalRunningMcp > 0) + Number(rtkActive) + Number(cavemanActive) + Number(semanticHealthy)
   const attentionCount = Number(rtk.updateAvailable) + Number(Boolean(semanticStatus?.lastError))
   const overallTone = attentionCount > 0 ? 'attention' : activeCount > 0 ? 'healthy' : 'idle'
-  const countText = attentionCount > 0 ? `${attentionCount} alert${attentionCount === 1 ? '' : 's'}` : `${activeCount}/5`
+  const countText = attentionCount > 0 ? tc('workspace.systems.alerts', { count: attentionCount }) : `${activeCount}/5`
 
   return (
     <div className="workspace-integrations" ref={menuRef}>
       <button
         type="button"
         className={`workspace-integrations-trigger tone-${overallTone}`}
-        aria-label={`Systems ${countText}: integration status`}
+        aria-label={tc('workspace.systems.triggerLabel', { count: countText })}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -155,42 +158,42 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
       >
         <Server size={12} aria-hidden="true" />
         <span className={`workspace-integrations-health tone-${overallTone}`} aria-hidden="true" />
-        <span className="workspace-integrations-label">{'Systems '}</span>
+        <span className="workspace-integrations-label">{`${tc('workspace.systems.title')} `}</span>
         <span className="workspace-integrations-count">{countText}</span>
         <ChevronDown size={12} className="workspace-integrations-chevron" aria-hidden="true" />
       </button>
 
       {open ? (
-        <div className="workspace-integrations-menu" role="menu" aria-label="Integration status" data-testid="workspace-integrations-menu">
+        <div className="workspace-integrations-menu" role="menu" aria-label={tc('workspace.systems.label')} data-testid="workspace-integrations-menu">
           <div className="workspace-integrations-menu-header">
-            <strong>Systems</strong>
-            <span>{activeCount} active</span>
+            <strong>{tc('workspace.systems.title')}</strong>
+            <span>{tc('workspace.systems.active', { count: activeCount })}</span>
           </div>
 
-          <IntegrationRow icon={<Github size={14} />} label="GitHub" detail={githubStatus?.loggedIn ? 'Connected' : githubStatus ? 'Disconnected' : 'Checking…'} active={githubStatus?.loggedIn === true} />
-          <IntegrationRow icon={<Server size={14} />} label="MCP" detail={`${totalRunningMcp} for agents`} active={totalRunningMcp > 0} />
+          <IntegrationRow icon={<Github size={14} />} label="GitHub" detail={githubStatus?.loggedIn ? tc('github.settings.connected') : githubStatus ? tc('workspace.systems.disconnected') : tc('workspace.systems.checking')} active={githubStatus?.loggedIn === true} />
+          <IntegrationRow icon={<Server size={14} />} label="MCP" detail={tc('workspace.systems.mcp', { count: totalRunningMcp })} active={totalRunningMcp > 0} />
           <IntegrationRow
             icon={<Zap size={14} />}
             label="RTK"
-            detail={rtk.updateAvailable ? `Update ${rtk.latestVersion} available` : rtkActive ? `Active${rtk.version ? ` · ${rtk.version}` : ''}` : 'Disabled'}
+            detail={rtk.updateAvailable ? tc('workspace.systems.update', { version: rtk.latestVersion }) : rtkActive ? `${tc('workspace.systems.on')}${rtk.version ? ` · ${rtk.version}` : ''}` : tc('workspace.systems.off')}
             active={rtkActive}
             attention={rtk.updateAvailable}
           />
-          <IntegrationRow icon={<Activity size={14} />} label="Caveman" detail={cavemanActive ? 'Active' : 'Disabled'} active={cavemanActive} />
+          <IntegrationRow icon={<Activity size={14} />} label="Caveman" detail={cavemanActive ? tc('workspace.systems.on') : tc('workspace.systems.off')} active={cavemanActive} />
 
           <button
             type="button"
             role="menuitemcheckbox"
             aria-checked={semanticEnabled}
             className="workspace-integrations-row is-action"
-            title={`${semanticTitle} (click to ${semanticEnabled ? 'disable' : 'enable'})`}
+            title={`${semanticTitle} (${semanticEnabled ? tc('workspace.systems.clickOff') : tc('workspace.systems.clickOn')})`}
             onClick={() => setOverride(workspace.id, 'semanticSearchEnabled', !semanticEnabled)}
             data-testid="chip-semantic"
           >
             <span className="workspace-integrations-row-icon"><Brain size={14} aria-hidden="true" /></span>
             <span className="workspace-integrations-row-copy">
-              <strong>Semantic</strong>
-              <span>{semanticEnabled && semanticStatus?.indexing ? 'Indexing…' : semanticEnabled ? (semanticStatus?.lastError ? 'Needs attention' : `${semanticStatus?.count ?? 0} files`) : 'Disabled'}</span>
+              <strong>{tc('workspace.systems.semantic')}</strong>
+              <span>{semanticEnabled && semanticStatus?.indexing ? tc('workspace.systems.indexing') : semanticEnabled ? (semanticStatus?.lastError ? tc('pane.status.error') : tc('github.status.files', { count: semanticStatus?.count ?? 0 })) : tc('workspace.systems.off')}</span>
             </span>
             <span className={`workspace-integrations-row-dot ${semanticClass}`} aria-hidden="true" />
           </button>

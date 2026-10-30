@@ -1,6 +1,10 @@
 import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, KeyRound, Plus, PlugZap, RotateCw, Search, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import { ToolPanel, Button, TextField, Select, TextArea } from '../../ui'
+import { ToolPanel, Button, ConfirmDialog, EmptyState, ErrorState, TextField, Select, TextArea } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 import type { CreateMcpServerInput, McpHealthStatus, McpHttpConfig, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { parseMcpJson } from './parseMcpJson'
@@ -12,6 +16,7 @@ import { ThreadMcpServerList } from '../Threads/ThreadMcpServerList'
 import { humanizeError } from '../../utils/humanizeError'
 import { AGENT_STATE_HINT, AGENT_STATE_LABEL, agentStatusFor, type McpAgentState } from './mcpAgentStatus'
 import { formatClock } from '../../utils/formatTime'
+import { RichText } from '../../i18n/RichText'
 import { McpServerSafety } from './McpServerSafety'
 
 interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and tested as soon as it is saved. */ fromCatalog?: boolean; /** A remote catalog server: the values fill its headers. */ remote?: McpCatalogEntry }
@@ -24,6 +29,9 @@ interface McpPanelProps {
 }
 
 export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanelProps): ReactElement {
+  const { t } = useTranslation('code')
+  // A new token breaks every running agent's connection until it restarts, so it is confirmed first.
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const serversSelector = useCallback(selectMcpServers(workspaceId), [workspaceId])
   const servers = useMcpStore(serversSelector).filter((server): server is McpServer => Boolean(server))
   const loading = useMcpStore((s) => s.loading)
@@ -75,9 +83,9 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
     try {
       const next = await window.oxe.mcpInternal.regenerateToken()
       setBuiltInStatus(next)
-      setBuiltInNotice('Token regenerated. Restart open agent panes to pick up the new env.')
+      setBuiltInNotice(t('mcp.builtin.regenerated'))
     } catch (err) {
-      setBuiltInNotice(humanizeError(err, 'Failed to regenerate token'))
+      setBuiltInNotice(humanizeError(err, t('mcp.builtin.regenerateFailed')))
     } finally {
       setBuiltInBusy(false)
     }
@@ -156,43 +164,39 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   return (
     <ToolPanel
       className={`mcp-panel${view === 'catalog' ? ' is-catalog' : ''}`}
-      label="MCP servers" onClose={onClose}>
+      label={t('tools.mcp.label')} onClose={onClose}>
       <header className="mcp-panel-header">
         <div className="mcp-panel-title">
           <Activity size={14} aria-hidden="true" />
-          <strong>MCP servers</strong>
-          <span className="mcp-panel-scope">{workspaceId ? 'workspace' : 'global'}</span>
+          <strong>{t('tools.mcp.label')}</strong>
+          <span className="mcp-panel-scope">{workspaceId ? t('mcp.scope.workspace') : t('mcp.scope.global')}</span>
         </div>
         <div className="mcp-panel-actions">
           <Button
            
             variant="ghost" size="sm" square
-            aria-label="Refresh"
+            aria-label={t('github.refresh')}
+            title={t('github.refresh')}
             disabled={loading}
             onClick={() => void load(workspaceId)}
           >
             <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label={t('mcp.close')} title={t('mcp.close')} onClick={onClose}>
             <X size={14} aria-hidden="true" />
           </Button>
         </div>
       </header>
 
-      {error ? <div className="mcp-panel-error">{error}</div> : null}
+      {error ? <ErrorState compact title={t('mcp.failed')} message={error} onRetry={() => void load(workspaceId)} /> : null}
 
       <label className="mcp-panel-search">
         <Search size={14} aria-hidden="true" />
-        <TextField type="search" aria-label="Search MCP servers" placeholder="Search connections" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <TextField type="search" aria-label={t('mcp.search')} placeholder={t('mcp.searchPlaceholder')} value={query} onChange={(event) => setQuery(event.target.value)} />
       </label>
 
       {view === 'installed' && (
-        <p className="mcp-panel-sync-note">
-          Your agents connect to these servers themselves: Claude Code and Copilot CLI through
-          <code>.mcp.json</code> at the workspace root, Codex through its launch settings. Test checks that a
-          server answers; whether the agent connected shows next to it in a Thread conversation. Restart the
-          agent session to pick up changes.
-        </p>
+        <p className="mcp-panel-sync-note"><RichText text={t('mcp.installedNote')} /></p>
       )}
 
       {creating ? (
@@ -208,24 +212,24 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
         <>
           <button type="button" className="mcp-panel-add" onClick={() => setCreating(true)}>
             <Plus size={12} aria-hidden="true" />
-            Add MCP server
+            {t('mcp.add')}
           </button>
           {window.oxe?.mcp?.discover && <button type="button" className="mcp-panel-add" onClick={() => setImporting(true)}>
             <Plus size={12} aria-hidden="true" />
-            Import from Claude Desktop, Cursor or Windsurf
+            {t('mcp.importOpen')}
           </button>}
         </>
       )}
 
-      <div className="mcp-view-tabs" role="tablist" aria-label="MCP servers view">
-        {conversationServers?.length ? <button type="button" role="tab" aria-selected={view === 'conversation'} onClick={() => setView('conversation')}>This conversation<small>{conversationServers.filter(server => server.status === 'connected').length}</small></button> : null}
-        <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>Catalog</button>
-        <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>Installed<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>
+      <div className="mcp-view-tabs" role="tablist" aria-label={t('mcp.views')}>
+        {conversationServers?.length ? <button type="button" role="tab" aria-selected={view === 'conversation'} onClick={() => setView('conversation')}>{t('mcp.view.conversation')}<small>{conversationServers.filter(server => server.status === 'connected').length}</small></button> : null}
+        <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>{t('mcp.view.catalog')}</button>
+        <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>{t('mcp.view.installed')}<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>
       </div>
 
       {view === 'conversation' && conversationServers ? (
         <div className="mcp-panel-list mcp-panel-conversation">
-          <p className="mcp-panel-sync-note">What the agent of this conversation loaded when its session started: servers from OXESpace, your provider settings, the project's <code>.mcp.json</code> and claude.ai connectors. Changes apply to the next session.</p>
+          <p className="mcp-panel-sync-note"><RichText text={t('mcp.conversationNote')} /></p>
           <ThreadMcpServerList servers={conversationServers.filter(server => `${server.name} ${server.status}`.toLowerCase().includes(query.trim().toLowerCase()))} />
         </div>
       ) : view === 'catalog' ? (
@@ -243,15 +247,11 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
           // ran the handshake — and we don't auto-start the internal one
           // because the bridge is spawned by agent CLIs, not by McpManager.
           toolCount={builtInStatus?.toolCount ?? builtInServer?.tools.length ?? 0}
-          onRegenerate={() => void handleRegenerateToken()}
+          onRegenerate={() => setConfirmRegenerate(true)}
           onDismissNotice={() => setBuiltInNotice(null)}
         />
         {visibleServers.length === 0 && !creating ? (
-          <div className="mcp-panel-empty">
-            <Wrench size={32} aria-hidden="true" />
-            <strong>{query ? 'No matching connections' : 'No additional MCP servers'}</strong>
-            <span>{query ? 'Try another name or status.' : 'Add a workspace server when your agents need more tools.'}</span>
-          </div>
+          <EmptyState compact icon={<Wrench size={16} />} title={query ? t('mcp.noMatchInstalled') : t('mcp.noneInstalled')}>{query ? t('mcp.noMatchInstalledHint') : t('mcp.noneInstalledHint')}</EmptyState>
         ) : (
           visibleServers.map((server) => (
             <McpServerRow
@@ -275,9 +275,9 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
       </div>
       )}
 
-      <footer className="mcp-panel-footer">
-        Agents run these servers themselves. Remote connectors sign in through your browser the first time the agent connects.
-      </footer>
+      <footer className="mcp-panel-footer">{t('mcp.footer')}</footer>
+      {confirmRegenerate && <ConfirmDialog title={t('mcp.builtin.confirmTitle')} description={t('mcp.builtin.confirmBody')} confirmLabel={t('mcp.builtin.regenerate')}
+        onCancel={() => setConfirmRegenerate(false)} onConfirm={() => { setConfirmRegenerate(false); void handleRegenerateToken() }} />}
     </ToolPanel>
   )
 }
@@ -299,29 +299,29 @@ function McpBuiltinCard({ status, busy, notice, toolCount, onRegenerate, onDismi
   const tools = status?.tools ?? []
   const pillClass = lastError ? 'health-error' : running ? 'health-healthy' : 'health-idle'
   const pillText = lastError
-    ? 'error'
+    ? tc('mcp.builtin.error')
     : running
       ? port !== null
-        ? `running · :${port}`
-        : 'running'
-      : 'stopped'
+        ? `${tc('mcp.builtin.running')} · :${port}`
+        : tc('mcp.builtin.running')
+      : tc('mcp.builtin.stopped')
   return (
     <div className={`mcp-server-row mcp-builtin-row ${pillClass}${expanded ? ' expanded' : ''}`}>
       <button
         type="button"
         className="mcp-server-main"
-        aria-label="OXESpace built-in MCP server"
+        aria-label={tc('mcp.builtin.label')}
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
         <HealthIndicator status={lastError ? 'unhealthy' : running ? 'healthy' : 'unknown'} />
         <div className="mcp-server-body">
-          <strong>OXESpace built-in <span className="mcp-server-tag scope-global">auto</span></strong>
+          <strong>{tc('mcp.builtin.name')} <span className="mcp-server-tag scope-global">{tc('mcp.builtin.auto')}</span></strong>
           <span className="mcp-server-meta">
             <span className={`mcp-server-tag mcp-builtin-status ${running ? 'on' : 'off'}`}>{pillText}</span>
             <span className="mcp-server-tag">stdio</span>
-            <span className="mcp-server-tag">trusted</span>
-            <span>{toolCount} tool{toolCount === 1 ? '' : 's'}</span>
+            <span className="mcp-server-tag">{tc('mcp.trusted')}</span>
+            <span>{tc('mcp.tools', { count: toolCount })}</span>
             {lastError ? <span className="mcp-server-err">{lastError}</span> : null}
           </span>
         </div>
@@ -332,14 +332,15 @@ function McpBuiltinCard({ status, busy, notice, toolCount, onRegenerate, onDismi
         className="mcp-builtin-regen"
         onClick={(e) => { e.stopPropagation(); onRegenerate() }}
         disabled={busy}
-        title="Generate a new auth token. Open agent panes need to restart to pick it up."
+        aria-haspopup="dialog"
+        title={tc('mcp.builtin.regenerateTitle')}
       >
         <RotateCw size={12} className={busy ? 'usage-spin' : ''} aria-hidden="true" />
-        {busy ? 'Regenerating…' : 'Regenerate token'}
+        {busy ? tc('mcp.builtin.regenerating') : tc('mcp.builtin.regenerate')}
       </button>
       {expanded && tools.length > 0 ? (
         <div className="mcp-builtin-tools">
-          <div className="mcp-builtin-tools-title">Tools exposed to agent CLIs (call via MCP)</div>
+          <div className="mcp-builtin-tools-title">{tc('mcp.builtin.toolsTitle')}</div>
           <ul>
             {tools.map((tool) => (
               <li key={tool.name}>
@@ -353,7 +354,7 @@ function McpBuiltinCard({ status, busy, notice, toolCount, onRegenerate, onDismi
       {notice ? (
         <div className="mcp-builtin-notice" role="status">
           <span>{notice}</span>
-          <button type="button" onClick={onDismissNotice} aria-label="Dismiss notice">
+          <button type="button" onClick={onDismissNotice} aria-label={tc('worktree.dismiss')} title={tc('worktree.dismiss')}>
             <X size={12} aria-hidden="true" />
           </button>
         </div>
@@ -379,7 +380,7 @@ interface McpServerRowProps {
 }
 
 /** What OXESpace's own test found; the agent's connection is reported separately. */
-const TEST_LABEL: Record<McpHealthStatus, string> = { unknown: 'Not tested', starting: 'Testing…', healthy: 'Answers', 'needs-auth': 'Answers · sign-in', unhealthy: 'Test failed' }
+const testLabel = (health: McpHealthStatus): string => tc(`mcp.test.${health}`)
 
 function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removePrompt, onToggle, onTest, onTrustAndTest, onCancelTrust, onStop, onRemove, onCancelRemove }: McpServerRowProps): ReactElement {
   const testing = server.health === 'starting'
@@ -392,11 +393,11 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
           <strong>{server.name}</strong>
           <span className="mcp-server-meta">
             <span className={`mcp-server-tag mcp-agent-state is-${agentState}`} title={AGENT_STATE_HINT[agentState]}>{AGENT_STATE_LABEL[agentState]}</span>
-            <span className="mcp-server-tag" title={server.testedAtMs ? `OXESpace tested it at ${formatClock(server.testedAtMs)}` : 'OXESpace has not tested it since it opened'}>{TEST_LABEL[server.health]}</span>
+            <span className="mcp-server-tag" title={server.testedAtMs ? tc('mcp.testedAt', { time: formatClock(server.testedAtMs) }) : tc('mcp.notTested')}>{testLabel(server.health)}</span>
             <span className="mcp-server-tag">{server.transport}</span>
-            {server.workspaceId ? <span className="mcp-server-tag scope-ws">workspace</span> : <span className="mcp-server-tag scope-global">global</span>}
-            {server.trusted ? <span className="mcp-server-tag">trusted</span> : <span className="mcp-server-tag">{server.guard?.quarantine ? 'quarantined' : 'review required'}</span>}
-            {server.tools.length > 0 ? <span>{server.tools.length} tool{server.tools.length !== 1 ? 's' : ''}</span> : null}
+            {server.workspaceId ? <span className="mcp-server-tag scope-ws">{tc('mcp.scope.workspace')}</span> : <span className="mcp-server-tag scope-global">{tc('mcp.scope.global')}</span>}
+            {server.trusted ? <span className="mcp-server-tag">{tc('mcp.trusted')}</span> : <span className="mcp-server-tag">{server.guard?.quarantine ? tc('mcp.quarantined') : tc('mcp.reviewRequired')}</span>}
+            {server.tools.length > 0 ? <span>{tc('mcp.tools', { count: server.tools.length })}</span> : null}
             {server.healthMessage && server.health !== 'healthy' ? <span className={server.health === 'unhealthy' ? 'mcp-server-err' : undefined}>{server.healthMessage}</span> : null}
           </span>
         </div>
@@ -405,15 +406,15 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
 
       <div className="mcp-server-actions">
         {testing ? (
-          <Button variant="ghost" size="sm" onClick={onStop} title="Stop the test">
-            <Square size={12} aria-hidden="true" /> Stop
+          <Button variant="ghost" size="sm" onClick={onStop} title={tc('mcp.stopTest')}>
+            <Square size={12} aria-hidden="true" /> {tc('background.stop')}
           </Button>
         ) : (
-          <Button variant="ghost" size="sm" disabled={busy} onClick={onTest} title="Check that the server answers and list its tools. The agent keeps its own connection.">
-            <PlugZap size={12} aria-hidden="true" /> Test
+          <Button variant="ghost" size="sm" disabled={busy} onClick={onTest} title={tc('mcp.testServerTitle')}>
+            <PlugZap size={12} aria-hidden="true" /> {tc('mcp.testButton')}
           </Button>
         )}
-        <Button variant="ghost" size="sm" square aria-label="Remove" disabled={busy} onClick={onRemove}>
+        <Button variant="ghost" size="sm" square aria-label={tc('mcp.removeLabel', { name: server.name })} title={tc('mcp.remove')} disabled={busy} onClick={onRemove}>
           <Trash2 size={12} aria-hidden="true" />
         </Button>
       </div>
@@ -424,21 +425,21 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
           {!server.trusted ? (
             <div className="mcp-server-trust-box">
               <ShieldCheck size={14} aria-hidden="true" />
-              <span>Review command, args and env before starting. MCP servers can execute local code.</span>
+              <span>{tc('mcp.reviewHint')}</span>
             </div>
           ) : null}
           {trustPrompt ? (
             <div className="mcp-inline-confirm">
-              <span>Trust this server and test it now?</span>
-              <Button variant="ghost" size="sm" disabled={busy} onClick={onCancelTrust}>Cancel</Button>
-              <Button variant="primary" size="sm" disabled={busy} onClick={onTrustAndTest}>Trust and test</Button>
+              <span>{tc('mcp.trustQuestion')}</span>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={onCancelTrust}>{tc('github.cancel')}</Button>
+              <Button variant="primary" size="sm" disabled={busy} onClick={onTrustAndTest}>{tc('mcp.trustAndTest')}</Button>
             </div>
           ) : null}
           {removePrompt ? (
             <div className="mcp-inline-confirm">
-              <span>Remove "{server.name}"?</span>
-              <Button variant="ghost" size="sm" disabled={busy} onClick={onCancelRemove}>Cancel</Button>
-              <Button variant="primary" size="sm" disabled={busy} onClick={onRemove}>Remove</Button>
+              <span>{tc('mcp.removeQuestion', { name: server.name })}</span>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={onCancelRemove}>{tc('github.cancel')}</Button>
+              <Button variant="danger" size="sm" disabled={busy} onClick={onRemove}>{tc('mcp.remove')}</Button>
             </div>
           ) : null}
           <div className="mcp-server-config">
@@ -463,7 +464,7 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
           </div>
           {server.tools.length > 0 ? (
             <div className="mcp-server-tools">
-              <div className="mcp-server-tools-header">Exposed tools</div>
+              <div className="mcp-server-tools-header">{tc('mcp.exposedTools')}</div>
               {server.tools.map((tool) => (
                 <div key={tool.name} className="mcp-tool-card">
                   <strong>{tool.name}</strong>
@@ -473,7 +474,7 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
             </div>
           ) : (
             <div className="mcp-server-no-tools">
-              {testing ? 'Loading tools…' : server.health === 'needs-auth' || (remote && server.health === 'healthy') ? 'Its tools show once the agent signs in and connects.' : 'Test the server to list its tools.'}
+              {testing ? tc('mcp.loadingTools') : server.health === 'needs-auth' || (remote && server.health === 'healthy') ? tc('mcp.toolsAfterSignIn') : tc('mcp.testToList')}
             </div>
           )}
         </div>
@@ -485,16 +486,16 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
 function HealthIndicator({ status }: { status: McpHealthStatus }): ReactElement {
   switch (status) {
     case 'healthy':
-      return <CircleDot size={12} className="status-healthy" aria-label="healthy" />
+      return <CircleDot size={12} className="status-healthy" role="img" aria-label={tc('mcp.indicator.healthy')} />
     case 'starting':
-      return <CircleDot size={12} className="bg-jobs-pulse status-running" aria-label="testing" />
+      return <CircleDot size={12} className="bg-jobs-pulse status-running" role="img" aria-label={tc('mcp.indicator.starting')} />
     case 'needs-auth':
-      return <KeyRound size={12} className="status-running" aria-label="answers, needs sign-in" />
+      return <KeyRound size={12} className="status-running" role="img" aria-label={tc('mcp.indicator.needsAuth')} />
     case 'unhealthy':
-      return <Circle size={12} className="status-failed" aria-label="unhealthy" />
+      return <Circle size={12} className="status-failed" role="img" aria-label={tc('mcp.indicator.unhealthy')} />
     case 'unknown':
     default:
-      return <Circle size={12} className="status-killed" aria-label="unknown" />
+      return <Circle size={12} className="status-killed" role="img" aria-label={tc('mcp.indicator.unknown')} />
   }
 }
 
@@ -511,73 +512,64 @@ interface McpCreateFormProps {
 // fields — the user can edit before saving. "Custom" leaves everything blank.
 const MCP_TEMPLATES: Array<{
   id: string
-  label: string
+  /** Product name (the same in every language); Custom is translated. */
+  name: string
   category: 'Core' | 'Coding' | 'Browser' | 'Docs' | 'Data' | 'Planning'
-  description: string
   fill?: { name: string; command: string; argsText: string; envText?: string }
 }> = [
-  { id: 'custom', label: 'Custom', category: 'Core', description: 'Empty form — fill manually' },
+  { id: 'custom', name: 'custom', category: 'Core' },
   {
     id: 'filesystem',
-    label: 'Filesystem',
+    name: 'Filesystem',
     category: 'Core',
-    description: 'Read/write files inside this workspace',
     fill: { name: 'filesystem', command: 'npx', argsText: '-y @modelcontextprotocol/server-filesystem .' }
   },
   {
     id: 'playwright',
-    label: 'Playwright',
+    name: 'Playwright',
     category: 'Browser',
-    description: 'Browser automation, screenshots and UI testing',
     fill: { name: 'playwright', command: 'npx', argsText: '-y @playwright/mcp@latest' }
   },
   {
     id: 'github',
-    label: 'GitHub',
+    name: 'GitHub',
     category: 'Coding',
-    description: 'Issues, PRs, repos and GitHub API operations',
     fill: { name: 'github', command: 'npx', argsText: '-y @modelcontextprotocol/server-github', envText: 'GITHUB_PERSONAL_ACCESS_TOKEN=' }
   },
   {
     id: 'git',
-    label: 'Git',
+    name: 'Git',
     category: 'Coding',
-    description: 'Local Git repository operations',
     fill: { name: 'git', command: 'uvx', argsText: 'mcp-server-git --repository .' }
   },
   {
     id: 'context7',
-    label: 'Context7',
+    name: 'Context7',
     category: 'Docs',
-    description: 'Up-to-date library and framework documentation',
     fill: { name: 'context7', command: 'npx', argsText: '-y @upstash/context7-mcp' }
   },
   {
     id: 'fetch',
-    label: 'Fetch',
+    name: 'Fetch',
     category: 'Docs',
-    description: 'Fetch URLs and return clean Markdown for agents',
     fill: { name: 'fetch', command: 'npx', argsText: '-y @modelcontextprotocol/server-fetch' }
   },
   {
     id: 'sequential-thinking',
-    label: 'Sequential Thinking',
+    name: 'Sequential Thinking',
     category: 'Planning',
-    description: 'Structured multi-step reasoning for ambiguous tasks',
     fill: { name: 'sequential-thinking', command: 'npx', argsText: '-y @modelcontextprotocol/server-sequential-thinking' }
   },
   {
     id: 'memory',
-    label: 'Memory',
+    name: 'Memory',
     category: 'Planning',
-    description: 'Persistent lightweight memory graph for long-running work',
     fill: { name: 'memory', command: 'npx', argsText: '-y @modelcontextprotocol/server-memory' }
   },
   {
     id: 'postgres',
-    label: 'Postgres',
+    name: 'Postgres',
     category: 'Data',
-    description: 'Inspect and query a Postgres database',
     fill: { name: 'postgres', command: 'npx', argsText: '-y @modelcontextprotocol/server-postgres postgresql://user:password@localhost:5432/database' }
   }
 ]
@@ -643,13 +635,13 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
   const handleSubmit = async (): Promise<void> => {
     setError(null)
     if (!name.trim() || (!remote && !command.trim())) {
-      setError('Name and command are required.')
+      setError(tc('mcp.form.required'))
       return
     }
     const placeholder = /<[^<>s]+>/.exec(argsText)
-    if (placeholder) { setError(`Replace ${placeholder[0]} with a real value before saving.`); return }
+    if (placeholder) { setError(tc('mcp.form.placeholder', { value: placeholder[0] })); return }
     const missing = (initial?.requiredEnv ?? []).filter(key => !parsedEnv[key])
-    if (missing.length) { setError(`Fill in ${missing.join(', ')} before saving.`); return }
+    if (missing.length) { setError(tc('mcp.form.missing', { names: missing.join(', ') })); return }
     setBusy(true)
     try {
       // A remote catalog server takes the values into its headers; the agent connects to the URL itself.
@@ -684,7 +676,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
     // Anonymous { command, args, env } needs a name; ask the form for one
     // (`jsonName`). Multi-entry JSON brings its own names — those wins.
     if (entries.length === 1 && !entries[0].name && !jsonName.trim()) {
-      setError('Give the server a name (it was not in the JSON).')
+      setError(tc('mcp.form.jsonName'))
       return
     }
     setBusy(true)
@@ -722,7 +714,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       {/* Mode toggle — Form vs JSON. JSON accepts the same shape that ships
           in Claude Code's .mcp.json (and what most MCP server READMEs print)
           so users can paste an example verbatim. */}
-      <div className="mcp-create-mode-toggle" role="tablist" aria-label="Input mode">
+      <div className="mcp-create-mode-toggle" role="tablist" aria-label={tc('mcp.form.mode')}>
         <button
           type="button"
           role="tab"
@@ -731,7 +723,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
           onClick={() => { setMode('form'); setError(null) }}
           disabled={busy}
         >
-          Form
+          {tc('mcp.form.formTab')}
         </button>
         <button
           type="button"
@@ -749,7 +741,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       {mode === 'form' ? (
         <>
           <div className="mcp-create-template-field">
-            <label htmlFor="mcp-template-select">Template</label>
+            <label htmlFor="mcp-template-select">{tc('mcp.form.template')}</label>
             <Select
               id="mcp-template-select"
               value={templateId}
@@ -757,27 +749,27 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
               disabled={busy}
             >
               {MCP_TEMPLATE_CATEGORIES.map((category) => (
-                <optgroup key={category} label={category}>
+                <optgroup key={category} label={tc(`mcp.form.category.${category}`)}>
                   {MCP_TEMPLATES.filter((t) => t.category === category).map((t) => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
+                    <option key={t.id} value={t.id}>{t.id === 'custom' ? tc('mcp.form.custom') : t.name}</option>
                   ))}
                 </optgroup>
               ))}
             </Select>
             <span className="mcp-create-template-hint">
-              <strong>{selectedTemplate.category}</strong> · {selectedTemplate.description}
+              <strong>{tc(`mcp.form.category.${selectedTemplate.category}`)}</strong> · {tc(`mcp.form.templates.${selectedTemplate.id as 'custom'}`)}
             </span>
           </div>
           <div className="mcp-create-row">
             <label>
-              Name
+              {tc('mcp.form.name')}
               <TextField value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="filesystem" disabled={busy} />
             </label>
             <label>
-              Scope
+              {tc('mcp.form.scope')}
               <Select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId}>
-                <option value="global">Global</option>
-                {workspaceId ? <option value="workspace">This workspace only</option> : null}
+                <option value="global">{tc('mcp.form.global')}</option>
+                {workspaceId ? <option value="workspace">{tc('mcp.form.workspaceOnly')}</option> : null}
               </Select>
             </label>
           </div>
@@ -789,17 +781,17 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
           ) : (
             <>
               <label>
-                Command
+                {tc('mcp.form.command')}
                 <TextField value={command} onChange={(event) => setCommand(event.currentTarget.value)} placeholder="npx" disabled={busy} />
               </label>
               <label>
-                Args (space-separated)
+                {tc('mcp.form.args')}
                 <TextField value={argsText} onChange={(event) => setArgsText(event.currentTarget.value)} placeholder="-y @modelcontextprotocol/server-filesystem /tmp" disabled={busy} />
               </label>
             </>
           )}
           <label>
-            {remote ? 'Values (KEY=VAL, one per line; sent in the request headers)' : 'Env (KEY=VAL, one per line — optional)'}
+            {remote ? tc('mcp.form.values') : tc('mcp.form.env')}
             <TextArea value={envText} onChange={(event) => setEnvText(event.currentTarget.value)} placeholder={'GITHUB_TOKEN=ghp_...\nDEBUG=1'} rows={3} disabled={busy} />
           </label>
         </>
@@ -807,14 +799,14 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
         <>
           <div className="mcp-create-row">
             <label>
-              Scope
+              {tc('mcp.form.scope')}
               <Select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId}>
-                <option value="global">Global</option>
-                {workspaceId ? <option value="workspace">This workspace only</option> : null}
+                <option value="global">{tc('mcp.form.global')}</option>
+                {workspaceId ? <option value="workspace">{tc('mcp.form.workspaceOnly')}</option> : null}
               </Select>
             </label>
             <label>
-              Name (only if JSON omits it)
+              {tc('mcp.form.jsonNameLabel')}
               <TextField
                 value={jsonName}
                 onChange={(event) => setJsonName(event.currentTarget.value)}
@@ -824,7 +816,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
             </label>
           </div>
           <label>
-            JSON config
+            {tc('mcp.form.json')}
             <textarea
               className="mcp-create-json-textarea"
               value={jsonText}
@@ -835,21 +827,18 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
               disabled={busy}
               data-testid="mcp-create-json-textarea"
             />
-            <span className="mcp-create-template-hint">
-              Accepts {'{ mcpServers: { name: { command, args, env } } }'}, {'{ name: { command, ... } }'}, or {'{ command, args, env }'}.
-              Pasting from a server&apos;s README usually just works.
-            </span>
+            <span className="mcp-create-template-hint">{tc('mcp.form.jsonHint', { a: '{ mcpServers: { name: { command, args, env } } }', b: '{ name: { command, ... } }', c: '{ command, args, env }' })}</span>
           </label>
         </>
       )}
 
-      {error ? <div className="mcp-create-error">{error}</div> : null}
+      {error ? <ErrorState compact title={tc('mcp.form.failed')} message={error} /> : null}
       <div className="mcp-create-actions">
-        <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
+        <Button variant="ghost" onClick={onCancel} disabled={busy}>{tc('github.cancel')}</Button>
         {mode === 'form' ? (
-          <Button type="submit" variant="primary" disabled={busy || !name.trim() || (!remote && !command.trim())}>Add server</Button>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim() || (!remote && !command.trim())}>{tc('mcp.form.add')}</Button>
         ) : (
-          <Button type="submit" variant="primary" disabled={busy || !jsonText.trim()}>Add from JSON</Button>
+          <Button type="submit" variant="primary" disabled={busy || !jsonText.trim()}>{tc('mcp.form.addJson')}</Button>
         )}
       </div>
     </form>

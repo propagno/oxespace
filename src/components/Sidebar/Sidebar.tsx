@@ -7,7 +7,8 @@ import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
-import type { MenuEntry } from '../../ui'
+import { Button, EmptyState, type MenuEntry } from '../../ui'
+import { useTranslation } from 'react-i18next'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
@@ -60,6 +61,7 @@ export function Sidebar({
   integrationGroups = [],
   workspaces,
 }: SidebarProps): ReactElement {
+  const { t } = useTranslation('code')
   const [searchQuery, setSearchQuery] = useState('')
   const width = useNavigationPrefs(s => s.width)
   const expanded = useNavigationPrefs(s => s.expanded)
@@ -167,17 +169,17 @@ export function Sidebar({
   }
 
   const railPrimary: RailAction[] = [
-    { id: 'new-workspace', label: 'New workspace', icon: Plus, testId: 'btn-new-workspace', onClick: onNewWorkspace },
-    ...(onDelegations ? [{ id: 'delegated-work', label: 'Delegated work', icon: Waypoints, onClick: onDelegations }] : []),
-    { id: 'search', label: `Files & commands (${shortcutLabel('palette.search')})`, ariaLabel: 'Files & commands', icon: Search, onClick: onOpenSearch }
+    { id: 'new-workspace', label: t('sidebar.newWorkspace'), icon: Plus, testId: 'btn-new-workspace', onClick: onNewWorkspace },
+    ...(onDelegations ? [{ id: 'delegated-work', label: t('background.delegated'), icon: Waypoints, onClick: onDelegations }] : []),
+    { id: 'search', label: t('sidebar.search', { shortcut: shortcutLabel('palette.search') }), ariaLabel: t('sidebar.searchLabel'), icon: Search, onClick: onOpenSearch }
   ]
-  const railContext: RailAction = { id: 'panels', label: 'Panels', ariaLabel: 'Open panels', icon: PanelsTopLeft, testId: 'btn-open-tools', disabled: !panelMenu, menu: panelMenu }
+  const railContext: RailAction = { id: 'panels', label: t('panels.menu'), ariaLabel: t('sidebar.openPanels'), icon: PanelsTopLeft, testId: 'btn-open-tools', disabled: !panelMenu, menu: panelMenu }
 
   if (isCollapsed) {
     return (
       <aside className="sidebar sidebar-redesign sidebar-collapsed" data-version={appVersion}>
         <NavigationRail mode="code" primary={railPrimary} context={railContext} onToggle={onToggleCollapse}>
-        <nav className="sidebar-rail-list" aria-label="Collapsed workspaces">
+        <nav className="sidebar-rail-list" aria-label={t('sidebar.collapsed')}>
           {integrationGroups.map((group) => (
             <div key={group.id} className={`sidebar-rail-integration${group.id === activeIntegrationGroupId ? ' active' : ''}`} title={group.name}>
               <span>{group.name.slice(0, 1).toUpperCase()}</span>
@@ -214,21 +216,21 @@ export function Sidebar({
 
   return (
     <aside className="sidebar sidebar-redesign" style={{ width, minWidth: width, flexBasis: width }}>
-      <div className="sidebar-width-handle" role="separator" aria-label="Sidebar width" aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width} tabIndex={0}
+      <div className="sidebar-width-handle" role="separator" aria-label={t('sidebar.width')} aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width} tabIndex={0}
         onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); setWidth(e.key === 'Home' ? SIDEBAR_MIN_WIDTH : SIDEBAR_MAX_WIDTH) } }}
         onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
         onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
         onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />
-      <div className="nav-panel" title={`OXESpace v${appVersion}`}>
-      <div className="nav-panel-title"><strong>Workspaces</strong><SidebarActions actions={railPrimary} /></div>
-      <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label="Filter workspaces" placeholder="Filter workspaces" value={searchQuery} onChange={setSearchQuery} shortcut="/" />
+      <div className="nav-panel" title={t('sidebar.version', { version: appVersion })}>
+      <div className="nav-panel-title"><strong>{t('sidebar.workspaces')}</strong><SidebarActions actions={railPrimary} /></div>
+      <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={searchQuery} onChange={setSearchQuery} shortcut="/" />
 
-      <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label="Workspaces">
+      <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label={t('sidebar.workspaces')}>
 
         {integrationGroups.length > 0 ? (
-          <section className="sidebar-integration-list" aria-label="Integration groups">
+          <section className="sidebar-integration-list" aria-label={t('sidebar.integrationGroups')}>
             <div className="sidebar-section-header">
-              <span>Integrations</span>
+              <span>{t('sidebar.integrations')}</span>
             </div>
             {integrationGroups.map((group) => (
               <SidebarIntegrationRow
@@ -248,19 +250,18 @@ export function Sidebar({
         ) : null}
 
         <div className="sidebar-section-header">
-          <span>Workspaces</span>
-          {workspaces.length > 0 && !searchQuery && <button type="button" className="sidebar-section-action-btn" aria-label="Toggle all workspace terminals" onClick={() => {
+          <span>{t('sidebar.workspaces')}</span>
+          {workspaces.length > 0 && !searchQuery && <button type="button" className="sidebar-section-action-btn" aria-label={t('sidebar.toggleAll')} title={t('sidebar.toggleAll')} onClick={() => {
             const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
             workspaces.forEach(w => setExpanded(w.id, shouldExpand))
-          }}><ChevronDown size={12} /></button>}
+          }}><ChevronDown size={12} aria-hidden="true" /></button>}
 
         </div>
 
         {filtered.length === 0 ? (
-          <div className="sidebar-empty-state">
-            <FolderOpen size={20} aria-hidden="true" />
-            <p>{searchQuery ? 'No matching workspaces.' : 'No workspaces yet.'}</p>
-          </div>
+          searchQuery
+            ? <EmptyState compact title={t('sidebar.noMatch')} />
+            : <EmptyState compact icon={<FolderOpen size={16} />} title={t('sidebar.none')} actions={<Button size="sm" variant="secondary" icon={<Plus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>{t('sidebar.newWorkspace')}</Button>} />
         ) : (
           filtered.map((ws) => (
             <section key={ws.id} className={`sidebar-workspace-tree${ws.id === activeWorkspaceId ? ' active' : ''}`}>

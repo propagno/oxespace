@@ -1,6 +1,7 @@
 import { useRef, type ReactElement, type ReactNode } from 'react'
 import { Check, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
+import { i18n } from '../i18n'
 import { IconButton } from './Button'
 import { cx } from './cx'
 import styles from './Overlay.module.css'
@@ -34,7 +35,7 @@ export function focusSurfaceUnlessChosen(event: Event): void {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = 'Close', testId }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId }: DialogProps): ReactElement {
   const previous = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null)
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>

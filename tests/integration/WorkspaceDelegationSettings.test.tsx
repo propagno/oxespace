@@ -33,3 +33,15 @@ test('terminal and diagnostics use the settings host navigation callbacks', asyn
   fireEvent.click(screen.getByRole('button', {name:'Open diagnostics and logs'}))
   expect(onOpenDiagnostics).toHaveBeenCalledOnce()
 })
+
+test('approving a delegated result is confirmed in a dialog, never one click', async () => {
+  const api = { status: vi.fn(async () => ({ enabled: true, tasks: [{ id: 'task', workspaceId: 'ws', objective: 'Fix auth', state: 'review', branch: 'oxe/auth', handoff: 'h' }] })), control: vi.fn(async () => {}), onChanged: vi.fn(() => () => {}) }
+  vi.stubGlobal('oxe', { delegation: api })
+  render(<WorkspaceDelegationSettings workspaceId="ws" />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Approve result…' }))
+  expect(api.control).not.toHaveBeenCalled()
+  const dialog = await screen.findByRole('dialog', { name: 'Approve this result?' })
+  expect(dialog).toHaveTextContent('Fix auth')
+  fireEvent.click(screen.getByRole('button', { name: 'Approve result' }))
+  await waitFor(() => expect(api.control).toHaveBeenCalledWith('ws', 'task', 'approve'))
+})

@@ -233,7 +233,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'thread.approvals': {
     label: 'Answer a Thread\'s approvals and questions',
     forbidden: 'Approvals stay with the person.',
-    ipc: ['thread.approve', 'thread.respond', 'thread.pendingRequestsAll']
+    ipc: ['thread.approve', 'thread.respond', 'thread.pendingRequestsAll', 'thread.respondPending']
   },
   'thread.access': {
     label: 'Permission rules and auto-approval',

@@ -13,5 +13,27 @@
       "detail": "Seus terminais e agentes continuam rodando. Reinicie o OXESpace para trazer a interface de volta; o diagnóstico pode ser exportado em Configurações > Diagnóstico.",
       "ok": "OK"
     }
+  },
+  "messages": {
+    "mcp": {
+      "quarantine": {
+        "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
+        "added": "Ele adicionou {{tools}}.",
+        "removed": "Ele removeu {{tools}}."
+      }
+    },
+    "thread": {
+      "request": {
+        "notPending": "Este pedido já foi respondido, cancelado ou expirou.",
+        "staleGeneration": "A conversa reiniciou desde que este pedido apareceu. Abra-a para ver o que está esperando agora.",
+        "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
+        "unanswered": "Responda a todas as perguntas antes de continuar."
+      }
+    },
+    "app": {
+      "connectivity": {
+        "offline": "Sem conexão de rede."
+      }
+    }
   }
 }

@@ -844,7 +844,7 @@ export function App(): ReactElement {
         onCloseWorkspace={handleCloseWorkspace}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
-        panelMenu={codePanelItems.length ? panelMenuEntries(codePanelItems) : [{ type: 'label', label: 'Open a workspace to use its panels' }]}
+        panelMenu={panelMenuEntries(codePanelItems)}
         onOpenJobs={toggleBackgroundPanel}
         onOpenScripts={toggleScriptsPanel}
         onOpenSearch={openCommandMenu}

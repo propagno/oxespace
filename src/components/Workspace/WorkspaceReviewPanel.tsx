@@ -5,6 +5,10 @@ import { ReviewPane } from '../Review/ReviewPane'
 import { PanelScopeBadge } from './PanelScopeBadge'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
+import { i18n } from '../../i18n'
+import { LoadingState } from '../../ui'
+
+const tc = i18n.getFixedT(null, 'code')
 
 const ChangesPanel = lazy(() => import('../Changes/ChangesPanel').then(module => ({ default: module.ChangesPanel })))
 
@@ -25,16 +29,16 @@ export function WorkspaceReviewPanel({ isExpanded, onCollapse, onToggleExpanded,
     <section className="workspace-editor-panel" data-testid="workspace-review-panel">
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
-          <span>Review</span>
+          <span>{tc('panels.changes')}</span>
           <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
         </div>
-        <div className="workspace-editor-actions" aria-label="Review actions">
+        <div className="workspace-editor-actions" aria-label={tc('workspace.panel.actions')}>
           <button
             type="button"
             className="tile-btn"
             aria-pressed={view === 'classic'}
             style={{ width: 'auto', padding: '0 8px', fontSize: 'var(--fs-xs)' }}
-            title={view === 'classic' ? 'Back to Changes' : 'Classic review (line comments)'}
+            title={view === 'classic' ? tc('workspace.review.back') : tc('workspace.review.classic')}
             onClick={() => setView(value => value === 'classic' ? 'changes' : 'classic')}
           >
             {view === 'classic' ? 'Changes' : 'Classic'}
@@ -42,13 +46,13 @@ export function WorkspaceReviewPanel({ isExpanded, onCollapse, onToggleExpanded,
           <button
             type="button"
             className="tile-btn"
-            aria-label={isExpanded ? 'Restore review width' : 'Expand review'}
-            title={isExpanded ? 'Restore review width' : 'Expand review'}
+            aria-label={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
+            title={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
             onClick={onToggleExpanded}
           >
             {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
           </button>
-          <button type="button" className="tile-btn" aria-label="Collapse review" title="Collapse review" onClick={onCollapse}>
+          <button type="button" className="tile-btn" aria-label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} onClick={onCollapse}>
             <ChevronsRight size={14} aria-hidden="true" />
           </button>
         </div>
@@ -56,7 +60,7 @@ export function WorkspaceReviewPanel({ isExpanded, onCollapse, onToggleExpanded,
       <div className="workspace-editor-content">
         {view === 'classic'
           ? <ReviewPane workspaceId={workspace.id} rootPath={scope.rootPath} />
-          : <Suspense fallback={<p role="status">Loading changes…</p>}><ChangesPanel workspaceId={workspace.id} rootPath={scope.rootPath} onSendComments={async text => (await pasteIntoAgentTerminal(workspace.id, text)).ok} /></Suspense>}
+          : <Suspense fallback={<LoadingState label={tc('changes.loading')} />}><ChangesPanel workspaceId={workspace.id} rootPath={scope.rootPath} onSendComments={async text => (await pasteIntoAgentTerminal(workspace.id, text)).ok} /></Suspense>}
       </div>
     </section>
   )

@@ -3,6 +3,9 @@ import type { ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { IntegrationPanel } from '../Integration/IntegrationPanel'
 import { Button } from '../../ui'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 interface WorkspaceIntegrationPanelProps {
   activePaneId: string | null
@@ -24,13 +27,13 @@ export function WorkspaceIntegrationPanel({ activePaneId, isExpanded, onCollapse
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <Network size={14} aria-hidden="true" />
-          <strong>Multi-repo coordination</strong>
+          <strong>{tc('tools.integration.label')}</strong>
         </div>
         <div className="workspace-editor-actions">
-          <Button variant="ghost" size="sm" square aria-label="Expand multi-repo coordination panel" onClick={onToggleExpanded}>
+          <Button variant="ghost" size="sm" square aria-label={tc('workspace.panel.expand')} title={tc('workspace.panel.expand')} onClick={onToggleExpanded}>
             <Maximize2 size={14} aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" square aria-label="Close multi-repo coordination panel" onClick={onCollapse}>
+          <Button variant="ghost" size="sm" square aria-label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} onClick={onCollapse}>
             <X size={14} aria-hidden="true" />
           </Button>
         </div>

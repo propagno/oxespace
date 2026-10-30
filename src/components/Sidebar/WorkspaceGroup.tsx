@@ -4,6 +4,9 @@ import type { Workspace } from '../../../shared/types/workspace'
 import { useShallow } from 'zustand/react/shallow'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
 import { ConfirmDialog } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
+import { RichText } from '../../i18n/RichText'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
@@ -63,6 +66,7 @@ function WorkspaceGroupComponent({
   // Context-menu state lives next to the rename + confirm-remove state since
   // the menu triggers both. Menu coordinates are absolute viewport pixels so
   // the popup can escape the sidebar's overflow:hidden.
+  const { t } = useTranslation('code')
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(workspace.name)
@@ -215,7 +219,7 @@ function WorkspaceGroupComponent({
                 if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
               }}
               onBlur={() => void commitRename()}
-              aria-label={`Rename workspace ${workspace.name}`}
+              aria-label={t('sidebar.rename', { name: workspace.name })}
             />
           ) : (
             <>
@@ -225,7 +229,7 @@ function WorkspaceGroupComponent({
                 data-list-item
                 aria-current={isActive ? 'true' : undefined}
                 onClick={(event) => { event.stopPropagation(); handleHeaderClick() }}
-                title={`${workspace.name}\n${workspace.rootPath}\n(right-click for options)`}
+                title={t('sidebar.rowTitle', { name: workspace.name, path: workspace.rootPath })}
               >
                 {workspace.name}
               </button>
@@ -237,7 +241,7 @@ function WorkspaceGroupComponent({
                   {duplicate ? (
                     <span
                       className="ws-group-dup-index"
-                      title={`${duplicate.count} workspaces open ${workspace.rootPath}. They are the same folder, so they show the same branch — close the ones you no longer need.`}
+                      title={t('sidebar.duplicate', { count: duplicate.count, path: workspace.rootPath })}
                       data-testid="ws-group-dup-index"
                     >
                       #{duplicate.index}
@@ -250,7 +254,7 @@ function WorkspaceGroupComponent({
         </div>
         <div className="ws-group-trailing">
           {terminalCount > 0 && onToggleTerminals ? (
-            <button type="button" data-list-action className="ws-group-expand-btn" aria-label={`${terminalCount} terminals in ${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}`} title={`${terminalCount} terminals`} aria-expanded={terminalsExpanded} onClick={(event) => { event.stopPropagation(); onToggleTerminals() }}>
+            <button type="button" data-list-action className="ws-group-expand-btn" aria-label={t('sidebar.terminalsIn', { count: terminalCount, name: `${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}` })} title={t('sidebar.terminals', { count: terminalCount })} aria-expanded={terminalsExpanded} onClick={(event) => { event.stopPropagation(); onToggleTerminals() }}>
               <ChevronDown size={14} aria-hidden="true" />
             </button>
           ) : null}
@@ -259,8 +263,8 @@ function WorkspaceGroupComponent({
               type="button"
               className="ws-group-integration-badge"
               data-list-action
-              title={`Part of: ${integrations.map((g) => g.name).join(' · ')}`}
-              aria-label={`Workspace is part of ${integrations.length} integration${integrations.length === 1 ? '' : 's'}`}
+              title={t('sidebar.partOf', { names: integrations.map((g) => g.name).join(' · ') })}
+              aria-label={t('sidebar.partOfLabel', { count: integrations.length })}
               onClick={handleIntegrationBadgeClick}
               data-testid="ws-group-integration-badge"
             >
@@ -273,8 +277,8 @@ function WorkspaceGroupComponent({
               type="button"
               className="ws-group-settings-btn"
               data-list-action
-              title="Options"
-              aria-label="Workspace options"
+              title={t('sidebar.options')}
+              aria-label={t('sidebar.optionsLabel')}
               onClick={handleContextMenu}
               data-testid="ws-group-settings-btn"
             >
@@ -294,13 +298,13 @@ function WorkspaceGroupComponent({
         >
           <button type="button" role="menuitem" onClick={startRename}>
             <Pencil size={12} aria-hidden="true" />
-            Rename
+            {t('sidebar.renameItem')}
           </button>
           <button type="button" role="menuitem" onClick={async () => {
             setMenu(null)
             await useWorkspaceStore.getState().setActiveWorkspace(workspace.id)
             useUIStore.getState().openWorkspaceSettings()
-          }}><Settings size={12} aria-hidden="true" />Workspace settings</button>
+          }}><Settings size={12} aria-hidden="true" />{t('sidebar.settings')}</button>
           {(['up', 'down'] as const).map(direction => <button key={direction} type="button" role="menuitem" disabled={(() => {
             // The first workspace cannot move up, nor the last one down.
             const ids = useWorkspaceStore.getState().workspaces.map(item => item.id)
@@ -314,7 +318,7 @@ function WorkspaceGroupComponent({
               void store.reorderWorkspaces(ids)
             }
             setMenu(null)
-          }}>{direction === 'up' ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}Move {direction}</button>)}
+          }}>{direction === 'up' ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}{t(direction === 'up' ? 'sidebar.moveUp' : 'sidebar.moveDown')}</button>)}
           <button
             type="button"
             role="menuitem"
@@ -322,7 +326,7 @@ function WorkspaceGroupComponent({
             onClick={() => { setMenu(null); setConfirmRemove(true) }}
           >
             <Trash2 size={12} aria-hidden="true" />
-            Remove workspace
+            {t('sidebar.remove')}
           </button>
         </div>
       ) : null}
@@ -367,18 +371,15 @@ interface RemoveWorkspaceModalProps {
  * their code.
  */
 function RemoveWorkspaceModal({ workspaceName, onCancel, onConfirm }: RemoveWorkspaceModalProps): ReactElement {
-  return <ConfirmDialog title="Remove workspace?" danger confirmLabel="Remove workspace" onCancel={onCancel} onConfirm={onConfirm}
-    description={<><strong>{workspaceName}</strong> will be removed from the sidebar. The folder on disk stays untouched — you can re-add it later via <em>New workspace</em>.</>} />
+  const { t } = useTranslation('code')
+  return <ConfirmDialog title={t('sidebar.removeTitle')} danger confirmLabel={t('sidebar.remove')} onCancel={onCancel} onConfirm={onConfirm}
+    description={<RichText text={t('sidebar.removeBody', { name: workspaceName })} />} />
 }
 
 function activitySummary(a: WorkspaceActivity): string {
   if (!a.total) return ''
-  const parts: string[] = []
-  if (a.counts.thinking) parts.push(`${a.counts.thinking} thinking`)
-  if (a.counts.awaiting) parts.push(`${a.counts.awaiting} awaiting`)
-  if (a.counts.starting) parts.push(`${a.counts.starting} starting`)
-  if (a.counts.error) parts.push(`${a.counts.error} error`)
-  if (a.counts.idle) parts.push(`${a.counts.idle} idle`)
-  if (a.counts.exited) parts.push(`${a.counts.exited} exited`)
-  return `${a.total} agent${a.total === 1 ? '' : 's'}${parts.length ? ` · ${parts.join(', ')}` : ''}`
+  const parts = (['thinking', 'awaiting', 'starting', 'error', 'idle', 'exited'] as const)
+    .filter(state => a.counts[state]).map(state => i18n.t(`sidebar.activity.${state}`, { ns: 'code', count: a.counts[state] }))
+  const agents = i18n.t('sidebar.activity.agents', { ns: 'code', count: a.total })
+  return parts.length ? `${agents} · ${parts.join(', ')}` : agents
 }

@@ -106,6 +106,6 @@ describe('WorkspaceMemoryNotes', () => {
     await waitFor(() => expect(api.notes).toHaveBeenLastCalledWith({ workspaceId: 'ws', query: 'pnpm' }))
     fireEvent.click(screen.getByRole('button', { name: 'Export all' }))
     await waitFor(() => expect(api.export).toHaveBeenCalledWith({ workspaceId: 'ws', scope: 'all' }))
-    expect(await screen.findByText(/Exported 1 notes/)).toBeInTheDocument()
+    expect(await screen.findByText(/Exported 1 note to/)).toBeInTheDocument()
   })
 })

@@ -1,6 +1,8 @@
 import { useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useBinaryPreview } from './useBinaryPreview'
-import { EmptyState } from '../../ui'
+import { EmptyState, ErrorState, LoadingState } from '../../ui'
+import { formatNumber } from '../../utils/formatTime'
 
 interface BinaryPreviewProps {
   workspaceId: string
@@ -15,12 +17,13 @@ interface BinaryPreviewProps {
  * packaged CSP must list under `frame-src`.
  */
 export function BinaryPreview({ kind, relativePath, rootPath, workspaceId }: BinaryPreviewProps): ReactElement {
+  const { t } = useTranslation('code')
   const preview = useBinaryPreview({ workspaceId, rootPath, relativePath })
   const [zoomed, setZoomed] = useState(false)
 
-  if (preview.isLoading) return <div className="editor-loading">Loading preview</div>
-  if (preview.error) return <div className="editor-error">{preview.error}</div>
-  if (!preview.data) return <EmptyState compact title="Select a file" />
+  if (preview.isLoading) return <LoadingState label={t('editor.loadingPreview')} />
+  if (preview.error) return <ErrorState compact title={t('editor.previewFailed')} message={preview.error} />
+  if (!preview.data) return <EmptyState compact title={t('editor.selectFile')} />
 
   if (kind === 'pdf') {
     return (
@@ -36,7 +39,8 @@ export function BinaryPreview({ kind, relativePath, rootPath, workspaceId }: Bin
         type="button"
         className={`binary-preview-canvas${zoomed ? ' zoomed' : ''}`}
         onClick={() => setZoomed((value) => !value)}
-        title={zoomed ? 'Click to fit' : 'Click to view at full size'}
+        aria-pressed={zoomed}
+        title={zoomed ? t('editor.fit') : t('editor.fullSize')}
       >
         <img src={preview.dataUri ?? undefined} alt={relativePath} />
       </button>
@@ -48,8 +52,10 @@ export function BinaryPreview({ kind, relativePath, rootPath, workspaceId }: Bin
   )
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+/** 512 B, 1.5 KB, 2.3 MB, with the decimal separator of the interface language. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${formatNumber(bytes)} B`
+  const one = { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+  if (bytes < 1024 * 1024) return `${formatNumber(bytes / 1024, one)} KB`
+  return `${formatNumber(bytes / (1024 * 1024), one)} MB`
 }

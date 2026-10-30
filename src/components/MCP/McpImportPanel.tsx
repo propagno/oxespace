@@ -1,10 +1,13 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import type { McpDiscoverySource } from '../../../shared/types/mcp'
-import { Checkbox } from '../../ui'
+import { Checkbox, EmptyState, ErrorState, LoadingState } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
 import { humanizeError } from '../../utils/humanizeError'
 
 /** Servers Claude Desktop, Cursor and Windsurf already have. Their secrets are never shown or sent here. */
 export function McpImportPanel({ workspaceId, onImported, onChanged, onClose }: { workspaceId: string | null; onImported: () => void; onChanged?: () => void; onClose: () => void }): ReactElement {
+  const { t } = useTranslation('code')
   const api = window.oxe?.mcp
   const [sources, setSources] = useState<McpDiscoverySource[] | null>(null)
   const [picked, setPicked] = useState<Record<string, Set<string>>>({})
@@ -13,7 +16,7 @@ export function McpImportPanel({ workspaceId, onImported, onChanged, onClose }: 
 
   useEffect(() => {
     let live = true
-    api?.discover?.(workspaceId).then(found => { if (live) setSources(found) }, cause => { if (live) { setSources([]); setError(humanizeError(cause, 'Could not look for servers')) } })
+    api?.discover?.(workspaceId).then(found => { if (live) setSources(found) }, cause => { if (live) { setSources([]); setError(humanizeError(cause, i18n.t('mcp.import.lookFailed', { ns: 'code' }))) } })
     return () => { live = false }
   }, [api, workspaceId])
 
@@ -41,27 +44,27 @@ export function McpImportPanel({ workspaceId, onImported, onChanged, onClose }: 
       if (added.size) onChanged?.()
       setSources(current => current && current.map(source => ({ ...source, servers: source.servers.map(server => added.has(server.name) ? { ...server, exists: true } : server) })))
       setPicked({})
-      setError(`Not imported: ${failed.map(item => `${item.name} (${item.reason})`).join('; ')}`)
+      setError(t('mcp.import.notImported', { list: failed.map(item => `${item.name} (${item.reason})`).join('; ') }))
     } catch (cause) {
-      setError(humanizeError(cause, 'The import failed'))
+      setError(humanizeError(cause, t('mcp.import.failed')))
     } finally { setBusy(false) }
   }
 
-  return <section className="mcp-import" aria-label="Import MCP servers">
-    <p>Servers found in other tools on this computer. They are added untrusted: you review and trust each one before it runs. Environment variables and headers are copied, but their values are not shown.</p>
-    {error && <p role="alert">{error}</p>}
-    {sources === null ? <p>Looking…</p> : sources.length === 0 ? <p>No servers found in Claude Desktop, Cursor or Windsurf.</p> : sources.map(source => <fieldset key={source.id}>
+  return <section className="mcp-import" aria-label={t('mcp.import.label')}>
+    <p>{t('mcp.import.intro')}</p>
+    {error && <ErrorState compact title={t('mcp.import.failed')} message={error} />}
+    {sources === null ? <LoadingState label={t('mcp.import.looking')} /> : sources.length === 0 ? <EmptyState compact title={t('mcp.import.none')} /> : sources.map(source => <fieldset key={source.id}>
       <legend>{source.label}</legend>
       {source.servers.map(server => <div key={server.name} className="mcp-import-row">
         <Checkbox checked={picked[source.id]?.has(server.name) ?? false} disabled={server.exists || busy} onChange={() => toggle(source.id, server.name)} label={server.name} />
         <code>{server.transport} · {server.target}</code>
-        {server.secretNames.length > 0 && <small>Copies {server.secretNames.join(', ')}</small>}
-        {server.exists && <small>Already added</small>}
+        {server.secretNames.length > 0 && <small>{t('mcp.import.copies', { names: server.secretNames.join(', ') })}</small>}
+        {server.exists && <small>{t('mcp.import.exists')}</small>}
       </div>)}
     </fieldset>)}
     <div className="mcp-import-actions">
-      <button type="button" onClick={onClose} disabled={busy}>Cancel</button>
-      <button type="button" onClick={() => void run()} disabled={busy || total === 0}>{total ? `Import ${total} server${total === 1 ? '' : 's'}` : 'Import'}</button>
+      <button type="button" onClick={onClose} disabled={busy}>{t('github.cancel')}</button>
+      <button type="button" onClick={() => void run()} disabled={busy || total === 0}>{total ? t('mcp.import.importCount', { count: total }) : t('mcp.import.import')}</button>
     </div>
   </section>
 }

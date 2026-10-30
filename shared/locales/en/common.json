@@ -229,5 +229,70 @@
       "label": "Clean up stopped containers",
       "detail": "Asks first"
     }
+  },
+  "quota": {
+    "window": {
+      "weekly": "weekly",
+      "session": "5-hour"
+    },
+    "severity": {
+      "almostOut": "almost used up",
+      "veryHigh": "very high",
+      "inUse": "in use"
+    },
+    "title": "{{name}}: {{window}} quota {{severity}} ({{threshold}}%)",
+    "body": "{{name}}'s {{window}} window passed {{threshold}}% of the limit.",
+    "resets": "Resets {{when}}."
+  },
+  "ui": {
+    "loading": "Loading",
+    "loadingEllipsis": "Loading…",
+    "tryAgain": "Try again",
+    "details": "Details",
+    "cancel": "Cancel",
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "copy": {
+      "text": "Text",
+      "done": "{{what}} copied",
+      "failed": "Could not copy: {{what}}",
+      "unavailable": "The clipboard is not available."
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "commandMissing": "{{command}} was not found. Install it or add it to your PATH, then try again.",
+    "pathMissing": "{{path}} does not exist.",
+    "somethingMissing": "A file or folder it needed does not exist.",
+    "noPermissionPath": "No permission to use {{path}}.",
+    "noPermission": "No permission to use a file or folder it needed.",
+    "busy": "A file it needed is in use by another program. Close it and try again.",
+    "diskFull": "The disk is full.",
+    "databaseBusy": "The local database is busy. Try again in a moment.",
+    "unresolved": "Could not reach the server: the address could not be resolved. Check your connection.",
+    "refused": "The connection was refused. Check that the service is running.",
+    "reset": "The connection was closed unexpectedly. Try again.",
+    "timeout": "It took too long to respond. Try again.",
+    "offline": "Could not connect. Check your internet connection or proxy.",
+    "signedOut": "You are not signed in, or the session expired. Sign in again.",
+    "forbidden": "Your account does not have access to this.",
+    "rateLimited": "Too many requests for now. Wait a moment and try again.",
+    "notGit": "This folder is not a Git repository."
+  },
+  "agentSetup": {
+    "join": "{{first}} and {{last}}",
+    "ready_one": "{{names}} is ready",
+    "ready_other": "{{names}} are ready",
+    "readyBoth": "Code and Thread can use it.",
+    "readyCodeOnly": "Code can run it. Thread needs Claude Code or Codex.",
+    "checking": "Checking for agent CLIs…",
+    "checkingDetail": "Looking for the commands on your PATH.",
+    "partial_one": "{{names}} was found but not ready",
+    "partial_other": "{{names}} were found but not ready",
+    "partialDetail": "Open Agents settings to see what is missing.",
+    "none": "No agent CLI found",
+    "noneDetail": "OXESpace runs agents as local CLIs. Install Claude Code or Codex, make sure the command is on your PATH, then check again.",
+    "unchecked": "Agent CLIs not checked yet",
+    "uncheckedDetail": "Check which agent CLIs are installed on this machine."
   }
 }

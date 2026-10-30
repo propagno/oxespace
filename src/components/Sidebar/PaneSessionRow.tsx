@@ -1,6 +1,7 @@
 import { GitBranch, SquareTerminal } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import { copyText } from '../../ui'
+import { useTranslation } from 'react-i18next'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
@@ -23,6 +24,7 @@ interface PaneSessionRowProps {
 const RECENT_MS = 15 * 60 * 1000
 
 export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProfiles, onClick, onActivatePane }: PaneSessionRowProps): ReactElement {
+  const { t } = useTranslation('code')
   const markRead = useTerminalStore(s => s.markRead)
   const terminalState = useTerminalStore(s => s.getStatus(pane.id))
   const updatePaneName = useWorkspaceStore(s => s.updatePaneName)
@@ -128,7 +130,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   function copyContext(): void {
     setMenu(null)
     const context = `${display.meta}\n${display.title}\n${display.subtitle}`
-    void copyText(context, 'Session context')
+    void copyText(context, t('sidebar.session.context'))
   }
 
   useEffect(() => {
@@ -191,7 +193,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
 
         <div className="pane-row-title-line">
           {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : <SquareTerminal size={12} aria-hidden="true" />}
-          {pane.originPaneId && <span title="Delegated task" aria-label="Delegated task"><GitBranch size={12} /></span>}
+          {pane.originPaneId && <span title={t('sidebar.session.delegated')} role="img" aria-label={t('sidebar.session.delegated')}><GitBranch size={12} aria-hidden="true" /></span>}
           <span
             className="pane-row-title"
             title={label}
@@ -227,12 +229,12 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           <span className="pane-row-preview">{display.subtitle}</span>
 
           {/* Unread dot */}
-          {showUnreadDot && <span className="pane-unread-dot" aria-label="Unread output" />}
+          {showUnreadDot && <span className="pane-unread-dot" role="img" aria-label={t('sidebar.session.unread')} />}
         </div>
       </div>
       {/* The row is named by what it shows; its state is added for screen readers (an aria-label that left out the
           visible text failed axe's label-content-name-mismatch). */}
-      <span className="sr-only">, {display.statusTone}{pane.originPaneId ? ', delegated task' : ''}</span>
+      <span className="sr-only">, {t(`sidebar.session.tone.${display.statusTone}`)}{pane.originPaneId ? `, ${t('sidebar.session.delegated')}` : ''}</span>
       {menu ? (
         <div
           className="pane-session-context-menu"
@@ -241,18 +243,18 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           onClick={(e) => e.stopPropagation()}
         >
           <button type="button" role="menuitem" onClick={startRename}>
-            Rename
+            {t('sidebar.renameItem')}
           </button>
           <button type="button" role="menuitem" onClick={copyContext}>
-            Copy context
+            {t('sidebar.session.copy')}
           </button>
           {canStopTerminal ? (
             <button type="button" role="menuitem" onClick={() => void stopTerminal()}>
-              Stop terminal
+              {t('sidebar.session.stop')}
             </button>
           ) : null}
           <button type="button" role="menuitem" className="danger" onClick={() => void closeTerminal()}>
-            Close terminal
+            {t('sidebar.session.close')}
           </button>
         </div>
       ) : null}

@@ -1,11 +1,12 @@
 import type { SessionLocation } from '../../shared/types/agent-hooks'
 import type { GitBranchStatus } from '../../shared/types/git'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
+import { i18n } from '../i18n'
 
 export function gitBranchLabel(status: GitBranchStatus | null): string {
-  if (!status) return 'Checking branch…'
-  if (status.detached && status.shortSha) return `detached ${status.shortSha}`
-  return status.branch ?? 'Branch unavailable'
+  if (!status) return i18n.t('paneMenu.checkingBranch', { ns: 'code' })
+  if (status.detached && status.shortSha) return `${i18n.t('changes.detached', { ns: 'code' })} ${status.shortSha}`
+  return status.branch ?? i18n.t('paneMenu.noBranch', { ns: 'code' })
 }
 
 const key = (path: string): string => /^[a-z]:[\\/]|^\\\\/i.test(path)

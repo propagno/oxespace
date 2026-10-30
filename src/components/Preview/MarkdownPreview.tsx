@@ -1,6 +1,7 @@
 import { type ReactElement } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { i18n } from '../../i18n'
 
 interface MarkdownPreviewProps {
   content: string
@@ -34,7 +35,7 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps): ReactElement
           img: ({ src, alt, ...props }) =>
             typeof src === 'string' && /^(https?:|data:)/i.test(src)
               ? <img {...props} src={src} alt={alt ?? ''} />
-              : <span className="markdown-preview-img-skipped">[image: {alt || src || 'unresolved'}]</span>
+              : <span className="markdown-preview-img-skipped">{i18n.t('editor.imageSkipped', { ns: 'code', name: alt || src || '?' })}</span>
         }}
       >
         {content}

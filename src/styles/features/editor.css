@@ -102,17 +102,6 @@
   min-width: max-content;
 }
 
-.editor-browser-empty,
-.editor-empty,
-.editor-loading {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 12px;
-  color: var(--tx-muted);
-  font-size: var(--fs-xs);
-}
-
 .editor-main {
   display: flex;
   flex: 1 1 0;
@@ -191,16 +180,6 @@
   min-height: 0;
 }
 
-.editor-error {
-  margin: 8px;
-  border: 1px solid var(--intent-danger-solid);
-  border-radius: var(--radius-xs);
-  padding: 8px;
-  color: var(--text-primary);
-  background: var(--surface-canvas);
-  font-size: var(--fs-xs);
-}
-
 .editor-conflict {
   border-bottom: 1px solid var(--intent-warning-solid);
   background: var(--surface-sunken);
@@ -208,6 +187,8 @@
 
 .editor-conflict-header {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   padding: 8px 10px;
   color: var(--intent-warning-fg);
@@ -220,6 +201,18 @@
   gap: 1px;
   max-height: 180px;
   overflow: auto;
+}
+
+.editor-conflict figure {
+  margin: 0;
+  min-width: 0;
+}
+
+.editor-conflict figcaption {
+  padding: 4px 10px 0;
+  background: var(--surface-sunken);
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
 }
 
 .editor-conflict pre {

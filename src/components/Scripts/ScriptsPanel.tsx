@@ -1,6 +1,8 @@
 import { Code2, FileCode2, Play, RotateCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { ToolPanel, Button, TextField } from '../../ui'
+import { useTranslation } from 'react-i18next'
+import { RichText } from '../../i18n/RichText'
+import { ToolPanel, Button, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import type { Workspace } from '../../../shared/types/workspace'
 import {
@@ -31,11 +33,12 @@ const MAX_SCRIPT_DIRECTORIES = 220
 const MAX_SCRIPT_ENTRIES = 200
 
 export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, workspace }: ScriptsPanelProps): ReactElement {
+  const { t } = useTranslation('code')
   const startJob = useBackgroundStore((state) => state.startJob)
   const [scripts, setScripts] = useState<ScriptEntry[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ title: string; message: string; retry?: () => void } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
   const load = async (): Promise<void> => {
@@ -45,7 +48,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
       const discovered = await discoverScripts(workspace.id, workspace.rootPath)
       setScripts(discovered)
     } catch (err) {
-      setError(toMessage(err))
+      setError({ title: t('scripts.listFailed'), message: humanizeError(err), retry: () => void load() })
     } finally {
       setLoading(false)
     }
@@ -79,7 +82,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
       })
       onOpenBackground()
     } catch (err) {
-      setError(toMessage(err))
+      setError({ title: t('scripts.runFailed', { name: script.name }), message: humanizeError(err), retry: () => void handleRun(script) })
     } finally {
       setBusy(null)
     }
@@ -90,15 +93,15 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
       <header className="scripts-panel-header">
         <div className="scripts-panel-title">
           <Code2 size={14} aria-hidden="true" />
-          <strong>Scripts</strong>
-          <span>{scripts.length} found</span>
+          <strong>{t('panels.scripts')}</strong>
+          {!loading ? <span>{t('scripts.found', { count: scripts.length })}</span> : null}
         </div>
         <div className="scripts-panel-actions">
-          <Button variant="ghost" size="sm" square aria-label="Refresh scripts" disabled={loading} onClick={() => void load()}>
+          <Button variant="ghost" size="sm" square aria-label={t('scripts.refresh')} title={t('scripts.refresh')} disabled={loading} onClick={() => void load()}>
             <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
           </Button>
           {!embedded ? (
-            <Button variant="ghost" size="sm" square aria-label="Close scripts" onClick={onClose}>
+            <Button variant="ghost" size="sm" square aria-label={t('scripts.close')} onClick={onClose}>
               <X size={14} aria-hidden="true" />
             </Button>
           ) : null}
@@ -107,18 +110,16 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
 
       <div className="scripts-panel-search">
         <Search size={14} aria-hidden="true" />
-        <TextField value={query} placeholder="Search .ps1 or .sh scripts..." onChange={(event) => setQuery(event.currentTarget.value)} />
+        <TextField value={query} aria-label={t('scripts.filter')} placeholder={t('scripts.filterPlaceholder')} onChange={(event) => setQuery(event.currentTarget.value)} />
       </div>
 
-      {error ? <div className="scripts-panel-error">{error}</div> : null}
+      {error ? <ErrorState compact title={error.title} message={error.message} onRetry={error.retry} /> : null}
 
       <div className="scripts-panel-list">
-        {filtered.length === 0 ? (
-          <div className="scripts-panel-empty">
-            <FileCode2 size={32} aria-hidden="true" />
-            <strong>{loading ? 'Loading scripts' : 'No script found'}</strong>
-              <span>Add commands to <code>package.json</code>, or drop <code>.ps1</code>/<code>.sh</code> files in the workspace to run them as background jobs.</span>
-          </div>
+        {loading && scripts.length === 0 ? <LoadingState label={t('scripts.loading')} /> : filtered.length === 0 ? (
+          query.trim() && scripts.length > 0
+            ? <EmptyState compact title={t('scripts.noMatch', { query: query.trim() })} />
+            : <EmptyState icon={<FileCode2 size={20} />} title={t('scripts.none')}><RichText text={t('scripts.noneHint')} /></EmptyState>
         ) : filtered.map((script) => (
           <div key={script.id} className="scripts-panel-card">
             <div className="scripts-panel-card-main">
@@ -128,8 +129,8 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
               </div>
               <code title={script.relativePath}>{script.relativePath}</code>
             </div>
-            <button type="button" className="scripts-panel-run" disabled={busy === script.id} onClick={() => void handleRun(script)}>
-              <Play size={12} aria-hidden="true" /> Run
+            <button type="button" className="scripts-panel-run" aria-label={t('scripts.runLabel', { name: script.name })} title={t('scripts.runTitle')} disabled={busy === script.id} onClick={() => void handleRun(script)}>
+              <Play size={12} aria-hidden="true" /> {busy === script.id ? t('scripts.starting') : t('scripts.run')}
             </button>
           </div>
         ))}
@@ -142,7 +143,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
   }
 
   return (
-    <ToolPanel className="scripts-panel" label="Scripts" onClose={onClose}>
+    <ToolPanel className="scripts-panel" label={t('panels.scripts')} onClose={onClose}>
       {content}
     </ToolPanel>
   )
@@ -205,8 +206,4 @@ function toScriptEntry(item: FileTreeNode, rootPath: string): ScriptEntry | null
     extension: ext,
     command: buildScriptCommand(fullPath, ext, window.oxe.app.platform)
   }
-}
-
-function toMessage(error: unknown): string {
-  return humanizeError(error, 'The script could not run.')
 }

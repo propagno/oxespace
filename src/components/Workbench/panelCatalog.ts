@@ -1,25 +1,31 @@
 import { withShortcut, type KeybindingId } from '../../keyboard/keybindings'
 import { Activity, Code2, FileCode2, FolderTree, GitCompareArrows, GitPullRequest, Globe, Search, TerminalSquare, type LucideIcon } from 'lucide-react'
+import { i18n } from '../../i18n'
 
 /** The side panels Code and Thread share. One name, icon and shortcut for each, whichever mode opens it. */
 export type WorkbenchPanelId = 'terminal' | 'changes' | 'browser' | 'git' | 'files' | 'search' | 'scripts' | 'worktrees' | 'background'
 
 export interface WorkbenchPanelMeta {
-  label: string
+  /** Read in the interface language each time it is used; do not keep a copy. */
+  readonly label: string
   icon: LucideIcon
   keybinding?: KeybindingId
 }
 
+function panel(id: WorkbenchPanelId, icon: LucideIcon, keybinding?: KeybindingId): WorkbenchPanelMeta {
+  return { get label() { return i18n.t(`panels.${id}`, { ns: 'code' }) }, icon, keybinding }
+}
+
 export const WORKBENCH_PANELS: Record<WorkbenchPanelId, WorkbenchPanelMeta> = {
-  terminal: { label: 'Terminal', icon: TerminalSquare, keybinding: 'thread.terminal' },
-  changes: { label: 'Changes', icon: GitCompareArrows, keybinding: 'code.changes' },
-  browser: { label: 'Browser', icon: Globe, keybinding: 'code.browser' },
-  git: { label: 'Commit & pull request', icon: GitPullRequest },
-  files: { label: 'Files', icon: FileCode2, keybinding: 'code.files' },
-  search: { label: 'Find in files', icon: Search, keybinding: 'code.search' },
-  scripts: { label: 'Scripts', icon: Code2 },
-  worktrees: { label: 'Worktrees', icon: FolderTree },
-  background: { label: 'Background activity', icon: Activity }
+  terminal: panel('terminal', TerminalSquare, 'thread.terminal'),
+  changes: panel('changes', GitCompareArrows, 'code.changes'),
+  browser: panel('browser', Globe, 'code.browser'),
+  git: panel('git', GitPullRequest),
+  files: panel('files', FileCode2, 'code.files'),
+  search: panel('search', Search, 'code.search'),
+  scripts: panel('scripts', Code2),
+  worktrees: panel('worktrees', FolderTree),
+  background: panel('background', Activity)
 }
 
 /** Panels shown as buttons in the bar; the rest live in the Panels menu. */

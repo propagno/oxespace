@@ -36,7 +36,7 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     const panel = page.getByTestId('changes-panel')
     await expect(panel).toBeVisible()
 
-    await expect(panel.getByLabel('Total changes')).toContainText('+')
+    await expect(panel.getByRole('img', { name: /lines added, \d+ removed/ })).toContainText('+')
     await expect(panel.getByRole('button', { name: 'Base (side A)' })).toContainText('main')
 
     const files = panel.getByRole('complementary', { name: 'Changed files' })

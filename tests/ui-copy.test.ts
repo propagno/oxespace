@@ -31,18 +31,47 @@ const MIGRATED = [
   'src/components/OxePod',
   'src/components/OxePost',
   'src/components/Settings',
-  'src/components/Threads'
+  'src/components/Threads',
+  // Code mode (V9 4.3)
+  'src/components/Background',
+  'src/components/Changes',
+  'src/components/Editor',
+  'src/components/GitHub',
+  'src/components/Preview',
+  'src/components/Scripts',
+  'src/components/MCP',
+  'src/components/Search',
+  'src/components/Skills',
+  'src/components/Sidebar',
+  'src/components/Panes',
+  'src/components/Terminal',
+  'src/components/WebPreview',
+  'src/components/Workbench',
+  'src/components/Workspace',
+  'src/components/Worktree',
+  'src/utils/agentSetup.ts',
+  'src/utils/humanizeError.ts',
+  'src/utils/paneDisplay.ts',
+  'src/utils/quotaThresholds.ts'
 ]
-/** Text that stays the same in every language: product and tool names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OxePod', 'OxePost', 'cURL', 'OpenAPI 3', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'claude.ai'])
+/** Text that stays the same in every language: product and tool names, commands and sample values. */
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'OxePod', 'OxePost', 'cURL', 'OpenAPI 3', 'claude.ai',
+  'GitHub', 'MCP', 'RTK · Caveman · Semantic', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
+  'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000',
+  'stdio', 'command:', 'args:', 'env:', 'url:', 'headers:', 'filesystem', 'github', 'npx', '-y @modelcontextprotocol/server-filesystem /tmp',
+  'GITHUB_TOKEN=ghp_...\\nDEBUG=1', 'refactor-react', 'refactor'])
+/** Lines in migrated areas that are not interface text, with the reason. */
+const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = [
+  { file: 'src/components/Skills/SkillsBrowser.tsx', includes: "    description: '", why: 'frontmatter of the SDLC skill files written for agents' }
+]
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/
 const LITERAL = /'([^'\n]{4,})'|"([^"\n]{4,})"|`([^`\n]{4,})`|>([^<>{}\n]{4,})</g
 /** Interface text written in code: JSX text, naming attributes and the label-like fields of objects. */
 const UI_LITERAL = [
-  // JSX text; an arrow's `>` (`=> Promise<T>`) starts a type, not text.
-  /(?<!=)>([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
+  // Not after `=` (an arrow's `=>`) nor `/` (a self-closing tag's `/>`): neither ends an opening tag.
+  /(?<![=/])>([^<>{}()=;&|\n]*[A-Za-z]{2,}[^<>{}()=;&|\n]*)</g,
   /\s(?:aria-label|title|placeholder|alt|label|hint|description)=(?:"([^"]*[A-Za-z][^"]*)"|\{['`]([^'`]*[A-Za-z][^'`]*)['`]\})/g,
   /\b(?:label|title|hint|description|placeholder|message|detail|ariaLabel)\s*:\s*['"`]([^'"`]*[A-Za-z][^'"`]*)['"`]/g
 ]
@@ -83,6 +112,7 @@ describe('interface copy', () => {
     for (const path of MIGRATED) expect(existsSync(join(ROOT, path)), path).toBe(true)
     const found: string[] = []
     for (const [file, number, line] of codeLines(MIGRATED)) {
+      if (NOT_INTERFACE.some(item => item.file === file && line.includes(item.includes))) continue
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {
           const text = (match[1] ?? match[2] ?? '').trim()

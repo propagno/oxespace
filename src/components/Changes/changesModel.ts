@@ -1,4 +1,5 @@
 import type { GitDiffSummaryFile } from '../../../shared/types/git'
+import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
 
 export interface ChangeTreeNode {
@@ -100,7 +101,7 @@ export function isValidRef(text: string): boolean {
 
 export function headLabel(head: CompareHead): string {
   if (head.kind === 'ref') return head.ref
-  return head.branch ?? 'detached'
+  return head.branch ?? i18n.t('changes.detached', { ns: 'code' })
 }
 
 /** Identifies one comparison, for the "viewed" marks: a file viewed against one pair is not viewed against another. */

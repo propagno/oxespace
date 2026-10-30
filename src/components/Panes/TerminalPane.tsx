@@ -17,9 +17,12 @@ import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { VoiceHud } from '../Voice/VoiceHud'
 
-import { Dialog, TextField } from '../../ui'
+import { Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -182,14 +185,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       if (pane.originPaneId) {
         const delegation = await window.oxe.delegation.status(workspaceId)
         const task = delegation.tasks.find(task => task.paneId === pane.id)
-        if (!task) throw new Error('Delegated task not found. Inspect Workspace settings > Agent delegation.')
+        if (!task) throw new Error(tc('terminalPane.taskMissing'))
         if (explicitRetry && ['failed', 'interrupted'].includes(task.state)) {
           await window.oxe.delegation.control(workspaceId, task.id, 'retry')
           // Provisioning is asynchronous; do not claim the PTY is running yet.
           setStatus(pane.id, 'starting')
           return
         }
-        throw new Error(task.error || 'Delegated task is paused. Use Retry to start a new execution with its saved handoff.')
+        throw new Error(task.error || tc('terminalPane.taskPaused'))
       }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
@@ -223,7 +226,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         const terminal = await window.oxe.terminal.status(pane.id)
         if (!live || !task) return
         if (terminal.running) setStatus(pane.id, 'running')
-        else if (['failed', 'interrupted'].includes(task.state)) setStatus(pane.id, 'error', task.error || 'Delegated execution interrupted. Retry to continue from its handoff.')
+        else if (['failed', 'interrupted'].includes(task.state)) setStatus(pane.id, 'error', task.error || tc('terminalPane.taskInterrupted'))
       }).catch(() => {})
     })
     return () => { live = false; off() }
@@ -363,7 +366,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     try {
       const sessions = await window.oxe.session.list({ workspaceId, workspaceRootPath: effectiveRootPath, provider: agentCreditsProvider })
       setSavedSessions(sessions.sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs))
-    } catch (cause) { setRestoreError(humanizeError(cause, 'Could not find saved sessions.')) }
+    } catch (cause) { setRestoreError(humanizeError(cause, tc('terminalPane.restoreListFailed'))) }
     finally { setRestoreBusy(false) }
   }, [agentCreditsProvider, effectiveRootPath, workspaceId])
   const restoreSession = useCallback(async (sessionId: string) => {
@@ -376,7 +379,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         agentArgs: agentCreditsProvider === 'claude' ? ['--resume', sessionId] : ['resume', sessionId, '--no-alt-screen'],
         disableRtk: !terminalPrefs.rtkHookEnabled })
       setStatus(pane.id, 'running'); setRestoreOpen(false)
-    } catch (cause) { setStatus(pane.id, 'error', humanizeError(cause, 'Could not resume session.')); setRestoreError(humanizeError(cause, 'Could not resume session.')) }
+    } catch (cause) { setStatus(pane.id, 'error', humanizeError(cause, tc('terminalPane.resumeFailed'))); setRestoreError(humanizeError(cause, tc('terminalPane.resumeFailed'))) }
     finally { setRestoreBusy(false) }
   }, [agentCreditsProvider, allProfiles, pane.agentProfileId, pane.id, setStatus, terminalPrefs.rtkHookEnabled, workspaceId])
   const moreRef = useRef<HTMLDivElement | null>(null)
@@ -403,7 +406,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
       {isRunning ? (
         <div className="terminal-content">
-          <ErrorBoundary label="the terminal">
+          <ErrorBoundary label={tc('terminalPane.boundary')}>
           <TerminalView
             paneId={pane.id}
             workspaceId={workspaceId}
@@ -423,7 +426,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
               // (code 0) must leave `error` empty so deriveStatusTone resolves to
               // the gray 'exited' tone instead of the red 'error' tone (which
               // checks `entry.error` first). exitCode 0 is falsy → undefined.
-              setStatus(pane.id, 'exited', exitCode ? `Exited with code ${exitCode}` : undefined)
+              setStatus(pane.id, 'exited', exitCode ? tc('terminalPane.exitedWith', { code: exitCode }) : undefined)
             }}
           />
           </ErrorBoundary>
@@ -434,19 +437,19 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           <button
             type="button"
             className="btn-start-terminal"
-            aria-label="Start terminal"
+            aria-label={tc('terminalPane.start')}
             onClick={() => void start(true)}
             disabled={state.status === 'starting'}
           >
             <Play size={14} aria-hidden="true" />
-            {state.status === 'starting' ? 'Starting…' : 'Start Terminal'}
+            {state.status === 'starting' ? tc('terminalPane.starting') : tc('terminalPane.startButton')}
           </button>
         </div>
       )}
 
       <div className="terminal-statusbar" data-testid="terminal-statusbar">
         <span className={`statusbar-dot ${statusDotClass}`} aria-hidden="true" />
-        <span className="statusbar-text" data-testid="terminal-status-label">{state.status}</span>
+        <span className="statusbar-text" data-testid="terminal-status-label">{tc(`terminalPane.status.${state.status}`)}</span>
 
         <div className="terminal-statusbar-spacer" />
 
@@ -458,7 +461,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           <button
             type="button"
             className={`statusbar-icon-btn${moreOpen ? ' open' : ''}`}
-            aria-label="Toggle pane tools"
+            aria-label={tc('terminalPane.tools')}
             aria-expanded={moreOpen}
             title="RTK · Caveman · Semantic"
             data-testid="btn-terminal-more"
@@ -468,13 +471,13 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           </button>
           {moreOpen ? (
             <div className="statusbar-more-menu" role="menu" data-testid="terminal-more-menu">
-              {agentCreditsProvider && <button type="button" role="menuitem" onClick={() => void openRestore()}><History size={12} aria-hidden="true" /><span className="statusbar-more-label">Restore provider session…</span></button>}
+              {agentCreditsProvider && <button type="button" role="menuitem" onClick={() => void openRestore()}><History size={12} aria-hidden="true" /><span className="statusbar-more-label">{tc('terminalPane.restoreOpen')}</span></button>}
               <button
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked={terminalPrefs.rtkHookEnabled}
                 data-testid="menu-toggle-rtk"
-                title="Compress the command output agents read. Applies when the terminal next starts."
+                title={tc('terminalPane.rtkTitle')}
                 onClick={() => {
                   setTerminalOverride(workspaceId, 'rtkHookEnabled', !terminalPrefs.rtkHookEnabled)
                 }}
@@ -488,7 +491,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 role="menuitemcheckbox"
                 aria-checked={terminalPrefs.cavemanModeEnabled}
                 data-testid="menu-toggle-caveman"
-                title="Ask the agent for short, technical replies. Applies when the terminal next starts."
+                title={tc('terminalPane.cavemanTitle')}
                 onClick={() => {
                   setTerminalOverride(workspaceId, 'cavemanModeEnabled', !terminalPrefs.cavemanModeEnabled)
                 }}
@@ -502,7 +505,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 role="menuitemcheckbox"
                 aria-checked={terminalPrefs.semanticSearchEnabled}
                 data-testid="menu-toggle-semantic"
-                title="Index this workspace so agents can search it by meaning."
+                title={tc('terminalPane.semanticTitle')}
                 onClick={() => {
                   const next = !terminalPrefs.semanticSearchEnabled
                   setTerminalOverride(workspaceId, 'semanticSearchEnabled', next)
@@ -510,20 +513,20 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 }}
               >
                 <Brain size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">Semantic</span>
+                <span className="statusbar-more-label">{tc('workspace.systems.semantic')}</span>
                 {terminalPrefs.semanticSearchEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
             </div>
           ) : null}
         </div>
       </div>
-      {restoreOpen && <Dialog className="terminal-restore-dialog" title="Restore provider session" description={`Choose a saved ${agentCreditsProvider === 'claude' ? 'Claude' : 'Codex'} conversation from this directory. The current terminal process closes only after you select one.`} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
-        <label>Search sessions<TextField aria-label="Search saved sessions" value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder="Prompt, model or session ID" /></label>
-        {restoreError && <p role="alert">{restoreError}</p>}
+      {restoreOpen && <Dialog className="terminal-restore-dialog" title={tc('terminalPane.restoreTitle')} description={tc('terminalPane.restoreDescription', { agent: agentCreditsProvider === 'claude' ? 'Claude' : 'Codex' })} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
+        <label>{tc('terminalPane.searchSessions')}<TextField aria-label={tc('terminalPane.searchSaved')} value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder={tc('terminalPane.searchPlaceholder')} /></label>
+        {restoreError && <ErrorState compact title={tc('terminalPane.resumeFailed')} message={restoreError} />}
         <div className="terminal-restore-list">
-          {restoreBusy && !savedSessions.length && <p>Loading saved sessions…</p>}
-          {!restoreBusy && !savedSessions.length && <p>No saved sessions found in this directory.</p>}
-          {savedSessions.filter(session => `${session.firstMessagePreview ?? ''} ${session.modelId ?? ''} ${session.sessionId}`.toLowerCase().includes(restoreQuery.toLowerCase())).map(session => <button type="button" key={session.sessionId} disabled={restoreBusy} onClick={() => void restoreSession(session.sessionId)}><strong>{session.firstMessagePreview || `${agentCreditsProvider} session`}</strong><span>{formatDateTime(session.lastUpdatedMs)} · {session.modelId || 'Model not recorded'} · {session.requestCount} requests</span><small>{session.sessionId}</small></button>)}
+          {restoreBusy && !savedSessions.length && <LoadingState label={tc('terminalPane.loadingSessions')} />}
+          {!restoreBusy && !savedSessions.length && <EmptyState compact title={tc('terminalPane.noSessions')} />}
+          {savedSessions.filter(session => `${session.firstMessagePreview ?? ''} ${session.modelId ?? ''} ${session.sessionId}`.toLowerCase().includes(restoreQuery.toLowerCase())).map(session => <button type="button" key={session.sessionId} disabled={restoreBusy} onClick={() => void restoreSession(session.sessionId)}><strong>{session.firstMessagePreview || tc('terminalPane.session', { agent: agentCreditsProvider })}</strong><span>{formatDateTime(session.lastUpdatedMs)} · {session.modelId || tc('terminalPane.noModel')} · {tc('terminalPane.requests', { count: session.requestCount })}</span><small>{session.sessionId}</small></button>)}
         </div>
       </Dialog>}
     </div>
@@ -531,7 +534,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 }
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'Terminal error')
+  return humanizeError(error, tc('terminalPane.error'))
 }
 
 function inferAgentProfile(command: string, profiles: AgentProfile[]): AgentProfile | null {

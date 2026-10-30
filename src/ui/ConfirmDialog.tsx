@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
+import { i18n } from '../i18n'
 import { Button } from './Button'
 import { Dialog } from './Overlay'
 
@@ -23,7 +24,7 @@ export interface ConfirmDialogProps {
 }
 
 /** Confirm or cancel one action. Replaces `window.confirm` and the hand-built confirmation dialogs. */
-export function ConfirmDialog({ title, description, confirmLabel, cancelLabel = 'Cancel', danger = false, busy = false, confirmDisabled = false, error, onConfirm, onCancel, children, returnFocusTo, testId }: ConfirmDialogProps): ReactElement {
+export function ConfirmDialog({ title, description, confirmLabel, cancelLabel = i18n.t('ui.cancel'), danger = false, busy = false, confirmDisabled = false, error, onConfirm, onCancel, children, returnFocusTo, testId }: ConfirmDialogProps): ReactElement {
   return <Dialog title={title} description={description} size="sm" returnFocusTo={returnFocusTo} testId={testId} onClose={() => { if (!busy) onCancel() }}
     footer={<>
       <Button variant="secondary" autoFocus disabled={busy} onClick={onCancel}>{cancelLabel}</Button>

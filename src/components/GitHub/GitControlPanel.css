@@ -26,8 +26,6 @@
 .git-control-commit label { font-weight: 600; }
 .git-control-commit textarea { min-width: 0; width: 100%; resize: vertical; padding: 8px; color: var(--tx-primary); background: var(--bg-app); border: 1px solid var(--bd-base); border-radius: var(--radius-sm); font: inherit; }
 .git-control-commit button { align-self: flex-start; }
-.git-control-empty { display: flex; align-items: center; gap: 8px; padding: 12px 4px; color: var(--tx-muted); }
-.git-control-error { margin: 0; padding: 9px; border: 1px solid var(--dot-red); border-radius: var(--radius-sm); color: var(--dot-red); overflow-wrap: anywhere; }
 .git-control-note { margin: 0; color: var(--tx-muted); }
 .git-control-view-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 7px 12px; border-bottom: 1px solid var(--bd-base); color: var(--tx-muted); font-size: var(--fs-2xs); }
 .git-control-view-switch button { flex: none; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); background: transparent; color: var(--tx-primary); padding: 4px 7px; cursor: pointer; }

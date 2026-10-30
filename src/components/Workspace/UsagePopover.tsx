@@ -7,6 +7,9 @@ import { useUIStore } from '../../store/ui.store'
 import { Button, Meter, cx } from '../../ui'
 import { formatResetIn, providerName } from './UsageStatus'
 import popover from './UsagePopover.module.css'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 const PROVIDERS = ['claude', 'codex'] as const
 
@@ -27,20 +30,20 @@ export function UsagePopover({ active }: { active: Extract<AgentProvider, 'claud
       const Icon = snapshot.provider === 'codex' ? Bot : Sparkles
       const windows = [...snapshot.windows].sort((a, b) => a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1)
       const age = Math.max(0, Math.round((now - (snapshot.observedAtMs ?? now)) / 60_000))
-      return <section key={snapshot.provider} className={popover.provider} aria-label={`${providerName(snapshot.provider)} usage`}>
-        <header><Icon size={14} aria-hidden="true" /><strong>{providerName(snapshot.provider)}</strong>{snapshot.planLabel && <span className={popover.plan}>{snapshot.planLabel}</span>}{snapshot.provider === active && <span className={popover.current}>In use</span>}</header>
+      return <section key={snapshot.provider} className={popover.provider} aria-label={tc('workspace.usage.provider', { name: providerName(snapshot.provider) })}>
+        <header><Icon size={14} aria-hidden="true" /><strong>{providerName(snapshot.provider)}</strong>{snapshot.planLabel && <span className={popover.plan}>{snapshot.planLabel}</span>}{snapshot.provider === active && <span className={popover.current}>{tc('workspace.usage.inUse')}</span>}</header>
         {windows.map(window => {
           const reset = formatResetIn(window.resetsAtMs, now)
-          return <Meter key={window.kind} label={window.kind === 'session' ? '5-hour window' : 'Weekly window'} value={window.usedPct}
-            detail={`${window.usedPct}% used${reset ? ` · renews in ${reset}` : ''}`} />
+          return <Meter key={window.kind} label={window.kind === 'session' ? tc('workspace.usage.session') : tc('workspace.usage.weekly')} value={window.usedPct}
+            detail={reset ? tc('workspace.usage.usedReset', { pct: window.usedPct, reset }) : tc('workspace.usage.used', { pct: window.usedPct })} />
         })}
-        <p className={cx(popover.age, snapshot.stale && popover.stale)}>{snapshot.stale ? `Last known reading, ${age} min old: the provider is not answering now.` : age < 1 ? 'Read just now' : `Read ${age} min ago`}</p>
+        <p className={cx(popover.age, snapshot.stale && popover.stale)}>{snapshot.stale ? tc('workspace.usage.staleMinutes', { age }) : age < 1 ? tc('workspace.usage.readNow') : tc('workspace.usage.readMinutes', { age })}</p>
       </section>
     })}
     <footer>
       <Button size="sm" variant="ghost" icon={<RefreshCw size={13} aria-hidden="true" className={loading ? 'spin' : undefined} />} disabled={loading}
-        onClick={() => { for (const provider of PROVIDERS) if (byProvider[provider]?.installed) void refresh(provider, true) }}>{loading ? 'Reading…' : 'Read now'}</Button>
-      <Button size="sm" variant="ghost" onClick={() => useUIStore.getState().openUsage()}>Usage details</Button>
+        onClick={() => { for (const provider of PROVIDERS) if (byProvider[provider]?.installed) void refresh(provider, true) }}>{loading ? tc('workspace.usage.reading') : tc('workspace.usage.read')}</Button>
+      <Button size="sm" variant="ghost" onClick={() => useUIStore.getState().openUsage()}>{tc('workspace.usage.details')}</Button>
     </footer>
   </div>
 }

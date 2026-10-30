@@ -74,6 +74,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setProjectHidden: (projectId, hidden) => ipc.invoke(IPC_CHANNELS.thread.setProjectHidden, projectId, hidden) as ReturnType<import('../../shared/types/thread').ThreadApi['setProjectHidden']>,
       list: () => ipc.invoke(IPC_CHANNELS.thread.list) as ReturnType<import('../../shared/types/thread').ThreadApi['list']>,
       pendingRequestsAll: () => ipc.invoke(IPC_CHANNELS.thread.pendingRequestsAll) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['pendingRequestsAll']>>,
+      respondPending: input => ipc.invoke(IPC_CHANNELS.thread.respondPending, input) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['respondPending']>>,
       create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
       read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,
       rewind: (id, turnId, options) => ipc.invoke(IPC_CHANNELS.thread.rewind, id, turnId, options) as Promise<import('../../shared/types/thread').ThreadRewindResult>,
@@ -179,7 +180,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       quitAndInstall: () => ipc.invoke(IPC_CHANNELS.app.quitAndInstall) as Promise<boolean>,
       downloadUpdate: () => ipc.invoke(IPC_CHANNELS.app.downloadUpdate) as Promise<import('../../shared/types/updater').AppUpdateState>,
       setUpdatePreferences: (preferences) => ipc.invoke(IPC_CHANNELS.app.setUpdatePreferences, preferences) as Promise<import('../../shared/types/updater').AppUpdateState>,
-      onUpdateState: (listener) => subscribe(ipc, IPC_CHANNELS.app.onUpdateState, listener)
+      onUpdateState: (listener) => subscribe(ipc, IPC_CHANNELS.app.onUpdateState, listener),
+      connectivity: () => ipc.invoke(IPC_CHANNELS.app.connectivity) as Promise<import('../../shared/types/app').AppConnectivity>,
+      onConnectivity: (listener) => subscribe(ipc, IPC_CHANNELS.app.onConnectivity, listener),
+      about: () => ipc.invoke(IPC_CHANNELS.app.about) as Promise<import('../../shared/types/app').AppAbout>
     },
     rtk: {
       getStatus: () => ipc.invoke(IPC_CHANNELS.rtk.getStatus) as Promise<import('../../shared/types/updater').RtkUpdateState>,
