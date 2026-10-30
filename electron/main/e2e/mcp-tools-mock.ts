@@ -7,12 +7,27 @@ import { MCP_TOOL_GROUPS } from '../services/conversation/thread-mcp'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import {
   CONFIGURABLE_MCP_TOOL_GROUPS, estimateTokens, MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES,
-  type ConfigurableMcpToolGroup, type McpToolCost, type McpToolGroupInfo, type McpToolGroupMode, type McpToolGroupsReport
+  MCP_TOOL_DECISIONS, type ConfigurableMcpToolGroup, type McpToolCost, type McpToolRule, type McpToolGroupInfo, type McpToolGroupMode, type McpToolGroupsReport
 } from '../../../shared/types/mcp-tools'
 
 const cost = (chars: number): McpToolCost => ({ chars, tokens: estimateTokens(chars) })
 
 export function registerMcpToolsMock(): void {
+  // B7.3: a user-level block the window cannot change, and whatever the spec sets per project.
+  const rules = new Map<string, McpToolRule[]>()
+  const rulesOf = (rootPath: string): McpToolRule[] => rules.get(rootPath) ?? [{ server: 'github', tool: 'delete_repository', decision: 'deny', source: 'user', editable: false, scope: 'everywhere' }]
+  ipcMain.handle(IPC_CHANNELS.mcpInternal.toolRules, (_event, input: { rootPath?: unknown }) => {
+    if (typeof input?.rootPath !== 'string' || !input.rootPath) throw new Error('Invalid project')
+    return rulesOf(input.rootPath)
+  })
+  ipcMain.handle(IPC_CHANNELS.mcpInternal.setToolRule, (_event, input: { rootPath?: unknown; server?: unknown; tool?: unknown; decision?: unknown }) => {
+    if (typeof input?.rootPath !== 'string' || !input.rootPath || typeof input.server !== 'string' || !input.server || typeof input.tool !== 'string' || !input.tool) throw new Error('Invalid tool rule')
+    if (!(MCP_TOOL_DECISIONS as readonly unknown[]).includes(input.decision)) throw new Error('Invalid decision')
+    const current = rulesOf(input.rootPath).filter(rule => !(rule.server === input.server && rule.tool === input.tool))
+    if (input.decision !== 'ask') current.push({ server: input.server, tool: input.tool, decision: input.decision as McpToolRule['decision'], source: 'project', editable: true, scope: input.decision === 'deny' ? 'everywhere' : 'oxechat' })
+    rules.set(input.rootPath, current)
+    return current
+  })
   const modes = new Map<string, Partial<Record<ConfigurableMcpToolGroup, McpToolGroupMode>>>()
   const report = (rootPath: string | null): McpToolGroupsReport => {
     const chosen = (rootPath && modes.get(rootPath)) || {}

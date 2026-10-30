@@ -4,7 +4,7 @@ import { CODE_TOOL_GROUP, MCP_TOOL_GROUPS, OPTIONAL_THREAD_TOOL_GROUPS, THREAD_T
 import { createOxeApi, type PreloadIpc } from '../electron/preload/api'
 import { FORBIDDEN_CAPABILITIES, MCP_COVERAGE } from '../shared/mcp-coverage'
 import { IPC_CHANNELS } from '../shared/types/ipc'
-import { CHARS_PER_TOKEN, CONFIGURABLE_MCP_TOOL_GROUPS, estimateTokens, MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES } from '../shared/types/mcp-tools'
+import { CHARS_PER_TOKEN, CONFIGURABLE_MCP_TOOL_GROUPS, MCP_TOOL_DECISIONS, estimateTokens, MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES } from '../shared/types/mcp-tools'
 
 vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
@@ -28,6 +28,18 @@ describe('Settings › Tools contract (F10)', () => {
   it('uses stable channel names', () => {
     expect(IPC_CHANNELS.mcpInternal.toolGroups).toBe('mcp-internal:tool-groups')
     expect(IPC_CHANNELS.mcpInternal.setToolGroupMode).toBe('mcp-internal:set-tool-group-mode')
+    expect(IPC_CHANNELS.mcpInternal.toolRules).toBe('mcp-internal:tool-rules')
+    expect(IPC_CHANNELS.mcpInternal.setToolRule).toBe('mcp-internal:set-tool-rule')
+  })
+
+  it('keeps per-tool rules with the person: forbidden to MCP, read only by the window (B7.3)', () => {
+    expect(MCP_TOOL_DECISIONS).toEqual(['allow', 'ask', 'deny'])
+    expect(FORBIDDEN_CAPABILITIES).toContain('mcp.tool_rules_admin')
+    const admin = MCP_COVERAGE['mcp.tool_rules_admin']
+    expect('forbidden' in admin && !('tools' in admin)).toBe(true)
+    expect(admin.ipc).toEqual(['mcpInternal.setToolRule'])
+    expect(MCP_COVERAGE['settings.app'].ipc).toContain('mcpInternal.toolRules')
+    expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => /tool_?rule|approval_rule|set_permission/i.test(name))).toEqual([])
   })
 
   it('keeps choosing a mode with the person, and reading it to the window', () => {
@@ -54,9 +66,13 @@ describe('Settings › Tools contract (F10)', () => {
     const api = createOxeApi(ipc).mcpInternal
     await api.toolGroups!({ rootPath: 'C:/repo' })
     await api.setToolGroupMode!({ rootPath: 'C:/repo', group: 'data', mode: 'off' })
+    await api.toolRules!({ rootPath: 'C:/repo' })
+    await api.setToolRule!({ rootPath: 'C:/repo', server: 'github', tool: 'create_issue', decision: 'deny' })
     expect(vi.mocked(ipc.invoke).mock.calls).toEqual([
       [IPC_CHANNELS.mcpInternal.toolGroups, { rootPath: 'C:/repo' }],
-      [IPC_CHANNELS.mcpInternal.setToolGroupMode, { rootPath: 'C:/repo', group: 'data', mode: 'off' }]
+      [IPC_CHANNELS.mcpInternal.setToolGroupMode, { rootPath: 'C:/repo', group: 'data', mode: 'off' }],
+      [IPC_CHANNELS.mcpInternal.toolRules, { rootPath: 'C:/repo' }],
+      [IPC_CHANNELS.mcpInternal.setToolRule, { rootPath: 'C:/repo', server: 'github', tool: 'create_issue', decision: 'deny' }]
     ])
   })
 })
