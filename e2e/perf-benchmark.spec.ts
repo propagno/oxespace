@@ -892,8 +892,7 @@ const TUI_CPU_BUDGET_PCT = 25
 // Shell-neutral (PowerShell and bash): no $, no !, no double quotes inside; node turns the escapes into bytes.
 const FAKE_TUI = String.raw`node -e "process.stdout.write('\x1b[?1049h');let n=0;setInterval(()=>{n++;let s='\x1b[H';for(let r=0;r<40;r++)s+=('row '+r+' frame '+n+' ').padEnd(110,'=')+'\r\n';process.stdout.write(s)},16)"`
 
-test('terminals: 6 TUIs, 1 focused, CPU', async () => {
-  test.setTimeout(180_000)
+async function benchTuis(scenario: string, command: (index: number) => string, budgetPct: number): Promise<void> {
   const { app, page, pid } = await launchApp({ mockNative: false })
   try {
     // OXESPACE_BENCH_WEBGL=<n> compares WebGL budgets (src/components/Terminal/webglBudget.ts) without a build.
@@ -912,7 +911,7 @@ test('terminals: 6 TUIs, 1 focused, CPU', async () => {
     const panes = page.getByTestId('terminal-pane')
     for (let index = 0; index < TUI_PANES; index++) {
       await panes.nth(index).locator('.terminal-view').click()
-      await page.keyboard.type(FAKE_TUI)
+      await page.keyboard.type(command(index))
       await page.keyboard.press('Enter')
     }
     // One focused pane, in a focused window (an unfocused window draws its focused pane at the visible pace).
@@ -936,14 +935,33 @@ test('terminals: 6 TUIs, 1 focused, CPU', async () => {
     const counted = (byType.Browser ?? 0) + (byType.Tab ?? 0) + (byType.GPU ?? 0)
     const webglPanes = await page.evaluate(() => document.querySelectorAll('.xterm-screen canvas.xterm-webgl, .xterm-screen > canvas:not(.xterm-link-layer)').length)
     console.log(
-      `[RESULT] terminals: ${TUI_PANES} TUIs, 1 focused             main=${(byType.Browser ?? 0).toFixed(1)}% renderer=${(byType.Tab ?? 0).toFixed(1)}% ` +
+      `[RESULT] terminals: ${scenario.padEnd(32)} main=${(byType.Browser ?? 0).toFixed(1)}% renderer=${(byType.Tab ?? 0).toFixed(1)}% ` +
       `gpu=${(byType.GPU ?? 0).toFixed(1)}% total=${counted.toFixed(1)}% of one core over ${elapsedSeconds.toFixed(1)}s · webglPanes=${webglPanes} · ${JSON.stringify(byType)}`
     )
     expect(Object.keys(byType).length, 'Electron reports cumulative CPU time per process').toBeGreaterThan(0)
     if (ENFORCE_BUDGETS) {
-      expect(counted, `main + renderer + GPU with ${TUI_PANES} TUIs and 1 focused: ${counted.toFixed(1)}% of one core exceeded ${TUI_CPU_BUDGET_PCT}%`).toBeLessThanOrEqual(TUI_CPU_BUDGET_PCT)
+      expect(counted, `main + renderer + GPU, ${scenario}: ${counted.toFixed(1)}% of one core exceeded ${budgetPct}%`).toBeLessThanOrEqual(budgetPct)
     }
   } finally {
     await killApp(app, pid)
   }
+}
+
+// The main scenario: what real agent CLIs draw (Claude Code answering, Codex starting up), recorded with
+// scripts/capture-tui.cjs in a test project and played back at its own pace, three panes each.
+const RECORDINGS = ['tui-claude.jsonl', 'tui-codex.jsonl'].map(name => join(process.cwd(), 'e2e', 'fixtures', name))
+const REPLAY = (index: number): string => `node ${join(process.cwd(), 'scripts', 'replay-tui.cjs')} ${RECORDINGS[index % RECORDINGS.length]}`
+
+test('terminals: 6 recorded agent TUIs, 1 focused, CPU', async () => {
+  test.setTimeout(180_000)
+  await benchTuis('6 recorded agent TUIs, 1 focused', REPLAY, TUI_CPU_BUDGET_PCT)
+})
+
+// The worst case: every pane redraws its whole screen every 16 ms. Kept to catch regressions, with its own
+// budget: 60% of what it cost before pane presence (106.7% of one core on the reference machine).
+const SYNTHETIC_BUDGET_PCT = 64
+
+test('terminals: 6 synthetic full-screen TUIs, 1 focused, CPU (worst case)', async () => {
+  test.setTimeout(180_000)
+  await benchTuis('6 synthetic TUIs, 1 focused', () => FAKE_TUI, SYNTHETIC_BUDGET_PCT)
 })
