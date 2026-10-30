@@ -113,6 +113,25 @@ describe('C5 pairing', () => {
     ]) expect(readPairingUri(bad).ok, bad).toBe(false)
   })
 
+  it('reads a QR as strictly as the Android reader (homologation of #172)', () => {
+    const uri = pairingUri({ v: 1, host: '192.168.0.10', port: 7443, fp, code, name: 'Estudos PC' })
+    const other = randomBytes(16).toString('base64url')
+    for (const bad of [
+      // Each key at most once: two readers must never see different codes.
+      `${uri}&code=${other}`, `${uri}&port=7444`, `${uri}&v=1`, `${uri}&name=Other`, `${uri}&fp=${fp}`, `${uri}&host=192.168.0.11`,
+      // The port in plain decimal digits.
+      uri.replace('port=7443', 'port=0x1D13'), uri.replace('port=7443', 'port=%207443'), uri.replace('port=7443', 'port=7443.0'), uri.replace('port=7443', 'port=+7443'), uri.replace('port=7443', 'port=1e4'),
+      // Exactly this protocol's version.
+      uri.replace('v=1', 'v=2'), uri.replace('v=1', 'v=1e0'), uri.replace('v=1', 'v=01'), uri.replace('v=1', 'v=%201'),
+      // No control character in the name, C0, DEL or C1.
+      uri.replace('name=Estudos+PC', 'name=Estudos%C2%85PC'), uri.replace('name=Estudos+PC', 'name=Estudos%7FPC'), uri.replace('name=Estudos+PC', 'name=Estudos%0APC'), uri.replace('name=Estudos+PC', 'name=Estudos%C2%9FPC')
+    ]) expect(readPairingUri(bad).ok, bad).toBe(false)
+    expect(readPairingUri(uri).ok).toBe(true)
+    // The same control rule holds for the name a phone gives when pairing.
+    const publicKey = generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey.export({ type: 'spki', format: 'der' }).toString('base64url')
+    expect(readPairRequest({ code, deviceName: 'Pixel\u00858', publicKey })).toEqual({ ok: false, code: 'malformed' })
+  })
+
   it('reads a pairing request and calls anything else malformed', () => {
     expect(readPairRequest({ code, deviceName: 'Pixel 8', publicKey })).toEqual({ ok: true, request: { code, deviceName: 'Pixel 8', publicKey } })
     for (const body of [null, [], 'x', {}, { code, deviceName: 'Pixel 8' }, { code, deviceName: 'Pixel 8', publicKey, extra: 1 },
