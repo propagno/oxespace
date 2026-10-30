@@ -53,6 +53,12 @@ interface Metrics { byType: Record<string, number>; totalMb: number; mainHeapMb:
 const mb = (kb: number): number => Math.round(kb / 1024 * 10) / 10
 
 async function sample(app: ElectronApplication, page: Page): Promise<Metrics> {
+  // Collect first so garbage that has not been swept yet does not count: this measures what is retained.
+  // performance.memory is quantised; the inspector's heap usage is exact.
+  const session = await page.context().newCDPSession(page)
+  await session.send('HeapProfiler.collectGarbage')
+  const rendererHeap = (await session.send('Runtime.getHeapUsage')).usedSize
+  await session.detach()
   const main = await app.evaluate(async ({ app: electronApp }) => {
     const processes = electronApp.getAppMetrics().map(p => ({ type: p.type, name: p.name ?? '', privateKb: p.memory.privateBytes ?? 0, workingSetKb: p.memory.workingSetSize }))
     const usage = process.memoryUsage()
@@ -61,7 +67,6 @@ async function sample(app: ElectronApplication, page: Page): Promise<Metrics> {
   const byType: Record<string, number> = {}
   for (const p of main.processes) byType[p.type] = (byType[p.type] ?? 0) + mb(p.privateKb)
   const total = Object.values(byType).reduce((a, b) => a + b, 0)
-  const rendererHeap = await page.evaluate(() => (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0)
   return { byType, totalMb: Math.round(total * 10) / 10, mainHeapMb: Math.round(main.heap / 1048576 * 10) / 10, mainRssMb: Math.round(main.rss / 1048576 * 10) / 10, rendererHeapMb: Math.round(rendererHeap / 1048576 * 10) / 10,
     mainHeapTotalMb: Math.round(main.heapTotal / 1048576 * 10) / 10, mainExternalMb: Math.round(main.external / 1048576 * 10) / 10 }
 }
