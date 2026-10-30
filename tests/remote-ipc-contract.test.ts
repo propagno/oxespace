@@ -7,14 +7,14 @@ import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MAX_DESKTOP_NAME_LENGTH, REMOTE_MIN
 
 vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
-const ACTIONS = ['setEnabled', 'startPairing', 'cancelPairing', 'answerPairing', 'revoke', 'rename', 'setDesktopName'] as const
+const ACTIONS = ['setEnabled', 'startPairing', 'cancelPairing', 'answerPairing', 'revoke', 'rename', 'setDesktopName', 'setPhoneWrite'] as const
 
 describe('Settings › Devices contract (remote.*)', () => {
   it('uses stable channel names', () => {
     expect(IPC_CHANNELS.remote).toEqual({
       status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
       cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-      setDesktopName: 'remote:set-desktop-name'
+      setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write'
     })
   })
 
@@ -46,14 +46,16 @@ describe('Settings › Devices contract (remote.*)', () => {
     await remote.revoke({ deviceId: 'd' })
     await remote.rename({ deviceId: 'd', name: 'Phone' })
     await remote.setDesktopName({ name: 'Estudos' })
+    await remote.setPhoneWrite({ paneId: 'p1', allowed: true })
     expect(vi.mocked(ipc.invoke).mock.calls).toEqual([
       [IPC_CHANNELS.remote.status], [IPC_CHANNELS.remote.devices], [IPC_CHANNELS.remote.setEnabled, { enabled: true, port: 47_321 }],
       [IPC_CHANNELS.remote.startPairing], [IPC_CHANNELS.remote.cancelPairing], [IPC_CHANNELS.remote.answerPairing, { promptId: 'p', accept: true }],
       [IPC_CHANNELS.remote.revoke, { deviceId: 'd' }], [IPC_CHANNELS.remote.rename, { deviceId: 'd', name: 'Phone' }],
-      [IPC_CHANNELS.remote.setDesktopName, { name: 'Estudos' }]
+      [IPC_CHANNELS.remote.setDesktopName, { name: 'Estudos' }],
+      [IPC_CHANNELS.remote.setPhoneWrite, { paneId: 'p1', allowed: true }]
     ])
     remote.onChanged(vi.fn())
     expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.remote.changed, expect.any(Function))
-    expect(Object.keys(remote).sort()).toEqual(['answerPairing', 'cancelPairing', 'devices', 'onChanged', 'rename', 'revoke', 'setDesktopName', 'setEnabled', 'startPairing', 'status'])
+    expect(Object.keys(remote).sort()).toEqual(['answerPairing', 'cancelPairing', 'devices', 'onChanged', 'rename', 'revoke', 'setDesktopName', 'setEnabled', 'setPhoneWrite', 'startPairing', 'status'])
   })
 })

@@ -13,9 +13,10 @@ export function registerRemoteMock(): void {
   const fingerprint = 'ab'.repeat(32)
   let enabled = false, port = 47_321, error: RemoteGatewayStatus['error'], desktopName = REMOTE_DEFAULT_DESKTOP_NAME
   let prompt: RemotePairingPrompt | null = null, offerExpiresAt = 0
+  const phoneWritePanes = new Set<string>()
   const devices: RemoteDevice[] = process.env.OXESPACE_E2E_REMOTE_DEVICES === '0' ? [] : [{ deviceId: 'device-1', name: 'Pixel 8', pairedAt: 1, lastSeenAt: 2, connected: true }]
   const status = (): RemoteGatewayStatus => ({
-    enabled, desktopName, listening: enabled ? { addresses: ['192.168.0.10'], port } : null, fingerprint, devices: devices.length, maxDevices: REMOTE_LIMITS.maxDevices, ...(error ? { error } : {})
+    enabled, desktopName, phoneWritePanes: [...phoneWritePanes], listening: enabled ? { addresses: ['192.168.0.10'], port } : null, fingerprint, devices: devices.length, maxDevices: REMOTE_LIMITS.maxDevices, ...(error ? { error } : {})
   })
   const changed = (change: RemoteChange) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.remote.changed, change) }
   const find = (deviceId: unknown) => {
@@ -66,6 +67,12 @@ export function registerRemoteMock(): void {
   ipcMain.handle(IPC_CHANNELS.remote.setDesktopName, (_event, input: { name?: unknown }) => {
     if (input?.name !== null && (typeof input?.name !== 'string' || !input.name.trim() || input.name.length > REMOTE_MAX_DESKTOP_NAME_LENGTH)) throw new Error('Invalid desktop name')
     desktopName = input.name === null ? REMOTE_DEFAULT_DESKTOP_NAME : input.name.trim()
+    changed({ status: status() })
+    return status()
+  })
+  ipcMain.handle(IPC_CHANNELS.remote.setPhoneWrite, (_event, input: { paneId?: unknown; allowed?: unknown }) => {
+    if (typeof input?.paneId !== 'string' || !input.paneId || typeof input.allowed !== 'boolean') throw new Error('Invalid pane input')
+    if (input.allowed) phoneWritePanes.add(input.paneId); else phoneWritePanes.delete(input.paneId)
     changed({ status: status() })
     return status()
   })

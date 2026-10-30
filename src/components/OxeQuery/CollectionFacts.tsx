@@ -7,7 +7,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { MongoStats, MongoValidation, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { jsonProblem } from './mongo-model'
-import { Select } from '../../ui/Field'
+import { FieldError, Select } from '../../ui/Field'
 import { formatNumber } from '../../utils/formatTime'
 
 /** Size figures and the validation rules of a collection. Rules are shown always and changed only on a read-write connection. */
@@ -72,9 +72,9 @@ export function CollectionFacts({ connection, database, collection }: { connecti
       {rulesOpen && (rules
         ? <div className="oq-columns-grid oq-rules">
           <label>{t('facts.rules')} (<code>{EXAMPLE.jsonSchemaKeyword}</code>)
-            <textarea aria-label={t('facts.rulesLabel')} spellCheck={false} rows={8} value={text} readOnly={connection.readOnly} aria-invalid={problem ? true : undefined}
+            <textarea aria-label={t('facts.rulesLabel')} spellCheck={false} rows={8} value={text} readOnly={connection.readOnly} aria-invalid={problem ? true : undefined} aria-describedby={problem ? 'oq-rules-error' : undefined}
               placeholder={EXAMPLE.jsonSchema} onChange={event => setText(event.target.value)} />
-            {problem && <small className="oq-field-error" role="alert">{problem}</small>}
+            {problem && <FieldError id="oq-rules-error" className="oq-field-error">{problem}</FieldError>}
           </label>
           <label>{t('facts.appliesTo')}<Select className="oq-select" aria-label={t('facts.level')} value={level} disabled={connection.readOnly} onChange={event => setLevel(event.target.value as MongoValidation['level'])}>
             <option value="strict">{t('facts.strict')}</option><option value="moderate">{t('facts.moderate')}</option><option value="off">{t('facts.off')}</option></Select></label>
