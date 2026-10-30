@@ -102,6 +102,33 @@ describe('coordinator flag (B1.4)', () => {
     expect(f.db.prepare('SELECT count(*) AS n FROM thread_project_coordinators').get()).toEqual({ n: 0 })
   })
 
+  it('is lost when the coordinator is archived, with a change notice, and un-archiving does not restore it', async () => {
+    const f = fixture()
+    const coordinator = f.create(), other = f.create()
+    f.manager.setCoordinator(coordinator, true)
+    // Archiving another conversation leaves the coordinator alone.
+    await f.manager.command(other, '/archive confirm')
+    expect(f.flagged()).toEqual([coordinator])
+    f.notify.mockClear()
+    await f.manager.command(coordinator, '/archive confirm')
+    expect(f.manager.read(coordinator).thread.archived).toBe(true)
+    expect(f.db.prepare('SELECT count(*) AS n FROM thread_project_coordinators').get()).toEqual({ n: 0 })
+    expect(f.manager.list().some(thread => thread.coordinator)).toBe(false)
+    expect(f.manager.readForRenderer(coordinator).thread).not.toHaveProperty('coordinator')
+    expect(threadToolRoles(f.db, coordinator).coordinator).toBe(false)
+    expect(f.notify).toHaveBeenCalledWith(coordinator)
+    // Opening it again (the session picker restores an archived conversation) keeps it a plain conversation.
+    const restored = f.manager.read(coordinator)
+    restored.thread.archived = false
+    ;(f.manager as unknown as { save: (snapshot: typeof restored, options: object) => void }).save(restored, { eventsFrom: restored.events.length })
+    expect(f.manager.readThread(coordinator).archived).toBe(false)
+    expect(f.flagged()).toEqual([])
+    expect(threadToolRoles(f.db, coordinator).coordinator).toBe(false)
+    // The person can choose it again.
+    f.manager.setCoordinator(coordinator, true)
+    expect(f.flagged()).toEqual([coordinator])
+  })
+
   it('rejects an unknown or archived conversation', () => {
     const f = fixture()
     const a = f.create()

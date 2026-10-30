@@ -1,6 +1,6 @@
 import { ThreadOrchestrator } from './thread-orchestrator'
-import { coordinatorIds, setThreadCoordinator, withCoordinator } from './thread-coordinator'
-import type { ConversationThread, ThreadDelta, ThreadSnapshot, ThreadSyncCursor } from '../../../../shared/types/thread'
+import { coordinatorIds, isThreadCoordinator, setThreadCoordinator, withCoordinator } from './thread-coordinator'
+import type { ConversationThread, ThreadCommandResult, ThreadDelta, ThreadSnapshot, ThreadSyncCursor } from '../../../../shared/types/thread'
 
 /**
  * Stable public boundary for Thread IPC/runtime consumers. Runtime coordination
@@ -24,6 +24,13 @@ export class ThreadManager extends ThreadOrchestrator {
   override readSinceForRenderer(id: string, cursor: ThreadSyncCursor): ThreadDelta {
     const delta = super.readSinceForRenderer(id, cursor)
     return delta.ok ? { ...delta, thread: withCoordinator(delta.thread, coordinatorIds(this.db)) } : delta
+  }
+
+  /** `/archive` is the one way a conversation is archived; an archived coordinator stops being one, and un-archiving does not restore it. */
+  override async command(id: string, text: string): Promise<ThreadCommandResult> {
+    const result = await super.command(id, text)
+    if (isThreadCoordinator(this.db, id) && this.readThread(id).archived) this.setCoordinator(id, false)
+    return result
   }
 
   /** The person's choice only (`thread:set-coordinator`); never an MCP tool. Another conversation of the project stops being it. */
