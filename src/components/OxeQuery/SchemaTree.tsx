@@ -1,10 +1,14 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, Pin, PinOff, Plus, RefreshCw, Search, Server } from 'lucide-react'
 import type { OxeQueryConnection, SqlDefinitionTarget, SqlExtensionInfo, SqlSearchHit, SqlTable, WorkspaceState } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import type { StructureOutcome } from './StructureEditor'
 import { ROW_HEIGHT, buildRows, keyMove, pinKey, rowsFromHits, windowOf, type SchemaData, type TreeItem, type TreeKey, type TreeRow } from './tree-model'
 import { toast } from '../../ui/Toast'
+import { ErrorState } from '../../ui/Display'
+import { tq } from './catalog'
+import { formatNumber } from '../../utils/formatTime'
 
 // Dialogs are only needed when opened: they load on first use and stay out of the tree's own chunk.
 const ServerPanel = lazy(() => import('./ServerPanel').then(module => ({ default: module.ServerPanel })))
@@ -37,11 +41,11 @@ function definitionTarget(item: TreeItem): SqlDefinitionTarget | null {
 
 const describeItem = (item: TreeItem): string => {
   switch (item.kind) {
-    case 'relation': return item.table.kind === 'table' ? '' : item.table.kind
-    case 'function': return item.fn.kind
-    case 'sequence': return item.sequence.lastValue === null ? 'sequence' : `last ${item.sequence.lastValue}`
-    case 'type': return item.type.kind
-    case 'trigger': return 'trigger'
+    case 'relation': return item.table.kind === 'table' ? '' : tq(`tree.kind.${item.table.kind}`)
+    case 'function': return tq(`tree.kind.${item.fn.kind}`)
+    case 'sequence': return item.sequence.lastValue === null ? tq('tree.kind.sequence') : tq('tree.lastValue', { value: item.sequence.lastValue })
+    case 'type': return tq(`tree.kind.${item.type.kind}`)
+    case 'trigger': return tq('tree.kind.trigger')
   }
 }
 
@@ -51,6 +55,7 @@ const describeItem = (item: TreeItem): string => {
  * It is a WAI-ARIA tree: arrow keys move, open and close; Enter opens the object.
  */
 export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInsert }: Props): ReactElement {
+  const { t } = useTranslation('oxequery')
   const [schemas, setSchemas] = useState<string[]>([])
   const [data, setData] = useState<Record<string, SchemaData | undefined>>({})
   const [loading, setLoading] = useState<ReadonlySet<string>>(new Set())
@@ -59,7 +64,6 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   const [filter, setFilter] = useState('')
   const [hits, setHits] = useState<{ query: string; hits: SqlSearchHit[]; truncated: boolean } | null>(null)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const [focusIndex, setFocusIndex] = useState(0)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewport, setViewport] = useState(FALLBACK_VIEWPORT)
@@ -149,8 +153,8 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   const openDefinition = useCallback(async (item: TreeItem): Promise<void> => {
     const target = definitionTarget(item)
     if (!target) return
-    try { onInsert((await oq('sql.definition', { connectionId: connection.id, ...target })).text) } catch (cause) { setError(errorMessage(cause)) }
-  }, [connection.id, onInsert])
+    try { onInsert((await oq('sql.definition', { connectionId: connection.id, ...target })).text) } catch (cause) { toast({ title: t('definition.failed'), description: errorMessage(cause), intent: 'danger' }) }
+  }, [connection.id, onInsert, t])
 
   const activate = useCallback((row: TreeRow): void => {
     if (row.type === 'schema' || row.type === 'category' || row.type === 'extensions' || row.type === 'pinned') { toggle(row.id, row.schema); return }
@@ -165,11 +169,11 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     : [...pinned, { schema: table.schema, name: table.name, kind: table.kind }])
 
   const refreshView = async (table: SqlTable): Promise<void> => {
-    setError(''); setNotice('')
+    setError('')
     try {
       await oq('sql.run', { connectionId: connection.id, sql: `REFRESH MATERIALIZED VIEW ${quote(table.schema)}.${quote(table.name)}` })
-      toast({ title: `Refreshed ${table.schema}.${table.name}`, intent: 'success', duration: 2000 })
-    } catch (cause) { setError(errorMessage(cause)) }
+      toast({ title: t('tree.refreshed', { name: `${table.schema}.${table.name}` }), intent: 'success', duration: 2000 })
+    } catch (cause) { toast({ title: t('tree.refreshFailed', { name: `${table.schema}.${table.name}` }), description: errorMessage(cause), intent: 'danger' }) }
   }
 
   const focusRow = (index: number): void => {
@@ -205,10 +209,10 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     const table = row.item.table
     const name = table.name
     return <span className="oq-tree-actions">
-      <button type="button" tabIndex={-1} aria-label={`Write a query for ${name}`} title="Open a new query for this table" onClick={event => { event.stopPropagation(); onInsert(`SELECT *\nFROM ${quote(table.schema)}.${quote(name)}\nLIMIT 100;`) }}>Query</button>
-      {table.kind === 'table' && !connection.readOnly && <button type="button" tabIndex={-1} aria-label={`Structure of ${name}`} title="View or change columns, keys and indexes" onClick={event => { event.stopPropagation(); setStructure({ schema: table.schema, table: name }) }}>Structure</button>}
-      {table.kind === 'materialized view' && !connection.readOnly && <button type="button" tabIndex={-1} aria-label={`Refresh ${name}`} title="Refresh the materialized view" onClick={event => { event.stopPropagation(); void refreshView(table) }}><RefreshCw size={12} aria-hidden="true" /></button>}
-      <button type="button" tabIndex={-1} aria-label={`${isPinned(table) ? 'Unpin' : 'Pin'} ${name}`} title={isPinned(table) ? 'Unpin' : 'Pin to the top'} onClick={event => { event.stopPropagation(); togglePin(table) }}>
+      <button type="button" tabIndex={-1} aria-label={t('tree.queryFor', { name })} title={t('tree.queryTitle')} onClick={event => { event.stopPropagation(); onInsert(`SELECT *\nFROM ${quote(table.schema)}.${quote(name)}\nLIMIT 100;`) }}>{t('tree.query')}</button>
+      {table.kind === 'table' && !connection.readOnly && <button type="button" tabIndex={-1} aria-label={t('tree.structureOf', { name })} title={t('tree.structureTitle')} onClick={event => { event.stopPropagation(); setStructure({ schema: table.schema, table: name }) }}>{t('tree.structure')}</button>}
+      {table.kind === 'materialized view' && !connection.readOnly && <button type="button" tabIndex={-1} aria-label={t('tree.refreshNamed', { name })} title={t('tree.refreshView')} onClick={event => { event.stopPropagation(); void refreshView(table) }}><RefreshCw size={12} aria-hidden="true" /></button>}
+      <button type="button" tabIndex={-1} aria-label={t(isPinned(table) ? 'tree.unpinNamed' : 'tree.pinNamed', { name })} title={isPinned(table) ? t('tree.unpin') : t('tree.pin')} onClick={event => { event.stopPropagation(); togglePin(table) }}>
         {isPinned(table) ? <PinOff size={12} aria-hidden="true" /> : <Pin size={12} aria-hidden="true" />}</button>
     </span>
   }
@@ -221,28 +225,27 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     return <div key={row.id} role="treeitem" className="oq-tree-row" data-index={index} data-kind={row.type} style={style} tabIndex={index === focusIndex ? 0 : -1}
       aria-level={row.level} aria-expanded={branch ? row.expanded : undefined} aria-label={name} aria-selected={index === focusIndex}
       onClick={() => { setFocusIndex(index); activate(row) }} onFocus={() => setFocusIndex(index)}
-      title={row.item?.kind === 'relation' ? `Browse ${row.item.table.schema}.${row.item.table.name}` : undefined}>
+      title={row.item?.kind === 'relation' ? t('tree.browse', { name: `${row.item.table.schema}.${row.item.table.name}` }) : undefined}>
       {branch ? (row.expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />) : <span className="oq-tree-spacer" aria-hidden="true" />}
       <span className="oq-tree-label">{row.label}</span>
-      {row.count !== undefined && <small>{row.count}</small>}
+      {row.count !== undefined && <small>{formatNumber(row.count)}</small>}
       {row.item && describeItem(row.item) && <small>{describeItem(row.item)}</small>}
-      {row.type === 'schema' && !connection.readOnly && row.expanded && <button type="button" tabIndex={-1} className="oq-tree-new" aria-label={`New table in ${row.schema}`} title="Create a table" onClick={event => { event.stopPropagation(); setStructure({ schema: row.schema!, table: null }) }}><Plus size={12} aria-hidden="true" /> New table</button>}
+      {row.type === 'schema' && !connection.readOnly && row.expanded && <button type="button" tabIndex={-1} className="oq-tree-new" data-oq-action="newTable" aria-label={t('tree.newTableIn', { schema: row.schema })} title={t('tree.newTableTitle')} onClick={event => { event.stopPropagation(); setStructure({ schema: row.schema!, table: null }) }}><Plus size={12} aria-hidden="true" /> {t('tree.newTable')}</button>}
       {actions(row)}
     </div>
   }
 
-  return <nav className="oq-tree" aria-label="Schema">
+  return <nav className="oq-tree" aria-label={t('tree.label')}>
     <div className="oq-tree-head">
       <label className="oq-tree-search"><Search size={12} aria-hidden="true" />
-        <input type="search" aria-label="Search objects" placeholder="Search all schemas" value={filter} onChange={event => setFilter(event.target.value)} /></label>
-      <button type="button" className="oq-icon" aria-label="Refresh schema" title="Refresh" onClick={reload}><RefreshCw size={13} aria-hidden="true" /></button>
-      <button type="button" className="oq-icon" aria-label="Server: databases and roles" title="Databases and roles" onClick={() => setServer(true)}><Server size={13} aria-hidden="true" /></button>
+        <input type="search" data-oq-action="searchObjects" aria-label={t('tree.search')} placeholder={t('tree.searchPlaceholder')} value={filter} onChange={event => setFilter(event.target.value)} /></label>
+      <button type="button" className="oq-icon" aria-label={t('tree.refresh')} title={t('common.refresh')} onClick={reload}><RefreshCw size={13} aria-hidden="true" /></button>
+      <button type="button" className="oq-icon" aria-label={t('tree.server')} title={t('tree.serverTitle')} onClick={() => setServer(true)}><Server size={13} aria-hidden="true" /></button>
     </div>
-    {error && <p role="alert" className="oq-error">{error}</p>}
-    {notice && <p role="status" className="oq-ok">{notice}</p>}
-    {searching && hits && hits.hits.length === 0 && <p className="oq-muted" role="status">Nothing matches “{hits.query}”.</p>}
-    {searching && hits?.truncated && <p className="oq-muted" role="note">Showing the first {hits.hits.length}. Type more to narrow it down.</p>}
-    <div ref={scroller} className="oq-tree-scroll" role="tree" aria-label="Schema objects" onScroll={event => setScrollTop(event.currentTarget.scrollTop)} onKeyDown={onKeyDown}>
+    {error && <ErrorState compact title={t('tree.failed')} message={error} onRetry={reload} retryLabel={t('common.tryAgain')} />}
+    {searching && hits && hits.hits.length === 0 && <p className="oq-muted" role="status">{t('common.noMatch', { text: hits.query })}</p>}
+    {searching && hits?.truncated && <p className="oq-muted" role="note">{t('tree.truncated', { count: hits.hits.length })}</p>}
+    <div ref={scroller} className="oq-tree-scroll" role="tree" aria-label={t('tree.objects')} onScroll={event => setScrollTop(event.currentTarget.scrollTop)} onKeyDown={onKeyDown}>
       <div className="oq-tree-inner" style={{ height: rowCount * ROW_HEIGHT }}>
         {visible.map((row, offset) => renderRow(row, range.start + offset))}
       </div>

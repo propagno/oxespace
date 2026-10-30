@@ -34,11 +34,11 @@ describe('connection string parsing', () => {
   })
 
   it('explains what it cannot handle instead of guessing', () => {
-    expect(parseConnectionUrl('')).toMatchObject({ ok: false })
-    expect(parseConnectionUrl('localhost:5432')).toMatchObject({ ok: false, error: expect.stringContaining('starts with') })
-    expect(parseConnectionUrl('mysql://h/db')).toMatchObject({ ok: false, error: expect.stringContaining('Unsupported') })
-    expect(parseConnectionUrl('postgres://a:1,b:2/db')).toMatchObject({ ok: false, error: expect.stringContaining('Several PostgreSQL hosts') })
-    expect(parseConnectionUrl('mongodb+srv://a.example.net,b.example.net/db')).toMatchObject({ ok: false, error: expect.stringContaining('one DNS name') })
-    expect(parseConnectionUrl('postgres://h:99999/db')).toMatchObject({ ok: false })
+    expect(parseConnectionUrl('')).toMatchObject({ ok: false, error: 'empty' })
+    expect(parseConnectionUrl('localhost:5432')).toMatchObject({ ok: false, error: 'noScheme' })
+    expect(parseConnectionUrl('mysql://h/db')).toMatchObject({ ok: false, error: 'unsupported', scheme: 'mysql' })
+    expect(parseConnectionUrl('postgres://a:1,b:2/db')).toMatchObject({ ok: false, error: 'severalPostgres' })
+    expect(parseConnectionUrl('mongodb+srv://a.example.net,b.example.net/db')).toMatchObject({ ok: false, error: 'srvOneHost' })
+    expect(parseConnectionUrl('postgres://h:99999/db')).toMatchObject({ ok: false, error: 'badHost' })
   })
 })

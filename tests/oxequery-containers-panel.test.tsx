@@ -113,7 +113,7 @@ describe('ContainersPanel', () => {
 
   it('explains the first step when there are databases but no connection yet', async () => {
     render(<ContainersPanel active />)
-    expect(await screen.findByRole('note')).toHaveTextContent('press Query on a PostgreSQL or MongoDB container')
+    expect(await screen.findByRole('note')).toHaveTextContent('press Connect on a PostgreSQL or MongoDB container')
   })
 
   it('runs Compose actions for one project, and asks before taking it down', async () => {

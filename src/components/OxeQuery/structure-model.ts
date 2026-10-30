@@ -1,5 +1,6 @@
 import type { SqlColumnInfo, SqlTableDetails } from '../../../shared/types/oxequery'
 import type { ColumnDef, ConstraintDef, CreateTableDef, IndexDef, TableChange } from '../../../shared/types/oxequery-structure'
+import { tq } from './catalog'
 
 /** One column in the editor: what the table has now (`original`) next to what the person typed. */
 export interface ColumnRow {
@@ -66,26 +67,26 @@ export function columnDef(row: ColumnRow): ColumnDef {
 /** What is wrong with the draft before the server is asked, in words for a person. */
 export function draftProblems(draft: StructureDraft, creating: boolean): string[] {
   const problems: string[] = []
-  if (creating && !draft.tableName.trim()) problems.push('Give the table a name.')
+  if (creating && !draft.tableName.trim()) problems.push(tq('structure.problem.tableName'))
   const live = draft.rows.filter(row => !row.removed)
-  if (live.length === 0) problems.push('A table needs at least one column.')
+  if (live.length === 0) problems.push(tq('structure.problem.oneColumn'))
   const seen = new Set<string>()
   for (const row of live) {
     const name = row.name.trim()
-    if (!name) { problems.push('Every column needs a name.'); continue }
-    if (seen.has(name)) problems.push(`Two columns are called "${name}".`)
+    if (!name) { problems.push(tq('structure.problem.columnName')); continue }
+    if (seen.has(name)) problems.push(tq('structure.problem.duplicate', { name }))
     seen.add(name)
-    if (!row.type.trim()) problems.push(`"${name}" needs a type.`)
-    if (row.identity && row.default.trim()) problems.push(`"${name}" cannot have both an identity and a default.`)
+    if (!row.type.trim()) problems.push(tq('structure.problem.type', { name }))
+    if (row.identity && row.default.trim()) problems.push(tq('structure.problem.identityDefault', { name }))
   }
   for (const constraint of draft.addedConstraints) {
-    if (constraint.kind === 'check') { if (!constraint.expression.trim()) problems.push('A check constraint needs an expression.') }
-    else if (constraint.columns.length === 0) problems.push(`A ${constraint.kind === 'primary' ? 'primary key' : constraint.kind === 'unique' ? 'unique constraint' : 'foreign key'} needs columns.`)
-    if (constraint.kind === 'foreign' && (!constraint.refTable.trim() || constraint.refColumns.length === 0)) problems.push('A foreign key needs the table and columns it points to.')
+    if (constraint.kind === 'check') { if (!constraint.expression.trim()) problems.push(tq('structure.problem.checkExpression')) }
+    else if (constraint.columns.length === 0) problems.push(tq(`structure.problem.columns.${constraint.kind}`))
+    if (constraint.kind === 'foreign' && (!constraint.refTable.trim() || constraint.refColumns.length === 0)) problems.push(tq('structure.problem.foreignTarget'))
   }
   for (const index of draft.addedIndexes) {
-    if (!index.name.trim()) problems.push('Every index needs a name.')
-    if (index.columns.length === 0) problems.push(`Index "${index.name || '(unnamed)'}" needs columns.`)
+    if (!index.name.trim()) problems.push(tq('structure.problem.indexName'))
+    if (index.columns.length === 0) problems.push(tq('structure.problem.indexColumns', { name: index.name || tq('structure.unnamed') }))
   }
   return problems
 }

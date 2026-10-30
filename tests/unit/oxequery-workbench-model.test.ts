@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { completeFilters, missingParameters, newTab, outputsFromScript, restoreWorkspace, serializeWorkspace } from '../../src/components/OxeQuery/workbench-model'
+import { completeFilters, missingParameters, newTab, outputError, outputsFromScript, restoreWorkspace, serializeWorkspace } from '../../src/components/OxeQuery/workbench-model'
 
 describe('workspace round trip', () => {
   it('saves text only and restores tabs without results, moving the id counter past them', () => {
@@ -48,5 +48,21 @@ describe('lost connections', () => {
     expect(looksLikeLostConnection('read ECONNRESET')).toBe(true)
     expect(looksLikeLostConnection('MongoNetworkError: connection 3 to host:27017 closed')).toBe(true)
     expect(looksLikeLostConnection('relation "users" does not exist')).toBe(false)
+    // The MongoDB driver's own wording, without the error class in front.
+    expect(looksLikeLostConnection('connection 5 to db.example.com:27017 closed')).toBe(true)
+    expect(looksLikeLostConnection('connection d to S closed')).toBe(false)
+  })
+})
+
+describe('outputError', () => {
+  it('keeps what explains the failure: code, SQLSTATE, position and hint', () => {
+    const cause = Object.assign(new Error('relation "nope" does not exist'), { code: 'query', sqlState: '42P01', position: 15, hint: 'Check the name' })
+    expect(outputError(cause, cause.message)).toEqual({ message: cause.message, code: 'query', sqlState: '42P01', position: 15, hint: 'Check the name' })
+    expect(outputError(Object.assign(new Error('x'), { code: 'read-only' }), 'x')).toEqual({ message: 'x', code: 'read-only' })
+  })
+
+  it('leaves out what is missing or not usable', () => {
+    expect(outputError('plain text', 'plain text')).toEqual({ message: 'plain text' })
+    expect(outputError({ code: '', position: 0, sqlState: 42 }, 'm')).toEqual({ message: 'm' })
   })
 })

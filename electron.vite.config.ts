@@ -14,6 +14,12 @@ function whisperDirName(): string {
 }
 
 /** node_modules path fragments belonging to the react-markdown pipeline (#10). */
+const TRANS_CHUNK_PARTS = [
+  'react-i18next/dist/es/Trans.js',
+  'react-i18next/dist/es/TransWithoutContext.js',
+  'html-parse-stringify',
+  'void-elements'
+]
 const MARKDOWN_CHUNK_PARTS = [
   'react-markdown',
   'remark-',
@@ -252,6 +258,9 @@ export default defineConfig({
             // The markdown pipeline (#10) is only reached through the lazy
             // MarkdownPreview, so keep it out of the eagerly-loaded vendor chunk.
             if (MARKDOWN_CHUNK_PARTS.some((part) => id.includes(part))) return 'markdown'
+            // <Trans> (rich text inside a translation) is only used by lazy views such as OxeQuery;
+            // boot needs useTranslation alone, so the parser behind <Trans> stays out of vendor.
+            if (TRANS_CHUNK_PARTS.some((part) => id.includes(part))) return 'i18n-trans'
             // React + everything that consumes it (radix-ui, cmdk, xyflow,
             // @monaco-editor/react, lucide, …) MUST share one chunk. Splitting
             // React into its own chunk broke cross-chunk eval order once the

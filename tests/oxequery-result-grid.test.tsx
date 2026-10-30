@@ -41,7 +41,7 @@ describe('ResultGrid', () => {
     fireEvent.keyDown(element, { key: 'a', ctrlKey: true })
     fireEvent.keyDown(element, { key: 'c', ctrlKey: true })
     expect(onCopy).toHaveBeenCalledWith('id\tnote\n1\t\n2\tNULL\n3\tx', 'tsv')
-    expect(screen.getByRole('button', { name: 'Show 1 hidden columns' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Show 1 hidden column' })).toBeTruthy()
   })
 
   it('does not show the text "NULL" like a missing value', () => {
