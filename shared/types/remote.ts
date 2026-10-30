@@ -9,8 +9,14 @@ import type { MainMessage } from '../messages'
 /** Ports below this are refused when the person picks one (`remote.port.privileged`). */
 export const REMOTE_MIN_PORT = 1024
 
+/** The name phones see until the person chooses one; never the host name. */
+export const REMOTE_DEFAULT_DESKTOP_NAME = 'OXESpace'
+export const REMOTE_MAX_DESKTOP_NAME_LENGTH = 32
+
 export interface RemoteGatewayStatus {
   enabled: boolean
+  /** What phones see in `hello` and the QR: `REMOTE_DEFAULT_DESKTOP_NAME` or the person's choice. */
+  desktopName: string
   /** Where it listens: private interfaces only (RFC 1918, link-local, ULA). `null` while off or failing. */
   listening: { addresses: string[]; port: number } | null
   /** SHA-256 of the certificate DER, 64 lowercase hex characters, once a certificate exists. */
@@ -72,4 +78,6 @@ export interface RemoteApi {
   /** Closes the device's connection within a second and invalidates its refresh. Recorded in the audit. */
   revoke(input: { deviceId: string }): Promise<void>
   rename(input: { deviceId: string; name: string }): Promise<RemoteDevice>
+  /** The name phones see, at most 32 characters; `null` goes back to the default. */
+  setDesktopName(input: { name: string | null }): Promise<RemoteGatewayStatus>
 }

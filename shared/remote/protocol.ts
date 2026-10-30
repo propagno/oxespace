@@ -91,7 +91,7 @@ interface FrameBase<Type extends RemoteFrameType> { type: Type }
 /** First frame each side sends. The gateway answers with the version both speak, or `unsupported-version`. */
 export interface RemoteHelloFrame extends FrameBase<'hello'> {
   versions: number[]
-  /** Set by the gateway: its display name, never the machine's account or path. */
+  /** Set by the gateway: "OXESpace", or the name the person chose in Settings › Devices. Never the host name, an account or a path. */
   desktopName?: string
   /** Set by the gateway: 32 random bytes, base64url, new for every connection; a refresh signs it as its `nonce`. */
   challenge?: string
@@ -99,8 +99,9 @@ export interface RemoteHelloFrame extends FrameBase<'hello'> {
 
 /**
  * Access token, or a refresh signed with the device key (proof of possession): ECDSA P-256 with SHA-256 over
- * `refreshSigningInput(fp, deviceId, nonce)`, where `nonce` is this connection's `hello.challenge`. The `ack` carries a
- * `RemoteAuthResult`; a removed device gets `revoked`.
+ * `refreshSigningInput(fp, deviceId, nonce)`, where `nonce` is this connection's `hello.challenge`. `signature` is the
+ * ASN.1 DER ECDSA signature (SEQUENCE of r and s) in base64url without padding; no other encoding is accepted. The `ack`
+ * carries a `RemoteAuthResult`; a removed device gets `revoked`.
  */
 export interface RemoteAuthFrame extends FrameBase<'auth'> {
   id: string
@@ -210,10 +211,15 @@ export function readRemoteFrame(text: string, from: 'client' | 'desktop'): { ok:
 // `RemotePairRequest` to `https://host:port/pair` over that pinned TLS. The desktop asks "Pair <deviceName>?" and
 // answers only after the person clicks. A code is good for one attempt, whatever its outcome, and attempts are limited
 // per IP address (`REMOTE_LIMITS.pairingAttemptsPerWindow`). Failures are 4xx with `{ code }` from
-// `REMOTE_PAIRING_ERROR_CODES`.
+// `REMOTE_PAIRING_ERROR_CODES`; a code that matches no offer on screen is `pairing-invalid`.
+//
+// The certificate is self-signed and names no host: the phone trusts it only by comparing the SHA-256 of the DER it
+// receives with the `fp` it read from the QR, and never by host name. A mismatch closes the connection.
 
 export const REMOTE_PAIRING_SCHEME = 'oxespace'
 export const REMOTE_PAIRING_PATH = '/pair'
+/** The WebSocket endpoint, on the same pinned TLS port. */
+export const REMOTE_WS_PATH = '/v1/ws'
 
 /** What the QR carries. `fp` is the SHA-256 of the certificate's DER, as 64 lowercase hex characters. */
 export interface RemotePairingQr {
@@ -223,7 +229,7 @@ export interface RemotePairingQr {
   fp: string
   /** One-time code: 128 random bits, base64url without padding (22 characters). */
   code: string
-  /** The desktop's display name, never the machine's account or path. */
+  /** The desktop's display name ("OXESpace" or the person's choice), never the host name, an account or a path. */
   name?: string
 }
 
@@ -240,7 +246,7 @@ export interface RemotePairResponse {
   expiresInMs: number
 }
 
-export const REMOTE_PAIRING_ERROR_CODES = ['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed'] as const
+export const REMOTE_PAIRING_ERROR_CODES = ['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid'] as const
 export type RemotePairingErrorCode = typeof REMOTE_PAIRING_ERROR_CODES[number]
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/
@@ -256,7 +262,10 @@ export const isDevicePublicKey = (value: unknown): value is string => base64urlO
 
 const isHost = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9.:-]{1,253}$/.test(value)
 const isPort = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 65_535
-const isDisplayName = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0 && value.length <= REMOTE_LIMITS.maxDeviceNameLength && !/[\u0000-\u001f\u007f]/.test(value)
+/** Control characters, C0, DEL and C1, the set Kotlin's `isISOControl` refuses. */
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/
+const isDisplayName = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0 && value.length <= REMOTE_LIMITS.maxDeviceNameLength && !CONTROL.test(value)
+const PAIRING_KEYS = ['v', 'host', 'port', 'fp', 'code', 'name'] as const
 
 /** `oxespace://pair?v=…&host=…&port=…&fp=…&code=…[&name=…]` */
 export function pairingUri(qr: RemotePairingQr): string {
@@ -265,13 +274,20 @@ export function pairingUri(qr: RemotePairingQr): string {
   return `${REMOTE_PAIRING_SCHEME}://pair?${query.toString()}`
 }
 
+/**
+ * Reads a pairing QR, as strictly as the Android reader: each key at most once (two readers must never see different
+ * codes), `v` exactly this protocol's version, the port in plain decimal digits, and no control character in the name.
+ * The phone also refuses a host outside the LAN; that rule is the app's, not the contract's.
+ */
 export function readPairingUri(uri: string): { ok: true; qr: RemotePairingQr } | { ok: false } {
   const prefix = `${REMOTE_PAIRING_SCHEME}://pair?`
   if (typeof uri !== 'string' || !uri.startsWith(prefix) || uri.length > 1024) return { ok: false }
   const query = new URLSearchParams(uri.slice(prefix.length))
-  const v = Number(query.get('v')), port = Number(query.get('port')), name = query.get('name') ?? undefined
-  const qr: RemotePairingQr = { v, host: query.get('host') ?? '', port, fp: query.get('fp') ?? '', code: query.get('code') ?? '', ...(name !== undefined ? { name } : {}) }
-  const valid = Number.isInteger(v) && v >= 1 && isHost(qr.host) && isPort(port) && isCertificateFingerprint(qr.fp) && isPairingCode(qr.code) && (name === undefined || isDisplayName(name))
+  if (PAIRING_KEYS.some(key => query.getAll(key).length > 1)) return { ok: false }
+  const portText = query.get('port') ?? '', name = query.get('name') ?? undefined
+  if (query.get('v') !== String(REMOTE_PROTOCOL_VERSION) || !/^[0-9]{1,5}$/.test(portText)) return { ok: false }
+  const qr: RemotePairingQr = { v: REMOTE_PROTOCOL_VERSION, host: query.get('host') ?? '', port: Number(portText), fp: query.get('fp') ?? '', code: query.get('code') ?? '', ...(name !== undefined ? { name } : {}) }
+  const valid = isHost(qr.host) && isPort(qr.port) && isCertificateFingerprint(qr.fp) && isPairingCode(qr.code) && (name === undefined || isDisplayName(name))
   return valid ? { ok: true, qr } : { ok: false }
 }
 
@@ -282,6 +298,17 @@ export function readPairRequest(value: unknown): { ok: true; request: RemotePair
   if (Object.keys(input).some(key => !['code', 'deviceName', 'publicKey'].includes(key))) return { ok: false, code: 'malformed' }
   if (!isPairingCode(input.code) || !isDisplayName(input.deviceName) || !isDevicePublicKey(input.publicKey)) return { ok: false, code: 'malformed' }
   return { ok: true, request: { code: input.code, deviceName: input.deviceName, publicKey: input.publicKey } }
+}
+
+/**
+ * Shape check of a refresh signature: base64url of an ASN.1 DER ECDSA signature (SEQUENCE of two INTEGERs, 8 to 72
+ * bytes for P-256). The signature itself is verified by the desktop's crypto; anything else is refused before that.
+ */
+export function isDerSignature(value: unknown): value is string {
+  if (typeof value !== 'string' || !BASE64URL.test(value) || value.length < 11 || value.length > 96) return false
+  let binary: string
+  try { binary = atob(value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4)) } catch { return false }
+  return binary.length >= 8 && binary.length <= 72 && binary.charCodeAt(0) === 0x30 && binary.charCodeAt(1) === binary.length - 2 && binary.charCodeAt(2) === 0x02
 }
 
 /** The exact text a refresh signs (UTF-8): binds the signature to this desktop's certificate, the device and the connection. */
