@@ -14,9 +14,6 @@ import com.oxespace.mobile.protocol.pairing.refreshSigningInput
 import java.util.Base64
 import kotlinx.serialization.SerializationException
 
-/** Path of the gateway's WebSocket. DRAFT until the C5 contract PR adds it (approved: `/v1/ws`). */
-const val REMOTE_WS_PATH = "/v1/ws"
-
 /** Why a session ended; each one is a different state on the phone's screen. */
 enum class SessionEnd {
     /** The person removed this phone on the desktop: its key and pairing are gone for good. */

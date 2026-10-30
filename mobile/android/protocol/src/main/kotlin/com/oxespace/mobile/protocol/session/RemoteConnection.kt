@@ -2,6 +2,7 @@ package com.oxespace.mobile.protocol.session
 
 import com.oxespace.mobile.protocol.FrameRead
 import com.oxespace.mobile.protocol.FrameSource
+import com.oxespace.mobile.protocol.REMOTE_WS_PATH
 import com.oxespace.mobile.protocol.RemoteErrorCode
 import com.oxespace.mobile.protocol.RemoteFrame
 import com.oxespace.mobile.protocol.RemoteFrames
