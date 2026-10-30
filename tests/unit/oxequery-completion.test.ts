@@ -76,3 +76,61 @@ describe('SchemaCache after a failed load', () => {
     } finally { vi.useRealTimers() }
   })
 })
+
+describe('schema-aware suggestions', () => {
+  function withKeys(): SchemaCache {
+    const cache = new SchemaCache('c2')
+    cache.seed({
+      schemas: ['public'],
+      tables: { public: [{ name: 'users', kind: 'table' }, { name: 'orders', kind: 'table' }, { name: 'items', kind: 'table' }] },
+      columns: {
+        'public.users': [{ name: 'id', type: 'integer' }],
+        'public.orders': [{ name: 'id', type: 'integer' }, { name: 'user_id', type: 'integer' }],
+        'public.items': [{ name: 'order_id', type: 'integer' }]
+      },
+      foreignKeys: {
+        'public.orders': [{ name: 'orders_user_fk', definition: 'FOREIGN KEY (user_id) REFERENCES users(id)' }],
+        'public.items': [{ name: 'items_order_fk', definition: 'FOREIGN KEY (order_id) REFERENCES orders(id)' }]
+      }
+    })
+    return cache
+  }
+  it('offers a joined table with its ON condition from an outgoing foreign key', () => {
+    const text = 'SELECT * FROM orders o JOIN '
+    const join = suggest(withKeys(), text, text).filter(item => item.kind === 'join')
+    expect(join.map(item => item.insert)).toContain('users u ON u.id = o.user_id')
+  })
+  it('offers tables whose key points at a table already in the statement', () => {
+    const text = 'SELECT * FROM orders o JOIN it'
+    const join = suggest(withKeys(), text, text).filter(item => item.kind === 'join')
+    expect(join.map(item => item.insert)).toEqual(['items i ON i.order_id = o.id'])
+  })
+  it('writes the ON condition between the joined table and the earlier ones', () => {
+    const text = 'SELECT * FROM users u JOIN orders o ON '
+    const items = suggest(withKeys(), text, text).filter(item => item.kind === 'join')
+    expect(items.map(item => item.insert)).toEqual(['o.user_id = u.id'])
+  })
+  it('does not suggest joins outside a JOIN, nor tables already joined', () => {
+    const text = 'SELECT * FROM orders o JOIN users u ON u.id = o.user_id JOIN '
+    expect(suggest(withKeys(), text, text).filter(item => item.kind === 'join').map(item => item.label)).toEqual(['items'])
+    const plain = 'SELECT * FROM orders o WHERE '
+    expect(suggest(withKeys(), plain, plain).some(item => item.kind === 'join')).toBe(false)
+  })
+  it('completes CTE names and their columns', () => {
+    const text = 'WITH recent AS (SELECT id, total FROM orders) SELECT r. FROM recent r'
+    const before = 'WITH recent AS (SELECT id, total FROM orders) SELECT r.'
+    expect(suggest(withKeys(), text, before).map(item => item.label)).toEqual(['id', 'total'])
+    const from = 'WITH recent AS (SELECT 1) SELECT * FROM re'
+    expect(suggest(withKeys(), from, from).filter(item => item.kind === 'cte').map(item => item.label)).toEqual(['recent'])
+  })
+  it('only reads the statement under the cursor', () => {
+    const text = 'SELECT * FROM users u; SELECT o. FROM orders o'
+    const before = 'SELECT * FROM users u; SELECT o.'
+    expect(suggest(withKeys(), text, before).map(item => item.label)).toEqual(['id', 'user_id'])
+    expect(suggest(withKeys(), text, 'SELECT * FROM users u; SELECT u.')).toEqual([])
+  })
+  it('suggests dialect functions for a typed prefix only', () => {
+    expect(suggest(withKeys(), 'SELECT date_t', 'SELECT date_t').some(item => item.kind === 'function' && item.label === 'date_trunc')).toBe(true)
+    expect(suggest(withKeys(), 'SELECT ', 'SELECT ').some(item => item.kind === 'function')).toBe(false)
+  })
+})

@@ -19,7 +19,7 @@ const SETTLE_MS = 300
  * than relying on the store, whose catalog only refreshes while Thread mode is
  * mounted.
  */
-export function useThreadAttention(applicationView: 'code' | 'thread' | 'data'): void {
+export function useThreadAttention(applicationView: import('../keyboard/keybindings').AppView): void {
   const view = useRef(applicationView)
   view.current = applicationView
 

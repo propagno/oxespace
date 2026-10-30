@@ -16,7 +16,7 @@ import { agentFromCommand } from './agent-state/agents'
 import { resumeArgs } from './agent-state/pane-sessions'
 import { PtyModeTracker } from './pty-mode-tracker'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
-import { assertProviderAllowed } from './policy'
+import { assertProviderAllowed, inheritedEnvironment } from './policy'
 
 const resolvedExecutableCache = new Map<string, string>()
 
@@ -263,8 +263,11 @@ export class TerminalManager {
       : launch.workspace_root_path
     if (input.requireCwd && (cwd !== input.requireCwd || !existsSync(input.requireCwd))) throw new Error('Delegated worktree is missing; refusing workspace-root fallback')
 
+    // Provider CLIs get the environment without secret-looking variables the provider does not need (S7). Plain
+    // shells and other agents keep the full environment: that is the person's own shell.
+    const baseEnv = agentName === 'claude' || agentName === 'codex' ? inheritedEnvironment(agentName, launch.workspace_root_path, this.env) : this.env
     let finalEnv: Record<string, string> = {
-      ...this.env,
+      ...baseEnv,
       // Force CLIs to use dark-mode syntax highlighting since OXESpace uses a dark terminal theme
       COLORFGBG: '15;0',
       COLORTERM: 'truecolor',

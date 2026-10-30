@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Plus, X } from 'lucide-react'
 import type { SqlColumnInfo, SqlFilter, SqlFilterOp, SqlTxState } from '../../../shared/types/oxequery'
 import { SQL_NULL, describeCell } from './grid-format'
+import { ArrayList, JsonTree, contentText } from './CellValue'
+import { readCell } from './grid-model'
 import { FILTER_OPS, completeFilters, filterLabel, type ParamValue } from './workbench-model'
 import { Select } from '../../ui/Field'
 import { Button } from '../../ui/Button'
@@ -75,11 +77,16 @@ export function FilterBar({ columns, filters, onApply }: { columns: SqlColumnInf
 /** One cell in full: long text, pretty JSON, binary as hex. */
 export function CellViewer({ cell, onCopy, onClose }: { cell: { column: string; type?: string; value: unknown; row: number }; onCopy: (text: string) => void; onClose: () => void }): ReactElement {
   const { t } = useTranslation('oxequery')
-  const { text, kind } = describeCell(cell.value)
+  const described = describeCell(cell.value)
+  const content = readCell(cell.value, cell.type)
+  const kind = content.kind === 'other' ? described.kind : content.kind
+  const text = contentText(content) ?? described.text
   return <aside className="oq-cell-viewer" aria-label={t('cell.label')}>
     <header><strong>{cell.column}</strong>{cell.type && <small>{cell.type}</small>}<small>{t('cell.row', { number: cell.row + 1 })}</small><span className="oq-spacer" />
       <button type="button" onClick={() => onCopy(kind === 'null' ? '' : text)}>{t('common.copy')}</button>
       <button type="button" aria-label={t('cell.close')} onClick={onClose}><X size={13} aria-hidden="true" /></button></header>
-    <pre className={kind === 'null' ? 'is-null' : undefined} data-kind={kind}>{text}</pre>
+    {content.kind === 'json' ? <JsonTree data={content.data} />
+      : content.kind === 'array' ? <ArrayList items={content.items} />
+        : <pre className={kind === 'null' ? 'is-null' : undefined} data-kind={kind}>{text}</pre>}
   </aside>
 }

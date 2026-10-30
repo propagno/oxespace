@@ -6,7 +6,7 @@ import type { ConnectionEnvironment, DatabaseEngine, MongoOptions, SslMode } fro
  * into the main bundle.
  */
 export type OxeQueryErrorCode =
-  | 'read-only' | 'confirm' | 'invalid' | 'connect' | 'query' | 'timeout' | 'cancelled'
+  | 'read-only' | 'confirm' | 'confirm-name' | 'invalid' | 'connect' | 'query' | 'timeout' | 'cancelled'
   | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict'
 
 /** Where and why a statement failed, as reported by the server. */

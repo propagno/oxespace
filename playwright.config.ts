@@ -15,6 +15,7 @@ export default defineConfig({
   // for design review. Run them via `npm run bench:ui` / `npm run shots:ui`.
   testIgnore: [
     '**/perf-benchmark.spec.ts',
+    '**/memory-footprint.spec.ts',
     '**/browser-preview-performance.spec.ts',
     '**/screenshots.spec.ts',
     // Pixel-regression suite has its own config and per-platform baselines.

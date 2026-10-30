@@ -14,7 +14,7 @@ Turn it on with `OXESPACE_EXPERIMENTAL_MEMORY=1` (`0` forces it off), or with `{
 
 **Not yet certified:** an authenticated pilot inside the Electron window, Linux with authenticated providers, exact-ID handoff and resume UI, a paired productivity benchmark, a 2-hour load run and the installed-package matrix.
 
-**Known limits:** Windows is experimental upstream; Codex final answers are not captured by the native mechanism; no WSL or SSH; search is lexical (embeddings off); the hook token is stored as a local plaintext file; there is no in-app reset of stored memory; the integration depends on the third-party AI Memory project.
+**Known limits:** Windows is experimental upstream; Codex final answers are not captured by the native mechanism; no WSL or SSH; search is lexical (embeddings off); native hooks still read the token from a local file, which now exists only while a memory-enabled agent runs (see Privacy); deleting one page erases it from the memory service only if that service offers a deletion tool, otherwise it is hidden from every agent and tool; the integration depends on the third-party AI Memory project.
 
 **Diagnostics:** Settings shows capture, delivery and consolidation separately. Consolidation is reported as *unknown* because the service does not expose it. "Copy diagnostics" exports counts and timestamps only.
 
@@ -170,7 +170,8 @@ later boundaries, but finalization/consolidation is not guaranteed after a crash
   It configures no external model provider. Search is lexical without embeddings.
 - Only explicit loopback HTTP URLs are accepted. Tokens are encrypted in OXESpace
   SQLite using Electron safeStorage; native hooks require a plaintext token file
-  in the local data directory. Native spool entries can also contain credentials
+  in the local data directory, written when a memory-enabled agent starts and
+  removed when the last one ends, when the app stops and at start-up. Native spool entries can also contain credentials
   and captured content. Protect the entire application data directory with OS
   permissions and disk encryption. Windows permissions use the inherited user
   directory ACL; POSIX file mode alone is not a Windows security boundary.
@@ -245,3 +246,25 @@ The real native wrapper, authenticated service lifecycle, persistence across a
 server restart, and cross-project concurrent automatic capture were exercised
 with synthetic data. No real agent conversations or user home hook configurations
 were used by these tests.
+
+## Memory is data, and it is yours to control
+
+- **Untrusted by default (M7).** Every note an agent records is stored with its origin (agent,
+  session, conversation, the last request there) and marked untrusted; only a note a person
+  wrote or reviewed is trusted. Whatever is given to a model (the session brief, search,
+  `oxespace_project_context`, a handoff to another agent) is wrapped in `<memory-data>` blocks
+  that state the path, trust, origin and date, after a notice that the content is evidence, never
+  instructions. A note cannot close its own block (the tag is broken), invisible and control
+  characters are removed, and a block is dropped whole rather than cut. Notes that read like
+  orders to a model (for example "ignore previous instructions", fake `SYSTEM:` lines,
+  `curl … | sh`) are flagged and kept out of the brief that starts a session by itself. What the
+  memory service briefs natively at session start is fenced the same way. Secrets are removed
+  before a note is written.
+- **View, search, export, delete, reset (M4).** The project's notes are listed in Settings with
+  their origin and state. Deleting hides a page from every agent and tool at once and drops its
+  text from OXESpace; it is erased from the memory service only when that service advertises a
+  `memory_delete_page` tool. "Reset this project" forgets every note OXESpace knows for the
+  project. "Erase everything" stops the managed service and removes its data and upgrade
+  snapshots for all projects. None of this has an MCP tool.
+- **Policy.** `memory:team` (an `integration.use` rule) decides whether notes may be shared with
+  the team; a block on `memory` blocks it too.

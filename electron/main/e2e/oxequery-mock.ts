@@ -33,6 +33,11 @@ export function registerOxeQueryMock(): void {
     columns: [{ name: 'id', type: 'int4' }, { name: 'name', type: 'text' }, { name: 'email', type: 'text' }],
     rows: [[1, 'alice', 'alice@example.com'], [2, 'bob', null], [3, 'carol', 'carol@example.com']], rowCount: 3, truncated: false, durationMs: 4
   }
+  /** A row with a jsonb document and a text[] column, for the cell viewers. */
+  const docs: SqlResult = {
+    columns: [{ name: 'id', type: 'int4' }, { name: 'payload', type: 'jsonb' }, { name: 'tags', type: '_text' }],
+    rows: [[1, '{"name":"alice","roles":["admin","dev"],"profile":{"city":"Recife","geo":{"lat":-8.05,"lng":-34.9}}}', '{admin,"dev ops",NULL}']], rowCount: 1, truncated: false, durationMs: 3
+  }
   const BIG_ROWS = 1200
   /** Rows from `offset` of a 1,200-row result; a paged run leaves a page id that says where the next page starts. */
   const bigPage = (offset: number, limit: number, paged: boolean): SqlResult => {
@@ -70,7 +75,7 @@ export function registerOxeQueryMock(): void {
       case 'containers.inspect': {
         const target = containers.find(container => container.id === input.id)
         if (!target) return fail('not-found', 'That container no longer exists.')
-        return ok({ id: target.id, name: target.name, image: target.image, state: target.state, command: 'docker-entrypoint.sh', envNames: ['POSTGRES_PASSWORD', 'PATH'], mounts: [{ source: '/data', destination: '/var/lib/data' }], networks: ['bridge'], ports: target.ports, restartPolicy: 'always' })
+        return ok({ id: target.id, name: target.name, image: target.image, state: target.state, command: 'docker-entrypoint.sh', startedAt: Date.now() - 2 * 3_600_000, environment: [{ name: 'POSTGRES_USER', value: 'app' }, { name: 'POSTGRES_PASSWORD' }, { name: 'PGDATA', value: '/var/lib/postgresql/data' }], mounts: [{ source: '/var/lib/docker/volumes/pg-data/_data', destination: '/var/lib/postgresql/data', volume: 'pg-data' }], networks: ['bridge'], ports: target.ports, restartPolicy: 'always' })
       }
       case 'containers.exec': return ok({ exitCode: 0, stdout: `hello from ${String(input.id)}\n`, stderr: '', truncated: false, timedOut: false })
       case 'containers.logsStart': {
@@ -81,7 +86,8 @@ export function registerOxeQueryMock(): void {
       case 'containers.logsStop': return ok({ ok: true })
       case 'containers.shell': return ok({ paneId: `oxequery-shell:${randomUUID()}` })
       case 'connections.list': return ok(connections.map(item => ({ ...item })))
-      case 'preferences.get': case 'preferences.set': return ok({ historyLimit: Number(input.historyLimit ?? 200), auditRetentionDays: Number(input.auditRetentionDays ?? 90), agentCeiling: { local: 'write', dev: 'write', prod: 'read', ...(input.agentCeiling as object | undefined) } })
+      case 'preferences.get': case 'preferences.set': return ok({ historyLimit: Number(input.historyLimit ?? 200), auditRetentionDays: Number(input.auditRetentionDays ?? 90), agentCeiling: { local: 'write', dev: 'write', prod: 'read', ...(input.agentCeiling as object | undefined) },
+        environmentLimits: { local: { maxRows: null, statementTimeoutMs: null }, dev: { maxRows: null, statementTimeoutMs: null }, prod: { maxRows: 1000, statementTimeoutMs: 30000 }, ...(input.environmentLimits as object | undefined) } })
       case 'connections.update': {
         const target = connections.find(item => item.id === input.id)
         if (!target) return fail('invalid', 'That connection no longer exists.')
@@ -108,7 +114,7 @@ export function registerOxeQueryMock(): void {
       case 'connections.save': {
         const saved: OxeQueryConnection = { id: String(input.id ?? randomUUID()), name: String(input.name), engine: input.engine as 'postgres' | 'mongodb', host: String(input.host), port: Number(input.port),
           database: String(input.database ?? ''), username: String(input.username ?? ''), readOnly: input.readOnly !== false, environment: (input.environment as 'local') ?? 'local',
-          hasPassword: Boolean(input.password), ...extras, group: String(input.group ?? ''), favorite: input.favorite === true, color: (input.color as OxeQueryConnection['color']) ?? '', sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
+          hasPassword: Boolean(input.password), ...extras, ...(input.containerRef ? { containerRef: String(input.containerRef) } : {}), group: String(input.group ?? ''), favorite: input.favorite === true, color: (input.color as OxeQueryConnection['color']) ?? '', sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
           ...((input.ssh as { enabled?: boolean; host?: string; port?: number; user?: string; auth?: 'key' | 'password' } | undefined)?.enabled
             ? { ssh: { host: String((input.ssh as { host?: string }).host), port: Number((input.ssh as { port?: number }).port ?? 22), user: String((input.ssh as { user?: string }).user), auth: (input.ssh as { auth?: 'key' | 'password' }).auth ?? 'key', hasSecret: true } } : {}),
           createdAt: Date.now(), updatedAt: Date.now() }
@@ -138,6 +144,26 @@ export function registerOxeQueryMock(): void {
       case 'resources.networks': return ok([{ id: 'n1', name: 'bridge', driver: 'bridge', scope: 'local' }, { id: 'n2', name: 'app-net', driver: 'bridge', scope: 'local' }])
       case 'resources.usage': return ok([{ type: 'Images', total: 3, active: 1, size: '1.2GB', reclaimable: '800MB (66%)' }])
       case 'resources.remove': return ok({ ok: true })
+      case 'resources.prune': {
+        if (input.confirmed !== true) return fail('confirm', 'Every stopped container is removed.')
+        if (input.kind === 'containers') for (let index = containers.length - 1; index >= 0; index--) if (containers[index].state !== 'running') containers.splice(index, 1)
+        send({ type: 'containers-changed' })
+        return ok({ output: 'Total reclaimed space: 0B' })
+      }
+      case 'containers.remove': {
+        if (input.confirmed !== true) return fail('confirm', 'Removing a container cannot be undone.')
+        const index = containers.findIndex(container => container.id === input.id)
+        if (index < 0) return fail('not-found', 'That container no longer exists.')
+        containers.splice(index, 1)
+        send({ type: 'containers-changed' })
+        return ok({ ok: true })
+      }
+      case 'containers.suggestConnection': {
+        const target = containers.find(container => container.id === input.id)
+        if (!target || !/postgres|mongo/.test(target.image)) return ok(null)
+        const mongo = /mongo/.test(target.image)
+        return ok({ engine: mongo ? 'mongodb' : 'postgres', name: target.name, host: '127.0.0.1', port: mongo ? 27017 : 5432, database: mongo ? '' : 'app', username: mongo ? 'root' : 'app', hasPassword: true })
+      }
       case 'containers.createDatabase': return ok({ ...connections[0], id: 'new-db', name: String((input as { name?: string }).name) })
       case 'audit.list': return ok([{ id: 1, ts: Date.now(), actor: 'thread:abc', connectionId: 'c1', connectionName: 'pg-dev', engine: 'postgres', environment: 'dev', tool: 'oxespace_db_query', textHash: 'h', text: "SELECT * FROM users WHERE email = '?'", decision: 'approved', outcome: 'ok', rows: 3, durationMs: 5, errorCode: null }])
       case 'library.list': return ok({ saved: [{ id: 's1', connectionId: String(input.connectionId), name: 'Active users', sql: 'SELECT * FROM users', createdAt: 1, updatedAt: 1 }], history: [{ id: 1, sql: 'SELECT now()', ranAt: Date.now(), durationMs: 3, rows: 1, ok: true }] })
@@ -181,7 +207,7 @@ export function registerOxeQueryMock(): void {
       }
       case 'sql.schemas': return ok(['public', 'audit'])
       case 'sql.tables': return ok(input.schema === 'public' ? { tables: [{ schema: 'public', name: 'users', kind: 'table', approxRows: 3 }, { schema: 'public', name: 'orders', kind: 'table', approxRows: 10 }, { schema: 'public', name: 'active_users', kind: 'view' }, { schema: 'public', name: 'daily_totals', kind: 'materialized view' }], total: 4 } : { tables: [], total: 0 })
-      case 'sql.table': return ok({ columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true, position: 1 }, { name: 'name', type: 'text', nullable: false, primaryKey: false, position: 2 }], indexes: [{ name: 'users_pkey', definition: 'CREATE UNIQUE INDEX users_pkey ON users (id)', unique: true, primary: true }], foreignKeys: [], constraints: [{ name: 'users_pkey', kind: 'primary', definition: 'PRIMARY KEY (id)' }], properties: { kind: 'table', owner: 'oxe', sizeBytes: 16384, estimatedRows: 2 }, dependents: [{ kind: 'view', schema: 'public', name: 'active_users' }], privileges: [{ grantee: 'oxe', privilege: 'SELECT', grantable: true }] })
+      case 'sql.table': return ok({ columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true, position: 1 }, { name: 'name', type: 'text', nullable: false, primaryKey: false, position: 2 }], indexes: [{ name: 'users_pkey', definition: 'CREATE UNIQUE INDEX users_pkey ON users (id)', unique: true, primary: true }], foreignKeys: input.table === 'orders' ? [{ name: 'orders_user_fk', definition: 'FOREIGN KEY (user_id) REFERENCES users(id)' }] : [], constraints: [{ name: 'users_pkey', kind: 'primary', definition: 'PRIMARY KEY (id)' }], properties: { kind: 'table', owner: 'oxe', sizeBytes: 16384, estimatedRows: 2 }, dependents: [{ kind: 'view', schema: 'public', name: 'active_users' }], privileges: [{ grantee: 'oxe', privilege: 'SELECT', grantable: true }] })
       case 'sql.browse': return ok(users)
       // 1,200 rows read page by page, as a long SELECT is in the editor.
       case 'sql.more': return ok(bigPage(Number(String(input.pageId).split(':')[1]), Number(input.maxRows ?? 500), true))
@@ -190,9 +216,11 @@ export function registerOxeQueryMock(): void {
         const sql = String(input.sql ?? '')
         const mutating = /^\s*(insert|update|delete|drop|truncate|create|alter)/i.test(sql)
         if (target?.readOnly && mutating) return fail('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.')
+        if (target?.environment === 'prod' && mutating && String(input.confirmName ?? '').trim() !== target.name) return fail('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.')
         if (/^\s*delete\s+from\s+\w+\s*;?\s*$/i.test(sql) && input.confirmed !== true) return fail('confirm', 'This statement is destructive and needs confirmation.', ['DELETE without a WHERE clause affects every row'])
         if (/^\s*selec\s/i.test(sql)) return fail('query', 'syntax error at or near "SELEC"')
         if (mutating) return ok({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 2, command: 'DELETE', affectedRows: 3 })
+        if (/\bfrom\s+docs\b/i.test(sql)) return ok(docs)
         if (/\bfrom\s+big\b/i.test(sql)) return ok(bigPage(0, Number(input.maxRows ?? 500), input.paged === true))
         return ok(users)
       }
@@ -211,6 +239,13 @@ export function registerOxeQueryMock(): void {
       case 'workspace.save': workspaces.set(String(input.connectionId), input.state); return ok({ ok: true })
       case 'sql.cancel': return ok({ cancelled: false })
       case 'sql.check': return ok({ kind: 'read', reasons: [], statements: 1 })
+      // Safe production: the same answer the real service gives (see oxequery-guard.ts), without policy files.
+      case 'safety.get': {
+        const target = connection(input.connectionId)
+        if (!target) return fail('invalid', 'That connection no longer exists.')
+        const prod = target.environment === 'prod'
+        return ok({ readOnly: target.readOnly, readOnlyBy: target.readOnly ? 'connection' : null, typedConfirmation: prod, maxRows: prod ? Math.min(target.maxRows, 1000) : target.maxRows, maxRowsCeiling: prod ? 1000 : 100000, statementTimeoutMs: prod ? Math.min(target.statementTimeoutMs, 30000) : target.statementTimeoutMs })
+      }
       case 'mongo.databases': return ok([{ name: 'shop' }, { name: 'admin' }])
       case 'mongo.collections': return ok(input.database === 'shop' ? [{ name: 'items', type: 'collection' }, { name: 'orders', type: 'collection' }] : [])
       case 'mongo.document': return ok({ text: JSON.stringify({ _id: { $oid: '507f1f77bcf86cd799439011' }, sku: 'sku-1', qty: 5 }) })

@@ -258,7 +258,19 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     // renderer. Disposal is also guarded so teardown can never throw.
     let webglAddon: WebglAddon | null = null
     let webglContextCounted = false
-    
+    // A pane in a hidden workspace (or while Thread/OxeQuery is showing) paints nothing, yet each WebGL
+    // renderer holds a glyph atlas and framebuffers in the GPU process. Hidden panes give theirs back and
+    // rebuild it when revealed; the scrollback lives in xterm's buffer, not the renderer.
+    const workspaceHost = hostRef.current?.closest('.workspace-host') ?? null
+    const isHidden = (): boolean => workspaceHost?.classList.contains('workspace-host-hidden') ?? false
+    const releaseWebgl = (): void => {
+      const addon = webglAddon
+      webglAddon = null
+      try { addon?.dispose() } catch { /* already torn down */ }
+      if (webglContextCounted) { activeWebglContexts--; webglContextCounted = false }
+    }
+    const loadWebgl = (): void => {
+    if (webglAddon) return
     if (activeWebglContexts >= MAX_WEBGL_CONTEXTS) {
       console.warn(`[OXESpace] WebGL context limit reached (${MAX_WEBGL_CONTEXTS}), using DOM renderer`)
     } else if (supportsWebgl2()) {
@@ -300,6 +312,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     } else {
       console.warn('[OXESpace] WebGL2 not available, using DOM renderer')
     }
+    }
+    if (!isHidden()) loadWebgl()
+    const visibilityObserver = workspaceHost ? new MutationObserver(() => {
+      if (isHidden()) { releaseWebgl(); return }
+      if (!webglAddon) { loadWebgl(); try { terminal.refresh(0, terminal.rows - 1) } catch { /* disposed */ } }
+    }) : null
+    visibilityObserver?.observe(workspaceHost!, { attributes: true, attributeFilter: ['class'] })
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
     // Vite-bundled dev builds the proposed-API check throws even with
     // allowProposedApi: true (xterm exports get duplicated across module
@@ -762,6 +781,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       unsubscribeData()
       unsubscribeExit()
       resizeObserver.disconnect()
+      visibilityObserver?.disconnect()
       dataDisposable.dispose()
       selectionDisposable.dispose()
       osc52Disposable.dispose()

@@ -8,13 +8,13 @@ export class MemoryManager {
     return { source: 'oxespace-provider-replies', retained: 'application-lifetime', lastSuccessAt: null, lastFailureAt: null,
       lastWriteAt: null, lastReadAt: null, ...this.activity.get(projectId) }
   }
-  constructor(private readonly provider: () => MemoryProvider, private readonly settings: (projectId: string) => MemorySettings, private readonly deadlineMs = 3000) {}
+  constructor(private readonly provider: () => MemoryProvider | Promise<MemoryProvider>, private readonly settings: (projectId: string) => MemorySettings, private readonly deadlineMs = 3000) {}
   async run<T>(context: MemoryContext, operation: (provider: MemoryProvider) => Promise<T>, kind?: 'read' | 'write'): Promise<MemoryReply<T>> {
     if (!this.settings(context.projectId).enabled) return { status: 'disabled', message: 'Project memory is disabled' }
     let timer: ReturnType<typeof setTimeout> | undefined
     const controller = new AbortController()
     try {
-      const provider = this.provider()
+      const provider = await this.provider()
       const value = await Promise.race([operation(provider.withSignal?.(controller.signal) ?? provider), new Promise<never>((_, reject) => {
         timer = setTimeout(() => { controller.abort(); reject(new Error('Memory deadline exceeded')) }, this.deadlineMs)
       })])

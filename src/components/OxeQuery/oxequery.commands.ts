@@ -1,4 +1,4 @@
-import { Boxes, Database, FileDown, FileUp, Play, Plus, Search, Settings, Table2, TextCursorInput } from 'lucide-react'
+import { Database, DatabaseZap, FileDown, FileUp, Play, Plus, Search, Settings, ShieldCheck, Table2, TextCursorInput } from 'lucide-react'
 import { i18n } from '../../i18n'
 import { registerCommands, type ContributedCommand } from '../../utils/commandRegistry'
 import { requestOxeQueryAction, type OxeQueryAction } from './oxequery-bridge'
@@ -8,9 +8,10 @@ import { requestOxeQueryAction, type OxeQueryAction } from './oxequery-bridge'
  * Their labels live in the `common` catalog (already loaded at boot), so the palette is in the right language before
  * OxeQuery's own catalog is ever fetched.
  */
-const ENTRIES: Array<{ action: Exclude<OxeQueryAction, 'open'> | 'open'; icon: typeof Database; keywords?: string[]; detail?: boolean }> = [
+const ENTRIES: Array<{ action: Exclude<OxeQueryAction, 'connect'>; icon: typeof Database; keywords?: string[]; detail?: boolean }> = [
   { action: 'open', icon: Database, detail: true, keywords: ['database', 'sql', 'postgres', 'mongo'] },
   { action: 'newConnection', icon: Plus, keywords: ['connect', 'postgres', 'mongodb'] },
+  { action: 'newDatabase', icon: DatabaseZap, detail: true, keywords: ['docker', 'container', 'postgres', 'mongodb', 'local'] },
   { action: 'newQuery', icon: TextCursorInput, keywords: ['sql', 'editor'] },
   { action: 'runAll', icon: Play, keywords: ['execute', 'script'] },
   { action: 'searchObjects', icon: Search, keywords: ['table', 'schema', 'collection'] },
@@ -18,7 +19,7 @@ const ENTRIES: Array<{ action: Exclude<OxeQueryAction, 'open'> | 'open'; icon: t
   { action: 'settings', icon: Settings, keywords: ['history', 'audit', 'agents'] },
   { action: 'importConnections', icon: FileUp },
   { action: 'exportConnections', icon: FileDown, detail: true },
-  { action: 'compose', icon: Boxes, keywords: ['docker', 'containers', 'compose'] }
+  { action: 'activity', icon: ShieldCheck, keywords: ['agents', 'audit', 'history'] }
 ]
 
 export function oxeQueryCommands(): ContributedCommand[] {

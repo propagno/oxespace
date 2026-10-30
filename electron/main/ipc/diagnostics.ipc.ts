@@ -5,7 +5,7 @@ import type { AppDatabase } from '../db'
 import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { DiagnosticsService } from '../services/diagnostics.service'
-import { recordFirstAnswer } from '../services/runtime-diagnostics'
+import { exportRuntimeDiagnostics, recordFirstAnswer } from '../services/runtime-diagnostics'
 
 export function registerDiagnosticsIpc(
   db: AppDatabase,
@@ -25,6 +25,12 @@ export function registerDiagnosticsIpc(
     if (result.canceled || !result.filePath) return null
     await writeFile(result.filePath, service.buildSanitizedReport(), { encoding: 'utf8', mode: 0o600 })
     return result.filePath
+  })
+  // Built on demand and loaded lazily: the main bundle carries only this handler, not the report builder.
+  ipcMain.handle(IPC_CHANNELS.diagnostics.buildIssueReport, async (event) => {
+    requireAppFrame(event, 'Diagnostics')
+    const { buildIssueReport } = await import('../services/issue-report')
+    return buildIssueReport({ snapshot: service.getSnapshot(), runtimeEvents: exportRuntimeDiagnostics() })
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.recordFirstAnswer, (event, input: unknown) => {
     requireAppFrame(event, 'Diagnostics')

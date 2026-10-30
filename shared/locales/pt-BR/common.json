@@ -12,7 +12,9 @@
     "modeTitle": {
       "code": "Code: terminais e agentes nos seus workspaces",
       "thread": "Thread: conversas com um agente",
-      "data": "OxeQuery: contêineres e bancos de dados"
+      "data": "OxeQuery: bancos de dados",
+      "pods": "OxePod: contêineres",
+      "post": "OxePost: requisições de API"
     },
     "primary": "Navegação principal",
     "switchToLight": "Mudar para o modo claro",
@@ -23,7 +25,9 @@
     "expandSidebar": "Expandir barra lateral",
     "clearSearch": "Limpar busca",
     "applicationMenu": "Menu do aplicativo",
-    "menu": "Menu"
+    "menu": "Menu",
+    "loadingView": "Carregando o {{name}}…",
+    "viewSidebar": "Barra lateral do {{name}}"
   },
   "attention": {
     "needsYou_one": "{{count}} precisa de você",
@@ -70,7 +74,23 @@
     "commandPalette": "Paleta de comandos…",
     "tools": "Ferramentas",
     "keyboardShortcuts": "Atalhos de teclado",
-    "diagnostics": "Diagnóstico"
+    "diagnostics": "Diagnóstico",
+    "reportProblem": "Relatar um problema…"
+  },
+  "report": {
+    "title": "Relatar um problema",
+    "description": "Esta é a issue que abriríamos no GitHub. Nada é enviado até você escolher o que fazer com ela.",
+    "titleLabel": "Título",
+    "bodyLabel": "Relato",
+    "bodyHint": "Versão, sistema e diagnósticos recentes entram sem segredos e sem o caminho da sua pasta pessoal. Leia, acrescente os passos e edite o que não quiser compartilhar.",
+    "loading": "Preparando o relato…",
+    "failed": "Não foi possível preparar o relato.",
+    "retry": "Tentar de novo",
+    "copy": "Copiar texto",
+    "copyWhat": "Relato",
+    "open": "Abrir no GitHub",
+    "opened": "GitHub aberto no navegador",
+    "truncated": "O texto é grande demais para um link, então o GitHub recebe só o começo. Use Copiar texto para compartilhar tudo."
   },
   "keys": {
     "or": "ou",
@@ -132,13 +152,27 @@
       },
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado"
+      },
+      "view": {
+        "code": "Mostrar o Code",
+        "thread": "Mostrar o Thread",
+        "data": "Mostrar o OxeQuery",
+        "pods": "Mostrar o OxePod",
+        "post": "Mostrar o OxePost"
+      },
+      "oxepod": {
+        "filter": "Encontrar um contêiner"
+      },
+      "oxepost": {
+        "send": "Enviar a requisição",
+        "filter": "Encontrar uma requisição"
       }
     }
   },
   "oxequeryCommands": {
     "open": {
       "label": "Abrir o OxeQuery",
-      "detail": "Contêineres e bancos de dados"
+      "detail": "Bancos de dados"
     },
     "newConnection": {
       "label": "Nova conexão de banco de dados"
@@ -165,8 +199,38 @@
       "label": "Exportar conexões",
       "detail": "Sem senhas"
     },
-    "compose": {
-      "label": "Contêineres e projetos Compose"
+    "newDatabase": {
+      "label": "Novo banco local",
+      "detail": "PostgreSQL ou MongoDB num contêiner"
+    },
+    "activity": {
+      "label": "Atividade dos agentes nos bancos"
+    }
+  },
+  "postCommands": {
+    "open": { "label": "Abrir o OxePost", "detail": "Requisições de API, ambientes e cURL" },
+    "newRequest": { "label": "Nova requisição de API", "detail": "Salva em .oxespace/requests" },
+    "filter": { "label": "Encontrar uma requisição de API" },
+    "import": { "label": "Importar cURL ou OpenAPI", "detail": "Vira arquivos de requisição" },
+    "environments": { "label": "Ambientes de API", "detail": "Variáveis e segredos" }
+  },
+  "podsCommands": {
+    "open": {
+      "label": "Abrir OxePod",
+      "detail": "Contêineres, Docker e Podman"
+    },
+    "filter": {
+      "label": "Encontrar um contêiner"
+    },
+    "resources": {
+      "label": "Imagens, volumes e redes"
+    },
+    "activity": {
+      "label": "Atividade dos agentes nos contêineres"
+    },
+    "pruneContainers": {
+      "label": "Limpar contêineres parados",
+      "detail": "Pergunta antes"
     }
   }
 }

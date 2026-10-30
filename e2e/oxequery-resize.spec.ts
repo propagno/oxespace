@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type Locator, type Page } from '@p
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectFromContainer } from './helpers/oxepod'
 
 async function drag(page: Page, handle: Locator, dx: number, dy: number): Promise<void> {
   const box = (await handle.boundingBox())!
@@ -29,7 +30,7 @@ test('the query editor, the table list and the sidebar are resized by dragging t
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
-    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await connectFromContainer(page, 'pg-dev')
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
 
     // Editor and results.

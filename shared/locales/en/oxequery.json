@@ -1,7 +1,7 @@
 {
   "activity": {
     "label": "Agent activity",
-    "intro": "Every database or container request an AI agent made, and what you decided.",
+    "intro": "Every database request an AI agent made, and what you decided.",
     "filter": "Filter",
     "show": {
       "all": "All",
@@ -28,7 +28,9 @@
     },
     "rowsUnknown": "– rows",
     "notRun": "not run",
-    "failedCode": "failed ({{code}})"
+    "failedCode": "failed ({{code}})",
+    "introContainers": "Every container request an AI agent made, and what you decided.",
+    "emptyContainers": "Agents only reach a container when you turn on agent access for a connection to it in OxeQuery. Every request they make appears here, with what you decided."
   },
   "common": {
     "close": "Close",
@@ -112,154 +114,6 @@
       "other": "Other"
     },
     "nothingToExport": "There are no saved connections to export."
-  },
-  "containers": {
-    "filter": "Filter containers",
-    "onlyRunning": "Running only",
-    "composeProject": "Compose project",
-    "allProjects": "All projects",
-    "engine": "Container engine",
-    "engineVersion": "Container engine {{version}}",
-    "engineName": "Engine: {{engine}}",
-    "engineWithContext": "Engine: {{engine}} ({{where}})",
-    "newDatabase": "New database",
-    "newDatabaseTitle": "Start a PostgreSQL or MongoDB container and connect to it",
-    "summary": "Summary",
-    "runningCount_one": "<strong>{{value}}</strong> running",
-    "runningCount_other": "<strong>{{value}}</strong> running",
-    "stoppedCount_one": "<strong>{{value}}</strong> stopped",
-    "stoppedCount_other": "<strong>{{value}}</strong> stopped",
-    "databaseCount_one": "<strong>{{value}}</strong> database",
-    "databaseCount_other": "<strong>{{value}}</strong> databases",
-    "updating": "Updating…",
-    "queryHint": "To query a database, press <strong>Connect</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.",
-    "remoteContext": "Docker context <strong>{{where}}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer.",
-    "stopTitle": "Stop {{name}}?",
-    "restartTitle": "Restart {{name}}?",
-    "stop": "Stop",
-    "restart": "Restart",
-    "start": "Start",
-    "databaseWarning": "This is a database container; open connections and running queries are interrupted.",
-    "managedVolume": "It was created by OxeQuery; its data is kept in a named volume.",
-    "noMatch": "No container matches the filter.",
-    "emptyTitle": "No containers yet.",
-    "list": "Container list",
-    "column": {
-      "name": "Name",
-      "image": "Image",
-      "state": "State",
-      "usage": "CPU / memory",
-      "ports": "Ports",
-      "actions": "Actions"
-    },
-    "state": {
-      "running": "running",
-      "exited": "exited",
-      "created": "created",
-      "paused": "paused",
-      "restarting": "restarting",
-      "dead": "dead",
-      "removing": "removing"
-    },
-    "restartNamed": "Restart {{name}}",
-    "stopNamed": "Stop {{name}}",
-    "startNamed": "Start {{name}}",
-    "connectNamed": "Connect to {{name}}",
-    "restartTitleShort": "Restart this container",
-    "stopTitleShort": "Stop this container",
-    "startTitleShort": "Start this container",
-    "connectTitle": "Create a connection to this database and open it",
-    "connect": "Connect"
-  },
-  "compose": {
-    "label": "Compose project actions",
-    "running_one": "{{running}} of {{count}} running",
-    "running_other": "{{running}} of {{count}} running",
-    "up": "Up",
-    "start": "Start",
-    "stop": "Stop",
-    "restart": "Restart",
-    "logs": "Logs",
-    "down": "Down",
-    "downAsk": "Down…",
-    "done": "Done.",
-    "downTitle": "Take {{project}} down?",
-    "downConfirm": "Take down",
-    "downDescription": "Its containers and networks are removed. Named volumes are kept.",
-    "closeOutput": "Close output",
-    "outputTitle": "{{project}} · {{action}}"
-  },
-  "details": {
-    "label": "{{name}} details",
-    "close": "Close details",
-    "sections": "Container sections",
-    "tab": {
-      "overview": "Overview",
-      "logs": "Logs",
-      "run": "Run command",
-      "shell": "Shell"
-    },
-    "loading": "Loading container details…",
-    "image": "Image",
-    "command": "Command",
-    "health": "Health",
-    "restartPolicy": "Restart",
-    "started": "Started",
-    "ports": "Ports",
-    "networks": "Networks",
-    "environment": "Environment",
-    "namesOnly": "(names only)",
-    "mounts": "Mounts"
-  },
-  "logs": {
-    "filter": "Filter logs",
-    "filterPlaceholder": "Filter",
-    "pause": "Pause",
-    "resume": "Resume",
-    "label": "Container logs",
-    "waiting": "Waiting for output…"
-  },
-  "run": {
-    "explain": "Runs once inside <strong>{{name}}</strong> without a shell, so pipes and quotes are not interpreted. Use the Shell tab for interactive work.",
-    "command": "Command",
-    "startFirst": "Start the container to run commands.",
-    "timedOut": "Timed out after 30 s",
-    "exitCode": "Exit code {{code}}",
-    "truncated": "output truncated",
-    "output": "Command output"
-  },
-  "shell": {
-    "startFirst": "Start the container to open a shell.",
-    "opening": "Opening shell…",
-    "paneName": "{{name}} shell",
-    "shell": "Shell",
-    "newSession": "New session"
-  },
-  "engine": {
-    "missingTitle": "No container engine found",
-    "deniedTitle": "Not allowed to use Docker",
-    "stoppedTitle": "{{engine}} is not running",
-    "unavailableTitle": "Containers unavailable",
-    "deniedFix": "Add your user to the <code>docker</code> group, then sign in again.",
-    "startLinux": "Start it with <code>sudo systemctl start docker</code>.",
-    "startDesktop": "Open Docker Desktop and wait until it says it is running.",
-    "startPodman": "Start the machine with <code>podman machine start</code>.",
-    "checksAgain": "This page checks again by itself.",
-    "install": "Install Docker Desktop, Docker Engine or Podman. OxeQuery uses their command-line tool, so anything that works in your terminal works here.",
-    "checkAgain": "Check again",
-    "checking": "Checking…"
-  },
-  "engineBar": {
-    "label": "Docker engine",
-    "thisEngine": "this engine",
-    "elsewhere_one": "No containers in “{{selected}}”, but “{{other}}” has {{count}}. Choose it below.",
-    "elsewhere_other": "No containers in “{{selected}}”, but “{{other}}” has {{count}}. Choose it below.",
-    "refused": "“{{label}}” is a Docker engine on this computer, but your user is not allowed to use it ({{endpoint}}). Add your user to the docker group and sign in again, or choose another engine.",
-    "state": {
-      "denied": "no permission",
-      "unreachable": "not running",
-      "not-checked": "remote, not used"
-    }
   },
   "url": {
     "empty": "Paste a connection string such as postgres://user:password@localhost:5432/app",
@@ -389,7 +243,9 @@
     "keyChanged": "<strong>The SSH server's host key changed.</strong> This can mean the server was rebuilt, or that someone is intercepting the connection. Do not continue until you have confirmed it with whoever runs the server.",
     "trusted": "trusted: {{fingerprint}}",
     "now": "now: {{fingerprint}}",
-    "testFailed": "The connection test failed"
+    "testFailed": "The connection test failed",
+    "fromContainerDraft": "From the container {{name}}: host and port are filled in.",
+    "containerPassword": "Type the password the container was created with. It is kept in the vault; agents never see it."
   },
   "grid": {
     "label": "Result",
@@ -402,7 +258,16 @@
     "hideNamed": "Hide column {{name}}",
     "resize": "Resize column {{name}}",
     "openRow": "Open this row",
-    "nullTitle": "NULL (no value)"
+    "nullTitle": "NULL (no value)",
+    "filterScope": "Filter column",
+    "filterAll": "All columns",
+    "filterLabel": "Filter loaded rows",
+    "filterPlaceholder": "Filter loaded rows…",
+    "filterCount": "{{shown}} of {{total}} loaded rows",
+    "filterClear": "Clear filter",
+    "pin": "Pin column {{name}}",
+    "unpin": "Unpin column {{name}}",
+    "pinTitle": "Pin to the left"
   },
   "library": {
     "saved": "Query saved",
@@ -670,10 +535,23 @@
       "in": "is one of"
     }
   },
+  "completion": {
+    "cte": "CTE",
+    "subquery": "subquery",
+    "foreignKey": "foreign key {{name}}"
+  },
   "cell": {
     "label": "Cell",
     "row": "row {{number}}",
-    "close": "Close cell viewer"
+    "close": "Close cell viewer",
+    "collapseAll": "Collapse all",
+    "expandAll": "Expand all",
+    "collapseNode": "Collapse {{name}}",
+    "expandNode": "Expand {{name}}",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "jsonLabel": "JSON document",
+    "arrayLabel": "Array elements"
   },
   "workbench": {
     "queryTitle": "Query {{number}}",
@@ -698,13 +576,22 @@
     "analyzeTitle": "Run the statement and show real timings. A statement that changes data is rolled back.",
     "formatTitle": "Format the SQL (Shift+Alt+F)",
     "limit": "Limit",
+    "limitTitle": "Rows a query returns. Capped at {{formatted}} for this connection.",
+    "timeout": "{{seconds}} s",
+    "timeoutTitle": "The server stops a statement after {{seconds}} seconds on this connection.",
+    "readOnlyPolicy": "read-only by policy",
+    "readOnlyPolicyTitle": "Your organization's policy keeps this connection read-only. It cannot be turned off here.",
     "editorHeight": "Query editor height",
     "confirm": {
       "analyzeTitle": "Analyze runs this statement",
       "destructiveTitle": "This statement is destructive",
+      "typedTitle": "Change data on production?",
       "analyzeAnyway": "Analyze anyway",
       "runAnyway": "Run anyway",
+      "runOnProduction": "Run on production",
       "production": "This is a production connection.",
+      "typedHint": "This statement changes data on a production connection.",
+      "typeName": "Type {{name}} to continue",
       "check": "Check these before it runs."
     },
     "results": "Results",
@@ -739,6 +626,15 @@
     "tabLimit_one": "Close a query tab first: {{count}} is the most that can be open.",
     "tabLimit_other": "Close a query tab first: {{count}} is the most that can be open."
   },
+  "lint": {
+    "updateNoWhere": "UPDATE without WHERE changes every row of the table.",
+    "deleteNoWhere": "DELETE without WHERE removes every row of the table.",
+    "drop": "{{statement}} permanently removes the object and what it holds.",
+    "truncate": "TRUNCATE removes every row of the table.",
+    "alterDrop": "{{statement}} permanently removes a column or constraint and the data in it.",
+    "selectStarLarge": "SELECT * reads every column of {{table}}, about {{formatted}} rows. List the columns you need or add a LIMIT.",
+    "selectNoLimit": "No LIMIT: this query may return every row. On production, add a LIMIT."
+  },
   "preferences": {
     "title": "OxeQuery settings",
     "description": "What is kept, and how far agents may go.",
@@ -758,6 +654,13 @@
       "write": "Read and write, with approval"
     },
     "ceilingHint": "A connection's own agent setting can only be lower than this. Agents never write to production.",
+    "limits": "Limits by environment",
+    "limitsHint": "The most rows a query returns and the longest a statement may run on a connection of each kind. A connection's own setting can only be lower.",
+    "rows": "Rows",
+    "statementTime": "Statement time",
+    "noLimit": "No limit",
+    "seconds": "{{seconds}} seconds",
+    "minutes": "{{minutes}} minutes",
     "saved": "Saved."
   },
   "copy": {
@@ -862,44 +765,6 @@
     "connected": "Connected.",
     "connectedTo": "Connected to {{version}}.",
     "failed": "Could not reconnect"
-  },
-  "resources": {
-    "label": "Images, volumes and networks",
-    "tab": {
-      "images_one": "Images ({{count}})",
-      "images_other": "Images ({{count}})",
-      "volumes_one": "Volumes ({{count}})",
-      "volumes_other": "Volumes ({{count}})",
-      "networks_one": "Networks ({{count}})",
-      "networks_other": "Networks ({{count}})"
-    },
-    "usage": "{{type}}: {{size}}",
-    "usageReclaimable": "{{type}}: {{size}} ({{reclaimable}} reclaimable)",
-    "removeTitle": {
-      "image": "Remove image {{name}}?",
-      "volume": "Remove volume {{name}}?",
-      "network": "Remove network {{name}}?"
-    },
-    "removeWarning": {
-      "image": "Containers can no longer be created from it until it is pulled again.",
-      "volume": "The data in this volume is deleted and cannot be recovered.",
-      "network": "Containers attached to this network are not affected, but it is removed."
-    },
-    "inUse": "The engine refuses when it is still in use.",
-    "removeNamed": {
-      "image": "Remove image {{name}}",
-      "volume": "Remove volume {{name}}",
-      "network": "Remove network {{name}}"
-    },
-    "column": {
-      "repository": "Repository",
-      "tag": "Tag",
-      "size": "Size",
-      "created": "Created",
-      "name": "Name",
-      "driver": "Driver",
-      "scope": "Scope"
-    }
   },
   "newDatabase": {
     "title": "New database",
@@ -1066,15 +931,8 @@
   },
   "sidebar": {
     "label": "OxeQuery sidebar",
-    "refresh": "Refresh containers",
+    "refresh": "Refresh connections",
     "settings": "OxeQuery settings",
-    "allContainers": "All containers",
-    "running_one": "{{count}} running",
-    "running_other": "{{count}} running",
-    "engineRefused": "The container engine refused access. Open All containers for the fix.",
-    "noEngine": "No container engine is reachable yet.",
-    "more_one": "+{{count}} more in All containers",
-    "more_other": "+{{count}} more in All containers",
     "width": "OxeQuery sidebar width"
   },
   "snippet": {
@@ -1268,7 +1126,6 @@
   },
   "view": {
     "tab": {
-      "containers": "Containers",
       "activity": "Activity"
     },
     "openViews": "Open views",
@@ -1296,5 +1153,12 @@
     "default": "Default",
     "primary": "primary",
     "unique": "unique"
+  },
+  "welcome": {
+    "title": "Open a database",
+    "text": "Connect to PostgreSQL or MongoDB, or start one in a container. Containers you already run are in OxePod, with a Connect in OxeQuery button.",
+    "textSaved": "Choose a connection on the left, or add one. Containers are in OxePod.",
+    "newDatabase": "New local database",
+    "newDatabaseTitle": "Start a PostgreSQL or MongoDB container and connect to it"
   }
 }

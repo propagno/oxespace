@@ -35,6 +35,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Read-only size inventory of the private memory directory: counts bytes, never reads
   // file contents, follows no links and deletes nothing.
   'electron/main/services/memory/memory-storage.ts',
+  // "Erase all stored memory" in Settings: removes only the managed store's `data` and `upgrade-2.6.2` folders,
+  // each a direct child of the private memory directory (checked before removing); no workspace path is ever used.
+  'electron/main/services/memory/memory-control.ts',
   // Reads one small JSON flag file (<userData>/experimental.json); no workspace path involved.
   'electron/main/services/experimental-features.ts',
   // Reads the app's own translation catalogs (locales/<language>/main.json next to the bundle); fixed names only.
@@ -173,6 +176,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/ipc/diagnostics.ipc.ts',
   // The list of Thread projects with semantic search turned on: one JSON file under userData.
   'electron/main/services/semantic-projects.ts',
+  // Deletes only the app's own stale backups and crash dumps under userData (fixed directories, age-based); the live database and WAL are never listed.
+  'electron/main/services/storage-retention.ts',
   // The audit export is written only to a path returned by Electron's native save dialog.
   'electron/main/ipc/mcp-internal.ipc.ts',
   // Portable conversation packages are read/written only at a path returned
@@ -223,7 +228,14 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/updater.ts',
   // Reads and writes only <userData>/ui-scale.json (the interface zoom the next
   // window starts at, so boot has no 100% first frame) — never a workspace path.
-  'electron/main/ipc/appearance.ipc.ts'
+  'electron/main/ipc/appearance.ipc.ts',
+  // OxePost collections: request and environment files under <workspace>/.oxespace/requests only. The renderer sends
+  // relative paths that are validated segment by segment (no "..", no backslash, .http files, four levels at most),
+  // resolved under that folder and checked again through realpath; links are skipped, reads are capped at 256 KiB.
+  'electron/main/services/oxepost/store.ts',
+  // OxePost secrets: one encrypted file under <userData> (safeStorage; refused where only obfuscation exists), mode 0600,
+  // written by temp file and rename. No workspace path is read or written, and no value is ever returned to the page.
+  'electron/main/services/oxepost/secrets.ts'
 ])
 
 describe('workspace fs allowlist', () => {

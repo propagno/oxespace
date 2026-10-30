@@ -79,6 +79,24 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     expect(state.overrides['ws-custom']).toEqual({ scrollback: 150_000 })
   })
 
+  test('rolls the former 50k default down to the memory-bounded one and keeps deliberate values', async () => {
+    localStorage.setItem(KEY, JSON.stringify({
+      version: 7,
+      state: {
+        global: { scrollback: 50_000 },
+        overrides: { 'ws-default': { scrollback: 50_000 }, 'ws-custom': { scrollback: 30_000 } }
+      }
+    }))
+
+    const { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS } = await import('../../src/store/terminal-prefs.store')
+    const state = useTerminalPrefsStore.getState()
+
+    expect(TERMINAL_PREFS_DEFAULTS.scrollback).toBe(10_000)
+    expect(state.global.scrollback).toBe(10_000)
+    expect(state.overrides['ws-default']).toEqual({ scrollback: 10_000 })
+    expect(state.overrides['ws-custom']).toEqual({ scrollback: 30_000 })
+  })
+
   test('repairs the persisted 32px zoom ceiling without discarding workspace choices', async () => {
     localStorage.setItem(KEY, JSON.stringify({
       version: 6,

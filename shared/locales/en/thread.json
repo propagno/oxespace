@@ -114,6 +114,14 @@
       "failed": "Failed",
       "unknown": "Unconfirmed",
       "completed": "Done"
+    },
+    "interrupted": "Interrupted",
+    "interruptedHint": "The app closed while this was running. It may or may not have taken effect. Continue asks the agent to check first; nothing is run again automatically.",
+    "continue": "Continue",
+    "dismiss": "Dismiss",
+    "interruptedHandled": {
+      "continued": "Continued: the agent was asked to check what happened first.",
+      "dismissed": "Dismissed. Nothing was run again."
     }
   },
   "announce": {

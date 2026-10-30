@@ -1,69 +1,56 @@
 import { create } from 'zustand'
-import type { ContainerEngine, ContainerEngineInfo, ContainerSummary, OxeQueryConnection } from '../../../shared/types/oxequery'
+import type { DatabaseEngine, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 
 export type OxeQueryTab =
-  | { id: 'containers'; kind: 'containers' }
   | { id: 'activity'; kind: 'activity' }
   | { id: string; kind: 'connection'; title: string; connectionId: string }
 
+/** A new connection filled in from elsewhere (a database container in OxePod); the password is still asked. */
+export interface ConnectionDraft {
+  engine: DatabaseEngine
+  name: string
+  host: string
+  port: number
+  database: string
+  username: string
+  /** The container it points at, so the connection remembers where it came from. */
+  containerRef?: string
+}
+
 interface OxeQueryState {
-  engines: ContainerEngineInfo[]
-  engine?: ContainerEngine
-  containers: ContainerSummary[]
-  containersError: string | null
-  containersLoading: boolean
   connections: OxeQueryConnection[]
   connectionsError: string | null
   tabs: OxeQueryTab[]
+  /** The tab in front; empty when no tab is open and the welcome page shows. */
   activeTab: string
-  /** Container whose details are open; shared so the sidebar can open it. */
-  selectedContainer: string | null
-  dialog: { open: boolean; editing: OxeQueryConnection | null }
+  dialog: { open: boolean; editing: OxeQueryConnection | null; draft?: ConnectionDraft }
   /** OxeQuery settings dialog; in the store so the palette opens it whether or not the sidebar is expanded. */
   preferencesOpen: boolean
-  refreshContainers(engine?: ContainerEngine): Promise<void>
+  /** The New database wizard; in the store so the palette and the welcome page open the same one. */
+  newDatabaseOpen: boolean
   refreshConnections(): Promise<void>
   openConnection(connection: OxeQueryConnection): void
+  openActivity(): void
   closeTab(id: string): void
   setActiveTab(id: string): void
-  selectContainer(id: string | null): void
-  openDialog(editing?: OxeQueryConnection | null): void
+  openDialog(editing?: OxeQueryConnection | null, draft?: ConnectionDraft): void
   closeDialog(): void
   setPreferencesOpen(open: boolean): void
+  setNewDatabaseOpen(open: boolean): void
   forgetConnection(id: string): void
 }
 
-// The fixed tabs are named by the view, in the language on screen; a connection tab is named after it.
-const CONTAINERS: OxeQueryTab = { id: 'containers', kind: 'containers' }
-const ACTIVITY: OxeQueryTab = { id: 'activity', kind: 'activity' }
-let containerRequest = 0
-let refreshCount = 0
+/** The tab that takes the front when `closing` goes: its right-hand neighbour, else the left one, else none. */
+function nextActive(tabs: OxeQueryTab[], closing: string, active: string): string {
+  if (active !== closing) return active
+  const index = tabs.findIndex(tab => tab.id === closing)
+  const rest = tabs.filter(tab => tab.id !== closing)
+  return rest[Math.min(index, rest.length - 1)]?.id ?? ''
+}
 
-export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
-  engines: [], containers: [], containersError: null, containersLoading: false, connections: [], connectionsError: null,
-  tabs: [CONTAINERS, ACTIVITY], activeTab: 'containers', selectedContainer: null, dialog: { open: false, editing: null }, preferencesOpen: false,
-
-  refreshContainers: async engine => {
-    const request = ++containerRequest
-    set({ containersLoading: true })
-    try {
-      const requested = engine ?? get().engine
-      const result = await oq('containers.list', requested ? { engine: requested } : {})
-      if (request !== containerRequest) return
-      set({ containers: result.containers, engine: result.engine, containersError: null, containersLoading: false })
-    } catch (error) {
-      if (request !== containerRequest) return
-      set({ containers: [], containersError: errorMessage(error), containersLoading: false })
-    }
-    // Asking the Docker CLI about its own version and daemon costs several processes. While the list
-    // works, once in a while is enough; when it fails, every refresh looks again (the user may have
-    // just started Docker).
-    refreshCount++
-    if (get().containersError || get().engines.length === 0 || refreshCount % 10 === 0) {
-      try { set({ engines: await oq('containers.engines', { refresh: !!get().containersError }) }) } catch { /* the list error already explains it */ }
-    }
-  },
+export const useOxeQueryStore = create<OxeQueryState>((set) => ({
+  connections: [], connectionsError: null, tabs: [], activeTab: '', dialog: { open: false, editing: null }, preferencesOpen: false, newDatabaseOpen: false,
 
   refreshConnections: async () => {
     try { set({ connections: await oq('connections.list', {}), connectionsError: null }) }
@@ -76,20 +63,21 @@ export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
     return { tabs, activeTab: id }
   }),
 
-  closeTab: id => set(state => {
-    if (id === 'containers' || id === 'activity') return state
-    const tabs = state.tabs.filter(tab => tab.id !== id)
-    return { tabs, activeTab: state.activeTab === id ? 'containers' : state.activeTab }
-  }),
+  openActivity: () => set(state => ({ tabs: state.tabs.some(tab => tab.kind === 'activity') ? state.tabs : [{ id: 'activity', kind: 'activity' as const }, ...state.tabs], activeTab: 'activity' })),
+
+  closeTab: id => set(state => ({ tabs: state.tabs.filter(tab => tab.id !== id), activeTab: nextActive(state.tabs, id, state.activeTab) })),
 
   setActiveTab: id => set({ activeTab: id }),
-  selectContainer: id => set({ selectedContainer: id, ...(id ? { activeTab: 'containers' } : {}) }),
-  openDialog: editing => set({ dialog: { open: true, editing: editing ?? null } }),
+  openDialog: (editing, draft) => set({ dialog: { open: true, editing: editing ?? null, ...(draft && !editing ? { draft } : {}) } }),
   closeDialog: () => set({ dialog: { open: false, editing: null } }),
   setPreferencesOpen: open => set({ preferencesOpen: open }),
-  forgetConnection: id => set(state => ({
-    connections: state.connections.filter(connection => connection.id !== id),
-    tabs: state.tabs.filter(tab => tab.kind !== 'connection' || tab.connectionId !== id),
-    activeTab: state.activeTab === `connection:${id}` ? 'containers' : state.activeTab
-  }))
+  setNewDatabaseOpen: open => set({ newDatabaseOpen: open }),
+  forgetConnection: id => set(state => {
+    const closing = state.tabs.find(tab => tab.kind === 'connection' && tab.connectionId === id)
+    return {
+      connections: state.connections.filter(connection => connection.id !== id),
+      tabs: state.tabs.filter(tab => tab.kind !== 'connection' || tab.connectionId !== id),
+      activeTab: closing ? nextActive(state.tabs, closing.id, state.activeTab) : state.activeTab
+    }
+  })
 }))

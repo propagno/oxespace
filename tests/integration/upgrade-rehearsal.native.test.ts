@@ -9,10 +9,15 @@
  * available, which CI avoids by fetching full history and tags.
  *
  * To rehearse another release: `OXESPACE_UPGRADE_FROM=v0.15.0 npm run test:electron -- tests/integration/upgrade-rehearsal.native.test.ts`
+ *
+ * The way back is rehearsed too. The release's own `openDatabase` is run on the upgraded file: it must refuse
+ * it without touching a byte, and the verified pre-upgrade backup must restore into a file that release opens
+ * with all its data (and that the current build can upgrade again). CI sets OXESPACE_REQUIRE_UPGRADE_TAG=1 so
+ * a missing tag fails the job instead of skipping it.
  */
 import Database from 'better-sqlite3'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -25,7 +30,7 @@ vi.mock('electron', () => ({
 }))
 
 /** Update when a release becomes the latest stable. */
-const PREVIOUS_STABLE = process.env.OXESPACE_UPGRADE_FROM ?? 'v0.16.0'
+const PREVIOUS_STABLE = process.env.OXESPACE_UPGRADE_FROM ?? 'v1.3.3'
 
 function tagExists(tag: string): boolean {
   try {
@@ -36,6 +41,11 @@ function tagExists(tag: string): boolean {
   }
 }
 const available = tagExists(PREVIOUS_STABLE)
+
+// A job that is meant to run the rehearsal must not pass by skipping it.
+test.skipIf(!(process.env.OXESPACE_REQUIRE_UPGRADE_TAG === '1'))('the tag to rehearse from is available (CI fetches tags)', () => {
+  expect(available, `git tag ${PREVIOUS_STABLE} is missing; fetch with --tags and full history`).toBe(true)
+})
 
 type Row = Record<string, unknown>
 interface Seeded { table: string; key: Row; values: Row }
@@ -65,8 +75,10 @@ describe.skipIf(!available)(`upgrading a database created by ${PREVIOUS_STABLE}`
   let directory = ''
   let databasePath = ''
   let oldVersion = 0
+  let previous: { openDatabase: (path: string) => Database.Database }
   let oldTableCounts: Record<string, number> = {}
   const seeded: Seeded[] = []
+  const copies: string[] = []
 
   function insert(db: Database.Database, table: string, values: Row, key: Row): void {
     const columns = Object.keys(values)
@@ -83,7 +95,7 @@ describe.skipIf(!available)(`upgrading a database created by ${PREVIOUS_STABLE}`
       mkdirSync(dirname(target), { recursive: true })
       writeFileSync(target, execFileSync('git', ['show', `${PREVIOUS_STABLE}:${file}`], { maxBuffer: 16 * 1024 * 1024 }))
     }
-    const previous = await import(/* @vite-ignore */ pathToFileURL(join(mirror, 'electron/main/db/index.ts')).href)
+    previous = await import(/* @vite-ignore */ pathToFileURL(join(mirror, 'electron/main/db/index.ts')).href)
 
     directory = mkdtempSync(join(tmpdir(), 'oxe-upgrade-'))
     databasePath = join(directory, 'oxespace.sqlite3')
@@ -130,6 +142,7 @@ describe.skipIf(!available)(`upgrading a database created by ${PREVIOUS_STABLE}`
   afterAll(() => {
     rmSync(mirror, { recursive: true, force: true })
     if (directory) rmSync(directory, { recursive: true, force: true })
+    for (const copy of copies) rmSync(copy, { recursive: true, force: true })
   })
 
   test('starts from the real previous schema', () => {
@@ -188,6 +201,62 @@ describe.skipIf(!available)(`upgrading a database created by ${PREVIOUS_STABLE}`
       db.close()
     }
     expect(readdirSync(join(directory, 'db-backups')).filter(name => name.endsWith('.sqlite3'))).toHaveLength(1)
+  })
+
+  /** A private copy of the upgraded install (database, WAL files and db-backups), so the way back cannot disturb the other tests. */
+  function copyInstall(name: string): { dir: string; path: string; backups: () => string[] } {
+    const dir = `${directory}-${name}`
+    copies.push(dir)
+    cpSync(directory, dir, { recursive: true })
+    const backups = (): string[] => readdirSync(join(dir, 'db-backups')).filter(file => file.endsWith('.sqlite3')).sort()
+    return { dir, path: join(dir, 'oxespace.sqlite3'), backups }
+  }
+
+  test('the previous release refuses the upgraded database cleanly and changes nothing', () => {
+    const install = copyInstall('rollback-refused')
+    const before = install.backups()
+    expect(() => previous.openDatabase(install.path)).toThrow(/newer OXESpace version/)
+    expect(() => previous.openDatabase(install.path), 'refusing is repeatable and leaves no lock behind').toThrow(/newer OXESpace version/)
+    expect(install.backups(), 'a refusal takes no backup').toEqual(before)
+    expect(readdirSync(install.dir).filter(file => file.includes('.corrupt-')), 'a refusal quarantines nothing').toEqual([])
+    const db = new Database(install.path, { readonly: true })
+    try {
+      expect(db.pragma('user_version', { simple: true })).toBe(LATEST_DB_VERSION)
+      expect(db.pragma('integrity_check', { simple: true })).toBe('ok')
+      expect(findLostData(seeded, db)).toEqual([])
+    } finally {
+      db.close()
+    }
+  })
+
+  test('the verified backup restores a file the previous release opens with all its data, and the current build upgrades it again', () => {
+    const install = copyInstall('rollback-restored')
+    const [backup] = install.backups()
+    expect(backup, 'the upgrade left the restore point the refusal message sends people to').toContain(`oxespace-v${oldVersion}-`)
+    // What a person does: close the app, put the backup in place of the database (and drop its stale WAL files).
+    for (const suffix of ['', '-wal', '-shm']) rmSync(install.path + suffix, { force: true })
+    copyFileSync(join(install.dir, 'db-backups', backup), install.path)
+
+    const restored = previous.openDatabase(install.path)
+    try {
+      expect(restored.pragma('user_version', { simple: true })).toBe(oldVersion)
+      expect(findLostData(seeded, restored)).toEqual([])
+      expect(restored.pragma('integrity_check', { simple: true })).toBe('ok')
+    } finally {
+      restored.close()
+    }
+    expect(install.backups(), 'opening at its own version takes no backup').toEqual([backup])
+
+    const again = openDatabase(install.path)
+    try {
+      expect(again.pragma('user_version', { simple: true })).toBe(LATEST_DB_VERSION)
+      expect(findLostData(seeded, again)).toEqual([])
+      expect(again.pragma('foreign_key_check')).toEqual([])
+    } finally {
+      again.close()
+    }
+    expect(install.backups(), 'the second upgrade takes exactly one more backup').toHaveLength(2)
+    expect(readFileSync(join(install.dir, 'db-backups', backup)).length).toBeGreaterThan(0)
   })
 
   test('the check itself notices a deleted row, a changed value and a removed column', () => {

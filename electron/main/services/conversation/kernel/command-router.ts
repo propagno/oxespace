@@ -16,6 +16,7 @@ import type { ThreadNativeCli } from '../thread-cli'
 import type { ThreadExportService } from '../thread-export.service'
 import type { ThreadHistory, ThreadHistoryWriteOptions } from '../thread-history'
 import { threadCapabilityManifest } from '../thread-capabilities'
+import { runCrashRecoveryCommand } from '../thread-crash-recovery'
 import { instructionLabel, instructionSources } from '../instruction-sources'
 
 export interface CommandHost {
@@ -44,6 +45,8 @@ export interface CommandHost {
 }
 
 export async function runThreadCommand(host: CommandHost, id: string, text: string): Promise<ThreadCommandResult> {
+    const crash = await runCrashRecoveryCommand(host, id, text)
+    if (crash) return crash
     const match = text.trim().match(/^\/([a-z0-9][a-z0-9_:-]*)(?:\s+([\s\S]*))?$/i)
     if (!match || text.length > THREAD_MESSAGE_MAX_CHARS) throw Error('Invalid command')
     let name = match[1].toLowerCase()

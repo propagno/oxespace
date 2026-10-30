@@ -3,7 +3,7 @@ import { useContributedCommands } from './utils/commandRegistry'
 import './commands/settings.commands'
 import { useCodeCommands } from './commands/code.commands'
 import { useThreadCommands } from './commands/thread.commands'
-import { onOxeQueryAction, performOxeQueryAction } from './components/OxeQuery/oxequery-bridge'
+import { DataHosts, DataSidebar, isDataView, useModeActions } from './components/Navigation/ModeViews'
 import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
@@ -28,9 +28,6 @@ const DelegatedWorkDialog = lazy(() => import('./components/Delegation/Delegated
 const TeamDialog = lazy(() => import('./components/Teams/TeamDialog').then(m => ({ default: m.TeamDialog })))
 const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
 const ThreadSidebar = lazy(() => import('./components/Threads/ThreadSidebar').then(m => ({ default: m.ThreadSidebar })))
-// OxeQuery (containers + databases) is entirely lazy: nothing of it is in the entry chunk until first use.
-const OxeQuerySidebar = lazy(() => import('./components/OxeQuery/OxeQuerySidebar').then(m => ({ default: m.OxeQuerySidebar })))
-const OxeQueryView = lazy(() => import('./components/OxeQuery/OxeQueryView').then(m => ({ default: m.OxeQueryView })))
 const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
 const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
 const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.AddThreadProjectDialog })))
@@ -73,7 +70,7 @@ import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { matchesHotkey } from './keyboard/chords'
-import { setKeyboardView, useKeybindings } from './keyboard/keybindings'
+import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
 import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 
@@ -83,20 +80,16 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platfor
 
 export function App(): ReactElement {
   const appVersion = window.oxe?.app?.version ?? 'dev'
-  const [applicationView, setApplicationView] = useState<'code' | 'thread' | 'data'>('code')
+  const [applicationView, setApplicationView] = useState<AppView>('code')
   const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)
   const [teamScope, setTeamScope] = useState<import('../shared/types/team').TeamScope | null>(null)
   const [delegationTarget, setDelegationTarget] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [hasOpenedThread, setHasOpenedThread] = useState(false)
-  const [hasOpenedData, setHasOpenedData] = useState(false)
-  const selectMode = (mode: 'code' | 'thread' | 'data'): void => {
+  const selectMode = (mode: AppView): void => {
     if (mode === 'thread') setHasOpenedThread(true)
-    if (mode === 'data') setHasOpenedData(true)
     setApplicationView(mode)
   }
-  // The palette's OxeQuery entries register once their module loads, after the first paint. Choosing one opens
-  // the view first, then lets the action find its control.
-  useEffect(() => { void import('./components/OxeQuery/oxequery.commands'); return onOxeQueryAction(action => { selectMode('data'); performOxeQueryAction(action) }) }, [])
+  useModeActions(selectMode)
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
@@ -665,7 +658,7 @@ export function App(): ReactElement {
   // The Team belongs to a project: the selected workspace in Code, the selected project in Thread.
   const teamTarget = applicationView === 'thread' ? (threadProject ? { kind: 'thread' as const, id: threadProject.projectId } : null)
     : applicationView === 'code' ? (activeWorkspace ? { kind: 'code' as const, id: activeWorkspace.id } : null) : null
-  const teamDisabledReason = applicationView === 'data' ? 'Team is available in Code and Thread' : applicationView === 'thread' ? 'Select a Thread project to open its team' : 'Open a workspace to open its team'
+  const teamDisabledReason = isDataView(applicationView) ? 'Team is available in Code and Thread' : applicationView === 'thread' ? 'Select a Thread project to open its team' : 'Open a workspace to open its team'
   const openTeam = (): void => { if (teamTarget) setTeamScope(teamTarget) }
 
   // Code's side panels: buttons in the workspace bar for Changes and Browser, the rest in the Panels menu (also on the rail).
@@ -817,7 +810,7 @@ export function App(): ReactElement {
     <ThemeProvider themeId={applicationView !== 'code' ? undefined : activeWorkspace?.themeId} density={applicationView !== 'code' ? undefined : activeWorkspace?.uiDensity}>
       <TooltipProvider>
       <TitleTooltips />
-      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : applicationView === 'data' ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
+      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label="OXESpace workbench">
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
@@ -835,7 +828,7 @@ export function App(): ReactElement {
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
-      {applicationView === 'data' ? <Suspense fallback={<aside className="thread-navigation" aria-label="OxeQuery sidebar" />}><OxeQuerySidebar /></Suspense>
+      {isDataView(applicationView) ? <DataSidebar view={applicationView} />
       : applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
         const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
@@ -857,7 +850,7 @@ export function App(): ReactElement {
         onOpenSearch={openCommandMenu}
         integrationGroups={integrationGroups}
       />}
-      <section className={`workspace-surface${applicationView === 'thread' ? ' thread-workspace-surface' : applicationView === 'data' ? ' oq-surface' : ''}`}>
+      <section className={`workspace-surface${applicationView === 'thread' ? ' thread-workspace-surface' : isDataView(applicationView) ? ' oq-surface' : ''}`}>
         {error ? <div className="error-banner">{error}</div> : null}
         {appNotice ? (
           <div className="error-banner">
@@ -869,9 +862,9 @@ export function App(): ReactElement {
           <div className="empty-state">
             <h3>Loading workspaces</h3>
           </div>
-        ) : activeWorkspace || applicationView === 'thread' || applicationView === 'data' ? (
+        ) : activeWorkspace || applicationView !== 'code' ? (
           <>
-            {hasOpenedData && <div className="oq-host" style={{ display: applicationView === 'data' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'data'}><ErrorBoundary label="OxeQuery"><Suspense fallback={<EmptyState compact title="Loading OxeQuery…" />}><OxeQueryView active={applicationView === 'data'} /></Suspense></ErrorBoundary></div>}
+            <DataHosts view={applicationView} />
             {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary label="the conversations"><Suspense fallback={<EmptyState compact title="Loading threads…" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
@@ -926,7 +919,7 @@ export function App(): ReactElement {
             <div className="empty-state-alt" role="group" aria-label="Other ways to start">
               <span>Or start somewhere else</span>
               <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
-              <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button>
+              <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button><Button variant="ghost" size="sm" onClick={() => selectMode('pods')}>Open OxePod</Button><Button variant="ghost" size="sm" onClick={() => selectMode('post')}>Open OxePost</Button>
             </div>
             <FirstRunChecklist onNewWorkspace={openNewWorkspaceFromUI} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} />
           </div>

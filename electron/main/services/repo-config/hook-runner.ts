@@ -4,6 +4,7 @@
  * reported as a pass, so a timeout always settles as "no exit code".
  */
 import { spawn, type ChildProcess } from 'node:child_process'
+import { inheritedEnvironment } from '../policy'
 
 export const HOOK_TIMEOUT_MS = 120_000
 const KILL_GRACE_MS = 2_000
@@ -89,7 +90,7 @@ export function runHook(script: string, options: RunHookOptions): Promise<HookOu
         detached: !isWindows,
         stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
         env: {
-          ...process.env,
+          ...inheritedEnvironment('hook', options.cwd),
           GIT_TERMINAL_PROMPT: '0',
           GCM_INTERACTIVE: 'never',
           ...options.env

@@ -10,7 +10,7 @@ export type Language = (typeof LANGUAGES)[number]
 export type LanguagePreference = 'system' | Language
 
 /** Namespaces, one JSON file each. `main` is only loaded by the main process. */
-export const NAMESPACES = ['common', 'code', 'thread', 'oxequery', 'settings', 'main'] as const
+export const NAMESPACES = ['common', 'code', 'thread', 'oxequery', 'pods', 'post', 'settings', 'main'] as const
 export type Namespace = (typeof NAMESPACES)[number]
 
 /** Any Portuguese locale (pt, pt-BR, pt_PT…) opens in Brazilian Portuguese; everything else in English. */
