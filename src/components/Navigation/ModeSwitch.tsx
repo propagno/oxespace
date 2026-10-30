@@ -10,7 +10,8 @@ const MODES: Array<{ mode: NavigationMode; label: string }> = [
   { mode: 'code', label: 'Code' },
   { mode: 'thread', label: 'Thread' },
   { mode: 'data', label: 'OxeQuery' },
-  { mode: 'pods', label: 'OxePod' }
+  { mode: 'pods', label: 'OxePod' },
+  { mode: 'post', label: 'OxePost' }
 ]
 
 /** The application's four views, as one segmented control in the middle of the title bar; Ctrl+1…4 switch between them. */
@@ -18,7 +19,7 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
   const { t } = useTranslation()
   const attention = useAttentionSummary()
   const go = (next: NavigationMode) => () => { if (next !== mode) onSelect(next) }
-  useKeybindings({ 'view.code': go('code'), 'view.thread': go('thread'), 'view.data': go('data'), 'view.pods': go('pods') })
+  useKeybindings({ 'view.code': go('code'), 'view.thread': go('thread'), 'view.data': go('data'), 'view.pods': go('pods'), 'view.post': go('post') })
   return <nav className={styles.switch} aria-label={t('nav.applicationView')}>
     {MODES.map(item => {
       const counts = item.mode === 'code' ? attention.code : item.mode === 'thread' ? attention.thread : null

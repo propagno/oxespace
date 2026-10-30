@@ -29,11 +29,12 @@ const MIGRATED = [
   'src/components/Onboarding/AgentCliOnboarding.tsx',
   'src/components/OxeQuery',
   'src/components/OxePod',
+  'src/components/OxePost',
   'src/components/Settings',
   'src/components/Threads'
 ]
 /** Text that stays the same in every language: product and tool names. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OxePod', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'claude.ai'])
+const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OxePod', 'OxePost', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'claude.ai'])
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/
