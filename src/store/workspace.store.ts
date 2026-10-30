@@ -72,7 +72,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (isWorkspaceCreateRefusal(workspace)) {
       // The main process wrote nothing: say why in the interface language and fail the call, as before.
       const { message } = workspace
-      throw new Error(i18n.getFixedT(null, 'main')(messageKey(message.code), messageValues(message, i18n.language)))
+      const tm = i18n.getFixedT(null, 'main') as unknown as (key: string, values: Record<string, string>) => string
+      throw new Error(tm(messageKey(message.code), messageValues(message, i18n.language)))
     }
     set((state) => ({
       // The main process can return an existing workspace for this folder.
