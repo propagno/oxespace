@@ -83,7 +83,7 @@ export type PostOp =
   | 'envSave' | 'envDelete' | 'secretSet' | 'secretClear'
   | 'send' | 'history'
 
-export type PostApiResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
+export type PostApiResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string; /** The message as a code the window translates (C3). */ messageCode?: import('../messages').MainMessage } }
 
 export interface OxePostApi {
   call(op: PostOp, input: unknown): Promise<PostApiResult<unknown>>
