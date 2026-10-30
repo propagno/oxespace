@@ -168,6 +168,8 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Correção de segurança do `tool.use` | #212 + #223 | BACKEND | Homologado (na `main` f211ca7f: 25/25, com os casos adversariais como regressão) |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
+| Profundidade do quadro C5 + WebGL sob demanda | #226 | BACKEND + FRONTEND | Homologado (na `main` fc07f5e9/7e2dfdd5) |
+| Contrato B10 `approvals.*` | #235 | BACKEND | Homologado (contrato; na `main` 7e2dfdd5), com nota sobre nomes de sistema |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -408,6 +410,34 @@ no `readRemoteFrame` (por exemplo, 64 níveis), com teste.
   - `rename` recusa 65 caracteres e aceita "Celular do trabalho";
   - `revoke` remove o aparelho, e um id desconhecido é recusado.
 - Notas em `b9-174/notes.json`.
+
+### Profundidade do quadro e WebGL sob demanda (#226): Homologado
+
+- A profundidade do quadro foi conferida na `main` (a nota baixa do #187 está fechada).
+- WebGL no primeiro foco, na `main` 7e2dfdd5 em dark/en: clicar no primeiro terminal e digitar `echo oi` desenha o
+  texto na hora, com cursor e sem erro de console. São 9 canvases nos 4 painéis, sem linhas no DOM (renderização por
+  canvas) e sem requisição separada do addon, que vai no bundle. Captura em `check-226.png`.
+
+### Contrato B10 `approvals.*` (#235): Homologado (contrato)
+
+- 5 arquivos de teste do PR: 72 aprovados e 27 `todo`. Os `todo` são o comportamento que chega com o #238 e o #243.
+- Sonda de caixa-preta no `reservedNameIn`, com 38 nomes. Todas as imitações dos nomes do produto são pegas:
+  - espaços e pontos ("O X E Space", "O.X.E.Space");
+  - zero-width, soft hyphen e RLO;
+  - homóglifos gregos e cirílicos, negrito matemático, letras circuladas e "Öxespace";
+  - leetspeak ("0XE5PACE", "OXESp4ce", "0x3space");
+  - "oxespace.com" e "Segurança do OXESpace".
+- Também são pegos "Systém", "S y s t e m" e "Sistema.".
+- Nota para o BACKEND/coordenador: os nomes genéricos só são pegos por igualdade, e não há nomes de sistema
+  operacional. Passam:
+  - "System Administrator", "Sistema operacional", "Administrador" e "Aplicação";
+  - "Windows", "Windows Security", "Microsoft" e "Ubuntu";
+  - "Thread", que é o nome de uma aba do próprio app.
+
+  Com o modal nativo ainda existindo (P1-0), um agente chamado "Windows Security" que pede permissão parece vir do
+  sistema operacional. Critério de aceite sugerido: nomes de SO e de fornecedor (Windows, Microsoft, Ubuntu, Linux,
+  macOS, Apple) por contenção; "Sistema", "System", "Administrador" e "Administrator" como palavra inicial; e
+  "Thread" reservado.
 
 ### Achados fora dos itens da onda
 
