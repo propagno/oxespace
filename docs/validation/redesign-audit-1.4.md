@@ -71,7 +71,24 @@ Entram na próxima rodada da fase 1.
 
 ## Fase 3 · Páginas e modais por modo
 
-_A seguir._
+Roteiro: `audit-pages.spec.ts` (no #184). São 29 superfícies por combinação: a tela inicial, os 5 modos, os modais de
+cada modo (novo workspace, nova conversa, nova conexão, importar no OxePost, remover container, Team, atalhos, About,
+relatar problema) e todas as categorias de Settings, do app e do workspace. Combinações: claro/pt-BR, escuro/en e
+escuro/pt-BR, na `main` f211ca7f. Cada superfície é capturada e medida: rolagem horizontal, alvos abaixo de 24 px,
+contraste abaixo de AA e inglês restante no pt-BR.
+
+| # | Tela / componente | Gravidade | Problema | Evidência | Critério de aceite |
+|---|---|---|---|---|---|
+| P3-1 | Todas as superfícies medidas | positivo | Nas 3 combinações × 29 superfícies não houve nenhuma rolagem horizontal, nenhum texto abaixo do contraste AA e nenhum erro de console. | `audit-pages/<combo>/metrics.json` | Manter. A matriz pode virar gate do lote visual (F8). |
+| P3-2 | Controles segmentados, chips e seletores pequenos (primitiva) | atrapalha | Alvos abaixo de 24 px em série, vindos da mesma primitiva: Aparência (escala 90–125%, densidade, movimento) e Atualizações com 22 px de altura; o motor Docker/Podman do OxePod com 22 px; o ambiente Local/Desenvolvimento/Produção e as amostras de cor (18×24) na nova conexão; a caixa "Favorita" com 16×16; o workspace no seletor de escopo de Settings com 168×20. | `audit-pages/light-pt-BR/metrics.json` (`small`); `21-modal-new-connection.png` | A primitiva segmentada, os chips e as amostras têm pelo menos 24×24 de área de toque (ou o espaçamento da exceção do WCAG 2.5.8), nas duas densidades. O lint de alvo da F4 passa a cobrir essas primitivas. |
+| P3-3 | Modal Team | atrapalha | Em pt-BR o modal está todo em inglês ("Persistent roles for this project, shared by Code and Thread", "Loading team…"). O carregamento é um texto escrito à mão, não a primitiva LoadingState da F1. | `audit-pages/dark-pt-BR/24-modal-team.png` | Textos pelo catálogo (F6/F12, OxeCode/OxeChat) e carregamento pela primitiva. Conferir que o carregamento termina, porque na captura de 0,5 s ele ainda estava em andamento. |
+| P3-4 | Tela inicial e primeiros passos em pt-BR | atrapalha | 16 textos em inglês na tela inicial ("Agents and terminals for your projects", "Select a folder…", "New workspace", "Open Thread", o FirstRunChecklist inteiro) e no modal de novo workspace. | `audit-pages/light-pt-BR/00-start.png`, `01-modal-new-workspace.png` | Coberto pela F6 (#197). Reverificar: nenhum texto em inglês nessas duas superfícies no pt-BR. |
+| P3-5 | About e Relatar problema pela paleta, em pt-BR | atrapalha | Buscando "Sobre" ou "Relatar" na paleta em pt-BR, nada aparece ("No results", também em inglês). Só o menu Ajuda chega a essas telas. | `audit-pages/light-pt-BR/26-modal-about.png`, `27-modal-report.png` | Coberto pelo PR curto do FRONTEND depois do #197 (rótulos e palavras-chave da paleta pelo catálogo). Reverificar a busca em pt-BR. |
+
+Ainda nesta fase:
+- a combinação claro/en;
+- o progresso de operações longas (import/export do OxeQuery, índice semântico);
+- as telas de quarentena e config protegida com a fixture do #237.
 
 ## Propostas de roadmap (funcionalidades avançadas que faltam)
 
