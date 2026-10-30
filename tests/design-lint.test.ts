@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { BREAKPOINT, CONTAINER } from '../src/design/tokens/scales'
 
 /**
  * Design rules for CSS written on the new system: the primitives in src/ui and
@@ -39,7 +40,45 @@ export function violations(css: string): Array<{ line: number; rule: string; tex
   return found
 }
 
+/**
+ * Every width condition of an @media or @container query, with the line it sits on. Conditions read as
+ * `max-width: 640px`, `min-inline-size: 640px`, `width < 640px` or `640px <= width`; comments are skipped.
+ */
+export function widthQueries(css: string): Array<{ kind: 'media' | 'container'; value: string; line: number }> {
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, match => match.replace(/[^\n]/g, ' '))
+  const condition = /(?:(?:min|max)-(?:width|inline-size)\s*:\s*([\d.]+[a-z]*))|(?:\b(?:width|inline-size)\s*[<>]=?\s*([\d.]+[a-z]*))|(?:([\d.]+[a-z]*)\s*[<>]=?\s*(?:width|inline-size)\b)/g
+  return [...code.matchAll(/@(media|container)\b([^{]*)\{/g)].flatMap(rule => {
+    const line = code.slice(0, rule.index).split('\n').length
+    return [...rule[2].matchAll(condition)].map(match => ({ kind: rule[1] as 'media' | 'container', value: match[1] ?? match[2] ?? match[3], line }))
+  })
+}
+
 describe('design lint', () => {
+  describe('width queries use the layout scale (docs/design/layout.md)', () => {
+    const breakpoints = new Set<string>(Object.values(BREAKPOINT))
+    const containers = new Set<string>(Object.values(CONTAINER))
+
+    it('reads every form of a width condition and nothing else', () => {
+      const css = [
+        '@media (max-width: 760px) { .a {} }', '@container panel (min-inline-size: 480px) and (max-width: 720px) { .b {} }',
+        '@media (width < 900px) { .c {} }', '@container (640px <= width) { .d {} }', '@media (max-height: 600px) { .e {} }',
+        '/* @media (max-width: 1px) */ @media (forced-colors: active) { .f {} }'
+      ].join('\n')
+      expect(widthQueries(css)).toEqual([
+        { kind: 'media', value: '760px', line: 1 }, { kind: 'container', value: '480px', line: 2 }, { kind: 'container', value: '720px', line: 2 },
+        { kind: 'media', value: '900px', line: 3 }, { kind: 'container', value: '640px', line: 4 }
+      ])
+    })
+
+    it('every @media width is a BREAKPOINT and every @container width a CONTAINER (window vs panel)', () => {
+      const css = files(join(ROOT, 'src'), path => path.endsWith('.css'))
+      const report = css.flatMap(path => widthQueries(readFileSync(path, 'utf8'))
+        .filter(query => !(query.kind === 'media' ? breakpoints : containers).has(query.value))
+        .map(query => `${relative(ROOT, path)}:${query.line} @${query.kind} ${query.value}`))
+      expect(report).toEqual([])
+    })
+  })
+
   it('catches literal values and respects the exemption markers', () => {
     expect(violations('.a { color: #fff; font-size: 12px; z-index: 3; border-radius: 6px; }').map(item => item.rule)).toHaveLength(4)
     expect(violations('.a { color: var(--text-primary); border-radius: 50%; z-index: var(--layer-modal); }')).toEqual([])

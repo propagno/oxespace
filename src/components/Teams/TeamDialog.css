@@ -16,7 +16,7 @@
 .team-message-list p { white-space: pre-wrap; }
 .team-message-list small { color: var(--tx-secondary); }
 .team-messages textarea { width: 100%; background: var(--bg-input); color: var(--tx-primary); border: 1px solid var(--bd-base); padding: 8px; border-radius: var(--radius-sm); resize: vertical; }
-@media (max-width: 600px) { .team-members li { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 640px) { .team-members li { align-items: flex-start; flex-direction: column; } }
 
 /* Grid forms stretch their children; the submit button keeps its own width at the end. */
 .team-dialog form > .team-form-submit { justify-self: end; }

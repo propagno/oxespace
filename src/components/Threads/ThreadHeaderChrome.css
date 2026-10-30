@@ -3,7 +3,17 @@
 .thread-heading .thread-heading-context { flex: none; gap: 6px; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-heading .thread-heading-context strong { color: var(--text-primary); font-weight: var(--weight-semibold); }
 .thread-heading-branch { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--fs-2xs); }
-.thread-heading-worktree { color: var(--text-muted); }
+.thread-heading-worktree { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); }
+.thread-heading-worktree > svg { display: none; }
+/* A narrow heading keeps where the conversation runs: project, branch and worktree shrink to icons. Their names stay
+   in the accessibility tree (visually hidden, never display: none); branch and worktree also in their tooltips. */
+@container thread-heading (max-width: 720px) {
+  .thread-heading .thread-heading-context { gap: 4px; }
+  .thread-heading-context > strong, .thread-heading-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+  .thread-heading-branch { padding: 0 4px; }
+  .thread-heading-worktree > svg { display: inline; }
+  .thread-heading .thread-heading-actions { gap: 3px; }
+}
 .thread-heading h1 { color: var(--text-muted); font-size: var(--fs-xs); font-weight: var(--weight-regular); }
 .thread-heading .thread-panel-toggle span { display: none; }
 .thread-heading .thread-heading-actions .thread-panel-toggle { width: 28px; height: 28px; padding: 0; justify-content: center; }

@@ -708,6 +708,7 @@
     "outsideTitle": "{{root}}\nThe agent reports working outside this repository: {{cwd}}",
     "yourProjects": "Your projects",
     "worktree": "worktree",
+    "branchTitle": "Branch: {{branch}}",
     "projectConversations": "Project conversations",
     "moreActions": "More actions",
     "delegate": "Delegate work",

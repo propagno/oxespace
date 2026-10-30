@@ -513,9 +513,6 @@
 /* Toolbar search fields keep a usable width (the field chrome above would otherwise let them collapse). */
 .oq-view .oq-toolbar input:not([type='checkbox']) { min-width: 120px; }
 
-/* Narrow panes: the containers table keeps its actions in view by dropping the image column and the button labels. */
-@container (max-width: 860px) {
-}
 .oq-nav-item { min-height: var(--control-md); }
 
 /* A failed statement: headline and next step first, the engine's own words collapsed. */

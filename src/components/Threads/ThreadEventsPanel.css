@@ -16,7 +16,7 @@
 .thread-events-detail dt { opacity: 0.7; }
 .thread-events-detail dd { margin: 0; overflow-wrap: anywhere; }
 .thread-events-detail pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .thread-events-body:has(.thread-events-detail) { grid-template-columns: minmax(0, 1fr); }
   .thread-events-row { grid-template-columns: 84px minmax(0, 1fr); }
   .thread-events-type, .thread-events-meta { grid-column: 2; }

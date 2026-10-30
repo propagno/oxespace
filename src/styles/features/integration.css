@@ -5,7 +5,9 @@
   background: var(--bg-app);
 }
 
+/* Docked in the side panel, so its forms follow the panel's width rather than the window's. */
 .integration-panel {
+  container: integration-panel / inline-size;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -564,12 +566,6 @@
   box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.16);
 }
 
-@media (max-width: 900px) {
-  .integration-create-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Integration member status row — pairs the activity dot with the
    provider/state label so a glance reads "claude · Awaiting". Sits inside
    the existing member card layout, no extra wrapping. */
@@ -1078,7 +1074,8 @@
   gap: var(--space-sm);
 }
 
-@media (max-width: 720px) {
+/* Below about 560px of panel the two-column forms stack and the add-member row (five columns) puts its action on a second line. */
+@container integration-panel (max-width: 560px) {
   .integration-create-grid,
   .integration-handoff-composer-fields {
     grid-template-columns: 1fr;

@@ -105,7 +105,7 @@
 }
 .ws-settings-use-default { align-self: flex-start; padding: 7px 10px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: var(--bg-elevated); color: var(--tx-primary); font-size: var(--fs-xs); cursor: pointer; }
 .ws-settings-use-default:hover { background: var(--wb-selection); }
-@container (max-width: 620px) {
+@container (max-width: 640px) {
   .review-pane-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(140px, 38%) minmax(0, 1fr); }
   .review-pane-tree { height: auto; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
   .review-pane-diffs { height: auto; }

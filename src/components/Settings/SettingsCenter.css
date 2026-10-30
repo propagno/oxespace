@@ -88,7 +88,7 @@
 .settings-general-destination > span { display: flex; align-items: center; gap: 8px; }
 .settings-general-destination strong { font-size: var(--fs-xs); font-weight: 600; }
 .settings-general-destination small { color: var(--text-secondary); font-size: var(--fs-2xs); line-height: 1.5; }
-@media (max-width: 1180px) { .settings-general-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .settings-general-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .settings-general-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 8px; padding: 16px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-raised); }
 .settings-general-card label { color: var(--text-primary); font-size: var(--fs-xs); font-weight: 500; }
 .settings-general-card p { margin: 5px 0 0; color: var(--text-muted); font-size: var(--fs-2xs); line-height: 1.6; }
@@ -154,7 +154,7 @@
   .settings-center .settings-update-card .settings-progress { grid-row: 5; }
   .settings-center .settings-update-card .settings-error { grid-row: 6; }
 }
-@media (max-width: 899px) {
+@media (max-width: 900px) {
 
   .settings-center-nav { gap: 16px; padding: 0 12px 12px; }
   .settings-center-title { margin: 0 -12px; padding: 0 16px; }
@@ -164,7 +164,7 @@
   .settings-center .ws-settings-main { padding: 24px 20px; }
   .settings-center .settings-content-header { flex-wrap: wrap; }
 }
-@media (max-width: 699px) {
+@media (max-width: 640px) {
 
   .settings-center-toolbar { padding: 0 14px; }
   .settings-center-content { padding: 20px 14px; }

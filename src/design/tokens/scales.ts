@@ -38,3 +38,14 @@ export const MOTION = {
 
 /** What reduced motion changes: transitions become instant, nothing travels, and the spinner turns slowly. */
 export const REDUCED_MOTION = { 'duration-fast': '0ms', 'duration-base': '0ms', 'duration-slow': '0ms', 'duration-spin': '2.4s', 'motion-shift': '0px' } as const
+
+/**
+ * Layout widths (docs/design/layout.md). CSS cannot read a custom property inside an @media or @container
+ * condition, so these are the source of truth the design lint holds every width query to; the --bp-* and
+ * --container-* properties document them in the generated CSS. The supported floor is a 960×640 window at
+ * 125%, a 768px viewport, so every BREAKPOINT except `xl` and `2xl` only acts below it.
+ */
+/** Window widths, for @media: layouts that span the whole window (Settings, the top bar, OxePod). */
+export const BREAKPOINT = { sm: '520px', md: '640px', lg: '760px', xl: '900px', '2xl': '1100px' } as const
+/** Panel widths, for @container: a panel, pane or view that can be narrow while the window is wide. */
+export const CONTAINER = { '2xs': '240px', xs: '380px', sm: '480px', md: '560px', lg: '640px', xl: '720px' } as const

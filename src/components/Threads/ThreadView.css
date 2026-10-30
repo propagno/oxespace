@@ -30,7 +30,7 @@
 .thread-resume-all { justify-self: start; }
 .thread-resume-native-label { display: grid; gap: 6px; min-width: 0; flex: 1; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-resume-native-label input { width: 100%; }
-.thread-view { --thread-canvas-max: 1100px; --thread-prose-max: 1000px; container-type: inline-size; flex: 1; display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr) auto; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--text-primary); }
+.thread-view { --thread-canvas-max: 1100px; --thread-prose-max: 1000px; container: thread-view / inline-size; flex: 1; display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr) auto; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--text-primary); }
 .thread-heading { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--border-default); }
 .thread-heading-identity, .thread-heading-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .thread-heading-identity { flex: 1; overflow: hidden; }
@@ -42,7 +42,6 @@
 /* The provider moved into another worktree: the branch shown is that worktree's. */
 .thread-heading-context[data-moved='true'] { color: var(--accent); }
 .thread-heading .thread-icon-action { min-width: 28px; min-height: 28px; margin-left: auto; flex-shrink: 0; padding: 6px; color: var(--text-secondary); }
-@media (max-width: 760px) { .thread-heading-context { display: none; } .thread-heading-actions { gap: 3px; } .thread-heading-actions .thread-review-trigger { padding: 5px 6px; } }
 .thread-model-picker { max-width: 460px; margin: 8px 0 20px; padding: 16px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-raised); }
 .thread-model-picker > header { display: flex; align-items: center; justify-content: space-between; font-size: var(--fs-sm); }
 .thread-model-picker > header strong { font-weight: 500; }
@@ -299,7 +298,6 @@
 .thread-composer footer .thread-stop + .thread-send { margin-left: 0; }
 .thread-composer footer .thread-send:hover, .thread-composer footer .thread-stop:hover { background: var(--accent-hover); }
 .thread-composer-column .thread-scroll-end { display: flex; position: absolute; z-index: calc(var(--layer-raised) + 1); bottom: calc(100% + 8px); right: 0; padding: 5px 10px; border: 1px solid var(--border-default); background: var(--surface-raised); white-space: nowrap; font-size: var(--fs-2xs); }
-@container (max-width: 700px) { .thread-heading-context { display: none; } .thread-heading-actions .thread-review-trigger { width: 30px; height: 30px; justify-content: center; padding: 0; } .thread-heading-actions .thread-review-trigger span { display: none; } }
 .thread-connection-notice { display: flex; align-items: center; gap: 8px; min-height: 36px; max-height: 60px; padding: 4px 0 8px; font-size: var(--fs-xs); color: var(--text-muted); }
 .thread-connection-notice>span { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
 .thread-connection-notice>svg { flex-shrink: 0; }
@@ -321,7 +319,8 @@
 .thread-account-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .thread-accounts-dialog .thread-account-note { font-size: var(--fs-2xs); margin: 16px 0 0; }
 .thread-auth-code { margin: 0 0 12px; }
-@media (max-width: 1000px) { .thread-heading { padding: 0 16px; gap: 10px; } .thread-heading-context { max-width: 160px; } .thread-reading-column { padding: 16px; } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
+/* A narrow view (small window, docked panel or side-by-side) tightens its gutters. */
+@container thread-view (max-width: 720px) { .thread-heading { padding: 0 16px; gap: 10px; } .thread-heading-context { max-width: 160px; } .thread-reading-column { padding: 16px; } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
 @media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { margin-top: 8px; } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
 
 .thread-resize:hover, .thread-resize:focus-visible { background: color-mix(in srgb, var(--accent) 35%, transparent); }
@@ -402,7 +401,7 @@
 .thread-command-explanation { margin: 0; color: var(--text-secondary); line-height: 1.5; }
 .thread-command-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 .thread-command-actions:empty { display: none; }
-@media (max-width: 1000px) { .thread-config-trigger span { max-width: 135px; } .thread-composer footer { gap: 4px; } }
+@container thread-view (max-width: 720px) { .thread-config-trigger span { max-width: 135px; } .thread-composer footer { gap: 4px; } }
 
 .thread-grid { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--border-default); }
 .thread-grid.is-split { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; }
@@ -470,7 +469,9 @@
 .thread-account-heading>.agent-provider-icon { flex: 0 0 28px; }
 .thread-account-heading>div:not(.agent-provider-icon) { flex: 1; min-width: 0; }
 .thread-accounts-dialog .thread-account-note { padding: 10px 12px; margin: 12px 0 0; border: 1px solid var(--border-default); border-radius: var(--nav-radius); color: var(--text-muted); background: var(--surface-canvas); }
-@media (max-width: 1000px) { .thread-grid.is-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); } }
+/* Two conversations side by side need room for two reading columns; below it they stack. */
+.thread-host { container: thread-host / inline-size; }
+@container thread-host (max-width: 720px) { .thread-grid.is-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); } }
 
 .thread-project-selection { display: grid; gap: 8px; min-width: 0; }
 .thread-project-selection > strong, .thread-project-selection > code { overflow-wrap: anywhere; }
@@ -535,7 +536,6 @@
 
 /* Title bar panel toggles + "more" menu (Claude Code Desktop layout). */
 .thread-panel-toggle[aria-pressed='true'] { background: var(--nav-selected); color: var(--text-primary); }
-@media (max-width: 1180px) { .thread-heading .thread-panel-toggle span { display: none; } .thread-heading .thread-panel-toggle { padding: 5px 7px; } }
 
 /* Prompt box (Claude Code Desktop layout): [+ / mic] model · effort ········ mode · usage · send */
 .thread-composer .thread-configuration { display: contents; }
@@ -551,7 +551,6 @@
 .thread-mention-menu strong { flex: none; font-weight: 500; }
 .thread-mention-menu small { min-width: 0; overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .thread-heading { container-type: inline-size; container-name: thread-heading; }
-@container thread-heading (max-width: 900px) { .thread-heading .thread-review-trigger span { display: none; } .thread-heading .thread-review-trigger { padding: 5px 7px; } }
 .thread-composer footer .thread-usage-ring { width: 28px; height: 28px; padding: 0; justify-content: center; }
 
 /* What the user sent: a quiet bubble, attachments as chips above the text, no action buttons. */

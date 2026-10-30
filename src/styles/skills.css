@@ -334,7 +334,7 @@
   cursor: default;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .skill-row-controls {
     grid-template-columns: 1fr;
   }

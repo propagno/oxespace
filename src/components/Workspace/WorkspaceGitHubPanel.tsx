@@ -35,7 +35,7 @@ export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabC
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <GitBranch size={14} aria-hidden="true" />
-          <span>{workspace.name}</span>
+          <span className="workspace-editor-name">{workspace.name}</span>
           <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
         </div>
         <div className="workspace-editor-actions repository-view-actions" aria-label={tc('workspace.panel.repositoryViews')}>

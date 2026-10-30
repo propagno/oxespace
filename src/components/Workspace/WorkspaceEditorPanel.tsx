@@ -31,7 +31,7 @@ export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded,
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <Files size={14} aria-hidden="true" />
-          <span>{workspace.name}</span>
+          <span className="workspace-editor-name">{workspace.name}</span>
           <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
         </div>
         <div className="workspace-editor-actions repository-view-actions" aria-label={tc('workspace.panel.repositoryViews')}>

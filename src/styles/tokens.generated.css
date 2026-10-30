@@ -57,6 +57,17 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
   --ease-linear: linear;
+  --bp-sm: 520px;
+  --bp-md: 640px;
+  --bp-lg: 760px;
+  --bp-xl: 900px;
+  --bp-2xl: 1100px;
+  --container-2xs: 240px;
+  --container-xs: 380px;
+  --container-sm: 480px;
+  --container-md: 560px;
+  --container-lg: 640px;
+  --container-xl: 720px;
   --logo-tile: #1f6b4a;
   --logo-mark: #ffffff;
   --logo-sun: #e8a33d;

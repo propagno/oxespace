@@ -96,7 +96,7 @@
 
 /* A narrow row cut the provider name to "Clauc…": below this width the icon says it alone (the row tooltip names it). */
 .content { container-type: inline-size; }
-@container (max-width: 230px) { .provider > span { display: none; } }
+@container (max-width: 240px) { .provider > span { display: none; } }
 
 /* Archived rows: one line of title with an ellipsis instead of a five-line block. */
 .archivedRow .item { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }

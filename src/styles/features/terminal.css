@@ -229,7 +229,7 @@
   outline: none;
 }
 .workspace-editor-content:has(.editor-pane) { container-type: inline-size; }
-@container (max-width: 620px) {
+@container (max-width: 640px) {
   .editor-pane { flex-direction: column; }
   .editor-sidebar { flex: 0 0 min(36%, 240px); width: 100%; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
 }

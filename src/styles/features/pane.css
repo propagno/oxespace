@@ -199,11 +199,11 @@
 /* A narrow pane keeps its name readable: the branch goes first, then the
    agent's label (its icon stays), instead of the name shrinking to "…". */
 .pane-header { container-type: inline-size; }
-@container (max-width: 360px) {
+@container (max-width: 380px) {
   .pane-header .pane-branch-badge,
   .pane-header .pane-header-divider { display: none; }
 }
-@container (max-width: 260px) {
+@container (max-width: 240px) {
   .pane-header .pane-agent-chip-label { display: none; }
   .pane-header .pane-agent-chip { padding: 0 5px; }
 }

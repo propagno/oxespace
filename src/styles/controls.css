@@ -142,5 +142,8 @@ input[type="search"] { min-height: var(--control-md); }
 .workspace-editor-title { flex: 1 1 0; overflow: hidden; }
 .workspace-editor-title .panel-scope-badge { flex: 0 1 auto; min-width: 0; }
 
-/* In a narrow window the side-panel header keeps the branch chip and drops the workspace name, which the title bar already shows. */
-@media (max-width: 1100px) { .workspace-editor-title > span:first-of-type { display: none; } }
+/* In a narrow side panel the header keeps the branch chip and drops the workspace name, which the title bar already shows.
+   The panel is resized on its own, so the header measures itself rather than the window. Only the name goes: a panel
+   whose title is its own label (Changes, Search, Browser) keeps it. */
+.workspace-editor-header { container: editor-header / inline-size; }
+@container editor-header (max-width: 480px) { .workspace-editor-name { display: none; } }

@@ -31,4 +31,6 @@ li.is-pending .pr-check-icon { color: var(--dot-yellow); }
 li.is-neutral .pr-check-icon { color: var(--tx-muted); }
 .pr-status-checks li button { display: grid; place-items: center; margin-left: auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); cursor: pointer; }
 .pr-status-checks li button:hover { background: var(--ov-2); color: var(--tx-primary); }
-@media (max-width: 900px) { .pr-status-actions button span, .pr-status-summary { display: none; } }
+/* Docked in a narrow conversation (small window, side panel or side-by-side), the summary yields to the actions.
+   The button labels are text nodes and stay; the old `button span` selector only hid the busy spinner. */
+@container thread-view (max-width: 640px) { .pr-status-summary { display: none; } }

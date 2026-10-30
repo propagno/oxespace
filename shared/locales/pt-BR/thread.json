@@ -725,6 +725,7 @@
     "outsideTitle": "{{root}}\nO agente informa que está trabalhando fora deste repositório: {{cwd}}",
     "yourProjects": "Seus projetos",
     "worktree": "worktree",
+    "branchTitle": "Branch: {{branch}}",
     "projectConversations": "Conversas do projeto",
     "moreActions": "Mais ações",
     "delegate": "Delegar trabalho",

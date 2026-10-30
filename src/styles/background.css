@@ -316,7 +316,7 @@
   padding: 0 4px;
 }
 
-@container (max-width: 360px) {
+@container (max-width: 380px) {
   .bg-jobs-dock-filter {
     padding-inline: 7px;
   }

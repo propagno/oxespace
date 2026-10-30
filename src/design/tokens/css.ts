@@ -5,7 +5,7 @@
  */
 import { IDENTITY, LOGO, type Mode } from './palette'
 import { colorRoles, elevations } from './semantic'
-import { CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT, WEIGHT } from './scales'
+import { BREAKPOINT, CONTAINER, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT, WEIGHT } from './scales'
 
 const block = (selector: string, entries: Record<string, string | number>, extra: string[] = []): string =>
   `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${name}: ${value};`), ...extra.map(line => `  ${line}`)].join('\n')}\n}`
@@ -26,6 +26,8 @@ function staticTokens(): Record<string, string | number> {
   for (const [name, value] of Object.entries(CONTROL.compact)) out[`control-${name}`] = `${value}px`
   for (const [name, value] of Object.entries(LAYER)) out[`layer-${name}`] = value
   for (const [name, value] of Object.entries(MOTION)) out[name] = value
+  for (const [name, value] of Object.entries(BREAKPOINT)) out[`bp-${name}`] = value
+  for (const [name, value] of Object.entries(CONTAINER)) out[`container-${name}`] = value
   for (const [name, value] of Object.entries(LOGO)) out[`logo-${name}`] = value
   for (const [name, value] of Object.entries(IDENTITY.provider)) out[`provider-${name}`] = value
   IDENTITY.avatar.forEach((value, index) => { out[`avatar-${index + 1}`] = value })

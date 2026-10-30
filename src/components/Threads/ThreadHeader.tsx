@@ -1,4 +1,4 @@
-import { Folder, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X } from 'lucide-react'
+import { Folder, FolderGit2, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Menu, type MenuEntry } from '../../ui'
 import type { ConversationThread } from '../../../shared/types/thread'
@@ -43,7 +43,8 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
   const observed = thread?.observedLocation
   const moved = Boolean(observed?.sameRepository && observed.checkoutRoot)
   const outside = observed && !observed.sameRepository ? observed.cwd : null
-  return <header className="thread-heading"><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? t('header.movedTitle', { checkout: thread!.observedLocation!.checkoutRoot, root: thread!.rootPath }) : outside ? t('header.outsideTitle', { root: thread!.rootPath, cwd: outside }) : thread?.rootPath ?? workspace?.rootPath}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? t('header.yourProjects')}</strong>{branch && <span className="thread-heading-branch"><GitBranch size={11} aria-hidden="true" />{branch}</span>}{moved && <span className="thread-heading-worktree">{t('header.worktree')}</span>}</span><h1>{thread?.title ?? t('header.projectConversations')}</h1>
+  const movedTitle = moved ? t('header.movedTitle', { checkout: observed!.checkoutRoot, root: thread!.rootPath }) : undefined
+  return <header className="thread-heading"><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={movedTitle ?? (outside ? t('header.outsideTitle', { root: thread!.rootPath, cwd: outside }) : thread?.rootPath ?? workspace?.rootPath)}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? t('header.yourProjects')}</strong>{branch && <span className="thread-heading-branch" title={t('header.branchTitle', { branch })}><GitBranch size={11} aria-hidden="true" /><span className="thread-heading-label">{branch}</span></span>}{moved && <span className="thread-heading-worktree" title={movedTitle}><FolderGit2 size={12} aria-hidden="true" /><span className="thread-heading-label">{t('header.worktree')}</span></span>}</span><h1>{thread?.title ?? t('header.projectConversations')}</h1>
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
     <div className="thread-heading-actions">
     {thread && THREAD_BAR_PANELS.map(id => <WorkbenchPanelToggle key={id} className="thread-review-trigger thread-panel-toggle" item={{ id, label: threadPanelLabel(id), title: threadPanelTitle(id), active: activePanel === THREAD_PANEL[id], onToggle: () => onTogglePanel(THREAD_PANEL[id]) }} />)}

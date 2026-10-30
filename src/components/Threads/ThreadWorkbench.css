@@ -190,7 +190,7 @@
 .thread-dock-changes li button { width: 24px; padding: 0; justify-content: center; border-color: transparent; }
 .thread-dock-changes-path { flex: 1; min-width: 0; overflow: hidden; color: var(--text-primary); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .thread-dock-changes-error { margin: 0 10px 8px; color: var(--intent-danger-fg, var(--dot-red)); }
-@container (max-width: 520px) { .thread-dock-changes-hint { display: none; } }
+@container (max-width: 560px) { .thread-dock-changes-hint { display: none; } }
 
 /* Retrying a failed turn that changed files: undo them first, or keep them. */
 .thread-retry-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
