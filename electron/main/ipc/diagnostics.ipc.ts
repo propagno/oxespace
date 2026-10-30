@@ -174,7 +174,20 @@ export function installIncidentHooks(target: Pick<typeof ipcMain, 'handle'> = ip
 
 export function recordIpcFailure(channel: string, error: unknown): void {
   const code = (error as { code?: unknown } | null)?.code
-  recordIncident(code === 'SQLITE_BUSY' || code === 'SQLITE_LOCKED' ? 'incident.database.busy' : 'incident.ipc.handlerFailed', channel)
+  recordIncident(code === 'SQLITE_BUSY' || code === 'SQLITE_LOCKED' ? 'incident.database.busy'
+    : isValidationRefusal(error) ? 'incident.ipc.validationRejected' : 'incident.ipc.handlerFailed', channel)
+}
+
+/**
+ * A refusal of the request's shape or sender rather than a failure while handling it: the input parsers and frame
+ * guards throw `Invalid …` / `Unknown … field` / `… must be …` / `… requires the application main frame`.
+ */
+export function isValidationRefusal(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  if (error.name === 'ValidationError') return true
+  // A TypeError is the handler's own bug, whatever its message says.
+  if (error.name === 'TypeError') return false
+  return /^(Invalid|Unknown|Malformed)\b/.test(error.message) || /\bmust be\b/.test(error.message) || /requires the application main frame/.test(error.message)
 }
 
 /** Tests only. */

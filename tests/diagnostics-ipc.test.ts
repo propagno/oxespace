@@ -152,18 +152,25 @@ describe('recording points shared by the app', () => {
     target.handle('demo:fails', async () => { throw new Error('secret text from the person') })
     target.handle('demo:busy', () => { throw Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' }) })
     target.handle('demo:works', () => 42)
+    target.handle('demo:refused', () => { throw new Error('Invalid terminal presence state') })
+    target.handle('demo:frame', () => { throw new Error('Tool groups requires the application main frame') })
+    target.handle('demo:bug', () => { throw new TypeError('Invalid array length') })
     await expect(Promise.resolve(hooks.handlers.get('demo:fails')!({}))).rejects.toThrow('secret text from the person')
     expect(() => hooks.handlers.get('demo:busy')!({})).toThrow('database is locked')
     expect(hooks.handlers.get('demo:works')!({})).toBe(42)
+    for (const channel of ['demo:refused', 'demo:frame', 'demo:bug']) expect(() => hooks.handlers.get(channel)!({})).toThrow()
     hooks.appEvents.get('render-process-gone')!({}, { getType: () => 'window' }, { reason: 'crashed' })
     hooks.appEvents.get('render-process-gone')!({}, { getType: () => 'window' }, { reason: 'clean-exit' })
     await vi.waitFor(async () => {
       const incidents = await call(IPC_CHANNELS.diagnostics.incidents) as Array<{ code: string; subject?: string }>
       expect(incidents.map(item => [item.code, item.subject]).sort()).toEqual([
         ['incident.database.busy', incidentSubject('demo:busy')],
+        ['incident.ipc.handlerFailed', incidentSubject('demo:bug')],
         ['incident.ipc.handlerFailed', incidentSubject('demo:fails')],
+        ['incident.ipc.validationRejected', incidentSubject('demo:frame')],
+        ['incident.ipc.validationRejected', incidentSubject('demo:refused')],
         ['incident.window.crashed', incidentSubject('window')]
-      ])
+      ].sort())
     })
     await call(IPC_CHANNELS.diagnostics.clearIncidents)
     expect(await call(IPC_CHANNELS.diagnostics.incidents)).toEqual([])

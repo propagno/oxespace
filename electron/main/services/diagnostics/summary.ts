@@ -47,6 +47,7 @@ export function buildAnalysisSummary(input: SummaryInput): string {
     '## Processes',
     ...[...groups].map(([kind, group]) => `- ${kind}: ${group.count} process${group.count === 1 ? '' : 'es'}, CPU ${group.cpu.toFixed(1)}%, ${size(group.memory)}`),
     `- total memory: ${size(totalMemory)}`,
+    '- the OxeQuery worker and CodeGraph run inside the main process and are counted in it',
     `- terminals running: ${metrics.terminals.running}; with an agent: ${metrics.terminals.agents}`,
     '',
     '## Storage',

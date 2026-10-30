@@ -41,7 +41,8 @@
         "rendererGone": "A interface parou de responder e foi reiniciada."
       },
       "ipc": {
-        "handlerFailed": "Um pedido da janela falhou em segundo plano."
+        "handlerFailed": "Um pedido da janela falhou em segundo plano.",
+        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado."
       },
       "agent": {
         "startFailed": "Um agente não conseguiu iniciar."

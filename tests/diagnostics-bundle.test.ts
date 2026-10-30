@@ -2,7 +2,9 @@
 import unzipper from 'unzipper'
 import { describe, expect, it } from 'vitest'
 import { buildBundle, type BundleSources } from '../electron/main/services/diagnostics/bundle'
-import { createRedactor, redactLogTail } from '../electron/main/services/diagnostics/bundle-redaction'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { createRedactor, LOG_MESSAGE_ALLOWLIST, redactLogTail } from '../electron/main/services/diagnostics/bundle-redaction'
 import { buildAnalysisSummary } from '../electron/main/services/diagnostics/summary'
 import { writeZip } from '../electron/main/services/diagnostics/zip-writer'
 import { DIAGNOSTICS_INCIDENT_CODES, DIAGNOSTICS_LIMITS, type DiagnosticsIncident, type DiagnosticsMetrics } from '../shared/types/diagnostics'
@@ -69,9 +71,10 @@ describe('diagnostics bundle', () => {
     const bundle = await buildBundle(sources)
     const text = (name: string) => bundle.entries.find(entry => entry.name === name)!.data.toString('utf8')
     const tail = text('main-log-tail.txt')
-    expect(tail).toContain('[2026-10-30 10:00:01.000] [error] Thread turn failed …')
-    expect(tail).toContain('[warn] [mcp] quarantined …')
-    expect(tail).toContain('[info] [main] PATH recovered from login shell …')
+    // Only the app's own fixed messages, without what follows them; free-text lines are left out whole.
+    expect(tail.split('\n')).toEqual(['[2026-10-30 10:00:00.000] [info] [main] PATH recovered from login shell …', '[2026-10-30 10:00:02.000] [warn] [mcp] quarantined …'])
+    expect(tail).not.toContain('Thread turn failed')
+    expect(tail).not.toContain('Opened')
     expect(tail).not.toMatch(/^\s+at /m)
     expect(JSON.parse(text('incidents.json'))[0]).toMatchObject({ code: 'incident.mcp.quarantined', count: 2 })
     expect(JSON.parse(text('snapshot.json')).snapshot.checks).toEqual([{ id: 'database', label: 'SQLite', tone: 'error' }])
@@ -85,6 +88,28 @@ describe('diagnostics bundle', () => {
     expect(redactor.count).toBe(4)
     redactLogTail('[2026-10-30 10:00:00.000] [info] Started: secret words\n  continuation', redactor)
     expect(redactor.count).toBe(6)
+  })
+
+  it('leaves out a line a person wrote, even with no quote or value in it, and keeps only allowlisted messages', () => {
+    const redactor = createRedactor()
+    const tail = redactLogTail([
+      '[2026-10-30 10:00:00.000] [info] [thread] my bank password is hunter two',
+      '[2026-10-30 10:00:01.000] [info] [main] uncaughtException TypeError at payroll',
+      '[2026-10-30 10:00:02.000] [info] [updater] up to date',
+      '[2026-10-30 10:00:03.000] [info] [mainX] uncaughtException',
+      '[2026-10-30 10:00:04.000] [info] [main] uncaughtExceptionsmuggled text'
+    ].join('\n'), redactor)
+    expect(tail.split('\n')).toEqual(['[2026-10-30 10:00:01.000] [info] [main] uncaughtException …', '[2026-10-30 10:00:02.000] [info] [updater] up to date'])
+    expect(tail).not.toContain('password')
+    expect(tail).not.toContain('payroll')
+    expect(redactor.count).toBe(4)
+  })
+
+  it('keeps every allowlisted log message present in the code', { timeout: 30_000 }, () => {
+    const sources = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory()
+      ? (entry.name === 'vendor' || entry.name === 'e2e' ? [] : sources(join(dir, entry.name))) : entry.name.endsWith('.ts') ? [readFileSync(join(dir, entry.name), 'utf8')] : [])
+    const code = sources(join('electron', 'main')).join('\n')
+    expect(LOG_MESSAGE_ALLOWLIST.filter(entry => !code.includes(entry))).toEqual([])
   })
 })
 

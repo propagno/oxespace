@@ -20,6 +20,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
   'incident.ipc.handlerFailed': [],
+  'incident.ipc.validationRejected': [],
   'incident.agent.startFailed': [],
   'incident.mcp.quarantined': [],
   'incident.database.busy': [],

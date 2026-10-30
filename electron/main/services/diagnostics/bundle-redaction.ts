@@ -63,29 +63,43 @@ function occurrences(text: string, needle: string): number {
 
 /** An electron-log line: `[date] [level] (scope) message`. */
 const LOG_LINE = /^(\[[^\]]{8,40}\]\s*\[[a-z]{3,8}\]\s*)(\([\w:.-]{1,40}\)\s*)?(.*)$/
-/** Where a log message stops being our own words and starts carrying data. */
-const DATA_START = /[{["'`:(<|]|\s-{1,2}[A-Za-z]/
 
 /**
- * The tail of a log, keeping each line's time, level, scope and the fixed words of its message: everything from the
- * first quote, colon, bracket or object on (values, arguments, error text, anything a person typed) is dropped, and
- * so are lines that are not log entries (stack frames, multi-line objects). The rest is redacted.
+ * The app's own fixed log messages, as the code writes them before any value. Only a line that starts with one of
+ * these reaches the bundle, and only as its time, level and this text: whatever follows (values, paths, error text,
+ * anything a person typed) is never kept. A test keeps each entry present in the code.
+ */
+export const LOG_MESSAGE_ALLOWLIST = [
+  '[main] uncaughtException', '[main] unhandledRejection', '[main] crashReporter init failed', '[main] PATH recovered from login shell',
+  '[main] blocked navigation of the main window',
+  '[OXESpace] Renderer failed to load', '[OXESpace] Renderer loadFile failed', '[OXESpace] Renderer loadURL failed', '[OXESpace] Renderer process gone',
+  '[db] open attempt',
+  '[rpc] failed to start', '[rpc] listening on', '[rpc] transport error',
+  '[internal-mcp] start failed', '[internal-mcp] stop error', '[internal-mcp] slow request', '[internal-mcp] completed request', '[internal-mcp] client-disconnected request',
+  '[mcp] quarantined', '[mcp] failed to sync', '[mcp] could not update retired endpoints', '[mcp] dropping oversized stdout buffer',
+  '[updater] error', '[updater] init skipped', '[updater] update available', '[updater] downloaded, ready to install', '[updater] up to date',
+  '[updater] quitAndInstall failed', '[updater] could not save preferences', '[updater] autoUpdater export not found',
+  '[RtkService] Failed to download or extract RTK', '[RtkService] background update failed', '[RtkService] check failed',
+  '[CodeGraphService] Failed to initialize', '[CodeGraph] Uncaught exception', '[CodeGraph] Unhandled rejection',
+  '[oxe-context] buildPaneManifest failed'
+] as const
+
+/**
+ * The tail of a log, kept as structured lines only: time, level, scope and an allowlisted fixed message. A line that
+ * does not start with one of them (free text, stack frames, multi-line objects) is left out whole, never redacted
+ * into the bundle; the count of what was left out is added to the redactions.
  */
 export function redactLogTail(text: string, redactor: Redactor, maxLines = 400): string {
   const out: string[] = []
   let dropped = 0
   for (const line of text.split(/\r?\n/).slice(-maxLines * 4)) {
     const match = LOG_LINE.exec(line)
-    if (!match) { if (line.trim()) dropped++; continue }
-    let message = match[3]
-    const tag = /^\[[\w:.-]{1,40}\]\s*/.exec(message)?.[0] ?? ''
-    const rest = message.slice(tag.length)
-    const cut = rest.search(DATA_START)
-    message = tag + (cut >= 0 ? rest.slice(0, cut) : rest)
-    if (message.length > 160) message = message.slice(0, 160)
-    const trimmed = cut >= 0 || message.length < match[3].length
-    if (trimmed) dropped++
-    out.push(`${match[1]}${match[2] ?? ''}${redactor.text(message.trimEnd())}${trimmed ? ' …' : ''}`)
+    const message = match?.[3] ?? ''
+    const fixed = match ? LOG_MESSAGE_ALLOWLIST.find(entry => message === entry || message.startsWith(`${entry} `) || message.startsWith(`${entry}:`) || message.startsWith(`${entry},`)) : undefined
+    if (!match || !fixed) { if (line.trim()) dropped++; continue }
+    const cut = message.length > fixed.length
+    if (cut) dropped++
+    out.push(`${match[1]}${match[2] ?? ''}${fixed}${cut ? ' …' : ''}`)
   }
   redactor.add(dropped)
   return out.slice(-maxLines).join('\n')

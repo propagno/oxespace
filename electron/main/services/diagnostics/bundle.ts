@@ -42,7 +42,7 @@ export async function buildBundle(sources: BundleSources): Promise<Bundle> {
     { name: 'snapshot.json', summary: 'Checks, processes, storage, connectivity, CLIs and MCP server counts', text: json({ snapshot: safeSnapshot, metrics }) },
     { name: 'incidents.json', summary: `${incidents.length} incident kind${incidents.length === 1 ? '' : 's'}: codes, areas, counts and times`, text: json(incidents) },
     { name: 'runtime-events.jsonl', summary: 'Compact runtime events: process starts and exits, hashed ids, no arguments', text: redactor.text(safe(() => sources.runtimeEvents(), '')) },
-    { name: 'main-log-tail.txt', summary: 'Last lines of the app log: time, level and fixed message words; values dropped', text: redactLogTail(logText, redactor) },
+    { name: 'main-log-tail.txt', summary: 'Last lines of the app log: time, level and the app\'s own fixed messages only; every other line left out', text: redactLogTail(logText, redactor) },
     { name: 'versions.json', summary: 'App, Electron, Chromium, Node.js and system versions', text: json(safe(() => sources.about(), {})) },
     { name: 'configuration.json', summary: 'Settings without secrets: modes, channels and counts', text: json(safe(() => sources.configuration(), {})) }
   ]

@@ -41,7 +41,8 @@
         "rendererGone": "The interface stopped responding and was restarted."
       },
       "ipc": {
-        "handlerFailed": "A request from the window failed in the background."
+        "handlerFailed": "A request from the window failed in the background.",
+        "validationRejected": "The window sent a request the app refused as malformed."
       },
       "agent": {
         "startFailed": "An agent could not start."
