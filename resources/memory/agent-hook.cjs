@@ -44,7 +44,10 @@ async function main() {
     try { response = JSON.parse(output) } catch { /* Fail open, without showing payloads. */ }
   }
   if (event === 'session-start' && decision.context) {
-    const native = response.hookSpecificOutput?.additionalContext || ''
+    // What the memory service itself briefs is captured history, some of it from files, web pages and tool output: data, never instruction.
+    const captured = String(response.hookSpecificOutput?.additionalContext || '').slice(0, Math.max(0, 7800 - String(decision.brief || '').length))
+      .replace(/[​-‏‪-‮⁠-⁤⁦-⁩﻿]/g, '').replace(/<\s*(\/?)\s*memory-data\b/gi, '‹$1memory-data')
+    const native = captured ? `<memory-data origin="ai-memory-native" trust="untrusted">\n${captured}\n</memory-data>` : ''
     response = { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: [decision.brief || '', native].filter(Boolean).join('\n\n').slice(0, 8000) } }
   }
   process.stdout.write(JSON.stringify(response) + '\n')

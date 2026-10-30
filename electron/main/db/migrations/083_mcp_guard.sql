@@ -3,4 +3,4 @@
 -- One JSON document (see mcp-guard.ts); NULL for servers trusted before this existed.
 ALTER TABLE mcp_servers ADD COLUMN guard_json TEXT;
 
-PRAGMA user_version = 81;
+PRAGMA user_version = 83;

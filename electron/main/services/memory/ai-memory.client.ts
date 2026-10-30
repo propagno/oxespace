@@ -141,7 +141,8 @@ export class AiMemoryClient {
     const properties = object(object(accept?.inputSchema)?.properties)
     return { exactHandoff: properties?.handoff_id !== undefined,
       createHandoff: tools.some(tool => tool?.name === 'memory_handoff_begin'),
-      sessionObservations: tools.some(tool => tool?.name === 'memory_read_session_observations') }
+      sessionObservations: tools.some(tool => tool?.name === 'memory_read_session_observations'),
+      deletePage: object(object(tools.find(tool => tool?.name === 'memory_delete_page')?.inputSchema)?.properties)?.path !== undefined }
   }
 
   async initialize(signal?: AbortSignal): Promise<void> {

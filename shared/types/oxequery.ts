@@ -182,6 +182,28 @@ export interface OxeQueryPreferences {
   auditRetentionDays: number
   /** The most an agent may be given on a connection of each kind, whatever the connection says. */
   agentCeiling: Record<ConnectionEnvironment, AgentAccess>
+  /** The most rows and the longest statement a connection of each kind may use, whatever the connection says. */
+  environmentLimits: Record<ConnectionEnvironment, EnvironmentLimit>
+}
+
+/** Ceilings for one kind of environment; `null` leaves the connection's own value alone. */
+export interface EnvironmentLimit { maxRows: number | null; statementTimeoutMs: number | null }
+
+/**
+ * What a connection really allows right now, after the environment's limits and the organization policy:
+ * the one answer the editor toolbar shows and the main process enforces.
+ */
+export interface ConnectionSafety {
+  readOnly: boolean
+  /** Why the connection is read-only: its own setting, or an organization policy rule that no one here can lift. */
+  readOnlyBy: 'connection' | 'policy' | null
+  /** Writes and DDL on this connection need the person to type its name. */
+  typedConfirmation: boolean
+  /** Rows a query returns unless the person asks for another number: the connection's own, held to the ceiling. */
+  maxRows: number
+  /** The most rows a query may ask for here: the environment's ceiling, else the largest the product allows. */
+  maxRowsCeiling: number
+  statementTimeoutMs: number
 }
 
 export interface OxeQueryConnectionInput {
@@ -252,6 +274,8 @@ export interface SqlRunInput {
   maxRows?: number
   /** The user confirmed a statement the guard flagged. */
   confirmed?: boolean
+  /** The connection's name as the person typed it; production connections refuse writes and DDL without it. */
+  confirmName?: string
   /** Keep a long SELECT open so its next rows can be read with `sql.more`. */
   paged?: boolean
   /** Values for `$1`, `$2`…; text the server casts to the parameter's type (null is NULL). */
@@ -259,7 +283,7 @@ export interface SqlRunInput {
 }
 
 /** A script: every statement runs on its own, in order, and the run stops at the first one that fails. */
-export interface SqlScriptInput { connectionId: string; sql: string; maxRows?: number; confirmed?: boolean }
+export interface SqlScriptInput { connectionId: string; sql: string; maxRows?: number; confirmed?: boolean; confirmName?: string }
 export interface ScriptStatementResult {
   index: number
   /** Offsets of the statement in the script text. */
@@ -380,7 +404,7 @@ export interface SqlExplain {
   executionMs?: number
   hints: string[]
 }
-export interface SqlExplainInput { connectionId: string; sql: string; analyze?: boolean; confirmed?: boolean }
+export interface SqlExplainInput { connectionId: string; sql: string; analyze?: boolean; confirmed?: boolean; confirmName?: string }
 
 export interface SavedQuery { id: string; connectionId: string; name: string; sql: string; createdAt: number; updatedAt: number }
 export interface QueryHistoryItem { id: number; sql: string; ranAt: number; durationMs: number | null; rows: number | null; ok: boolean }
@@ -610,7 +634,7 @@ export interface OxeQueryOps {
   'connections.export': { input: { ids?: string[] }; output: { saved: boolean; count: number } }
   'connections.import': { input: Record<string, never>; output: { imported: number; skipped: number } }
   'preferences.get': { input: Record<string, never>; output: OxeQueryPreferences }
-  'preferences.set': { input: Partial<Omit<OxeQueryPreferences, 'agentCeiling'>> & { agentCeiling?: Partial<OxeQueryPreferences['agentCeiling']> }; output: OxeQueryPreferences }
+  'preferences.set': { input: Partial<Omit<OxeQueryPreferences, 'agentCeiling' | 'environmentLimits'>> & { agentCeiling?: Partial<OxeQueryPreferences['agentCeiling']>; environmentLimits?: Partial<OxeQueryPreferences['environmentLimits']> }; output: OxeQueryPreferences }
   'connections.save': { input: OxeQueryConnectionInput; output: OxeQueryConnection }
   'connections.delete': { input: { id: string }; output: { ok: true } }
   'connections.test': { input: { id: string }; output: ConnectionTestResult }
@@ -640,6 +664,7 @@ export interface OxeQueryOps {
   'sql.structure.apply': { input: { connectionId: string; schema: string; table: string; action: StructureAction; confirmed?: boolean }; output: StructureResult }
   'sql.maintenance': { input: { connectionId: string; schema: string; table: string; action: MaintenanceAction; confirmed?: boolean }; output: { statement: string; durationMs: number } }
   'sql.check': { input: { connectionId: string; sql: string }; output: SqlGuardVerdict }
+  'safety.get': { input: { connectionId: string }; output: ConnectionSafety }
   'mongo.databases': { input: { connectionId: string }; output: MongoDatabaseInfo[] }
   'mongo.collections': { input: { connectionId: string; database: string }; output: MongoCollectionInfo[] }
   'mongo.find': { input: MongoFindInput; output: MongoResult }
@@ -690,10 +715,10 @@ export interface OxeQueryOps {
 export type OxeQueryOp = keyof OxeQueryOps
 
 export interface OxeQueryErrorInfo {
-  code: 'engine-missing' | 'daemon' | 'not-found' | 'invalid' | 'failed' | 'read-only' | 'confirm' | 'connect' | 'query' | 'timeout' | 'cancelled'
+  code: 'engine-missing' | 'daemon' | 'not-found' | 'invalid' | 'failed' | 'read-only' | 'confirm' | 'confirm-name' | 'connect' | 'query' | 'timeout' | 'cancelled'
     | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict'
   message: string
-  /** Why a statement was flagged, when code is 'confirm' or 'read-only'. */
+  /** Why a statement was flagged, when code is 'confirm', 'confirm-name' or 'read-only'. */
   reasons?: string[]
   /** 1-based character offset of the error in the statement the server received. */
   position?: number

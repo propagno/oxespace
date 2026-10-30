@@ -20,6 +20,7 @@ grants anything OXESpace would not already do.
   - `provider.use`: `claude`, `codex`;
   - `tool.use`: a tool name as the agent reports it (`Bash`, `mcp__github__create_issue`);
   - `integration.use`: `mcp:<server>`, `skill:<id>`, `db:<connection>`, `memory`.
+  - `db.write`: `<environment>:<connection>`, with the environment `local`, `dev` or `prod` (`prod:*`, `*:reports-db`).
 - `organization` names who set the policy in the message people see ("… is blocked by Acme policy.").
 
 ## Where it is read
@@ -43,6 +44,7 @@ never applied in part. Nothing in the app, a plugin or an MCP server writes a po
 | `tool.use` | Yes, for tools that ask for approval: the request is declined with the reason, before saved rules and full access are considered. Claude also gets the tools denied by exact name in `--disallowedTools`, so it does not offer them. Codex built-in tools that run without asking are not seen by OXESpace. |
 | `integration.use` `skill:<name>` | Yes, for skills OXESpace hands to the agent: a blocked OXE skill or Codex skill stays in the Thread command list, disabled, with the reason, and is refused when typed; a Code pane does not receive it. A skill the agent loads on its own (Claude's `Skill` tool) is a tool: block it with `tool.use` `Skill`. |
 | `integration.use` `db:<connection>` | Yes. The OxeQuery agent tools refuse a blocked connection (by its name) before any other access rule, and `oxespace_db_connections` lists it as `blocked-by-policy`. People still use the connection in OxeQuery. |
+| `db.write` `<environment>:<connection>` | Yes. A `deny` makes the connection read-only in OxeQuery whatever its own setting says: the editor refuses statements that change data, the toolbar reads "read-only by policy", and the connection form cannot lift it. Agents get the same read-only connection. A `deny` on `prod:*` is the usual rule; a later `allow` on one name lifts it for that connection. |
 | `integration.use` `memory` | Yes. Shared memory is off for the project while blocked (no capture, no context, no memory tools), turning it on is refused with the reason, and the stored choice comes back when the rule is lifted. A project's identity is its Git repository, so the project layer read for memory is the main checkout's. |
 
 Settings › Policy shows the files that apply to the current workspace, their rules and any file that was set aside,
