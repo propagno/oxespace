@@ -21,6 +21,8 @@ export interface DiagnosticsSnapshot {
 export interface DiagnosticsApi {
   getSnapshot(): Promise<DiagnosticsSnapshot>
   exportReport(): Promise<string | null>
+  /** The issue text for Help › Report a problem, built and redacted locally. Nothing is sent anywhere. */
+  buildIssueReport(): Promise<import('../issue-report').IssueReport>
   /** Tells the main process the first screen has painted, closing its startup timeline. */
   reportInteractive(): Promise<void>
   /** Writes the local "time to first answer" to the runtime log on this computer. Nothing is sent anywhere. */

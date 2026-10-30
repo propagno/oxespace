@@ -26,7 +26,7 @@ const sep = (id: string): AppMenuNode => ({ kind: 'separator', id })
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
   'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
-  'tool-mcp', 'tool-skills', 'open-usage', 'open-linear', 'help.shortcuts', 'settings.diagnostics', 'settings.updates'] as const
+  'tool-mcp', 'tool-skills', 'open-usage', 'open-linear', 'help.shortcuts', 'help.report-problem', 'settings.diagnostics', 'settings.updates'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -112,6 +112,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'help', label: t('menu.help'), items: compact([
         fromAction('help.shortcuts', t('menu.keyboardShortcuts'), shortcutLabel('help.shortcuts')),
         fromAction('settings.diagnostics', t('menu.diagnostics')),
+        fromAction('help.report-problem', t('menu.reportProblem')),
         sep('help-1'),
         // Settings › Updates shows the version and checks for a newer one.
         fromAction('settings.updates', t('menu.about', { version: ctx.version }))

@@ -10,6 +10,7 @@ import '@fontsource/ibm-plex-mono/500.css'
 import '@fontsource-variable/bricolage-grotesque'
 import { App } from './App'
 import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
+import { ReportProblemHost } from './components/Diagnostics/ReportProblemHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
 import { initI18n } from './i18n'
@@ -31,6 +32,7 @@ void initI18n().catch(error => console.error('[i18n] could not start the transla
     <React.StrictMode>
       <App />
       <ShortcutGuideHost />
+      <ReportProblemHost />
       <StartupInteractiveMark />
     </React.StrictMode>
   )
