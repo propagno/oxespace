@@ -155,7 +155,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados de Settings | #176 | FRONTEND | Pré-homologado com ressalva |
 | F1 estados do Code | #179 | FRONTEND | Pré-homologado |
 | F1 estados de OxeChat, OxePod e OxePost | #173 | FRONTEND | Pré-homologado |
-| Ajustes visuais do A4 | #207 | FRONTEND | Pré-homologado (regressão corrigida em 8a2437f8) |
+| Ajustes visuais do A4 | #207 | FRONTEND | Homologado (na `main` 277ce4bd) |
 | F1 estados do Code | #179 (main) | FRONTEND | Homologado (na `main` a412f04b) |
 | B1.1 respondPending | #166 | BACKEND | Homologado (contrato; na `main` a412f04b) |
 | B8 conectividade e About (handlers) | #168 | BACKEND | Homologado (teste de unidade; e2e depois do #185) |
