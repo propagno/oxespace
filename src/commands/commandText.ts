@@ -5,7 +5,9 @@ import { i18n } from '../i18n'
  * re-register on `languageChanged`, and the hook sources (useCommandSource) re-render their host with it.
  */
 export function tCommand(key: string, values?: Record<string, unknown>): string {
-  return (i18n.t as unknown as (key: string, options: object) => string)(`commands.${key}`, { ns: 'common', ...values })
+  const text: unknown = (i18n.t as unknown as (key: string, options: object) => unknown)(`commands.${key}`, { ns: 'common', ...values })
+  // A static source registers once before the translator starts (no text yet) and again on `languageChanged`.
+  return typeof text === 'string' ? text : ''
 }
 
 /**
@@ -40,8 +42,10 @@ function formerNames(key: string, values?: Record<string, unknown>): string[] {
   const path = `commands.formerly.${key}`
   const names = new Set<string>()
   for (const lng of [i18n.language, 'en']) {
-    if (!i18n.exists(path, { ns: 'common', lng })) continue
-    const text = (i18n.t as unknown as (key: string, options: object) => string)(path, { ns: 'common', lng, ...values })
+    if (!i18n.exists(path, { ns: 'common', lng, ...values })) continue
+    const text: unknown = (i18n.t as unknown as (key: string, options: object) => unknown)(path, { ns: 'common', lng, ...values })
+    // Before the translator starts there is no text yet; the source registers again on `languageChanged`.
+    if (typeof text !== 'string') continue
     for (const name of text.split(' | ')) if (name.trim()) names.add(name.trim())
   }
   return [...names]

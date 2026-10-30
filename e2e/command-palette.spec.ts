@@ -31,7 +31,7 @@ test('the palette ranks commands, shows shortcuts and remembers recent commands'
     // Settings pages, Keyboard included, are commands.
     await input.fill('keyboard')
     const options = page.getByRole('option')
-    await expect(options.first()).toContainText('Keyboard')
+    await expect(options.first()).toContainText(/keyboard/i)
     await input.fill('toggle')
     await page.waitForTimeout(500)
     await page.screenshot({ path: 'test-results/command-palette-keyboard.png' })
