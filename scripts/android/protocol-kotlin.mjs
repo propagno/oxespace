@@ -158,7 +158,10 @@ export function protocolKotlin(text, values) {
   const { consts, listAliases, interfaces, unions } = readDeclarations(source)
   const enums = new Map([...listAliases].filter(([alias]) => alias !== 'RemoteForbidden'))
   const byName = new Map(interfaces.map(declaration => [declaration.name.text, declaration]))
-  const dataInterfaces = interfaces.filter(declaration => !frameTag(declaration) && !declaration.typeParameters?.length)
+  // A map from quoted names to types (`'thread.send': RemoteThreadSendArgs`) only types the TypeScript side; no frame
+  // carries it, so it has no Kotlin class.
+  const typeMap = declaration => declaration.members.length > 0 && declaration.members.every(member => member.name && ts.isStringLiteral(member.name))
+  const dataInterfaces = interfaces.filter(declaration => !frameTag(declaration) && !declaration.typeParameters?.length && !typeMap(declaration))
   const types = new Set([...dataInterfaces.map(declaration => declaration.name.text), ...unions.keys()])
   const context = { source, enums, types, where: 'protocol.ts' }
   const out = [HEADER, '', 'package com.oxespace.mobile.protocol', '']

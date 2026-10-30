@@ -53,6 +53,19 @@ object RemoteLimits {
     const val CLIENT_ID_DEDUPE_MS: Long = 600000L
 }
 
+object RemoteTextLimits {
+    /** Characters of one timeline item's text (message, reasoning, tool output) sent to the phone. */
+    const val ITEM_TEXT: Int = 8000
+    /** Characters of a tool's detail line or a request's command as shown. */
+    const val DETAIL: Int = 2000
+    /** Characters of terminal output per event frame. */
+    const val TERMINAL_CHUNK: Int = 32000
+    /** Items per page of a conversation snapshot. */
+    const val THREAD_PAGE: Int = 50
+    /** Characters of a delegation's objective. */
+    const val OBJECTIVE: Int = 500
+}
+
 @Serializable
 enum class RemoteFrameType(val wire: String) {
     @SerialName("hello") HELLO("hello"),
@@ -333,3 +346,353 @@ data class RemotePairResponse(
     val accessToken: String,
     val expiresInMs: Long,
 )
+
+@Serializable
+data class RemotePane(
+    val id: String,
+    /** Display name, else the agent's or the shell's; never a path. */
+    val title: String,
+    val kind: String,
+    /** Manifest id (claude, codex…) when an agent runs in it. */
+    val agent: String? = null,
+    val agentState: String? = null,
+    /**
+     * The person turned "allow from phone" on for this pane on the desktop; `terminal.write` works only here. Off by default,
+     * off again when the app restarts, and never changed by the phone or an MCP tool.
+     */
+    val phoneWrite: Boolean,
+)
+
+@Serializable
+data class RemoteWorkspace(
+    val id: String,
+    val name: String,
+    val active: Boolean,
+    val panes: List<RemotePane>,
+)
+
+@Serializable
+data class RemoteWorkspacesData(
+    val workspaces: List<RemoteWorkspace>,
+)
+
+@Serializable
+data class RemoteThreadSummary(
+    val id: String,
+    val workspaceId: String,
+    val title: String,
+    val provider: String,
+    val status: String,
+    val lastTurnStatus: String? = null,
+    /** Background tasks still running after the turn ended. */
+    val backgroundRunning: Long? = null,
+    /** Requests waiting for a person in this conversation. */
+    val pendingRequests: Long,
+    val updatedAt: Long,
+)
+
+/** Snapshot: every conversation not archived, newest first, in pages if needed. */
+@Serializable
+data class RemoteThreadsSnapshot(
+    val threads: List<RemoteThreadSummary>,
+)
+
+/** Event: what changed. */
+@Serializable
+data class RemoteThreadsEvent(
+    val upsert: List<RemoteThreadSummary>? = null,
+    val removed: List<String>? = null,
+)
+
+@Serializable
+data class RemoteThreadHeader(
+    val id: String,
+    val workspaceId: String,
+    val title: String,
+    val provider: String,
+    val status: String,
+    val lastTurnStatus: String? = null,
+    /** Background tasks still running after the turn ended. */
+    val backgroundRunning: Long? = null,
+    /** Requests waiting for a person in this conversation. */
+    val pendingRequests: Long,
+    val updatedAt: Long,
+    val model: String? = null,
+    val queued: Long,
+    /** Whether the provider can take a message while a turn runs. */
+    val canSteer: Boolean,
+)
+
+/** Snapshot: the newest page; `thread.history` asks for older ones. */
+@Serializable
+data class RemoteThreadSnapshot(
+    val thread: RemoteThreadHeader,
+    val items: List<Item>,
+    val hasMore: Boolean,
+) {
+    @Serializable
+    data class Item(
+        val seq: Long,
+        val item: RemoteThreadItem,
+    )
+}
+
+/**
+ * Event: one read of what changed since the last cursor, filtered. An item with a known id replaces the previous one
+ * (messages grow). When the desktop cannot resume from the cursor, the gateway sends a fresh snapshot instead.
+ */
+@Serializable
+data class RemoteThreadEvent(
+    val thread: RemoteThreadHeader,
+    val items: List<Item>,
+) {
+    @Serializable
+    data class Item(
+        val seq: Long,
+        val item: RemoteThreadItem,
+    )
+}
+
+/** A request as the desktop shows it, with what the phone needs to decide, nothing more. */
+@Serializable
+data class RemotePendingRequest(
+    val threadId: String,
+    val workspaceId: String,
+    val threadTitle: String,
+    val requestId: String,
+    val generation: Long,
+    val kind: String,
+    val title: String,
+    val detail: String? = null,
+    /** The command line as the desktop's prompt shows it, redacted and cut to `REMOTE_TEXT_LIMITS.detail`. */
+    val command: String? = null,
+    /** Working directory relative to the project root, `.` for the root; left out when outside it. */
+    val cwd: String? = null,
+    val reason: String? = null,
+    val toolName: String? = null,
+    /** Files it would write, relative to the project root. */
+    val paths: List<String>? = null,
+    /** The desktop's risk colour and notes for this request. */
+    val risk: String? = null,
+    val warnings: List<String>? = null,
+    /** Values the redactor replaced in `command` and `warnings`. */
+    val redacted: Long? = null,
+    /** Questions without `secret` only, with options as on the desktop. */
+    val questions: List<Question>? = null,
+    /** Offered by the provider; "accept for the session" is never offered on the phone. */
+    val decisions: List<String>,
+    /**
+     * False when only the desktop can answer: guarded requests, permissions, elicitation, tool and secret questions.
+     * `thread.respondRequest` on one of these is `forbidden`.
+     */
+    val answerable: Boolean,
+    val createdAt: Long,
+    val expiresAt: Long? = null,
+) {
+    @Serializable
+    data class Question(
+        val id: String,
+        val header: String? = null,
+        val question: String,
+        val options: List<Option>? = null,
+        val multiple: Boolean? = null,
+        val required: Boolean? = null,
+    ) {
+        @Serializable
+        data class Option(
+            val label: String,
+            val description: String? = null,
+        )
+    }
+}
+
+@Serializable
+data class RemotePendingRequestsData(
+    val requests: List<RemotePendingRequest>,
+)
+
+/** Snapshot: what the ring keeps, in pages of `terminalChunk`. Event: what came after. ANSI escapes as is. */
+@Serializable
+data class RemoteTerminalData(
+    val data: String,
+    /** The phone was away longer than the ring is deep: clear the view before this. */
+    val truncated: Boolean,
+    val redacted: Long? = null,
+)
+
+/** No command line or cwd: arguments can carry secrets. The label is what the person named it. */
+@Serializable
+data class RemoteJob(
+    val id: String,
+    val workspaceId: String,
+    val label: String,
+    val status: String,
+    val exitCode: Long?,
+    val startedAt: Long,
+    val finishedAt: Long?,
+)
+
+@Serializable
+data class RemoteJobsData(
+    val jobs: List<RemoteJob>,
+)
+
+/** No path, cwd, base commit, evidence, context or handoff; the objective cut to `REMOTE_TEXT_LIMITS.objective`. */
+@Serializable
+data class RemoteDelegation(
+    val id: String,
+    val workspaceId: String,
+    val objective: String,
+    val state: String,
+    val error: String? = null,
+    val branch: String? = null,
+    val destinationThreadId: String? = null,
+    val updatedAt: Long,
+)
+
+@Serializable
+data class RemoteDelegationsData(
+    val delegations: List<RemoteDelegation>,
+)
+
+/**
+ * `clientId` is made by the phone once per message and repeated on a resend after reconnecting; the desktop applies a
+ * given clientId once within `REMOTE_LIMITS.clientIdDedupeMs`, so nothing is sent twice. `text` ≤ `maxTextLength`.
+ */
+@Serializable
+data class RemoteThreadSendArgs(
+    val threadId: String,
+    val text: String,
+    val clientId: String,
+)
+
+@Serializable
+data class RemoteThreadSteerArgs(
+    val threadId: String,
+    val text: String,
+    val clientId: String,
+)
+
+@Serializable
+data class RemoteThreadInterruptArgs(
+    val threadId: String,
+)
+
+/**
+ * After biometric confirmation on the phone. Only accept, decline or cancel, and answers to questions that are not
+ * secret. Refusals are `not-pending`, `stale-generation`, and `forbidden` for a request that is not answerable.
+ */
+@Serializable
+data class RemoteRespondRequestArgs(
+    val threadId: String,
+    val requestId: String,
+    val generation: Long,
+    val response: Response,
+) {
+    @Serializable
+    data class Response(
+        val decision: String? = null,
+        val answers: Map<String, List<String>>? = null,
+        val reason: String? = null,
+    )
+}
+
+@Serializable
+data class RemoteRespondRequestResult(
+    val resolution: String,
+)
+
+/** Only on a pane with `phoneWrite`, else `pane-not-shared`; `data` ≤ `REMOTE_LIMITS.terminalWriteBytes`. */
+@Serializable
+data class RemoteTerminalWriteArgs(
+    val paneId: String,
+    val data: String,
+)
+
+/** Older items of a conversation, for scrolling back. `ack.result` is a `RemoteThreadSnapshot` page. */
+@Serializable
+data class RemoteThreadHistoryArgs(
+    val threadId: String,
+    val beforeSeq: Long,
+)
+
+/**
+ * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
+ * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
+ * `delta` events are folded into the message they extend, so the phone gets the whole text.
+ */
+@Serializable
+sealed interface RemoteThreadItem {
+    @Serializable
+    @SerialName("message")
+    data class Message(
+        val id: String,
+        val role: String,
+        val text: String,
+        val truncated: Boolean? = null,
+        val attachments: Long? = null,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("reasoning")
+    data class Reasoning(
+        val id: String,
+        val text: String,
+        val truncated: Boolean? = null,
+        val completed: Boolean,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("tool")
+    data class Tool(
+        val id: String,
+        val name: String,
+        val state: String,
+        val detail: String,
+        val output: String? = null,
+        val outputTruncated: Boolean? = null,
+        val exitCode: Long? = null,
+        val filesChanged: Long? = null,
+        val interrupted: Boolean? = null,
+        val redacted: Long? = null,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("plan")
+    data class Plan(
+        val id: String,
+        val steps: List<Step>,
+    ) : RemoteThreadItem {
+        @Serializable
+        data class Step(
+            val label: String,
+            val status: String,
+        )
+    }
+
+    @Serializable
+    @SerialName("request")
+    data class Request(
+        val id: String,
+        val requestId: String,
+        val kind: String,
+        val title: String,
+        val state: String,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("subagent")
+    data class Subagent(
+        val id: String,
+        val state: String,
+        val agents: Long,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("completed")
+    data class Completed(
+        val id: String,
+        val status: String,
+        val errorCode: String? = null,
+    ) : RemoteThreadItem
+}
