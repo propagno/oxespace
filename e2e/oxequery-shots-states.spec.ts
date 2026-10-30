@@ -2,7 +2,7 @@ import { _electron as electron, expect, test, type Page } from '@playwright/test
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { connectFromContainer } from './helpers/oxepod'
+import { connectFromContainer, openView } from './helpers/oxepod'
 
 /** Screenshots of the states the first sweep misses (errors, plans, menus, dialogs, empty views) in both modes. */
 const OUT = join(process.cwd(), 'e2e/screenshots/oxequery-states' + (process.env.SHOTS_W ? '-' + process.env.SHOTS_W : ''))
@@ -32,15 +32,18 @@ test('captures the OxeQuery states', async () => {
     await page.waitForTimeout(600)
     const shot = async (name: string): Promise<void> => { for (const m of ['light', 'dark'] as const) { await mode(page, m); await page.screenshot({ path: join(OUT, `${name}-${m}.png`) }) } }
 
-    // Containers: resources, details, wizard, activity.
-    await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
+    // OxePod: resources and container details.
+    await openView(page, 'OxePod')
+    await page.getByRole('button', { name: 'Images, volumes and networks' }).last().click()
     await page.waitForTimeout(500)
     await shot('01-resources')
-    await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
-    await page.getByRole('button', { name: 'mongo-dev', exact: true }).first().click()
+    await page.getByRole('button', { name: /mongo-dev/ }).first().click()
     await page.waitForTimeout(400)
     await shot('02-container-details')
-    await page.getByRole('button', { name: 'New database' }).click()
+    await openView(page, 'OxeQuery')
+
+    // OxeQuery: wizard, connection form, activity.
+    await page.getByRole('button', { name: 'New local database' }).click()
     await page.getByRole('dialog', { name: 'New database' }).waitFor()
     await shot('03-new-database')
     await page.keyboard.press('Escape')

@@ -46,9 +46,9 @@ test('OxeQuery overlays take focus, trap Tab, close on Escape and return focus',
       await expect.poll(async () => (await trigger.evaluate(element => element === document.activeElement)), { message: `${name} returns focus to its opener (focus is on "${await focusedName()}")` }).toBe(true)
     }
 
-    // Containers page.
+    // The welcome page.
     await exercise('New connection', () => page.getByRole('button', { name: 'New connection' }).first(), () => page.getByRole('dialog', { name: 'New connection' }))
-    await exercise('New database', () => page.getByRole('button', { name: 'New database' }), () => page.getByRole('dialog', { name: 'New database' }))
+    await exercise('New database', () => page.getByRole('button', { name: 'New local database' }), () => page.getByRole('dialog', { name: 'New database' }))
     await exercise('OxeQuery settings', () => page.getByRole('button', { name: 'OxeQuery settings' }), () => page.getByRole('dialog', { name: 'OxeQuery settings' }))
 
     // SQL workbench.
