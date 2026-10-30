@@ -2,7 +2,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Spinner, cx, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
@@ -24,6 +24,12 @@ import { ThreadWorktreeFinishDialog } from './ThreadWorktreeFinishDialog'
 import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
 import { humanizeError } from '../../utils/humanizeError'
 import { useListKeyboard } from '../../hooks/useListKeyboard'
+import { useThreadSections } from './sections/useThreadSections'
+import { useSectionDrag } from './sections/useSectionDrag'
+import { groupBySection } from './sections/sectionsModel'
+import { ThreadSectionGroup, moveToSectionEntry } from './sections/ThreadSectionGroup'
+import { ThreadSectionDialogs } from './sections/ThreadSectionDialogs'
+import sectionStyles from './sections/ThreadSections.module.css'
 
 /** Threads shown per project before "Show more" (a search or the selected thread always shows). */
 const THREAD_ROWS_PER_PROJECT = 8
@@ -85,6 +91,9 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const archived = useMemo(() => threads.filter(thread => thread.archived && !hiddenProjects.includes(thread.projectId)
     && (`${thread.title} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
     .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query, contentHit])
+  // Sections inside each project (F13): dragging a row and its "Move to section" menu make the same move.
+  const sections = useThreadSections(useMemo(() => groups.map(group => group.id), [groups]), threads)
+  const drag = useSectionDrag(threads, (thread, sectionId) => void sections.moveTo(thread, sectionId))
   const restoreArchived = async (thread: ConversationThread) => {
     if (!window.oxe.thread?.command) { setActionError(t('sidebar.restartToRestore')); return }
     setActionError(''); setRestoringId(thread.id)
@@ -99,7 +108,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   }
   const row = (thread: ConversationThread) => {
     const status = threadNavigationStatus(thread), unread = unreadIds.includes(thread.id)
-    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
+    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))} {...drag.rowProps(thread)}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
     title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
     <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
@@ -109,6 +118,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
     { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) } },
     { label: thread.pinned ? t('sidebar.unpin') : t('sidebar.pin'), icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
+    moveToSectionEntry(thread, sections.sectionsOf(thread.projectId), sections),
     { label: unreadIds.includes(thread.id) ? t('sidebar.markRead') : t('sidebar.markUnread'), icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
     { type: 'separator' },
     { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'archive'); else setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) } },
@@ -142,16 +152,21 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
             trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: group.name })} data-project-actions={group.id}><MoreHorizontal size={14} /></button>}
             items={[
               { label: t('sidebar.projectSettings'), onSelect: () => setProjectSettingsId(group.id) },
+              { label: t('sections.newSection'), onSelect: () => sections.setDialog({ kind: 'create', projectId: group.id }) },
               ...(group.rootPath ? [{ label: t('sidebar.openInCode'), disabled: unavailableProjects.includes(group.id), onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(humanizeError(error, t('sidebar.openInCodeFailed')))) }] : []),
               { type: 'separator' as const },
               { label: t('sidebar.removeProjectMenu'), danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) } }
             ]} />
           </div>
-          {(query || (expanded[group.id] ?? true)) && <div className={cx('thread-project-children', styles.children)}><div className={cx('thread-project-rows', styles.rows)}>{(() => {
+          {(query || (expanded[group.id] ?? true)) && <div className={cx('thread-project-children', styles.children)}>{(() => {
+            const split = groupBySection(group.threads, sections.sectionsOf(group.id), sections.sectionOf)
             const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
-            const visible = group.threads.filter((thread, index) => index < limit || thread.id === selectedId)
-            return <>{visible.map(row)}{group.threads.length > visible.length && <button type="button" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: group.threads.length - visible.length })}</button>}</>
-          })()}</div></div>}
+            const visible = split.loose.filter((thread, index) => index < limit || thread.id === selectedId)
+            return <>
+              {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
+              <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <button type="button" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</button>}</div>
+            </>
+          })()}</div>}
         </section>)}
         {archived.length > 0 && <section className={cx('thread-archived-section', styles.section)} aria-label={t('sidebar.archivedRegion')}>
           <button type="button" data-list-item className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>{t('sidebar.archived')}</span>{' '}<small>{archived.length}</small></button>
@@ -161,6 +176,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           </div>)}
         </section>}
         {actionError && <ErrorState compact title={actionError} />}
+        {sections.error && <Notice intent="danger" actions={<Button size="sm" variant="ghost" onClick={sections.clearError}>{t('common.close')}</Button>}>{sections.error}</Notice>}
         {!loading && !groups.length && <EmptyState compact title={query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')} />}
         {hiddenProjects.length > 0 && <section className={cx('thread-hidden-section', styles.section)} aria-label={t('sidebar.removedProjects')}>
           <h2>{t('sidebar.removedProjects')}</h2>
@@ -187,7 +203,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         <label>{t('sidebar.name')}<TextField aria-label={t('sidebar.name')} autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
       </form>
     </Dialog>}
-    {finishRequest && finishThread && <ThreadWorktreeFinishDialog key={finishRequest.threadId} thread={finishThread} action={finishRequest.action} onOpenInCode={onOpenInCode} onClose={() => useThreadWorktreeFinishStore.getState().clear()} />}
+    <ThreadSectionDialogs controller={sections} />
+    {finishRequest && finishThread &&<ThreadWorktreeFinishDialog key={finishRequest.threadId} thread={finishThread} action={finishRequest.action} onOpenInCode={onOpenInCode} onClose={() => useThreadWorktreeFinishStore.getState().clear()} />}
     {confirmation && <ConfirmDialog cancelLabel={t('common.cancel')}
       {...(confirmation.kind === 'project'
         ? { title: t('sidebar.removeProject.title'), confirmLabel: t('sidebar.removeProject.confirm'), danger: true, description: t('sidebar.removeProject.description', { name: confirmation.title }) }

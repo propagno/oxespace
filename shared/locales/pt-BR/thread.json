@@ -1289,6 +1289,42 @@
     },
     "restartToDelete": "Reinicie o aplicativo atualizado para excluir conversas."
   },
+  "sections": {
+    "newSection": "Nova seção…",
+    "newTitle": "Nova seção",
+    "newDescription": "Agrupe as conversas deste projeto sob um nome. Elas ficam onde estão até você movê-las.",
+    "rename": "Renomear seção…",
+    "renameTitle": "Renomear seção",
+    "name": "Nome da seção",
+    "nameHint": "Até {{max}} caracteres.",
+    "create": "Criar seção",
+    "creating": "Criando…",
+    "save": "Renomear",
+    "saving": "Renomeando…",
+    "moveUp": "Mover seção para cima",
+    "moveDown": "Mover seção para baixo",
+    "delete": "Excluir seção…",
+    "deleteTitle": "Excluir esta seção?",
+    "deleteDescription_one": "“{{name}}” será removida e a {{count}} conversa dela volta para Sem seção. Nenhuma conversa é excluída.",
+    "deleteDescription_many": "“{{name}}” será removida e as {{count}} conversas dela voltam para Sem seção. Nenhuma conversa é excluída.",
+    "deleteDescription_other": "“{{name}}” será removida e as {{count}} conversas dela voltam para Sem seção. Nenhuma conversa é excluída.",
+    "deleteConfirm": "Excluir seção",
+    "deleting": "Excluindo…",
+    "actionsFor": "Ações da seção {{name}}",
+    "count_one": "{{count}} conversa",
+    "count_many": "{{count}} conversas",
+    "count_other": "{{count}} conversas",
+    "empty": "Arraste uma conversa para cá ou use Mover para seção no menu dela.",
+    "moveTo": "Mover para seção",
+    "none": "Sem seção",
+    "followsParent": "A seção acompanha a conversa principal",
+    "errors": {
+      "invalidName": "Use de 1 a {{max}} caracteres, sem quebras de linha nem caracteres de controle.",
+      "notFound": "Esta seção não existe mais.",
+      "childFollowsParent": "Uma conversa aninhada fica na seção da conversa principal. Mova a conversa principal.",
+      "failed": "Não foi possível atualizar as seções."
+    }
+  },
   "spending": {
     "scope": {
       "thread": "Esta conversa",
