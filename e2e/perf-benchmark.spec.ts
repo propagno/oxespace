@@ -797,3 +797,81 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
     await killApp(app, pid)
   }
 })
+
+/**
+ * Main-process memory with ten Threads open. The app runs with its real main-process services (database,
+ * Thread manager, MCP), ten real Threads are created through the Thread API and every one is opened in the UI,
+ * the way a person works through a stack of conversations. No provider CLI is started: creating and opening a
+ * Thread does not need one. The main process is sampled before and after (a forced GC first when the runtime
+ * allows it, so the heap is live data), so the budget catches a per-Thread leak or an eager load of history.
+ * Budgets are 25% above the baseline measured on the CI platforms (MAIN_MEMORY_BUDGETS_MB); the gate is
+ * OXESPACE_PERF_GATE, like the timings above.
+ */
+const THREAD_COUNT = 10
+/** Baseline x 1.25, rounded up, per platform. RSS and heap are totals; growth is RSS gained while opening the Threads. */
+const MAIN_MEMORY_BUDGETS_MB: Record<string, { rss: number; heap: number; growth: number }> = {
+  // Windows, 4 runs: rss 162-168 MB, heap 17.0-17.2 MB (after GC), growth 3.7-9.7 MB.
+  win32: { rss: 211, heap: 22, growth: 13 },
+  default: { rss: 211, heap: 22, growth: 13 }
+}
+
+test('memory: main process with 10 Threads open', async () => {
+  test.setTimeout(150_000)
+  const { app, page, pid } = await launchApp({ mockNative: false })
+  const repo = join(tmpdir(), `oxe-thread-mem-${Date.now()}`, 'repo')
+  try {
+    mkdirSync(repo, { recursive: true })
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+
+    // The main process after a forced GC (when available): resident set and live JS heap, in MB.
+    const sample = (): Promise<{ rss: number; heap: number; gc: boolean }> => app.evaluate(() => {
+      let gc = false
+      try {
+        // evaluate() has no require; the builtin loader is on process.
+        process.getBuiltinModule('node:v8').setFlagsFromString('--expose_gc')
+        const collect = process.getBuiltinModule('node:vm').runInNewContext('gc') as () => void
+        collect(); collect(); gc = true
+      } catch { /* the heap is then read as is */ }
+      const usage = process.memoryUsage()
+      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc }
+    })
+
+    const project = await page.evaluate(root => window.oxe.thread!.addProject(root), repo)
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
+    await page.locator('.thread-host').waitFor({ state: 'visible' })
+    await page.waitForTimeout(1_500)
+    const before = await sample()
+
+    const ids = await page.evaluate(async ({ projectId, count }) => {
+      const created: string[] = []
+      for (let index = 0; index < count; index++) created.push((await window.oxe.thread!.create({ projectId, provider: 'claude' })).thread.id)
+      return created
+    }, { projectId: project.projectId, count: THREAD_COUNT })
+    expect(new Set(ids).size, 'ten distinct Threads were created').toBe(THREAD_COUNT)
+    await expect(page.locator('.thread-navigation-item').first()).toBeVisible()
+    for (let index = 0; index < THREAD_COUNT; index++) {
+      // The sidebar lists eight per project until "Show more"; opening a Thread through the API-backed list is
+      // what a click does, so select by position and wait for the conversation.
+      if (await page.locator('.thread-show-more').count()) await page.locator('.thread-show-more').click()
+      await page.locator('.thread-navigation-item').nth(index).click()
+      await page.locator('.thread-timeline').waitFor()
+      await expect(page.locator('.thread-navigation-item[aria-current="page"]')).toHaveCount(1)
+    }
+    await expect(page.locator('.thread-navigation-item')).toHaveCount(THREAD_COUNT)
+    await page.waitForTimeout(1_500)
+    const after = await sample()
+    const growth = after.rss - before.rss
+    console.log(
+      `[RESULT] memory main process, ${THREAD_COUNT} Threads open   rss=${after.rss.toFixed(1)}MB heap=${after.heap.toFixed(1)}MB ` +
+      `(before: rss=${before.rss.toFixed(1)}MB heap=${before.heap.toFixed(1)}MB) rssGrowth=${growth.toFixed(1)}MB gc=${after.gc}`
+    )
+    const budget = MAIN_MEMORY_BUDGETS_MB[process.platform] ?? MAIN_MEMORY_BUDGETS_MB.default
+    if (ENFORCE_BUDGETS) {
+      expect(after.rss, `main process RSS after ${THREAD_COUNT} Threads (budget ${budget.rss} MB)`).toBeLessThanOrEqual(budget.rss)
+      expect(after.heap, `main process heap after ${THREAD_COUNT} Threads (budget ${budget.heap} MB)`).toBeLessThanOrEqual(budget.heap)
+      expect(growth, `main process RSS growth while opening ${THREAD_COUNT} Threads (budget ${budget.growth} MB)`).toBeLessThanOrEqual(budget.growth)
+    }
+  } finally {
+    await killApp(app, pid)
+  }
+})
