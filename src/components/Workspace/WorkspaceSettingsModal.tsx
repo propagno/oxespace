@@ -1,4 +1,4 @@
-import { Brain, Check, GitBranch, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
+import { Brain, Check, GitBranch, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, Wrench, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './workspaceOptions'
@@ -7,6 +7,7 @@ import { resolveDensity } from '../../design/density'
 import { AppearanceSettings } from '../Settings/AppearanceSettings'
 import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
 import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
+import { ToolsSettings } from '../Settings/ToolsSettings'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import './WorkspaceSettingsModal.css'
@@ -22,7 +23,7 @@ import { i18n } from '../../i18n'
 const tc = i18n.getFixedT(null, 'code')
 
 /** One page of the workspace settings; its words are read in the interface language each time. */
-function settingsPage<Id extends 'appearance' | 'terminal' | 'memory' | 'delegation'>(id: Id, icon: LucideIcon) {
+function settingsPage<Id extends 'appearance' | 'terminal' | 'memory' | 'delegation' | 'tools'>(id: Id, icon: LucideIcon) {
   return { id, icon, get label() { return tc(`workspace.settings.pages.${id}.label`) }, get hint() { return tc(`workspace.settings.pages.${id}.hint`) }, get description() { return tc(`workspace.settings.pages.${id}.description`) } }
 }
 
@@ -30,7 +31,8 @@ export const SETTINGS_PAGES = [
   settingsPage('appearance', Palette),
   settingsPage('terminal', SquareTerminal),
   settingsPage('memory', Brain),
-  settingsPage('delegation', GitBranch)
+  settingsPage('delegation', GitBranch),
+  settingsPage('tools', Wrench)
 ] as const
 
 interface WorkspaceSettingsModalProps {
@@ -150,6 +152,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
               <header className="ws-settings-page-heading"><h3>{selectedPage.label}</h3><p>{selectedPage.description}</p></header>
               {memoryOn && <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>}
               <div id="ws-page-delegation" hidden={page !== 'delegation'}><WorkspaceDelegationSettings workspaceId={workspace.id} paneIds={workspace.panes.map(pane => pane.id)} onOpenTerminal={onOpenTerminal} onOpenDiagnostics={onOpenDiagnostics} /></div>
+              {page === 'tools' && <div id="ws-page-tools"><ToolsSettings rootPath={workspace.rootPath} workspaceId={workspace.id} /></div>}
               <div id="ws-page-appearance" className="ws-appearance-layout" hidden={page !== 'appearance'}>
               <div className="ws-appearance-controls">
               <section className="ws-settings-section" aria-labelledby="ws-section-appearance">
@@ -217,7 +220,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
           {saved && !error ? <div className="ws-settings-saved" role="status"><Check size={14} aria-hidden="true" />{t('workspace.settings.saved')}</div> : null}
 
           <footer className="modal-actions">
-            <p>{page === 'memory' ? t('workspace.settings.footer.memory') : page === 'delegation' ? t('workspace.settings.footer.delegation') : t('workspace.settings.footer.default')}</p>
+            <p>{page === 'memory' ? t('workspace.settings.footer.memory') : page === 'delegation' ? t('workspace.settings.footer.delegation') : page === 'tools' ? t('workspace.settings.footer.tools') : t('workspace.settings.footer.default')}</p>
             <Button variant="secondary" onClick={embedded ? discard : onClose}>{embedded ? t('workspace.settings.discard') : t('workspace.settings.closeButton')}</Button>
             <Button type="submit" variant="primary" disabled={isSaving}>{isSaving ? t('editor.saving') : t('workspace.settings.save')}</Button>
           </footer>
