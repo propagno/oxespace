@@ -118,6 +118,12 @@
     "loadingFolder": "Loading {{name}}",
     "emptyFolder": "Empty folder",
     "noFiles": "No files",
+    "browser": {
+      "pathMenu": "Path of {{name}}",
+      "copyPath": "Copy path",
+      "copyRelativePath": "Copy relative path",
+      "path": "Path"
+    },
     "workspaceFiles": "Workspace files",
     "fit": "Click to fit",
     "fullSize": "Click to view at full size",
@@ -129,6 +135,8 @@
       "closeOthers": "Close other tabs",
       "pin": "Pin tab",
       "unpin": "Unpin tab",
+      "moveLeft": "Move left",
+      "moveRight": "Move right",
       "closeOthersTitle": "Pinned tabs and tabs with unsaved changes stay open"
     },
     "conflict": {
@@ -2334,11 +2342,7 @@
     "resumeAfter": "to open the same conversation in this project."
   },
   "grid": {
-    "dragPane": "Drag to reposition pane",
-    "resizeColumns": "Resize columns",
-    "resizeRows": "Resize rows",
-    "resizeColumnsTitle": "Drag to resize columns · Arrow keys to adjust",
-    "resizeRowsTitle": "Drag to resize rows · Arrow keys to adjust"
+    "dragPane": "Drag to reposition pane"
   },
   "slash": {
     "clear": {
