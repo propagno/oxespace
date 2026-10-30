@@ -4,7 +4,7 @@ import type { DelegationTask, DelegationRecoveryAction } from '../../../shared/t
 import type { Workspace } from '../../../shared/types/workspace'
 import { DelegationCreateDialog } from './DelegationCreateDialog'
 import './DelegatedWorkDialog.css'
-import { Button, ConfirmDialog, Dialog, Select, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, Notice, Select, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
 
@@ -54,7 +54,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
       <label><Search size={14} /><TextField aria-label="Search delegated work" placeholder="Search branch, task or session" value={query} onChange={event => setQuery(event.target.value)} /></label>
       <Button variant="primary" icon={<Plus size={14} />} disabled={!origin} onClick={() => setCreating(true)}>Delegate work</Button>
     </div>
-    {error && <p role="alert">{error}</p>}
+    {error && <Notice intent="danger">{error}</Notice>}
     <div className="delegated-work-list" aria-busy={busy}>
       {!filtered.length && <p>{busy ? 'Loading delegated work…' : query ? 'No matching tasks on loaded pages.' : 'No delegated work in this project.'}</p>}
       {filtered.map(task => <article key={task.id}>
@@ -62,7 +62,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
         <p className="delegated-work-branch"><GitBranch size={14} />{task.branch}</p>
         <p>{task.nativeSession?.provider ?? task.agentProfileId} · {task.surface ?? 'terminal'} · {formatDateTime(task.updatedAt)}</p>
         {task.lastReport && <p>{task.lastReport}</p>}
-        {task.error && <p role="alert">{task.error}</p>}
+        {task.error && <Notice intent="danger">{task.error}</Notice>}
         <div className="delegated-work-actions">
           <Button size="sm" disabled={!task.destinationThreadId && !task.paneId} onClick={() => { void onOpen(task).then(opened => { if (!opened) setError(task.destinationThreadId ? 'The saved conversation could not be opened. Use the recovery actions below.' : 'This terminal is no longer running. Resume its saved session or start a new session from the handoff below.') }) }}>Open {task.destinationThreadId ? 'conversation' : 'terminal'}</Button>
           {origin && workspaceId === (task.originWorkspaceId ?? task.workspaceId) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => {

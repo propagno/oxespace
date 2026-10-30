@@ -21,7 +21,6 @@
 .pr-status-checks { display: grid; gap: 1px; margin: 0; padding: 4px 6px 6px; list-style: none; border-top: 1px solid var(--wb-border); max-height: 220px; overflow: auto; }
 .pr-status-checks li { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 0 8px; border-radius: var(--radius-sm); }
 .pr-status-checks li:hover { background: var(--nav-hover); }
-.pr-status-checks li.is-empty { color: var(--tx-muted); }
 .pr-status-checks .pr-check-name { min-width: 0; overflow: hidden; color: var(--tx-primary); text-overflow: ellipsis; white-space: nowrap; }
 .pr-status-checks small { min-width: 0; overflow: hidden; color: var(--tx-muted); text-overflow: ellipsis; white-space: nowrap; }
 .pr-check-icon { display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; }
