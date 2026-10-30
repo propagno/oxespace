@@ -1,13 +1,14 @@
 import { Gauge } from 'lucide-react'
-import { useEffect, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import { contextUsageKey, useContextUsageStore } from '../../store/contextUsage.store'
+import { useStatusTicker } from '../../hooks/useStatusTicker'
 import { ViewportTooltip } from '../common/ViewportTooltip'
 import { i18n } from '../../i18n'
 
 // 30s background poll: the context fill only moves after an agent turn (tens of
 // seconds to minutes apart), so 5s spawned 6× the IPC/provider work for no extra
-// signal. The focus listener below still refreshes immediately when the user
+// signal. The window's focus still refreshes immediately when the user
 // returns to the window, keeping the meter snappy where it matters.
 const REFRESH_INTERVAL_MS = 30_000
 
@@ -25,17 +26,8 @@ export function ContextUsageStatus({ provider, rootPath }: { provider: AgentProv
   const chip = useContextUsageStore((s) => s.byKey[key])
   const refresh = useContextUsageStore((s) => s.refresh)
 
-  useEffect(() => {
-    const input = { provider, workspaceRootPath: rootPath }
-    void refresh(input)
-    const onFocus = (): void => { void refresh(input) }
-    window.addEventListener('focus', onFocus)
-    const id = window.setInterval(() => void refresh(input), REFRESH_INTERVAL_MS)
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      window.clearInterval(id)
-    }
-  }, [refresh, provider, rootPath])
+  // Panes of the same provider and folder read the same figure: one refresh per window for them.
+  useStatusTicker(`context-usage:${key}`, REFRESH_INTERVAL_MS, () => void refresh({ provider, workspaceRootPath: rootPath }))
 
   if (!chip || !chip.available) return null
 

@@ -877,3 +877,67 @@ test('memory: main process with 10 Threads open', async () => {
     await killApp(app, pid)
   }
 })
+
+/**
+ * F16: six agents in full-screen TUIs, one focused. Each pane runs a stand-in TUI that repaints its whole
+ * alternate screen every 16 ms (the worst an agent spinner and status line do). Before presence, the window
+ * drew all six at 60 fps: renderer 21% + GPU 20% of one core. With presence the focused pane is drawn every
+ * 16 ms and the others every 100 ms, and only the budgeted panes hold WebGL. CPU is the time each Electron
+ * process spent over the window (app.getAppMetrics cumulativeCPUUsage), as a share of one core; the PTY
+ * processes are not Electron's and are left out. Gate: main + renderer + GPU <= 25% of one core.
+ */
+const TUI_PANES = 6
+const TUI_CPU_WINDOW_MS = 10_000
+const TUI_CPU_BUDGET_PCT = 25
+// Shell-neutral (PowerShell and bash): no $, no !, no double quotes inside; node turns the escapes into bytes.
+const FAKE_TUI = String.raw`node -e "process.stdout.write('\x1b[?1049h');let n=0;setInterval(()=>{n++;let s='\x1b[H';for(let r=0;r<40;r++)s+=('row '+r+' frame '+n+' ').padEnd(110,'=')+'\r\n';process.stdout.write(s)},16)"`
+
+test('terminals: 6 TUIs, 1 focused, CPU', async () => {
+  test.setTimeout(180_000)
+  const { app, page, pid } = await launchApp({ mockNative: false })
+  try {
+    const root = join(tmpdir(), `oxe-tui-${Date.now()}`, 'repo')
+    mkdirSync(root, { recursive: true })
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(root)
+    await page.getByTestId(`wizard-layout-card-${TUI_PANES}`).click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.getByTestId('terminal-status-label').filter({ hasText: 'running' })).toHaveCount(TUI_PANES, { timeout: 60_000 })
+    const panes = page.getByTestId('terminal-pane')
+    for (let index = 0; index < TUI_PANES; index++) {
+      await panes.nth(index).locator('.terminal-view').click()
+      await page.keyboard.type(FAKE_TUI)
+      await page.keyboard.press('Enter')
+    }
+    // One focused pane, in a focused window (an unfocused window draws its focused pane at the visible pace).
+    await panes.first().locator('.terminal-view').click()
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.focus())
+    await page.waitForTimeout(5_000)
+
+    const cpuSeconds = (): Promise<Array<{ pid: number; type: string; seconds: number }>> => app.evaluate(({ app: electronApp }) =>
+      electronApp.getAppMetrics().map(metric => ({ pid: metric.pid, type: metric.type, seconds: metric.cpu.cumulativeCPUUsage ?? NaN })))
+    const start = await cpuSeconds()
+    const startedAt = performance.now()
+    await page.waitForTimeout(TUI_CPU_WINDOW_MS)
+    const end = await cpuSeconds()
+    const elapsedSeconds = (performance.now() - startedAt) / 1000
+    const byType: Record<string, number> = {}
+    for (const metric of end) {
+      const before = start.find(item => item.pid === metric.pid)
+      if (!before || !Number.isFinite(metric.seconds) || !Number.isFinite(before.seconds)) continue
+      byType[metric.type] = (byType[metric.type] ?? 0) + (metric.seconds - before.seconds) / elapsedSeconds * 100
+    }
+    const counted = (byType.Browser ?? 0) + (byType.Tab ?? 0) + (byType.GPU ?? 0)
+    const webglPanes = await page.evaluate(() => document.querySelectorAll('.xterm-screen canvas.xterm-webgl, .xterm-screen > canvas:not(.xterm-link-layer)').length)
+    console.log(
+      `[RESULT] terminals: ${TUI_PANES} TUIs, 1 focused             main=${(byType.Browser ?? 0).toFixed(1)}% renderer=${(byType.Tab ?? 0).toFixed(1)}% ` +
+      `gpu=${(byType.GPU ?? 0).toFixed(1)}% total=${counted.toFixed(1)}% of one core over ${elapsedSeconds.toFixed(1)}s · webglPanes=${webglPanes} · ${JSON.stringify(byType)}`
+    )
+    expect(Object.keys(byType).length, 'Electron reports cumulative CPU time per process').toBeGreaterThan(0)
+    if (ENFORCE_BUDGETS) {
+      expect(counted, `main + renderer + GPU with ${TUI_PANES} TUIs and 1 focused: ${counted.toFixed(1)}% of one core exceeded ${TUI_CPU_BUDGET_PCT}%`).toBeLessThanOrEqual(TUI_CPU_BUDGET_PCT)
+    }
+  } finally {
+    await killApp(app, pid)
+  }
+})

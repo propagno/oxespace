@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { TerminalView } from '../../src/components/Terminal/TerminalView'
 import { TERMINAL_PREFS_DEFAULTS } from '../../src/store/terminal-prefs.store'
+import { resetPanePresenceReports } from '../../src/components/Terminal/terminalPresence'
 
 const terminalState = {
   onData: null as ((data: string) => void) | null,
@@ -632,5 +633,36 @@ describe('TerminalView', () => {
     expect(window.oxe.terminal.detach).toHaveBeenCalledWith({ paneId: 'pane-1' })
     // Killing it here is exactly what made returning cost a respawn.
     expect(window.oxe.terminal.stop).not.toHaveBeenCalled()
+  })
+
+  test('reports its presence, says it again once the session exists, and goes hidden on unmount (F16)', async () => {
+    resetPanePresenceReports()
+    const setPresence = vi.fn(async () => undefined)
+    Object.assign(window.oxe.terminal, { setPresence })
+    const { unmount } = render(
+      <TerminalView paneId="pane-presence" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />
+    )
+    await waitFor(() => expect(setPresence).toHaveBeenCalledWith({ paneId: 'pane-presence', state: 'visible' }))
+    await waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('Idle\r\n'))
+    // The attach found no session; its first output means main now has one to keep the presence on.
+    setPresence.mockClear()
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
+    dataListener({ paneId: 'pane-presence', data: 'started' })
+    dataListener({ paneId: 'pane-presence', data: 'more' })
+    expect(setPresence.mock.calls).toEqual([[{ paneId: 'pane-presence', state: 'visible' }]])
+    unmount()
+    expect(setPresence).toHaveBeenLastCalledWith({ paneId: 'pane-presence', state: 'hidden' })
+  })
+
+  test('the Thread native transport never reports presence to the Code terminals', async () => {
+    resetPanePresenceReports()
+    const setPresence = vi.fn(async () => undefined)
+    Object.assign(window.oxe.terminal, { setPresence })
+    const transport = { onData: vi.fn(() => () => {}), onExit: vi.fn(() => () => {}), attach: vi.fn(async () => ({ running: true, seq: 1, prologue: '', replay: '', truncated: false, altScreen: false })), detach: vi.fn(async () => {}) }
+    const view = render(<TerminalView paneId="native-presence" transport={transport} isRunning themeId="one-dark" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+    await waitFor(() => expect(transport.attach).toHaveBeenCalled())
+    await new Promise(resolve => setTimeout(resolve, 80))
+    view.unmount()
+    expect(setPresence).not.toHaveBeenCalled()
   })
 })

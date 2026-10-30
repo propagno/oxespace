@@ -1,3 +1,5 @@
+import type { TerminalPresence } from '../../../shared/types/ipc/terminal'
+
 /**
  * How many terminal panes may stay rendered at once.
  *
@@ -48,3 +50,86 @@ export function selectWorkspacesToEvict(
 
   return evicted
 }
+
+/**
+ * How many panes may draw with WebGL at once, the focused one first (F16). Each WebGL pane keeps a glyph
+ * atlas and framebuffers in the GPU process and composites every frame it draws; with six full-screen
+ * agents that was a fifth of a core of GPU time. Panes past the budget draw with xterm's DOM renderer,
+ * which repaints only the rows that changed and suits the 100 ms pace of a visible-but-unfocused pane.
+ * `localStorage['oxe.terminal.webglPanes']` overrides it, so the bench can compare budgets without a build.
+ */
+export const WEBGL_PANE_BUDGET = 4
+
+function configuredWebglPaneBudget(): number {
+  try {
+    const raw = localStorage.getItem('oxe.terminal.webglPanes')
+    const value = raw === null ? NaN : Number(raw)
+    return Number.isInteger(value) && value >= 0 && value <= MAX_WEBGL_CONTEXTS ? value : WEBGL_PANE_BUDGET
+  } catch { return WEBGL_PANE_BUDGET }
+}
+
+interface BudgetEntry { presence: TerminalPresence; focusedAt: number; granted: boolean; onChange: (granted: boolean) => void }
+
+/**
+ * Hands WebGL to panes by how much the person sees of them: the focused pane always gets it (taking the
+ * slot of the visible pane focused longest ago when the budget is full), visible panes take free slots,
+ * hidden panes give theirs back. A pane keeps its slot until a focused one needs it, so moving focus
+ * between panes that already draw with WebGL switches no renderer.
+ */
+export class WebglPaneBudget {
+  private readonly entries = new Map<string, BudgetEntry>()
+  private focusClock = 0
+
+  constructor(private readonly limit: number = configuredWebglPaneBudget()) {}
+
+  /** Registers a pane; `onChange` hears every grant and revoke. Returns the release for unmount. */
+  join(paneId: string, presence: TerminalPresence, onChange: (granted: boolean) => void): () => void {
+    const entry: BudgetEntry = { presence, focusedAt: presence === 'focused' ? ++this.focusClock : 0, granted: false, onChange }
+    this.entries.set(paneId, entry)
+    this.rebalance()
+    return () => {
+      if (this.entries.get(paneId) !== entry) return
+      this.entries.delete(paneId)
+      if (entry.granted) { entry.granted = false; entry.onChange(false) }
+      this.rebalance()
+    }
+  }
+
+  setPresence(paneId: string, presence: TerminalPresence): void {
+    const entry = this.entries.get(paneId)
+    if (!entry || entry.presence === presence) return
+    entry.presence = presence
+    if (presence === 'focused') entry.focusedAt = ++this.focusClock
+    this.rebalance()
+  }
+
+  granted(paneId: string): boolean {
+    return this.entries.get(paneId)?.granted ?? false
+  }
+
+  private rebalance(): void {
+    const changed: BudgetEntry[] = []
+    const set = (entry: BudgetEntry, granted: boolean): void => { entry.granted = granted; changed.push(entry) }
+    for (const entry of this.entries.values()) if (entry.granted && entry.presence === 'hidden') set(entry, false)
+    let held = [...this.entries.values()].filter(entry => entry.granted).length
+    // Focused first, then the most recently focused, so a freed slot goes to the pane the person just left.
+    const waiting = [...this.entries.values()]
+      .filter(entry => !entry.granted && entry.presence !== 'hidden')
+      .sort((a, b) => Number(b.presence === 'focused') - Number(a.presence === 'focused') || b.focusedAt - a.focusedAt)
+    for (const entry of waiting) {
+      if (held < this.limit) { set(entry, true); held++; continue }
+      if (entry.presence !== 'focused') break
+      const victim = [...this.entries.values()]
+        .filter(other => other.granted && other.presence !== 'focused')
+        .sort((a, b) => a.focusedAt - b.focusedAt)[0]
+      if (!victim) break
+      set(victim, false)
+      set(entry, true)
+    }
+    // Revokes before grants, so a context is given back before the next one is created.
+    for (const entry of changed.filter(e => !e.granted)) entry.onChange(false)
+    for (const entry of changed.filter(e => e.granted)) entry.onChange(true)
+  }
+}
+
+export const webglPaneBudget = new WebglPaneBudget()

@@ -1,6 +1,7 @@
 import { Bot } from 'lucide-react'
-import { useEffect, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { useCopilotCreditsStore } from '../../store/copilotCredits.store'
+import { useStatusTicker } from '../../hooks/useStatusTicker'
 import { ViewportTooltip } from '../common/ViewportTooltip'
 import { formatDate, formatNumber } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
@@ -21,16 +22,8 @@ export function CopilotCreditsStatus(): ReactElement | null {
   const credits = useCopilotCreditsStore((s) => s.credits)
   const refresh = useCopilotCreditsStore((s) => s.refresh)
 
-  useEffect(() => {
-    void refresh()
-    const onFocus = (): void => { void refresh() }
-    window.addEventListener('focus', onFocus)
-    const id = window.setInterval(() => void refresh(), REFRESH_INTERVAL_MS)
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      window.clearInterval(id)
-    }
-  }, [refresh])
+  // Account-wide figure: one refresh per window, however many Copilot panes show it.
+  useStatusTicker('copilot-credits', REFRESH_INTERVAL_MS, () => void refresh())
 
   if (!credits || !credits.available) return null
 
