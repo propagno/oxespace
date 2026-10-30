@@ -150,6 +150,8 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | A4 worktree por conversa | #151 | FRONTEND | Homologado com ressalvas (na `main` 9e4a9307) |
 | F8 gate visual | #193 | FRONTEND | Pré-homologado |
 | F1 OfflineState + F2 About | #178 | FRONTEND (+ BACKEND no texto do OxePost) | Pré-homologado com ressalvas |
+| F1 estados do OxeQuery | #171 | FRONTEND | Pré-homologado com ressalva |
+| F1 estados de Settings, Code, OxeChat/OxePod/OxePost | #176, #179, #173 | FRONTEND | Pendentes: passada interrompida por falta de memória; o #173 conflita com a `main` |
 | B8.1 main minificado | #162 | BACKEND | Homologado (na `main` 9e4a9307) |
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 
@@ -255,6 +257,14 @@ Ressalvas visuais para o FRONTEND (`a4/pt-BR-refused-dirty-base.png` e `a4/pt-BR
   2. FRONTEND: `post.json` em pt-BR diz "O request não saiu…". Sugestão: "A requisição…".
   3. BACKEND: o detalhe do erro de rede do OxePost vem em inglês do main (`oxepost/send.ts`, "The host name was not
      found…"). Deveria passar por um código C3.
+
+### F1 estados do OxeQuery (#171): Pré-homologado com ressalva
+
+- `design-lint`, `ui-copy` e `ui-states`: 27/27 com a branch mesclada à `main`.
+- `e2e/homologation/states-area.spec.ts` em pt-BR/escuro e en/claro: no OxeQuery, nenhum `role="alert"` solto nem
+  `-empty` feito à mão. Nenhum `pageerror`.
+- Ressalva para o FRONTEND: o vazio da barra lateral ainda diz "Clique em Conectar num contêiner de banco de dados…",
+  mas desde o B3.1 os containers ficam no OxePod. O vazio central já diz isso certo (`pre-oxequery-states/pt-BR-mode-3.png`).
 
 ### B8.1 main minificado (#162): Homologado
 
