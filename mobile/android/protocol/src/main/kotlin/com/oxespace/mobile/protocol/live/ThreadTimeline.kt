@@ -17,7 +17,8 @@ data class TimelineEntry(val seq: Long, val item: RemoteThreadItem)
 /**
  * A conversation as the phone shows it, built from the `thread` stream: a snapshot replaces it, an event adds items
  * or replaces one with the same id in place (a message that grew, a tool that finished). Items keep the position of
- * their first appearance. An item of a type this app doesn't know yet is skipped, not the whole frame.
+ * their first appearance. An item of a type this app doesn't know yet is skipped, not the whole frame. Frames arrive
+ * on the connection's thread while the screen reads, so every access holds the timeline's lock.
  */
 class ThreadTimeline : StreamListener {
     var header: RemoteThreadHeader? = null
@@ -31,9 +32,9 @@ class ThreadTimeline : StreamListener {
 
     private val byId = LinkedHashMap<String, TimelineEntry>()
 
-    val items: List<TimelineEntry> get() = byId.values.sortedBy { it.seq }
+    val items: List<TimelineEntry> get() = synchronized(this) { byId.values.sortedBy { it.seq } }
 
-    override fun onSnapshot(pages: List<JsonElement>) {
+    override fun onSnapshot(pages: List<JsonElement>) = synchronized(this) {
         byId.clear()
         skipped = 0
         for (page in pages) {
@@ -46,15 +47,19 @@ class ThreadTimeline : StreamListener {
 
     override fun onEvent(data: JsonElement) {
         val body = data as? JsonObject ?: return
-        readHeader(body)?.let { header = it }
-        readItems(body).forEach(::put)
+        synchronized(this) {
+            readHeader(body)?.let { header = it }
+            readItems(body).forEach(::put)
+        }
     }
 
     /** An older page from `thread.history`, placed before what is held. */
     fun prepend(page: JsonElement) {
         val body = page as? JsonObject ?: return
-        (body["hasMore"] as? JsonPrimitive)?.booleanOrNull?.let { hasMore = it }
-        readItems(body).forEach { entry -> if (entry.item.id !in byId) put(entry) }
+        synchronized(this) {
+            (body["hasMore"] as? JsonPrimitive)?.booleanOrNull?.let { hasMore = it }
+            readItems(body).forEach { entry -> if (entry.item.id !in byId) put(entry) }
+        }
     }
 
     private fun put(entry: TimelineEntry) {

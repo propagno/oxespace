@@ -13,7 +13,7 @@ import kotlinx.serialization.json.JsonElement
 class TerminalBuffer(private val capacity: Int = 256 * 1024) : StreamListener {
     private val text = StringBuilder()
 
-    val output: String get() = text.toString()
+    val output: String get() = synchronized(this) { text.toString() }
     var redacted: Long = 0
         private set
     /** Changes whenever the output does, so a view knows to redraw. */
@@ -21,17 +21,21 @@ class TerminalBuffer(private val capacity: Int = 256 * 1024) : StreamListener {
         private set
 
     override fun onSnapshot(pages: List<JsonElement>) {
-        text.setLength(0)
-        redacted = 0
-        pages.mapNotNull(::read).forEach { apply(it, clearFirst = false) }
-        version++
+        synchronized(this) {
+            text.setLength(0)
+            redacted = 0
+            pages.mapNotNull(::read).forEach { apply(it, clearFirst = false) }
+            version++
+        }
     }
 
     override fun onEvent(data: JsonElement) {
         val chunk = read(data) ?: return
-        // The phone was away longer than the ring is deep: what it holds no longer joins up with what follows.
-        apply(chunk, clearFirst = chunk.truncated)
-        version++
+        synchronized(this) {
+            // The phone was away longer than the ring is deep: what it holds no longer joins up with what follows.
+            apply(chunk, clearFirst = chunk.truncated)
+            version++
+        }
     }
 
     private fun apply(chunk: RemoteTerminalData, clearFirst: Boolean) {

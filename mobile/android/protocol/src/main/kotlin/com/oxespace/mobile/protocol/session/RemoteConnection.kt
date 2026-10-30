@@ -4,6 +4,7 @@ import com.oxespace.mobile.protocol.FrameRead
 import com.oxespace.mobile.protocol.FrameSource
 import com.oxespace.mobile.protocol.REMOTE_WS_PATH
 import com.oxespace.mobile.protocol.RemoteErrorCode
+import com.oxespace.mobile.protocol.live.LiveStreams
 import com.oxespace.mobile.protocol.RemoteFrame
 import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.pairing.LanAddress
@@ -45,7 +46,8 @@ data class DesktopTarget(
 /**
  * One WSS session with the paired desktop over TLS pinned to its certificate. Tries each address in turn until one
  * answers with that certificate; runs [SessionProtocol] on the frames and renews the token on [scheduler] before it
- * expires. Reconnecting after a drop is the caller's choice (M6), so a revocation is never retried.
+ * expires. Reconnecting after a drop is the caller's choice (M6), so a revocation is never retried. Once
+ * authenticated it attaches [streams], whose subscriptions resume from their cursors, and hands them their frames.
  */
 class RemoteConnection(
     private val target: DesktopTarget,
@@ -55,6 +57,7 @@ class RemoteConnection(
     private val clientFor: (fingerprint: String) -> OkHttpClient = { PinnedTls.client(it) },
     private val hostAllowed: (String) -> Boolean = LanAddress::isPrivate,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val streams: LiveStreams? = null,
 ) : SessionLink {
     private val lock = Any()
     private val mutableState = MutableStateFlow<SessionState>(SessionState.Opening)
@@ -67,6 +70,7 @@ class RemoteConnection(
     private var socket: WebSocket? = null
     private var renewal: ScheduledFuture<*>? = null
     private var closedByUs = false
+    private var streamsAttached = false
 
     override fun connect() = tryHost(0)
 
@@ -135,7 +139,10 @@ class RemoteConnection(
                         refused = read.code
                         session.onUnreadable()
                     }
-                    is FrameRead.Ok -> send(webSocket, session.onFrame(read.frame))
+                    is FrameRead.Ok -> {
+                        val forStreams = session.state is SessionState.Ready && streams?.onFrame(read.frame) == true
+                        if (!forStreams) send(webSocket, session.onFrame(read.frame))
+                    }
                 }
                 publish(session)
                 if (session.state is SessionState.Ended) closeFor(webSocket, session, refused)
@@ -201,12 +208,20 @@ class RemoteConnection(
     /** Publishes the state and (re)arms the renewal. Called with [lock] held. */
     private fun publish(session: SessionProtocol) {
         mutableState.value = session.state
+        val webSocket = socket
+        if (session.state is SessionState.Ready && !streamsAttached && webSocket != null) {
+            streamsAttached = true
+            streams?.attach { frame -> webSocket.send(RemoteFrames.write(frame)) }
+        } else if (session.state is SessionState.Ended && streamsAttached) {
+            streamsAttached = false
+            streams?.detach()
+        }
         renewal?.cancel(false)
         val due = session.renewalDueAtMs() ?: return
         renewal = scheduler.schedule({
             synchronized(lock) {
-                val webSocket = socket ?: return@synchronized
-                send(webSocket, session.renew())
+                val open = socket ?: return@synchronized
+                send(open, session.renew())
                 publish(session)
             }
         }, (due - now()).coerceAtLeast(0), TimeUnit.MILLISECONDS)
