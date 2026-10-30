@@ -44,7 +44,8 @@ test('Settings › Tools: groups and costs, turning a group on in the project, a
     const data = tools.getByRole('region', { name: 'Data', exact: true })
     await data.getByRole('radio', { name: 'Off' }).click()
     await expect(tools.getByRole('status')).toHaveText('Data is now Off in this project.')
-    await expect(data.getByText('Not offered')).toHaveCount(3)
+    // The three cost values of a group that is off.
+    await expect(data.locator('dd').filter({ hasText: /^Not offered$/ })).toHaveCount(3)
     await data.getByRole('button', { name: 'Turn Data on in this project, on demand' }).click()
     await expect(tools.getByRole('status')).toHaveText('Data is now On demand in this project.')
     await expect(data.getByRole('radio', { name: 'On demand' })).toHaveAttribute('aria-checked', 'true')
