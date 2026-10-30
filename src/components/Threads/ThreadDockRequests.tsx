@@ -1,5 +1,7 @@
 import { useState, type RefObject } from 'react'
 import { ChevronDown, Maximize2, Minimize2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { ErrorState } from '../../ui'
 import type { ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { ThreadRequestCard } from './ThreadRequestCard'
@@ -16,6 +18,7 @@ export function ThreadDockRequests({ snapshot, pendingRequests, pending, action 
   pending: boolean
   action: (run: () => Promise<unknown>) => Promise<void>
 }) {
+  const { t } = useTranslation('thread')
   const api = window.oxe?.thread
   const id = snapshot.thread.id
   const orphanedApproval = snapshot.thread.status === 'approval' && pendingRequests.length === 0
@@ -29,17 +32,17 @@ export function ThreadDockRequests({ snapshot, pendingRequests, pending, action 
   const toggleExpanded = () => { const next = !expanded; setExpanded(next); try { localStorage.setItem(EXPANDED_KEY, next ? '1' : '0') } catch { /* not remembered */ } }
   return <>
     {pendingRequests.length > 0 && <div className="thread-pending-requests-bar">
-      <span>{pendingRequests.length === 1 ? pendingRequests[0].title || 'The agent is waiting for your answer' : `${pendingRequests.length} requests are waiting for your answer`}</span>
+      <span>{pendingRequests.length === 1 ? pendingRequests[0].title || t('requests.waiting') : t('requests.waitingMany', { count: pendingRequests.length })}</span>
       <span className="thread-pending-requests-actions">
-        {!hidden && <button type="button" aria-pressed={expanded} title={expanded ? 'Give the room back to the conversation' : 'Give the request more room to read its options'} onClick={toggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}{expanded ? 'Shrink' : 'Expand'}</button>}
-        <button type="button" aria-expanded={!hidden} aria-controls={listId} title={hidden ? 'Show the request' : 'Hide the request to read the conversation; it stays waiting'} onClick={() => setHiddenKey(hidden ? null : requestKey)}>{hidden ? 'Show' : 'Hide'}<ChevronDown size={14} aria-hidden="true" /></button>
+        {!hidden && <button type="button" aria-pressed={expanded} title={expanded ? t('requests.shrinkTitle') : t('requests.expandTitle')} onClick={toggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}{expanded ? t('requests.shrink') : t('requests.expand')}</button>}
+        <button type="button" aria-expanded={!hidden} aria-controls={listId} title={hidden ? t('requests.showTitle') : t('requests.hideTitle')} onClick={() => setHiddenKey(hidden ? null : requestKey)}>{hidden ? t('requests.show') : t('requests.hide')}<ChevronDown size={14} aria-hidden="true" /></button>
       </span>
     </div>}
-    {pendingRequests.length > 0 && <section id={listId} className="thread-pending-requests" aria-label="Pending agent requests" hidden={hidden} data-expanded={expanded || undefined}>
+    {pendingRequests.length > 0 && <section id={listId} className="thread-pending-requests" aria-label={t('requests.label')} hidden={hidden} data-expanded={expanded || undefined}>
       {pendingRequests.map(request => <ThreadRequestCard key={`${id}:${request.id}:${request.generation}`} conversationId={id} request={request} disabled={pending} onRespond={response => action(() => api!.respond!(id, request.id, response))}
         onRemember={api?.addPermissionRule ? async suggestions => { for (const item of suggestions) await api.addPermissionRule!(id, { kind: item.kind, pattern: item.pattern, decision: 'allow', scope: 'project' }) } : undefined} />)}
     </section>}
-    {orphanedApproval && <div className="thread-action-error" role="alert"><span>The provider is waiting for input, but its request is unavailable. Refresh the request or stop the turn using the stop button.</span><button type="button" disabled={pending} onClick={() => void action(() => useThreadStore.getState().refresh(id))}>Refresh request</button></div>}
+    {orphanedApproval && <ErrorState compact title={t('requests.orphaned')} actions={<button type="button" disabled={pending} onClick={() => void action(() => useThreadStore.getState().refresh(id))}>{t('requests.refresh')}</button>} />}
   </>
 }
 
