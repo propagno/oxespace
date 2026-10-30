@@ -19,6 +19,7 @@ import { isSameRootPath } from '../shared/utils/path'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
+import { i18n } from './i18n'
 import { humanizeError } from './utils/humanizeError'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
@@ -773,7 +774,7 @@ export function App(): ReactElement {
   useThreadShortcuts(applicationView === 'thread', newThread)
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
-  const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else toast({ title: 'Add a project first', description: 'Provider accounts are checked inside a Thread project.' }) }
+  const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else toast({ title: i18n.t('thread:accounts.needProject'), description: i18n.t('thread:accounts.needProjectText') }) }
   useThreadCommands({ snapshot: threadSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
     addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts })
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {

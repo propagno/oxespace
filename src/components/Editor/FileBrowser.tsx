@@ -96,8 +96,8 @@ function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selec
   const [menu, setMenu] = useState(false)
   const openMenu = (event: React.MouseEvent): void => { event.preventDefault(); event.stopPropagation(); setMenu(true) }
   const pathMenu = <AnchoredMenu open={menu} onOpenChange={setMenu} side="right" label={t('editor.browser.pathMenu', { name: node.name })} items={[
-    { label: t('editor.browser.copyPath'), onSelect: () => void copyText(buildAbsolutePath(rootPath, node.relativePath).replace(/^"|"$/g, ''), t('editor.browser.path')) },
-    { label: t('editor.browser.copyRelativePath'), onSelect: () => void copyText(node.relativePath, t('editor.browser.path')) }
+    { label: t('editor.browser.copyPath'), onSelect: () => void copyText(buildAbsolutePath(rootPath, node.relativePath).replace(/^"|"$/g, ''), t('editor.browser.path'), t('editor.browser.pathCopied')) },
+    { label: t('editor.browser.copyRelativePath'), onSelect: () => void copyText(node.relativePath, t('editor.browser.path'), t('editor.browser.pathCopied')) }
   ]} />
 
   const handleDragStart = (event: React.DragEvent): void => {

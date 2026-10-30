@@ -1,8 +1,9 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Badge, Button, Dialog, EmptyState, IconButton, Menu, Meter, SegmentedControl, Select, StatusDot, Switch, Tabs, TextField, Toaster, dismissToast, toast } from '../src/ui'
 
+beforeAll(async () => { await import('../src/ui/ToastStack') })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('Button', () => {
@@ -98,11 +99,11 @@ describe('Display', () => {
 })
 
 describe('Toast', () => {
-  it('shows, auto-dismisses, and keeps failures until dismissed', () => {
+  it('shows, auto-dismisses, and keeps failures until dismissed', async () => {
     vi.useFakeTimers()
-    render(<Toaster />)
+    await act(async () => { render(<Toaster />) })
     act(() => { toast({ title: 'Committed', intent: 'success' }) })
-    expect(screen.getByRole('status')).toHaveTextContent('Committed')
+    expect(screen.getByRole('region', { name: 'Notifications' })).toHaveTextContent('Committed')
     act(() => { vi.advanceTimersByTime(5100) })
     expect(screen.queryByText('Committed')).toBeNull()
     let id = 0

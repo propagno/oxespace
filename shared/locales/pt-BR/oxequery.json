@@ -370,6 +370,7 @@
       "table": "Tabela"
     },
     "copiedDocuments": "documentos",
+    "copiedDocumentsDone": "Documentos copiados",
     "copyJson": "Copiar JSON",
     "newDocument": "Novo documento",
     "changeMany": "Alterar vários…",
@@ -582,6 +583,8 @@
     "statementTitle": "Instrução {{number}}",
     "copiedText": "texto",
     "copiedResults": "resultados",
+    "copiedTextDone": "Texto copiado",
+    "copiedResultsDone": "Resultados copiados",
     "explain": "Explicar",
     "analyze": "Analisar",
     "format": "Formatar",
@@ -700,6 +703,7 @@
     "title": "A consulta falhou",
     "copy": "Copiar erro",
     "copied": "mensagem de erro",
+    "copiedDone": "Mensagem de erro copiada",
     "technical": "Detalhe técnico",
     "position": "posição {{position}}",
     "hint": "Dica: {{hint}}",
@@ -1179,6 +1183,7 @@
     "failed": "Não foi possível ler a definição",
     "loading": "Lendo o catálogo…",
     "copied": "definição",
+    "copiedDone": "Definição copiada",
     "openInTab": "Abrir numa nova aba"
   },
   "columns": {
