@@ -13,6 +13,9 @@ function whisperDirName(): string {
   return `${os}-${process.arch}`
 }
 
+/** True under `electron-vite dev`; `build` and `preview` set it to 'production'. */
+const DEV_SERVER = process.env.NODE_ENV_ELECTRON_VITE === 'development'
+
 /** node_modules path fragments belonging to the react-markdown pipeline (#10). */
 const TRANS_CHUNK_PARTS = [
   'react-i18next/dist/es/Trans.js',
@@ -143,8 +146,9 @@ export default defineConfig({
       // The main process ships minified. 'hidden' writes a .map next to each chunk without a sourceMappingURL
       // comment, so nothing in the app loads it; electron-builder leaves *.map out of the package and CI keeps
       // them as an artifact. scripts/symbolicate-stack.mjs turns a problem report's stack back into source lines.
-      minify: 'esbuild',
-      sourcemap: 'hidden',
+      // `electron-vite dev` keeps the main process readable, as before; it sets this flag before reading the config.
+      minify: DEV_SERVER ? false : 'esbuild',
+      sourcemap: DEV_SERVER ? false : 'hidden',
       rollupOptions: {
         // Optional driver add-ons are never installed; leave them as runtime requires.
         // ssh2 tries optional native add-ons (cpu-features, its crypto binding) and falls back to pure JS.
