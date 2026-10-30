@@ -77,9 +77,10 @@ test('manager deadline aborts provider IO rather than only abandoning the promis
 })
 
 test('capabilities come from actual tool schemas; absent fields remain false', async () => {
-  expect(await rpcClient({ tools: [] }).capabilities()).toEqual({ exactHandoff: false, createHandoff: false, sessionObservations: false })
+  expect(await rpcClient({ tools: [] }).capabilities()).toEqual({ exactHandoff: false, createHandoff: false, sessionObservations: false, deletePage: false })
   expect(await rpcClient({ tools: [{ name: 'memory_handoff_accept', inputSchema: { properties: { handoff_id: { type: 'string' } } } },
-    { name: 'memory_handoff_begin' }] }).capabilities()).toEqual({ exactHandoff: true, createHandoff: true, sessionObservations: false })
+    { name: 'memory_handoff_begin' }] }).capabilities()).toEqual({ exactHandoff: true, createHandoff: true, sessionObservations: false, deletePage: false })
+  expect((await rpcClient({ tools: [{ name: 'memory_delete_page', inputSchema: { properties: { path: { type: 'string' } } } }] }).capabilities()).deletePage).toBe(true)
 })
 
 test('parses successful content and rejects malformed initialization', async () => {
