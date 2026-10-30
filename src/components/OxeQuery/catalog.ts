@@ -1,5 +1,4 @@
-import { use } from 'react'
-import { currentLanguage, i18n, loadNamespace } from '../../i18n'
+import { i18n, loadNamespace, useNamespace } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
 import { toast } from '../../ui/Toast'
 
@@ -18,7 +17,7 @@ export function loadOxeQueryCatalog(): Promise<void> {
  * so no key ever shows in place of its text.
  */
 export function useOxeQueryCatalog(): void {
-  if (!i18n.hasResourceBundle(currentLanguage(), 'oxequery')) use(loadOxeQueryCatalog())
+  useNamespace('oxequery')
 }
 
 /** Copies text and says so in the language on screen (`what` names it: "Error", "Results"…). */

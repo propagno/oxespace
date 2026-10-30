@@ -17,6 +17,9 @@ files:
   # the installer: the optional semantic index downloads or imports it into
   # userData (services/semantic-model-store.ts).
   - "!**/node_modules/@xenova/transformers/.cache/**"
+  # The main process's source maps are private: CI keeps them as the main-sourcemaps artifact, and
+  # scripts/symbolicate-stack.mjs reads them to turn a reported stack back into source lines.
+  - "!out/**/*.map"
 # NOTE: pruning the ONNX Runtime prebuilds for other platforms is done by
 # scripts/slim-pack-deps.mjs (which both `dist:win` and `dist:linux` run before
 # electron-builder), NOT by a filter here. A `files` filter cannot vary by
@@ -63,6 +66,10 @@ win:
       to: THIRD_PARTY_NOTICES.md
     - from: resources/icon.ico
       to: icon.ico
+    # The brand icon set (npm run generate:icon): native dialogs and notifications
+    # read <resources>/icons/256x256.png at runtime.
+    - from: resources/icons
+      to: icons
     # Internal MCP bridge spawned by agent CLIs at runtime — must be on disk
     # next to the packaged app so .mcp.json's `args: ["<absolute path>"]`
     # resolves whether the user runs the installed build or a portable copy.
@@ -109,6 +116,8 @@ linux:
       to: THIRD_PARTY_NOTICES.md
     - from: resources/icon.png
       to: icon.png
+    - from: resources/icons
+      to: icons
     - from: resources/mcp-bridge
       to: mcp-bridge
 appImage:

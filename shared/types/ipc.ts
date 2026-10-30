@@ -1,4 +1,4 @@
-import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from './workspace'
+import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
 import type {
   CreateTaskInput,
@@ -61,11 +61,15 @@ export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
+import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+import type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
+export type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+export type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
 
 export const IPC_CHANNELS = {
   team: { command: 'team:command', messages: 'team:messages', send: 'team:send' },
   agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
-  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   memory: {
     status: 'memory:status', configure: 'memory:configure', install: 'memory:install', rollback: 'memory:rollback',
@@ -82,7 +86,8 @@ export const IPC_CHANNELS = {
     onUpdateState: 'app:update-state',
     setAppearance: 'app:set-appearance',
     setLanguage: 'app:set-language',
-    setUiScale: 'app:set-ui-scale'
+    setUiScale: 'app:set-ui-scale',
+    connectivity: 'app:connectivity', onConnectivity: 'app:connectivity-changed', about: 'app:about'
   },
   rtk: {
     getStatus: 'rtk:get-status',
@@ -199,6 +204,12 @@ export const IPC_CHANNELS = {
   oxeQuery: {
     call: 'oxeQuery:call',
     onEvent: 'oxeQuery:event'
+  },
+  oxePod: { call: 'oxePod:call', onEvent: 'oxePod:event' },
+  remote: {
+    status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
+    cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
+    setDesktopName: 'remote:set-desktop-name'
   },
   oxePost: { call: 'oxePost:call' },
   automations: {
@@ -400,112 +411,6 @@ export const IPC_CHANNELS = {
   }
 } as const
 
-export interface TerminalStartInput {
-  paneId: string
-  workspaceId: string
-  agentCommand?: string
-  agentArgs?: string[]
-  initialPrompt?: string
-  disableRtk?: boolean
-  /** On the pane's first start after the app opens, reopen the agent session its hooks recorded (Claude Code, Codex). */
-  resumeAgent?: boolean
-  /**
-   * Real viewport at spawn time. Without these the PTY starts at 80x24 and the
-   * app reflows on the first resize, which the user sees as a flash.
-   */
-  cols?: number
-  rows?: number
-}
-
-export interface TerminalWriteInput {
-  paneId: string
-  data: string
-}
-
-export interface TerminalResizeInput {
-  paneId: string
-  cols: number
-  rows: number
-}
-
-export interface TerminalStopInput {
-  paneId: string
-}
-
-export interface TerminalDataEvent {
-  paneId: string
-  data: string
-}
-
-export interface TerminalExitEvent {
-  paneId: string
-  exitCode: number | null
-}
-
-/**
- * Heartbeat for a session with no attached view. Carries no output — just
- * enough for the sidebar and notifications to keep showing that a background
- * agent is working. Throttled in main.
- */
-export interface TerminalActivityEvent {
-  paneId: string
-  at: number
-  bytes: number
-}
-
-export interface TerminalAttachInput {
-  paneId: string
-  /** Cursor from a previous attach; omit to receive the whole retained buffer. */
-  sinceSeq?: number
-}
-
-export interface TerminalAttachResult {
-  running: boolean
-  /** Cursor to hand back on the next attach. */
-  seq: number
-  /** Mode-restoring sequences to write before anything else. */
-  prologue: string
-  /** Retained output to replay. Empty when `altScreen` is true. */
-  replay: string
-  /** Output the caller needed had already been evicted — clear before writing. */
-  truncated: boolean
-  /**
-   * The session is on the alternate screen. Replaying bytes would paint TUI
-   * content onto the normal buffer, so main triggers a resize-driven redraw
-   * instead and `replay` is empty.
-   */
-  altScreen: boolean
-  /** Present when the process died while detached, instead of a silent respawn. */
-  exit?: { exitCode: number | null; at: number }
-}
-
-export interface TerminalStatusResult {
-  running: boolean
-  seq: number
-  altScreen: boolean
-  /** OXESpace PTY session identity, distinct from any provider conversation ID. */
-  sessionId?: string
-  launchDirectory?: string
-  executable?: string
-  pid?: number
-  startedAt?: number
-}
-
-export interface SplitPaneInput {
-  paneId: string
-  direction: 'vertical' | 'horizontal'
-}
-
-export interface UpdatePaneTypeInput {
-  paneId: string
-  type: PaneType
-}
-
-export interface UpdatePaneNameInput {
-  paneId: string
-  displayName: string | null
-}
-
 export interface WorkspaceApi {
   list(): Promise<Workspace[]>
   onChanged(listener: (workspace: Workspace) => void): () => void
@@ -674,6 +579,8 @@ export interface AgentNotificationPayload {
   /** Pane to focus when the user clicks the notification. */
   paneId: string
   workspaceId: string
+  /** What the notification is about; the main process picks the image. Without it, the app icon. */
+  icon?: import('./app').NotificationIcon
 }
 
 export interface AutomationsApi {
@@ -767,7 +674,7 @@ export interface OxeApi {
     platform: NodeJS.Platform
     /** The operating system's locale (Electron's app.getLocale()), which picks the default interface language. */
     locale: string
-  } & AppUpdateApi
+  } & AppUpdateApi & import('./app').AppInfoApi
   rtk: RtkApi
   workspace: WorkspaceApi
   terminal: TerminalApi
@@ -785,6 +692,8 @@ export interface OxeApi {
   agentHooks: AgentHooksApi
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
+  oxePod: import('./oxepod').OxePodApi
+  remote?: import('./remote').RemoteApi
   oxePost: import('../oxepost/types').OxePostApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
@@ -801,115 +710,6 @@ export interface OxeApi {
   semantic: SemanticApi
   diagnostics: import('./diagnostics').DiagnosticsApi
   policy: import('../policy').PolicyApi
-}
-
-export interface SemanticStatus {
-  enabled: boolean
-  workerReady: boolean
-  indexing: boolean
-  count: number
-  lastError: string | null
-  /** Embedding model id (e.g. Xenova/multilingual-e5-base). */
-  modelId?: string
-  mode: SemanticSearchMode
-  coverage: SemanticIndexCoverage
-  lastQuery: SemanticLastQuery | null
-  vector?: SemanticVectorStatus
-}
-
-/** A retrieval source that answered a query: the optional vector index, or exact terms. */
-export type SemanticRetrievalSource = 'vector' | 'fts5'
-
-/**
- * The optional vector index (Settings › Agents › Semantic index). The model is
- * not in the installer: it is downloaded or imported into userData on demand.
- */
-export interface SemanticVectorStatus {
-  /** The user turned the index on. */
-  enabled: boolean
-  /** The model files are present in userData. */
-  installed: boolean
-  state: 'off' | 'not-installed' | 'downloading' | 'loading' | 'ready' | 'error'
-  /** Bytes fetched so far, while downloading. */
-  progress: { loaded: number; total: number } | null
-  modelId: string
-  error: string | null
-  /** False when this build has no model store (tests). */
-  available: boolean
-}
-
-export interface SemanticUsageBucket {
-  calls: number
-  answered: number
-  results: number
-  estimatedTokens: number
-}
-
-/** Local-only counts of retrieval tool calls, split by whether vectors took part. */
-export interface SemanticUsage {
-  since: number
-  tools: Record<string, { withVector: SemanticUsageBucket; withoutVector: SemanticUsageBucket }>
-}
-
-export type SemanticSearchMode = 'auto' | 'explore' | 'exhaustive'
-export type SemanticConfidence = 'high' | 'medium' | 'low'
-
-export interface SemanticIndexCoverage {
-  lexicalDocuments: number
-  lastIndexedAt: number | null
-  byCategory: { source: number; test: number; config: number; docs: number; other: number }
-}
-
-export interface SemanticLastQuery {
-  requestedMode: SemanticSearchMode
-  resolvedMode: Exclude<SemanticSearchMode, 'auto'>
-  confidence: SemanticConfidence
-  expanded: boolean
-  expansionReason: string | null
-  durationMs: number
-  semanticCandidates: number
-  lexicalCandidates: number
-  returnedResults: number
-  estimatedTokens: number
-  estimatedFullFileTokens: number
-  estimatedSavingsPercent: number
-  truncated: boolean
-}
-
-export type SemanticLogLevel = 'debug' | 'info' | 'warn' | 'error'
-
-/** One line of the semantic engine's activity log, surfaced for transparency. */
-export interface SemanticLogEntry {
-  ts: number
-  level: SemanticLogLevel
-  message: string
-  workspaceId?: string
-  file?: string
-}
-
-export interface SemanticQueryHit {
-  filePath: string
-  score: number
-}
-
-export interface SemanticApi {
-  getStatus(workspaceId: string): Promise<SemanticStatus>
-  setEnabled(input: { workspaceId: string; enabled: boolean }): Promise<SemanticStatus>
-  /** Semantic search for a Thread project's directory: whether it is on, and its index. */
-  projectStatus(rootPath: string): Promise<{ on: boolean; status: SemanticStatus }>
-  setProjectEnabled(input: { rootPath: string; enabled: boolean }): Promise<{ on: boolean; status: SemanticStatus }>
-  setMode(input: { workspaceId: string; mode: SemanticSearchMode }): Promise<SemanticStatus>
-  reindex(workspaceId: string): Promise<SemanticStatus>
-  getLogs(): Promise<SemanticLogEntry[]>
-  onLog(callback: (entry: SemanticLogEntry) => void): () => void
-  query(input: { workspaceId: string; text: string; limit?: number }): Promise<SemanticQueryHit[]>
-  getVectorStatus(): Promise<SemanticVectorStatus>
-  setVectorIndex(enabled: boolean): Promise<SemanticVectorStatus>
-  downloadModel(): Promise<SemanticVectorStatus>
-  /** Opens a folder picker; resolves unchanged when the user cancels. */
-  importModel(): Promise<SemanticVectorStatus>
-  removeModel(): Promise<SemanticVectorStatus>
-  getUsage(): Promise<SemanticUsage>
 }
 
 export interface McpInternalApi {

@@ -144,7 +144,6 @@
 .settings-center .ws-settings-form-v2 .modal-actions button { min-height: var(--control-h); padding: 7px 12px; border-radius: var(--nav-radius); font-size: var(--fs-2xs); }
 .settings-center .ws-settings-form-v2 .modal-actions p { font-size: var(--fs-2xs); }
 .settings-center .ws-settings-saved { display: flex; align-items: center; gap: 7px; padding: 7px 24px; color: var(--accent); font-size: var(--fs-xs); }
-.settings-center .ws-settings-form-v2 .modal-error { margin: 0 24px; }
 .settings-center :is(button, input, select):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .settings-center .desktop-search input:focus-visible { outline: none; }
 @media (max-width: 1100px) {

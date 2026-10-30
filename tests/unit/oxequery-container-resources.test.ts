@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseDiskUsage, parseImages, parseNetworks, parseStats, parseVolumes } from '../../electron/main/services/oxequery/container-parse'
+import { parseDiskUsage, parseImages, parseNetworks, parseStats, parseVolumes } from '../../electron/main/services/oxepod/container-parse'
 
 describe('container resource parsers', () => {
   it('parses docker stats lines', () => {

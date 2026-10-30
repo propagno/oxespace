@@ -1,6 +1,7 @@
 import type {
-  ContainerInspect, ContainerPort, ContainerState, ContainerStat, ContainerSummary, ConnectionSuggestion, DatabaseEngine, DiskUsageRow, ImageInfo, NetworkInfo, VolumeInfo
-} from '../../../../shared/types/oxequery'
+  ContainerInspect, ContainerPort, ContainerState, ContainerStat, ContainerSummary, ConnectionSuggestion, DiskUsageRow, ImageInfo, NetworkInfo, VolumeInfo
+} from '../../../../shared/types/oxepod'
+import type { DatabaseEngine } from '../../../../shared/types/oxequery'
 import { redactSecrets } from '../../../../shared/secrets'
 import { redactEnvironment } from '../../../../shared/environment-redaction'
 
