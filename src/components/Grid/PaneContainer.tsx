@@ -13,6 +13,7 @@ import { Button, Dialog } from '../../ui'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
+import { PhoneWriteBadge, PhoneWriteMenuItem, usePhoneWrite } from './PanePhoneWrite'
 
 const tc = i18n.getFixedT(null, 'code')
 const detailRows = (items: string[][]): Array<{ label: string; detail: string }> => items.map(([label, detail]) => ({ label, detail }))
@@ -70,6 +71,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   const isTerminalPane = pane.type === 'terminal'
   const terminalCanMutate = terminalState.status === 'running'
   const terminalCanRestart = terminalState.status !== 'starting'
+  const phoneWrite = usePhoneWrite(pane.id)
 
   // Inline rename state for the pane's title. The sidebar no longer exposes
   // per-pane rows, so renaming lives in the header where the user already
@@ -183,6 +185,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           </span>
           <span className="pane-header-divider" aria-hidden="true">/</span>
           {isTerminalPane && <PaneBranchBadge workspace={workspace} pane={pane} />}
+          {isTerminalPane && phoneWrite.allowed && <PhoneWriteBadge />}
           {renaming ? (
             <input
               ref={renameInputRef}
@@ -297,6 +300,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       <RotateCcw size={14} aria-hidden="true" />
                       {tc('paneMenu.newSession')}
                     </button>
+                    {phoneWrite.offered && <PhoneWriteMenuItem paneId={pane.id} allowed={phoneWrite.allowed} onDone={runMenuAction} />}
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                   </>
                 ) : null}

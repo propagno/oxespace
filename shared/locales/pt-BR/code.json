@@ -1862,6 +1862,10 @@
     }
   },
   "paneMenu": {
+    "phoneWrite": "Permitir digitar pelo celular",
+    "phoneWriteBadge": "Celular pode digitar",
+    "phoneWriteBadgeTitle": "Um celular pareado pode digitar neste terminal. Desligue no menu ⋯.",
+    "phoneWriteFailed": "Não foi possível mudar a digitação pelo celular",
     "detailsUnavailable": "Detalhes da sessão indisponíveis",
     "detailsFailed": "Não foi possível ler a sessão",
     "rename": "Renomear o painel",
