@@ -6,9 +6,6 @@ import type { ApprovalHistoryEntry, ApprovalOption, ApprovalRequest } from '../.
  * requests it emits). Pure, so the dialog and the tests read the same rules.
  */
 
-/** At critical risk, allow options stay disabled this long after the request is shown. TODO(CCR B10): not exported by shared/approval-rules.ts yet. */
-export const CRITICAL_ALLOW_DELAY_MS = 2_000
-
 /** Requests in the order they are answered: oldest first, ties by id so the order never shuffles. */
 export function byCreatedAt(a: { createdAt: number; id: string }, b: { createdAt: number; id: string }): number {
   return a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
@@ -39,17 +36,19 @@ export function visibleOptions(request: ApprovalRequest): ApprovalOption[] {
   return [...offered.filter(option => option.intent === 'deny'), ...offered.filter(option => option.intent !== 'deny')]
 }
 
-/** Allow options wait CRITICAL_ALLOW_DELAY_MS at critical risk, and are never activated by Enter there. */
-export const holdsAllow = (request: ApprovalRequest): boolean => request.risk === 'critical'
+/** Allow options wait `allowDelayMs` after the request is shown (main's pacing: 2 s at critical, else 0). */
+export const holdsAllow = (request: Pick<ApprovalRequest, 'allowDelayMs'>): boolean => request.allowDelayMs > 0
 
 /**
- * A decision as the history shows it. `reason` carries why main settled it without the person, when it says so.
- * TODO(CCR B10): ApprovalHistoryEntry has no reason field and there is no C3 code for "denied, queue full"
- * (APPROVAL_QUEUE_MAX). The window reads an optional `reason` and recognises QUEUE_FULL_CODE until the contract has one.
+ * A decision as the history shows it. `by: 'refused'` is main denying a request before it was shown (queue full, text
+ * too long): the app's decision, never the person's. Why it did comes from `reason` when main sends one, or from a
+ * `summary` that is itself an `approvals.denied.*` code. TODO(CCR B10): ApprovalHistoryEntry has no reason field yet.
  */
 export type ApprovalHistoryRow = Omit<ApprovalHistoryEntry, 'textSha256' | 'createdAt'> & { reason?: MainMessage | { code: string; params: Record<string, unknown> } }
-export const QUEUE_FULL_CODE = 'approvals.queueFull'
-export const isQueueFull = (row: ApprovalHistoryRow): boolean => row.reason?.code === QUEUE_FULL_CODE
+export function refusalReason(row: ApprovalHistoryRow): ApprovalHistoryRow['reason'] {
+  if (row.reason) return row.reason
+  return row.summary.code.startsWith('approvals.denied.') ? row.summary : undefined
+}
 
 export function historyRow(entry: ApprovalHistoryEntry & { reason?: ApprovalHistoryRow['reason'] }): ApprovalHistoryRow {
   return { id: entry.id, kind: entry.kind, requester: entry.requester, risk: entry.risk, title: entry.title, summary: entry.summary, outcome: entry.outcome, by: entry.by, resolvedAt: entry.resolvedAt, reason: entry.reason }

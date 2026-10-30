@@ -2,13 +2,16 @@ import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Dialog, EmptyState, type Intent } from '../../ui'
 import { useApprovalsStore } from './approvals.store'
-import { isQueueFull, type ApprovalHistoryRow } from './approvalsRules'
+import { refusalReason, type ApprovalHistoryRow } from './approvalsRules'
 import { approvalT as t, formatMainMessage, formatTime, requesterText, riskName } from './approvalText'
 import styles from './Approvals.module.css'
 
 /** Who settled it, in words. Only `by: 'user'` is the person's decision; the rest say what the app did. */
-function decision(row: ApprovalHistoryRow): { text: string; intent: Intent } {
-  if (isQueueFull(row)) return { text: t('approvals.by.queueFull'), intent: 'neutral' }
+function decision(row: ApprovalHistoryRow): { text: string; intent: Intent; detail?: string } {
+  if (row.by === 'refused') {
+    const reason = refusalReason(row)
+    return { text: t('approvals.by.refused'), intent: 'neutral', detail: reason ? formatMainMessage(reason) : undefined }
+  }
   if (row.by !== 'user') return { text: t(`approvals.by.${row.by}`), intent: 'neutral' }
   return { text: t(`approvals.outcome.${row.outcome}`), intent: row.outcome === 'deny' ? 'neutral' : 'warning' }
 }
@@ -34,9 +37,9 @@ export function ApprovalHistory({ onClose, hasPending }: { onClose: () => void; 
           const result = decision(row)
           return <tr key={row.id} data-testid="approval-history-row" data-by={row.by}>
             <td className={styles.muted}><time dateTime={new Date(row.resolvedAt).toISOString()}>{formatTime(row.resolvedAt)}</time></td>
-            <td>{formatMainMessage(row.summary)}<span className={styles.muted}> · {t('approvals.risk.label', { level: riskName(row.risk) })}</span></td>
+            <td>{row.summary.code.startsWith('approvals.denied.') ? formatMainMessage(row.title) : formatMainMessage(row.summary)}<span className={styles.muted}> · {t('approvals.risk.label', { level: riskName(row.risk) })}</span></td>
             <td>{requesterText(row.requester)}</td>
-            <td><Badge intent={result.intent}>{result.text}</Badge></td>
+            <td><Badge intent={result.intent}>{result.text}</Badge>{result.detail && <p className={styles.muted} data-testid="approval-history-reason">{result.detail}</p>}</td>
           </tr>
         })}</tbody>
       </table>}

@@ -27,7 +27,8 @@ export function formatAppNote(note: MainMessage | { code: string; params: Record
 
 export const riskName = (risk: ApprovalRisk): string => t(`approvals.risk.${risk}`)
 export const requesterKindName = (requester: ApprovalRequester): string => t(`approvals.requester.${requester.kind}`)
-export const requesterText = (requester: ApprovalRequester): string => formatMainMessage(requester.label)
+/** The requester as main named it; never empty (an unknown provider reads "Unknown agent", B10). */
+export const requesterText = (requester: ApprovalRequester): string => formatMainMessage(requester.label).trim() || t('approvals.requester.unknown')
 
 /** The one summary line: main's generic summary for the action, and what it applies to. Never the agent's words. */
 export function summaryLine(request: Pick<ApprovalRequest, 'summary' | 'target'>): string {

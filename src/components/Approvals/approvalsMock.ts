@@ -1,3 +1,4 @@
+import { allowTooSoon } from '../../../shared/approval-rules'
 import { mainMessage } from '../../../shared/messages'
 import {
   APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalRefusal,
@@ -18,7 +19,9 @@ export interface ApprovalsMockHook {
   settle(id: string, by: Exclude<ApprovalResolvedBy, 'user'>): void
   /** Re-issues a pending request with a new generation, so an answer to the old one is stale. `silent` skips the event. */
   bump(id: string, options?: { silent?: boolean }): void
-  /** Adds a history entry main settled without showing it (queue full). */
+  /** The next respond is refused with this code, whatever it answers (to show a refusal the window cannot predict). */
+  refuseNext(refusal: ApprovalRefusal): void
+  /** Adds a history entry main settled without showing it (queue full, too long). */
   record(entry: ApprovalHistoryEntry & { reason?: { code: string; params: Record<string, unknown> } }): void
   readonly responses: ReadonlyArray<{ id: string; optionId: string; generation: number }>
   readonly acks: ReadonlyArray<ApprovalAnswerInput>
@@ -47,7 +50,7 @@ export function mockRequest(partial: MockRequestInput = {}): ApprovalRequest {
     requester: { kind: 'agent', id: 'pane:p1', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 1 }) },
     risk: 'low',
     title: mainMessage('approvals.title.agent', {}),
-    summary: mainMessage('approvals.summary.mcpConfirm', { tool: 'oxespace_agents_change', action: 'prompt' }),
+    summary: mainMessage('approvals.summary.mcpConfirm', { tool: 'oxespace_agents_change', action: 'prompt', target: 'C:\\repo' }),
     appNotes: [],
     options: [
       { id: 'deny', intent: 'deny', label: mainMessage('approvals.option.deny', {}) },
@@ -56,6 +59,8 @@ export function mockRequest(partial: MockRequestInput = {}): ApprovalRequest {
     ],
     defaultOptionId: 'deny',
     ackRequired: false,
+    allowDelayMs: 0,
+    enterDisabled: false,
     createdAt: now,
     expiresAt: now + APPROVAL_TIMEOUT_MS,
     ...rest,
@@ -68,6 +73,8 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
   const pending = new Map<string, ApprovalRequest>()
   let history: Array<ApprovalHistoryEntry & { reason?: { code: string; params: Record<string, unknown> } }> = []
   const reported = new Set<string>()
+  const displayedAt = new Map<string, number>()
+  let forced: ApprovalRefusal | null = null
   const requested = new Set<(request: ApprovalRequest) => void>()
   const resolved = new Set<(resolution: ApprovalResolved) => void>()
   const responses: Array<{ id: string; optionId: string; generation: number }> = []
@@ -105,12 +112,13 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
       pending.set(id, next)
       if (!options?.silent) for (const listener of requested) listener(next)
     },
+    refuseNext(refusal) { forced = refusal },
     record(entry) { history = [entry, ...history] },
     responses,
     acks,
     unavailable,
     reset() {
-      pending.clear(); history = []; reported.clear(); responses.length = 0; acks.length = 0; unavailable.length = 0
+      pending.clear(); history = []; reported.clear(); displayedAt.clear(); forced = null; responses.length = 0; acks.length = 0; unavailable.length = 0
     }
   }
 
@@ -120,16 +128,22 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
     history: async () => [...history],
     async respond(input) {
       responses.push(input)
+      if (forced) { const refusal = forced; forced = null; return refuse(refusal) }
       const request = current(input)
       if (typeof request === 'string') return refuse(request)
-      if (!request.options.some(option => option.id === input.optionId)) return refuse('unknownOption')
+      const option = request.options.find(item => item.id === input.optionId)
+      if (!option) return refuse('unknownOption')
+      // As main: an allow before the ack, or sooner than allowDelayMs after it, is refused and the request stays.
+      if (allowTooSoon(request, option.intent, displayedAt.get(request.id), Date.now())) return refuse('tooSoon')
       settle(request, input.optionId, 'user')
       return { ok: true, id: request.id }
     },
     async ack(input) {
       acks.push(input)
       const request = current(input)
-      return typeof request === 'string' ? refuse(request) : { ok: true, id: request.id }
+      if (typeof request === 'string') return refuse(request)
+      if (!displayedAt.has(request.id)) displayedAt.set(request.id, Date.now())
+      return { ok: true, id: request.id }
     },
     async unavailable(input) {
       unavailable.push(input)

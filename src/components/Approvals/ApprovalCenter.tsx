@@ -12,7 +12,7 @@ import { approvalT } from './approvalText'
  * The approval window, loaded on demand by ApprovalsHost. One request at a time, oldest first; the next opens after
  * a decision. Nothing here answers without the person: there is no approve-all, and closing means deny.
  */
-export function ApprovalCenter({ armMs, holdMs }: { armMs?: number; holdMs?: number } = {}): ReactElement | null {
+export function ApprovalCenter({ armMs }: { armMs?: number } = {}): ReactElement | null {
   useTranslation()
   const api = approvalsApi()
   const queue = useApprovalsStore(state => state.queue)
@@ -51,5 +51,5 @@ export function ApprovalCenter({ armMs, holdMs }: { armMs?: number; holdMs?: num
   if (historyOpen) return <ApprovalHistory onClose={() => useApprovalsStore.getState().setHistoryOpen(false)} hasPending={queue.length > 0} />
   const request = queue[0]
   if (!request) return null
-  return <ApprovalDialog request={request} position={1} total={queue.length} api={api} armMs={armMs} holdMs={holdMs} />
+  return <ApprovalDialog request={request} position={1} total={queue.length} api={api} armMs={armMs} />
 }

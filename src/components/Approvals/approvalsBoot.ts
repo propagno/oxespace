@@ -61,7 +61,8 @@ const acked = new Set<string>()
 
 /**
  * The dialog is mounted with this queue (its count reads "1 of N"): the fail-safe of every request in it stops. The
- * first one is on screen; if main asked for an acknowledgement, it gets one, once per generation.
+ * first one is on screen and is acknowledged (`approvals.ack`, B10: the "displayed" signal that starts main's allow
+ * delay), once per generation. The others are acknowledged when their turn comes.
  */
 export function reportShown(queue: readonly ApprovalRequest[], channel: ApprovalsApi | null = api): void {
   for (const request of queue) {
@@ -71,7 +72,7 @@ export function reportShown(queue: readonly ApprovalRequest[], channel: Approval
     shown.add(key)
   }
   const onScreen = queue[0]
-  if (!onScreen?.ackRequired || !channel || handedOff.has(keyOf(onScreen)) || acked.has(keyOf(onScreen))) return
+  if (!onScreen || !channel || handedOff.has(keyOf(onScreen)) || acked.has(keyOf(onScreen))) return
   acked.add(keyOf(onScreen))
   void channel.ack({ id: onScreen.id, generation: onScreen.generation }).catch(() => {})
 }

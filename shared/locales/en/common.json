@@ -359,7 +359,8 @@
       "agent": "Agent",
       "mcp-server": "MCP server",
       "app": "OXESpace",
-      "verified": "identified by OXESpace"
+      "verified": "identified by OXESpace",
+      "unknown": "Unknown agent"
     },
     "appNotes": "OXESpace notes",
     "agent": {
@@ -371,7 +372,8 @@
     "expires": "If you do not answer by {{time}}, the request is denied.",
     "hold": {
       "waiting": "Critical risk: Allow is available in {{seconds}} s. Read the request first.",
-      "ready": "Allow is available. Enter does not approve at critical risk; use Space or click."
+      "ready": "Allow is available. Enter does not approve at critical risk; use Space or click.",
+      "readyEnter": "Allow is available."
     },
     "refused": "Your answer was not applied",
     "settled": {
@@ -388,7 +390,7 @@
       "timeout": "Expired, denied",
       "cancelled": "Cancelled",
       "native": "Answered in the system dialog",
-      "queueFull": "Denied by OXESpace: queue full"
+      "refused": "Denied by OXESpace"
     },
     "history": {
       "open": "History",

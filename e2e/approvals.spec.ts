@@ -21,8 +21,8 @@ const pane = (agent: string, number: number) => ({ kind: 'agent', id: `pane:p${n
 function approval(id: string, createdAt: number, extra: Record<string, unknown> = {}) {
   const now = Date.now()
   return {
-    schemaVersion: 1, id, generation: 1, kind: 'action', requester: pane('Claude', 2), risk: 'medium', ackRequired: false,
-    title: msg('approvals.title.agent'), summary: msg('approvals.summary.mcpConfirm', { tool: 'oxespace_agents_change', action: 'prompt' }), target: 'C:\\repo',
+    schemaVersion: 1, id, generation: 1, kind: 'action', requester: pane('Claude', 2), risk: 'medium', ackRequired: false, allowDelayMs: 0, enterDisabled: false,
+    title: msg('approvals.title.agent'), summary: msg('approvals.summary.mcpConfirm', { tool: 'oxespace_agents_change', action: 'prompt', target: 'C:\\repo' }), target: 'C:\\repo',
     appNotes: [], agentText: text('Fix the failing test in src/app.ts'), options: [DENY, ALLOW], defaultOptionId: 'deny',
     createdAt: now + createdAt, expiresAt: now + 5 * 60_000, ...extra
   }
@@ -37,7 +37,7 @@ async function launchWith(requests: unknown, options: { appearance?: Appearance 
 const history = (page: Page) => page.evaluate(async () => (await window.oxe.approvals!.history()).map(entry => `${entry.id}:${entry.outcome}:${entry.by}`))
 
 const RICH = approval('rich', 0, {
-  kind: 'oxequery', risk: 'critical', target: 'billing · postgres · prod',
+  kind: 'oxequery', risk: 'critical', allowDelayMs: 2_000, enterDisabled: true, target: 'billing · postgres · prod',
   environment: { kind: 'prod', name: 'billing', production: true },
   title: msg('approvals.title.oxequery'), summary: msg('approvals.summary.oxequery.write'),
   appNotes: [msg('approvals.note.sql.removes', { statement: 'DROP' }), msg('approvals.note.production')],
@@ -157,10 +157,12 @@ test('main’s sample: the crash prompt comes first and is acknowledged; a cut t
   try {
     const dialog = page.getByTestId('approval-dialog')
     await expect(dialog).toContainText('OXESpace hit an unexpected error', { timeout: 15_000 })
+    await expect(dialog.locator('[data-default="true"]')).toHaveText('Keep working')
+    await expect(dialog.locator('[data-default="true"]')).toBeFocused()
     await expect(page.getByTestId('approval-queue')).toHaveText('Request 1 of 4')
     await page.waitForTimeout(ARMED)
     await page.keyboard.press('Escape')
-    // Same creation time for the rest: by id, the long text that was cut comes next.
+    // Same creation time for the rest: by id, the long read whose text was cut comes next.
     await expect(dialog).toContainText('pane 2')
     await expect(dialog.getByTestId('approval-app-notes')).toContainText('It cannot be approved.')
     await expect(dialog.getByTestId('approval-agent-block')).not.toContainText('It cannot be approved.')

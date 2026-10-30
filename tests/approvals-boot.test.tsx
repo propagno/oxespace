@@ -173,7 +173,7 @@ describe('approvals guard (no native dialog for a request while the window is op
       ...(['local', 'dev', 'prod'] as const).map(kind => `approvals.environment.kind.${kind}`),
       ...(['timeout', 'cancelled', 'native'] as const).flatMap(by => [`approvals.settled.${by}`, `approvals.by.${by}`]),
       ...(['deny', 'allow', 'allow-session'] as const).map(intent => `approvals.outcome.${intent}`),
-      'approvals.by.queueFull', 'approvals.hold.waiting', 'approvals.hold.ready'
+      'approvals.by.refused', 'approvals.requester.unknown', 'approvals.hold.waiting', 'approvals.hold.ready', 'approvals.hold.readyEnter'
     ]
     for (const catalog of [en, ptBR]) for (const key of keys) expect(typeof lookup(catalog, key), key).toBe('string')
   })

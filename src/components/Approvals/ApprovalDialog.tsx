@@ -5,7 +5,7 @@ import { mainMessage } from '../../../shared/messages'
 import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequest, type ApprovalRisk, type ApprovalsApi } from '../../../shared/types/approvals'
 import { Badge, Button, Dialog, Notice, type Intent } from '../../ui'
 import { useApprovalsStore, type ApprovalNotice } from './approvals.store'
-import { CRITICAL_ALLOW_DELAY_MS, denyOption, holdsAllow, visibleOptions } from './approvalsRules'
+import { denyOption, holdsAllow, visibleOptions } from './approvalsRules'
 import { approvalT as t, factsSentence, formatAppNote, formatCount, formatMainMessage, formatTime, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
 import { useAllowHold } from './useAllowHold'
 import styles from './Approvals.module.css'
@@ -36,11 +36,10 @@ export interface ApprovalDialogProps {
   total: number
   api: ApprovalsApi
   armMs?: number
-  holdMs?: number
 }
 
 /** One approval request: what is asked, by whom, where, how risky; the app's notes apart from the agent's words. */
-export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS, holdMs = CRITICAL_ALLOW_DELAY_MS }: ApprovalDialogProps): ReactElement {
+export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }: ApprovalDialogProps): ReactElement {
   useTranslation()
   const busyId = useApprovalsStore(state => state.busyId)
   const notice = useApprovalsStore(state => state.notice)
@@ -49,8 +48,9 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS, 
   const shownAt = useRef(performance.now())
   const instance = `${request.id}:${request.generation}`
   useEffect(() => { shownAt.current = performance.now() }, [instance])
-  const critical = holdsAllow(request)
-  const holdLeft = useAllowHold(critical, instance, holdMs)
+  // Main's pacing drives the hold and Enter (B10): allowDelayMs from when the request is on screen, enterDisabled.
+  const held = holdsAllow(request)
+  const holdLeft = useAllowHold(held, instance, request.allowDelayMs)
 
   const fallback = denyOption(request)
   const options = visibleOptions(request)
@@ -62,7 +62,7 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS, 
     void useApprovalsStore.getState().respond(api, optionId)
   }
   const deny = (): void => { if (!busy && fallback) choose(fallback.id) }
-  // At critical risk Enter never approves; Space or a click does, once the hold is over.
+  // With enterDisabled (critical) Enter never approves; Space or a click does, once the hold is over.
   const guardEnter = (event: KeyboardEvent<HTMLButtonElement>): void => { if (event.key === 'Enter') event.preventDefault() }
 
   const risk = RISK[request.risk]
@@ -87,7 +87,7 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS, 
         const variant = !allow || option.intent === 'allow-session' ? 'secondary' : dangerous ? 'danger' : 'primary'
         return <Button key={`${instance}:${option.id}`} variant={variant} autoFocus={isDefault} disabled={!!busyId || (allow && holdLeft > 0)}
           data-intent={option.intent} data-default={isDefault ? 'true' : undefined} onClick={() => choose(option.id)}
-          onKeyDown={allow && critical ? guardEnter : undefined}>
+          onKeyDown={allow && request.enterDisabled ? guardEnter : undefined}>
           {formatMainMessage(option.label)}
         </Button>
       })}
@@ -124,8 +124,8 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS, 
         ? <pre className={styles.agentText} tabIndex={0} aria-labelledby={agentHeading} data-testid="approval-agent-text">{request.agentText.text}</pre>
         : <p className={styles.muted}>{t('approvals.agent.empty')}</p>}
     </section>
-    {hasAllow && critical && <p className={styles.hold} role="status" data-testid="approval-hold">
-      {holdLeft > 0 ? t('approvals.hold.waiting', { seconds: Math.ceil(holdLeft / 1000) }) : t('approvals.hold.ready')}
+    {hasAllow && held && <p className={styles.hold} role="status" data-testid="approval-hold">
+      {holdLeft > 0 ? t('approvals.hold.waiting', { seconds: Math.ceil(holdLeft / 1000) }) : t(request.enterDisabled ? 'approvals.hold.ready' : 'approvals.hold.readyEnter')}
     </p>}
     <p className={styles.expires}>{t('approvals.expires', { time: formatTime(request.expiresAt) })}</p>
   </Dialog>

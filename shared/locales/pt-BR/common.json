@@ -364,7 +364,8 @@
       "agent": "Agente",
       "mcp-server": "Servidor MCP",
       "app": "OXESpace",
-      "verified": "identificado pelo OXESpace"
+      "verified": "identificado pelo OXESpace",
+      "unknown": "Agente desconhecido"
     },
     "appNotes": "Avisos do OXESpace",
     "agent": {
@@ -376,7 +377,8 @@
     "expires": "Se você não responder até {{time}}, o pedido será negado.",
     "hold": {
       "waiting": "Risco crítico: Permitir fica disponível em {{seconds}} s. Leia o pedido antes.",
-      "ready": "Permitir está disponível. Com risco crítico, Enter não aprova; use Espaço ou clique."
+      "ready": "Permitir está disponível. Com risco crítico, Enter não aprova; use Espaço ou clique.",
+      "readyEnter": "Permitir está disponível."
     },
     "refused": "Sua resposta não foi aplicada",
     "settled": {
@@ -393,7 +395,7 @@
       "timeout": "Expirou, negado",
       "cancelled": "Cancelado",
       "native": "Respondido na caixa de diálogo do sistema",
-      "queueFull": "Negado pelo OXESpace: fila cheia"
+      "refused": "Negado pelo OXESpace"
     },
     "history": {
       "open": "Histórico",
