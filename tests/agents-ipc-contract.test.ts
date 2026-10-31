@@ -24,7 +24,7 @@ import {
   type RemoteAgentContext
 } from '../shared/agents/remoteAgentRow'
 import { AGENT_KINDS, AGENT_STATES, parseAgentKey, type AgentKey } from '../shared/agents/agentState'
-import { AGENT_TIMER_DEFAULTS, dueNudges, readAgentTimers, stateAfterStop, agentTimersE2e } from '../shared/agents/agentTimers'
+import { AGENT_NUDGE_CHOICES_MS, AGENT_NUDGE_DEFAULT_MS, AGENT_TIMER_DEFAULTS, dueNudges, readAgentTimers, readNudgeChoice, stateAfterStop, agentTimersE2e } from '../shared/agents/agentTimers'
 import enMain from '../shared/locales/en/main.json'
 import ptMain from '../shared/locales/pt-BR/main.json'
 import { MCP_COVERAGE } from '../shared/mcp-coverage'
@@ -51,14 +51,14 @@ const ok = { ok: true } as const
 const sources = Object.fromEntries(AGENT_KINDS.map(kind => [kind, ok])) as AgentsOverview['sources']
 
 describe('agents IPC contract (S7.1, C1)', () => {
-  it('uses two invoke channels and two events in their own group', () => {
-    expect(IPC_CHANNELS.agents).toEqual({ overview: 'agents:overview', markSeen: 'agents:mark-seen', changed: 'agents:changed', activate: 'agents:activate' })
+  it('uses four invoke channels and two events in their own group', () => {
+    expect(IPC_CHANNELS.agents).toEqual({ overview: 'agents:overview', markSeen: 'agents:mark-seen', changed: 'agents:changed', activate: 'agents:activate', nudgeSetting: 'agents:nudge-setting', setNudgeSetting: 'agents:set-nudge-setting' })
   })
 
   it('is for the person: forbidden to agents, and the event is no action', () => {
     const capability = MCP_COVERAGE['agents.central']
     expect('forbidden' in capability && !('tools' in capability)).toBe(true)
-    expect(capability.ipc).toEqual(['agents.overview', 'agents.markSeen', 'agents.activate'])
+    expect(capability.ipc).toEqual(['agents.overview', 'agents.markSeen', 'agents.activate', 'agents.nudgeSetting', 'agents.setNudgeSetting'])
     expect(MCP_COVERAGE['app.events'].ipc).toContain('*.changed')
   })
 
@@ -72,7 +72,10 @@ describe('agents IPC contract (S7.1, C1)', () => {
     const agents = createOxeApi(ipc).agents!
     await agents.overview!()
     await agents.markSeen!({ key: 'pane:p1' })
-    expect(vi.mocked(ipc.invoke).mock.calls).toEqual([[IPC_CHANNELS.agents.overview], [IPC_CHANNELS.agents.markSeen, { key: 'pane:p1' }]])
+    await agents.nudgeSetting!()
+    await agents.setNudgeSetting!({ afterMs: 300_000 })
+    expect(vi.mocked(ipc.invoke).mock.calls).toEqual([[IPC_CHANNELS.agents.overview], [IPC_CHANNELS.agents.markSeen, { key: 'pane:p1' }],
+      [IPC_CHANNELS.agents.nudgeSetting], [IPC_CHANNELS.agents.setNudgeSetting, { afterMs: 300_000 }]])
     const listener = vi.fn()
     const off = agents.onChanged!(listener)
     const [[channel, wrapped]] = vi.mocked(ipc.on).mock.calls
@@ -383,6 +386,13 @@ describe('testable timers (§14)', () => {
     for (const raw of ['0', '10', '-5', '1e3', 'abc', '999999999', ' ']) {
       expect(readAgentTimers({ OXESPACE_E2E_AGENTS_NO_REPORT_MS: raw }, true).noReportMs, raw).toBe(10_000)
     }
+  })
+
+  it('offers off, 1, 2 and 5 min for the nudge, 2 min by default, and refuses anything else', () => {
+    expect(AGENT_NUDGE_CHOICES_MS).toEqual([null, 60_000, 120_000, 300_000])
+    expect(AGENT_NUDGE_DEFAULT_MS).toBe(AGENT_TIMER_DEFAULTS.needsYouMs)
+    for (const value of AGENT_NUDGE_CHOICES_MS) expect(readNudgeChoice(value)).toEqual({ ok: true, afterMs: value })
+    for (const value of [0, 30_000, '120000', undefined, 120_001, -1]) expect(readNudgeChoice(value), String(value)).toEqual({ ok: false })
   })
 
   it('nudges once per request, only while unfocused, batching requests due within 10 s', () => {
