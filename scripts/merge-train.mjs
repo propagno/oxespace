@@ -50,6 +50,9 @@ const time = (iso) => (iso ? Date.parse(iso) : 0)
 // Line breaks, including the Unicode line and paragraph separators, and a zero-width space after '@'.
 const LINE_BREAKS = new RegExp(`[${String.fromCharCode(0x0d, 0x0a, 0x2028, 0x2029)}]+`, 'g')
 const MENTION_BREAK = '@' + String.fromCharCode(0x200b)
+const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => String.fromCharCode(from + i)).join('')
+// Zero-width and bidi control characters (U+200B-200F, U+202A-202E, U+2066-2069, U+FEFF), which can hide or reorder text.
+const INVISIBLE = new RegExp(`[${range(0x200b, 0x200f)}${range(0x202a, 0x202e)}${range(0x2066, 0x2069)}${String.fromCharCode(0xfeff)}]`, 'g')
 
 /**
  * A name from GitHub (check, job, step, workflow) as it may appear in a comment: no HTML comment markers or
@@ -58,6 +61,7 @@ const MENTION_BREAK = '@' + String.fromCharCode(0x200b)
 export function cleanName(value) {
   const text = String(value ?? '')
     .replace(LINE_BREAKS, ' ')
+    .replace(INVISIBLE, '')
     .replace(/[<>`]/g, '')
     .replace(/@/g, MENTION_BREAK)
     .replace(/\s+/g, ' ')
@@ -430,6 +434,11 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
   }
   const r = `/repos/${repo}`
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  /** This repository's own runs of the PR's code on `sha`: a fork's run on the same SHA never counts. */
+  const ownRuns = async (sha) => {
+    const runs = await paginate(`${r}/actions/runs?head_sha=${sha}&per_page=100`, (d) => d.workflow_runs)
+    return runs.filter((run) => run.head_repository?.full_name === repo && COUNTED_EVENTS.has(run.event))
+  }
   return {
     async listQueue() {
       const issues = await paginate(`${r}/issues?state=open&labels=${encodeURIComponent(LABEL)}&per_page=100`)
@@ -471,10 +480,7 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
       return [...latest.values()].includes('CHANGES_REQUESTED')
     },
     async listRuns(sha) {
-      const runs = await paginate(`${r}/actions/runs?head_sha=${sha}&per_page=100`, (d) => d.workflow_runs)
-      // Only this repository's own runs of the PR's code: a fork's run on the same SHA never counts.
-      const own = runs.filter((run) => run.head_repository?.full_name === repo && COUNTED_EVENTS.has(run.event))
-      return own.map((run) => ({
+      return (await ownRuns(sha)).map((run) => ({
         name: run.name,
         path: run.path,
         headSha: run.head_sha,
@@ -485,10 +491,16 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
       }))
     },
     async listChecks(sha) {
-      const checks = await paginate(`${r}/commits/${sha}/check-runs?per_page=100`, (d) => d.check_runs)
+      const [checks, runs] = await Promise.all([
+        paginate(`${r}/commits/${sha}/check-runs?per_page=100`, (d) => d.check_runs),
+        ownRuns(sha),
+      ])
+      // Only GitHub Actions' check runs, and only those of the runs that count (same check suite): another app with
+      // checks:write, or a fork PR's Actions run on the same SHA, cannot post a passing check of the same name.
+      const suites = new Set(runs.map((run) => run.check_suite_id).filter((id) => id != null))
+      const counted = checks.filter((c) => c.app?.slug === ACTIONS_APP_SLUG && suites.has(c.check_suite?.id))
       const out = []
-      // Only GitHub Actions' check runs: another app with checks:write cannot post a passing check of the same name.
-      for (const check of checks.filter((c) => c.app?.slug === ACTIONS_APP_SLUG)) {
+      for (const check of counted) {
         let failedStep = null
         if (check.status === 'completed' && !['success', 'skipped', 'neutral'].includes(check.conclusion)) {
           // An Actions check run's id is its job's id: the job lists the step that failed.

@@ -5,6 +5,7 @@ import { load } from 'js-yaml'
 import { describe, expect, it } from 'vitest'
 import {
   CI_WORKFLOW,
+  cleanName,
   DISPATCH_GRACE_MS,
   LABEL,
   PREFIX,
@@ -493,21 +494,57 @@ describe('security (review of #318)', () => {
       if (url.includes('/actions/runs?'))
         return respond({
           workflow_runs: [
-            { name: CI_WORKFLOW, head_sha: HEAD, event: 'pull_request', head_repository: { full_name: 'o/r' } },
-            { name: CI_WORKFLOW, head_sha: HEAD, event: 'pull_request', head_repository: { full_name: 'fork/r' } },
-            { name: CI_WORKFLOW, head_sha: HEAD, event: 'workflow_run', head_repository: { full_name: 'o/r' } },
+            { name: CI_WORKFLOW, head_sha: HEAD, event: 'pull_request', head_repository: { full_name: 'o/r' }, check_suite_id: 100 },
+            { name: CI_WORKFLOW, head_sha: HEAD, event: 'pull_request', head_repository: { full_name: 'fork/r' }, check_suite_id: 200 },
+            { name: CI_WORKFLOW, head_sha: HEAD, event: 'workflow_run', head_repository: { full_name: 'o/r' }, check_suite_id: 300 },
           ],
         })
       return respond({
         check_runs: [
-          { name: 'Build', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'github-actions' } },
-          { name: 'Build', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'evil-app' } },
+          { name: 'Build', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'github-actions' }, check_suite: { id: 100 } },
+          { name: 'Build', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'evil-app' }, check_suite: { id: 100 } },
         ],
       })
     }
     const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
     expect(await api.listRuns(HEAD)).toHaveLength(1)
     expect(await api.listChecks(HEAD)).toHaveLength(1)
+  })
+
+  it('L-A: an Actions check of a fork PR run (or of a run that does not count) on the same SHA never counts', async () => {
+    const respond = (data: unknown) => ({ ok: true, status: 200, json: async () => data, text: async () => '', headers: { get: () => '' } })
+    const fetchImpl = async (url: string) => {
+      if (url.includes('/actions/runs?'))
+        return respond({
+          workflow_runs: [
+            { name: CI_WORKFLOW, head_sha: HEAD, event: 'pull_request', head_repository: { full_name: 'o/r' }, check_suite_id: 100 },
+            { name: CI_WORKFLOW, head_sha: HEAD, event: 'pull_request', head_repository: { full_name: 'fork/r' }, check_suite_id: 200 },
+            { name: 'Other', head_sha: HEAD, event: 'workflow_run', head_repository: { full_name: 'o/r' }, check_suite_id: 300 },
+          ],
+        })
+      return respond({
+        check_runs: [
+          { name: 'Build', head_sha: HEAD, status: 'completed', conclusion: 'failure', app: { slug: 'github-actions' }, check_suite: { id: 100 } },
+          { name: 'Build', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'github-actions' }, check_suite: { id: 200 } },
+          { name: 'Lint', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'github-actions' }, check_suite: { id: 300 } },
+          { name: 'Orphan', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'github-actions' } },
+        ],
+      })
+    }
+    const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
+    const checks = await api.listChecks(HEAD)
+    expect(checks.map((c: { name: string; conclusion: string }) => [c.name, c.conclusion])).toEqual([['Build', 'failure']])
+  })
+
+  it('L-B: bidi controls and zero-width characters are stripped from names', () => {
+    const hidden = [0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069, 0xfeff]
+    const name = `Bu${String.fromCharCode(...hidden)}ild`
+    expect(cleanName(name)).toBe('Build')
+    expect(cleanName(`${String.fromCharCode(0x202e)}gnp.exe`)).toBe('gnp.exe')
+    // The train's own mention break is added after the strip, so a mention stays broken.
+    expect(cleanName('@someone')).toBe(`@${String.fromCharCode(0x200b)}someone`)
+    const checks = [check(`Te${String.fromCharCode(0x202e)}st`, { status: 'in_progress', conclusion: null })]
+    expect(step(input({ checks })).message).toContain('Test still running')
   })
 
   it('L3: a label added without write access takes the PR out of the queue', async () => {
