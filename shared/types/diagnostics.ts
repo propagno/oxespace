@@ -104,7 +104,10 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.oxequery.timeout': 'oxequery',
   'incident.updater.failed': 'updater',
   'incident.interaction.overBudget': 'interaction',
-  'incident.app.journalReset': 'app'
+  'incident.app.journalReset': 'app',
+  'incident.window.externalRefused': 'window',
+  'incident.window.externalRateLimited': 'window',
+  'incident.window.externalOpenFailed': 'window'
 } as const satisfies Record<string, DiagnosticsArea>
 export type DiagnosticsIncidentCode = keyof typeof DIAGNOSTICS_INCIDENT_CODES
 
