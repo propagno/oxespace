@@ -20,6 +20,19 @@ import { OXEQUERY_PARAMETERS } from './messages-contract/oxequery'
 import { REMOTE_PARAMETERS } from './messages-contract/remote'
 import { THREAD_PARAMETERS } from './messages-contract/thread'
 import { WORKSPACE_PARAMETERS } from './messages-contract/workspace'
+import { ACTIVITY_MESSAGE_CODES } from '../shared/messages/activity'
+import { AGENTS_MESSAGE_CODES } from '../shared/messages/agents'
+import { APP_MESSAGE_CODES } from '../shared/messages/app'
+import { APPROVALS_MESSAGE_CODES } from '../shared/messages/approvals'
+import { DIAGNOSTICS_MESSAGE_CODES } from '../shared/messages/diagnostics'
+import { GIT_MESSAGE_CODES } from '../shared/messages/git'
+import { MCP_MESSAGE_CODES } from '../shared/messages/mcp'
+import { OXEPOD_MESSAGE_CODES } from '../shared/messages/oxepod'
+import { OXEPOST_MESSAGE_CODES } from '../shared/messages/oxepost'
+import { OXEQUERY_MESSAGE_CODES } from '../shared/messages/oxequery'
+import { REMOTE_MESSAGE_CODES } from '../shared/messages/remote'
+import { THREAD_MESSAGE_CODES } from '../shared/messages/thread'
+import { WORKSPACE_MESSAGE_CODES } from '../shared/messages/workspace'
 
 const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
 const placeholders = (text: string) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]).sort()
@@ -29,7 +42,9 @@ const placeholders = (text: string) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map(
  * tests/messages-contract/<domain>.ts (S0.1 part 2b): a new code edits its domain's table, not this file. What spans
  * domains stays here: every code in exactly one table, and the union equal to MESSAGE_CODES.
  */
-const DOMAIN_PARAMETERS: Record<string, string[]>[] = [ACTIVITY_PARAMETERS, AGENTS_PARAMETERS, APP_PARAMETERS, APPROVALS_PARAMETERS, DIAGNOSTICS_PARAMETERS, GIT_PARAMETERS, MCP_PARAMETERS, OXEPOD_PARAMETERS, OXEPOST_PARAMETERS, OXEQUERY_PARAMETERS, REMOTE_PARAMETERS, THREAD_PARAMETERS, WORKSPACE_PARAMETERS]
+/** Each domain's table with the codes its shared/messages file declares: a table holds exactly its own domain's codes. */
+const DOMAINS: [string, Record<string, string[]>, readonly string[]][] = [['activity', ACTIVITY_PARAMETERS, ACTIVITY_MESSAGE_CODES], ['agents', AGENTS_PARAMETERS, AGENTS_MESSAGE_CODES], ['app', APP_PARAMETERS, APP_MESSAGE_CODES], ['approvals', APPROVALS_PARAMETERS, APPROVALS_MESSAGE_CODES], ['diagnostics', DIAGNOSTICS_PARAMETERS, DIAGNOSTICS_MESSAGE_CODES], ['git', GIT_PARAMETERS, GIT_MESSAGE_CODES], ['mcp', MCP_PARAMETERS, MCP_MESSAGE_CODES], ['oxepod', OXEPOD_PARAMETERS, OXEPOD_MESSAGE_CODES], ['oxepost', OXEPOST_PARAMETERS, OXEPOST_MESSAGE_CODES], ['oxequery', OXEQUERY_PARAMETERS, OXEQUERY_MESSAGE_CODES], ['remote', REMOTE_PARAMETERS, REMOTE_MESSAGE_CODES], ['thread', THREAD_PARAMETERS, THREAD_MESSAGE_CODES], ['workspace', WORKSPACE_PARAMETERS, WORKSPACE_MESSAGE_CODES]]
+const DOMAIN_PARAMETERS = DOMAINS.map(([, table]) => table)
 const PARAMETERS = Object.assign({}, ...DOMAIN_PARAMETERS) as Record<MessageCode, string[]>
 
 describe('C3 message codes', () => {
@@ -38,6 +53,11 @@ describe('C3 message codes', () => {
     expect(DOMAIN_PARAMETERS.reduce((sum, table) => sum + Object.keys(table).length, 0)).toBe(Object.keys(PARAMETERS).length)
     expect(new Set(MESSAGE_CODES).size).toBe(MESSAGE_CODES.length)
     expect([...MESSAGE_CODES].sort()).toEqual(Object.keys(PARAMETERS).sort())
+  })
+
+  it('keeps each domain\'s parameters in its own table, next to its shared/messages file', () => {
+    // tests/ is not type-checked, so the Record<keyof …> type of each table is enforced here.
+    for (const [domain, table, codes] of DOMAINS) expect(Object.keys(table).sort(), domain).toEqual([...codes].sort())
   })
 
   it.each([['en', en], ['pt-BR', ptBR]] as const)('has words for every code in %s, with the parameters it carries', (_language, catalog) => {
