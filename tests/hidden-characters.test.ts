@@ -14,6 +14,7 @@ describe('hidden characters', () => {
     ['U+061C Arabic letter mark', [0x061c]],
     ['U+180E Mongolian vowel separator', [0x180e]],
     ['other \\p{Cf}: U+0600 Arabic number sign, U+206A, U+E0001 language tag, U+E0041 tag A', [0x0600, 0x206a, 0xe0001, 0xe0041]],
+    ['U+E0000–E007F Tags block, unassigned ones too: U+E0000, U+E0002, U+E001F, U+E007F', [0xe0000, 0xe0002, 0xe001f, 0xe007f]],
     ['U+FE00–FE0F variation selectors', [0xfe00, 0xfe0f]],
     ['U+E0100–E01EF supplementary variation selectors', [0xe0100, 0xe01ef]]
   ])('finds %s', (_name, codePoints) => {
