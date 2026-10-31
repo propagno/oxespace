@@ -21,7 +21,7 @@ const volatile = (page: Page): Locator[] => [
 ]
 
 for (const theme of THEMES) {
-  test(`OxeQuery containers, forms and dialogs — ${theme}`, async () => {
+  test(`OxePod containers, OxeQuery forms and dialogs — ${theme}`, async () => {
     test.setTimeout(180_000)
     const { app, page, workspaceRoot } = await launchApp({ appearance: theme })
     try {
@@ -57,7 +57,6 @@ for (const theme of THEMES) {
       await wizard.waitFor()
       await shot('dialog-new-database', wizard)
       await page.keyboard.press('Escape')
-      await expect(wizard).toBeHidden()
       await expect(wizard).toBeHidden()
 
       await page.getByRole('button', { name: 'New connection' }).first().click()
