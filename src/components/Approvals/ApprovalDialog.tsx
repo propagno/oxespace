@@ -73,6 +73,15 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
   const looking = attentive(attention)
   // The request on screen tells main so, and again whenever the window comes into view and focus or leaves it (R3, R4).
   useEffect(() => { acknowledge({ id: request.id, generation: request.generation }, attention, api) }, [request.id, request.generation, attention, api])
+  // The dialog before this one returns focus to the view as it leaves, a moment after this one mounted: focus comes
+  // back to this surface, so the keys the person types next reach the modal and nothing behind it (R9).
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const surface = inside.current?.closest<HTMLElement>('[role="dialog"]')
+      if (surface && !surface.contains(document.activeElement)) surface.focus({ preventScroll: true })
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [instance])
   // Main's pacing drives the hold and Enter (B10): allowDelayMs counted while the request is on screen and looked at.
   const held = holdsAllow(request)
   const holdLeft = useAllowHold(held, instance, request.allowDelayMs, looking)

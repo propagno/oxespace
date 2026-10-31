@@ -49,6 +49,9 @@ export function Dialog({ title, description, onClose, children, footer, size = '
         onEscapeKeyDown={onEscapeKeyDown}
         onCloseAutoFocus={event => {
           event.preventDefault()
+          // Another dialog already took focus (the next approval replaced this one): leave it there, or a key typed
+          // into that dialog would land in the view behind it.
+          if (document.activeElement?.closest('[role="dialog"], [role="alertdialog"]')) return
           const chosen = returnFocusTo?.() ?? previous.current
           // A trigger that disappeared or was disabled meanwhile hands focus to the view's main input.
           const target = chosen?.isConnected && !chosen.hasAttribute('disabled') ? chosen : [...document.querySelectorAll<HTMLElement>('[data-dialog-return]')].at(-1)
