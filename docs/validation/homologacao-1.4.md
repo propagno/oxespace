@@ -172,7 +172,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Contrato B10 `approvals.*` | #235 | BACKEND | Homologado (contrato; na `main` 7e2dfdd5), com nota sobre nomes de sistema |
 | F19 split além dos presets | #240 | FRONTEND | Homologado (na `main` c4a4d84d) |
 | Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado (499ffbcd): ressalvas fechadas, sonda de 134 nomes |
-| Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Pré-homologado (751229ab + 3f3e2d66): pt-BR e en ok, aspas corrigidas; nota baixa sobre o vazio no IPC |
+| Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Pré-homologado (#239 31564312 + #244 3f3e2d66): pt-BR e en ok, aspas corrigidas, o vazio vira `refusal:'empty'` |
 | Toasts (F21) | #245 | FRONTEND | Pré-homologado (a40e1cba): as 3 ressalvas foram fechadas |
 | Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab (virou F23) |
 | Indicadores do OxePod | #248 | FRONTEND | Homologado (na `main` 16d27efa): 8×8, redondos, em claro e escuro |
@@ -543,7 +543,15 @@ Reverificação com #239 751229ab + #244, em pt-BR e en:
 - **Nota baixa para o BACKEND:** o caminho vazio e o só de espaços não voltam como `notAbsolute`, como o BACKEND
   esperava. O IPC lança `Error: rootPath must not be empty`, cru e em inglês. Pela interface isso não aparece,
   porque o botão fica desabilitado, mas um agente ou um renderer antigo recebe um erro sem código C3. Corrigido
-  depois pelo BACKEND com `refusal:'empty'`; falta reconferir.
+  depois pelo BACKEND com `refusal:'empty'`.
+- Reverificação em #239 31564312 (já com a `main` 04dcc451; build limpo), por chamada direta, em `check-239-empty`:
+  - `""`, `"   "`, `'""'`, `"''"`, `'" "'` e `"\t\n"` voltam como `{ok:false, refusal:'empty'}`, com o código
+    `workspace.root.empty`: "Escolha a pasta deste workspace." / "Choose the folder for this workspace.";
+  - uma aspa sozinha volta como `notAbsolute`;
+  - `42` e `null` lançam "rootPath must be a string", um erro genérico de entrada malformada, como combinado. Uma
+    pessoa não consegue mandar isso.
+
+  A nota foi fechada.
 
 ### Toasts (#245): Pré-homologado
 
