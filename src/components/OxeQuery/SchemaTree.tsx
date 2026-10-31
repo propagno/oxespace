@@ -172,7 +172,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     setError('')
     try {
       await oq('sql.run', { connectionId: connection.id, sql: `REFRESH MATERIALIZED VIEW ${quote(table.schema)}.${quote(table.name)}` })
-      toast({ title: t('tree.refreshed', { name: `${table.schema}.${table.name}` }), intent: 'success', duration: 2000 })
+      toast({ title: t('tree.refreshed', { name: `${table.schema}.${table.name}` }), intent: 'success' })
     } catch (cause) { toast({ title: t('tree.refreshFailed', { name: `${table.schema}.${table.name}` }), description: errorMessage(cause), intent: 'danger' }) }
   }
 
