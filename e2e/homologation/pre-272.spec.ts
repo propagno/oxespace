@@ -120,6 +120,7 @@ test('links an agent writes whose text is not where they go (en, light)', async 
     await page.getByRole('dialog').last().getByRole('button', { name: /^Open$/ }).click().catch(() => undefined)
     await page.waitForTimeout(800)
     notes.openedAfterConfirm = (await opened(app)).slice(beforeOpen)
+    notes.openExternalRequests = await app.evaluate(() => (globalThis as Record<string, unknown>).__oxeOpenedExternal ?? [])
     notes.linkErrors = consoleErrors
     notes.allOpened = await opened(app)
   } finally { await app.close() }
