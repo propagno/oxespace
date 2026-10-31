@@ -71,6 +71,26 @@ test('split, click outside, then type: does the new pane take input? (pt-BR)', a
     notes.afterSplit = { before, after, layout: await layout(page), headers: await headers(page) }
     await page.screenshot({ path: join(OUT, '02-after-split.png') })
     // Which pane is new? Compare ids with the earlier list.
+    // Variants of the user's order, with no settling waits, each on a fresh split of a bottom pane.
+    const variants: Record<string, unknown> = {}
+    const fastSplit = async (from: number) => { await page.locator('[data-testid="pane-container"]').nth(from).locator('.xterm').click({ timeout: 5_000 }).catch(() => undefined); await page.keyboard.press('Control+Shift+Backslash') }
+    const newestIndex = async (ids: string[]) => (await headers(page)).map(h => h.split('id=')[1]).findIndex(id => !ids.includes(id))
+    for (const [name, act] of [
+      ['type right away, no click', async (i: number) => { await page.waitForTimeout(150); await page.keyboard.type('echo x > va.txt', { delay: 5 }); await page.keyboard.press('Enter'); void i }],
+      ['click outside fast, back to new', async (i: number) => { await page.waitForTimeout(100); await page.locator('aside').first().click({ position: { x: 100, y: 600 } }).catch(() => undefined); await page.locator('[data-testid="pane-container"]').nth(i).locator('.xterm').click().catch(() => undefined); await page.keyboard.type('echo x > vb.txt', { delay: 5 }); await page.keyboard.press('Enter') }],
+      ['click another pane, back to new', async (i: number) => { await page.waitForTimeout(100); await page.locator('[data-testid="pane-container"]').nth(0).locator('.xterm').click().catch(() => undefined); await page.locator('[data-testid="pane-container"]').nth(i).locator('.xterm').click().catch(() => undefined); await page.keyboard.type('echo x > vc.txt', { delay: 5 }); await page.keyboard.press('Enter') }]
+    ] as const) {
+      const ids = (await headers(page)).map(h => h.split('id=')[1])
+      await fastSplit((await page.locator('[data-testid="pane-container"]').count()) - 1)
+      await page.waitForTimeout(300)
+      const idx = await newestIndex(ids)
+      await act(idx >= 0 ? idx : (await page.locator('[data-testid="pane-container"]').count()) - 1)
+      await page.waitForTimeout(3_000)
+      variants[name] = { newIndex: idx, focusIn: await page.evaluate(() => document.activeElement?.closest('[data-testid="pane-container"]')?.getAttribute('data-pane-id')?.slice(0, 4) ?? document.activeElement?.tagName) }
+    }
+    variants.markers = readdirSync(repo).filter(f => /^v[abc]\.txt$/.test(f))
+    notes.variants = variants
+    await page.screenshot({ path: join(OUT, '04-variants.png') })
     const idsBefore = (notes.fivePlusTwo as { headers: string[] }).headers.map(h => h.split('id=')[1])
     const idsAfter = (await headers(page)).map(h => h.split('id=')[1])
     const newIndex = idsAfter.findIndex(id => !idsBefore.includes(id))
