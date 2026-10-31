@@ -8,7 +8,8 @@ import { SettingsCenter } from './components/Settings/SettingsHost'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
-import { reportSplitRefused } from './components/Grid/splitRefusal'
+import { reportSplitRefused, reportSplitTooSmall } from './components/Grid/splitRefusal'
+import { paneSize, splitHasRoom } from './components/Grid/splitRoom'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
@@ -585,6 +586,12 @@ export function App(): ReactElement {
   const splitWorkspacePane = useCallback((workspaceId: string, paneId: string, direction: 'vertical' | 'horizontal'): void => {
     if (!useUIStore.getState().splitLayoutEnabled) {
       void splitPane(paneId, direction).catch(reportSplitRefused)
+      return
+    }
+    // Each split halves the pane: one that would leave halves too small to use is refused before main creates a pane.
+    const size = paneSize(paneId)
+    if (size && !splitHasRoom(size, direction)) {
+      reportSplitTooSmall(direction)
       return
     }
 

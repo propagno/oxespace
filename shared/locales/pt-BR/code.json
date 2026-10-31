@@ -826,7 +826,9 @@
     "boundary": "este painel",
     "splitRefused": {
       "title": "Não dá para dividir este painel aqui",
-      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente."
+      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente.",
+      "tooNarrow": "Cada metade ficaria com menos de {{width}} px de largura. Maximize este painel, feche outro ou aumente a janela.",
+      "tooShort": "Cada metade ficaria com menos de {{height}} px de altura. Maximize este painel, feche outro ou aumente a janela."
     },
     "attention": {
       "blocked": "Precisa da sua aprovação ou resposta",
