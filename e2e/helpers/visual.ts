@@ -20,6 +20,8 @@ const HIDDEN_WHEN_LIVE = [
   '.xterm',
   // Pane resize grips fade in with focus and pointer state, which no fixed wait settles.
   '.resize-handle',
+  // Tooltips follow the pointer, which the captures park at a corner; the sidebar header's shows the app version.
+  '[role="tooltip"]',
   // A terminal's status dot (pane header, sidebar row) turns from starting to running when its
   // shell is up, which no fixed wait settles; the dot has a fixed size, so hiding it moves nothing.
   '.pane-status-dot',

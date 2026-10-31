@@ -45,6 +45,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Stat only: confirms that a project root sent by the renderer is an existing directory before a process
   // (the oxe CLI, a dashboard server) starts in it. Reads, lists and writes nothing.
   'electron/main/ipc/ipc-guards.ts',
+  // Stat and one directory open only: confirms that a workspace root is an absolute path to a folder that
+  // exists and can be listed, before `workspace:create` writes anything. Reads, lists and writes nothing.
+  'electron/main/services/workspace-root.ts',
   // The optional semantic model and its settings/usage counters under userData/models only; an import copies
   // the four model files from the folder the user picked in a native dialog. Never touches workspace files.
   'electron/main/services/semantic-model-store.ts',
@@ -102,7 +105,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // settings files (project .claude/.codex and the user's provider home).
   'electron/main/services/conversation/thread-model-override.ts',
   // Rewinds a Claude session by writing a prefix copy of one UUID-named JSONL
-  // transcript beside it (flag 'wx'); the original is never modified.
+  // transcript beside it (flag 'wx'); the original is never modified. Closing a side chat (B1.2) unlinks only
+  // its own copy, `<forkId>.jsonl` for the UUID OXESpace created, and refuses the main session's id.
   'electron/main/services/conversation/claude-transcript-fork.ts',
   // Reads one user-chosen certificate or key (64 KiB at most) from a native open dialog;
   // the renderer supplies a kind, never a path.
@@ -191,6 +195,15 @@ const ALLOWED_FS_IMPORTS = new Set([
   // resolved and identity-checked by NativeSessionReader. No renderer path input.
   'electron/main/services/conversation/native-history-page.ts',
   'electron/main/services/diagnostics.service.ts',
+  // B8.3 incident journal: one JSON file, <userData>/diagnostics/incidents.json, written to a temporary file beside it
+  // and renamed (flag 'wx', mode 0600). Codes and hashed ids only; no caller supplies a path.
+  'electron/main/services/diagnostics/incident-journal.ts',
+  // B8.3 measurements: statfs of the userData volume, sizes of the database (with WAL) and of the app's log folders,
+  // and a stat-only PATH probe for known CLI names. Never reads contents, never writes.
+  'electron/main/services/diagnostics/metrics.ts',
+  // B8.3 bundle: reads the last 256 KiB of the app's own electron-log files (fixed names), which are then cut to time,
+  // level and fixed words and redacted. The .zip itself is written by diagnostics.ipc.ts to the save-dialog path.
+  'electron/main/services/diagnostics/bundle.ts',
   // Internal MCP bootstrap: materializes the bridge script under
   // <userData>/bin and hash-checks it against the packaged source. Needs
   // raw fs to do that atomically on every boot.

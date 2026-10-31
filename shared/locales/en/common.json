@@ -10,8 +10,8 @@
   "nav": {
     "applicationView": "Application view",
     "modeTitle": {
-      "code": "Code: terminals and agents in your workspaces",
-      "thread": "Thread: conversations with an agent",
+      "code": "OxeCode: terminals and agents in your workspaces",
+      "thread": "OxeChat: conversations with an agent",
       "data": "OxeQuery: databases",
       "pods": "OxePod: containers",
       "post": "OxePost: API requests"
@@ -75,6 +75,11 @@
     "reportProblem": "Report a problem…",
     "checkUpdates": "Check for updates…"
   },
+  "activityCenter": {
+    "nothingToRead": "Nothing to mark as read",
+    "nothingToReadText": "Every activity item is already read.",
+    "allRead": "All activity marked as read"
+  },
   "report": {
     "title": "Report a problem",
     "description": "This is the issue we would open on GitHub. Nothing is sent until you choose what to do with it.",
@@ -86,6 +91,7 @@
     "retry": "Try again",
     "copy": "Copy text",
     "copyWhat": "Report",
+    "copied": "Report copied",
     "open": "Open on GitHub",
     "opened": "GitHub opened in your browser",
     "truncated": "The text is too long for a link, so GitHub receives the first part. Use Copy text to share all of it."
@@ -97,7 +103,8 @@
     "guide": {
       "title": "Keyboard shortcuts",
       "description": "What works in {{view}} right now.",
-      "customize": "Customize shortcuts"
+      "customize": "Customize shortcuts",
+      "f6ToProgram": "In a terminal pane with “Send F6 to the program” on (in its ⋯ menu), F6 and Shift+F6 go to the program there, for mc, htop or tig; {{toggle}} still makes Tab move focus out of it."
     },
     "bindings": {
       "palette": {
@@ -133,7 +140,12 @@
         "slash": "Terminal commands",
         "zoomIn": "Terminal font bigger",
         "zoomOut": "Terminal font smaller",
-        "zoomReset": "Terminal font reset"
+        "zoomReset": "Terminal font reset",
+        "tabMovesFocus": "Tab moves focus in the terminal"
+      },
+      "focus": {
+        "nextRegion": "Move focus to the next region",
+        "previousRegion": "Move focus to the previous region"
       },
       "thread": {
         "new": "New conversation",
@@ -152,8 +164,8 @@
         "shortcuts": "Show keyboard shortcuts"
       },
       "view": {
-        "code": "Show Code",
-        "thread": "Show Thread",
+        "code": "Show OxeCode",
+        "thread": "Show OxeChat",
         "data": "Show OxeQuery",
         "pods": "Show OxePod",
         "post": "Show OxePost"
@@ -165,6 +177,17 @@
         "send": "Send the request",
         "filter": "Find a request"
       }
+    },
+    "terminalFocus": {
+      "hint": "Terminal. Press F6 to leave, or {{toggle}} to make Tab move focus.",
+      "hintF6": "Terminal. Press F6 to leave.",
+      "on": "Tab moves focus: on",
+      "off": "Tab moves focus: off",
+      "badge": "Tab moves focus",
+      "menu": "Tab moves focus",
+      "toggleKeyToShell": "Send {{key}} to the shell",
+      "hintF6ToProgram": "Terminal. F6 goes to the program here. Press {{toggle}} to make Tab move focus.",
+      "f6ToProgram": "Send F6 to the program"
     }
   },
   "oxequeryCommands": {
@@ -246,6 +269,7 @@
     "resets": "Resets {{when}}."
   },
   "ui": {
+    "changeNotSaved": "The change was not saved.",
     "divider": {
       "columns": "Divider between columns",
       "rows": "Divider between rows",
@@ -268,11 +292,18 @@
     "cancel": "Cancel",
     "close": "Close",
     "dismiss": "Dismiss",
+    "toast": {
+      "region": "Notifications",
+      "dismiss": "Dismiss notification",
+      "repeated_one": "Repeated {{count}} time",
+      "repeated_other": "Repeated {{count}} times"
+    },
     "copy": {
       "text": "Text",
       "done": "{{what}} copied",
       "failed": "Could not copy: {{what}}",
-      "unavailable": "The clipboard is not available."
+      "unavailable": "The clipboard is not available.",
+      "textDone": "Text copied"
     },
     "offline": {
       "title": "You are offline",
@@ -318,8 +349,8 @@
     "join": "{{first}} and {{last}}",
     "ready_one": "{{names}} is ready",
     "ready_other": "{{names}} are ready",
-    "readyBoth": "Code and Thread can use it.",
-    "readyCodeOnly": "Code can run it. Thread needs Claude Code or Codex.",
+    "readyBoth": "OxeCode and OxeChat can use it.",
+    "readyCodeOnly": "OxeCode can run it. OxeChat needs Claude Code or Codex.",
     "checking": "Checking for agent CLIs…",
     "checkingDetail": "Looking for the commands on your PATH.",
     "partial_one": "{{names}} was found but not ready",
@@ -354,6 +385,7 @@
     },
     "copy": "Copy details",
     "details": "Build details",
+    "detailsCopied": "Build details copied",
     "report": "Report a problem"
   }
 }
