@@ -393,7 +393,7 @@ never user-facing.
 ## 13. Acceptance hooks (for HOMOLOGATION)
 
 Test ids: `agents-panel`, `agents-summary`, `agents-filter`, `agent-row` with `data-agent-kind`
-(`pane|thread|delegation|work`) and `data-agent-state` (§3 values), `agent-action-respond|open|stop|resume|seen`,
+(`pane|conversation|delegation|work`, the S7.1 contract's names) and `data-agent-state` (§3 values), `agent-action-respond|open|stop|resume|seen`,
 `agents-reorder-pill`, `agents-ended-recently`. Phone: `agents_tab`, `agent_row`, same state names.
 Scenarios beyond S7.2/S7.3/S7.4 rows: rows don't reorder under the pointer; an ended agent never vanishes without the
 "Ended" step; Respond always opens the B10 modal (no inline allow); pt-BR has no English except product names;
