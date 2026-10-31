@@ -66,7 +66,7 @@ describe('reserved names (B10)', () => {
     // "apple" is a whole word of its own, so the pair rule is never reached.
     ['Pine apple', 'Apple'],
     // The admin family as a first-word prefix (homologation of #247).
-    ['Administração', 'Admin'], ['Administração do sistema', 'Admin'], ['Administratie', 'Admin'], ['Administrativo', 'Admin'], ['Admins', 'Admin'],
+    ['Administração', 'Admin'], ['Administração do sistema', 'Admin'], ['Administratie', 'Admin'], ['Admins', 'Admin'],
     // Linux and desktop names as whole words.
     ['GNOME Keyring', 'GNOME'], ['polkit authentication', 'polkit'], ['KDE Wallet', 'KDE'], ['Debian', 'Debian'], ['Fedora updates', 'Fedora'],
     // root and sudo, alone or as the first word.
@@ -232,5 +232,38 @@ describe('where a request is shown (B10)', () => {
     expect(approvalSurface({ ...state, unavailable: true })).toBe('native')
     expect(approvalSurface({ ...state, ackRequired: true, elapsedMs: 2_999 })).toBe('wait')
     expect(approvalSurface({ ...state, ackRequired: true, elapsedMs: 3_000 })).toBe('native')
+  })
+})
+/**
+ * Homologation's probe of #247 (#184, e2e/homologation/probes/reserved-names-probe.mts.txt): its cases, copied as data,
+ * with the verdict homologation approved at 499ffbcd. Cases already above are not repeated.
+ */
+describe('reserved names: homologation probe (#184)', () => {
+  it.each([
+    ['OXE-Space', 'OXESpace'], ['Οxespace', 'OXESpace'], ['𝐎𝐗𝐄𝐒𝐩𝐚𝐜𝐞', 'OXESpace'], ['ⓄⓍⒺⓈⓅⒶⒸⒺ', 'OXESpace'], ['oxe_space', 'OXESpace'],
+    ['OXESpacе', 'OXESpace'], ['OXE\u202ESpace', 'OXESpace'], ['OxePost Team', 'OxePost'], ['OXES pace', 'OXESpace'], ['OX ESpace', 'OXESpace'],
+    ['Application Support', 'Application'], ['Apple Music', 'Apple'], ['MacOS Updater', 'macOS'], ['Linux kernel', 'Linux'],
+    ['Windows Defender', 'Windows'], ['Wind0ws', 'Windows'], ['Ｗｉｎｄｏｗｓ', 'Windows'], ['Microsoft-Teams', 'Microsoft'], ['Sistema-op', 'Sistema'],
+    ['admin-bot', 'Admin'], ['App Store', 'App'], ['Polkit agent', 'polkit'], ['Kde', 'KDE'], ['K D E', 'KDE']
+  ])('refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  it.each([
+    'Claude Code', 'Codespace', 'Appointment', 'Approve', 'Windowsill', 'Microsoftware', 'Sys', 'My System', 'Kernel', 'Explorer', 'Thread helper',
+    'A B C', 'J.R.R. Tolkien', 'Data Engineer', 'Code Reviewer', 'Codey', 'Apps', 'Appium', 'Oxford tutor', 'Rooted', 'Rooter', 'Sudoku Bot',
+    'Securities Analyst', 'Kdenlive helper', 'Applause', 'Rootless', 'Data Bot', 'Win Rate Bot', 'Code Review', 'Re Viewer', 'Ana Lu Ísa', 'Sec Ops',
+    'Sistemas de pagamento', 'Systems Engineer', 'Gemini', 'Copilot', 'Git', 'Ox Tail', 'OX E', 'Apps Script', 'AppSec', 'Thread pool', 'Codesmith',
+    'Chatty'
+  ])('allows %j', value => {
+    expect(reservedNameIn(value)).toBeNull()
+  })
+
+  // Accepted overblock: refused although a person could mean something harmless; the coordinator accepted it as is.
+  it.each([
+    ['Oxente', 'Oxe'], ['Oxente bot', 'Oxe'], ['Security Reviewer', 'Security'], ['Root Cause Analyst', 'root'], ['Admin Panel', 'Admin'],
+    ['Adminer', 'Admin'], ['Administrativo', 'Admin'], ['Gnome lover', 'GNOME'], ['Fedora fan', 'Fedora'], ['GitHub Copilot', 'GitHub']
+  ])('accepted overblock: refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
   })
 })
