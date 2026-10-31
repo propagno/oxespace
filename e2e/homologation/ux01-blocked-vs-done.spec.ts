@@ -19,7 +19,8 @@ const look = (page: Page) => page.evaluate(() => {
   return {
     headers: [...document.querySelectorAll('[data-testid="pane-container"]')].map(p => ({ head: label(p.querySelector('header, [class*="header"]')), dot: dot(p), status: label(p.querySelector('[class*="status"]:not([class*="dot"])')) })),
     rows: [...document.querySelectorAll('[data-testid="pane-session-row"]')].map(r => ({ row: label(r), dot: dot(r) })),
-    modes: [...document.querySelectorAll('nav button')].filter(b => /Code|Thread/.test(b.textContent ?? '')).map(b => label(b))
+    // Modes by id (#188); by name only on builds without data-app-mode.
+    modes: (document.querySelector('button[data-app-mode]') ? [...document.querySelectorAll('button[data-app-mode="code"], button[data-app-mode="thread"]')] : [...document.querySelectorAll('nav button')].filter(b => /Code|Thread/.test(b.textContent ?? ''))).map(b => label(b))
   }
 })
 

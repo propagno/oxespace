@@ -36,7 +36,8 @@ async function seed(page: Page, appearance: Mode, density: Density, motion: 'ful
 const shot = (page: Page, name: string) => page.screenshot({ path: join(OUT, `${name}.png`) })
 const page = (app: ElectronApplication) => app.windows()[0]
 const pageErrors = (lines: string[]) => lines.filter(line => line.startsWith('pageerror:'))
-const viewNav = (page: Page) => page.locator('nav[aria-label="Application view"], nav[aria-label="Visão do aplicativo"]')
+// Modes by id (button[data-app-mode], from #188); the nav by its label only until that lands.
+const viewNav = (page: Page) => page.locator('nav:has(button[data-app-mode]), nav[aria-label="Application view"], nav[aria-label="Visão do aplicativo"]').first()
 
 test('splash: the boot screen before React, with the system light and dark', async () => {
   const { app } = await launchApp()
