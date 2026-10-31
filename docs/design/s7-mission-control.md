@@ -161,7 +161,7 @@ headers sort (click / Enter); default sort is the state priority. Max content wi
 
 | Key | Action |
 |---|---|
-| `Mod+Shift+O` (proposal; FRONTEND confirms against the keybinding catalog) | open / close the central, from anywhere (`reservedInTerminal`) |
+| `Mod+Shift+G` | open / close the central, from anywhere: one rule in every context (`reservedInTerminal`; not `Mod+Shift+O`, which is Monaco's Go to Symbol in the editor) |
 | `↑` `↓` / `j` `k` | move between rows (roving tabindex) |
 | `→` `←` | expand / collapse nested rows |
 | `Enter` | Open |
@@ -204,7 +204,7 @@ keybinding catalog so palette, menus and tooltips agree.
 The F35 decision is a clean title bar (Team button out; activity bell stays). The central follows it — **no new
 title-bar button in v1**:
 
-1. Shortcut `Mod+Shift+O` and palette command "Show agents" / "Mostrar agentes" (+ "Agents needing you").
+1. Shortcut `Mod+Shift+G` and palette command "Show agents" / "Mostrar agentes" (+ "Agents needing you").
 2. Menu View › Agents / Exibir › Agentes.
 3. **Mode-switch attention badges** (already counting needs-you/failed/working per mode): clicking a badge opens the
    central filtered to that mode.
@@ -220,7 +220,7 @@ icon. Recorded as an ASK to the coordinator (§11).
   its row (`--fill-selected` flash on `--duration-slow`, none under reduced motion) when the central is open.
 - **Sidebars** (OxeCode `PaneSessionRow`, OxeChat `ThreadSidebar`): stay the per-mode navigation; they use the *same*
   state labels and dot (§3), so a pane says "Needs you" in the sidebar, the pane header, the central and the phone.
-  FRONTEND moves the labels to one i18n namespace (`agents.state.*`) used by all four.
+  FRONTEND moves the labels to one i18n namespace (`agents.state.*`, keyed by the 7 states of §3, plus the terminal-only `starting` and `exited`) used by all four; a catalog test forbids the same state word elsewhere.
 - **Pane header / thread header**: unchanged; "Open" lands there.
 - **Team**: role badge on rows of connected members; the Team dialog lists members, the central lists agents.
 
@@ -229,9 +229,9 @@ icon. Recorded as an ASK to the coordinator (§11).
 The phone already has Threads, Requests, Terminals and Tasks tabs. The central becomes the phone's **home**:
 
 - Bottom navigation (Material 3 `NavigationBar`, 3 items): **Agents** · **Requests** (badge) · **More**
-  (paired desktop, language, unpair). Threads/Terminals/Tasks become **filter chips** inside Agents (M3 `FilterChip`):
+  (paired desktop name and connection, app language, version, unpair). Threads/Terminals/Tasks become **filter chips** inside Agents (M3 `FilterChip`):
   All · Need you · Conversations · Terminals · Tasks.
-- Row: M3 three-line list item, **72 dp** (two lines) / **88 dp** (with request line); leading provider icon 24 dp
+- Row: M3 three-line list item, **72 dp** (two lines) / **88 dp** (with request line) as *minimum* heights, so rows grow at 200 % text; leading provider icon 24 dp
   with dot; trailing primary action as a 48 dp touch target. Same state vocabulary and order as the desktop (§3, §5.3).
 - Actions on the phone: **Respond** (the existing RequestScreen with biometrics; not-answerable requests show
   "Answer on the computer" / "Responda no computador", disabled with that reason), **Open** (ThreadScreen /
@@ -241,7 +241,7 @@ The phone already has Threads, Requests, Terminals and Tasks tabs. The central b
   list dimmed, actions disabled with that reason; pull to refresh retries.
 - Privacy: no paths, session ids or costs beyond the total on the phone (protocol rule: the phone omits cwd/session
   ids/cost per turn). Cost per row stays desktop-only in v1.
-- Notifications (M6): a needs-you push opens the Agents tab with that row selected.
+- Notifications (M6): a needs-you push goes **straight to RequestScreen** (one tap to answer); when that request is not answerable on the phone it opens Agents with the row selected and the reason shown. Finished and failed pushes open Agents with the row selected.
 
 ## 9. Copy (en / pt-BR)
 
@@ -280,14 +280,15 @@ roadmap; HML flags it if the glossary decides otherwise).
 
 ## 11. Decisions (coordinator, 2026-10-31)
 
-1. **Entry point: decided, no title-bar button in v1.** Entry is `Mod+Shift+O`, the palette, View menu, mode-switch
+1. **Entry point: decided, no title-bar button in v1.** Entry is `Mod+Shift+G`, the palette, View menu, mode-switch
    badges and the bell footer. Re-checked with the adoption metric after the RC.
 2. **Phone: decided, conversations only in v1** (respond and `thread.interrupt`, both already remote commands).
    Stopping or resuming a pane from the phone moves to the 1.5 list. It needs its own threat review, because a phone
    stopping a terminal is a new remote action.
 3. **Vocabulary: decided.** The 7 states in §3 and the single `agents.state.*` i18n namespace are the S7.1 contract.
    BACKEND owns the mapping test; the sidebar, pane/thread headers, the central and the phone all use these states.
-4. **Shortcut** `Mod+Shift+O` (open): FRONTEND checks it against the keybinding catalog; the fallback is `Mod+Shift+G`.
+4. **Shortcut: `Mod+Shift+G`** (FRONTEND review): free everywhere, so it works the same in the editor, the terminal and the lists. `Mod+Shift+O` would need an editor exception for Monaco's Go to Symbol.
+5. **Phone protocol (MOBILE review): open, goes in the S7.1 CCR.** The phone reads the 7 states from one `agents` subscription, computed on the desktop (finished vs idle needs `seen`/`lastSeenAt`, which the current frames lack). Marking a row seen from the phone (opening it, or "Mark as seen") needs an `agent.markSeen` command in the same CCR. Every row carries `provider`; no cwd or session id. Changing `shared/remote/protocol.ts` means running `android:generate`.
 
 ## 12. IDEAs (not blockers)
 
