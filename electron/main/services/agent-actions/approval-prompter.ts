@@ -1,26 +1,24 @@
-import { BrowserWindow, dialog, type MessageBoxOptions } from 'electron'
-import { tMain } from '../../i18n'
-import type { ApprovalDecision, ApprovalPrompter, ApprovalRequest } from './approval-broker'
+import type { ApprovalCenter } from '../approvals/approval-center'
+import { PrompterRefusal, type ApprovalDecision, type ApprovalPrompter, type ApprovalRequest } from './approval-broker'
 
 /**
- * Asks in a native modal dialog, which shows regardless of which view is open and
- * cannot be dismissed by the agent. The default button is Deny. The buttons are in the interface's language; the
- * title, summary and text describe the request and stay as the requester wrote them.
+ * Asks through the approval center (B10): the app's modal while a window exists, the system dialog only as its
+ * fallback. Deny is the default; "allow for this run" is offered for low-risk reads only.
  */
-export const nativeApprovalPrompter: ApprovalPrompter = {
-  async ask(request: ApprovalRequest, signal: AbortSignal): Promise<ApprovalDecision> {
-    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const answers = [tMain('dialogs.approval.deny'), tMain('dialogs.approval.allowOnce')]
-    const buttons = request.risk === 'read' ? [...answers, request.sessionLabel ?? tMain('dialogs.approval.allowSession')] : answers
-    const warnings = request.reasons.length ? `\n\n${request.reasons.map(reason => `• ${reason}`).join('\n')}` : ''
-    const options: MessageBoxOptions = {
-      type: request.risk === 'read' ? 'question' : 'warning',
-      title: request.title,
-      message: request.summary,
-      detail: `${request.target}${warnings}\n\n${request.text}`,
-      buttons, defaultId: 0, cancelId: 0, noLink: true, signal
+export function centerApprovalPrompter(center: Pick<ApprovalCenter, 'ask'> | (() => Promise<Pick<ApprovalCenter, 'ask'>>)): ApprovalPrompter {
+  return {
+    async ask(request: ApprovalRequest, signal: AbortSignal): Promise<ApprovalDecision> {
+      const [resolved, { brokerDraft }] = await Promise.all([typeof center === 'function' ? center() : center, import('../approvals/drafts')])
+      const outcome = await resolved.ask(brokerDraft(request), signal)
+      // Never shown (queue full, too long): the agent gets that reason, not the person's "declined".
+      if (outcome.by === 'refused' && outcome.refusal) throw new PrompterRefusal(outcome.refusal)
+      return outcome.intent === 'allow' ? 'allow-once' : outcome.intent === 'allow-session' ? 'allow-session' : 'deny'
     }
-    const result = window ? await dialog.showMessageBox(window, options) : await dialog.showMessageBox(options)
-    return result.response === 1 ? 'allow-once' : result.response === 2 ? 'allow-session' : 'deny'
   }
 }
+
+/**
+ * The app's prompter. The center is loaded on the first request (and at startup by the approvals wiring), outside the
+ * main entry; the first request waits for that import, so it always reaches the window.
+ */
+export const appApprovalPrompter: ApprovalPrompter = centerApprovalPrompter(() => import('../approvals').then(module => module.approvalCenter))
