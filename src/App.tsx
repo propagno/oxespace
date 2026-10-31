@@ -52,11 +52,7 @@ const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspace
 import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
-import { useUpdaterStore } from './store/updater.store'
-// The update chips load only when an update shows (src/store/updater.store.ts decides); they carry the release
-// link, and with it the external-link checks, out of the boot bundle.
-const UpdateBanner = lazy(() => import('./components/Updates/UpdateBanner').then(m => ({ default: m.UpdateBanner })))
-const AppUpdateIndicator = lazy(() => import('./components/Updates/AppUpdateIndicator').then(m => ({ default: m.AppUpdateIndicator })))
+import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
 import { useTerminalStore } from './store/terminal.store'
@@ -280,10 +276,6 @@ export function App(): ReactElement {
   visitedWorkspaceIdsRef.current = visitedWorkspaceIds
   const workspacesRef = useRef(workspaces)
   workspacesRef.current = workspaces
-  // Update state from main, read once at start; the chips below show when there is something to install.
-  useEffect(() => { useUpdaterStore.getState().bootstrap() }, [])
-  const appUpdateShown = useUpdaterStore(state => ['available', 'downloading', 'downloaded'].includes(state.app.status))
-  const rtkUpdateShown = useUpdaterStore(state => state.rtk.updateAvailable || state.rtk.updating)
   useEffect(() => {
     if (!activeWorkspaceId) return
     setVisitedWorkspaceIds((prev) => {
@@ -817,7 +809,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label="OXESpace workbench">
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
-        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by OxeCode and OxeChat' : teamDisabledReason} onClick={openTeam}>Team</Button><ActivityCenter onSelectView={selectMode} /><ErrorBoundary id="title-bar" component="UpdateChips" fallback={null}>{rtkUpdateShown && <Suspense fallback={null}><UpdateBanner /></Suspense>}{appUpdateShown && <Suspense fallback={null}><AppUpdateIndicator /></Suspense>}</ErrorBoundary></div>
+        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by OxeCode and OxeChat' : teamDisabledReason} onClick={openTeam}>Team</Button><ActivityCenter onSelectView={selectMode} /><UpdateChips /></div>
       </header>
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 'var(--layer-toast)', padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
