@@ -10,6 +10,12 @@ in pt-BR. Items marked *(verify)* may already be fixed on main; FRONTEND checks 
 (once per batch on main, as agreed) before working on them. Everything else is layout and visual, and it is still
 in the current code.
 
+**Reading the baselines.** `e2e/helpers/visual.ts` hides or masks live regions so shots stay stable: terminal
+canvases and cursors, `.pane-status-dot`, `.pane-intent-text` (the pane title), the working indicator, activity dots,
+tooltips, resize handles, the top-bar path and integrations, the app version and `time`. An empty area in one of
+those places is the helper, not the product; check the selector list before filing. Text is hidden rather than
+masked on purpose (a mask box follows the text width and makes proportional text flaky), so this stays as it is.
+
 Severity: **H** looks broken or hides meaning · **M** below product grade, noticeable · **L** polish.
 
 ## 1. App shell (all modes)
@@ -27,7 +33,7 @@ Severity: **H** looks broken or hides meaning · **M** below product grade, noti
 
 | # | Sev | Finding | Fix |
 |---|---|---|---|
-| V7 | **H** | **Shell panes have no title.** In the 4-terminal layout each pane header shows only the terminal icon and a large empty bar, while the sidebar names them "terminal 1…4". | Header title = the sidebar's name (`paneDisplay.title`), always |
+| V7 | — | **Withdrawn (not a product bug).** The empty header bar is the visual helper hiding `.pane-intent-text`, the live pane title, to keep baselines stable; the real header shows `paneDisplay.title` (FRONTEND, #334). | Nothing in the product. The helper keeps hiding it, see "Reading the baselines" |
 | V8 | M | **Two "⋯" per pane** (header and footer), with no visible difference. The footer is otherwise a dot and empty space. | One overflow menu, in the header. The footer shows status words ("Running") or is removed when empty (it already shows "Running" in single-pane shots) |
 | V9 | M | **A whole toolbar row for five icons** (changes, preview, layout, MCP, activity) above the grid, with nothing else in it: about 40 px of height lost on every screen. | Move them into the workspace header line or the sidebar header; keep labels in tooltips |
 | V10 | M | **"Workspaces" twice**: the panel title and the section label right under it. | Drop the section label when there is one section |
@@ -87,7 +93,7 @@ Severity: **H** looks broken or hides meaning · **M** below product grade, noti
 
 ## 8. Order for FRONTEND
 
-1. **H:** V1 (forced colours dots), V7 (pane titles); V17 after #243.
+1. **H:** V1 (forced colours dots, #334); V17 after #243. (V7 withdrawn.)
 2. **M, one PR per area:** shell (V2, V3, V4), Code (V8 to V14), Thread (V18 to V22), Settings (V25, V26),
    OxeQuery/OxePod (V29 to V32), states (V35).
 3. **L** with the area PRs, or with the matching primitive work from #323.
