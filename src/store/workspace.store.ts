@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import { i18n } from '../i18n'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
+import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
+import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
 
@@ -67,6 +68,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   createWorkspace: async (input) => {
     const workspace = await window.oxe.workspace.create(input)
+    if (isWorkspaceCreateRefusal(workspace)) {
+      // The main process wrote nothing: say why in the interface language and fail the call, as before.
+      // Loaded on a refusal only, so the message catalogue stays out of the boot bundle.
+      const [{ messageKey, messageValues }, { i18n }] = await Promise.all([import('../../shared/messages'), import('../i18n')])
+      const { message } = workspace
+      const tm = i18n.getFixedT(null, 'main') as unknown as (key: string, values: Record<string, string>) => string
+      throw new Error(tm(messageKey(message.code), messageValues(message, i18n.language)))
+    }
     set((state) => ({
       // The main process can return an existing workspace for this folder.
       // Replace that row instead of inserting the same ID a second time.
@@ -115,7 +124,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         activeWorkspaceId: nextActiveId,
         error: null
       }
-    }, () => window.oxe.workspace.delete(id), { rollbackMessage: i18n.t('failures.workspace.close') })
+    }, () => window.oxe.workspace.delete(id), { rollbackMessage: i18n.t('code:workspace.closeFailed') })
   },
 
   closePane: async (id) => {
@@ -270,7 +279,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       workspaces: state.workspaces.map((item) => (item.id === workspaceId ? { ...item, ...next } : item))
     })
     await optimistic(set, get, (state) => ({ ...patch(state, change), error: null }), () => window.oxe.workspace.updateSettings(input), {
-      rollbackMessage: i18n.t('failures.workspace.settings'),
+      rollbackMessage: i18n.t('code:workspace.settingsFailed'),
       reconcile: (workspace, state) => ({ workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)) }),
       // Undo only the fields this change touched, so a concurrent update to the same workspace survives.
       revert: (state) => previous ? patch(state, Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]]))) : {}

@@ -1,6 +1,6 @@
 import { toast } from '../ui/Toast'
-import { humanizeError } from '../utils/humanizeError'
 import { i18n } from '../i18n'
+import { humanizeError } from '../utils/humanizeError'
 
 type SetState<S> = (partial: Partial<S>) => void
 type GetState<S> = () => S
@@ -49,7 +49,7 @@ export async function optimistic<S extends object, R>(
     if (options.rethrow) throw error
     toast({
       title: options.rollbackMessage,
-      description: humanizeError(error, i18n.t('ui.notSaved')),
+      description: humanizeError(error, i18n.t('ui.changeNotSaved')),
       intent: 'danger',
       action: { label: i18n.t('ui.tryAgain'), run: () => void optimistic(set, get, apply, commit, options) }
     })

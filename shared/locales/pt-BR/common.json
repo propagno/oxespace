@@ -57,6 +57,11 @@
     "commandPalette": "Paleta de comandos…",
     "tools": "Ferramentas"
   },
+  "activityCenter": {
+    "nothingToRead": "Nada para marcar como lido",
+    "nothingToReadText": "Toda a atividade já está lida.",
+    "allRead": "Toda a atividade marcada como lida"
+  },
   "report": {
     "title": "Relatar um problema",
     "description": "Esta é a issue que abriríamos no GitHub. Nada é enviado até você escolher o que fazer com ela.",
@@ -68,6 +73,7 @@
     "retry": "Tentar de novo",
     "copy": "Copiar texto",
     "copyWhat": "Relato",
+    "copied": "Relato copiado",
     "open": "Abrir no GitHub",
     "opened": "GitHub aberto no navegador",
     "truncated": "O texto é grande demais para um link, então o GitHub recebe só o começo. Use Copiar texto para compartilhar tudo."
@@ -190,6 +196,7 @@
     "resets": "Renova em {{when}}."
   },
   "ui": {
+    "changeNotSaved": "A alteração não foi salva.",
     "divider": {
       "columns": "Divisor entre colunas",
       "rows": "Divisor entre linhas",
@@ -212,13 +219,20 @@
     "cancel": "Cancelar",
     "close": "Fechar",
     "dismiss": "Dispensar",
+    "toast": {
+      "region": "Notificações",
+      "dismiss": "Dispensar notificação",
+      "repeated_one": "Repetida {{count}} vez",
+      "repeated_other": "Repetida {{count}} vezes",
+      "repeated_many": "Repetida {{count}} vezes"
+    },
     "copy": {
       "text": "Texto",
       "done": "Copiado: {{what}}",
       "failed": "Não foi possível copiar: {{what}}",
-      "unavailable": "A área de transferência não está disponível."
+      "unavailable": "A área de transferência não está disponível.",
+      "textDone": "Texto copiado"
     },
-    "notSaved": "A alteração não foi salva.",
     "offline": {
       "title": "Você está sem conexão",
       "message": "Isto precisa da rede. Volta sozinho quando a conexão voltar.",
@@ -279,10 +293,6 @@
   },
   "app": {
     "workbench": "Área de trabalho do OXESpace",
-    "accounts": {
-      "title": "Adicione um projeto primeiro",
-      "description": "As contas dos provedores são verificadas dentro de um projeto do OxeChat."
-    },
     "loadingWorkspaces": "Carregando workspaces",
     "boundary": {
       "conversations": "as conversas",
@@ -694,7 +704,8 @@
     "activity": {
       "nothing": "Nada para marcar como lido",
       "nothingDetail": "Todos os itens de atividade já foram lidos.",
-      "allRead": "Toda a atividade foi marcada como lida"
+      "allRead": "Toda a atividade foi marcada como lida",
+      "markAllRead": "Atividade: marcar tudo como lido"
     },
     "code": {
       "newWorkspaceDetail": "Abrir o assistente de novo workspace",
@@ -717,7 +728,16 @@
       "restored_many": "{{count}} arquivos restaurados",
       "restored_other": "{{count}} arquivos restaurados",
       "undoFailed": "Não foi possível desfazer o último turno",
-      "undoFailedDetail": "Um arquivo mudou depois do turno."
+      "undoFailedDetail": "Um arquivo mudou depois do turno.",
+      "addProject": "Adicionar projeto do OxeChat…",
+      "switchProject": "Mudar para o projeto {{project}}",
+      "resume": "Retomar uma sessão",
+      "rename": "Renomear conversa",
+      "spending": "Gastos da conversa",
+      "events": "Eventos da conversa",
+      "rules": "Regras de aprovação",
+      "undo": "Desfazer as alterações de arquivo do último turno",
+      "accounts": "Contas dos provedores"
     },
     "menu": {
       "title": "Buscar",
@@ -759,13 +779,10 @@
       "github": "Erro inesperado do GitHub",
       "workspace": "Erro inesperado do workspace"
     },
-    "skillCreate": "Não foi possível criar a skill",
     "workspace": {
       "switch": "Falha ao trocar de workspace",
-      "close": "Não foi possível fechar o workspace",
       "panelState": "Não foi possível salvar o estado do painel",
-      "reorder": "Falha ao reordenar os workspaces",
-      "settings": "Não foi possível salvar as configurações do workspace"
+      "reorder": "Falha ao reordenar os workspaces"
     }
   },
   "about": {
@@ -792,6 +809,7 @@
     },
     "copy": "Copiar detalhes",
     "details": "Detalhes da versão",
+    "detailsCopied": "Detalhes da versão copiados",
     "report": "Relatar um problema"
   }
 }

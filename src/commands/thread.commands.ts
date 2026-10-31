@@ -1,5 +1,6 @@
 import { CircleDollarSign, FolderInput, FolderPlus, History, ListChecks, MessageSquarePlus, PencilLine, ScrollText, Undo2, UserRound } from 'lucide-react'
 import type { ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
+import { i18n } from '../i18n'
 import { useThreadStore } from '../store/thread.store'
 import { toast } from '../ui'
 import type { ContributedCommand } from '../utils/commandRegistry'
@@ -7,6 +8,11 @@ import { humanizeError } from '../utils/humanizeError'
 import { navigableThreads } from '../utils/threadNavigation'
 import { commandText, tCommand } from './commandText'
 import { useCommandSource } from './useCommandSource'
+
+/** Agent accounts are checked inside a project; without one there is nothing to show yet. */
+export function sayAddProjectFirst(): void {
+  toast({ title: i18n.t('thread:accounts.needProject'), description: i18n.t('thread:accounts.needProjectText') })
+}
 
 /** ThreadView runs `{ text }` as if it was typed in the composer of the active conversation. */
 export const THREAD_RUN_COMMAND_EVENT = 'oxe:thread-run-command'
@@ -38,15 +44,15 @@ export async function undoLastTurn(snapshot: ThreadSnapshot): Promise<void> {
   const turn = [...(snapshot.turns ?? [])].reverse().find(item => item.status !== 'running')
   if (!api?.turnFiles || !api.undoTurnFile) return
   // Said, not silent: the palette only offers this after a finished turn, but the conversation may change under it.
-  if (!turn) { toast({ title: tCommand('thread.nothingToUndo'), description: tCommand('thread.noFinishedTurn') }); return }
+  if (!turn) { toast({ title: i18n.t('thread:undoTurn.nothing'), description: i18n.t('thread:undoTurn.noTurn') }); return }
   const threadId = snapshot.thread.id
   try {
     const files = (await api.turnFiles(threadId, turn.id)).filter(file => file.state === 'pending')
-    if (!files.length) { toast({ title: tCommand('thread.nothingToUndo'), description: tCommand('thread.noChanges') }); return }
+    if (!files.length) { toast({ title: i18n.t('thread:undoTurn.nothing'), description: i18n.t('thread:undoTurn.noFiles') }); return }
     for (const file of files) await api.undoTurnFile(threadId, turn.id, file.path)
-    toast({ title: tCommand('thread.restored', { count: files.length }), intent: 'success' })
+    toast({ title: i18n.t('thread:undoTurn.restored', { count: files.length }), intent: 'success' })
   } catch (cause) {
-    toast({ title: tCommand('thread.undoFailed'), description: humanizeError(cause, tCommand('thread.undoFailedDetail')), intent: 'danger' })
+    toast({ title: i18n.t('thread:undoTurn.failed'), description: humanizeError(cause, i18n.t('thread:undoTurn.changedSince')), intent: 'danger' })
   } finally {
     await useThreadStore.getState().refresh(threadId)
   }

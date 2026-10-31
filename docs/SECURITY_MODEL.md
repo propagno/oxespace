@@ -63,6 +63,40 @@ OxeQuery connects the app to databases and to the local container engine, and ex
 
 Provider permission prompts are **not** a control for these tools: Claude in `bypassPermissions` and Codex with `approvalPolicy: never` do not ask. The OxeQuery gateway is the authority.
 
+### Closed findings
+
+| Finding | Status | What it was | Why Postgres runs it | Control now | Test |
+|---|---|---|---|---|---|
+| SQL classifier: dollar quote after an identifier (B10, #237) | **Closed** | `SELECT foo$a$ FROM t; DROP TABLE users; --$a$` was classified as a plain **read**. The classifier (`sql-guard.ts`) opened a dollar quote at the `$a$` after `foo`, read everything up to the second `$a$` as a string, and never saw the `;` or the DROP. A read skips the destructive confirmation in the workbench, and an agent's `oxespace_db_query` accepts it (that call still runs on a read-only connection, so the server refuses the DROP there). | Identifiers may contain `$` after their first character, and a dollar quote that follows an identifier must be separated from it by whitespace. So Postgres reads `foo$a$` as one column name, ends the statement at `;`, runs `DROP TABLE users`, and treats `--$a$` as a comment. | `dollarTag()` opens no dollar quote right after an identifier character (letter, digit, `_` or `$`), as Postgres does. Both the tokenizer and `outsideReach` use it. The tag rule itself (`$$`, `$[A-Za-z_]*$`) is unchanged. | `tests/unit/oxequery-sql-risk.test.ts`, "does not open a quote right after an identifier, as Postgres does not": `foo$a$ … DROP` and `x$$ … DELETE` are both destructive. |
+
+## Files that steer agents (protected config)
+
+Agent instructions (AGENTS.md, CLAUDE.md…), MCP settings (.mcp.json…) and hooks (.claude/settings.json, .git/hooks/…) are protected (`electron/main/services/conversation/kernel/protected-config.ts`). A change to one is never approved by a saved rule, the built-in lists, Full access or "allow for this session"; a person approves it once, or declines it. The names and places are two tables in that file (`PROTECTED_CONFIG_NAMES`, `PROTECTED_CONFIG_PLACES`), so a new protected file is one entry.
+
+### Closed findings
+
+| Finding | Status | What it was | Control now | Test |
+|---|---|---|---|---|
+| Saved program rules let a command write a protected file (B16, homologation's probe of #208) | **Closed** | A command was guarded only when it named the file as an argument of a known writer (`cp`, `tee`, `sed -i`…). With saved allow rules for the program, `python -c "open('AGENTS.md','w')…"`, `node -e "…writeFileSync('.mcp.json')…"`, `sh -c 'echo {} > CLAUDE.md'`, `powershell -c "Set-Content …"`, `curl -o`, `yq -i`, `npx tool --write`, `cd .claude && echo {} > settings.json`, and commands that rewrite tracked files without naming them (`git checkout --`, `git apply`, `tar xf`, `unzip -o`) were approved by the rule, and Windows spellings (`AGENTS.md.`, `AGENTS.md::$DATA`, `AGENTS~1.MD`) were not recognised. | A command that names a protected file anywhere in its text (arguments, redirects, `-c`/`-e` code, nested shells and quotes, after a `cd`, either slash, any case, relative or absolute) is guarded; only a plain read from the built-in safe list (`cat AGENTS.md`) is still answered. git checkout, switch, restore, apply, merge, rebase, reset, clean, am, cherry-pick, revert, pull, stash pop/apply and archive extraction (tar x, unzip, 7z x, Expand-Archive) are never rule-approved; git commit, push, add, status, diff, log, fetch and branch still are. Paths resolve Windows aliases: trailing dots and spaces, alternate streams, 8.3 short names. Changes made outside the app's write path (another program, a script the agent left behind) are not seen by this check; **B7.4's file watch** is the general fix for those. The rewriters are guarded in every git project (every one has `.git/hooks`); guarded asks once and never blocks. Once B7.4 watches the files, it catches the result instead of guessing from the command, and the rewriters can become rule-approvable again. | `tests/unit/protected-config.test.ts`, "commands that reach protected files (B16)" and "Windows spellings of a protected file (B16)" |
+| Codex could offer "for the session" for a guarded request (P1-17) | **Closed** | Claude's card left it out for protected files, but Codex lists its own decisions, and a command such as `tee .mcp.json` that the shell asked about for another reason was not marked guarded. | A guarded request offers accept-once or decline on every provider; a session answer that arrives anyway is refused (`thread.request.guardedDecision`) and the request stays pending. | `tests/unit/protected-config.test.ts`, "a guarded request on the Codex path (P1-17)" |
+
+## Approvals (B10)
+
+Every request an agent raises for the person (confirm-level MCP actions, OxeQuery statements, preview automation) and the app's own restart offer after an unexpected error go through one channel family, `approvals.*` (`shared/types/approvals.ts`):
+
+| Threat | Control |
+|---|---|
+| A native dialog cuts or hides what is approved (the Windows dialog drops a long `detail`) | The app's modal shows the requester's text whole, scrollable, up to `APPROVAL_AGENT_TEXT_MAX`; past that the request is flagged `truncated` and offers deny only |
+| Agent text posing as app warnings (fake bullets, markdown, a `DROP` behind `-- read only`) | `appNotes` are C3 codes the app chose; `agentText` is always `untrusted: true` and shown verbatim in its own labelled monospace block; risk comes from `guardSql`/`classifyShellRisk`, which skip comments |
+| An agent impersonating the app ("OXESpace wants to …", a pane named "OXESpace") | The requester comes from the authenticated execution and its owner, labelled by the app (provider and pane position); reserved names are refused as pane names and notification text after NFKC, case, accent, invisible-character and confusable folding (`reservedNameIn`) |
+| A reflex click, or a buggy or compromised window, approving a destructive change | At `critical` risk an allow is never the default, Enter does nothing, and main refuses an allow (`tooSoon`) that comes before the window's ack or within `APPROVAL_CRITICAL_ALLOW_DELAY_MS` of it; a deny is always accepted |
+| A text too long to review, or a flood of requests | One review cap in every door: above `APPROVAL_AGENT_TEXT_MAX` a change is refused before it is shown, never cut; past `APPROVAL_QUEUE_MAX` a new request is denied with its own code and logged |
+| A forged, repeated or late answer | Main frame only; one answer per `id` and `generation`, validated against the request's options; a second, stale or unknown answer is refused with a typed code; an unanswered request is denied after `APPROVAL_TIMEOUT_MS` |
+| Notification spoofing and flooding | Agent notifications carry an app-assigned requester prefix, refuse reserved names and are limited to `NOTIFY_PER_MINUTE` per execution |
+| An agent answering for the person | `approvals.admin` is a forbidden MCP capability; no tool reaches these channels |
+
+The native dialog is a fallback only: no app window exists, the window reported `approvals.unavailable` for that one request, or a request that needs a handshake (`crash`) was not acknowledged within `APPROVAL_ACK_TIMEOUT_MS`. The renderer-gone notice stays native because the renderer that would draw the modal is gone.
+
 ## Dependency and release controls
 
 CI blocks moderate-or-higher production advisories with `npm run security:audit`, blocks high/critical build-tool advisories with `npm run security:audit:tools`, and verifies that the exactly pinned Electron belongs to a supported major line. Electron is a devDependency but ships in the product, so the production audit alone is insufficient. Transitive fixes may be pinned through `overrides`, with the lockfile committed. Build-tool advisories and dated triage are recorded in `docs/validation/stabilization-2026-10-07.md`. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.

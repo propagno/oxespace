@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { i18n } from '../i18n'
 import type { CreateSkillInput, SkillDefinition } from '../../shared/types/skill'
+import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
 
@@ -43,7 +43,7 @@ export const useSkillStore = create<SkillStoreState>((set, get) => ({
     const insert = (skills: SkillDefinition[], skill: SkillDefinition): SkillDefinition[] => [...skills.filter((s) => s.name !== skill.name), skill].sort(sortSkills)
     const previous = get().skills.find((s) => s.name === input.name)
     const created = await optimistic(set, get, (state) => ({ skills: insert(state.skills, pending), error: null }), () => window.oxe.skill.create(input), {
-      rollbackMessage: i18n.t('failures.skillCreate'),
+      rollbackMessage: i18n.t('code:skills.createFailed'),
       rethrow: true,
       reconcile: (skill, state) => ({ skills: insert(state.skills, skill) }),
       revert: (state) => ({ skills: previous ? insert(state.skills, previous) : state.skills.filter((s) => s !== pending) })
