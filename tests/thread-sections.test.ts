@@ -1,19 +1,34 @@
-import { describe, expect, it, vi } from 'vitest'
-import { createSectionsMock, SECTIONS_STORAGE_PREFIX, type SectionsStorage, type ThreadLookup } from '../src/components/Threads/sections/sectionsMock'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { normalizeThreadSections } from '../shared/thread-sections'
+import type { ConversationThread } from '../shared/types/thread'
+import type { ThreadSections } from '../shared/types/thread-sections'
+import { LEGACY_STORAGE_PREFIX, projectAssignments, resetSectionsForTests, sectionsApi } from '../src/components/Threads/sections/sectionsApi'
 import { normalizeSectionName, sameSectionName, SECTION_NAME_MAX, sectionErrorCode, SectionError, type ThreadSection } from '../src/components/Threads/sections/sectionsContract'
 import { groupBySection, moveSectionIds } from '../src/components/Threads/sections/sectionsModel'
+import { useThreadStore } from '../src/store/thread.store'
 
-function memoryStorage(): SectionsStorage & { data: Map<string, string> } {
-  const data = new Map<string, string>()
-  return { data, get: key => data.get(key) ?? null, set: (key, value) => { data.set(key, value) }, keys: () => [...data.keys()] }
+const thread = (id: string, projectId: string, extra: Record<string, unknown> = {}): ConversationThread =>
+  ({ id, workspaceId: `thread:${projectId}`, projectId, rootPath: '/repo', provider: 'claude', title: id, pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1, ...extra }) as ConversationThread
+
+/** The main process's two channels, kept in memory and checked by the same shared validator as main. */
+function setup() {
+  const threads = [thread('a', 'p1'), thread('b', 'p1'), thread('child', 'p1', { parentThreadId: 'a' }), thread('other', 'p2')]
+  useThreadStore.setState({ threads })
+  const main = new Map<string, ThreadSections>()
+  const bridge = {
+    sections: vi.fn(async (workspaceId: string) => structuredClone(main.get(workspaceId) ?? { sections: [], assignments: {} })),
+    saveSections: vi.fn(async (workspaceId: string, state: ThreadSections) => {
+      const result = normalizeThreadSections(state, id => threads.some(item => item.id === id && item.workspaceId === workspaceId))
+      if (result.ok) main.set(workspaceId, structuredClone(result.state))
+      return result
+    })
+  }
+  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: bridge } })
+  return { api: sectionsApi(), main, bridge }
 }
 
-function setup(threads: Record<string, ThreadLookup> = { a: { projectId: 'p1' }, b: { projectId: 'p1' }, child: { projectId: 'p1', parentThreadId: 'a' }, other: { projectId: 'p2' } }) {
-  const storage = memoryStorage()
-  let id = 0
-  const api = createSectionsMock({ storage, lookup: threadId => threads[threadId], now: () => 1000, newId: () => `s${++id}` })
-  return { storage, api }
-}
+beforeEach(() => { localStorage.clear(); resetSectionsForTests() })
+afterEach(() => { delete (window as unknown as { oxe?: unknown }).oxe })
 
 const rejection = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => sectionErrorCode(error))
 
@@ -41,7 +56,7 @@ describe('section names', () => {
     expect(sameSectionName('Café'.normalize('NFD'), 'café')).toBe(true)
     expect(sameSectionName('Work', 'Works')).toBe(false)
   })
-  it('reads the code from the mock, an IPC object and an IPC message', () => {
+  it('reads the code from a thrown error, an IPC object and an IPC message', () => {
     expect(sectionErrorCode(new SectionError('thread.section.notFound'))).toBe('thread.section.notFound')
     expect(sectionErrorCode({ code: 'thread.section.invalidName', params: { max: 60 } })).toBe('thread.section.invalidName')
     expect(sectionErrorCode(new Error("Error invoking remote method 'thread:section-move': thread.section.childFollowsParent"))).toBe('thread.section.childFollowsParent')
@@ -49,26 +64,39 @@ describe('section names', () => {
   })
 })
 
-describe('sections mock', () => {
-  it('creates, renames and lists per project, persisted in storage', async () => {
-    const { api, storage } = setup()
+describe('sections over the main process', () => {
+  it('creates, renames and lists per project, saved as the workspace state main keeps', async () => {
+    const { api, main } = setup()
     const work = await api.createSection({ projectId: 'p1', name: ' Work ' })
     await api.createSection({ projectId: 'p1', name: 'Ideas' })
     await api.createSection({ projectId: 'p2', name: 'Elsewhere' })
-    expect(work).toEqual({ id: 's1', projectId: 'p1', name: 'Work', order: 0, collapsed: false, createdAt: 1000 })
-    await api.renameSection({ id: 's1', name: 'Shipping' })
+    expect(work).toMatchObject({ projectId: 'p1', name: 'Work', order: 0, collapsed: false })
+    await api.renameSection({ id: work.id, name: 'Shipping' })
     expect((await api.listSections('p1')).map(section => [section.name, section.order])).toEqual([['Shipping', 0], ['Ideas', 1]])
     expect((await api.listSections('p2')).map(section => section.name)).toEqual(['Elsewhere'])
-    expect(JSON.parse(storage.data.get(`${SECTIONS_STORAGE_PREFIX}p1`)!).sections).toHaveLength(2)
+    expect(main.get('thread:p1')!.sections.map(section => section.name)).toEqual(['Shipping', 'Ideas'])
+    expect(main.get('thread:p2')!.sections.map(section => section.name)).toEqual(['Elsewhere'])
   })
 
   it('rejects invalid names with thread.section.invalidName and its max', async () => {
-    const { api } = setup()
+    const { api, bridge } = setup()
     await expect(api.createSection({ projectId: 'p1', name: '' })).rejects.toMatchObject({ code: 'thread.section.invalidName', params: { max: SECTION_NAME_MAX } })
     await expect(api.createSection({ projectId: 'p1', name: 'x'.repeat(61) })).rejects.toMatchObject({ code: 'thread.section.invalidName' })
     const section = await api.createSection({ projectId: 'p1', name: 'Ok' })
     expect(await rejection(api.renameSection({ id: section.id, name: 'bad\u0007' }))).toBe('thread.section.invalidName')
     expect(await rejection(api.renameSection({ id: 'missing', name: 'Fine' }))).toBe('thread.section.notFound')
+    // Nothing invalid reached main: the window checks with the same rules first.
+    expect(bridge.saveSections).toHaveBeenCalledTimes(1)
+  })
+
+  it('words a refusal from main the same way, and a refused save changes nothing here', async () => {
+    const { api, bridge } = setup()
+    await api.createSection({ projectId: 'p1', name: 'Work' })
+    bridge.saveSections.mockResolvedValueOnce({ ok: false, refusal: 'nameDuplicate', message: { code: 'thread.sections.nameDuplicate', params: {} } } as never)
+    expect(await rejection(api.createSection({ projectId: 'p1', name: 'Ideas' }))).toBe('thread.section.duplicateName')
+    bridge.saveSections.mockResolvedValueOnce({ ok: false, refusal: 'tooMany', message: { code: 'thread.sections.tooMany', params: {} } } as never)
+    await expect(api.createSection({ projectId: 'p1', name: 'More' })).rejects.toMatchObject({ code: 'thread.sections.tooMany' })
+    expect((await api.listSections('p1')).map(section => section.name)).toEqual(['Work'])
   })
 
   it('refuses a second section with the same name in a project, whatever its case; renaming a section to itself is fine', async () => {
@@ -83,16 +111,17 @@ describe('sections mock', () => {
   })
 
   it('moves conversations, and deleting a section keeps them with no section', async () => {
-    const { api } = setup()
+    const { api, main } = setup()
     const work = await api.createSection({ projectId: 'p1', name: 'Work' })
     await api.moveToSection({ threadId: 'a', sectionId: work.id })
     await api.moveToSection({ threadId: 'b', sectionId: work.id })
-    expect(api.assignments('p1')).toEqual({ a: work.id, b: work.id })
+    expect(projectAssignments('p1')).toEqual({ a: work.id, b: work.id })
     await api.moveToSection({ threadId: 'b', sectionId: null })
-    expect(api.assignments('p1')).toEqual({ a: work.id })
+    expect(projectAssignments('p1')).toEqual({ a: work.id })
     await api.deleteSection({ id: work.id })
-    expect(api.assignments('p1')).toEqual({})
+    expect(projectAssignments('p1')).toEqual({})
     expect(await api.listSections('p1')).toEqual([])
+    expect(main.get('thread:p1')).toEqual({ sections: [], assignments: {} })
   })
 
   it('never moves a child: it follows its parent', async () => {
@@ -119,6 +148,12 @@ describe('sections mock', () => {
     expect((await api.listSections('p1')).map(section => [section.name, section.order])).toEqual([['One', 0], ['Two', 1]])
   })
 
+  it('changes made together are saved one after the other, none lost', async () => {
+    const { api, main } = setup()
+    await Promise.all(['One', 'Two', 'Three'].map(name => api.createSection({ projectId: 'p1', name })))
+    expect(main.get('thread:p1')!.sections.map(section => section.name).sort()).toEqual(['One', 'Three', 'Two'])
+  })
+
   it('announces every change for its project', async () => {
     const { api } = setup()
     const listener = vi.fn()
@@ -129,17 +164,45 @@ describe('sections mock', () => {
     await api.deleteSection({ id: section.id })
     expect(listener.mock.calls).toEqual([[{ projectId: 'p1' }], [{ projectId: 'p1' }]])
   })
+})
 
-  it('reads damaged storage as empty', async () => {
-    const { api, storage } = setup()
-    storage.data.set(`${SECTIONS_STORAGE_PREFIX}p1`, '{not json')
+describe('sections kept in this window before main kept them', () => {
+  const legacy = { sections: [{ id: 'work', projectId: 'p1', name: 'Work', order: 0, collapsed: true, createdAt: 1 }, { id: 'dupe', projectId: 'p1', name: 'WORK', order: 1, collapsed: false, createdAt: 2 }], assignments: { a: 'work', gone: 'work', b: 'missing' } }
+
+  it('move to main once, on the first load, and the local copy is forgotten', async () => {
+    localStorage.setItem(`${LEGACY_STORAGE_PREFIX}p1`, JSON.stringify(legacy))
+    const { api, main, bridge } = setup()
+    expect((await api.listSections('p1')).map(section => [section.name, section.collapsed])).toEqual([['Work', true]])
+    // Main keeps assignments of its own conversations only; a duplicate name is not carried over.
+    expect(main.get('thread:p1')).toEqual({ sections: [{ id: 'work', name: 'Work', order: 0, collapsed: true }], assignments: { a: 'work' } })
+    expect(localStorage.getItem(`${LEGACY_STORAGE_PREFIX}p1`)).toBeNull()
+    resetSectionsForTests()
+    await sectionsApi().listSections('p1')
+    expect(bridge.saveSections).toHaveBeenCalledTimes(1)
+  })
+
+  it('what main already keeps wins; the local copy is not merged in', async () => {
+    localStorage.setItem(`${LEGACY_STORAGE_PREFIX}p1`, JSON.stringify(legacy))
+    const { api, main, bridge } = setup()
+    main.set('thread:p1', { sections: [{ id: 'main', name: 'From main', order: 0, collapsed: false }], assignments: {} })
+    expect((await api.listSections('p1')).map(section => section.name)).toEqual(['From main'])
+    expect(bridge.saveSections).not.toHaveBeenCalled()
+    expect(localStorage.getItem(`${LEGACY_STORAGE_PREFIX}p1`)).toBeNull()
+  })
+
+  it('a refused move keeps the local copy for the next start; damaged storage is ignored', async () => {
+    localStorage.setItem(`${LEGACY_STORAGE_PREFIX}p1`, JSON.stringify(legacy))
+    localStorage.setItem(`${LEGACY_STORAGE_PREFIX}p2`, '{not json')
+    const { api, bridge } = setup()
+    bridge.saveSections.mockResolvedValueOnce({ ok: false, refusal: 'unknownWorkspace', message: { code: 'thread.sections.unknownWorkspace', params: {} } } as never)
     expect(await api.listSections('p1')).toEqual([])
-    expect(api.assignments('p1')).toEqual({})
+    expect(localStorage.getItem(`${LEGACY_STORAGE_PREFIX}p1`)).not.toBeNull()
+    expect(await api.listSections('p2')).toEqual([])
   })
 })
 
 describe('grouping the list', () => {
-  const section = (id: string, order: number): ThreadSection => ({ id, projectId: 'p1', name: id, order, collapsed: false, createdAt: 0 })
+  const section = (id: string, order: number): ThreadSection => ({ id, projectId: 'p1', name: id, order, collapsed: false })
   it('puts conversations in section order, keeps their order, and sends unknown sections to no section', () => {
     const where: Record<string, string | null> = { a: 'later', b: null, c: 'first', d: 'gone', e: 'first' }
     const result = groupBySection(['a', 'b', 'c', 'd', 'e'], [section('later', 1), section('first', 0), section('empty', 2)], id => where[id])
