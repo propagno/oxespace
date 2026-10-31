@@ -28,11 +28,13 @@ test('Team is off the title bar and opens from the palette, the Tools menu, Mod+
     const dialog = page.getByRole('dialog', { name: 'Project team', exact: true })
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
 
-    // No workspace yet: the menu item is off and says why.
     const item = await toolsTeamItem(page)
-    await expect(item).toHaveAttribute('data-disabled', '')
-    await expect(item).toHaveAttribute('title', 'Open a workspace to open its team')
-    await page.keyboard.press('Escape')
+    // No workspace yet: muted but reachable, with its reason; choosing it says the reason again.
+    await expect(item).toHaveAttribute('aria-disabled', 'true')
+    await expect(item).toHaveAttribute('aria-description', 'Open a workspace to open its team')
+    await expect(item).toContainText('Open a workspace to open its team')
+    await item.click()
+    await expect(page.getByText('Open a workspace to open its team', { exact: true }).last()).toBeVisible()
     await page.keyboard.press('Escape')
 
     await page.getByTestId('btn-new-workspace').click()
