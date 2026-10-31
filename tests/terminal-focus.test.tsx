@@ -1,9 +1,14 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TerminalFocusMenuItems } from '../src/components/Grid/TerminalFocusMenuItems'
+import { ShortcutGuide } from '../src/components/Keyboard/ShortcutGuide'
 import { TerminalFocusHost } from '../src/components/Keyboard/TerminalFocusHost'
+import { changeLanguage } from '../src/i18n'
 import { KEYBINDINGS, chordsFor, dispatchKeybinding, isOverridden, isTerminalReservedChord } from '../src/keyboard/keybindings'
 import { focusRegions, moveFocusRegion } from '../src/keyboard/focusRegions'
-import { terminalKeyRoute, useTerminalFocusStore } from '../src/keyboard/terminalFocus'
+import { f6ReachesProgram, terminalKeyRoute, useTerminalFocusStore } from '../src/keyboard/terminalFocus'
+import { terminalEntryHint } from '../src/keyboard/terminalFocusActions'
 import { useSettingsStore } from '../src/store/settings.store'
 
 /** WCAG 2.1.2 No Keyboard Trap: F6 regions, the per-pane "Tab moves focus" mode and the way out said on entry. */
@@ -27,11 +32,15 @@ beforeEach(() => {
   // jsdom lays nothing out; every element counts as on screen.
   vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
 })
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks()
+  // Unmount first (the host owns the live region), and let a pending announcement land before the page is cleared.
+  cleanup()
+  await new Promise(resolve => setTimeout(resolve, 10))
   document.body.innerHTML = ''
   useSettingsStore.setState({ keybindingOverrides: {} })
-  useTerminalFocusStore.setState({ tabMovesFocus: {}, toggleKeyToShell: {} })
+  useTerminalFocusStore.setState({ tabMovesFocus: {}, toggleKeyToShell: {}, f6ToProgram: {}, entryHinted: {} })
+  await changeLanguage('en')
 })
 
 describe('reserved keys in a terminal', () => {
@@ -124,11 +133,28 @@ describe('the way out, said on entry', () => {
     fireEvent.focusIn(textarea, { relatedTarget: textarea })
     await new Promise(resolve => setTimeout(resolve, 20))
     expect(region.firstElementChild).toBe(first)
-    // Leaving and coming back says it again: a new entry.
+    // Leaving and coming back is not a first entry: the hint is said once per pane per session.
     screen.getByRole('button', { name: 'before' }).focus()
     textarea.focus()
-    await waitFor(() => expect(region.firstElementChild).not.toBe(first))
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(region.firstElementChild).toBe(first)
     expect(document.querySelectorAll('[data-testid="terminal-focus-announcer"]')).toHaveLength(1)
+  })
+
+  it('is said on the first entry into each pane, once per pane (T4)', async () => {
+    render(<><button type="button">before</button><TerminalFocusHost /></>)
+    const before = screen.getByRole('button', { name: 'before' })
+    const a = terminal('a'), b = terminal('b')
+    const said: string[] = []
+    const region = await announcer()
+    new MutationObserver(() => { if (region.textContent) said.push(region.textContent) }).observe(region, { childList: true, subtree: true })
+    for (const target of [a, b, a, b, a]) {
+      before.focus()
+      act(() => { target.focus() })
+      await new Promise(resolve => setTimeout(resolve, 20))
+    }
+    expect(said).toHaveLength(2)
+    expect(useTerminalFocusStore.getState().entryHinted).toEqual({ a: true, b: true })
   })
 
   it('names only F6 when the toggle is off', async () => {
@@ -166,10 +192,25 @@ describe('F6 regions', () => {
     moveFocusRegion(1)
     // A region with nothing to focus takes focus itself.
     expect(document.activeElement).toBe(status)
+    expect(status).toHaveAttribute('tabindex', '-1')
     moveFocusRegion(1)
     expect(document.activeElement).toHaveTextContent('Code')
+    // T5: the tabindex that let the status bar take focus goes when focus leaves it.
+    expect(status).not.toHaveAttribute('tabindex')
     moveFocusRegion(-1)
     expect(document.activeElement).toBe(status)
+    moveFocusRegion(-1)
+    expect(document.querySelectorAll('[tabindex="-1"]')).toHaveLength(0)
+  })
+
+  it('leave no tabindex behind, and keep a tabindex the page set itself (T5)', () => {
+    const { status } = shell()
+    status.tabIndex = 0
+    status.focus()
+    moveFocusRegion(1)
+    expect(status).toHaveAttribute('tabindex', '0')
+    for (let step = 0; step < 8; step++) moveFocusRegion(1)
+    expect(document.querySelectorAll('.workbench-titlebar[tabindex], .sidebar[tabindex], .workspace-grid[tabindex]')).toHaveLength(0)
   })
 
   it('leave a terminal and come back to it', async () => {
@@ -196,5 +237,117 @@ describe('F6 regions', () => {
     ok.focus()
     expect(moveFocusRegion(1)).toBe(false)
     expect(document.activeElement).toBe(ok)
+  })
+})
+
+describe('the live region (T2)', () => {
+  it('is in the page, empty, from the first render, before anything is said', async () => {
+    render(<TerminalFocusHost />)
+    const region = screen.getByTestId('terminal-focus-announcer')
+    expect(region).toHaveAttribute('role', 'status')
+    expect(region).toHaveAttribute('aria-live', 'polite')
+    expect(region).toBeEmptyDOMElement()
+    // The first words go into that same node: no second region is made.
+    act(() => { terminal('a').focus() })
+    await waitFor(() => expect(region).toHaveTextContent('Terminal. Press F6 to leave'))
+    expect(document.querySelectorAll('[data-testid="terminal-focus-announcer"]')).toHaveLength(1)
+    expect(screen.getByTestId('terminal-focus-announcer')).toBe(region)
+  })
+})
+
+describe('the toggle is said every time (T3)', () => {
+  const cases = [['en', 'Tab moves focus: on', 'Tab moves focus: off'], ['pt-BR', 'Tab move o foco: ligado', 'Tab move o foco: desligado']] as const
+  for (const [language, on, off] of cases) {
+    it(`from the keyboard and from the pane menu, in ${language}`, async () => {
+      await changeLanguage(language)
+      render(<TerminalFocusHost />)
+      const region = screen.getByTestId('terminal-focus-announcer')
+      const a = terminal('a')
+      const said: string[] = []
+      new MutationObserver(() => { if (region.textContent) said.push(region.textContent) }).observe(region, { childList: true, subtree: true })
+      for (const expected of [on, off, on]) {
+        dispatchKeybinding(key(ctrlM, a))
+        await waitFor(() => expect(region).toHaveTextContent(expected))
+      }
+      const onDone = vi.fn()
+      render(<div role="menu"><TerminalFocusMenuItems paneId="a" onDone={onDone} /></div>)
+      await userEvent.click(screen.getByTestId('pane-menu-tab-moves-focus'))
+      await waitFor(() => expect(region).toHaveTextContent(off))
+      await userEvent.click(screen.getByTestId('pane-menu-tab-moves-focus'))
+      await waitFor(() => expect(region).toHaveTextContent(on))
+      expect(said).toEqual([on, off, on, off, on])
+      expect(onDone).toHaveBeenCalledTimes(2)
+    })
+  }
+})
+
+describe('"Send F6 to the program", per pane (T1)', () => {
+  it('sends F6 and Shift+F6 to the program only in that pane, and Ctrl+M still gets out there', () => {
+    render(<TerminalFocusHost />)
+    const a = terminal('a'), b = terminal('b')
+    useTerminalFocusStore.getState().setF6ToProgram('a', true)
+    for (const f6 of [{ key: 'F6' }, { key: 'F6', shiftKey: true }]) {
+      expect(terminalKeyRoute(key(f6), 'a')).toBe('shell')
+      expect(dispatchKeybinding(key(f6, a))).toBe(false)
+      expect(terminalKeyRoute(key(f6), 'b')).toBe('app')
+    }
+    // Ctrl+M still toggles in that pane, and Tab then leaves it.
+    expect(terminalKeyRoute(key(ctrlM), 'a')).toBe('app')
+    expect(dispatchKeybinding(key(ctrlM, a))).toBe(true)
+    expect(terminalKeyRoute(key({ key: 'Tab' }), 'a')).toBe('focus')
+    // Another pane keeps F6 as the way out.
+    expect(dispatchKeybinding(key({ key: 'F6' }, b))).toBe(true)
+  })
+
+  it('never leaves a pane without a key out', () => {
+    const store = useTerminalFocusStore.getState()
+    store.setF6ToProgram('a', true)
+    // Sending Ctrl+M to the shell as well turns F6 back into the way out.
+    store.setToggleKeyToShell('a', true)
+    expect(useTerminalFocusStore.getState()).toMatchObject({ f6ToProgram: {}, toggleKeyToShell: { a: true } })
+    expect(terminalKeyRoute(key({ key: 'F6' }), 'a')).toBe('app')
+    useTerminalFocusStore.getState().setF6ToProgram('a', true)
+    expect(useTerminalFocusStore.getState()).toMatchObject({ f6ToProgram: { a: true }, toggleKeyToShell: {} })
+    // With the toggle turned off in Settings, F6 stays the way out whatever the option says.
+    useSettingsStore.setState({ keybindingOverrides: { 'terminal.tabMovesFocus': [] } })
+    expect(f6ReachesProgram('a')).toBe(false)
+    expect(terminalKeyRoute(key({ key: 'F6' }), 'a')).toBe('app')
+  })
+
+  it('the hint of that pane names Ctrl+M, not F6, and is said again after the option changes', async () => {
+    useTerminalFocusStore.getState().setF6ToProgram('a', true)
+    expect(terminalEntryHint('a')).toBe('Terminal. F6 goes to the program here. Press Ctrl+M to make Tab move focus.')
+    expect(terminalEntryHint('b')).toBe('Terminal. Press F6 to leave, or Ctrl+M to make Tab move focus.')
+    await changeLanguage('pt-BR')
+    expect(terminalEntryHint('a')).toBe('Terminal. Aqui o F6 vai para o programa. Pressione Ctrl+M para que o Tab mova o foco.')
+    await changeLanguage('en')
+    render(<TerminalFocusHost />)
+    const region = screen.getByTestId('terminal-focus-announcer')
+    const a = terminal('a')
+    act(() => { a.focus() })
+    await waitFor(() => expect(region).toHaveTextContent('F6 goes to the program here'))
+    expect(region).not.toHaveTextContent('F6 to leave')
+    useTerminalFocusStore.getState().setF6ToProgram('a', false)
+    act(() => { a.blur(); a.focus() })
+    await waitFor(() => expect(region).toHaveTextContent('Terminal. Press F6 to leave'))
+  })
+
+  it('is a checkbox in the pane menu, next to "Send Ctrl+M to the shell"', async () => {
+    const onDone = vi.fn()
+    render(<div role="menu"><TerminalFocusMenuItems paneId="a" onDone={onDone} /></div>)
+    expect(screen.getAllByRole('menuitemcheckbox').map(item => item.textContent)).toEqual(['Tab moves focus', 'Send Ctrl+M to the shell', 'Send F6 to the program'])
+    const f6 = screen.getByRole('menuitemcheckbox', { name: 'Send F6 to the program' })
+    expect(f6).toHaveAttribute('aria-checked', 'false')
+    await userEvent.click(f6)
+    expect(useTerminalFocusStore.getState().f6ToProgram).toEqual({ a: true })
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Send F6 to the program' })).toHaveAttribute('aria-checked', 'true')
+    expect(onDone).toHaveBeenCalledOnce()
+  })
+
+  it('is documented in the shortcut guide, with the toggle key', () => {
+    render(<ShortcutGuide view="code" onClose={() => undefined} />)
+    const note = within(screen.getByTestId('shortcut-guide')).getByTestId('shortcut-guide-f6-note')
+    expect(note).toHaveTextContent('“Send F6 to the program”')
+    expect(note).toHaveTextContent('Ctrl+M still makes Tab move focus')
   })
 })

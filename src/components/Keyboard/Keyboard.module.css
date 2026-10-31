@@ -20,6 +20,7 @@
   color: var(--text-primary);
 }
 .row:last-child { border-bottom: 0; }
+.note { margin: 0; font-size: var(--text-xs); color: var(--text-secondary); }
 
 /* Settings › Keyboard */
 .settingsList { flex: 1; min-width: 0; }

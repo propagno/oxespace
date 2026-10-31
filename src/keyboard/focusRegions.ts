@@ -38,8 +38,12 @@ function enter(region: HTMLElement): void {
   const target = last && last.isConnected && region.contains(last) && shown(last) ? last
     : [...region.querySelectorAll<HTMLElement>(TABBABLE)].find(shown)
   if (target) { target.focus(); return }
-  // A region with nothing to focus still takes focus, so the next F6 knows where it is.
-  if (!region.hasAttribute('tabindex')) region.tabIndex = -1
+  // A region with nothing to focus still takes focus, so the next F6 knows where it is. The tabindex goes again
+  // when focus leaves it, so it does not stay in the page for Tab order and screen-reader navigation.
+  if (!region.hasAttribute('tabindex')) {
+    region.tabIndex = -1
+    region.addEventListener('blur', () => region.removeAttribute('tabindex'), { once: true })
+  }
   region.focus()
 }
 

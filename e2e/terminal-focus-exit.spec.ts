@@ -102,6 +102,48 @@ test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable a
     const writes = await terminalWrites(app)
     for (const sequence of ['\x1b[17~', '\x1b[17;2~', '\r', '\t']) expect(writes, JSON.stringify(writes)).not.toContain(sequence)
 
+    // T5: F6 round every region and back; no region keeps a tabindex it was given only to take focus.
+    const terminalInput = page.locator(`[data-terminal-pane="${first}"] .xterm-helper-textarea`)
+    const regionTabindexes = (): Promise<string[]> => page.evaluate(() => [...document.querySelectorAll('.workbench-titlebar, .app-shell > aside, .workspace-grid, .workspace-split-grid, .workspace-panel-stack, .app-statusbar')]
+      .map(region => `${region.className.split(' ')[0]}=${region.getAttribute('tabindex')}`))
+    await terminalInput.focus()
+    const tabindexesBefore = await regionTabindexes()
+    for (let step = 0; step < 7; step++) {
+      await page.keyboard.press('F6')
+      await expect.poll(() => focusedRegion(page)).not.toMatch(/^none/)
+    }
+    await terminalInput.focus()
+    expect(await regionTabindexes()).toEqual(tabindexesBefore)
+    expect(await page.locator('.workbench-titlebar, .app-shell > aside, .workspace-grid, .workspace-split-grid, .workspace-panel-stack, .app-statusbar').and(page.locator('[tabindex="-1"]')).count()).toBe(0)
+
+    // T1: "Send F6 to the program" in this pane's ⋯ menu: F6 and Shift+F6 reach the program, Ctrl+M still gets out.
+    const firstPane = page.getByTestId('pane-container').filter({ has: page.locator(`[data-terminal-pane="${first}"]`) })
+    await firstPane.getByRole('button', { name: 'More pane actions' }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Send F6 to the program' }).click()
+    await expect(page.getByTestId('pane-actions-menu')).toHaveCount(0)
+    await recordTerminalWrites(app)
+    await terminalInput.focus()
+    // The option changed the way out, so entering the pane says the new one: Ctrl+M, not F6.
+    await expect(announcer).toHaveText('Terminal. F6 goes to the program here. Press Ctrl+M to make Tab move focus.')
+    await page.keyboard.press('F6')
+    await page.keyboard.press('Shift+F6')
+    await expect.poll(async () => (await terminalWrites(app)).join('')).toContain('\x1b[17~')
+    await expect.poll(async () => (await terminalWrites(app)).join('')).toContain('\x1b[17;2~')
+    expect(await focusedTerminal(page)).toBe(first)
+    // Tab mode is still on from before: off, then on again, and Tab leaves the pane.
+    const firstBadge = page.locator(`[data-terminal-pane="${first}"] ~ [data-testid="tab-focus-badge"]`)
+    if (await firstBadge.count()) {
+      await page.keyboard.press('Control+m')
+      await expect(announcer).toHaveText('Tab moves focus: off')
+      await expect(firstBadge).toHaveCount(0)
+    }
+    await page.keyboard.press('Control+m')
+    await expect(announcer).toHaveText('Tab moves focus: on')
+    await page.keyboard.press('Tab')
+    await expect.poll(() => focusedTerminal(page)).not.toBe(first)
+    // Ctrl+M stayed the toggle there: no CR reached the shell.
+    expect((await terminalWrites(app)).join('')).not.toContain('\r')
+
     // The terminal pane, its badge and the announcer pass axe (xterm's canvas itself is excluded, as everywhere).
     const violations = await scanSurface(page, 'terminal/focus-exit')
     const terminalFindings = violations.filter(item => item.nodes.some(node => /terminal|tab-focus|pane-actions|split-resize/.test(node)))
