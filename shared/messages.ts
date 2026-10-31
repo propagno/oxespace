@@ -80,6 +80,20 @@ export interface MessageParams {
   'oxequery.edit.noKey': Record<string, never>
   'oxequery.test.connected': Record<string, never>
   'oxequery.startFailed': { reason: string }
+  /** SQL risk: `COPY … TO/FROM PROGRAM` runs a shell command on the database server. */
+  'oxequery.sql.copyProgram': Record<string, never>
+  /** SQL risk: a `DO` block runs code whose effect is not known before it runs. */
+  'oxequery.sql.doBlock': Record<string, never>
+  /** SQL risk: `CALL` runs a stored procedure whose effect is not known before it runs. */
+  'oxequery.sql.callProcedure': Record<string, never>
+  /** SQL risk: a `DO` or `CALL` carries a destructive keyword (DROP, TRUNCATE, DELETE, …) in its body or arguments. */
+  'oxequery.sql.destructiveInside': { statement: string; keyword: string }
+  /** SQL risk: `SELECT … FOR UPDATE / FOR SHARE` locks the rows it reads. */
+  'oxequery.sql.rowLock': Record<string, never>
+  /** SQL risk: `SET ROLE` / `SET SESSION AUTHORIZATION` changes the session user. */
+  'oxequery.sql.sessionRole': Record<string, never>
+  /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
+  'oxequery.sql.tableLock': Record<string, never>
   'oxepod.startFailed': { reason: string }
   'oxepost.network.notFound': Record<string, never>
   'oxepost.network.refused': Record<string, never>
@@ -253,6 +267,13 @@ export const MESSAGE_CODES = [
   'oxequery.edit.noKey',
   'oxequery.test.connected',
   'oxequery.startFailed',
+  'oxequery.sql.copyProgram',
+  'oxequery.sql.doBlock',
+  'oxequery.sql.callProcedure',
+  'oxequery.sql.destructiveInside',
+  'oxequery.sql.rowLock',
+  'oxequery.sql.sessionRole',
+  'oxequery.sql.tableLock',
   'oxepod.startFailed',
   'oxepost.network.notFound',
   'oxepost.network.refused',

@@ -139,7 +139,16 @@
       "test": {
         "connected": "Conectado"
       },
-      "startFailed": "O OxeQuery não iniciou: {{reason}}"
+      "startFailed": "O OxeQuery não iniciou: {{reason}}",
+      "sql": {
+        "copyProgram": "COPY … PROGRAM executa um comando de shell no servidor do banco.",
+        "doBlock": "DO executa código no banco; o efeito não é conhecido antes de rodar.",
+        "callProcedure": "CALL executa um procedimento armazenado; o efeito não é conhecido antes de rodar.",
+        "destructiveInside": "{{statement}} contém {{keyword}}, que pode apagar dados ou objetos.",
+        "rowLock": "FOR UPDATE / FOR SHARE trava as linhas lidas até o fim da transação.",
+        "sessionRole": "SET ROLE muda o usuário da sessão e, com ele, o que os próximos comandos podem fazer.",
+        "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda."
+      }
     },
     "oxepod": {
       "startFailed": "O OxePod não iniciou: {{reason}}"
