@@ -393,7 +393,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'agents.central': {
     label: 'The agents central: every agent\'s state across modes, and marking one as seen (S7.1)',
     forbidden: 'For the person: an agent neither reads the roster nor clears what the person has not seen. Agents read their own with oxespace_list_agents and oxespace_delegation_status.',
-    ipc: ['agents.overview', 'agents.markSeen']
+    ipc: ['agents.overview', 'agents.markSeen', 'agents.activate']
   },
   'mcp_internal.tool_groups_admin': { label: 'Choose how a project offers each group of OXESpace tools', forbidden: 'Raises what agents can reach.', ipc: ['mcpInternal.setToolGroupMode'] },
   'settings.diagnostics': {
