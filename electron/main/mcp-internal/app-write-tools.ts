@@ -189,7 +189,19 @@ const THREADS_CHANGE = domainTool('oxespace_threads_change', 'Drive other Thread
   archive: {
     level: 'confirm', description: 'Archive a Thread (it can be restored by the person).', required: ['threadId'],
     confirm: async (args, scope, ctx) => { const { thread } = await targetThread(args, scope, ctx); return { summary: `archive "${thread.title}"`, text: `Archive the Thread "${thread.title}"`, reasons: thread.status === 'running' ? ['Its running turn is stopped first.'] : [] } },
-    run: async (args, scope, ctx) => { const { thread } = await targetThread(args, scope, ctx); await (await ctx.threads!).command(thread.id, '/archive confirm'); return { archived: true } }
+    run: async (args, scope, ctx) => {
+      const { thread } = await targetThread(args, scope, ctx)
+      const manager = await ctx.threads!
+      // The command's real outcome: a conversation whose children still work is not archived (B1.3), and
+      // archiving them too is the person's decision, never an agent's.
+      const result = await manager.command(thread.id, '/archive confirm')
+      if (result.kind !== 'navigate' || !manager.readThread(thread.id).archived) {
+        throw new ActionRefused(result.refusal === 'hasActiveChildren'
+          ? `"${thread.title}" was not archived: ${result.confirm?.childConversations?.active ?? 'some'} conversation(s) it started are still working. The person can archive them together from the app.`
+          : `"${thread.title}" was not archived.`, result.refusal ?? 'refused')
+      }
+      return { archived: true }
+    }
   }
 })
 
