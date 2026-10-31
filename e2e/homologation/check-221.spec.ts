@@ -31,12 +31,16 @@ test('Devices, adversarial (en, light)', async () => {
   try {
     await resizeWindow(app, 1280, 860)
     await openDemoWorkspace(page, workspaceRoot)
+    page.setDefaultTimeout(8_000)
+    const step = (name: string) => { notes.lastStep = name; writeFileSync(join(OUT, 'notes.json'), JSON.stringify(notes, null, 2)) }
+    step('open devices')
     const devices = await openDevices(page, true)
     await devices.getByRole('switch', { name: 'Let phones on this network connect' }).click()
     const firewall = page.getByRole('dialog', { name: 'Before phones can connect' })
     notes.firewall = { text: (await firewall.innerText().catch(() => '')).slice(0, 500), focus: await focused(page) }
     await page.screenshot({ path: join(OUT, 'firewall.png') })
     await firewall.getByRole('button', { name: 'Turn on' }).click()
+    step('names')
     // The computer's name.
     const name = devices.getByRole('textbox', { name: 'Name phones see' })
     const names: Record<string, unknown> = {}
@@ -49,6 +53,7 @@ test('Devices, adversarial (en, light)', async () => {
       names[label] = { enabled, saved: await name.inputValue(), errors: await devices.locator('[role="alert"], [aria-invalid="true"] ~ *, .error, [class*="error" i]').allInnerTexts().catch(() => []) }
     }
     notes.computerNames = names
+    step('pairing')
     // Pairing: the prompt, its focus and an immediate Enter.
     await devices.getByRole('button', { name: 'Show pairing code' }).click()
     const prompt = page.getByRole('dialog', { name: /Pair .*\?/ })
@@ -60,6 +65,7 @@ test('Devices, adversarial (en, light)', async () => {
     if (await prompt.isVisible().catch(() => false)) await prompt.getByRole('button', { name: 'Pair', exact: true }).click()
     await page.waitForTimeout(500)
     notes.offer = (await devices.getByTestId('devices-pairing-offer').innerText().catch(() => '')).slice(0, 400)
+    step('rename')
     // Rename the paired phone.
     const renames: Record<string, unknown> = {}
     for (const [label, value] of [['65', 'y'.repeat(65)], ['empty', ''], ['RLO', 'Pixel‮8'], ['HTML', '<b>Pixel</b>'], ['ok', 'Celular do trabalho']] as const) {
@@ -71,6 +77,7 @@ test('Devices, adversarial (en, light)', async () => {
       await page.keyboard.press('Escape').catch(() => undefined)
     }
     notes.renames = renames
+    step('leave and back')
     // Leave the page and come back: is the code withdrawn?
     await devices.getByRole('button', { name: 'Show pairing code' }).click().catch(() => undefined)
     await page.waitForTimeout(400)
