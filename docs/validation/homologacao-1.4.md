@@ -730,6 +730,10 @@ o bloqueio de processo pesado tomado (`check-quarantine*`, capturas em `quaranti
     e para devolver a confiança a um servidor cujas descrições tentam injetar instruções.
   - Quem quer só testar pode acabar confiando. Na sonda, o clique em "Testar" não mostrou confirmação nem mudou o
     status. Não ficou claro se o clique acertou o botão, então o efeito real fica para reconferir.
+  - O coordenador leu o código: `test()` em `mcp.service.ts` recusa um servidor sem confiança e nunca devolve a
+    confiança. O defeito é o texto que engana e a falta de um "Confiar de novo…" explícito com confirmação. Isso
+    entrou no F25, junto com o chip de alerta e o plural. Foi conferido por leitura de código, não pela caixa-preta;
+    reconferir pela interface quando o F25 chegar.
   - Critério de aceite: separar "Testar" (só verifica, sem conceder confiança) de "Confiar de novo…". O segundo abre
     uma confirmação que repete as instruções suspeitas e tem "Cancelar" como padrão.
 - **Achado 3 (cosmético):** a quarentena usa o mesmo chip cinza dos outros estados, sem cor nem ícone de alerta, e a
