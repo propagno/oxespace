@@ -43,20 +43,37 @@ describe('B23 · what an execution asks for ends with the execution', () => {
     } finally { stop() }
   })
 
-  it('gives each owner a signal that aborts when its execution ends, and a fresh one for the next launch', () => {
+  it('gives each execution its own signal, keyed by its own owner object, that aborts when it ends', () => {
     const registry = new ExecutionRegistry()
-    expect(executionSignal({ kind: 'pane', id: 'nobody' })).toBeUndefined()
+    const owner = { kind: 'pane' as const, id: 'p2' }
+    expect(executionSignal(owner)).toBeUndefined()
     expect(executionSignal(undefined)).toBeUndefined()
     registry.register({ paneId: 'p2', workspaceId: 'w', cwd: '.' })
-    const first = executionSignal({ kind: 'pane', id: 'p2' })!
+    const firstOwner = registry.forOwner(owner)!.owner
+    const first = executionSignal(firstOwner)!
     expect(first.aborted).toBe(false)
+    // An owner object that is not an execution's own has no signal: nothing ties an ask to it.
+    expect(executionSignal({ kind: 'pane', id: 'p2' })).toBeUndefined()
     registry.register({ paneId: 'p2', workspaceId: 'w', cwd: '.' })
     expect(first.aborted).toBe(true)
-    const second = executionSignal({ kind: 'pane', id: 'p2' })!
+    // A late call from the first launch still gets the first launch's (aborted) signal, never the second's.
+    expect(executionSignal(firstOwner)).toBe(first)
+    const second = executionSignal(registry.forOwner(owner)!.owner)!
+    expect(second).not.toBe(first)
     expect(second.aborted).toBe(false)
     registry.end('p2')
     expect(second.aborted).toBe(true)
-    expect(executionSignal({ kind: 'pane', id: 'p2' })).toBeUndefined()
+  })
+
+  it('never lets one registry abort another registry\'s signal for the same owner', () => {
+    const [a, b] = [new ExecutionRegistry(), new ExecutionRegistry()]
+    a.register({ paneId: 'shared', workspaceId: 'w', cwd: '.' })
+    b.register({ paneId: 'shared', workspaceId: 'w', cwd: '.' })
+    const inA = executionSignal(a.forOwner({ kind: 'pane', id: 'shared' })!.owner)!
+    b.end('shared')
+    expect(inA.aborted).toBe(false)
+    a.end('shared')
+    expect(inA.aborted).toBe(true)
   })
 
   it('keeps notifying the other listeners when one throws', () => {
@@ -79,11 +96,26 @@ describe('B23 · what an execution asks for ends with the execution', () => {
     expect(asks.map(item => item.signal.aborted)).toEqual([false, false])
     ended!({ id: 'exec-a' })
     expect(asks.map(item => item.signal.aborted)).toEqual([true, false])
-    // A new ask from the ended execution is a new request, not the cancelled one.
-    expect(await broker.require('exec-a', 'scope', ask())).toMatchObject({ state: 'pending' })
-    expect(asks).toHaveLength(3)
-    // exec-b is still waiting on its own request.
+    // A call authenticated just before the pane closed raises nothing new: nobody is left to act on the answer.
+    expect(await broker.require('exec-a', 'scope', ask())).toEqual({ state: 'denied' })
+    expect(asks).toHaveLength(2)
+    // exec-b is still waiting on its own request, and can still ask.
     expect(asks[1].signal.aborted).toBe(false)
+    expect(await broker.require('exec-b', 'scope', ask('oxespace_other'))).toMatchObject({ state: 'pending' })
+    expect(asks).toHaveLength(3)
+  })
+
+  it('does not remember a cancelled ask as the person\'s denial, and stops listening when disposed', async () => {
+    const { prompter } = waitingPrompter()
+    const listeners: ((execution: { id: string }) => void)[] = []
+    let unsubscribed = false
+    const broker = new ApprovalBroker(prompter, Date.now, 10, listener => { listeners.push(listener); return () => { unsubscribed = true } })
+    expect(await broker.require('exec-c', 'scope', ask())).toMatchObject({ state: 'pending' })
+    listeners[0]({ id: 'exec-c' })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect((broker as unknown as { denials: Map<string, number> }).denials.size).toBe(0)
+    broker.dispose()
+    expect(unsubscribed).toBe(true)
   })
 
   it('subscribes to the registry by default: closing the pane cancels the ask', async () => {
@@ -104,7 +136,7 @@ describe('B23 · what an execution asks for ends with the execution', () => {
     })
     const registry = new ExecutionRegistry()
     registry.register({ owner: { kind: 'thread', id: 't5' }, workspaceId: 'w', cwd: '.' })
-    const outcome = center.ask(crashDraft(), executionSignal({ kind: 'thread', id: 't5' }))
+    const outcome = center.ask(crashDraft(), executionSignal(registry.forOwner({ kind: 'thread', id: 't5' })!.owner))
     await Promise.resolve()
     expect(nativeSignals).toHaveLength(1)
     registry.endOwner({ kind: 'thread', id: 't5' })
