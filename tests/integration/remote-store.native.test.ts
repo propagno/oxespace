@@ -4,7 +4,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase } from '../../electron/main/db'
 import { auditJsonl } from '../../electron/main/services/audit-export'
 import { RemoteStore, TooManyDevicesError } from '../../electron/main/services/remote/store'
 
-describe('remote store (migration 084)', () => {
+describe('remote store (migration 086)', () => {
   test('devices: add up to five, rename, revoke keeps the row, touch', () => {
     const db = openInMemoryDatabase()
     expect(db.pragma('user_version', { simple: true })).toBe(LATEST_DB_VERSION)
