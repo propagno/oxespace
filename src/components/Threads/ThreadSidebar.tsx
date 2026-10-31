@@ -121,8 +121,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     moveToSectionEntry(thread, sections.sectionsOf(thread.projectId), sections),
     { label: unreadIds.includes(thread.id) ? t('sidebar.markRead') : t('sidebar.markUnread'), icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
     { type: 'separator' },
-    { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'archive'); else setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) } },
-    { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'delete'); else setConfirmation({ kind: 'thread', id: thread.id, title: thread.title }) } }
+    { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'archive'); else setConfirmation({ kind: 'archive', id: thread.id, title: displayThreadTitle(thread.title) }) } },
+    { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'delete'); else setConfirmation({ kind: 'thread', id: thread.id, title: displayThreadTitle(thread.title) }) } }
   ]} trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} title={t('sidebar.conversationActions')}><MoreHorizontal size={14} /></button>} /></div>
   }
   const railPrimary: RailAction[] = [{ id: 'add-project', label: t('sidebar.addProject'), icon: FolderPlus, onClick: onAddProject }]
