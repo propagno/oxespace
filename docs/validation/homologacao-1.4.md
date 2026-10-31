@@ -147,7 +147,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 primitivas | #163 | FRONTEND | Homologado (na `main` 7c8cb949) |
 | F4 WCAG 2.2, partes 1 e 2 | #186 | FRONTEND | Pré-homologado (ressalvas corrigidas em 1ceaee6a, reverificado em a5d04da9) |
 | R1 + A4 (splash na aparência salva; visualizador só em dev) | #190 | FRONTEND | Pré-homologado |
-| F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | Pré-homologado (ressalvas resolvidas na reverificação) |
+| F12 OxeCode/OxeChat | #188 + #189 | FRONTEND + BACKEND | #188 homologado (na `main` 61992419, `check-188`, pt-BR e en). A barra de modos diz OxeCode / OxeChat / OxeQuery / OxePod / OxePost, com dicas traduzidas ("OxeChat: conversas com um agente (Ctrl+2)"). Nenhum "Thread"/"Code" de nome antigo nos 5 modos, nos 103 itens da paleta, nos 37 itens do menu do app com submenus, nas 10 páginas de Configurações nem na lista de atalhos; só aparecem as fontes "Cascadia Code" e "Fira Code", que são legítimas. O OxeChat em pt-BR diz "Conversas", "Filtrar conversas", "Nova conversa". 0 erros. Os itens da paleta continuam em inglês no pt-BR ("New conversation", "Add OxeChat project…"), o que já existia e fica com o #197 |
 | A4 worktree por conversa | #151 | FRONTEND | Homologado com ressalvas (na `main` 9e4a9307) |
 | F8 gate visual | #193 | FRONTEND | Pré-homologado |
 | F1 OfflineState + F2 About | #178 | FRONTEND (+ BACKEND no texto do OxePost) | Homologado com ressalvas (na `main`: offline e About ok; pendem "Sobre" na paleta em pt-BR e o detalhe do erro de rede, que dependem do #197) |
