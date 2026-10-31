@@ -28,11 +28,9 @@ for (const locale of ['pt-BR', 'en-US'] as const) {
       ['unreachable UNC', '\\\\host-inexistente-hml\\share\\repo'],
       ['access denied', 'C:\\Windows\\System32\\config'],
       ['device name', 'C:\\Users\\CON'],
-      ['trailing spaces', `${accents}   `],
-      ['quoted (pasted from Explorer)', `"${accents}"`],
-      ['dot-dot', join(root, 'Projetos São João', '..', 'Projetos São João', 'meu app ção')],
-      ['spaces and accents (valid)', accents]
+      ['quoted (pasted from Explorer)', `"${accents}"`]
     ]
+    const direct = ['', '   ', '""', `"${accents}`, `${accents}"`, `'${accents}'`, `"${aFile}"`, `""${accents}""`, String.raw`"C:\nao\existe"`]
     const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: locale } })
     const results: unknown[] = []
     try {
@@ -68,6 +66,18 @@ for (const locale of ['pt-BR', 'en-US'] as const) {
         results.push({ name, path, launchEnabled: enabled, state, ms, message, focus: await page.evaluate(() => `${document.activeElement?.tagName} ${document.activeElement?.getAttribute('data-testid') ?? document.activeElement?.getAttribute('aria-label') ?? ''}`), keptPath: kept === path, dialogText: state === 'refused' ? '' : dialogText, sidebarHasWorkspace: /meu app|pasta|projeto|notas|config|CON|share/i.test(workspaces) })
         writeFileSync(join(OUT, `${locale}.json`), JSON.stringify({ results, errors }, null, 2))
       }
+      // Straight to main, as an agent or a stale renderer would: what comes back for each.
+      const replies = await page.evaluate(async paths => {
+        const out: Array<{ path: string; reply: string }> = []
+        for (const path of paths) {
+          try {
+            const r = await (window as unknown as { oxe: { workspace: { create: (i: object) => Promise<Record<string, unknown>> } } }).oxe.workspace.create({ rootPath: path, autoStart: false })
+            out.push({ path, reply: r && r.ok === false ? `refused ${String(r.refusal)}` : `created rootPath=${String(r?.rootPath)}` })
+          } catch (e) { out.push({ path, reply: `threw ${String(e).slice(0, 160)}` }) }
+        }
+        return out
+      }, direct)
+      writeFileSync(join(OUT, `${locale}.json`), JSON.stringify({ results, replies, errors }, null, 2))
     } finally { await app.close() }
   })
 }

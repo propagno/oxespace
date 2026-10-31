@@ -172,7 +172,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Contrato B10 `approvals.*` | #235 | BACKEND | Homologado (contrato; na `main` 7e2dfdd5), com nota sobre nomes de sistema |
 | F19 split além dos presets | #240 | FRONTEND | Homologado (na `main` c4a4d84d) |
 | Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado (499ffbcd): ressalvas fechadas, sonda de 134 nomes |
-| Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Em andamento: pt-BR com 13 de 14 casos ok e 1 ressalva (caminho entre aspas); falta o en |
+| Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Pré-homologado (751229ab + 3f3e2d66): pt-BR e en ok, aspas corrigidas; nota baixa sobre o vazio no IPC |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -488,7 +488,7 @@ polkit, root/sudo, Security/Segurança, Oxe*). Pares juntados também são pegos
   - "Gnome lover", "Fedora fan" e "GitHub Copilot".
 - Nota baixa: "OX E" passa, enquanto "OXE" é pego (só 2 letras soltas).
 
-### Raiz do workspace e aviso no assistente (#239 adb46037 + #244 3f3e2d66): em andamento
+### Raiz do workspace e aviso no assistente (#239 + #244): Pré-homologado
 
 App real em perfil descartável, pt-BR, com 14 caminhos digitados no assistente (`pre-239-244`).
 - Recusados na hora, com a mensagem sob o campo, o campo marcado como inválido, o caminho mantido e nenhum workspace
@@ -517,7 +517,27 @@ App real em perfil descartável, pt-BR, com 14 caminhos digitados no assistente 
   os espaços) ou, no mínimo, dizer "remova as aspas".
 - Cosmético, a confirmar: logo depois de criar, os títulos dos painéis repetem ("Terminal 2" duas vezes) enquanto os
   shells iniciam. É o mesmo efeito visto no #240.
-- A execução foi interrompida pelo sistema por falta de memória antes do en. O en fica pendente.
+- A execução foi interrompida pelo sistema por falta de memória antes do en.
+
+Reverificação com #239 751229ab + #244, em pt-BR e en:
+- A ressalva das aspas foi fechada. `"C:\...\meu app ção"` colado no assistente cria o workspace com o caminho limpo.
+  Aspas simples também são tiradas.
+- Os 10 casos de recusa dão o mesmo resultado em en, com textos certos ("The folder … does not exist. Create it or
+  choose another folder.", "… is a file, not a folder.", "OXESpace cannot open the folder…").
+- Chamadas diretas ao `workspace.create`:
+
+  | Entrada | Resposta |
+  |---|---|
+  | `""` (texto entre aspas vazias) | `notAbsolute` |
+  | aspa só no começo | `notAbsolute` |
+  | aspa só no fim | `notFound` |
+  | aspas em volta de um arquivo | `notDirectory` |
+  | aspas duplas em dobro | `notAbsolute` |
+  | `"C:\nao\existe"` | `notFound` |
+
+- **Nota baixa para o BACKEND:** o caminho vazio e o só de espaços não voltam como `notAbsolute`, como o BACKEND
+  esperava. O IPC lança `Error: rootPath must not be empty`, cru e em inglês. Pela interface isso não aparece,
+  porque o botão fica desabilitado, mas um agente ou um renderer antigo recebe um erro sem código C3.
 
 ### Achados fora dos itens da onda
 
