@@ -143,6 +143,10 @@ describe('the before-quit gate', () => {
 })
 
 describe('the updater install', () => {
+  // On Linux the updater replaces only an AppImage (updaterSupportsThisInstall); say this is one, on every OS.
+  beforeEach(() => { vi.stubEnv('APPIMAGE', '/tmp/OXESpace.AppImage') })
+  afterEach(() => { vi.unstubAllEnvs() })
+
   it('quitAndInstall quits without asking, and the drain runs', async () => {
     const window = await fakeWindow()
     binding.installCloseGuard(window as never)
