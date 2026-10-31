@@ -1901,5 +1901,10 @@
     "requests_one": "{{count}} request",
     "requests_other": "{{count}} requests",
     "error": "Terminal error"
+  },
+  "reviewComments": {
+    "delete": "Delete comment",
+    "deleted": "Comment deleted",
+    "undo": "Undo"
   }
 }
