@@ -23,7 +23,8 @@ export async function freezeClock(page: Page): Promise<void> {
 }
 
 /** Launches the built app against a temporary database (requires `npm run build` first). */
-export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; /** Extra environment, such as an e2e fixture switch. */ env?: Record<string, string> } = {}): Promise<LaunchedApp> {
+/** `env` adds variables for one spec (e.g. OXESPACE_E2E_AGENT_STATE=1), on top of the defaults below. */
+export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; env?: Record<string, string> } = {}): Promise<LaunchedApp> {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-visual-'))
   const workspaceRoot = join(root, 'demo-repo')
   mkdirSync(workspaceRoot, { recursive: true })
