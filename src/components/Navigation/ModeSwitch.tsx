@@ -20,7 +20,7 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
   const attention = useAttentionSummary()
   const go = (next: NavigationMode) => () => { if (next !== mode) onSelect(next) }
   useKeybindings({ 'view.code': go('code'), 'view.thread': go('thread'), 'view.data': go('data'), 'view.pods': go('pods'), 'view.post': go('post') })
-  return <nav className={styles.switch} aria-label={t('nav.applicationView')}>
+  return <nav className={styles.switch} aria-label={t('nav.applicationView')} data-focus-region="modes">
     {MODES.map(item => {
       const counts = item.mode === 'code' ? attention.code : item.mode === 'thread' ? attention.thread : null
       const attentionId = counts && counts.needsYou + counts.failed + counts.working > 0 ? `mode-attention-${item.mode}` : undefined
