@@ -65,6 +65,7 @@ fun LiveHome(
     desktopName: String,
     live: LiveRepository,
     onOpenThread: (String) -> Unit,
+    onOpenRequest: (RemotePendingRequest) -> Unit,
     onOpenTerminal: (RemotePane) -> Unit,
     onEnterAddress: () -> Unit,
     onUnpair: () -> Unit,
@@ -120,7 +121,7 @@ fun LiveHome(
         val content = Modifier.fillMaxSize().padding(padding)
         when (tab) {
             LiveTab.THREADS -> ListOrEmpty(threads, stringResource(R.string.live_empty_threads, desktopName), content) { ThreadRow(it, workspaces, onOpenThread) }
-            LiveTab.REQUESTS -> ListOrEmpty(requests, stringResource(R.string.live_empty_requests), content) { RequestRow(it) { onOpenThread(it.threadId) } }
+            LiveTab.REQUESTS -> ListOrEmpty(requests, stringResource(R.string.live_empty_requests), content) { RequestRow(it) { onOpenRequest(it) } }
             LiveTab.TERMINALS -> ListOrEmpty(workspaces.filter { it.panes.isNotEmpty() }, stringResource(R.string.live_empty_terminals), content) { WorkspacePanes(it, onOpenTerminal) }
             LiveTab.TASKS -> Tasks(jobs, delegations, content)
         }
