@@ -50,6 +50,7 @@ import com.oxespace.mobile.approval.BiometricApprovalGate
 import com.oxespace.mobile.approval.RequestResponder
 import com.oxespace.mobile.protocol.RemotePendingRequest
 import com.oxespace.mobile.protocol.live.CommandApi
+import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -64,6 +65,7 @@ private val Target = 48.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: () -> Unit) {
+    SecureScreen()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val responder = remember(context, commands) { RequestResponder(BiometricApprovalGate(context), commands::respondRequest) }
