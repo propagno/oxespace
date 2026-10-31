@@ -20,6 +20,8 @@ export default defineConfig({
     '**/screenshots.spec.ts',
     // Pixel-regression suite has its own config and per-platform baselines.
     '**/visual/**',
+    // Homologation passes (docs/validation/homologacao-1.4.md), run by hand with playwright.tools.config.ts.
+    '**/homologation/**',
     // Packaged-artifact smokes need a built installer and are driven by the
     // release leg of CI with OXESPACE_PACKAGED_EXECUTABLE set.
     '**/packaged-linux.spec.ts',

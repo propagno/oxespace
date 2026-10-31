@@ -1,0 +1,13 @@
+// #262 probe: a Mongo write on a production connection named "Shop prod", with names that look right but are not.
+import { DEFAULT_ENVIRONMENT_LIMITS } from '../../../shared/oxequerySafety.ts'
+import { checkMongoWrite, guardConnection } from '../../../electron/main/services/oxequery/oxequery-guard.ts'
+const conn = (o: Record<string, unknown> = {}) => ({ id: 'c1', engine: 'mongodb', host: 'db', port: 27017, database: 'shop', username: 'me', sslMode: 'disable', readOnly: false, environment: 'prod', ...o })
+const g = (o: Record<string, unknown> = {}) => guardConnection(conn(o) as never, 'Shop prod', DEFAULT_ENVIRONMENT_LIMITS, null)
+const names: unknown[] = ['Shop prod', '  Shop prod  ', 'Shop\u200Bprod', 'Shop\u200B prod', 'Shop\u00A0prod', '\u0405hop prod', 'Shop prod\n', 'Shop  prod', 'SHOP PROD', 'Shop prod\u202E', undefined]
+for (const op of ['delete', 'replace', 'insert'] as const) for (const typed of names) {
+  let r = 'passes'
+  try { checkMongoWrite(g(), op, true, typed) } catch (e) { r = `refused ${(e as { code?: string }).code ?? String(e).slice(0, 40)}` }
+  console.log(op.padEnd(8), JSON.stringify(typed).padEnd(22), r)
+}
+for (const env of ['dev', 'local']) { let r = 'passes'; try { checkMongoWrite(g({ environment: env }), 'delete', false, undefined) } catch (e) { r = `refused ${(e as { code?: string }).code}` } console.log(`env=${env} delete unconfirmed`.padEnd(31), r) }
+let ro = 'passes'; try { checkMongoWrite(g({ readOnly: true }), 'delete', true, 'Shop prod') } catch (e) { ro = `refused ${(e as { code?: string }).code}` } console.log('prod read-only delete w/ name'.padEnd(31), ro)
