@@ -416,3 +416,9 @@ light/dark; forced colors; 960×640 and 4K.
 - The panel is mounted with `lazy()` like `TeamDialog`; only the shortcut and the palette command load at start, so
   the renderer entry keeps its ≥ 8 % headroom.
 - Panel width and docked/full state live in a main-side settings key, not in `App.tsx` state.
+- **Testable timers, no fake clock.** The needs-you timer (§5.10, 2 min) and the no-report window after Stop (§13,
+  10 s) are read in main from constants that e2e can shorten, following `OXESPACE_E2E_APPROVALS_TTL_MS`:
+  `OXESPACE_E2E_AGENTS_NEEDS_YOU_MS` and `OXESPACE_E2E_AGENTS_NO_REPORT_MS` (honoured only in e2e builds, ignored
+  otherwise). Playwright's fake clock is not used: it broke the workbench before (F28). The silent source is an e2e
+  double of the S7.1 read model that never reports for one agent (`OXESPACE_E2E_AGENTS` fixture, in
+  `electron/main/e2e/agents-mock.ts`); the unfocused window is `BrowserWindow.blur()`.
