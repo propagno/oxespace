@@ -103,8 +103,17 @@ One i18n namespace, `agents.state.*`, holds them. No other catalog may define th
 |---|---|---|---|
 | low | Low | Baixo | Only reads / Só lê |
 | medium | Medium | Médio | Changes something / Muda algo |
-| high | High | Alto | Deletes, escalates or publishes / Apaga, eleva ou publica |
+| high | High | Alto | Deletes, escalates access or publishes / Apaga, eleva acesso ou publica |
 | critical | Critical | Crítico | Can't be undone, or affects production / Não tem volta ou afeta produção |
+
+Colour tokens (desktop CSS / phone `OxeTokens`), so critical never looks like high:
+
+| Level | Badge style | Tokens |
+|---|---|---|
+| low | neutral, soft | `--fill-*` / neutral `Badge` |
+| medium | warning, soft | `--intent-warning-bg`, `-border`, `-fg` / `intentWarning*` |
+| high | danger, soft | `--intent-danger-bg`, `-border`, `-fg` / `intentDangerBg`, `intentDangerBorder`, `intentDangerFg` |
+| critical | danger, **solid** | `--intent-danger-solid` background, `--text-on-solid` text, bold word / `intentDangerSolid` + on-solid |
 
 Colour never carries it alone. The badge says "Risco: Alto"; inside a sentence it's lowercase ("Risco: alto.").
 
