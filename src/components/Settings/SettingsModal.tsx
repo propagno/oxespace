@@ -251,6 +251,9 @@ function ProvidersSettingsSection({
   useEffect(() => {
     let active = true
     void window.oxe?.agent?.compatibility?.().then(value => { if (active) setCompatibility(value) }).catch(() => {})
+    // What the main process already knows about each CLI (no probe, unlike a health check): the section shows the
+    // current state itself instead of relying on whatever loaded it at boot (the first-run checklist is on demand).
+    void useAgentStore.getState().loadReadiness()
     return () => { active = false }
   }, [])
   const lastHealthCheckAt = useAgentStore((s) => s.lastHealthCheckAt)
