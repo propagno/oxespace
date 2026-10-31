@@ -23,7 +23,8 @@ export async function freezeClock(page: Page): Promise<void> {
 }
 
 /** Launches the built app against a temporary database (requires `npm run build` first). */
-export async function launchApp(options: { appearance?: Appearance; locale?: string } = {}): Promise<LaunchedApp> {
+/** `env` adds variables for one spec (e.g. OXESPACE_E2E_AGENT_STATE=1), on top of the defaults below. */
+export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; env?: Record<string, string> } = {}): Promise<LaunchedApp> {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-visual-'))
   const workspaceRoot = join(root, 'demo-repo')
   mkdirSync(workspaceRoot, { recursive: true })
@@ -38,7 +39,8 @@ export async function launchApp(options: { appearance?: Appearance; locale?: str
       OXESPACE_E2E_MOCK_NATIVE: '1',
       OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'),
       // The system language the app sees; e2e/electron-main.cjs pins English when unset.
-      ...(options.locale ? { OXESPACE_LOCALE: options.locale } : {})
+      ...(options.locale ? { OXESPACE_LOCALE: options.locale } : {}),
+      ...options.env
     }
   })
   // The RTK sidecar check hits the network and, when it finds an update, adds an icon to
@@ -58,18 +60,20 @@ export async function launchApp(options: { appearance?: Appearance; locale?: str
   await page.waitForLoadState('load')
   await freezeClock(page)
 
-  if (options.appearance) await setAppearance(page, options.appearance)
+  if (options.appearance || options.density) await setAppearance(page, options.appearance ?? 'light', options.density)
   return { app, page, root, workspaceRoot, consoleErrors }
 }
 
-/** Persists the appearance setting and reloads so the whole app renders with it. */
-export async function setAppearance(page: Page, appearance: Appearance): Promise<void> {
+export type Density = 'compact' | 'comfortable'
+
+/** Persists the appearance (and, when given, the density) and reloads so the whole app renders with it. */
+export async function setAppearance(page: Page, appearance: Appearance, density?: Density): Promise<void> {
   await page.evaluate(
-    mode => localStorage.setItem('oxe-settings', JSON.stringify({
-      state: { appearance: mode, notificationsEnabled: true, visitedWorkspacesCap: 5 },
+    ([mode, spacing]) => localStorage.setItem('oxe-settings', JSON.stringify({
+      state: { appearance: mode, notificationsEnabled: true, visitedWorkspacesCap: 5, ...(spacing ? { density: spacing } : {}) },
       version: 3
     })),
-    appearance
+    [appearance, density] as const
   )
   await page.reload()
   await page.waitForLoadState('load')

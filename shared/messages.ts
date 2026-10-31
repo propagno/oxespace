@@ -26,8 +26,61 @@ export interface MessageParams {
   'thread.request.alreadyResponding': Record<string, never>
   /** A question was answered without an answer for every required question. */
   'thread.request.unanswered': Record<string, never>
+  /** A guarded request (agent instructions, MCP settings, hooks) was answered "for the session": it is approved once or declined. */
+  'thread.request.guardedDecision': Record<string, never>
+  /** Why a change needs the person each time; `path` is the file as the request names it. */
+  'thread.protectedConfig.instructions': { path: string }
+  'thread.protectedConfig.mcp': { path: string }
+  'thread.protectedConfig.hooks': { path: string }
+  'thread.protectedConfig.warning': Record<string, never>
+  /** B16: `command` rewrites tracked files without naming them (git checkout, tar x…), so it needs the person each time. */
+  'thread.protectedConfig.rewritesTracked': { command: string }
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** The provider cannot fork its session into a side chat (B1.2). */
+  'thread.side.unavailable': Record<string, never>
+  /** The conversation has no native session to copy yet: send a message first. */
+  'thread.side.noSession': Record<string, never>
+  /** Diagnostics journal (B8.3): one kind of incident. */
+  'incident.window.crashed': Record<string, never>
+  'incident.window.rendererGone': Record<string, never>
+  'incident.ipc.handlerFailed': Record<string, never>
+  'incident.ipc.validationRejected': Record<string, never>
+  'incident.agent.startFailed': Record<string, never>
+  'incident.mcp.quarantined': Record<string, never>
+  'incident.database.busy': Record<string, never>
+  'incident.oxequery.timeout': Record<string, never>
+  /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
+  'incident.oxequery.restartDeferred': Record<string, never>
+  'incident.updater.failed': Record<string, never>
+  'incident.interaction.overBudget': Record<string, never>
+  'incident.app.journalReset': Record<string, never>
+  /** F26: the window gave no first answer to a close or quit within 3 s; main went ahead. */
+  'incident.app.closeUnanswered': Record<string, never>
+  /** F26: the window's renderer went away while a close or quit was waiting on it; main went ahead. */
+  'incident.app.closeRendererGone': Record<string, never>
+  /** F26: the close guard hit an error or an inconsistent state; the close or quit went ahead unasked. */
+  'incident.app.closeGuardFailed': Record<string, never>
+  /** A link the main window tried to open outside the app was refused (its reason is the incident's subject). */
+  'incident.window.externalRefused': Record<string, never>
+  'incident.window.externalRateLimited': Record<string, never>
+  /** The system refused to open a link the app allowed (no mail app or browser registered for it). */
+  'incident.window.externalOpenFailed': Record<string, never>
+  /** The main window called window.open; it opens nothing by itself (links leave through app:open-external). */
+  'incident.window.openDenied': Record<string, never>
+  /** The main window tried to navigate or redirect away from the app; it was kept in place and nothing was opened. */
+  'incident.window.navigationDenied': Record<string, never>
+  /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
+  'diagnostics.bundle.fileTooLarge': Record<string, never>
+  /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
+  'diagnostics.bundle.tooLarge': Record<string, never>
+  /** What each file of the diagnostics bundle holds (B8.3 preview). */
+  'bundle.file.snapshot': Record<string, never>
+  'bundle.file.incidents': Record<string, never>
+  'bundle.file.logTail': Record<string, never>
+  'bundle.file.runtime': Record<string, never>
+  'bundle.file.versions': Record<string, never>
+  'bundle.file.configuration': Record<string, never>
   // Main-process sentences the window used to receive ready-made in English (C3 sweep).
   'linear.worktree.exists': { issue: string; path: string }
   'worktree.cleanup.notRemovable': Record<string, never>
@@ -57,6 +110,36 @@ export interface MessageParams {
   'oxequery.edit.noKey': Record<string, never>
   'oxequery.test.connected': Record<string, never>
   'oxequery.startFailed': { reason: string }
+  /** SQL risk: `COPY … TO/FROM PROGRAM` runs a shell command on the database server. */
+  'oxequery.sql.copyProgram': Record<string, never>
+  /** SQL risk: a `DO` block runs code whose effect is not known before it runs. */
+  'oxequery.sql.doBlock': Record<string, never>
+  /** SQL risk: `CALL` runs a stored procedure whose effect is not known before it runs. */
+  'oxequery.sql.callProcedure': Record<string, never>
+  /** SQL risk: a `DO` or `CALL` carries a destructive keyword (DROP, TRUNCATE, DELETE, …) in its body or arguments. */
+  'oxequery.sql.destructiveInside': { statement: string; keyword: string }
+  /** SQL risk: `SELECT … FOR UPDATE / FOR SHARE` locks the rows it reads. */
+  'oxequery.sql.rowLock': Record<string, never>
+  /** SQL risk: `SET ROLE` / `SET SESSION AUTHORIZATION` changes the session user. */
+  'oxequery.sql.sessionRole': Record<string, never>
+  /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
+  'oxequery.sql.tableLock': Record<string, never>
+  /** A session with a transaction open or a command running is never closed to reopen it with new settings. */
+  'oxequery.session.busy': Record<string, never>
+  /** One connection already holds the most database connections it may hold for one role (the person or an agent). */
+  'oxequery.session.limit': { limit: number }
+  /** An agent sent BEGIN: an agent's session never keeps a transaction, so it was rolled back and refused. */
+  'oxequery.session.agentTransaction': Record<string, never>
+  /** Mongo write (B15): a change on a production connection waits for the connection's name, typed. */
+  'oxequery.mongo.confirmName': Record<string, never>
+  /** Mongo write: a change that needs the person's confirmation (a delete). */
+  'oxequery.mongo.confirm': Record<string, never>
+  /** Mongo write reason: the connection is a production one. */
+  'oxequery.mongo.production': Record<string, never>
+  /** Mongo write reason: the document will be deleted. */
+  'oxequery.mongo.deletes': Record<string, never>
+  /** SQL risk: a backslash in an ordinary string can end it early on a legacy server, so more runs than the text shows. */
+  'oxequery.sql.ambiguousEscape': Record<string, never>
   'oxepod.startFailed': { reason: string }
   'oxepost.network.notFound': Record<string, never>
   'oxepost.network.refused': Record<string, never>
@@ -82,6 +165,16 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** A workspace root that is not an absolute path (a relative one would depend on where the app started). */
+  /** No folder was given: the text was empty, or only spaces or quotes. */
+  'workspace.root.empty': Record<string, never>
+  'workspace.root.notAbsolute': { path: string }
+  /** A workspace root that does not exist. */
+  'workspace.root.notFound': { path: string }
+  /** A workspace root that is a file, not a folder. */
+  'workspace.root.notDirectory': { path: string }
+  /** A workspace root the app is not allowed to open or list. */
+  'workspace.root.unreadable': { path: string }
   // B10 · Approvals (shared/types/approvals.ts). Titles, summaries, requesters, options and the app's notes.
   'approvals.title.agent': Record<string, never>
   'approvals.title.oxequery': Record<string, never>
@@ -111,6 +204,8 @@ export interface MessageParams {
   'approvals.requester.unknownConversation': { conversation: string }
   'approvals.requester.mcpServer': { server: string }
   'approvals.requester.app': Record<string, never>
+  /** A Web Preview automation call with no pane or conversation behind it. */
+  'approvals.requester.preview': Record<string, never>
   'approvals.option.deny': Record<string, never>
   'approvals.option.allowOnce': Record<string, never>
   'approvals.option.allowSessionReads': Record<string, never>
@@ -135,6 +230,8 @@ export interface MessageParams {
   'approvals.note.thread.actsOnMessage': Record<string, never>
   'approvals.note.skill.followed': Record<string, never>
   'approvals.note.automation.runsAlone': Record<string, never>
+  /** B15: an agent asks to open a page that is not on this computer's loopback. */
+  'approvals.note.preview.notLocal': Record<string, never>
   'approvals.note.worktree.folderDeleted': Record<string, never>
   'approvals.note.worktree.forceDiscards': Record<string, never>
   'approvals.note.git.branchShared': Record<string, never>
@@ -144,6 +241,12 @@ export interface MessageParams {
   /** The requester's text was longer than the window shows; only deny is offered. */
   'approvals.note.textCut': { max: number }
   'approvals.note.crash': Record<string, never>
+  /** R2: the requester's text holds bidi controls or invisible characters; the risk is at least high. */
+  'approvals.note.hiddenCharacters': Record<string, never>
+  /** The system dialog cannot hold Allow back for 2 s, so a critical request is deny-only there. */
+  'approvals.note.nativeCriticalDenyOnly': Record<string, never>
+  /** R3: the OS notification when a request waits and the window is not focused. Fixed text, never request content. */
+  'approvals.notify.waiting': Record<string, never>
   /** The window could not show the modal for a request, so it opened in a system dialog. */
   'approvals.unavailable': Record<string, never>
   /** Nobody answered in time; the request was denied. */
@@ -156,8 +259,12 @@ export interface MessageParams {
   'approvals.refused.alreadyReported': Record<string, never>
   /** An allow at critical risk before the modal had been shown for APPROVAL_CRITICAL_ALLOW_DELAY_MS. */
   'approvals.refused.tooSoon': Record<string, never>
+  /** R1: an allow before the window acknowledged showing the request, at any risk. */
+  'approvals.refused.notShown': Record<string, never>
   /** Denied before it was shown: APPROVAL_QUEUE_MAX requests were already waiting. */
   'approvals.denied.queueFull': { max: number }
+  'approvals.denied.timeout': Record<string, never>
+  'approvals.denied.cancelled': Record<string, never>
   /** Denied before it was shown: the text to approve is longer than a person reviews. */
   'approvals.denied.tooLong': { max: number }
   /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
@@ -182,7 +289,43 @@ export const MESSAGE_CODES = [
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
+  'thread.request.guardedDecision',
+  'thread.protectedConfig.instructions',
+  'thread.protectedConfig.mcp',
+  'thread.protectedConfig.hooks',
+  'thread.protectedConfig.warning',
+  'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
+  'thread.side.unavailable',
+  'thread.side.noSession',
+  'incident.window.crashed',
+  'incident.window.rendererGone',
+  'incident.ipc.handlerFailed',
+  'incident.ipc.validationRejected',
+  'incident.agent.startFailed',
+  'incident.mcp.quarantined',
+  'incident.database.busy',
+  'incident.oxequery.timeout',
+  'incident.oxequery.restartDeferred',
+  'incident.updater.failed',
+  'incident.interaction.overBudget',
+  'incident.app.journalReset',
+  'incident.app.closeUnanswered',
+  'incident.app.closeRendererGone',
+  'incident.app.closeGuardFailed',
+  'incident.window.externalRefused',
+  'incident.window.externalRateLimited',
+  'incident.window.externalOpenFailed',
+  'incident.window.openDenied',
+  'incident.window.navigationDenied',
+  'diagnostics.bundle.fileTooLarge',
+  'diagnostics.bundle.tooLarge',
+  'bundle.file.snapshot',
+  'bundle.file.incidents',
+  'bundle.file.logTail',
+  'bundle.file.runtime',
+  'bundle.file.versions',
+  'bundle.file.configuration',
   'linear.worktree.exists',
   'worktree.cleanup.notRemovable',
   'worktree.cleanup.blocked',
@@ -211,6 +354,21 @@ export const MESSAGE_CODES = [
   'oxequery.edit.noKey',
   'oxequery.test.connected',
   'oxequery.startFailed',
+  'oxequery.sql.copyProgram',
+  'oxequery.sql.doBlock',
+  'oxequery.sql.callProcedure',
+  'oxequery.sql.destructiveInside',
+  'oxequery.sql.rowLock',
+  'oxequery.sql.sessionRole',
+  'oxequery.sql.tableLock',
+  'oxequery.session.busy',
+  'oxequery.session.limit',
+  'oxequery.session.agentTransaction',
+  'oxequery.mongo.confirmName',
+  'oxequery.mongo.confirm',
+  'oxequery.mongo.production',
+  'oxequery.mongo.deletes',
+  'oxequery.sql.ambiguousEscape',
   'oxepod.startFailed',
   'oxepost.network.notFound',
   'oxepost.network.refused',
@@ -232,6 +390,11 @@ export const MESSAGE_CODES = [
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
   'remote.certificate.failed',
+  'workspace.root.empty',
+  'workspace.root.notAbsolute',
+  'workspace.root.notFound',
+  'workspace.root.notDirectory',
+  'workspace.root.unreadable',
   'approvals.title.agent',
   'approvals.title.oxequery',
   'approvals.title.previewAutomation',
@@ -253,6 +416,7 @@ export const MESSAGE_CODES = [
   'approvals.requester.unknownConversation',
   'approvals.requester.mcpServer',
   'approvals.requester.app',
+  'approvals.requester.preview',
   'approvals.option.deny',
   'approvals.option.allowOnce',
   'approvals.option.allowSessionReads',
@@ -276,6 +440,7 @@ export const MESSAGE_CODES = [
   'approvals.note.thread.actsOnMessage',
   'approvals.note.skill.followed',
   'approvals.note.automation.runsAlone',
+  'approvals.note.preview.notLocal',
   'approvals.note.worktree.folderDeleted',
   'approvals.note.worktree.forceDiscards',
   'approvals.note.git.branchShared',
@@ -284,6 +449,9 @@ export const MESSAGE_CODES = [
   'approvals.note.github.releasePublic',
   'approvals.note.textCut',
   'approvals.note.crash',
+  'approvals.note.hiddenCharacters',
+  'approvals.note.nativeCriticalDenyOnly',
+  'approvals.notify.waiting',
   'approvals.unavailable',
   'approvals.expired',
   'approvals.refused.notPending',
@@ -292,7 +460,10 @@ export const MESSAGE_CODES = [
   'approvals.refused.unknownOption',
   'approvals.refused.alreadyReported',
   'approvals.refused.tooSoon',
+  'approvals.refused.notShown',
   'approvals.denied.queueFull',
+  'approvals.denied.timeout',
+  'approvals.denied.cancelled',
   'approvals.denied.tooLong',
   'notify.prefix.pane',
   'notify.prefix.conversation',

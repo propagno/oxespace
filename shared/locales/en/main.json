@@ -58,7 +58,12 @@
         "notPending": "This request was already answered, cancelled or expired.",
         "staleGeneration": "The conversation restarted since this request was shown. Open it to see what is waiting now.",
         "alreadyResponding": "An answer to this request is already being sent.",
-        "unanswered": "Answer every question before continuing."
+        "unanswered": "Answer every question before continuing.",
+        "guardedDecision": "A change to agent instructions, MCP settings or hooks is approved once, never for the session. Answer it again."
+      },
+      "side": {
+        "unavailable": "This agent cannot open a side chat yet.",
+        "noSession": "Send a message first: a side chat copies the conversation so far."
       },
       "commands": {
         "configure": "Configure the provider in Agent Settings and use Refresh commands to try again.",
@@ -76,6 +81,13 @@
       },
       "queue": {
         "deliveryUnconfirmed": "Delivery of this message could not be confirmed."
+      },
+      "protectedConfig": {
+        "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",
+        "mcp": "\"{{path}}\" holds MCP server settings. A change there steers every later session, so it needs your confirmation each time.",
+        "hooks": "\"{{path}}\" holds agent hooks. A change there steers every later session, so it needs your confirmation each time.",
+        "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
+        "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
       }
     },
     "app": {
@@ -139,7 +151,28 @@
       "test": {
         "connected": "Connected"
       },
-      "startFailed": "OxeQuery did not start: {{reason}}"
+      "startFailed": "OxeQuery did not start: {{reason}}",
+      "sql": {
+        "copyProgram": "COPY … PROGRAM runs a shell command on the database server.",
+        "doBlock": "DO runs code in the database; its effect is not known before it runs.",
+        "callProcedure": "CALL runs a stored procedure; its effect is not known before it runs.",
+        "destructiveInside": "{{statement}} contains {{keyword}}, which can remove data or objects.",
+        "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.",
+        "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
+        "tableLock": "VACUUM FULL locks the whole table while it runs.",
+        "ambiguousEscape": "A backslash in a string can end it early on a server with standard_conforming_strings off, and then more of this text runs than it shows."
+      },
+      "session": {
+        "busy": "This connection has a transaction open or a command running, so it cannot be reopened now. Commit or roll back the transaction, or wait for the command, then try again.",
+        "limit": "This connection already has {{limit}} database connections open. Wait for one to finish, then try again.",
+        "agentTransaction": "An agent cannot open a transaction: each of its statements runs on its own. The transaction was rolled back."
+      },
+      "mongo": {
+        "confirmName": "This is a production connection. Type its name to change this document.",
+        "confirm": "This change needs your confirmation.",
+        "production": "This is a production connection.",
+        "deletes": "The document will be deleted."
+      }
     },
     "oxepod": {
       "startFailed": "OxePod did not start: {{reason}}"
@@ -196,7 +229,8 @@
         "mcpServer": "MCP server {{server}}",
         "app": "OXESpace",
         "unknownPane": "Unknown agent · pane {{pane}}",
-        "unknownConversation": "Unknown agent · conversation {{conversation}}"
+        "unknownConversation": "Unknown agent · conversation {{conversation}}",
+        "preview": "Web Preview automation"
       },
       "option": {
         "deny": "Deny",
@@ -251,7 +285,12 @@
           "releasePublic": "A published release is visible to everyone with access to the repository and may notify watchers."
         },
         "textCut": "The text is longer than {{max}} characters, so only part of it is shown. It cannot be approved.",
-        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app."
+        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app.",
+        "hiddenCharacters": "The text holds invisible or direction-changing characters, so what you see may not be what runs.",
+        "nativeCriticalDenyOnly": "This change is critical, and the system dialog cannot hold Allow back, so it can only be denied here. Open OXESpace to approve it.",
+        "preview": {
+          "notLocal": "This page is not on localhost. It can load anything, and it sees what is typed into it."
+        }
       },
       "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
       "expired": "Nobody answered in time, so the request was denied.",
@@ -261,11 +300,17 @@
         "alreadyAnswered": "This request already has an answer.",
         "unknownOption": "That answer is not one of the options this request offers.",
         "alreadyReported": "This request was already reported as not shown.",
-        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears."
+        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears.",
+        "notShown": "This request has not been shown in the app yet, so it cannot be allowed."
       },
       "denied": {
         "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
-        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps."
+        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps.",
+        "timeout": "Nobody answered in time, so it was denied.",
+        "cancelled": "The request was withdrawn before anyone answered."
+      },
+      "notify": {
+        "waiting": "OXESpace: approval waiting"
       }
     },
     "notify": {
@@ -283,6 +328,71 @@
     "agents": {
       "name": {
         "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      }
+    },
+    "incident": {
+      "window": {
+        "crashed": "The window crashed.",
+        "rendererGone": "The interface stopped responding and was restarted.",
+        "externalRefused": "A link was not opened outside the app: wrong kind, too long, or with a name and password in it.",
+        "externalRateLimited": "Many links were refused within a minute; the rest were not recorded.",
+        "externalOpenFailed": "The system could not open a link the app allowed; no app is registered for it.",
+        "openDenied": "The window tried to open a new window by itself; nothing was opened.",
+        "navigationDenied": "The window tried to leave the app for another page; it stayed, and nothing was opened."
+      },
+      "ipc": {
+        "handlerFailed": "A request from the window failed in the background.",
+        "validationRejected": "The window sent a request the app refused as malformed."
+      },
+      "agent": {
+        "startFailed": "An agent could not start."
+      },
+      "mcp": {
+        "quarantined": "An MCP server was quarantined after it changed."
+      },
+      "database": {
+        "busy": "The local database was busy and a write had to wait."
+      },
+      "oxequery": {
+        "timeout": "An OxeQuery request ran out of time.",
+        "restartDeferred": "The OxeQuery worker stopped answering. Its restart was put off because a connection has a transaction open or a command running."
+      },
+      "updater": {
+        "failed": "An update could not be checked or installed."
+      },
+      "interaction": {
+        "overBudget": "An interaction took longer than its budget."
+      },
+      "app": {
+        "journalReset": "The diagnostics journal was unreadable and started over.",
+        "closeUnanswered": "The window did not answer a close or quit within 3 seconds; the app went ahead.",
+        "closeRendererGone": "The window stopped while a close or quit waited on it; the app went ahead.",
+        "closeGuardFailed": "The check before closing failed; the app closed without asking the window."
+      }
+    },
+    "diagnostics": {
+      "bundle": {
+        "fileTooLarge": "A file in the diagnostics bundle is larger than 8 MB, so nothing was saved.",
+        "tooLarge": "The diagnostics bundle is larger than 32 MB, so nothing was saved."
+      }
+    },
+    "bundle": {
+      "file": {
+        "snapshot": "Processes, storage, connectivity and versions",
+        "incidents": "The incident journal: codes, areas and counts",
+        "logTail": "Last lines of the app log: time, level and the app's own fixed messages only",
+        "runtime": "Recent runtime events, redacted",
+        "versions": "App, Electron, Chrome, Node and system versions",
+        "configuration": "Settings that help a diagnosis, without secrets"
+      }
+    },
+    "workspace": {
+      "root": {
+        "empty": "Choose the folder for this workspace.",
+        "notAbsolute": "Use the full path of the folder, starting at the drive or at /. “{{path}}” is a relative path.",
+        "notFound": "The folder {{path}} does not exist. Create it or choose another folder.",
+        "notDirectory": "{{path}} is a file, not a folder. Choose a folder.",
+        "unreadable": "OXESpace cannot open the folder {{path}}. Check its permissions or choose another folder."
       }
     }
   }

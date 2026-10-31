@@ -11,13 +11,15 @@ import type {
   StopBackgroundJobArgs,
   WorkspaceListItem
 } from '../../../shared/types/mcp-internal'
-import { isSafeExternalUrl } from '../utils/external-url'
+import { classifyPreviewUrl, type PreviewUrl } from '../utils/preview-url'
+import type { Approval } from './domain-tool'
 import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
 import { savePreviewCapture } from '../services/documentation/preview-capture-store'
 import { semanticProjects } from '../services/semantic-projects'
+import { mainMessage } from '../../../shared/messages'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -270,15 +272,38 @@ async function getJobOutput(args: unknown, ctx: ToolContext): Promise<InternalMc
   return textResult(chunk)
 }
 
+/** What the person approves before an agent opens a page that is not on this computer's loopback (B15). */
+export function previewApproval(target: Extract<PreviewUrl, { kind: 'external' }>): Approval {
+  return {
+    summary: `open ${target.href} in the Web Preview`,
+    text: `Open in the Web Preview:\n${target.href}`,
+    notes: [mainMessage('approvals.note.preview.notLocal', {})]
+  }
+}
+
+/**
+ * Local pages open as before (write: a live execution, recorded, rate limited). Any other http(s) page is confirm:
+ * nothing is queued until a person approves that exact URL. Other schemes, file: included, are refused.
+ */
 async function openWebPreview(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const execution = requirePreviewExecution(ctx)
   const input = asRecord(args) as Partial<OpenWebPreviewArgs>
   const url = expectString(input.url, 'url')
-  if (!isSafeExternalUrl(url)) {
-    return errorResult(`URL "${url}" is not safe to open (must be http/https).`)
+  const target = classifyPreviewUrl(url)
+  if (target.kind === 'refused') {
+    // Never echo a URL that carries credentials.
+    if (target.reason === 'credentials') return errorResult('The preview does not open URLs with a user name or password in them.')
+    return errorResult(`URL "${url}" is not safe to open (must be http or https).`)
   }
-  ctx.webPreview.emitPreview({ workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url, requestedAt: Date.now() })
-  return textResult({ queued: true, workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url, next: 'The renderer must open the page. Use oxespace_preview_interact with action=status or inspect to confirm the active URL before interacting or capturing.' })
+  const threadId = execution.owner.kind === 'thread' ? execution.owner.id : undefined
+  const open = async (): Promise<InternalMcpToolCallResult> => {
+    ctx.webPreview.emitPreview({ workspaceId: execution.workspaceId, threadId, url: target.href, requestedAt: Date.now() })
+    return textResult({ queued: true, workspaceId: execution.workspaceId, threadId, url: target.href, next: 'The renderer must open the page. Use oxespace_preview_interact with action=status or inspect to confirm the active URL before interacting or capturing.' })
+  }
+  const { runGated } = await import('./app-settings-actions')
+  return target.kind === 'local'
+    ? runGated({ tool: 'oxespace_open_web_preview', level: 'write', handler: open }, args, ctx)
+    : runGated({ tool: 'oxespace_open_web_preview', level: 'confirm', handler: open, confirm: async () => previewApproval(target) }, args, ctx)
 }
 
 async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {

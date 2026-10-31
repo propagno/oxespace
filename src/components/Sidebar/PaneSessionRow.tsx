@@ -1,4 +1,4 @@
-import { GitBranch, SquareTerminal } from 'lucide-react'
+import { GitBranch, Hand, SquareTerminal } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import { copyText } from '../../ui'
 import { useTranslation } from 'react-i18next'
@@ -54,6 +54,10 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const isRecent = lastActivityAt !== null && Date.now() - lastActivityAt < RECENT_MS
   const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex })
   const hasTopContext = editing
+  const needsDecision = display.statusTone === 'needs-decision'
+  // Where the status comes from (UX-07), for the row's tooltip; an estimate is drawn weaker.
+  const statusTitle = [display.attentionReason, display.originLabel].filter(Boolean).join(' · ') || undefined
+  const dotClass = `pane-activity-dot activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`
 
   // Mark read when the row becomes active
   useEffect(() => {
@@ -130,7 +134,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   function copyContext(): void {
     setMenu(null)
     const context = `${display.meta}\n${display.title}\n${display.subtitle}`
-    void copyText(context, t('sidebar.session.context'))
+    void copyText(context, t('sidebar.session.context'), t('sidebar.session.contextCopied'))
   }
 
   useEffect(() => {
@@ -154,6 +158,8 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
       data-list-item
       aria-current={isActive ? 'true' : undefined}
       data-testid="pane-session-row"
+      data-pane-id={pane.id}
+      data-tone={display.statusTone}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onKeyDown={e => { if (!editing && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleClick() } }}
@@ -164,7 +170,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           icon shown later in the row. A dot communicates "this pane is in
           state X" without implying an action. */}
       <div className={`pane-row-icon${isExited ? ' dimmed' : ''}`} aria-hidden="true">
-        <span className={`pane-activity-dot activity-${display.statusTone}`} />
+        <span className={dotClass} data-testid="pane-row-dot" data-origin={display.statusOrigin ?? undefined} />
       </div>
 
       {/* Body */}
@@ -201,6 +207,9 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           >
             {label}
           </span>
+          {/* Shape, not color: the compact row hides the state line, so a decision is marked beside the name. The
+              screen-reader text below already says it. */}
+          {needsDecision && <Hand size={12} className="pane-row-decision-mark" aria-hidden="true" data-testid="pane-row-decision-mark" />}
           {lastActivityAt && !editing && !hasTopContext ? (
             <span className={`pane-row-time title-time${isRecent ? ' recent' : ''}`}>
               {formatActivityTime(lastActivityAt)}
@@ -216,7 +225,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
             <span className="pane-row-status-indicator">
               {isStarting
                 ? <span className="session-starting-dot" />
-                : <ActivityDot level={display.statusTone} />}
+                : <ActivityDot level={display.statusTone} ariaLabel={t(`sidebar.session.tone.${display.statusTone}`)} estimated={display.statusEstimated} />}
             </span>
           )}
           {isError && (
@@ -226,7 +235,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : null}
 
           {/* Preview text */}
-          <span className="pane-row-preview">{display.subtitle}</span>
+          <span className={`pane-row-preview${needsDecision ? ' is-decision' : ''}`} title={statusTitle} data-testid="pane-row-status">{display.subtitle}</span>
 
           {/* Unread dot */}
           {showUnreadDot && <span className="pane-unread-dot" role="img" aria-label={t('sidebar.session.unread')} />}
@@ -234,7 +243,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
       </div>
       {/* The row is named by what it shows; its state is added for screen readers (an aria-label that left out the
           visible text failed axe's label-content-name-mismatch). */}
-      <span className="sr-only">, {t(`sidebar.session.tone.${display.statusTone}`)}{pane.originPaneId ? `, ${t('sidebar.session.delegated')}` : ''}</span>
+      <span className="sr-only">, {t(`sidebar.session.tone.${display.statusTone}`)}{display.originLabel ? `, ${display.originLabel}` : ''}{pane.originPaneId ? `, ${t('sidebar.session.delegated')}` : ''}</span>
       {menu ? (
         <div
           className="pane-session-context-menu"

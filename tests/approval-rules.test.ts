@@ -147,7 +147,7 @@ describe('risk comes from the existing classifiers (B10)', () => {
   })
 
   it('maps shell levels', () => {
-    expect(['green', 'orange', 'red'].map(level => riskFromShell(level as never))).toEqual(['low', 'medium', 'high'])
+    expect(['green', 'orange', 'red'].map(level => riskFromShell(level as never))).toEqual(['low', 'medium', 'critical'])
   })
 
   it.each([

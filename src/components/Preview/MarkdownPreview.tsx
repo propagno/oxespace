@@ -2,6 +2,8 @@ import { type ReactElement } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { i18n } from '../../i18n'
+import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
+import { parseExternalUrl } from '../../lib/externalLinks'
 
 interface MarkdownPreviewProps {
   content: string
@@ -18,18 +20,11 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps): ReactElement
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: ({ href, children, ...props }) => (
-            <a
-              {...props}
-              href={href}
-              onClick={(e) => {
-                e.preventDefault()
-                if (href && /^https?:/i.test(href)) void window.open(href, '_blank', 'noopener')
-              }}
-            >
-              {children}
-            </a>
-          ),
+          // Links leave through openExternalLink, with the real host beside text that names somewhere else;
+          // anything else (relative paths, other schemes) stays plain text instead of navigating the renderer.
+          a: ({ href, children }) => href && parseExternalUrl(href)
+            ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
+            : <span className="markdown-preview-reference" title={href}>{children}</span>,
           // Images inside markdown can't resolve workspace-relative paths under
           // the CSP; keep remote/data ones and drop the rest to avoid broken icons.
           img: ({ src, alt, ...props }) =>
