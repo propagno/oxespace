@@ -1,3 +1,4 @@
+import { use } from 'react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { LANGUAGES, languageFor, type Language, type LanguagePreference } from '../../shared/i18n'
@@ -17,14 +18,10 @@ const BUNDLES: Record<Language, () => Promise<{ default: Bundle }>> = {
   'pt-BR': () => import('./locales/pt-BR')
 }
 
-/**
- * Namespaces of lazy views: their catalogs load with the view, never at boot. `main` holds the words of the codes the
- * main process sends (C3); views that show them (Settings › Diagnostics) load it, see i18n/messages.ts.
- */
-export type LazyNamespace = 'oxequery' | 'pods' | 'post' | 'main'
+/** Namespaces of lazy views: their catalogs load with the view, never at boot. */
+export type LazyNamespace = 'oxequery' | 'pods' | 'post'
 type Catalog = { default: Record<string, unknown> }
 const LAZY: Record<LazyNamespace, Record<Language, () => Promise<Catalog>>> = {
-  main: { en: () => import('../../shared/locales/en/main.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/main.json') },
   oxequery: { en: () => import('../../shared/locales/en/oxequery.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/oxequery.json') },
   pods: { en: () => import('../../shared/locales/en/pods.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/pods.json') },
   post: { en: () => import('../../shared/locales/en/post.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/post.json') }
@@ -41,6 +38,26 @@ export async function loadNamespace(namespace: LazyNamespace): Promise<void> {
   lazyLoaded.add(namespace)
   const language = currentLanguage()
   await Promise.all([addLazy(namespace, language), ...(language === 'en' ? [] : [addLazy(namespace, 'en')])])
+}
+
+/** A promise React's `use` reads synchronously: it is already settled, so the render never suspends for it. */
+const settled = (): Promise<void> => Object.assign(Promise.resolve(), { status: 'fulfilled', value: undefined })
+const pending = new Map<string, Promise<void>>()
+
+/**
+ * Makes the first render of a lazy view wait, in the nearest Suspense, for its catalog in the language on screen.
+ * `use` runs on every render, never behind a condition: React replays a component that suspended, and if the replay
+ * skips the `use` the attempt called (the catalog arrived meanwhile), the hooks after it no longer line up and React
+ * throws (#467, reported as #520 after it recovers).
+ */
+export function useNamespace(namespace: LazyNamespace): void {
+  const key = `${currentLanguage()}:${namespace}`
+  let promise = pending.get(key)
+  if (!promise) {
+    promise = i18n.hasResourceBundle(currentLanguage(), namespace) ? settled() : loadNamespace(namespace)
+    pending.set(key, promise)
+  }
+  use(promise)
 }
 
 /** The operating system's locale as the main process sees it (app.getLocale()). */

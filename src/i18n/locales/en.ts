@@ -1,7 +1,8 @@
-// The renderer's catalogs for one language, loaded as one chunk (src/i18n/index.ts). The main namespace (C3 codes) and OxeQuery's load with the views that need them (loadNamespace).
+// The renderer's catalogs for one language, loaded as one chunk (src/i18n/index.ts). The main namespace stays in the main process, except its message codes (shared/messages.ts), which the window words; OxeQuery's loads with its view (loadNamespace).
 import code from '../../../shared/locales/en/code.json'
 import common from '../../../shared/locales/en/common.json'
 import settings from '../../../shared/locales/en/settings.json'
 import thread from '../../../shared/locales/en/thread.json'
+import { messages } from '../../../shared/locales/en/main.json'
 
-export default { common, code, thread, settings }
+export default { common, code, thread, settings, main: { messages } }

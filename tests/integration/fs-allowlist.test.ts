@@ -145,6 +145,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // New-conversation worktree: only checks whether the folder it is about to create already exists and
   // resolves its real path. Never reads files.
   'electron/main/services/conversation/thread-worktree.ts',
+  // Conversation worktree finish: only checks whether the app-owned worktree folder still exists before
+  // asking Git for its state. Never reads or writes files.
+  'electron/main/services/conversation/thread-worktree-lifecycle.ts',
   // Session search index: read-only scan of the agents' own transcript
   // folders (~/.claude/projects, ~/.codex/sessions) into a private cache file.
   // Outside the workspace tree; transcripts are never written.
@@ -188,6 +191,15 @@ const ALLOWED_FS_IMPORTS = new Set([
   // resolved and identity-checked by NativeSessionReader. No renderer path input.
   'electron/main/services/conversation/native-history-page.ts',
   'electron/main/services/diagnostics.service.ts',
+  // B8.3 incident journal: one JSON file, <userData>/diagnostics/incidents.json, written to a temporary file beside it
+  // and renamed (flag 'wx', mode 0600). Codes and hashed ids only; no caller supplies a path.
+  'electron/main/services/diagnostics/incident-journal.ts',
+  // B8.3 measurements: statfs of the userData volume, sizes of the database (with WAL) and of the app's log folders,
+  // and a stat-only PATH probe for known CLI names. Never reads contents, never writes.
+  'electron/main/services/diagnostics/metrics.ts',
+  // B8.3 bundle: reads the last 256 KiB of the app's own electron-log files (fixed names), which are then cut to time,
+  // level and fixed words and redacted. The .zip itself is written by diagnostics.ipc.ts to the save-dialog path.
+  'electron/main/services/diagnostics/bundle.ts',
   // Internal MCP bootstrap: materializes the bridge script under
   // <userData>/bin and hash-checks it against the packaged source. Needs
   // raw fs to do that atomically on every boot.

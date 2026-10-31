@@ -16,8 +16,10 @@
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), scale var(--duration-fast) var(--ease-out);
 }
+/* The press gives a little under the pointer (docs/design/motion.md); reduced motion keeps it still. */
+:global([data-motion='full']) .button:active:not(:disabled):not(.link) { scale: 0.97; }
 .button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .button:disabled, .button[aria-disabled='true'] { cursor: not-allowed; opacity: 0.5; }
 .button svg { flex: none; }

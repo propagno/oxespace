@@ -323,15 +323,11 @@
 }
 
 /* Pulse animation for running jobs */
-.bg-jobs-pulse.status-running { animation: bg-jobs-pulse var(--duration-pulse) var(--ease-in-out) infinite; color: var(--dot-green); }
+.bg-jobs-pulse.status-running { animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; --pulse-opacity: 0.4; color: var(--dot-green); }
 .status-exited { color: var(--dot-blue); }
 .status-failed { color: var(--dot-red); }
 .status-killed { color: var(--dot-gray); }
 
-@keyframes bg-jobs-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
 .bg-jobs-source-tabs {
   display: flex;
   gap: 4px;

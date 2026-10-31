@@ -7,7 +7,8 @@ import { DataHosts, DataSidebar, isDataView, useModeActions } from './components
 import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
-import { Button, cx, toast, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
+import { Button, cx, toast, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
+import { reportSplitRefused } from './components/Grid/splitRefusal'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
@@ -582,13 +583,9 @@ export function App(): ReactElement {
     else openWebPreview(activeWorkspaceId)
   }
 
-  const splitWorkspacePane = useCallback((
-    workspaceId: string,
-    paneId: string,
-    direction: 'vertical' | 'horizontal'
-  ): void => {
+  const splitWorkspacePane = useCallback((workspaceId: string, paneId: string, direction: 'vertical' | 'horizontal'): void => {
     if (!useUIStore.getState().splitLayoutEnabled) {
-      void splitPane(paneId, direction)
+      void splitPane(paneId, direction).catch(reportSplitRefused)
       return
     }
 
@@ -865,7 +862,7 @@ export function App(): ReactElement {
         ) : activeWorkspace || applicationView !== 'code' ? (
           <>
             <DataHosts view={applicationView} />
-            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary label="the conversations"><Suspense fallback={<EmptyState compact title="Loading threads…" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
+            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary label="the conversations"><Suspense fallback={<LoadingState brand />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra

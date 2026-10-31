@@ -229,6 +229,20 @@ export const APP_READ_TOOLS: ToolEntry[] = [
     }
   }),
 
+  {
+    descriptor: {
+      name: 'oxespace_diagnostics',
+      description: 'The health of OXESpace itself as Markdown: incidents of the last 30 days (codes, areas, counts), processes, storage, MCP servers and connectivity in aggregate. The same text as "Ask for an analysis" in Settings > Diagnostics. Never content, paths, names or raw errors.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+    },
+    requiresWorkspace: false,
+    handler: async () => {
+      const runtime = (await import('../ipc/diagnostics.ipc')).diagnosticsRuntime()
+      if (!runtime) return { content: [{ type: 'text', text: 'Diagnostics are unavailable in this run of OXESpace.' }], isError: true }
+      return { content: [{ type: 'text', text: await (await runtime).analysisSummary() }] }
+    }
+  },
+
   domainTool('oxespace_usage', 'How much of your context window and plan allowance is used.', {
     context: {
       level: 'read', description: 'Context-window fill for a provider in this project.', properties: { provider: { type: 'string', enum: ['claude', 'codex'] }, sessionId: { type: 'string', maxLength: 200 } }, required: ['provider'],

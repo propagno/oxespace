@@ -60,6 +60,10 @@ export const DIAGNOSTICS_LIMITS = {
   maxSummaryChars: 4_000
 } as const
 
+/**
+ * `oxequery-worker` and `codegraph` are reserved: in 1.4 the OxeQuery worker is a worker thread and CodeGraph runs
+ * inside the main process, so both are counted in `main` (the panel says so).
+ */
 export type DiagnosticsProcessKind = 'main' | 'renderer' | 'gpu' | 'oxequery-worker' | 'codegraph' | 'utility' | 'other'
 
 export interface DiagnosticsProcess {
@@ -74,7 +78,9 @@ export interface DiagnosticsMetrics {
   at: number
   processes: DiagnosticsProcess[]
   terminals: { running: number; agents: number }
-  storage: { freeBytes: number | null; databaseBytes: number; logsBytes: number }
+  /** The computer's own size, so meters can show a share. No name or path. */
+  system: { totalMemoryBytes: number }
+  storage: { freeBytes: number | null; diskTotalBytes: number | null; databaseBytes: number; logsBytes: number }
   connectivity: import('./app').AppConnectivity
   /** `null` until the remote gateway exists in this build. */
   gateway: { enabled: boolean; devices: number; connected: number } | null
@@ -91,6 +97,7 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.window.crashed': 'window',
   'incident.window.rendererGone': 'window',
   'incident.ipc.handlerFailed': 'ipc',
+  'incident.ipc.validationRejected': 'ipc',
   'incident.agent.startFailed': 'agent',
   'incident.mcp.quarantined': 'mcp',
   'incident.database.busy': 'database',
@@ -116,7 +123,8 @@ export interface DiagnosticsIncident {
 }
 
 export interface DiagnosticsBundlePreview {
-  files: { name: string; bytes: number; summary: string }[]
+  /** `summary` says what the file holds, as a code the window translates (`bundle.file.*`). */
+  files: { name: string; bytes: number; summary: import('../messages').MainMessage }[]
   /** How many values the redaction replaced. */
   redactions: number
 }
