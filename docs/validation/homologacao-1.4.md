@@ -171,7 +171,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Profundidade do quadro C5 + WebGL sob demanda | #226 | BACKEND + FRONTEND | Homologado (na `main` fc07f5e9/7e2dfdd5) |
 | Contrato B10 `approvals.*` | #235 | BACKEND | Homologado (contrato; na `main` 7e2dfdd5), com nota sobre nomes de sistema |
 | F19 split além dos presets | #240 | FRONTEND | Homologado (na `main` c4a4d84d) |
-| Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado com ressalvas (d0b09011): 9 de 9 fechados; restam Administração, distros/GNOME, root/sudo, Security/Segurança |
+| Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado (499ffbcd): ressalvas fechadas, sonda de 134 nomes |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -460,7 +460,7 @@ no `readRemoteFrame` (por exemplo, 64 níveis), com teste.
     uma vez só; fica para observar.
   - O toast novo não é mais `[data-sonner-toast]`, e os roteiros de feedback precisam de um seletor por papel.
 
-### Nomes reservados de SO e fornecedor (#247): Pré-homologado com ressalvas
+### Nomes reservados de SO e fornecedor (#247): Pré-homologado
 
 A sonda tem 88 nomes, em `probes/reserved-names-probe.mts.txt` (rodar com `npx jiti`).
 - Os 9 que passavam no #235 agora são pegos.
@@ -475,6 +475,17 @@ A sonda tem 88 nomes, em `probes/reserved-names-probe.mts.txt` (rodar com `npx j
   3. "root" e "sudo" passam, e são o pedido de privilégio clássico do Linux.
   4. "Security" e "Segurança" sozinhos passam.
   5. Nota baixa: "OxeBot" e "OXE" passam (prefixo da família de produtos).
+
+Reverificação em 499ffbcd, com 134 nomes: as 5 ressalvas foram fechadas (Administração, Debian/Fedora/GNOME/KDE/
+polkit, root/sudo, Security/Segurança, Oxe*). Pares juntados também são pegos ("Win dows", "Git Hub", "Mac OS",
+"K D E"). Os 38 originais seguem iguais, e Claude, Anthropic, Codex, OpenAI, Gemini e Copilot continuam livres.
+- Passam corretamente: Rooted, Rootless, Sudoku Bot, Securities Analyst, Kdenlive helper, Oxford tutor, Data Bot,
+  Win Rate Bot, Code Review, Systems Engineer, AppSec, Thread pool, Chatty.
+- Bloqueios por excesso, aceitáveis para o risco e registrados para o coordenador:
+  - "Oxente" e "Oxente bot", uma interjeição nordestina comum, por causa do prefixo Oxe*;
+  - "Security Reviewer", "Root Cause Analyst", "Admin Panel", "Adminer" e "Administrativo";
+  - "Gnome lover", "Fedora fan" e "GitHub Copilot".
+- Nota baixa: "OX E" passa, enquanto "OXE" é pego (só 2 letras soltas).
 
 ### Achados fora dos itens da onda
 
