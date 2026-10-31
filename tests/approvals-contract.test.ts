@@ -19,7 +19,7 @@ describe('approvals contract (B10)', () => {
     expect(APPROVAL_KINDS).toEqual(['action', 'mcp-confirm', 'oxequery', 'preview-automation', 'crash'])
     expect(APPROVAL_RISKS).toEqual(['low', 'medium', 'high', 'critical'])
     expect(APPROVAL_INTENTS).toEqual(['deny', 'allow', 'allow-session'])
-    expect(APPROVAL_REFUSALS).toEqual(['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported', 'tooSoon'])
+    expect(APPROVAL_REFUSALS).toEqual(['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported', 'tooSoon', 'notShown'])
   })
 
   it('fixes the limits', () => {
@@ -51,11 +51,11 @@ describe('approvals contract (B10)', () => {
     const answer = { id: 'r1', generation: 2 }
     await approvals.list()
     await approvals.respond({ ...answer, optionId: 'deny' })
-    await approvals.ack(answer)
+    await approvals.ack({ ...answer, visible: true, focused: false })
     await approvals.unavailable(answer)
     await approvals.history()
     expect(vi.mocked(ipc.invoke).mock.calls).toEqual([
-      [IPC_CHANNELS.approvals.list], [IPC_CHANNELS.approvals.respond, { ...answer, optionId: 'deny' }], [IPC_CHANNELS.approvals.ack, answer],
+      [IPC_CHANNELS.approvals.list], [IPC_CHANNELS.approvals.respond, { ...answer, optionId: 'deny' }], [IPC_CHANNELS.approvals.ack, { ...answer, visible: true, focused: false }],
       [IPC_CHANNELS.approvals.unavailable, answer], [IPC_CHANNELS.approvals.history]
     ])
     const off = approvals.onRequested(vi.fn())

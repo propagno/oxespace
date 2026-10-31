@@ -9,7 +9,7 @@ const send = vi.fn()
 const showMessageBox = vi.fn(async () => { throw new Error('a native dialog opened while the app window exists') })
 vi.mock('electron', () => ({
   app: { isReady: () => true, getLocale: () => 'en' },
-  BrowserWindow: { getAllWindows: () => [{ isDestroyed: () => false, webContents: { isDestroyed: () => false, isCrashed: () => false, send } }], getFocusedWindow: () => null },
+  BrowserWindow: { getAllWindows: () => [{ isDestroyed: () => false, isFocused: () => true, flashFrame: () => undefined, webContents: { isDestroyed: () => false, isCrashed: () => false, send } }], getFocusedWindow: () => null },
   dialog: { showMessageBox }
 }))
 vi.mock('electron-log/main.js', () => ({ default: { warn: vi.fn() } }))
@@ -24,6 +24,7 @@ describe('the first approval request (B10)', () => {
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith('approvals:requested', expect.objectContaining({ kind: 'mcp-confirm' })))
     const request = send.mock.calls.find(([channel]) => channel === 'approvals:requested')![1] as { id: string; generation: number }
     const { approvalCenter } = await import('../../electron/main/services/approvals')
+    approvalCenter.ack({ id: request.id, generation: request.generation, visible: true, focused: true })
     expect(approvalCenter.respond({ id: request.id, generation: request.generation, optionId: 'allow-once' })).toMatchObject({ ok: true })
     await expect(result).resolves.toBe('pushed')
     expect(showMessageBox).not.toHaveBeenCalled()

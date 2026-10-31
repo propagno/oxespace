@@ -148,6 +148,8 @@ export interface MessageParams {
   'approvals.requester.unknownConversation': { conversation: string }
   'approvals.requester.mcpServer': { server: string }
   'approvals.requester.app': Record<string, never>
+  /** A Web Preview automation call with no pane or conversation behind it. */
+  'approvals.requester.preview': Record<string, never>
   'approvals.option.deny': Record<string, never>
   'approvals.option.allowOnce': Record<string, never>
   'approvals.option.allowSessionReads': Record<string, never>
@@ -181,6 +183,12 @@ export interface MessageParams {
   /** The requester's text was longer than the window shows; only deny is offered. */
   'approvals.note.textCut': { max: number }
   'approvals.note.crash': Record<string, never>
+  /** R2: the requester's text holds bidi controls or invisible characters; the risk is at least high. */
+  'approvals.note.hiddenCharacters': Record<string, never>
+  /** The system dialog cannot hold Allow back for 2 s, so a critical request is deny-only there. */
+  'approvals.note.nativeCriticalDenyOnly': Record<string, never>
+  /** R3: the OS notification when a request waits and the window is not focused. Fixed text, never request content. */
+  'approvals.notify.waiting': Record<string, never>
   /** The window could not show the modal for a request, so it opened in a system dialog. */
   'approvals.unavailable': Record<string, never>
   /** Nobody answered in time; the request was denied. */
@@ -193,6 +201,8 @@ export interface MessageParams {
   'approvals.refused.alreadyReported': Record<string, never>
   /** An allow at critical risk before the modal had been shown for APPROVAL_CRITICAL_ALLOW_DELAY_MS. */
   'approvals.refused.tooSoon': Record<string, never>
+  /** R1: an allow before the window acknowledged showing the request, at any risk. */
+  'approvals.refused.notShown': Record<string, never>
   /** Denied before it was shown: APPROVAL_QUEUE_MAX requests were already waiting. */
   'approvals.denied.queueFull': { max: number }
   'approvals.denied.timeout': Record<string, never>
@@ -318,6 +328,7 @@ export const MESSAGE_CODES = [
   'approvals.requester.unknownConversation',
   'approvals.requester.mcpServer',
   'approvals.requester.app',
+  'approvals.requester.preview',
   'approvals.option.deny',
   'approvals.option.allowOnce',
   'approvals.option.allowSessionReads',
@@ -349,6 +360,9 @@ export const MESSAGE_CODES = [
   'approvals.note.github.releasePublic',
   'approvals.note.textCut',
   'approvals.note.crash',
+  'approvals.note.hiddenCharacters',
+  'approvals.note.nativeCriticalDenyOnly',
+  'approvals.notify.waiting',
   'approvals.unavailable',
   'approvals.expired',
   'approvals.refused.notPending',
@@ -357,6 +371,7 @@ export const MESSAGE_CODES = [
   'approvals.refused.unknownOption',
   'approvals.refused.alreadyReported',
   'approvals.refused.tooSoon',
+  'approvals.refused.notShown',
   'approvals.denied.queueFull',
   'approvals.denied.timeout',
   'approvals.denied.cancelled',

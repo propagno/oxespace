@@ -16,7 +16,7 @@ const { setMainLanguage } = await import('../electron/main/i18n')
 const { nativeApproval, NATIVE_TEXT_MAX } = await import('../electron/main/services/approvals/native-approval')
 const { boundAgentText } = await import('../shared/approval-rules')
 const { mainMessage } = await import('../shared/messages')
-const { actionQuestion } = await import('../electron/main/services/documentation/preview-automation')
+const { actionQuestion, previewRequester } = await import('../electron/main/services/documentation/preview-automation')
 type Request = import('../shared/types/approvals').ApprovalRequest
 
 /** The system dialog is the approval center's fallback only (B10); it speaks the same C3 codes. */
@@ -66,6 +66,20 @@ describe('native dialogs in the interface language', () => {
     const long = await ask({ agentText: boundAgentText('x'.repeat(NATIVE_TEXT_MAX + 1)) })
     expect(long.buttons).toEqual(['Deny'])
     expect(long.detail).not.toContain('x'.repeat(100))
+  })
+
+  it('names a preview call with no owner as the app\'s preview automation, not an unknown pane', () => {
+    expect(previewRequester(undefined, 'ws-1')).toEqual({ kind: 'agent', id: 'workspace:ws-1', label: { code: 'approvals.requester.preview', params: {} } })
+    expect(previewRequester({ kind: 'pane', id: 'p1' }, 'ws-1').id).toBe('pane:p1')
+  })
+
+  it('makes a critical request deny-only in the system dialog, which cannot hold Allow back', async () => {
+    const critical = await ask({ risk: 'critical', allowDelayMs: 2_000, enterDisabled: true })
+    expect(critical.buttons).toEqual(['Deny'])
+    expect(critical.detail).toContain('the system dialog cannot hold Allow back')
+    // Even a dialog that somehow answers "Allow" counts as deny.
+    showMessageBox.mockResolvedValueOnce({ response: 1, checkboxChecked: false })
+    expect(await nativeApproval(request({ risk: 'critical', allowDelayMs: 2_000, enterDisabled: true }), 'no-window', new AbortController().signal)).toBe('deny')
   })
 
   it('maps each answer to its option id, Deny being the default', async () => {

@@ -205,7 +205,8 @@
         "mcpServer": "MCP server {{server}}",
         "app": "OXESpace",
         "unknownPane": "Unknown agent · pane {{pane}}",
-        "unknownConversation": "Unknown agent · conversation {{conversation}}"
+        "unknownConversation": "Unknown agent · conversation {{conversation}}",
+        "preview": "Web Preview automation"
       },
       "option": {
         "deny": "Deny",
@@ -260,7 +261,9 @@
           "releasePublic": "A published release is visible to everyone with access to the repository and may notify watchers."
         },
         "textCut": "The text is longer than {{max}} characters, so only part of it is shown. It cannot be approved.",
-        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app."
+        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app.",
+        "hiddenCharacters": "The text holds invisible or direction-changing characters, so what you see may not be what runs.",
+        "nativeCriticalDenyOnly": "This change is critical, and the system dialog cannot hold Allow back, so it can only be denied here. Open OXESpace to approve it."
       },
       "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
       "expired": "Nobody answered in time, so the request was denied.",
@@ -270,13 +273,17 @@
         "alreadyAnswered": "This request already has an answer.",
         "unknownOption": "That answer is not one of the options this request offers.",
         "alreadyReported": "This request was already reported as not shown.",
-        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears."
+        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears.",
+        "notShown": "This request has not been shown in the app yet, so it cannot be allowed."
       },
       "denied": {
         "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
         "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps.",
         "timeout": "Nobody answered in time, so it was denied.",
         "cancelled": "The request was withdrawn before anyone answered."
+      },
+      "notify": {
+        "waiting": "OXESpace: approval waiting"
       }
     },
     "notify": {

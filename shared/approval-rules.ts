@@ -112,8 +112,8 @@ export function approvalPacing(risk: ApprovalRisk): { allowDelayMs: number; ente
 }
 
 /**
- * Main's own check of the critical delay: an allow is refused before the window acknowledged showing the request, or
- * sooner than `allowDelayMs` after that. A deny is never held back.
+ * Main's own check of the critical delay: an allow is refused before the window acknowledged showing the request
+ * visible and focused, or sooner than `allowDelayMs` after that. A deny is never held back.
  */
 export function allowTooSoon(request: Pick<ApprovalRequest, 'allowDelayMs'>, intent: ApprovalIntent, displayedAt: number | undefined, now: number): boolean {
   if (intent === 'deny' || request.allowDelayMs <= 0) return false
@@ -138,6 +138,16 @@ export function approvalRequestProblems(request: ApprovalRequest): string[] {
   if (request.expiresAt <= request.createdAt) problems.push('expires before it is created')
   if (request.risk === 'critical' && (request.allowDelayMs < APPROVAL_CRITICAL_ALLOW_DELAY_MS || !request.enterDisabled)) problems.push('critical without the allow delay and Enter off')
   return problems
+}
+
+/**
+ * R2 · Bidi controls and invisible characters that make shown text differ from what runs: U+202A–202E, U+2066–2069,
+ * U+200B–200F, U+2060–2064, U+FEFF, U+00AD, U+061C and U+180E. The text stays verbatim; the window makes them visible.
+ */
+export const HIDDEN_CHARACTERS = /[\u202A-\u202E\u2066-\u2069\u200B-\u200F\u2060-\u2064\uFEFF\u00AD\u061C\u180E]/u
+
+export function hasHiddenCharacters(text: string): boolean {
+  return HIDDEN_CHARACTERS.test(text)
 }
 
 // ---- where a request is shown ----------------------------------------------------------------

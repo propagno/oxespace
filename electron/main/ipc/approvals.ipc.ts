@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import type { ApprovalAnswerInput, ApprovalRespondInput } from '../../../shared/types/approvals'
+import type { ApprovalAckInput, ApprovalAnswerInput, ApprovalRespondInput } from '../../../shared/types/approvals'
 import type { ApprovalCenter } from '../services/approvals/approval-center'
 import { parseRecord, parseText, requireAppFrame } from './ipc-guards'
 
@@ -18,6 +18,12 @@ export function registerApprovalsIpc(center: ApprovalCenter): void {
     const input: ApprovalRespondInput = { ...answer(value), optionId: parseText((value as { optionId?: unknown }).optionId, 'Approval option', 100) }
     return center.respond(input)
   })
-  ipcMain.handle(IPC_CHANNELS.approvals.ack, (event, value: unknown) => { requireAppFrame(event, 'Approvals'); return center.ack(answer(value)) })
+  ipcMain.handle(IPC_CHANNELS.approvals.ack, (event, value: unknown) => {
+    requireAppFrame(event, 'Approvals')
+    const flags = parseRecord(value, 'Approval')
+    // R3: the window's own visibility and focus; anything but a boolean true counts as false.
+    const input: ApprovalAckInput = { ...answer(value), visible: flags.visible === true, focused: flags.focused === true }
+    return center.ack(input)
+  })
   ipcMain.handle(IPC_CHANNELS.approvals.unavailable, (event, value: unknown) => { requireAppFrame(event, 'Approvals'); return center.unavailable(answer(value)) })
 }

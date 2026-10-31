@@ -9,11 +9,11 @@
  * No Electron import here: the window, the native dialog and the clock are injected, so the rules run in plain tests.
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText } from '../../../../shared/approval-rules'
+import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, hasHiddenCharacters } from '../../../../shared/approval-rules'
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import {
   APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_HISTORY_MAX, APPROVAL_QUEUE_MAX, APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS,
-  type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalIntent, type ApprovalRefusal, type ApprovalRequest,
+  APPROVAL_RISKS, type ApprovalAckInput, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalIntent, type ApprovalRefusal, type ApprovalRequest,
   type ApprovalResolved, type ApprovalResolvedBy, type ApprovalRespondInput
 } from '../../../../shared/types/approvals'
 import { IPC_CHANNELS } from '../../../../shared/types/ipc'
@@ -43,6 +43,11 @@ export interface ApprovalCenterDeps {
   /** Asks with the system dialog; the chosen option's id, or null when aborted because the request closed elsewhere. */
   native(request: ApprovalRequest, reason: NativeReason, signal: AbortSignal): Promise<string | null>
   log?(event: string, detail: Record<string, unknown>): void
+  /**
+   * R3 · Called when a request reaches the window, so an unfocused window can ask for attention (flash the frame, a
+   * notification with fixed app text). It takes no argument, so nothing of the request can leak into it.
+   */
+  attention?(): void
   now?(): number
   timeoutMs?: number
   ackTimeoutMs?: number
@@ -53,7 +58,9 @@ interface Entry {
   request: ApprovalRequest
   settle(outcome: ApprovalOutcome): void
   timers: ReturnType<typeof setTimeout>[]
-  /** When the window first acknowledged showing it. */
+  /** When the window first acknowledged showing it, visible or not (R1: no allow before this). */
+  shownAt?: number
+  /** When the window first acknowledged it while visible and focused: the critical hold counts from here (R3). */
   displayedAt?: number
   /** The window said it cannot show it; only the native answer counts now. */
   reported: boolean
@@ -74,7 +81,12 @@ export class ApprovalCenter {
   /** Raises a request and resolves with the person's answer, or a deny (expired, cancelled, refused). Never rejects. */
   ask(draft: ApprovalDraft, signal?: AbortSignal): Promise<ApprovalOutcome> {
     const now = this.now()
-    const { text, ackRequired, ...shown } = draft
+    const { text, ackRequired, ...given } = draft
+    // R2: bidi controls or invisible characters make the shown text differ from what runs; the text stays verbatim.
+    const hidden = hasHiddenCharacters(text)
+    const shown = hidden
+      ? { ...given, risk: APPROVAL_RISKS[Math.max(APPROVAL_RISKS.indexOf(given.risk), APPROVAL_RISKS.indexOf('high'))], appNotes: [...given.appNotes, mainMessage('approvals.note.hiddenCharacters', {})] }
+      : given
     const agentText = boundAgentText(text)
     const options = shown.options
       .filter(option => !agentText.truncated || option.intent === 'deny')
@@ -113,6 +125,11 @@ export class ApprovalCenter {
     if (entry.reported) return this.refusal('alreadyReported')
     const option = entry.request.options.find(item => item.id === input.optionId)
     if (!option) return this.refusal('unknownOption')
+    // R1: nothing is allowed that the window has not said it shows, at any risk; a deny is always accepted.
+    if (option.intent !== 'deny' && entry.shownAt === undefined) {
+      this.deps.log?.('allow-not-shown', { id: entry.request.id, kind: entry.request.kind })
+      return this.refusal('notShown')
+    }
     if (allowTooSoon(entry.request, option.intent, entry.displayedAt, this.now())) {
       this.deps.log?.('allow-too-soon', { id: entry.request.id, kind: entry.request.kind, displayed: entry.displayedAt !== undefined })
       return this.refusal('tooSoon')
@@ -121,11 +138,17 @@ export class ApprovalCenter {
     return { ok: true, id: entry.request.id }
   }
 
-  /** The window shows the request: starts the critical allow delay and settles the crash handshake. */
-  ack(input: ApprovalAnswerInput): ApprovalCallResult {
+  /**
+   * The window shows the request. Any ack makes it shown (R1) and settles the crash handshake; the first ack that is
+   * `visible && focused` starts the critical hold (R3). Repeated acks for the same generation are accepted (the window
+   * acks again when it regains focus); the hold, once started, is not restarted.
+   */
+  ack(input: ApprovalAckInput): ApprovalCallResult {
     const entry = this.lookup(input)
     if (typeof entry === 'string') return this.refusal(entry)
-    entry.displayedAt ??= this.now()
+    const now = this.now()
+    entry.shownAt ??= now
+    if (input.visible === true && input.focused === true) entry.displayedAt ??= now
     return { ok: true, id: entry.request.id }
   }
 
@@ -144,14 +167,16 @@ export class ApprovalCenter {
 
   private present(entry: Entry): void {
     const surface = () => approvalSurface({
-      hasWindow: this.deps.hasWindow(), ackRequired: entry.request.ackRequired, acked: entry.displayedAt !== undefined, unavailable: entry.reported,
+      hasWindow: this.deps.hasWindow(), ackRequired: entry.request.ackRequired, acked: entry.shownAt !== undefined, unavailable: entry.reported,
       elapsedMs: this.now() - entry.request.createdAt, ackTimeoutMs: this.deps.ackTimeoutMs ?? APPROVAL_ACK_TIMEOUT_MS
     })
     if (surface() === 'native') return this.goNative(entry, 'no-window')
     this.deps.send(IPC_CHANNELS.approvals.onRequested, entry.request)
+    // Best effort: a failing flash or notification never stops the request from being asked.
+    try { this.deps.attention?.() } catch { /* the request is in the window already */ }
     if (!entry.request.ackRequired) return
     entry.timers.push(setTimeout(() => {
-      if (this.pending.get(entry.request.id) === entry && surface() === 'native') this.goNative(entry, entry.displayedAt === undefined ? 'no-ack' : 'no-window')
+      if (this.pending.get(entry.request.id) === entry && surface() === 'native') this.goNative(entry, entry.shownAt === undefined ? 'no-ack' : 'no-window')
     }, this.deps.ackTimeoutMs ?? APPROVAL_ACK_TIMEOUT_MS))
   }
 

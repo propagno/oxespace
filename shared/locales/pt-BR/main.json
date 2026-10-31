@@ -205,7 +205,8 @@
         "mcpServer": "Servidor MCP {{server}}",
         "app": "OXESpace",
         "unknownPane": "Agente desconhecido · painel {{pane}}",
-        "unknownConversation": "Agente desconhecido · conversa {{conversation}}"
+        "unknownConversation": "Agente desconhecido · conversa {{conversation}}",
+        "preview": "Automação do Web Preview"
       },
       "option": {
         "deny": "Negar",
@@ -260,7 +261,9 @@
           "releasePublic": "Um release publicado fica visível para todos com acesso ao repositório e pode notificar quem o acompanha."
         },
         "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
-        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app."
+        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app.",
+        "hiddenCharacters": "O texto tem caracteres invisíveis ou que mudam a direção, então o que você vê pode não ser o que roda.",
+        "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar."
       },
       "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
       "expired": "Ninguém respondeu a tempo, então o pedido foi negado.",
@@ -270,13 +273,17 @@
         "alreadyAnswered": "Este pedido já tem uma resposta.",
         "unknownOption": "Essa resposta não é uma das opções deste pedido.",
         "alreadyReported": "Este pedido já foi informado como não exibido.",
-        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece."
+        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece.",
+        "notShown": "Este pedido ainda não apareceu no app, então não pode ser permitido."
       },
       "denied": {
         "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
         "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores.",
         "timeout": "Ninguém respondeu a tempo, então foi negado.",
         "cancelled": "O pedido foi retirado antes de alguém responder."
+      },
+      "notify": {
+        "waiting": "OXESpace: aprovação aguardando"
       }
     },
     "notify": {
