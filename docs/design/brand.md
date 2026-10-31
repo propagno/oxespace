@@ -24,6 +24,11 @@ higher than the left, and a small sun beside it.
 
 The wordmark is `oxespace` in lowercase, set in Bricolage Grotesque Bold.
 
+The mark has one source: its geometry is in `src/design/brand.ts`, and the app icon's colors are the `--logo-tile`,
+`--logo-mark` and `--logo-sun` tokens (`LOGO` in `src/design/tokens/palette.ts`), the same in both modes.
+`npm run generate:icon` writes `resources/icon.svg` and every icon file from them. Nothing that draws the mark names a
+color; `tests/brand-touchpoints.test.ts` enforces it and fails when an icon file drifts from the source.
+
 ## Color
 
 All colors are 12-step scales in OKLCH, generated in `src/design/tokens/` for
@@ -73,3 +78,25 @@ happened and what to do. No exclamation marks and no jokes in errors.
 Light and dark modes replace the eleven dark palettes of 0.17 (Midnight, Nord,
 Dracula…). The mode follows the operating system unless chosen in Settings.
 Saved workspace themes are still read but no longer change colors.
+
+## Touchpoints
+
+Every place a person meets the brand, where it comes from, and the capture that checks it. Captures are visual
+baselines under `e2e/visual/__screenshots__/<platform>/`, generated once per wave on `main`.
+
+| | Touchpoint | Source | Capture |
+|---|---|---|---|
+| ✅ | App icon: taskbar, dock, installer, Start menu | `resources/icon.svg` → `icon.ico` (16–256), `icon.png` (512), `icons/` (16–1024) | the files are the capture; `tests/brand-touchpoints.test.ts` |
+| ✅ | README banner and badges (caatinga and sun) | `docs/assets/logo.png`, rendered with the icon | the file |
+| ✅ | Window favicon | `index.html` links `resources/icon.svg` | — (Electron shows it only in tools) |
+| ✅ | Boot splash: the icon on the window's background until React renders, arms sprouting | `index.html` + `src/styles/splash.css` | `brand-touchpoints.spec.ts/splash-light`, `splash-dark` |
+| ✅ | Title bar mark and wordmark | `OxeLogo` (`src/components/Brand`) | `anchor-surfaces.spec.ts/*` |
+| ✅ | Empty states (`hero` variant) | `OxeLogo` | `anchor-surfaces.spec.ts/empty-*` |
+| ✅ | Loading a whole view (OxeQuery, OxePod, OxePost, Thread) | `LoadingState brand` → `BrandLoader` | `design-system.spec.ts/design-system-motion` |
+| ✅ | A view or panel that crashed (`ErrorBoundary`) and a whole-view `ErrorState brand` | `BrandMark` in `ErrorState` | `design-system.spec.ts/design-system-states` |
+| ✅ | The window crashed above every view (root `ErrorBoundary page`): the mark, Try again and Reload window | `src/main.tsx` | `tests/ui-states.test.tsx` |
+| ⏳ | About dialog: version, channel, licenses, links | needs `app:about` (contract PR #158, BE B8) | after #158 |
+| ⏳ | Native notifications carry an icon by meaning (attention, done, failed, info) | the window names the meaning, the main process picks the image (contract #158, BE B8) | after B8 |
+| ⏳ | Native crash dialog when the window's process ends | main process (`render-process-gone`), BE B8 | after B8 |
+| ✅ | Design system viewer: mark, wordmark, scales | `DesignSystemPage` › Brand | `design-system.spec.ts/*` |
+

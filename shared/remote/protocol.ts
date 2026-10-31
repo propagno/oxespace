@@ -16,6 +16,8 @@ export const REMOTE_PROTOCOL_VERSION = 1
 export const REMOTE_LIMITS = {
   /** Largest frame either side accepts, in UTF-8 bytes. */
   maxFrameBytes: 64 * 1024,
+  /** Deepest nesting of objects and arrays a frame may have, so no later recursive step can overflow the stack. */
+  maxFrameDepth: 64,
   /** Open subscriptions per connection. */
   maxSubscriptions: 32,
   /** Commands per device per minute before `rate-limited`. */
@@ -211,8 +213,24 @@ export function isRemoteCommand(value: unknown): value is RemoteCommand {
  * The checks every frame passes before it is looked at: size, JSON object, known type, and for a client frame a type
  * the phone may send and a known command. Field-level validation belongs to each handler.
  */
+/** The deepest `{`/`[` nesting in JSON text, read without recursion; brackets inside strings do not count. */
+function nestingDepth(text: string): number {
+  let depth = 0, deepest = 0, inString = false
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (inString) {
+      if (char === '\\') i++
+      else if (char === '"') inString = false
+    } else if (char === '"') inString = true
+    else if (char === '{' || char === '[') deepest = Math.max(deepest, ++depth)
+    else if (char === '}' || char === ']') depth--
+  }
+  return deepest
+}
+
 export function readRemoteFrame(text: string, from: 'client' | 'desktop'): { ok: true; frame: RemoteFrame } | { ok: false; code: RemoteErrorCode } {
   if (new TextEncoder().encode(text).byteLength > REMOTE_LIMITS.maxFrameBytes) return { ok: false, code: 'frame-too-large' }
+  if (nestingDepth(text) > REMOTE_LIMITS.maxFrameDepth) return { ok: false, code: 'malformed' }
   let value: unknown
   try { value = JSON.parse(text) } catch { return { ok: false, code: 'malformed' } }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, code: 'malformed' }

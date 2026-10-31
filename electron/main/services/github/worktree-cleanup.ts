@@ -211,17 +211,17 @@ export class WorktreeCleanup {
     for (const target of ordered) {
       const candidate = byPath.get(norm(target.path))
       if (!candidate) {
-        results.push({ path: target.path, ok: false, message: 'This is not a removable worktree of this repository.' })
+        results.push({ path: target.path, ok: false, message: 'This is not a removable worktree of this repository.', messageCode: { code: 'worktree.cleanup.notRemovable', params: {} } })
         continue
       }
       const hard = candidate.blockers.find((b) => HARD_CLEANUP_BLOCKERS.includes(b))
       if (hard) {
-        results.push({ path: target.path, ok: false, message: `Bloqueado: ${hard}.` })
+        results.push({ path: target.path, ok: false, message: `Blocked: ${hard}.`, messageCode: { code: 'worktree.cleanup.blocked', params: { reasons: [hard] } } })
         continue
       }
       const consent = candidate.blockers.filter((b) => CONSENT_CLEANUP_BLOCKERS.includes(b))
       if (consent.length > 0 && !target.force) {
-        results.push({ path: target.path, ok: false, message: `Needs confirmation: ${consent.join(', ')}.` })
+        results.push({ path: target.path, ok: false, message: `Needs confirmation: ${consent.join(', ')}.`, messageCode: { code: 'worktree.cleanup.needsConfirmation', params: { reasons: consent } } })
         continue
       }
       try {

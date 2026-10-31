@@ -1,5 +1,13 @@
-import type { ThreadRequest, ThreadRequestResponse } from '../../../../shared/types/thread'
+import type { ThreadPendingRefusal, ThreadRequest, ThreadRequestResponse } from '../../../../shared/types/thread'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+
+/** An answer the registry will not deliver, with the reason a window or device can show (C3 `thread.request.<refusal>`). */
+export class ThreadRequestRefusalError extends Error {
+  constructor(readonly refusal: ThreadPendingRefusal, message: string) {
+    super(message)
+    this.name = 'ThreadRequestRefusalError'
+  }
+}
 
 interface PendingEntry {
   request: ThreadRequest
@@ -41,12 +49,12 @@ export class ThreadRequestRegistry {
     this.expire(threadId)
     const requests = this.pending.get(threadId)
     const entry = requests?.get(requestId)
-    if (!entry || entry.request.state !== 'pending') throw Error('Request is no longer pending')
-    if (entry.responding) throw Error('A response is already being sent for this request')
-    if (entry.request.generation !== generation) throw Error('Request belongs to an older conversation generation')
+    if (!entry || entry.request.state !== 'pending') throw new ThreadRequestRefusalError('notPending', 'Request is no longer pending')
+    if (entry.responding) throw new ThreadRequestRefusalError('alreadyResponding', 'A response is already being sent for this request')
+    if (entry.request.generation !== generation) throw new ThreadRequestRefusalError('staleGeneration', 'Request belongs to an older conversation generation')
     if (entry.request.kind === 'question' && !['decline', 'cancel'].includes(response.decision ?? '')) {
       const questions = entry.request.questions ?? []
-      if (!questions.length || questions.some(question => !response.answers?.[question.id]?.some(value => value.trim()))) throw Error('Answer every question before continuing')
+      if (!questions.length || questions.some(question => !response.answers?.[question.id]?.some(value => value.trim()))) throw new ThreadRequestRefusalError('unanswered', 'Answer every question before continuing')
     }
     // Keep ownership visible to expiry/shutdown/turn completion while awaiting
     // the provider. A failed response must not resurrect an invalidated request.

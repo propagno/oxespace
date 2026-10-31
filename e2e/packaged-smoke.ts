@@ -65,6 +65,11 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
       expect(bootMs, `packaged ${label} boot to interactive`).toBeLessThan(bootBudgetMs)
       expect(await page.evaluate(() => window.oxe.app.platform)).toBe(platform)
       expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true)
+      // The brand icons ship next to the app: native dialogs and notifications read them from here.
+      const resources = await app.evaluate(() => process.resourcesPath)
+      for (const file of [join('icons', '256x256.png'), join('icons', '16x16.png'), join('icons', '1024x1024.png')]) {
+        expect(existsSync(join(resources, file)), `packaged ${file}`).toBe(true)
+      }
 
       // Creating a workspace exercises the parts that only exist in a packaged
       // build: better-sqlite3 opening a real DB, the migrations copied to

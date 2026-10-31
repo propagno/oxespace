@@ -20,19 +20,24 @@ export const RADIUS = { sm: '6px', md: '8px', lg: '12px', xl: '16px', full: '999
 export const CONTROL = { compact: { sm: 24, md: 28, lg: 32 }, comfortable: { sm: 28, md: 32, lg: 36 } } as const
 
 /** Named layers; nothing else sets a z-index. */
+/** Fixed chrome sizes other surfaces keep clear of: the toast stack sits above the status bar. */
+export const CHROME = { 'statusbar-height': '24px' } as const
+
 export const LAYER = { base: 0, raised: 1, sticky: 10, dropdown: 100, overlay: 200, modal: 300, toast: 400, tooltip: 500 } as const
 
 /**
- * Motion. Transitions use fast/base/slow and collapse to 0ms when motion is
- * reduced. Loops (spin, pulse, shimmer, blink) keep their own durations; the
- * one spin slows down instead of stopping, so a busy indicator never reads as a hang.
+ * Motion (docs/design/motion.md). Transitions use fast/base/slow and collapse to 0ms when motion is
+ * reduced; motion-shift, the distance something travels as it enters, drops to 0 so only opacity changes.
+ * Loops (spin, pulse, shimmer, blink) keep their own durations; the one spin slows down instead of
+ * stopping, so a busy indicator never reads as a hang.
  */
 export const MOTION = {
   'duration-fast': '120ms', 'duration-base': '200ms', 'duration-slow': '320ms',
   'duration-spin': '800ms', 'duration-pulse': '1.6s', 'duration-shimmer': '1.4s', 'duration-blink': '1.1s',
+  'motion-shift': '6px',
   'ease-standard': 'cubic-bezier(0.2, 0, 0, 1)', 'ease-emphasized': 'cubic-bezier(0.3, 0, 0, 1.2)',
   'ease-out': 'cubic-bezier(0.22, 1, 0.36, 1)', 'ease-in-out': 'cubic-bezier(0.4, 0, 0.6, 1)', 'ease-linear': 'linear'
 } as const
 
-/** What reduced motion changes: transitions become instant and the spinner turns slowly. */
-export const REDUCED_MOTION = { 'duration-fast': '0ms', 'duration-base': '0ms', 'duration-slow': '0ms', 'duration-spin': '2.4s' } as const
+/** What reduced motion changes: transitions become instant, nothing travels, and the spinner turns slowly. */
+export const REDUCED_MOTION = { 'duration-fast': '0ms', 'duration-base': '0ms', 'duration-slow': '0ms', 'duration-spin': '2.4s', 'motion-shift': '0px' } as const

@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from '../common/ErrorBoundary'
-import { EmptyState } from '../../ui'
+import { LoadingState } from '../../ui'
 import type { AppView } from '../../keyboard/keybindings'
 
 // OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in the entry chunk until first use.
@@ -36,7 +36,7 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
   if (isDataView(view) && !opened.includes(view)) setOpened([...opened, view])
   return <>{ORDER.filter(item => opened.includes(item) || item === view).map(item =>
     <div key={item} className={HOSTS[item]} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
-      <ErrorBoundary label={NAMES[item]}><Suspense fallback={<EmptyState compact title={t('nav.loadingView', { name: NAMES[item] })} />}>
+      <ErrorBoundary label={NAMES[item]}><Suspense fallback={<LoadingState brand label={t('nav.loadingView', { name: NAMES[item] })} />}>
         {item === 'data' ? <OxeQueryView active={view === 'data'} /> : item === 'pods' ? <OxePodView active={view === 'pods'} /> : <OxePostView active={view === 'post'} />}
       </Suspense></ErrorBoundary>
     </div>)}</>
