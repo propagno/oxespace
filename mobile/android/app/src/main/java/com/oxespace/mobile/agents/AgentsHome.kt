@@ -15,7 +15,8 @@ enum class AgentKind { PANE, CONVERSATION, DELEGATION, WORK }
 
 /** The first request waiting on a needs-you row: enough for the row's third line and for Respond. */
 data class AgentRequestDraft(
-    val threadId: String,
+    /** Optional in C5 (#354): a request outside a conversation has none, and then only the row opens. */
+    val threadId: String?,
     val requestId: String,
     /** Built by the desktop, never the agent's raw text. */
     val title: String,
@@ -66,5 +67,11 @@ fun visibleRows(rows: List<AgentRowDraft>, filter: AgentFilter): List<AgentRowDr
 /** The actions the phone offers on [row]. */
 fun rowActions(row: AgentRowDraft): Set<RowAction> = TODO("S7.4, after the S7.1 CCR")
 
-/** Where a notification about [row] opens: an answerable request goes straight to it; anything else to the row. */
+/**
+ * The state for a wire value. A state the desktop adds later maps to UNKNOWN, so a new state never needs a protocol
+ * bump (#354).
+ */
+fun agentStateOf(wire: String): AgentState = TODO("S7.4, after the S7.1 CCR")
+
+/** Where a notification about [row] opens: an answerable request with a thread goes straight to it; anything else to the row. */
 fun tapTarget(row: AgentRowDraft): AgentTapTarget = TODO("S7.4, after the S7.1 CCR")

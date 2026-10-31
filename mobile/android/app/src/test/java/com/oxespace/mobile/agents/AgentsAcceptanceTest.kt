@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * S7.4 acceptance, written before the code (charter "Ready" gate): RED until the S7.1 CCR lands and S7.4 is built.
+ * S7.4 acceptance, written before the code (charter "Ready" gate): RED until the S7.1 CCR (#354) lands and S7.4 is built.
  * Each test is one rule from docs/design/s7-mission-control.md §8 / §5.3 / §11.2.
  */
 class AgentsAcceptanceTest {
@@ -73,6 +73,15 @@ class AgentsAcceptanceTest {
         val desktopOnly = row("conversation:t-4", AgentKind.CONVERSATION, AgentState.NEEDS_YOU, since = 1, request = asking.copy(answerable = false))
         assertTrue(tapTarget(desktopOnly) is AgentTapTarget.Row)
         assertEquals(AgentTapTarget.Row("work:w-1"), tapTarget(rows.first { it.id == "work:w-1" }))
+        val noThread = row("conversation:t-5", AgentKind.CONVERSATION, AgentState.NEEDS_YOU, since = 1, request = asking.copy(threadId = null))
+        assertEquals(AgentTapTarget.Row("conversation:t-5"), tapTarget(noThread))
+    }
+
+    @Test
+    fun aStateTheDesktopAddsLaterReadsAsUnknown() {
+        assertEquals(AgentState.NEEDS_YOU, agentStateOf("needs-you"))
+        assertEquals(AgentState.IDLE, agentStateOf("idle"))
+        assertEquals(AgentState.UNKNOWN, agentStateOf("paused-by-policy"))
     }
 
     @Test
