@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearSeenHosts, linkHost, linkPrompt, MAX_EXTERNAL_URL_LENGTH, openExternalLink, parseExternalUrl, SEEN_HOSTS_KEY, seenHosts, textMisleads } from '../src/lib/externalLinks'
+import { clearSeenHosts, linkHost, linkPrompt, MAX_EXTERNAL_URL_LENGTH, openExternalLink, parseExternalUrl, SEEN_HOSTS_KEY, seenHosts, textIsAddress, textMisleads } from '../src/lib/externalLinks'
 import { decodePunycodeLabel, toUnicodeHost } from '../src/lib/punycode'
 import { splitAtHost } from '../src/components/ExternalLinks/ExternalLinkDialog'
 import { onTerminalLink } from '../src/components/Terminal/terminalLinks'
@@ -48,11 +48,28 @@ describe('misleading text', () => {
     expect(textMisleads(url, 'https://evil.example/other')).toBe(false)
     expect(textMisleads(url, undefined)).toBe(false)
   })
-  it('another host or plain words are', () => {
+  it('text that names another link or host is', () => {
     expect(textMisleads(url, 'https://github.com/login')).toBe(true)
     expect(textMisleads(url, 'github.com')).toBe(true)
-    expect(textMisleads(url, 'Sign in to evil.example')).toBe(true)
-    expect(textMisleads(url, 'Docs')).toBe(true)
+    expect(textMisleads(url, 'Sign in at github.com/login')).toBe(true)
+    expect(textMisleads(url, 'me@github.com')).toBe(true)
+  })
+  it('words, the right host in a sentence and file names are not', () => {
+    expect(textMisleads(url, 'the PR')).toBe(false)
+    expect(textMisleads(url, 'Docs')).toBe(false)
+    expect(textMisleads(url, 'Sign in to evil.example')).toBe(false)
+    expect(textMisleads(url, 'notes.md')).toBe(false)
+    expect(textMisleads(url, 'https://notes.md/x')).toBe(true)
+  })
+  it('only the address or its host counts as text that says where it goes', () => {
+    expect(textIsAddress(url, 'evil.example')).toBe(true)
+    expect(textIsAddress(url, 'https://www.evil.example/login')).toBe(true)
+    expect(textIsAddress(url, 'the PR')).toBe(false)
+    expect(textIsAddress(url, 'see evil.example')).toBe(false)
+  })
+  it('a word link to a host already opened goes straight through: no warning', () => {
+    expect(linkPrompt(url, { source: 'markdown', text: 'the PR' }, ['evil.example'])).toBeNull()
+    expect(linkPrompt(url, { source: 'markdown', text: 'the PR' }, [])).not.toHaveProperty('text')
   })
 })
 
@@ -144,9 +161,10 @@ describe('terminal links', () => {
 
 describe('markdown and settings', () => {
   it('file markdown shows the real host after misleading text and never navigates other schemes', async () => {
-    render(<MarkdownPreview content={'[github.com](https://evil.example/x) [evil.example](https://evil.example/) [local](./README.md)'} />)
+    render(<MarkdownPreview content={'[github.com](https://evil.example/x) [evil.example](https://evil.example/) [local](./README.md) [the PR](https://evil.example/pr)'} />)
     const links = screen.getAllByRole('link')
-    expect(links).toHaveLength(2)
+    expect(links).toHaveLength(3)
+    expect(links[2]).toHaveTextContent('the PR (evil.example)')
     expect(links[0]).toHaveTextContent('github.com (evil.example)')
     expect(links[1].querySelector('[data-testid="external-link-suffix"]')).toBeNull()
     fireEvent.click(links[0])

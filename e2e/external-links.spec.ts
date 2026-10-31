@@ -32,7 +32,7 @@ async function printToTerminal(app: ElectronApplication, data: string): Promise<
 
 test('links ask before leaving, remember the site, and Settings clears what was remembered', async () => {
   test.setTimeout(150_000)
-  const { app, page, workspaceRoot } = await launchApp()
+  const { app, page, workspaceRoot, consoleErrors } = await launchApp()
   try {
     await resizeWindow(app, 1280, 800)
     await installThreadFixtures(app, workspaceRoot)
@@ -107,6 +107,19 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     await expect.poll(() => opened(page)).toHaveLength(2)
     await expect(page.getByTestId('external-link-dialog')).toHaveCount(0)
 
+    // Words ("the PR") are not a warning: the host follows them, and a site already opened goes straight through.
+    await app.evaluate(() => {
+      ;(globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState({ status: 'idle', title: 'Links', events: [
+        { type: 'message', id: 'a3', role: 'assistant', text: 'See [the PR](https://login.evil.example/pr/7).' },
+        { type: 'completed', status: 'completed' }
+      ] })
+    })
+    const wordLink = page.locator('.thread-markdown a', { hasText: 'the PR' })
+    await expect(wordLink).toContainText('(login.evil.example)')
+    await wordLink.click()
+    await expect.poll(() => opened(page)).toHaveLength(3)
+    await expect(page.getByTestId('external-link-dialog')).toHaveCount(0)
+
     // Settings › General › Privacy forgets both sites.
     await page.getByRole('button', { name: 'Open settings', exact: true }).click()
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
@@ -116,6 +129,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     await settings.getByRole('button', { name: "Clear sites you've opened" }).click()
     await expect(settings.getByTestId('seen-sites-count')).toHaveText('0 sites remembered.')
     expect(await page.evaluate(() => localStorage.getItem('oxe.externalLinks.seenHosts'))).toBeNull()
+    expect(consoleErrors.filter(error => error.startsWith('pageerror'))).toEqual([])
   } finally {
     await app.close()
   }

@@ -1,7 +1,7 @@
 // The one way the window opens a link outside the app. Every caller (agent and file markdown, terminal links,
 // GitHub, Linear, the web preview and the app's own fixed links) comes through here, so the same rules hold for all:
 // only http, https and mailto, at most 2,048 characters, no credentials in the URL, and a confirmation that shows the
-// real host when the visible text could hide it or the host was never opened before. The main process checks again.
+// real host when the visible text names another place or the host was never opened before. The main process checks again.
 import { i18n } from '../i18n'
 import { toast } from '../ui/Toast'
 import { toUnicodeHost } from './punycode'
@@ -50,22 +50,37 @@ export function linkHost(url: URL): string {
   return at >= 0 ? address.slice(at + 1).toLowerCase() : ''
 }
 
-const normalize = (value: string): string => value.trim().toLowerCase().replace(/^[a-z]+:(\/\/)?/, '').replace(/^www\./, '').replace(/\/+$/, '')
+const sameHost = (a: string, b: string): boolean => a.replace(/^www\./, '') === b.replace(/^www\./, '')
+// A link or a bare host inside the text: "https://a.example/x", "a.example", "a.example/x", "me@a.example".
+const ADDRESS = /(?:\b[a-z][a-z\d+.-]*:\/\/)?(?:[^\s@/:]+@)?(?:[\p{L}\p{N}-]+\.)+\p{L}{2,}(?::\d+)?(?:\/\S*)?/giu
+// File names read like hosts ("notes.md", "main.go"); a bare one is a file, not a place. With a scheme it is a host.
+const FILE_ENDINGS = new Set(['md', 'txt', 'json', 'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs', 'py', 'rs', 'go', 'sh', 'yml', 'yaml', 'toml', 'lock', 'log', 'css', 'html', 'java', 'kt', 'rb', 'php', 'sql', 'xml', 'csv'])
 
-/** True when the visible text names something other than the link itself or its host. */
+/** The hosts the visible text names, lower case and in ASCII. */
+export function textHosts(text: string): string[] {
+  return [...text.matchAll(ADDRESS)].flatMap(([match]) => {
+    const schemed = /^[a-z][a-z\d+.-]*:\/\//i.test(match)
+    if (!schemed && !match.includes('/') && FILE_ENDINGS.has(match.split('.').pop()!.toLowerCase())) return []
+    try {
+      const host = new URL(schemed ? match : `https://${match}`).hostname.toLowerCase()
+      return host ? [host] : []
+    } catch { return [] }
+  })
+}
+
+/** True when the visible text names a link or host other than where the link goes. Plain words never do. */
 export function textMisleads(url: URL, text: string | undefined): boolean {
   if (!text || !text.trim()) return false
-  const shown = normalize(text)
-  if (shown === normalize(url.href) || shown === normalize(safeDecode(url.href))) return false
-  const host = linkHost(url).replace(/^www\./, '')
-  if (shown === host) return false
-  // Text that is itself a link or a host counts as the same place when its host matches.
-  const candidate = /^[a-z]+:/i.test(text.trim()) ? text.trim() : `https://${text.trim()}`
-  try {
-    const parsed = new URL(candidate)
-    if (/^[^\s]+$/.test(text.trim()) && parsed.hostname.toLowerCase().replace(/^www\./, '') === host) return false
-  } catch { /* Plain words. */ }
-  return true
+  const host = linkHost(url)
+  return textHosts(text).some(shown => !sameHost(shown, host))
+}
+
+/** True when the visible text is the address or its host, so it already says where the link goes. */
+export function textIsAddress(url: URL, text: string | undefined): boolean {
+  const value = text?.trim() ?? ''
+  if (!value || /\s/.test(value)) return false
+  const hosts = textHosts(value)
+  return hosts.length === 1 && sameHost(hosts[0], linkHost(url))
 }
 
 export function seenHosts(): string[] {

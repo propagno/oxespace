@@ -14,7 +14,7 @@ export function CodeLines({ text, firstLine, hitLines, label, testId, numbers = 
 
 /**
  * The statements a destructive or production confirmation is about, before any typed name: each flagged statement
- * with its line and reasons, then the whole script that will run, so a DELETE on line 1,302 cannot hide.
+ * with its line and reasons, then the whole script that will run, so a DELETE on line 1302 cannot hide.
  */
 export function ConfirmStatements({ script, generalReasons }: { script: ConfirmScript; generalReasons: string[] }): ReactElement {
   const { t } = useTranslation('oxequery')
@@ -26,9 +26,9 @@ export function ConfirmStatements({ script, generalReasons }: { script: ConfirmS
     {script.flagged.length > 0 && <section className={styles.section}>
       <h3>{t('workbench.confirm.flagged', { count: script.flagged.length })}</h3>
       <ol className={styles.flagged}>{script.flagged.map(statement => <li key={statement.line} data-testid="oxequery-confirm-flagged">
-        <span className={styles.where}>{t('workbench.confirm.line', { line: statement.line, formatted: formatNumber(statement.line) })}</span>
+        <span className={styles.where}>{t('workbench.confirm.line', { line: statement.line })}</span>
         <ul className={styles.reasons}>{statement.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
-        <CodeLines text={statement.text} firstLine={statement.line} label={t('workbench.confirm.statementAt', { line: statement.line, formatted: formatNumber(statement.line) })} />
+        <CodeLines text={statement.text} firstLine={statement.line} label={t('workbench.confirm.statementAt', { line: statement.line })} />
       </li>)}</ol>
     </section>}
     {(script.all.length > 1 || script.flagged.length === 0) && <section className={styles.section}>
