@@ -15,6 +15,7 @@ import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
 import { createThreadWorktree, discardThreadWorktree, ThreadWorktreeError, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
 import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
+import { registerThreadSectionsIpc } from './thread-sections.ipc'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 
@@ -346,5 +347,6 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return manager.then(service => service.setCoordinator(threadId, coordinator))
   })
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, sender, id: string })
+  registerThreadSectionsIpc({ db, sender })
   return { manager, stop: async () => { await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }

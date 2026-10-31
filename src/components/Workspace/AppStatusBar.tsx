@@ -1,9 +1,10 @@
 import { FolderGit2, PanelsTopLeft, Radio, Moon, WifiOff } from 'lucide-react'
-import { useMemo, type ReactElement } from 'react'
+import { Suspense, lazy, useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useAgentStore } from '../../store/agent.store'
-import { UsageStatus } from './UsageStatus'
+// Usage reads the provider's quota after first paint.
+const UsageStatus = lazy(() => import('./UsageStatus').then(module => ({ default: module.UsageStatus })))
 import { useConnectivity } from '../../hooks/useConnectivity'
 import { cx } from '../../ui'
 import styles from './AppStatusBar.module.css'
@@ -60,7 +61,7 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
       </div>
       <div className={styles.group}>
         {offline ? <span className={cx(styles.item, styles.offline)} role="status" title={i18n.t('ui.offline.message')} data-testid="offline-indicator"><WifiOff size={12} aria-hidden="true" />{i18n.t('ui.offline.title')}</span> : null}
-        {provider ? <UsageStatus provider={provider} /> : null}
+        {provider ? <Suspense fallback={null}><UsageStatus provider={provider} /></Suspense> : null}
         {workspace ? (
           <span className={styles.item} title={tc('workspace.status.panesTitle')}>
             <PanelsTopLeft size={12} aria-hidden="true" />

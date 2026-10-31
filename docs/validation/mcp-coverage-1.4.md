@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 30 | 2 | 14 | 83 |
+| 37 | 30 | 2 | 15 | 84 |
 
 The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
 manifest declares 154 tool-or-action entries.
@@ -49,7 +49,9 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
 | `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite` |
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
+| `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
+| `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
 
 ## New in X21
 
@@ -85,7 +87,7 @@ before. Code panes receive the whole registry.
 
 | Id | Capability | MCP tools by level, or the decision |
 |---|---|---|
-| `context.discovery` | Discover tools, the caller's execution and the project context | **read**: `oxespace_capabilities`, `oxespace_execution_context`, `oxespace_project_context` |
+| `context.discovery` | Discover tools, the caller's execution and the project context | **read**: `oxespace_capabilities`, `oxespace_tools_enable`, `oxespace_execution_context`, `oxespace_project_context` |
 | `code.workspaces` | List workspaces | **read**: `oxespace_list_workspaces` |
 | `code.workspace_settings` | Read the workspace's settings | **read**: `oxespace_settings#workspace` |
 | `code.workspace_admin` | Create, delete, reorder or switch workspaces; change their settings and panel layout | Excluded: The person's layout and preferences. Deleting a workspace is never exposed. |
@@ -126,6 +128,7 @@ before. Code panes receive the whole registry.
 | `thread.drive` | Create Threads, send, steer, stop, set the model, rename, archive | **write**: `oxespace_thread_create`, `oxespace_thread_send`<br>**confirm**: `oxespace_threads_change#send`, `oxespace_threads_change#steer`, `oxespace_threads_change#interrupt`, `oxespace_threads_change#configure`, `oxespace_threads_change#rename`, `oxespace_threads_change#archive` |
 | `thread.history_edit` | Rewind, undo a turn's edits, export, import, recover, attach files, slash commands | Excluded: Rewrites or acts inside another conversation's session; the person does it. Agents drive Threads with send and steer. |
 | `thread.project_admin` | Add, relink or hide Thread projects; idle suspension; shell check | Excluded: The person's settings. |
+| `thread.sections` | Sections of the conversation list (F13) | **Forbidden**: For 1.4, how the person organizes their own list: an agent neither reads nor rearranges it. |
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
 | `thread.coordinator_admin` | Make a conversation the project's coordinator | **Forbidden**: Raises what an agent can reach. |
 | `thread.coordinator_read` | The coordinator's summary of the project's pending requests | **read**: `oxespace_threads#pending`, listed and run only for the project's coordinator conversation; titles, kinds, conversations and ages inside the untrusted-output block; nothing that answers a request. |
@@ -159,6 +162,7 @@ before. Code panes receive the whole registry.
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
 | `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
 | `app.open_external` | Open a link in the system browser or mail app | **Forbidden**: Person-only, like an approval: the window calls it after the person confirmed the link's host. |
+| `app.activity` | The activity center's entries and when the person last looked at them (F30) | **Forbidden**: For 1.4, the person's own notification history: an agent neither reads it nor writes into it. |
 | `mcp_internal.tool_groups_admin` | Choose how a project offers each group of OXESpace tools | **Forbidden**: Raises what agents can reach. |
 | `settings.diagnostics` | Diagnostics snapshot, live measurements, problem bundles and reports | Excluded: Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them. |
 | `diagnostics.read` | Summary of the incident journal and a snapshot of the app | **read**: `oxespace_diagnostics` (app group): the same Markdown summary as the window's "Ask for an analysis". |

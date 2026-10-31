@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 // Loaded through the registry, as the app does: the handlers and the registry import each other.
 import { TOOL_REGISTRY } from '../../electron/main/mcp-internal/tool-registry'
+import { toolDefinitionChars, toolNameChars } from '../../electron/main/mcp-internal/tool-cost'
+import { projectToolModes, sessionToolPlan, type ProjectToolModes } from '../../electron/main/services/conversation/tool-groups'
+import { MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import {
   OPTIONAL_THREAD_TOOL_GROUPS, THREAD_MCP_TOOLS, THREAD_TOOL_GROUPS, threadMcpArguments, threadToolList, threadToolRoles, toolSearchEnvironment
@@ -8,11 +11,8 @@ import {
 
 vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
-/** What a provider receives for each tool on every request. */
-function definitionChars(names: readonly string[]): number {
-  return JSON.stringify(TOOL_REGISTRY.map(entry => entry.descriptor).filter(descriptor => names.includes(descriptor.name))
-    .map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))).length
-}
+/** What a provider receives for each tool on every request, measured like Settings › Tools. */
+const definitionChars = (names: readonly string[]): number => toolDefinitionChars(TOOL_REGISTRY, names)
 
 function bridgeTools(args: string[]): string[] {
   const config = JSON.parse(args[args.indexOf('--mcp-config') + 1]) as { mcpServers: Record<string, { args: string[] }> }
@@ -72,8 +72,50 @@ describe('Thread MCP token budget', () => {
   })
 
   it('turns on Claude tool search unless the person set it', () => {
-    expect(toolSearchEnvironment('claude', {})).toEqual({ ENABLE_TOOL_SEARCH: 'auto:5' })
+    expect(toolSearchEnvironment('claude', {})).toEqual({ ENABLE_TOOL_SEARCH: 'true' })
     expect(toolSearchEnvironment('claude', { ENABLE_TOOL_SEARCH: 'false' })).toEqual({})
     expect(toolSearchEnvironment('codex', {})).toEqual({})
+  })
+})
+
+/**
+ * T8: what tool groups on demand cost (B7.2, B2.2). Claude lists a deferred tool by its full name, server prefix
+ * included, until it loads the definition; Codex pays a group's definitions once the group is on.
+ */
+describe('tool groups on demand: measured cost (T8)', () => {
+  const defaults = projectToolModes(undefined)
+  const asClaudeLists = (tools: readonly string[]) => toolNameChars(tools.map(tool => `mcp__oxespace-delegation__${tool}`))
+
+  it('offers Claude every group on demand for less than a 1.3 plain conversation paid for core alone', () => {
+    // Measured in a real session (docs/validation/tool-groups-cost-1.4.md): the 72 deferred names cost 1,686 tokens,
+    // core's definitions 2,728. Comparing characters keeps the check independent of the tokenizer.
+    const conversation = sessionToolPlan(true, {}, defaults)
+    expect(new Set(conversation.tools)).toEqual(new Set([...THREAD_TOOL_GROUPS.core, ...OPTIONAL_THREAD_TOOL_GROUPS.flatMap(group => THREAD_TOOL_GROUPS[group])]))
+    expect(asClaudeLists(conversation.tools)).toBeLessThan(definitionChars(THREAD_TOOL_GROUPS.core))
+    const terminal = sessionToolPlan(true, { code: true }, defaults)
+    expect(asClaudeLists(terminal.tools)).toBeLessThan(definitionChars([...THREAD_TOOL_GROUPS.core, ...MCP_TOOL_GROUPS.code]))
+  })
+
+  it('keeps a conversation without tool search (Claude with auto:N or false) that turns nothing on within today\'s budget', () => {
+    const plain = sessionToolPlan(false, {}, defaults)
+    expect(plain.tools).toEqual([...THREAD_TOOL_GROUPS.core, 'oxespace_tools_enable'])
+    expect(definitionChars(plain.tools)).toBeLessThanOrEqual(9000)
+  })
+
+  // What a group's definitions cost once loaded (Codex as it needs them, Claude without tool search once turned on). A group may only grow past its line here on
+  // purpose: raise the line in the same change and say why.
+  const CODEX_GROUP_BUDGET = { orchestration: 13_500, data: 6_700, docs: 4_400, app: 21_000, code: 11_500 } as const
+
+  it('measures what each group costs Codex once it is on, against its own budget', () => {
+    for (const [group, budget] of Object.entries(CODEX_GROUP_BUDGET)) {
+      const chars = definitionChars(MCP_TOOL_GROUPS[group as keyof typeof MCP_TOOL_GROUPS])
+      expect(chars, group).toBeGreaterThan(0)
+      expect(chars, `${group}: ${chars} characters`).toBeLessThanOrEqual(budget)
+    }
+  })
+
+  it('never offers a group the project turned off, on either provider', () => {
+    const off = Object.fromEntries(Object.keys(defaults).map(group => [group, { mode: 'off', source: 'project' }])) as ProjectToolModes
+    for (const toolSearch of [true, false]) expect(sessionToolPlan(toolSearch, {}, off)).toEqual({ tools: [...THREAD_TOOL_GROUPS.core], enableable: {} })
   })
 })

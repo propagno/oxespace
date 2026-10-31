@@ -5,7 +5,7 @@ interface Candidate { child: string; parent: string; via: Via; at: number }
 export interface ThreadParentBackfill { linked: number; skipped: { child: string; parent: string; via: Via; reason: 'self' | 'cycle' }[] }
 
 /**
- * One-time step of migration 086: sets `parent_thread_id` from the links that already record who
+ * One-time step of migration 088: sets `parent_thread_id` from the links that already record who
  * started a conversation — `mcp_thread_handoffs` (oxespace_thread_create), `work_tasks` joined to
  * `work_runs.supervisor_thread_id` (Agent Work) and a delegation's `destinationThreadId` whose
  * origin was a Thread (`originPaneId` = `thread:<id>`).

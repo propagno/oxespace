@@ -222,7 +222,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       const result = await adapter.command(name, argument)
       if (name === 'fork' && result.threadId) {
         const fork = host.create({ workspaceId: thread.workspaceId, projectId: thread.projectId, rootPath: thread.rootPath, provider: thread.provider })
-        fork.thread = { ...fork.thread, nativeSessionId: result.threadId, model: thread.model, reasoningEffort: thread.reasoningEffort, access: thread.access, networkAccess: thread.networkAccess, approvalPolicy: thread.approvalPolicy, mode: thread.mode, hooksEnabled: thread.hooksEnabled, title: `${thread.title} · fork` }
+        fork.thread = { ...fork.thread, nativeSessionId: result.threadId, model: thread.model, reasoningEffort: thread.reasoningEffort, access: thread.access, networkAccess: thread.networkAccess, approvalPolicy: thread.approvalPolicy, mode: thread.mode, hooksEnabled: thread.hooksEnabled, title: thread.title ? `${thread.title} · fork` : '' }
         if (host.nativeCli) {
           const history = await host.nativeCli.read(fork.thread, result.threadId)
           fork.events = history.events

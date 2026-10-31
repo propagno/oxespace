@@ -8,4 +8,4 @@ CREATE TABLE IF NOT EXISTS thread_project_coordinators (
   updated_at INTEGER NOT NULL
 );
 
-PRAGMA user_version = 87;
+PRAGMA user_version = 89;

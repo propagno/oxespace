@@ -32,6 +32,8 @@
   "attention": {
     "needsYou_one": "{{count}} needs you",
     "needsYou_other": "{{count}} need you",
+    "needsDecision_one": "{{count}} needs your decision",
+    "needsDecision_other": "{{count}} need your decision",
     "failed": "{{count}} failed",
     "working": "{{count}} working"
   },
@@ -388,5 +390,41 @@
     "details": "Build details",
     "detailsCopied": "Build details copied",
     "report": "Report a problem"
+  },
+  "closeGuard": {
+    "titleClose": "Save your changes before closing?",
+    "titleQuit": "Save your changes before quitting?",
+    "description_one": "{{count}} change is not saved yet. Closing without saving loses it.",
+    "description_other": "{{count}} changes are not saved yet. Closing without saving loses them.",
+    "listLabel": "Unsaved changes",
+    "cancel": "Cancel",
+    "discardClose": "Close without saving",
+    "discardQuit": "Quit without saving",
+    "saveClose": "Save all and close",
+    "saveQuit": "Save all and quit",
+    "saveFailed_one": "{{count}} change could not be saved, so nothing was closed. Check it and try again.",
+    "saveFailed_other": "{{count}} changes could not be saved, so nothing was closed. Check them and try again.",
+    "inEditor": "OxeCode editor · {{folder}}",
+    "inOxePost": "OxePost request",
+    "untitledRequest": "Untitled request"
+  },
+  "links": {
+    "refused": "This link was not opened",
+    "refusedHint": "Only web (http, https) and email (mailto) links up to 2,048 characters, without a user name or password, open outside OXESpace.",
+    "notOpened": "The link did not open",
+    "notOpenedHint": "OXESpace could not hand it to your browser. Try again, or copy the address.",
+    "hostSuffix": "({{host}})",
+    "terminalHint": "{{key}}+click to open the link",
+    "confirm": {
+      "title": "Open this link in your browser?",
+      "newHost": "You haven't opened a link to this site from OXESpace before. Check the address before you continue.",
+      "textDiffers": "The link's text is not where it goes. Check the address before you continue.",
+      "host": "Site",
+      "idn": "Written with international characters. Your browser reaches it as {{ascii}}.",
+      "text": "Link text",
+      "address": "Full address",
+      "open": "Open",
+      "cancel": "Cancel"
+    }
   }
 }

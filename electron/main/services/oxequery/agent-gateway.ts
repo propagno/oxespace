@@ -6,6 +6,13 @@ import { textHash, type ApprovalBroker } from '../agent-actions/approval-broker'
 import type { AuditLog, AuditRecord } from './audit-log'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
+import { sqlNotes, sqlRisk } from './sql-approval'
+import { raiseRisk, riskFromSql } from '../../../../shared/approval-rules'
+import { englishText } from '../../agent-text'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
+import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequester, type ApprovalRisk } from '../../../../shared/types/approvals'
+import { ownerFromLabel, requesterFor } from '../approvals/requester'
+import { refusalCode } from '../agent-actions/agent-actions'
 import { AgentToolError } from './agent-tool-error'
 
 export { AgentToolError }
@@ -17,6 +24,8 @@ export interface AgentActor {
   label: string
   /** The project the execution runs in; its policy file applies. */
   projectRoot?: string
+  /** Who the person sees asking, from the execution's owner (B10); derived from `label` when absent. */
+  requester?: ApprovalRequester
 }
 
 export interface GatewayDeps {
@@ -43,11 +52,9 @@ export const RATE_PER_MINUTE = 30
 const AGENT_TIMEOUT_MS = 20_000
 const MAX_TEXT = 100_000
 const LOG_TAIL_MAX = 200
-/** A person approves exactly what they can read; anything longer is refused rather than shortened. */
-export const MAX_REVIEWABLE = 6000
+/** A person approves exactly what they can read; anything longer is refused rather than shortened (B10: one cap for every door). */
+export const MAX_REVIEWABLE = APPROVAL_AGENT_TEXT_MAX
 const CONTAINER_ACTIONS = new Set(['start', 'stop', 'restart'])
-const VERBS = { read: 'read data', write: 'change data in the database', action: 'run a container action' } as const
-
 type Args = Record<string, unknown>
 
 function text(value: unknown, label: string, max = MAX_TEXT): string {
@@ -141,7 +148,8 @@ export class AgentGateway {
     let timer: ReturnType<typeof setTimeout> | undefined
     const guard = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
-        void this.deps.call('sql.cancel', connection).catch(() => undefined)
+        // The agent's own statement only: the connection carries role 'agent', so the person's session is not touched.
+        void this.deps.call(connection.engine === 'mongodb' ? 'mongo.cancel' : 'sql.cancel', connection).catch(() => undefined)
         reject(new AgentToolError(`The call took longer than ${Math.round(limit / 1000)}s and was cancelled.`, 'timeout'))
       }, limit)
     })
@@ -152,21 +160,30 @@ export class AgentGateway {
     if (error instanceof AgentToolError) return error
     if (error instanceof OxeQueryError) {
       // Messages from the worker are already redacted; connection-level details are not forwarded.
-      if (['query', 'invalid', 'read-only', 'timeout', 'cancelled', 'conflict'].includes(error.code)) return new AgentToolError(error.message.slice(0, 600), error.code)
+      if (['query', 'invalid', 'read-only', 'timeout', 'cancelled', 'conflict', 'limit'].includes(error.code)) return new AgentToolError(error.message.slice(0, 600), error.code)
       return new AgentToolError('The database could not be reached.', error.code)
     }
     return new AgentToolError('The operation failed.', 'failed')
   }
 
   /** Asks the person (or reuses a grant). Throws a message the model can act on when not approved. */
-  private async approve(actor: AgentActor, connection: OxeQueryConnection, tool: string, risk: 'read' | 'write' | 'action', body: string, reasons: string[]): Promise<'auto' | 'approved' | 'approved-session'> {
-    if (body.length > MAX_REVIEWABLE) throw new AgentToolError(`This request is longer than ${MAX_REVIEWABLE} characters, which is more than a person can review. Split it into smaller steps.`, 'too-long')
+  private async approve(actor: AgentActor, connection: OxeQueryConnection, tool: string, risk: 'read' | 'write' | 'action', body: string, notes: MainMessage[], level: ApprovalRisk): Promise<'auto' | 'approved' | 'approved-session'> {
+    if ([...body].length > MAX_REVIEWABLE) throw new AgentToolError(englishText(mainMessage('approvals.denied.tooLong', { max: MAX_REVIEWABLE })), 'too-long')
+    const owner = ownerFromLabel(actor.label)
+    const requester = actor.requester ?? (owner ? requesterFor(owner) : undefined)
+    if (!requester) throw new AgentToolError('This tool needs an agent running inside OXESpace.', 'no-execution')
+    const production = connection.environment === 'prod'
+    const isContainer = connection.id.startsWith('container:')
     const state = await this.deps.broker.require(actor.key, connection.id, {
-      actor: actor.label, tool, title: 'OxeQuery — request from an agent', summary: `${actor.label} wants to ${VERBS[risk]}`,
-      target: `${connection.name} · ${connection.engine} · ${connection.environment}`, sessionLabel: 'Allow reads on this connection for this run', risk, text: body, reasons
+      actor: actor.label, tool, risk, text: body, kind: 'oxequery', requester, level,
+      ...(isContainer ? {} : { environment: { kind: connection.environment, name: connection.name, production } }),
+      title: mainMessage('approvals.title.oxequery', {}), summary: mainMessage(`approvals.summary.oxequery.${risk}`, {}),
+      target: isContainer ? connection.name : `${connection.name} · ${connection.engine} · ${connection.environment}`,
+      notes: [...(production ? [mainMessage('approvals.note.production', {})] : []), ...notes]
     })
     if (state.state === 'approved') return state.via === 'session' ? 'approved-session' : 'approved'
     if (state.state === 'denied') throw new AgentToolError('The person declined this request. Do not retry it unchanged.', 'denied')
+    if (state.state === 'refused') throw new AgentToolError(englishText(state.refusal), refusalCode(state.refusal))
     throw new AgentToolError('Waiting for the person to approve this request in OXESpace. Ask them to approve it, then call this tool again with exactly the same arguments.', 'approval-pending')
   }
 
@@ -205,7 +222,7 @@ export class AgentGateway {
   private async describe(args: Args, actor: AgentActor): Promise<unknown> {
     const info = this.find(args.connection)
     this.access(info, 'read', actor)
-    const connection = { ...this.deps.resolve(info.id), readOnly: true }
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), readOnly: true, role: 'agent' }
     const started = this.now()
     try {
       const value = await this.serial(info.id, () => this.withTimeout(connection, async () => {
@@ -246,7 +263,7 @@ export class AgentGateway {
       this.log(actor, info, tool, { decision: 'refused', outcome: 'skipped', textHash: hash, text: redactStatement(sql), errorCode: 'not-read' })
       throw new AgentToolError('Only a single statement that reads data can be explained here.', 'not-read')
     }
-    const connection = { ...this.deps.resolve(info.id), readOnly: true }
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), readOnly: true, role: 'agent' }
     const started = this.now()
     try {
       const plan = await this.serial(info.id, () => this.withTimeout(connection, () => this.deps.call<unknown>('sql.explain', connection, { sql, analyze: false })))
@@ -308,18 +325,18 @@ export class AgentGateway {
 
   /** Shared path for data reads: approval, forced read-only connection, one at a time, a time limit, audit. */
   private async read(
-    actor: AgentActor, info: OxeQueryConnection, tool: string, approvedText: string, hash: string, loggedText: string, reasons: string[],
+    actor: AgentActor, info: OxeQueryConnection, tool: string, approvedText: string, hash: string, loggedText: string, notes: MainMessage[],
     run: (connection: ResolvedConnection) => Promise<{ rows: number; body: object }>
   ): Promise<unknown> {
     let decision: AuditRecord['decision']
-    try { decision = await this.approve(actor, info, tool, 'read', approvedText, reasons) }
+    try { decision = await this.approve(actor, info, tool, 'read', approvedText, notes, riskFromSql('read', info.environment === 'prod')) }
     catch (error) {
       const failure = this.safe(error)
       this.log(actor, info, tool, { decision: failure.code === 'denied' ? 'denied' : 'pending', outcome: 'skipped', textHash: hash, text: loggedText, errorCode: failure.code })
       throw failure
     }
     const started = this.now()
-    const connection = { ...this.deps.resolve(info.id), readOnly: true }
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), readOnly: true, role: 'agent' }
     try {
       const result = await this.serial(info.id, () => this.withTimeout(connection, () => run(connection)))
       this.log(actor, info, tool, { decision, outcome: 'ok', textHash: hash, text: loggedText, rows: result.rows, durationMs: this.now() - started })
@@ -345,7 +362,7 @@ export class AgentGateway {
     const verdict = guardSql(sql)
     if (verdict.kind === 'empty' || verdict.statements !== 1) throw new AgentToolError('Send exactly one statement.', 'invalid')
     if (verdict.kind === 'read') throw new AgentToolError('This statement only reads. Use oxespace_db_query.', 'invalid')
-    return this.write(actor, info, tool, sql, hash, redactStatement(sql), verdict.reasons ?? [], async connection => {
+    return this.write(actor, info, tool, sql, hash, redactStatement(sql), sqlNotes(verdict), sqlRisk(verdict, info.environment === 'prod'), async connection => {
       const result = await this.deps.call<{ affectedRows?: number; command?: string; rowCount: number }>('sql.run', connection, { sql, maxRows: 10, confirmed: true })
       return { rows: result.affectedRows ?? result.rowCount, body: { command: result.command ?? null, affectedRows: result.affectedRows ?? null } }
     })
@@ -369,25 +386,26 @@ export class AgentGateway {
       this.log(actor, info, tool, { decision: 'refused', outcome: 'skipped', textHash: hash, text: redactDocument(JSON.stringify(input)), errorCode: failure.code })
       throw failure
     }
-    return this.write(actor, info, tool, body, hash, redactDocument(JSON.stringify(input)), op === 'delete' ? ['A document will be deleted.'] : [], async connection => {
+    const level: ApprovalRisk = op === 'delete' ? 'high' : 'medium'
+    return this.write(actor, info, tool, body, hash, redactDocument(JSON.stringify(input)), op === 'delete' ? [mainMessage('approvals.note.mongo.deletes', { count: 1 })] : [], info.environment === 'prod' ? raiseRisk(level) : level, async connection => {
       const result = await this.deps.call<{ matched: number; modified: number; deleted: number; insertedId?: string }>('mongo.write', connection, input)
       return { rows: result.modified + result.deleted + (result.insertedId ? 1 : 0), body: result }
     })
   }
 
   private async write(
-    actor: AgentActor, info: OxeQueryConnection, tool: string, approvedText: string, hash: string, loggedText: string, reasons: string[],
+    actor: AgentActor, info: OxeQueryConnection, tool: string, approvedText: string, hash: string, loggedText: string, notes: MainMessage[], level: ApprovalRisk,
     run: (connection: ResolvedConnection) => Promise<{ rows: number; body: object }>
   ): Promise<unknown> {
     let decision: AuditRecord['decision']
-    try { decision = await this.approve(actor, info, tool, 'write', approvedText, reasons) }
+    try { decision = await this.approve(actor, info, tool, 'write', approvedText, notes, level) }
     catch (error) {
       const failure = this.safe(error)
       this.log(actor, info, tool, { decision: failure.code === 'denied' ? 'denied' : 'pending', outcome: 'skipped', textHash: hash, text: loggedText, errorCode: failure.code })
       throw failure
     }
     const started = this.now()
-    const connection = this.deps.resolve(info.id)
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), role: 'agent' }
     try {
       const result = await this.serial(info.id, () => this.withTimeout(connection, () => run(connection)))
       this.log(actor, info, tool, { decision, outcome: 'ok', textHash: hash, text: loggedText, rows: result.rows, durationMs: this.now() - started })
@@ -454,7 +472,7 @@ export class AgentGateway {
     const body = `${action} container ${id}`
     const hash = textHash(body)
     let decision: AuditRecord['decision']
-    try { decision = await this.approve(actor, pseudo, tool, 'action', body, []) }
+    try { decision = await this.approve(actor, pseudo, tool, 'action', body, [], 'medium') }
     catch (error) {
       const failure = this.safe(error)
       this.log(actor, undefined, tool, { decision: failure.code === 'denied' ? 'denied' : 'pending', outcome: 'skipped', textHash: hash, text: body, errorCode: failure.code })

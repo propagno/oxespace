@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'mcp_internal.tool_groups_admin', 'remote.gateway_admin', 'approvals.admin', 'app.open_external', 'thread.coordinator_admin'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'thread.coordinator_admin'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -37,7 +37,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   // ---- context ----------------------------------------------------------------
   'context.discovery': {
     label: 'Discover tools, the caller\'s execution and the project context',
-    tools: { oxespace_capabilities: 'read', oxespace_execution_context: 'read', oxespace_project_context: 'read' },
+    tools: { oxespace_capabilities: 'read', oxespace_tools_enable: 'read', oxespace_execution_context: 'read', oxespace_project_context: 'read' },
     ipc: ['oxeContext.buildPaneManifest']
   },
 
@@ -238,6 +238,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'The person\'s settings.',
     ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.shellCheck']
   },
+  'thread.sections': {
+    label: 'Sections of the conversation list (F13)',
+    forbidden: 'For 1.4, how the person organizes their own list: an agent neither reads nor rearranges it.',
+    ipc: ['thread.sections', 'thread.saveSections']
+  },
   'thread.approvals': {
     label: 'Answer a Thread\'s approvals and questions',
     forbidden: 'Approvals stay with the person.',
@@ -388,6 +393,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Open a link in the system browser or mail app',
     forbidden: 'Person-only, like an approval: the window calls it after the person confirmed the link\'s host.',
     ipc: ['app.openExternal']
+  },
+  'app.activity': {
+    label: 'The activity center\'s entries and when the person last looked at them (F30)',
+    forbidden: 'For 1.4, the person\'s own notification history: an agent neither reads it nor writes into it.',
+    ipc: ['activity.recent', 'activity.record', 'activity.seen', 'activity.resolve']
   },
   'mcp_internal.tool_groups_admin': { label: 'Choose how a project offers each group of OXESpace tools', forbidden: 'Raises what agents can reach.', ipc: ['mcpInternal.setToolGroupMode'] },
   'settings.diagnostics': {

@@ -4,6 +4,8 @@ import { ActionRefused, AgentActions, type ActionActor } from '../services/agent
 import type { ActionLevel } from '../services/agent-actions/action-audit'
 import type { AppServices } from './app-services'
 import type { InternalMcpToolDescriptor } from '../../../shared/types/mcp-internal'
+import type { MainMessage } from '../../../shared/messages'
+import { requesterFor } from '../services/approvals/requester'
 
 export type Args = Record<string, unknown>
 
@@ -18,7 +20,8 @@ export interface ActionScope {
   actor: ActionActor
 }
 
-export interface Approval { summary: string; text: string; reasons?: string[] }
+/** `summary` is for the audit trail; the person sees a C3 summary with the tool, action and target, and `notes` (B10). */
+export interface Approval { summary: string; text: string; notes?: MainMessage[] }
 
 export interface DomainAction {
   level: ActionLevel
@@ -65,7 +68,7 @@ export async function resolveScope(ctx: ToolContext): Promise<ActionScope> {
     const workspace = execution.workspaceId.startsWith('thread:') ? null : ctx.workspaceServ.get(execution.workspaceId)
     return {
       rootPath: execution.canonicalRoot, name: workspace?.name ?? basename(execution.canonicalRoot), workspaceId: execution.workspaceId, owner: execution.owner,
-      actor: { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, workspaceId: execution.workspaceId, authenticated: true }
+      actor: { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, workspaceId: execution.workspaceId, authenticated: true, requester: requesterFor(execution.owner) }
     }
   }
   const named = ctx.workspaceId && !ctx.workspaceId.startsWith('thread:') ? ctx.workspaceServ.get(ctx.workspaceId) : null
@@ -120,7 +123,7 @@ export function domainTool(name: string, summary: string, actions: Record<string
         const approval = action.level === 'confirm' && action.confirm ? await action.confirm(args, scope, ctx) : undefined
         const level = action.level === 'confirm' && approval === null ? 'write' : action.level
         const result = await (ctx.agentActions ?? fallbackActions).run(scope.actor, {
-          tool: name, action: key, level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, reasons: approval?.reasons
+          tool: name, action: key, level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, notes: approval?.notes
         }, () => action.run(args, scope, ctx))
         return reply({ schemaVersion: 1, ok: true, result })
       } catch (error) {

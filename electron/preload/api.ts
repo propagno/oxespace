@@ -96,6 +96,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       undoTurnFile: (id, turnId, path) => ipc.invoke(IPC_CHANNELS.thread.undoTurnFile, id, turnId, path) as Promise<void>,
       turnFileHunks: (id, turnId, path) => ipc.invoke(IPC_CHANNELS.thread.turnFileHunks, id, turnId, path) as Promise<import('../../shared/types/thread').ThreadFileHunk[]>,
       undoTurnHunk: (id, turnId, path, hunkId) => ipc.invoke(IPC_CHANNELS.thread.undoTurnHunk, id, turnId, path, hunkId) as Promise<void>,
+      sections: workspaceId => ipc.invoke(IPC_CHANNELS.thread.sections, workspaceId) as Promise<import('../../shared/types/thread-sections').ThreadSections>,
+      saveSections: (workspaceId, state) => ipc.invoke(IPC_CHANNELS.thread.saveSections, workspaceId, state) as Promise<import('../../shared/types/thread-sections').ThreadSectionsSaveResult>,
       permissionRules: (id) => ipc.invoke(IPC_CHANNELS.thread.permissionRules, id) as Promise<import('../../shared/types/thread').ThreadPermissionRule[]>,
       addPermissionRule: (id, rule) => ipc.invoke(IPC_CHANNELS.thread.addPermissionRule, id, rule) as Promise<import('../../shared/types/thread').ThreadPermissionRule>,
       removePermissionRule: (id, ruleId) => ipc.invoke(IPC_CHANNELS.thread.removePermissionRule, id, ruleId) as Promise<void>,
@@ -190,6 +192,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       connectivity: () => ipc.invoke(IPC_CHANNELS.app.connectivity) as Promise<import('../../shared/types/app').AppConnectivity>,
       onConnectivity: (listener) => subscribe(ipc, IPC_CHANNELS.app.onConnectivity, listener),
       about: () => ipc.invoke(IPC_CHANNELS.app.about) as Promise<import('../../shared/types/app').AppAbout>,
+      onCloseRequested: (listener) => subscribe(ipc, IPC_CHANNELS.app.closeRequested, listener),
+      answerClose: (input) => ipc.invoke(IPC_CHANNELS.app.closeAnswer, input) as Promise<void>,
       openExternal: (url: string) => ipc.invoke(IPC_CHANNELS.app.openExternal, url) as Promise<{ opened: boolean }>
     },
     rtk: {
@@ -362,6 +366,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       history: () => ipc.invoke(IPC_CHANNELS.approvals.history) as Promise<import('../../shared/types/approvals').ApprovalHistoryEntry[]>,
       onRequested: listener => subscribe<import('../../shared/types/approvals').ApprovalRequest>(ipc, IPC_CHANNELS.approvals.onRequested, listener),
       onResolved: listener => subscribe<import('../../shared/types/approvals').ApprovalResolved>(ipc, IPC_CHANNELS.approvals.onResolved, listener)
+    },
+    activity: {
+      recent: () => ipc.invoke(IPC_CHANNELS.activity.recent) as Promise<import('../../shared/types/activity').ActivityRecent>,
+      record: entries => ipc.invoke(IPC_CHANNELS.activity.record, entries) as Promise<import('../../shared/types/activity').ActivityRecordResult>,
+      seen: at => ipc.invoke(IPC_CHANNELS.activity.seen, at) as Promise<import('../../shared/types/activity').ActivitySeenResult>,
+      resolve: input => ipc.invoke(IPC_CHANNELS.activity.resolve, input) as Promise<import('../../shared/types/activity').ActivityResolveResult>
     },
     oxe: {
       detect: (force) => ipc.invoke(IPC_CHANNELS.oxe.detect, force) as Promise<import('../../shared/types/oxe').OxeDetect>,

@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 87
+export const LATEST_DB_VERSION = 89
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
@@ -518,8 +518,10 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 80) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('080_turn_usage_steps.sql'))))()
   if (startingVersion < 82) db.transaction(() => db.exec(readMigration('082_memory_notes.sql')))()
   if (startingVersion < 83) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('083_mcp_guard.sql'))))()
-  if (startingVersion < 86) db.transaction(() => { db.exec(withoutExistingColumns(db, readMigration('086_thread_parent.sql'))); backfillThreadParents(db) })()
-  if (startingVersion < 87) db.transaction(() => db.exec(readMigration('087_thread_coordinator.sql')))()
+  if (startingVersion < 85) db.transaction(() => db.exec(readMigration('085_thread_sections.sql')))()
+  if (startingVersion < 87) db.transaction(() => db.exec(readMigration('087_activity_entries.sql')))()
+  if (startingVersion < 88) db.transaction(() => { db.exec(withoutExistingColumns(db, readMigration('088_thread_parent.sql'))); backfillThreadParents(db) })()
+  if (startingVersion < 89) db.transaction(() => db.exec(readMigration('089_thread_coordinator.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

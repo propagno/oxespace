@@ -33,6 +33,9 @@
     "needsYou_one": "{{count}} precisa de você",
     "needsYou_many": "{{count}} precisam de você",
     "needsYou_other": "{{count}} precisam de você",
+    "needsDecision_one": "{{count}} precisa da sua decisão",
+    "needsDecision_many": "{{count}} precisam da sua decisão",
+    "needsDecision_other": "{{count}} precisam da sua decisão",
     "failed_one": "{{count}} falhou",
     "failed_many": "{{count}} falharam",
     "failed_other": "{{count}} falharam",
@@ -394,5 +397,43 @@
     "details": "Detalhes da versão",
     "detailsCopied": "Detalhes da versão copiados",
     "report": "Relatar um problema"
+  },
+  "closeGuard": {
+    "titleClose": "Salvar as alterações antes de fechar?",
+    "titleQuit": "Salvar as alterações antes de sair?",
+    "description_one": "{{count}} alteração ainda não foi salva. Fechar sem salvar a perde.",
+    "description_many": "{{count}} alterações ainda não foram salvas. Fechar sem salvar as perde.",
+    "description_other": "{{count}} alterações ainda não foram salvas. Fechar sem salvar as perde.",
+    "listLabel": "Alterações não salvas",
+    "cancel": "Cancelar",
+    "discardClose": "Fechar sem salvar",
+    "discardQuit": "Sair sem salvar",
+    "saveClose": "Salvar tudo e fechar",
+    "saveQuit": "Salvar tudo e sair",
+    "saveFailed_one": "{{count}} alteração não pôde ser salva, então nada foi fechado. Confira e tente de novo.",
+    "saveFailed_many": "{{count}} alterações não puderam ser salvas, então nada foi fechado. Confira e tente de novo.",
+    "saveFailed_other": "{{count}} alterações não puderam ser salvas, então nada foi fechado. Confira e tente de novo.",
+    "inEditor": "Editor do OxeCode · {{folder}}",
+    "inOxePost": "Requisição do OxePost",
+    "untitledRequest": "Requisição sem nome"
+  },
+  "links": {
+    "refused": "Este link não foi aberto",
+    "refusedHint": "Só links da web (http, https) e de e-mail (mailto) com até 2.048 caracteres, sem usuário nem senha, abrem fora do OXESpace.",
+    "notOpened": "O link não abriu",
+    "notOpenedHint": "O OXESpace não conseguiu entregá-lo ao seu navegador. Tente de novo ou copie o endereço.",
+    "hostSuffix": "({{host}})",
+    "terminalHint": "{{key}}+clique para abrir o link",
+    "confirm": {
+      "title": "Abrir este link no navegador?",
+      "newHost": "Você ainda não abriu um link para este site pelo OXESpace. Confira o endereço antes de continuar.",
+      "textDiffers": "O texto do link não corresponde ao destino. Confira o endereço antes de continuar.",
+      "host": "Site",
+      "idn": "Escrito com caracteres internacionais. O navegador acessa como {{ascii}}.",
+      "text": "Texto do link",
+      "address": "Endereço completo",
+      "open": "Abrir",
+      "cancel": "Cancelar"
+    }
   }
 }
