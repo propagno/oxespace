@@ -31,6 +31,39 @@ function harness(options: { window?: boolean; queueMax?: number } = {}) {
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1_000_000) })
 afterEach(() => { vi.useRealTimers() })
 
+describe('approval center: an agent request needs the window to say it is shown', () => {
+  it('an acknowledged agent request stays in the window: no native dialog, however long it waits', async () => {
+    const h = harness()
+    const outcome = h.center.ask(draft())
+    const [request] = h.requested()
+    expect(request.ackRequired).toBe(true)
+    h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })
+    vi.advanceTimersByTime(APPROVAL_ACK_TIMEOUT_MS * 10)
+    expect(h.native).toHaveLength(0)
+    h.center.respond({ id: request.id, generation: 1, optionId: 'allow-once' })
+    await expect(outcome).resolves.toMatchObject({ intent: 'allow', by: 'user' })
+  })
+
+  it('with no panel to acknowledge it, an agent request goes to the native dialog after 3 s', async () => {
+    const h = harness()
+    const outcome = h.center.ask(draft())
+    vi.advanceTimersByTime(APPROVAL_ACK_TIMEOUT_MS - 1)
+    expect(h.native).toHaveLength(0)
+    vi.advanceTimersByTime(1)
+    expect(h.native).toHaveLength(1)
+    expect(h.native[0].reason).toBe('no-ack')
+    h.native[0].answer('allow-once')
+    await expect(outcome).resolves.toMatchObject({ intent: 'allow', by: 'native' })
+  })
+
+  it('an MCP server request needs the ack too; only the app\'s own prompts may wait for the window', () => {
+    const h = harness()
+    void h.center.ask(draft('medium', { requester: { kind: 'mcp-server', id: 's1', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 1 }) } }))
+    void h.center.ask(draft('low', { requester: { kind: 'app', id: 'app', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 1 }) } }))
+    expect(h.requested().map(request => request.ackRequired)).toEqual([true, false])
+  })
+})
+
 describe('approval center: the window first (B10)', () => {
   it('sends the request to the window, never to the native dialog, and returns the one answer', async () => {
     const h = harness()
@@ -216,9 +249,10 @@ describe('approval center: shown, focused and hidden characters (B10 R1–R3)', 
     expect(plain.appNotes).toEqual([])
   })
 
-  it('gives a reloaded window its pending requests back; no ack timeout ends them, and the answer works after its ack', async () => {
+  it('gives a reloaded window its pending requests back; no ack timeout ends an app prompt, and the answer works after its ack', async () => {
     const h = harness()
-    const outcome = h.center.ask(draft('medium'))
+    // The app's own prompt may wait for the window; an agent's would go to the native dialog after 3 s (above).
+    const outcome = h.center.ask(draft('medium', { requester: { kind: 'app', id: 'app', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 1 }) } }))
     const [request] = h.requested()
     // The window reloads before acknowledging: nothing reaches main, and the request is not dropped.
     vi.advanceTimersByTime(APPROVAL_ACK_TIMEOUT_MS * 10)

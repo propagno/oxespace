@@ -23,6 +23,7 @@ import { IPC_CHANNELS } from '../../../../shared/types/ipc'
 export type ApprovalDraft = Omit<ApprovalRequest, 'schemaVersion' | 'id' | 'generation' | 'agentText' | 'allowDelayMs' | 'enterDisabled' | 'createdAt' | 'expiresAt' | 'ackRequired'> & {
   /** The requester's text, exactly what will run or be sent. */
   text: string
+  /** Defaults to true for an agent or an MCP server, false for the app's own prompts. */
   ackRequired?: boolean
 }
 
@@ -95,7 +96,10 @@ export class ApprovalCenter {
       .filter(option => !agentText.truncated || option.intent === 'deny')
       .filter(option => shown.risk === 'low' || option.intent !== 'allow-session')
     const request: ApprovalRequest = {
-      ...shown, schemaVersion: APPROVAL_SCHEMA_VERSION, id: randomUUID(), generation: 1, agentText, options, ackRequired: ackRequired ?? false,
+      // An agent's or a server's request must be acknowledged by the window, or it falls back to the native dialog
+      // (deny-only when critical): a missing panel is the same case as no window. Only the app's own prompts may wait.
+      ...shown, schemaVersion: APPROVAL_SCHEMA_VERSION, id: randomUUID(), generation: 1, agentText, options,
+      ackRequired: ackRequired ?? shown.requester.kind !== 'app',
       ...approvalPacing(shown.risk), createdAt: now, expiresAt: now + (this.deps.timeoutMs ?? APPROVAL_TIMEOUT_MS)
     }
     if (agentTextAdmission(agentText.length, request.risk) === 'refuse') return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.tooLong', { max: APPROVAL_AGENT_TEXT_MAX })))
