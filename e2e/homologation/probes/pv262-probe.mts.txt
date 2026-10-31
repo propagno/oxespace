@@ -1,0 +1,14 @@
+// #262 probe: which agent preview URLs open directly (local), ask a person (remote) or are refused, with addresses
+// that look local but are not, and local ones written oddly.
+import { classifyPreviewUrl } from '../../../electron/main/utils/preview-url.ts'
+const urls = [
+  'http://localhost:3000', 'http://127.0.0.1:5173', 'http://[::1]:8080', 'http://app.localhost:5173',
+  'https://example.com', 'http://192.168.0.10:3000', 'http://10.0.0.5', 'http://0.0.0.0:3000',
+  'http://127.1:3000', 'http://2130706433/', 'http://0x7f000001/', 'http://017700000001/', 'http://127.0.0.1.nip.io:3000',
+  'http://localhost.evil.example', 'http://evil.example/localhost', 'http://localhost@evil.example/', 'http://evil.example#@localhost',
+  'http://localhost%2eevil.example', 'http://[::ffff:127.0.0.1]:3000', 'http://[0:0:0:0:0:0:0:1]/', 'http://LOCALHOST.:3000',
+  'http://localhost:0', 'http://localhost:99999', 'ws://localhost:3000', 'wss://example.com', 'ftp://localhost',
+  'file:///C:/Windows/win.ini', 'mailto:a@b.com', 'data:text/html,<b>x</b>', 'javascript:alert(1)', 'about:blank', 'chrome://settings',
+  'view-source:http://localhost:3000', 'blob:http://localhost/abc', 'http://user:pass@localhost:3000', '  http://localhost:3000  ', 'localhost:3000'
+]
+for (const u of urls) { let r: unknown; try { r = classifyPreviewUrl(u) } catch (e) { r = `threw ${String(e).slice(0, 80)}` } console.log(JSON.stringify(u).padEnd(42), JSON.stringify(r).slice(0, 140)) }
