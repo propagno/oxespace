@@ -1,37 +1,41 @@
 # Maturidade do frontend · OXESpace 1.4
 
 Avaliação independente, só de leitura, do renderer (`src/`), das primitivas (`src/ui/`), dos tokens (`src/design/`) e do
-preload no que a interface consome. `electron/main` e `mobile/` ficam com outras avaliações.
+preload no que a interface consome. `electron/main` e `mobile/` ficam com outras avaliações. Quando um achado cruza a
+fronteira com o main, isso está dito, com o item do BACKEND quando o coordenador já criou um.
 
-- **SHA avaliado:** `origin/main` `bab99b505c2f0296582aff583571311567771aff` (merge do #237, 30/10/2026).
+- **SHA avaliado:** `origin/main` `bab99b505c2f0296582aff583571311567771aff` (merge do #237, 30/10/2026). Todas as
+  linhas citadas são desse SHA.
 - **Método:** leitura de código, `git` e `gh` (só leitura). Nada foi compilado nem executado: build, testes, e2e,
   Electron e benchmarks ficaram de fora por regra. O que só se prova rodando está marcado como **Não verificável aqui**,
   com o job ou o comando que provaria.
-- **Etapa:** 1 de 2 (Fases 1 e 2 e scorecard preliminar). A etapa 2 traz a análise componente a componente (Fase 3), a
-  transversal (Fase 4), o roadmap e as notas por componente.
+- **Etapas:** a etapa 1 trouxe as Fases 1 e 2 e o scorecard preliminar. Esta versão (etapa 2) acrescenta a análise
+  componente a componente (Fase 3), a transversal (Fase 4), o roadmap e o mapeamento dos achados feito pelo coordenador.
 - **Referências já lidas e não repetidas:** `docs/ARCHITECTURE.md`, `docs/roadmap-1.4/*` (F*, B*, M*, C1–C7),
   `docs/validation/redesign-audit-1.4.md` (PR #228, ainda em rascunho; lido do branch `docs/redesign-audit-1.4`),
   `wcag-2.2.md`, `offer-audit-1.4.md`, `screen-reader-1.4.md`, `mcp-coverage-1.4.md`, `docs/SECURITY_MODEL.md`.
 
 ## 1. Resumo executivo
 
-Nota geral preliminar: **2,9 de 5 (Definido)**. O frontend tem processo e catracas acima da média para um app desse
-tamanho, mas a experiência dos fluxos sensíveis e a observabilidade de falhas ainda não acompanham.
+Nota geral: **2,9 de 5 (Definido)**. O frontend tem processo e catracas acima da média para o tamanho do app, e as
+primitivas de `src/ui` são boas (nota 4). O que puxa a nota para baixo são os fluxos sensíveis, que ainda dependem de
+telas que escondem o que vai rodar, e a falta de rastro quando a interface quebra.
 
 Forças:
-1. Orçamentos de bundle e de boot verificados na CI, com folga mínima de 5% (`scripts/verify-bundle-budgets.mjs:24-31`),
+1. Orçamentos de bundle e de boot verificados na CI com folga mínima de 5% (`scripts/verify-bundle-budgets.mjs:24-31`),
    e modos inteiros carregados sob demanda (`src/components/Navigation/ModeViews.tsx:7-13`).
-2. Catracas que só descem para tamanho de arquivo, `!important`, keyframes, vazios e alertas feitos à mão
-   (`scripts/check-file-size.mjs:11`, `tests/design-lint.test.ts:72-122`).
-3. Acessibilidade verificada por axe com `wcag22aa` em toda PR, em Linux e Windows (`docs/validation/wcag-2.2.md`).
+2. Catracas que só descem (tamanho de arquivo, `!important`, keyframes, vazios e alertas feitos à mão) e axe com
+   `wcag22aa` em toda PR, em Linux e Windows (`tests/design-lint.test.ts:72-122`, `docs/validation/wcag-2.2.md`).
+3. Confirmações destrutivas bem feitas onde já usam a primitiva: o foco começa no botão seguro, e o main também barra a
+   ação (OxePod, SQL de produção com nome digitado, Settings com Ficar/Descartar/Salvar).
 
 Riscos:
-1. Aprovações de agente ainda dependem do diálogo nativo e do cartão do OxeChat que esconde o comando (Já mapeado:
-   #228 P1-0 a P1-8; Em PR #243 e #238).
-2. Um crash de React em build empacotado não deixa rastro: o ErrorBoundary só escreve no console, e o main só repassa o
-   console em dev (FE-M-01, novo).
-3. Mais da metade dos botões não usa a primitiva (516 `<button>` contra 409 `<Button>`/`<IconButton>`), então correções
-   feitas nas primitivas, como o alvo de 24 px do #246, não alcançam a maior parte da interface (FE-M-03, novo).
+1. Decisões sensíveis às cegas: aprovação de agente (Já mapeado: #228 P1-0 a P1-8, Em PR #243/#238), escrita Mongo em
+   produção com um clique (FE-M-09, **Alta**, B15) e confirmação de SQL que não mostra o comando (FE-M-12).
+2. Nenhum link externo vindo de conteúdo de agente passa por confirmação, e o texto do link esconde o destino (FE-M-02,
+   F24). Os links do terminal, pela leitura do código, nem abrem (FE-M-08).
+3. Falhas invisíveis: um crash de React no build empacotado não deixa rastro (FE-M-01), e fechar a janela com edições não
+   salvas no editor não pergunta nada (FE-M-10).
 
 ## 2. Stack detectada
 
@@ -41,14 +45,14 @@ Versões resolvidas no `package-lock.json` do SHA avaliado:
 |---|---|---|
 | React / React DOM | 19.3.1 | `use()` já é usado para catálogos lazy (`src/i18n/index.ts:46-60`) |
 | TypeScript | 5.9.3 | `strict: true`, sem `allowJs` (`tsconfig.json`) |
-| Zustand | 5.0.16 | 38 stores em `src/store/` |
+| Zustand | 5.0.16 | 38 stores em `src/store/`, `persist` só para preferências e listas de ids |
 | Vite / electron-vite | 6.4.4 / 5.0.0 | CSP de produção injetada no build (`electron.vite.config.ts:212-239`) |
 | Electron | 44.9.3 | `contextIsolation` e `sandbox` ligados (`electron/main/index.ts:761-766`) |
 | Radix | `radix-ui` 1.8.1 | proibido fora de `src/ui` por lint (`eslint.config.js`, `no-restricted-imports`) |
 | cmdk | 1.1.1 | paleta de comandos |
 | i18next / react-i18next | 26.5.11 / 17.1.9 | en e pt-BR; catálogos por chunk, namespaces lazy `oxequery`, `pods`, `post` |
-| xterm / Monaco | 5.5.0 / 0.57.0 | WebGL do xterm como addon |
-| Estilo | CSS global em camadas + 29 CSS Modules | cerca de 19 mil linhas de CSS; não há Tailwind no lockfile do SHA (o bootstrap Tailwind/shadcn do Orca não chegou à `main`) |
+| xterm / Monaco | 5.5.0 / 0.57.0 | `@xterm/addon-web-links` 0.11.0 com o handler padrão |
+| Estilo | CSS global em camadas + 29 CSS Modules | cerca de 19 mil linhas de CSS. Não há Tailwind no lockfile deste SHA: o bootstrap Tailwind/shadcn do Orca não chegou à `main` |
 | Testes | Vitest 5.0.5 (jsdom), Testing Library, Playwright 1.64.1, `@axe-core/playwright` 4.14 | 215 arquivos em `tests/`, 85 specs em `e2e/` |
 | Lint | ESLint 10, `typescript-eslint` 8, `eslint-plugin-react-hooks` 7 | regras do React Compiler só como aviso (`eslint.config.js:22-26`, "165 lugares") |
 
@@ -56,37 +60,41 @@ Versões resolvidas no `package-lock.json` do SHA avaliado:
 
 **Estrutura.** `src/App.tsx` (1118 linhas) monta o shell, o seletor de modo e quase todos os modais. Os modos são
 `code` (OxeCode), `thread` (OxeChat), `data` (OxeQuery), `pods` (OxePod) e `post` (OxePost). Os três últimos montam na
-primeira visita e ficam montados escondidos (`ModeViews.tsx:29-42`), o que preserva conexões e rascunhos entre trocas.
-Settings, a paleta, o MCP, Skills, Linear e o painel semântico são lazy (`App.tsx:25-79`).
+primeira visita e depois ficam montados, escondidos (`ModeViews.tsx:29-42`), o que preserva conexões e rascunhos entre
+trocas. Settings, a paleta, o MCP, Skills, Linear e o painel semântico são lazy (`App.tsx:25-79`).
 
 **Volume.** 227 componentes `.tsx` e 185 módulos `.ts` em `src/`, cerca de 47,7 mil linhas. As maiores telas estão
 congeladas pela catraca de 1000 linhas: `GitHubPanel.tsx` (1800), `SettingsModal.tsx` (1396), `SkillsBrowser.tsx`
 (1391) e `App.tsx` (1120) (`scripts/file-size-baseline.json`).
 
-**Design system.** Tokens em `src/design/tokens/` (`palette`, `semantic`, `scales`, `color`, `css`) geram
-`src/styles/tokens.generated.css`; `docs/design/brand.md` e `motion.md` documentam marca e movimento. As primitivas
-exportadas por `src/ui/index.ts` são: Button, IconButton, ButtonGroup, TextField, TextArea, Select, Checkbox, Switch,
-SegmentedControl, Kbd, FieldError, ConfirmDialog, Dialog, Popover, Menu, AnchoredMenu, Tooltip, Badge, StatusDot,
-Panel, Toolbar, EmptyState, ErrorState, SuccessState, OfflineState, Notice, LoadingState, Skeleton, Spinner, Separator,
-Tabs, Meter, Avatar, BrandLoader, Toast, TitleTooltips, ToolPanel, Splitter, além de `useModalSurface` e `copyText`. O
-catálogo vivo é `src/components/DesignSystem/DesignSystemPage.tsx`.
+**Design system.** Os tokens em `src/design/tokens/` (`palette`, `semantic`, `scales`, `color`, `css`) geram
+`src/styles/tokens.generated.css`. `docs/design/brand.md` e `motion.md` documentam marca e movimento. `src/ui/index.ts`
+exporta: Button, IconButton, ButtonGroup, TextField, TextArea, Select, Checkbox, Switch, SegmentedControl, Kbd,
+FieldError, ConfirmDialog, Dialog, Popover, Menu, AnchoredMenu, Tooltip, Badge, StatusDot, Panel, Toolbar, EmptyState,
+ErrorState, SuccessState, OfflineState, Notice, LoadingState, Skeleton, Spinner, Separator, Tabs, Meter, Avatar,
+BrandLoader, Toast, TitleTooltips, ToolPanel e Splitter, além de `useModalSurface` e `copyText`. O catálogo vivo é
+`src/components/DesignSystem/DesignSystemPage.tsx`.
 
 **Catracas de design** (`tests/design-lint.test.ts`): `!important` ≤ 59 (linha 74), spinners feitos à mão = 0 (94),
 três keyframes (96), classes `-empty` ≤ 2 (107), `role="alert"` fora das primitivas ≤ 11 (110), durações fixas = 0 nos
 CSS Modules (116). O aceite da F1 pede `-empty` = 0 e `role="alert"` = 0 (Já mapeado: F1).
+`tests/a11y-static.test.ts` cobre outline de foco e spinners sem rótulo, e não há nenhum `div`/`span` clicável sem papel
+nem teclado em `src/` (grep por `<(div|span|li|td|tr)[^>]*onClick=` sem `role=`/`onKeyDown`: zero).
 
 **Testes e CI.** `ci.yml` roda, em Windows e Linux: auditoria de dependências, typecheck, lint (inclui a catraca de
 tamanho), Vitest com cobertura, build com orçamentos, ensaio de upgrade, gate de cobertura do OxeQuery, e2e smoke, gate
 de performance e2e e o pacote instalado. `a11y-axe.yml` roda axe por PR; `visual-regression.yml` e
 `visual-baselines.yml` cuidam do visual por lote. A cobertura mínima é 35% de linhas e 25% de ramos, medida sobre
-`src`, `electron/main` e `shared` juntos (`vitest.config.ts:17-19`), então não há número próprio do renderer.
+`src`, `electron/main` e `shared` juntos (`vitest.config.ts:17-19`). Não há número próprio do renderer.
 
 **i18n.** O catálogo da interface vive em `src/i18n/locales/*.ts` e `shared/locales/*/*.json`. `tests/ui-copy.test.ts`
-mantém a lista `MIGRATED` (31 arquivos de `src/`) que não pode ter texto fixo; o resto está na F6 (Já mapeado: F6, #197).
+mantém a lista `MIGRATED` (31 arquivos de `src/`), que não pode ter texto fixo; o resto está na F6 (Já mapeado: F6,
+#197). Datas e números saem pelo idioma da interface, não pelo da máquina (`src/utils/formatTime.ts:4-14`).
 
 ## 4. Fase 2 · Inventário de componentes
 
-Gerado por script sobre o SHA avaliado (não à mão): cada `.tsx` de `src/` classificado pelo caminho e pelo conteúdo.
+O inventário foi gerado por script sobre o SHA avaliado, não à mão: cada `.tsx` de `src/` classificado pelo caminho e
+pelo conteúdo.
 
 - **Tipo:** Primitiva = `src/ui/`; Página/modo = `*View`, `*Page`, `*Mode` e `App.tsx`; Modal/diálogo = usa `Dialog`,
   `ConfirmDialog`, `ModalSurface`, `useModalSurface` ou `role="dialog"`; Layout = navegação, grade, painéis, sidebar,
@@ -96,10 +104,10 @@ Gerado por script sobre o SHA avaliado (não à mão): cada `.tsx` de `src/` cla
 - **A11y:** número de atributos `aria-*` e `role=` no arquivo (densidade, não qualidade).
 - **Testes:** arquivos de `tests/` e `e2e/` que citam o nome do componente.
 - **i18n:** se o arquivo traduz (`useTranslation`, `t(`, `i18n.t(`); "literais" conta textos em inglês entre tags.
-- A **nota** por componente sai na etapa 2, junto com a análise da Fase 3.
+- **Nota:** dada na Fase 3 (seção 5) aos componentes obrigatórios e à amostra.
 
 Totais: 227 componentes, sendo 12 primitivas, 8 páginas/modos, 52 modais e diálogos, 21 de layout, 70 containers e 64
-apresentacionais. 78 não são citados por nenhum teste; 61 não traduzem, e 20 deles têm texto em inglês na marcação.
+apresentacionais. 78 não são citados por nenhum teste. 61 não traduzem, e 20 deles têm texto em inglês na marcação.
 
 | Modo | Primitiva | Página/modo | Modal | Layout | Container | Apresentacional |
 |---|---:|---:|---:|---:|---:|---:|
@@ -396,47 +404,226 @@ apresentacionais. 78 não são citados por nenhum teste; 61 não traduzem, e 20 
 
 </details>
 
-## 5. Scorecard preliminar
+## 5. Fase 3 · Análise componente a componente
+
+Entram todos os modos, todas as primitivas, os modais de aprovação e de confirmação destrutiva, a paleta e os
+containers dos fluxos críticos. Entre os demais, a amostra foi escolhida pelo risco: os que abrem links, guardam dados
+ou descartam trabalho.
+
+### 5.1 Primitivas (`src/ui`)
+
+| Componente | Responsabilidade e API | Estados e UX | A11y | i18n | Testes | Nota | Justificativa |
+|---|---|---|---|---|---|---:|---|
+| `Button` / `IconButton` / `ButtonGroup` | Uma API para cinco variantes e três tamanhos; `IconButton` exige `label` (`Button.tsx:28-36`) | `loading` mostra spinner e bloqueia clique | `aria-busy`, nome obrigatório no ícone. `loading` usa `disabled`, e o botão com foco perde o foco do teclado durante a ação (FE-M-14) | sem texto próprio | `ui-primitives.test.tsx` | 4 | API pequena e segura; só o `disabled` no carregamento destoa. |
+| `Field` (TextField, TextArea, Select, Checkbox, Switch, SegmentedControl, FieldError) | Rótulo, dica e erro ligados por `useId` (`Field.tsx:15-55`) | erro com `role="alert"`, `aria-invalid` | `htmlFor`, `aria-describedby`, `role="switch"` e `radiogroup` com roving tabindex (`Field.tsx:79-107`) | sem texto próprio | `ui-primitives`, `ui-states` | 4 | Correto e completo; o alvo de 24 px do segmentado está Em PR #246 (#228 P3-2). |
+| `Dialog`, `Popover`, `Menu`, `Tooltip` (`Overlay`) | Radix por baixo, com foco de saída que se recupera se o gatilho sumiu (`Overlay.tsx:44-52`) | rodapé com ação principal por último | foco preso, Escape, rótulo do fechar traduzido; colisão com a barra de título | `ui.close` | `ui-primitives`, `ui-modal-surface` | 4 | Boa recuperação de foco, que é onde diálogos costumam falhar. |
+| `ConfirmDialog` | Pergunta, consequência obrigatória, `danger`, `busy`, `confirmDisabled` (`ConfirmDialog.tsx:6-24`) | foco começa no Cancelar; erro inline | herda o `Dialog` | rótulo padrão traduzido | sim | 4 | Exige a consequência por tipo, o que já evita confirmações vazias. Com `busy`, Cancelar fica desabilitado (FE-M-14). |
+| `CommandPalette` | cmdk dentro de um Dialog Radix, com retorno de foco cuidadoso (`CommandPalette.tsx:21-37`) | vazio por `CommandEmpty` | título e descrição só para leitor de tela | sim | `command-menu` (e2e) | 4 | Rótulos dos comandos: Já mapeado #228 P2-1 a P2-5, Em PR #242. |
+| `Display` (Badge, StatusDot, Panel, EmptyState, ErrorState, SuccessState, OfflineState, Notice, LoadingState, Skeleton, Spinner, Tabs, Meter, Avatar) | Os seis estados da F1 existem (`Display.tsx:48-153`) | `ErrorState` com retry, `OfflineState` com padrão traduzido | `Spinner` com rótulo ou decorativo | padrões por `i18n.t` | `ui-states.test.tsx` | 4 | Primitivas prontas; o que falta é migrar as telas (Já mapeado: F1). |
+| `Toast` | Fila de até 4, intenção, ação opcional (`Toast.tsx:9-27`) | 5 s para info, `danger` fica até fechar | a região viva só nasce junto com o primeiro toast (`Toast.tsx:58-61`), o que pode calar o primeiro aviso no NVDA | `ui.dismiss` | sim | 3 | Já mapeado #228 P2-7; Em PR #245, que mantém a região montada. |
+| `Splitter` | Arrastar com alternativa de teclado e de clique (`Splitter.tsx:41-63`) | — | `role="separator"` com valores e `aria-keyshortcuts` | sim | `ui-splitter.test.tsx` | 4 | Atende 2.5.7. |
+| `ToolPanel` + `useModalSurface` | Painel de altura cheia com scrim e foco preso (`ToolPanel.tsx:21-27`, `useModalSurface.ts:12-40`) | Escape e clique fora | `aria-modal`, Tab preso; a lista de focáveis não descarta elementos escondidos por CSS e o fundo não fica `inert` (FE-M-13) | rótulo do chamador | `ui-modal-surface.test.tsx` | 3 | Funciona no caso comum, mas é uma armadilha de foco feita à mão ao lado do Radix. |
+| `TitleTooltips` | Dica para `title` nativo | — | `role="tooltip"` | — | `ui-title-tooltips.test.tsx` | 4 | Pequeno e testado. |
+| `BrandLoader` | Loader da marca, parado com movimento reduzido (`BrandLoader.tsx:7-12`) | — | `role="status"` com rótulo, ou decorativo | rótulo do chamador | sim | 4 | Respeita o movimento reduzido. |
+
+### 5.2 Modos e páginas
+
+| Componente | Estados | UX | A11y | i18n | Testes | Nota | Justificativa |
+|---|---|---|---|---|---|---:|---|
+| Shell (`App.tsx`) | carregamento por Suspense; limites só na janela e no OxeChat (`App.tsx:865,935`) | avisos fixos em inglês ("Workspace has unsaved editor changes…", `App.tsx:513`) | `aria-label="Thread sidebar"` fixo (829) | fora do `MIGRATED` | e2e de shell | 2 | 1118 linhas com estado, modais e textos fixos; uma falha nas sidebars derruba a janela (FE-M-15). |
+| OxeCode (`WorkspaceSurface`, `WorkspaceSplitGrid`, `PaneContainer`, `TerminalPane`) | limites por grade, painel e terminal (`WorkspaceSurface.tsx:460,596`, `TerminalPane.tsx:409`) | o split após trocar o layout derruba a janela (Já mapeado #228 P2-5, Em PR #251) | menus de painel e alternativas ao arrastar (`wcag-2.2.md`) | `WorkspaceSurface` traduz; 14 dos 22 componentes de `Workspace/` não | 16 de 22 citados | 3 | Isolamento de falha por painel é bom; i18n e o P2-5 puxam para baixo. |
+| `TerminalView` | erro do WebGL contido | links detectados no terminal não abrem (FE-M-08) | xterm fora do axe, coberto pelo roteiro de leitor de tela | sim | sim | 3 | Terminal robusto; o handler de link padrão não combina com a política de janelas do main. |
+| `EditorPane` | árvore com carregando, erro e retry | fechar a janela com edição não salva não pergunta (FE-M-10) | Monaco com modo de leitor de tela próprio | sim | sim | 3 | Assina o store inteiro do editor (FE-M-05). |
+| OxeChat (`ThreadView`, `ThreadGrid`, `ThreadTimeline`, `ThreadComposerForm`) | timeline virtualizada (`ThreadTimeline.tsx`), anunciador (`ThreadAnnouncer.tsx`) | Enter no composer não aprova pedido (#228 P1-9) | região viva, `scroll-padding-top` (2.4.11) | 56 de 58 traduzem | 43 de 58 citados | 3 | O modo mais maduro; o cartão de aprovação é o ponto fraco. |
+| `ThreadRequestCard` (aprovações, perguntas, elicitação) | rascunho em memória sem segredos (`ThreadRequestCard.tsx:13,49-54`), envio duplo barrado por `inFlight` (62-70), erro com `humanizeError` | comando recolhido e Approve em destaque (Já mapeado #228 P1-8, Em PR #243) | `aria-label` no cartão, `legend` nas perguntas | sim; mas decide "alterações de arquivo" comparando o título em inglês vindo do main (`request.title === 'Approve file changes'`, linha 97; FE-M-11) | sim | 2 | Mecânica de envio sólida; a apresentação da decisão é a do P1-8. |
+| `ThreadMarkdown` | erro ao copiar com `ErrorState` | links abrem direto, com o destino escondido (FE-M-02) | tabelas roláveis com `role="region"` e `tabIndex` | sim | sim | 3 | Sem HTML e sem imagens remotas (só o `alt`), o que está certo; falta o destino dos links. |
+| OxeQuery (`SqlWorkbench`) | erro de consulta por código, grade em janela (`ResultGrid.tsx:28`) | produção pede o nome digitado, e o main confere (`SqlWorkbench.tsx:381-391`, `oxequery-guard.ts:56`); a confirmação lista os motivos mas não o comando (FE-M-12) | grade com teclado completo (`ResultGrid.tsx:120-145`) | motivos vindos do main em inglês (C3, F6) | 13 de 27 citados | 3 | O fluxo de produção é bom no SQL; falta mostrar o que vai rodar. |
+| OxeQuery (`MongoWorkbench`) | vazio e erro pelas primitivas | escrita em produção com um clique, sem nome digitado (FE-M-09, **Alta**) | 20 `<button>` crus (FE-M-03) | sim | parcial | 2 | Inconsistente com a política declarada para produção. |
+| OxePod (`ContainerDetail`) | ocupado durante a ação | remover diz se roda, lista volumes e que é definitivo; o main exige `confirmed` (`ContainerDetail.tsx:56,103-105`) | nome acessível com o container (`actions.removeNamed`) | sim | 3 de 7 citados | 4 | Confirmação destrutiva exemplar. |
+| OxePost (`OxePostView`, `RequestEditor`) | resposta, erro, vazio | produção com foco em Cancelar e Ctrl+Enter também confirmando (#228 P1-11); URL sem resolver na confirmação (Já mapeado #228 P1-10) | — | sim | 1 de 6 citados | 3 | Bom fluxo; poucos testes citam os componentes. |
+| Settings (`SettingsCenter`, `SettingsModal`) | sair com mudanças pergunta Ficar, Descartar ou Salvar (`SettingsCenter.tsx:48,66,135-144`) | — | — | sim | 6 de 8 citados | 4 | Um dos poucos lugares com proteção de rascunho; `SettingsModal` tem 1396 linhas. |
+| Ajuda (`ReportProblem`, `AboutDialog`, Diagnóstico) | carregando, falha com retry | o relato é editável antes de sair (`ReportProblem.tsx:47-50`), com aviso de corte | — | sim | sim | 4 | Boa prévia do que sai do app. Diagnóstico completo: Em PR #205 (F11). |
+| Pareamento do celular | — | não existe tela neste SHA | — | — | — | — | Em PR #221 (F9); avaliar quando chegar à `main`. |
+
+### 5.3 Amostra: abrir links, guardar dados, descartar trabalho
+
+| Componente | Achado | Nota |
+|---|---|---:|
+| `ChangesPanel` | Descartar todos os comentários de revisão com um clique, sem desfazer (FE-M-06, `ChangesPanel.tsx:293`) | 3 |
+| `GitHubPanel`, `PrStatusBar`, `LinearPanel` | Abrem URLs vindas da API sem confirmação (`GitHubPanel.tsx:825,978,1020,1380`; `PrStatusBar.tsx:106,116`; `LinearPanel.tsx:181`); risco menor que o do agente, mas o mesmo caminho | 3 |
+| `MarkdownPreview` | Mesmo comportamento de links do `ThreadMarkdown` para arquivos do repositório, que um agente pode ter escrito (`MarkdownPreview.tsx:22-28`) | 3 |
+| Stores com `persist` | Guardam só preferências, ids e abas, nunca o conteúdo dos arquivos (`editor.store.ts:383-387`, `command-history.store.ts:7-22`); os comentários de revisão ficam em `localStorage` (`diff-comments.store.ts:44`) | 4 |
+
+## 6. Fase 4 · Análise transversal
+
+**1 · Arquitetura e organização (3).** Os modos são chunks separados e ficam montados quando escondidos, o que é a
+escolha certa para conexões abertas. O shell concentra o estado de navegação, uns 20 modais e textos fixos num arquivo
+de 1118 linhas (`App.tsx`), e a catraca de tamanho só impede que ele cresça.
+
+**2 · Componentização e reuso (3).** As primitivas cobrem tudo o que as telas precisam, e Radix só entra por elas. Mas
+516 `<button>` e 126 `<input>`/`<select>`/`<textarea>` crus convivem com 409 `<Button>`/`<IconButton>` (FE-M-03), e o
+lint não impede o elemento cru.
+
+**3 · Design system e consistência (3).** Tokens gerados, marca e movimento documentados, três keyframes, nenhuma cor
+literal no CSS legado. Ainda há 19 mil linhas de CSS global contra 29 CSS Modules, 59 `!important`, e hex em
+`ChangesPanel.tsx` (18) e `TerminalView.tsx` (8), este último pelo tema do xterm.
+
+**4 · UX dos fluxos críticos (2).**
+- *Abrir um workspace com agentes em paralelo:* o assistente cria o workspace com uma pasta que não existe (Já mapeado
+  #228 P2-6, Em PR #244 e #239). Cada painel tem seu limite de erro, mas o split após trocar o layout derruba a janela
+  (P2-5, Em PR #251). Fechar o workspace com edição pendente é barrado com um aviso em inglês, e fechar a janela não
+  pergunta nada (FE-M-10).
+- *Aprovar um pedido de agente:* no OxeChat o comando fica recolhido e "Approve" em destaque (P1-8); fora dele, o pedido
+  vai para o diálogo nativo (P1-0 a P1-5). A mecânica de resposta é sólida (envio único, rascunho sem segredos). Em PR
+  #243 (F18) e #238 (B10).
+- *Consultar e alterar um banco no OxeQuery:* a grade aguenta 10 mil linhas, e o SQL de produção exige o nome digitado,
+  conferido no main. Mas a confirmação não mostra o comando (FE-M-12), e a escrita Mongo em produção é um clique
+  (FE-M-09, B15).
+- *Parear o celular:* não há tela neste SHA (Em PR #221).
+- *Diagnosticar um problema:* o relato tem prévia editável, mas um crash de React não aparece no diário nem no log do
+  build empacotado (FE-M-01), e o Diagnóstico completo está Em PR #205.
+
+**5 · Acessibilidade (3).** axe com `wcag22aa` por PR, alternativas a todo arrasto, foco que volta ao lugar certo,
+nenhum elemento clicável sem teclado. Abaixo de 4 por três motivos: o roteiro com leitor de tela ainda não tem
+registro com pessoa, há alvos de 22 px (Em PR #246, que não alcança os botões crus) e há uma armadilha de foco feita à
+mão (FE-M-13).
+
+**6 · Responsividade (2).** 18 `@container` contra 34 `@media … max-width`. A matriz de 960×640 a 4K é a F5, ainda em
+rascunho (#199). O #228 P3-1 mediu zero rolagem horizontal nas 29 superfícies, o que mostra que o caso comum já
+funciona.
+
+**7 · Performance e bundle (4).** Orçamentos com folga para entrada, boot, CSS e o chunk do OxeQuery, gate e2e de
+performance em duas plataformas, timeline e grade em janela, catálogos de idioma por chunk. Sobra uma assinatura do
+store inteiro no editor (FE-M-05). INP e long tasks são a F7 (Em PR #251).
+
+**8 · Estado e dados (3).** 161 assinaturas com seletor contra 6 sem; `persist` só guarda o que é seguro e pequeno;
+nenhum listener sem remoção no inventário (`addEventListener` e `removeEventListener` batem em todo arquivo).
+
+**9 · Erros e resiliência (2).** Há limites por modo, painel, terminal e workspace, `OfflineState` e `useConnectivity`
+existem, e as falhas de IPC passam por `humanizeError`. Mas as sidebars caem no limite da janela (FE-M-15), o crash não
+deixa rastro (FE-M-01) e não há guarda de saída para edição não salva (FE-M-10).
+
+**10 · Segurança no cliente (3).** Pontos fortes: CSP de produção com `script-src 'self'` e `connect-src 'self'`,
+`sandbox` e `contextIsolation`, nenhum `dangerouslySetInnerHTML`, markdown sem HTML e sem imagem remota, o main só deixa
+abrir `http`, `https` e `mailto` (`utils/external-url.ts:1-10`) e nunca abre janela nova. Fraquezas:
+- nenhum link externo vindo de conteúdo de agente passa por confirmação, e o texto pode esconder o destino (FE-M-02);
+- a CSP depende de uma troca de string sem teste (FE-M-04);
+- um agente pode carregar qualquer URL `http(s)` no preview interno pelo MCP sem confirmação
+  (`tool-handlers.ts:273-281`; lado do main, B15).
+
+**11 · i18n (3).** Infraestrutura boa (catálogos lazy, `use()` sem flash, datas e números pelo idioma da interface,
+teste de catálogo). Só 31 arquivos estão na lista `MIGRATED`, e os motivos de confirmação do OxeQuery chegam do main em
+inglês, contra o C3 (F6).
+
+**12 · Testes e qualidade (3).** 215 arquivos de unidade, 85 specs e2e, axe e visual por lote. A cobertura mínima é
+baixa e mistura renderer e main (FE-M-16), e 78 componentes não são citados por nenhum teste, entre eles
+`DelegationCreateDialog`, `DelegatedWorkDialog`, `TeamDialog`, `LinearPanel`, `UsageModal` e `SlashOverlay`.
+
+**13 · Observabilidade no cliente (2).** Há marca de interatividade no boot (`src/lib/startupTiming.ts`) e diário de
+incidentes no main, mas nada do que quebra na interface chega lá (FE-M-01).
+
+**14 · DX e build (4).** TypeScript estrito, alias `@/`, lint com catraca de tamanho, orçamentos, CI em Windows e Linux,
+mocks de IPC para e2e (`e2e/mock-ipc.ts`). As regras do React Compiler ainda só avisam.
+
+## 7. Scorecard
 
 | Dimensão | Nota | Justificativa | Evidência principal |
 |---|---:|---|---|
-| 1 · Arquitetura e organização | 3 | Modos lazy e stores por domínio; o shell ainda concentra estado e modais num arquivo de 1118 linhas. | `src/App.tsx:25-79`, `ModeViews.tsx:29-42`, `file-size-baseline.json` |
-| 2 · Componentização e reuso | 3 | Primitivas completas e Radix barrado por lint, mas 516 botões e 126 campos crus fora delas. | `src/ui/index.ts`, `eslint.config.js` (`no-restricted-imports`), FE-M-03 |
-| 3 · Design system e consistência | 3 | Tokens gerados, documentação de marca e movimento e catracas; 19 mil linhas de CSS legado com só 29 CSS Modules. | `tests/design-lint.test.ts:72-122`, `src/design/tokens/` |
-| 4 · UX dos fluxos críticos | 2 | Aprovar pedido de agente ainda engana ou esconde o texto; split pode derrubar a janela. Tudo já mapeado, com PRs abertos. | #228 P1-0 a P1-8, P2-5; #243, #251 |
-| 5 · Acessibilidade | 3 | axe `wcag22aa` por PR e roteiro de leitor de tela escrito; o roteiro com pessoa ainda não foi registrado e há alvos abaixo de 24 px. | `wcag-2.2.md`, `screen-reader-1.4.md`, #228 P3-2 |
-| 6 · Responsividade | 2 | 18 `@container` contra 34 `@media … max-width`; a matriz 960×640 a 4K é a F5, ainda em rascunho. | grep em `src/**/*.css`; #199 (rascunho) |
-| 7 · Performance e bundle | 4 | Orçamentos de entrada e de boot com folga mínima na CI, gate e2e de performance, grade do OxeQuery em janela. | `verify-bundle-budgets.mjs:24-31,72-77`, `ResultGrid.tsx:28`, `ci.yml` (gate de performance) |
-| 8 · Estado e dados | 3 | Seletores na grande maioria (161 com seletor, 6 sem); cache e deltas do OxeChat isolados. | `src/store/threadDelta.ts`, FE-M-05 |
-| 9 · Erros e resiliência | 2 | ErrorBoundary por modo, painel e terminal, e OfflineState novo; o Code e as sidebars caem no limite da janela inteira. | `ErrorBoundary.tsx`, `App.tsx:865,935`, #228 P2-5 |
-| 10 · Segurança no cliente | 3 | CSP de produção, sandbox, nenhum `dangerouslySetInnerHTML`, markdown sem HTML; links de agente escondem o destino e a CSP não tem teste. | `electron.vite.config.ts:212-239`, `ThreadMarkdown.tsx:33-35`, FE-M-02, FE-M-04 |
-| 11 · i18n | 3 | i18next com catálogos lazy e teste de catálogo; 61 componentes ainda sem tradução (F6 em andamento). | `src/i18n/index.ts`, `tests/ui-copy.test.ts:27`, F6 |
-| 12 · Testes e qualidade | 3 | Base ampla de unidade, e2e, axe e visual; cobertura mínima baixa e sem número do renderer, 78 componentes sem teste citado. | `vitest.config.ts:17-19`, inventário |
-| 13 · Observabilidade no cliente | 2 | Marca de interatividade no boot e diário de incidentes no main; crashes de React não chegam a ele. | `src/lib/startupTiming.ts`, `diagnostics.ipc.ts:154-171`, FE-M-01 |
-| 14 · DX e build | 4 | TypeScript estrito, lint com catraca de tamanho, orçamentos e CI em duas plataformas; as regras do React Compiler ainda só avisam. | `tsconfig.json`, `eslint.config.js:22-26`, `check-file-size.mjs` |
+| 1 · Arquitetura e organização | 3 | Modos lazy e stores por domínio; o shell concentra estado e modais em 1118 linhas. | `src/App.tsx:25-79`, `ModeViews.tsx:29-42`, `file-size-baseline.json` |
+| 2 · Componentização e reuso | 3 | Primitivas completas e Radix barrado; 516 botões e 126 campos crus fora delas. | `src/ui/index.ts`, `eslint.config.js`, FE-M-03 |
+| 3 · Design system e consistência | 3 | Tokens gerados, documentação e catracas; 19 mil linhas de CSS legado contra 29 CSS Modules. | `tests/design-lint.test.ts:72-122`, `src/design/tokens/` |
+| 4 · UX dos fluxos críticos | 2 | Aprovar pedidos e alterar banco em produção ainda acontece sem ver o que vai rodar. | #228 P1-0 a P1-8, P2-5; FE-M-09, FE-M-12 |
+| 5 · Acessibilidade | 3 | axe `wcag22aa` por PR e alternativas ao arrasto; leitor de tela sem registro com pessoa e alvos abaixo de 24 px. | `wcag-2.2.md`, `screen-reader-1.4.md`, #228 P3-2 |
+| 6 · Responsividade | 2 | Poucas container queries; a matriz de telas ainda é rascunho. | grep em `src/**/*.css`; #199 |
+| 7 · Performance e bundle | 4 | Orçamentos e gate de performance na CI, grade e timeline em janela. | `verify-bundle-budgets.mjs:24-31,72-77`, `ResultGrid.tsx:28` |
+| 8 · Estado e dados | 3 | Seletores quase sempre, `persist` mínimo e seguro. | `editor.store.ts:383-387`, FE-M-05 |
+| 9 · Erros e resiliência | 2 | Limites por modo e painel; sidebars sem limite, crash sem rastro, saída sem guarda. | `ErrorBoundary.tsx`, `App.tsx:829,935`, FE-M-01, FE-M-10, FE-M-15 |
+| 10 · Segurança no cliente | 3 | CSP, sandbox, markdown seguro; links de agente sem confirmação e CSP sem teste. | `electron.vite.config.ts:212-239`, `ThreadMarkdown.tsx:33-35`, FE-M-02, FE-M-04 |
+| 11 · i18n | 3 | Infraestrutura boa; 31 de 227 componentes travados contra texto fixo. | `src/i18n/index.ts`, `tests/ui-copy.test.ts:27` |
+| 12 · Testes e qualidade | 3 | Base ampla; cobertura mínima baixa e misturada, 78 componentes sem teste citado. | `vitest.config.ts:17-19`, inventário |
+| 13 · Observabilidade no cliente | 2 | Marca de boot e diário no main; a interface não manda nada para o diário. | `startupTiming.ts`, `diagnostics.ipc.ts:154-171`, FE-M-01 |
+| 14 · DX e build | 4 | Tipos estritos, catracas, orçamentos e CI em duas plataformas. | `tsconfig.json`, `eslint.config.js:22-26`, `check-file-size.mjs` |
 
 Média simples: 2,9.
 
-## 6. Achados preliminares
+## 8. Achados
 
-Achados novos da etapa 1. Os já mapeados aparecem só quando há evidência ou gravidade nova. A etapa 2 completa a
-tabela com a Fase 3.
+Só entram aqui achados novos, ou já mapeados quando trazem evidência ou gravidade nova. O mapeamento para itens do
+roadmap foi feito pelo coordenador em 30/10/2026: **F24** é o item novo de segurança e resiliência do frontend, e
+**B15** o item novo do BACKEND.
 
 | ID | Severidade | Dimensão | Componente(s) | Problema | Evidência | Impacto | Recomendação | Esforço | Já mapeado / Em PR |
 |---|---|---|---|---|---|---|---|---|---|
-| FE-M-01 | Média | Observabilidade, Erros | `ErrorBoundary`, shell | O ErrorBoundary só faz `console.error`, e o main só repassa o console do renderer em dev. Não há `window.onerror` nem `unhandledrejection`. Em build empacotado, um crash de React (como o P2-5) não chega ao log nem ao diário de incidentes, que só registra `render-process-gone`. | `src/components/common/ErrorBoundary.tsx:33-35`; `electron/main/index.ts:896-898` (`if (isDev && level >= 2)`); `diagnostics.ipc.ts:154-171` | O fluxo "diagnosticar um problema" fica cego para a falha mais comum do frontend: a pessoa vê "não foi possível mostrar", relata, e o pacote de diagnóstico não tem nada. | `componentDidCatch` e os handlers globais mandam código, componente (o `label`) e a pilha resumida ao diário (`incident.renderer.boundary`), sem o texto do erro se ele puder ter dado do usuário. Teste: um componente que lança aparece no diário. Fronteira com o BACKEND (canal do diário). | P | Novo. Toca a F11 (#205, diagnóstico) e o B8.3. |
-| FE-M-02 | Média | Segurança no cliente, UX | `ThreadMarkdown`, `MarkdownPreview` | Links no texto do agente mostram só o texto escolhido pelo agente e abrem direto no navegador, sem `title` com a URL nem confirmação. `[docs.anthropic.com](https://outro.exemplo)` parece um link para a documentação. | `src/components/Threads/ThreadMarkdown.tsx:33-35` | Conteúdo de agente é não confiável. É phishing de baixo custo dentro de um app em que a pessoa confia no que lê. | Mostrar o host real ao lado do texto quando ele difere do host do `href` e pôr a URL completa no `title`; um teste com texto e destino diferentes. | P | Novo. |
-| FE-M-03 | Média | Componentização, A11y | toda a interface, maiores ocorrências em `MongoWorkbench`, `WebPreviewPanel`, `ThreadConfigurationBar`, `TableEditor`, `PaneContainer`, `ChangesPanel` | 516 `<button>` crus contra 409 `<Button>`/`<IconButton>`, e 126 `<input>`/`<select>`/`<textarea>` crus. O lint barra Radix, mas não barra o elemento cru. Toda correção feita na primitiva (alvo de 24 px, foco, estados `loading`) deixa de fora mais da metade dos botões. | contagem por grep em `src/components` e `src/App.tsx`; `eslint.config.js` (só `radix-ui` é restrito) | O WCAG 2.5.8 depende do CSS de cada tela; o #246 corrige só as primitivas. A consistência visual fica por arquivo. | Uma catraca no `design-lint` com o número atual de `<button` e `<input` crus fora de `src/ui`, que só desce, e migração por área junto com a F1. | M | Relacionado: #228 P3-2, F4, Em PR #246 (só primitivas). |
-| FE-M-04 | Baixa | Segurança no cliente, DX | `index.html`, build | A CSP de produção entra por `html.replace('<meta charset="UTF-8" />', …)`. Se essa linha mudar, a CSP some em silêncio, e nenhum teste ou verificação de bundle confere que `out/renderer/index.html` tem a CSP. | `electron.vite.config.ts:212-239`; nenhum resultado para `Content-Security-Policy` em `tests/`, `e2e/` e `scripts/` | O `docs/SECURITY_MODEL.md:57` conta com `connect-src 'self'`; perdê-la abre o renderer, que tem a API do preload, a qualquer script injetado. | `verify-bundle-budgets.mjs` (ou um teste) falha se `out/renderer/index.html` não tiver a meta CSP com `script-src 'self'` e `connect-src 'self'`; o plugin falha o build se não achar a linha. | P | Novo. |
-| FE-M-05 | Baixa | Performance, Estado | `EditorPane`, `SettingsModal` (voz) | `useEditorStore()` sem seletor para pegar as ações: o painel com Monaco re-renderiza a cada mudança de qualquer workspace no store do editor. | `src/components/Editor/EditorPane.tsx:50-51`; `SettingsModal.tsx:683` | Re-render extra do editor enquanto outro workspace digita ou salva. O custo real é **Não verificável aqui** (`bench:ui` com dois workspaces e o editor aberto provaria). | Ler as ações com `useShallow` ou com `useEditorStore.getState()` nos handlers, como já faz `TerminalPane.tsx:34`. | P | Novo. |
-| FE-M-06 | Baixa | UX | `ChangesPanel` (comentários de revisão) | O botão X da barra descarta todos os comentários de revisão do workspace num clique, sem confirmação e sem desfazer. | `src/components/Changes/ChangesPanel.tsx:293` | Perda de trabalho de revisão escrito à mão por um clique ao lado de "Enviar". | Toast com Desfazer (a primitiva Toast já aceita ação) ou ConfirmDialog quando houver mais de um comentário. | P | Novo. |
-| FE-M-07 | Baixa | i18n | `App.tsx` (limites de erro, sidebar) | Os rótulos passados ao ErrorBoundary migrado são fixos em inglês ("the conversations", "this window") e entram na frase traduzida; `aria-label="Thread sidebar"` e as razões de "Team" também são fixas. Em pt-BR sai "Não foi possível mostrar the conversations". | `src/App.tsx:658,829,865,935` | Mensagem de erro e nome acessível misturando idiomas. | Entra na F6: `App.tsx` na lista `MIGRATED` com essas chaves. | P | Já mapeado: F6 (evidência nova). |
+| FE-M-09 | **Alta** | UX, Segurança | `MongoWorkbench`; `mongo.write` no main | Uma escrita Mongo (inserir, substituir, apagar) numa conexão de produção pede só um clique em "Confirmar". O SQL exige o nome digitado, que o main confere. `typedConfirmation` vale para toda conexão de produção, mas o caminho Mongo não o lê. Os motivos chegam como frases em inglês do main. | `shared/oxequerySafety.ts:34`; `oxequery-guard.ts:56` e `SqlWorkbench.tsx:383-390` (SQL); `service.ts:388-398` só confere `input.confirmed`; `MongoWorkbench.tsx:264-268` | Apagar ou substituir um documento de produção com um clique, contra a política declarada. | O main recusa `mongo.write` em produção com `confirm-name` sem o nome certo. O `MongoWorkbench` pede o nome como o `SqlWorkbench`, e os motivos vêm como códigos C3. Testes: unidade no main para os dois casos e e2e no mock de Mongo de produção. | P | **B15** (main) e **F24** (tela). Comunicado ao coordenador em 30/10. |
+| FE-M-02 | Média | Segurança, UX | `ThreadMarkdown`, `MarkdownPreview` | Links no texto do agente mostram só o texto escolhido pelo agente e abrem direto no navegador, sem `title` com a URL nem confirmação. `[docs.anthropic.com](https://outro.exemplo)` parece um link para a documentação. Não há confirmação em nenhum caminho: `window.open` → `setWindowOpenHandler` → `shell.openExternal`, filtrando só o protocolo. | `ThreadMarkdown.tsx:33-35`; `MarkdownPreview.tsx:22-28`; `electron/main/index.ts:858-861`; `utils/external-url.ts:1-10` | Phishing barato dentro de um app em que a pessoa confia no que lê. | Mostrar o host real ao lado do texto quando ele difere do host do `href` e pôr a URL completa no `title`. Abrir um host novo pede confirmação com o host em destaque e a opção de lembrar o domínio. Teste com texto e destino diferentes. | P | **F24**. |
+| FE-M-08 | Média | UX, Segurança | `TerminalView` | O terminal carrega `WebLinksAddon` com o handler padrão, que chama `window.open()` sem URL e só depois troca o endereço. O main nega toda janela nova e só repassa URLs `http(s)`, então, pela leitura do código, clicar num link do terminal não abre nada. Também não exige Ctrl, e um conserto ingênuo abriria qualquer URL que um agente imprimir com um clique simples. | `TerminalView.tsx:216`; handler padrão em `@xterm/addon-web-links` 0.11.0 (`window.open()` e depois `location.href`); `index.ts:858-861` | Recurso quebrado em silêncio. Quando consertado, vira o mesmo vetor do FE-M-02. | Passar um handler próprio que exige Ctrl/Cmd+clique, mostra o host e usa o mesmo caminho de confirmação do FE-M-02. Um e2e clica num link do terminal e confere a chamada de `openExternal` no mock. **Não verificável aqui** sem rodar. | P | **F24**. |
+| FE-M-12 | Média | UX | `SqlWorkbench` (confirmação) | A confirmação de destrutivo e de produção lista os motivos, mas não mostra o comando que vai rodar. Num editor com várias instruções, "rodar a atual" ou um trecho selecionado é confirmado sem ver qual instrução é. | `SqlWorkbench.tsx:381-391` (só `pending.reasons`; `pending.text` não aparece) | Decisão às cegas no fluxo humano, a mesma que o #228 P1-1 descreve para o agente. | Mostrar o texto exato em bloco monoespaçado e rolável, com a posição no editor, acima dos motivos. Teste com duas instruções e o cursor na segunda. | P | Novo. Relacionado: #228 P1-1/P1-2 (agente). |
+| FE-M-01 | Média | Observabilidade, Erros | `ErrorBoundary`, shell | O ErrorBoundary só faz `console.error`, e o main só repassa o console do renderer em dev. Não há `window.onerror` nem `unhandledrejection`. Em build empacotado, um crash de React (como o P2-5) não chega ao log nem ao diário de incidentes, que só registra `render-process-gone`. | `ErrorBoundary.tsx:33-35`; `electron/main/index.ts:896-898` (`if (isDev && level >= 2)`); `diagnostics.ipc.ts:154-171` | O fluxo "diagnosticar um problema" fica cego para a falha mais comum do frontend. | `componentDidCatch` e os handlers globais mandam código, componente e pilha resumida ao diário (`incident.renderer.boundary`), sem o texto do erro quando ele puder ter dado do usuário. Teste: um componente que lança aparece no diário. | P | **F24**. Fronteira com B8.3 e F11 (#205). |
+| FE-M-10 | Média | Erros, UX | `EditorPane`, shell | Fechar a janela ou sair do app com edição não salva no editor não pergunta nada. Fechar o workspace é barrado (com aviso em inglês), mas não há `beforeunload` no renderer nem consulta do main antes de fechar. | `App.tsx:512-515` (só o workspace); nenhum `beforeunload` em `src/`; `electron/main/index.ts:490-505` (`before-quit` sem consultar a janela); `editor.store.ts:380-381` (`hasDirtyEditor` existe) | Perda silenciosa de trabalho. | Antes de fechar, o main pergunta à janela; com edição pendente, o app mostra Salvar tudo, Descartar ou Cancelar (como Settings). Teste e2e com um arquivo sujo. | M | Novo. Sugerido para **F24**. |
+| FE-M-03 | Média | Componentização, A11y | toda a interface; mais em `MongoWorkbench` (20), `WebPreviewPanel` (15), `ThreadConfigurationBar` (14), `TableEditor` (14), `PaneContainer` (13), `ChangesPanel` (13) | 516 `<button>` crus contra 409 `<Button>`/`<IconButton>`, e 126 campos crus. O lint barra Radix, mas não o elemento cru. Correções feitas na primitiva (alvo de 24 px, foco, `loading`) deixam de fora mais da metade dos botões. | grep em `src/components` e `src/App.tsx`; `eslint.config.js` | O 2.5.8 depende do CSS de cada tela; o #246 corrige só as primitivas. | Catraca no `design-lint` com o número atual de `<button` e `<input` crus fora de `src/ui`, que só desce; migração por área junto com a F1. | M | **F22** (catraca de `<button>` cru). Relacionado: #228 P3-2, Em PR #246. |
+| FE-M-04 | Baixa | Segurança, DX | `index.html`, build | A CSP entra por `html.replace('<meta charset="UTF-8" />', …)`. Se essa linha mudar, a CSP some em silêncio, e nenhum teste confere que `out/renderer/index.html` a tem. | `electron.vite.config.ts:212-239`; nenhum resultado para `Content-Security-Policy` em `tests/`, `e2e/`, `scripts/` | O `SECURITY_MODEL.md:57` conta com `connect-src 'self'`. | `verify-bundle-budgets.mjs` falha sem a meta CSP com `script-src 'self'` e `connect-src 'self'`; o plugin falha o build se não achar a linha. | P | **F24**. |
+| FE-M-11 | Baixa | i18n, Arquitetura | `ThreadRequestCard` | O cartão decide se o pedido é de alterações de arquivo comparando o título em inglês vindo do main (`request.title === 'Approve file changes'`). Quando o título virar código C3, a prévia de arquivos some sem erro. | `ThreadRequestCard.tsx:97` | Regressão silenciosa no cartão de aprovação. | Um campo tipado no pedido (`approvalKind: 'fileChanges'`) e o título só para exibição. Teste de contrato. | P | Relacionado: F18 (Em PR #243), C3. |
+| FE-M-05 | Baixa | Performance, Estado | `EditorPane`, `SettingsModal` (voz) | `useEditorStore()` sem seletor para pegar as ações: o painel com Monaco re-renderiza a cada mudança de qualquer workspace no store. | `EditorPane.tsx:50-51`; `SettingsModal.tsx:683` | Re-render extra; o custo real é **Não verificável aqui** (`bench:ui` com dois workspaces). | Ações por `useShallow` ou `getState()` nos handlers, como em `TerminalPane.tsx:34`. | P | **F7**. |
+| FE-M-06 | Baixa | UX | `ChangesPanel` | O X da barra descarta todos os comentários de revisão do workspace num clique, sem confirmação e sem desfazer. | `ChangesPanel.tsx:293` | Perda de revisão escrita à mão, ao lado de "Enviar". | Toast com Desfazer (a primitiva aceita ação) ou ConfirmDialog com mais de um comentário. | P | **F24**. |
+| FE-M-13 | Baixa | A11y | `useModalSurface` (MCP, Skills, Scripts, Linear, Semantic, Web Preview) | A armadilha de foco feita à mão descarta só `[hidden]` e `[inert]`; elementos escondidos por CSS entram na lista e o Tab pode cair num controle invisível. O fundo não fica `inert`. | `useModalSurface.ts:3,22-28`; `ToolPanel.tsx:23` | Foco perdido em painéis com seções recolhidas; o leitor de tela pode sair do painel pelo cursor virtual. **Não verificável aqui** (roteiro NVDA/Orca). | Trocar pelo `ModalSurface` (Radix) ou filtrar por `checkVisibility()` e marcar o resto da janela com `inert`. | P | Novo. Relacionado: F4. |
+| FE-M-14 | Baixa | A11y | `Button`, `ConfirmDialog` | `loading` vira `disabled`: o botão com foco perde o foco do teclado enquanto a ação roda, e no `ConfirmDialog` com `busy` até o Cancelar fica desabilitado. | `Button.tsx:22-23`; `ConfirmDialog.tsx:29-30` | Quem usa teclado ou leitor de tela perde a posição no meio da ação. | `aria-disabled` com clique ignorado durante `loading`, mantendo o foco. | P | Novo. Relacionado: F4. |
+| FE-M-15 | Baixa | Erros | `Sidebar`, `ThreadSidebar`, `DataSidebar` | As sidebars não têm limite de erro próprio; uma falha nelas cai no limite da janela inteira. | `App.tsx:829-835` (sidebars) contra `App.tsx:935` (janela) e `ModeViews.tsx:39` (só a área de trabalho) | Uma lista quebrada derruba o app inteiro, como no P2-5. | Um `ErrorBoundary compact` em cada sidebar. | P | Relacionado: #228 P2-5 (Em PR #251). |
+| FE-M-16 | Baixa | Testes | cobertura | O mínimo de cobertura (35% de linhas, 25% de ramos) mede renderer, main e `shared` juntos; não há número nem piso do renderer. | `vitest.config.ts:14-19` | A cobertura da interface pode cair sem quebrar a CI. **Não verificável aqui** (o número atual sai de `npm run test:coverage`). | Piso por pasta (`thresholds['src/**']`) com o valor atual, como catraca. | P | Novo. |
+| FE-M-07 | Baixa | i18n | `App.tsx` | Rótulos passados ao ErrorBoundary migrado ("the conversations", "this window"), `aria-label="Thread sidebar"`, as razões de "Team" e o aviso de workspace são fixos em inglês. Em pt-BR sai "Não foi possível mostrar the conversations". | `App.tsx:513,658,829,865,935` | Erro e nome acessível misturando idiomas. | `App.tsx` na lista `MIGRATED` com essas chaves. | P | **F6** / #197 (evidência nova). |
 
-## 7. Lacunas da etapa 1
+## 9. Padrões positivos a preservar
 
-- Contraste real, foco visível e ordem de leitura: **Não verificável aqui**; `a11y-axe.yml` e o roteiro
-  `screen-reader-1.4.md` com pessoa provariam.
-- Custo de re-render e INP: **Não verificável aqui**; `npm run bench:ui` e o gate de performance e2e da `ci.yml`.
-- Cobertura do renderer separada do main: **Não verificável aqui**; `npm run test:coverage` com `include: ['src/**']`.
-- Número de avisos das regras do React Compiler hoje: **Não verificável aqui**; `npm run lint` (o comentário do
-  `eslint.config.js` diz 165 na entrada).
+- **Confirmação com consequência obrigatória.** `ConfirmDialog` exige `description` por tipo e põe o foco no botão
+  seguro (`ConfirmDialog.tsx:9-10,29`). O OxePod mostra volumes e que a remoção é definitiva, e o main exige
+  `confirmed` (`ContainerDetail.tsx:56,103-105`).
+- **Defesa nas duas pontas.** O SQL de produção pede o nome na tela e o main confere de novo (`oxequery-guard.ts:56`).
+  É o modelo que o FE-M-09 pede para o Mongo.
+- **Rascunhos sem segredos.** O cartão de pedido guarda as respostas em memória, nunca as marcadas como secretas, com
+  limite de 100 (`ThreadRequestCard.tsx:13,49-54`); o editor não persiste conteúdo (`editor.store.ts:383-387`).
+- **Recuperação de foco.** `Dialog` e a paleta devolvem o foco ao gatilho, ou ao campo principal da tela se ele sumiu
+  (`Overlay.tsx:44-52`, `CommandPalette.tsx:21-37`).
+- **Modos montados e escondidos.** Conexões, abas e rascunhos sobrevivem à troca de modo (`ModeViews.tsx:29-42`).
+- **Catracas que só descem** para tamanho de arquivo, `!important`, keyframes, estados feitos à mão e orçamentos.
+- **Markdown seguro por padrão.** Sem HTML, sem imagem remota e só `http(s)` em links (`ThreadMarkdown.tsx:28-37`).
+- **Datas e números pelo idioma da interface** (`formatTime.ts:4-14`) e catálogos sem flash com `use()`.
+- **Prévia editável do relato** antes de sair do app (`ReportProblem.tsx:47-50`).
+
+## 10. Roadmap
+
+**Quick wins (até 2 semanas), mira: nível 3 em todas as dimensões, cabe na 1.4.**
+- FE-M-09 (B15 + F24): nome digitado para escrita Mongo em produção, nos dois lados.
+- FE-M-12: o comando exato na confirmação do SQL.
+- FE-M-02 e FE-M-08 (F24): host visível, confirmação para host novo e handler próprio no terminal.
+- FE-M-01 (F24): crashes de React no diário de incidentes.
+- FE-M-04 (F24): verificação da CSP no `verify:bundle`.
+- FE-M-06, FE-M-14, FE-M-15, FE-M-11: um PR pequeno cada.
+- Fechar os PRs já abertos que tiram a nota 2 dos fluxos críticos: #243/#238 (aprovações), #251 (P2-5), #244/#239
+  (pasta inexistente), #245 (toasts), #246 (alvos).
+
+**Curto prazo (1 a 2 meses), mira: 3 → 4 em A11y, Erros, Observabilidade e Testes.**
+- FE-M-10: guarda de saída para edição não salva, com o main consultando a janela.
+- FE-M-03 (F22): catraca de botões e campos crus e migração por área junto com a F1.
+- FE-M-13: uma só armadilha de foco (Radix) para os ToolPanels.
+- FE-M-16: piso de cobertura do renderer como catraca.
+- F6 completa (`MIGRATED` cobrindo `src/**`) e registro do roteiro NVDA/Orca com pessoa (F4).
+
+**Estrutural (trimestre), mira: 4 em Arquitetura, Design system e Responsividade.**
+- Quebrar `App.tsx` em shell, roteador de modo e host de modais, abaixo de 1000 linhas, e fazer o mesmo com
+  `SettingsModal`, `GitHubPanel` e `SkillsBrowser`.
+- Migrar o CSS global para CSS Modules por área, com catraca de linhas de CSS legado.
+- F5 com a matriz de telas como gate de lote, e container queries nos painéis.
+- Regras do React Compiler como erro, área por área.
+
+## 11. Lacunas: o que ficou "Não verificável aqui"
+
+| Item | Como verificar |
+|---|---|
+| Links do terminal não abrem (FE-M-08) | e2e que imprime uma URL no terminal mock, clica com e sem Ctrl e confere `openExternal` |
+| Contraste real, foco visível, ordem de leitura | `a11y-axe.yml` e o roteiro `screen-reader-1.4.md` com pessoa (NVDA e Orca) |
+| Armadilha de foco nos ToolPanels (FE-M-13) | roteiro NVDA/Orca no painel MCP com uma seção recolhida |
+| Custo de re-render do editor (FE-M-05) e INP | `npm run bench:ui` com dois workspaces e o editor aberto; F7 com `OXESPACE_PERF_GATE=1` |
+| Cobertura do renderer separada do main (FE-M-16) | `npm run test:coverage` com `include: ['src/**']` |
+| Avisos das regras do React Compiler hoje | `npm run lint` (o `eslint.config.js` diz 165 na entrada) |
+| Que crashes de React somem no build empacotado (FE-M-01) | e2e do pacote (`ci.yml`, "E2E packaged …") forçando um erro de render e lendo o diário |
+| Perda de edição ao fechar a janela (FE-M-10) | e2e com um arquivo sujo e `app.close()` |
+| Pareamento do celular | avaliar quando o #221 chegar à `main` |
