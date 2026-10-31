@@ -1,4 +1,4 @@
-import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from './workspace'
+import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace, WorkspaceCreateRefusal } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
 import type {
   CreateTaskInput,
@@ -428,7 +428,8 @@ export const IPC_CHANNELS = {
 export interface WorkspaceApi {
   list(): Promise<Workspace[]>
   onChanged(listener: (workspace: Workspace) => void): () => void
-  create(input: CreateWorkspaceInput): Promise<Workspace>
+  /** The workspace, or the refusal of a root that is not an existing folder (nothing was written then). */
+  create(input: CreateWorkspaceInput): Promise<Workspace | WorkspaceCreateRefusal>
   setActive(id: string): Promise<Workspace>
   delete(id: string): Promise<void>
   closePane(id: string): Promise<Workspace | null>
