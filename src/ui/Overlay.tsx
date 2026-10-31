@@ -140,6 +140,9 @@ export interface MenuProps {
   label?: string
   testId?: string
   side?: 'top' | 'right' | 'bottom' | 'left'
+  /** Controlled open state, for opening the same menu from elsewhere (a row's context menu). */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -148,8 +151,8 @@ export interface MenuProps {
  * (axe aria-hidden-focus). Focus still moves into the menu and returns to the trigger.
  * A click outside, Escape or a choice closes it; focus moved by the app (a terminal starting) does not.
  */
-export function Menu({ trigger, items, align = 'start', label, testId, side }: MenuProps): ReactElement {
-  return <RadixMenu.Root modal={false}>
+export function Menu({ trigger, items, align = 'start', label, testId, side, open, onOpenChange }: MenuProps): ReactElement {
+  return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}
