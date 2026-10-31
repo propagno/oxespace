@@ -77,6 +77,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'oxequery.mongo.confirm': [],
   'oxequery.mongo.production': [],
   'oxequery.mongo.deletes': [],
+  'oxequery.sql.ambiguousEscape': [],
   'oxepod.startFailed': ['reason'],
   'oxepost.network.notFound': [],
   'oxepost.network.refused': [],

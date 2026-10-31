@@ -358,6 +358,7 @@
       "table": "Table"
     },
     "copiedDocuments": "documents",
+    "copiedDocumentsDone": "Documents copied",
     "copyJson": "Copy JSON",
     "newDocument": "New document",
     "changeMany": "Change many…",
@@ -558,6 +559,8 @@
     "statementTitle": "Statement {{number}}",
     "copiedText": "text",
     "copiedResults": "results",
+    "copiedTextDone": "Text copied",
+    "copiedResultsDone": "Results copied",
     "explain": "Explain",
     "analyze": "Analyze",
     "format": "Format",
@@ -672,6 +675,7 @@
     "title": "Query failed",
     "copy": "Copy error",
     "copied": "error message",
+    "copiedDone": "Error message copied",
     "technical": "Technical detail",
     "position": "position {{position}}",
     "hint": "Hint: {{hint}}",
@@ -1139,6 +1143,7 @@
     "failed": "The definition could not be read",
     "loading": "Reading the catalog…",
     "copied": "definition",
+    "copiedDone": "Definition copied",
     "openInTab": "Open in a new tab"
   },
   "columns": {

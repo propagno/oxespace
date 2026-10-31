@@ -102,6 +102,8 @@ export interface MessageParams {
   'oxequery.mongo.production': Record<string, never>
   /** Mongo write reason: the document will be deleted. */
   'oxequery.mongo.deletes': Record<string, never>
+  /** SQL risk: a backslash in an ordinary string can end it early on a legacy server, so more runs than the text shows. */
+  'oxequery.sql.ambiguousEscape': Record<string, never>
   'oxepod.startFailed': { reason: string }
   'oxepost.network.notFound': Record<string, never>
   'oxepost.network.refused': Record<string, never>
@@ -286,6 +288,7 @@ export const MESSAGE_CODES = [
   'oxequery.mongo.confirm',
   'oxequery.mongo.production',
   'oxequery.mongo.deletes',
+  'oxequery.sql.ambiguousEscape',
   'oxepod.startFailed',
   'oxepost.network.notFound',
   'oxepost.network.refused',

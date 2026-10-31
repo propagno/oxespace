@@ -37,8 +37,8 @@ type View = 'documents' | 'tree' | 'table'
 type Target = { database: string; collection: string }
 type CollectionDialogState = { kind: 'create'; database: string } | { kind: 'rename'; database: string; collection: string } | { kind: 'drop'; database: string; collection: string }
 
-function copy(text: string, what = tq('workbench.copiedText')): void {
-  void copyText(text, what)
+function copy(text: string, what = tq('workbench.copiedText'), done = tq('workbench.copiedTextDone')): void {
+  void copyText(text, what, done)
 }
 
 /** The toolbar above the query fields, which their height does not include. */
@@ -252,7 +252,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             <div role="radiogroup" aria-label={t('mongo.resultView')} className="oq-segment">
               {(['documents', 'tree', 'table'] as const).map(name => <button key={name} type="button" role="radio" aria-checked={view === name} data-selected={view === name} onClick={() => setView(name)}>{t(`mongo.view.${name}`)}</button>)}
             </div>
-            {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`, t('mongo.copiedDocuments'))}>{t('mongo.copyJson')}</button>}
+            {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`, t('mongo.copiedDocuments'), t('mongo.copiedDocumentsDone'))}>{t('mongo.copyJson')}</button>}
             <ExportButton connection={connection} label={t('export.collection')} source={{ kind: 'collection', ...target, ...(mode === 'find' && filter.trim() && filter.trim() !== '{}' && !problems.filter ? { filter } : {}) }} />
             <ImportButton connection={connection} target={{ kind: 'collection', ...target }} onImported={() => void run(0)} />
             {!connection.readOnly && <button type="button" onClick={() => { setWriteError(''); setConfirm(null); setEditing({ original: null, text: '{\n  \n}', mode: 'edit' }) }}><Plus size={13} aria-hidden="true" />{t('mongo.newDocument')}</button>}
