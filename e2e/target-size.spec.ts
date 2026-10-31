@@ -107,6 +107,28 @@ async function check(page: Page, surface: string, root: Locator): Promise<void> 
   expect(report[surface].overflow, `${surface}: choice rows past their edge`).toEqual([])
 }
 
+/**
+ * The F22 leftovers the homologation measured (F31): the Favorite checkbox of a new connection, the Settings scope rows
+ * and the workspace name in the Code sidebar (a button of its own, 168×20 before). Each is measured on its own, so a
+ * wider surface check cannot hide it. The Favorite box stays 16 px (Chromium draws a native box at its own size and
+ * ignores padding); its label, which toggles it, is the target.
+ */
+async function expectTarget(name: string, control: Locator): Promise<void> {
+  await expect(control, name).toBeVisible()
+  const size = await control.evaluate(node => {
+    let rect = node.getBoundingClientRect()
+    const label = node instanceof HTMLInputElement ? node.closest('label') : null
+    if (label) {
+      const outer = label.getBoundingClientRect()
+      const left = Math.min(rect.left, outer.left), top = Math.min(rect.top, outer.top)
+      rect = new DOMRect(left, top, Math.max(rect.right, outer.right) - left, Math.max(rect.bottom, outer.bottom) - top)
+    }
+    return { width: rect.width, height: rect.height }
+  })
+  expect(size.width, `${name}: width`).toBeGreaterThanOrEqual(MIN - 0.01)
+  expect(size.height, `${name}: height`).toBeGreaterThanOrEqual(MIN - 0.01)
+}
+
 const settingsDialog = (page: Page) => page.getByRole('dialog', { name: 'Settings', exact: true })
 
 async function openSettings(page: Page, category: 'Appearance' | 'Updates'): Promise<Locator> {
@@ -135,9 +157,12 @@ test('audited surfaces have targets of at least 24×24 px in both densities', as
       const tag = density.toLowerCase()
       await setDensity(page, density)
       await check(page, `${tag}-settings-appearance`, settingsDialog(page))
+      for (const row of await settingsDialog(page).getByRole('group', { name: 'Settings scope' }).getByRole('button').all()) await expectTarget(`${tag} Settings scope row "${await row.textContent()}"`, row)
       await check(page, `${tag}-settings-updates`, await openSettings(page, 'Updates'))
       await page.keyboard.press('Escape')
       await expect(settingsDialog(page)).toHaveCount(0)
+
+      await expectTarget(`${tag} workspace name in the Code sidebar`, page.locator('.sidebar-workspace-tree .ws-group-name').first())
 
       await openView(page, 'OxePod')
       const pod = page.getByRole('complementary', { name: /OxePod/ })
@@ -149,6 +174,7 @@ test('audited surfaces have targets of at least 24×24 px in both densities', as
       const form = page.getByRole('dialog', { name: 'New connection' })
       await expect(form.getByRole('radiogroup', { name: 'Environment' })).toBeVisible()
       await check(page, `${tag}-oxequery-new-connection`, form)
+      await expectTarget(`${tag} Favorite`, form.getByRole('checkbox', { name: 'Favorite' }))
       await page.keyboard.press('Escape')
       await expect(form).toHaveCount(0)
       await openView(page, 'Code')

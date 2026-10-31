@@ -308,7 +308,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.25;
+  /* One line as tall as the minimum target (WCAG 2.5.8), so the name stays centred in a 24 px button. */
+  line-height: var(--target-min);
+  min-block-size: var(--target-min);
   min-width: 0;
   transition: color var(--transition-base);
   /* A real button so the keyboard reaches the row; it must look like the text it replaced. */
