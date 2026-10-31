@@ -63,6 +63,10 @@
         "label": "Política",
         "hint": "O que os agentes estão proibidos de usar"
       },
+      "devices": {
+        "label": "Dispositivos",
+        "hint": "Celulares pareados com este computador"
+      },
       "diagnostics": {
         "label": "Diagnóstico",
         "hint": "Saúde do aplicativo e solução de problemas"
@@ -571,5 +575,127 @@
     "off": "Desligar",
     "resetAll": "Restaurar todos os atalhos",
     "fixed": "Sempre ativo"
+  },
+  "devices": {
+    "title": "Dispositivos",
+    "intro": "Use o OXESpace pelo seu celular Android na mesma rede: acompanhe conversas, responda pedidos e veja terminais. O celular fala só com este computador, pela sua rede local, nunca pela internet.",
+    "loadFailed": "Não foi possível ler a conexão com o celular.",
+    "unavailable": "A conexão com o celular não está disponível nesta versão.",
+    "gateway": {
+      "title": "Conexão com o celular",
+      "label": "Permitir que celulares desta rede se conectem",
+      "hint": "Desligada por padrão. Ligada, o OXESpace escuta só em endereços de rede privada, por uma conexão criptografada que só celulares pareados podem usar.",
+      "listening": "Escutando em {{addresses}}, porta {{port}}",
+      "off": "Desligada. Nenhuma porta aberta.",
+      "failed": "Não foi possível mudar a conexão com o celular: {{error}}"
+    },
+    "firewall": {
+      "title": "Antes de os celulares se conectarem",
+      "windowsAsk": "O Windows vai perguntar se o OXESpace pode aceitar conexões. Permita em redes privadas, como o Wi-Fi de casa ou do escritório.",
+      "windowsPublic": "Redes públicas podem ficar desmarcadas: o celular e este computador conversam só pela sua rede local.",
+      "otherAsk": "O sistema pode perguntar se o OXESpace pode aceitar conexões de entrada. Permita para que celulares da sua rede alcancem este computador.",
+      "internet": "Nada fica exposto à internet. O OXESpace escuta só em endereços de rede privada, e só celulares que você parear aqui podem usar a conexão.",
+      "later": "Se você recusar, os celulares não alcançam este computador. Dá para mudar a resposta depois nas configurações de firewall do sistema.",
+      "confirm": "Ligar"
+    },
+    "name": {
+      "title": "Nome deste computador",
+      "label": "Nome que os celulares veem",
+      "hint": "Aparece no celular quando ele se conecta. O nome de rede do seu computador nunca é enviado.",
+      "save": "Salvar nome",
+      "reset": "Usar \"{{name}}\"",
+      "saved": "Os celulares vão ver \"{{name}}\"",
+      "tooLong": "Use no máximo {{max}} caracteres.",
+      "empty": "Digite um nome ou use o padrão.",
+      "failed": "Não foi possível salvar o nome: {{error}}"
+    },
+    "pairing": {
+      "title": "Parear um celular",
+      "hint": "Abra o OXESpace no celular e escaneie o código. Cada código vale uma vez e dura dois minutos.",
+      "start": "Mostrar código de pareamento",
+      "needsGateway": "Ligue primeiro a conexão com o celular.",
+      "full": "Você chegou a {{max}} celulares. Remova um para parear outro.",
+      "qrLabel": "QR code de pareamento. Aponte a câmera do celular para o código.",
+      "fingerprint": "Impressão digital do certificado",
+      "fingerprintHint": "O celular confere isto antes de confiar na conexão.",
+      "expiresIn": "Expira em {{time}}",
+      "expired": "Este código expirou.",
+      "newCode": "Mostrar um novo código",
+      "cancel": "Cancelar",
+      "failed": "Não foi possível mostrar um código de pareamento: {{error}}",
+      "unreadable": "Não foi possível ler o código de pareamento. Mostre um novo código.",
+      "prompt": {
+        "title": "Parear {{device}}?",
+        "description": "Pareie só se o celular mostrar o mesmo código.",
+        "codeLabel": "Código de verificação no celular",
+        "accept": "Parear",
+        "refuse": "Recusar",
+        "paired": "{{device}} pareado",
+        "failed": "Não foi possível responder: {{error}}"
+      }
+    },
+    "list": {
+      "title": "Celulares pareados",
+      "count": "{{count}} de {{max}}",
+      "empty": "Nenhum celular pareado ainda",
+      "emptyHint": "Pareie um celular acima para vê-lo aqui.",
+      "connected": "Conectado",
+      "disconnected": "Desconectado",
+      "paired": "Pareado em {{date}}",
+      "lastSeen": "Visto por último em {{date}}",
+      "neverSeen": "Nunca se conectou",
+      "rename": "Renomear {{name}}",
+      "renameTitle": "Renomear celular",
+      "renameLabel": "Nome do celular",
+      "renameSave": "Salvar",
+      "remove": "Remover",
+      "removeLabel": "Remover {{name}}",
+      "removeTitle": "Remover {{name}}?",
+      "removeDescription": "O celular é desconectado na hora e não consegue mais se conectar. Para usá-lo de novo, pareie outra vez.",
+      "removed": "{{name}} removido",
+      "failed": "Não foi possível mudar o celular: {{error}}"
+    },
+    "typing": {
+      "title": "Digitação nos terminais",
+      "none": "Os celulares não podem digitar em nenhum terminal. Para permitir em um terminal, abra o menu ⋯ dele e escolha \"Permitir digitar pelo celular\". Desliga de novo quando o OXESpace reinicia.",
+      "some": "Terminais em que um celular pode digitar: {{count}}. Desliga de novo quando o OXESpace reinicia.",
+      "stopAll": "Parar a digitação pelo celular em todos",
+      "failed": "Não foi possível parar a digitação pelo celular: {{error}}"
+    },
+    "scope": {
+      "title": "O que um celular pode fazer",
+      "can": "Pelo celular",
+      "cannot": "Só neste computador",
+      "deskOnly": "Pedidos que só este computador pode responder (ações protegidas, permissões e perguntas secretas) ficam aqui.",
+      "subscriptions": {
+        "workspaces": "Ver workspaces e painéis",
+        "threads": "Ver conversas",
+        "thread": "Acompanhar uma conversa enquanto acontece",
+        "pendingRequests": "Ver pedidos esperando por você",
+        "terminal": "Ver a saída dos terminais (só leitura)",
+        "jobs": "Ver tarefas em segundo plano",
+        "delegations": "Ver delegações"
+      },
+      "commands": {
+        "threadSend": "Enviar uma mensagem a uma conversa",
+        "threadSteer": "Direcionar um turno em andamento",
+        "threadInterrupt": "Parar um turno em andamento",
+        "threadRespondRequest": "Aceitar ou recusar um pedido de conversa, depois de confirmar no celular com digital ou rosto",
+        "terminalWrite": "Digitar em um terminal que você permitiu aqui",
+        "threadHistory": "Ler mensagens mais antigas"
+      },
+      "forbidden": {
+        "oxequeryApprove": "Aprovar mudanças do OxeQuery",
+        "mcpConfirm": "Confirmar chamadas de ferramentas MCP que pedem confirmação",
+        "mcpTrust": "Confiar em um servidor MCP",
+        "accountsSignIn": "Entrar em uma conta",
+        "accountsToken": "Ler ou mudar tokens de acesso",
+        "secretsRead": "Ler segredos",
+        "secretsWrite": "Mudar segredos",
+        "policyEdit": "Mudar a política",
+        "threadAccess": "Mudar o que uma conversa pode acessar",
+        "hostExec": "Executar comandos neste computador"
+      }
+    }
   }
 }

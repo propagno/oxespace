@@ -98,11 +98,4 @@ export function reportRendererError(input: RendererErrorInput): void {
 /** Forgets what was sent, for tests. */
 export function resetRendererErrorReports(): void { recent.clear() }
 
-let installed = false
-/** Errors nothing caught, and promises nobody handled. Installed once at boot. */
-export function installRendererErrorReporting(): void {
-  if (installed || typeof window === 'undefined') return
-  installed = true
-  window.addEventListener('error', event => reportRendererError(rendererErrorReport('uncaught', event.error ?? { name: 'Error' })))
-  window.addEventListener('unhandledrejection', event => reportRendererError(rendererErrorReport('unhandledRejection', event.reason)))
-}
+export { installRendererErrorReporting } from './rendererErrorsBoot'

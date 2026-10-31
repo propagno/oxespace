@@ -95,6 +95,15 @@
         "hooks": "\"{{path}}\" guarda hooks de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
         "warning": "Um texto que o agente leu (uma página, uma issue, um arquivo) pode estar dirigindo esta alteração. Confira se foi você quem pediu.",
         "rewritesTracked": "{{command}} reescreve arquivos versionados sem nomeá-los, e instruções de agente, configurações MCP ou hooks podem estar entre eles, então precisa da sua confirmação a cada vez."
+      },
+      "sections": {
+        "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
+        "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",
+        "nameEmpty": "Dê um nome à seção.",
+        "nameTooLong": "O nome de uma seção tem no máximo {{max}} caracteres.",
+        "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
+        "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
+        "unknownWorkspace": "Este workspace não existe mais."
       }
     },
     "app": {
