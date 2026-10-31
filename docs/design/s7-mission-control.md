@@ -6,7 +6,7 @@ S7.3 (FRONTEND, actions), S7.4 (MOBILE, phone) · Date: 2026-10-31
 ## 1. Outcome
 
 **One place to see and act on every agent the person has running**: OxeCode panes, OxeChat conversations, delegations,
-workers and their sub-agents, on the desktop and on the phone. In one glance the person knows who needs them, who is
+Agent Work runs and their sub-agents, on the desktop and on the phone. In one glance the person knows who needs them, who is
 working, who finished, and what it cost; in one action they answer, stop, resume or open any of them.
 
 Exit check (plan.md S7): with 8 agents across modes, the central shows state, cost, session and requests live and lets
@@ -33,7 +33,7 @@ the person respond, stop, resume and open; the same picture on the phone.
 | Conversation cost | `ThreadCostReport` / `turn-cost` (`usd`, tokens) | cost column |
 | Sub-agents | timeline `subagent` items (`receiverThreadIds`, `agents`) | nesting |
 | Delegations | `DelegationState` (9 states), `DelegationSnapshot` | delegation rows |
-| Workers | `WorkRunStatus`, `WorkTaskStatus` | worker rows |
+| Agent Work runs | `WorkRunStatus`, `WorkTaskStatus` | work-run rows |
 | Requests | B10 `approvals.*` (risk computed by main, modal), `RemotePendingRequest` | "needs you" + Respond |
 | Team roles | `TeamMember.connection.owner {kind: pane\|thread}` | role badge on rows |
 | Feed | F30 activity store (`needs-you/finished/failed`, targets pane/thread/background) | cross-links |
@@ -109,13 +109,13 @@ Agents (central)
 ├─ Toolbar: filter [All | Needs you | Working | Finished] · group by [Project | State | Mode] · search
 ├─ Groups (default: by project/workspace, in sidebar order)
 │   └─ Agent rows (sorted by state priority, then waiting time)
-│       └─ Nested rows: delegations, workers, sub-agents under the agent that started them (max 2 levels shown)
+│       └─ Nested rows: delegations, work runs, sub-agents under the agent that started them (max 2 levels shown)
 ├─ "Ended recently" (collapsed; rows that ended in the last 10 min, so nothing vanishes silently)
 └─ Footer (full view only): "Showing 8 agents in 3 projects"
 ```
 
 **Agent row = one thing with a lifecycle that can need the person**: a pane running an agent CLI, a conversation, a
-delegation, a worker run. Plain shell panes are *not* agents and never appear. Background jobs are not agents either;
+delegation, an Agent Work run. Plain shell panes are *not* agents and never appear. Background jobs are not agents either;
 they appear only nested under the agent that started them, when it is known.
 
 ## 5. Desktop
@@ -141,9 +141,9 @@ they appear only nested under the agent that started them, when it is known.
 
 - Leading: `AgentProviderIcon` (20 px) with the `StatusDot` (8 px) at its bottom right; the working dot pulses on `--duration-pulse`,
   none under reduced motion.
-- Title: pane display title (`paneDisplay.title`), conversation title, delegation objective, worker task title.
+- Title: pane display title (`paneDisplay.title`), conversation title, delegation objective, work run title.
   Never a path, never an id.
-- Meta line: mode label (OxeCode/OxeChat/Delegation/Worker), provider, team role badge when the agent is a connected
+- Meta line: mode label (OxeCode/OxeChat/Delegation/Work), provider, team role badge when the agent is a connected
   team member, time in state ("6 min" = since `since`; for needs-you it is the wait time), cost.
 - Cost (conversations only in v1): the conversation's reported total (`ThreadCostReport.totalUsd`, its whole life) →
   "US$ 0.42"; tokens only → "18k tokens"; nothing → omitted (no "—" noise). Estimated values carry "≈" and a tooltip
@@ -183,7 +183,7 @@ headers sort (click / Enter); default sort is the state priority. Max content wi
 | Action | en / pt-BR | Available when | What it does | Feedback |
 |---|---|---|---|---|
 | Respond | Respond / Responder | needs-you | opens the **existing** approval modal (B10/F18) or the conversation at its question; never answers inline | modal opens < 100 ms; row returns to its new state when resolved |
-| Open | Open / Abrir | always | goes to the pane (switches to OxeCode, focuses the pane) or the conversation (OxeChat), delegation detail, worker run; marks seen | panel stays open; target row stays selected |
+| Open | Open / Abrir | always | goes to the pane (switches to OxeCode, focuses the pane) or the conversation (OxeChat), delegation detail, work run; marks seen | panel stays open; target row stays selected |
 | Stop | Stop / Parar | working | interrupts the current turn/run (`thread.interrupt`, pane agent stop, delegation/work cancel) | two-step inline: button turns into "Confirm stop" for 3 s; then "Stopping…" spinner; toast "Turn stopped" |
 | Resume | Resume / Retomar | stopped/idle with a resumable session (pane: #40/B17 session; conversation: native session) | resumes the agent's session in place | "Resuming…"; on failure the row says why (F32 copy) |
 | Mark as seen | Mark as seen / Marcar como visto | finished | moves it to idle without opening | instant; undo in toast (5 s) |
@@ -308,10 +308,10 @@ The phone already has Threads, Requests, Terminals and Tasks tabs. The central b
 | resume.unavailable | This agent has no saved session to resume | Este agente não tem sessão salva para retomar |
 | moreRequests | +{n} more | +{n} outros |
 | cost.estimated | Estimated from tokens | Estimado pelos tokens |
-| mode labels | OxeCode / OxeChat / Delegation / Worker | OxeCode / OxeChat / Delegação / Worker |
+| mode labels | OxeCode / OxeChat / Delegation / Work | OxeCode / OxeChat / Delegação / Trabalho |
 
-Voice: short, verb first, no internal ids, no English in pt-BR; state and error words follow the app's existing pt-BR ("Ocioso", "Trabalhando", "Não foi possível …") ("worker" is the product term in both, as in the
-roadmap; HML flags it if the glossary decides otherwise).
+Voice: short, verb first, no internal ids, no English in pt-BR; state and error words follow the app's existing pt-BR ("Ocioso", "Trabalhando", "Não foi possível …"). Every term follows `docs/design/glossary.md` (#322); "worker" is
+never user-facing.
 
 ## 10. References (market practice)
 
@@ -348,7 +348,7 @@ roadmap; HML flags it if the glossary decides otherwise).
 ## 13. Acceptance hooks (for HOMOLOGATION)
 
 Test ids: `agents-panel`, `agents-summary`, `agents-filter`, `agent-row` with `data-agent-kind`
-(`pane|thread|delegation|worker`) and `data-agent-state` (§3 values), `agent-action-respond|open|stop|resume|seen`,
+(`pane|thread|delegation|work`) and `data-agent-state` (§3 values), `agent-action-respond|open|stop|resume|seen`,
 `agents-reorder-pill`, `agents-ended-recently`. Phone: `agents_tab`, `agent_row`, same state names.
 Scenarios beyond S7.2/S7.3/S7.4 rows: rows don't reorder under the pointer; an ended agent never vanishes without the
 "Ended" step; Respond always opens the B10 modal (no inline allow); pt-BR has no English except product names;
