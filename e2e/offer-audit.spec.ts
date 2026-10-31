@@ -20,7 +20,7 @@ const view = (shell: keyof typeof VIEW_NAMES): Check => async page => {
   await expect(page.locator(`nav[aria-label="Application view"] button[aria-label="${VIEW_NAMES[shell]}"]`)).toHaveAttribute('aria-pressed', 'true')
 }
 const both = (...checks: Check[]): Check => async page => { for (const check of checks) await check(page) }
-const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
+const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[data-toast], [role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
 const settingsPage = (label: string): Check => both(dialog('Settings'), async page => {
   await expect(page.locator('.settings-center nav[aria-label="Settings categories"] [aria-current="page"]')).toContainText(label)
 })
@@ -63,6 +63,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
   'help.shortcuts': dialog('Keyboard shortcuts'),
   'help.report-problem': both(dialog('Report a problem'), testId('report-problem')),
+  'help.about': both(dialog('About OXESpace'), testId('about-dialog')),
   'activity.open': testId('activity-center'),
   'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
   'new-workspace': dialog('Create new workspace'),
@@ -329,7 +330,8 @@ test.describe('offer audit', () => {
         'Tools/Linear issues': dialog('Linear issues'),
         'Help/Keyboard shortcuts': dialog('Keyboard shortcuts'),
         'Help/Diagnostics': settingsPage('Diagnostics'),
-        'Help/Report a problem…': dialog('Report a problem')
+        'Help/Report a problem…': dialog('Report a problem'),
+        'Help/Check for updates…': settingsPage('Updates')
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
         Appearance: label => label === 'Follow system' ? async () => undefined : rootData('mode', label.toLowerCase()),
@@ -360,7 +362,7 @@ test.describe('offer audit', () => {
             continue
           }
           const key = label.startsWith('About OXESpace') ? 'Help/About' : `${menu}/${label}`
-          const effect = key === 'Help/About' ? settingsPage('Updates') : MENU_EFFECTS[key]
+          const effect = key === 'Help/About' ? dialog('About OXESpace') : MENU_EFFECTS[key]
           if (!effect) { failures.push(`${key}: no expected effect in e2e/offer-audit.spec.ts`); continue }
           if (effect === 'native') continue
           const s = await openMenu(menu)
@@ -406,7 +408,7 @@ test.describe('offer audit', () => {
     }
   })
 
-  test('editor tab menu: right-click offers Pin, Close other tabs and Close, and never discards a tab silently', async () => {
+  test('editor tab menu: right-click offers Move, Pin, Close other tabs and Close, and never discards a tab silently', async () => {
     const launched = await launchWithWorkspace()
     const { app, page, workspaceRoot } = launched
     try {
@@ -425,6 +427,13 @@ test.describe('offer audit', () => {
       await expect(menu.getByRole('menuitem').first()).toBeFocused()
       await page.keyboard.press('Escape')
       await expect(menu).toHaveCount(0)
+      // Reordering without a drag (WCAG 2.5.7): the last tab moves left, and the first cannot.
+      await tabs.filter({ hasText: 'gamma.txt' }).click({ button: 'right' })
+      await menu.getByRole('menuitem', { name: 'Move left' }).click()
+      await expect(tabs).toHaveText([/alpha/, /gamma/, /beta/])
+      await tabs.filter({ hasText: 'alpha.txt' }).click({ button: 'right' })
+      await expect(menu.getByRole('menuitem', { name: 'Move left' })).toBeDisabled()
+      await page.keyboard.press('Escape')
       await tabs.filter({ hasText: 'alpha.txt' }).click({ button: 'right' })
       await menu.getByRole('menuitem', { name: 'Pin tab' }).click()
       await expect(tabs.filter({ hasText: 'alpha.txt' })).toHaveClass(/pinned/)

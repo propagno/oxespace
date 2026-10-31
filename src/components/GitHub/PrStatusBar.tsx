@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import type { GitHubCheckState, GitHubPrStatus } from '../../../shared/types/github'
 import { useTranslation } from 'react-i18next'
 import { humanizeError } from '../../utils/humanizeError'
-import { ErrorState, Spinner } from '../../ui'
+import { EmptyState, ErrorState, Spinner } from '../../ui'
 import './PrStatusBar.css'
 
 const POLL_MS = 30_000
@@ -108,7 +108,7 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
     </div>
     {notice && <ErrorState compact title={t('git.pr.autoMergeFailed')} message={notice} />}
     {open && <ul className="pr-status-checks" aria-label={t('git.pr.checks')}>
-      {status.checks.length === 0 && <li className="is-empty">{t('git.pr.noChecksYet')}</li>}
+      {status.checks.length === 0 && <li><EmptyState compact title={t('git.pr.noChecksYet')} /></li>}
       {status.checks.map((check, index) => <li key={`${check.workflow ?? ''}:${check.name}:${index}`} className={`is-${check.state}`}>
         <span className="pr-check-icon" role="img" aria-label={t(`git.pr.check.${check.state}`)}>{ICON[check.state]}</span>
         <span className="pr-check-name">{check.name}</span>

@@ -1,4 +1,5 @@
 import { Bell, CheckCheck } from 'lucide-react'
+import { i18n } from '../i18n'
 import { useActivityStore } from '../store/activity.store'
 import { toast } from '../ui'
 import { registerCommands } from '../utils/commandRegistry'
@@ -14,8 +15,8 @@ registerCommands('activity', [
     // Says so either way, so the command never looks like it did nothing.
     run: () => {
       const activity = useActivityStore.getState()
-      if (!activity.items.some(item => !item.read)) { toast({ title: 'Nothing to mark as read', description: 'Every activity item is already read.' }); return }
+      if (!activity.items.some(item => !item.read)) { toast({ title: i18n.t('activityCenter.nothingToRead'), description: i18n.t('activityCenter.nothingToReadText') }); return }
       activity.markAllRead()
-      toast({ title: 'All activity marked as read' })
+      toast({ title: i18n.t('activityCenter.allRead'), intent: 'success' })
     } }
 ])

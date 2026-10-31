@@ -457,7 +457,7 @@ function WorkspaceSurfaceComponent({
     })
   }
 
-  const grid = splitLayoutEnabled ? (
+  const grid = <ErrorBoundary label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
     <WorkspaceSplitGrid
       workspace={workspace}
       tree={tree}
@@ -482,7 +482,7 @@ function WorkspaceSurfaceComponent({
       onSplitPane={onSplitPane}
       onActivatePane={onActivatePane}
     />
-  )
+  )}</ErrorBoundary>
 
   const folderName = workspace.rootPath ? workspace.rootPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() : null
   const showSubPath = Boolean(folderName && folderName.toLowerCase() !== workspace.name.toLowerCase())

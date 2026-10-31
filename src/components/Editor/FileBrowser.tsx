@@ -3,7 +3,7 @@ import { useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { EmptyState, ErrorState, Spinner } from '../../ui'
+import { AnchoredMenu, EmptyState, ErrorState, Spinner, copyText } from '../../ui'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -92,6 +92,13 @@ function buildAbsolutePath(rootPath: string, relativePath: string): string {
 function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selectedPath, loadDirectory, childrenByPath, loadingByPath, errorByPath }: FileNodeProps): ReactElement {
   const { t } = useTranslation('code')
   const [isExpanded, setIsExpanded] = useState(false)
+  // Dragging a file into a terminal types its path; the menu copies it instead, so no drag is needed (WCAG 2.5.7).
+  const [menu, setMenu] = useState(false)
+  const openMenu = (event: React.MouseEvent): void => { event.preventDefault(); event.stopPropagation(); setMenu(true) }
+  const pathMenu = <AnchoredMenu open={menu} onOpenChange={setMenu} side="right" label={t('editor.browser.pathMenu', { name: node.name })} items={[
+    { label: t('editor.browser.copyPath'), onSelect: () => void copyText(buildAbsolutePath(rootPath, node.relativePath).replace(/^"|"$/g, ''), t('editor.browser.path'), t('editor.browser.pathCopied')) },
+    { label: t('editor.browser.copyRelativePath'), onSelect: () => void copyText(node.relativePath, t('editor.browser.path'), t('editor.browser.relativePathCopied')) }
+  ]} />
 
   const handleDragStart = (event: React.DragEvent): void => {
     event.dataTransfer.effectAllowed = 'copy'
@@ -122,12 +129,14 @@ function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selec
           aria-expanded={isExpanded}
           draggable
           onDragStart={handleDragStart}
+          onContextMenu={openMenu}
           onClick={handleToggle}
           title={node.relativePath}
         >
           {isExpanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
           <Folder size={14} aria-hidden="true" />
           <span>{node.name}</span>
+          {pathMenu}
         </button>
         {isExpanded ? (
           <div className="editor-browser-children">
@@ -168,10 +177,12 @@ function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selec
       title={node.relativePath}
       draggable
       onDragStart={handleDragStart}
+      onContextMenu={openMenu}
       onClick={() => onOpenFile(node.relativePath)}
     >
       <FileText size={14} aria-hidden="true" />
       <span>{node.name}</span>
+      {pathMenu}
     </button>
   )
 }
