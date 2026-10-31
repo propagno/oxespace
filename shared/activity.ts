@@ -5,18 +5,21 @@
  * one bad entry refuses the whole call. That includes an entry whose text looks like a credential (`redactSecrets`
  * would change it): it is refused, never stored redacted, and so are the other entries of that call, so a window that
  * leaks a secret into a title finds out at once instead of losing it silently. The only normalization is the one the
- * contract names: titles and details trimmed, and an empty detail dropped.
+ * contract names: in a detail, every run of whitespace holding a line break or tab becomes one space; then titles and
+ * details are trimmed, and an empty detail dropped. A title stays strict: a line break in it is refused.
  */
 import { hasHiddenCharacters } from './hidden-characters'
 import { mainMessage, type MainMessage } from './messages'
 import { redactSecrets } from './secrets'
 import {
   ACTIVITY_KINDS, ACTIVITY_LIMITS as LIMITS, ACTIVITY_QUOTA_PROVIDERS, ACTIVITY_SOURCES,
-  type ActivityEntry, type ActivityKind, type ActivityRefusal, type ActivityRefused, type ActivitySource, type ActivityTarget
+  type ActivityEntry, type ActivityKey, type ActivityKind, type ActivityRefusal, type ActivityRefused, type ActivitySource, type ActivityTarget
 } from './types/activity'
 
 /** C0 and C1 control characters (tab and newline included: titles and details are one line). */
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/
+/** In a detail only: a run of spaces, tabs and line breaks with at least one tab or line break, which becomes one space. */
+const DETAIL_BREAKS = /[ \t\r\n]*[\t\r\n][ \t\r\n]*/g
 const ENTRY_KEYS = new Set(['source', 'id', 'kind', 'target', 'title', 'detail', 'at'])
 
 /** The target type each source opens, and the keys (required, optional) of each target. */
@@ -64,12 +67,16 @@ function identifier(value: unknown): Checked<string> {
   return { ok: true, value }
 }
 
-/** Shown text: trimmed, then at most `max` characters, one line, nothing hidden and nothing that looks like a credential. */
-function text(value: unknown, max: number, tooLong: ActivityRefusal): Checked<string> {
+/**
+ * Shown text: trimmed, then at most `max` characters, one line, nothing hidden and nothing that looks like a credential.
+ * With `joinLines` (a detail), line breaks and tabs first become single spaces, before every other check.
+ */
+function text(value: unknown, max: number, tooLong: ActivityRefusal, joinLines = false): Checked<string> {
   if (typeof value !== 'string') return refuse('invalid')
+  const joined = joinLines ? value.replace(DETAIL_BREAKS, ' ') : value
   // Checked before trimming: `trim` also strips U+FEFF and line breaks, which must refuse, not vanish.
-  if (hidden(value)) return refuse('hiddenCharacters')
-  const trimmed = value.trim()
+  if (hidden(joined)) return refuse('hiddenCharacters')
+  const trimmed = joined.trim()
   if ([...trimmed].length > max) return refuse(tooLong)
   if (looksSecret(trimmed)) return refuse('secret')
   return { ok: true, value: trimmed }
@@ -115,7 +122,7 @@ function entry(value: unknown, now: number): Checked<ActivityEntry> {
   if (!title.value) return refuse('invalid')
   let detail: string | undefined
   if (value.detail !== undefined) {
-    const checked = text(value.detail, LIMITS.detail, 'detailTooLong')
+    const checked = text(value.detail, LIMITS.detail, 'detailTooLong', true)
     if (!checked.ok) return checked
     detail = checked.value || undefined
   }
@@ -138,6 +145,27 @@ export function normalizeActivityEntries(input: unknown, now: number): { ok: tru
     entries.push(checked.value)
   }
   return { ok: true, entries }
+}
+
+const KEY_FIELDS = new Set(['source', 'id', 'kind'])
+
+/** Checks one `activity:resolve` input: exactly `{ source, id, kind }`, by the same unions and id rules as an entry. */
+export function normalizeActivityKey(input: unknown): { ok: true; key: ActivityKey } | ActivityRefused {
+  if (!plainObject(input)) return activityRefusal('invalid')
+  const keys = Object.keys(input)
+  if (keys.length !== KEY_FIELDS.size || keys.some(key => !KEY_FIELDS.has(key))) return activityRefusal('invalid')
+  const { source, kind } = input
+  if (!oneOf(source, ACTIVITY_SOURCES) || !oneOf(kind, ACTIVITY_KINDS) || !KINDS_OF[source].includes(kind)) return activityRefusal('invalid')
+  const id = identifier(input.id)
+  if (!id.ok) return activityRefusal(id.refusal)
+  return { ok: true, key: { source, id: id.value, kind } }
+}
+
+/** Drops the stored entry of that source, id and kind, when there is one. */
+export function resolveActivityEntry(stored: readonly ActivityEntry[], key: ActivityKey): { entries: ActivityEntry[]; removed: boolean } {
+  const wanted = activityKey(key)
+  const entries = stored.filter(item => activityKey(item) !== wanted)
+  return { entries, removed: entries.length !== stored.length }
 }
 
 /** Checks one `activity:seen` time against main's clock `now`. */

@@ -364,7 +364,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     activity: {
       recent: () => ipc.invoke(IPC_CHANNELS.activity.recent) as Promise<import('../../shared/types/activity').ActivityRecent>,
       record: entries => ipc.invoke(IPC_CHANNELS.activity.record, entries) as Promise<import('../../shared/types/activity').ActivityRecordResult>,
-      seen: at => ipc.invoke(IPC_CHANNELS.activity.seen, at) as Promise<import('../../shared/types/activity').ActivitySeenResult>
+      seen: at => ipc.invoke(IPC_CHANNELS.activity.seen, at) as Promise<import('../../shared/types/activity').ActivitySeenResult>,
+      resolve: input => ipc.invoke(IPC_CHANNELS.activity.resolve, input) as Promise<import('../../shared/types/activity').ActivityResolveResult>
     },
     oxe: {
       detect: (force) => ipc.invoke(IPC_CHANNELS.oxe.detect, force) as Promise<import('../../shared/types/oxe').OxeDetect>,

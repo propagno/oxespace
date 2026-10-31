@@ -45,6 +45,40 @@ describe('activity store (F30)', () => {
     expect(store.recent().entries[0]).not.toHaveProperty('detail')
   })
 
+  it('stores a multi-line detail as one line', () => {
+    const { db, store } = setup()
+    expect(store.record([entry('t1', NOW, { detail: 'Exited with an error:\r\n\tENOENT\n\nretry later\n' })])).toMatchObject({ ok: true, recorded: 1 })
+    expect(new ActivityStore(db, () => NOW).recent().entries[0].detail).toBe('Exited with an error: ENOENT retry later')
+    expect(store.record([entry('t2', NOW, { title: 'two\nlines' })])).toMatchObject({ ok: false, refusal: 'hiddenCharacters' })
+  })
+
+  it('resolves exactly one source, id and kind, idempotently, across a reopen', () => {
+    const { db, store } = setup()
+    store.record([
+      entry('t1', NOW - 10), entry('t1', NOW - 20, { kind: 'finished' }),
+      { source: 'code', id: 't1', kind: 'needs-you', target: { type: 'pane', workspaceId: 'w1', paneId: 't1' }, title: 'Pane', at: NOW - 30 },
+      entry('t2', NOW - 40)
+    ])
+    expect(store.resolve({ source: 'thread', id: 't1', kind: 'needs-you' })).toEqual({ ok: true, removed: true })
+    expect(store.resolve({ source: 'thread', id: 't1', kind: 'needs-you' })).toEqual({ ok: true, removed: false })
+    const reopened = new ActivityStore(db, () => NOW)
+    expect(reopened.recent().entries.map(item => `${item.source}:${item.id}:${item.kind}`)).toEqual(['thread:t1:finished', 'code:t1:needs-you', 'thread:t2:needs-you'])
+    // The list still merges and caps as before after a gap in positions.
+    expect(reopened.record([entry('t1', NOW)])).toMatchObject({ ok: true, recorded: 1 })
+    expect(reopened.recent().entries.map(item => `${item.id}:${item.kind}`)).toEqual(['t1:needs-you', 't1:finished', 't1:needs-you', 't2:needs-you'])
+    expect(reopened.resolve({ source: 'thread', id: 'gone', kind: 'failed' })).toEqual({ ok: true, removed: false })
+  })
+
+  it('refuses a bad resolve input and leaves the rows untouched', () => {
+    const { db, store } = setup()
+    store.record([entry('t1', NOW)])
+    const before = rows(db)
+    for (const input of [{ source: 'thread', id: 't1' }, { source: 'thread', id: 't1', kind: 'needs-you', extra: true }, { source: 'thread', id: ' t1', kind: 'needs-you' }, 't1', null]) {
+      expect(store.resolve(input), JSON.stringify(input)).toMatchObject({ ok: false, refusal: 'invalid' })
+    }
+    expect(rows(db)).toEqual(before)
+  })
+
   it('dedupes on source, id and kind, keeping the newer', () => {
     const { db, store } = setup()
     store.record([entry('t1', NOW - 100, { title: 'first' })])

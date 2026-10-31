@@ -49,7 +49,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite` |
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
-| `app.activity` | `activity.recent`, `activity.record`, `activity.seen` (F30, for 1.4: the person's own notification history) |
+| `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
 
 ## New in X21
 

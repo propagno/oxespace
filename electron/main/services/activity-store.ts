@@ -1,6 +1,6 @@
 import type { AppDatabase } from '../db'
-import { activityRefusal, mergeActivityEntries, normalizeActivityEntries, normalizeActivitySeen } from '../../../shared/activity'
-import type { ActivityEntry, ActivityRecent, ActivityRecordResult, ActivitySeenResult, ActivityTarget } from '../../../shared/types/activity'
+import { activityRefusal, mergeActivityEntries, normalizeActivityEntries, normalizeActivityKey, normalizeActivitySeen } from '../../../shared/activity'
+import type { ActivityEntry, ActivityRecent, ActivityRecordResult, ActivityResolveResult, ActivitySeenResult, ActivityTarget } from '../../../shared/types/activity'
 
 interface Row { source: ActivityEntry['source']; id: string; kind: ActivityEntry['kind']; target_json: string; title: string; detail: string | null; at: number }
 
@@ -28,6 +28,16 @@ export class ActivityStore {
       }
       return { ok: true, recorded: merged.recorded, ignored: merged.ignored }
     }).immediate()
+  }
+
+  /** Drops one entry by its key; the others keep their order. Removing one that is not there is not an error. */
+  resolve(input: unknown): ActivityResolveResult {
+    const checked = normalizeActivityKey(input)
+    if (!checked.ok) return checked
+    const { source, id, kind } = checked.key
+    return this.db.transaction((): ActivityResolveResult => ({
+      ok: true, removed: this.db.prepare('DELETE FROM activity_entries WHERE source = ? AND id = ? AND kind = ?').run(source, id, kind).changes > 0
+    })).immediate()
   }
 
   seen(input: unknown): ActivitySeenResult {

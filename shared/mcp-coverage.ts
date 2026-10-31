@@ -383,7 +383,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'app.activity': {
     label: 'The activity center\'s entries and when the person last looked at them (F30)',
     forbidden: 'For 1.4, the person\'s own notification history: an agent neither reads it nor writes into it.',
-    ipc: ['activity.recent', 'activity.record', 'activity.seen']
+    ipc: ['activity.recent', 'activity.record', 'activity.seen', 'activity.resolve']
   },
   'mcp_internal.tool_groups_admin': { label: 'Choose how a project offers each group of OXESpace tools', forbidden: 'Raises what agents can reach.', ipc: ['mcpInternal.setToolGroupMode'] },
   'settings.diagnostics': {

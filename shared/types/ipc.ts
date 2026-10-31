@@ -248,7 +248,8 @@ export const IPC_CHANNELS = {
   activity: {
     recent: 'activity:recent',
     record: 'activity:record',
-    seen: 'activity:seen'
+    seen: 'activity:seen',
+    resolve: 'activity:resolve'
   },
   copilot: {
     credits: 'copilot:credits'

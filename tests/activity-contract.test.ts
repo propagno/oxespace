@@ -23,28 +23,30 @@ const NOW = 1_800_000_000_000
 const entry = (id: string, at: number, title = id): ActivityEntry => ({ source: 'thread', id, kind: 'finished', target: { type: 'thread', threadId: id }, title, at })
 
 describe('activity contract (F30)', () => {
-  it('uses three stable invoke channels in their own group', () => {
-    expect(IPC_CHANNELS.activity).toEqual({ recent: 'activity:recent', record: 'activity:record', seen: 'activity:seen' })
+  it('uses four stable invoke channels in their own group', () => {
+    expect(IPC_CHANNELS.activity).toEqual({ recent: 'activity:recent', record: 'activity:record', seen: 'activity:seen', resolve: 'activity:resolve' })
   })
 
   it('is forbidden to agents for 1.4', () => {
     const capability = MCP_COVERAGE['app.activity']
     expect('forbidden' in capability && !('tools' in capability)).toBe(true)
-    expect(capability.ipc).toEqual(['activity.recent', 'activity.record', 'activity.seen'])
+    expect(capability.ipc).toEqual(['activity.recent', 'activity.record', 'activity.seen', 'activity.resolve'])
   })
 
   it('refuses with message codes', () => {
     for (const refusal of ACTIVITY_REFUSALS) expect(isMessageCode(`activity.${refusal}`), refusal).toBe(true)
   })
 
-  it('exposes the three calls through the preload', async () => {
+  it('exposes the four calls through the preload', async () => {
     const ipc: PreloadIpc = { invoke: vi.fn().mockResolvedValue(undefined), on: vi.fn(), removeListener: vi.fn() }
     const activity = createOxeApi(ipc).activity!
     const entries = [entry('t1', NOW)]
     await activity.recent!()
     await activity.record!(entries)
     await activity.seen!(NOW)
-    expect(vi.mocked(ipc.invoke).mock.calls).toEqual([[IPC_CHANNELS.activity.recent], [IPC_CHANNELS.activity.record, entries], [IPC_CHANNELS.activity.seen, NOW]])
+    await activity.resolve!({ source: 'thread', id: 't1', kind: 'finished' })
+    expect(vi.mocked(ipc.invoke).mock.calls).toEqual([[IPC_CHANNELS.activity.recent], [IPC_CHANNELS.activity.record, entries], [IPC_CHANNELS.activity.seen, NOW],
+      [IPC_CHANNELS.activity.resolve, { source: 'thread', id: 't1', kind: 'finished' }]])
   })
 })
 
@@ -60,6 +62,7 @@ describe('activity IPC (main)', () => {
       await expect(async () => handlers.get(IPC_CHANNELS.activity.recent)!(event)).rejects.toThrow('main frame')
       await expect(async () => handlers.get(IPC_CHANNELS.activity.record)!(event, [entry('t1', NOW)])).rejects.toThrow('main frame')
       await expect(async () => handlers.get(IPC_CHANNELS.activity.seen)!(event, NOW)).rejects.toThrow('main frame')
+      await expect(async () => handlers.get(IPC_CHANNELS.activity.resolve)!(event, { source: 'thread', id: 't1', kind: 'finished' })).rejects.toThrow('main frame')
     }
     expect(db.prepare).not.toHaveBeenCalled()
     expect(db.transaction).not.toHaveBeenCalled()
@@ -69,6 +72,7 @@ describe('activity IPC (main)', () => {
     registerActivityIpc({ db, sender: () => {} })
     await expect(handlers.get(IPC_CHANNELS.activity.record)!({}, 'not a list')).resolves.toEqual({ ok: false, refusal: 'invalid', message: { code: 'activity.invalid', params: {} } })
     await expect(handlers.get(IPC_CHANNELS.activity.seen)!({}, Date.now() + 120_000)).resolves.toMatchObject({ ok: false, refusal: 'future' })
+    await expect(handlers.get(IPC_CHANNELS.activity.resolve)!({}, { source: 'thread', id: 't1' })).resolves.toMatchObject({ ok: false, refusal: 'invalid' })
     expect(db.prepare).not.toHaveBeenCalled()
   })
 })
@@ -87,5 +91,10 @@ describe('activity E2E mock', () => {
     expect(await seen({}, NOW - 50)).toEqual({ ok: true, lastSeenAt: NOW - 5 })
     expect(await seen({}, NOW + 61_000)).toMatchObject({ ok: false, refusal: 'future' })
     expect((await recent({}) as { lastSeenAt: number }).lastSeenAt).toBe(NOW - 5)
+    const resolve = handlers.get(IPC_CHANNELS.activity.resolve)!
+    expect(await resolve({}, { source: 'thread', id: 'a', kind: 'finished' })).toEqual({ ok: true, removed: true })
+    expect(await resolve({}, { source: 'thread', id: 'a', kind: 'finished' })).toEqual({ ok: true, removed: false })
+    expect(await resolve({}, { source: 'thread', id: 'b', kind: 'finished', extra: 1 })).toMatchObject({ ok: false, refusal: 'invalid' })
+    expect((await recent({}) as { entries: ActivityEntry[] }).entries.map(item => item.id)).toEqual(['b'])
   })
 })

@@ -39,6 +39,9 @@ export interface ActivityEntry {
   at: number
 }
 
+/** What `activity:resolve` names: one entry, by the key a newer entry would replace it on. */
+export type ActivityKey = Pick<ActivityEntry, 'source' | 'id' | 'kind'>
+
 /** `activity:recent`: newest first (by `at`; on a tie, the one recorded last). */
 export interface ActivityRecent {
   entries: ActivityEntry[]
@@ -58,6 +61,9 @@ export type ActivityRefused = { ok: false; refusal: ActivityRefusal; message: Ma
  * `ACTIVITY_LIMITS.stored`.
  */
 export type ActivityRecordResult = { ok: true; recorded: number; ignored: number } | ActivityRefused
+
+/** `activity:resolve`. Idempotent: `removed` is false when no entry had that key. */
+export type ActivityResolveResult = { ok: true; removed: boolean } | ActivityRefused
 
 /** `activity:seen`. `lastSeenAt` is what is stored now: it never moves backwards, so an older time leaves it as it was. */
 export type ActivitySeenResult = { ok: true; lastSeenAt: number } | ActivityRefused
@@ -80,4 +86,6 @@ export interface ActivityApi {
   recent?(): Promise<ActivityRecent>
   record?(entries: ActivityEntry[]): Promise<ActivityRecordResult>
   seen?(at: number): Promise<ActivitySeenResult>
+  /** Drops one entry (a request that no longer waits); exactly `{ source, id, kind }`. */
+  resolve?(input: ActivityKey): Promise<ActivityResolveResult>
 }

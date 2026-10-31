@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activityRefusal, mergeActivityEntries, normalizeActivityEntries, normalizeActivitySeen } from '../shared/activity'
+import { activityRefusal, mergeActivityEntries, normalizeActivityEntries, normalizeActivityKey, normalizeActivitySeen, resolveActivityEntry } from '../shared/activity'
 import { ACTIVITY_LIMITS, ACTIVITY_REFUSALS, type ActivityEntry } from '../shared/types/activity'
 
 const NOW = 1_800_000_000_000
@@ -71,14 +71,36 @@ describe('activity validation (F30)', () => {
     expect(refusal([entry({ detail: 5 })])).toBe('invalid')
   })
 
+  it('joins the lines of a detail into one, collapsing each run of whitespace around a break or tab', () => {
+    expect(valid({ detail: 'Exited with an error:\nENOENT\n\nretry later' }).detail).toBe('Exited with an error: ENOENT retry later')
+    expect(valid({ detail: 'one\r\ntwo\r\n  \tthree' }).detail).toBe('one two three')
+    expect(valid({ detail: 'a\t\tb \t c' }).detail).toBe('a b c')
+    expect(valid({ detail: '\n\t  edges  \r\n' }).detail).toBe('edges')
+    // Plain double spaces are left alone; only runs with a break or tab collapse.
+    expect(valid({ detail: 'a  b' }).detail).toBe('a  b')
+    expect('detail' in valid({ detail: '\n\r\n\t' })).toBe(false)
+  })
+
+  it('joins lines before the length cap and the secret check', () => {
+    expect(refusal([entry({ detail: 'x'.repeat(250) + '\n\n\n\n\n' + 'y'.repeat(250) })])).toBe('detailTooLong')
+    expect(refusal([entry({ detail: 'x'.repeat(249) + '\r\n\t\r\n' + 'y'.repeat(250) })])).toBe('ok')
+    expect(refusal([entry({ detail: 'failed:\ntoken=' + 'abcdef123456' })])).toBe('secret')
+  })
+
+  it('keeps titles strict: a line break or tab in a title is refused', () => {
+    for (const title of ['two\nlines', 'cr\rhere', 'crlf\r\nhere', 'tab\there']) expect(refusal([entry({ title })]), JSON.stringify(title)).toBe('hiddenCharacters')
+  })
+
   it('refuses control, format and hidden characters in any text', () => {
-    const hidden = ['line\nbreak', 'tab\there', 'nul\u0000', 'del\u007f', 'c1\u0085', 'rtl‮evil', 'zero​width', 'bom﻿', 'tag\u{e0041}', 'fillerㅤ']
+    const hidden = ['nul\u0000', 'del\u007f', 'c1\u0085', 'vt\u000b', 'ff\u000c', 'rtl‮evil', 'zero​width', 'bom﻿', 'tag\u{e0041}', 'fillerㅤ']
     for (const text of hidden) {
       expect(refusal([entry({ title: text })]), JSON.stringify(text)).toBe('hiddenCharacters')
       expect(refusal([entry({ detail: text })]), JSON.stringify(text)).toBe('hiddenCharacters')
+      expect(refusal([entry({ detail: `line one\n${text}` })]), JSON.stringify(text)).toBe('hiddenCharacters')
     }
     // At the edges too: trimming must not make them vanish.
     for (const text of ['﻿Start', 'End\n', '​']) expect(refusal([entry({ title: text })]), JSON.stringify(text)).toBe('hiddenCharacters')
+    expect(refusal([entry({ detail: '﻿Start' })])).toBe('hiddenCharacters')
     expect(refusal([entry({ id: 'a​b' })])).toBe('hiddenCharacters')
     expect(refusal([entry({ target: { type: 'thread', threadId: 'a‮b' } })])).toBe('hiddenCharacters')
     // Accents and emoji are ordinary text.
@@ -133,6 +155,42 @@ describe('activity seen time (F30)', () => {
   it('refuses a future time and nonsense', () => {
     expect(normalizeActivitySeen(NOW + ACTIVITY_LIMITS.futureMs + 1, NOW)).toMatchObject({ ok: false, refusal: 'future', message: { code: 'activity.future' } })
     for (const at of [1.5, -1, NaN, '1', null, undefined, {}]) expect(normalizeActivitySeen(at, NOW), String(at)).toMatchObject({ ok: false, refusal: 'invalid' })
+  })
+})
+
+describe('activity resolve key (F30)', () => {
+  const key = (over: Record<string, unknown> = {}): Record<string, unknown> => ({ source: 'thread', id: 't1', kind: 'needs-you', ...over })
+  const reason = (input: unknown) => { const result = normalizeActivityKey(input); return result.ok ? 'ok' : result.refusal }
+
+  it('accepts exactly source, id and kind', () => {
+    expect(normalizeActivityKey(key())).toEqual({ ok: true, key: key() })
+    expect(reason(key({ source: 'update', id: '1.4.0', kind: 'update' }))).toBe('ok')
+  })
+
+  it('refuses missing, extra or unknown keys and nonsense', () => {
+    for (const input of [undefined, null, 'thread:t1', [], { source: 'thread', id: 't1' }, key({ extra: 1 }), key({ target: { type: 'thread', threadId: 't1' } }), Object.create(null)]) {
+      expect(reason(input), JSON.stringify(input)).toBe('invalid')
+    }
+  })
+
+  it('refuses sources, kinds and ids the entries would refuse', () => {
+    expect(reason(key({ source: 'email' }))).toBe('invalid')
+    expect(reason(key({ kind: 'done' }))).toBe('invalid')
+    expect(reason(key({ kind: 'update' }))).toBe('invalid')
+    for (const id of ['', ' t1', 't1 ', 'x'.repeat(ACTIVITY_LIMITS.id + 1), 3]) expect(reason(key({ id })), String(id)).toBe('invalid')
+    expect(reason(key({ id: 'a‮b' }))).toBe('hiddenCharacters')
+    expect(reason(key({ id: 'ghp_' + 'c'.repeat(36) }))).toBe('secret')
+  })
+
+  it('drops only that source, id and kind', () => {
+    const stored: ActivityEntry[] = [
+      { source: 'thread', id: 't1', kind: 'needs-you', target: { type: 'thread', threadId: 't1' }, title: 'a', at: 3 },
+      { source: 'thread', id: 't1', kind: 'finished', target: { type: 'thread', threadId: 't1' }, title: 'b', at: 2 },
+      { source: 'code', id: 't1', kind: 'needs-you', target: { type: 'pane', workspaceId: 'w', paneId: 't1' }, title: 'c', at: 1 }
+    ]
+    const first = resolveActivityEntry(stored, { source: 'thread', id: 't1', kind: 'needs-you' })
+    expect(first).toEqual({ entries: stored.slice(1), removed: true })
+    expect(resolveActivityEntry(first.entries, { source: 'thread', id: 't1', kind: 'needs-you' })).toEqual({ entries: stored.slice(1), removed: false })
   })
 })
 

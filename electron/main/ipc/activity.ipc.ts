@@ -1,7 +1,7 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { AppDatabase } from '../db'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import type { ActivityRecent, ActivityRecordResult, ActivitySeenResult } from '../../../shared/types/activity'
+import type { ActivityRecent, ActivityRecordResult, ActivityResolveResult, ActivitySeenResult } from '../../../shared/types/activity'
 import type { ActivityStore } from '../services/activity-store'
 import { requireAppFrame } from './ipc-guards'
 
@@ -12,8 +12,8 @@ interface Deps {
 }
 
 /**
- * F30 · `activity:recent`, `activity:record` and `activity:seen`. The store and its validator load on the first call,
- * so the main entry carries only these three handlers.
+ * F30 · `activity:recent`, `activity:record`, `activity:seen` and `activity:resolve`. The store and its validator load on the first call,
+ * so the main entry carries only these handlers.
  */
 export function registerActivityIpc({ db, sender = event => requireAppFrame(event, 'Activity') }: Deps): void {
   let store: Promise<ActivityStore> | null = null
@@ -30,5 +30,9 @@ export function registerActivityIpc({ db, sender = event => requireAppFrame(even
   ipcMain.handle(IPC_CHANNELS.activity.seen, async (event, at: unknown): Promise<ActivitySeenResult> => {
     sender(event)
     return (await load()).seen(at)
+  })
+  ipcMain.handle(IPC_CHANNELS.activity.resolve, async (event, input: unknown): Promise<ActivityResolveResult> => {
+    sender(event)
+    return (await load()).resolve(input)
   })
 }
