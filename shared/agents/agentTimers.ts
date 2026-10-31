@@ -21,6 +21,14 @@ export const AGENT_TIMER_DEFAULTS = {
 
 /** The person's choices for the needs-you nudge (Settings › Notifications); `null` is off. */
 export const AGENT_NUDGE_CHOICES_MS = [null, 60_000, 120_000, 300_000] as const
+export type AgentNudgeChoice = typeof AGENT_NUDGE_CHOICES_MS[number]
+/** The default choice: 2 min. */
+export const AGENT_NUDGE_DEFAULT_MS: AgentNudgeChoice = 120_000
+
+/** One of the choices, or null when the value is not one (a stored value from elsewhere, a bad call). */
+export function readNudgeChoice(value: unknown): { ok: true; afterMs: AgentNudgeChoice } | { ok: false } {
+  return (AGENT_NUDGE_CHOICES_MS as readonly unknown[]).includes(value) ? { ok: true, afterMs: value as AgentNudgeChoice } : { ok: false }
+}
 
 /** Requests due this close together are one notification. */
 export const NUDGE_BATCH_MS = 10_000

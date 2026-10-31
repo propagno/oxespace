@@ -65,7 +65,7 @@ import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, Termi
 import type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
 export type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
 export type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
-export type { AgentPendingRequest, AgentCost, AgentOverviewRow, AgentSourceStatus, AgentsOverview, AgentsChange, AgentMarkSeenInput, AgentMarkSeenResult, AgentsRefusal, AgentsApi, AgentActivateEvent } from './ipc/agents'
+export type { AgentPendingRequest, AgentCost, AgentOverviewRow, AgentSourceStatus, AgentsOverview, AgentsChange, AgentMarkSeenInput, AgentMarkSeenResult, AgentsRefusal, AgentsApi, AgentActivateEvent, AgentNudgeSetting } from './ipc/agents'
 
 export const IPC_CHANNELS = {
   team: { command: 'team:command', messages: 'team:messages', send: 'team:send' },
@@ -252,7 +252,9 @@ export const IPC_CHANNELS = {
     overview: 'agents:overview',
     markSeen: 'agents:mark-seen',
     changed: 'agents:changed',
-    activate: 'agents:activate'
+    activate: 'agents:activate',
+    nudgeSetting: 'agents:nudge-setting',
+    setNudgeSetting: 'agents:set-nudge-setting'
   },
   /** F30 · The activity center's entries (shared/types/activity.ts). Main frame only; never an MCP tool. */
   activity: {

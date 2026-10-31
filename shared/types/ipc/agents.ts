@@ -14,6 +14,7 @@ import type { AgentKey, AgentKind, AgentMode, AgentState } from '../../agents/ag
 import type { MainMessage, MessageCode, MessageParams } from '../../messages'
 import type { ApprovalRisk } from '../approvals'
 import type { ThreadRequest } from '../thread'
+import type { AgentNudgeChoice } from '../../agents/agentTimers'
 
 /** A request waiting for the person (§5.2 line 3): the first one, with how many wait behind it. */
 export interface AgentPendingRequest {
@@ -170,9 +171,18 @@ export const AGENTS_LIMITS = {
  */
 export interface AgentActivateEvent { agentId: AgentKey; requestId?: string }
 
+/**
+ * The needs-you nudge delay (§5.10, Settings › Notifications): one of `AGENT_NUDGE_CHOICES_MS` (off, 1, 2 or 5 min),
+ * 2 min by default. Main keeps it; a change reschedules every waiting request's timer and gives the phone a fresh
+ * snapshot. `agents:set-nudge-setting` refuses any other value (it throws, and nothing is stored).
+ */
+export interface AgentNudgeSetting { afterMs: AgentNudgeChoice }
+
 export interface AgentsApi {
   overview?(): Promise<AgentsOverview>
   markSeen?(input: AgentMarkSeenInput): Promise<AgentMarkSeenResult>
   onChanged?(listener: (change: AgentsChange) => void): () => void
   onActivate?(listener: (event: AgentActivateEvent) => void): () => void
+  nudgeSetting?(): Promise<AgentNudgeSetting>
+  setNudgeSetting?(input: AgentNudgeSetting): Promise<AgentNudgeSetting>
 }
