@@ -38,7 +38,8 @@ test('Thread projects and conversations survive restart without creating Code wo
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
     await page.getByRole('button', { name: 'New conversation in first-project' }).click()
     await page.getByRole('dialog', { name: 'New conversation' }).getByRole('button', { name: 'Create conversation' }).click()
-    await expect(page.locator('.thread-session-title')).toContainText(['New conversation'])
+    // The title main stores for a conversation not named yet; it is data, so it stays in English (see #197's notes).
+    await expect(page.locator('.thread-session-title')).toContainText(['New thread'])
     await page.getByRole('button', { name: 'Actions for second-project' }).click()
     await page.getByRole('menuitem', { name: 'Remove project…' }).click()
     await page.getByRole('dialog', { name: 'Remove this project?' }).getByRole('button', { name: 'Remove project', exact: true }).click()
@@ -52,7 +53,7 @@ test('Thread projects and conversations survive restart without creating Code wo
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-project-group')).toHaveCount(1)
-    await expect(page.locator('.thread-session-title')).toContainText(['New conversation'])
+    await expect(page.locator('.thread-session-title')).toContainText(['New thread'])
     const removed = page.getByRole('region', { name: 'Removed projects' })
     await removed.getByRole('button', { name: 'second-project Restore' }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
