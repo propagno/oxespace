@@ -1,14 +1,14 @@
 import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, X } from 'lucide-react'
-import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { Button, Dialog, TextField } from '../../ui'
-import { SettingsContent, type SettingsModalProps, type SettingsSection } from './SettingsModal'
-import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
+import { Button, Dialog, LoadingState, TextField } from '../../ui'
+import type { SettingsModalProps, SettingsSection } from './SettingsModal'
+import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
+import { ErrorBoundary } from '../common/ErrorBoundary'
+import { chunk, lazyFrom } from '../../lib/chunk'
 import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
-import { PolicySettings } from './PolicySettings'
-import { KeyboardSettings } from './KeyboardSettings'
 import { SeenSitesSetting } from './SeenSitesSetting'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
@@ -17,6 +17,17 @@ import { SearchField } from '../Navigation/SearchField'
 import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
+
+/**
+ * The pages, one chunk preloaded at idle (src/lib/idlePreload.ts). The frame around them is in the boot bundle, so the
+ * first click opens Settings at once, with one dialog: the pages fill its content area when they arrive.
+ */
+export const SETTINGS_CHUNK = chunk(() => import('./settingsPages'))
+const SettingsContent = lazyFrom(SETTINGS_CHUNK, module => module.SettingsContent)
+const WorkspaceSettingsModal = lazyFrom(SETTINGS_CHUNK, module => module.WorkspaceSettingsModal)
+const PolicySettings = lazyFrom(SETTINGS_CHUNK, module => module.PolicySettings)
+const KeyboardSettings = lazyFrom(SETTINGS_CHUNK, module => module.KeyboardSettings)
+const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, KeyboardSettings]) page.retry() }
 
 type AppPage = 'general' | 'policy' | 'keyboard' | SettingsSection
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
@@ -117,7 +128,7 @@ export function SettingsCenter(props: SettingsModalProps & {
           <div><span>{t('center.title')}</span><ChevronRight size={12} aria-hidden="true" /><span title={workspace?.rootPath}>{workspace?.name ?? t('center.application')}</span></div>
           <button type="button" aria-label={t('center.close')} title={t('center.closeTitle')} onClick={close}><X size={16} aria-hidden="true" /></button>
         </header>
-        <div ref={content} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}>
+        <div ref={content} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}><ErrorBoundary id="settings-page" component="SettingsCenter" compact label={t('center.title')} onReset={retryPages}><Suspense fallback={<LoadingState />}>
           {destination.scope === 'workspace' ? workspace ? <WorkspaceSettingsModal key={workspace.id} embedded workspace={workspace} selectedPageId={destination.page}
             shellProfiles={props.shellProfiles} onSave={props.onSave} onClose={close} onDraftChange={value => { draft.current = value }}
             onOpenDiagnostics={() => go({ scope: 'application', page: 'diagnostics' })}
@@ -131,7 +142,7 @@ export function SettingsCenter(props: SettingsModalProps & {
             })} />
             : <section className="settings-general"><h2>{t('center.workspaceClosed')}</h2><p>{t('center.workspaceClosedHint')}</p></section>
             : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
-        </div>
+        </Suspense></ErrorBoundary></div>
       </main>
       {pending && <Dialog title={t('center.unsaved.title')} size="sm" onClose={() => { if (!saving) setPending(null) }}
         description={t('center.unsaved.description')}

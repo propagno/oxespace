@@ -11,6 +11,8 @@ interface ErrorBoundaryProps {
   component?: string
   /** Short label for the fallback copy and logs (e.g. "the terminal"). */
   label?: string
+  /** Runs before Try again renders the children again: a lazy part retries its chunk (lazyFrom's retry). */
+  onReset?: () => void
   /** Custom fallback; defaults to an error state with Try again. */
   fallback?: ReactNode
   /** One line instead of a card, for small panels. */
@@ -40,7 +42,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     reportRendererError(rendererErrorReport('boundary', error, { boundary: this.props.id, component: this.props.component ?? firstComponent(info.componentStack) }))
   }
 
-  private readonly reset = (): void => this.setState({ error: null })
+  private readonly reset = (): void => { this.props.onReset?.(); this.setState({ error: null }) }
 
   render(): ReactNode {
     if (!this.state.error) return this.props.children

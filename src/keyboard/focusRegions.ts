@@ -26,12 +26,14 @@ const lastFocused = new WeakMap<Element, HTMLElement>()
 const lent = new Set<HTMLElement>()
 
 /**
- * Without the system's focus, focus moves fire no events at all, so while a tabindex is lent a frame-by-frame check
- * takes it back once focus is no longer in its region. It stops when nothing is lent.
+ * Without the system's focus, focus moves fire no events at all, so while a tabindex is lent a check every
+ * WATCH_MS takes it back once focus is no longer in its region. It stops when nothing is lent. A timer, not
+ * animation frames: Chromium pauses those in a window it counts as hidden or covered (a Windows CI runner).
  */
+const WATCH_MS = 100
 let watching = false
 function watchLent(): void {
-  if (watching || typeof requestAnimationFrame !== 'function') return
+  if (watching) return
   watching = true
   const tick = (): void => {
     for (const region of lent) {
@@ -39,10 +41,10 @@ function watchLent(): void {
       region.removeAttribute('tabindex')
       lent.delete(region)
     }
-    if (lent.size) requestAnimationFrame(tick)
+    if (lent.size) setTimeout(tick, WATCH_MS)
     else watching = false
   }
-  requestAnimationFrame(tick)
+  setTimeout(tick, WATCH_MS)
 }
 
 /** Takes back the tabindex F6 lent, from every region but `keep`. */
