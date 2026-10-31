@@ -245,6 +245,8 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of an activity call its own code', () => {
     for (const refusal of ACTIVITY_REFUSALS) expect(isMessageCode(`activity.${refusal}`), refusal).toBe(true)
+  })
+
   it('gives every refusal of a sections save its own code', () => {
     for (const refusal of THREAD_SECTIONS_REFUSALS) expect(isMessageCode(`thread.sections.${refusal}`), refusal).toBe(true)
   })
