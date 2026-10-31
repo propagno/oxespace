@@ -108,6 +108,8 @@
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
+  /* The colour is the choice: forced colours must not repaint the dots. */
+  forced-color-adjust: none;
 }
 .swatch::before {
   content: '';

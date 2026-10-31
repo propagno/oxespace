@@ -46,9 +46,9 @@ export function px(value: string | undefined, scope: Record<string, string>, dep
     const length = resolved === undefined ? undefined : px(resolved, scope, depth + 1)
     return length === undefined ? 'NaN' : `${length}px`
   })
-  const expression = substituted.replace(/calc\(/g, '(').replace(/(\d*\.?\d+)px/g, '$1').trim()
-  if (!/^[\d.\s+\-*/()]+$/.test(expression)) return undefined
-  const result = Number(new Function(`return (${expression})`)())
+  const expression = substituted.replace(/calc\(/g, '(').replace(/\bmax\(/g, 'M(').replace(/\bmin\(/g, 'm(').replace(/(\d*\.?\d+)px/g, '$1').trim()
+  if (!/^[\d.\s+\-*/(),Mm]+$/.test(expression)) return undefined
+  const result = Number(new Function('M', 'm', `return (${expression})`)(Math.max, Math.min))
   return Number.isFinite(result) ? result : undefined
 }
 
@@ -75,7 +75,7 @@ function box(file: string, selectors: string[], density: Density): { width: numb
  * The targets, as the rules that build each one in the order they cascade. A text button's width also has its
  * label; the padding floor is what is checked here, the label only makes it wider.
  */
-const TARGETS: Array<{ name: string; file: string; selectors: string[] }> = [
+const TARGETS: Array<{ name: string; file: string; selectors: string[]; fillsWidth?: string }> = [
   { name: 'Button md', file: 'Button.module.css', selectors: ['.button'] },
   { name: 'Button sm', file: 'Button.module.css', selectors: ['.button', '.sm'] },
   { name: 'Button lg', file: 'Button.module.css', selectors: ['.button', '.lg'] },
@@ -87,7 +87,7 @@ const TARGETS: Array<{ name: string; file: string; selectors: string[] }> = [
   { name: 'SegmentedControl option (radio)', file: 'Field.module.css', selectors: ['.segment'] },
   { name: 'Swatch', file: 'Field.module.css', selectors: ['.swatch'] },
   { name: 'Tab', file: 'Display.module.css', selectors: ['.tab'] },
-  { name: 'Menu item (also checkbox and radio items)', file: 'Overlay.module.css', selectors: ['.menuItem'] }
+  { name: 'Menu item (also checkbox and radio items)', file: 'Overlay.module.css', selectors: ['.menuItem'], fillsWidth: 'an item spans the menu, which is wider than any target' }
 ]
 
 /**
@@ -105,6 +105,8 @@ describe('design lint: target size (WCAG 2.5.8)', () => {
     expect(px('calc(var(--b) - 6px)', scope)).toBe(22)
     expect(px('var(--missing, 24px)', scope)).toBe(24)
     expect(px('auto', scope)).toBeUndefined()
+    expect(px('max(var(--target-min, 24px), calc(var(--a) - 6px))', scope)).toBe(24)
+    expect(px('min(var(--a), 20px)', scope)).toBe(20)
     expect(rules('@layer x { .a, .b { height: 1px } }').map(rule => rule.selector)).toEqual(['.a', '.b'])
   })
 
@@ -112,7 +114,7 @@ describe('design lint: target size (WCAG 2.5.8)', () => {
     it(`every interactive primitive is at least ${TARGET_MIN}×${TARGET_MIN} px (${density})`, () => {
       const report = TARGETS.flatMap(target => {
         const size = box(target.file, target.selectors, density)
-        return size.width >= TARGET_MIN && size.height >= TARGET_MIN ? [] : [`${target.name}: ${size.width}×${size.height}`]
+        return (target.fillsWidth || size.width >= TARGET_MIN) && size.height >= TARGET_MIN ? [] : [`${target.name}: ${size.width}×${size.height}`]
       })
       expect(report).toEqual([])
     })
@@ -129,6 +131,17 @@ describe('design lint: target size (WCAG 2.5.8)', () => {
           return small.length ? [`${file} ${rule.selector} (${density}): ${small.map(name => `${name} ${rule.declarations[name]}`).join(', ')}`] : []
         })
       }))
+    expect(report).toEqual([])
+  })
+
+  it('a primitive that makes a <div>/<span role="button"> or an <a> with a handler names it as a measured target', () => {
+    // None today: Button, IconButton and the Radix items are the clickable primitives. A new one must join TARGETS.
+    const MEASURED = new Set<string>(TARGETS.map(target => target.file.replace('.module.css', '.tsx')))
+    const report = readdirSync(UI).filter(name => name.endsWith('.tsx')).flatMap(file => {
+      const source = readFileSync(join(UI, file), 'utf8')
+      const hits = [...source.matchAll(/role=["']button["']|<a\b[^>]*\bon(?:Click|KeyDown)=/g)]
+      return hits.length && !MEASURED.has(file) ? [`${file}: ${hits.length} clickable element(s) not measured by TARGETS`] : []
+    })
     expect(report).toEqual([])
   })
 
