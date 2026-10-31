@@ -19,6 +19,8 @@ import { ResultGrid } from './ResultGrid'
 import { FieldError, Select, TextArea } from '../../ui/Field'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { mongoWritePreview } from './confirm-statements'
+import { MongoWriteDetails } from './ConfirmStatements'
 import { Splitter } from '../../ui/Splitter'
 import { MONGO_INPUTS_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 import { Dialog } from '../../ui/Overlay'
@@ -265,6 +267,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
               description={connection.environment === 'prod' ? t('workbench.confirm.production') : t('mongo.confirmCheck')}
               onCancel={() => setConfirm(null)} onConfirm={() => void write(true)}>
               <ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
+              {target && <MongoWriteDetails preview={mongoWritePreview({ op: editing.mode === 'delete' ? 'delete' : editing.original === null ? 'insert' : 'replace', ...target, original: editing.original, document: editing.mode === 'delete' ? null : editing.text })} />}
             </ConfirmDialog>}
           </Dialog>}
           {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>

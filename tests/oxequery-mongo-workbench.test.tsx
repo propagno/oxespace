@@ -104,6 +104,22 @@ describe('MongoWorkbench', () => {
     expect(within(dialog).getByRole('button', { name: 'Update documents' })).toBeDisabled()
   })
 
+  it('shows the operation, its filter and the document in the write confirmation', async () => {
+    await openItems()
+    api.on('mongo.write', (input: Record<string, unknown>) => { if (input.confirmed !== true) throw refusal('confirm', 'This is a production connection.', ['Deletes a document on production.']); return { ok: true } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete document' })[0]!)
+    const form = await screen.findByRole('dialog', { name: 'Delete this document?' })
+    fireEvent.click(within(form).getByRole('button', { name: 'Delete' }))
+    const confirm = await screen.findByRole('dialog', { name: 'Confirm this change' })
+    expect(confirm).toHaveTextContent('Deletes a document on production.')
+    expect(within(confirm).getByTestId('oxequery-confirm-mongo-operation')).toHaveTextContent('db.items.deleteOne() · shop')
+    expect(within(confirm).getByTestId('oxequery-confirm-mongo-filter')).toHaveTextContent('507f1f77bcf86cd799439011')
+    expect(within(confirm).getByTestId('oxequery-confirm-mongo-filter')).not.toHaveTextContent('sku-1')
+    expect(within(confirm).queryByTestId('oxequery-confirm-mongo-document')).toBeNull()
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(api.callsOf('mongo.write').at(-1)).toMatchObject({ op: 'delete', confirmed: true }))
+  })
+
   it('offers no write controls on a read-only connection', async () => {
     await openItems(true)
     expect(screen.queryByRole('button', { name: 'New document' })).toBeNull()

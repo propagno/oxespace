@@ -85,9 +85,11 @@
       "hint": "Um link para um site que você ainda não abriu pelo OXESpace pede confirmação antes. Limpe a lista para voltar a confirmar todos os sites.",
       "count_one": "{{count}} site lembrado.",
       "count_other": "{{count}} sites lembrados.",
+      "count_many": "{{count}} sites lembrados.",
       "clear": "Limpar sites que você abriu",
       "cleared_one": "{{count}} site esquecido",
-      "cleared_other": "{{count}} sites esquecidos"
+      "cleared_other": "{{count}} sites esquecidos",
+      "cleared_many": "{{count}} sites esquecidos"
     }
   },
   "appearance": {

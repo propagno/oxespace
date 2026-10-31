@@ -35,6 +35,8 @@ import { formatNumber } from '../../utils/formatTime'
 import { nameMatches } from '../../../shared/oxequerySafety'
 import { useConnectionSafety } from './useConnectionSafety'
 import { useSqlLint } from './useSqlLint'
+import { confirmScript, lineAt } from './confirm-statements'
+import { ConfirmStatements } from './ConfirmStatements'
 
 const ROW_LIMITS = [100, 500, 1000, 5000, 10_000, 50_000, 100_000]
 const PAGE = 100
@@ -84,6 +86,14 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
   const activeRef = useRef(active)
   activeRef.current = active
+  // What a confirmation is about: every statement that will run, with its editor line, and the reasons found in each.
+  const { check: lintCheck, describe: lintDescribe } = lint
+  const pendingScript = useMemo(() => {
+    if (!pending) return null
+    const source = editor.current?.getValue() ?? activeRef.current.sql
+    const findings = lintCheck(pending.text).filter(finding => finding.destructive).map(finding => ({ start: finding.start, reason: lintDescribe(finding) }))
+    return confirmScript(pending.text, source.slice(pending.base, pending.base + pending.text.length) === pending.text ? lineAt(source, pending.base) : 1, findings)
+  }, [pending, lintCheck, lintDescribe])
 
   const patch = useCallback((id: string, change: Partial<QueryTab>): void => {
     setTabs(current => current.map(tab => tab.id === id ? { ...tab, ...change } : tab))
@@ -268,7 +278,12 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   }
 
   const runCurrent = useCallback((): void => { const target = currentStatement(); if (target) void run(target.text, target.base) }, [currentStatement, run])
-  const runAll = useCallback((): void => { const sql = editor.current?.getValue() ?? activeRef.current.sql; const selection = editor.current?.getSelection(); void run(selection && !selection.isEmpty() ? editor.current?.getModel()?.getValueInRange(selection) ?? sql : sql, 0) }, [run])
+  const runAll = useCallback((): void => {
+    const sql = editor.current?.getValue() ?? activeRef.current.sql, selection = editor.current?.getSelection(), model = editor.current?.getModel()
+    // A selection runs from where it starts, so markers and the confirmation's line numbers point at the editor's lines.
+    if (selection && !selection.isEmpty() && model) void run(model.getValueInRange(selection), model.getOffsetAt(selection.getStartPosition()))
+    else void run(sql, 0)
+  }, [run])
   const runRef = useRef(runCurrent); runRef.current = runCurrent
   const runAllRef = useRef(runAll); runAllRef.current = runAll
 
@@ -384,7 +399,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         description={pending.typed ? t('workbench.confirm.typedHint') : connection.environment === 'prod' ? t('workbench.confirm.production') : t('workbench.confirm.check')}
         onCancel={() => { pendingExplain.current = null; setPending(null); setTypedName('') }}
         onConfirm={() => confirmPending()}>
-        {pending.reasons.length > 0 && <ul>{pending.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
+        {pendingScript && <ConfirmStatements script={pendingScript} generalReasons={pending.reasons} />}
         {pending.typed && <TextField label={t('workbench.confirm.typeName', { name: connection.name })} value={typedName} autoComplete="off" spellCheck={false} mono
           onChange={event => setTypedName(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter' && nameMatches(typedName, connection.name)) { event.preventDefault(); confirmPending() } }} />}
