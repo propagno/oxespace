@@ -291,6 +291,8 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
   const url = expectString(input.url, 'url')
   const target = classifyPreviewUrl(url)
   if (target.kind === 'refused') {
+    // Never echo a URL that carries credentials.
+    if (target.reason === 'credentials') return errorResult('The preview does not open URLs with a user name or password in them.')
     return errorResult(`URL "${url}" is not safe to open (must be http or https).`)
   }
   const threadId = execution.owner.kind === 'thread' ? execution.owner.id : undefined

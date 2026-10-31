@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { ThreadMarkdown } from '../src/components/Threads/ThreadMarkdown'
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
@@ -27,11 +27,15 @@ it('preserves code whitespace when copying and renders nested and task lists', a
   expect(writeText).toHaveBeenCalledWith('const value = 1\n  console.log(value)\n')
 })
 
-it('keeps external links functional without navigating the app or executing HTML', () => {
+it('keeps external links functional without navigating the app or executing HTML', async () => {
+  localStorage.clear()
   const open = vi.spyOn(window, 'open').mockImplementation(() => null)
   render(<ThreadMarkdown text={'[Docs](https://example.com/docs)\n\n[Unsafe](javascript:alert(1))\n\n<script>alert(1)</script>'} />)
-  fireEvent.click(screen.getByRole('link', { name: 'Docs' }))
-  expect(open).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener,noreferrer')
+  // Text that names something other than the address shows the real host after it, and asks before opening.
+  fireEvent.click(screen.getByRole('link', { name: 'Docs (example.com)' }))
+  expect(open).not.toHaveBeenCalled()
+  fireEvent.click(await screen.findByRole('button', { name: 'Open' }))
+  await waitFor(() => expect(open).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener,noreferrer'))
   expect(screen.getAllByRole('link')).toHaveLength(1)
   expect(document.querySelector('script')).toBeNull()
 })

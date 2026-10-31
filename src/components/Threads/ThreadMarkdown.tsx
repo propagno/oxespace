@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm'
 import { Check, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
+import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
+import { parseExternalUrl } from '../../lib/externalLinks'
 import './ThreadMarkdown.css'
 
 function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
@@ -31,8 +33,8 @@ export function ThreadMarkdown({ text }: { text: string }) {
   return <div className="thread-markdown"><Markdown remarkPlugins={[remarkGfm]} components={{
     table: ({ children }) => <div className="thread-table-scroll" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
     pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
-    a: ({ href, children }) => href && /^https?:\/\//i.test(href)
-      ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={event => { event.preventDefault(); window.open(href, '_blank', 'noopener,noreferrer') }}>{children}</a>
+    a: ({ href, children }) => href && parseExternalUrl(href)
+      ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
       : <span className="thread-markdown-reference" title={href}>{children}</span>,
     img: ({ alt }) => <span className="thread-markdown-reference">{alt ? t('markdown.imageAlt', { alt }) : t('markdown.image')}</span>
   }}>{text}</Markdown></div>

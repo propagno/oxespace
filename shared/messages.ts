@@ -50,6 +50,8 @@ export interface MessageParams {
   'incident.mcp.quarantined': Record<string, never>
   'incident.database.busy': Record<string, never>
   'incident.oxequery.timeout': Record<string, never>
+  /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
+  'incident.oxequery.restartDeferred': Record<string, never>
   'incident.updater.failed': Record<string, never>
   'incident.interaction.overBudget': Record<string, never>
   'incident.app.journalReset': Record<string, never>
@@ -58,6 +60,10 @@ export interface MessageParams {
   'incident.window.externalRateLimited': Record<string, never>
   /** The system refused to open a link the app allowed (no mail app or browser registered for it). */
   'incident.window.externalOpenFailed': Record<string, never>
+  /** The main window called window.open; it opens nothing by itself (links leave through app:open-external). */
+  'incident.window.openDenied': Record<string, never>
+  /** The main window tried to navigate or redirect away from the app; it was kept in place and nothing was opened. */
+  'incident.window.navigationDenied': Record<string, never>
   /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
   'diagnostics.bundle.fileTooLarge': Record<string, never>
   /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
@@ -112,6 +118,12 @@ export interface MessageParams {
   'oxequery.sql.sessionRole': Record<string, never>
   /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
   'oxequery.sql.tableLock': Record<string, never>
+  /** A session with a transaction open or a command running is never closed to reopen it with new settings. */
+  'oxequery.session.busy': Record<string, never>
+  /** One connection already holds the most database connections it may hold for one role (the person or an agent). */
+  'oxequery.session.limit': { limit: number }
+  /** An agent sent BEGIN: an agent's session never keeps a transaction, so it was rolled back and refused. */
+  'oxequery.session.agentTransaction': Record<string, never>
   /** Mongo write (B15): a change on a production connection waits for the connection's name, typed. */
   'oxequery.mongo.confirmName': Record<string, never>
   /** Mongo write: a change that needs the person's confirmation (a delete). */
@@ -288,12 +300,15 @@ export const MESSAGE_CODES = [
   'incident.mcp.quarantined',
   'incident.database.busy',
   'incident.oxequery.timeout',
+  'incident.oxequery.restartDeferred',
   'incident.updater.failed',
   'incident.interaction.overBudget',
   'incident.app.journalReset',
   'incident.window.externalRefused',
   'incident.window.externalRateLimited',
   'incident.window.externalOpenFailed',
+  'incident.window.openDenied',
+  'incident.window.navigationDenied',
   'diagnostics.bundle.fileTooLarge',
   'diagnostics.bundle.tooLarge',
   'bundle.file.snapshot',
@@ -337,6 +352,9 @@ export const MESSAGE_CODES = [
   'oxequery.sql.rowLock',
   'oxequery.sql.sessionRole',
   'oxequery.sql.tableLock',
+  'oxequery.session.busy',
+  'oxequery.session.limit',
+  'oxequery.session.agentTransaction',
   'oxequery.mongo.confirmName',
   'oxequery.mongo.confirm',
   'oxequery.mongo.production',
