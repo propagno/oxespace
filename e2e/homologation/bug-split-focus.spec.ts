@@ -1,4 +1,5 @@
 import { _electron as electron, test, type ElectronApplication, type Page } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -42,7 +43,7 @@ test('split, click outside, then type: does the new pane take input? (pt-BR)', a
   test.setTimeout(300_000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-hml-bug-'))
   const repo = join(root, 'repo'); mkdirSync(repo); execFileSync('git', ['init', '-q'], { cwd: repo })
-  const app: ElectronApplication = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR' } })
+  const app: ElectronApplication = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR' } })
   const errors: string[] = []
   try {
     const page = await app.firstWindow()

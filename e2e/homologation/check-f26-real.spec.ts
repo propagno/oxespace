@@ -1,4 +1,5 @@
 import { _electron as electron, test, type ElectronApplication, type Page } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -29,7 +30,7 @@ async function start(locale: 'pt-BR' | 'en-US') {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-hml-f26-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
   execFileSync('git', ['init', '-q'], { cwd: repo })
-  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: locale } })
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: locale } })
   const page = await app.firstWindow()
   await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].setSize(1280, 860) })
   await page.getByTestId('btn-new-workspace').first().waitFor({ timeout: 30_000 })

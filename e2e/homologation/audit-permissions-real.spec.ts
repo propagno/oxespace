@@ -1,4 +1,5 @@
 import { _electron as electron, test, type ElectronApplication } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -44,7 +45,7 @@ for (const locale of ['pt-BR', 'en-US'] as const) {
     const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'ignore' })
     git('init', '-q'); git('config', 'user.email', 'hml@example.invalid'); git('config', 'user.name', 'HML')
     writeFileSync(join(repo, 'README.md'), '# demo\n'); git('add', '.'); git('commit', '-qm', 'init'); git('branch', 'feature/x')
-    const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: locale } })
+    const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: locale } })
     const notes: Record<string, unknown> = {}
     try {
       const page = await app.firstWindow()

@@ -1,4 +1,5 @@
 import { _electron as electron, test } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -31,7 +32,7 @@ for (const locale of ['pt-BR', 'en-US'] as const) {
       ['quoted (pasted from Explorer)', `"${accents}"`]
     ]
     const direct = ['', '   ', '""', `"${accents}`, `${accents}"`, `'${accents}'`, `"${aFile}"`, `""${accents}""`, String.raw`"C:\nao\existe"`]
-    const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: locale } })
+    const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: locale } })
     const results: unknown[] = []
     try {
       const page = await app.firstWindow()

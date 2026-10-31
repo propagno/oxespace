@@ -1,4 +1,5 @@
 import { _electron as electron, test } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -14,7 +15,7 @@ test('no frozen clock: OxeQuery typing and Agent settings', async () => {
   test.setTimeout(180_000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-hml-p120-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
-  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3') } })
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3') } })
   const notes: Record<string, unknown> = {}
   const errors: string[] = []
   try {

@@ -1,4 +1,5 @@
 import { _electron as electron, test } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -15,7 +16,7 @@ mkdirSync(OUT, { recursive: true })
 test('side chat: refusals and input checks without a live agent', async () => {
   test.setTimeout(120_000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-hml-220-'))
-  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR' } })
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR' } })
   const notes: Record<string, unknown> = {}
   try {
     const page = await app.firstWindow()

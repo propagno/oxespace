@@ -1,4 +1,5 @@
 import { _electron as electron, test, type Page } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -22,7 +23,7 @@ test('terminal keyboard exit: nothing reaches the shell (pt-BR)', async () => {
   const repo = join(root, 'repo'); mkdirSync(repo)
   execFileSync('git', ['init', '-q'], { cwd: repo })
   const keys = join(root, 'keys.txt')
-  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR' } })
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR' } })
   const notes: Record<string, unknown> = {}
   const errors: string[] = []
   try {

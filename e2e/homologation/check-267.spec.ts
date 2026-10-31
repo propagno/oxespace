@@ -1,4 +1,5 @@
 import { _electron as electron, test } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -25,7 +26,7 @@ test('on-demand modules work on first use', async () => {
   const project = join(claudeDir, 'projects', 'C--fake-project'); mkdirSync(project, { recursive: true })
   writeFileSync(join(project, '11111111-2222-3333-4444-555555555555.jsonl'), JSON.stringify({ type: 'user', sessionId: '11111111-2222-3333-4444-555555555555', cwd: repo, timestamp: new Date().toISOString(), message: { role: 'user', content: 'please refactor the zanzibarquux module' } }) + '\n')
   mkdirSync(join(codexDir, 'sessions'), { recursive: true })
-  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'en-US', CLAUDE_CONFIG_DIR: claudeDir, CODEX_HOME: codexDir } })
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'en-US', CLAUDE_CONFIG_DIR: claudeDir, CODEX_HOME: codexDir } })
   const notes: Record<string, unknown> = {}
   const errors: string[] = []
   try {

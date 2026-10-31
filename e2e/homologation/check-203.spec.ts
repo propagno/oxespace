@@ -1,4 +1,5 @@
 import { _electron as electron, test } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { execFileSync } from 'node:child_process'
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { hostname, tmpdir, userInfo } from 'node:os'
@@ -35,7 +36,7 @@ test('diagnostics bundle and agent tool keep secrets and paths out', async () =>
   git('remote', 'add', 'origin', `https://hml:${FAKE.github}@github.com/acme/${FAKE.client}.git`)
   writeFileSync(join(repo, 'README.md'), '# x\n'); git('add', '.'); git('commit', '-qm', 'init')
   const env = {
-    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR',
+    ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR',
     ANTHROPIC_API_KEY: FAKE.anthropic, GITHUB_TOKEN: FAKE.github, AWS_SECRET_ACCESS_KEY: FAKE.aws,
     DATABASE_URL: `postgres://admin:${FAKE.dbPassword}@${FAKE.dbHost}:5432/prod`, HML_BEARER: `Bearer ${FAKE.bearer}`
   }

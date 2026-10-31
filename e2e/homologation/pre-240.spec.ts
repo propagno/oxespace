@@ -1,4 +1,5 @@
 import { _electron as electron, test, type Page } from '@playwright/test'
+import { cleanEnv } from './clean-env'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -70,7 +71,7 @@ test('real app refuses: pt-BR light', async () => {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-hml-240-'))
   const repo = join(root, 'demo-repo'); mkdirSync(repo)
   execFileSync('git', ['init', '-q'], { cwd: repo })
-  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR' } })
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...cleanEnv(), OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_LOCALE: 'pt-BR' } })
   const errors: string[] = []
   try {
     const page = await app.firstWindow()
