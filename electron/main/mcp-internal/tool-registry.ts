@@ -235,7 +235,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_open_web_preview',
-      description: 'Queue a URL for the current Code or Thread Web Preview. Returns queued, not loaded; confirm with oxespace_preview_interact status/inspect. http(s) on localhost, *.localhost, 127.0.0.1 or [::1] opens directly; any other host, and file: URLs, waits for a person to approve that exact URL (call again with the same URL once approved). Other schemes are refused. External sites also require External preview.',
+      description: 'Queue a URL for the current Code or Thread Web Preview. Returns queued, not loaded; confirm with oxespace_preview_interact status/inspect. http(s) on localhost, *.localhost, 127.0.0.1 or [::1] opens directly; any other host waits for a person to approve that exact URL (call again with the same URL once approved). Other schemes, file: included, are refused. External sites also require External preview.',
       inputSchema: {
         type: 'object',
         properties: {

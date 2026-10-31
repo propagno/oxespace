@@ -3,8 +3,10 @@
  * makes of it:
  *
  *   local     http(s) to localhost, *.localhost, 127.0.0.1 or [::1], on any port, written in that exact form
- *   external  any other http(s) host, and file: URLs: a person approves the exact URL first
- *   refused   every other scheme (javascript:, data:, blob:, about:, chrome:, devtools:, mailto:, custom ones)
+ *   external  any other http(s) host: a person approves the exact URL first
+ *   refused   every other scheme (file:, javascript:, data:, blob:, about:, chrome:, devtools:, mailto:, custom ones).
+ *             file: is refused rather than asked for in 1.4: the preview loads http(s) only, so an approval could
+ *             not lead anywhere.
  *
  * The WHATWG parser turns `http://2130706433`, `http://0x7f.1` and `http://LOCALHOST` into a loopback host. Those
  * spellings exist to slip past a check, so the host must already be written the way the parser writes it; anything
@@ -12,7 +14,7 @@
  */
 export type PreviewUrl =
   | { kind: 'local'; href: string }
-  | { kind: 'external'; href: string; file: boolean }
+  | { kind: 'external'; href: string }
   | { kind: 'refused' }
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -44,9 +46,8 @@ function isLoopbackHost(host: string): boolean {
 export function classifyPreviewUrl(raw: string): PreviewUrl {
   let url: URL
   try { url = new URL(raw) } catch { return { kind: 'refused' } }
-  if (url.protocol === 'file:') return { kind: 'external', href: url.href, file: true }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return { kind: 'refused' }
-  const external: PreviewUrl = { kind: 'external', href: url.href, file: false }
+  const external: PreviewUrl = { kind: 'external', href: url.href }
   if (hasHidden(raw) || url.username || url.password) return external
   const written = writtenHost(raw)
   if (written.credentials || written.host !== url.hostname) return external

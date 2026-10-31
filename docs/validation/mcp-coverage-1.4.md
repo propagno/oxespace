@@ -68,9 +68,10 @@ A caller without a live execution gets `no-execution` instead of the effect.
 
 `oxespace_open_web_preview` (B15) is **confirm**, and the level depends on the URL. http(s) to `localhost`,
 `*.localhost`, `127.0.0.1` or `[::1]`, on any port, skips the question and runs as **write**, as before. Any other
-host, and every `file:` URL, waits for a person to approve that exact URL; nothing is queued for the preview until
-then. Every other scheme (`javascript:`, `data:`, `blob:`, `about:`, `chrome:`, `devtools:`, `mailto:`, custom ones)
-is refused. The host must be written the way the URL parser writes it: `http://2130706433`, `http://0177.0.0.1`,
+host waits for a person to approve that exact URL; nothing is queued for the preview until then. Every other scheme
+(`file:`, `javascript:`, `data:`, `blob:`, `about:`, `chrome:`, `devtools:`, `mailto:`, custom ones) is refused
+without asking. `file:` stays refused in 1.4 because the preview loads http(s) only, so an approval could not lead
+anywhere; opening a file after an approval is a post-1.4 item. The host must be written the way the URL parser writes it: `http://2130706433`, `http://0177.0.0.1`,
 `http://LOCALHOST`, `http://[::ffff:7f00:1]`, `http://localhost.evil.com` and `http://127.0.0.1@evil.com` all ask
 (`electron/main/utils/preview-url.ts`).
 

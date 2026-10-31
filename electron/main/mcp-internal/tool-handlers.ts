@@ -276,15 +276,13 @@ export function previewApproval(target: Extract<PreviewUrl, { kind: 'external' }
   return {
     summary: `open ${target.href} in the Web Preview`,
     text: `Open in the Web Preview:\n${target.href}`,
-    reasons: [target.file
-      ? 'This is a file on this computer, not a local server. The preview shows what the agent points it at.'
-      : 'This page is not on localhost. It can load anything, and it sees what is typed into it.']
+    reasons: ['This page is not on localhost. It can load anything, and it sees what is typed into it.']
   }
 }
 
 /**
- * Local pages open as before (write: a live execution, recorded, rate limited). Any other http(s) page and file: URLs
- * are confirm: nothing is queued until a person approves that exact URL. Other schemes are refused.
+ * Local pages open as before (write: a live execution, recorded, rate limited). Any other http(s) page is confirm:
+ * nothing is queued until a person approves that exact URL. Other schemes, file: included, are refused.
  */
 async function openWebPreview(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const execution = requirePreviewExecution(ctx)
@@ -292,7 +290,7 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
   const url = expectString(input.url, 'url')
   const target = classifyPreviewUrl(url)
   if (target.kind === 'refused') {
-    return errorResult(`URL "${url}" is not safe to open (must be http, https or file).`)
+    return errorResult(`URL "${url}" is not safe to open (must be http or https).`)
   }
   const threadId = execution.owner.kind === 'thread' ? execution.owner.id : undefined
   const open = async (): Promise<InternalMcpToolCallResult> => {

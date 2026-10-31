@@ -21,17 +21,17 @@ describe('classifyPreviewUrl', () => {
     'http://xn--localhost-.com', 'http://loca\u006chost.evil.com', 'http:\\\\evil.com', 'http://evil.com\\@localhost',
     ' http://localhost', 'http://local\thost', 'http://localhost\u200b', 'http://localhost\u00ad:3000', 'http://ｌocalhost'
   ])('asks before %s', url => {
-    expect(classifyPreviewUrl(url)).toMatchObject({ kind: 'external', file: false })
+    expect(classifyPreviewUrl(url)).toMatchObject({ kind: 'external' })
   })
 
-  it('asks before any file: URL, and the approval names the parsed URL', () => {
-    for (const url of ['file:///C:/Users/me/report.html', 'file:///etc/passwd', 'FILE:///tmp/x.html', 'file://localhost/tmp/x.html']) {
-      expect(classifyPreviewUrl(url), url).toMatchObject({ kind: 'external', file: true })
-    }
-    expect(classifyPreviewUrl('file:///tmp/a b.html')).toEqual({ kind: 'external', file: true, href: 'file:///tmp/a%20b.html' })
+  it('names the parsed URL, which is what the approval and the preview will see', () => {
+    expect(classifyPreviewUrl('https://EXAMPLE.com/a b')).toEqual({ kind: 'external', href: 'https://example.com/a%20b' })
+    expect(classifyPreviewUrl('http://localhost:5173/x/../y')).toEqual({ kind: 'local', href: 'http://localhost:5173/y' })
   })
 
   it.each([
+    // file: is refused, not asked for: the preview loads http(s) only (post-1.4: file: after an approval).
+    'file:///C:/Users/me/report.html', 'file:///etc/passwd', 'FILE:///tmp/x.html', 'file://localhost/tmp/x.html',
     'javascript:alert(1)', 'JavaScript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'blob:http://localhost/1234', 'about:blank',
     'chrome://settings', 'devtools://devtools/bundled/inspector.html', 'mailto:me@example.com', 'ftp://localhost', 'ws://localhost:3000',
     'vscode://file/x', 'oxespace://open', 'view-source:http://localhost', 'localhost:3000', '//localhost:3000', 'not a url', ''

@@ -83,11 +83,11 @@ describe('Web Preview URL level (B15)', () => {
     const { ctx, emitPreview } = context({ kind: 'thread', id: 'thread-a' }, 'thread:project-a', false)
     const broker = approvals()
     ctx.agentActions = broker.actions
-    await open(ctx, 'file:///etc/passwd')
-    expect(broker.asked[0]?.reasons[0]).toMatch(/file on this computer/)
+    await open(ctx, 'https://evil.example/login')
+    expect(broker.asked[0]?.reasons[0]).toMatch(/not on localhost/)
     broker.answer('deny')
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(reply(await open(ctx, 'file:///etc/passwd')).code).toBe('denied')
+    expect(reply(await open(ctx, 'https://evil.example/login')).code).toBe('denied')
     expect(emitPreview).not.toHaveBeenCalled()
   })
 
@@ -109,7 +109,7 @@ describe('Web Preview URL level (B15)', () => {
     expect(emitPreview).not.toHaveBeenCalled()
   })
 
-  test.each(['javascript:alert(1)', 'data:text/html,<b>x</b>', 'blob:http://localhost/1', 'about:blank', 'chrome://settings', 'devtools://devtools', 'mailto:a@b.c', 'oxespace://x'])('%s is refused without asking', async url => {
+  test.each(['file:///etc/passwd', 'file:///C:/Users/me/report.html', 'javascript:alert(1)', 'data:text/html,<b>x</b>', 'blob:http://localhost/1', 'about:blank', 'chrome://settings', 'devtools://devtools', 'mailto:a@b.c', 'oxespace://x'])('%s is refused without asking', async url => {
     const { ctx, emitPreview } = context({ kind: 'thread', id: 'thread-a' }, 'thread:project-a', false)
     const broker = approvals()
     ctx.agentActions = broker.actions
