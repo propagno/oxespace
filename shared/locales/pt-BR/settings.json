@@ -571,5 +571,25 @@
     "off": "Desligar",
     "resetAll": "Restaurar todos os atalhos",
     "fixed": "Sempre ativo"
+  },
+  "agentConfig": {
+    "promptRequired": "O prompt da skill é obrigatório",
+    "saveFailed": "Falha ao salvar o perfil do agente",
+    "commandRequired": "O comando é obrigatório",
+    "deleteFailed": "Falha ao excluir o perfil do agente",
+    "deleteTitle": "Excluir este perfil de agente?",
+    "deleteDescription": "“{{name}}” será removido do OXESpace. Terminais que já o executam continuam em execução.",
+    "delete": "Excluir perfil",
+    "configure": "Configurar agente",
+    "customDescription": "Um prompt de skill executado sobre um agente embutido.",
+    "description": "O nome e o comando que o OXESpace usa para iniciar este agente.",
+    "create": "Criar",
+    "save": "Salvar",
+    "name": "Nome",
+    "namePlaceholder": "Meu agente",
+    "parent": "Provedor base",
+    "prompt": "Prompt da skill",
+    "promptPlaceholder": "Você é especialista em Java 8+. Revise este código quanto a boas práticas, desempenho e correção.",
+    "command": "Comando"
   }
 }
