@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 28 | 1 | 10 | 76 |
+| 37 | 30 | 2 | 14 | 83 |
 
 The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
 manifest declares 154 tool-or-action entries.
@@ -48,6 +48,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
 | `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite` |
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
+| `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
 
 ## New in X21
 
@@ -154,6 +155,7 @@ before. Code panes receive the whole registry.
 | `usage.copilot` | GitHub Copilot allowance | Excluded: No agent OXESpace starts runs on Copilot; the panel is for Copilot panes. |
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
 | `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
+| `app.open_external` | Open a link in the system browser or mail app | **Forbidden**: Person-only, like an approval: the window calls it after the person confirmed the link's host. |
 | `mcp_internal.tool_groups_admin` | Choose how a project offers each group of OXESpace tools | **Forbidden**: Raises what agents can reach. |
 | `settings.diagnostics` | Diagnostics snapshot, live measurements, problem bundles and reports | Excluded: Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them. |
 | `diagnostics.read` | Summary of the incident journal and a snapshot of the app | **read**: `oxespace_diagnostics` (app group): the same Markdown summary as the window's "Ask for an analysis". |
