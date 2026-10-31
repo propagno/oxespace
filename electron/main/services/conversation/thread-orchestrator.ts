@@ -44,7 +44,6 @@ import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-reco
 import type { NativeStateResult } from './codex-state-reader'
 import { canonicalPath, resolveSessionLocation } from '../git-common-dir'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
-import { MainRefusal } from '../main-refusal'
 
 // Canonical comparison: a Windows short name and its long form are the same folder.
 const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === canonicalPath(b)
@@ -257,8 +256,8 @@ export class ThreadOrchestrator {
         this.snapshots.touch(id)
         return cached
       }
+      // Deleted meanwhile: the history read below refuses it with thread.notFound.
       this.snapshots.delete(id)
-      throw new MainRefusal('thread.notFound', {})
     }
     const snapshot = this.history.read(id)
     const firstRepairedEvent = settleCompletedHistoryTools(snapshot.events)
