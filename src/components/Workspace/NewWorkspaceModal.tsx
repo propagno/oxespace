@@ -37,13 +37,13 @@ interface NewWorkspaceModalProps {
  *  (builtin-powershell on Windows, builtin-bash on Linux/macOS). */
 const AGENT_SHELL_PROFILE_IDS = new Set(['builtin-claude', 'builtin-copilot'])
 
-/** Columns × rows of each layout; its name and description come from the catalog. */
 /** The refusal a failed create carries (the workspace store's WorkspaceRootRefusedError), or null for any other failure. */
 function rootRefusalOf(error: unknown): WorkspaceCreateRefusal | null {
   const refusal = error && typeof error === 'object' ? (error as { refusal?: unknown }).refusal : undefined
   return isWorkspaceCreateRefusal(refusal) ? refusal : null
 }
 
+/** Columns × rows of each layout; its name and description come from the catalog. */
 const PRESET_GRID: Record<WorkspaceLayoutPreset, { cols: number; rows: number }> = {
   1: { cols: 1, rows: 1 }, 2: { cols: 2, rows: 1 }, 4: { cols: 2, rows: 2 }, 6: { cols: 3, rows: 2 }, 8: { cols: 4, rows: 2 },
   10: { cols: 5, rows: 2 }, 12: { cols: 4, rows: 3 }, 14: { cols: 7, rows: 2 }, 16: { cols: 4, rows: 4 }

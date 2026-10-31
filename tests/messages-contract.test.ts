@@ -194,7 +194,9 @@ describe('C3 message codes', () => {
   })
 
   it('gives every refusal of a workspace root its own code', () => {
-    for (const refusal of WORKSPACE_ROOT_REFUSALS) expect(isMessageCode(`workspace.root.${refusal}`), refusal).toBe(true),
+    for (const refusal of WORKSPACE_ROOT_REFUSALS) expect(isMessageCode(`workspace.root.${refusal}`), refusal).toBe(true)
+  })
+
   it('gives every refusal of an approval answer its own code', () => {
     for (const refusal of APPROVAL_REFUSALS) expect(isMessageCode(`approvals.refused.${refusal}`), refusal).toBe(true)
   })
