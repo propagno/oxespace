@@ -1,6 +1,7 @@
 name: Android release
-# Builds the companion app's release APK, signs it with the project's key, checks the signature, and attaches the
-# APK and its SHA-256 to the GitHub release. Runs when a release is published (the desktop's "CI and Release"
+# Builds the companion app's release APK, signs it with the project's key, checks the signature, starts the minified
+# build on an emulator, attests the APK's provenance, and attaches the APK and its SHA-256 to the GitHub release
+# (never replacing one already there). Runs when a release is published (the desktop's "CI and Release"
 # pipeline publishes it) or by hand for an existing tag.
 #
 # The signing key never lives in the repository: it comes from four repository secrets the maintainer registers
@@ -30,6 +31,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write # attach the APK to the release
+      id-token: write # sign the provenance attestation
+      attestations: write
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
     defaults:
@@ -113,10 +116,42 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "APK_NAME=$name" >> "$GITHUB_ENV"
 
+      # MB-M-03: the build R8 shrank, started on an emulator before anything is published. The `minified` build type
+      # is the release build with the debug key, so ReleaseSmokeTest installs beside it: the app starts and reads every
+      # kind of desktop frame through its generated serializers. A keep rule missing fails here, not on a phone.
+      - name: Enable KVM
+        working-directory: .
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build the minified app and its smoke test
+        run: ./gradlew --no-daemon -Poxespace.testBuildType=minified assembleMinified assembleMinifiedAndroidTest
+
+      - name: Smoke test the minified build
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disk-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          working-directory: mobile/android
+          script: ./gradlew --no-daemon -Poxespace.testBuildType=minified connectedMinifiedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.oxespace.mobile.ReleaseSmokeTest
+
+      # MB-M-06: a signed statement, kept by GitHub, that this APK came from this workflow at this tag.
+      - name: Attest the APK's provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/${{ env.APK_NAME }}
+
+      # Never --clobber: an APK already attached to this tag is not replaced; the job fails and says so.
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$TAG" "$RUNNER_TEMP/$APK_NAME" "$RUNNER_TEMP/$APK_NAME.sha256" --clobber
+        run: gh release upload "$TAG" "$RUNNER_TEMP/$APK_NAME" "$RUNNER_TEMP/$APK_NAME.sha256"
 
       - name: Remove the signing key
         if: always()

@@ -40,13 +40,19 @@ Also check, once:
 - Settings › Actions › General › Workflow permissions lets a job ask for write access (the default "Read repository
   contents" setting still allows the job's own `contents: write`; an organization policy that forbids it doesn't).
 - Only tags that contain `mobile/android` get an APK: v1.4.0 and later. The workflow never creates a release; run by
-  hand, it attaches to the release that already exists for the tag, and fails if there is none.
+  hand, it attaches to the release that already exists for the tag, and fails if there is none. It never replaces
+  an APK already attached: to publish again, delete that asset from the release first.
 
 ## What each release gets
 
 - `oxespace-android-vX.Y.Z.apk`: release build (minified), signed with APK Signature Scheme v3 (Android 9+).
 - `oxespace-android-vX.Y.Z.apk.sha256`: its SHA-256.
 - The run summary shows the same SHA-256 and the signing certificate's SHA-256.
+- A build provenance attestation (GitHub artifact attestations): this APK came from this workflow at this tag.
+
+Before attaching anything, the workflow starts the build R8 shrank on an emulator and reads every kind of desktop
+frame with it (`ReleaseSmokeTest`, on the `minified` build type: the release build with the debug key). A shrinking
+rule that is missing fails the release there, not on a phone.
 
 ## Verifying an APK before installing it
 
@@ -64,6 +70,8 @@ Also check, once:
 
    The line `Signer #1 certificate SHA-256 digest:` must match the fingerprint the project published (step 3 above,
    without the colons, in lowercase). Android also refuses an update signed by a different key.
+
+   Or check its provenance with the GitHub CLI: `gh attestation verify oxespace-android-vX.Y.Z.apk --repo propagno/oxespace`.
 
 3. Install it (enable "install unknown apps" for the browser or file manager), open OXESpace › Settings › Devices on
    the computer, and pair by scanning the QR. Google Play Protect may warn about an app from outside the Play Store;

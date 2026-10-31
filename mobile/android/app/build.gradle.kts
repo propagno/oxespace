@@ -20,6 +20,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Instrumented tests run on debug; the release workflow passes -Poxespace.testBuildType=minified to run the
+    // release smoke test against the build R8 shrank.
+    testBuildType = providers.gradleProperty("oxespace.testBuildType").getOrElse("debug")
+
     // Only on the release workflow, from repository secrets (RELEASING.md); the key is never in the repository.
     val keystore = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
     if (keystore != null) {
@@ -39,6 +43,14 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
+        }
+        // The release build exactly as R8 shrinks it, signed with the debug key so the smoke test can be installed
+        // beside it. Never published: the release workflow checks it before attaching the real APK.
+        create("minified") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            testProguardFiles("test-proguard-rules.pro")
         }
     }
 
