@@ -189,7 +189,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onConnectivity: (listener) => subscribe(ipc, IPC_CHANNELS.app.onConnectivity, listener),
       about: () => ipc.invoke(IPC_CHANNELS.app.about) as Promise<import('../../shared/types/app').AppAbout>,
       onCloseRequested: (listener) => subscribe(ipc, IPC_CHANNELS.app.closeRequested, listener),
-      answerClose: (input) => ipc.invoke(IPC_CHANNELS.app.closeAnswer, input) as Promise<void>
+      answerClose: (input) => ipc.invoke(IPC_CHANNELS.app.closeAnswer, input) as Promise<void>,
+      openExternal: (url: string) => ipc.invoke(IPC_CHANNELS.app.openExternal, url) as Promise<{ opened: boolean }>
     },
     rtk: {
       getStatus: () => ipc.invoke(IPC_CHANNELS.rtk.getStatus) as Promise<import('../../shared/types/updater').RtkUpdateState>,

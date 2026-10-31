@@ -16,7 +16,7 @@ sealed interface FrameRead {
 }
 
 /**
- * The Kotlin side of `readRemoteFrame` in shared/remote/protocol.ts: size, JSON object, known type, a type the sender
+ * The Kotlin side of `readRemoteFrame` in shared/remote/protocol.ts: size, nesting depth, JSON object, known type, a type the sender
  * may send and a known command, in that order and with the same error codes. Then the fields are decoded into the
  * generated classes, and a frame whose fields don't fit is `malformed`.
  */
@@ -28,7 +28,11 @@ object RemoteFrames {
     }
 
     fun read(text: String, from: FrameSource): FrameRead {
-        if (text.toByteArray(Charsets.UTF_8).size > RemoteLimits.MAX_FRAME_BYTES) return FrameRead.Refused(RemoteErrorCode.FRAME_TOO_LARGE)
+        // Every character is at least one byte, so a long text is refused before it is encoded.
+        if (text.length > RemoteLimits.MAX_FRAME_BYTES || text.toByteArray(Charsets.UTF_8).size > RemoteLimits.MAX_FRAME_BYTES) {
+            return FrameRead.Refused(RemoteErrorCode.FRAME_TOO_LARGE)
+        }
+        if (nestingDepth(text) > RemoteLimits.MAX_FRAME_DEPTH) return FrameRead.Refused(RemoteErrorCode.MALFORMED)
         val value = try {
             json.parseToJsonElement(text)
         } catch (_: SerializationException) {
@@ -67,6 +71,28 @@ object RemoteFrames {
         val code = value.stringField("code") ?: return value
         if (RemoteErrorCode.fromWire(code) != null) return value
         return JsonObject(value + ("code" to JsonPrimitive(RemoteErrorCode.INTERNAL.wire)))
+    }
+
+    /** The deepest `{`/`[` nesting in JSON text, read without recursion; brackets inside strings do not count. */
+    private fun nestingDepth(text: String): Int {
+        var depth = 0
+        var deepest = 0
+        var inString = false
+        var i = 0
+        while (i < text.length) {
+            val char = text[i]
+            if (inString) {
+                if (char == '\\') i++ else if (char == '"') inString = false
+            } else if (char == '"') {
+                inString = true
+            } else if (char == '{' || char == '[') {
+                deepest = maxOf(deepest, ++depth)
+            } else if (char == '}' || char == ']') {
+                depth--
+            }
+            i++
+        }
+        return deepest
     }
 
     private fun JsonObject.stringField(name: String): String? =

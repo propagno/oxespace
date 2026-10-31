@@ -158,7 +158,8 @@
         "browser": "Browser",
         "permissions": "Permissions",
         "model": "Model",
-        "effort": "Reasoning effort"
+        "effort": "Reasoning effort",
+        "sideChat": "Side chat"
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts"
