@@ -51,6 +51,15 @@ export interface MessageParams {
   'activity.future': Record<string, never>
   /** An entry's text looks like a password, token or key; the whole call is refused, nothing is stored. */
   'activity.secret': Record<string, never>
+  /** F13 · Refusals of a sections save (THREAD_SECTIONS_REFUSALS); a refused save stores nothing. */
+  'thread.sections.invalid': Record<string, never>
+  'thread.sections.tooMany': { sections: number; assignments: number }
+  'thread.sections.nameEmpty': Record<string, never>
+  'thread.sections.nameTooLong': { max: number }
+  'thread.sections.nameHidden': Record<string, never>
+  /** `name` is the second section's name, trimmed, as the person typed it. */
+  'thread.sections.nameDuplicate': { name: string }
+  'thread.sections.unknownWorkspace': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -65,6 +74,12 @@ export interface MessageParams {
   'incident.updater.failed': Record<string, never>
   'incident.interaction.overBudget': Record<string, never>
   'incident.app.journalReset': Record<string, never>
+  /** F26: the window gave no first answer to a close or quit within 3 s; main went ahead. */
+  'incident.app.closeUnanswered': Record<string, never>
+  /** F26: the window's renderer went away while a close or quit was waiting on it; main went ahead. */
+  'incident.app.closeRendererGone': Record<string, never>
+  /** F26: the close guard hit an error or an inconsistent state; the close or quit went ahead unasked. */
+  'incident.app.closeGuardFailed': Record<string, never>
   /** A link the main window tried to open outside the app was refused (its reason is the incident's subject). */
   'incident.window.externalRefused': Record<string, never>
   'incident.window.externalRateLimited': Record<string, never>
@@ -208,6 +223,8 @@ export interface MessageParams {
   'approvals.requester.unknownConversation': { conversation: string }
   'approvals.requester.mcpServer': { server: string }
   'approvals.requester.app': Record<string, never>
+  /** A Web Preview automation call with no pane or conversation behind it. */
+  'approvals.requester.preview': Record<string, never>
   'approvals.option.deny': Record<string, never>
   'approvals.option.allowOnce': Record<string, never>
   'approvals.option.allowSessionReads': Record<string, never>
@@ -232,6 +249,8 @@ export interface MessageParams {
   'approvals.note.thread.actsOnMessage': Record<string, never>
   'approvals.note.skill.followed': Record<string, never>
   'approvals.note.automation.runsAlone': Record<string, never>
+  /** B15: an agent asks to open a page that is not on this computer's loopback. */
+  'approvals.note.preview.notLocal': Record<string, never>
   'approvals.note.worktree.folderDeleted': Record<string, never>
   'approvals.note.worktree.forceDiscards': Record<string, never>
   'approvals.note.git.branchShared': Record<string, never>
@@ -241,6 +260,12 @@ export interface MessageParams {
   /** The requester's text was longer than the window shows; only deny is offered. */
   'approvals.note.textCut': { max: number }
   'approvals.note.crash': Record<string, never>
+  /** R2: the requester's text holds bidi controls or invisible characters; the risk is at least high. */
+  'approvals.note.hiddenCharacters': Record<string, never>
+  /** The system dialog cannot hold Allow back for 2 s, so a critical request is deny-only there. */
+  'approvals.note.nativeCriticalDenyOnly': Record<string, never>
+  /** R3: the OS notification when a request waits and the window is not focused. Fixed text, never request content. */
+  'approvals.notify.waiting': Record<string, never>
   /** The window could not show the modal for a request, so it opened in a system dialog. */
   'approvals.unavailable': Record<string, never>
   /** Nobody answered in time; the request was denied. */
@@ -253,8 +278,12 @@ export interface MessageParams {
   'approvals.refused.alreadyReported': Record<string, never>
   /** An allow at critical risk before the modal had been shown for APPROVAL_CRITICAL_ALLOW_DELAY_MS. */
   'approvals.refused.tooSoon': Record<string, never>
+  /** R1: an allow before the window acknowledged showing the request, at any risk. */
+  'approvals.refused.notShown': Record<string, never>
   /** Denied before it was shown: APPROVAL_QUEUE_MAX requests were already waiting. */
   'approvals.denied.queueFull': { max: number }
+  'approvals.denied.timeout': Record<string, never>
+  'approvals.denied.cancelled': Record<string, never>
   /** Denied before it was shown: the text to approve is longer than a person reviews. */
   'approvals.denied.tooLong': { max: number }
   /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
@@ -295,6 +324,13 @@ export const MESSAGE_CODES = [
   'activity.hiddenCharacters',
   'activity.future',
   'activity.secret',
+  'thread.sections.invalid',
+  'thread.sections.tooMany',
+  'thread.sections.nameEmpty',
+  'thread.sections.nameTooLong',
+  'thread.sections.nameHidden',
+  'thread.sections.nameDuplicate',
+  'thread.sections.unknownWorkspace',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
@@ -307,6 +343,9 @@ export const MESSAGE_CODES = [
   'incident.updater.failed',
   'incident.interaction.overBudget',
   'incident.app.journalReset',
+  'incident.app.closeUnanswered',
+  'incident.app.closeRendererGone',
+  'incident.app.closeGuardFailed',
   'incident.window.externalRefused',
   'incident.window.externalRateLimited',
   'incident.window.externalOpenFailed',
@@ -410,6 +449,7 @@ export const MESSAGE_CODES = [
   'approvals.requester.unknownConversation',
   'approvals.requester.mcpServer',
   'approvals.requester.app',
+  'approvals.requester.preview',
   'approvals.option.deny',
   'approvals.option.allowOnce',
   'approvals.option.allowSessionReads',
@@ -433,6 +473,7 @@ export const MESSAGE_CODES = [
   'approvals.note.thread.actsOnMessage',
   'approvals.note.skill.followed',
   'approvals.note.automation.runsAlone',
+  'approvals.note.preview.notLocal',
   'approvals.note.worktree.folderDeleted',
   'approvals.note.worktree.forceDiscards',
   'approvals.note.git.branchShared',
@@ -441,6 +482,9 @@ export const MESSAGE_CODES = [
   'approvals.note.github.releasePublic',
   'approvals.note.textCut',
   'approvals.note.crash',
+  'approvals.note.hiddenCharacters',
+  'approvals.note.nativeCriticalDenyOnly',
+  'approvals.notify.waiting',
   'approvals.unavailable',
   'approvals.expired',
   'approvals.refused.notPending',
@@ -449,7 +493,10 @@ export const MESSAGE_CODES = [
   'approvals.refused.unknownOption',
   'approvals.refused.alreadyReported',
   'approvals.refused.tooSoon',
+  'approvals.refused.notShown',
   'approvals.denied.queueFull',
+  'approvals.denied.timeout',
+  'approvals.denied.cancelled',
   'approvals.denied.tooLong',
   'notify.prefix.pane',
   'notify.prefix.conversation',

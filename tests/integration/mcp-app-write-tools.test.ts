@@ -110,7 +110,7 @@ describe('oxespace_threads_change', () => {
     expect(own.asked).toHaveLength(0)
     const other = setup({ ...asThread, threads: Promise.resolve(manager), db })
     expect(await call('oxespace_threads_change', { action: 'send', threadId: 'peer', text: 'go' }, other.ctx)).toMatchObject({ ok: true })
-    expect(other.asked[0]).toMatchObject({ summary: 'thread:self wants to send a message to "Peer"', text: 'go' })
+    expect(other.asked[0]).toMatchObject({ summary: expect.objectContaining({ code: 'approvals.summary.mcpConfirm', params: expect.objectContaining({ tool: 'oxespace_threads_change', action: 'send' }) }), text: 'go', notes: [{ code: 'approvals.note.thread.actsOnMessage', params: {} }] })
   })
 
   it('refuses itself and Threads of another project', async () => {

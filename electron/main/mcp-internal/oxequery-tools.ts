@@ -1,4 +1,5 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
+import { requesterFor } from '../services/approvals/requester'
 // The error class alone: the gateway itself loads with OxeQuery, on its first request, not with the main entry.
 import { AgentToolError } from '../services/oxequery/agent-tool-error'
 
@@ -30,7 +31,7 @@ function tool(name: string, description: string, properties: Record<string, unkn
       const execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId)
       if (!execution) throw new Error('Call this tool from a live OXESpace agent execution')
       try {
-        return ok(await gateway.handle(name, args, { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, projectRoot: execution.canonicalRoot }))
+        return ok(await gateway.handle(name, args, { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, projectRoot: execution.canonicalRoot, requester: requesterFor(execution.owner) }))
       } catch (error) {
         if (error instanceof AgentToolError) return refused(error)
         return refused(new AgentToolError('The operation failed.', 'failed'))

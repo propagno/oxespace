@@ -19,4 +19,4 @@ CREATE TABLE IF NOT EXISTS activity_state (
   last_seen_at INTEGER NOT NULL CHECK (last_seen_at >= 0)
 );
 
-PRAGMA user_version = 88;
+PRAGMA user_version = 87;
