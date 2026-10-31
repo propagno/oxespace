@@ -173,8 +173,9 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F19 split além dos presets | #240 | FRONTEND | Homologado (na `main` c4a4d84d) |
 | Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado (499ffbcd): ressalvas fechadas, sonda de 134 nomes |
 | Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Pré-homologado (751229ab + 3f3e2d66): pt-BR e en ok, aspas corrigidas; nota baixa sobre o vazio no IPC |
-| Toasts (F21) | #245 | FRONTEND | Pré-homologado com ressalvas (0c84c5b8): 2 notas de texto e 1 de posição |
-| Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab |
+| Toasts (F21) | #245 | FRONTEND | Pré-homologado (a40e1cba): as 3 ressalvas foram fechadas |
+| Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab (virou F23) |
+| Indicadores do OxePod | #248 | FRONTEND | Homologado (na `main` 16d27efa): 8×8, redondos, em claro e escuro |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -542,7 +543,7 @@ Reverificação com #239 751229ab + #244, em pt-BR e en:
   porque o botão fica desabilitado, mas um agente ou um renderer antigo recebe um erro sem código C3. Corrigido
   depois pelo BACKEND com `refusal:'empty'`; falta reconferir.
 
-### Toasts (#245): Pré-homologado com ressalvas
+### Toasts (#245): Pré-homologado
 
 PR mesclado com a `main`, em pt-BR claro e en escuro, achando o toast pelo que se vê (cartão com botão de fechar), em
 `pre-245`.
@@ -562,6 +563,12 @@ PR mesclado com a `main`, em pt-BR claro e en escuro, achando o toast pelo que s
      contador escondido do leitor (`aria-hidden`), já que "Repetida 5 vezes" diz o mesmo.
   3. **Cosmético:** o toast cobre a ponta direita da barra de status ("4 painéis · terminal"), em 1280×860.
      Critério: ficar acima da barra de status.
+- Reverificação em a40e1cba, nos dois idiomas, com as 3 ressalvas fechadas:
+  - "Caminho relativo copiado" / "Relative path copied" é um toast próprio. Ao alternar, ficam 2 cartões
+    ("Caminho copiado ×3" e o relativo).
+  - O contador aparece como " ×N", com espaço, e fica fora do anúncio.
+  - A pilha fica acima da barra de status, que continua legível. Captura em `en-US-mixed.png`.
+  - Pausa, teclado, Escape e foco seguem iguais, sem erros.
 
 ### Menu do divisor por `contextmenu` (#241): Homologado
 

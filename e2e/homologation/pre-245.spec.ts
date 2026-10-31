@@ -56,6 +56,7 @@ for (const [locale, appearance] of [['pt-BR', 'light'], ['en-US', 'dark']] as co
       for (let i = 0; i < 5; i++) await copy(0)
       await page.waitForTimeout(300)
       n.burst = await toasts(page)
+      n.statusbarTop = await page.evaluate(() => { const b = document.querySelector('[class*="statusbar" i], footer'); return b ? Math.round(b.getBoundingClientRect().top) : null })
       await page.screenshot({ path: join(OUT, `${locale}-burst.png`) })
       await page.waitForTimeout(1_000)
       n.burstLive = (await toasts(page)).liveText
