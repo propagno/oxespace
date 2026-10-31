@@ -187,9 +187,10 @@ headers sort (click / Enter); default sort is the state priority. Max content wi
 | Stop | Stop / Parar | working | interrupts the current turn/run (`thread.interrupt`, pane agent stop, delegation/work cancel) | two-step inline: button turns into "Confirm stop" for 3 s; then "Stopping…" spinner; toast "Turn stopped" |
 | Resume | Resume / Retomar | stopped/idle with a resumable session (pane: #40/B17 session; conversation: native session) | resumes the agent's session in place | "Resuming…"; on failure the row says why (F32 copy) |
 | Mark as seen | Mark as seen / Marcar como visto | finished | moves it to idle without opening | instant; undo in toast (5 s) |
+| Review | Review / Revisar | finished, and the turn or run changed files | opens the **review drawer** (§5.9) | drawer opens < 100 ms; marks seen |
 
 - Primary button per state: needs-you → **Respond**; working → **Stop** (secondary/ghost style, not danger red, so
-  the list isn't a wall of red); everything else → **Open**. All actions are also in the `⋯` menu and the row's
+  the list isn't a wall of red); finished with changed files → **Review**; everything else → **Open**. All actions are also in the `⋯` menu and the row's
   context menu.
 - Unavailable actions are hidden in the button slot and **disabled with a reason** in the menu ("This agent has no
   saved session to resume").
@@ -239,6 +240,40 @@ keybinding catalog so palette, menus and tooltips agree.
 - Focus order: header → toolbar → first row; the panel traps nothing (it's docked, not modal). Overlay mode < 960 px
   behaves as a dialog (focus contained, Esc closes).
 
+### 5.9 Review drawer (finished rows, S7.3)
+
+A finished agent's result is a review, not just a green dot (Codex app's review queue, #330). **Revisar** opens a
+drawer over the central (docked: replaces the list with a back button; full view: a right pane, 50 %):
+
+- Header: the agent's title, mode, provider, "Terminou há 4 min", files changed and `+N −M`.
+- Body: the turn's changes, reusing the existing changes view (`ThreadDockChanges` for conversations, the Changes
+  panel's diff for panes and work runs). One file expanded at a time, `↑↓` between files.
+- Actions:
+  - **Abrir no editor** (F33 path menu, on each file);
+  - **Abrir a conversa** / **Abrir o painel** (Open);
+  - when the agent worked in a worktree: **Integrar** and **Descartar**, through the existing worktree finish
+    dialog (no new merge path);
+  - **Marcar como revisado** / **Mark as reviewed**: sets seen and returns to the list with the next finished row
+    selected, so a morning queue is `Enter`, read, `Enter`.
+- States: loading (`Skeleton`), no changes ("Este turno não mudou arquivos" → the row's primary is Open, not Review),
+  error loading the diff (`ErrorState` + "Tentar de novo"), worktree already integrated or removed (Notice, actions
+  hidden).
+- Keyboard: `Enter` on a finished row opens the drawer when it has changes; `Esc` closes it and returns focus to the
+  row.
+
+### 5.10 Needs-you timer (desktop notification)
+
+A request nobody sees costs the agent time (#330). Each needs-you row already shows how long it has waited (§5.2).
+
+- After **2 min** waiting **while the OXESpace window is not focused**, the app sends **one** desktop notification
+  per request: title "{{agent}} precisa de você há 2 min" / "{{agent}} has needed you for 2 min", body = the request's
+  main-built title. Clicking it focuses the window and opens the same B10 approval modal (Respond). It never answers.
+- One notification per request, not per minute; requests that arrive together within 10 s are batched ("3 agentes
+  precisam de você").
+- The 2 min is a setting (Configurações › Notificações: "Avisar quando um agente espera por mim": desligado, 1, 2, 5
+  min); default 2 min. Uses the existing desktop-notification path and its system permission.
+- The phone push for the same timer comes with S7.4 once the `agents` subscription exists (§8).
+
 ## 6. Entry points (and F35)
 
 The F35 decision is a clean title bar (Team button out; activity bell stays). The central follows it — **no new
@@ -287,6 +322,8 @@ The phone already has Threads, Requests, Terminals and Tasks tabs. The central b
   list dimmed, actions disabled with that reason; pull to refresh retries.
 - Privacy: no paths, session ids or costs beyond the total on the phone (protocol rule: the phone omits cwd/session
   ids/cost per turn). Cost per row stays desktop-only in v1.
+- Needs-you timer (§5.10): the phone gets the same nudge as a push once the S7.1 `agents` subscription exists (S7.4);
+  it carries no request detail beyond the main-built title, and tapping it follows the rule below.
 - Notifications (M6): a needs-you push goes **straight to RequestScreen** (one tap to answer); when that request is not answerable on the phone it opens Agents with the row selected and the reason shown. Finished and failed pushes open Agents with the row selected.
 
 ## 9. Copy (en / pt-BR)
@@ -306,6 +343,10 @@ The phone already has Threads, Requests, Terminals and Tasks tabs. The central b
 | stopping / resuming | Stopping… / Resuming… | Parando… / Retomando… |
 | toast.stopped | Turn stopped | Turno interrompido |
 | resume.unavailable | This agent has no saved session to resume | Este agente não tem sessão salva para retomar |
+| action.review / reviewed | Review / Mark as reviewed | Revisar / Marcar como revisado |
+| review.noChanges | This turn didn't change files | Este turno não mudou arquivos |
+| timer.title | {{agent}} has needed you for {{minutes}} min | {{agent}} precisa de você há {{minutes}} min |
+| timer.batch | {{count}} agents need you | {{count}} agentes precisam de você |
 | moreRequests | +{n} more | +{n} outros |
 | cost.estimated | Estimated from tokens | Estimado pelos tokens |
 | mode labels | OxeCode / OxeChat / Delegation / Work | OxeCode / OxeChat / Delegação / Trabalho |
@@ -336,6 +377,10 @@ never user-facing.
 4. **Shortcut: `Mod+Shift+G`** (FRONTEND review): free everywhere, so it works the same in the editor, the terminal and the lists. `Mod+Shift+O` would need an editor exception for Monaco's Go to Symbol.
 5. **Phone protocol (MOBILE review): open, goes in the S7.1 CCR.** The phone reads the 7 states from one `agents` subscription, computed on the desktop (finished vs idle needs `seen`/`lastSeenAt`, which the current frames lack). Marking a row seen from the phone (opening it, or "Mark as seen") needs an `agent.markSeen` command in the same CCR. Every row carries `provider`; no cwd or session id. Changing `shared/remote/protocol.ts` means running `android:generate`.
 
+6. **From the teardown #330 (coordinator, 31/10): approved into S7:** the needs-you timer (§5.10; the phone part
+   rides S7.4), the review drawer (§5.9, S7.3), and "no stuck rows" as acceptance (§13). Quota forecast, tool
+   profiles in the composer and worktree-per-new-agent go to the 1.5 list.
+
 ## 12. IDEAs (not blockers)
 
 - **IDEA 1 · Act from the palette**: `Mod+K` with a row focused lists its actions (Raycast). Cheap: the actions already
@@ -353,6 +398,13 @@ Test ids: `agents-panel`, `agents-summary`, `agents-filter`, `agent-row` with `d
 Scenarios beyond S7.2/S7.3/S7.4 rows: rows don't reorder under the pointer; an ended agent never vanishes without the
 "Ended" step; Respond always opens the B10 modal (no inline allow); pt-BR has no English except product names;
 light/dark; forced colors; 960×640 and 4K.
+- **No stuck rows:** after Stop, a row with no new report from its source within **10 s** shows "Não confirmado" /
+  "Not confirmed" (never "Parando…" or "Iniciando…" forever); bulk Stop (v1.1) reports per row.
+- **Needs-you timer:** with the window unfocused, a request waiting 2 min raises exactly one desktop notification;
+  clicking it opens the B10 modal; nothing is answered; the setting turns it off.
+- **Review drawer:** a finished row with changes opens the drawer with the turn's files; "Marcar como revisado" sets
+  seen and selects the next finished row; worktree actions go through the existing finish dialog.
+- Test ids: `agent-action-review`, `agents-review-drawer`, `agents-review-done`.
 
 ## 14. Implementation notes (from the ARCHITECT review)
 
