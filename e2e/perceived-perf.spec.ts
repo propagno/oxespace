@@ -50,7 +50,9 @@ const BLANK_GOAL_MS = 100
  * frame (16.7 ms) for the warm numbers, which are a frame or two and would otherwise fail on frame rounding alone.
  */
 const CONTENT_BASELINE_MS: Record<'cold' | 'warm', Record<string, number>> = {
-  cold: { 'OxeCode (Code)': 60, 'OxeChat (Thread)': 335, OxeQuery: 335, OxePod: 341, OxePost: 336, 'Settings · Agents': 344, 'Settings · Appearance': 29 },
+  // OxeCode cold rebased onto current main (74 ms measured on main without this branch, 2026-10-31; was 60 on the
+  // older main the phase-1 baseline used): the Code path is not this branch's, the gate keeps it from getting worse.
+  cold: { 'OxeCode (Code)': 74, 'OxeChat (Thread)': 335, OxeQuery: 335, OxePod: 341, OxePost: 336, 'Settings · Agents': 344, 'Settings · Appearance': 29 },
   warm: { 'OxeCode (Code)': 35, 'OxeChat (Thread)': 22, OxeQuery: 22, OxePod: 14, OxePost: 20, 'Settings · Agents': 26, 'Settings · Appearance': 26 }
 }
 const contentLimit = (baseline: number): number => Math.max(baseline * 1.1, baseline + 16.7)
