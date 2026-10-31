@@ -33,6 +33,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
+import okio.ByteString.Companion.encodeUtf8
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -87,7 +88,11 @@ class RemoteConnectionTest {
             }
         }
 
+        /** How the phone closed, in the order it did. */
+        val closes = CopyOnWriteArrayList<Pair<Int, String>>()
+
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            closes += code to reason
             webSocket.close(1000, null)
         }
 
@@ -176,6 +181,56 @@ class RemoteConnectionTest {
         // The gateway closes with 1009 when a frame is over 64 KiB instead of answering frame-too-large.
         desktop.socket!!.close(1009, null)
         assertEquals(SessionState.Ended(SessionEnd.PROTOCOL), connection.awaitState { it is SessionState.Ended })
+    }
+
+    /** A frame the desktop shouldn't send, and the close the phone answers it with. */
+    private data class Unreadable(val name: String, val close: Pair<Int, String>, val send: (WebSocket) -> Unit)
+
+    private val event = """"subscription":"s","seq":1,"schemaVersion":1"""
+    private val unreadable = listOf(
+        Unreadable("nested past the limit", 1002 to "malformed") { it.send("""{"type":"event",$event,"data":${"[".repeat(100)}${"]".repeat(100)}}""") },
+        Unreadable("over 64 KiB", 1009 to "frame-too-large") { it.send("""{"type":"event",$event,"data":"${"x".repeat(70_000)}"}""") },
+        Unreadable("bytes that weren't UTF-8", 1002 to "malformed") { it.send(String(byteArrayOf(0xC3.toByte(), 0x28, 0x7B), Charsets.UTF_8)) },
+        Unreadable("unknown type", 1002 to "malformed") { it.send("""{"type":"teleport",$event,"data":{}}""") },
+        Unreadable("missing field", 1002 to "malformed") { it.send("""{"type":"event","subscription":"s","schemaVersion":1,"data":{}}""") },
+        Unreadable("binary message", 1002 to "malformed") { it.send("""{"type":"event",$event,"data":{}}""".encodeUtf8()) },
+    )
+
+    @Test
+    fun endsAsAProtocolFaultOnAFrameItCantReadAndSaysWhyInTheClose() {
+        for (case in unreadable) {
+            val desktop = FakeGateway()
+            val server = gateway(desktop)
+            val connection = connection(server.port)
+            connection.connect()
+            connection.awaitState { it is SessionState.Ready }
+            case.send(desktop.socket!!)
+            assertEquals(case.name, SessionState.Ended(SessionEnd.PROTOCOL), connection.awaitState { it is SessionState.Ended })
+            runBlocking { withTimeout(5_000) { while (desktop.closes.isEmpty()) kotlinx.coroutines.delay(20) } }
+            assertEquals(case.name, listOf(case.close), desktop.closes.toList())
+            // The connection never dials again by itself: retrying is the app's call, and it doesn't retry this one.
+            assertEquals(case.name, 1, server.requestCount)
+        }
+    }
+
+    @Test
+    fun readsNothingMoreAfterAProtocolFault() {
+        val desktop = FakeGateway()
+        val server = gateway(desktop)
+        val connection = connection(server.port)
+        connection.connect()
+        connection.awaitState { it is SessionState.Ready }
+        // A desktop gone wrong floods the socket; the phone ends once, closes once and answers none of it.
+        val socket = desktop.socket!!
+        repeat(500) { socket.send("""{"type":"teleport","n":$it}""") }
+        socket.send(desktopFrame(RemoteHelloFrame(versions = listOf(1L), desktopName = "Studio", challenge = "x")))
+        assertEquals(SessionState.Ended(SessionEnd.PROTOCOL), connection.awaitState { it is SessionState.Ended })
+        runBlocking { withTimeout(5_000) { while (desktop.closes.isEmpty()) kotlinx.coroutines.delay(20) } }
+        Thread.sleep(200)
+        assertEquals(listOf(1002 to "malformed"), desktop.closes.toList())
+        assertEquals(SessionState.Ended(SessionEnd.PROTOCOL), connection.state.value)
+        assertEquals(2, desktop.received.size) // hello and auth, nothing after the fault
+        assertEquals(1, server.requestCount)
     }
 
     @Test

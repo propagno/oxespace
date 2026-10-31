@@ -2,6 +2,7 @@ package com.oxespace.mobile.protocol.session
 
 import com.oxespace.mobile.protocol.FrameRead
 import com.oxespace.mobile.protocol.FrameSource
+import com.oxespace.mobile.protocol.RemoteErrorCode
 import com.oxespace.mobile.protocol.RemoteFrame
 import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.pairing.LanAddress
@@ -20,6 +21,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.ByteString
 
 /** What the app holds of a session; [RemoteConnection] in the app, a fake in tests. */
 interface SessionLink {
@@ -125,13 +127,42 @@ class RemoteConnection(
         override fun onMessage(webSocket: WebSocket, text: String) {
             synchronized(lock) {
                 val session = protocol ?: return
+                if (session.state is SessionState.Ended) return
+                var refused: RemoteErrorCode? = null
                 when (val read = RemoteFrames.read(text, FrameSource.DESKTOP)) {
-                    is FrameRead.Refused -> session.onUnreadable()
+                    is FrameRead.Refused -> {
+                        refused = read.code
+                        session.onUnreadable()
+                    }
                     is FrameRead.Ok -> send(webSocket, session.onFrame(read.frame))
                 }
                 publish(session)
-                if (session.state is SessionState.Ended) webSocket.close(NORMAL, null)
+                if (session.state is SessionState.Ended) closeFor(webSocket, session, refused)
             }
+        }
+
+        /** C5 frames are JSON text; a binary message is as unreadable as broken JSON. */
+        override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+            synchronized(lock) {
+                val session = protocol ?: return
+                if (session.state is SessionState.Ended) return
+                session.onUnreadable()
+                publish(session)
+                closeFor(webSocket, session, RemoteErrorCode.MALFORMED)
+            }
+        }
+
+        /**
+         * Says why in the close, so the desktop can log it: 1009 for a frame over the limit, 1002 with the C5 error
+         * code for any other frame this side can't follow. Called with [lock] held.
+         */
+        private fun closeFor(webSocket: WebSocket, session: SessionProtocol, refused: RemoteErrorCode?) {
+            val code = when {
+                refused == RemoteErrorCode.FRAME_TOO_LARGE -> TOO_BIG
+                session.state == SessionState.Ended(SessionEnd.PROTOCOL) -> PROTOCOL_ERROR
+                else -> NORMAL
+            }
+            webSocket.close(code, if (code == NORMAL) null else (refused ?: RemoteErrorCode.MALFORMED).wire)
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
