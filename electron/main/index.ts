@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
@@ -59,7 +59,7 @@ import { SearchService } from './services/search.service'
 import { AutomationStore } from './services/automations/store'
 import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
-import { isAppNavigation, isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
+import { isAppNavigation, isLoopbackHttpUrl, openExternalOrRecord } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './services/browser-preview.service'
@@ -856,7 +856,7 @@ function createMainWindow(): BrowserWindow {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    openExternalOrRecord(url)
     return { action: 'deny' }
   })
 
@@ -868,8 +868,8 @@ function createMainWindow(): BrowserWindow {
   const keepInApp = (event: Electron.Event, url: string): void => {
     if (isAppNavigation(url, appUrl)) return
     event.preventDefault()
-    log.warn('[main] blocked navigation of the main window', url.slice(0, 200))
-    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    // The reason only: the URL may carry a token, a path or a host that must not reach the log.
+    log.warn('[main] blocked navigation of the main window', openExternalOrRecord(url) ? 'opened outside' : 'refused')
   }
   mainWindow.webContents.on('will-navigate', keepInApp)
   mainWindow.webContents.on('will-redirect', keepInApp)
