@@ -4,6 +4,7 @@ import ptBR from '../shared/locales/pt-BR/main.json'
 import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
 import { APPROVAL_REFUSALS } from '../shared/types/approvals'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
+import { THREAD_SECTIONS_REFUSALS } from '../shared/types/thread-sections'
 import { WORKSPACE_ROOT_REFUSALS } from '../shared/types/workspace'
 
 const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
@@ -32,6 +33,13 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.side.invalidInput': [],
   'thread.invalidInput': [],
   'thread.notFound': [],
+  'thread.sections.invalid': [],
+  'thread.sections.tooMany': ['assignments', 'sections'],
+  'thread.sections.nameEmpty': [],
+  'thread.sections.nameTooLong': ['max'],
+  'thread.sections.nameHidden': [],
+  'thread.sections.nameDuplicate': ['name'],
+  'thread.sections.unknownWorkspace': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
   'incident.ipc.handlerFailed': [],
@@ -235,6 +243,10 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of a pending answer its own code', () => {
     for (const refusal of THREAD_PENDING_REFUSALS) expect(isMessageCode(`thread.request.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of a sections save its own code', () => {
+    for (const refusal of THREAD_SECTIONS_REFUSALS) expect(isMessageCode(`thread.sections.${refusal}`), refusal).toBe(true)
   })
 
   it('gives every refusal of a workspace root its own code', () => {

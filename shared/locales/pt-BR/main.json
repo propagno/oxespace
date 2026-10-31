@@ -99,7 +99,16 @@
         "rewritesTracked": "{{command}} reescreve arquivos versionados sem nomeá-los, e instruções de agente, configurações MCP ou hooks podem estar entre eles, então precisa da sua confirmação a cada vez."
       },
       "invalidInput": "Não foi possível ler este pedido da conversa.",
-      "notFound": "Esta conversa não existe mais."
+      "notFound": "Esta conversa não existe mais.",
+      "sections": {
+        "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
+        "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",
+        "nameEmpty": "Dê um nome à seção.",
+        "nameTooLong": "O nome de uma seção tem no máximo {{max}} caracteres.",
+        "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
+        "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
+        "unknownWorkspace": "Este workspace não existe mais."
+      }
     },
     "app": {
       "connectivity": {

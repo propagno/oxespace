@@ -22,6 +22,46 @@
     <string name="home_title">Your desktop, in your pocket</string>
     <string name="home_unknown_desktop">your computer</string>
     <string name="home_unpair">Unpair</string>
+    <string name="live_agent_state_blocked">waiting</string>
+    <string name="live_agent_state_done">done</string>
+    <string name="live_agent_state_idle">idle</string>
+    <string name="live_agent_state_unknown">unknown</string>
+    <string name="live_agent_state_working">working</string>
+    <string name="live_back">Back</string>
+    <string name="live_delegations">Delegations</string>
+    <string name="live_empty_requests">Nothing waiting for you.</string>
+    <string name="live_empty_tasks">No background jobs or delegations.</string>
+    <string name="live_empty_terminals">No open terminals.</string>
+    <string name="live_empty_threads">No conversations on %1$s yet.</string>
+    <string name="live_exit_code">exit code %1$s</string>
+    <string name="live_job_exited">Finished</string>
+    <string name="live_job_failed">Failed</string>
+    <string name="live_job_killed">Stopped</string>
+    <string name="live_job_pending">Starting</string>
+    <string name="live_job_running">Running</string>
+    <string name="live_jobs">Background jobs</string>
+    <string name="live_loading">Loading…</string>
+    <string name="live_menu">More options</string>
+    <string name="live_pane_agent">%1$s · %2$s</string>
+    <plurals name="live_pending_count">
+        <item quantity="one">%1$d waiting</item>
+        <item quantity="other">%1$d waiting</item>
+    </plurals>
+    <string name="live_phone_write">Phone can type</string>
+    <string name="live_read_only">Read-only</string>
+    <plurals name="live_requests_badge">
+        <item quantity="one">%1$d request waiting</item>
+        <item quantity="other">%1$d requests waiting</item>
+    </plurals>
+    <string name="live_status_approval">Waiting for you</string>
+    <string name="live_status_failed">Failed</string>
+    <string name="live_status_idle">Idle</string>
+    <string name="live_status_interrupted">Interrupted</string>
+    <string name="live_status_running">Working</string>
+    <string name="live_tabs_requests">Requests</string>
+    <string name="live_tabs_tasks">Tasks</string>
+    <string name="live_tabs_terminals">Terminals</string>
+    <string name="live_tabs_threads">Conversations</string>
     <string name="pairing_allow_camera">Allow camera</string>
     <string name="pairing_bad_code_malformed">This code can\'t be read. Show a new one on your computer and try again.</string>
     <string name="pairing_bad_code_not_pairing">That isn\'t an OXESpace pairing code. Point the camera at the code in Settings › Devices.</string>
@@ -49,4 +89,36 @@
     <string name="pairing_verification_description">Verification code %1$s</string>
     <string name="pairing_waiting_body">%1$s is asking whether to pair with this phone. Accept only if it shows this code:</string>
     <string name="pairing_waiting_title">Confirm on your computer</string>
+    <string name="terminal_empty">No output yet.</string>
+    <plurals name="terminal_redacted">
+        <item quantity="one">%1$d secret value hidden by your computer.</item>
+        <item quantity="other">%1$d secret values hidden by your computer.</item>
+    </plurals>
+    <string name="thread_agent">Agent</string>
+    <string name="thread_completed_completed">Turn finished</string>
+    <string name="thread_completed_failed">Turn failed</string>
+    <string name="thread_completed_interrupted">Turn interrupted</string>
+    <plurals name="thread_files_changed">
+        <item quantity="one">%1$d file changed</item>
+        <item quantity="other">%1$d files changed</item>
+    </plurals>
+    <string name="thread_hide_output">Hide output</string>
+    <string name="thread_plan">Plan</string>
+    <string name="thread_reasoning">Thinking</string>
+    <string name="thread_request">Request: %1$s</string>
+    <string name="thread_request_state_cancelled">cancelled</string>
+    <string name="thread_request_state_expired">expired</string>
+    <string name="thread_request_state_pending">waiting for you</string>
+    <string name="thread_request_state_resolved">answered</string>
+    <string name="thread_show_output">Show output</string>
+    <string name="thread_tool_completed">Done</string>
+    <string name="thread_tool_failed">Failed</string>
+    <string name="thread_tool_running">Running</string>
+    <string name="thread_tool_unknown">Unknown</string>
+    <string name="thread_truncated">Shortened on the phone; the full text is on the computer.</string>
+    <plurals name="thread_unknown_items">
+        <item quantity="one">%1$d item from a newer OXESpace isn\'t shown.</item>
+        <item quantity="other">%1$d items from a newer OXESpace aren\'t shown.</item>
+    </plurals>
+    <string name="thread_you">You</string>
 </resources>

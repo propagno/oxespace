@@ -5,6 +5,7 @@ import type { AgentReadiness } from '../../shared/types/agent'
 import { FirstRunChecklist } from '../../src/components/Onboarding/FirstRunChecklist'
 import { useAgentStore } from '../../src/store/agent.store'
 import { useNavigationPrefs } from '../../src/store/navigation-prefs.store'
+import { stubOpenExternal } from '../helpers/openExternal'
 import { useUIStore } from '../../src/store/ui.store'
 
 const entry = (provider: AgentReadiness['provider'], status: AgentReadiness['status'], details?: string): AgentReadiness => ({ provider, command: provider, status, details })
@@ -44,14 +45,14 @@ describe('FirstRunChecklist', () => {
   })
 
   test('says no CLI was found, links to the install guides and offers to check again', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const open = stubOpenExternal()
     const user = userEvent.setup()
     const { discover } = setup({ discovered: [entry('claude', 'missing'), entry('codex', 'missing')] })
     expect(await screen.findByText('No agent CLI found')).toBeInTheDocument()
     expect(screen.getByText(/make sure the command is on your PATH/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Install Claude Code' }))
-    expect(open).toHaveBeenCalledWith(expect.stringContaining('anthropic.com'), '_blank', 'noopener,noreferrer')
+    await waitFor(() => expect(open).toHaveBeenCalledWith(expect.stringContaining('anthropic.com')))
     expect(screen.getByRole('button', { name: 'Install Codex CLI' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Check again' }))

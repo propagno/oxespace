@@ -9,14 +9,15 @@ import com.oxespace.mobile.protocol.session.RemoteConnection
 import java.util.concurrent.Executors
 import kotlinx.coroutines.flow.StateFlow
 
-/** The session with the paired desktop, across rotations; started and stopped with the visible app. */
+/** The session with the paired desktop and what it follows there, across rotations; runs while the app is visible. */
 class SessionViewModel(application: Application) : AndroidViewModel(application) {
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
+    val live = LiveRepository()
     private val controller = DesktopSessionController(
         scope = viewModelScope,
         store = PreferencesPairedDesktopStore(application),
         keysFor = { alias -> AndroidKeystoreDeviceKeys(application, alias) },
-        linkFor = { target, keys, tokens -> RemoteConnection(target, keys::sign, tokens, scheduler) },
+        linkFor = { target, keys, tokens -> RemoteConnection(target, keys::sign, tokens, scheduler, streams = live.streams) },
     )
 
     val status: StateFlow<DesktopStatus> = controller.status
