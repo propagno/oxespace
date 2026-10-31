@@ -15,6 +15,7 @@ import { PtyRingBuffer } from './pty-ring-buffer'
 import { agentFromCommand } from './agent-state/agents'
 import { resumeArgs } from './agent-state/pane-sessions'
 import { PtyModeTracker } from './pty-mode-tracker'
+import type { TerminalPresence, TerminalPresenceInput } from '../../../shared/types/ipc/terminal'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
@@ -78,6 +79,13 @@ interface TerminalSession {
   modes: PtyModeTracker
   /** True while a terminal view is rendering this session. */
   attached: boolean
+  /**
+   * How much the person sees of the pane (B2.3). Until the window says, it counts as visible and keeps today's 16 ms
+   * pace, so a window that never sends presence draws exactly as before.
+   */
+  presence?: TerminalPresence
+  /** Ring position when the pane was hidden: what its view has not been sent. */
+  hiddenAtSeq?: number
   lastActivityAt: number
   /** Last size the view reported; used for the alt-screen redraw nudge. */
   cols: number
@@ -121,6 +129,9 @@ interface TerminalLaunchContextRow {
   shell_args_json: string | null
 }
 
+/** How often a pane's output is drawn, by how much the person sees of it (B2.3). Hidden output only feeds the ring and activity. */
+const PRESENCE_PACE_MS: Record<TerminalPresence, number> = { focused: 16, visible: 100, hidden: 250 }
+
 export class TerminalManager {
   private readonly starting = new Map<string, Promise<void>>()
   private readonly launchControllers = new Map<string, AbortController>()
@@ -139,6 +150,9 @@ export class TerminalManager {
   private readonly env: NodeJS.ProcessEnv
   private readonly platform: NodeJS.Platform
   private readonly emitData: (event: TerminalDataEvent) => void
+  private windowFocused = true
+  /** Presence the window sent before its pane's session existed; it applies when the session starts. */
+  private readonly pendingPresence = new Map<string, TerminalPresence>()
   private readonly emitExit: (event: TerminalExitEvent) => void
   private readonly emitActivity: (event: TerminalActivityEvent) => void
   private readonly rtkService: RtkService
@@ -376,6 +390,9 @@ export class TerminalManager {
       rows,
       activityNotifiedAt: 0
     })
+    const presence = this.pendingPresence.get(input.paneId)
+    this.pendingPresence.delete(input.paneId)
+    if (presence) this.setPresence({ paneId: input.paneId, state: presence })
 
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : input.agentCommand ?? executable)
     ptyProcess.onData((data) => {
@@ -467,12 +484,12 @@ export class TerminalManager {
     session.modes.consume(event.data)
     session.lastActivityAt = Date.now()
 
-    if (session.attached) {
+    if (session.attached && session.presence !== 'hidden') {
       this.emitData(event)
       return
     }
 
-    // Detached: no payload crosses the boundary, but the UI still needs to know
+    // Detached or hidden: no payload crosses the boundary, but the UI still needs to know
     // a background agent is working (sidebar dots, notifications).
     if (session.lastActivityAt - session.activityNotifiedAt < ACTIVITY_THROTTLE_MS) return
     session.activityNotifiedAt = session.lastActivityAt
@@ -508,6 +525,8 @@ export class TerminalManager {
     session.outputBatcher.flush()
     const slice = session.ring.since(input.sinceSeq ?? 0)
     session.attached = true
+    // A hidden pane's view now has everything up to here.
+    if (session.presence === 'hidden') session.hiddenAtSeq = session.ring.seq
 
     // On the alternate screen the retained bytes cannot be trusted: if the
     // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
@@ -521,6 +540,52 @@ export class TerminalManager {
       truncated: slice.truncated,
       altScreen
     }
+  }
+
+  /**
+   * How much the person sees of a pane sets how often its output is drawn (B2.3). Leaving `hidden`, the view gets
+   * what it was not sent, in order and once; if the ring dropped part of it meanwhile, the view is reset and repainted.
+   * Status, activity and "waiting for you" are fed whatever the presence (they come from `onBatch`, which always runs).
+   */
+  setPresence(input: TerminalPresenceInput): void {
+    const session = this.sessions.get(input.paneId)
+    if (!session) {
+      // A view can report itself before its process starts; the oldest of too many unclaimed reports is dropped.
+      this.pendingPresence.delete(input.paneId)
+      this.pendingPresence.set(input.paneId, input.state)
+      if (this.pendingPresence.size > 256) this.pendingPresence.delete(this.pendingPresence.keys().next().value!)
+      return
+    }
+    if (session.presence === input.state) return
+    // Whatever is waiting goes out under the presence it was produced in.
+    session.outputBatcher.flush()
+    const wasHidden = session.presence === 'hidden'
+    session.presence = input.state
+    if (input.state === 'hidden') session.hiddenAtSeq = session.ring.seq
+    else if (wasHidden) {
+      const since = session.hiddenAtSeq ?? session.ring.seq
+      session.hiddenAtSeq = undefined
+      if (session.attached) {
+        const slice = session.ring.since(since)
+        if (slice.truncated) {
+          this.emitData({ paneId: input.paneId, data: '\x1bc' + (session.modes.altScreen ? session.modes.prologue() : slice.data) })
+          if (session.modes.altScreen) this.nudgeRedraw(session)
+        } else if (slice.data) this.emitData({ paneId: input.paneId, data: slice.data })
+      }
+    }
+    session.outputBatcher.setPace(this.paceOf(session))
+  }
+
+  /** The app window gained or lost the system focus: a focused pane is drawn at the visible pace while it is away. */
+  setWindowFocused(focused: boolean): void {
+    if (this.windowFocused === focused) return
+    this.windowFocused = focused
+    for (const session of this.sessions.values()) session.outputBatcher.setPace(this.paceOf(session))
+  }
+
+  private paceOf(session: TerminalSession): number {
+    if (!session.presence) return PRESENCE_PACE_MS.focused
+    return session.presence === 'focused' && !this.windowFocused ? PRESENCE_PACE_MS.visible : PRESENCE_PACE_MS[session.presence]
   }
 
   /** Unbind the view. The process keeps running and its output keeps accruing. */
@@ -598,6 +663,7 @@ export class TerminalManager {
 
   stop(input: TerminalStopInput): void {
     this.launchControllers.get(input.paneId)?.abort()
+    this.pendingPresence.delete(input.paneId)
     const session = this.sessions.get(input.paneId)
     if (!session) return
     recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })

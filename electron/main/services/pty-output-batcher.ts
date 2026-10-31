@@ -11,9 +11,25 @@ export class PtyOutputBatcher {
   constructor(
     private readonly paneId: string,
     private readonly emit: (event: PtyOutputEvent) => void,
-    private readonly flushMs = 16,
+    private flushMs = 16,
     private readonly flushBytes = 32 * 1024
   ) {}
+
+  /** How long output waits before it is sent (B2.3: by how much the person sees of the pane). */
+  get pace(): number {
+    return this.flushMs
+  }
+
+  setPace(flushMs: number): void {
+    if (flushMs === this.flushMs) return
+    const faster = flushMs < this.flushMs
+    this.flushMs = flushMs
+    // Speeding up: what is waiting goes out at the new pace, not the old one.
+    if (faster && this.timer !== null) {
+      clearTimeout(this.timer)
+      this.timer = setTimeout(() => this.flush(), this.flushMs)
+    }
+  }
 
   push(data: string): void {
     if (!data) return
