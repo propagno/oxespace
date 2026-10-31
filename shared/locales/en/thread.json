@@ -1530,5 +1530,29 @@
     "nativeActivity": "Native background activity",
     "providerActivity": "Provider activity · {{count}} running",
     "noNativeTasks": "No native tasks have been reported in this conversation."
+  },
+  "side": {
+    "title": "Side chat",
+    "region": "Side chat",
+    "readOnly": "Read-only copy",
+    "note": "Ask about this conversation without changing it. Nothing asked here reaches the conversation, and the copy is thrown away when you close it.",
+    "costLabel": "Cost so far:",
+    "noCostYet": "nothing yet",
+    "messages": "Side chat messages",
+    "opening": "Opening a copy of the conversation…",
+    "empty": "Ask something about this conversation.",
+    "you": "You",
+    "copy": "Copy",
+    "thinking": "The copy is answering…",
+    "working": "The copy is answering: {{activity}}",
+    "openFailed": "The side chat could not open. Try again.",
+    "sendFailed": "The question did not reach the side chat. Close it and open it again.",
+    "turnFailed": "The answer failed.",
+    "ask": "Ask the side chat",
+    "placeholder": "Ask about this conversation…",
+    "send": "Ask",
+    "close": "Close side chat ({{shortcut}})",
+    "openMenu": "Side chat",
+    "closeMenu": "Close side chat"
   }
 }
