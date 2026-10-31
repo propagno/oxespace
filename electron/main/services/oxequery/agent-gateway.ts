@@ -13,11 +13,9 @@ import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequester, type ApprovalRisk } from '../../../../shared/types/approvals'
 import { ownerFromLabel, requesterFor } from '../approvals/requester'
 import { refusalCode } from '../agent-actions/agent-actions'
+import { AgentToolError } from './agent-tool-error'
 
-/** What the model is told when a call is refused; never carries a stack or a server message that was not redacted. */
-export class AgentToolError extends Error {
-  constructor(message: string, readonly code: string = 'refused') { super(message) }
-}
+export { AgentToolError }
 
 export interface AgentActor {
   /** Unique per live execution: grants and rate limits are scoped to it. */
