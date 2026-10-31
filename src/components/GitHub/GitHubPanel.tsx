@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, GitCompareArrows, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
-import { Github } from '../Brand/GithubIcon'; import { openExternalLink } from '../../lib/externalLinks'
-import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
+import { Github } from '../Brand/GithubIcon'; import { openExternalLink } from '../../lib/externalLinks'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { openInChanges } from '../../store/changes-request.store'
 import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState, ErrorState, LoadingState } from '../../ui'
