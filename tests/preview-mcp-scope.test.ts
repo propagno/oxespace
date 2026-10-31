@@ -84,7 +84,7 @@ describe('Web Preview URL level (B15)', () => {
     const broker = approvals()
     ctx.agentActions = broker.actions
     await open(ctx, 'https://evil.example/login')
-    expect(broker.asked[0]?.reasons[0]).toMatch(/not on localhost/)
+    expect(broker.asked[0]?.notes).toContainEqual(expect.objectContaining({ code: 'approvals.note.preview.notLocal' }))
     broker.answer('deny')
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(reply(await open(ctx, 'https://evil.example/login')).code).toBe('denied')
