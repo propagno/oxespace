@@ -1,7 +1,7 @@
 {
   "accounts": {
     "needProject": "Add a project first",
-    "needProjectText": "Agent accounts are checked inside a Thread project.",
+    "needProjectText": "Agent accounts are checked inside an OxeChat project.",
     "title": "Agent accounts",
     "description": "Use your subscription with the native agent.",
     "note": "Credentials stay with Claude Code and Codex. Reconnecting changes the native account also used by your CLI sessions.",
