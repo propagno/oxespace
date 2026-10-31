@@ -41,7 +41,7 @@ import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } 
 import type { GitCompareMode } from '../../../shared/types/git'
 import { planSplit } from '../../../shared/workspace-split'
 import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
-import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog, ThreadSideOpenResult } from '../../../shared/types/thread'
+import type { ThreadChildrenSummary, ThreadChildSummary, ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog, ThreadSideOpenResult } from '../../../shared/types/thread'
 import { version as packageVersion } from '../../../package.json'
 import { mainMessage } from '../../../shared/messages'
 import { requestOutcome } from '../../../shared/threadRequestOutcome'
@@ -306,6 +306,17 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
+  // B1.3: children per conversation, seeded per run as { "<threadId>": [ThreadChildSummary, ...] }.
+  const children: Record<string, ThreadChildSummary[]> = JSON.parse(process.env.OXESPACE_E2E_THREAD_CHILDREN || '{}')
+  ipcMain.handle(IPC_CHANNELS.thread.children, (_event: IpcMainInvokeEvent, id: unknown): ThreadChildrenSummary => {
+    if (typeof id !== 'string' || !id) throw new Error('Invalid thread input')
+    const list = children[id] ?? []
+    const live = list.filter(child => !child.archived)
+    return { threadId: id, children: list, aggregate: {
+      running: live.filter(child => child.status === 'running').length, approval: live.filter(child => child.status === 'approval').length,
+      failed: live.filter(child => child.status === 'failed').length, done: live.filter(child => child.status === 'idle').length
+    } }
+  })
   // B1.2: a side chat answers each message with a fixed reply and its usage, and is gone once closed.
   const sides = new Map<string, string>()
   ipcMain.handle(IPC_CHANNELS.thread.sideOpen, (_event: IpcMainInvokeEvent, id: unknown): ThreadSideOpenResult => {
