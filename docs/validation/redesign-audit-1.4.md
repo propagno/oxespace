@@ -111,7 +111,32 @@ contraste abaixo de AA e inglês restante no pt-BR.
 Ainda nesta fase:
 - a combinação claro/en;
 - o progresso de operações longas (import/export do OxeQuery, índice semântico);
-- as telas de quarentena e config protegida com a fixture do #237.
+- as telas de quarentena e config protegida com a fixture do #237. Já cobertas: P1-14 a P1-17.
+
+### UX-01 na `main` (linha de base do F29)
+
+O achado UX-01 da avaliação de UX (#265) foi confirmado no app, no mock de e2e da `main` 5fa270cd
+(`ux01-blocked-vs-done.spec.ts`, capturas em `ux01/`).
+
+O roteiro manda a 4 painéis do OxeCode, pelo mesmo canal do processo principal (`agent-state:changed`), os estados
+`blocked` (parado num pedido de aprovação ou numa pergunta), `done` (terminou o turno), `working` e `idle`.
+
+| O que se vê | `blocked` | `done` | `working` | `idle` |
+|---|---|---|---|---|
+| Ponto no cabeçalho do painel | `activity-awaiting`, rgb(0,109,66), `aria-hidden` | **igual** | `activity-thinking`, rgb(33,132,60) | `activity-idle`, rgb(85,93,87) |
+| Linha na barra lateral | "Claude · Awaiting, awaiting" | **igual** | "Claude · Thinking" | "Claude · Idle" |
+| Texto do cabeçalho | "running" | **igual** | "running" | "running" |
+
+- `blocked` e `done` ficam idênticos no cabeçalho e na linha (`sameHeader: true`, `sameRow: true`). Nada diz
+  "precisa da sua decisão".
+- O botão "Code" do seletor de modos não mostra contagem em nenhum dos dois casos.
+- Limite do método: a central de atividade ficou vazia, na hora e depois de 12 s. O evento injetado só chega ao
+  renderer, e a central e a notificação do sistema são alimentadas pelo processo principal. Esses dois pontos ficam
+  para o e2e do F29, que precisa de um gancho do mock no main (por exemplo, um `OXESPACE_E2E_AGENT_STATE`) para pôr o
+  estado na origem.
+- Critério de aceite do F29: este mesmo roteiro, com `sameHeader` e `sameRow` falsos; `blocked` com texto próprio
+  ("Precisa da sua decisão" / "Needs your decision") e anúncio de leitor de tela; e, com o gancho no main, uma entrada
+  na central na hora e o contador do modo contando só o `blocked`.
 
 ## Propostas de roadmap (funcionalidades avançadas que faltam)
 
