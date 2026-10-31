@@ -35,6 +35,11 @@ CI runs `verifyPaparazziDebug` and keeps the differences (`app/build/paparazzi/f
 fails. Paparazzi is pinned to 2.0.0-alpha05.1: the 2.0 alphas are the first line that supports AGP 9 (and they need
 Java 21); the 1.x releases don't build with AGP 9.
 
+## Releases
+
+Each GitHub release carries a signed APK and its SHA-256; how it's signed, the secrets the maintainer registers once,
+and how to verify an APK before installing it are in [RELEASING.md](RELEASING.md).
+
 ## What the app never does
 
 Everything in `REMOTE_FORBIDDEN` of `shared/remote/protocol.ts` stays on the desktop: OxeQuery and MCP `confirm`

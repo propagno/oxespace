@@ -14,9 +14,23 @@ android {
         applicationId = "com.oxespace.mobile"
         minSdk = 28
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.4.0"
+        // The release workflow passes the tag's version; local builds stay at the default.
+        versionName = providers.environmentVariable("ANDROID_VERSION_NAME").getOrElse("1.4.0")
+        versionCode = versionCodeOf(versionName!!)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Only on the release workflow, from repository secrets (RELEASING.md); the key is never in the repository.
+    val keystore = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+    if (keystore != null) {
+        signingConfigs.create("release") {
+            storeFile = file(keystore)
+            storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").get()
+            enableV2Signing = true
+            enableV3Signing = true
+        }
     }
 
     buildTypes {
@@ -24,6 +38,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
@@ -76,4 +91,10 @@ dependencies {
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.okhttp.tls)
+}
+
+/** 1.4.0 → 10400, 1.12.3 → 11203: always grows with the version, as Android requires for updates. */
+fun versionCodeOf(name: String): Int {
+    val (major, minor, patch) = name.substringBefore('-').split('.').map { it.toInt() } + listOf(0, 0)
+    return major * 10_000 + minor * 100 + patch
 }
