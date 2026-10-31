@@ -221,7 +221,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const terminalManager: TerminalManager = new TerminalManager(db, {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     observer: agentState,
-    resumeSession: (paneId, wanted) => paneAgentSessions.take(paneId, wanted), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId),
+    resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId), clearSession: paneId => paneAgentSessions.clear(paneId),
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },

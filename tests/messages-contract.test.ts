@@ -41,6 +41,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'agents.resume.launchOverride': [],
   'agents.resume.blocked': [],
   'agents.resume.disabled': [],
+  'agents.resume.startedFresh': [],
+  'agents.resume.failedToLoad': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
   'incident.ipc.handlerFailed': [],

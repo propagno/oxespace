@@ -32,6 +32,11 @@ export interface TerminalResizeInput {
 
 export interface TerminalStopInput {
   paneId: string
+  /**
+   * B17 · terminal.restart only: `false` starts the pane fresh, without its agent's recorded session, and forgets that
+   * session (agentResume becomes `notResumed` with `agents.resume.startedFresh`). Absent, a restart resumes as usual.
+   */
+  resume?: false
 }
 
 export interface TerminalDataEvent {

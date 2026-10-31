@@ -13,7 +13,7 @@ import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
 import type { PaneResumeRecord } from './agent-state/pane-sessions'
-import { claudeSessionToAssign, planPaneResume } from './agent-state/pane-resume'
+import { claudeSessionToAssign, failedToLoadStatus, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume } from '../../../shared/types/ipc'
@@ -46,7 +46,9 @@ interface TerminalManagerOptions {
   /** Sees every terminal's lifecycle and output, e.g. to read what an agent shows on screen. */
   observer?: TerminalObserver
   /** The agent session recorded for a pane, answered on its first start in this app run only (see PaneAgentSessions). */
-  resumeSession?: (paneId: string, wanted: boolean) => PaneResumeRecord | null
+  resumeSession?: (paneId: string, wanted: boolean, again?: boolean) => PaneResumeRecord | null
+  /** Forgets the pane's recorded session (a restart with `resume: false`). */
+  clearSession?: (paneId: string) => void
   /** Records the session id main gave a Claude Code it started (`--session-id`), as the hooks would. */
   assignSession?: (paneId: string, agent: 'claude', sessionId: string) => void
   /** Where the providers keep their sessions; the user's own folders by default. For tests. */
@@ -63,6 +65,8 @@ export interface TerminalObserver {
 export interface ManagedTerminalStart extends TerminalStartInput {
   launch?: { executable: string; args: string[] }
   requireCwd?: string
+  /** B17 · A restart asks for the pane's recorded session again, past the once-per-run answer. */
+  resumeAgain?: boolean
 }
 
 interface TerminalSession {
@@ -75,6 +79,10 @@ interface TerminalSession {
   pty: IPty
   agentCommand?: string
   disableRtk?: boolean
+  /** Whether the start that made this process wanted the agent's session back (a restart asks the same). */
+  resumeAgent?: boolean
+  /** B17 · The native session this process was started to resume, if any. */
+  resumed?: { agent: 'claude' | 'codex'; sessionId: string }
   inputQueue: PtyInputQueue
   outputBatcher: PtyOutputBatcher
   /** Recent output, so a re-mounted view is restored without a respawn. */
@@ -138,9 +146,14 @@ export class TerminalManager {
   private readonly observer?: TerminalObserver
   private readonly resumeSession?: TerminalManagerOptions['resumeSession']
   private readonly assignSession?: TerminalManagerOptions['assignSession']
+  private readonly clearSession?: TerminalManagerOptions['clearSession']
   private readonly nativeSessionRoots?: NativeSessionRoots
   /** B17 · What each pane's first start in this run did with its agent's session, for terminal.status. */
   private readonly agentResumes = new Map<string, PaneAgentResume>()
+  /** B17 · Panes whose resumed process exited within RESUME_LOAD_MS: their next start is fresh (failedToLoad). */
+  private readonly failedResumes = new Map<string, { agent: 'claude' | 'codex'; sessionId: string }>()
+  /** How each pane last started, so a restart can bring back a pane whose process exited by itself. */
+  private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'disableRtk' | 'cols' | 'rows' | 'resumeAgent'>>()
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -164,6 +177,7 @@ export class TerminalManager {
     this.observer = options.observer
     this.resumeSession = options.resumeSession
     this.assignSession = options.assignSession
+    this.clearSession = options.clearSession
     this.nativeSessionRoots = options.nativeSessionRoots
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
@@ -256,12 +270,18 @@ export class TerminalManager {
     // B17 · On the pane's first start in this app run, go back to its agent's native session (herdr's native
     // session restore), with arguments main builds from the recorded id. A shell pane whose agent was typed by hand
     // starts the provider itself rather than typing into the shell.
-    const consulted = !threadShell && !oxeShell && !input.launch ? this.resumeSession?.(input.paneId, input.resumeAgent === true) ?? null : null
-    const plan = await planPaneResume(consulted, input, cwd, {
+    const consulted = !threadShell && !oxeShell && !input.launch ? this.resumeSession?.(input.paneId, input.resumeAgent === true, input.resumeAgain === true) ?? null : null
+    // A resume whose process exited at once could not load its session: this start is fresh, never another try.
+    const failed = this.failedResumes.get(input.paneId)
+    this.failedResumes.delete(input.paneId)
+    if (failed) this.clearSession?.(input.paneId)
+    const plan = await planPaneResume(failed ? null : consulted, input, cwd, {
       allowed: agent => { try { assertProviderAllowed(agent, launch.workspace_root_path); return true } catch { return false } },
       exists: (agent, sessionId, dir) => nativeSessionExists(agent, sessionId, dir, this.nativeSessionRoots)
     })
-    if (plan.status) this.agentResumes.set(input.paneId, plan.status)
+    const status = failed ? failedToLoadStatus(failed) : plan.status
+    if (status) this.agentResumes.set(input.paneId, status)
+    const resumed = plan.status?.outcome === 'resumed' ? { agent: plan.status.agent, sessionId: plan.status.sessionId } : undefined
     const agentCommand = plan.agentCommand
 
     // Claude Code and Codex start only where the policy lets them; a plain shell is never blocked.
@@ -370,6 +390,7 @@ export class TerminalManager {
     this.exitedSessions.delete(input.paneId)
     this.reclaimIdleSession()
 
+    this.lastStarts.set(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, disableRtk: input.disableRtk, cols, rows, resumeAgent: input.resumeAgent })
     this.sessions.set(input.paneId, {
       sessionId: randomUUID(),
       launchDirectory: cwd,
@@ -380,6 +401,8 @@ export class TerminalManager {
       pty: ptyProcess,
       agentCommand: input.agentCommand,
       disableRtk: input.disableRtk,
+      resumeAgent: input.resumeAgent,
+      resumed,
       inputQueue: new PtyInputQueue(ptyProcess),
       outputBatcher: new PtyOutputBatcher(input.paneId, (event) => this.onBatch(event)),
       ring: new PtyRingBuffer(this.ringCapacityBytes),
@@ -404,6 +427,11 @@ export class TerminalManager {
       if (session?.pty !== ptyProcess) return // A late exit cannot remove a restarted process.
       session?.outputBatcher.flush()
       if (session) this.rememberExit(session, exitCode)
+      // A resume that ends at once could not load its session; forget it so it cannot loop resume → exit → resume.
+      if (session?.resumed && Date.now() - session.startedAt < RESUME_LOAD_MS) {
+        this.failedResumes.set(input.paneId, session.resumed)
+        this.clearSession?.(input.paneId)
+      }
       this.sessions.delete(input.paneId)
       this.notifyLaunchExit(input.paneId)
       this.observer?.exit(input.paneId)
@@ -636,13 +664,22 @@ export class TerminalManager {
   }
 
   async restart(input: TerminalStopInput): Promise<void> {
-    const session = this.sessions.get(input.paneId)
+    // A pane whose process exited by itself restarts as it last started; a pane that was stopped stays stopped.
+    const session = this.sessions.get(input.paneId) ?? (this.takeExited(input.paneId) ? this.lastStarts.get(input.paneId) : undefined)
     if (!session) return
-    const { workspaceId, agentCommand, disableRtk, cols, rows } = session
+    const { workspaceId, agentCommand, disableRtk, cols, rows, resumeAgent } = session
+    // B17 · `resume: false` starts fresh and forgets the session, so a later crash does not bring it back. A fresh
+    // Claude then gets a new session id of main's, recorded as the pane's session.
+    let fresh: PaneAgentResume | undefined
+    if (input.resume === false) {
+      fresh = startedFreshStatus(this.resumeSession?.(input.paneId, false, true) ?? null)
+      this.clearSession?.(input.paneId)
+    }
     this.stop(input)
     // A fresh process gets a fresh ring: replaying the old shell's output over
     // the new one would show history that no longer belongs to it.
-    await this.start({ paneId: input.paneId, workspaceId, agentCommand, disableRtk, cols, rows })
+    await this.start({ paneId: input.paneId, workspaceId, agentCommand, disableRtk, cols, rows, resumeAgent: fresh ? undefined : resumeAgent, resumeAgain: !fresh })
+    if (fresh) this.agentResumes.set(input.paneId, fresh)
   }
 
   stopWorkspace(workspaceId: string): void {

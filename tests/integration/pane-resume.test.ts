@@ -10,6 +10,7 @@ import { RtkService } from '../../electron/main/services/rtk.service'
 import { TerminalManager } from '../../electron/main/services/terminal.service'
 import { PaneAgentSessions } from '../../electron/main/services/agent-state/pane-sessions'
 import { encodeClaudeProjectPath } from '../../electron/main/services/usage/claude-project-path'
+import { RESUME_LOAD_MS } from '../../electron/main/services/agent-state/pane-resume'
 
 const A = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 const B = '019a5c1e-7b2d-7c3e-9f00-112233445566'
@@ -46,8 +47,9 @@ function run(db: AppDatabase) {
   const pty = createFakePtyModule()
   const terminals = new TerminalManager(db, {
     pty, platform: 'linux', nativeSessionRoots: roots,
-    resumeSession: (paneId, wanted) => sessions.take(paneId, wanted),
-    assignSession: (paneId, agent, sessionId) => sessions.record(paneId, agent, sessionId)
+    resumeSession: (paneId, wanted, again) => sessions.take(paneId, wanted, again),
+    assignSession: (paneId, agent, sessionId) => sessions.record(paneId, agent, sessionId),
+    clearSession: paneId => sessions.clear(paneId)
   })
   return { sessions, pty, terminals }
 }
@@ -188,6 +190,147 @@ describe('what the window reads per pane (terminal.status agentResume)', () => {
   })
 })
 
+describe('restart (terminal.restart)', () => {
+  const recorded = (db: AppDatabase, paneId: string) => db.prepare('SELECT session_id FROM pane_agent_sessions WHERE pane_id = ?').get(paneId) as { session_id: string } | undefined
+
+  test('resume: false starts fresh, forgets the old session and reports startedFresh; the next crash resumes the new one', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    new PaneAgentSessions(db).record(pane.id, 'claude', A)
+    claudeTranscript(A)
+    const first = run(db)
+    try {
+      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      expect(first.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.anything())
+      await first.terminals.restart({ paneId: pane.id, resume: false })
+      const [file, args] = first.pty.spawn.mock.calls.at(-1)!
+      expect(file).toBe('claude')
+      expect(args).not.toContain('--resume')
+      expect(args[0]).toBe('--session-id')
+      const fresh = args[1]
+      expect(fresh).toMatch(UUID)
+      expect(fresh).not.toBe(A)
+      expect(recorded(db, pane.id)).toEqual({ session_id: fresh })
+      expect(first.terminals.status(pane.id).agentResume).toEqual({ outcome: 'notResumed', agent: 'claude', sessionId: A, message: { code: 'agents.resume.startedFresh', params: {} } })
+      claudeTranscript(fresh)
+      first.terminals.stopAll()
+      // The app crashes; the next run goes back to the fresh session, never to A.
+      const second = run(db)
+      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      expect(second.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', fresh], expect.anything())
+      second.terminals.stopAll()
+    } finally { db.close() }
+  })
+
+  test('resume: false on a pane with nothing recorded reports nothingRecorded and clears nothing else', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db, '1x2')
+    const [pane, other] = ws.panes
+    new PaneAgentSessions(db).record(other.id, 'codex', B)
+    const { terminals } = run(db)
+    try {
+      // Codex gets no session id from main, so this pane has nothing recorded.
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      await terminals.restart({ paneId: pane.id, resume: false })
+      expect(terminals.status(pane.id).agentResume).toEqual({ outcome: 'nothingRecorded' })
+      expect(recorded(db, other.id)).toEqual({ session_id: B })
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('a plain restart still resumes the pane session', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    new PaneAgentSessions(db).record(pane.id, 'codex', B)
+    codexRollout(B)
+    const { pty, terminals } = run(db)
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      await terminals.restart({ paneId: pane.id })
+      expect(pty.spawn).toHaveBeenCalledTimes(2)
+      expect(pty.spawn).toHaveBeenLastCalledWith('codex', ['resume', B, '--no-alt-screen'], expect.anything())
+      expect(terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'codex', sessionId: B })
+      expect(recorded(db, pane.id)).toEqual({ session_id: B })
+    } finally { terminals.stopAll(); db.close() }
+  })
+})
+
+describe('a resume that cannot load (exits within RESUME_LOAD_MS)', () => {
+  const recorded = (db: AppDatabase, paneId: string) => db.prepare('SELECT session_id FROM pane_agent_sessions WHERE pane_id = ?').get(paneId) as { session_id: string } | undefined
+  let clock = 1_000_000
+  beforeEach(() => { clock = 1_000_000; vi.spyOn(Date, 'now').mockImplementation(() => clock) })
+
+  test('exits at once → the next restart starts fresh with failedToLoad and the record is cleared; the fresh session resumes next time', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    new PaneAgentSessions(db).record(pane.id, 'claude', A)
+    claudeTranscript(A)
+    const first = run(db)
+    try {
+      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      expect(first.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.anything())
+      clock += RESUME_LOAD_MS - 1
+      first.pty.instances.at(-1)!.emitExit(1)
+      expect(recorded(db, pane.id)).toBeUndefined()
+      // The pane exited by itself; a restart brings it back, fresh.
+      await first.terminals.restart({ paneId: pane.id })
+      const [file, args] = first.pty.spawn.mock.calls.at(-1)!
+      expect(file).toBe('claude')
+      expect(args).not.toContain('--resume')
+      expect(args[0]).toBe('--session-id')
+      const fresh = args[1]
+      expect(fresh).not.toBe(A)
+      expect(first.terminals.status(pane.id).agentResume).toEqual({ outcome: 'notResumed', agent: 'claude', sessionId: A, message: { code: 'agents.resume.failedToLoad', params: {} } })
+      expect(recorded(db, pane.id)).toEqual({ session_id: fresh })
+      // Only one fresh start: a further restart in this run resumes the fresh session once it is on disk.
+      claudeTranscript(fresh)
+      clock += 60_000
+      await first.terminals.restart({ paneId: pane.id })
+      expect(first.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', fresh], expect.anything())
+      first.terminals.stopAll()
+      // And after a crash, the next run goes back to it too.
+      const second = run(db)
+      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      expect(second.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', fresh], expect.anything())
+      second.terminals.stopAll()
+    } finally { db.close() }
+  })
+
+  test('runs normally and exits later → the next restart still resumes (no false positive)', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    new PaneAgentSessions(db).record(pane.id, 'codex', B)
+    codexRollout(B)
+    const { pty, terminals } = run(db)
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      clock += RESUME_LOAD_MS
+      pty.instances.at(-1)!.emitExit(0)
+      expect(recorded(db, pane.id)).toEqual({ session_id: B })
+      await terminals.restart({ paneId: pane.id })
+      expect(pty.spawn).toHaveBeenLastCalledWith('codex', ['resume', B, '--no-alt-screen'], expect.anything())
+      expect(terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'codex', sessionId: B })
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('a fresh start that exits at once is not a failed resume', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    const { pty, terminals } = run(db)
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      const assigned = pty.spawn.mock.calls.at(-1)![1][1]
+      pty.instances.at(-1)!.emitExit(1)
+      expect(recorded(db, pane.id)).toEqual({ session_id: assigned })
+      expect(terminals.status(pane.id).agentResume).toEqual({ outcome: 'nothingRecorded' })
+    } finally { terminals.stopAll(); db.close() }
+  })
+})
+
 describe('what survives the crash', () => {
   test('a session with no end recorded (the app died) is still there after the restart', async () => {
     const db = openInMemoryDatabase()
@@ -230,13 +373,15 @@ function createFakePtyModule() {
 
 function createFakePty() {
   let dataHandler: ((data: string) => void) | null = null
+  let exitHandler: ((event: { exitCode: number }) => void) | null = null
   return {
     pid: 1,
     write: vi.fn(),
     resize: vi.fn(),
     kill: vi.fn(),
     onData: vi.fn((handler: (data: string) => void) => { dataHandler = handler; return { dispose: vi.fn() } }),
-    onExit: vi.fn(() => ({ dispose: vi.fn() })),
-    emitData: (data: string) => dataHandler?.(data)
+    onExit: vi.fn((handler: (event: { exitCode: number }) => void) => { exitHandler = handler; return { dispose: vi.fn() } }),
+    emitData: (data: string) => dataHandler?.(data),
+    emitExit: (exitCode: number) => exitHandler?.({ exitCode })
   }
 }
