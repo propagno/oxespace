@@ -45,6 +45,34 @@ export function bypassCloseGuard(): () => void {
   return guard?.bypass() ?? (() => {})
 }
 
+interface Emitting { emit(name: string | symbol, ...args: unknown[]): boolean }
+
+/**
+ * Wraps `target.emit` so `before-quit` reaches no listener while `shouldGate()` says the window is being asked; it
+ * then prevents the native event. Fails open: if `shouldGate` (or the prevention) throws, `onError` is told and the
+ * event goes to every listener exactly as without the wrapper. If Electron ever stopped routing `before-quit`
+ * through `emit`, nothing would be gated and quitting would work as it did before F26; the E2E canary
+ * (e2e/close-guard-canary.spec.ts) fails first. Returns the unwrap.
+ */
+export function gateBeforeQuit(target: Emitting, shouldGate: () => boolean, onError: () => void): () => void {
+  const emit = target.emit
+  const gated = function (this: Emitting, name: string | symbol, ...args: unknown[]): boolean {
+    if (name === 'before-quit') {
+      try {
+        if (shouldGate()) {
+          (args[0] as { preventDefault?: () => void } | undefined)?.preventDefault?.()
+          return true
+        }
+      } catch {
+        try { onError() } catch { /* the quit goes on regardless */ }
+      }
+    }
+    return emit.call(this, name, ...args)
+  }
+  target.emit = gated
+  return () => { if (target.emit === gated) target.emit = emit }
+}
+
 function createGuard(): CloseGuard {
   const created = new CloseGuard({
     send: request => {
@@ -56,14 +84,7 @@ function createGuard(): CloseGuard {
     quit: () => app.quit(),
     incident: code => recordIncident(code)
   })
-  const emit = app.emit
-  app.emit = function (this: typeof app, name: string | symbol, ...args: unknown[]): boolean {
-    if (name === 'before-quit' && created.intercept('quit')) {
-      (args[0] as Electron.Event | undefined)?.preventDefault()
-      return true
-    }
-    return emit.call(this, name, ...args)
-  } as typeof app.emit
+  gateBeforeQuit(app, () => created.intercept('quit'), () => created.failOpen())
   try { powerMonitor.on('shutdown', () => { created.bypass() }) } catch { /* not available before ready, or on this OS */ }
   ipcMain.handle(IPC_CHANNELS.app.closeAnswer, (event: IpcMainInvokeEvent, input: unknown) => {
     requireAppFrame(event, 'Close answer')
