@@ -98,6 +98,18 @@ export interface MessageParams {
   'mcp.signIn.waiting': Record<string, never>
   'mcp.server.quarantined': Record<string, never>
   'mcp.server.untrusted': Record<string, never>
+  /** Settings › Tools (F10): the folder is neither a Code workspace nor an OxeChat project, so its tool groups are not OXESpace's to read or change. */
+  'mcp.toolGroups.unknownProject': Record<string, never>
+  /** Settings › Tools: the project's oxe.yaml is not valid YAML; it is left as it is until fixed by hand. */
+  'mcp.toolGroups.invalidYaml': Record<string, never>
+  /** Settings › Tools: oxe.yaml is valid YAML but not a mapping of settings. */
+  'mcp.toolGroups.notMapping': Record<string, never>
+  /** Settings › Tools: `thread` in oxe.yaml is written inline (`thread: { … }`), which this editor does not rewrite. */
+  'mcp.toolGroups.inlineThread': Record<string, never>
+  /** Settings › Tools: the edit would have changed more than `thread.tools` (anchors, aliases, an unusual layout), so nothing was written. */
+  'mcp.toolGroups.unsafeEdit': Record<string, never>
+  /** A project file changed on disk after OXESpace read it (another editor, a git checkout); nothing was written. */
+  'project.file.changedMeanwhile': { file: string }
   'github.cli.missing': Record<string, never>
   'git.base.unresolved': { base: string }
   'oxe.status.unreadable': Record<string, never>
@@ -349,6 +361,12 @@ export const MESSAGE_CODES = [
   'mcp.signIn.waiting',
   'mcp.server.quarantined',
   'mcp.server.untrusted',
+  'mcp.toolGroups.unknownProject',
+  'mcp.toolGroups.invalidYaml',
+  'mcp.toolGroups.notMapping',
+  'mcp.toolGroups.inlineThread',
+  'mcp.toolGroups.unsafeEdit',
+  'project.file.changedMeanwhile',
   'github.cli.missing',
   'git.base.unresolved',
   'oxe.status.unreadable',

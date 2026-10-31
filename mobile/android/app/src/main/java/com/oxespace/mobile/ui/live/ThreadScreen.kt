@@ -237,15 +237,24 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, conn
     var clientId by rememberSaveable(threadId) { mutableStateOf(UUID.randomUUID().toString()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
-    /** Sent without an answer (or while offline): goes again, with the same clientId, when the session is back. */
-    var unsent by rememberSaveable(threadId) { mutableStateOf(false) }
+    /**
+     * Sent without an answer (or while offline): exactly what went, kept with its clientId so it can go again when the
+     * session is back. Editing the field drops it: the edit is a new message.
+     */
+    var unsentText by rememberSaveable(threadId) { mutableStateOf<String?>(null) }
+    var unsentSteer by rememberSaveable(threadId) { mutableStateOf(false) }
+    val unsent = unsentText?.let { Outgoing(it, unsentSteer) }
     val steer = running && canSteer
 
     /** [ask] false for the resend after a reconnection: inside the window it goes, outside it waits for a tap on Send. */
-    suspend fun send(ask: Boolean = true) {
+    suspend fun send(outgoing: Outgoing, ask: Boolean = true) {
         busy = true
         val gated = presence.run(PresenceReason.SEND, ask) {
-            if (steer) commands.steer(RemoteThreadSteerArgs(threadId, text, clientId)) else commands.send(RemoteThreadSendArgs(threadId, text, clientId))
+            if (outgoing.steer) {
+                commands.steer(RemoteThreadSteerArgs(threadId, outgoing.text, clientId))
+            } else {
+                commands.send(RemoteThreadSendArgs(threadId, outgoing.text, clientId))
+            }
         }
         when (gated) {
             // Nothing left the phone: the text, its clientId and whether it still waits to go stay as they were.
@@ -253,7 +262,9 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, conn
             is Gated.Done -> {
                 val result = gated.value
                 message = commandMessage(result)
-                unsent = result == CommandResult.NoAnswer || result == CommandResult.Offline
+                val pending = result == CommandResult.NoAnswer || result == CommandResult.Offline
+                unsentText = if (pending) outgoing.text else null
+                unsentSteer = outgoing.steer
                 if (result is CommandResult.Done) text = ""
                 clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
             }
@@ -262,7 +273,7 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, conn
     }
 
     LaunchedEffect(connected) {
-        if (connected && unsent && text.isNotBlank() && !busy) send(ask = false)
+        if (connected && !busy) resendOf(unsent, text)?.let { send(it, ask = false) }
     }
     Column(
         Modifier.fillMaxWidth().background(Oxe.colors.surfaceChrome).navigationBarsPadding().imePadding().padding(OxeSpace.space3),
@@ -271,7 +282,15 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, conn
         message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         OutlinedTextField(
             value = text,
-            onValueChange = { text = it.take(RemoteLimits.MAX_TEXT_LENGTH); message = null },
+            onValueChange = { typed ->
+                text = typed.take(RemoteLimits.MAX_TEXT_LENGTH)
+                message = null
+                // An edit of an unsent message is a new message: it never goes by itself, and it gets its own clientId.
+                if (unsentText != null && text != unsentText) {
+                    unsentText = null
+                    clientId = UUID.randomUUID().toString()
+                }
+            },
             placeholder = { Text(stringResource(R.string.composer_placeholder)) },
             maxLines = 5,
             modifier = Modifier.fillMaxWidth(),
@@ -292,7 +311,7 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, conn
             }
             Spacer(Modifier.weight(1f))
             Button(
-                onClick = { scope.launch { send() } },
+                onClick = { scope.launch { send(outgoingFor(unsent, text, steer)) } },
                 enabled = !busy && text.isNotBlank(),
                 modifier = Modifier.heightIn(min = 48.dp),
             ) { Text(stringResource(if (steer) R.string.composer_steer else R.string.composer_send)) }
