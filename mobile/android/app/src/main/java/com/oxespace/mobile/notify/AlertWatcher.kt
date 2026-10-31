@@ -2,6 +2,7 @@ package com.oxespace.mobile.notify
 
 import com.oxespace.mobile.protocol.RemotePendingRequest
 import com.oxespace.mobile.protocol.RemoteThreadSummary
+import com.oxespace.mobile.protocol.displaySafe
 
 /** Where a notification's tap leads. */
 sealed interface AlertTarget {
@@ -12,7 +13,7 @@ sealed interface AlertTarget {
 enum class AlertKind { NEEDS_YOU, DONE, FAILED }
 
 sealed interface AlertChange {
-    /** Show (or update) the notification with [key]. */
+    /** Show (or update) the notification with [key]; [title] and [text] are already safe to display (displaySafe). */
     data class Post(val key: String, val kind: AlertKind, val title: String, val text: String, val target: AlertTarget) : AlertChange
     /** The reason for it is gone (answered elsewhere): take it down. */
     data class Cancel(val key: String) : AlertChange
@@ -31,7 +32,7 @@ class AlertWatcher {
         val now = requests.associateBy { requestKey(it.threadId, it.requestId) }
         val changes = mutableListOf<AlertChange>()
         for ((key, request) in now) {
-            if (announced.add(key)) changes += AlertChange.Post(key, AlertKind.NEEDS_YOU, request.title, request.threadTitle, AlertTarget.Request(request.threadId, request.requestId))
+            if (announced.add(key)) changes += AlertChange.Post(key, AlertKind.NEEDS_YOU, displaySafe(request.title), displaySafe(request.threadTitle), AlertTarget.Request(request.threadId, request.requestId))
         }
         val gone = announced.filter { it.startsWith(REQUEST) && it !in now }
         for (key in gone) {
@@ -49,9 +50,9 @@ class AlertWatcher {
             val key = "$THREAD${thread.id}"
             when {
                 thread.status == "failed" || thread.lastTurnStatus == "failed" ->
-                    changes += AlertChange.Post(key, AlertKind.FAILED, thread.title, "", AlertTarget.Thread(thread.id))
+                    changes += AlertChange.Post(key, AlertKind.FAILED, displaySafe(thread.title), "", AlertTarget.Thread(thread.id))
                 thread.lastTurnStatus == "completed" ->
-                    changes += AlertChange.Post(key, AlertKind.DONE, thread.title, "", AlertTarget.Thread(thread.id))
+                    changes += AlertChange.Post(key, AlertKind.DONE, displaySafe(thread.title), "", AlertTarget.Thread(thread.id))
             }
         }
         // A conversation that starts working again makes its last "done" or "failed" stale.

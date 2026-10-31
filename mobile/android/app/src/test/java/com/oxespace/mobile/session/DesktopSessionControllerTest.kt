@@ -67,6 +67,7 @@ class DesktopSessionControllerTest {
             linkFor = { target, _, _: TokenHolder -> FakeLink(target).also { links += it } },
             onLan = lan,
             backoff = Backoff(baseMs = 1_000, maxMs = 8_000, random = random),
+            now = { scope.testScheduler.currentTime },
         )
         val link get() = links.last()
     }
@@ -92,10 +93,27 @@ class DesktopSessionControllerTest {
         val h = harness()
         h.controller.start()
         h.link.state.value = SessionState.Ready(null)
+        advanceTimeBy(10_000)
         h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
         assertEquals(DesktopStatus.Reconnecting(paired), h.controller.status.value)
         assertEquals(2, h.links.size)
         assertEquals(1, h.link.connected)
+    }
+
+    @Test
+    fun aDesktopThatAcceptsAndDropsAtOnceIsRetriedWithGrowingWaits() = runTest {
+        val h = harness()
+        h.controller.start()
+        val waits = mutableListOf<Long>()
+        repeat(3) {
+            h.link.state.value = SessionState.Ready(null)
+            h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
+            val status = h.controller.status.value as DesktopStatus.Unreachable
+            waits += status.retryInMs
+            advanceTimeBy(status.retryInMs + 1)
+        }
+        // Never a reconnect loop: each quick drop waits longer than the one before.
+        assertEquals(listOf(1_000L, 2_000L, 4_000L), waits)
     }
 
     @Test
@@ -113,9 +131,10 @@ class DesktopSessionControllerTest {
         advanceTimeBy(2_000); runCurrent()
         h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
         assertEquals(DesktopStatus.Unreachable(paired, 4_000), h.controller.status.value)
-        // Once it answers, the next drop starts over.
+        // Once it answers and stays up, the next drop starts over.
         advanceTimeBy(4_000); runCurrent()
         h.link.state.value = SessionState.Ready(null)
+        advanceTimeBy(10_000)
         h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
         h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
         assertEquals(DesktopStatus.Unreachable(paired, 1_000), h.controller.status.value)

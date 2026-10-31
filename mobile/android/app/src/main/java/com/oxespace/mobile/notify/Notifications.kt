@@ -64,6 +64,11 @@ class Notifications(private val context: Context) {
                     AlertKind.DONE -> DONE to context.getString(R.string.notify_done, change.title)
                     AlertKind.FAILED -> FAILED to context.getString(R.string.notify_failed, change.title)
                 }
+                // What a locked phone shows instead, on every launcher: the kind of alert, no title, no text.
+                val public = NotificationCompat.Builder(context, channel)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle(context.getString(channelName(change.kind)))
+                    .build()
                 val notification = NotificationCompat.Builder(context, channel)
                     .setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle(title)
@@ -71,6 +76,7 @@ class Notifications(private val context: Context) {
                     .setCategory(if (change.kind == AlertKind.NEEDS_YOU) NotificationCompat.CATEGORY_REMINDER else NotificationCompat.CATEGORY_STATUS)
                     // The command or file names stay off the lock screen.
                     .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                    .setPublicVersion(public)
                     .setAutoCancel(true)
                     .setContentIntent(open(change.target, change.key))
                     .build()
@@ -87,10 +93,22 @@ class Notifications(private val context: Context) {
             is AlertTarget.Thread -> intent.putExtra(EXTRA_THREAD, target.threadId)
             null -> Unit
         }
-        return PendingIntent.getActivity(context, key.hashCode(), NotificationTaps.sign(intent), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        return PendingIntent.getActivity(context, requestCode(key), NotificationTaps.sign(intent), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    private fun channelName(kind: AlertKind): Int = when (kind) {
+        AlertKind.NEEDS_YOU -> R.string.notify_channel_needs_you
+        AlertKind.DONE -> R.string.notify_channel_done
+        AlertKind.FAILED -> R.string.notify_channel_failed
     }
 
     companion object {
+        /** One request code per alert key for the process's life, so two alerts never share (and rewrite) one PendingIntent. */
+        private val requestCodes = mutableMapOf<String, Int>()
+
+        @Synchronized
+        internal fun requestCode(key: String): Int = requestCodes.getOrPut(key) { requestCodes.size + 1 }
+
         const val SESSION = "session"
         const val NEEDS_YOU = "needs-you"
         const val DONE = "done"

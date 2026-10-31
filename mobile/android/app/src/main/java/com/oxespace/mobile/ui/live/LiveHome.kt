@@ -60,6 +60,7 @@ import com.oxespace.mobile.protocol.RemotePendingRequest
 import com.oxespace.mobile.protocol.RemoteThreadSummary
 import com.oxespace.mobile.protocol.RemoteWorkspace
 import com.oxespace.mobile.R
+import com.oxespace.mobile.ui.UnpairDialog
 import com.oxespace.mobile.session.LiveRepository
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -90,6 +91,8 @@ fun LiveHome(
     val jobs by live.jobs.items.collectAsStateWithLifecycle()
     val delegations by live.delegations.items.collectAsStateWithLifecycle()
     var menu by rememberSaveable { mutableStateOf(false) }
+    var confirmingUnpair by rememberSaveable { mutableStateOf(false) }
+    if (confirmingUnpair) UnpairDialog(desktopName, onConfirm = { confirmingUnpair = false; onUnpair() }, onDismiss = { confirmingUnpair = false })
 
     Scaffold(
         topBar = {
@@ -115,7 +118,7 @@ fun LiveHome(
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.home_enter_address)) }, onClick = { menu = false; onEnterAddress() })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.home_unpair)) }, onClick = { menu = false; onUnpair() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.home_unpair)) }, onClick = { menu = false; confirmingUnpair = true })
                         }
                     }
                 },
@@ -227,9 +230,10 @@ private fun RequestRow(request: RemotePendingRequest, onOpen: () -> Unit) {
         Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button, onClick = onOpen).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
     ) {
-        Text(request.title, style = MaterialTheme.typography.titleMedium, color = riskColor(request.risk))
+        Text(request.title, style = MaterialTheme.typography.titleMedium)
+        request.risk?.let { Text(riskLabel(it), style = MaterialTheme.typography.labelMedium, color = riskColor(it)) }
         request.command?.let { Text(it, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-        Text(request.threadTitle, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
+        Text("${request.threadTitle} · ${ageLabel(request.createdAt)}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
     }
 }
 
@@ -250,7 +254,7 @@ private fun WorkspacePanes(workspace: RemoteWorkspace, onOpen: (RemotePane) -> U
                 Text(pane.title, style = MaterialTheme.typography.titleMedium)
                 val agent = pane.agent
                 val detail = when {
-                    agent != null -> stringResource(R.string.live_pane_agent, agent, agentStateLabel(pane.agentState ?: "unknown"))
+                    agent != null -> stringResource(R.string.live_pane_agent, providerName(agent), agentStateLabel(pane.agentState ?: "unknown"))
                     pane.phoneWrite -> stringResource(R.string.live_phone_write)
                     else -> stringResource(R.string.live_read_only)
                 }

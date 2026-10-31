@@ -50,6 +50,8 @@ class DesktopSessionController(
     /** True while the phone is on Wi-Fi or Ethernet, where the desktop can be. */
     private val onLan: StateFlow<Boolean> = MutableStateFlow(true),
     private val backoff: Backoff = Backoff(),
+    /** Monotonic milliseconds: how long a session stayed up decides whether its drop is retried at once. */
+    private val now: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     private val tokens = TokenHolder()
     private val mutableStatus = MutableStateFlow(initial())
@@ -61,6 +63,7 @@ class DesktopSessionController(
     private var retryJob: Job? = null
     private var networkJob: Job? = null
     private var attempt = 0
+    private var readySince: Long? = null
 
     private fun initial(): DesktopStatus = store.load()?.let { DesktopStatus.Connecting(it) } ?: DesktopStatus.Unpaired()
 
@@ -155,7 +158,9 @@ class DesktopSessionController(
         when (state) {
             SessionState.Opening, SessionState.Authenticating -> Unit
             is SessionState.Ready -> {
-                attempt = 0
+                // The wait count resets only once the session proves stable (see the drop below), so a desktop that
+                // accepts and drops at once can't make the phone reconnect in a tight loop.
+                readySince = now()
                 // Remember where it answered, so the next start goes there first.
                 val host = session.connectedHost
                 if (host != null && host != desktop.host) store.save((store.load() ?: desktop).copy(host = host))
@@ -177,13 +182,20 @@ class DesktopSessionController(
                     }
                     SessionEnd.UNSUPPORTED_VERSION, SessionEnd.PROTOCOL -> mutableStatus.value = DesktopStatus.Incompatible(desktop)
                     SessionEnd.UNAUTHENTICATED -> mutableStatus.value = DesktopStatus.NotAccepted(desktop)
-                    SessionEnd.CLOSED -> scheduleRetry(desktop, immediately = wasConnected)
+                    SessionEnd.CLOSED -> {
+                        val stable = wasConnected && readySince?.let { now() - it >= STABLE_MS } == true
+                        if (stable) attempt = 0
+                        scheduleRetry(desktop, immediately = stable)
+                    }
                 }
             }
         }
     }
 
-    /** A dropped live session tries again at once; a desktop that doesn't answer is retried with growing waits. */
+    /**
+     * A live session that dropped after [STABLE_MS] tries again at once; a desktop that doesn't answer, or keeps
+     * dropping right after accepting, is retried with growing waits.
+     */
     private fun scheduleRetry(desktop: PairedDesktop, immediately: Boolean) {
         if (!running) return
         if (!onLan.value) {
@@ -202,5 +214,10 @@ class DesktopSessionController(
             delay(wait)
             connect()
         }
+    }
+
+    private companion object {
+        /** A session up this long counts as working: its drop is retried at once and the wait count starts over. */
+        const val STABLE_MS = 10_000L
     }
 }

@@ -70,6 +70,9 @@ object Samples {
             {"seq":6,"item":{"type":"request","id":"q-1","requestId":"r-1","kind":"approval","title":"Delete the build output","state":"pending"}}]}""")))
     }
 
+    /** Three minutes after the sample requests were made, so "há 3 min" in every shot, whatever the day. */
+    val clock: () -> Long = { 1 + 3 * 60_000L }
+
     /** The presence window open: screens draw what the person sees right after confirming. */
     val presence = PresenceGate(object : PresenceCheck {
         override suspend fun confirm(reason: PresenceReason, ask: Boolean) = Presence.CONFIRMED

@@ -15,6 +15,7 @@ import { pathToFileURL } from 'node:url'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
+import { registerMcpToolsIpc } from './ipc/mcp-tools.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
@@ -381,6 +382,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const contextUsageService = registerContextUsageIpc()
   const oxeService = registerOxeIpc()
   const fileSystemService = registerFileSystemIpc(db)
+  registerMcpToolsIpc(db, fileSystemService)
   // Internal oxespace MCP server — auto-starts on app boot, registers a
   // global row in mcp_servers, syncs to every workspace's .mcp.json. The
   // bridge script lives under <userData>/bin/ and is spawned by each

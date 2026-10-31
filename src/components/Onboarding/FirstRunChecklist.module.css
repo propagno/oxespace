@@ -148,3 +148,6 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* The card at its usual height (three steps), kept while the real card loads. */
+.fallback { min-block-size: 24.5rem; display: grid; align-content: start; }
