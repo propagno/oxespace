@@ -4,7 +4,7 @@ import { launchApp, resizeWindow } from './helpers/launch'
 /**
  * F32 · Each agent pane says what became of its earlier session when the app reopened (B17's `agentResume`, served by
  * the E2E double of `terminal.status`), and a Claude pane without the status hooks asks once to install them (the
- * agent-hooks double records the install; nothing is written to ~/.claude).
+ * agent-hooks double records the install; nothing is written to ~/.claude). A resumed pane can be started fresh.
  */
 const pane = (page: Page, paneId: string) => page.locator(`[data-testid="pane-container"][data-pane-id="${paneId}"]`)
 
@@ -44,6 +44,16 @@ test('agent panes show whether their session was resumed, and the hooks question
     await expect(prompt).toHaveCount(0)
     await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __oxeAgentHookInstalls?: string[] }).__oxeAgentHookInstalls ?? [])).toEqual(['claude-code'])
     await expect(page.getByText('Claude Code panes now record their sessions')).toBeVisible()
+
+    // "Start fresh" on the resumed pane: asks first, then main restarts it without the session.
+    await pane(page, resumed).getByRole('button', { name: 'More pane actions' }).click()
+    await page.getByRole('menuitem', { name: 'Start fresh' }).click()
+    const confirm = page.getByRole('dialog', { name: 'Start this Claude pane fresh?' })
+    await expect(confirm.getByRole('button', { name: 'Cancel' })).toBeFocused()
+    await confirm.getByRole('button', { name: 'Start fresh' }).click()
+    await expect(confirm).toHaveCount(0)
+    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __oxeTerminalRestarts?: unknown[] }).__oxeTerminalRestarts ?? []))
+      .toContainEqual(expect.objectContaining({ paneId: resumed, resume: false }))
 
     expect(consoleErrors.filter(line => line.startsWith('pageerror'))).toEqual([])
   } finally {

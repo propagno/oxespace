@@ -6,7 +6,7 @@ import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
-import { EnableResumeMenuItem, PaneResumeMarker, usePaneResume } from '../AgentSessions/PaneResume'
+import { EnableResumeMenuItem, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
@@ -321,6 +321,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                     <Suspense fallback={null}><TerminalFocusMenuItems paneId={pane.id} onDone={() => setMenuOpen(false)} /></Suspense>
                     {phoneWrite.offered && <PhoneWriteMenuItem paneId={pane.id} allowed={phoneWrite.allowed} onDone={runMenuAction} />}
                     {isTerminalPane && resumeAgent && <EnableResumeMenuItem agent={resumeAgent} onDone={runMenuAction} />}
+                    {isTerminalPane && resume?.outcome === 'resumed' && <StartFreshMenuItem paneId={pane.id} agent={resume.agent} onDone={runMenuAction} />}
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                   </>
                 ) : null}

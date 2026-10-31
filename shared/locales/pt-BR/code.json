@@ -1938,6 +1938,10 @@
     "notResumedTitle": "A sessão anterior do {{agent}} não foi retomada: {{reason}}",
     "notResumedNotice": "{{pane}}: a sessão anterior não foi retomada",
     "enableMenu": "Ativar a retomada após travamento…",
+    "startFresh": "Começar do zero",
+    "startFreshTitle": "Começar este painel do {{agent}} do zero?",
+    "startFreshBody": "O {{agent}} reinicia aqui numa sessão nova, e o que ele está fazendo agora para. A sessão anterior continua no disco, mas este painel não volta para ela.",
+    "startFreshFailed": "Não foi possível reiniciar o painel.",
     "hooks": {
       "title": "Deixar os painéis do {{agent}} voltarem após um travamento?",
       "body": "Os hooks de status do OXESpace deixam cada painel registrar qual sessão do {{agent}} ele roda, para que reabrir o app a retome. Instalar adiciona algumas entradas às configurações do {{agent}} em {{folder}}; dá para removê-las em Configurações › Notificações.",

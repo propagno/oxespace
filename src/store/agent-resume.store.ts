@@ -34,8 +34,13 @@ interface AgentResumeState {
   asking: AgentHookAgent | null
   /** Agents already asked about in this run ("Not now" lasts until the app restarts). */
   asked: Partial<Record<AgentHookAgent, true>>
+  /** The pane whose "Start fresh" the window is confirming, outside the pane's menu (which closes). */
+  freshAsk: { paneId: string; agent: ResumeAgent } | null
+  askFresh: (ask: { paneId: string; agent: ResumeAgent } | null) => void
   /** Reads the pane's outcome once main has one; later calls are free. */
   load: (paneId: string) => Promise<PaneAgentResume | undefined>
+  /** Forgets the pane's outcome and reads it again (after a restart). */
+  reload: (paneId: string) => Promise<PaneAgentResume | undefined>
   /** Reads the hook installs once per run. */
   loadHooks: () => Promise<void>
   /** Asks about this agent's hooks, once per run, when they are missing and the person did not say "Don't ask again". */
@@ -50,6 +55,9 @@ export const useAgentResumeStore = create<AgentResumeState>((set, get) => ({
   hooks: {},
   asking: null,
   asked: {},
+  freshAsk: null,
+
+  askFresh: (freshAsk) => set({ freshAsk }),
 
   load: async (paneId) => {
     const known = get().byPane[paneId]
@@ -58,6 +66,15 @@ export const useAgentResumeStore = create<AgentResumeState>((set, get) => ({
     const outcome = status?.agentResume
     if (outcome) set(state => ({ byPane: { ...state.byPane, [paneId]: outcome } }))
     return outcome
+  },
+
+  reload: async (paneId) => {
+    set(state => {
+      const byPane = { ...state.byPane }
+      delete byPane[paneId]
+      return { byPane }
+    })
+    return get().load(paneId)
   },
 
   loadHooks: async () => {
@@ -92,5 +109,5 @@ export const useAgentResumeStore = create<AgentResumeState>((set, get) => ({
     return next
   },
 
-  reset: () => set({ byPane: {}, hooks: {}, asking: null, asked: {} })
+  reset: () => set({ byPane: {}, hooks: {}, asking: null, asked: {}, freshAsk: null })
 }))

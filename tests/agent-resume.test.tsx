@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentHooksStatus } from '../shared/types/agent-hooks'
 import type { PaneAgentResume } from '../shared/types/ipc/terminal'
 import { AgentHooksPromptHost } from '../src/components/AgentSessions/AgentHooksPromptHost'
-import { EnableResumeMenuItem, PaneResumeMarker, usePaneResume } from '../src/components/AgentSessions/PaneResume'
+import { EnableResumeMenuItem, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../src/components/AgentSessions/PaneResume'
 import { changeLanguage } from '../src/i18n'
 import { useAgentResumeStore, type ResumeAgent } from '../src/store/agent-resume.store'
 import { useToasts } from '../src/ui/Toast'
@@ -119,5 +119,31 @@ describe('the status hooks question', () => {
     render(<><Pane id="b" agent="claude" /><Pane id="c" agent={null} /><AgentHooksPromptHost /></>)
     await act(async () => { await Promise.resolve(); await Promise.resolve() })
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('starting a resumed pane fresh', () => {
+  it('asks first, restarts without the session, and then shows neither a marker nor a warning', async () => {
+    const outcomes: Record<string, PaneAgentResume> = { a: { outcome: 'resumed', agent: 'claude', sessionId: '0199a1b2-c3d4' } }
+    const api = install(outcomes)
+    const restart = vi.fn(async () => { outcomes.a = { outcome: 'notResumed', agent: 'claude', sessionId: '0199a1b2-c3d4', message: { code: 'agents.resume.startedFresh', params: {} } } })
+    ;(api.terminal as unknown as { restart: typeof restart }).restart = restart
+    const user = userEvent.setup()
+    function Resumed() {
+      const outcome = usePaneResume('a', 'Pane a', true, 'claude')
+      return <>{outcome && <PaneResumeMarker outcome={outcome} />}{outcome?.outcome === 'resumed' && <StartFreshMenuItem paneId="a" agent="claude" onDone={run => run()} />}</>
+    }
+    render(<><Resumed /><AgentHooksPromptHost /></>)
+    await user.click(await screen.findByTestId('pane-start-fresh'))
+    const dialog = await screen.findByRole('dialog', { name: 'Start this Claude pane fresh?' })
+    expect(dialog).toHaveTextContent('what it is doing now stops')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus())
+    expect(restart).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Start fresh' }))
+    expect(restart).toHaveBeenCalledWith({ paneId: 'a', resume: false })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.queryByTestId('pane-resume-marker')).toBeNull())
+    expect(screen.queryByTestId('pane-start-fresh')).toBeNull()
+    expect(toastTitles()).toEqual([])
   })
 })
