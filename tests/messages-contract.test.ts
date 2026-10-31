@@ -163,6 +163,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.note.thread.actsOnMessage': [],
   'approvals.note.skill.followed': [],
   'approvals.note.automation.runsAlone': [],
+  'approvals.note.preview.notLocal': [],
   'approvals.note.worktree.folderDeleted': [],
   'approvals.note.worktree.forceDiscards': [],
   'approvals.note.git.branchShared': [],

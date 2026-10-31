@@ -287,7 +287,10 @@
         "textCut": "The text is longer than {{max}} characters, so only part of it is shown. It cannot be approved.",
         "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app.",
         "hiddenCharacters": "The text holds invisible or direction-changing characters, so what you see may not be what runs.",
-        "nativeCriticalDenyOnly": "This change is critical, and the system dialog cannot hold Allow back, so it can only be denied here. Open OXESpace to approve it."
+        "nativeCriticalDenyOnly": "This change is critical, and the system dialog cannot hold Allow back, so it can only be denied here. Open OXESpace to approve it.",
+        "preview": {
+          "notLocal": "This page is not on localhost. It can load anything, and it sees what is typed into it."
+        }
       },
       "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
       "expired": "Nobody answered in time, so the request was denied.",

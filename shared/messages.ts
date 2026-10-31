@@ -215,6 +215,8 @@ export interface MessageParams {
   'approvals.note.thread.actsOnMessage': Record<string, never>
   'approvals.note.skill.followed': Record<string, never>
   'approvals.note.automation.runsAlone': Record<string, never>
+  /** B15: an agent asks to open a page that is not on this computer's loopback. */
+  'approvals.note.preview.notLocal': Record<string, never>
   'approvals.note.worktree.folderDeleted': Record<string, never>
   'approvals.note.worktree.forceDiscards': Record<string, never>
   'approvals.note.git.branchShared': Record<string, never>
@@ -416,6 +418,7 @@ export const MESSAGE_CODES = [
   'approvals.note.thread.actsOnMessage',
   'approvals.note.skill.followed',
   'approvals.note.automation.runsAlone',
+  'approvals.note.preview.notLocal',
   'approvals.note.worktree.folderDeleted',
   'approvals.note.worktree.forceDiscards',
   'approvals.note.git.branchShared',

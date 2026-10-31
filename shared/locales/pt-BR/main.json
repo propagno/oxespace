@@ -287,7 +287,10 @@
         "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
         "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app.",
         "hiddenCharacters": "O texto tem caracteres invisíveis ou que mudam a direção, então o que você vê pode não ser o que roda.",
-        "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar."
+        "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar.",
+        "preview": {
+          "notLocal": "Esta página não está no localhost. Ela pode carregar qualquer coisa e vê o que for digitado nela."
+        }
       },
       "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
       "expired": "Ninguém respondeu a tempo, então o pedido foi negado.",
