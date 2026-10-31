@@ -64,6 +64,6 @@
 .delegation-preview dt { color: var(--tx-muted); }
 .delegation-preview dd { min-width: 0; margin: 0; color: var(--tx-secondary); overflow-wrap: anywhere; }
 .delegation-preview p { margin: 0; color: var(--tx-muted); }
-.delegation-preview-error { margin: 16px 0 0; color: var(--danger, var(--intent-danger-fg)); font-size: var(--fs-xs); }
+.delegation-preview-error { margin: 16px 0 0; }
 @media (max-width: 750px) { .delegation-context-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .delegation-context-row label:nth-child(3) { grid-column: 1 / -1; } .delegation-columns { grid-template-columns: minmax(0, 1fr); gap: 22px; } .delegation-panel + .delegation-panel { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--bd-base); } }
 @media (max-width: 520px) { .delegation-context-row { grid-template-columns: minmax(0, 1fr); } .delegation-context-row label:nth-child(3) { grid-column: auto; } }

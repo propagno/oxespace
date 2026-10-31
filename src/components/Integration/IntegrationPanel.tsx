@@ -8,7 +8,7 @@ import { derivePaneDisplayState, formatPaneStatus, type PaneDisplayTone } from '
 import { ActivityDot } from '../Indicators/ActivityDot'
 import { HandoffInbox } from './HandoffInbox'
 import { MemberEditButton, MemberEditor } from './MemberEditor'
-import { Button, TextField, Select, EmptyState } from '../../ui'
+import { Button, TextField, Select, EmptyState, Notice } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 interface IntegrationPanelProps {
@@ -271,7 +271,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
         </section>
       ) : null}
 
-      {error || memberActionError ? <div className="integration-error" role="alert">{memberActionError ?? error}</div> : null}
+      {error || memberActionError ? <Notice intent="danger">{memberActionError ?? error}</Notice> : null}
       {panelNotice ? <div className="integration-notice" role="status">{panelNotice}</div> : null}
       {isLoading ? <EmptyState compact title="Loading integration groups…" /> : null}
 
@@ -287,21 +287,20 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       ) : null}
 
       {!activeGroup && !isLoading ? (
-        <div className="integration-empty">
-          <Network size={36} aria-hidden="true" />
-          <strong>No coordination {statusFilter !== 'all' && groups.length > 0 ? `with status ${statusFilter}` : 'yet'}</strong>
-          <span>
-            {groups.length > 0 && statusFilter !== 'all'
-              ? <>Switch to <button type="button" className="integration-empty-link" onClick={() => setStatusFilter('all')}>All</button> or set up another coordination.</>
-              : <>Align the repositories, agents and handoffs involved in one delivery.</>}
-          </span>
-          {groups.length === 0 ? (
+        <EmptyState
+          icon={<Network size={24} />}
+          title={`No coordination ${statusFilter !== 'all' && groups.length > 0 ? `with status ${statusFilter}` : 'yet'}`}
+          actions={groups.length === 0 ? (
             <Button variant="primary" size="sm" onClick={() => setShowCreateForm(true)}>
               <Plus size={12} aria-hidden="true" />
               Set up coordination
             </Button>
-          ) : null}
-        </div>
+          ) : undefined}
+        >
+          {groups.length > 0 && statusFilter !== 'all'
+            ? <>Switch to <Button variant="link" size="sm" onClick={() => setStatusFilter('all')}>All</Button> or set up another coordination.</>
+            : <>Align the repositories, agents and handoffs involved in one delivery.</>}
+        </EmptyState>
       ) : null}
 
       {activeGroup ? (

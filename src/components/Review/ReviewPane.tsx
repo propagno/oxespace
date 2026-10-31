@@ -222,9 +222,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
 
           <div className="review-pane-diffs" role="region" aria-label="File diffs" tabIndex={0}>
             {files.length === 0 ? (
-              <div className="review-pane-empty">
-                {ws.diff ? 'No changes match the current filters.' : 'No diff loaded yet.'}
-              </div>
+              <EmptyState title={ws.diff ? 'No changes match the current filters.' : 'No diff loaded yet.'} />
             ) : selectedFile ? (
               // Render only the selected file's diff. Rendering every file at
               // once made the renderer freeze on large diffs (300 files × N

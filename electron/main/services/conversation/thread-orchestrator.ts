@@ -26,6 +26,7 @@ import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configu
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
 import { insertThreadRow, withParent } from './thread-nesting'
 import { ThreadRequestRegistry } from './thread-request-registry'
+import { ThreadRequestRefusalError, ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
@@ -210,8 +211,7 @@ export class ThreadOrchestrator {
       isHeld: id => this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.sessionGrants.has(id),
       openRequests: (id, generation) => this.requests.list(id, generation).length,
       closeSession: (id, at) => this.sessions.close(id, at),
-      read: id => this.read(id),
-      save: (snapshot, options) => this.save(snapshot, options)
+      read: id => this.read(id), save: (snapshot, options) => this.save(snapshot, options)
     }
   }
 
@@ -229,7 +229,7 @@ export class ThreadOrchestrator {
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
 
-  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'parent'>): ThreadSnapshot {
+  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'parent' | 'ownedWorktree'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
       title: 'New thread', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
@@ -376,14 +376,14 @@ export class ThreadOrchestrator {
         ? await adapter!.observe!(nativeTurnId)
         : canRecover && this.stateReader?.recover ? await this.stateReader.recover({ ...snapshot.thread }, nativeTurnId)
         : this.stateReader ? await this.stateReader.observe({ ...snapshot.thread }, nativeTurnId)
-        : { state: 'unknown', observedAt: Date.now(), source: 'unavailable', detail: 'No connected provider supports a state query for this conversation. The execution outcome remains unconfirmed.' }
+        : { state: 'unknown', observedAt: Date.now(), source: 'unavailable', detail: 'No connected provider supports a state query for this conversation. The execution outcome remains unconfirmed.', messageCode: { code: 'thread.observe.unsupported', params: {} } }
       if (connected && canRecover && this.stateReader?.recover && ['completed', 'failed'].includes(result.state)) {
         const recovered = await this.stateReader.recover({ ...snapshot.thread }, nativeTurnId)
         const confirmed = await adapter!.observe!(nativeTurnId)
         // An intervening execution or conflicting provider result must not be
         // overwritten by a passive journal snapshot.
         if (confirmed.state === recovered.state && confirmed.nativeTurnId === nativeTurnId) result = recovered
-        else result = { ...confirmed, state: 'unknown', detail: 'Provider state changed during recovery. The local conversation was preserved; check again.' }
+        else result = { ...confirmed, state: 'unknown', detail: 'Provider state changed during recovery. The local conversation was preserved; check again.', messageCode: { code: 'thread.observe.changed', params: {} } }
       }
       if (this.stopping) throw Error('Thread service is shutting down')
       const current = this.read(id)
@@ -668,14 +668,13 @@ export class ThreadOrchestrator {
     await adapter.stopTask(taskId)
   }
 
-  async approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void> {
-    await this.respond(id, requestId, { decision })
-  }
+  async approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void> { await this.respond(id, requestId, { decision }) }
 
-  async respond(id: string, requestId: string, response: ThreadRequestResponse): Promise<void> {
+  async respond(id: string, requestId: string, response: ThreadRequestResponse, listedGeneration?: number): Promise<ThreadRequest | undefined> {
     const snapshot = this.read(id), generation = snapshot.thread.generation ?? 1
+    if (listedGeneration !== undefined && listedGeneration !== generation) throw new ThreadRequestRefusalError('staleGeneration', 'Request belongs to an older conversation generation')
     const adapter = this.adapters.get(id)
-    if (!adapter) throw new Error('Request has no live execution')
+    if (!adapter) throw new ThreadRequestRefusalError('notPending', 'Request has no live execution')
     const request = this.requests.list(id, generation).find(value => value.id === requestId)
     if (adapter.respondRequest) await this.requests.resolve(id, requestId, generation, response)
     else await adapter.approve(requestId, response.decision === 'accept' || response.decision === 'acceptForSession' ? 'accept' : 'decline')
@@ -685,6 +684,7 @@ export class ThreadOrchestrator {
       const verb = response.decision === 'acceptForSession' ? 'Allowed for the session' : response.decision === 'accept' || response.permissions ? 'Allowed' : 'Declined'
       this.audit(id, { action: 'approval', actor: 'user', summary: `${verb} ${requestSubject(request)}` })
     }
+    return request
   }
 
   async steer(id: string, text: string, attachmentIds: string[] = []): Promise<void> {

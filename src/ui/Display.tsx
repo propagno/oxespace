@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
+import { AlertTriangle, CheckCircle2, Info, WifiOff } from 'lucide-react'
 import { Tabs as RadixTabs } from 'radix-ui'
 import { i18n } from '../i18n'
 import { BrandLoader, BrandMark } from './BrandLoader'
@@ -70,6 +71,55 @@ export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.
       {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
       {actions}
     </div>}
+  </div>
+}
+
+/**
+ * Something finished well and the person should know before moving on: what was done and, when it helps, what to do
+ * next. Announced politely; a toast is enough for a quick confirmation that needs no next step.
+ */
+export function SuccessState({ title, message, actions, compact = false }: { title: ReactNode; message?: ReactNode; actions?: ReactNode; compact?: boolean }): ReactElement {
+  return <div className={cx(styles.successState, compact && styles.successCompact)} role="status">
+    <span className={styles.successIcon} aria-hidden="true"><CheckCircle2 size={compact ? 14 : 20} /></span>
+    <p className={styles.successTitle}>{title}</p>
+    {message && <p className={styles.successText}>{message}</p>}
+    {actions && <div className={styles.successActions}>{actions}</div>}
+  </div>
+}
+
+/**
+ * The computer has no network, so this place cannot load or send: what is unavailable, that it comes back by itself,
+ * and a way to check again. The full version carries the brand loader, waiting; compact is one line for a panel.
+ */
+export function OfflineState({ title = i18n.t('ui.offline.title'), message = i18n.t('ui.offline.message'), onRetry, retryLabel = i18n.t('ui.offline.retry'), compact = false }: {
+  title?: ReactNode; message?: ReactNode; onRetry?: () => void; retryLabel?: string; compact?: boolean
+}): ReactElement {
+  return <div className={cx(styles.offline, compact && styles.offlineCompact)} role="status">
+    {compact ? <WifiOff size={14} aria-hidden="true" className={styles.offlineIcon} /> : <BrandLoader decorative />}
+    <p className={styles.offlineTitle}>{title}</p>
+    {message && !compact && <p className={styles.offlineText}>{message}</p>}
+    {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
+  </div>
+}
+
+export type NoticeIntent = 'info' | 'success' | 'warning' | 'danger'
+const NOTICE_ICONS = { info: Info, success: CheckCircle2, warning: AlertTriangle, danger: AlertTriangle } as const
+const NOTICE_STYLES = { info: styles.noticeInfo, success: styles.noticeSuccess, warning: styles.noticeWarning, danger: styles.noticeDanger }
+
+/**
+ * A short message inside a form or panel that stays until its cause goes away: a risk to weigh before acting, a
+ * setting that could not be applied, an action that failed. Warning and danger are announced at once; info and
+ * success politely. For a whole place that failed to load, use ErrorState.
+ */
+export function Notice({ intent = 'info', title, children, actions, className }: { intent?: NoticeIntent; title?: ReactNode; children?: ReactNode; actions?: ReactNode; className?: string }): ReactElement {
+  const Icon = NOTICE_ICONS[intent]
+  return <div className={cx(styles.notice, NOTICE_STYLES[intent], className)} role={intent === 'warning' || intent === 'danger' ? 'alert' : 'status'} data-intent={intent}>
+    <Icon size={14} aria-hidden="true" className={styles.noticeIcon} />
+    <div className={styles.noticeBody}>
+      {title && <strong>{title}</strong>}
+      {children && <div>{children}</div>}
+      {actions && <div className={styles.noticeActions}>{actions}</div>}
+    </div>
   </div>
 }
 
