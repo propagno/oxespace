@@ -2,6 +2,7 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { withoutLiveApp } from './live-app-env'
 
 export interface LaunchedApp {
   app: ElectronApplication
@@ -32,7 +33,8 @@ export async function launchApp(options: { appearance?: Appearance; locale?: str
   const app = await electron.launch({
     args: [join(process.cwd(), 'e2e', 'electron-main.cjs')],
     env: {
-      ...process.env,
+      // Never the running app's MCP, execution or hook variables: the app under test is the only one a spec reaches.
+      ...withoutLiveApp(process.env),
       // Clock formatting ('checked 09:00 local time') must not depend on the machine's zone.
       TZ: 'UTC',
       OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
