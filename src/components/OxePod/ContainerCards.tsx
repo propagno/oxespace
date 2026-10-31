@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Database, Layers } from 'lucide-react'
 import type { ContainerEngine, ContainerInspect, ContainerSummary } from '../../../shared/types/oxepod'
@@ -102,12 +102,13 @@ export function ComposeCard({ container, engine }: { container: ContainerSummary
 export function AboutCard({ inspect }: { inspect: ContainerInspect | null }): ReactElement | null {
   const { t } = useTranslation('pods')
   if (!inspect) return null
-  const rows: Array<[string, string]> = [
+  const rows: Array<[string, ReactNode]> = [
     [t('about.image'), inspect.image],
     [t('about.command'), inspect.command || '—'],
     ...(inspect.health ? [[t('about.health'), inspect.health] as [string, string]] : []),
     ...(inspect.restartPolicy ? [[t('about.restartPolicy'), inspect.restartPolicy] as [string, string]] : []),
-    ...(inspect.startedAt ? [[t('about.started'), formatDateTime(inspect.startedAt)] as [string, string]] : []),
+    // The start is the clock of whoever runs the app: a <time> the visual captures mask (data-oq-volatile).
+    ...(inspect.startedAt ? [[t('about.started'), <time key="started" dateTime={new Date(inspect.startedAt).toISOString()} data-oq-volatile="">{formatDateTime(inspect.startedAt)}</time>] as [string, ReactNode]] : []),
     [t('about.ports'), formatPorts(inspect.ports) || '—'],
     [t('about.networks'), inspect.networks.join(', ') || '—'],
     [t('about.mounts'), inspect.mounts.length ? inspect.mounts.map(mount => `${mount.volume ?? mount.source} → ${mount.destination}`).join('\n') : '—']

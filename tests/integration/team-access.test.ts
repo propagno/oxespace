@@ -24,7 +24,7 @@ describe('team execution authorization', () => {
     const f = fixture()
     await f.access.connectFromUi(f.team.id, f.team.revision, f.coordinator.id, f.owner)
     const revision = () => f.access.repository.get(f.team.id).revision
-    expect(() => f.access.setDeliveryFromUi(f.team.id, revision(), f.coordinator.id, true)).toThrow('connected Thread')
+    expect(() => f.access.setDeliveryFromUi(f.team.id, revision(), f.coordinator.id, true)).toThrow('connected OxeChat')
     f.access.disconnectFromUi(f.team.id, revision(), f.coordinator.id)
     const owner = { kind: 'thread' as const, id: 'thread-delivery' }
     f.executions.register({ owner, workspaceId: 'workspace', cwd: '/repo' })

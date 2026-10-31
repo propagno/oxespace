@@ -139,6 +139,9 @@ class SessionProtocol(
         }
         if (error.code == RemoteErrorCode.UNSUPPORTED_VERSION) return end(SessionEnd.UNSUPPORTED_VERSION)
         if (error.id == null || error.id != pendingAuth) {
+            // The token ran out on this connection before a renewal landed; the desktop closes with 1008 next, and the
+            // reconnection proves the key instead of offering a token it would refuse.
+            if (error.code == RemoteErrorCode.TOKEN_EXPIRED) tokens.token = null
             // An error about something else (a command, a subscription) is for the layer that sent it.
             return if (state is SessionState.Ready) emptyList() else end(SessionEnd.PROTOCOL)
         }

@@ -1,8 +1,9 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Badge, Button, Dialog, EmptyState, IconButton, Menu, Meter, SegmentedControl, Select, StatusDot, Switch, Tabs, TextField, Toaster, dismissToast, toast } from '../src/ui'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { Badge, Button, Dialog, EmptyState, IconButton, Menu, Meter, SegmentedControl, Select, StatusDot, Switch, SwatchPicker, Tabs, TextField, Toaster, dismissToast, toast } from '../src/ui'
 
+beforeAll(async () => { await import('../src/ui/ToastStack') })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('Button', () => {
@@ -58,6 +59,21 @@ describe('Field controls', () => {
     fireEvent.keyDown(all, { key: 'ArrowLeft' })
     expect(screen.getByRole('radio', { name: 'Done' })).toHaveAttribute('aria-checked', 'true')
   })
+
+  it('marks a danger option, and a swatch row keeps one tab stop with the colour as a token', () => {
+    const pick = vi.fn()
+    render(<><SegmentedControl label="Environment" value="prod" onChange={() => undefined} options={[{ value: 'dev', label: 'Development' }, { value: 'prod', label: 'Production', tone: 'danger' }]} />
+      <SwatchPicker label="Color" value="x" onChange={pick} options={[{ value: '', label: 'No color' }, { value: 'teal', label: 'Teal', color: 'var(--avatar-6)' }]} /></>)
+    expect(screen.getByRole('radio', { name: 'Production' })).toHaveAttribute('data-tone', 'danger')
+    const none = screen.getByRole('radio', { name: 'No color' })
+    const teal = screen.getByRole('radio', { name: 'Teal' })
+    // No option matches the value: the first one still takes the tab stop.
+    expect([none.tabIndex, teal.tabIndex]).toEqual([0, -1])
+    expect(none).toHaveAttribute('data-empty')
+    expect(teal.style.getPropertyValue('--swatch-color')).toBe('var(--avatar-6)')
+    fireEvent.keyDown(none, { key: 'ArrowRight' })
+    expect(pick).toHaveBeenCalledWith('teal')
+  })
 })
 
 describe('Dialog', () => {
@@ -98,11 +114,13 @@ describe('Display', () => {
 })
 
 describe('Toast', () => {
-  it('shows, auto-dismisses, and keeps failures until dismissed', () => {
+  it('shows, auto-dismisses, and keeps failures until dismissed', async () => {
     vi.useFakeTimers()
-    render(<Toaster />)
-    act(() => { toast({ title: 'Committed', intent: 'success' }) })
-    expect(screen.getByRole('status')).toHaveTextContent('Committed')
+    await act(async () => { render(<Toaster />) })
+    await act(async () => { toast({ title: 'Committed', intent: 'success' }) })
+    await act(async () => { await import('../src/ui/ToastStack') })
+    act(() => { vi.advanceTimersByTime(200) }) // the stack takes toasts raised before it mounted just after its region
+    expect(screen.getByRole('region', { name: 'Notifications' })).toHaveTextContent('Committed')
     act(() => { vi.advanceTimersByTime(5100) })
     expect(screen.queryByText('Committed')).toBeNull()
     let id = 0
