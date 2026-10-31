@@ -174,6 +174,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado (499ffbcd): ressalvas fechadas, sonda de 134 nomes |
 | Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Pré-homologado (751229ab + 3f3e2d66): pt-BR e en ok, aspas corrigidas; nota baixa sobre o vazio no IPC |
 | Toasts (F21) | #245 | FRONTEND | Pré-homologado com ressalvas (0c84c5b8): 2 notas de texto e 1 de posição |
+| Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -561,6 +562,30 @@ PR mesclado com a `main`, em pt-BR claro e en escuro, achando o toast pelo que s
      contador escondido do leitor (`aria-hidden`), já que "Repetida 5 vezes" diz o mesmo.
   3. **Cosmético:** o toast cobre a ponta direita da barra de status ("4 painéis · terminal"), em 1280×860.
      Critério: ficar acima da barra de status.
+
+### Menu do divisor por `contextmenu` (#241): Homologado
+
+Na `main` 6666d723, no Windows, em pt-BR e en (`check-241`, `check-241b`).
+- Os 4 divisores (barra lateral, colunas, linhas) têm `tabindex=0` e nome traduzido. As setas redimensionam (barra
+  lateral de 280 para 320).
+- O botão direito abre "Largura da barra lateral: opções de tamanho", com Menor / Maior / Restaurar o tamanho padrão.
+- No divisor da grade, o `contextmenu` de origem de teclado (o que o Chromium gera para Shift+F10 e a tecla de menu)
+  abre "Divisor entre colunas" com "Mover o divisor para a esquerda/direita". O foco vai ao primeiro item, ↓ passa
+  ao segundo, e Escape fecha e devolve o foco ao divisor.
+- Limite do teste: as teclas sintéticas do Playwright não geram o `contextmenu` nativo, então Shift+F10 e a tecla de
+  menu "de verdade" não foram apertados aqui. O Linux fica com a CI.
+- Nota baixa: Enter em "Mover o divisor para a esquerda" move (50 → 45), mas o menu continua aberto, com o foco no
+  item. Num menu, ativar um item costuma fechá-lo e devolver o foco. Se ficar aberto de propósito para repetir, o
+  item deveria dizer isso.
+- **Achado à parte (atrapalha, F4/WCAG 2.1.2):**
+  - Ao navegar com Tab a partir do filtro da barra lateral, o foco passa pelo divisor da barra lateral, entra no
+    primeiro terminal e não sai mais em 120 Tabs.
+  - F6, Ctrl+F6, Shift+F6, Alt+F6, Ctrl+Tab e Escape também ficam no terminal. Só os atalhos reservados (Ctrl+K,
+    Ctrl+B, Ctrl+1…5) levam para fora.
+  - Com isso, os divisores da grade, que são a alternativa de 2.5.7 para o arrasto, ficam inalcançáveis só com o
+    teclado.
+  - Critério de aceite: uma tecla documentada para sair do terminal (por exemplo F6 entre regiões, ou um modo "Tab
+    move o foco" como o do VS Code), dita no leitor de tela ao entrar no terminal e listada em `wcag-2.2.md`.
 
 ### Achados fora dos itens da onda
 
