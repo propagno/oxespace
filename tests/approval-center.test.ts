@@ -230,6 +230,25 @@ describe('approval center: shown, focused and hidden characters (B10 R1–R3)', 
     await expect(outcome).resolves.toMatchObject({ intent: 'allow', by: 'user' })
   })
 
+  it('S4: ends the attention signal on a focused ack, and when no request waits any more', async () => {
+    const attentionEnd = vi.fn()
+    const center = new ApprovalCenter({ send: () => {}, hasWindow: () => true, native: async () => null, attention: vi.fn(), attentionEnd })
+    const first = center.ask(draft())
+    const second = center.ask(draft())
+    const [one, two] = center.list()
+    center.ack({ id: one.id, generation: 1, visible: true, focused: false })
+    expect(attentionEnd).not.toHaveBeenCalled()
+    center.ack({ id: one.id, generation: 1, visible: true, focused: true })
+    expect(attentionEnd).toHaveBeenCalledTimes(1)
+    center.respond({ id: one.id, generation: 1, optionId: 'deny' })
+    await first
+    // One request still waits: no end yet from resolving.
+    expect(attentionEnd).toHaveBeenCalledTimes(1)
+    center.respond({ id: two.id, generation: 1, optionId: 'deny' })
+    await second
+    expect(attentionEnd).toHaveBeenCalledTimes(2)
+  })
+
   it('R3: asks for attention once per request it sends to the window, with nothing of the request', () => {
     const attention = vi.fn()
     const center = new ApprovalCenter({ send: () => {}, hasWindow: () => true, native: async () => null, attention })

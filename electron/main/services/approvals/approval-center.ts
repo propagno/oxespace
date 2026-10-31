@@ -9,7 +9,8 @@
  * No Electron import here: the window, the native dialog and the clock are injected, so the rules run in plain tests.
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, hasHiddenCharacters } from '../../../../shared/approval-rules'
+import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText } from '../../../../shared/approval-rules'
+import { hasHiddenCharacters } from '../../../../shared/hidden-characters'
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import {
   APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_HISTORY_MAX, APPROVAL_QUEUE_MAX, APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS,
@@ -48,6 +49,8 @@ export interface ApprovalCenterDeps {
    * notification with fixed app text). It takes no argument, so nothing of the request can leak into it.
    */
   attention?(): void
+  /** S4 · Stops asking for attention: a focused ack arrived, or no request waits any more. */
+  attentionEnd?(): void
   now?(): number
   timeoutMs?: number
   ackTimeoutMs?: number
@@ -148,7 +151,10 @@ export class ApprovalCenter {
     if (typeof entry === 'string') return this.refusal(entry)
     const now = this.now()
     entry.shownAt ??= now
-    if (input.visible === true && input.focused === true) entry.displayedAt ??= now
+    if (input.visible === true && input.focused === true) {
+      entry.displayedAt ??= now
+      this.endAttention()
+    }
     return { ok: true, id: entry.request.id }
   }
 
@@ -191,6 +197,10 @@ export class ApprovalCenter {
     )
   }
 
+  private endAttention(): void {
+    try { this.deps.attentionEnd?.() } catch { /* best effort, like asking for it */ }
+  }
+
   private lookup(input: ApprovalAnswerInput): Entry | ApprovalRefusal {
     const entry = this.pending.get(input.id)
     if (!entry) return this.answered.has(input.id) ? 'alreadyAnswered' : 'notPending'
@@ -218,6 +228,7 @@ export class ApprovalCenter {
     this.remember(entry.request, option.intent, by, by === 'timeout' ? mainMessage('approvals.denied.timeout', {}) : by === 'cancelled' ? mainMessage('approvals.denied.cancelled', {}) : undefined)
     const resolved: ApprovalResolved = { id: entry.request.id, generation: entry.request.generation, outcome: option.intent, optionId: option.id, by }
     this.deps.send(IPC_CHANNELS.approvals.onResolved, resolved)
+    if (this.pending.size === 0) this.endAttention()
     entry.settle({ intent: option.intent, optionId: option.id, by })
   }
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
+import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
 
@@ -114,7 +115,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         activeWorkspaceId: nextActiveId,
         error: null
       }
-    }, () => window.oxe.workspace.delete(id), { rollbackMessage: 'Could not close the workspace' })
+    }, () => window.oxe.workspace.delete(id), { rollbackMessage: i18n.t('code:workspace.closeFailed') })
   },
 
   closePane: async (id) => {
@@ -269,7 +270,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       workspaces: state.workspaces.map((item) => (item.id === workspaceId ? { ...item, ...next } : item))
     })
     await optimistic(set, get, (state) => ({ ...patch(state, change), error: null }), () => window.oxe.workspace.updateSettings(input), {
-      rollbackMessage: 'Could not save the workspace settings',
+      rollbackMessage: i18n.t('code:workspace.settingsFailed'),
       reconcile: (workspace, state) => ({ workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)) }),
       // Undo only the fields this change touched, so a concurrent update to the same workspace survives.
       revert: (state) => previous ? patch(state, Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]]))) : {}

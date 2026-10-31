@@ -140,15 +140,8 @@ export function approvalRequestProblems(request: ApprovalRequest): string[] {
   return problems
 }
 
-/**
- * R2 · Bidi controls and invisible characters that make shown text differ from what runs: U+202A–202E, U+2066–2069,
- * U+200B–200F, U+2060–2064, U+FEFF, U+00AD, U+061C and U+180E. The text stays verbatim; the window makes them visible.
- */
-export const HIDDEN_CHARACTERS = /[\u202A-\u202E\u2066-\u2069\u200B-\u200F\u2060-\u2064\uFEFF\u00AD\u061C\u180E]/u
-
-export function hasHiddenCharacters(text: string): boolean {
-  return HIDDEN_CHARACTERS.test(text)
-}
+/** R2 · The one shared list (S2): main and the window read the same module. */
+export { HIDDEN_CHARACTERS, hasHiddenCharacters } from './hidden-characters'
 
 // ---- where a request is shown ----------------------------------------------------------------
 

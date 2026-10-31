@@ -75,6 +75,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'oxequery.sql.rowLock': [],
   'oxequery.sql.sessionRole': [],
   'oxequery.sql.tableLock': [],
+  'oxequery.sql.ambiguousEscape': [],
   'oxepod.startFailed': ['reason'],
   'oxepost.network.notFound': [],
   'oxepost.network.refused': [],
