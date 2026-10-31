@@ -113,6 +113,13 @@ test('links an agent writes whose text is not where they go (en, light)', async 
       }
       notes[`link-${name}`] = entry
     }
+    // #276: confirming the legitimate link opens it through the app's channel (recorded, nothing really opens).
+    const legit = page.locator('a', { hasText: 'the PR' }).last()
+    const beforeOpen = (await opened(app)).length
+    await legit.click().catch(() => undefined); await page.waitForTimeout(500)
+    await page.getByRole('dialog').last().getByRole('button', { name: /^Open$/ }).click().catch(() => undefined)
+    await page.waitForTimeout(800)
+    notes.openedAfterConfirm = (await opened(app)).slice(beforeOpen)
     notes.linkErrors = consoleErrors
     notes.allOpened = await opened(app)
   } finally { await app.close() }

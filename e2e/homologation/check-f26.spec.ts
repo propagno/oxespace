@@ -13,7 +13,7 @@ import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
 const OUT = join(process.cwd(), 'e2e', 'screenshots', 'homologation', 'check-f26')
 mkdirSync(OUT, { recursive: true })
 const notes: Record<string, unknown> = {}
-test.afterAll(() => writeFileSync(join(OUT, 'notes.json'), JSON.stringify(notes, null, 2)))
+test.afterEach(() => { for (const [k, v] of Object.entries(notes)) writeFileSync(join(OUT, `${k}.json`), JSON.stringify(v, null, 2)) })
 const focused = (page: Page) => page.evaluate(() => { const el = document.activeElement as HTMLElement | null; return el ? `${el.tagName} ${(el.textContent ?? '').trim().slice(0, 30)}` : null })
 const askClose = (app: ElectronApplication) => app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]?.close() }).catch(() => undefined)
 const windows = (app: ElectronApplication) => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length).catch(() => 0)
@@ -71,7 +71,10 @@ test('"Salvar tudo e fechar" writes the file then closes (en)', async () => {
   const file = await dirtyFile(page, workspaceRoot)
   await askClose(app)
   const d = dialog(page); await d.waitFor({ timeout: 4_000 }).catch(() => undefined)
-  const entry: Record<string, unknown> = { text: (await d.innerText().catch(() => '')).slice(0, 400), buttons: await d.getByRole('button').allInnerTexts().catch(() => []), focus: await focused(page) }
+  const entry: Record<string, unknown> = { dialogShown: await d.isVisible().catch(() => false), windowsAfterAsk: await windows(app) }
+  notes.saveAll = entry
+  if (!entry.dialogShown) { entry.fileOnDisk = readFileSync(file, 'utf8'); await app.close().catch(() => undefined); return }
+  Object.assign(entry, { text: (await d.innerText().catch(() => '')).slice(0, 400), buttons: await d.getByRole('button').allInnerTexts().catch(() => []), focus: await focused(page) })
   await page.screenshot({ path: join(OUT, 'en-dialog.png') })
   await d.getByRole('button', { name: /Save all and close/i }).click().catch(() => undefined)
   entry.closedMs = await closedWithin(app, 6_000)
@@ -88,6 +91,8 @@ test('a save that fails keeps the window open with an alert (pt-BR)', async () =
   chmodSync(file, 0o444)
   await askClose(app)
   const d = dialog(page); await d.waitFor({ timeout: 4_000 }).catch(() => undefined)
+  notes.saveFails = { dialogShown: await d.isVisible().catch(() => false), windowsAfterAsk: await windows(app) }
+  if (!(notes.saveFails as { dialogShown: boolean }).dialogShown) { await app.close().catch(() => undefined); return }
   await d.getByRole('button', { name: /Salvar tudo e fechar/ }).click().catch(() => undefined)
   await page.waitForTimeout(2_000)
   notes.saveFails = { windows: await windows(app), alerts: await page.locator('[role="alert"]').allInnerTexts().catch(() => []), dialogText: (await d.innerText().catch(() => '')).slice(0, 400), fileOnDisk: readFileSync(file, 'utf8') }
@@ -105,7 +110,8 @@ test('a renderer that never answers: forced close after 3 s, journalled (en)', a
   await new Promise(r => setTimeout(r, 300))
   await askClose(app)
   const closed = await closedWithin(app, 10_000)
-  const journal = join(dirname(workspaceRoot), 'user-data', 'diagnostics', 'incidents.json')
+  const userData = await app.evaluate(({ app }) => app.getPath('userData')).catch(() => join(dirname(workspaceRoot), 'user-data'))
+  const journal = join(userData, 'diagnostics', 'incidents.json')
   notes.hung = { closedMs: closed, journal: existsSync(journal) ? readFileSync(journal, 'utf8').slice(0, 600) : 'no journal file' }
   await app.close().catch(() => undefined)
 })
@@ -123,7 +129,7 @@ test('an OxePost draft is protected too (pt-BR)', async () => {
   await page.screenshot({ path: join(OUT, 'pt-oxepost-before-close.png') })
   await askClose(app)
   const d = dialog(page)
-  notes.oxepostDraft = { shown: await d.waitFor({ timeout: 4_000 }).then(() => true, () => false), text: (await d.innerText().catch(() => '')).slice(0, 400) }
+  notes.oxepostDraft = { shown: await d.waitFor({ timeout: 4_000 }).then(() => true, () => false), text: (await d.innerText().catch(() => '')).slice(0, 400), windowsAfter: await windows(app), draftDirtyByStore: await page.evaluate(() => document.title).catch(() => 'page gone') }
   await page.screenshot({ path: join(OUT, 'pt-oxepost.png') }).catch(() => undefined)
   await app.close().catch(() => undefined)
 })
