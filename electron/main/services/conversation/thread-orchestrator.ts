@@ -543,7 +543,7 @@ export class ThreadOrchestrator {
     try {
       input = await this.commandService?.prepare(snapshot.thread, text) ?? input
       if (input.nativeCli) {
-        throw Error('This command does not have an integrated Thread handler yet.')
+        throw Error('This command does not have an integrated OxeChat handler yet.')
       }
       if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
       assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
@@ -659,7 +659,7 @@ export class ThreadOrchestrator {
     const adapter = this.adapters.get(id)
     const task = this.read(id).events.find((event): event is Extract<ThreadEvent, { type: 'subagent' }> => event.type === 'subagent' && event.state === 'running' && event.receiverThreadIds.includes(taskId))
     if (!task) throw Error('That background task is no longer running')
-    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from Thread')
+    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from OxeChat')
     if (!adapter?.stopTask) {
       // No provider session is left to ask: the task cannot be running, so it stops being listed as running.
       this.applyEvent(id, { ...task, state: 'unknown', completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) })
@@ -1271,7 +1271,7 @@ export class ThreadOrchestrator {
         const other = this.read(otherId).thread
         const activeNativeId = other.nativeSessionId
         if (other.provider === provider && activeNativeId === nativeSessionId) {
-          throw Error('This native session is already open in another Thread conversation')
+          throw Error('This native session is already open in another OxeChat conversation')
         }
       } catch (error) {
         if (error instanceof Error && error.message.includes('already open')) throw error

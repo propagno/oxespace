@@ -118,6 +118,14 @@ export interface MessageParams {
   'oxequery.sql.sessionRole': Record<string, never>
   /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
   'oxequery.sql.tableLock': Record<string, never>
+  /** Mongo write (B15): a change on a production connection waits for the connection's name, typed. */
+  'oxequery.mongo.confirmName': Record<string, never>
+  /** Mongo write: a change that needs the person's confirmation (a delete). */
+  'oxequery.mongo.confirm': Record<string, never>
+  /** Mongo write reason: the connection is a production one. */
+  'oxequery.mongo.production': Record<string, never>
+  /** Mongo write reason: the document will be deleted. */
+  'oxequery.mongo.deletes': Record<string, never>
   /** SQL risk: a backslash in an ordinary string can end it early on a legacy server, so more runs than the text shows. */
   'oxequery.sql.ambiguousEscape': Record<string, never>
   'oxepod.startFailed': { reason: string }
@@ -324,6 +332,10 @@ export const MESSAGE_CODES = [
   'oxequery.sql.rowLock',
   'oxequery.sql.sessionRole',
   'oxequery.sql.tableLock',
+  'oxequery.mongo.confirmName',
+  'oxequery.mongo.confirm',
+  'oxequery.mongo.production',
+  'oxequery.mongo.deletes',
   'oxequery.sql.ambiguousEscape',
   'oxepod.startFailed',
   'oxepost.network.notFound',

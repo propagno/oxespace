@@ -161,6 +161,12 @@
         "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
         "tableLock": "VACUUM FULL locks the whole table while it runs.",
         "ambiguousEscape": "A backslash in a string can end it early on a server with standard_conforming_strings off, and then more of this text runs than it shows."
+      },
+      "mongo": {
+        "confirmName": "This is a production connection. Type its name to change this document.",
+        "confirm": "This change needs your confirmation.",
+        "production": "This is a production connection.",
+        "deletes": "The document will be deleted."
       }
     },
     "oxepod": {
