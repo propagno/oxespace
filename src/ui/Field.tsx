@@ -130,7 +130,7 @@ export function SwatchPicker<T extends string>({ value, onChange, options, label
   const stop = options.some(option => option.value === value) ? value : options[0]?.value
   return <div role="radiogroup" aria-label={label} className={styles.swatches}>
     {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} aria-checked={option.value === value} aria-label={option.label}
-      tabIndex={option.value === stop ? 0 : -1} className={styles.swatch} data-empty={option.color ? undefined : ''} style={option.color ? { '--swatch-color': option.color } as CSSProperties : undefined}
+      tabIndex={option.value === stop ? 0 : -1} className={styles.swatch} data-swatch="" data-empty={option.color ? undefined : ''} style={option.color ? { '--swatch-color': option.color } as CSSProperties : undefined}
       onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)} />)}
   </div>
 }

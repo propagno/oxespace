@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { ErrorState, Notice } from '../../ui/Display'
 import { formatMs } from './catalog'
 import { EXAMPLE } from './examples'
-import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
@@ -247,7 +247,7 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
     <form id="oq-connection-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
       {!editing && <section className="oq-engines" role="radiogroup" aria-label={t('newDatabase.engine')}>
         {ENGINES.map(({ id, name: label, Icon }) => <button key={id} type="button" role="radio" aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
-          <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span></button>)}
+          <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span>{engine === id && <Check size={14} className="oq-engine-check" aria-hidden="true" />}</button>)}
       </section>}
 
       <div className="oq-connect-by"><span>{t('form.connectBy')}</span>
