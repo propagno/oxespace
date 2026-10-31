@@ -104,10 +104,11 @@ test('F18/#243 real app: past 50 a request is refused and logged; a closed pane 
   const script = join(profile.root, 'asks.js'); writeFileSync(script, ASKS)
   const { app, page } = await launchReal(profile)
   try {
-    // Never a system dialog on the runner's screen: the native fallback is replaced by a counter that denies.
+    // Never a system dialog on the runner's screen. The native fallback is replaced by a counter that never answers, as a
+    // person who has not clicked yet: a request that falls back stays pending, so the queue limit is measured honestly.
     await app.evaluate(({ dialog }) => {
       const g = globalThis as Record<string, unknown>; g.nativeAsked = 0
-      dialog.showMessageBox = (async () => { g.nativeAsked = (g.nativeAsked as number) + 1; return { response: 0, checkboxChecked: false } }) as typeof dialog.showMessageBox
+      dialog.showMessageBox = (() => { g.nativeAsked = (g.nativeAsked as number) + 1; return new Promise(() => undefined) }) as typeof dialog.showMessageBox
       dialog.showMessageBoxSync = (() => { g.nativeAsked = (g.nativeAsked as number) + 1; return 0 }) as typeof dialog.showMessageBoxSync
     })
     await page.getByTestId('btn-new-workspace').first().click()
@@ -126,9 +127,12 @@ test('F18/#243 real app: past 50 a request is refused and logged; a closed pane 
     const a = await run(0, 25, 'a')
     const b = await run(1, 26, 'b')
     test.info().annotations.push({ type: 'answers', description: JSON.stringify({ a0: a[0], b25: b[25] }).slice(0, 500) })
-    expect.soft(a.every(r => /pending|Waiting for the person|still waiting/i.test(r)), 'the first 25 wait for the person').toBe(true)
-    expect.soft(b.slice(0, 25).every(r => /pending|Waiting for the person|still waiting/i.test(r)), 'the next 25 wait too').toBe(true)
-    expect.soft(b[25], 'the 51st is refused: the queue is full').toMatch(/queue|full/i)
+    // Fired concurrently, so which of the 51 arrives last is not fixed: exactly one is refused, the other 50 wait.
+    const all = [...a, ...b]
+    const waiting = all.filter(r => /pending|Waiting for the person|still waiting/i.test(r))
+    const refused = all.filter(r => /queue|full/i.test(r))
+    expect.soft(waiting.length, 'fifty wait for the person').toBe(50)
+    expect.soft(refused.length, 'one is refused: the queue is full').toBe(1)
     expect.soft((await pending(page)).length, 'fifty pending').toBe(50)
     await expect.soft(modal(page).getByText(/\b1\s*(of|de)\s*50\b/), 'the queue shows 50').toBeVisible({ timeout: 10_000 })
     const history = () => page.evaluate(() => (window as unknown as { oxe: { approvals: { history: () => Promise<Array<{ by: string; reason?: { code: string } }>> } } }).oxe.approvals.history())
