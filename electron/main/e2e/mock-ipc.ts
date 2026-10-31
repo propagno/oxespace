@@ -20,6 +20,7 @@ import { defaultSplitShellProfileId, fallbackShellProfiles } from '../services/s
 // The one real service the mocks keep: file reads are what the editor and
 // preview specs actually assert on, and faking a filesystem would test the fake.
 import { FileSystemService } from '../services/file-system.service'
+import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../services/workspace-root'
 import { worktreeOrWorkspaceRoot } from '../ipc/file-system.ipc'
 import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
@@ -29,13 +30,17 @@ import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
+import { installE2eAgentStateHook } from './agent-state-hook'
+import { loadManifests } from '../services/agent-state/manifest'
+import { BUNDLED_MANIFESTS } from '../services/agent-state/bundled-manifests'
+import { broadcastAgentState, registerAgentStateIpc } from '../ipc/agent-state.ipc'
 import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import type { GitCompareMode } from '../../../shared/types/git'
 import { planSplit } from '../../../shared/workspace-split'
 import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
-import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog } from '../../../shared/types/thread'
+import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog, ThreadSideOpenResult } from '../../../shared/types/thread'
 import { version as packageVersion } from '../../../package.json'
 import { mainMessage } from '../../../shared/messages'
 import { requestOutcome } from '../../../shared/threadRequestOutcome'
@@ -51,16 +56,29 @@ export function registerE2eMockIpcHandlers(): void {
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
   registerApprovalsMock()
+  // Never in a packaged build, and only when a spec asks for it: the gate is inside (see agent-state-hook.ts).
+  let agentManifests: ReturnType<typeof loadManifests>['manifests'] | undefined
+  installE2eAgentStateHook(globalThis, process.env, app.isPackaged, {
+    findPane: paneId => workspaces.flatMap(workspace => workspace.panes).find(pane => pane.id === paneId) ?? null,
+    manifests: () => (agentManifests ??= loadManifests(BUNDLED_MANIFESTS).manifests),
+    emit: broadcastAgentState,
+    sendHookStatus: event => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event) },
+    registerIpc: registerAgentStateIpc
+  })
   registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
   ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)
   ipcMain.handle(IPC_CHANNELS.workspace.create, (_event: IpcMainInvokeEvent, input: { rootPath: string; layout?: WorkspaceLayout; layoutPreset?: WorkspaceLayoutPreset; defaultShellProfileId?: string; autoStart?: boolean }) => {
+    // The same refusal as the real handler: E2E runs create workspaces on real temporary folders.
+    const rootPath = normalizeWorkspaceRoot(input.rootPath)
+    const root = checkWorkspaceRoot(rootPath)
+    if (!root.ok) return root
     const layout = input.layout ?? presetToLayout(input.layoutPreset ?? 4)
     const workspace: Workspace = {
       id: randomUUID(),
-      name: input.rootPath.replaceAll('\\', '/').split('/').filter(Boolean).at(-1) ?? 'workspace',
-      rootPath: input.rootPath,
+      name: rootPath.replaceAll('\\', '/').split('/').filter(Boolean).at(-1) ?? 'workspace',
+      rootPath,
       layout,
       layoutPreset: input.layoutPreset ?? layoutToPreset(layout),
       themeId: 'midnight',
@@ -286,6 +304,20 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
+  // B1.2: a side chat answers each message with a fixed reply and its usage, and is gone once closed.
+  const sides = new Map<string, string>()
+  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, (_event: IpcMainInvokeEvent, id: unknown): ThreadSideOpenResult => {
+    if (typeof id !== 'string' || !id) throw new Error('Invalid thread input')
+    if (process.env.OXESPACE_E2E_SIDE_UNAVAILABLE === '1') return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
+    const sideId = randomUUID()
+    sides.set(sideId, id)
+    return { ok: true, side: { sideId, threadId: id, provider: 'claude', readOnly: true } }
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event: IpcMainInvokeEvent, sideId: unknown, text: unknown) => {
+    if (typeof sideId !== 'string' || !sides.has(sideId) || typeof text !== 'string' || !text.trim()) throw new Error('Invalid side chat input')
+    event.sender.send(IPC_CHANNELS.thread.onSideEvent, { sideId, event: { type: 'message', id: randomUUID(), role: 'assistant', text: 'E2E side chat reply.' } })
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.sideClose, (_event: IpcMainInvokeEvent, sideId: unknown) => { if (typeof sideId === 'string') sides.delete(sideId) })
   ipcMain.handle(IPC_CHANNELS.thread.respondPending, (_event: IpcMainInvokeEvent, input: ThreadPendingResponseInput): ThreadPendingResponseResult => {
     const index = pendingRequests.findIndex(request => request.threadId === input.threadId && request.requestId === input.requestId)
     const refuse = (refusal: ThreadPendingRefusal): ThreadPendingResponseResult => ({ ok: false, refusal, message: mainMessage(`thread.request.${refusal}`, {}) })

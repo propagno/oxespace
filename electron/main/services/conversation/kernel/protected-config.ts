@@ -1,29 +1,27 @@
 /**
- * Files that steer an agent: its instructions, its MCP servers, its hooks, and the project's policy.
+ * Files that steer an agent: its instructions, its MCP servers and its hooks.
  *
  * Text an agent reads (a web page, an issue, a file in a cloned repository) can try to make it rewrite
  * these, so that the next session, or another agent, starts under someone else's orders: an injection
  * that outlives the conversation it arrived in. A change to one of them is never approved by a saved
  * rule, by the built-in lists or by "allow for this session"; a person looks at it each time.
  *
- * The policy file holds the tools the person blocked (Settings › Tools, B7.3), so an agent must not be
- * able to lift its own deny under a rule that allows the folder; `oxe.yaml` holds which tool groups a
- * conversation is offered.
- *
- * Pure: it reasons about path and command text only.
+ * Pure: it reasons about path and command text only. Changes made outside the app's write path (another program, a
+ * script the agent left behind) are B7.4's file watch, not this module.
  */
-import { baseName, splitShellCommand, tokenize } from '../shell-command-rules'
+import { baseName, evaluateShellCommand, splitShellCommand, tokenize } from '../shell-command-rules'
+import { mainMessage, type MainMessage } from '../../../../../shared/messages'
 
-export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks' | 'policy'
+export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks'
 
 export const PROTECTED_CONFIG_LABEL: Record<ProtectedConfigKind, string> = {
   instructions: 'agent instructions',
   mcp: 'MCP server settings',
-  hooks: 'agent hooks',
-  policy: 'the project\'s policy and tool rules'
+  hooks: 'agent hooks'
 }
 
-const NAMES: Record<string, ProtectedConfigKind> = {
+/** File names that are protected at any depth, lower-cased. Add a name here and it is protected everywhere. */
+export const PROTECTED_CONFIG_NAMES: Readonly<Record<string, ProtectedConfigKind>> = {
   'agents.md': 'instructions',
   'claude.md': 'instructions',
   'claude.local.md': 'instructions',
@@ -31,31 +29,90 @@ const NAMES: Record<string, ProtectedConfigKind> = {
   '.cursorrules': 'instructions',
   '.windsurfrules': 'instructions',
   'copilot-instructions.md': 'instructions',
-  '.mcp.json': 'mcp',
-  'oxe.yaml': 'policy'
+  '.mcp.json': 'mcp'
 }
 
-/** Matched against the whole path, lower-cased, with forward slashes. */
-const PLACES: Array<{ kind: ProtectedConfigKind; pattern: RegExp }> = [
-  { kind: 'policy', pattern: /(^|\/)\.oxespace\/policy\.json$/ },
-  { kind: 'hooks', pattern: /(^|\/)\.claude\/settings(\.local)?\.json$/ },
-  { kind: 'hooks', pattern: /(^|\/)\.claude\/hooks\// },
-  { kind: 'hooks', pattern: /(^|\/)\.codex\/hooks(\.json|\/)/ },
-  { kind: 'hooks', pattern: /(^|\/)\.git\/hooks\// },
-  { kind: 'hooks', pattern: /(^|\/)\.husky\// },
-  { kind: 'mcp', pattern: /(^|\/)\.(cursor|vscode)\/mcp\.json$/ },
-  { kind: 'mcp', pattern: /(^|\/)\.(codex\/config\.toml|gemini\/settings\.json)$/ },
-  { kind: 'instructions', pattern: /(^|\/)\.cursor\/rules\// },
-  { kind: 'instructions', pattern: /(^|\/)\.github\/copilot-instructions\.md$/ }
+/**
+ * Places that are protected, matched against the whole path, lower-cased, with forward slashes. `names` lists the
+ * file and folder names a place is spelled with, so a Windows 8.3 short name (`SETTIN~1.JSO`, `CLAUDE~1`) can be read
+ * back as one of them. Add a place here, with its names, and every check below covers it.
+ */
+export const PROTECTED_CONFIG_PLACES: ReadonlyArray<{ kind: ProtectedConfigKind; pattern: RegExp; names: readonly string[] }> = [
+  { kind: 'hooks', pattern: /(^|\/)\.claude\/settings(\.local)?\.json$/, names: ['.claude', 'settings.json', 'settings.local.json'] },
+  { kind: 'hooks', pattern: /(^|\/)\.claude\/hooks\//, names: ['.claude', 'hooks'] },
+  { kind: 'hooks', pattern: /(^|\/)\.codex\/hooks(\.json|\/)/, names: ['.codex', 'hooks', 'hooks.json'] },
+  { kind: 'hooks', pattern: /(^|\/)\.git\/hooks\//, names: ['.git', 'hooks'] },
+  { kind: 'hooks', pattern: /(^|\/)\.husky\//, names: ['.husky'] },
+  { kind: 'mcp', pattern: /(^|\/)\.(cursor|vscode)\/mcp\.json$/, names: ['.cursor', '.vscode', 'mcp.json'] },
+  { kind: 'mcp', pattern: /(^|\/)\.(codex\/config\.toml|gemini\/settings\.json)$/, names: ['.codex', '.gemini', 'config.toml', 'settings.json'] },
+  { kind: 'instructions', pattern: /(^|\/)\.cursor\/rules\//, names: ['.cursor', 'rules'] },
+  { kind: 'instructions', pattern: /(^|\/)\.github\/copilot-instructions\.md$/, names: ['.github', 'copilot-instructions.md'] }
 ]
 
-/** What a path configures for agents, or null for an ordinary file. */
-export function protectedConfigKind(path: string): ProtectedConfigKind | null {
-  const normal = path.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase().trim()
+/** Every name a protected file or folder is spelled with, for reading 8.3 short names back. */
+const KNOWN_NAMES = [...new Set([...Object.keys(PROTECTED_CONFIG_NAMES), ...PROTECTED_CONFIG_PLACES.flatMap(place => place.names)])]
+/** The letters Windows keeps for a short name: dots and spaces dropped. */
+const stem = (name: string): string => name.replace(/[.\s]/g, '')
+
+/**
+ * One segment as Windows opens it: trailing dots and spaces dropped (`AGENTS.md.`, `AGENTS.md `), and an alternate
+ * data stream removed (`AGENTS.md::$DATA`, `AGENTS.md:hidden`). A drive (`c:`) is kept.
+ */
+function windowsSegment(segment: string, first: boolean): string {
+  if (first && /^[a-z]:$/.test(segment)) return segment
+  const colon = segment.indexOf(':')
+  const named = colon > 0 || (colon === 0 && segment.length > 1) ? segment.slice(0, colon) : segment
+  return named === '.' || named === '..' ? named : named.replace(/[.\s]+$/, '')
+}
+
+/** The path's segments, lower-cased, Windows aliases resolved, `.` dropped and `..` applied. */
+function segments(path: string): string[] {
+  const raw = path.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase().trim().split('/')
+  const out: string[] = []
+  raw.forEach((segment, index) => {
+    const value = windowsSegment(segment, index === 0)
+    if (value === '' && index > 0) return
+    if (value === '.') return
+    if (value === '..') { if (out.length && out[out.length - 1] !== '..' && out[out.length - 1] !== '') out.pop(); else out.push('..'); return }
+    out.push(value)
+  })
+  return out
+}
+
+/** The kind of the path as written, without reading short names. */
+function kindOf(parts: string[]): ProtectedConfigKind | null {
+  const normal = parts.join('/')
   if (!normal) return null
-  const name = normal.slice(normal.lastIndexOf('/') + 1)
-  if (Object.hasOwn(NAMES, name)) return NAMES[name]
-  return PLACES.find(place => place.pattern.test(normal))?.kind ?? null
+  const name = parts[parts.length - 1]
+  if (Object.hasOwn(PROTECTED_CONFIG_NAMES, name)) return PROTECTED_CONFIG_NAMES[name]
+  return PROTECTED_CONFIG_PLACES.find(place => place.pattern.test(normal))?.kind ?? null
+}
+
+/** A Windows 8.3 short name (`AGENTS~1.MD`, `CLAUDE~1`): the letters before `~`, without dots. */
+const SHORT = /^([^~]{1,8})~\d+(\.[^.]{0,3})?$/
+
+/**
+ * What a path configures for agents, or null for an ordinary file. Any depth, any case, either slash, `.` and `..`
+ * resolved, and the Windows spellings of the same file: trailing dots or spaces, `::$DATA` or another stream, and an
+ * 8.3 short name that could stand for a protected name or sits inside a protected folder.
+ */
+export function protectedConfigKind(path: string): ProtectedConfigKind | null {
+  const parts = segments(path)
+  const direct = kindOf(parts)
+  if (direct || !parts.some(part => SHORT.test(part))) return direct
+  // A short segment may stand for any known name it is a prefix of; try each (bounded) and the folder it sits in.
+  let options: string[][] = [[]]
+  for (const part of parts) {
+    const match = SHORT.exec(part)
+    const readings = match ? [part, ...KNOWN_NAMES.filter(name => stem(name).startsWith(stem(match[1])))] : [part]
+    options = options.flatMap(prefix => readings.map(reading => [...prefix, reading])).slice(0, 256)
+  }
+  for (const option of options) {
+    const kind = kindOf(option)
+    if (kind) return kind
+  }
+  // A short file name inside a protected folder (`.git/hooks/PRE-CO~1`) is that folder's file.
+  return SHORT.test(parts[parts.length - 1]) ? kindOf([...parts.slice(0, -1), 'x']) : null
 }
 
 /** Commands that write or remove the files named in their arguments. */
@@ -81,8 +138,118 @@ export function commandWritesProtected(command: string): { path: string; kind: P
   return null
 }
 
+/** Characters that end a path in command text: blanks, quotes, brackets and the shell's operators. */
+const PATH_BREAK = /[\s"'`()[\]{},;|&<>=+*?!]+/
+/** `cd`, `pushd` and `Set-Location` targets, so `cd .claude && echo x > settings.json` is read as one path. */
+const CHANGE_DIR = /(?:^|[\s;&|(])(?:cd|pushd|set-location|sl|chdir)\s+(?:-path\s+)?("[^"]*"|'[^']*'|[^\s;&|)]+)/gi
+
+/**
+ * B16 · The first protected file that the command text names ANYWHERE: an argument, a redirect target (`>`, `>>`,
+ * `tee`), a path inside `-c` or `-e` code (`python -c "open('AGENTS.md','w')"`), a nested shell or quote, after a
+ * `cd` into a folder, either slash, any case, relative or absolute, or a Windows alias of it. A saved rule never
+ * approves it; only a plain read from the built-in safe list stays answered (the policy decides that).
+ */
+export function commandMentionsProtected(command: string): { path: string; kind: ProtectedConfigKind } | null {
+  // An escaped quote (`\"AGENTS.md\"`) leaves a backslash at a token's edge; it is not part of the path.
+  const candidates = command.split(PATH_BREAK).map(token => token.replace(/^\\+|\\+$/g, '')).filter(Boolean)
+  const folders = [...command.matchAll(CHANGE_DIR)].map(match => match[1].replace(/^["']|["']$/g, ''))
+  for (const candidate of candidates) {
+    for (const path of [candidate, ...folders.map(folder => `${folder}/${candidate}`)]) {
+      const kind = protectedConfigKind(path)
+      if (kind) return { path: candidate, kind }
+    }
+  }
+  return null
+}
+
+/**
+ * A command the built-in read-only list alone approves, whatever rules are saved (`cat AGENTS.md`): reading a
+ * protected file changes nothing, so naming one in such a command is not a reason to guard it.
+ */
+export function isPlainSafeRead(command: string): boolean {
+  if (commandWritesProtected(command) || commandRewritesTracked(command)) return false
+  const verdict = evaluateShellCommand(command, { allow: [], deny: [], useDefaults: true })
+  return verdict.decision === 'allow' && verdict.viaDefaults === true
+}
+
+/**
+ * B16 · Whether a command can change a protected file: it writes one, names one outside a plain safe read, or rewrites
+ * tracked files without naming them. The policy guards it, and no card offers "for the session" for it.
+ */
+export function commandTouchesProtected(command: string): boolean {
+  if (commandWritesProtected(command) || commandRewritesTracked(command)) return true
+  return commandMentionsProtected(command) !== null && !isPlainSafeRead(command)
+}
+
+/** Git subcommands that rewrite tracked files without naming each one. */
+const GIT_REWRITERS = new Set(['checkout', 'switch', 'restore', 'apply', 'merge', 'rebase', 'reset', 'clean', 'am', 'cherry-pick', 'pull', 'revert'])
+/** Git options that come before the subcommand and take a value. */
+const GIT_VALUE_OPTIONS = new Set(['-c', '-C', '--git-dir', '--work-tree', '--namespace', '--exec-path'])
+
+/** The texts a command runs: the line itself and the code inside its quotes (`sh -c '…'`, `powershell -c "…"`), nested. */
+function commandTexts(command: string, depth = 0): string[] {
+  if (depth > 3) return [command]
+  const quoted = [...command.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map(match => (match[1] ?? match[2] ?? '').replace(/\\"/g, '"')).filter(text => /\s/.test(text))
+  return [command, ...quoted.flatMap(text => commandTexts(text, depth + 1))]
+}
+
+/** What rewrites tracked files in one tokenized sub-command, or null. */
+function rewriterIn(tokens: string[]): string | null {
+  const head = baseName(tokens[0] ?? '').toLowerCase()
+  if (head === 'git') {
+    let index = 1
+    while (index < tokens.length && tokens[index].startsWith('-')) index += GIT_VALUE_OPTIONS.has(tokens[index]) ? 2 : 1
+    const sub = (tokens[index] ?? '').toLowerCase()
+    if (sub === 'stash') return ['pop', 'apply'].includes((tokens[index + 1] ?? '').toLowerCase()) ? `git stash ${tokens[index + 1].toLowerCase()}` : null
+    return GIT_REWRITERS.has(sub) ? `git ${sub}` : null
+  }
+  if (head === 'tar') {
+    const first = tokens[1] ?? ''
+    const extracts = /^-?[A-Za-z]*x/.test(first) && !/^--/.test(first) || tokens.slice(1).some(token => /^(--extract|--get)$/.test(token) || /^-[A-Za-z]*x[A-Za-z]*$/.test(token))
+    return extracts ? 'tar x' : null
+  }
+  if (head === 'unzip') return tokens.slice(1).some(token => /^-[ltvZ]+$/.test(token)) ? null : 'unzip'
+  if (/^7z[ar]?$/.test(head)) return /^[xe]$/i.test(tokens[1] ?? '') ? `${head} x` : null
+  if (head === 'expand-archive') return 'Expand-Archive'
+  return null
+}
+
+/**
+ * B16 · A command that rewrites tracked files without naming them: git checkout, switch, restore, apply, merge, rebase,
+ * reset, clean, am, cherry-pick, revert, pull, stash pop and stash apply, and archive extraction (tar x, unzip, 7z x,
+ * Expand-Archive), alone or inside a nested shell. Any project with a git hooks folder or an instructions file has
+ * a protected file it could rewrite, so these are never approved by a saved rule. git commit, push, add, status,
+ * diff, log, fetch and branch are not here.
+ */
+export function commandRewritesTracked(command: string): string | null {
+  for (const text of commandTexts(command)) {
+    for (const sub of splitShellCommand(text) ?? text.split(/&&|\|\||[;|&\n]/)) {
+      const tokens = tokenize(sub.trim())
+      const found = rewriterIn(tokens) ?? (/(^|[\s;])expand-archive(\s|$)/i.test(sub) ? 'Expand-Archive' : null)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/** English, for the audit trail and logs; the person sees `protectedConfigNote` in their language. */
 export function protectedConfigReason(path: string, kind: ProtectedConfigKind): string {
   return `"${path}" holds ${PROTECTED_CONFIG_LABEL[kind]}. A change there steers every later session, so it needs your confirmation each time.`
 }
 
+/** The same reason as a C3 code (`thread.protectedConfig.<kind>`), for the approval card. */
+export function protectedConfigNote(path: string, kind: ProtectedConfigKind): MainMessage {
+  return mainMessage(`thread.protectedConfig.${kind}`, { path })
+}
+
+/** English reason for a command that rewrites tracked files without naming them. */
+export function rewritesTrackedReason(command: string): string {
+  return `${command} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time.`
+}
+
+export function rewritesTrackedNote(command: string): MainMessage {
+  return mainMessage('thread.protectedConfig.rewritesTracked', { command })
+}
+
 export const PROTECTED_CONFIG_WARNING = 'Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.'
+export const PROTECTED_CONFIG_WARNING_NOTE: MainMessage = mainMessage('thread.protectedConfig.warning', {})
