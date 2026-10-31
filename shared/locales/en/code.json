@@ -1,5 +1,6 @@
 {
   "panels": {
+    "session": "Conversation details",
     "terminal": "Terminal",
     "changes": "Changes",
     "browser": "Browser",
