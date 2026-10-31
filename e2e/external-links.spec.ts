@@ -103,7 +103,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
         { type: 'completed', status: 'completed' }
       ] })
     })
-    await page.locator('.thread-markdown a', { hasText: 'login.evil.example' }).click()
+    await page.locator('.thread-markdown').getByRole('link', { name: 'login.evil.example', exact: true }).click()
     await expect.poll(() => opened(page)).toHaveLength(2)
     await expect(page.getByTestId('external-link-dialog')).toHaveCount(0)
 
