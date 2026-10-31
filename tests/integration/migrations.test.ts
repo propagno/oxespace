@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../electron/main/db/index'
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 83
+const EXPECTED_SCHEMA_VERSION = 87
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -371,5 +371,84 @@ describe('migrations', () => {
     ])
 
     db.close()
+  })
+})
+
+describe('migration 086 (nested conversations)', () => {
+  type Db = ReturnType<typeof openInMemoryDatabase>
+  /** A real version-83 file: conversation_threads without the parent columns, rebuilt the way SQLite documents. */
+  function atVersion83(): Db {
+    const db = openInMemoryDatabase()
+    db.pragma('foreign_keys = OFF')
+    const table = (db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'conversation_threads'").get() as { sql: string }).sql
+    const indexes = (db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'conversation_threads' AND sql IS NOT NULL AND name <> 'idx_conversation_threads_parent'").all() as { sql: string }[]).map(row => row.sql)
+    const columns = (db.prepare("PRAGMA table_info('conversation_threads')").all() as { name: string }[]).map(column => column.name).filter(name => !name.startsWith('parent_'))
+    const v83 = table.replace(/,\s*parent_thread_id TEXT REFERENCES conversation_threads\(id\) ON DELETE SET NULL/i, '').replace(/,\s*parent_via TEXT CHECK\(parent_via IN \([^)]*\)\)/i, '')
+      .replace('conversation_threads', 'conversation_threads_v83')
+    expect(v83).not.toContain('parent_')
+    db.exec(`DROP INDEX idx_conversation_threads_parent; ${v83};
+      INSERT INTO conversation_threads_v83 (${columns.join(', ')}) SELECT ${columns.join(', ')} FROM conversation_threads;
+      DROP TABLE conversation_threads; ALTER TABLE conversation_threads_v83 RENAME TO conversation_threads; ${indexes.join('; ')};
+      PRAGMA user_version = 83;`)
+    db.pragma('foreign_keys = ON')
+    expect((db.prepare("PRAGMA table_info('conversation_threads')").all() as { name: string }[]).some(column => column.name === 'parent_thread_id')).toBe(false)
+    db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('ws', 'Repo', '/repo', '1x1', 'builtin-claude')").run()
+    db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES ('p', '/repo', '/repo', 'Repo', 1, 1)").run()
+    return db
+  }
+  const thread = (db: Db, id: string) => db.prepare("INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, 'p', ?, ?)")
+    .run(id, 'ws', JSON.stringify({ id, workspaceId: 'ws', title: id, status: 'idle' }), '[]')
+  const handoff = (db: Db, origin: string, destination: string, at: number) => db.prepare('INSERT INTO mcp_thread_handoffs (origin_thread_id, request_key, destination_thread_id, created_at) VALUES (?, ?, ?, ?)')
+    .run(origin, `key-${destination}`, destination, at)
+  const work = (db: Db, supervisor: string, worker: string, at: number) => {
+    db.prepare("INSERT INTO work_runs (id, supervisor_thread_id, workspace_id, project_id, project_root, request_key, title, status, created_at, updated_at) VALUES (?, ?, 'ws', 'p', '/repo', ?, 'Run', 'running', ?, ?)")
+      .run(`run-${worker}`, supervisor, `run-${worker}`, at - 1, at)
+    db.prepare("INSERT INTO work_tasks (id, run_id, key, title, prompt, provider, access, status, thread_id, position, started_at) VALUES (?, ?, 'k', 'Task', 'Do it', 'codex', 'read-only', 'running', ?, 0, ?)")
+      .run(`task-${worker}`, `run-${worker}`, worker, at)
+  }
+  const delegation = (db: Db, originPaneId: string, destination: string, at: number) => {
+    const payload = { id: `delegation-${destination}`, key: `key-${destination}`, originExecutionId: 'origin', originPaneId, workspaceId: 'ws', project: 'p', state: 'running',
+      branch: `oxe/${destination}`, objective: 'Delegated', path: '/repo', baseSha: 'abc', destinationThreadId: destination, createdAt: at, updatedAt: at }
+    db.prepare('INSERT INTO delegations (id, origin_execution, request_key, workspace_id, payload) VALUES (?, ?, ?, ?, ?)').run(payload.id, 'origin', payload.key, 'ws', JSON.stringify(payload))
+  }
+  const parents = (db: Db) => Object.fromEntries((db.prepare('SELECT id, parent_thread_id AS parent, parent_via AS via FROM conversation_threads ORDER BY id').all() as { id: string; parent: string | null; via: string | null }[])
+    .map(row => [row.id, row.parent ? `${row.parent}/${row.via}` : null]))
+
+  test('upgrades from 83 and backfills each source, the earliest link winning, never a cycle', () => {
+    const db = atVersion83()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      for (const id of ['A', 'B', 'S', 'W', 'D', 'T', 'M', 'Y', 'P1', 'P2', 'P3']) thread(db, id)
+      handoff(db, 'A', 'B', 100) // thread_create
+      work(db, 'S', 'W', 200) // work
+      delegation(db, 'thread:S', 'D', 300) // delegation from a Thread
+      delegation(db, 'pane-1', 'T', 300) // delegation from a terminal: no parent
+      handoff(db, 'A', 'M', 500); work(db, 'S', 'M', 400) // several candidates: the earliest (work, 400) wins
+      work(db, 'B', 'A', 150) // A then B then A: B's parent is already A, so A cannot take B
+      delegation(db, 'thread:Y', 'Y', 50) // a conversation as its own parent
+      handoff(db, 'P1', 'P2', 10); handoff(db, 'P2', 'P3', 20); handoff(db, 'P3', 'P1', 30) // a longer loop
+      work(db, 'S', 'gone', 600) // a worker whose conversation no longer exists
+      runMigrations(db)
+      expect(db.pragma('user_version', { simple: true })).toBe(EXPECTED_SCHEMA_VERSION)
+      expect(parents(db)).toEqual({ A: null, B: 'A/thread_create', D: 'S/delegation', M: 'S/work', P1: null, P2: 'P1/thread_create', P3: 'P2/thread_create', S: null, T: null, W: 'S/work', Y: null })
+      expect(warn).toHaveBeenCalledWith('[db] thread parent backfill skipped 3 link(s) that would form a cycle')
+      expect(db.pragma('foreign_key_check')).toEqual([])
+      expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_conversation_threads_parent'").get()).toBeTruthy()
+      // A replay changes nothing and keeps existing links.
+      db.pragma('user_version = 83')
+      runMigrations(db)
+      expect(parents(db).B).toBe('A/thread_create')
+      expect(parents(db).A).toBeNull()
+    } finally { warn.mockRestore(); db.close() }
+  })
+
+  test('refuses a parent_via outside the contract', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('ws', 'Repo', '/repo', '1x1', 'builtin-claude')").run()
+      db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES ('p', '/repo', '/repo', 'Repo', 1, 1)").run()
+      thread(db, 'A'); thread(db, 'B')
+      expect(() => db.prepare("UPDATE conversation_threads SET parent_thread_id = 'A', parent_via = 'fork' WHERE id = 'B'").run()).toThrow(/CHECK/)
+    } finally { db.close() }
   })
 })

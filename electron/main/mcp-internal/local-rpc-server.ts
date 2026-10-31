@@ -7,6 +7,7 @@ import type {
 import { INTERNAL_MCP_ERROR_CODES } from '../../../shared/types/mcp-internal'
 import { activeTools, findTool, type ToolContext } from './tool-registry'
 import { errorResult } from './tool-registry'
+import { callerRoles } from './domain-tool'
 import { boundToolResult, DEFAULT_TOOL_OUTPUT_LIMIT, toolOutputSaver } from './tool-result-bound'
 
 /**
@@ -116,7 +117,12 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
     }
 
     if (parsed.method === 'tools/list') {
-      const tools = activeTools().map((entry) => entry.descriptor)
+      const entries = activeTools()
+      // Actions kept for a role (the coordinator's `pending`) are listed only to a live execution that has it.
+      const roles = entries.some(entry => entry.offered)
+        ? await callerRoles({ db: deps.db, executions: deps.executions, executionId, executionToken, workspaceId })
+        : new Set<never>()
+      const tools = entries.map((entry) => entry.offered?.(roles) ?? entry.descriptor)
       return { jsonrpc: '2.0', id, result: { tools } }
     }
 
@@ -137,6 +143,12 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           id,
           error: { code: INTERNAL_MCP_ERROR_CODES.TOOL_NOT_FOUND, message: `Unknown tool: ${name}` }
         }
+      }
+      // A session keeps the tool list it started with; a tool its conversation lost since (B1.4) is refused here.
+      let caller: { kind: 'pane' | 'thread'; id: string } | undefined
+      try { caller = deps.executions?.authenticate(executionId, executionToken, workspaceId).owner } catch { /* not a live execution */ }
+      if (caller?.kind === 'thread' && (await import('../services/conversation/thread-coordinator')).isRevokedThreadTool(caller.id, name)) {
+        return { jsonrpc: '2.0', id, result: errorResult(`${name} is no longer available in this conversation: it stopped being the project's coordinator. Continue without it.`) }
       }
       // Workspace-scoped tools no longer hard-fail when the header is missing.
       // Handlers call requireWorkspace(), which prefers a valid header id and

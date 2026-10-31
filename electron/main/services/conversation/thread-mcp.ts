@@ -37,6 +37,9 @@ export const THREAD_TOOL_GROUPS = {
     'oxespace_work_plan', 'oxespace_work_status', 'oxespace_work_result', 'oxespace_work_message', 'oxespace_work_cancel',
     'oxespace_thread_create', 'oxespace_thread_send', 'oxespace_thread_read',
     'oxespace_memory_sessions', 'oxespace_memory_handoffs', 'oxespace_memory_accept_handoff', 'oxespace_quality_check'],
+  /** The project's coordinator conversation (B1.4), next to orchestration: its project's conversations and the summary of
+   * their pending requests (oxespace_threads `pending`, an action offered to the coordinator alone). It answers none. */
+  coordinator: ['oxespace_threads'],
   /** Database and container access; every data read and change is approved by a person inside OxeQuery. */
   data: ['oxespace_db_connections', 'oxespace_db_describe', 'oxespace_db_query', 'oxespace_mongo_find', 'oxespace_mongo_aggregate',
     'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action',
@@ -54,6 +57,18 @@ export const THREAD_TOOL_GROUPS = {
 } as const satisfies Record<string, readonly string[]>
 
 export type ThreadToolGroup = keyof typeof THREAD_TOOL_GROUPS
+
+/**
+ * An agent in a Code terminal: panes, terminals, scripts, background jobs, worktrees, tasks, agents and integration.
+ * Always on there, never offered to an OxeChat conversation.
+ */
+export const CODE_TOOL_GROUP = ['oxespace_list_panes', 'oxespace_terminal', 'oxespace_list_scripts', 'oxespace_run_script',
+  'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_stop_background_job', 'oxespace_list_worktrees',
+  'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_tasks', 'oxespace_tasks_change', 'oxespace_agents',
+  'oxespace_agents_change', 'oxespace_integration', 'oxespace_memory_diagnostics'] as const
+
+/** Every group of OXESpace tools, the Code terminal's included (Settings › Tools lists these). */
+export const MCP_TOOL_GROUPS = { ...THREAD_TOOL_GROUPS, code: CODE_TOOL_GROUP } as const satisfies Record<string, readonly string[]>
 /** Groups a project can turn on in oxe.yaml; core is always on and roles are detected. */
 export const OPTIONAL_THREAD_TOOL_GROUPS: ThreadToolGroup[] = ['orchestration', 'data', 'docs', 'app']
 
@@ -74,18 +89,20 @@ export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_ex
   'oxespace_team_status', 'oxespace_team_inbox', 'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
 
 /** The role a conversation has when it starts, which decides the groups it needs. */
-export interface ThreadToolRoles { team?: boolean; worker?: boolean }
+export interface ThreadToolRoles { team?: boolean; worker?: boolean; coordinator?: boolean }
 
 /** The tools a conversation gets: core, the groups of its roles, and the groups its project turned on. */
 export function threadToolList(roles: ThreadToolRoles = {}, optIn: readonly string[] = []): string[] {
   const groups: ThreadToolGroup[] = ['core', ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : []),
+    // Orchestration also brings the project's memory sessions and handoffs to the coordinator.
+    ...(roles.coordinator ? ['orchestration' as const, 'coordinator' as const] : []),
     ...OPTIONAL_THREAD_TOOL_GROUPS.filter(group => optIn.includes(group))]
   return [...new Set(groups.flatMap(group => THREAD_TOOL_GROUPS[group]))]
 }
 
 interface RoleDatabase { prepare(sql: string): { get(...params: unknown[]): unknown } }
 
-/** Team membership, a delegation or Work task this conversation runs, or a Work run it supervises. */
+/** Team membership, a delegation or Work task this conversation runs, a Work run it supervises, or its project's coordination. */
 export function threadToolRoles(db: RoleDatabase, threadId: string): ThreadToolRoles {
   const has = (sql: string): boolean => { try { return Boolean(db.prepare(sql).get(threadId)) } catch { return false } }
   return {
@@ -93,7 +110,8 @@ export function threadToolRoles(db: RoleDatabase, threadId: string): ThreadToolR
       WHERE l.owner_kind='thread' AND l.owner_id=? AND m.archived=0 LIMIT 1`),
     worker: has("SELECT 1 FROM delegations WHERE json_extract(payload, '$.destinationThreadId')=? LIMIT 1")
       || has('SELECT 1 FROM work_tasks WHERE thread_id=? LIMIT 1')
-      || has('SELECT 1 FROM work_runs WHERE supervisor_thread_id=? LIMIT 1')
+      || has('SELECT 1 FROM work_runs WHERE supervisor_thread_id=? LIMIT 1'),
+    coordinator: has('SELECT 1 FROM thread_project_coordinators WHERE thread_id=? LIMIT 1')
   }
 }
 

@@ -80,6 +80,8 @@ export interface ToolEntry {
   handler: (args: unknown, ctx: ToolContext) => Promise<InternalMcpToolCallResult>
   /** Characters of text the result may carry before it is cut; DEFAULT_TOOL_OUTPUT_LIMIT when absent. */
   outputLimit?: number
+  /** The descriptor a caller with these roles is listed, when some actions are kept for a role (DomainAction.role). */
+  offered?: (roles: ReadonlySet<import('./domain-tool').ActionRole>) => InternalMcpToolDescriptor
 }
 
 export const TOOL_REGISTRY: ToolEntry[] = [
@@ -235,11 +237,11 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_open_web_preview',
-      description: 'Queue an HTTP(S) URL for the current Code or Thread Web Preview. Returns queued, not loaded; confirm with oxespace_preview_interact status/inspect. External sites require External preview.',
+      description: 'Queue a URL for the current Code or Thread Web Preview. Returns queued, not loaded; confirm with oxespace_preview_interact status/inspect. http(s) on localhost, *.localhost, 127.0.0.1 or [::1] opens directly; any other host waits for a person to approve that exact URL (call again with the same URL once approved). Other schemes, file: included, are refused. External sites also require External preview.',
       inputSchema: {
         type: 'object',
         properties: {
-          url: { type: 'string', description: 'The HTTP/HTTPS URL to preview (e.g., http://localhost:5173).' }
+          url: { type: 'string', description: 'The URL to preview (e.g., http://localhost:5173). Write the host plainly: another spelling of a local address asks first.' }
         },
         required: ['url'],
         additionalProperties: false

@@ -18,16 +18,16 @@ describe('coordinator conversation contract (B1.4)', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.setCoordinator, 'thread-A', true)
   })
 
-  it('reads pending requests through a planned read action, and never answers them', () => {
+  it('reads pending requests through a read action, and never answers them', () => {
     const read = MCP_COVERAGE['thread.coordinator_read']
-    expect('planned' in read && read.planned).toBe('B1.4')
+    expect('tools' in read && read.tools).toEqual({ 'oxespace_threads#pending': 'read' })
     expect(FORBIDDEN_CAPABILITIES).toContain('thread.approvals')
     // No tool, whatever its role, answers an approval or a question.
     const actions = (schema: unknown) => (schema as { properties?: { action?: { enum?: string[] } } }).properties?.action?.enum ?? []
     const names = TOOL_REGISTRY.flatMap(({ descriptor }) => [descriptor.name, ...actions(descriptor.inputSchema).map(action => `${descriptor.name}#${action}`)])
     // The one exception is not a person's approval: the requesting agent accepts the result of a task it delegated, an
     // agreement between agents that never merges. For the coordinator it holds only for tasks the coordinator itself
-    // delegated (the implementation tests a coordinator refused on another conversation's task).
+    // delegated (tests/integration/coordination.workflow.test.ts refuses a coordinator on another conversation's task).
     const NOT_A_PERSONS_APPROVAL = ['oxespace_delegation_control#approve']
     expect(names.filter(name => /respond|approve|answer|decide/i.test(name) && !NOT_A_PERSONS_APPROVAL.includes(name))).toEqual([])
   })

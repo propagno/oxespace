@@ -7,7 +7,7 @@
  */
 import { threadConfirmation } from '../../../../../shared/threadConfirmations'
 import type { AppDatabase } from '../../../db'
-import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadCommandResult, ThreadConfiguration, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadAuditEntry, ThreadCommandResult, ThreadConfiguration, ThreadRequest, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
 import { hasDesktopCommand } from '../../../../../shared/threadDesktopCommands'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../../../shared/threadLimits'
 import { PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../../shared/threadHistoryNotice'
@@ -18,6 +18,7 @@ import type { ThreadHistory, ThreadHistoryWriteOptions } from '../thread-history
 import { threadCapabilityManifest } from '../thread-capabilities'
 import { runCrashRecoveryCommand } from '../thread-crash-recovery'
 import { instructionLabel, instructionSources } from '../instruction-sources'
+import { runNestedArchive } from '../thread-nesting'
 
 export interface CommandHost {
   readonly db: AppDatabase
@@ -28,6 +29,12 @@ export interface CommandHost {
   read(id: string): ThreadSnapshot
   save(snapshot: ThreadSnapshot, options?: ThreadHistoryWriteOptions): void
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId'>): ThreadSnapshot
+  /** Appends to the conversation's audit trail (best effort). */
+  audit(id: string, entry: Omit<ThreadAuditEntry, 'id' | 'at' | 'threadId' | 'projectRoot'>): void
+  /** Runs a command on another conversation through the manager, so what the manager adds to a command (B1.4) applies. */
+  command(id: string, text: string): Promise<ThreadCommandResult>
+  /** Withdraws the conversation's live pending requests as cancelled, the way an interrupted turn does. */
+  cancelRequests(id: string): ThreadRequest[]
   configure(id: string, input: ThreadConfiguration, revision: number): Promise<unknown>
   interrupt(id: string): Promise<void>
   rewind(id: string, turnId: string): Promise<ThreadRewindResult>
@@ -44,6 +51,30 @@ export interface CommandHost {
   deleteThread(id: string): Promise<void>
 }
 
+/**
+ * Marks a conversation archived. Nobody answers an archived conversation, so what it was asking is withdrawn
+ * the way an interrupted turn withdraws it: its pending requests are cancelled (live and persisted ones), its
+ * open approvals resolved, and it stops waiting; the activity center and the phone no longer list it.
+ */
+export function archiveConversation(host: CommandHost, id: string): void {
+  const resolvedAt = Date.now()
+  const live = new Map(host.cancelRequests(id).map(request => [request.id, request]))
+  const snapshot = host.read(id)
+  let eventsFrom = snapshot.events.length
+  snapshot.events.forEach((event, index) => {
+    if (event.type !== 'request' || event.request.state !== 'pending') return
+    const request = live.get(event.id)
+    Object.assign(event.request, { state: 'cancelled', resolution: 'interrupted', resolvedAt: request?.resolvedAt ?? resolvedAt })
+    eventsFrom = Math.min(eventsFrom, index)
+    snapshot.events.push({ type: 'request-resolved', id: event.id, state: 'cancelled', resolution: 'interrupted', resolvedAt: event.request.resolvedAt })
+  })
+  const unresolved = snapshot.events.filter(value => value.type === 'approval' && !snapshot.events.some(resolved => resolved.type === 'approval-resolved' && resolved.id === value.id))
+  for (const approval of unresolved) if (approval.type === 'approval') snapshot.events.push({ type: 'approval-resolved', id: approval.id })
+  if (snapshot.thread.status === 'approval') snapshot.thread.status = 'idle'
+  snapshot.thread.archived = true
+  host.save(snapshot, { eventsFrom })
+}
+
 export async function runThreadCommand(host: CommandHost, id: string, text: string): Promise<ThreadCommandResult> {
     const crash = await runCrashRecoveryCommand(host, id, text)
     if (crash) return crash
@@ -53,7 +84,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     const argument = match[2]?.trim() ?? '', snapshot = host.read(id), thread = snapshot.thread
     const aliases: Record<string, string> = { delegation: 'delegations', approvals: 'permissions', 'allowed-tools': 'permissions', name: 'rename', clear: 'new', reset: 'new', cwd: 'pwd', plugin: 'plugins', config: 'settings', login: 'accounts', exit: 'quit' }
     name = aliases[name] ?? name
-    if (!hasDesktopCommand(thread.provider, name)) throw Error(`/${name} is not available in Thread yet. Use /help to see supported commands.`)
+    if (!hasDesktopCommand(thread.provider, name)) throw Error(`/${name} is not available in OxeChat yet. Use /help to see supported commands.`)
     if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'instructions', 'rules', 'spending', 'work', 'events', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
     if (name === 'delegations' && argument && !/^[a-z0-9-]{8,128}$/i.test(argument)) throw Error('Use /delegation <taskId> with an exact delegation ID.')
     if (name === 'resume' && argument) {
@@ -102,7 +133,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     if (name === 'status') {
       const operation = host.history.operations(id).at(-1)
       return { kind: 'panel', title: 'Conversation status', rows: [
-      { label: 'Thread ID', detail: thread.id }, { label: 'Project ID', detail: thread.projectId }, { label: 'Workspace ID', detail: thread.workspaceId },
+      { label: 'Conversation ID', detail: thread.id }, { label: 'Project ID', detail: thread.projectId }, { label: 'Workspace ID', detail: thread.workspaceId },
       { label: 'Provider', detail: thread.provider }, { label: 'Status', detail: thread.status }, { label: 'Model', detail: thread.model || 'Provider default' }, { label: 'Effort', detail: thread.reasoningEffort || 'Automatic' },
       { label: 'Access', detail: thread.access ?? 'read-only' }, { label: 'Network', detail: thread.networkAccess ? 'allowed' : 'blocked' }, { label: 'Approvals', detail: thread.approvalPolicy ?? 'on-request' }, { label: 'Mode', detail: thread.mode ?? 'default' }, { label: 'Hooks', detail: thread.hooksEnabled ? 'native hooks enabled' : 'disabled' },
       { label: 'Connection', detail: thread.connection?.state ?? 'closed' }, { label: 'Generation', detail: String(thread.generation ?? 1) },
@@ -121,12 +152,15 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     }
     if (name === 'capabilities') {
       const manifest = thread.capabilities ?? threadCapabilityManifest(thread.provider, host.adapterCapabilities(id))
-      return { kind: 'panel', title: 'Thread capabilities', rows: Object.entries(manifest.features).map(([label, value]) => ({ label, detail: value.implemented ? `${value.verified} · ${value.enabled ? 'enabled' : 'disabled'}` : value.reason ?? 'Unavailable' })) }
+      return { kind: 'panel', title: 'OxeChat capabilities', rows: Object.entries(manifest.features).map(([label, value]) => ({ label, detail: value.implemented ? `${value.verified} · ${value.enabled ? 'enabled' : 'disabled'}` : value.reason ?? 'Unavailable' })) }
     }
     if (name === 'copy' || name === 'export') return { kind: 'panel', title: name === 'copy' ? 'Copy response' : 'Export conversation', text: name === 'copy'
       ? snapshot.events.filter(event => event.type === 'message' && event.role === 'assistant').map(event => event.type === 'message' ? event.text : '').at(-1) ?? ''
       : host.exports.markdown(host.history.readImported(id)) }
     if (name === 'stop') { if (host.isBusy(id)) await host.interrupt(id); return { kind: 'applied' } }
+    // B1.3: children that still work are asked about (and archived) together with their parent.
+    const nested = name === 'archive' ? await runNestedArchive(host, id, argument) : undefined
+    if (nested) return nested
     if ((name === 'archive' || name === 'delete') && argument === 'confirm' && host.isBusy(id)) {
       await host.interrupt(id)
       for (let attempt = 0; attempt < 50 && host.isBusy(id); attempt++) await new Promise(resolve => setTimeout(resolve, 100))
@@ -149,7 +183,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       if (argument !== 'confirm') return { kind: 'confirm', confirm: threadConfirmation(name) }
       await host.disposeAdapter(id)
       if (name === 'delete') await host.deleteThread(id)
-      else { const latest = host.read(id); latest.thread.archived = true; host.save(latest, { eventsFrom: latest.events.length }) }
+      else archiveConversation(host, id)
       return { kind: 'navigate' }
     }
     if (name === 'quit') { await host.disposeAdapter(id); return { kind: 'applied' } }

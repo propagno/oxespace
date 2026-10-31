@@ -12,6 +12,7 @@ import { collectEvidence } from '../../electron/main/services/coordination/evide
 import type { GitHubWorktreeApi } from '../../shared/types/github'
 import { DELEGATION_TOOLS } from '../../electron/main/mcp-internal/delegation-tools'
 import type { ToolContext } from '../../electron/main/mcp-internal/tool-registry'
+import { setThreadCoordinator } from '../../electron/main/services/conversation/thread-coordinator'
 const exec = promisify(execFile)
 const cleanup: (() => Promise<void>)[] = []
 afterEach(async () => { for (const fn of cleanup.splice(0)) await fn() }, 30000)
@@ -141,6 +142,32 @@ describe('cross-workspace coordination', () => {
     const control = DELEGATION_TOOLS.find(entry => entry.descriptor.name === 'oxespace_delegation_control')!
     await expect(control.handler({ taskId: task.id, action: 'cancel' }, context)).resolves.toMatchObject({ content: expect.any(Array) })
     expect(f.service.get(task.id)).toMatchObject({ state: 'cancelled', originExecutionId: requester.id })
+  }, 60000)
+  test('a coordinator conversation reconnects only to tasks it delegated, never taking over another requester (B1.4)', async () => {
+    const f = await fixture()
+    await f.service.configureTarget(f.a.id, f.roots[1], true, true)
+    f.db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES ('project', ?, ?, 'Source', 1, 1)").run(f.roots[0], f.roots[0])
+    for (const id of ['coordinator', 'sibling']) f.db.prepare("INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, 'project', ?, '[]')").run(id, f.a.id, JSON.stringify({ id }))
+    setThreadCoordinator(f.db, 'coordinator', true)
+    const live = (id: string) => { f.registry.register({ owner: { kind: 'thread', id }, workspaceId: f.a.id, cwd: f.roots[0] }); return f.registry.forOwner({ kind: 'thread', id })! }
+    const theirs = await f.service.create(f.origin, f.input)
+    await vi.waitFor(() => expect(f.service.get(theirs.id).destinationExecutionId).toBeTruthy(), { timeout: 15000 })
+    const coordinator = live('coordinator')
+    await expect(f.service.authorize(coordinator, theirs.id, { reconnectRequester: true })).rejects.toThrow('controls only the tasks it delegated')
+    const control = DELEGATION_TOOLS.find(entry => entry.descriptor.name === 'oxespace_delegation_control')!
+    const context = { delegation: f.service, executions: f.registry, executionId: coordinator.id, executionToken: coordinator.token, workspaceId: f.a.id } as unknown as ToolContext
+    await expect(control.handler({ taskId: theirs.id, action: 'approve' }, context)).rejects.toThrow('controls only the tasks it delegated')
+    expect(f.service.get(theirs.id)).toMatchObject({ originExecutionId: f.origin.id })
+    expect(f.service.get(theirs.id).state).not.toBe('cancelled')
+    // A conversation that is not the coordinator keeps the replacement-requester path.
+    const sibling = live('sibling')
+    await expect(f.service.authorize(sibling, theirs.id, { reconnectRequester: true })).resolves.toMatchObject({ id: theirs.id })
+    // Its own task, delegated in an earlier session, it controls again.
+    const own = await f.service.create(coordinator, { ...f.input, key: 'coordinator-own' })
+    const next = live('coordinator')
+    expect(next.id).not.toBe(coordinator.id)
+    await expect(f.service.authorize(next, own.id, { reconnectRequester: true })).resolves.toMatchObject({ id: own.id })
+    expect(f.service.get(own.id).originExecutionId).toBe(next.id)
   }, 60000)
   test('registers local repository only via trusted consent and rejects unrelated execution', async () => {
     const f = await fixture()

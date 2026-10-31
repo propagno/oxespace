@@ -120,6 +120,20 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   ipcMain.handle(IPC_CHANNELS.thread.list, event => { sender(event); return manager.then(service => service.list()) })
   // Read-only summary for the activity center; answering a request stays in the conversation.
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => { sender(event); return manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsAll()) })
+  // B1.3: direct children and their combined state, read-only.
+  ipcMain.handle(IPC_CHANNELS.thread.children, (event, id: unknown) => { sender(event); const threadId = string(id); return manager.then(() => import('../services/conversation/thread-nesting')).then(module => module.threadChildren(db, threadId)) })
+  // Side chats (B1.2) load on the first open. Their events go only to the window that opened them, which takes them along when it closes.
+  let sideChats: Promise<import('../services/conversation/thread-side-chat').ThreadSideChats> | null = null
+  const sides = () => sideChats ??= manager.then(async service => (await import('../services/conversation/thread-side-runtime')).createThreadSideChats(db, mcp.bridge, service))
+  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, async (event, id: unknown) => {
+    sender(event)
+    const threadId = string(id), contents = event.sender, chats = await sides()
+    const result = await chats.open(threadId, side => { if (!contents.isDestroyed()) contents.send(IPC_CHANNELS.thread.onSideEvent, side) })
+    if (result.ok) contents.once('destroyed', () => { void chats.close(result.side.sideId) })
+    return result
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event, sideId: unknown, text: unknown) => { sender(event); return sides().then(chats => chats.send(sideId, text)) })
+  ipcMain.handle(IPC_CHANNELS.thread.sideClose, (event, sideId: unknown) => { sender(event); return sides().then(chats => chats.close(sideId)) })
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => { sender(event); return manager.then(service => service.readForRenderer(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
     sender(event)
@@ -324,6 +338,13 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     if (typeof pinned !== 'boolean') throw new Error('Invalid pin input')
     return manager.then(service => service.pin(string(id), pinned))
   })
+  // The person's choice only: the window's main frame, never an MCP tool (thread.coordinator_admin is forbidden).
+  ipcMain.handle(IPC_CHANNELS.thread.setCoordinator, (event, id: unknown, coordinator: unknown) => {
+    sender(event)
+    const threadId = string(id)
+    if (typeof coordinator !== 'boolean') throw new Error('Invalid coordinator input')
+    return manager.then(service => service.setCoordinator(threadId, coordinator))
+  })
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, sender, id: string })
-  return { manager, stop: async () => { await (await accounts).stop(); await (await manager).stop() } }
+  return { manager, stop: async () => { await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }

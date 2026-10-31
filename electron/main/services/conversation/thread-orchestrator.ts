@@ -18,13 +18,14 @@ import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } fr
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
-import { deriveThreadTitle } from './thread-title'
+import { DEFAULT_THREAD_TITLE, deriveThreadTitle, isDefaultThreadTitle } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
 import { briefBlock, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
-import { ThreadRequestRefusalError, ThreadRequestRegistry } from './thread-request-registry'
+import { insertThreadRow, withParent } from './thread-nesting'
+import { assertSessionAllowed, attachPolicy, ThreadRequestRefusalError, ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
@@ -89,7 +90,7 @@ export class ThreadOrchestrator {
     listeners.add(listener); this.changeListeners.set(id, listeners)
     return () => { listeners.delete(listener); if (!listeners.size) this.changeListeners.delete(id) }
   }
-  private changed(id: string): void {
+  protected changed(id: string): void {
     this.notifyChanged(id)
     for (const listener of this.changeListeners.get(id) ?? []) listener()
   }
@@ -133,7 +134,7 @@ export class ThreadOrchestrator {
   /** Daily retention pass for an app left open for days. */
   private readonly retentionSweep: ReturnType<typeof setInterval>
 
-  constructor(private readonly db: AppDatabase,
+  constructor(protected readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
     private readonly notifyChanged: (threadId: string) => void,
     private readonly preflight?: (thread: ConversationThread) => Promise<void>,
@@ -195,7 +196,7 @@ export class ThreadOrchestrator {
     return suspendIdle(this.idleHost(), now)
   }
 
-  private idleHost(): IdleHost {
+  protected idleHost(): IdleHost {
     return {
       db: this.db,
       isStopping: () => this.stopping,
@@ -209,29 +210,28 @@ export class ThreadOrchestrator {
       isHeld: id => this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.sessionGrants.has(id),
       openRequests: (id, generation) => this.requests.list(id, generation).length,
       closeSession: (id, at) => this.sessions.close(id, at),
-      read: id => this.read(id),
-      save: (snapshot, options) => this.save(snapshot, options)
+      read: id => this.read(id), save: (snapshot, options) => this.save(snapshot, options)
     }
   }
 
   list(): ConversationThread[] {
-    return (this.db.prepare(`SELECT data_json,
+    return (this.db.prepare(`SELECT data_json, parent_thread_id, parent_via,
       (SELECT json_extract(turn.data_json, '$.status') FROM conversation_turns turn
        WHERE turn.thread_id = conversation_threads.id
        ORDER BY CAST(json_extract(turn.data_json, '$.sequence') AS INTEGER) DESC LIMIT 1) AS last_turn_status
-      FROM conversation_threads`).all() as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
+      FROM conversation_threads`).all() as { data_json: string; parent_thread_id: string | null; parent_via: string | null; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
       .map(row => {
-        const thread = JSON.parse(row.data_json) as ConversationThread
+        const thread = withParent(JSON.parse(row.data_json) as ConversationThread, row)
         if (!thread.lastTurnStatus && row.last_turn_status) thread.lastTurnStatus = row.last_turn_status
         return thread
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
 
-  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree'>): ThreadSnapshot {
+  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'parent' | 'ownedWorktree'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
-      title: 'New thread', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
+      title: DEFAULT_THREAD_TITLE, pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
     this.db.transaction(() => {
       // Legacy/delegated callers enter here with a validated directory but no
       // renderer project-registration step. Keep their conversation durable.
@@ -239,8 +239,7 @@ export class ThreadOrchestrator {
         VALUES (?, ?, ?, ?, ?, ?)`).run(context.projectId, context.rootPath, context.rootPath,
         context.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? context.rootPath, now, now)
       this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(context.projectId, context.rootPath)
-      this.db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, ?, ?, ?)')
-        .run(snapshot.thread.id, context.workspaceId, context.projectId, JSON.stringify(snapshot.thread), '[]')
+      insertThreadRow(this.db, snapshot.thread)
     })()
     this.snapshots.set(snapshot.thread.id, snapshot)
     this.trimSnapshots()
@@ -543,7 +542,7 @@ export class ThreadOrchestrator {
     try {
       input = await this.commandService?.prepare(snapshot.thread, text) ?? input
       if (input.nativeCli) {
-        throw Error('This command does not have an integrated Thread handler yet.')
+        throw Error('This command does not have an integrated OxeChat handler yet.')
       }
       if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
       assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
@@ -564,7 +563,7 @@ export class ThreadOrchestrator {
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
     delete snapshot.thread.queuePause
-    if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
+    if (isDefaultThreadTitle(snapshot.thread.title) && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
@@ -659,7 +658,7 @@ export class ThreadOrchestrator {
     const adapter = this.adapters.get(id)
     const task = this.read(id).events.find((event): event is Extract<ThreadEvent, { type: 'subagent' }> => event.type === 'subagent' && event.state === 'running' && event.receiverThreadIds.includes(taskId))
     if (!task) throw Error('That background task is no longer running')
-    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from Thread')
+    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from OxeChat')
     if (!adapter?.stopTask) {
       // No provider session is left to ask: the task cannot be running, so it stops being listed as running.
       this.applyEvent(id, { ...task, state: 'unknown', completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) })
@@ -675,7 +674,7 @@ export class ThreadOrchestrator {
     if (listedGeneration !== undefined && listedGeneration !== generation) throw new ThreadRequestRefusalError('staleGeneration', 'Request belongs to an older conversation generation')
     const adapter = this.adapters.get(id)
     if (!adapter) throw new ThreadRequestRefusalError('notPending', 'Request has no live execution')
-    const request = this.requests.list(id, generation).find(value => value.id === requestId)
+    const request = this.requests.list(id, generation).find(value => value.id === requestId); assertSessionAllowed(request, response)
     if (adapter.respondRequest) await this.requests.resolve(id, requestId, generation, response)
     else await adapter.approve(requestId, response.decision === 'accept' || response.decision === 'acceptForSession' ? 'accept' : 'decline')
     this.lastActivity.set(id, Date.now())
@@ -862,7 +861,7 @@ export class ThreadOrchestrator {
       connectAdapter: (id, thread) => this.connectAdapter(id, thread),
       assertNativeSessionAvailable: (id, provider, nativeSessionId) => this.assertNativeSessionAvailable(id, provider, nativeSessionId),
       adapterCapabilities: id => this.adapters.get(id)?.capabilities,
-      isBusy: id => this.busy.has(id),
+      isBusy: id => this.busy.has(id), audit: (id, entry) => this.audit(id, entry), command: (id, text) => this.command(id, text), cancelRequests: id => this.requests.invalidate(id),
       isConfiguring: id => this.configuring.has(id),
       withConfiguring: async (id, run) => {
         this.configuring.add(id)
@@ -1041,7 +1040,7 @@ export class ThreadOrchestrator {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
       const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request, snapshot.thread.access)
-      if (policy) event.request.policy = policy
+      if (policy) attachPolicy(event.request, policy)
       if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response), expired => {
         try { this.event(id, { type: 'request-resolved', id: expired.id, state: 'expired', resolution: 'unknown', resolvedAt: expired.resolvedAt }, expired.generation) }
         catch { /* The conversation may have been deleted while the timer was pending. */ }
@@ -1271,7 +1270,7 @@ export class ThreadOrchestrator {
         const other = this.read(otherId).thread
         const activeNativeId = other.nativeSessionId
         if (other.provider === provider && activeNativeId === nativeSessionId) {
-          throw Error('This native session is already open in another Thread conversation')
+          throw Error('This native session is already open in another OxeChat conversation')
         }
       } catch (error) {
         if (error instanceof Error && error.message.includes('already open')) throw error

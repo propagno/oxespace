@@ -10,8 +10,8 @@
   "nav": {
     "applicationView": "Visão do aplicativo",
     "modeTitle": {
-      "code": "Code: terminais e agentes nos seus workspaces",
-      "thread": "Thread: conversas com um agente",
+      "code": "OxeCode: terminais e agentes nos seus workspaces",
+      "thread": "OxeChat: conversas com um agente",
       "data": "OxeQuery: bancos de dados",
       "pods": "OxePod: contêineres",
       "post": "OxePost: requisições de API"
@@ -106,7 +106,8 @@
     "guide": {
       "title": "Atalhos de teclado",
       "description": "O que funciona no {{view}} agora.",
-      "customize": "Personalizar atalhos"
+      "customize": "Personalizar atalhos",
+      "f6ToProgram": "Num painel de terminal com “Enviar F6 ao programa” ligado (no menu ⋯), F6 e Shift+F6 vão para o programa dele, como mc, htop ou tig; {{toggle}} continua fazendo o Tab mover o foco para fora."
     },
     "bindings": {
       "palette": {
@@ -142,7 +143,12 @@
         "slash": "Comandos do terminal",
         "zoomIn": "Aumentar a fonte do terminal",
         "zoomOut": "Diminuir a fonte do terminal",
-        "zoomReset": "Restaurar a fonte do terminal"
+        "zoomReset": "Restaurar a fonte do terminal",
+        "tabMovesFocus": "Tab move o foco no terminal"
+      },
+      "focus": {
+        "nextRegion": "Mover o foco para a próxima região",
+        "previousRegion": "Mover o foco para a região anterior"
       },
       "thread": {
         "new": "Nova conversa",
@@ -155,14 +161,15 @@
         "browser": "Navegador",
         "permissions": "Permissões",
         "model": "Modelo",
-        "effort": "Esforço de raciocínio"
+        "effort": "Esforço de raciocínio",
+        "sideChat": "Chat lateral"
       },
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado"
       },
       "view": {
-        "code": "Mostrar o Code",
-        "thread": "Mostrar o Thread",
+        "code": "Mostrar o OxeCode",
+        "thread": "Mostrar o OxeChat",
         "data": "Mostrar o OxeQuery",
         "pods": "Mostrar o OxePod",
         "post": "Mostrar o OxePost"
@@ -174,6 +181,17 @@
         "send": "Enviar a requisição",
         "filter": "Encontrar uma requisição"
       }
+    },
+    "terminalFocus": {
+      "hint": "Terminal. Pressione F6 para sair ou {{toggle}} para que o Tab mova o foco.",
+      "hintF6": "Terminal. Pressione F6 para sair.",
+      "on": "Tab move o foco: ligado",
+      "off": "Tab move o foco: desligado",
+      "badge": "Tab move o foco",
+      "menu": "Tab move o foco",
+      "toggleKeyToShell": "Enviar {{key}} ao shell",
+      "hintF6ToProgram": "Terminal. Aqui o F6 vai para o programa. Pressione {{toggle}} para que o Tab mova o foco.",
+      "f6ToProgram": "Enviar F6 ao programa"
     }
   },
   "oxequeryCommands": {
@@ -337,8 +355,8 @@
     "ready_one": "{{names}} está pronto",
     "ready_many": "{{names}} estão prontos",
     "ready_other": "{{names}} estão prontos",
-    "readyBoth": "O Code e o Thread podem usá-lo.",
-    "readyCodeOnly": "O Code consegue rodá-lo. O Thread precisa do Claude Code ou do Codex.",
+    "readyBoth": "O OxeCode e o OxeChat podem usá-lo.",
+    "readyCodeOnly": "O OxeCode consegue rodá-lo. O OxeChat precisa do Claude Code ou do Codex.",
     "checking": "Procurando as CLIs de agentes…",
     "checkingDetail": "Procurando os comandos no seu PATH.",
     "partial_one": "{{names}} foi encontrado, mas não está pronto",
