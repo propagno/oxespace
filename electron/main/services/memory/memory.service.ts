@@ -112,7 +112,7 @@ export class MemoryService implements Omit<MemoryApi, keyof MemoryManageApi> {
       catch { health = { status: 'unavailable', message: 'Memory credentials or runtime are unavailable', messageCode: { code: 'memory.runtimeUnavailable', params: {} } } }
       if (health.status === 'unavailable' && this.runtime.lastError) health.message = this.runtime.lastError
     }
-    if (!outboxReady && settings.enabled) health.message = 'Thread memory queue is unavailable; automatic external capture is disabled'
+    if (!outboxReady && settings.enabled) health.message = 'OxeChat memory queue is unavailable; automatic external capture is disabled'
     const delivery = this.delivery.stats()
     // Only stages this process can observe are reported; consolidation stays unknown on purpose.
     health.pipeline = {

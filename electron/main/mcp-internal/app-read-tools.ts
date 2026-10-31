@@ -3,7 +3,7 @@ import { codeWorkspace, domainTool, int, parsed, service, str, bool, type Action
 import { ActionRefused } from '../services/agent-actions/agent-actions'
 import { parseLinearListIssuesInput, parseSearchInput } from '../ipc/validation'
 import { threadReadout } from './thread-handoff-tools'
-import { stripAnsi } from '../services/github/parsers'
+import { stripAnsi } from '../utils/strip-ansi'
 import { maskLogLine } from '../services/oxequery/agent-output'
 import { lazy } from './app-settings-tools'
 import type { ToolContext } from './tool-registry'
@@ -228,6 +228,20 @@ export const APP_READ_TOOLS: ToolEntry[] = [
       }
     }
   }),
+
+  {
+    descriptor: {
+      name: 'oxespace_diagnostics',
+      description: 'The health of OXESpace itself as Markdown: incidents of the last 30 days (codes, areas, counts), processes, storage, MCP servers and connectivity in aggregate. The same text as "Ask for an analysis" in Settings > Diagnostics. Never content, paths, names or raw errors.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+    },
+    requiresWorkspace: false,
+    handler: async () => {
+      const runtime = (await import('../ipc/diagnostics.ipc')).diagnosticsRuntime()
+      if (!runtime) return { content: [{ type: 'text', text: 'Diagnostics are unavailable in this run of OXESpace.' }], isError: true }
+      return { content: [{ type: 'text', text: await (await runtime).analysisSummary() }] }
+    }
+  },
 
   domainTool('oxespace_usage', 'How much of your context window and plan allowance is used.', {
     context: {
