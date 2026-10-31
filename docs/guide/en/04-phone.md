@@ -49,10 +49,21 @@ the address shown in **Settings › Devices** (for example `192.168.0.12`).
 
 ### Answer a request from the phone
 
-<!-- TO FILL (MOBILE): steps of the Requests tab and the request screen, with biometrics, when the #222 → #236
-chain lands. Use the glossary's words (Allow / Deny) and mobile-audit-1.4 (P1, P2). -->
+1. When an agent needs you, the phone tells you: **Needs you: …**. Tap the notification to open the request, or open
+   the **Requests** tab and tap it.
+2. Read the request: what the agent wants to do, the **Command**, the **Folder**, the **Files it would change** and the
+   risk (**Only reads**, **Changes something** or **Deletes, escalates or publishes**). What's under **Written by the
+   agent** is the agent's own explanation, not OXESpace's.
+3. To deny, optionally write a **Reason, told to the agent (optional)** and tap **Deny**.
+4. To allow, tap **Allow once**.
+5. Confirm it's you with your fingerprint, face or the phone's screen lock.
+6. The phone shows **Answered.**
 
-1. …
+On a request that changes, deletes or publishes something, **Deny** is the first button; **Allow once** is below it.
+If the agent asked a question, pick the options and tap **Send answers**. A request only the computer can answer shows
+**Answer on the computer** at the top and has no buttons.
+
+Inside a conversation, a waiting request shows **Needs you** and **Respond**, which opens the same request.
 
 ### Remove a paired phone
 
@@ -68,6 +79,9 @@ chain lands. Use the glossary's words (Allow / Deny) and mobile-audit-1.4 (P1, P
   address is refused.
 - A pairing code works once and expires in 2 minutes; at most 5 phones per computer.
 - Your computer's network name is never sent: the phone sees the name you choose in **Name of this computer**.
+- No answer leaves the phone without your confirmation (fingerprint, face or screen lock); if you cancel, nothing is
+  sent.
+- The phone offers only the answers the computer offered, and never "allow for the rest of the session".
 
 ## If something goes wrong
 
@@ -80,6 +94,14 @@ chain lands. Use the glossary's words (Allow / Deny) and mobile-audit-1.4 (P1, P
 - **"Your computer already has 5 paired devices."** Remove one in **Settings › Devices**.
 - **"Camera access is off for OXESpace."** Tap **Open settings** and turn the camera on.
 - **"Couldn't reach your computer."** Check that it's on, on the same Wi-Fi, and that the phone connection is on.
+- **"Not sent: the confirmation on this phone was cancelled."** Tap **Deny** or **Allow once** again and confirm it's
+  you.
+- **"It was already answered or no longer waits."** Someone already answered, on the computer or another phone.
+  Nothing to do.
+- **"The conversation moved on; this request no longer applies."** The agent is on another step; check the
+  conversation.
+- **"Only your computer can answer this one."** Answer on the computer.
+- **"Too many actions in a minute. Try again shortly."** Wait a moment and try again.
 - **"… removed this phone."** The device was removed on the computer. Pair again.
 - **"… uses a different version of OXESpace."** Update the app or OXESpace on your computer.
 
