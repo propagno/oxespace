@@ -13,6 +13,7 @@ import { useApprovalsStore } from '../src/components/Approvals/approvals.store'
 import { ApprovalCenter } from '../src/components/Approvals/ApprovalCenter'
 import { ApprovalsHost } from '../src/components/Approvals/ApprovalsHost'
 import { hasHiddenChars, revealHidden } from '../src/components/Approvals/hiddenChars'
+import { hasHiddenCharacters } from '../shared/hidden-characters'
 import { ThreadRequestCard } from '../src/components/Threads/ThreadRequestCard'
 import { threadApprovalRisk } from '../src/components/Threads/threadApprovalRisk'
 import type { ApprovalsApi } from '../shared/types/approvals'
@@ -390,6 +391,34 @@ describe('P1-17 · a change to a file that steers agents is answered by a person
     render(<ThreadRequestCard request={plain} disabled={false} onRespond={vi.fn()} />)
     expect(screen.queryByTestId('approval-guarded')).toBeNull()
     expect(screen.getByRole('button', { name: 'Allow session' })).toBeInTheDocument()
+  })
+})
+
+describe('S2/S3 · one hidden-character definition, shared with main', () => {
+  it('covers each class: bidi, zero-width, other Cf, tag characters and both variation-selector ranges', () => {
+    const cases: Array<[string, string]> = [
+      ['‮', 'bidi override'], ['⁧', 'bidi isolate'], ['‏', 'RLM'], ['؜', 'ALM'],
+      ['​', 'zero-width space'], ['⁠', 'word joiner'], ['﻿', 'BOM'], ['­', 'soft hyphen'], ['؀', 'Arabic number sign (Cf)'],
+      ['\u{E0001}', 'language tag'], ['\u{E0041}', 'tag A'], ['\u{E007F}', 'cancel tag'],
+      ['︀', 'VS1'], ['️', 'VS16'], ['\u{E0100}', 'VS17'], ['\u{E01EF}', 'VS256']
+    ]
+    for (const [char, name] of cases) {
+      expect(hasHiddenCharacters(`x${char}y`), name).toBe(true)
+      expect(hasHiddenChars(`x${char}y`), name).toBe(true)
+    }
+    expect(hasHiddenCharacters('plain ação 漢字 עברית')).toBe(false)
+    expect(revealHidden('a️b\u{E0041}c').filter(piece => piece.kind === 'hidden')).toEqual([{ kind: 'hidden', code: 'U+FE0F' }, { kind: 'hidden', code: 'U+E0041' }])
+  })
+
+  it('marks the ZWJ inside an emoji sequence too (accepted false alarm for 1.4)', () => {
+    // 👩‍💻 is U+1F469 U+200D U+1F4BB: the joiner is Cf, so the window shows it.
+    expect(revealHidden('\u{1F469}‍\u{1F4BB}')).toEqual([{ kind: 'text', text: '\u{1F469}' }, { kind: 'hidden', code: 'U+200D' }, { kind: 'text', text: '\u{1F4BB}' }])
+  })
+
+  it('the window keeps no list of its own', () => {
+    const source = readFileSync(join(__dirname, '..', 'src', 'components', 'Approvals', 'hiddenChars.ts'), 'utf8')
+    expect(source).toMatch(/from '\.\.\/\.\.\/\.\.\/shared\/hidden-characters'/)
+    expect(source).not.toMatch(/RegExp|\\p\{Cf\}|\\u202/)
   })
 })
 
