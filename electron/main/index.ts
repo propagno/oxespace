@@ -4,6 +4,7 @@ import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from '
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { RendererRecoveryPolicy } from './renderer-recovery'
+import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
@@ -799,10 +800,8 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
-  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe, so its guest has
-  // to carry the same restrictions explicitly — they are not defaults. The guest
-  // runs in its own in-memory partition, which also keeps preview cookies and
-  // storage out of the app's session.
+  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe: its guest carries the same restrictions explicitly, in
+  // its own in-memory partition, which also keeps preview cookies and storage out of the app's session.
 
   // A guest must not be able to spawn windows; external links go to the OS browser.
   mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
@@ -828,6 +827,7 @@ function createMainWindow(): BrowserWindow {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
   })
+  installCloseGuard(mainWindow) // F26: ask the window before it closes or the app quits
 
   // Relax frame-blocking headers only for loopback development servers. Remote
   // sites retain their X-Frame-Options/frame-ancestors policy even when the user
