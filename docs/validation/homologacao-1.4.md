@@ -176,6 +176,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Pré-homologado (#239 31564312 + #244 3f3e2d66): pt-BR e en ok, aspas corrigidas, o vazio vira `refusal:'empty'` |
 | Toasts (F21) | #245 | FRONTEND | Homologado (na `main` b5270492): fusão em ×N, toast próprio para o caminho relativo, pausa, teclado, Escape e posição acima da barra de status, em pt-BR e en, sem erros |
 | Checklist inicial e painel de contas sob demanda | #234 | FRONTEND | Homologado (na `main` b5270492): o checklist aparece em 310 ms e "Agent settings" abre Configurações › Agentes com a verificação de saúde, sem erros. O inglês no checklist em pt-BR já existia antes (igual à captura da auditoria), e fica com o #197 |
+| Regras por ferramenta (B7.3) + `policy.json`/`oxe.yaml` protegidos | #208 | BACKEND | Pré-homologado com ressalvas (b0a399c8): a regressão do #212 passa e a edição por caminho está bem protegida, mas comandos (`git checkout`, `python -c`, `sh -c`, `curl -o`, `tar`, `yq -i`…) gravam no arquivo protegido e saem `allow`. O branch conflita com a `main` |
 | Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab (virou F23) |
 | Indicadores do OxePod | #248 | FRONTEND | Homologado (na `main` 16d27efa): 8×8, redondos, em claro e escuro |
 | Diagnóstico: medidas, incidentes, pacote, `oxespace_diagnostics` | #203 | BACKEND | Homologado (na `main` 04dcc451): nenhum segredo, caminho ou nome vazou; as 2 notas baixas foram fechadas no #252 (pré-homologado, 679fa231) |
@@ -739,6 +740,43 @@ o bloqueio de processo pesado tomado (`check-quarantine*`, capturas em `quaranti
     uma confirmação que repete as instruções suspeitas e tem "Cancelar" como padrão.
 - **Achado 3 (cosmético):** a quarentena usa o mesmo chip cinza dos outros estados, sem cor nem ícone de alerta, e a
   linha em quarentena tem o mesmo peso visual de uma confiável. Também aparece "0 ferramenta" em vez de "0 ferramentas".
+
+### Regras por ferramenta e config protegida (#208 b0a399c8): Pré-homologado com ressalvas
+
+- A regressão do #212 passa no branch (`hml-212.test.ts.txt` como teste de integração, junto com
+  `protected-config-approval` e `protected-config`): 3 arquivos, 23 testes, pelo `test:electron`.
+- O branch está **atrás da `main`** e conflita em `shared/mcp-coverage.ts`, `electron/main/e2e/mock-ipc.ts` e
+  `docs/validation/mcp-coverage-1.4.md`. Por isso a sonda rodou no branch sozinho.
+- A sonda (`probes/protected-config-probe.mts.txt`) chama o `evaluatePermission` e o `fullAccessPolicy` reais. As regras
+  salvas permitem os programas comuns (`git`, `python`, `node`, `curl`, `sh`, `powershell`, `tar`, `yq`…) e editar `**`
+  e `.*`, que é o cenário em que a proteção precisa valer.
+- **Edição pela ferramenta (caminho):** tudo certo. Ficam `ask GUARDED` também com Acesso total:
+  - `.oxespace/policy.json`, `.oxespace\policy.json`, `.OXESPACE\POLICY.JSON`;
+  - o caminho absoluto, `./`, `sub/../`;
+  - `oxe.yaml`, `OXE.YAML`.
+
+  O `oxe.yml` passa, o que está certo: o app só lê `oxe.yaml`.
+- **Comandos que gravam e são reconhecidos:** `cp … .oxespace/policy.json`, `Set-Content .oxespace\policy.json`,
+  `Set-Content -Path .\oxe.yaml` e `jq … | tee .oxespace/policy.json` → `ask GUARDED`.
+- **Ressalva (atrapalha, segurança): comandos que gravam no arquivo protegido e saem como `allow`** quando há regra
+  salva para o programa:
+  - `git checkout -- .oxespace/policy.json`, `git restore oxe.yaml` e `git apply evil.patch`. Um commit trazido do
+    remoto com uma política frouxa volta com um simples checkout.
+  - Interpretadores: `python -c "open('.oxespace/policy.json','w')…"` e `node -e "…writeFileSync('oxe.yaml')…"`.
+  - Shell aninhado: `sh -c 'echo {} > .oxespace/policy.json'` e `powershell -c "Set-Content .oxespace\policy.json …"`.
+  - Download e extração: `curl -o .oxespace/policy.json`, `tar xf p.tar .oxespace/policy.json` e `unzip -o p.zip`.
+  - Editores no lugar: `yq -i … oxe.yaml` e `npx some-tool --write .oxespace/policy.json`.
+
+  Critério de aceite: um comando que cita um arquivo protegido em qualquer posição, inclusive dentro de `-c`/`-e` e de
+  shell aninhado, sai `ask GUARDED`. `git checkout/restore/apply/reset/stash pop/pull/merge` e extração de arquivo
+  compactado valem como escrita em qualquer arquivo e nunca são aprovados por regra quando a pasta tem um arquivo
+  protegido. Os casos desta sonda viram teste.
+- **Notas baixas:**
+  - Redirecionamento (`echo {} > .oxespace/policy.json`, `>> oxe.yaml`, `cd .oxespace && echo {} > policy.json`)
+    chega à pessoa como `ask`, mas sem `guarded`. Sem o aviso de arquivo que comanda agentes, a pessoa pode receber a
+    opção de lembrar ou de "para a sessão".
+  - Os sinônimos de caminho do Windows (`policy.json.`, `policy.json::$DATA`, o nome curto `POLICY~1.JSO`, `oxe.yaml.`)
+    também saem `ask` sem `guarded`. O Windows os resolve para o mesmo arquivo.
 
 ### Achados fora dos itens da onda
 
