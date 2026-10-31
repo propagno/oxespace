@@ -437,7 +437,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const teamDelivery = new TeamDelivery(db, teamAccess, { read: async id => (await threadManager.manager).read(id), send: async (id, text) => (await threadManager.manager).send(id, text) })
   teamDelivery.start()
   app.on('before-quit', () => teamDelivery.stop())
-  registerTeamIpc(db, teamAccess)
+  registerTeamIpc(db, teamAccess, { changed: async ids => (await threadManager.manager).coordinatorsChanged(ids) })
 
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
   const approvals = await import('./services/approvals/wiring')

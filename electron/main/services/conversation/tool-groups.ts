@@ -38,9 +38,12 @@ export interface SessionToolPlan {
  * oxespace_tools_enable. `off` is never offered.
  */
 export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { code?: boolean }, modes: ProjectToolModes): SessionToolPlan {
-  const groups: (keyof typeof MCP_TOOL_GROUPS)[] = ['core', ...(roles.code ? ['code' as const] : []), ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : [])]
+  const groups: (keyof typeof MCP_TOOL_GROUPS)[] = ['core', ...(roles.code ? ['code' as const] : []), ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : []),
+    // The project's coordinator conversation (B1.4): its role brings orchestration whatever the project's mode, as threadToolList does.
+    ...(roles.coordinator ? ['orchestration' as const, 'coordinator' as const] : [])]
   const enableable: SessionToolPlan['enableable'] = {}
   for (const group of CONFIGURABLE_MCP_TOOL_GROUPS) {
+    if (groups.includes(group)) continue
     const { mode } = modes[group]
     if (mode === 'always' || (mode === 'on-demand' && toolSearch)) groups.push(group)
     else if (mode === 'on-demand') enableable[group] = [...MCP_TOOL_GROUPS[group]]

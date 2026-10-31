@@ -123,7 +123,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       pin: (id, pinned) => ipc.invoke(IPC_CHANNELS.thread.pin, id, pinned) as Promise<void>,
       worktreeInspect: id => ipc.invoke(IPC_CHANNELS.thread.worktreeInspect, id) as Promise<import('../../shared/threadWorktree').ThreadWorktreeInspection | null>,
       worktreeFinish: (id, action, choice) => ipc.invoke(IPC_CHANNELS.thread.worktreeFinish, id, action, choice) as Promise<import('../../shared/threadWorktree').ThreadWorktreeFinishResult>,
-      setCoordinator: (id, coordinator) => ipc.invoke(IPC_CHANNELS.thread.setCoordinator, id, coordinator) as Promise<void>,
+      setCoordinator: (id, coordinator, options) => ipc.invoke(IPC_CHANNELS.thread.setCoordinator, id, coordinator, options) as Promise<import('../../shared/types/thread').ProjectCoordinatorOutcome>,
       onChanged: listener => {
         const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
         ipc.on(IPC_CHANNELS.thread.changed, handler)
@@ -134,12 +134,13 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       delivery: (scope, revision, id, enabled) => ipc.invoke(IPC_CHANNELS.team.command, scope, enabled ? 'delivery-on' : 'delivery-off', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
       messages: (scope, id, before) => ipc.invoke(IPC_CHANNELS.team.messages, scope, id, before) as Promise<import('../../shared/types/team').TeamMessage[]>,
       send: (scope, id, key, body) => ipc.invoke(IPC_CHANNELS.team.send, scope, id, key, body) as Promise<import('../../shared/types/team').TeamMessage>,
-      connect: (scope, revision, id, owner) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'connect', revision, id, undefined, owner) as Promise<import('../../shared/types/team').AgentTeam>,
-      disconnect: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'disconnect', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
+      connect: (scope, revision, id, owner, expect) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'connect', revision, id, undefined, owner, { expect }) as Promise<import('../../shared/types/team').TeamCoordinatorResult>,
+      disconnect: (scope, revision, id, expect) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'disconnect', revision, id, undefined, undefined, { expect }) as Promise<import('../../shared/types/team').TeamCoordinatorResult>,
+      preview: (scope, action, revision, id, owner) => ipc.invoke(IPC_CHANNELS.team.command, scope, action, revision, id, undefined, owner, { preview: true }) as Promise<import('../../shared/types/thread').ProjectCoordinatorOutcome>,
       read: scope => ipc.invoke(IPC_CHANNELS.team.command, scope, 'read') as Promise<import('../../shared/types/team').AgentTeam>,
       add: (scope, revision, name, role) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'add', revision, name, role) as Promise<import('../../shared/types/team').AgentTeam>,
-      coordinator: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'coordinator', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
-      archive: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'archive', revision, id) as Promise<import('../../shared/types/team').AgentTeam>
+      coordinator: (scope, revision, id, expect) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'coordinator', revision, id, undefined, undefined, { expect }) as Promise<import('../../shared/types/team').TeamCoordinatorResult>,
+      archive: (scope, revision, id, expect) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'archive', revision, id, undefined, undefined, { expect }) as Promise<import('../../shared/types/team').TeamCoordinatorResult>
     },
     delegation: {
       create: (ws, origin, input) => ipc.invoke(IPC_CHANNELS.delegation.create, ws, origin, input) as ReturnType<OxeApi['delegation']['create']>,

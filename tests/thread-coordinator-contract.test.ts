@@ -15,7 +15,10 @@ describe('coordinator conversation contract (B1.4)', () => {
     expect(admin.ipc).toEqual(['thread.setCoordinator'])
     const ipc: PreloadIpc = { invoke: vi.fn().mockResolvedValue(undefined), on: vi.fn(), removeListener: vi.fn() }
     await createOxeApi(ipc).thread!.setCoordinator!('thread-A', true)
-    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.setCoordinator, 'thread-A', true)
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.setCoordinator, 'thread-A', true, undefined)
+    // B1.4 · S7.5: the preview and its token cross as the third argument.
+    await createOxeApi(ipc).thread!.setCoordinator!('thread-A', true, { preview: true })
+    expect(ipc.invoke).toHaveBeenLastCalledWith(IPC_CHANNELS.thread.setCoordinator, 'thread-A', true, { preview: true })
   })
 
   it('reads pending requests through a read action, and never answers them', () => {

@@ -41,6 +41,20 @@ export interface MessageParams {
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /**
+   * B1.4 · S7.5: the project's coordinator, one per project identity, shared with the Team. `swap` states a role swap
+   * in the confirmation: `member` becomes the coordinator, `previous` takes `role` (the `teamRoles` name, in the
+   * person's language). A refusal changes nothing.
+   */
+  'thread.coordinator.swap': { member: string; previous: string; role: string }
+  /** The Team's coordinator `member` is connected to another conversation, or to this one when it is being unmarked. */
+  'thread.coordinator.teamCoordinatorElsewhere': { member: string }
+  /** The coordinator, the Team or the project changed between the preview and the confirmation. */
+  'thread.coordinator.changed': Record<string, never>
+  /** The conversation's project root changed while its identity was being resolved. */
+  'thread.coordinator.projectChanged': Record<string, never>
+  /** Git could not say which repository the project belongs to (missing folder, timeout); no path identity is used instead. */
+  'thread.coordinator.identityUnavailable': Record<string, never>
   /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
   'activity.invalid': Record<string, never>
   'activity.tooMany': { max: number }
@@ -329,6 +343,11 @@ export const MESSAGE_CODES = [
   'app.connectivity.offline',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.coordinator.swap',
+  'thread.coordinator.teamCoordinatorElsewhere',
+  'thread.coordinator.changed',
+  'thread.coordinator.projectChanged',
+  'thread.coordinator.identityUnavailable',
   'activity.invalid',
   'activity.tooMany',
   'activity.titleTooLong',

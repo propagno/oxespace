@@ -621,6 +621,23 @@ export type ThreadPendingResponseResult =
 export const THREAD_PARENT_VIA = ['thread_create', 'work', 'delegation'] as const
 export interface ThreadParentLink { threadId: string; via: typeof THREAD_PARENT_VIA[number] }
 
+/**
+ * B1.4 · S7.5: what a coordinator preview saw. The confirmation hands it back, and the change is refused
+ * (`thread.coordinator.changed`) when any part moved: the Team's revision, the conversation that coordinates, the identity.
+ */
+export interface ProjectCoordinatorToken { identity: string; teamRevision: number | null; coordinatorThreadId: string | null }
+export interface ProjectCoordinatorOptions { preview?: boolean; expect?: ProjectCoordinatorToken }
+/** What a coordinator change did, or would do in a preview. The same shape from a conversation and from the Team. */
+export interface ProjectCoordinatorOutcome {
+  /** Conversations whose coordinator flag changed. */
+  changed: string[]
+  /** A role swap in the project's Team, to state in the confirmation (`message` is thread.coordinator.swap). */
+  swap?: { promoted: string; demoted: string; demotedRole: import('./team').TeamRole; message: import('../messages').MainMessage }
+  /** The conversation that loses the role, to name in the confirmation; `worktree` is its checkout's folder when it is not the project root. */
+  previous?: { threadId: string; title: string; rootPath: string; worktree?: string }
+  token: ProjectCoordinatorToken
+}
+
 /** One child conversation, as the parent's view lists it. */
 export interface ThreadChildSummary {
   id: string
@@ -739,8 +756,13 @@ export interface ThreadApi {
   worktreeInspect?(id: string): Promise<import('../threadWorktree').ThreadWorktreeInspection | null>
   /** Archives or deletes the conversation, then cleans up its worktree as the choice allows. */
   worktreeFinish?(id: string, action: import('../threadWorktree').ThreadWorktreeFinishAction, choice: import('../threadWorktree').ThreadWorktreeChoice): Promise<import('../threadWorktree').ThreadWorktreeFinishResult>
-  /** Makes this conversation the project's coordinator, or stops it being one; another one stops being it. The person's choice only. */
-  setCoordinator?(id: string, coordinator: boolean): Promise<void>
+  /**
+   * Makes this conversation the project's coordinator, or stops it being one; another one stops being it. The person's
+   * choice only. Ask with `{ preview: true }` first: it writes nothing and returns what would change (a Team role swap,
+   * the conversation that loses the role) and a token; confirm with `{ expect: token }`. A refusal is a C3 code
+   * (`thread.coordinator.*`) and writes nothing.
+   */
+  setCoordinator?(id: string, coordinator: boolean, options?: ProjectCoordinatorOptions): Promise<ProjectCoordinatorOutcome>
   onChanged(listener: (value: { threadId: string }) => void): () => void
 }
 

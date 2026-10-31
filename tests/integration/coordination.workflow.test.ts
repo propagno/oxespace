@@ -12,7 +12,7 @@ import { collectEvidence } from '../../electron/main/services/coordination/evide
 import type { GitHubWorktreeApi } from '../../shared/types/github'
 import { DELEGATION_TOOLS } from '../../electron/main/mcp-internal/delegation-tools'
 import type { ToolContext } from '../../electron/main/mcp-internal/tool-registry'
-import { setThreadCoordinator } from '../../electron/main/services/conversation/thread-coordinator'
+import { ProjectCoordinatorService } from '../../electron/main/services/conversation/project-coordinators'
 const exec = promisify(execFile)
 const cleanup: (() => Promise<void>)[] = []
 afterEach(async () => { for (const fn of cleanup.splice(0)) await fn() }, 30000)
@@ -148,7 +148,7 @@ describe('cross-workspace coordination', () => {
     await f.service.configureTarget(f.a.id, f.roots[1], true, true)
     f.db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES ('project', ?, ?, 'Source', 1, 1)").run(f.roots[0], f.roots[0])
     for (const id of ['coordinator', 'sibling']) f.db.prepare("INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, 'project', ?, '[]')").run(id, f.a.id, JSON.stringify({ id }))
-    setThreadCoordinator(f.db, 'coordinator', true)
+    await new ProjectCoordinatorService(f.db).setForThread('coordinator', true)
     const live = (id: string) => { f.registry.register({ owner: { kind: 'thread', id }, workspaceId: f.a.id, cwd: f.roots[0] }); return f.registry.forOwner({ kind: 'thread', id })! }
     const theirs = await f.service.create(f.origin, f.input)
     await vi.waitFor(() => expect(f.service.get(theirs.id).destinationExecutionId).toBeTruthy(), { timeout: 15000 })

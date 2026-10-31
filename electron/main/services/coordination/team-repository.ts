@@ -45,13 +45,23 @@ export class TeamRepository {
       return this.get(teamId)
     })
   }
+  /** Prefer ProjectCoordinatorService.setMemberCoordinator, which also keeps the project's coordinator conversation. */
   replaceCoordinator(teamId: string, revision: number, memberId: string): AgentTeam {
-    return this.mutate(teamId, revision, () => {
-      this.member(teamId, memberId)
-      this.db.prepare("UPDATE agent_team_members SET role='developer' WHERE team_id=? AND role='coordinator' AND archived=0").run(teamId)
-      this.db.prepare("UPDATE agent_team_members SET role='coordinator' WHERE id=?").run(memberId)
-      return this.get(teamId)
-    })
+    return this.mutate(teamId, revision, () => { this.swapCoordinator(teamId, memberId); return this.get(teamId) })
+  }
+  /**
+   * The one role change for the coordinator (B1.4 · S7.5), from the Team or from a conversation: the member becomes
+   * the coordinator and the previous coordinator takes the member's old role (a swap). With no coordinator, the
+   * member is promoted and nothing is swapped. Runs inside the caller's transaction; the caller bumps the revision.
+   */
+  swapCoordinator(teamId: string, memberId: string): { member: TeamMember; previous?: TeamMember } {
+    const member = this.member(teamId, memberId)
+    if (member.role === 'coordinator') return { member }
+    const previous = this.get(teamId).members.find(m => m.role === 'coordinator' && !m.archived)
+    // The previous one steps down first: one active coordinator per team (agent_team_coordinator).
+    if (previous) this.db.prepare('UPDATE agent_team_members SET role=? WHERE id=?').run(member.role, previous.id)
+    this.db.prepare("UPDATE agent_team_members SET role='coordinator' WHERE id=?").run(memberId)
+    return { member, ...(previous ? { previous } : {}) }
   }
   archive(teamId: string, revision: number, memberId: string): AgentTeam {
     return this.mutate(teamId, revision, () => {

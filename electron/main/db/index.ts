@@ -521,7 +521,7 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 85) db.transaction(() => db.exec(readMigration('085_thread_sections.sql')))()
   if (startingVersion < 87) db.transaction(() => db.exec(readMigration('087_activity_entries.sql')))()
   if (startingVersion < 88) db.transaction(() => { db.exec(withoutExistingColumns(db, readMigration('088_thread_parent.sql'))); backfillThreadParents(db) })()
-  if (startingVersion < 89) db.transaction(() => db.exec(readMigration('089_thread_coordinator.sql')))()
+  if (startingVersion < 89) db.transaction(() => db.exec(readMigration('089_project_coordinators.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations, type AppDatabase } from '../../electron/main/db'
 import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
 import { ThreadHistory } from '../../electron/main/services/conversation/thread-history'
-import { clearRevokedThreadTools, coordinatorPendingRequests, isRevokedThreadTool, setThreadCoordinator } from '../../electron/main/services/conversation/thread-coordinator'
+import { clearRevokedThreadTools, coordinatorPendingRequests, isRevokedThreadTool } from '../../electron/main/services/conversation/thread-coordinator'
+import { ProjectCoordinatorService } from '../../electron/main/services/conversation/project-coordinators'
+import { TeamRepository } from '../../electron/main/services/coordination/team-repository'
 import { OPTIONAL_THREAD_TOOL_GROUPS, THREAD_TOOL_GROUPS, threadToolList, threadToolRoles } from '../../electron/main/services/conversation/thread-mcp'
 import { createLocalRpcServer, type LocalRpcDeps, type LocalRpcServer } from '../../electron/main/mcp-internal/local-rpc-server'
 import { TOOL_REGISTRY } from '../../electron/main/mcp-internal/tool-registry'
@@ -15,17 +17,27 @@ import { FORBIDDEN_CAPABILITIES, MCP_COVERAGE } from '../../shared/mcp-coverage'
 import type { AgentConversationAdapter, ConversationThread, ThreadEvent, ThreadRequest } from '../../shared/types/thread'
 
 vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
+// The project turns orchestration and the app group off, so the tools a demoted coordinator loses are the ones its role gave it.
+vi.mock('../../electron/main/services/repo-config/loader', async original => ({ ...await original<object>(),
+  loadRepoConfig: async () => ({ thread: { toolModes: { orchestration: 'off', app: 'off' } } }) }))
 
+// The swap notice names roles in the interface's language; fix it so the test does not depend on the machine.
+process.env.OXESPACE_LOCALE = 'en'
 const TOKEN = 'c'.repeat(64)
 const cleanup: (() => Promise<void> | void)[] = []
 afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn() })
 
+/** p1 and p2 are two identities. Git stands aside: identities are a table. */
 function fixture(live = false) {
   const db = openInMemoryDatabase()
+  const repo = '/repo'
+  const roots: Record<string, string> = { p1: repo, p2: '/other' }
+  const identities: Record<string, string> = { [repo]: 'id-repo', '/other': 'id-other' }
   db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('ws', 'Repo', '/repo', '1x1', 'builtin-claude')").run()
-  for (const [id, root] of [['p1', '/repo'], ['p2', '/other']]) {
+  for (const [id, root] of Object.entries(roots)) {
     db.prepare('INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)').run(id, root, root, id)
   }
+  const identify = async (root: string) => { if (!identities[root]) throw Error('not a project'); return identities[root] }
   const notify = vi.fn()
   // With `live`, a fake agent answers each conversation, so sessions can be opened, finished and closed.
   const callbacks = new Map<string, (event: ThreadEvent) => void>()
@@ -40,9 +52,10 @@ function fixture(live = false) {
     return adapter
   })
   const manager = new ThreadManager(db, factory, notify)
+  manager.coordinatorIdentity = identify
   if (live) vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
   cleanup.push(() => db.close(), () => manager.stop())
-  const create = (projectId = 'p1', parent?: ConversationThread['parent']) => manager.create({ workspaceId: 'ws', projectId, rootPath: projectId === 'p1' ? '/repo' : '/other', provider: 'claude', ...(parent ? { parent } : {}) }).thread.id
+  const create = (projectId = 'p1', parent?: ConversationThread['parent']) => manager.create({ workspaceId: 'ws', projectId, rootPath: roots[projectId], provider: 'claude', ...(parent ? { parent } : {}) }).thread.id
   const flagged = () => manager.list().filter(thread => thread.coordinator).map(thread => thread.id).sort()
   /** Sends one message and lets the fake agent finish the turn. */
   const turn = async (id: string, text = 'Hello') => {
@@ -51,7 +64,7 @@ function fixture(live = false) {
     await vi.waitFor(() => expect(manager.read(id).thread.status).toBe('idle'))
     await new Promise(resolve => setTimeout(resolve, 0))
   }
-  return { db, manager, notify, create, flagged, factory, adapters, starts, callbacks, turn }
+  return { db, manager, notify, create, flagged, factory, adapters, starts, callbacks, turn, identify, repo }
 }
 
 const SECRETS = ['rm -rf /secret-path', '/secret-cwd', 'secret-reason', 'secret-detail', 'request-r1', 'native-r1']
@@ -69,14 +82,20 @@ function waiting(db: AppDatabase, id: string, projectId: string, request: Partia
 }
 
 describe('coordinator flag (B1.4)', () => {
-  it('is created by migration 089, also on a database upgraded from 83', async () => {
+  it('is created by migration 089, also on a database upgraded from 83, and drops the unshipped draft table', async () => {
     const { db } = fixture()
+    const table = (name: string) => db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name)
     expect(LATEST_DB_VERSION).toBe(89)
     expect(db.pragma('user_version', { simple: true })).toBe(89)
-    db.exec('DROP TABLE thread_project_coordinators; PRAGMA user_version = 83;')
+    db.exec('DROP TABLE project_coordinators; PRAGMA user_version = 83;')
     runMigrations(db)
     expect(db.pragma('user_version', { simple: true })).toBe(89)
-    expect(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'thread_project_coordinators'").get()).toBeTruthy()
+    expect(table('project_coordinators')).toBeTruthy()
+    // A development database that ran the earlier draft (keyed by thread project) loses it.
+    db.exec('CREATE TABLE thread_project_coordinators (project_id TEXT PRIMARY KEY, thread_id TEXT NOT NULL UNIQUE, updated_at INTEGER NOT NULL); PRAGMA user_version = 88;')
+    runMigrations(db)
+    expect(table('thread_project_coordinators')).toBeFalsy()
+    expect((db.prepare("PRAGMA table_info('project_coordinators')").all() as { name: string }[]).map(column => column.name)).toEqual(['project_identity', 'thread_id', 'root_path', 'updated_at'])
   })
 
   it('stays unique per project: marking a conversation unmarks the previous one', async () => {
@@ -91,11 +110,11 @@ describe('coordinator flag (B1.4)', () => {
     expect(f.notify.mock.calls.map(([id]) => id).sort()).toEqual([a, b].sort())
     await f.manager.setCoordinator(other, true)
     expect(f.flagged()).toEqual([b, other].sort())
-    expect(f.db.prepare('SELECT project_id, thread_id FROM thread_project_coordinators ORDER BY project_id').all()).toEqual([
-      { project_id: 'p1', thread_id: b }, { project_id: 'p2', thread_id: other }])
-    // The table itself refuses a second row for a project, and a conversation coordinating two projects.
-    expect(() => f.db.prepare("INSERT INTO thread_project_coordinators (project_id, thread_id, updated_at) VALUES ('p1', ?, 1)").run(a)).toThrow(/UNIQUE|PRIMARY/)
-    expect(() => f.db.prepare("INSERT INTO thread_project_coordinators (project_id, thread_id, updated_at) VALUES ('p2', ?, 1)").run(b)).toThrow(/UNIQUE/)
+    expect(f.db.prepare('SELECT project_identity, thread_id, root_path FROM project_coordinators ORDER BY project_identity').all()).toEqual([
+      { project_identity: 'id-other', thread_id: other, root_path: '/other' }, { project_identity: 'id-repo', thread_id: b, root_path: f.repo }])
+    // The table itself refuses a second row for an identity, and a conversation coordinating two identities.
+    expect(() => f.db.prepare("INSERT INTO project_coordinators (project_identity, thread_id, root_path, updated_at) VALUES ('id-repo', ?, '/x', 1)").run(a)).toThrow(/UNIQUE|PRIMARY/)
+    expect(() => f.db.prepare("INSERT INTO project_coordinators (project_identity, thread_id, root_path, updated_at) VALUES ('id-third', ?, '/x', 1)").run(b)).toThrow(/UNIQUE/)
     // Marking it again, or unmarking one that is not, changes nothing and notifies no one.
     f.notify.mockClear()
     await f.manager.setCoordinator(b, true)
@@ -119,7 +138,7 @@ describe('coordinator flag (B1.4)', () => {
     expect(f.flagged()).toEqual([a])
     expect(threadToolRoles(f.db, b).coordinator).toBe(false)
     f.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(a)
-    expect(f.db.prepare('SELECT count(*) AS n FROM thread_project_coordinators').get()).toEqual({ n: 0 })
+    expect(f.db.prepare('SELECT count(*) AS n FROM project_coordinators').get()).toEqual({ n: 0 })
   })
 
   it('is lost when the coordinator is archived, with a change notice, and un-archiving does not restore it', async () => {
@@ -132,7 +151,7 @@ describe('coordinator flag (B1.4)', () => {
     f.notify.mockClear()
     await f.manager.command(coordinator, '/archive confirm')
     expect(f.manager.read(coordinator).thread.archived).toBe(true)
-    expect(f.db.prepare('SELECT count(*) AS n FROM thread_project_coordinators').get()).toEqual({ n: 0 })
+    expect(f.db.prepare('SELECT count(*) AS n FROM project_coordinators').get()).toEqual({ n: 0 })
     expect(f.manager.list().some(thread => thread.coordinator)).toBe(false)
     expect(f.manager.readForRenderer(coordinator).thread).not.toHaveProperty('coordinator')
     expect(threadToolRoles(f.db, coordinator).coordinator).toBe(false)
@@ -154,7 +173,7 @@ describe('coordinator flag (B1.4)', () => {
     const a = f.create()
     await expect(f.manager.setCoordinator('missing', true)).rejects.toThrow('Thread not found')
     f.db.prepare("UPDATE conversation_threads SET data_json = json_set(data_json, '$.archived', json('true')) WHERE id = ?").run(a)
-    expect(() => setThreadCoordinator(f.db, a, true)).toThrow('archived')
+    await expect(new ProjectCoordinatorService(f.db, f.identify).setForThread(a, true)).rejects.toThrow('archived')
     expect(f.flagged()).toEqual([])
   })
 })
@@ -340,6 +359,38 @@ describe('review fixes (B1.4)', () => {
     expect(isRevokedThreadTool(coordinator, 'oxespace_list_agents')).toBe(false)
   })
 
+  it('a Team-side demotion reaches the running session: its process is closed and orchestration is refused (change 6)', async () => {
+    const f = fixture(true)
+    const coordinator = f.create()
+    const repository = new TeamRepository(f.db)
+    let team = repository.ensure('id-repo', 'Repo')
+    team = repository.add(team.id, team.revision, 'Ana', 'coordinator')
+    team = repository.add(team.id, team.revision, 'Caio', 'reviewer')
+    const [ana, caio] = ['Ana', 'Caio'].map(name => team.members.find(m => m.name === name)!.id)
+    f.db.prepare("INSERT INTO agent_team_execution_links VALUES (?, 'thread', ?)").run(ana, coordinator)
+    f.db.prepare("INSERT INTO agent_team_execution_links VALUES (?, 'pane', 'pane-1')").run(caio)
+    // The boot pass backfills the row from the Team's coordinator link.
+    await f.manager.reconcileCoordinators()
+    expect(f.flagged()).toEqual([coordinator])
+    await f.turn(coordinator)
+    const rpc = await rpcServer(f)
+    const session = rpc.as(coordinator)
+    expect((await rpc.callTool(session, 'oxespace_list_agents', {})).content[0].text).not.toContain('no longer available')
+    // The Team makes Caio (on a pane) its coordinator; team.ipc runs the same hook after the commit.
+    const change = await new ProjectCoordinatorService(f.db, f.identify).setMemberCoordinator(team.id, repository.get(team.id).revision, caio)
+    expect(change.changed).toEqual([coordinator])
+    f.notify.mockClear()
+    await f.manager.coordinatorsChanged(change.changed)
+    expect(f.adapters.get(coordinator)!.dispose).toHaveBeenCalledOnce()
+    expect(f.notify).toHaveBeenCalledWith(coordinator)
+    expect(f.flagged()).toEqual([])
+    for (const tool of ['oxespace_list_agents', 'oxespace_delegate_task', 'oxespace_threads']) {
+      const refused = await rpc.callTool(session, tool, { action: 'list' })
+      expect(refused.isError, tool).toBe(true)
+      expect(refused.content[0].text).toContain('no longer available in this conversation')
+    }
+  })
+
   it('keeps a busy session open on demotion, still refusing the lost tools', async () => {
     const f = fixture(true)
     const coordinator = f.create()
@@ -385,7 +436,7 @@ describe('archive cascade and the coordinator (B1.3 x B1.4)', () => {
     f.callbacks.get(child)!({ type: 'completed', status: 'interrupted' })
     expect(await archiving).toEqual({ kind: 'navigate' })
     expect(f.manager.read(child).thread.archived).toBe(true)
-    expect(f.db.prepare('SELECT count(*) AS n FROM thread_project_coordinators').get()).toEqual({ n: 0 })
+    expect(f.db.prepare('SELECT count(*) AS n FROM project_coordinators').get()).toEqual({ n: 0 })
     expect(f.flagged()).toEqual([])
     expect(f.notify).toHaveBeenCalledWith(child)
   })

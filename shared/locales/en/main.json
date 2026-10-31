@@ -1,4 +1,11 @@
 {
+  "teamRoles": {
+    "coordinator": "coordinator",
+    "project-manager": "project manager",
+    "product-manager": "product manager",
+    "developer": "developer",
+    "reviewer": "reviewer"
+  },
   "crash": {
     "unexpected": {
       "title": "OXESpace hit an unexpected error",
@@ -88,6 +95,13 @@
       "side": {
         "unavailable": "This agent cannot open a side chat yet.",
         "noSession": "Send a message first: a side chat copies the conversation so far."
+      },
+      "coordinator": {
+        "swap": "{{member}} becomes the coordinator, and {{previous}} becomes {{role}}.",
+        "teamCoordinatorElsewhere": "{{member}} is already this project's coordinator, in another conversation. To change it, open Project team, or connect this conversation to {{member}}.",
+        "changed": "The project's coordinator changed while you were deciding. Review it again before you confirm.",
+        "projectChanged": "This conversation's project moved while it was being checked. Try again.",
+        "identityUnavailable": "OXESpace couldn't tell which repository this project belongs to, so the coordinator wasn't changed. Check that the folder is there and that Git answers, then try again."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",

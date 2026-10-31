@@ -28,11 +28,18 @@ describe('thread:set-coordinator IPC (B1.4)', () => {
     const app = { sender: { window: true, mainFrame }, senderFrame: mainFrame }
     await handler(app, 'thread-A', true)
     await handler(app, 'thread-A', false)
-    expect(setCoordinator.mock.calls).toEqual([['thread-A', true], ['thread-A', false]])
+    // B1.4 · S7.5: a preview, and a confirmation that hands its token back.
+    const token = { identity: '/repo', teamRevision: 3, coordinatorThreadId: null }
+    await handler(app, 'thread-A', true, { preview: true })
+    await handler(app, 'thread-A', true, { expect: token })
+    expect(setCoordinator.mock.calls).toEqual([['thread-A', true, {}], ['thread-A', false, {}], ['thread-A', true, { preview: true }], ['thread-A', true, { expect: token }]])
     for (const invalid of [undefined, 'true', 1, null, {}]) expect(() => handler(app, 'thread-A', invalid)).toThrow('Invalid coordinator input')
+    for (const invalid of ['preview', [], { preview: 'yes' }, { expect: {} }, { expect: { ...token, teamRevision: 1.5 } }, { expect: { ...token, coordinatorThreadId: 'x\0y' } }]) {
+      expect(() => handler(app, 'thread-A', true, invalid)).toThrow('Invalid coordinator options')
+    }
     for (const invalid of [undefined, '', 42, { id: 'thread-A' }, 'x\0y', 'x'.repeat(70000)]) expect(() => handler(app, invalid, true)).toThrow('Invalid thread input')
     expect(() => handler({ sender: { window: true, mainFrame }, senderFrame: {} }, 'thread-A', true)).toThrow('application main frame')
     expect(() => handler({ sender: { window: false, mainFrame }, senderFrame: mainFrame }, 'thread-A', true)).toThrow('application main frame')
-    expect(setCoordinator).toHaveBeenCalledTimes(2)
+    expect(setCoordinator).toHaveBeenCalledTimes(4)
   })
 })

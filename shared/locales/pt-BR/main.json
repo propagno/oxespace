@@ -1,4 +1,11 @@
 {
+  "teamRoles": {
+    "coordinator": "coordenadora",
+    "project-manager": "gerente de projeto",
+    "product-manager": "gerente de produto",
+    "developer": "desenvolvedor",
+    "reviewer": "revisor"
+  },
   "crash": {
     "unexpected": {
       "title": "O OXESpace encontrou um erro inesperado",
@@ -88,6 +95,13 @@
       "side": {
         "unavailable": "Este agente ainda não abre um chat lateral.",
         "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
+      },
+      "coordinator": {
+        "swap": "{{member}} passa a ser a coordenadora, e {{previous}} passa a ser {{role}}.",
+        "teamCoordinatorElsewhere": "{{member}} já é a coordenadora deste projeto, em outra conversa. Para trocar, abra a Equipe do projeto ou conecte esta conversa a {{member}}.",
+        "changed": "A coordenadora do projeto mudou enquanto você decidia. Revise de novo antes de confirmar.",
+        "projectChanged": "O projeto desta conversa mudou enquanto era verificado. Tente de novo.",
+        "identityUnavailable": "O OXESpace não conseguiu identificar o repositório deste projeto, então a coordenadora não mudou. Confira se a pasta existe e se o Git responde, e tente de novo."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" guarda instruções de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",

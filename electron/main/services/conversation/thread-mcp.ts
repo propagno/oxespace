@@ -2,6 +2,7 @@ import { agentMcpArguments } from '../agent-launch.service'
 import { claudeMcpEntries, codexMcpArguments, type ManagedMcp } from './thread-managed-mcp'
 import { matchesResource } from '../../../../shared/policy'
 import type { ConversationThread, AgentConversationAdapter, ThreadEvent, ThreadPermissionRule, ThreadSnapshot } from '../../../../shared/types/thread'
+import { IS_EFFECTIVE_COORDINATOR } from './coordinator-authority'
 
 export interface ThreadMcpBindings {
   bridge: string
@@ -111,7 +112,8 @@ export function threadToolRoles(db: RoleDatabase, threadId: string): ThreadToolR
     worker: has("SELECT 1 FROM delegations WHERE json_extract(payload, '$.destinationThreadId')=? LIMIT 1")
       || has('SELECT 1 FROM work_tasks WHERE thread_id=? LIMIT 1')
       || has('SELECT 1 FROM work_runs WHERE supervisor_thread_id=? LIMIT 1'),
-    coordinator: has('SELECT 1 FROM thread_project_coordinators WHERE thread_id=? LIMIT 1')
+    // The one authority check (B1.4 · S7.5): the row, the conversation and its project, and the Team's precedence.
+    coordinator: has(IS_EFFECTIVE_COORDINATOR)
   }
 }
 

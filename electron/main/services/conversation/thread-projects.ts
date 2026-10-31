@@ -5,13 +5,15 @@ import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import type { ThreadProjectCatalog, ThreadProjectSummary } from '../../../../shared/types/thread'
 import { projectIdentity } from '../memory/memory-project.service'
+import { flagChanges, grantedCoordinators, relinkProjectCoordinators } from './coordinator-authority'
 
 interface ProjectRow { id: string; identity: string; root_path: string; display_name: string; hidden: number }
 interface ContextRow { project_id: string; root_path: string }
 
 /** Persistent Thread directory registry. Code workspaces are never consulted. */
 export class ThreadProjectService {
-  constructor(private readonly db: AppDatabase) {}
+  /** `coordinatorsChanged` hears of conversations whose coordinator flag a relink changed (B1.4 · S7.5). */
+  constructor(private readonly db: AppDatabase, private readonly coordinatorsChanged?: (ids: string[]) => void) {}
 
   catalog(): ThreadProjectCatalog {
     const rows = this.db.prepare('SELECT id, identity, root_path, display_name, hidden FROM thread_projects ORDER BY display_name COLLATE NOCASE').all() as ProjectRow[]
@@ -73,14 +75,20 @@ export class ThreadProjectService {
     const owner = this.db.prepare('SELECT id FROM thread_projects WHERE identity = ? AND id <> ?').get(identity, projectId) as { id: string } | undefined
     if (owner) throw Error('This directory belongs to another OxeChat project')
     const now = Date.now()
+    let coordinators: string[] = []
     this.db.transaction(() => {
+      const granted = grantedCoordinators(this.db)
       this.db.prepare('UPDATE thread_projects SET identity = ?, root_path = ?, display_name = ?, hidden = 0, updated_at = ? WHERE id = ?')
         .run(identity, canonical, basename(canonical), now, projectId)
       this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(projectId, canonical)
       if (canonical !== current.root_path) this.db.prepare('DELETE FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').run(projectId, current.root_path)
       this.db.prepare(`UPDATE conversation_threads SET data_json = json_set(data_json, '$.rootPath', ?) WHERE thread_project_id = ? AND json_extract(data_json, '$.rootPath') = ?`)
         .run(canonical, projectId, current.root_path)
+      // The project's coordinator rows follow the new root and identity, in this transaction.
+      relinkProjectCoordinators(this.db, projectId, identity, canonical, now)
+      coordinators = flagChanges(granted, grantedCoordinators(this.db))
     })()
+    if (coordinators.length) this.coordinatorsChanged?.(coordinators)
     return this.catalog().projects.find(project => project.projectId === projectId)!
   }
 }

@@ -9,7 +9,8 @@ import { THREAD_SECTIONS_REFUSALS } from '../shared/types/thread-sections'
 import { WORKSPACE_ROOT_REFUSALS } from '../shared/types/workspace'
 
 const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
-const placeholders = (text: string) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]).sort()
+/** The distinct parameters a text interpolates; one may appear twice (thread.coordinator.teamCoordinatorElsewhere). */
+const placeholders = (text: string) => [...new Set([...text.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]))].sort()
 
 /** The parameter names each code carries, as the catalog must interpolate them. */
 const PARAMETERS: Record<MessageCode, string[]> = {
@@ -30,6 +31,11 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'app.connectivity.offline': [],
   'thread.side.unavailable': [],
   'thread.side.noSession': [],
+  'thread.coordinator.swap': ['member', 'previous', 'role'],
+  'thread.coordinator.teamCoordinatorElsewhere': ['member'],
+  'thread.coordinator.changed': [],
+  'thread.coordinator.projectChanged': [],
+  'thread.coordinator.identityUnavailable': [],
   'activity.invalid': [],
   'activity.tooMany': ['max'],
   'activity.titleTooLong': ['max'],

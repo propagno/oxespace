@@ -31,7 +31,8 @@ export class TeamAccess {
     }) }
   }
 
-  async connectFromUi(teamId: string, revision: number, memberId: string, owner: ExecutionOwner): Promise<void> {
+  /** `within` runs in the same transaction, after the checks and before the link is written: the project's coordinator follows its member (B1.4). */
+  async connectFromUi(teamId: string, revision: number, memberId: string, owner: ExecutionOwner, within?: () => void): Promise<void> {
     if (!owner || !['thread', 'pane'].includes(owner.kind) || typeof owner.id !== 'string') throw Error('Invalid session owner')
     const execution = this.executions.forOwner(owner)
     if (!execution) throw Error('Start the agent session before connecting this member')
@@ -45,6 +46,7 @@ export class TeamAccess {
       const previous = this.db.prepare('SELECT owner_kind AS kind,owner_id AS id FROM agent_team_execution_links WHERE member_id=?').get(memberId) as ExecutionOwner | undefined
       const same = current?.owner.kind === owner.kind && current.owner.id === owner.id
       if (current && !same && previous && this.consented(memberId, previous, this.executions.forOwner(previous))) throw Error('Disconnect the current member session first')
+      within?.()
       this.db.prepare(`INSERT INTO agent_team_execution_links VALUES (?,?,?) ON CONFLICT(member_id) DO UPDATE SET owner_kind=excluded.owner_kind,owner_id=excluded.owner_id`)
         .run(memberId, owner.kind, owner.id)
       this.db.prepare('UPDATE agent_teams SET revision=revision+1 WHERE id=?').run(teamId)

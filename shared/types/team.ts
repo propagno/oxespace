@@ -1,12 +1,23 @@
 export type TeamRole = 'coordinator' | 'project-manager' | 'product-manager' | 'developer' | 'reviewer'
 export type TeamScope = { kind: 'code' | 'thread'; id: string }
+type ProjectCoordinatorToken = import('./thread').ProjectCoordinatorToken
+type ProjectCoordinatorOutcome = import('./thread').ProjectCoordinatorOutcome
+/** Team actions that move the project's coordinator conversation (B1.4 · S7.5). */
+export const TEAM_COORDINATOR_ACTIONS = ['coordinator', 'connect', 'disconnect', 'archive'] as const
+export type TeamCoordinatorAction = typeof TEAM_COORDINATOR_ACTIONS[number]
+export type TeamCoordinatorResult = AgentTeam & { coordinatorChange?: ProjectCoordinatorOutcome }
 export interface TeamApi {
   read(scope: TeamScope): Promise<AgentTeam>
   add(scope: TeamScope, revision: number, name: string, role: TeamRole): Promise<AgentTeam>
-  coordinator(scope: TeamScope, revision: number, memberId: string): Promise<AgentTeam>
-  archive(scope: TeamScope, revision: number, memberId: string): Promise<AgentTeam>
-  connect(scope: TeamScope, revision: number, memberId: string, owner: { kind: 'thread' | 'pane'; id: string }): Promise<AgentTeam>
-  disconnect(scope: TeamScope, revision: number, memberId: string): Promise<AgentTeam>
+  /**
+   * These four also move the project's coordinator conversation (B1.4 · S7.5). Ask `preview` first: it writes nothing
+   * and returns what would change and a token; pass the token as `expect`. The result carries `coordinatorChange`.
+   */
+  coordinator(scope: TeamScope, revision: number, memberId: string, expect?: ProjectCoordinatorToken): Promise<TeamCoordinatorResult>
+  archive(scope: TeamScope, revision: number, memberId: string, expect?: ProjectCoordinatorToken): Promise<TeamCoordinatorResult>
+  connect(scope: TeamScope, revision: number, memberId: string, owner: { kind: 'thread' | 'pane'; id: string }, expect?: ProjectCoordinatorToken): Promise<TeamCoordinatorResult>
+  disconnect(scope: TeamScope, revision: number, memberId: string, expect?: ProjectCoordinatorToken): Promise<TeamCoordinatorResult>
+  preview(scope: TeamScope, action: TeamCoordinatorAction, revision: number, memberId: string, owner?: { kind: 'thread' | 'pane'; id: string }): Promise<ProjectCoordinatorOutcome>
   delivery(scope: TeamScope, revision: number, memberId: string, enabled: boolean): Promise<AgentTeam>
   messages(scope: TeamScope, memberId: string, before?: number): Promise<TeamMessage[]>
   send(scope: TeamScope, memberId: string, key: string, body: string): Promise<TeamMessage>
