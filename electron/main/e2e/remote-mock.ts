@@ -2,12 +2,13 @@
  * A pretend remote gateway for the E2E runs of Settings › Devices: no socket, no certificate. One phone is paired
  * unless `OXESPACE_E2E_REMOTE_DEVICES=0`; with `OXESPACE_E2E_REMOTE_PAIR_PROMPT=1`, a phone asks to pair shortly after a
  * pairing code is shown, so a spec can answer it. With `OXESPACE_E2E_REMOTE_PAIR_FAIL=<reason>` (invalid, expired,
- * refused, limit, peer-closed), a pairing attempt fails that way shortly after a code is shown. `OXESPACE_E2E_REMOTE_LISTENED=1`
+ * refused, limit, peer-closed, reserved-name), a pairing attempt fails that way shortly after a code is shown. `OXESPACE_E2E_REMOTE_LISTENED=1`
  * starts as if the gateway had listened before on this profile.
  *
  * Rejections carry the same C3 codes as the real gateway; malformed input stays a plain Error.
  */
 import { BrowserWindow, ipcMain } from 'electron'
+import { reservedNameIn } from '../../../shared/approval-rules'
 import { mainMessage } from '../../../shared/messages'
 import { MainMessageError } from '../ipc/main-message-error'
 import { pairingUri, REMOTE_LIMITS, REMOTE_PROTOCOL_VERSION } from '../../../shared/remote/protocol'
@@ -19,7 +20,9 @@ import {
 
 const CONTROL = /[\u0000-\u001f\u007f]/
 const PANE_ID = /^[A-Za-z0-9._:-]{1,200}$/
-const goodName = (name: string, max: number) => !!name.trim() && name.trim().length <= max && !CONTROL.test(name)
+/** Invisible format characters (zero-width spaces, joiners, direction marks) are not part of a name. */
+const stripFormat = (name: string) => name.replace(/\p{Cf}/gu, '').trim()
+const goodName = (name: string, max: number) => !!name && name.length <= max && !CONTROL.test(name)
 
 export function registerRemoteMock(): void {
   const fingerprint = 'ab'.repeat(32)
@@ -86,7 +89,7 @@ export function registerRemoteMock(): void {
   })
   ipcMain.handle(IPC_CHANNELS.remote.setDesktopName, (_event, input: { name?: unknown }) => {
     if (input?.name !== null && typeof input?.name !== 'string') throw new Error('Invalid desktop name input')
-    if (typeof input.name === 'string' && !goodName(input.name, REMOTE_MAX_DESKTOP_NAME_LENGTH)) {
+    if (typeof input.name === 'string' && !goodName(input.name.trim(), REMOTE_MAX_DESKTOP_NAME_LENGTH)) {
       throw new MainMessageError(mainMessage('remote.desktop.invalidName', { max: REMOTE_MAX_DESKTOP_NAME_LENGTH }), 'Invalid desktop name')
     }
     desktopName = input.name === null ? REMOTE_DEFAULT_DESKTOP_NAME : input.name.trim()
@@ -103,10 +106,12 @@ export function registerRemoteMock(): void {
   ipcMain.handle(IPC_CHANNELS.remote.rename, (_event, input: { deviceId?: unknown; name?: unknown }) => {
     const device = find(input?.deviceId)
     if (typeof input.name !== 'string') throw new Error('Invalid device name input')
-    if (!goodName(input.name, REMOTE_LIMITS.maxDeviceNameLength)) {
+    const name = stripFormat(input.name)
+    if (!goodName(name, REMOTE_LIMITS.maxDeviceNameLength)) {
       throw new MainMessageError(mainMessage('remote.device.invalidName', { max: REMOTE_LIMITS.maxDeviceNameLength }), 'Invalid device name')
     }
-    device.name = input.name.trim()
+    if (reservedNameIn(name)) throw new MainMessageError(mainMessage('remote.device.reservedName', {}), 'Reserved device name')
+    device.name = name
     changed({ devices: [...devices] })
     return device
   })

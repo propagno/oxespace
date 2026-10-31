@@ -27,6 +27,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.pairing.limit': ['max'],
   'remote.device.notFound': [],
   'remote.device.invalidName': ['max'],
+  'remote.device.reservedName': [],
   'remote.desktop.invalidName': ['max'],
   'remote.pane.invalid': []
 }

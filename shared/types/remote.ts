@@ -65,9 +65,10 @@ export interface RemotePairingOffer {
 /**
  * Why a phone's pairing attempt failed, as `remote.pairing.failed` carries it: a wrong, reused or forged code or request
  * (`invalid`), a code or question that ran out of time (`expired`), the person said no or cancelled on this desktop
- * (`refused`), the device limit (`limit`), or the phone hung up while the question was on screen (`peer-closed`).
+ * (`refused`), the device limit (`limit`), the phone hung up while the question was on screen (`peer-closed`), or the
+ * phone gave itself a name only the app may speak as (`reserved-name`; `reservedNameIn` in shared/approval-rules.ts).
  */
-export const REMOTE_PAIRING_FAILURE_REASONS = ['invalid', 'expired', 'refused', 'limit', 'peer-closed'] as const
+export const REMOTE_PAIRING_FAILURE_REASONS = ['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name'] as const
 export type RemotePairingFailureReason = typeof REMOTE_PAIRING_FAILURE_REASONS[number]
 
 export interface RemoteChange {

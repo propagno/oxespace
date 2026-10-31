@@ -35,7 +35,7 @@ export interface MessageParams {
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
   /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
-  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' }
+  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' | 'reserved-name' }
   /** A pairing code was asked for while the gateway is off. */
   'remote.gateway.offline': Record<string, never>
   /** Pairing another phone would pass the device limit. */
@@ -44,6 +44,8 @@ export interface MessageParams {
   'remote.device.notFound': Record<string, never>
   /** A device name that is empty, longer than `max` or has control characters. */
   'remote.device.invalidName': { max: number }
+  /** A device name only the app may speak as ("OXESpace", "System"; `reservedNameIn` in shared/approval-rules.ts). */
+  'remote.device.reservedName': Record<string, never>
   /** A desktop name that is empty, longer than `max` or has control characters. */
   'remote.desktop.invalidName': { max: number }
   /** A pane id that cannot be a pane. */
@@ -70,6 +72,7 @@ export const MESSAGE_CODES = [
   'remote.pairing.limit',
   'remote.device.notFound',
   'remote.device.invalidName',
+  'remote.device.reservedName',
   'remote.desktop.invalidName',
   'remote.pane.invalid'
 ] as const satisfies readonly MessageCode[]
@@ -107,19 +110,23 @@ export const MAIN_MESSAGE_ERROR_TAG = ' #c3 '
 /** Caps on what a rejection's parameters may carry: characters per text value, and values per list. */
 export const MAIN_MESSAGE_PARAM_LIMITS = { textLength: 200, listLength: 20 } as const
 
-/** The C3 message a rejection carries, in this process or after crossing IPC; `null` for any other error. */
+/**
+ * The C3 message a rejection carries, in this process or after crossing IPC; `null` for any other error. The marker
+ * is looked for from the end: the message is the tail after the last occurrence that parses as one, so the English
+ * sentence, and a parameter inside the JSON, may themselves contain "#c3" or the marker without misleading the read.
+ */
 export function messageFromError(cause: unknown): MainMessage | null {
   const text = cause instanceof Error ? cause.message
     : typeof cause === 'string' ? cause
       : cause && typeof cause === 'object' && typeof (cause as { message?: unknown }).message === 'string' ? (cause as { message: string }).message : ''
-  const at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG)
-  if (at < 0) return null
-  try {
-    const value: unknown = JSON.parse(text.slice(at + MAIN_MESSAGE_ERROR_TAG.length))
-    return isMainMessage(value) ? value : null
-  } catch {
-    return null
+  for (let at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG); at >= 0; at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG, at - 1)) {
+    try {
+      const value: unknown = JSON.parse(text.slice(at + MAIN_MESSAGE_ERROR_TAG.length))
+      if (isMainMessage(value)) return value
+    } catch { /* not this occurrence: an earlier one may be the marker */ }
+    if (at === 0) break
   }
+  return null
 }
 
 /** The catalog key of a code in the `main` namespace. */
