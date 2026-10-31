@@ -44,6 +44,9 @@ describe('MCP quarantine', () => {
     expect(screen.getAllByTestId('mcp-quarantine-chip')).toHaveLength(2)
     expect(screen.getAllByTestId('mcp-quarantine-chip')[0]).toHaveClass('is-quarantined')
     expect(screen.getAllByTestId('mcp-quarantine-chip')[0].querySelector('svg')).not.toBeNull()
+    // Quarantined servers offer no tools, whatever they listed before (docs-search listed 2); the trusted one counts.
+    const tools = screen.getAllByTestId('mcp-server-tools').map(item => item.textContent)
+    expect(tools).toEqual(['No tools while quarantined', 'No tools while quarantined', '1 tool'])
   })
 
   it('a quarantined server offers "Trust again…" instead of Test; the never-trusted one keeps Test and its inline question', async () => {

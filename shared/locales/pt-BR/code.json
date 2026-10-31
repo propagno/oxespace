@@ -1737,6 +1737,7 @@
     "tools_many": "{{count}} ferramentas",
     "tools_other": "{{count}} ferramentas",
     "tools_zero": "Nenhuma ferramenta",
+    "toolsQuarantined": "Nenhuma ferramenta enquanto estiver em quarentena",
     "quarantinedCount_one": "{{count}} em quarentena",
     "quarantinedCount_many": "{{count}} em quarentena",
     "quarantinedCount_other": "{{count}} em quarentena",
