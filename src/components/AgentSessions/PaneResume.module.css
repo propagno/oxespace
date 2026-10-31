@@ -1,0 +1,21 @@
+/* The pane header's "Resumed" / "Not resumed" sign, beside the agent's name. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.warning {
+  border-color: var(--intent-warning-border);
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
+}

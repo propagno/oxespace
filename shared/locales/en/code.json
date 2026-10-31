@@ -1860,6 +1860,23 @@
       "create": "Create skill"
     }
   },
+  "agentResume": {
+    "resumedChip": "Resumed",
+    "resumedTitle": "Resumed the earlier {{agent}} session {{session}}",
+    "notResumedChip": "Not resumed",
+    "notResumedTitle": "The earlier {{agent}} session was not resumed: {{reason}}",
+    "notResumedNotice": "{{pane}}: the earlier session was not resumed",
+    "enableMenu": "Enable resume after a crash…",
+    "hooks": {
+      "title": "Let {{agent}} panes come back after a crash?",
+      "body": "OXESpace's status hooks let each pane record which {{agent}} session it runs, so reopening the app resumes it. Installing them adds a few entries to your {{agent}} settings in {{folder}}; you can remove them in Settings › Notifications.",
+      "install": "Install",
+      "notNow": "Not now",
+      "never": "Don't ask again",
+      "installed": "{{agent}} panes now record their sessions",
+      "failed": "Could not install the {{agent}} hooks"
+    }
+  },
   "paneMenu": {
     "phoneWrite": "Allow typing from the phone",
     "phoneWriteBadge": "Phone can type",

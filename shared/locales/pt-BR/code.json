@@ -1931,6 +1931,23 @@
       "create": "Criar skill"
     }
   },
+  "agentResume": {
+    "resumedChip": "Retomada",
+    "resumedTitle": "Retomou a sessão anterior do {{agent}} {{session}}",
+    "notResumedChip": "Não retomada",
+    "notResumedTitle": "A sessão anterior do {{agent}} não foi retomada: {{reason}}",
+    "notResumedNotice": "{{pane}}: a sessão anterior não foi retomada",
+    "enableMenu": "Ativar a retomada após travamento…",
+    "hooks": {
+      "title": "Deixar os painéis do {{agent}} voltarem após um travamento?",
+      "body": "Os hooks de status do OXESpace deixam cada painel registrar qual sessão do {{agent}} ele roda, para que reabrir o app a retome. Instalar adiciona algumas entradas às configurações do {{agent}} em {{folder}}; dá para removê-las em Configurações › Notificações.",
+      "install": "Instalar",
+      "notNow": "Agora não",
+      "never": "Não perguntar de novo",
+      "installed": "Os painéis do {{agent}} agora registram as sessões",
+      "failed": "Não foi possível instalar os hooks do {{agent}}"
+    }
+  },
   "paneMenu": {
     "phoneWrite": "Permitir digitar pelo celular",
     "phoneWriteBadge": "Celular pode digitar",

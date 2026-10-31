@@ -5,7 +5,8 @@ import type { TerminalStatusResult } from '../../../shared/types/ipc'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { derivePaneDisplayState } from '../../utils/paneDisplay'
+import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
+import { EnableResumeMenuItem, PaneResumeMarker, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
@@ -72,6 +73,10 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   })
   const updatePaneName = useWorkspaceStore((s) => s.updatePaneName)
   const isTerminalPane = pane.type === 'terminal'
+  // F32: what main did with this pane's earlier Claude/Codex session when the app reopened (B17).
+  const identityKey = resolvePaneIdentity({ pane, profile: agentProfile, shellProfileName }).key
+  const resumeAgent = identityKey === 'claude' || identityKey === 'codex' ? identityKey : null
+  const resume = usePaneResume(pane.id, display.title, isTerminalPane && terminalState.status === 'running', resumeAgent)
   const terminalCanMutate = terminalState.status === 'running'
   const terminalCanRestart = terminalState.status !== 'starting'
   const phoneWrite = usePhoneWrite(pane.id)
@@ -197,6 +202,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           <span className="pane-header-divider" aria-hidden="true">/</span>
           {isTerminalPane && <PaneBranchBadge workspace={workspace} pane={pane} />}
           {isTerminalPane && phoneWrite.allowed && <PhoneWriteBadge />}
+          {isTerminalPane && resume && <PaneResumeMarker outcome={resume} />}
           {renaming ? (
             <input
               ref={renameInputRef}
@@ -314,6 +320,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                     </button>
                     <Suspense fallback={null}><TerminalFocusMenuItems paneId={pane.id} onDone={() => setMenuOpen(false)} /></Suspense>
                     {phoneWrite.offered && <PhoneWriteMenuItem paneId={pane.id} allowed={phoneWrite.allowed} onDone={runMenuAction} />}
+                    {isTerminalPane && resumeAgent && <EnableResumeMenuItem agent={resumeAgent} onDone={runMenuAction} />}
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                   </>
                 ) : null}
