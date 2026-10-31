@@ -413,5 +413,22 @@
     "inEditor": "Editor do OxeCode · {{folder}}",
     "inOxePost": "Requisição do OxePost",
     "untitledRequest": "Requisição sem nome"
+  },
+  "links": {
+    "refused": "Este link não foi aberto",
+    "refusedHint": "Só links da web (http, https) e de e-mail (mailto) com até 2.048 caracteres, sem usuário nem senha, abrem fora do OXESpace.",
+    "hostSuffix": "({{host}})",
+    "terminalHint": "{{key}}+clique para abrir o link",
+    "confirm": {
+      "title": "Abrir este link no navegador?",
+      "newHost": "Você ainda não abriu um link para este site pelo OXESpace. Confira o endereço antes de continuar.",
+      "textDiffers": "O texto do link não corresponde ao destino. Confira o endereço antes de continuar.",
+      "host": "Site",
+      "idn": "Escrito com caracteres internacionais. O navegador acessa como {{ascii}}.",
+      "text": "Texto do link",
+      "address": "Endereço completo",
+      "open": "Abrir",
+      "cancel": "Cancelar"
+    }
   }
 }

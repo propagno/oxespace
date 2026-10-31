@@ -6,6 +6,7 @@ import { OxeMark } from '../Brand/OxeLogo'
 import { OPEN_REPORT_PROBLEM_EVENT } from '../Diagnostics/ReportProblemHost'
 import { Badge, Button, copyText, Dialog, Notice, Skeleton } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
+import { openExternalLink } from '../../lib/externalLinks'
 import styles from './AboutDialog.module.css'
 
 const PLATFORMS: Record<string, string> = { win32: 'Windows', linux: 'Linux', darwin: 'macOS' }
@@ -32,7 +33,7 @@ export function aboutText(about: AppAbout): string {
   ].filter(Boolean).join('\n')
 }
 
-const open = (url: string): void => { window.open(url, '_blank', 'noopener,noreferrer') }
+const open = (url: string): void => { void openExternalLink(url, { source: 'app' }) }
 
 /** About OXESpace: the version and channel, what the build is made of, the license and where to read more. */
 export function AboutDialog({ onClose }: { onClose: () => void }): ReactElement {

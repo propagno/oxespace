@@ -406,7 +406,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
       {isRunning ? (
         <div className="terminal-content">
-          <ErrorBoundary label={tc('terminalPane.boundary')}>
+          <ErrorBoundary id="terminal" label={tc('terminalPane.boundary')}>
           <TerminalView
             paneId={pane.id}
             workspaceId={workspaceId}
