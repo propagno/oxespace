@@ -387,12 +387,13 @@ function gateChecks(round: Results): Check[] {
 }
 
 /**
- * On CI (OXESPACE_PERF_GATE=1) a check that fails is measured again in a second round of LAUNCHES launches, and the
+ * On CI (CI=true or OXESPACE_PERF_GATE=1) a check that fails is measured again in a second round of LAUNCHES launches, and the
  * gate fails only when it fails in both. A shared runner has slow minutes: a single round 2 ms over its limit
  * (OxeChat cold 371 against 368.5 on #308) was a 40-minute rerun of the whole job, while a real regression fails
  * both rounds. The limits stay as they are; locally a run is judged on its one round, as before.
  */
-const CONFIRM = process.env.OXESPACE_PERF_GATE === '1' && process.env.OXESPACE_PERF_CONFIRM !== '0'
+// CI runs this spec both in the E2E step (CI=true) and in the performance gate step (OXESPACE_PERF_GATE=1).
+const CONFIRM = (process.env.CI === 'true' || process.env.OXESPACE_PERF_GATE === '1') && process.env.OXESPACE_PERF_CONFIRM !== '0'
 
 async function measureRound(): Promise<void> {
   for (let i = 0; i < LAUNCHES; i++) {
