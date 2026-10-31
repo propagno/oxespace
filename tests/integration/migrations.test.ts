@@ -5,7 +5,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../el
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 84
+const EXPECTED_SCHEMA_VERSION = 86
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -374,7 +374,7 @@ describe('migrations', () => {
   })
 })
 
-describe('migration 084 (nested conversations)', () => {
+describe('migration 086 (nested conversations)', () => {
   type Db = ReturnType<typeof openInMemoryDatabase>
   /** A real version-83 file: conversation_threads without the parent columns, rebuilt the way SQLite documents. */
   function atVersion83(): Db {

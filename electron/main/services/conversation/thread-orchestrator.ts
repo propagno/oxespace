@@ -18,15 +18,14 @@ import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } fr
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
-import { deriveThreadTitle } from './thread-title'
+import { DEFAULT_THREAD_TITLE, deriveThreadTitle, isDefaultThreadTitle } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
 import { briefBlock, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
 import { insertThreadRow, withParent } from './thread-nesting'
-import { ThreadRequestRegistry } from './thread-request-registry'
-import { ThreadRequestRefusalError, ThreadRequestRegistry } from './thread-request-registry'
+import { assertSessionAllowed, attachPolicy, ThreadRequestRefusalError, ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
@@ -232,7 +231,7 @@ export class ThreadOrchestrator {
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'parent' | 'ownedWorktree'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
-      title: 'New thread', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
+      title: DEFAULT_THREAD_TITLE, pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
     this.db.transaction(() => {
       // Legacy/delegated callers enter here with a validated directory but no
       // renderer project-registration step. Keep their conversation durable.
@@ -543,7 +542,7 @@ export class ThreadOrchestrator {
     try {
       input = await this.commandService?.prepare(snapshot.thread, text) ?? input
       if (input.nativeCli) {
-        throw Error('This command does not have an integrated Thread handler yet.')
+        throw Error('This command does not have an integrated OxeChat handler yet.')
       }
       if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
       assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
@@ -564,7 +563,7 @@ export class ThreadOrchestrator {
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
     delete snapshot.thread.queuePause
-    if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
+    if (isDefaultThreadTitle(snapshot.thread.title) && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
@@ -659,7 +658,7 @@ export class ThreadOrchestrator {
     const adapter = this.adapters.get(id)
     const task = this.read(id).events.find((event): event is Extract<ThreadEvent, { type: 'subagent' }> => event.type === 'subagent' && event.state === 'running' && event.receiverThreadIds.includes(taskId))
     if (!task) throw Error('That background task is no longer running')
-    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from Thread')
+    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from OxeChat')
     if (!adapter?.stopTask) {
       // No provider session is left to ask: the task cannot be running, so it stops being listed as running.
       this.applyEvent(id, { ...task, state: 'unknown', completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) })
@@ -675,7 +674,7 @@ export class ThreadOrchestrator {
     if (listedGeneration !== undefined && listedGeneration !== generation) throw new ThreadRequestRefusalError('staleGeneration', 'Request belongs to an older conversation generation')
     const adapter = this.adapters.get(id)
     if (!adapter) throw new ThreadRequestRefusalError('notPending', 'Request has no live execution')
-    const request = this.requests.list(id, generation).find(value => value.id === requestId)
+    const request = this.requests.list(id, generation).find(value => value.id === requestId); assertSessionAllowed(request, response)
     if (adapter.respondRequest) await this.requests.resolve(id, requestId, generation, response)
     else await adapter.approve(requestId, response.decision === 'accept' || response.decision === 'acceptForSession' ? 'accept' : 'decline')
     this.lastActivity.set(id, Date.now())
@@ -1041,7 +1040,7 @@ export class ThreadOrchestrator {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
       const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request, snapshot.thread.access)
-      if (policy) event.request.policy = policy
+      if (policy) attachPolicy(event.request, policy)
       if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response), expired => {
         try { this.event(id, { type: 'request-resolved', id: expired.id, state: 'expired', resolution: 'unknown', resolvedAt: expired.resolvedAt }, expired.generation) }
         catch { /* The conversation may have been deleted while the timer was pending. */ }
@@ -1271,7 +1270,7 @@ export class ThreadOrchestrator {
         const other = this.read(otherId).thread
         const activeNativeId = other.nativeSessionId
         if (other.provider === provider && activeNativeId === nativeSessionId) {
-          throw Error('This native session is already open in another Thread conversation')
+          throw Error('This native session is already open in another OxeChat conversation')
         }
       } catch (error) {
         if (error instanceof Error && error.message.includes('already open')) throw error

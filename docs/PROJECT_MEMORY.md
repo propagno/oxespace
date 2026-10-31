@@ -10,7 +10,7 @@ Shared Project Memory is **not part of the default 1.0 build**. A feature flag k
 
 Turn it on with `OXESPACE_EXPERIMENTAL_MEMORY=1` (`0` forces it off), or with `{"sharedProjectMemory": true}` in `<userData>/experimental.json`. The value is read once at startup; restart the app after changing it. With the flag on, each project still starts disabled and must opt in. In that mode it is a Beta: safe to try, not yet certified as stable.
 
-**Verified:** pinned AI Memory 2.6.2 with checksum, upgrade from 2.1.0 with rollback, project-scoped identity across worktrees, durable capture queue with recovery, and authenticated Claude Code and Codex Thread campaigns on Windows (see `docs/validation/ai-memory-productivity/wave-3.md`). The native contract suites run on Windows and Linux in CI and gate releases.
+**Verified:** pinned AI Memory 2.6.2 with checksum, upgrade from 2.1.0 with rollback, project-scoped identity across worktrees, durable capture queue with recovery, and authenticated Claude Code and Codex OxeChat campaigns on Windows (see `docs/validation/ai-memory-productivity/wave-3.md`). The native contract suites run on Windows and Linux in CI and gate releases.
 
 **Not yet certified:** an authenticated pilot inside the Electron window, Linux with authenticated providers, exact-ID handoff and resume UI, a paired productivity benchmark, a 2-hour load run and the installed-package matrix.
 
@@ -59,9 +59,9 @@ blocks another upgrade until it is reviewed. Connected servers are never
 migrated or stopped by this flow. The managed 2.6.2 service uses API-only,
 disables cross-project profile, and leaves handoff offers unclaimed at startup.
 
-Thread launches receive a fresh native-hook binding only when hooks are enabled
-and access permits them. Read-only/hookless Threads retain their project-bound
-MCP run but cannot claim native capture. Code terminals continue with their
+OxeChat launches receive a fresh native-hook binding only when hooks are enabled
+and access permits them. Read-only/hookless conversations retain their project-bound
+MCP run but cannot claim native capture. OxeCode terminals continue with their
 native hooks. External capture remains disabled until its durable delivery
 path is implemented and certified.
 
