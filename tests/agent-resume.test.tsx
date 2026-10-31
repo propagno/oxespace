@@ -122,6 +122,19 @@ describe('the status hooks question', () => {
   })
 })
 
+describe('a session that would not load', () => {
+  it('is a warning with its reason, unlike a fresh start the person chose', () => {
+    const failed: PaneAgentResume = { outcome: 'notResumed', agent: 'claude', sessionId: '0199a1b2', message: { code: 'agents.resume.failedToLoad', params: {} } }
+    render(<PaneResumeMarker outcome={failed} />)
+    const marker = screen.getByTestId('pane-resume-marker')
+    expect(marker).toHaveAttribute('data-outcome', 'notResumed')
+    expect(marker).toHaveAccessibleName('The earlier Claude session was not resumed: The agent could not load its previous session and closed, so this pane started a new one.')
+    cleanup()
+    const { container } = render(<PaneResumeMarker outcome={{ ...failed, message: { code: 'agents.resume.startedFresh', params: {} } }} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+})
+
 describe('starting a resumed pane fresh', () => {
   it('asks first, restarts without the session, and then shows neither a marker nor a warning', async () => {
     const outcomes: Record<string, PaneAgentResume> = { a: { outcome: 'resumed', agent: 'claude', sessionId: '0199a1b2-c3d4' } }
