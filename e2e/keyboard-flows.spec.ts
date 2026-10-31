@@ -52,7 +52,7 @@ test('Thread composer: write, break lines, reach its controls and send without a
 
     // Tab leaves the field for the composer's own controls, and Shift+Tab comes back to it.
     await page.keyboard.press('Tab')
-    await expect(page.getByRole('button', { name: 'Show thread commands' }), await focusedName(page)).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Show conversation commands' }), await focusedName(page)).toBeFocused()
     await page.keyboard.press('Tab')
     const addToPrompt = page.getByRole('button', { name: 'Add to prompt' })
     await expect(addToPrompt).toBeFocused()
@@ -124,17 +124,17 @@ test('sidebars: "/" finds the filter, Ctrl+B folds the Code sidebar, the Thread 
     // Thread sidebar: the same "/" reaches its filter, and the width handle answers the arrows, Home and End.
     await registerThreadProject(app, page, workspaceRoot)
     await openThreadWithState(app, page, workspaceRoot, 'conversation')
-    const sidebar = page.getByRole('complementary', { name: 'Thread sidebar' })
+    const sidebar = page.getByRole('complementary', { name: 'OxeChat sidebar' })
     await focusNothing(page)
     await page.keyboard.press('/')
-    const threads = sidebar.getByRole('searchbox', { name: 'Filter threads' })
+    const threads = sidebar.getByRole('searchbox', { name: 'Filter conversations' })
     await expect(threads).toBeFocused()
     await page.keyboard.type('Authentication')
     await expect(sidebar.getByText('Authentication flow').first()).toBeVisible()
     await page.keyboard.press('Control+a')
     await page.keyboard.press('Delete')
 
-    const handle = sidebar.getByRole('separator', { name: 'Thread sidebar width' })
+    const handle = sidebar.getByRole('separator', { name: 'OxeChat sidebar width' })
     await handle.focus()
     const width = async () => Number(await handle.getAttribute('aria-valuenow'))
     const start = await width()

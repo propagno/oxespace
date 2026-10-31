@@ -8,7 +8,7 @@ import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { Button, IconButton, StatusDot } from '../../ui'
 import { summarizeAgentSetup, type AgentSetupState } from '../../utils/agentSetup'
-import { accountContext, accountMessage } from '../Threads/ProviderAccountsPanel'
+import { accountContext, accountMessage } from '../Threads/accountMessages'
 import { AgentInstallLinks } from './AgentCliOnboarding'
 import { watchFirstAnswer } from './firstAnswer'
 import styles from './FirstRunChecklist.module.css'
@@ -139,10 +139,10 @@ export function FirstRunChecklist({ onNewWorkspace, onAddProject }: { onNewWorks
         </Step>
         <Step number={3} title="First folder and first answer" done={done('folder')} summary={firstRun.firstAnswerMs !== null
           ? <p className={styles.detail} role="status">First answer {formatDuration(firstRun.firstAnswerMs)} after you started. This stays on this computer.</p> : null}>
-          <p className={styles.detail}>Open a folder and ask an agent something: in a Thread conversation, or in a Code workspace terminal.</p>
+          <p className={styles.detail}>Open a folder and ask an agent something: in an OxeChat conversation, or in an OxeCode workspace terminal.</p>
           <div className={styles.actions}>
-            {onAddProject ? <Button variant="ghost" size="sm" icon={<MessageSquarePlus size={12} aria-hidden="true" />} onClick={onAddProject}>Add a Thread project</Button> : null}
-            {onNewWorkspace ? <Button variant="ghost" size="sm" icon={<FolderPlus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>New Code workspace</Button> : null}
+            {onAddProject ? <Button variant="ghost" size="sm" icon={<MessageSquarePlus size={12} aria-hidden="true" />} onClick={onAddProject}>Add an OxeChat project</Button> : null}
+            {onNewWorkspace ? <Button variant="ghost" size="sm" icon={<FolderPlus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>New OxeCode workspace</Button> : null}
           </div>
         </Step>
         <Step title="GitHub" optional done={done('github')}>

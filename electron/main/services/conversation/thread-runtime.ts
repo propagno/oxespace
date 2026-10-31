@@ -20,14 +20,17 @@ import { readManagedMcp } from './thread-managed-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
 import { assertProviderAllowed, mcpServerAllowed, policyDeniedMcpNames, policyDeniedToolNames } from '../policy'
 
+/** The agent profile a conversation runs with; a child profile runs its parent's executable. */
+export function threadAgentProfile(db: AppDatabase, thread: import('../../../../shared/types/thread').ConversationThread) {
+  const profiles = new AgentService(db).list()
+  const selected = thread.agentProfileId ? profiles.find(profile => profile.agentProfileId === thread.agentProfileId)
+    : profiles.find(profile => profile.provider === thread.provider && !profile.parentProvider)
+  if (!selected || (selected.parentProvider ?? selected.provider) !== thread.provider) throw new Error('Configure the selected agent profile in Agent Settings')
+  return selected.parentProvider ? { ...selected, command: profiles.find(profile => profile.provider === selected.parentProvider && !profile.parentProvider)?.command ?? '' } : selected
+}
+
 export function createThreadManager(db: AppDatabase, accounts: NativeAccountService, mcp: ThreadMcpBindings): ThreadManager {
-  const resolveProfile = (thread: import('../../../../shared/types/thread').ConversationThread) => {
-    const profiles = new AgentService(db).list()
-    const selected = thread.agentProfileId ? profiles.find(profile => profile.agentProfileId === thread.agentProfileId)
-      : profiles.find(profile => profile.provider === thread.provider && !profile.parentProvider)
-    if (!selected || (selected.parentProvider ?? selected.provider) !== thread.provider) throw new Error('Configure the selected agent profile in Agent Settings')
-    return selected.parentProvider ? { ...selected, command: profiles.find(profile => profile.provider === selected.parentProvider && !profile.parentProvider)?.command ?? '' } : selected
-  }
+  const resolveProfile = (thread: import('../../../../shared/types/thread').ConversationThread) => threadAgentProfile(db, thread)
   const executable = (thread: import('../../../../shared/types/thread').ConversationThread) => {
     const profile = resolveProfile(thread)
     if (!profile) throw new Error('Configure the agent in Agent Settings')
