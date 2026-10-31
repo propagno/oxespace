@@ -151,12 +151,20 @@ export interface MenuProps {
  * (axe aria-hidden-focus). Focus still moves into the menu and returns to the trigger.
  * A click outside, Escape or a choice closes it; focus moved by the app (a terminal starting) does not.
  */
+/** Focus is on something other than the page or a menu: a dialog or a field an item just opened took it. */
+function focusMovedOn(): boolean {
+  const active = document.activeElement
+  return active instanceof HTMLElement && active !== document.body && !active.closest('[role="menu"]')
+}
+
 export function Menu({ trigger, items, align = 'start', label, testId, side, open, onOpenChange }: MenuProps): ReactElement {
   return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}
-        onFocusOutside={event => event.preventDefault()}>
+        onFocusOutside={event => event.preventDefault()}
+        // An item that opened a dialog already moved focus there: closing must not pull it back to the trigger.
+        onCloseAutoFocus={event => { if (focusMovedOn()) event.preventDefault() }}>
         {menuEntries(items)}
       </RadixMenu.Content>
     </RadixMenu.Portal>

@@ -86,7 +86,7 @@ describe('stack hash', () => {
 })
 
 describe('boundaries', () => {
-  const ids: RendererErrorBoundary[] = ['root', 'window', 'conversations', 'mode-view', 'workspace-grid', 'workspace-panel', 'pane', 'terminal', 'approvals']
+  const ids: RendererErrorBoundary[] = ['root', 'window', 'conversations', 'mode-view', 'sidebar', 'settings-page', 'workspace-grid', 'workspace-panel', 'pane', 'terminal', 'approvals']
   it.each(ids)('%s sends its id', async id => {
     render(<ErrorBoundary id={id} label="x"><Boom token="prop-value-xyz" /></ErrorBoundary>)
     await settle()
@@ -99,7 +99,7 @@ describe('boundaries', () => {
   })
   it('every boundary in the app carries its id', () => {
     const expected: Array<[string, RendererErrorBoundary[]]> = [
-      ['src/main.tsx', ['root']], ['src/App.tsx', ['conversations', 'window']], ['src/components/Navigation/ModeViews.tsx', ['mode-view']],
+      ['src/main.tsx', ['root']], ['src/App.tsx', ['conversations', 'window']], ['src/components/Navigation/ModeViews.tsx', ['sidebar', 'sidebar', 'mode-view']], ['src/components/Settings/SettingsCenter.tsx', ['settings-page']],
       ['src/components/Workspace/WorkspaceSurface.tsx', ['workspace-grid', 'workspace-panel']], ['src/components/Grid/WorkspaceGrid.tsx', ['pane']],
       ['src/components/Grid/WorkspaceSplitGrid.tsx', ['pane']], ['src/components/Panes/TerminalPane.tsx', ['terminal']],
       ['src/components/Approvals/ApprovalsHost.tsx', ['approvals']]
