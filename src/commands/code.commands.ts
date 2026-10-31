@@ -8,6 +8,7 @@ import { useTerminalStore } from '../store/terminal.store'
 import { useUIStore } from '../store/ui.store'
 import { useWorkspaceStore } from '../store/workspace.store'
 import type { ContributedCommand } from '../utils/commandRegistry'
+import { isPublishedBuild } from '../lib/buildKind'
 import { useCommandSource } from './useCommandSource'
 
 export interface CodeCommandContext {
@@ -75,7 +76,8 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
     { id: 'balance-pane-layout', label: 'Balance panes', detail: 'Restore equal sizes within each split', icon: Columns2, category: 'View', disabled: !activeWorkspace, run: inCode(() => { if (activeWorkspace) usePaneLayoutStore.getState().balance(activeWorkspace.id) }) },
     { id: 'toggle-split-layout', label: 'Toggle split layout', detail: 'Recursive resizable panes (default on)', icon: Columns2, category: 'View', keywords: ['split', 'pane', 'layout', 'f2', 'tree'], disabled: !activeWorkspace, shortcut: 'code.splitLayout', run: inCode(() => useUIStore.getState().toggleSplitLayout()) },
     { id: 'open-usage', label: 'Usage & limits', detail: 'Claude, Codex & Copilot quota + resets', icon: Activity, category: 'AI & Agents', keywords: ['usage', 'quota', 'credits', 'rate', 'limit', 'tokens'], run: () => useUIStore.getState().openUsage() },
-    { id: 'design-system', label: 'Design System: Open Viewer', detail: 'Tokens and components in light and dark', icon: Palette, category: 'View', run: ctx.openDesignSystem },
+    // A tool for building OXESpace, not part of the product: only outside a published build.
+    ...(isPublishedBuild() ? [] : [{ id: 'design-system', label: 'Design System: Open Viewer', detail: 'Tokens and components in light and dark', icon: Palette, category: 'View', run: ctx.openDesignSystem }]),
 
     // Appearance: one app-wide choice (light, dark or follow the system).
     ...(['system', 'light', 'dark'] as const).map(appearance => ({
