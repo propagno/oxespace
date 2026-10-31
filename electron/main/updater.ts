@@ -3,6 +3,7 @@ import log from 'electron-log/main.js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
+import { recordIncident } from './services/diagnostics/incident-sink'
 import type { AppUpdateChannel, AppUpdatePreferences, AppUpdateState, AppUpdateStatus } from '../../shared/types/updater'
 
 /**
@@ -120,6 +121,7 @@ let state: AppUpdateState = {
 }
 
 function setState(partial: Partial<AppUpdateState>): void {
+  if (partial.status === 'error') recordIncident('incident.updater.failed', state.status) // the step that failed, never the error text
   state = { ...state, ...partial, currentVersion: app.getVersion(), preferences }
   broadcast()
 }

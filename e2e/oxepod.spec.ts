@@ -90,7 +90,7 @@ test('Connect in OxeQuery fills in the connection from a database container and 
   const { app, page, workspaceRoot } = await launchApp()
   try {
     await openDemoWorkspace(page, workspaceRoot)
-    await openView(page, 'OxePod')
+    await openView(page, 'pods')
     await containerRow(page, 'pg-dev').click()
     const card = page.getByRole('region', { name: 'Database detected' })
     await expect(card).toContainText('PostgreSQL on localhost:5432')
@@ -108,7 +108,7 @@ test('Connect in OxeQuery fills in the connection from a database container and 
     await expect(page.getByRole('tab', { name: 'pg-dev', exact: true })).toBeVisible()
 
     // Back in OxePod, the saved connection opens instead of making another one.
-    await openView(page, 'OxePod')
+    await openView(page, 'pods')
     await expect(card).toContainText('Saved as the connection pg-dev.')
     await card.getByRole('button', { name: 'Open in OxeQuery' }).click()
     await expect(page.getByRole('tab', { name: 'pg-dev', exact: true })).toHaveAttribute('aria-selected', 'true')
@@ -123,7 +123,7 @@ test('images, clean-up and Compose ask before anything destructive', async () =>
   const { app, page, workspaceRoot } = await launchApp()
   try {
     await openDemoWorkspace(page, workspaceRoot)
-    await openView(page, 'OxePod')
+    await openView(page, 'pods')
 
     // The Compose project of the open container.
     const compose = page.getByRole('region', { name: 'Compose project shop' })
@@ -166,7 +166,7 @@ test('OxePod explains a stopped container engine and keeps checking', async () =
   try {
     const page = await app.firstWindow()
     await page.waitForLoadState('domcontentloaded')
-    await openView(page, 'OxePod')
+    await openView(page, 'pods')
     const problem = page.getByRole('alert').filter({ hasText: 'Docker is not running' })
     await expect(problem).toBeVisible()
     await expect(problem).toContainText('Start Docker Desktop')
@@ -180,7 +180,7 @@ test('OxePod speaks Brazilian Portuguese', async () => {
   const { app, page, consoleErrors } = await launchApp({ locale: 'pt-BR' })
   try {
     await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR')
-    await openView(page, 'OxePod')
+    await openView(page, 'pods')
     await expect(sidebar(page).getByRole('region', { name: pt.sidebar.project.replace('{{name}}', 'shop') })).toBeVisible()
     await containerRow(page, 'pg-dev').click()
     await expect(sidebar(page).getByRole('region', { name: pt.sidebar.others })).toContainText('old-job')
