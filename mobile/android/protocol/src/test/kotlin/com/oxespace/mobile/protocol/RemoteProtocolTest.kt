@@ -60,6 +60,63 @@ class RemoteProtocolTest {
     }
 
     @Test
+    fun refusesDeepNestingBeforeParsing() {
+        val nested = { levels: Int -> """{"type":"hello","versions":[1],"x":${"[".repeat(levels)}${"]".repeat(levels)}}""" }
+        for (from in FrameSource.entries) {
+            assertEquals(RemoteErrorCode.MALFORMED, refused(nested(20_000), from))
+            assertEquals(RemoteErrorCode.MALFORMED, refused(nested(RemoteLimits.MAX_FRAME_DEPTH), from))
+            read(nested(RemoteLimits.MAX_FRAME_DEPTH - 1), from)
+        }
+        // Brackets inside a string, escaped quotes included, are text, not nesting.
+        read("""{"type":"hello","versions":[1],"note":"\\\"${"[".repeat(500)}"}""", FrameSource.CLIENT)
+        // Closers ahead of the openers lower the count, but the parser stops at the first of them.
+        assertEquals(RemoteErrorCode.MALFORMED, refused("]".repeat(10_000) + "{".repeat(10_000)))
+    }
+
+    @Test
+    fun refusesDesktopFramesTooLargeEvenWhenMostlyWhitespace() {
+        val padded = """{"type":"hello","versions":[1]${" ".repeat(RemoteLimits.MAX_FRAME_BYTES)}}"""
+        assertEquals(RemoteErrorCode.FRAME_TOO_LARGE, refused(padded, FrameSource.DESKTOP))
+        assertEquals(RemoteErrorCode.FRAME_TOO_LARGE, refused("{".repeat(10 * RemoteLimits.MAX_FRAME_BYTES), FrameSource.DESKTOP))
+    }
+
+    /**
+     * OkHttp decodes a text frame with Okio, which turns bytes that aren't UTF-8 into U+FFFD, so the reader sees text
+     * that is valid but changed. A lone surrogate is the closest a JVM string gets to an invalid sequence.
+     */
+    @Test
+    fun readsTextThatWasNotUtf8WithoutThrowing() {
+        val replaced = String(byteArrayOf(0xC3.toByte(), 0x28, 0xFF.toByte()), Charsets.UTF_8)
+        assertTrue(replaced.contains('�'))
+        val event = read("""{"type":"event","subscription":"s","seq":1,"schemaVersion":1,"data":{"text":"$replaced"}}""", FrameSource.DESKTOP)
+        assertTrue(event is RemoteEventFrame)
+        assertEquals(RemoteErrorCode.MALFORMED, refused("""{"type":"hello$replaced","versions":[1]}""", FrameSource.DESKTOP))
+        assertEquals(RemoteErrorCode.MALFORMED, refused("{\"type\":\"hello\",\"versions\":[1]\uD800", FrameSource.DESKTOP))
+        read("{\"type\":\"hello\",\"versions\":[1],\"x\":\"\uDC00\"}", FrameSource.DESKTOP)
+        assertEquals(RemoteErrorCode.MALFORMED, refused(replaced, FrameSource.DESKTOP))
+    }
+
+    @Test
+    fun refusesDesktopFramesOfUnknownTypeOrMissingFields() {
+        for (type in listOf("teleport", "EVENT", "", "event ")) {
+            assertEquals(type, RemoteErrorCode.MALFORMED, refused("""{"type":"$type","subscription":"s","seq":1,"schemaVersion":1,"data":{}}""", FrameSource.DESKTOP))
+        }
+        for (text in listOf(
+            """{"subscription":"s","seq":1,"schemaVersion":1,"data":{}}""",
+            """{"type":7}""",
+            """{"type":null}""",
+            """{"type":"event","seq":1,"schemaVersion":1,"data":{}}""",
+            """{"type":"event","subscription":"s","schemaVersion":1,"data":{}}""",
+            """{"type":"event","subscription":"s","seq":1,"schemaVersion":1}""",
+            """{"type":"snapshot","subscription":"s","seq":1,"schemaVersion":1}""",
+            """{"type":"ack"}""",
+            """{"type":"error"}""",
+            """{"type":"event","subscription":"s","seq":99999999999999999999,"schemaVersion":1,"data":{}}""",
+            """{"type":"event","subscription":"s","seq":1.5,"schemaVersion":1,"data":{}}""",
+        )) assertEquals(text, RemoteErrorCode.MALFORMED, refused(text, FrameSource.DESKTOP))
+    }
+
+    @Test
     fun refusesKnownTypesWhoseFieldsDontFit() {
         assertEquals(RemoteErrorCode.MALFORMED, refused("""{"type":"hello"}"""))
         assertEquals(RemoteErrorCode.MALFORMED, refused("""{"type":"subscribe","id":"1","topic":"secrets"}"""))
