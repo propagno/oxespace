@@ -6,9 +6,14 @@ import { splitAtHost } from '../src/components/ExternalLinks/ExternalLinkDialog'
 import { onTerminalLink } from '../src/components/Terminal/terminalLinks'
 import { SeenSitesSetting } from '../src/components/Settings/SeenSitesSetting'
 import { MarkdownPreview } from '../src/components/Preview/MarkdownPreview'
+import { Toaster } from '../src/ui'
 
-let open: ReturnType<typeof vi.spyOn>
-beforeEach(() => { localStorage.clear(); open = vi.spyOn(window, 'open').mockImplementation(() => null) })
+let open: ReturnType<typeof vi.fn<(url: string) => Promise<{ opened: boolean }>>>
+beforeEach(() => {
+  localStorage.clear()
+  open = vi.fn(async (_url: string) => ({ opened: true }))
+  window.oxe = { ...window.oxe, app: { ...(window.oxe?.app ?? {}), openExternal: open } } as unknown as typeof window.oxe
+})
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await new Promise(resolve => setTimeout(resolve, 0)) })
 
 const dialog = (): Promise<HTMLElement> => screen.findByTestId('external-link-dialog')
@@ -110,7 +115,7 @@ describe('confirmation and remembered hosts', () => {
     await dialog()
     fireEvent.click(screen.getByRole('button', { name: 'Open' }))
     expect(await first).toBe(true)
-    expect(open).toHaveBeenCalledWith('https://example.com/a', '_blank', 'noopener,noreferrer')
+    expect(open).toHaveBeenCalledWith('https://example.com/a')
     expect(JSON.parse(localStorage.getItem(SEEN_HOSTS_KEY)!)).toEqual(['example.com'])
     await waitFor(() => expect(screen.queryByTestId('external-link-dialog')).toBeNull())
     expect(await openExternalLink('https://example.com/b', { source: 'linear' })).toBe(true)
@@ -155,7 +160,7 @@ describe('terminal links', () => {
     onTerminalLink(new MouseEvent('click', { ctrlKey: true }), 'https://example.com/t')
     await dialog()
     fireEvent.click(screen.getByRole('button', { name: 'Open' }))
-    await waitFor(() => expect(open).toHaveBeenCalledWith('https://example.com/t', '_blank', 'noopener,noreferrer'))
+    await waitFor(() => expect(open).toHaveBeenCalledWith('https://example.com/t'))
   })
 })
 
@@ -193,5 +198,27 @@ describe('one way out', () => {
     const allowed = new Set([join('src', 'lib', 'externalLinks.ts'), join('src', 'components', 'ExternalLinks', 'ExternalAnchor.tsx')])
     const offenders = files.filter(file => !allowed.has(file) && /window\.open\(|<a\b[^>]*target=["']_blank["']/.test(readFileSync(file, 'utf8')))
     expect(offenders).toEqual([])
+  }, 30_000)
+})
+
+describe('main opens it', () => {
+  it('a refusal or a failure in main shows a message, resolves false and remembers nothing', async () => {
+    render(<Toaster />)
+    open.mockResolvedValueOnce({ opened: false })
+    expect(await openExternalLink('https://example.com/a', { source: 'app' })).toBe(false)
+    open.mockRejectedValueOnce(new Error('not the main frame'))
+    expect(await openExternalLink('https://example.com/a', { source: 'app' })).toBe(false)
+    expect(seenHosts()).toEqual([])
+    expect(await screen.findAllByText('The link did not open')).not.toHaveLength(0)
+  })
+  it('without the bridge nothing opens: there is no window.open fallback', async () => {
+    const windowOpen = vi.spyOn(window, 'open').mockImplementation(() => null)
+    window.oxe = { ...window.oxe, app: { ...(window.oxe?.app ?? {}), openExternal: undefined } } as unknown as typeof window.oxe
+    expect(await openExternalLink('https://example.com/a', { source: 'app' })).toBe(false)
+    expect(windowOpen).not.toHaveBeenCalled()
+  })
+  it('an external anchor has no target: the window itself never navigates for a link', () => {
+    render(<MarkdownPreview content={'[docs](https://example.com/docs)'} />)
+    expect(screen.getByRole('link')).not.toHaveAttribute('target')
   })
 })

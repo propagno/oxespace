@@ -12,6 +12,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     # Only what can change what the scan sees.
     paths-ignore: ["docs/**", "**/*.md", "electron/main/**/*.test.ts", "tests/**"]
   # A manual run needs the file on the default branch; a change to this file on a release
@@ -30,6 +31,8 @@ permissions:
 
 jobs:
   axe:
+    # A draft PR runs nothing; marking it ready for review starts the run.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     # WCAG 2.2 AA on both desktop platforms: fonts, scrollbars and native controls differ, and so can what axe sees.
     name: axe scan (${{ matrix.label }})
     runs-on: ${{ matrix.os }}

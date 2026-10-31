@@ -14,6 +14,7 @@ export function sectionErrorText(cause: unknown): string {
   const code = sectionErrorCode(cause)
   const t = i18n.t.bind(i18n)
   if (code === 'thread.section.invalidName') return t('thread:sections.errors.invalidName', { max: SECTION_NAME_MAX })
+  if (code === 'thread.section.duplicateName') return t('thread:sections.errors.duplicateName')
   if (code === 'thread.section.notFound') return t('thread:sections.errors.notFound')
   if (code === 'thread.section.childFollowsParent') return t('thread:sections.errors.childFollowsParent')
   return humanizeError(cause, t('thread:sections.errors.failed'))
@@ -29,6 +30,10 @@ export function useThreadSections(projectIds: readonly string[], threads: readon
   const [byProject, setByProject] = useState<Record<string, ThreadSection[]>>({})
   const [assignments, setAssignments] = useState<Record<string, Record<string, string>>>({})
   const [error, setError] = useState('')
+  // Said once in a polite live region after a move or a delete (the sidebar renders it).
+  const [announcement, setAnnouncement] = useState('')
+  // The conversation just moved: its row takes the focus back once it shows in its new place.
+  const [movedId, setMovedId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<SectionDialogState | null>(null)
   const key = projectIds.join('\n')
 
@@ -69,8 +74,19 @@ export function useThreadSections(projectIds: readonly string[], threads: readon
     clearError: () => setError(''),
     dialog,
     setDialog,
-    moveTo: (thread: SectionedThread, sectionId: string | null) => thread.parentThreadId ? (setError(sectionErrorText({ code: 'thread.section.childFollowsParent' })), Promise.resolve(false))
-      : run(() => api().moveToSection({ threadId: thread.id, sectionId })),
+    moveTo: async (thread: SectionedThread, sectionId: string | null): Promise<boolean> => {
+      if (thread.parentThreadId) { setError(sectionErrorText({ code: 'thread.section.childFollowsParent' })); return false }
+      const moved = await run(() => api().moveToSection({ threadId: thread.id, sectionId }))
+      if (moved) {
+        const section = sectionId ? (byProject[thread.projectId] ?? []).find(item => item.id === sectionId)?.name : null
+        setAnnouncement(i18n.t('thread:sections.moved', { name: thread.title.trim() || i18n.t('thread:dialogs.newTitle'), section: section ?? i18n.t('thread:sections.none') }))
+        setMovedId(thread.id)
+      }
+      return moved
+    },
+    announcement,
+    movedId,
+    clearMoved: () => setMovedId(null),
     setCollapsed: (section: ThreadSection, collapsed: boolean) => run(() => api().setSectionCollapsed({ id: section.id, collapsed })),
     shift: (section: ThreadSection, delta: -1 | 1) => {
       const ids = moveSectionIds(byProject[section.projectId] ?? [], section.id, delta)
@@ -83,7 +99,11 @@ export function useThreadSections(projectIds: readonly string[], threads: readon
       return section
     },
     rename: (section: ThreadSection, name: string) => api().renameSection({ id: section.id, name }),
-    remove: (section: ThreadSection) => api().deleteSection({ id: section.id })
+    /** Throws for the dialog to show the reason; `count` is how many conversations go back to no section. */
+    remove: async (section: ThreadSection, count: number): Promise<void> => {
+      await api().deleteSection({ id: section.id })
+      setAnnouncement(i18n.t('thread:sections.deleted', { count }))
+    }
   }
 }
 
