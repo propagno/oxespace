@@ -359,10 +359,10 @@
         "notFound": "This agent is no longer listed."
       },
       "unavailable": {
-        "pane": "Couldn't read the agents in panes.",
-        "conversation": "Couldn't read the conversations.",
-        "delegation": "Couldn't read the delegations.",
-        "work": "Couldn't read the Agent Work runs."
+        "pane": "Couldn't read the agents in panes right now.",
+        "conversation": "Couldn't read the conversations right now.",
+        "delegation": "Couldn't read the delegations right now.",
+        "work": "Couldn't read the Agent Work runs right now."
       },
       "request": {
         "approval": "Wants to run an action",

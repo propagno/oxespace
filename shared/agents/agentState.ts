@@ -48,21 +48,75 @@ export const AGENT_BADGE_STATES: readonly AgentState[] = ['needs-you', 'failed',
 /** One agent, across every surface and the phone: `<kind>:<source id>`. Opaque to readers; never a path. */
 export type AgentKey = `${AgentKind}:${string}`
 
-/** Characters of a source id inside a key. */
-export const AGENT_KEY_ID_MAX = 200
+/**
+ * Characters of a whole key, kind included: the remote gateway's id rule (`^[A-Za-z0-9._:-]{1,200}$`), so a key the
+ * desktop builds is always one the phone can send back.
+ */
+export const AGENT_KEY_MAX = 200
+/** The characters a source id may use inside a key (pane, conversation, delegation and run ids are UUIDs). */
+export const AGENT_KEY_ID_PATTERN = /^[A-Za-z0-9._:-]+$/
 
 export function agentKey(kind: AgentKind, id: string): AgentKey {
   return `${kind}:${id}`
 }
 
-/** The kind and source id of a key, or null for anything that is not one (unknown kind, empty or oversized id). */
+/** The kind and source id of a key, or null for anything that is not one: unknown kind, empty id, other characters, too long. */
 export function parseAgentKey(value: unknown): { kind: AgentKind; id: string } | null {
-  if (typeof value !== 'string') return null
+  if (typeof value !== 'string' || value.length > AGENT_KEY_MAX) return null
   const at = value.indexOf(':')
   if (at < 0) return null
   const kind = value.slice(0, at), id = value.slice(at + 1)
-  if (!(AGENT_KINDS as readonly string[]).includes(kind) || !id || id.length > AGENT_KEY_ID_MAX || /[\u0000-\u001f\u007f]/.test(id)) return null
+  if (!(AGENT_KINDS as readonly string[]).includes(kind) || !AGENT_KEY_ID_PATTERN.test(id)) return null
   return { kind: kind as AgentKind, id }
+}
+
+// ---- one owner per agent (M2) -------------------------------------------------------------------------------------
+
+/**
+ * The sources overlap: a delegation runs in a pane or a conversation of its own, and every Agent Work task runs in a
+ * worker conversation. Each agent has exactly one row, owned like this:
+ *
+ * - A **delegation owns its destination** pane or conversation: that pane or conversation gets no row of its own;
+ *   the delegation row stands for it (state, request, Open). It is listed again on its own once the delegation is gone.
+ * - A **work run's worker conversations nest under it**: they keep their own `conversation:` row, with
+ *   `parentKey: work:<run id>`. A worker that is also a delegation's destination is owned by the delegation.
+ * - Anything else is its own row, with no parent unless its source names one.
+ */
+export interface AgentOwnershipInput {
+  delegations: readonly { id: string; paneId?: string; destinationThreadId?: string }[]
+  workRuns: readonly { id: string; workerThreadIds: readonly string[] }[]
+}
+
+export interface AgentOwnership {
+  /** Keys that get no row: the delegation row stands for them. */
+  hidden: Map<AgentKey, AgentKey>
+  /** Keys listed under another row. */
+  parents: Map<AgentKey, AgentKey>
+}
+
+export function agentOwnership(input: AgentOwnershipInput): AgentOwnership {
+  const hidden = new Map<AgentKey, AgentKey>()
+  const parents = new Map<AgentKey, AgentKey>()
+  for (const delegation of input.delegations) {
+    const owner = agentKey('delegation', delegation.id)
+    if (delegation.paneId) hidden.set(agentKey('pane', delegation.paneId), owner)
+    if (delegation.destinationThreadId) hidden.set(agentKey('conversation', delegation.destinationThreadId), owner)
+  }
+  for (const run of input.workRuns) {
+    for (const threadId of run.workerThreadIds) {
+      const key = agentKey('conversation', threadId)
+      if (!hidden.has(key)) parents.set(key, agentKey('work', run.id))
+    }
+  }
+  return { hidden, parents }
+}
+
+/** Rows after the ownership rule: owned rows dropped, nested rows given their parent. */
+export function applyAgentOwnership<Row extends { key: AgentKey; parentKey?: AgentKey }>(rows: readonly Row[], ownership: AgentOwnership): Row[] {
+  return rows.filter(row => !ownership.hidden.has(row.key)).map(row => {
+    const parentKey = ownership.parents.get(row.key)
+    return parentKey ? { ...row, parentKey } : row
+  })
 }
 
 // ---- seen (§3.4) --------------------------------------------------------------------------------------------------
@@ -103,7 +157,10 @@ export type AgentStateInput =
   | {
     kind: 'delegation'
     state: DelegationState
-    /** Who waits on a blocked or review delegation: the person, or the agent that delegated it. */
+    /**
+     * Who waits on a blocked or review delegation (coordinator, 2026-10-31): `person` for a delegation created from
+     * the window, `agent` for one created through `oxespace_delegate_task`.
+     */
     requester: 'person' | 'agent'
     seen: boolean
   }
@@ -116,6 +173,12 @@ export type AgentStateInput =
 export type AgentStateResult = { ended: false; state: AgentState; waitingForLead?: true } | { ended: true }
 
 const state = (value: AgentState): AgentStateResult => ({ ended: false, state: value })
+
+/**
+ * Every switch below is exhaustive: a new source state (a 10th DelegationState, a 6th WorkRunStatus…) fails the
+ * typecheck here instead of silently showing "Not confirmed". At run time, a value from a newer store is `unknown`.
+ */
+const unmapped = (_value: never): AgentStateResult => state('unknown')
 
 export function agentState(input: AgentStateInput): AgentStateResult {
   switch (input.kind) {
@@ -130,7 +193,9 @@ export function agentState(input: AgentStateInput): AgentStateResult {
         case 'working': return state('working')
         case 'done': return state(input.seen ? 'idle' : 'finished')
         case 'idle': return state('idle')
-        default: return state('unknown')
+        case 'unknown':
+        case null: return state('unknown')
+        default: return unmapped(input.lifecycle)
       }
     }
     case 'conversation': {
@@ -138,6 +203,7 @@ export function agentState(input: AgentStateInput): AgentStateResult {
       if (input.status === 'failed') return state('failed')
       if (input.status === 'running' || input.backgroundRunning > 0) return state('working')
       if (input.status === 'interrupted') return state('stopped')
+      if (input.status !== 'idle') return unmapped(input.status)
       return state(input.lastTurnStatus === 'completed' && !input.seen ? 'finished' : 'idle')
     }
     case 'delegation': {
@@ -151,19 +217,22 @@ export function agentState(input: AgentStateInput): AgentStateResult {
         case 'approved': return state(input.seen ? 'idle' : 'finished')
         case 'cancelled':
         case 'interrupted': return state('stopped')
+        default: return unmapped(input.state)
       }
-      return state('unknown')
     }
     case 'work': {
-      switch (input.status) {
+      // A local, so the exhaustive check narrows the status and not the whole input.
+      const status = input.status
+      switch (status) {
         case 'blocked': return state('needs-you')
         case 'failed': return state('failed')
         case 'running': return state('working')
         case 'succeeded': return state(input.seen ? 'idle' : 'finished')
         case 'cancelled': return state('stopped')
+        default: return unmapped(status)
       }
-      return state('unknown')
     }
+    default: return unmapped(input)
   }
 }
 
@@ -184,6 +253,7 @@ export function paneToneState(tone: AgentPaneTone, input: { seen: boolean; stopp
     case 'awaiting': return { ...state(input.seen ? 'idle' : 'finished'), ...estimated }
     case 'idle': return state('idle')
     case 'exited': return input.stoppedByPerson ? state('stopped') : { ended: true }
+    default: return unmapped(tone)
   }
 }
 

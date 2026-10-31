@@ -6,6 +6,12 @@
  * added. The Android app's `RemoteProtocol.kt` is generated from this file (a test there keeps it current), so
  * everything here stays plain data. A JSON Schema of it is optional.
  *
+ * Unknown values (coordinator ruling, S7.1): adding a value to `REMOTE_AGENT_STATES`, `REMOTE_AGENT_KINDS` or
+ * `REMOTE_APPROVAL_RISKS` does NOT bump the version. Fields of these sets travel as plain strings, so a frame always
+ * decodes, and the phone reads each one through its rule in `REMOTE_UNKNOWN_VALUES`: an unknown state reads as
+ * `unknown`, a row of an unknown kind is dropped, an unknown risk reads as none (null). The generated enums carry the
+ * rule as `read(wire)`.
+ *
  * What the phone can never do is listed in `REMOTE_FORBIDDEN`: approvals of OxeQuery and of MCP `confirm`, sign-in and
  * tokens, secrets, MCP trust, policy edits and `host.exec` stay with the person, at the desktop. A test keeps every
  * command and subscription clear of them.
@@ -524,6 +530,12 @@ export interface RemoteDelegationsData { delegations: RemoteDelegation[] }
 // Every agent the person has running, mapped on the desktop by the shared function (shared/agents/agentState.ts), so
 // the phone never maps a state itself. An estimated pane state arrives as `unknown`. Left out on purpose: cwd and
 // paths, session ids, per-row cost (§8 privacy) and the desktop's "Ended recently" (a removed row is gone).
+//
+// Frames: a snapshot comes in pages (`page{index,last}`) of at most `REMOTE_TEXT_LIMITS.agentsPage` rows AND
+// `REMOTE_LIMITS.maxFrameBytes`; only the page marked `last` carries `unavailable` and `nudgeAfterMs`. A large change is
+// split the same way into consecutive events. The cursor is `<epoch>:<seq>`, with an epoch new at every desktop start,
+// so a resume across a desktop restart gets a fresh snapshot. When the person changes the needs-you setting, the
+// gateway sends every `agents` subscriber a fresh snapshot: events never carry `nudgeAfterMs`.
 
 /** The seven states, in their order of precedence and of sorting. */
 export const REMOTE_AGENT_STATES = ['needs-you', 'failed', 'working', 'finished', 'idle', 'stopped', 'unknown'] as const
@@ -537,6 +549,12 @@ export type RemoteAgentKind = typeof REMOTE_AGENT_KINDS[number]
 export const REMOTE_APPROVAL_RISKS = ['low', 'medium', 'high', 'critical'] as const
 export type RemoteApprovalRisk = typeof REMOTE_APPROVAL_RISKS[number]
 
+/**
+ * How the phone reads a value of these sets it does not know (see the header): `unknown` for a state, `drop-row` for
+ * a kind (the row is skipped), `null` for a risk (shown without one). Their fields are strings on the phone.
+ */
+export const REMOTE_UNKNOWN_VALUES = { RemoteAgentState: 'unknown', RemoteAgentKind: 'drop-row', RemoteApprovalRisk: 'null' } as const
+
 export interface RemoteAgentRow {
   /** Stable and opaque: `<kind>:<source id>`. */
   id: string
@@ -544,11 +562,15 @@ export interface RemoteAgentRow {
   state: RemoteAgentState
   /** When it entered this state (epoch ms); for needs-you, when it started waiting. */
   since: number
-  /** Never a path or an id; cut to `REMOTE_TEXT_LIMITS.agentTitle`. */
+  /**
+   * The row's name (pane name, conversation title, delegation objective, run title). It is free text, so before it is
+   * sent the gateway's cleaner removes secrets and paths under the person's roots, hidden and control characters go,
+   * and it is cut to `REMOTE_TEXT_LIMITS.agentTitle`. Ids never stand in for it.
+   */
   title: string
-  /** `claude`, `codex`, …; absent when the source has none. */
+  /** `claude`, `codex`, …: sent only when it matches `^[a-z0-9._-]{1,64}$`; absent otherwise or when the source has none. */
   provider?: string
-  /** For grouping; never a path. */
+  /** For grouping: the workspace's name (never its root path), cleaned and cut like `title`. */
   workspaceName: string
   /** The row of the agent that started this one (a delegation, a work run). */
   parentId?: string
@@ -561,7 +583,7 @@ export interface RemoteAgentRow {
     /** The conversation of the request; absent for a desktop approval outside one. */
     threadId?: string
     requestId: string
-    /** Built by the desktop, never the agent's own text. */
+    /** Built by the desktop from a parameterless title code, never the agent's own text; cleaned and cut like `title`. */
     title: string
     risk?: RemoteApprovalRisk
     /** False: "Answer on the computer", no Respond on the phone. */
@@ -575,12 +597,12 @@ export interface RemoteAgentRow {
   canInterrupt?: boolean
 }
 /**
- * Snapshot: every agent, in pages of `REMOTE_TEXT_LIMITS.agentsPage`. `unavailable` names the sources that failed this
- * time (the phone shows the partial notice). `nudgeAfterMs` is the desktop's needs-you timer setting, absent when it is
- * off: the phone sends its one reminder from a row's `since`.
+ * Snapshot: every agent, in pages bounded by rows and bytes (see above). `unavailable` names the sources that failed
+ * this time (the phone shows the partial notice). `nudgeAfterMs` is the desktop's needs-you timer setting, absent when
+ * it is off: the phone sends its one reminder from a row's `since`. Both ride on the page marked `last` only.
  */
 export interface RemoteAgentsSnapshot { agents: RemoteAgentRow[]; unavailable?: RemoteAgentKind[]; nudgeAfterMs?: number }
-/** Event: what changed. `unavailable`, when present, replaces the list the phone holds. */
+/** Event: what changed. `unavailable`, when present, replaces the list the phone holds. Never `nudgeAfterMs` (see above). */
 export interface RemoteAgentsEvent { upsert?: RemoteAgentRow[]; removed?: string[]; unavailable?: RemoteAgentKind[] }
 
 // ---- commands: args, and ack.result -------------------------------------------------------------------------------
@@ -608,9 +630,12 @@ export interface RemoteTerminalWriteArgs { paneId: string; data: string }
 export interface RemoteThreadHistoryArgs { threadId: string; beforeSeq: number }
 /**
  * The phone opened the row or chose "Mark as seen": the same marker as on the desktop, nothing else changes. Not
- * person-only: it never answers, stops or starts anything. An unknown id is `not-found`.
+ * person-only: it never answers, stops or starts anything. Exactly these fields; `agentId` follows the gateway's id rule
+ * (`^[A-Za-z0-9._:-]{1,200}$`) and must be a row's `id`, else `malformed`; an unknown one is `not-found`. The audit
+ * records the `agentId`. `observedSince` is the `since` of the row the phone showed: a row that finished again after
+ * it stays Finished.
  */
-export interface RemoteAgentMarkSeenArgs { agentId: string }
+export interface RemoteAgentMarkSeenArgs { agentId: string; observedSince?: number }
 
 /** The args each command takes. */
 export interface RemoteCommandArgs {

@@ -13,7 +13,10 @@
  *
  *   await app.evaluate((_electron, input) => globalThis.__oxeE2eAgents?.(input), { action: 'set', key: 'pane:p1', state: 'needs-you' })
  *
- *   set          a source report: the row's fields change, `sourceSeq` grows, `agents:changed` is pushed
+ *   set          a source report: the row's fields change, `agents:changed` is pushed
+ *
+ * Every change to a row, whatever caused it (a report, a Stop window running out, a mark-seen), raises its `rev`, as
+ * main's read model does.
  *   remove       the agent ended
  *   stop         a Stop was asked: a silent agent stays as it was, then `unknown`; another reports `stopped`
  *   unavailable  a source fails (`ok: false`) or comes back (`ok: true`)
@@ -22,7 +25,7 @@
  * The unfocused window of the needs-you timer is `BrowserWindow.blur()` in the spec.
  */
 import { BrowserWindow, ipcMain } from 'electron'
-import { agentNotFound, normalizeMarkSeen } from '../../../shared/agents/agentsOverview'
+import { agentNotFound, normalizeMarkSeen, seenAtFor } from '../../../shared/agents/agentsOverview'
 import { AGENT_KINDS, AGENT_STATES, agentMode, compareAgentRows, parseAgentKey, type AgentKey, type AgentKind, type AgentState } from '../../../shared/agents/agentState'
 import { agentTimersE2e, dueNudges, readAgentTimers, stateAfterStop, AGENT_TIMER_DEFAULTS, type AgentTimers } from '../../../shared/agents/agentTimers'
 import { mainMessage } from '../../../shared/messages'
@@ -35,15 +38,15 @@ export const E2E_AGENTS_GLOBAL = '__oxeE2eAgents'
 export interface AgentsFixture { rows: AgentOverviewRow[]; silent: AgentKey[]; unavailable: AgentKind[] }
 
 export type AgentsDriveInput =
-  | ({ action: 'set'; key: AgentKey } & Partial<Omit<AgentOverviewRow, 'key' | 'kind' | 'id' | 'sourceSeq'>>)
+  | ({ action: 'set'; key: AgentKey } & Partial<Omit<AgentOverviewRow, 'key' | 'kind' | 'id' | 'rev'>>)
   | { action: 'remove'; key: AgentKey }
   | { action: 'stop'; key: AgentKey }
   | { action: 'unavailable'; kind: AgentKind; ok: boolean }
   | { action: 'nudges' }
 
-const row = (key: AgentKey, fields: Omit<AgentOverviewRow, 'key' | 'kind' | 'id' | 'mode' | 'seen' | 'lastSeenAt' | 'sourceSeq'> & Partial<AgentOverviewRow>): AgentOverviewRow => {
+const row = (key: AgentKey, fields: Omit<AgentOverviewRow, 'key' | 'kind' | 'id' | 'mode' | 'seen' | 'lastSeenAt' | 'rev'> & Partial<AgentOverviewRow>): AgentOverviewRow => {
   const { kind, id } = parseAgentKey(key)!
-  return { key, kind, id, mode: agentMode(kind), seen: false, lastSeenAt: null, sourceSeq: 1, ...fields }
+  return { key, kind, id, mode: agentMode(kind), seen: false, lastSeenAt: null, rev: 1, ...fields }
 }
 
 /** Eight agents across modes (the S7 exit check): every state, a delegation nested under a conversation, a work run. */
@@ -106,7 +109,7 @@ export function createAgentsDouble(options: AgentsDoubleOptions) {
   const update = (key: AgentKey, fields: Partial<AgentOverviewRow>, report: boolean): AgentOverviewRow | null => {
     const current = rows.get(key)
     if (!current) return null
-    const next: AgentOverviewRow = { ...current, ...fields, key: current.key, kind: current.kind, id: current.id, sourceSeq: current.sourceSeq + 1 }
+    const next: AgentOverviewRow = { ...current, ...fields, key: current.key, kind: current.kind, id: current.id, rev: current.rev + 1 }
     if (fields.state && fields.state !== current.state && fields.since === undefined) next.since = options.now()
     rows.set(key, next)
     if (report) { lastReportAt.set(key, options.now()); stops.delete(key) }
@@ -123,8 +126,10 @@ export function createAgentsDouble(options: AgentsDoubleOptions) {
       if (!checked.ok) return checked
       const current = rows.get(checked.key)
       if (!current) return agentNotFound()
-      const seenAt = Math.max(options.now(), current.lastSeenAt ?? 0)
-      const next = update(checked.key, { seen: true, lastSeenAt: seenAt, ...(current.state === 'finished' ? { state: 'idle' as const } : {}) }, false)!
+      const seenAt = seenAtFor(current, { stored: current.lastSeenAt, now: options.now(), observedSince: checked.observedSince })
+      // Finished until the mark reaches the finish (§3.4): a mark older than it leaves the row Finished.
+      const seen = current.state !== 'finished' || seenAt >= current.since
+      const next = update(checked.key, { seen, lastSeenAt: seenAt, ...(current.state === 'finished' && seen ? { state: 'idle' as const } : {}) }, false)!
       return { ok: true, key: checked.key, seenAt, state: next.state }
     },
     drive(input: AgentsDriveInput): unknown {

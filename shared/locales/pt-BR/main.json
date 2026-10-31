@@ -359,10 +359,10 @@
         "notFound": "Este agente não está mais na lista."
       },
       "unavailable": {
-        "pane": "Não foi possível ler os agentes dos painéis.",
-        "conversation": "Não foi possível ler as conversas.",
-        "delegation": "Não foi possível ler as delegações.",
-        "work": "Não foi possível ler as execuções do Trabalho dos agentes."
+        "pane": "Não foi possível ler os agentes dos painéis agora.",
+        "conversation": "Não foi possível ler as conversas agora.",
+        "delegation": "Não foi possível ler as delegações agora.",
+        "work": "Não foi possível ler as execuções do Trabalho dos agentes agora."
       },
       "request": {
         "approval": "Quer executar uma ação",

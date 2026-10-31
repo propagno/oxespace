@@ -4,8 +4,8 @@ import ptCommon from '../shared/locales/pt-BR/common.json'
 import enMobile from '../shared/locales/en/mobile.json'
 import ptMobile from '../shared/locales/pt-BR/mobile.json'
 import {
-  AGENT_BADGE_STATES, AGENT_KINDS, AGENT_STATE_LABEL_KEYS, AGENT_STATES, AGENT_TERMINAL_LABEL_KEYS, agentKey, agentMode, agentState, compareAgentRows,
-  isSeenSince, paneToneState, parseAgentKey, type AgentPaneTone, type AgentState, type AgentStateInput, type AgentStateResult
+  AGENT_BADGE_STATES, AGENT_KINDS, AGENT_STATE_LABEL_KEYS, AGENT_STATES, AGENT_TERMINAL_LABEL_KEYS, agentKey, agentMode, agentOwnership, agentState, applyAgentOwnership, compareAgentRows,
+  isSeenSince, paneToneState, parseAgentKey, type AgentKey, type AgentPaneTone, type AgentState, type AgentStateInput, type AgentStateResult
 } from '../shared/agents/agentState'
 import { REMOTE_AGENT_KINDS, REMOTE_AGENT_STATES, REMOTE_APPROVAL_RISKS } from '../shared/remote/protocol'
 import { APPROVAL_RISKS } from '../shared/types/approvals'
@@ -83,6 +83,15 @@ describe('S7.1 agent state mapping (§3.2)', () => {
     expect([...seen('work', 'status')]).toEqual(expect.arrayContaining(['running', 'succeeded', 'failed', 'blocked', 'cancelled']))
   })
 
+  it('reads a value from a newer store as unknown (the switches are exhaustive at compile time, ARCHITECT M3)', () => {
+    expect(agentState({ kind: 'delegation', state: 'paused' as never, requester: 'person', seen: false })).toEqual(is('unknown'))
+    expect(agentState({ kind: 'work', status: 'queued' as never, seen: false })).toEqual(is('unknown'))
+    expect(agentState({ kind: 'pane', lifecycle: 'sleeping' as never, terminal: 'running', seen: false })).toEqual(is('unknown'))
+    expect(agentState({ kind: 'conversation', status: 'paused' as never, pendingRequests: 0, backgroundRunning: 0, seen: false })).toEqual(is('unknown'))
+    expect(agentState({ kind: 'robot' } as never)).toEqual(is('unknown'))
+    expect(paneToneState('dreaming' as never, { seen: false })).toEqual(is('unknown'))
+  })
+
   it('reaches every one of the seven states, and never unknown for a conversation, a delegation or a run', () => {
     const reached = new Set(TABLE.map(([, , result]) => (result.ended ? null : result.state)))
     for (const value of AGENT_STATES) expect(reached.has(value), value).toBe(true)
@@ -150,7 +159,27 @@ describe('S7.1 order, keys and seen', () => {
   it('builds and reads agent keys, and refuses anything else', () => {
     expect(agentKey('conversation', 't1')).toBe('conversation:t1')
     expect(parseAgentKey('delegation:abc:def')).toEqual({ kind: 'delegation', id: 'abc:def' })
-    for (const value of [null, 1, '', 'pane', 'pane:', 'shell:p1', 'thread:t1', `pane:${'x'.repeat(201)}`, 'pane:a\nb']) expect(parseAgentKey(value), String(value)).toBeNull()
+    expect(parseAgentKey(`pane:${'x'.repeat(195)}`)).not.toBeNull()
+    for (const value of [null, 1, '', 'pane', 'pane:', 'shell:p1', 'thread:t1', `pane:${'x'.repeat(196)}`, 'pane:a\nb', 'pane:a b', 'pane:é', 'pane:a/b', 'pane:a‮b']) {
+      expect(parseAgentKey(value), String(value)).toBeNull()
+    }
+  })
+
+  it('gives every agent one row: a delegation owns its destination, workers nest under their run (ARCHITECT M2)', () => {
+    const ownership = agentOwnership({
+      delegations: [{ id: 'd1', paneId: 'p9' }, { id: 'd2', destinationThreadId: 't9' }, { id: 'd3' }],
+      workRuns: [{ id: 'r1', workerThreadIds: ['t5', 't6', 't9'] }]
+    })
+    const rows = ['pane:p1', 'pane:p9', 'conversation:t5', 'conversation:t6', 'conversation:t9', 'conversation:t1', 'delegation:d1', 'delegation:d2', 'delegation:d3', 'work:r1']
+      .map(key => ({ key: key as AgentKey, ...(key === 'conversation:t1' ? { parentKey: 'work:other' as AgentKey } : {}) }))
+    const listed = applyAgentOwnership(rows, ownership)
+    expect(listed.map(row => row.key)).toEqual(['pane:p1', 'conversation:t5', 'conversation:t6', 'conversation:t1', 'delegation:d1', 'delegation:d2', 'delegation:d3', 'work:r1'])
+    expect(Object.fromEntries(listed.filter(row => row.parentKey).map(row => [row.key, row.parentKey]))).toEqual({ 'conversation:t5': 'work:r1', 'conversation:t6': 'work:r1', 'conversation:t1': 'work:other' })
+    // The worker that is also a delegation's destination is the delegation's, not listed twice.
+    expect(ownership.hidden.get('conversation:t9')).toBe('delegation:d2')
+    expect(ownership.parents.has('conversation:t9')).toBe(false)
+    // Every agent appears exactly once.
+    expect(new Set(listed.map(row => row.key)).size).toBe(listed.length)
   })
 
   it('is seen when the mark is at or after the finish', () => {

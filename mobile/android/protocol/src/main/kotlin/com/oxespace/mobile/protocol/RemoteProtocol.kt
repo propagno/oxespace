@@ -16,6 +16,12 @@ import kotlinx.serialization.json.JsonObject
  * added. The Android app's `RemoteProtocol.kt` is generated from this file (a test there keeps it current), so
  * everything here stays plain data. A JSON Schema of it is optional.
  *
+ * Unknown values (coordinator ruling, S7.1): adding a value to `REMOTE_AGENT_STATES`, `REMOTE_AGENT_KINDS` or
+ * `REMOTE_APPROVAL_RISKS` does NOT bump the version. Fields of these sets travel as plain strings, so a frame always
+ * decodes, and the phone reads each one through its rule in `REMOTE_UNKNOWN_VALUES`: an unknown state reads as
+ * `unknown`, a row of an unknown kind is dropped, an unknown risk reads as none (null). The generated enums carry the
+ * rule as `read(wire)`.
+ *
  * What the phone can never do is listed in `REMOTE_FORBIDDEN`: approvals of OxeQuery and of MCP `confirm`, sign-in and
  * tokens, secrets, MCP trust, policy edits and `host.exec` stay with the person, at the desktop. A test keeps every
  * command and subscription clear of them.
@@ -186,6 +192,9 @@ enum class RemoteAgentState(val wire: String) {
 
     companion object {
         fun fromWire(wire: String): RemoteAgentState? = entries.firstOrNull { it.wire == wire }
+
+        /** A value this app does not know reads as UNKNOWN. */
+        fun read(wire: String): RemoteAgentState = fromWire(wire) ?: UNKNOWN
     }
 }
 
@@ -200,6 +209,9 @@ enum class RemoteAgentKind(val wire: String) {
 
     companion object {
         fun fromWire(wire: String): RemoteAgentKind? = entries.firstOrNull { it.wire == wire }
+
+        /** Null for a value this app does not know: skip the row that carries it. */
+        fun read(wire: String): RemoteAgentKind? = fromWire(wire)
     }
 }
 
@@ -214,6 +226,9 @@ enum class RemoteApprovalRisk(val wire: String) {
 
     companion object {
         fun fromWire(wire: String): RemoteApprovalRisk? = entries.firstOrNull { it.wire == wire }
+
+        /** A value this app does not know reads as none. */
+        fun read(wire: String?): RemoteApprovalRisk? = wire?.let { fromWire(it) }
     }
 }
 
@@ -614,15 +629,19 @@ data class RemoteDelegationsData(
 data class RemoteAgentRow(
     /** Stable and opaque: `<kind>:<source id>`. */
     val id: String,
-    val kind: RemoteAgentKind,
-    val state: RemoteAgentState,
+    val kind: String,
+    val state: String,
     /** When it entered this state (epoch ms); for needs-you, when it started waiting. */
     val since: Long,
-    /** Never a path or an id; cut to `REMOTE_TEXT_LIMITS.agentTitle`. */
+    /**
+     * The row's name (pane name, conversation title, delegation objective, run title). It is free text, so before it is
+     * sent the gateway's cleaner removes secrets and paths under the person's roots, hidden and control characters go,
+     * and it is cut to `REMOTE_TEXT_LIMITS.agentTitle`. Ids never stand in for it.
+     */
     val title: String,
-    /** `claude`, `codex`, …; absent when the source has none. */
+    /** `claude`, `codex`, …: sent only when it matches `^[a-z0-9._-]{1,64}$`; absent otherwise or when the source has none. */
     val provider: String? = null,
-    /** For grouping; never a path. */
+    /** For grouping: the workspace's name (never its root path), cleaned and cut like `title`. */
     val workspaceName: String,
     /** The row of the agent that started this one (a delegation, a work run). */
     val parentId: String? = null,
@@ -642,9 +661,9 @@ data class RemoteAgentRow(
         /** The conversation of the request; absent for a desktop approval outside one. */
         val threadId: String? = null,
         val requestId: String,
-        /** Built by the desktop, never the agent's own text. */
+        /** Built by the desktop from a parameterless title code, never the agent's own text; cleaned and cut like `title`. */
         val title: String,
-        val risk: RemoteApprovalRisk? = null,
+        val risk: String? = null,
         /** False: "Answer on the computer", no Respond on the phone. */
         val answerable: Boolean,
         /** Other requests waiting behind it. */
@@ -659,23 +678,23 @@ data class RemoteAgentRow(
 }
 
 /**
- * Snapshot: every agent, in pages of `REMOTE_TEXT_LIMITS.agentsPage`. `unavailable` names the sources that failed this
- * time (the phone shows the partial notice). `nudgeAfterMs` is the desktop's needs-you timer setting, absent when it is
- * off: the phone sends its one reminder from a row's `since`.
+ * Snapshot: every agent, in pages bounded by rows and bytes (see above). `unavailable` names the sources that failed
+ * this time (the phone shows the partial notice). `nudgeAfterMs` is the desktop's needs-you timer setting, absent when
+ * it is off: the phone sends its one reminder from a row's `since`. Both ride on the page marked `last` only.
  */
 @Serializable
 data class RemoteAgentsSnapshot(
     val agents: List<RemoteAgentRow>,
-    val unavailable: List<RemoteAgentKind>? = null,
+    val unavailable: List<String>? = null,
     val nudgeAfterMs: Long? = null,
 )
 
-/** Event: what changed. `unavailable`, when present, replaces the list the phone holds. */
+/** Event: what changed. `unavailable`, when present, replaces the list the phone holds. Never `nudgeAfterMs` (see above). */
 @Serializable
 data class RemoteAgentsEvent(
     val upsert: List<RemoteAgentRow>? = null,
     val removed: List<String>? = null,
-    val unavailable: List<RemoteAgentKind>? = null,
+    val unavailable: List<String>? = null,
 )
 
 /**
@@ -741,11 +760,15 @@ data class RemoteThreadHistoryArgs(
 
 /**
  * The phone opened the row or chose "Mark as seen": the same marker as on the desktop, nothing else changes. Not
- * person-only: it never answers, stops or starts anything. An unknown id is `not-found`.
+ * person-only: it never answers, stops or starts anything. Exactly these fields; `agentId` follows the gateway's id rule
+ * (`^[A-Za-z0-9._:-]{1,200}$`) and must be a row's `id`, else `malformed`; an unknown one is `not-found`. The audit
+ * records the `agentId`. `observedSince` is the `since` of the row the phone showed: a row that finished again after
+ * it stays Finished.
  */
 @Serializable
 data class RemoteAgentMarkSeenArgs(
     val agentId: String,
+    val observedSince: Long? = null,
 )
 
 /**
