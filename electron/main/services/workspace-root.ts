@@ -11,6 +11,17 @@ import type { WorkspaceCreateRefusal, WorkspaceRootRefusal } from '../../../shar
  * given, the way `WorkspaceService.create` already stores it, so an existing workspace on the same folder still
  * matches through `isSameRootPath`.
  */
+/**
+ * The root as the person meant it: surrounding spaces trimmed, and one pair of matching quotes removed when they wrap
+ * the whole text, as Explorer's "Copy as path" gives it. Quotes inside a name, or unbalanced ones, are kept, so such
+ * a path is then refused as it stands.
+ */
+export function normalizeWorkspaceRoot(rootPath: string): string {
+  const trimmed = rootPath.trim()
+  const quoted = trimmed.length >= 2 && (trimmed[0] === '"' || trimmed[0] === '\'') && trimmed.at(-1) === trimmed[0]
+  return quoted ? trimmed.slice(1, -1).trim() : trimmed
+}
+
 export function checkWorkspaceRoot(rootPath: string): { ok: true } | WorkspaceCreateRefusal {
   if (!isAbsolute(rootPath)) return refuse('notAbsolute', rootPath)
   let isDirectory: boolean

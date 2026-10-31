@@ -11,7 +11,7 @@ import type { FakeIpcMain } from '../helpers/fake-ipc-main'
 import { removeTempDir } from '../helpers/removeTempDir'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
-import { checkWorkspaceRoot } from '../../electron/main/services/workspace-root'
+import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../../electron/main/services/workspace-root'
 import type { SemanticService } from '../../electron/main/services/semantic.service'
 
 // vi.mock is hoisted above the imports, so the fake it hands out must be hoisted with it.
@@ -85,6 +85,35 @@ describe('workspace root check (B11)', () => {
     expect(workspace.rootPath).toBe(rootPath)
     expect(workspace.panes).toHaveLength(4)
     expect(counts(db)).toEqual({ workspaces: 1, panes: 4 })
+  })
+
+  // Homologation: Explorer's "Copy as path" wraps the path in quotes.
+  test.each([['"', '"'], ['\'', '\''], ['  "', '"  ']])('a path wrapped in %j quotes is accepted and stored without them', async (open, close) => {
+    const rootPath = join(scratch, 'repo com espaço')
+    mkdirSync(rootPath)
+
+    const workspace = await ipcMain.invoke('workspace:create', { rootPath: `${open}${rootPath}${close}`, layoutPreset: 4 }) as { rootPath: string; panes: unknown[] }
+
+    expect(workspace.rootPath).toBe(rootPath)
+    expect(workspace.panes).toHaveLength(4)
+  })
+
+  test.each([`"PATH`, `PATH"`, `"PATH'`])('unbalanced quotes are kept, so %s is refused', async (shape) => {
+    const rootPath = join(scratch, 'repo')
+    mkdirSync(rootPath)
+    const given = shape.replace('PATH', rootPath)
+
+    const result = await ipcMain.invoke('workspace:create', { rootPath: given, layoutPreset: 4 })
+
+    expect(result).toMatchObject({ ok: false })
+    expect(counts(db)).toEqual({ workspaces: 0, panes: 0 })
+  })
+
+  test('quotes inside a name are kept', () => {
+    expect(normalizeWorkspaceRoot('C:\\work\\it"s here')).toBe('C:\\work\\it"s here')
+    expect(normalizeWorkspaceRoot('"C:\\work\\it"s here"')).toBe('C:\\work\\it"s here')
+    expect(normalizeWorkspaceRoot('  /home/me/repo  ')).toBe('/home/me/repo')
+    expect(normalizeWorkspaceRoot('""')).toBe('')
   })
 
   // Windows has no mode bits that stop a directory listing, and root ignores them.
