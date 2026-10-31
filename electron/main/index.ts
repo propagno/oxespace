@@ -21,6 +21,7 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
+import { registerRemoteIpc } from './ipc/remote.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
@@ -377,6 +378,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
+  registerRemoteIpc(db, { threads: threadManager.manager, terminals: terminalManager, agentState })
   app.once('before-quit', registerAppInfoIpc())
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()

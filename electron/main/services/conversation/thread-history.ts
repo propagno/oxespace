@@ -110,19 +110,23 @@ export class ThreadHistory {
   }
 
   /**
-   * The same pending-request read as a conversation's window, across every conversation waiting for
-   * approval. Returns titles only: the activity center points at a request, it never answers one.
-   * CROSS JOIN keeps the waiting conversations as the outer loop, so only their events are read.
+   * The same pending-request read as a conversation's window, across every conversation waiting for approval, each
+   * request with its conversation. The one read behind the activity center's list and the remote gateway's
+   * `pendingRequests` topic. CROSS JOIN keeps the waiting conversations as the outer loop, so only their events are read.
    */
-  pendingRequestsAll(limit = 200): ThreadPendingRequestSummary[] {
-    const rows = this.db.prepare(`SELECT e.thread_id, t.workspace_id, json_extract(t.data_json, '$.title') AS thread_title, e.data_json
+  pendingRequestRows(limit = 200): Array<{ thread: ConversationThread; request: ThreadRequest }> {
+    const rows = this.db.prepare(`SELECT t.data_json AS thread_json, e.data_json AS event_json
       FROM conversation_threads t CROSS JOIN conversation_events e ON e.thread_id = t.id
       WHERE json_extract(t.data_json, '$.status') = 'approval' AND json_extract(e.data_json, '$.type') = 'request' AND json_extract(e.data_json, '$.request.state') = 'pending'
-      ORDER BY e.thread_id, e.seq LIMIT ?`).all(limit) as { thread_id: string; workspace_id: string; thread_title: string | null; data_json: string }[]
-    return rows.map(row => {
-      const request = (JSON.parse(row.data_json) as Extract<ThreadEvent, { type: 'request' }>).request
-      return { threadId: row.thread_id, workspaceId: row.workspace_id, threadTitle: row.thread_title ?? '', requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation }
-    })
+      ORDER BY e.thread_id, e.seq LIMIT ?`).all(limit) as { thread_json: string; event_json: string }[]
+    return rows.map(row => ({ thread: JSON.parse(row.thread_json) as ConversationThread, request: (JSON.parse(row.event_json) as Extract<ThreadEvent, { type: 'request' }>).request }))
+  }
+
+  /** That read as titles only: the activity center points at a request, it never answers one. */
+  pendingRequestsAll(limit = 200): ThreadPendingRequestSummary[] {
+    return this.pendingRequestRows(limit).map(({ thread, request }) => ({
+      threadId: thread.id, workspaceId: thread.workspaceId, threadTitle: thread.title ?? '', requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation
+    }))
   }
 
   private pendingRequests(id: string, thread: ConversationThread): ThreadRequest[] {

@@ -121,6 +121,22 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
+  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' | 'reserved-name' }
+  /** A pairing code was asked for while the gateway is off. */
+  'remote.gateway.offline': Record<string, never>
+  /** Pairing another phone would pass the device limit. */
+  'remote.pairing.limit': { max: number }
+  /** No paired device has this id (revoked, or never paired). */
+  'remote.device.notFound': Record<string, never>
+  /** A device name that is empty, longer than `max` or has control characters. */
+  'remote.device.invalidName': { max: number }
+  /** A device name only the app may speak as ("OXESpace", "System"; `reservedNameIn` in shared/approval-rules.ts). */
+  'remote.device.reservedName': Record<string, never>
+  /** A desktop name that is empty, longer than `max` or has control characters. */
+  'remote.desktop.invalidName': { max: number }
+  /** A pane id that cannot be a pane. */
+  'remote.pane.invalid': Record<string, never>
   // B10 · Approvals (shared/types/approvals.ts). Titles, summaries, requesters, options and the app's notes.
   'approvals.title.agent': Record<string, never>
   'approvals.title.oxequery': Record<string, never>
@@ -298,6 +314,14 @@ export const MESSAGE_CODES = [
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
   'remote.certificate.failed',
+  'remote.pairing.failed',
+  'remote.gateway.offline',
+  'remote.pairing.limit',
+  'remote.device.notFound',
+  'remote.device.invalidName',
+  'remote.device.reservedName',
+  'remote.desktop.invalidName',
+  'remote.pane.invalid',
   'approvals.title.agent',
   'approvals.title.oxequery',
   'approvals.title.previewAutomation',
@@ -387,6 +411,38 @@ export function isMainMessage(value: unknown): value is MainMessage {
 
 export function mainMessage<Code extends MessageCode>(code: Code, params: MessageParams[Code]): { code: Code; params: MessageParams[Code] } {
   return { code, params }
+}
+
+/**
+ * C3 in a rejection. Electron passes only an error's text across `invoke`, so a handler that rejects with something
+ * the person should read throws `MainMessageError` (`electron/main/ipc/main-message-error.ts`, the one serializer):
+ * its text is the English sentence, readable on its own in logs and crash reports, then this fixed marker, then the
+ * message as JSON with its parameters redacted and capped. The window reads it back with `messageFromError` (the one
+ * reader) and words it with `formatMainMessage`; without the marker it shows its generic text. Malformed input (wrong
+ * types, unknown fields) stays a plain `Error`.
+ */
+export const MAIN_MESSAGE_ERROR_TAG = ' #c3 '
+
+/** Caps on what a rejection's parameters may carry: characters per text value, and values per list. */
+export const MAIN_MESSAGE_PARAM_LIMITS = { textLength: 200, listLength: 20 } as const
+
+/**
+ * The C3 message a rejection carries, in this process or after crossing IPC; `null` for any other error. The marker
+ * is looked for from the end: the message is the tail after the last occurrence that parses as one, so the English
+ * sentence, and a parameter inside the JSON, may themselves contain "#c3" or the marker without misleading the read.
+ */
+export function messageFromError(cause: unknown): MainMessage | null {
+  const text = cause instanceof Error ? cause.message
+    : typeof cause === 'string' ? cause
+      : cause && typeof cause === 'object' && typeof (cause as { message?: unknown }).message === 'string' ? (cause as { message: string }).message : ''
+  for (let at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG); at >= 0; at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG, at - 1)) {
+    try {
+      const value: unknown = JSON.parse(text.slice(at + MAIN_MESSAGE_ERROR_TAG.length))
+      if (isMainMessage(value)) return value
+    } catch { /* not this occurrence: an earlier one may be the marker */ }
+    if (at === 0) break
+  }
+  return null
 }
 
 /** The catalog key of a code in the `main` namespace. */
