@@ -11,13 +11,19 @@ export const RESERVED_APP_NAMES = ['OXESpace', 'OxeChat', 'OxeCode', 'OxeQuery',
  * Operating-system and vendor names a request could pass for ("Windows Security"); refused as a whole word anywhere
  * in the name, so "Linuxbrew" and "Applesauce" stay allowed.
  */
-export const RESERVED_VENDOR_NAMES = ['Windows', 'Microsoft', 'Ubuntu', 'Linux', 'macOS', 'Apple', 'Google', 'GitHub'] as const
-/** Words the app's or the system's own notices start with; refused as the first word ("System Administrator", "Admin bot"). */
-export const RESERVED_FIRST_WORDS = ['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App'] as const
+export const RESERVED_VENDOR_NAMES = ['Windows', 'Microsoft', 'Ubuntu', 'Linux', 'macOS', 'Apple', 'Google', 'GitHub', 'Debian', 'Fedora', 'GNOME', 'KDE', 'polkit'] as const
+/** Words the app's or the system's own notices start with; refused as the first word ("System Administrator", "root access"). */
+export const RESERVED_FIRST_WORDS = ['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App', 'root', 'sudo', 'Security', 'Segurança'] as const
+/**
+ * Prefixes a first word may not start with, after the fold: the admin family ("Administração", "Admins"; not "Admiral",
+ * "Admit") and the app's own "Oxe" ("OxeBot", "OXE", "Oxeye"; not "Ox", "Boxer").
+ */
+export const RESERVED_FIRST_WORD_PREFIXES = ['Admin', 'Oxe'] as const
 /** The app's internal tab names; refused only as the whole name ("Code reviewer" and "Chatbot" stay allowed). */
 export const RESERVED_EXACT_NAMES = ['Thread', 'Code', 'Chat'] as const
 export type ReservedAppName =
-  | typeof RESERVED_APP_NAMES[number] | typeof RESERVED_VENDOR_NAMES[number] | typeof RESERVED_FIRST_WORDS[number] | typeof RESERVED_EXACT_NAMES[number]
+  | typeof RESERVED_APP_NAMES[number] | typeof RESERVED_VENDOR_NAMES[number] | typeof RESERVED_FIRST_WORDS[number]
+  | typeof RESERVED_FIRST_WORD_PREFIXES[number] | typeof RESERVED_EXACT_NAMES[number]
 
 /** Letters from other scripts that read as a Latin letter (a small UTS #39-style skeleton for these names). */
 const CONFUSABLE_LETTERS: Record<string, string> = {
@@ -74,26 +80,41 @@ export function foldWords(value: string, readSymbols = false): string[] {
 const FOLDED_RESERVED = RESERVED_APP_NAMES.map(name => [name, foldName(name)] as const)
 const FOLDED_VENDOR = RESERVED_VENDOR_NAMES.map(name => [name, foldName(name)] as const)
 const FOLDED_FIRST = RESERVED_FIRST_WORDS.map(name => [name, foldName(name)] as const)
+// Folded too: `i` reads as `l`, so "Admin" is the prefix "admln".
+const FOLDED_PREFIXES = RESERVED_FIRST_WORD_PREFIXES.map(name => [name, foldName(name)] as const)
 const FOLDED_EXACT = RESERVED_EXACT_NAMES.map(name => [name, foldName(name)] as const)
 
 /**
  * The reserved name hidden in `value`, if any:
  *   product names   by containment anywhere in the whole-string fold ("OXESpace: security update", "O.X.E Space")
- *   OS and vendors  as a whole word ("Windows Security", "W i n d o w s"; not "Linuxbrew")
- *   generic words   as the first word ("System Administrator", "Sistema operacional", "Admin bot")
+ *   OS and vendors  as a whole word, or two adjacent words joined ("Windows Security", "W i n d o w s", "Win dows";
+ *                   not "Linuxbrew", "Win dow manager")
+ *   generic words   as the first word ("System Administrator", "Sistema operacional", "root access")
+ *   prefixes        a first word starting with one ("Administração", "OxeBot"; not "Admiral", "Ox")
  *   tab names       as the whole name only ("Thread"; not "Code reviewer")
  * Both folds are checked: with symbols dropped ("System!" is "system") and with symbols read as letters ("$ystem",
  * "W1ndows").
  */
 export function reservedNameIn(value: string): ReservedAppName | null {
-  for (const readSymbols of [false, true]) {
-    const folded = readSymbols ? foldNameWithSymbols(value) : foldName(value)
+  // Every rule sees both folds before the next rule runs, so the most specific name wins ("OXESp4ce" is OXESpace,
+  // found by reading 4 as a, not the "Oxe" prefix of "oxespce").
+  const folds = [false, true].map(readSymbols => {
     const words = foldWords(value, readSymbols)
-    const found = FOLDED_RESERVED.find(([, reserved]) => folded.includes(reserved))?.[0]
-      ?? FOLDED_VENDOR.find(([, reserved]) => words.includes(reserved))?.[0]
-      ?? FOLDED_FIRST.find(([, reserved]) => words[0] === reserved)?.[0]
-      ?? FOLDED_EXACT.find(([, reserved]) => folded === reserved)?.[0]
-    if (found) return found
+    // A vendor split in two ("Win dows", "Git Hub") is still that vendor; only an exact match counts, never containment.
+    return { whole: readSymbols ? foldNameWithSymbols(value) : foldName(value), words, candidates: [...words, ...words.slice(1).map((word, index) => skeleton(words[index] + word))] }
+  })
+  const rules: Array<(fold: typeof folds[number]) => ReservedAppName | undefined> = [
+    fold => FOLDED_RESERVED.find(([, reserved]) => fold.whole.includes(reserved))?.[0],
+    fold => FOLDED_VENDOR.find(([, reserved]) => fold.candidates.includes(reserved))?.[0],
+    fold => FOLDED_FIRST.find(([, reserved]) => fold.words[0] === reserved)?.[0],
+    fold => FOLDED_PREFIXES.find(([, prefix]) => fold.words[0]?.startsWith(prefix))?.[0],
+    fold => FOLDED_EXACT.find(([, reserved]) => fold.whole === reserved)?.[0]
+  ]
+  for (const rule of rules) {
+    for (const fold of folds) {
+      const found = rule(fold)
+      if (found) return found
+    }
   }
   return null
 }

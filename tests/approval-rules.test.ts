@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, foldWords, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, riskFromShell, riskFromSql, SPELLED_WORD_MIN } from '../shared/approval-rules'
+import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, foldWords, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORD_PREFIXES, RESERVED_FIRST_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, riskFromShell, riskFromSql, SPELLED_WORD_MIN } from '../shared/approval-rules'
 import { mainMessage } from '../shared/messages'
 import { APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_SCHEMA_VERSION, type ApprovalRequest } from '../shared/types/approvals'
 import { guardSql } from '../electron/main/services/oxequery/sql-guard'
@@ -16,8 +16,9 @@ const request = (patch: Partial<ApprovalRequest> = {}): ApprovalRequest => ({
 describe('reserved names (B10)', () => {
   it('lists the app\'s product names', () => {
     expect(RESERVED_APP_NAMES).toEqual(['OXESpace', 'OxeChat', 'OxeCode', 'OxeQuery', 'OxePod', 'OxePost'])
-    expect(RESERVED_VENDOR_NAMES).toEqual(['Windows', 'Microsoft', 'Ubuntu', 'Linux', 'macOS', 'Apple', 'Google', 'GitHub'])
-    expect(RESERVED_FIRST_WORDS).toEqual(['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App'])
+    expect(RESERVED_VENDOR_NAMES).toEqual(['Windows', 'Microsoft', 'Ubuntu', 'Linux', 'macOS', 'Apple', 'Google', 'GitHub', 'Debian', 'Fedora', 'GNOME', 'KDE', 'polkit'])
+    expect(RESERVED_FIRST_WORDS).toEqual(['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App', 'root', 'sudo', 'Security', 'Segurança'])
+    expect(RESERVED_FIRST_WORD_PREFIXES).toEqual(['Admin', 'Oxe'])
     expect(RESERVED_EXACT_NAMES).toEqual(['Thread', 'Code', 'Chat'])
     expect(SPELLED_WORD_MIN).toBe(3)
   })
@@ -58,14 +59,34 @@ describe('reserved names (B10)', () => {
     ['aplicacao', 'Aplicação'], ['App builder', 'App'], ['Sistema de testes', 'Sistema'], ['T h r e a d', 'Thread'], ['code', 'Code'], ['Chat', 'Chat'],
     // Spelled out, whatever the separator.
     ['W i n d o w s', 'Windows'], ['W.i.n.d.o.w.s', 'Windows'], ['W-i-n-d-o-w-s', 'Windows'], ['W_i_n_d_o_w_s', 'Windows'], ['W i n-d.o w s', 'Windows'],
-    ['Open W i n d o w s Security', 'Windows']
+    ['Open W i n d o w s Security', 'Windows'],
+    // A vendor split into two adjacent words.
+    ['Win dows', 'Windows'], ['Git Hub', 'GitHub'], ['Micro soft', 'Microsoft'], ['Ubun tu', 'Ubuntu'], ['Mac OS', 'macOS'], ['Oxe Space', 'OXESpace'],
+    ['New Win-dows Security', 'Windows'], ['Goo gle docs', 'Google'], ['Linux brew', 'Linux'],
+    // "apple" is a whole word of its own, so the pair rule is never reached.
+    ['Pine apple', 'Apple'],
+    // The admin family as a first-word prefix (homologation of #247).
+    ['Administração', 'Admin'], ['Administração do sistema', 'Admin'], ['Administratie', 'Admin'], ['Administrativo', 'Admin'], ['Admins', 'Admin'],
+    // Linux and desktop names as whole words.
+    ['GNOME Keyring', 'GNOME'], ['polkit authentication', 'polkit'], ['KDE Wallet', 'KDE'], ['Debian', 'Debian'], ['Fedora updates', 'Fedora'],
+    // root and sudo, alone or as the first word.
+    ['root', 'root'], ['Root', 'root'], ['root access', 'root'], ['sudo password', 'sudo'],
+    // Security and Segurança, alone or as the first word.
+    ['Security', 'Security'], ['Security scanner', 'Security'], ['Segurança', 'Segurança'], ['Seguranca do sistema', 'Segurança'],
+    // "Oxe" as a first-word prefix.
+    ['OxeBot', 'Oxe'], ['OXE', 'Oxe'], ['Oxe helper', 'Oxe'], ['Oxeye', 'Oxe']
   ])('refuses %j as %s', (value, name) => {
     expect(reservedNameIn(value)).toBe(name)
   })
 
   it.each([
-    'Reviewer', 'tests', 'filesystem watcher', 'filesystem', 'my system', 'OXE', 'Space', 'Claude 2', '', 'mapping',
-    'Linuxbrew', 'Applesauce', 'Code reviewer', 'Chatbot', 'Thread safety', 'A B testing', 'a b c notes', 'Win dows'
+    'Reviewer', 'tests', 'filesystem watcher', 'filesystem', 'my system', 'Space', 'Claude 2', '', 'mapping',
+    'Linuxbrew', 'Applesauce', 'Code reviewer', 'Chatbot', 'Thread safety', 'A B testing', 'a b c notes',
+    // Adjacent pairs count only as an exact vendor, never by containment.
+    'Win dow manager', 'Pineapple', 'Micro softer', 'Ubunt utility',
+    'Admiral', 'Admit', 'Gnomes', 'kdenlive', 'Rootless builder', 'pseudo', 'my security notes', 'Securities', 'Ox', 'Boxer',
+    // Provider names are allowed: the requester the person sees comes from the authenticated provider, not the name.
+    'Claude', 'Anthropic', 'Codex', 'OpenAI'
   ])('allows %j', value => {
     expect(reservedNameIn(value)).toBeNull()
   })

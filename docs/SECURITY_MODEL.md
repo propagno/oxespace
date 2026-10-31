@@ -87,11 +87,16 @@ A pane name an agent chooses, and the agent-supplied parts of a notification, ma
 | Names | Refused when |
 |---|---|
 | OXESpace, OxeChat, OxeCode, OxeQuery, OxePod, OxePost | contained anywhere in the whole-name fold ("OXESpace: security update", "O.X.E Space") |
-| Windows, Microsoft, Ubuntu, Linux, macOS, Apple, Google, GitHub | a whole word of the name ("Windows Security", "Microsoft Defender"); "Linuxbrew" and "Applesauce" are allowed |
-| System, Sistema, Administrator, Administrador, Admin, Aplicação, Aplicativo, Application, App | the first word ("System Administrator", "Sistema operacional", "Admin bot", and so also "Sistema de testes" and "App builder"); "my system" and "filesystem" are allowed |
+| Windows, Microsoft, Ubuntu, Linux, macOS, Apple, Google, GitHub, Debian, Fedora, GNOME, KDE, polkit | a whole word of the name, or two adjacent words joined ("Windows Security", "GNOME Keyring", "Win dows", "Git Hub"); "Linuxbrew", "Applesauce", "Gnomes", "kdenlive" and "Win dow manager" are allowed |
+| System, Sistema, Administrator, Administrador, Admin, Aplicação, Aplicativo, Application, App, root, sudo, Security, Segurança | the first word, or the whole name ("System Administrator", "root access", "Security scanner", and so also "Sistema de testes" and "App builder"); "my system", "filesystem", "Rootless builder", "pseudo", "my security notes" and "Securities" are allowed |
+| Admin…, Oxe… (prefixes, folded) | a first word that starts with one ("Administração", "Admins", "OxeBot", "OXE", "Oxeye"); "Admiral", "Admit", "Ox" and "Boxer" are allowed |
 | Thread, Code, Chat (the app's tab names) | the whole name only; "Code reviewer" and "Chatbot" are allowed |
 
+Provider names (Claude, Anthropic, Codex, OpenAI) are allowed: the requester the person sees comes from the authenticated provider, never from the name. Each rule is checked on both folds before the next rule, so the most specific name is reported.
+
 Words are split on anything that is not a letter; a run of three or more single letters, whatever separates them ("W i n d o w s", "W.i.n.d.o.w.s", "W_i_n_d_o_w_s"), is joined into one word first, while two ("A B testing") are left alone. A pane name is refused with `agents.name.reserved` (MCP code `reserved-name`), a notification with `notify.refused.reservedName`.
+
+**Closed findings (homologation, #184 and #247):** "Administração" got through #247's first version (only whole first words were matched); the admin prefix closes it.
 
 **Closed finding (homologation, #184):** a black-box probe of #235's `reservedNameIn` with 38 names caught every imitation of the product names, but let through "System Administrator", "Sistema operacional", "Administrador", "Aplicação", "Windows", "Windows Security", "Microsoft", "Ubuntu" and "Thread": the generic words were matched only as the whole name and there were no OS or vendor names. The rule above closes it; `tests/approval-rules.test.ts` keeps each of those names, and the probe's categories, with its verdict.
 
