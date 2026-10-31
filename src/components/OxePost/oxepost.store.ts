@@ -6,6 +6,9 @@ import { i18n } from '../../i18n'
 import { registerUnsavedSource } from '../../lib/unsavedWork'
 
 export type PostDialog = 'import' | 'environments' | null
+
+/** A new request, named in the interface language (the shared default is the English word). */
+const newDraft = (): PostRequest => ({ ...emptyRequest(), name: i18n.t('postCommands.defaultName', { ns: 'common' }) })
 export interface SendFailure { code: string; message: string }
 
 interface PostState {
@@ -53,11 +56,11 @@ const snapshot = (request: PostRequest): string => serializeRequest(request)
 
 export const useOxePostStore = create<PostState>((set, get) => ({
   workspaceId: null, loading: false, error: null, entries: [], environments: [], secretsProblem: null, selected: null,
-  draft: emptyRequest(), baseline: snapshot(emptyRequest()), environment: '', response: null, failure: null, sending: false, filter: '', dialog: null, pendingOpen: undefined, confirmSend: false,
+  draft: newDraft(), baseline: snapshot(newDraft()), environment: '', response: null, failure: null, sending: false, filter: '', dialog: null, pendingOpen: undefined, confirmSend: false,
 
   load: async workspaceId => {
     const token = ++loadToken
-    if (workspaceId !== get().workspaceId) set({ workspaceId, entries: [], environments: [], selected: null, draft: emptyRequest(), baseline: snapshot(emptyRequest()), response: null, failure: null, environment: '' })
+    if (workspaceId !== get().workspaceId) set({ workspaceId, entries: [], environments: [], selected: null, draft: newDraft(), baseline: snapshot(newDraft()), response: null, failure: null, environment: '' })
     if (!workspaceId) { set({ loading: false, error: null }); return }
     set({ loading: true })
     try {
@@ -86,7 +89,7 @@ export const useOxePostStore = create<PostState>((set, get) => ({
 
   cancelOpen: () => set({ pendingOpen: undefined }),
 
-  newRequest: () => set({ selected: null, draft: emptyRequest(), baseline: snapshot(emptyRequest()), response: null, failure: null, pendingOpen: undefined }),
+  newRequest: () => set({ selected: null, draft: newDraft(), baseline: snapshot(newDraft()), response: null, failure: null, pendingOpen: undefined }),
 
   edit: patch => set(state => ({ draft: { ...state.draft, ...patch } })),
 

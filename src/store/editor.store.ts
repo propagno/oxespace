@@ -22,7 +22,10 @@ export interface EditorFileState {
   watchId: string | null
   isLoading: boolean
   isSaving: boolean
+  /** Why the file could not be opened or read. */
   error: string | null
+  /** Why the last save failed; the edit is still in the editor. Cleared when a save starts. */
+  saveError?: string | null
   conflict: EditorConflict | null
 }
 
@@ -177,7 +180,7 @@ export const useEditorStore = create<EditorState>()(
                 ...state.files,
                 [input.workspaceId]: {
                   ...state.files[input.workspaceId],
-                  [input.relativePath]: { ...current, isLoading: false, error: toMessage(error) }
+                  [input.relativePath]: { ...current, isLoading: false, error: toMessage(error, input.rootPath) }
                 }
               }
             }
@@ -294,7 +297,7 @@ export const useEditorStore = create<EditorState>()(
         set((state) => ({
           files: {
             ...state.files,
-            [workspaceId]: { ...state.files[workspaceId], [path]: { ...file, isSaving: true, error: null } }
+            [workspaceId]: { ...state.files[workspaceId], [path]: { ...file, isSaving: true, saveError: null } }
           }
         }))
         try {
@@ -312,7 +315,7 @@ export const useEditorStore = create<EditorState>()(
                 ...state.files,
                 [workspaceId]: {
                   ...state.files[workspaceId],
-                  [path]: { ...current, lastSavedContent: current.content, isSaving: false, error: null, conflict: null }
+                  [path]: { ...current, lastSavedContent: current.content, isSaving: false, saveError: null, conflict: null }
                 }
               }
             }
@@ -326,7 +329,7 @@ export const useEditorStore = create<EditorState>()(
                 ...state.files,
                 [workspaceId]: {
                   ...state.files[workspaceId],
-                  [path]: { ...current, isSaving: false, error: toMessage(error) }
+                  [path]: { ...current, isSaving: false, saveError: toMessage(error, current.rootPath) }
                 }
               }
             }
@@ -403,8 +406,25 @@ export function selectActiveFile(state: EditorState, workspaceId: string): Edito
   return path ? state.files[workspaceId]?.[path] ?? null : null
 }
 
-function toMessage(error: unknown): string {
-  return humanizeError(error, i18n.t('editor.unexpected', { ns: 'code' }))
+/**
+ * The reason in words, with paths inside the project written from its root (`src/app.ts`) and any other path cut to
+ * its file name: the absolute path of the person's machine never shows.
+ */
+export function toMessage(error: unknown, rootPath?: string): string {
+  return withProjectPaths(humanizeError(error, i18n.t('editor.unexpected', { ns: 'code' })), rootPath)
+}
+
+export function withProjectPaths(message: string, rootPath?: string): string {
+  // An absolute path where a word starts: C:\…, \\server\…, /…; never a slash inside a word ("and/or").
+  const absolute = /(?<=^|[\s'"(])(?:[A-Za-z]:[\\/]|\\\\|\/)[^\s'"]+/g
+  const root = rootPath?.replace(/[\\/]+$/, '')
+  const norm = (path: string): string => path.replace(/\\/g, '/').toLowerCase()
+  return message.replace(absolute, path => {
+    const trimmed = path.replace(/[.,;:]+$/, '')
+    const tail = path.slice(trimmed.length)
+    if (root && norm(trimmed).startsWith(`${norm(root)}/`)) return trimmed.slice(root.length + 1).replace(/\\/g, '/') + tail
+    return (trimmed.split(/[\\/]/).filter(Boolean).at(-1) ?? trimmed) + tail
+  })
 }
 
 /** Open files edited and not written yet, in every workspace. */
