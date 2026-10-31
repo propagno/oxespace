@@ -69,38 +69,66 @@ export class CloseGuard {
   private passing = false
   /** OS shutdown, session end or an update install: never ask again. */
   private bypassed = false
+  private failureJournalled = false
 
   constructor(private readonly deps: CloseGuardDeps) {}
 
   /**
    * A close or quit is starting. True means the caller must prevent it: the window is being asked (or already was).
    * False lets it through.
+   *
+   * Fails open: the guard must never make the app unquittable. Every path that returns true has either the 3 s
+   * timer armed or a `hold` given by a valid answer from the live main frame (whose loss `rendererGone()` covers).
+   * An inconsistent state or a throw lets the close or quit through and journals `incident.app.closeGuardFailed`.
    */
   intercept(reason: CloseReason): boolean {
-    if (this.passing || this.bypassed) return false
-    if (this.pending) {
-      if (reason === 'quit') this.pending.reason = 'quit'
+    try {
+      if (this.passing || this.bypassed) return false
+      const current = this.pending
+      if (current) {
+        if (typeof current.requestId !== 'string' || !current.requestId || (!current.held && !current.timer)) return this.failOpen()
+        if (reason === 'quit') current.reason = 'quit'
+        return true
+      }
+      const requestId = (this.deps.newId ?? randomUUID)()
+      if (typeof requestId !== 'string' || !requestId) return this.failOpen()
+      const pending: Pending = { requestId, reason, held: false, timer: null }
+      // Armed before the request leaves, so no path prevents without a deadline.
+      pending.timer = setTimeout(() => {
+        if (this.pending !== pending || pending.held) return
+        this.deps.incident('incident.app.closeUnanswered')
+        this.go('forced')
+      }, this.deps.timeoutMs ?? CLOSE_ANSWER_TIMEOUT_MS)
+      pending.timer.unref?.()
+      this.pending = pending
+      let sent = false
+      try { sent = this.deps.send({ requestId, reason }) } catch { sent = false }
+      if (!sent) {
+        // No window to ask (none open, or it is already destroyed): nothing on screen can be lost, go ahead.
+        this.clearTimer(pending)
+        this.pending = null
+        this.passing = true
+        this.deps.settled?.(requestId, reason, 'no-window')
+        return false
+      }
       return true
+    } catch {
+      return this.failOpen()
     }
-    const requestId = (this.deps.newId ?? randomUUID)()
-    const pending: Pending = { requestId, reason, held: false, timer: null }
-    this.pending = pending
-    let sent = false
-    try { sent = this.deps.send({ requestId, reason }) } catch { sent = false }
-    if (!sent) {
-      // No window to ask (none open, or it is already destroyed): nothing on screen can be lost, go ahead.
+  }
+
+  /** Lets this close or quit, and the ones it issues, through; journalled once per guard. */
+  failOpen(): false {
+    try {
+      if (this.pending) this.clearTimer(this.pending)
       this.pending = null
       this.passing = true
-      this.deps.settled?.(requestId, reason, 'no-window')
-      return false
-    }
-    pending.timer = setTimeout(() => {
-      if (this.pending !== pending || pending.held) return
-      this.deps.incident('incident.app.closeUnanswered')
-      this.go('forced')
-    }, this.deps.timeoutMs ?? CLOSE_ANSWER_TIMEOUT_MS)
-    pending.timer.unref?.()
-    return true
+      if (!this.failureJournalled) {
+        this.failureJournalled = true
+        this.deps.incident('incident.app.closeGuardFailed')
+      }
+    } catch { /* still open */ }
+    return false
   }
 
   /** The window's answer, already parsed. An unknown or stale id does nothing. */

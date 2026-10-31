@@ -41,6 +41,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.app.journalReset': [],
   'incident.app.closeUnanswered': [],
   'incident.app.closeRendererGone': [],
+  'incident.app.closeGuardFailed': [],
   'incident.window.externalRefused': [],
   'incident.window.externalRateLimited': [],
   'incident.window.externalOpenFailed': [],

@@ -11,16 +11,51 @@
  * pending `close`), or null for a reason other than `close` or `quit`. Nothing closes: an outcome is recorded and the
  * double asks again on the next request. The 3 s first-answer deadline applies as in production. The hooks are never
  * defined in a packaged build.
+ *
+ * `__oxeCloseGateCanary()` checks, on the real Electron app, that `before-quit` still goes through `app.emit`: it
+ * arms the production gate (`gateBeforeQuit`) to hold one quit, calls `app.quit()`, waits, unwraps, and returns
+ * `{ asked, listenerRan }`. Gated, it is `{ asked: 1, listenerRan: false }` and the app is still running. If Electron
+ * ever stopped routing `before-quit` through `emit`, the app would quit instead and the canary spec fails.
  */
-import { ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { app, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { CloseAnswerInput, CloseReason, CloseRequest } from '../../../shared/types/app'
 import { CloseGuard, isCloseReason, parseCloseAnswerInput, type CloseGuardDeps, type CloseOutcome } from '../services/close-guard'
 import { requireAppFrame } from '../ipc/ipc-guards'
+import { gateBeforeQuit } from '../window-close-guard'
 
 export const E2E_REQUEST_CLOSE_GLOBAL = '__oxeRequestClose'
 export const E2E_CLOSE_ANSWERS_GLOBAL = '__oxeCloseAnswers'
 export const E2E_CLOSE_OUTCOMES_GLOBAL = '__oxeCloseOutcomes'
+export const E2E_CLOSE_GATE_CANARY_GLOBAL = '__oxeCloseGateCanary'
+
+export interface E2eCloseGateCanaryResult { asked: number; listenerRan: boolean }
+
+interface CanaryApp {
+  emit(name: string | symbol, ...args: unknown[]): boolean
+  on(name: 'before-quit', listener: () => void): unknown
+  removeListener(name: 'before-quit', listener: () => void): unknown
+  quit(): void
+}
+
+/** Holds one `app.quit()` through the production gate and reports whether it was held. */
+export async function runCloseGateCanary(target: CanaryApp, settleMs = 500): Promise<E2eCloseGateCanaryResult> {
+  let asked = 0
+  let listenerRan = false
+  const listener = (): void => { listenerRan = true }
+  target.on('before-quit', listener)
+  let held = true
+  const unwrap = gateBeforeQuit(target, () => { asked++; return held }, () => {})
+  try {
+    target.quit()
+    await new Promise(resolve => setTimeout(resolve, settleMs))
+  } finally {
+    held = false
+    unwrap()
+    target.removeListener('before-quit', listener)
+  }
+  return { asked, listenerRan }
+}
 
 export interface E2eCloseOutcome { requestId: string; reason: CloseReason; outcome: CloseOutcome }
 
@@ -61,7 +96,9 @@ export function installE2eCloseGuard(scope: Record<string, unknown>, packaged: b
 }
 
 export function registerCloseGuardMock(packaged: boolean, broadcast: (channel: string, request: CloseRequest) => boolean): void {
-  const double = installE2eCloseGuard(globalThis as unknown as Record<string, unknown>, packaged, request => broadcast(IPC_CHANNELS.app.closeRequested, request))
+  const scope = globalThis as unknown as Record<string, unknown>
+  const double = installE2eCloseGuard(scope, packaged, request => broadcast(IPC_CHANNELS.app.closeRequested, request))
+  if (!packaged) scope[E2E_CLOSE_GATE_CANARY_GLOBAL] = () => runCloseGateCanary(app as unknown as CanaryApp)
   ipcMain.handle(IPC_CHANNELS.app.closeAnswer, (event: IpcMainInvokeEvent, input: unknown) => {
     requireAppFrame(event, 'Close answer')
     double.answer(input)

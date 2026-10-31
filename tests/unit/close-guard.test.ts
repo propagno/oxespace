@@ -415,3 +415,96 @@ describe('E2E close guard double', () => {
     expect(Object.keys(scope)).toEqual([])
   })
 })
+
+describe('fail-open (the guard never makes the app unquittable)', () => {
+  it('lets a quit through and journals once when the gate throws', async () => {
+    vi.resetModules()
+    const { gateBeforeQuit } = await import('../../electron/main/window-close-guard')
+    const target = new EventEmitter()
+    const drain = vi.fn()
+    target.on('before-quit', drain)
+    const onError = vi.fn()
+    gateBeforeQuit(target, () => { throw new Error('broken guard') }, onError)
+    const event = preventable()
+    target.emit('before-quit', event)
+    target.emit('before-quit', preventable())
+    expect(drain).toHaveBeenCalledTimes(2)
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledTimes(2) // the guard's failOpen journals only the first
+  })
+
+  it('lets a quit through when preventing the native event throws', async () => {
+    vi.resetModules()
+    const { gateBeforeQuit } = await import('../../electron/main/window-close-guard')
+    const target = new EventEmitter()
+    const drain = vi.fn(), onError = vi.fn()
+    target.on('before-quit', drain)
+    gateBeforeQuit(target, () => true, onError)
+    target.emit('before-quit', { preventDefault: () => { throw new Error('gone') } })
+    expect(drain).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('a send that throws is no window: the close goes ahead', () => {
+    const { guard } = harness({ send: vi.fn(() => { throw new Error('ipc down') }) })
+    expect(guard.intercept('close')).toBe(false)
+  })
+
+  it('an id generator that throws or returns nothing fails open and journals closeGuardFailed once', () => {
+    const throwing = harness({ newId: () => { throw new Error('no entropy') } })
+    expect(throwing.guard.intercept('quit')).toBe(false)
+    expect(throwing.guard.intercept('quit')).toBe(false)
+    expect(throwing.deps.incident).toHaveBeenCalledTimes(1)
+    expect(throwing.deps.incident).toHaveBeenCalledWith('incident.app.closeGuardFailed')
+    const empty = harness({ newId: () => '' })
+    expect(empty.guard.intercept('close')).toBe(false)
+    expect(empty.sent).toEqual([])
+  })
+
+  it.each([
+    ['a pending request without an id', { requestId: '', reason: 'quit', held: false, timer: setTimeout(() => {}, 1) }],
+    ['a pending request neither held nor timed', { requestId: 'r', reason: 'quit', held: false, timer: null }]
+  ])('an inconsistent state (%s) lets the quit through', (_label, broken) => {
+    const { guard, deps } = harness()
+    ;(guard as unknown as { pending: unknown }).pending = broken
+    expect(guard.intercept('quit')).toBe(false)
+    expect(deps.incident).toHaveBeenCalledWith('incident.app.closeGuardFailed')
+    expect(guard.current()).toBeNull()
+    expect(guard.intercept('quit')).toBe(false) // and stays open for the quit it issues
+  })
+
+  it('every path that prevents has a deadline or a valid hold', () => {
+    const { guard } = harness()
+    expect(guard.intercept('close')).toBe(true)
+    const pending = (guard as unknown as { pending: { timer: unknown; held: boolean } }).pending
+    expect(pending.timer).not.toBeNull()
+    guard.answer({ requestId: 'stale', answer: 'hold' })
+    expect(pending.held).toBe(false) // a hold only from a valid answer
+    expect(pending.timer).not.toBeNull()
+  })
+})
+
+describe('the E2E canary', () => {
+  it('reports a held quit when before-quit goes through emit, and unwraps after', async () => {
+    vi.resetModules()
+    const { runCloseGateCanary } = await import('../../electron/main/e2e/close-guard-mock')
+    const target = Object.assign(new EventEmitter(), { quit(): void { target.emit('before-quit', preventable()) } })
+    const other = vi.fn()
+    target.on('before-quit', other)
+    const running = runCloseGateCanary(target, 10)
+    await vi.advanceTimersByTimeAsync(10)
+    expect(await running).toEqual({ asked: 1, listenerRan: false })
+    expect(other).not.toHaveBeenCalled()
+    target.emit('before-quit', preventable())
+    expect(other).toHaveBeenCalledTimes(1) // unwrapped
+  })
+
+  it('reports nothing held when the native event bypasses emit', async () => {
+    vi.resetModules()
+    const { runCloseGateCanary } = await import('../../electron/main/e2e/close-guard-mock')
+    const target = Object.assign(new EventEmitter(), { quit(): void { EventEmitter.prototype.emit.call(target, 'before-quit', preventable()) } })
+    const running = runCloseGateCanary(target, 10)
+    await vi.advanceTimersByTimeAsync(10)
+    expect(await running).toEqual({ asked: 0, listenerRan: true })
+  })
+})

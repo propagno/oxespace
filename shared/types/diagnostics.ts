@@ -107,6 +107,7 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.app.journalReset': 'app',
   'incident.app.closeUnanswered': 'app',
   'incident.app.closeRendererGone': 'app',
+  'incident.app.closeGuardFailed': 'app',
   'incident.window.externalRefused': 'window',
   'incident.window.externalRateLimited': 'window',
   'incident.window.externalOpenFailed': 'window'
