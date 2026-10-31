@@ -3,6 +3,7 @@ import type { DelegationSessionContext } from '../../../../shared/types/delegati
 import type { ConversationThread, ThreadEvent } from '../../../../shared/types/thread'
 import { projectIdentity } from '../memory/memory-project.service'
 import { ThreadHistory } from '../conversation/thread-history'
+import { readThreadTitle } from '../conversation/thread-title'
 
 const MAX_MESSAGES = 12
 const MAX_SESSION_BYTES = 3 * 1024
@@ -40,7 +41,7 @@ export async function captureDelegationSessions(db: AppDatabase, ids: string[], 
       lines.unshift(prefix + text)
       remaining -= Buffer.byteLength(prefix + text + '\n')
     }
-    snapshots.push({ threadId: id, title: thread.title.slice(0, 120), provider: thread.provider,
+    snapshots.push({ threadId: id, title: readThreadTitle(thread.title).slice(0, 120), provider: thread.provider,
       capturedAt: Date.now(), text: lines.join('\n') || 'No public messages were recorded in this conversation.' })
   }
   return snapshots

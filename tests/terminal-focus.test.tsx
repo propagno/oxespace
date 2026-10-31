@@ -179,6 +179,25 @@ describe('F6 regions', () => {
     return { sidebarButton: document.querySelector('aside input') as HTMLButtonElement, textarea: terminal('a', document.getElementById('grid')!), status: document.querySelector('.app-statusbar') as HTMLElement }
   }
 
+  it('the mode switch is a stop of its own, and the sidebar is entered at its filter, never at its width divider', () => {
+    document.body.innerHTML = `<main class="app-shell">
+      <header class="workbench-titlebar"><button type="button">File</button><nav data-focus-region="modes" aria-label="Application view"><button type="button" data-app-mode="code">OxeCode</button></nav></header>
+      <aside class="sidebar"><div role="separator" tabindex="0" aria-label="Sidebar width"></div><input aria-label="Filter"><button type="button">conversation</button></aside>
+    </main>`
+    document.body.focus()
+    moveFocusRegion(1)
+    expect(document.activeElement).toHaveTextContent('File')
+    moveFocusRegion(1)
+    expect(document.activeElement).toHaveTextContent('OxeCode')
+    moveFocusRegion(1)
+    expect(document.activeElement).toHaveAttribute('aria-label', 'Filter')
+    moveFocusRegion(-1)
+    expect(document.activeElement).toHaveTextContent('OxeCode')
+    moveFocusRegion(-1)
+    // The title bar is entered at its own controls, not at the mode switch inside it.
+    expect(document.activeElement).toHaveTextContent('File')
+  })
+
   it('go title bar → sidebar → work area → status bar and round; hidden hosts are skipped', () => {
     const { status } = shell()
     expect(focusRegions().map(region => region.className)).toEqual(['workbench-titlebar', 'sidebar', 'workspace-grid', 'app-statusbar'])

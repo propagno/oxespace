@@ -65,6 +65,15 @@
         "unavailable": "Este agente ainda não abre um chat lateral.",
         "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
       },
+      "sections": {
+        "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
+        "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",
+        "nameEmpty": "Dê um nome à seção.",
+        "nameTooLong": "O nome de uma seção tem no máximo {{max}} caracteres.",
+        "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
+        "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
+        "unknownWorkspace": "Este workspace não existe mais."
+      },
       "commands": {
         "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
         "busy": "A busca de comandos está ocupada. Use Atualizar comandos para tentar de novo.",
@@ -229,7 +238,8 @@
         "mcpServer": "Servidor MCP {{server}}",
         "app": "OXESpace",
         "unknownPane": "Agente desconhecido · painel {{pane}}",
-        "unknownConversation": "Agente desconhecido · conversa {{conversation}}"
+        "unknownConversation": "Agente desconhecido · conversa {{conversation}}",
+        "preview": "Automação do Web Preview"
       },
       "option": {
         "deny": "Negar",
@@ -284,7 +294,12 @@
           "releasePublic": "Um release publicado fica visível para todos com acesso ao repositório e pode notificar quem o acompanha."
         },
         "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
-        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app."
+        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app.",
+        "hiddenCharacters": "O texto tem caracteres invisíveis ou que mudam a direção, então o que você vê pode não ser o que roda.",
+        "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar.",
+        "preview": {
+          "notLocal": "Esta página não está no localhost. Ela pode carregar qualquer coisa e vê o que for digitado nela."
+        }
       },
       "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
       "expired": "Ninguém respondeu a tempo, então o pedido foi negado.",
@@ -294,11 +309,17 @@
         "alreadyAnswered": "Este pedido já tem uma resposta.",
         "unknownOption": "Essa resposta não é uma das opções deste pedido.",
         "alreadyReported": "Este pedido já foi informado como não exibido.",
-        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece."
+        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece.",
+        "notShown": "Este pedido ainda não apareceu no app, então não pode ser permitido."
       },
       "denied": {
         "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
-        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores."
+        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores.",
+        "timeout": "Ninguém respondeu a tempo, então foi negado.",
+        "cancelled": "O pedido foi retirado antes de alguém responder."
+      },
+      "notify": {
+        "waiting": "OXESpace: aprovação aguardando"
       }
     },
     "notify": {
@@ -352,7 +373,10 @@
         "overBudget": "Uma interação demorou mais do que o orçamento."
       },
       "app": {
-        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou."
+        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou.",
+        "closeUnanswered": "A janela não respondeu a um fechamento ou saída em 3 segundos; o app seguiu em frente.",
+        "closeRendererGone": "A janela parou enquanto um fechamento ou saída esperava por ela; o app seguiu em frente.",
+        "closeGuardFailed": "A verificação antes de fechar falhou; o app fechou sem perguntar à janela."
       }
     },
     "diagnostics": {
