@@ -9,8 +9,21 @@
  * each one visible. Pure, no DOM, no Electron.
  */
 
-/** The character class body, shared by the patterns below. */
-const CLASS = '\\p{Cf}\\uFE00-\\uFE0F\\u{E0000}-\\u{E007F}\\u{E0100}-\\u{E01EF}\\u202A-\\u202E\\u2066-\\u2069\\u200B-\\u200F\\u2060-\\u2064\\uFEFF\\u00AD\\u061C\\u180E\\u115F\\u1160\\u3164\\uFFA0'
+/** The code points named above, as inclusive ranges (a single one is its own range). */
+const RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0xfe00, 0xfe0f], [0xe0000, 0xe007f], [0xe0100, 0xe01ef],
+  [0x202a, 0x202e], [0x2066, 0x2069], [0x200b, 0x200f], [0x2060, 0x2064],
+  [0xfeff, 0xfeff], [0x00ad, 0x00ad], [0x061c, 0x061c], [0x180e, 0x180e],
+  [0x115f, 0x115f], [0x1160, 0x1160], [0x3164, 0x3164], [0xffa0, 0xffa0]
+]
+
+const escape = (codePoint: number): string => `\\u{${codePoint.toString(16)}}`
+
+/**
+ * The character class body, shared by the patterns below. It is built from the ranges, each code point an escape, so
+ * the variation selectors are members on their own and never combine with the character before them.
+ */
+const CLASS = '\\p{Cf}' + RANGES.map(([from, to]) => from === to ? escape(from) : `${escape(from)}-${escape(to)}`).join('')
 
 /** Matches one hidden character (no `g` flag, so `.test` keeps no state). */
 export const HIDDEN_CHARACTERS = new RegExp(`[${CLASS}]`, 'u')
