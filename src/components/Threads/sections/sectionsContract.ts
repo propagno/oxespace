@@ -43,8 +43,8 @@ export interface ThreadSectionsApi {
 /** Longest section name, in characters, after trimming. Same limit as the main process. */
 export const SECTION_NAME_MAX = 60
 
-export type SectionErrorCode = 'thread.section.invalidName' | 'thread.section.notFound' | 'thread.section.childFollowsParent'
-export const SECTION_ERROR_CODES: readonly SectionErrorCode[] = ['thread.section.invalidName', 'thread.section.notFound', 'thread.section.childFollowsParent']
+export type SectionErrorCode = 'thread.section.invalidName' | 'thread.section.duplicateName' | 'thread.section.notFound' | 'thread.section.childFollowsParent'
+export const SECTION_ERROR_CODES: readonly SectionErrorCode[] = ['thread.section.invalidName', 'thread.section.duplicateName', 'thread.section.notFound', 'thread.section.childFollowsParent']
 
 /** A C3 code with its parameters, thrown by the mock the way the main process rejects. */
 export class SectionError extends Error {
@@ -54,13 +54,21 @@ export class SectionError extends Error {
   }
 }
 
-const CONTROL = /[\u0000-\u001f\u007f-\u009f]/
+// Control characters, and the bidirectional and format controls that make a name read in another order than it is
+// stored (U+200E/F, U+202A–202E, U+2066–2069). TODO: use shared/hidden-characters.ts once #238 brings it to main.
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/
 
 /** The name to store, or null when it breaks the rules (empty, longer than SECTION_NAME_MAX, control characters). */
 export function normalizeSectionName(name: string): string | null {
   const trimmed = name.trim()
   if (!trimmed || [...trimmed].length > SECTION_NAME_MAX || CONTROL.test(trimmed)) return null
   return trimmed
+}
+
+/** True when two names are the same section name: trimmed, ignoring case, in the same Unicode form. */
+export function sameSectionName(a: string, b: string): boolean {
+  const key = (name: string): string => name.trim().normalize('NFC').toLocaleLowerCase()
+  return key(a) === key(b)
 }
 
 /** The section code an error carries: a SectionError, a `{ code }` object from IPC, or the code inside an IPC message. */

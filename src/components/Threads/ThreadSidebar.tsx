@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, Splitter, cx, TextField } from '../../ui'
@@ -56,6 +56,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const [showArchived, setShowArchived] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<string[]>([])
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  // The conversation whose "…" menu a right click, Shift+F10 or the menu key opened.
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null)
   const [renameTarget, setRenameTarget] = useState<ConversationThread | null>(null)
   const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -93,6 +95,16 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   // Sections inside each project (F13): dragging a row and its "Move to section" menu make the same move.
   const sections = useThreadSections(useMemo(() => groups.map(group => group.id), [groups]), threads)
   const drag = useSectionDrag(threads, (thread, sectionId) => void sections.moveTo(thread, sectionId))
+  // A move re-renders the row in its new section, so the menu's focus would fall to the page: give it to the row.
+  const { movedId, sectionOf, clearMoved } = sections
+  useEffect(() => {
+    if (!movedId) return
+    const item = document.querySelector<HTMLElement>(`[data-thread-row="${CSS.escape(movedId)}"] [data-list-item]`)
+    if (!item) return
+    const lost = !document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected
+    if (lost) item.focus({ preventScroll: false })
+    clearMoved()
+  }, [movedId, sectionOf, clearMoved])
   const restoreArchived = async (thread: ConversationThread) => {
     if (!window.oxe.thread?.command) { setActionError(t('sidebar.restartToRestore')); return }
     setActionError(''); setRestoringId(thread.id)
@@ -107,13 +119,15 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   }
   const row = (thread: ConversationThread) => {
     const status = threadNavigationStatus(thread), unread = unreadIds.includes(thread.id)
-    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))} {...drag.rowProps(thread)}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
+    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))} data-thread-row={thread.id} {...drag.rowProps(thread)}
+    onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setRowMenuId(thread.id) }}
+    onKeyDown={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setRowMenuId(thread.id) } }}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
     title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
     <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
     <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={12} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
     {status.kind === 'attention' ? <small className={styles.needs}>{t('status.attention')}</small> : <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>}
-  </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: thread.title })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: thread.title })} side="right" items={[
+  </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: thread.title })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: thread.title })} side="right" open={rowMenuId === thread.id} onOpenChange={open => setRowMenuId(open ? thread.id : null)} items={[
     { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
     { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) } },
     { label: thread.pinned ? t('sidebar.unpin') : t('sidebar.pin'), icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
@@ -171,6 +185,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           </div>)}
         </section>}
         {actionError && <ErrorState compact title={actionError} />}
+        {/* Moves and deletes are said here, politely, as they happen. */}
+        <p className="sr-only" role="status" aria-live="polite" data-testid="thread-sections-announcer">{sections.announcement}</p>
         {sections.error && <Notice intent="danger" actions={<Button size="sm" variant="ghost" onClick={sections.clearError}>{t('common.close')}</Button>}>{sections.error}</Notice>}
         {!loading && !groups.length && <EmptyState compact title={query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')} />}
         {hiddenProjects.length > 0 && <section className={cx('thread-hidden-section', styles.section)} aria-label={t('sidebar.removedProjects')}>
