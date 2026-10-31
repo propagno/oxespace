@@ -39,6 +39,7 @@ describe('approval center: the window first (B10)', () => {
     expect(request).toMatchObject({ schemaVersion: 1, generation: 1, kind: 'oxequery', risk: 'medium', allowDelayMs: 0, enterDisabled: false, defaultOptionId: 'deny' })
     expect(request.agentText).toEqual({ text: 'UPDATE t SET a = 1 WHERE id = 2', untrusted: true, length: 31, truncated: false })
     expect(h.center.list()).toEqual([request])
+    expect(h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })).toEqual({ ok: true, id: request.id })
     expect(h.center.respond({ id: request.id, generation: 1, optionId: 'allow-once' })).toEqual({ ok: true, id: request.id })
     await expect(outcome).resolves.toEqual({ intent: 'allow', optionId: 'allow-once', by: 'user' })
     expect(h.native).toHaveLength(0)
@@ -57,7 +58,7 @@ describe('approval center: the window first (B10)', () => {
     expect(h.center.respond({ id: 'nope', generation: 1, optionId: 'deny' })).toMatchObject({ ok: false, refusal: 'notPending' })
     expect(h.center.respond({ id: request.id, generation: 1, optionId: 'deny' })).toMatchObject({ ok: true })
     expect(h.center.respond({ id: request.id, generation: 1, optionId: 'allow-once' })).toMatchObject({ ok: false, refusal: 'alreadyAnswered', message: { code: 'approvals.refused.alreadyAnswered' } })
-    expect(h.center.ack({ id: request.id, generation: 1 })).toMatchObject({ ok: false, refusal: 'alreadyAnswered' })
+    expect(h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })).toMatchObject({ ok: false, refusal: 'alreadyAnswered' })
   })
 
   it('denies an unanswered request after APPROVAL_TIMEOUT_MS and tells the window', async () => {
@@ -104,7 +105,7 @@ describe('approval center: critical pacing, enforced by main (B10)', () => {
 
   it('refuses an allow at 1,999 ms after the ack and keeps the request pending', () => {
     const { h, request, answer } = critical()
-    h.center.ack({ id: request.id, generation: 1 })
+    h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })
     vi.advanceTimersByTime(1_999)
     expect(answer('allow-once')).toMatchObject({ ok: false, refusal: 'tooSoon', message: { code: 'approvals.refused.tooSoon' } })
     expect(h.center.list().map(item => item.id)).toEqual([request.id])
@@ -112,16 +113,22 @@ describe('approval center: critical pacing, enforced by main (B10)', () => {
 
   it('accepts an allow at 2,000 ms after the ack', async () => {
     const { h, request, answer, outcome } = critical()
-    h.center.ack({ id: request.id, generation: 1 })
+    h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })
     vi.advanceTimersByTime(2_000)
     expect(answer('allow-once')).toEqual({ ok: true, id: request.id })
     await expect(outcome).resolves.toMatchObject({ intent: 'allow', by: 'user' })
   })
 
-  it('refuses an allow with no display confirmation, however late', () => {
+  it('refuses an allow with no display confirmation, however late (R1: not shown at all)', () => {
     const { answer } = critical()
     vi.advanceTimersByTime(60_000)
-    expect(answer('allow-once')).toMatchObject({ ok: false, refusal: 'tooSoon' })
+    expect(answer('allow-once')).toMatchObject({ ok: false, refusal: 'notShown' })
+  })
+
+  it('keeps asking for attention a best-effort extra', () => {
+    const center = new ApprovalCenter({ send: () => {}, hasWindow: () => true, native: async () => null, attention: () => { throw new Error('no frame') } })
+    void center.ask(draft())
+    expect(center.list()).toHaveLength(1)
   })
 
   it('accepts a deny at 0 ms, with or without the ack', async () => {
@@ -135,8 +142,103 @@ describe('approval center: critical pacing, enforced by main (B10)', () => {
     const outcome = h.center.ask(draft(risk))
     const [request] = h.requested()
     expect(request).toMatchObject({ allowDelayMs: 0, enterDisabled: false })
+    h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })
     expect(h.center.respond({ id: request.id, generation: 1, optionId: 'allow-once' })).toMatchObject({ ok: true })
     await expect(outcome).resolves.toMatchObject({ intent: 'allow' })
+  })
+})
+
+describe('approval center: shown, focused and hidden characters (B10 R1–R3)', () => {
+  it('R1: refuses an allow before any ack at low risk too, and accepts a deny without one', async () => {
+    const h = harness()
+    const outcome = h.center.ask(draft('low'))
+    const [request] = h.requested()
+    expect(h.center.respond({ id: request.id, generation: 1, optionId: 'allow-once' })).toMatchObject({ ok: false, refusal: 'notShown', message: { code: 'approvals.refused.notShown' } })
+    expect(h.center.list().map(item => item.id)).toEqual([request.id])
+    expect(h.log).toHaveBeenCalledWith('allow-not-shown', expect.objectContaining({ id: request.id }))
+    expect(h.center.respond({ id: request.id, generation: 2, optionId: 'allow-once' })).toMatchObject({ ok: false, refusal: 'staleGeneration' })
+    expect(h.center.respond({ id: request.id, generation: 1, optionId: 'deny' })).toMatchObject({ ok: true })
+    await expect(outcome).resolves.toMatchObject({ intent: 'deny', by: 'user' })
+  })
+
+  it('R1: an unfocused ack counts as shown for a non-critical allow', async () => {
+    const h = harness()
+    const outcome = h.center.ask(draft('medium'))
+    const [request] = h.requested()
+    h.center.ack({ id: request.id, generation: 1, visible: true, focused: false })
+    expect(h.center.respond({ id: request.id, generation: 1, optionId: 'allow-once' })).toMatchObject({ ok: true })
+    await expect(outcome).resolves.toMatchObject({ intent: 'allow' })
+  })
+
+  it('R3: a critical request acked unfocused stays refused until a focused ack is 2 s old', async () => {
+    const h = harness()
+    const outcome = h.center.ask(draft('critical', { text: 'DROP TABLE orders' }))
+    const [request] = h.requested()
+    const allow = () => h.center.respond({ id: request.id, generation: 1, optionId: 'allow-once' })
+    expect(h.center.ack({ id: request.id, generation: 1, visible: true, focused: false })).toMatchObject({ ok: true })
+    vi.advanceTimersByTime(5_000)
+    expect(allow()).toMatchObject({ ok: false, refusal: 'tooSoon' })
+    expect(h.center.ack({ id: request.id, generation: 1, visible: false, focused: true })).toMatchObject({ ok: true })
+    vi.advanceTimersByTime(5_000)
+    expect(allow()).toMatchObject({ ok: false, refusal: 'tooSoon' })
+    // Focus returns: a second ack for the same generation is accepted and starts the hold.
+    expect(h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })).toMatchObject({ ok: true })
+    vi.advanceTimersByTime(1_999)
+    expect(allow()).toMatchObject({ ok: false, refusal: 'tooSoon' })
+    // A later ack does not restart the hold.
+    h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })
+    vi.advanceTimersByTime(1)
+    expect(allow()).toMatchObject({ ok: true })
+    await expect(outcome).resolves.toMatchObject({ intent: 'allow' })
+  })
+
+  it.each([
+    ['\u202E', 'right-to-left override'], ['\u2066', 'left-to-right isolate'], ['\u200B', 'zero-width space'], ['\u2060', 'word joiner'],
+    ['\uFEFF', 'byte order mark'], ['\u00AD', 'soft hyphen'], ['\u061C', 'Arabic letter mark'], ['\u180E', 'Mongolian vowel separator']
+  ])('R2: notes %j (%s), raises the risk to at least high and keeps the text verbatim', (char) => {
+    const h = harness()
+    const text = `UPDATE t SET a = 1 WHERE id = 2${char} -- ok`
+    void h.center.ask(draft('low', { text, options: [DENY, ALLOW_ONCE, ALLOW_SESSION_READS] }))
+    const [request] = h.requested()
+    expect(request.risk).toBe('high')
+    expect(request.appNotes).toContainEqual({ code: 'approvals.note.hiddenCharacters', params: {} })
+    expect(request.agentText.text).toBe(text)
+    expect(request.options.map(option => option.id)).toEqual(['deny', 'allow-once'])
+  })
+
+  it('R2: keeps critical critical, and leaves plain text alone', () => {
+    const h = harness()
+    void h.center.ask(draft('critical', { text: 'DROP TABLE orders\u200B' }))
+    void h.center.ask(draft('medium', { text: 'UPDATE t SET a = 1 WHERE id = 2' }))
+    const [critical, plain] = h.requested()
+    expect(critical).toMatchObject({ risk: 'critical', allowDelayMs: 2_000 })
+    expect(plain.risk).toBe('medium')
+    expect(plain.appNotes).toEqual([])
+  })
+
+  it('gives a reloaded window its pending requests back; no ack timeout ends them, and the answer works after its ack', async () => {
+    const h = harness()
+    const outcome = h.center.ask(draft('medium'))
+    const [request] = h.requested()
+    // The window reloads before acknowledging: nothing reaches main, and the request is not dropped.
+    vi.advanceTimersByTime(APPROVAL_ACK_TIMEOUT_MS * 10)
+    expect(h.native).toHaveLength(0)
+    const [listed] = h.center.list()
+    expect(listed.id).toBe(request.id)
+    expect(h.center.ack({ id: listed.id, generation: listed.generation, visible: true, focused: true })).toMatchObject({ ok: true })
+    expect(h.center.respond({ id: listed.id, generation: listed.generation, optionId: 'allow-once' })).toMatchObject({ ok: true })
+    await expect(outcome).resolves.toMatchObject({ intent: 'allow', by: 'user' })
+  })
+
+  it('R3: asks for attention once per request it sends to the window, with nothing of the request', () => {
+    const attention = vi.fn()
+    const center = new ApprovalCenter({ send: () => {}, hasWindow: () => true, native: async () => null, attention })
+    void center.ask(draft())
+    expect(attention).toHaveBeenCalledTimes(1)
+    expect(attention).toHaveBeenCalledWith()
+    const native = vi.fn()
+    void new ApprovalCenter({ send: () => {}, hasWindow: () => false, native: async () => null, attention: native }).ask(draft())
+    expect(native).not.toHaveBeenCalled()
   })
 })
 
@@ -211,7 +313,7 @@ describe('approval center: native only as the fallback (B10)', () => {
     const [request] = h.requested()
     expect(request).toMatchObject({ kind: 'crash', ackRequired: true, requester: { kind: 'app' }, defaultOptionId: 'keep-working' })
     vi.advanceTimersByTime(APPROVAL_ACK_TIMEOUT_MS - 1)
-    h.center.ack({ id: request.id, generation: 1 })
+    h.center.ack({ id: request.id, generation: 1, visible: true, focused: true })
     vi.advanceTimersByTime(10_000)
     expect(h.native).toHaveLength(0)
     h.center.respond({ id: request.id, generation: 1, optionId: 'restart' })

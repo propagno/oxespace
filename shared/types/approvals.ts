@@ -116,10 +116,17 @@ export interface ApprovalRequest {
 }
 
 export interface ApprovalAnswerInput { id: string; generation: number }
+/**
+ * The window shows the request (R1, R3). `visible` and `focused` are the window's own state when it sends this: any
+ * ack makes the request shown (an allow is refused `notShown` before one), and only an ack with both true starts the
+ * critical hold. The window may ack the same generation again, for example when it regains focus; every ack is
+ * accepted, and the hold starts at the first one that is visible and focused.
+ */
+export interface ApprovalAckInput extends ApprovalAnswerInput { visible: boolean; focused: boolean }
 export interface ApprovalRespondInput extends ApprovalAnswerInput { optionId: string }
 
 /** Why a window → main call was refused; each is also a C3 code (`approvals.refused.<reason>`). */
-export const APPROVAL_REFUSALS = ['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported', 'tooSoon'] as const
+export const APPROVAL_REFUSALS = ['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported', 'tooSoon', 'notShown'] as const
 export type ApprovalRefusal = typeof APPROVAL_REFUSALS[number]
 
 export type ApprovalCallResult =
@@ -158,7 +165,7 @@ export interface ApprovalsApi {
   /** The pending queue, oldest first. */
   list(): Promise<ApprovalRequest[]>
   respond(input: ApprovalRespondInput): Promise<ApprovalCallResult>
-  ack(input: ApprovalAnswerInput): Promise<ApprovalCallResult>
+  ack(input: ApprovalAckInput): Promise<ApprovalCallResult>
   /** The modal cannot show this request: neither an approval nor a denial. Main asks natively, once. */
   unavailable(input: ApprovalAnswerInput): Promise<ApprovalCallResult>
   history(): Promise<ApprovalHistoryEntry[]>

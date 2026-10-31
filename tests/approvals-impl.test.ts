@@ -122,8 +122,39 @@ describe('a full approval queue (B10)', () => {
     center.respond({ id: waiting.id, generation: 1, optionId: 'deny' })
     const retried = push()
     await vi.waitFor(() => expect(center.list()).toHaveLength(1))
+    center.ack({ id: center.list()[0].id, generation: 1, visible: true, focused: true })
     center.respond({ id: center.list()[0].id, generation: 1, optionId: 'allow-once' })
     await expect(retried).resolves.toBe('pushed')
+  })
+})
+
+describe('attention when a request waits (B10 R3)', () => {
+  it('flashes an unfocused window and notifies with the fixed app text only', async () => {
+    const { askForAttention } = await import('../electron/main/services/approvals/attention')
+    const window = { isFocused: vi.fn(() => false), flashFrame: vi.fn() }
+    const show = vi.fn()
+    expect(askForAttention([window], { supported: () => true, show, title: async () => 'OXESpace: approval waiting' })).toBe(true)
+    expect(window.flashFrame).toHaveBeenCalledWith(true)
+    await vi.waitFor(() => expect(show).toHaveBeenCalledWith('OXESpace: approval waiting'))
+    expect(show).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing when a window is focused, and never notifies without support', async () => {
+    const { askForAttention } = await import('../electron/main/services/approvals/attention')
+    const show = vi.fn()
+    const notifier = (supported: boolean) => ({ supported: () => supported, show, title: async () => 'OXESpace: approval waiting' })
+    const focused = { isFocused: () => true, flashFrame: vi.fn() }
+    expect(askForAttention([focused], notifier(true))).toBe(false)
+    expect(focused.flashFrame).not.toHaveBeenCalled()
+    const away = { isFocused: () => false, flashFrame: vi.fn() }
+    expect(askForAttention([away], notifier(false))).toBe(true)
+    expect(away.flashFrame).toHaveBeenCalledWith(true)
+    expect(askForAttention([], notifier(true))).toBe(false)
+    expect(show).not.toHaveBeenCalled()
+  })
+
+  it('has en and pt-BR text that names no requester', () => {
+    expect(englishText(mainMessage('approvals.notify.waiting', {}))).toBe('OXESpace: approval waiting')
   })
 })
 

@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const showMessageBox = vi.fn(async (..._args: unknown[]): Promise<{ response: number }> => { throw new Error('a native dialog opened while the app window exists') })
 const send = vi.fn()
 const windows: unknown[] = []
-const appWindow = { isDestroyed: () => false, webContents: { isDestroyed: () => false, isCrashed: () => false, send } }
+const appWindow = { isDestroyed: () => false, isFocused: () => true, flashFrame: vi.fn(), webContents: { isDestroyed: () => false, isCrashed: () => false, send } }
 vi.mock('electron', () => ({
   app: { isReady: () => true, getLocale: () => 'en', isPackaged: false, getAppPath: () => '.' },
   BrowserWindow: { getAllWindows: () => windows, getFocusedWindow: () => null },
@@ -37,7 +37,7 @@ const latest = async (): Promise<Request> => {
 }
 const answer = async (optionId: string) => {
   const request = await latest()
-  approvalCenter.ack({ id: request.id, generation: request.generation })
+  approvalCenter.ack({ id: request.id, generation: request.generation, visible: true, focused: true })
   expect(approvalCenter.respond({ id: request.id, generation: request.generation, optionId })).toMatchObject({ ok: true })
 }
 
@@ -104,7 +104,7 @@ describe('B10 · no native dialog while an app window exists', () => {
     const outcome = approvalCenter.ask(crashDraft())
     const [request] = requested()
     expect(request).toMatchObject({ kind: 'crash', ackRequired: true })
-    approvalCenter.ack({ id: request.id, generation: 1 })
+    approvalCenter.ack({ id: request.id, generation: 1, visible: true, focused: true })
     vi.advanceTimersByTime(5_000)
     expect(showMessageBox).not.toHaveBeenCalled()
     approvalCenter.respond({ id: request.id, generation: 1, optionId: 'keep-working' })

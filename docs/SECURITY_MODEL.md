@@ -92,7 +92,7 @@ Risks known and accepted for a release, each with what limits it and when it is 
 
 | Risk | Why it is accepted | What limits it | Revisit |
 |---|---|---|---|
-| A `critical` approval shown in the system dialog has no 2-second hold on Allow and no Enter suppression (the window's modal has both, and main enforces them there) | The system dialog is the fallback only: no app window, the window reported `approvals.unavailable`, or the crash offer was not acknowledged. Native dialogs offer no disabled-for-a-while button | Deny is the default and cancel answer; the dialog offers deny only when the text is longer than it can show whole; every answer is logged in the approval history | After 1.4, with the fallback's usage in diagnostics |
+| None open for approvals. (Closed in #238: a `critical` approval in the system dialog had no 2-second hold on Allow; the native fallback is now deny-only for critical requests, with `approvals.note.nativeCriticalDenyOnly`, and an allow it returns anyway counts as deny.) | | | |
 
 ## Dependency and release controls
 
