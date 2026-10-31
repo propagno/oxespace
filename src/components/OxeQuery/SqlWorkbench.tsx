@@ -46,7 +46,7 @@ const SAVE_DELAY_MS = 700
 
 /** What waits for a confirmation or for parameter values: the text to run and where it sits in the editor. */
 /** `typed`: the connection's name has to be typed before it goes on (production); `destructive`: the statement removes data for good. */
-interface Pending { text: string; base: number; reasons: string[]; explain?: 'analyze'; typed?: boolean; destructive?: boolean }
+interface Pending { text: string; base: number; reasons: string[]; explain?: 'analyze'; typed?: boolean; destructive?: boolean; /** Editor line `text` starts on. */ firstLine: number }
 interface ParamsAsk { text: string; base: number; names: string[]; confirmed: boolean }
 
 function copy(text: string, what = tq('workbench.copiedText'), done = tq('workbench.copiedTextDone')): void {
@@ -90,10 +90,14 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const { check: lintCheck, describe: lintDescribe } = lint
   const pendingScript = useMemo(() => {
     if (!pending) return null
-    const source = editor.current?.getValue() ?? activeRef.current.sql
     const findings = lintCheck(pending.text).filter(finding => finding.destructive).map(finding => ({ start: finding.start, reason: lintDescribe(finding) }))
-    return confirmScript(pending.text, source.slice(pending.base, pending.base + pending.text.length) === pending.text ? lineAt(source, pending.base) : 1, findings)
+    return confirmScript(pending.text, pending.firstLine, findings)
   }, [pending, lintCheck, lintDescribe])
+  /** The editor line a statement at `base` starts on, read when the confirmation opens (1 when the text moved since). */
+  const lineOf = useCallback((text: string, base: number): number => {
+    const source = editor.current?.getValue() ?? activeRef.current.sql
+    return source.slice(base, base + text.length) === text ? lineAt(source, base) : 1
+  }, [])
 
   const patch = useCallback((id: string, change: Partial<QueryTab>): void => {
     setTabs(current => current.map(tab => tab.id === id ? { ...tab, ...change } : tab))
@@ -195,7 +199,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     // Advice the editor already marked becomes a question before a statement that removes data runs.
     if (!confirmed && !safety.readOnly) {
       const risky = lint.check(text).filter(finding => finding.destructive)
-      if (risky.length) { setPending({ text, base, reasons: risky.map(lint.describe), typed: safety.typedConfirmation, destructive: true }); return }
+      if (risky.length) { setPending({ text, base, firstLine: lineOf(text, base), reasons: risky.map(lint.describe), typed: safety.typedConfirmation, destructive: true }); return }
     }
     setRunning(true); setPending(null); setParamsAsk(null); setSelectedRow(null); setCell(null); setNotice('')
     patch(tab.id, { browse: null, details: null, explain: null })
@@ -224,14 +228,14 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         if (/^(CREATE|ALTER|DROP)/i.test(result.command ?? '')) cacheFor(connection).clear()
       }
     } catch (cause) {
-      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ text, base, reasons: cause.reasons, typed: safety.typedConfirmation, destructive: true })
-      else if (cause instanceof OxeQueryClientError && cause.code === 'confirm-name') setPending({ text, base, reasons: cause.reasons, typed: true })
+      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ text, base, firstLine: lineOf(text, base), reasons: cause.reasons, typed: safety.typedConfirmation, destructive: true })
+      else if (cause instanceof OxeQueryClientError && cause.code === 'confirm-name') setPending({ text, base, firstLine: lineOf(text, base), reasons: cause.reasons, typed: true })
       else {
         patch(tab.id, { outputs: [{ id: 's0', label: text.replace(/\s+/g, ' ').slice(0, 40), start: base, text, error: outputError(cause, errorMessage(cause)) }], outputIndex: 0 })
         if (cause instanceof OxeQueryClientError && cause.position) markError(base + cause.position - 1, cause.message)
       }
     } finally { setRunning(false); setLibraryTick(value => value + 1); void refreshTx() }
-  }, [clearMarkers, connection, lint, markError, maxRows, paramValues, patch, refreshTx, safety, t])
+  }, [clearMarkers, connection, lint, lineOf, markError, maxRows, paramValues, patch, refreshTx, safety, t])
 
   /** Appends the next rows of a long SELECT; the server keeps its cursor until they run out or another statement runs. */
   const loadMore = useCallback(async (): Promise<void> => {
@@ -263,10 +267,10 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       patch(tab.id, { explain: await oq('sql.explain', { connectionId: connection.id, sql: target.text, analyze, confirmed, ...(confirmName ? { confirmName } : {}) }), outputs: [], browse: null, details: null })
       pendingExplain.current = null
     } catch (cause) {
-      if (cause instanceof OxeQueryClientError && (cause.code === 'confirm' || cause.code === 'confirm-name')) { pendingExplain.current = target; setPending({ text: target.text, base: target.base, reasons: cause.reasons, explain: 'analyze', typed: safety.typedConfirmation }) }
+      if (cause instanceof OxeQueryClientError && (cause.code === 'confirm' || cause.code === 'confirm-name')) { pendingExplain.current = target; setPending({ text: target.text, base: target.base, firstLine: lineOf(target.text, target.base), reasons: cause.reasons, explain: 'analyze', typed: safety.typedConfirmation }) }
       else patch(tab.id, { explain: null, outputs: [{ id: 's0', label: t('workbench.explain'), start: target.base, text: target.text, error: outputError(cause, errorMessage(cause)) }], outputIndex: 0 })
     } finally { setRunning(false) }
-  }, [connection.id, currentStatement, patch, safety.typedConfirmation, t])
+  }, [connection.id, currentStatement, lineOf, patch, safety.typedConfirmation, t])
 
   /** Goes on with what the dialog holds, handing over the typed name when one was asked for. */
   const confirmPending = (): void => {

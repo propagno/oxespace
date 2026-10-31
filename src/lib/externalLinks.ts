@@ -109,7 +109,7 @@ export async function openExternalLink(raw: string, options: ExternalLinkOptions
   }
   const prompt = linkPrompt(url, options)
   if (prompt) {
-    let confirmed = false
+    let confirmed: boolean
     try {
       const { confirmExternalLink } = await import('../components/ExternalLinks/ExternalLinkDialog')
       confirmed = await confirmExternalLink(prompt)
