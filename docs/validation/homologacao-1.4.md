@@ -159,7 +159,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados do Code | #179 (main) | FRONTEND | Homologado (na `main` a412f04b) |
 | B1.1 respondPending | #166 | BACKEND | Homologado (contrato; na `main` a412f04b) |
 | B8 conectividade e About (handlers) | #168 + #185 | BACKEND | Homologado (no e2e da `main` f211ca7f o About traz 1.3.3, a versão do pacote) |
-| Risco de SQL (P1-13) + fixture de quarentena | #237 | BACKEND | Pré-homologado (b4969fe3): sonda de 24+3 entradas sem regressão; COPY PROGRAM, DO, CALL, FOR UPDATE, SET ROLE, VACUUM FULL, o desvio `foo$a$` e PREPARE com DELETE são tratados |
+| Risco de SQL (P1-13) + fixture de quarentena | #237 | BACKEND | Homologado (na `main` bab99b50): as sondas dão o mesmo resultado da pré-homologação, mais 8 casos de escape; 1 nota baixa. Falta homologar as telas de quarentena com a fixture |
 | Payloads C5 (assinaturas e comandos, M4) | #187 | BACKEND | Homologado (contrato), com uma nota baixa |
 | Protocolo C5 em Kotlin gerado | #165 | MOBILE | Homologado (job Android verde na `main` 14504372) |
 | Tema Mandacaru e strings para o Android | #169 | MOBILE | Homologado (job Android verde na `main` 15e04898; visual depois do M4/M5) |
@@ -667,6 +667,31 @@ As 22 diferenças do Windows não são regressão:
 
 Pela regra de baselines por lote, falta despachar o `visual-baselines.yml` para as duas plataformas. Enquanto isso,
 o gate continua vermelho em todo push e a issue acumula comentários.
+
+### Risco de SQL na `main` (#237): Homologado
+
+Na `main` bab99b50, `guardSql` foi chamado direto por `npx jiti`:
+- A sonda original de 22 casos (`probes/sql-guard-probe.mts.txt`) dá o mesmo resultado da pré-homologação. Só
+  `SELECT` simples e a string `$$…$$` ficam como leitura.
+- Os casos extras seguem fechados:
+  - `foo$a$` com `DELETE` depois → destructive;
+  - `PREPARE … AS DELETE` → `destructiveInside`;
+  - `COPY … FROM PROGRAM` → `copyProgram`;
+  - `CALL` → `callProcedure`;
+  - `FOR SHARE` → `rowLock`.
+- Nova sonda de escapes (`probes/sql-guard-escapes-probe.mts.txt`, 8 casos):
+  - `E'\''`, `e'\''` e `U&'…'` seguidos de `DELETE`/`DROP` dão 2 instruções, destructive. A string com escape do
+    Postgres é lida certo.
+  - Um comentário aninhado `/* a /* b */ DELETE … */ SELECT 1` fica como leitura, o que está certo no Postgres: o
+    `DELETE` está dentro do comentário.
+  - `'\''`, `"\""` e `[a';b]` seguidos de `DELETE` ficam como leitura, com 1 instrução. Seriam desvios em
+    MySQL e SQL Server, mas o OxeQuery só fala SQL com Postgres (driver `pg`). No Postgres, com
+    `standard_conforming_strings` ligado (o padrão desde a 9.1), `'\''` termina em erro de sintaxe, não num `DELETE`.
+- **Nota baixa para o BACKEND:** num Postgres legado com `standard_conforming_strings = off`, `SELECT '\''; DELETE …`
+  executaria o `DELETE` e seria classificado como leitura. Critério: uma string comum com `\'` dentro vale como
+  "desconhecido" (pede confirmação). Outra opção é ler o `standard_conforming_strings` da conexão.
+- As telas de quarentena com `OXESPACE_E2E_MCP_FIXTURE` ficaram pendentes: a máquina tinha menos de 1 GB livre e o
+  build não rodou.
 
 ### Achados fora dos itens da onda
 
