@@ -51,6 +51,13 @@
       "server": {
         "quarantined": "Quarantined: it changed after you trusted it. Review it and trust it again to use it.",
         "untrusted": "Not trusted yet. Review its command and trust it before testing."
+      },
+      "toolGroups": {
+        "unknownProject": "This folder is not a project OXESpace knows. Open it as a workspace or add it to OxeChat first.",
+        "invalidYaml": "This project’s oxe.yaml is not valid YAML. Fix it by hand, then try again.",
+        "notMapping": "This project’s oxe.yaml is not a list of settings. Fix it by hand, then try again.",
+        "inlineThread": "thread is written on one line in oxe.yaml. Set the tool groups under thread.tools by hand.",
+        "unsafeEdit": "oxe.yaml could not be changed without touching other settings. Set the tool groups under thread.tools by hand."
       }
     },
     "thread": {
@@ -60,10 +67,6 @@
         "alreadyResponding": "An answer to this request is already being sent.",
         "unanswered": "Answer every question before continuing.",
         "guardedDecision": "A change to agent instructions, MCP settings or hooks is approved once, never for the session. Answer it again."
-      },
-      "side": {
-        "unavailable": "This agent cannot open a side chat yet.",
-        "noSession": "Send a message first: a side chat copies the conversation so far."
       },
       "commands": {
         "configure": "Configure the provider in Agent Settings and use Refresh commands to try again.",
@@ -81,6 +84,10 @@
       },
       "queue": {
         "deliveryUnconfirmed": "Delivery of this message could not be confirmed."
+      },
+      "side": {
+        "unavailable": "This agent cannot open a side chat yet.",
+        "noSession": "Send a message first: a side chat copies the conversation so far."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",
@@ -384,6 +391,11 @@
         "runtime": "Recent runtime events, redacted",
         "versions": "App, Electron, Chrome, Node and system versions",
         "configuration": "Settings that help a diagnosis, without secrets"
+      }
+    },
+    "project": {
+      "file": {
+        "changedMeanwhile": "{{file}} changed on disk since it was read. Nothing was saved; try again."
       }
     },
     "workspace": {

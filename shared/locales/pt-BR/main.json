@@ -51,6 +51,13 @@
       "server": {
         "quarantined": "Em quarentena: ele mudou depois que você confiou nele. Revise e confie de novo para usá-lo.",
         "untrusted": "Ainda não confiável. Revise o comando e confie nele antes de testar."
+      },
+      "toolGroups": {
+        "unknownProject": "Esta pasta não é um projeto que o OXESpace conhece. Abra-a como workspace ou adicione-a ao OxeChat antes.",
+        "invalidYaml": "O oxe.yaml deste projeto não é um YAML válido. Corrija-o à mão e tente de novo.",
+        "notMapping": "O oxe.yaml deste projeto não é uma lista de configurações. Corrija-o à mão e tente de novo.",
+        "inlineThread": "thread está escrito em uma linha no oxe.yaml. Defina os grupos de ferramentas em thread.tools à mão.",
+        "unsafeEdit": "Não foi possível mudar o oxe.yaml sem mexer em outras configurações. Defina os grupos de ferramentas em thread.tools à mão."
       }
     },
     "thread": {
@@ -60,10 +67,6 @@
         "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
         "unanswered": "Responda a todas as perguntas antes de continuar.",
         "guardedDecision": "Uma alteração em instruções de agente, configurações MCP ou hooks é aprovada uma vez, nunca para a sessão. Responda de novo."
-      },
-      "side": {
-        "unavailable": "Este agente ainda não abre um chat lateral.",
-        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
       },
       "commands": {
         "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
@@ -81,6 +84,10 @@
       },
       "queue": {
         "deliveryUnconfirmed": "Não foi possível confirmar a entrega desta mensagem."
+      },
+      "side": {
+        "unavailable": "Este agente ainda não abre um chat lateral.",
+        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" guarda instruções de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
@@ -384,6 +391,11 @@
         "runtime": "Eventos recentes de execução, redigidos",
         "versions": "Versões do app, do Electron, do Chrome, do Node e do sistema",
         "configuration": "Configurações que ajudam no diagnóstico, sem segredos"
+      }
+    },
+    "project": {
+      "file": {
+        "changedMeanwhile": "{{file}} mudou no disco depois de ser lido. Nada foi salvo; tente de novo."
       }
     },
     "workspace": {
