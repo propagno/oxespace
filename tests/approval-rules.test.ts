@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, foldWords, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORD_PREFIXES, RESERVED_FIRST_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, riskFromShell, riskFromSql, SPELLED_WORD_MIN } from '../shared/approval-rules'
+import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, foldWords, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, OXE_PREFIX_ALLOWED_WORDS, RESERVED_FIRST_WORD_PREFIXES, RESERVED_FIRST_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, riskFromShell, riskFromSql, SPELLED_WORD_MIN } from '../shared/approval-rules'
 import { mainMessage } from '../shared/messages'
 import { APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_SCHEMA_VERSION, type ApprovalRequest } from '../shared/types/approvals'
 import { guardSql } from '../electron/main/services/oxequery/sql-guard'
@@ -19,6 +19,7 @@ describe('reserved names (B10)', () => {
     expect(RESERVED_VENDOR_NAMES).toEqual(['Windows', 'Microsoft', 'Ubuntu', 'Linux', 'macOS', 'Apple', 'Google', 'GitHub', 'Debian', 'Fedora', 'GNOME', 'KDE', 'polkit'])
     expect(RESERVED_FIRST_WORDS).toEqual(['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App', 'root', 'sudo', 'Security', 'Segurança'])
     expect(RESERVED_FIRST_WORD_PREFIXES).toEqual(['Admin', 'Oxe'])
+    expect(OXE_PREFIX_ALLOWED_WORDS).toEqual(['Oxente', 'Oxen', 'Oxeye'])
     expect(RESERVED_EXACT_NAMES).toEqual(['Thread', 'Code', 'Chat'])
     expect(SPELLED_WORD_MIN).toBe(3)
   })
@@ -74,7 +75,11 @@ describe('reserved names (B10)', () => {
     // Security and Segurança, alone or as the first word.
     ['Security', 'Security'], ['Security scanner', 'Security'], ['Segurança', 'Segurança'], ['Seguranca do sistema', 'Segurança'],
     // "Oxe" as a first-word prefix.
-    ['OxeBot', 'Oxe'], ['OXE', 'Oxe'], ['Oxe helper', 'Oxe'], ['Oxeye', 'Oxe']
+    ['OxeBot', 'Oxe'], ['OXE', 'Oxe'], ['Oxe helper', 'Oxe'], ['Oxentebot', 'Oxe'],
+    // The allowlist is for the Oxe prefix only: product containment still applies.
+    ['Oxente OXESpace', 'OXESpace'],
+    // The first-word and prefix rules also read the first two words joined.
+    ['OX E', 'Oxe'], ['Ad min', 'Admin'], ['Ad min panel', 'Admin'], ['Sys tem', 'System'], ['Se curity', 'Security']
   ])('refuses %j as %s', (value, name) => {
     expect(reservedNameIn(value)).toBe(name)
   })
@@ -85,6 +90,10 @@ describe('reserved names (B10)', () => {
     // Adjacent pairs count only as an exact vendor, never by containment.
     'Win dow manager', 'Pineapple', 'Micro softer', 'Ubunt utility',
     'Admiral', 'Admit', 'Gnomes', 'kdenlive', 'Rootless builder', 'pseudo', 'my security notes', 'Securities', 'Ox', 'Boxer',
+    // Real words the Oxe prefix would catch, allowed as the first word whatever follows.
+    'Oxente', 'Oxente bot', 'oxente meu rei', 'Oxen', 'Oxeye',
+    // Joined first words: "Ox ente" is exactly the allowlisted "oxente"; "Box er" is "boxer", with no prefix.
+    'Ox ente', 'Box er',
     // Provider names are allowed: the requester the person sees comes from the authenticated provider, not the name.
     'Claude', 'Anthropic', 'Codex', 'OpenAI'
   ])('allows %j', value => {
@@ -253,7 +262,7 @@ describe('reserved names: homologation probe (#184)', () => {
     'Claude Code', 'Codespace', 'Appointment', 'Approve', 'Windowsill', 'Microsoftware', 'Sys', 'My System', 'Kernel', 'Explorer', 'Thread helper',
     'A B C', 'J.R.R. Tolkien', 'Data Engineer', 'Code Reviewer', 'Codey', 'Apps', 'Appium', 'Oxford tutor', 'Rooted', 'Rooter', 'Sudoku Bot',
     'Securities Analyst', 'Kdenlive helper', 'Applause', 'Rootless', 'Data Bot', 'Win Rate Bot', 'Code Review', 'Re Viewer', 'Ana Lu Ísa', 'Sec Ops',
-    'Sistemas de pagamento', 'Systems Engineer', 'Gemini', 'Copilot', 'Git', 'Ox Tail', 'OX E', 'Apps Script', 'AppSec', 'Thread pool', 'Codesmith',
+    'Sistemas de pagamento', 'Systems Engineer', 'Gemini', 'Copilot', 'Git', 'Ox Tail', 'Apps Script', 'AppSec', 'Thread pool', 'Codesmith',
     'Chatty'
   ])('allows %j', value => {
     expect(reservedNameIn(value)).toBeNull()
@@ -261,7 +270,7 @@ describe('reserved names: homologation probe (#184)', () => {
 
   // Accepted overblock: refused although a person could mean something harmless; the coordinator accepted it as is.
   it.each([
-    ['Oxente', 'Oxe'], ['Oxente bot', 'Oxe'], ['Security Reviewer', 'Security'], ['Root Cause Analyst', 'root'], ['Admin Panel', 'Admin'],
+    ['Security Reviewer', 'Security'], ['Root Cause Analyst', 'root'], ['Admin Panel', 'Admin'],
     ['Adminer', 'Admin'], ['Administrativo', 'Admin'], ['Gnome lover', 'GNOME'], ['Fedora fan', 'Fedora'], ['GitHub Copilot', 'GitHub']
   ])('accepted overblock: refuses %j as %s', (value, name) => {
     expect(reservedNameIn(value)).toBe(name)

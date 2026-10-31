@@ -16,9 +16,11 @@ export const RESERVED_VENDOR_NAMES = ['Windows', 'Microsoft', 'Ubuntu', 'Linux',
 export const RESERVED_FIRST_WORDS = ['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App', 'root', 'sudo', 'Security', 'Segurança'] as const
 /**
  * Prefixes a first word may not start with, after the fold: the admin family ("Administração", "Admins"; not "Admiral",
- * "Admit") and the app's own "Oxe" ("OxeBot", "OXE", "Oxeye"; not "Ox", "Boxer").
+ * "Admit") and the app's own "Oxe" ("OxeBot", "OXE"; not "Ox", "Boxer").
  */
 export const RESERVED_FIRST_WORD_PREFIXES = ['Admin', 'Oxe'] as const
+/** Real words the "Oxe" prefix would catch; allowed exactly as the first word, whatever follows ("Oxente bot"). */
+export const OXE_PREFIX_ALLOWED_WORDS = ['Oxente', 'Oxen', 'Oxeye'] as const
 /** The app's internal tab names; refused only as the whole name ("Code reviewer" and "Chatbot" stay allowed). */
 export const RESERVED_EXACT_NAMES = ['Thread', 'Code', 'Chat'] as const
 export type ReservedAppName =
@@ -82,6 +84,8 @@ const FOLDED_VENDOR = RESERVED_VENDOR_NAMES.map(name => [name, foldName(name)] a
 const FOLDED_FIRST = RESERVED_FIRST_WORDS.map(name => [name, foldName(name)] as const)
 // Folded too: `i` reads as `l`, so "Admin" is the prefix "admln".
 const FOLDED_PREFIXES = RESERVED_FIRST_WORD_PREFIXES.map(name => [name, foldName(name)] as const)
+const FOLDED_OXE = foldName('Oxe')
+const FOLDED_OXE_ALLOWED = new Set(OXE_PREFIX_ALLOWED_WORDS.map(foldName))
 const FOLDED_EXACT = RESERVED_EXACT_NAMES.map(name => [name, foldName(name)] as const)
 
 /**
@@ -90,7 +94,9 @@ const FOLDED_EXACT = RESERVED_EXACT_NAMES.map(name => [name, foldName(name)] as 
  *   OS and vendors  as a whole word, or two adjacent words joined ("Windows Security", "W i n d o w s", "Win dows";
  *                   not "Linuxbrew", "Win dow manager")
  *   generic words   as the first word ("System Administrator", "Sistema operacional", "root access")
- *   prefixes        a first word starting with one ("Administração", "OxeBot"; not "Admiral", "Ox")
+ *   prefixes        a first word starting with one ("Administração", "OxeBot"; not "Admiral", "Ox", nor the real
+ *                   words Oxente, Oxen and Oxeye)
+ * The first-word and prefix rules also read the first two words joined ("Sys tem", "Ad min", "OX E").
  *   tab names       as the whole name only ("Thread"; not "Code reviewer")
  * Both folds are checked: with symbols dropped ("System!" is "system") and with symbols read as letters ("$ystem",
  * "W1ndows").
@@ -101,13 +107,19 @@ export function reservedNameIn(value: string): ReservedAppName | null {
   const folds = [false, true].map(readSymbols => {
     const words = foldWords(value, readSymbols)
     // A vendor split in two ("Win dows", "Git Hub") is still that vendor; only an exact match counts, never containment.
-    return { whole: readSymbols ? foldNameWithSymbols(value) : foldName(value), words, candidates: [...words, ...words.slice(1).map((word, index) => skeleton(words[index] + word))] }
+    const firsts = words.length > 1 ? [words[0], skeleton(words[0] + words[1])] : words.slice(0, 1)
+    return { whole: readSymbols ? foldNameWithSymbols(value) : foldName(value), words, firsts, candidates: [...words, ...words.slice(1).map((word, index) => skeleton(words[index] + word))] }
   })
+  /** A first word (alone or joined with the next) starting with the prefix; an allowlisted real word escapes "Oxe". */
+  const startsWith = (fold: typeof folds[number], prefix: string): boolean => {
+    if (prefix === FOLDED_OXE && FOLDED_OXE_ALLOWED.has(fold.words[0])) return false
+    return fold.firsts.some(first => first.startsWith(prefix) && !(prefix === FOLDED_OXE && FOLDED_OXE_ALLOWED.has(first)))
+  }
   const rules: Array<(fold: typeof folds[number]) => ReservedAppName | undefined> = [
     fold => FOLDED_RESERVED.find(([, reserved]) => fold.whole.includes(reserved))?.[0],
     fold => FOLDED_VENDOR.find(([, reserved]) => fold.candidates.includes(reserved))?.[0],
-    fold => FOLDED_FIRST.find(([, reserved]) => fold.words[0] === reserved)?.[0],
-    fold => FOLDED_PREFIXES.find(([, prefix]) => fold.words[0]?.startsWith(prefix))?.[0],
+    fold => FOLDED_FIRST.find(([, reserved]) => fold.firsts.includes(reserved))?.[0],
+    fold => FOLDED_PREFIXES.find(([, prefix]) => startsWith(fold, prefix))?.[0],
     fold => FOLDED_EXACT.find(([, reserved]) => fold.whole === reserved)?.[0]
   ]
   for (const rule of rules) {

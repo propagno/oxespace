@@ -89,8 +89,10 @@ A pane name an agent chooses, and the agent-supplied parts of a notification, ma
 | OXESpace, OxeChat, OxeCode, OxeQuery, OxePod, OxePost | contained anywhere in the whole-name fold ("OXESpace: security update", "O.X.E Space") |
 | Windows, Microsoft, Ubuntu, Linux, macOS, Apple, Google, GitHub, Debian, Fedora, GNOME, KDE, polkit | a whole word of the name, or two adjacent words joined ("Windows Security", "GNOME Keyring", "Win dows", "Git Hub"); "Linuxbrew", "Applesauce", "Gnomes", "kdenlive" and "Win dow manager" are allowed |
 | System, Sistema, Administrator, Administrador, Admin, Aplicação, Aplicativo, Application, App, root, sudo, Security, Segurança | the first word, or the whole name ("System Administrator", "root access", "Security scanner", and so also "Sistema de testes" and "App builder"); "my system", "filesystem", "Rootless builder", "pseudo", "my security notes" and "Securities" are allowed |
-| Admin…, Oxe… (prefixes, folded) | a first word that starts with one ("Administração", "Admins", "OxeBot", "OXE", "Oxeye"); "Admiral", "Admit", "Ox" and "Boxer" are allowed |
+| Admin…, Oxe… (prefixes, folded) | a first word that starts with one ("Administração", "Admins", "OxeBot", "OXE", "Oxentebot"); "Admiral", "Admit", "Ox" and "Boxer" are allowed, and the real words Oxente, Oxen and Oxeye are allowed exactly as the first word, whatever follows ("Oxente bot") |
 | Thread, Code, Chat (the app's tab names) | the whole name only; "Code reviewer" and "Chatbot" are allowed |
+
+The first-word and prefix rules also read the first two words joined, so "Sys tem", "Ad min panel" and "OX E" are refused ("Ox ente" joins to the allowed "oxente"; "Box er" to "boxer"). Some names are refused although a person could mean something harmless ("Security Reviewer", "Root Cause Analyst", "Admin Panel", "Adminer", "Administrativo", "Gnome lover", "Fedora fan", "GitHub Copilot"); that overblock is accepted.
 
 Provider names (Claude, Anthropic, Codex, OpenAI) are allowed: the requester the person sees comes from the authenticated provider, never from the name. Each rule is checked on both folds before the next rule, so the most specific name is reported.
 
