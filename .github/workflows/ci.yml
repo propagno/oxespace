@@ -47,9 +47,11 @@ on:
         type: boolean
 
 concurrency:
-  # Never cancel an in-flight tag release path; PR/main builds may cancel.
+  # Only a pull request's run gives way to its next push. A run on main (or a tag) that started always finishes:
+  # with a long runner queue, cancelling it on every merge meant main went untested for hours. Runs still waiting
+  # in the group coalesce, so a burst of merges queues one run, not one per merge.
   group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

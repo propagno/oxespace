@@ -32,6 +32,8 @@
   "attention": {
     "needsYou_one": "{{count}} needs you",
     "needsYou_other": "{{count}} need you",
+    "needsDecision_one": "{{count}} needs your decision",
+    "needsDecision_other": "{{count}} need your decision",
     "failed": "{{count}} failed",
     "working": "{{count}} working"
   },
@@ -388,5 +390,22 @@
     "details": "Build details",
     "detailsCopied": "Build details copied",
     "report": "Report a problem"
+  },
+  "links": {
+    "refused": "This link was not opened",
+    "refusedHint": "Only web (http, https) and email (mailto) links up to 2,048 characters, without a user name or password, open outside OXESpace.",
+    "hostSuffix": "({{host}})",
+    "terminalHint": "{{key}}+click to open the link",
+    "confirm": {
+      "title": "Open this link in your browser?",
+      "newHost": "You haven't opened a link to this site from OXESpace before. Check the address before you continue.",
+      "textDiffers": "The link's text is not where it goes. Check the address before you continue.",
+      "host": "Site",
+      "idn": "Written with international characters. Your browser reaches it as {{ascii}}.",
+      "text": "Link text",
+      "address": "Full address",
+      "open": "Open",
+      "cancel": "Cancel"
+    }
   }
 }

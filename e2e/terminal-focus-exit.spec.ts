@@ -115,7 +115,7 @@ test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable a
     await terminalInput.focus()
     // T5: every region's tabindex is what it was before the walk. A tabindex the app set itself stays (the Windows title
     // bar has one), so the check is "unchanged", not "none".
-    expect(await regionTabindexes()).toEqual(tabindexesBefore)
+    await expect.poll(regionTabindexes).toEqual(tabindexesBefore)
 
     // T1: "Send F6 to the program" in this pane's ⋯ menu: F6 and Shift+F6 reach the program, Ctrl+M still gets out.
     const firstPane = page.getByTestId('pane-container').filter({ has: page.locator(`[data-terminal-pane="${first}"]`) })

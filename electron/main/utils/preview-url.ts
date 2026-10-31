@@ -10,12 +10,14 @@
  *
  * The WHATWG parser turns `http://2130706433`, `http://0x7f.1` and `http://LOCALHOST` into a loopback host. Those
  * spellings exist to slip past a check, so the host must already be written the way the parser writes it; anything
- * else asks. Credentials in the authority (`http://127.0.0.1@evil.com`) always ask.
+ * else asks. A user name or password in the authority (`http://localhost@evil.example/`, `http://user:pass@localhost:3000`)
+ * is refused outright, as for any link leaving the app: `localhost@` reads as local, and an approval would put the
+ * credentials on screen.
  */
 export type PreviewUrl =
   | { kind: 'local'; href: string }
   | { kind: 'external'; href: string }
-  | { kind: 'refused' }
+  | { kind: 'refused'; reason?: 'credentials' }
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 const LOCALHOST_SUBDOMAIN = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+localhost$/
@@ -47,9 +49,9 @@ export function classifyPreviewUrl(raw: string): PreviewUrl {
   let url: URL
   try { url = new URL(raw) } catch { return { kind: 'refused' } }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return { kind: 'refused' }
-  const external: PreviewUrl = { kind: 'external', href: url.href }
-  if (hasHidden(raw) || url.username || url.password) return external
   const written = writtenHost(raw)
-  if (written.credentials || written.host !== url.hostname) return external
+  if (url.username || url.password || written.credentials) return { kind: 'refused', reason: 'credentials' }
+  const external: PreviewUrl = { kind: 'external', href: url.href }
+  if (hasHidden(raw) || written.host !== url.hostname) return external
   return isLoopbackHost(url.hostname) ? { kind: 'local', href: url.href } : external
 }

@@ -4,7 +4,15 @@ import { i18n } from '../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
 
-export type PaneDisplayTone = 'thinking' | 'awaiting' | 'idle' | 'error' | 'exited' | 'starting'
+/** 'needs-decision' is an agent stopped on an approval or a question; 'awaiting' is one that finished its turn. */
+export type PaneDisplayTone = 'thinking' | 'needs-decision' | 'awaiting' | 'idle' | 'error' | 'exited' | 'starting'
+
+/**
+ * Where a pane's status comes from (UX-07): the main process's lifecycle (read from the agent's hooks or
+ * its screen), the agent's own hook report, or a guess from output timing. Null when the terminal process
+ * itself decides (starting, exited, error).
+ */
+export type PaneStatusOrigin = 'lifecycle' | 'screen' | 'hook' | 'heuristic'
 
 export interface PaneDisplayTerminalState {
   status: 'idle' | 'starting' | 'running' | 'exited' | 'error'
@@ -24,6 +32,8 @@ export interface PaneDisplayTerminalState {
   hookAt?: number | null
   /** Lifecycle state from the main process (hooks + screen manifests); outranks hookState and timing. */
   agentState?: import('../../shared/types/agent-state').AgentLifecycleState | null
+  /** What the lifecycle state was read from, as the agent-state event names it ('hook', 'screen', ...). */
+  agentSource?: string | null
 }
 
 export interface PaneDisplayState {
@@ -38,6 +48,11 @@ export interface PaneDisplayState {
   providerKey: string
   branchLabel: string | null
   attentionReason: string | null
+  statusOrigin: PaneStatusOrigin | null
+  /** Plain-language origin for titles and screen readers; null with no origin. */
+  originLabel: string | null
+  /** A guess rather than a report: drawn weaker so it is not read as certain. */
+  statusEstimated: boolean
 }
 
 // Patterns that match agent CLI boilerplate or shell echo — never the user's
@@ -146,7 +161,8 @@ export function derivePaneDisplayState(input: {
   const rootLabel = compactPathLabel(pane.rootPath ?? workspace.rootPath)
   const subtitle = `${identity.label} · ${statusLabel}`
   const meta = `~/${rootLabel}${branchLabel ? ` · ${branchLabel}` : ''}`
-  const attentionReason = terminal.status === 'running' && terminal.agentState === 'blocked'
+  const statusOrigin = deriveStatusOrigin(terminal)
+  const attentionReason = statusTone === 'needs-decision'
     ? tc('pane.attention.blocked')
     : terminal.status === 'running' && terminal.agentState === 'done'
       ? tc('pane.attention.done')
@@ -167,7 +183,11 @@ export function derivePaneDisplayState(input: {
     providerLabel: identity.label,
     providerKey: identity.key,
     branchLabel,
-    attentionReason
+    attentionReason,
+    statusOrigin,
+    // An idle shell guessed idle has nothing to explain; every other status says where it comes from.
+    originLabel: statusOrigin && !(statusOrigin === 'heuristic' && statusTone === 'idle') ? tc(`pane.origin.${statusOrigin}`) : null,
+    statusEstimated: statusOrigin === 'heuristic' && (statusTone === 'thinking' || statusTone === 'awaiting')
   }
 }
 
@@ -250,7 +270,8 @@ const HOOK_WORKING_LIVENESS_MS = 3 * 60_000
 function deriveHookTone(entry: PaneDisplayTerminalState, now: number): PaneDisplayTone | null {
   if (entry.status !== 'running' || !entry.hookState || !entry.hookAt) return null
   const age = now - entry.hookAt
-  if (entry.hookState === 'waiting') return age < HOOK_WAITING_FRESH_MS ? 'awaiting' : null
+  // Claude's hooks report 'waiting' on a permission prompt or a question: a decision, as main reads it too.
+  if (entry.hookState === 'waiting') return age < HOOK_WAITING_FRESH_MS ? 'needs-decision' : null
   if (entry.hookState === 'done') return age < HOOK_DONE_FRESH_MS ? 'awaiting' : 'idle'
   const lastSign = Math.max(entry.hookAt, entry.lastActivityAt ?? 0)
   return now - lastSign < HOOK_WORKING_LIVENESS_MS ? 'thinking' : null
@@ -261,6 +282,7 @@ export function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTo
   if (entry.status === 'exited') return 'exited'
   if (entry.status === 'starting') return 'starting'
   if (entry.status === 'running' && entry.agentState && entry.agentState !== 'unknown') {
+    if (entry.agentState === 'blocked') return 'needs-decision'
     return entry.agentState === 'working' ? 'thinking' : entry.agentState === 'idle' ? 'idle' : 'awaiting'
   }
   const hookTone = deriveHookTone(entry, Date.now())
@@ -271,6 +293,19 @@ export function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTo
     if (lastTouchMs && Date.now() - lastTouchMs < 5 * 60_000) return 'awaiting'
   }
   return 'idle'
+}
+
+/** Which source `deriveStatusTone` used for this entry; kept beside it so the two cannot disagree. */
+export function deriveStatusOrigin(entry: PaneDisplayTerminalState): PaneStatusOrigin | null {
+  if (entry.status === 'error' || entry.error || entry.status === 'exited' || entry.status === 'starting') return null
+  if (entry.status === 'running' && entry.agentState && entry.agentState !== 'unknown') {
+    if (entry.agentSource === 'screen') return 'screen'
+    if (entry.agentSource === 'hook') return 'hook'
+    if (entry.agentSource === 'heuristic') return 'heuristic'
+    return 'lifecycle'
+  }
+  if (deriveHookTone(entry, Date.now())) return 'hook'
+  return 'heuristic'
 }
 
 function fallbackForStatus(tone: PaneDisplayTone, pane: WorkspacePane, paneIndex: number): string {
