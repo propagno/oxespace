@@ -1,5 +1,4 @@
-import { use } from 'react'
-import { currentLanguage, i18n, loadNamespace } from '../../i18n'
+import { i18n, loadNamespace, useNamespace } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
 import { toast } from '../../ui/Toast'
 
@@ -18,15 +17,15 @@ export function loadOxeQueryCatalog(): Promise<void> {
  * so no key ever shows in place of its text.
  */
 export function useOxeQueryCatalog(): void {
-  if (!i18n.hasResourceBundle(currentLanguage(), 'oxequery')) use(loadOxeQueryCatalog())
+  useNamespace('oxequery')
 }
 
-/** Copies text and says so in the language on screen (`what` names it: "Error", "Results"…). */
-export async function copyText(text: string, what: string): Promise<boolean> {
+/** Copies text and says so in the language on screen (`what` names it for a failure; `done` is the success line, "Results copied"). */
+export async function copyText(text: string, what: string, done: string = tq('copy.done', { what })): Promise<boolean> {
   let copied = false
   try { copied = (await window.oxe?.clipboard?.writeText(text)) ?? false } catch { /* the browser clipboard is tried next */ }
   if (!copied) { try { await navigator.clipboard.writeText(text); copied = true } catch { /* reported below */ } }
-  toast(copied ? { title: tq('copy.done', { what }), intent: 'success', duration: 2000 } : { title: tq('copy.failed', { what }), description: tq('copy.unavailable'), intent: 'danger' })
+  toast(copied ? { title: done, intent: 'success' } : { title: tq('copy.failed', { what }), description: tq('copy.unavailable'), intent: 'danger' })
   return copied
 }
 

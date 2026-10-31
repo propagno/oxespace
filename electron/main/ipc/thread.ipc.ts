@@ -12,7 +12,9 @@ import { MemoryProjectService } from '../services/memory/memory-project.service'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { parsePermissionRuleInput } from '../services/conversation/thread-permissions'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
-import { createThreadWorktree, discardThreadWorktree, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
+import { createThreadWorktree, discardThreadWorktree, ThreadWorktreeError, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
+import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
+import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 
@@ -118,6 +120,18 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   ipcMain.handle(IPC_CHANNELS.thread.list, event => { sender(event); return manager.then(service => service.list()) })
   // Read-only summary for the activity center; answering a request stays in the conversation.
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => { sender(event); return manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsAll()) })
+  // Side chats (B1.2) load on the first open. Their events go only to the window that opened them, which takes them along when it closes.
+  let sideChats: Promise<import('../services/conversation/thread-side-chat').ThreadSideChats> | null = null
+  const sides = () => sideChats ??= manager.then(async service => (await import('../services/conversation/thread-side-runtime')).createThreadSideChats(db, mcp.bridge, service))
+  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, async (event, id: unknown) => {
+    sender(event)
+    const threadId = string(id), contents = event.sender, chats = await sides()
+    const result = await chats.open(threadId, side => { if (!contents.isDestroyed()) contents.send(IPC_CHANNELS.thread.onSideEvent, side) })
+    if (result.ok) contents.once('destroyed', () => { void chats.close(result.side.sideId) })
+    return result
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event, sideId: unknown, text: unknown) => { sender(event); return sides().then(chats => chats.send(sideId, text)) })
+  ipcMain.handle(IPC_CHANNELS.thread.sideClose, (event, sideId: unknown) => { sender(event); return sides().then(chats => chats.close(sideId)) })
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => { sender(event); return manager.then(service => service.readForRenderer(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
     sender(event)
@@ -218,10 +232,18 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     const request = value.worktree as Record<string, unknown> | null
     if (!request || typeof request !== 'object') throw new Error('Invalid worktree input')
     for (const key of ['branch', 'baseRef'] as const) if (request[key] !== undefined && (typeof request[key] !== 'string' || (request[key] as string).length > 240)) throw new Error(`Invalid worktree ${key}`)
-    const created = await createThreadWorktree(worktrees, context.rootPath, { branch: request.branch as string | undefined, baseRef: request.baseRef as string | undefined })
+    if (request.allowDirtyBase !== undefined && typeof request.allowDirtyBase !== 'boolean') throw new Error('Invalid worktree allowDirtyBase')
+    let created: Awaited<ReturnType<typeof createThreadWorktree>>
+    try {
+      created = await createThreadWorktree(worktrees, context.rootPath, { branch: request.branch as string | undefined, baseRef: request.baseRef as string | undefined, allowDirtyBase: request.allowDirtyBase === true })
+    } catch (error) {
+      // The cause travels in the text: Electron keeps nothing but the message of an error crossing IPC.
+      throw error instanceof ThreadWorktreeError ? new Error(tagThreadWorktreeError(error.code, error.message)) : error
+    }
     try {
       threadProjects.addContext(context.projectId, created.rootPath)
-      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider })
+      const ownedWorktree = { path: created.rootPath, branch: created.branch, projectRoot: context.rootPath, baseSha: created.baseSha, createdAt: Date.now() }
+      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider, ownedWorktree })
     } catch (error) {
       threadProjects.removeContext(context.projectId, created.rootPath)
       await discardThreadWorktree(context.rootPath, created.rootPath, created.branch)
@@ -300,10 +322,20 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     sender(event)
     return manager.then(service => service.respond(string(id), string(request), requestResponse(response)))
   })
+  ipcMain.handle(IPC_CHANNELS.thread.respondPending, async (event, value: unknown) => {
+    sender(event)
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid pending response')
+    const input = value as Record<string, unknown>
+    if (Object.keys(input).some(key => !['threadId', 'requestId', 'generation', 'response'].includes(key))) throw new Error('Unknown pending response field')
+    const pending = await import('../services/conversation/thread-pending-response')
+    const parsed = { threadId: string(input.threadId), requestId: string(input.requestId), generation: pending.listedGeneration(input.generation), response: requestResponse(input.response) }
+    return pending.respondPending(await manager, parsed)
+  })
   ipcMain.handle(IPC_CHANNELS.thread.pin, (event, id: unknown, pinned: unknown) => {
     sender(event)
     if (typeof pinned !== 'boolean') throw new Error('Invalid pin input')
     return manager.then(service => service.pin(string(id), pinned))
   })
-  return { manager, stop: async () => { await (await accounts).stop(); await (await manager).stop() } }
+  registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, sender, id: string })
+  return { manager, stop: async () => { await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }

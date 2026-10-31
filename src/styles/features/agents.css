@@ -90,11 +90,6 @@
   animation: oxe-spin var(--duration-spin) var(--ease-linear) infinite;
 }
 
-@keyframes github-shimmer {
-  0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
-}
-
 .github-skel-header,
 .github-skel-row {
   display: flex;
@@ -120,8 +115,8 @@
   height: 10px;
   border-radius: var(--radius-xs);
   background: linear-gradient(90deg, var(--ov-1) 0%, var(--ov-3) 50%, var(--ov-1) 100%);
-  background-size: 800px 100%;
-  animation: github-shimmer var(--duration-shimmer) var(--ease-linear) infinite;
+  background-size: 200% 100%;
+  animation: oxe-shimmer var(--duration-shimmer) var(--ease-linear) infinite;
 }
 
 .github-skel-bar-xs { width: 60px; }
@@ -133,8 +128,8 @@
   min-height: 60px;
   border-radius: var(--radius-md);
   background: linear-gradient(90deg, var(--ov-1) 0%, var(--ov-2) 50%, var(--ov-1) 100%);
-  background-size: 800px 100%;
-  animation: github-shimmer var(--duration-shimmer) var(--ease-linear) infinite;
+  background-size: 200% 100%;
+  animation: oxe-shimmer var(--duration-shimmer) var(--ease-linear) infinite;
 }
 
 

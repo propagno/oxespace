@@ -17,7 +17,8 @@
 .pane-activity-dot.activity-thinking,
 .pane-status-dot.activity-thinking {
   background: var(--dot-green);
-  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-scale: 0.85;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
   box-shadow: 0 0 6px rgba(52, 212, 116, 0.65);
 }
 
@@ -45,7 +46,8 @@
 .pane-activity-dot.activity-starting,
 .pane-status-dot.activity-starting {
   background: var(--dot-yellow);
-  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-scale: 0.85;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
   box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
 }
 
@@ -55,10 +57,6 @@
   opacity: 0.4;
 }
 
-@keyframes oxe-activity-pulse {
-  0%, 100% { opacity: 0.45; transform: scale(0.85); }
-  50%      { opacity: 1;    transform: scale(1.05); }
-}
 
 /* Consolidated integration control. Five equal-looking topbar chips competed
    with agent activity; the trigger keeps the aggregate glanceable and moves

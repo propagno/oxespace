@@ -133,16 +133,6 @@
   background: var(--accent-soft);
 }
 
-.integration-empty {
-  display: grid;
-  place-items: center;
-  gap: 6px;
-  min-height: 150px;
-  color: var(--tx-muted);
-  text-align: center;
-  font-size: var(--fs-xs);
-}
-
 .integration-member-edit-btn {
   position: absolute;
   top: 4px;
@@ -506,24 +496,6 @@
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-style: italic;
-}
-
-.integration-empty-inline {
-  padding: var(--space-md);
-  text-align: left;
-  border: 1px dashed var(--bd-subtle);
-  border-radius: var(--radius-md);
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  line-height: 1.5;
-}
-
-.integration-empty-inline code {
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-active);
-  color: var(--tx-primary);
-  font-size: var(--fs-2xs);
 }
 
 .integration-handoff-list strong {
@@ -1092,16 +1064,6 @@
     grid-column: 2 / -1;
     justify-content: center;
   }
-}
-
-.integration-empty-link {
-  border: 0;
-  background: transparent;
-  color: var(--accent-hover);
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-  text-decoration: underline;
 }
 
 /* ─── End IntegrationPanel redesign ───────────────────────────────────── */

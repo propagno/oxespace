@@ -11,6 +11,7 @@
  *
  * Build first: npm run build. Run: npx playwright test e2e/memory-footprint.spec.ts
  */
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, symlinkSync } from 'node:fs'
@@ -131,7 +132,7 @@ test('memory footprint: one long Thread, four terminals, seeded history', async 
     const codeOnly = await sample(app, page)
     console.log(`[MEMORY] code only ${JSON.stringify(codeOnly)}`)
 
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.getByText('Long conversation 1').first().click()
     await page.locator('.thread-virtual-space').waitFor({ timeout: 30_000 })
     await page.waitForTimeout(8_000)

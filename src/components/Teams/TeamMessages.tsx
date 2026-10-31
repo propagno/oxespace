@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TeamMember, TeamMessage, TeamScope } from '../../../shared/types/team'
-import { Button, TextArea } from '../../ui'
+import { Button, Notice, TextArea } from '../../ui'
 
 export function TeamMessages({ scope, member, members }: { scope: TeamScope; member: TeamMember; members: TeamMember[] }) {
   const [messages, setMessages] = useState<TeamMessage[]>([]), [draft, setDraft] = useState('')
@@ -30,8 +30,8 @@ export function TeamMessages({ scope, member, members }: { scope: TeamScope; mem
   const label = (id: string | null) => id === null ? 'You' : members.find(m => m.id === id)?.name ?? 'Archived member'
   return <section className="team-messages" aria-label={`Messages with ${member.name}`}>
     <h3>Messages · {member.name}</h3>
-    <p className="team-note">Messages remain in the inbox until acknowledged. Automatic delivery, when enabled, submits them to the connected Thread after it becomes idle. An uncertain delivery is never automatically repeated.</p>
-    {error && <p role="alert">{error}</p>}
+    <p className="team-note">Messages remain in the inbox until acknowledged. Automatic delivery, when enabled, submits them to the connected OxeChat conversation after it becomes idle. An uncertain delivery is never automatically repeated.</p>
+    {error && <Notice intent="danger">{error}</Notice>}
     {older && messages.length > 0 && messages.length < 500 && <button type="button" disabled={loadingOlder} onClick={async () => {
       setLoadingOlder(true)
       try {

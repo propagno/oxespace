@@ -48,4 +48,10 @@
 .bar { height: 12px; background: var(--accent); border-radius: 2px; }
 .box { width: 72px; height: 48px; background: var(--surface-raised); border: 1px solid var(--border-default); }
 
+.tokenTable { border-collapse: collapse; font-size: var(--text-xs); }
+.tokenTable th { padding: var(--space-1) var(--space-4) var(--space-1) 0; text-align: left; font-weight: var(--weight-semibold); color: var(--text-muted); }
+.tokenTable td { padding: var(--space-1) var(--space-4) var(--space-1) 0; border-top: 1px solid var(--border-subtle); }
+.tokenTable code { font-family: var(--font-mono); color: var(--text-secondary); }
+.loopSkeleton { width: 160px; }
+
 .brandTile { display: grid; place-items: center; gap: var(--space-3); padding: var(--space-6); border-radius: var(--radius-lg); background: var(--surface-raised); border: 1px solid var(--border-default); }

@@ -4,7 +4,7 @@
   inset: 0;
   z-index: var(--layer-modal);
   background: var(--scrim);
-  animation: fade var(--duration-base) var(--ease-standard);
+  transition: opacity var(--duration-base) var(--ease-standard);
 }
 .dialog {
   position: fixed;
@@ -21,7 +21,7 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
   box-shadow: var(--elevation-4);
-  animation: rise var(--duration-base) var(--ease-standard);
+  transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
 .dialog:focus-visible { outline: none; }
 .sm { --dialog-w: 420px; }
@@ -46,7 +46,7 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   box-shadow: var(--elevation-3);
-  animation: pop var(--duration-fast) var(--ease-standard);
+  transition: opacity var(--duration-fast) var(--ease-out), scale var(--duration-fast) var(--ease-out);
 }
 .popover { padding: var(--space-3); }
 .menu { padding: var(--space-1); display: grid; gap: 1px; max-height: var(--radix-dropdown-menu-content-available-height, 70vh); overflow: auto; }
@@ -63,7 +63,8 @@
   outline: none;
   user-select: none;
 }
-.menuItem[data-highlighted] { background: var(--fill-hover); }
+.menuItem[data-highlighted], .menuItem[data-state='open'] { background: var(--fill-hover); }
+.menuSubChevron { margin-left: auto; padding-left: var(--space-2); box-sizing: content-box; }
 .menuItem[data-disabled] { color: var(--text-disabled); cursor: default; }
 .menuItem.danger { color: var(--intent-danger-fg); }
 .menuItem svg { flex: none; color: var(--text-secondary); }
@@ -82,12 +83,15 @@
   color: var(--surface-canvas);
   font-size: var(--text-xs);
   line-height: var(--leading-snug);
-  animation: fade var(--duration-fast) var(--ease-standard);
+  transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
-@keyframes fade { from { opacity: 0; } }
-@keyframes rise { from { opacity: 0; transform: translate(-50%, calc(-50% + 6px)); } }
-@keyframes pop { from { opacity: 0; transform: scale(0.98); } }
+/* Entrances (docs/design/motion.md): a dialog rises, a floating surface grows from its anchor, the rest fades. */
+@starting-style {
+  .scrim, .surfaceScrim, .tooltip { opacity: 0; }
+  .dialog { opacity: 0; translate: 0 var(--motion-shift); }
+  .floating { opacity: 0; scale: 0.98; }
+}
 
 /* Scrim for ModalSurface: one layer below the surfaces that position themselves. */
 .surfaceScrim {
@@ -95,10 +99,13 @@
   inset: 0;
   z-index: var(--layer-overlay);
   background: var(--scrim);
-  animation: fade var(--duration-base) var(--ease-standard);
+  transition: opacity var(--duration-base) var(--ease-standard);
 }
 .menuRadioText { display: grid; gap: 1px; min-width: 0; }
 .menuRadioText small { color: var(--text-secondary); font-size: var(--text-2xs); }
 /* Rich labels: a live value (text size) or a shortcut next to the group name. */
 .menuLabel output { margin-left: var(--space-1); color: var(--text-primary); font-weight: var(--weight-semibold); }
 .menuLabel kbd { margin-left: var(--space-1); font: inherit; }
+
+/* AnchoredMenu: the invisible point a programmatic menu hangs from, centred in its positioned parent. */
+.menuAnchor { position: absolute; top: 50%; left: 50%; width: 0; height: 0; pointer-events: none; }

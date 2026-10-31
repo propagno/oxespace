@@ -10,8 +10,8 @@
   "nav": {
     "applicationView": "Visão do aplicativo",
     "modeTitle": {
-      "code": "Code: terminais e agentes nos seus workspaces",
-      "thread": "Thread: conversas com um agente",
+      "code": "OxeCode: terminais e agentes nos seus workspaces",
+      "thread": "OxeChat: conversas com um agente",
       "data": "OxeQuery: bancos de dados",
       "pods": "OxePod: contêineres",
       "post": "OxePost: requisições de API"
@@ -75,7 +75,13 @@
     "tools": "Ferramentas",
     "keyboardShortcuts": "Atalhos de teclado",
     "diagnostics": "Diagnóstico",
-    "reportProblem": "Relatar um problema…"
+    "reportProblem": "Relatar um problema…",
+    "checkUpdates": "Procurar atualizações…"
+  },
+  "activityCenter": {
+    "nothingToRead": "Nada para marcar como lido",
+    "nothingToReadText": "Toda a atividade já está lida.",
+    "allRead": "Toda a atividade marcada como lida"
   },
   "report": {
     "title": "Relatar um problema",
@@ -88,6 +94,7 @@
     "retry": "Tentar de novo",
     "copy": "Copiar texto",
     "copyWhat": "Relato",
+    "copied": "Relato copiado",
     "open": "Abrir no GitHub",
     "opened": "GitHub aberto no navegador",
     "truncated": "O texto é grande demais para um link, então o GitHub recebe só o começo. Use Copiar texto para compartilhar tudo."
@@ -99,7 +106,8 @@
     "guide": {
       "title": "Atalhos de teclado",
       "description": "O que funciona no {{view}} agora.",
-      "customize": "Personalizar atalhos"
+      "customize": "Personalizar atalhos",
+      "f6ToProgram": "Num painel de terminal com “Enviar F6 ao programa” ligado (no menu ⋯), F6 e Shift+F6 vão para o programa dele, como mc, htop ou tig; {{toggle}} continua fazendo o Tab mover o foco para fora."
     },
     "bindings": {
       "palette": {
@@ -135,7 +143,12 @@
         "slash": "Comandos do terminal",
         "zoomIn": "Aumentar a fonte do terminal",
         "zoomOut": "Diminuir a fonte do terminal",
-        "zoomReset": "Restaurar a fonte do terminal"
+        "zoomReset": "Restaurar a fonte do terminal",
+        "tabMovesFocus": "Tab move o foco no terminal"
+      },
+      "focus": {
+        "nextRegion": "Mover o foco para a próxima região",
+        "previousRegion": "Mover o foco para a região anterior"
       },
       "thread": {
         "new": "Nova conversa",
@@ -154,8 +167,8 @@
         "shortcuts": "Mostrar os atalhos de teclado"
       },
       "view": {
-        "code": "Mostrar o Code",
-        "thread": "Mostrar o Thread",
+        "code": "Mostrar o OxeCode",
+        "thread": "Mostrar o OxeChat",
         "data": "Mostrar o OxeQuery",
         "pods": "Mostrar o OxePod",
         "post": "Mostrar o OxePost"
@@ -167,6 +180,17 @@
         "send": "Enviar a requisição",
         "filter": "Encontrar uma requisição"
       }
+    },
+    "terminalFocus": {
+      "hint": "Terminal. Pressione F6 para sair ou {{toggle}} para que o Tab mova o foco.",
+      "hintF6": "Terminal. Pressione F6 para sair.",
+      "on": "Tab move o foco: ligado",
+      "off": "Tab move o foco: desligado",
+      "badge": "Tab move o foco",
+      "menu": "Tab move o foco",
+      "toggleKeyToShell": "Enviar {{key}} ao shell",
+      "hintF6ToProgram": "Terminal. Aqui o F6 vai para o programa. Pressione {{toggle}} para que o Tab mova o foco.",
+      "f6ToProgram": "Enviar F6 ao programa"
     }
   },
   "oxequeryCommands": {
@@ -248,6 +272,22 @@
     "resets": "Renova em {{when}}."
   },
   "ui": {
+    "changeNotSaved": "A alteração não foi salva.",
+    "divider": {
+      "columns": "Divisor entre colunas",
+      "rows": "Divisor entre linhas",
+      "hint": "Arraste ou use as setas; Enter para mais opções",
+      "left": "Mover o divisor para a esquerda",
+      "right": "Mover o divisor para a direita",
+      "up": "Mover o divisor para cima",
+      "down": "Mover o divisor para baixo"
+    },
+    "splitter": {
+      "menu": "{{name}}: opções de tamanho",
+      "smaller": "Menor",
+      "larger": "Maior",
+      "restore": "Restaurar o tamanho padrão"
+    },
     "loading": "Carregando",
     "loadingEllipsis": "Carregando…",
     "tryAgain": "Tentar de novo",
@@ -255,11 +295,38 @@
     "cancel": "Cancelar",
     "close": "Fechar",
     "dismiss": "Dispensar",
+    "toast": {
+      "region": "Notificações",
+      "dismiss": "Dispensar notificação",
+      "repeated_one": "Repetida {{count}} vez",
+      "repeated_other": "Repetida {{count}} vezes",
+      "repeated_many": "Repetida {{count}} vezes"
+    },
     "copy": {
       "text": "Texto",
       "done": "Copiado: {{what}}",
       "failed": "Não foi possível copiar: {{what}}",
-      "unavailable": "A área de transferência não está disponível."
+      "unavailable": "A área de transferência não está disponível.",
+      "textDone": "Texto copiado"
+    },
+    "offline": {
+      "title": "Você está sem conexão",
+      "message": "Isto precisa da rede. Volta sozinho quando a conexão voltar.",
+      "retry": "Verificar de novo"
+    },
+    "palette": {
+      "title": "Paleta de comandos",
+      "description": "Busque um comando, arquivo ou workspace"
+    },
+    "boundary": {
+      "title": "Algo deu errado ao mostrar {{what}}.",
+      "titlePart": "Algo deu errado ao mostrar esta parte do app.",
+      "message": "O resto do OXESpace continua funcionando. Tente de novo e, se acontecer outra vez, relate pelo menu Ajuda."
+    },
+    "crash": {
+      "title": "O OXESpace não conseguiu mostrar esta janela.",
+      "message": "Seus terminais, agentes e conversas continuam rodando. Tente de novo; se acontecer outra vez, recarregue a janela e relate o problema pelo menu Ajuda.",
+      "reload": "Recarregar janela"
     }
   },
   "errors": {
@@ -287,8 +354,8 @@
     "ready_one": "{{names}} está pronto",
     "ready_many": "{{names}} estão prontos",
     "ready_other": "{{names}} estão prontos",
-    "readyBoth": "O Code e o Thread podem usá-lo.",
-    "readyCodeOnly": "O Code consegue rodá-lo. O Thread precisa do Claude Code ou do Codex.",
+    "readyBoth": "O OxeCode e o OxeChat podem usá-lo.",
+    "readyCodeOnly": "O OxeCode consegue rodá-lo. O OxeChat precisa do Claude Code ou do Codex.",
     "checking": "Procurando as CLIs de agentes…",
     "checkingDetail": "Procurando os comandos no seu PATH.",
     "partial_one": "{{names}} foi encontrado, mas não está pronto",
@@ -299,5 +366,32 @@
     "noneDetail": "O OXESpace roda os agentes como CLIs locais. Instale o Claude Code ou o Codex, confira se o comando está no PATH e verifique de novo.",
     "unchecked": "CLIs de agentes ainda não verificadas",
     "uncheckedDetail": "Verifique quais CLIs de agentes estão instaladas nesta máquina."
+  },
+  "about": {
+    "title": "Sobre o OXESpace",
+    "versionLine": "Versão {{version}}",
+    "tagline": "Agentes e terminais para os seus projetos",
+    "channel": {
+      "stable": "Estável",
+      "beta": "Beta",
+      "dev": "Desenvolvimento"
+    },
+    "commit": "Commit",
+    "built": "Gerada em",
+    "system": "Sistema",
+    "loading": "Lendo os detalhes da versão",
+    "unavailable": "Os detalhes da versão não estão disponíveis nesta versão.",
+    "license": "Código aberto sob a licença MIT.",
+    "links": "Links",
+    "link": {
+      "repository": "Código-fonte",
+      "releaseNotes": "Notas da versão",
+      "licenseText": "Licença",
+      "notices": "Licenças de terceiros"
+    },
+    "copy": "Copiar detalhes",
+    "details": "Detalhes da versão",
+    "detailsCopied": "Detalhes da versão copiados",
+    "report": "Relatar um problema"
   }
 }

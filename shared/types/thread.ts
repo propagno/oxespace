@@ -56,7 +56,7 @@ export interface ThreadCommand {
   execution?: 'conversation' | 'cli' | 'desktop' | 'unavailable'
   unavailableReason?: string
 }
-export interface ThreadCommandCatalog { commands: ThreadCommand[]; warning?: string }
+export interface ThreadCommandCatalog { commands: ThreadCommand[]; warning?: string; /** `warning` as a message code (C3). */ messageCode?: import('../messages').MainMessage }
 export interface ThreadModel { id: string; label: string; description: string; efforts: string[]; defaultEffort?: string; isDefault?: boolean }
 export interface ThreadConfiguration {
   model?: string
@@ -73,6 +73,8 @@ export interface ThreadConfiguration {
 export interface ThreadModelCatalog { models: ThreadModel[]; defaultModel?: string; defaultEffort?: string; defaultKnown?: boolean }
 export type ThreadCapabilityAvailability = 'supported' | 'unavailable' | 'experimental'
 export interface ThreadCapability {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   availability: ThreadCapabilityAvailability
   enabled: boolean
   authorized: boolean
@@ -183,6 +185,10 @@ export interface ThreadRequestPolicy {
   warnings?: string[]
   /** Touches the files that steer agents (instructions, MCP settings, hooks): only a person approves it, whatever the access level. */
   guarded?: true
+  /** The reasons that have a C3 code (protected config), beside the English `reasons`; for the window's own language. */
+  reasonCodes?: import('../messages').MainMessage[]
+  /** The warnings that have a C3 code, beside the English `warnings`. */
+  warningCodes?: import('../messages').MainMessage[]
   suggestions?: ThreadPermissionSuggestion[]
 }
 /** The answer of the command analysis for one command line. */
@@ -275,6 +281,8 @@ export interface ThreadRequestResponse {
 }
 
 export interface ThreadQueuedInput {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   id: string
   operationId?: string
   nativeId?: string
@@ -352,6 +360,26 @@ export interface ThreadSubagent {
 }
 export interface ThreadTurn { id: string; operationId?: string; nativeId?: string; sequence: number; startedAt?: number; completedAt?: number; status: 'running' | 'completed' | 'failed' | 'interrupted'; configuration: ThreadConfiguration; attachmentIds?: string[] }
 
+/** A worktree created for one conversation; the record that lets archiving clean it up. */
+export interface OwnedThreadWorktree {
+  /** Folder of the worktree; also the conversation's root. */
+  path: string
+  branch: string
+  /** The repository checkout it was made from. */
+  projectRoot: string
+  /** Commit the branch started at, to tell new work from the starting point. */
+  baseSha: string
+  createdAt: number
+}
+
+/** What the new-conversation dialog may ask for when the conversation gets its own worktree. */
+export interface ThreadWorktreeRequestInput {
+  branch?: string
+  baseRef?: string
+  /** The person saw that uncommitted changes in the project are not carried over and went on. */
+  allowDirtyBase?: boolean
+}
+
 export interface ConversationThread {
   nativeHistoryCursor?: { before: number; size: number; identity: string; skipSuffix?: boolean; fingerprint?: string; modifiedAt?: number; claudeLineage?: 'linked' | 'legacy'; claudeParent?: string }
   agentProfileId?: string
@@ -365,6 +393,11 @@ export interface ConversationThread {
    * changes: checkpoints and the provider's own session records are tied to it.
    */
   observedLocation?: import('./agent-hooks').SessionLocation
+  /**
+   * Set when this conversation was started in a worktree of its own (the "isolated worktree" option).
+   * Archiving or deleting the conversation then offers to clean that worktree up.
+   */
+  ownedWorktree?: OwnedThreadWorktree
   provider: ThreadProvider
   nativeSessionId: string | null
   title: string
@@ -414,6 +447,8 @@ export interface ConversationThread {
 }
 
 export interface ThreadProviderObservation {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   state: 'running' | 'awaiting-input' | 'completed' | 'interrupted' | 'failed' | 'idle' | 'unknown'
   observedAt: number
   source: 'codex-app-server' | 'unavailable'
@@ -566,13 +601,31 @@ export interface ThreadPendingResponseInput {
 }
 
 /** Why an answer was refused; each is also a message code (`thread.request.<reason>`, C3). */
-export const THREAD_PENDING_REFUSALS = ['notPending', 'staleGeneration', 'alreadyResponding', 'unanswered'] as const
+export const THREAD_PENDING_REFUSALS = ['notPending', 'staleGeneration', 'alreadyResponding', 'unanswered', 'guardedDecision'] as const
 export type ThreadPendingRefusal = typeof THREAD_PENDING_REFUSALS[number]
 
 /** The first answer for a generation wins; a repeated, late or stale one is refused, never applied twice. */
 export type ThreadPendingResponseResult =
   | { ok: true; threadId: string; requestId: string; resolution: ThreadRequestResolution }
   | { ok: false; refusal: ThreadPendingRefusal; message: import('../messages').MainMessage }
+
+/**
+ * A side chat (B1.2): an ephemeral read-only copy of a conversation's native session, to ask about it without changing it.
+ * It never writes to the main conversation, is not saved, and is thrown away when closed, when the main conversation
+ * closes, and when the app quits.
+ */
+export interface ThreadSideChat {
+  sideId: string
+  threadId: string
+  provider: ThreadProvider
+  readOnly: true
+}
+
+/** What a side chat sends to the window: the same events a conversation shows, usage included so its cost is visible. */
+export interface ThreadSideEvent { sideId: string; event: ThreadEvent }
+
+/** Opening refused: the provider cannot fork its session, or the conversation has no native session yet. */
+export type ThreadSideOpenResult = { ok: true; side: ThreadSideChat } | { ok: false; message: import('../messages').MainMessage }
 
 export interface ThreadApi {
   artifact?(id: string, artifactId: string): Promise<ThreadArtifact>
@@ -592,13 +645,18 @@ export interface ThreadApi {
   list(): Promise<ConversationThread[]>
   /** Requests still pending in every conversation that waits for approval. Read-only. */
   pendingRequestsAll?(): Promise<ThreadPendingRequestSummary[]>
+  /** Side chat (B1.2): open a read-only copy, send to it, close it. Nothing reaches the main conversation. */
+  sideOpen?(id: string): Promise<ThreadSideOpenResult>
+  sideSend?(sideId: string, text: string): Promise<void>
+  sideClose?(sideId: string): Promise<void>
+  onSideEvent?(listener: (event: ThreadSideEvent) => void): () => void
   /** Answers one of those requests by id and generation. Approvals stay with the person: never an MCP tool. */
   respondPending?(input: ThreadPendingResponseInput): Promise<ThreadPendingResponseResult>
   /**
    * With `worktree`, a new branch is created in its own worktree next to the repository and the conversation
    * starts there. Refusals carry a cause the dialog can show (branch exists, invalid base…).
    */
-  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: { branch?: string; baseRef?: string } }): Promise<ThreadSnapshot>
+  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: ThreadWorktreeRequestInput }): Promise<ThreadSnapshot>
   read(id: string): Promise<ThreadSnapshot>
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>
@@ -642,6 +700,10 @@ export interface ThreadApi {
   approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void>
   respond?(id: string, requestId: string, response: ThreadRequestResponse): Promise<void>
   pin(id: string, pinned: boolean): Promise<void>
+  /** What Git says about the worktree this conversation was started in; null when it has none. */
+  worktreeInspect?(id: string): Promise<import('../threadWorktree').ThreadWorktreeInspection | null>
+  /** Archives or deletes the conversation, then cleans up its worktree as the choice allows. */
+  worktreeFinish?(id: string, action: import('../threadWorktree').ThreadWorktreeFinishAction, choice: import('../threadWorktree').ThreadWorktreeChoice): Promise<import('../threadWorktree').ThreadWorktreeFinishResult>
   onChanged(listener: (value: { threadId: string }) => void): () => void
 }
 

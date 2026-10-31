@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
@@ -21,7 +21,8 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
-import { registerRemoteIpc } from './ipc/remote.ipc'
+import { registerAppInfoIpc } from './ipc/app-info.ipc'
+import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerCopilotIpc } from './ipc/copilot.ipc'
 import { registerAgentCreditsIpc } from './ipc/agentCredits.ipc'
@@ -38,7 +39,7 @@ import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { registerSemanticIpc } from './ipc/semantic.ipc'
-import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
+import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
@@ -58,7 +59,7 @@ import { SearchService } from './services/search.service'
 import { AutomationStore } from './services/automations/store'
 import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
-import { isAppNavigation, isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
+import { isAppNavigation, isLoopbackHttpUrl, openExternalOrRecord } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './services/browser-preview.service'
@@ -92,11 +93,10 @@ process.on('uncaughtException', (error) => {
   const window = BrowserWindow.getAllWindows()[0]
   const options: Electron.MessageBoxOptions = {
     type: 'error', title: tMain('crash.unexpected.title'), message: tMain('crash.unexpected.message'), detail: tMain('crash.unexpected.detail'),
-    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true
-  }
-  void (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)).then(({ response }) => {
-    if (response === 0) { app.relaunch(); app.quit() }
-  }).catch(() => {})
+    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true }
+  void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options) // icon, or none
+    .then(shown => window ? dialog.showMessageBox(window, shown) : dialog.showMessageBox(shown))
+    .then(({ response }) => { if (response === 0) { app.relaunch(); app.quit() } }).catch(() => {})
 })
 process.on('unhandledRejection', (reason) => {
   log.error('[main] unhandledRejection', reason)
@@ -117,6 +117,7 @@ const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 async function registerIpcHandlers(): Promise<() => void> {
   const noop = (): void => {}
   if (ipcRegistered) return noop
+  installIncidentHooks() // B8.3: a throwing handler or a crashed window becomes an incident; before any handler exists
 
   // Launched from a desktop icon, this process inherits the session PATH, not
   // the shell's — so agent CLIs under ~/.local/bin, ~/.npm-global/bin or a
@@ -275,11 +276,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   // not inflate the main entry or block startup parsing.
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
-    { registerLinearIpc }, { registerIntegrationIpc },
+    { registerLinearIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
     { GitHubService }, { GitService }, { CodeGraphService }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
-    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
+    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
   ])
   const gitService = registerGitIpc()
@@ -311,7 +312,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     log.warn('Automations unavailable', error)
   }
   const linearService = registerLinearIpc(db, gitHubService)
-  registerIntegrationIpc(db)
+  registerIntegrationIpc(db); registerRemoteIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
@@ -335,7 +336,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // Conversations started in their own worktree use the same creation path as the Worktrees panel.
   const threadWorktrees = {
     createWorktree: (input: import('../../shared/types/github').GitHubCreateWorktreeInput) => gitHubService.createWorktree(input),
-    resolveBaseRef: async (rootPath: string) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef
+    resolveBaseRef: async (rootPath: string) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef, removeWorktree: (input: import('../../shared/types/github').GitHubRemoveWorktreeInput) => gitHubService.removeWorktree(input)
   }
   const threadManager = registerThreadIpc(db, {
     observed: thread => delegatedThreadObserver.current?.(thread),
@@ -360,22 +361,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
   const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
   registerMcpIpc(mcpManager)
-  // Read clipboard text in main (Electron's clipboard module needs no renderer
-  // permission), so terminal Ctrl+V paste never depends on navigator.clipboard
-  // being granted clipboard-read.
-  ipcMain.handle(IPC_CHANNELS.clipboard.readText, () => clipboard.readText())
-  ipcMain.handle(IPC_CHANNELS.clipboard.writeText, async (_e, text: string) => {
-    const value = typeof text === 'string' ? text : ''
-    try {
-      await clipboard.writeText(value)
-      // Verify the completed write. Normalize CRLF because the Windows clipboard
-      // may canonicalize line endings while preserving the copied text.
-      const normalize = (input: string): string => input.replace(/\r\n/g, '\n')
-      return normalize(await clipboard.readText()) === normalize(value)
-    } catch {
-      return false
-    }
-  })
+  registerClipboardTextIpc()
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
     const item = (await clipboard.read()).find(value => value.types.includes('image/png'))
     if (!item) return null
@@ -391,7 +377,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
-  registerRemoteIpc(db)
+  app.once('before-quit', registerAppInfoIpc())
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()
@@ -487,7 +473,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
-  registerDiagnosticsIpc(db, internalMcp)
+  registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
   registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath)
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
@@ -870,7 +856,7 @@ function createMainWindow(): BrowserWindow {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    openExternalOrRecord(url)
     return { action: 'deny' }
   })
 
@@ -882,8 +868,8 @@ function createMainWindow(): BrowserWindow {
   const keepInApp = (event: Electron.Event, url: string): void => {
     if (isAppNavigation(url, appUrl)) return
     event.preventDefault()
-    log.warn('[main] blocked navigation of the main window', url.slice(0, 200))
-    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    // The reason only: the URL may carry a token, a path or a host that must not reach the log.
+    log.warn('[main] blocked navigation of the main window', openExternalOrRecord(url) ? 'opened outside' : 'refused')
   }
   mainWindow.webContents.on('will-navigate', keepInApp)
   mainWindow.webContents.on('will-redirect', keepInApp)
@@ -902,8 +888,9 @@ function createMainWindow(): BrowserWindow {
     if (next === 'reload' && !mainWindow.isDestroyed()) {
       setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.webContents.reload() }, 250)
     } else if (next === 'give-up' && !mainWindow.isDestroyed()) {
-      void dialog.showMessageBox(mainWindow, { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
-        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 })
+      const options: Electron.MessageBoxOptions = { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
+        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 }
+      void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options).then(shown => { if (!mainWindow.isDestroyed()) void dialog.showMessageBox(mainWindow, shown) }).catch(() => {})
     }
   })
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
