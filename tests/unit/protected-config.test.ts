@@ -227,9 +227,9 @@ describe('commands that reach protected files (B16)', () => {
     expect(guardedDecisions(['accept', 'acceptForSession', 'decline'], verdict), command).toEqual(['accept', 'decline'])
   })
 
-  it('still answers a plain read of one from the built-in safe list', () => {
-    expect(run('cat AGENTS.md')).toMatchObject({ decision: 'allow' })
-    expect(run('cat AGENTS.md')?.guarded).toBeUndefined()
+  it.each(['cat AGENTS.md', 'grep -n mcp .mcp.json', 'ls .claude', 'ls -la .git/hooks'])('still answers %j, a plain read from the built-in safe list', command => {
+    expect(run(command), command).toMatchObject({ decision: 'allow' })
+    expect(run(command)?.guarded, command).toBeUndefined()
   })
 
   it.each([
