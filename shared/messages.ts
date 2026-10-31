@@ -41,6 +41,14 @@ export interface MessageParams {
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** The side chat was closed (by the person, or with its window) before this message. */
+  'thread.side.closed': Record<string, never>
+  /** A side chat call carried an id or a message that is not one. */
+  'thread.side.invalidInput': Record<string, never>
+  /** A conversation call carried an id or input that is not one. */
+  'thread.invalidInput': Record<string, never>
+  /** No conversation has this id (deleted, or never existed). */
+  'thread.notFound': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -282,6 +290,10 @@ export const MESSAGE_CODES = [
   'app.connectivity.offline',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.side.closed',
+  'thread.side.invalidInput',
+  'thread.invalidInput',
+  'thread.notFound',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',

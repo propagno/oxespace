@@ -17,14 +17,15 @@ import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
+import { MainRefusal } from '../services/main-refusal'
 
 function string(value: unknown): string {
-  if (typeof value !== 'string' || !value || value.length > 65536 || value.includes('\0')) throw new Error('Invalid thread input')
+  if (typeof value !== 'string' || !value || value.length > 65536 || value.includes('\0')) throw new MainRefusal('thread.invalidInput', {})
   return value
 }
 /** A prompt can carry a pasted log or file: the 64K cap of other inputs cut it far below what the Code terminal takes. */
 function message(value: unknown): string {
-  if (typeof value !== 'string' || !value || value.includes('\0')) throw new Error('Invalid thread input')
+  if (typeof value !== 'string' || !value || value.includes('\0')) throw new MainRefusal('thread.invalidInput', {})
   if (value.length > THREAD_MESSAGE_MAX_CHARS) throw new Error(`This message has ${value.length.toLocaleString('en-US')} characters; the limit is ${THREAD_MESSAGE_MAX_CHARS.toLocaleString('en-US')}. Attach long text as a file instead.`)
   return value
 }
@@ -219,7 +220,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   }
   ipcMain.handle(IPC_CHANNELS.thread.create, async (event, input: unknown) => {
     sender(event)
-    if (!input || typeof input !== 'object') throw new Error('Invalid thread input')
+    if (!input || typeof input !== 'object') throw new MainRefusal('thread.invalidInput', {})
     const value = input as Record<string, unknown>
     if (value.provider !== 'codex' && value.provider !== 'claude') throw new Error('Invalid thread provider')
     const context = threadProjects.context(string(value.projectId), value.rootPath === undefined ? undefined : string(value.rootPath))

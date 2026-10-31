@@ -309,14 +309,14 @@ export function registerE2eMockIpcHandlers(): void {
   // B1.2: a side chat answers each message with a fixed reply and its usage, and is gone once closed.
   const sides = new Map<string, string>()
   ipcMain.handle(IPC_CHANNELS.thread.sideOpen, (_event: IpcMainInvokeEvent, id: unknown): ThreadSideOpenResult => {
-    if (typeof id !== 'string' || !id) throw new Error('Invalid thread input')
+    if (typeof id !== 'string' || !id) throw new Error('thread.invalidInput')
     if (process.env.OXESPACE_E2E_SIDE_UNAVAILABLE === '1') return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
     const sideId = randomUUID()
     sides.set(sideId, id)
     return { ok: true, side: { sideId, threadId: id, provider: 'claude', readOnly: true } }
   })
   ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event: IpcMainInvokeEvent, sideId: unknown, text: unknown) => {
-    if (typeof sideId !== 'string' || !sides.has(sideId) || typeof text !== 'string' || !text.trim()) throw new Error('Invalid side chat input')
+    if (typeof sideId !== 'string' || !sides.has(sideId) || typeof text !== 'string' || !text.trim()) throw new Error('thread.side.invalidInput')
     event.sender.send(IPC_CHANNELS.thread.onSideEvent, { sideId, event: { type: 'message', id: randomUUID(), role: 'assistant', text: 'E2E side chat reply.' } })
   })
   ipcMain.handle(IPC_CHANNELS.thread.sideClose, (_event: IpcMainInvokeEvent, sideId: unknown) => { if (typeof sideId === 'string') sides.delete(sideId) })

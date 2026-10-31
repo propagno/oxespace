@@ -87,7 +87,9 @@
       },
       "side": {
         "unavailable": "This agent cannot open a side chat yet.",
-        "noSession": "Send a message first: a side chat copies the conversation so far."
+        "noSession": "Send a message first: a side chat copies the conversation so far.",
+        "closed": "This side chat is closed. Open a new one to keep asking.",
+        "invalidInput": "This side chat message could not be read. Try again."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",
@@ -95,7 +97,9 @@
         "hooks": "\"{{path}}\" holds agent hooks. A change there steers every later session, so it needs your confirmation each time.",
         "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
-      }
+      },
+      "invalidInput": "This conversation request could not be read.",
+      "notFound": "This conversation no longer exists."
     },
     "app": {
       "connectivity": {
