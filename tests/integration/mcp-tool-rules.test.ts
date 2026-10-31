@@ -318,7 +318,8 @@ describe('Per-tool rules, review fixes (B7.3)', () => {
     expect(threadMcpArguments('claude', [], '/bridge.cjs', managed, [], undefined, denied).join(' ')).toContain('--disallowedTools mcp__my-server-2__run')
     const codex = threadMcpArguments('codex', [], '/bridge.cjs', managed, [], undefined, denied)
     expect(codex).toContain('mcp_servers.my-server-2.disabled_tools=["run"]')
-    expect(codex.filter(argument => argument.startsWith('mcp_servers.my-server.'))).toEqual([])
+    // Both servers are attached (their own -c entries); only the second has a tool turned off.
+    expect(codex.filter(argument => argument.includes('disabled_tools'))).toEqual(['mcp_servers.my-server-2.disabled_tools=["run"]'])
     const after = await toolRules({ ...deps, servers }, root)
     expect(find(after, 'my-server-2', 'run')).toMatchObject({ decision: 'deny', source: 'project', scope: 'everywhere' })
     expect(find(after, 'my-server', 'run')).toMatchObject({ decision: 'ask' })

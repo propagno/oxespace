@@ -86,6 +86,12 @@ Every request an agent raises for the person (confirm-level MCP actions, OxeQuer
 
 The native dialog is a fallback only: no app window exists, the window reported `approvals.unavailable` for that one request, or a request that needs a handshake (`crash`) was not acknowledged within `APPROVAL_ACK_TIMEOUT_MS`. The renderer-gone notice stays native because the renderer that would draw the modal is gone.
 
+## Accepted risks
+
+| Risk | Why it stays open | Control now | Planned mitigation |
+|---|---|---|---|
+| An agent edits the project's `.oxespace/policy.json` or `oxe.yaml` under a session grant its CLI already holds (for example Claude's `Edit(**)` taken from an ordinary file's card), and lifts a tool the person blocked in Settings › Tools (B7.3) | The CLI enforces its own session grants before it asks OXESpace, so the request never reaches the approval policy. Instruction files (`AGENTS.md`, `CLAUDE.md`) carry the same exposure. | Both files are protected config (`kernel/protected-config.ts`, kind `policy`): no saved path rule, Full access or "allow for this session" answers a change to them, and their own card offers no session grant, so a grant cannot be taken from them. | Main remembers the last version of each file that it accepted. A change made outside its own write paths (`setToolRule`, `withToolMode`) is not applied, and the person is told (a C3 notice) until they confirm the new version in the window. The window is the only place that confirms; no MCP tool does. Tracked as a follow-up to B7.3. |
+
 ## Dependency and release controls
 
 CI blocks moderate-or-higher production advisories with `npm run security:audit`, blocks high/critical build-tool advisories with `npm run security:audit:tools`, and verifies that the exactly pinned Electron belongs to a supported major line. Electron is a devDependency but ships in the product, so the production audit alone is insufficient. Transitive fixes may be pinned through `overrides`, with the lockfile committed. Build-tool advisories and dated triage are recorded in `docs/validation/stabilization-2026-10-07.md`. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.

@@ -48,9 +48,9 @@ describe('a change to agent instructions, MCP settings or hooks', () => {
 
   it('covers the project policy and oxe.yaml, so a conversation cannot lift a tool the person blocked (B7.3)', () => {
     const { root, store, policy, edit } = setup()
-    // The widest rules a person could save for the folder and the file, plus Full access.
+    // The widest rules a person can save for the folder and the file (`**` alone is refused by the store), plus Full access.
     store.add({ projectRoot: root, kind: 'path', pattern: '.oxespace/**', decision: 'allow' })
-    store.add({ projectRoot: root, kind: 'path', pattern: '**', decision: 'allow' })
+    store.add({ projectRoot: root, kind: 'path', pattern: '*.yaml', decision: 'allow' })
     store.add({ projectRoot: root, kind: 'path', pattern: 'oxe.yaml', decision: 'allow' })
     expect(policy.evaluate(root, edit('.oxespace/notes.json'))).toMatchObject({ decision: 'allow' })
     for (const path of ['.oxespace/policy.json', join(root, '.oxespace', 'policy.json'), 'oxe.yaml', join(root, 'oxe.yaml')]) {
