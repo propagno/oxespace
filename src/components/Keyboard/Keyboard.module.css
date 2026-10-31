@@ -20,6 +20,7 @@
   color: var(--text-primary);
 }
 .row:last-child { border-bottom: 0; }
+.note { margin: 0; font-size: var(--text-xs); color: var(--text-secondary); }
 
 /* Settings › Keyboard */
 .settingsList { flex: 1; min-width: 0; }
@@ -27,5 +28,7 @@
 .settingsLabel { display: grid; gap: var(--space-1); min-width: 0; }
 .warning { font-size: var(--text-xs); color: var(--intent-warning-fg); }
 .capturing { font-size: var(--text-xs); color: var(--text-secondary); }
+/* F6 and Shift+F6, the way out of any region: shown, never changed (WCAG 2.1.2). Spans the three button columns. */
+.fixed { grid-column: span 3; font-size: var(--text-xs); color: var(--text-secondary); }
 /* Same columns on every row: chord, Change, Reset, Turn off. */
 .actions { display: grid; grid-template-columns: minmax(180px, auto) repeat(3, auto); justify-items: end; align-items: center; gap: var(--space-2); flex-shrink: 0; }
