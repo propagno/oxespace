@@ -26,6 +26,13 @@ export interface MessageParams {
   'thread.request.alreadyResponding': Record<string, never>
   /** A question was answered without an answer for every required question. */
   'thread.request.unanswered': Record<string, never>
+  /** A guarded request (agent instructions, MCP settings, hooks) was answered "for the session": it is approved once or declined. */
+  'thread.request.guardedDecision': Record<string, never>
+  /** Why a change needs the person each time; `path` is the file as the request names it. */
+  'thread.protectedConfig.instructions': { path: string }
+  'thread.protectedConfig.mcp': { path: string }
+  'thread.protectedConfig.hooks': { path: string }
+  'thread.protectedConfig.warning': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
@@ -221,6 +228,11 @@ export const MESSAGE_CODES = [
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
+  'thread.request.guardedDecision',
+  'thread.protectedConfig.instructions',
+  'thread.protectedConfig.mcp',
+  'thread.protectedConfig.hooks',
+  'thread.protectedConfig.warning',
   'app.connectivity.offline',
   'incident.window.crashed',
   'incident.window.rendererGone',

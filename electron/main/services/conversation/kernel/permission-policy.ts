@@ -21,7 +21,8 @@ import { evaluateShellCommand, suggestRules } from '../shell-command-rules'
 import { classifyShellRisk, type ShellRisk } from '../shell-risk'
 import { readsOutsideProject } from '../shell-reads'
 import { checkWorkspacePath, type PathSafetyOptions } from '../path-safety'
-import { commandWritesProtected, protectedConfigKind, protectedConfigReason, PROTECTED_CONFIG_WARNING } from './protected-config'
+import { commandWritesProtected, protectedConfigKind, protectedConfigNote, protectedConfigReason, PROTECTED_CONFIG_WARNING, PROTECTED_CONFIG_WARNING_NOTE } from './protected-config'
+import type { MainMessage } from '../../../../../shared/messages'
 
 type Decision = ThreadRequestPolicy['decision']
 
@@ -46,6 +47,7 @@ function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissio
   const deny = rules.filter(rule => rule.kind === 'path' && rule.decision === 'deny')
   const allow = rules.filter(rule => rule.kind === 'path' && rule.decision === 'allow')
   const reasons: string[] = []
+  const reasonCodes: MainMessage[] = []
   const suggestions: ThreadPermissionSuggestion[] = []
   let decision: Decision = 'allow'
   let guarded = false
@@ -54,7 +56,7 @@ function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissio
     const config = protectedConfigKind(candidate)
     if (!verdict.safe) {
       reasons.push(`"${candidate}" ${REASON_FOR[verdict.reason] ?? 'cannot be verified'}.`)
-      if (config) { guarded = true; reasons.push(protectedConfigReason(candidate, config)) }
+      if (config) { guarded = true; reasons.push(protectedConfigReason(candidate, config)); reasonCodes.push(protectedConfigNote(candidate, config)) }
       decision = 'ask'
       continue
     }
@@ -66,6 +68,7 @@ function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissio
     if (guard) {
       guarded = true
       reasons.push(protectedConfigReason(local, guard))
+      reasonCodes.push(protectedConfigNote(local, guard))
       decision = 'ask'
       continue
     }
@@ -76,7 +79,15 @@ function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissio
     const pattern = dir ? `${dir}/**` : local
     if (!suggestions.some(item => item.pattern === pattern)) suggestions.push({ kind: 'path', pattern, label: dir ? `edits in ${dir}/` : `edits to ${local}` })
   }
-  return { decision, reasons, suggestions, ...(guarded ? { guarded: true as const } : {}) }
+  return { decision, reasons, suggestions, ...(guarded ? { guarded: true as const, reasonCodes } : {}) }
+}
+
+/**
+ * A guarded request is approved once or declined: "for the session" and any remembering answer are not offered,
+ * whatever the provider listed (Codex lists its own decisions; Claude's presenter already leaves them out).
+ */
+export function guardedDecisions<T extends string>(available: T[], policy: Pick<ThreadRequestPolicy, 'guarded'> | undefined): T[] {
+  return policy?.guarded ? available.filter(decision => decision !== 'acceptForSession') : available
 }
 
 /** `mcp__server__tool` (Claude's name for an MCP tool) as server and tool. */
@@ -117,7 +128,7 @@ export function evaluatePermission(
   // Nothing OXESpace can reason about (a web fetch, a native tool): the provider's prompt stands.
   if (!command && !paths.length) return undefined
 
-  const parts: { decision: Decision; reasons: string[]; suggestions: ThreadPermissionSuggestion[]; risk?: 'high'; guarded?: true }[] = []
+  const parts: { decision: Decision; reasons: string[]; suggestions: ThreadPermissionSuggestion[]; risk?: 'high'; guarded?: true; reasonCodes?: MainMessage[] }[] = []
   let viaDefaults = false
   let shellRisk: ShellRisk | undefined
   if (command) {
@@ -136,12 +147,18 @@ export function evaluatePermission(
     else if (shell.decision === 'deny' && shell.byDefault) parts.push({ decision: 'ask', reasons: shell.reasons, suggestions: [], risk: 'high' })
     else if (shell.decision === 'allow' && commandWritesProtected(command)) {
       const target = commandWritesProtected(command)!
-      parts.push({ decision: 'ask', reasons: [protectedConfigReason(target.path, target.kind)], suggestions: [], guarded: true })
+      parts.push({ decision: 'ask', reasons: [protectedConfigReason(target.path, target.kind)], suggestions: [], guarded: true, reasonCodes: [protectedConfigNote(target.path, target.kind)] })
     } else parts.push({
       decision: shell.decision,
       reasons: shell.reasons,
       suggestions: shell.decision === 'ask' ? suggestRules(command).map(item => ({ kind: 'command' as const, pattern: item.rule, label: item.label })) : []
     })
+    // P1-17: a command that writes a protected file is guarded whatever else made it ask (a risky command, no rule),
+    // so no provider offers "for the session" for it; a deny stays a deny.
+    const target = commandWritesProtected(command), part = parts[parts.length - 1]
+    if (target && part.decision !== 'deny' && !part.guarded) {
+      Object.assign(part, { decision: 'ask' as const, suggestions: [], guarded: true as const, reasons: [...part.reasons, protectedConfigReason(target.path, target.kind)], reasonCodes: [protectedConfigNote(target.path, target.kind)] })
+    }
   }
   if (paths.length) parts.push(evaluatePaths(paths, rootPath, rules, options))
 
@@ -156,7 +173,11 @@ export function evaluatePermission(
     reasons: parts.flatMap(part => part.reasons),
     ...(parts.some(part => part.risk) ? { risk: 'high' as const } : {}),
     ...(shellRisk ? { level: shellRisk.level, ...(shellRisk.warnings.length ? { warnings: shellRisk.warnings } : {}) } : {}),
-    ...(parts.some(part => part.guarded) ? { guarded: true as const, level: shellRisk && shellRisk.level !== 'green' ? shellRisk.level : 'orange' as const, warnings: [...(shellRisk?.warnings ?? []), PROTECTED_CONFIG_WARNING] } : {}),
+    ...(parts.some(part => part.guarded) ? {
+      guarded: true as const, level: shellRisk && shellRisk.level !== 'green' ? shellRisk.level : 'orange' as const,
+      warnings: [...(shellRisk?.warnings ?? []), PROTECTED_CONFIG_WARNING], warningCodes: [PROTECTED_CONFIG_WARNING_NOTE],
+      reasonCodes: parts.flatMap(part => part.reasonCodes ?? [])
+    } : {}),
     // Remembering is only offered when every part has a safe rule to suggest.
     ...(suggestions.length && parts.every(part => part.decision === 'allow' || part.suggestions.length) ? { suggestions } : {})
   }

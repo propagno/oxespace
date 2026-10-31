@@ -9,6 +9,7 @@
  * Pure: it reasons about path and command text only.
  */
 import { baseName, splitShellCommand, tokenize } from '../shell-command-rules'
+import { mainMessage, type MainMessage } from '../../../../../shared/messages'
 
 export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks'
 
@@ -74,8 +75,15 @@ export function commandWritesProtected(command: string): { path: string; kind: P
   return null
 }
 
+/** English, for the audit trail and logs; the person sees `protectedConfigNote` in their language. */
 export function protectedConfigReason(path: string, kind: ProtectedConfigKind): string {
   return `"${path}" holds ${PROTECTED_CONFIG_LABEL[kind]}. A change there steers every later session, so it needs your confirmation each time.`
 }
 
+/** The same reason as a C3 code (`thread.protectedConfig.<kind>`), for the approval card. */
+export function protectedConfigNote(path: string, kind: ProtectedConfigKind): MainMessage {
+  return mainMessage(`thread.protectedConfig.${kind}`, { path })
+}
+
 export const PROTECTED_CONFIG_WARNING = 'Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.'
+export const PROTECTED_CONFIG_WARNING_NOTE: MainMessage = mainMessage('thread.protectedConfig.warning', {})

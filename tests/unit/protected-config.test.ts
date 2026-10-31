@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { commandWritesProtected, protectedConfigKind } from '../../electron/main/services/conversation/kernel/protected-config'
-import { evaluatePermission, fullAccessPolicy } from '../../electron/main/services/conversation/kernel/permission-policy'
+import { evaluatePermission, fullAccessPolicy, guardedDecisions } from '../../electron/main/services/conversation/kernel/permission-policy'
+import { assertSessionAllowed, attachPolicy, ThreadRequestRegistry } from '../../electron/main/services/conversation/thread-request-registry'
+import { codexApprovalPaths } from '../../electron/main/services/conversation/codex-conversation'
 import { describePermissionRequest } from '../../electron/main/services/conversation/claude-permission-request'
-import type { ThreadPermissionRule } from '../../shared/types/thread'
+import type { ThreadPermissionRule, ThreadRequest } from '../../shared/types/thread'
 
 const rule = (kind: ThreadPermissionRule['kind'], pattern: string, decision: ThreadPermissionRule['decision'] = 'allow'): ThreadPermissionRule => ({ id: `${kind}-${pattern}`, projectRoot: '/repo', kind, pattern, decision, createdAt: 0 })
 const posix = { windows: false } as const
@@ -113,5 +115,83 @@ describe('the approval card for those files', () => {
   it('still offers it for ordinary files', () => {
     expect(present('Edit', { file_path: '/repo/src/a.ts' }).decisions).toEqual(['accept', 'acceptForSession', 'decline'])
     expect(present('Bash', { command: 'cat AGENTS.md' }).decisions).toEqual(['accept', 'acceptForSession', 'decline'])
+  })
+})
+
+/**
+ * Audit P1-17, main side: a guarded request is approved once or declined on every provider. Codex lists its own
+ * decisions (with "for the session"), so the strip happens where the policy is attached; a session answer that arrives
+ * anyway is refused with a code and the request stays pending. The reasons reach the card as C3 codes.
+ */
+describe('a guarded request on the Codex path (P1-17)', () => {
+  const codexDecisions = ['accept', 'acceptForSession', 'decline', 'cancel'] as const
+  const codexEdit = (path: string, id = 'codex-1'): ThreadRequest => ({
+    id, nativeId: id, nativeMethod: 'item/fileChange/requestApproval', kind: 'approval', toolName: 'fileChange', title: 'Approve file changes', detail: path,
+    generation: 1, createdAt: 0, state: 'pending', paths: [path], availableDecisions: [...codexDecisions]
+  })
+
+  it.each(['.git/hooks/pre-commit', '.mcp.json'])('guards %s, with the reason and the warning as codes beside the English', path => {
+    const verdict = edit(path, [rule('path', '**')])!
+    const kind = path === '.mcp.json' ? 'mcp' : 'hooks'
+    expect(verdict).toMatchObject({ decision: 'ask', guarded: true })
+    expect(verdict.reasonCodes).toEqual([{ code: `thread.protectedConfig.${kind}`, params: { path } }])
+    expect(verdict.warningCodes).toEqual([{ code: 'thread.protectedConfig.warning', params: {} }])
+    expect(verdict.reasons.join(' ')).toMatch(/every later session/)
+    expect(verdict.warnings?.join(' ')).toMatch(/steering/)
+    // A command that writes the file carries the same code.
+    const command = evaluatePermission({ kind: 'approval', command: `tee ${path}` }, '/repo', [rule('command', 'tee *')], posix)!
+    expect(command).toMatchObject({ decision: 'ask', guarded: true })
+    expect(command.reasonCodes).toEqual([{ code: `thread.protectedConfig.${kind}`, params: { path } }])
+    // Also when the shell asks for its own reason (no rule, or a risky command), so Codex gets no session answer.
+    for (const line of [`tee ${path}`, `rm ${path}`, `cp /tmp/x ${path}`]) {
+      const asked = evaluatePermission({ kind: 'approval', command: line }, '/repo', [], posix)!
+      expect(asked, line).toMatchObject({ decision: 'ask', guarded: true })
+      expect(asked.suggestions, line).toBeUndefined()
+      expect(guardedDecisions([...codexDecisions], asked), line).toEqual(['accept', 'decline', 'cancel'])
+    }
+  })
+
+  it('offers Codex no session or remember decision for them, and leaves other requests alone', () => {
+    for (const path of ['.git/hooks/pre-commit', '.mcp.json']) {
+      expect(guardedDecisions([...codexDecisions], edit(path)), path).toEqual(['accept', 'decline', 'cancel'])
+    }
+    expect(guardedDecisions([...codexDecisions], edit('src/a.ts'))).toEqual([...codexDecisions])
+    expect(guardedDecisions([...codexDecisions], undefined)).toEqual([...codexDecisions])
+  })
+
+  it.each(['.git/hooks/pre-commit', '.mcp.json'])('refuses a session answer for %s with a code, keeps the request pending, and then accepts a single approval', async path => {
+    const registry = new ThreadRequestRegistry()
+    const respond = vi.fn(async () => {})
+    const request = codexEdit(path)
+    attachPolicy(request, edit(path)!)
+    expect(request.availableDecisions).toEqual(['accept', 'decline', 'cancel'])
+    registry.register('thread', request, respond)
+    await expect(registry.resolve('thread', 'codex-1', 1, { decision: 'acceptForSession' })).rejects.toMatchObject({ refusal: 'guardedDecision', message: expect.stringMatching(/approved once, never for the session/) })
+    expect(respond).not.toHaveBeenCalled()
+    expect(registry.list('thread').map(request => [request.id, request.state])).toEqual([['codex-1', 'pending']])
+    await expect(registry.resolve('thread', 'codex-1', 1, { decision: 'accept' })).resolves.toMatchObject({ state: 'resolved' })
+    expect(respond).toHaveBeenCalledOnce()
+    expect(registry.list('thread')).toEqual([])
+  })
+
+  it('refuses the session answer before any provider is reached, for adapters without a request registry too', () => {
+    const guarded = codexEdit('.mcp.json')
+    attachPolicy(guarded, edit('.mcp.json')!)
+    expect(() => assertSessionAllowed(guarded, { decision: 'acceptForSession' })).toThrow(expect.objectContaining({ refusal: 'guardedDecision' }))
+    expect(() => assertSessionAllowed(guarded, { decision: 'accept' })).not.toThrow()
+    expect(() => assertSessionAllowed(guarded, { decision: 'decline' })).not.toThrow()
+    const plain = codexEdit('src/a.ts')
+    attachPolicy(plain, edit('src/a.ts')!)
+    expect(plain.availableDecisions).toEqual([...codexDecisions])
+    expect(() => assertSessionAllowed(plain, { decision: 'acceptForSession' })).not.toThrow()
+    expect(() => assertSessionAllowed(undefined, { decision: 'acceptForSession' })).not.toThrow()
+  })
+
+  it('takes the files of a Codex file-change approval from its changes, in either shape, so the policy can see them', () => {
+    expect(codexApprovalPaths({ changes: [{ path: '.mcp.json', diff: '+x' }, { path: 'src/a.ts' }, { kind: 'delete' }] })).toEqual(['.mcp.json', 'src/a.ts'])
+    expect(codexApprovalPaths({ changes: { '.git/hooks/pre-commit': { add: {} } } })).toEqual(['.git/hooks/pre-commit'])
+    expect(codexApprovalPaths({})).toEqual([])
+    expect(codexApprovalPaths({ changes: 'x' })).toEqual([])
+    expect(edit(codexApprovalPaths({ changes: [{ path: '.mcp.json' }] })[0])).toMatchObject({ guarded: true })
   })
 })

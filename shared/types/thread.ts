@@ -185,6 +185,10 @@ export interface ThreadRequestPolicy {
   warnings?: string[]
   /** Touches the files that steer agents (instructions, MCP settings, hooks): only a person approves it, whatever the access level. */
   guarded?: true
+  /** The reasons that have a C3 code (protected config), beside the English `reasons`; for the window's own language. */
+  reasonCodes?: import('../messages').MainMessage[]
+  /** The warnings that have a C3 code, beside the English `warnings`. */
+  warningCodes?: import('../messages').MainMessage[]
   suggestions?: ThreadPermissionSuggestion[]
 }
 /** The answer of the command analysis for one command line. */
@@ -597,7 +601,7 @@ export interface ThreadPendingResponseInput {
 }
 
 /** Why an answer was refused; each is also a message code (`thread.request.<reason>`, C3). */
-export const THREAD_PENDING_REFUSALS = ['notPending', 'staleGeneration', 'alreadyResponding', 'unanswered'] as const
+export const THREAD_PENDING_REFUSALS = ['notPending', 'staleGeneration', 'alreadyResponding', 'unanswered', 'guardedDecision'] as const
 export type ThreadPendingRefusal = typeof THREAD_PENDING_REFUSALS[number]
 
 /** The first answer for a generation wins; a repeated, late or stale one is refused, never applied twice. */
