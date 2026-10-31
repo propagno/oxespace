@@ -1,6 +1,8 @@
 import { ArrowRightLeft, Check, CornerDownLeft, Keyboard } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '../../ui'
+import styles from './PaneMenu.module.css'
 import { setTabMovesFocus } from '../../keyboard/terminalFocusActions'
 import { shortcutLabel } from '../../keyboard/keybindings'
 import { useTerminalFocusStore } from '../../keyboard/terminalFocus'
@@ -19,17 +21,17 @@ export function TerminalFocusMenuItems({ paneId, onDone }: { paneId: string; onD
   const key = shortcutLabel('terminal.tabMovesFocus')
   const store = useTerminalFocusStore.getState()
   return <>
-    <button type="button" role="menuitemcheckbox" aria-checked={tabOn} className="pane-actions-popover-item" data-testid="pane-menu-tab-moves-focus"
+    <Button variant="ghost" role="menuitemcheckbox" aria-checked={tabOn} className={styles.item} data-testid="pane-menu-tab-moves-focus"
       onClick={event => { event.stopPropagation(); onDone(); setTabMovesFocus(paneId, !tabOn) }}>
       <ArrowRightLeft size={14} aria-hidden="true" />{t('keys.terminalFocus.menu')}{tabOn ? <Check size={14} aria-hidden="true" /> : null}
-    </button>
-    {key ? <button type="button" role="menuitemcheckbox" aria-checked={keyToShell} className="pane-actions-popover-item" data-testid="pane-menu-toggle-key-to-shell"
+    </Button>
+    {key ? <Button variant="ghost" role="menuitemcheckbox" aria-checked={keyToShell} className={styles.item} data-testid="pane-menu-toggle-key-to-shell"
       onClick={event => { event.stopPropagation(); onDone(); store.setToggleKeyToShell(paneId, !keyToShell) }}>
       <CornerDownLeft size={14} aria-hidden="true" />{t('keys.terminalFocus.toggleKeyToShell', { key })}{keyToShell ? <Check size={14} aria-hidden="true" /> : null}
-    </button> : null}
-    {key ? <button type="button" role="menuitemcheckbox" aria-checked={f6ToProgram} className="pane-actions-popover-item" data-testid="pane-menu-f6-to-program"
+    </Button> : null}
+    {key ? <Button variant="ghost" role="menuitemcheckbox" aria-checked={f6ToProgram} className={styles.item} data-testid="pane-menu-f6-to-program"
       onClick={event => { event.stopPropagation(); onDone(); store.setF6ToProgram(paneId, !f6ToProgram) }}>
       <Keyboard size={14} aria-hidden="true" />{t('keys.terminalFocus.f6ToProgram')}{f6ToProgram ? <Check size={14} aria-hidden="true" /> : null}
-    </button> : null}
+    </Button> : null}
   </>
 }
