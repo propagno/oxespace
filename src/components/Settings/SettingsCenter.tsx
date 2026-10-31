@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Mic, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, X } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
@@ -27,14 +27,15 @@ const SettingsContent = lazyFrom(SETTINGS_CHUNK, module => module.SettingsConten
 const WorkspaceSettingsModal = lazyFrom(SETTINGS_CHUNK, module => module.WorkspaceSettingsModal)
 const PolicySettings = lazyFrom(SETTINGS_CHUNK, module => module.PolicySettings)
 const KeyboardSettings = lazyFrom(SETTINGS_CHUNK, module => module.KeyboardSettings)
-const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, KeyboardSettings]) page.retry() }
+const DevicesSettings = lazyFrom(SETTINGS_CHUNK, module => module.DevicesSettings)
+const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, KeyboardSettings, DevicesSettings]) page.retry() }
 
-type AppPage = 'general' | 'policy' | 'keyboard' | SettingsSection
+type AppPage = 'general' | 'policy' | 'devices' | 'keyboard' | SettingsSection
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
   { id: 'general', icon: Settings2 }, { id: 'providers', icon: Bot }, { id: 'appearance', icon: Palette },
   { id: 'terminal', icon: SquareTerminal }, { id: 'keyboard', icon: Keyboard }, { id: 'voice', icon: Mic },
-  { id: 'notifications', icon: Bell }, { id: 'updates', icon: ArrowUpCircle }, { id: 'policy', icon: ShieldCheck },
+  { id: 'notifications', icon: Bell }, { id: 'updates', icon: ArrowUpCircle }, { id: 'policy', icon: ShieldCheck }, { id: 'devices', icon: Smartphone },
   { id: 'diagnostics', icon: Activity }
 ] as const
 
@@ -141,7 +142,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             })} />
             : <section className="settings-general"><h2>{t('center.workspaceClosed')}</h2><p>{t('center.workspaceClosedHint')}</p></section>
-            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </Suspense></ErrorBoundary></div>
       </main>
       {pending && <Dialog title={t('center.unsaved.title')} size="sm" onClose={() => { if (!saving) setPending(null) }}
