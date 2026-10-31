@@ -1574,7 +1574,8 @@
     "finished": "{{name}} — finished",
     "finishedBody": "The agent completed the turn.",
     "requestsWaiting_one": "{{count}} request is waiting for your decision.",
-    "requestsWaiting_other": "{{count}} requests are waiting for your decision.",
+    "requestsWaiting_other": "{{count}} requests are waiting for your decision."
+  },
   "side": {
     "title": "Side chat",
     "region": "Side chat",

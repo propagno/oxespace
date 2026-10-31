@@ -1603,7 +1603,6 @@
     "providerActivity": "Atividade do provedor · {{count}} em execução",
     "noNativeTasks": "Nenhuma tarefa nativa foi informada nesta conversa."
   },
-<<<<<<< HEAD
   "notify": {
     "untitled": "Conversa",
     "approval": "{{name}} — precisa de aprovação",
@@ -1615,7 +1614,7 @@
     "requestsWaiting_one": "{{count}} pedido está esperando a sua decisão.",
     "requestsWaiting_other": "{{count}} pedidos estão esperando a sua decisão.",
     "requestsWaiting_many": "{{count}} pedidos estão esperando a sua decisão."
-=======
+  },
   "side": {
     "title": "Chat lateral",
     "region": "Chat lateral",
@@ -1639,6 +1638,5 @@
     "close": "Fechar o chat lateral ({{shortcut}})",
     "openMenu": "Chat lateral",
     "closeMenu": "Fechar o chat lateral"
->>>>>>> origin/main
   }
 }
