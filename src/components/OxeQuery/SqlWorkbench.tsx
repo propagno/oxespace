@@ -1,17 +1,20 @@
-import Editor, { type OnMount } from '@monaco-editor/react'
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import type { OnMount } from '@monaco-editor/react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
-// Side-effect: self-hosted Monaco (no CDN), required before <Editor> mounts.
-import '../../lib/monacoSetup'
 import { MONACO_THEME } from '../../lib/monacoTheme'
+import { Skeleton } from '../../ui/Display'
 import type { OxeQueryConnection, SqlFilter, SqlResult, SqlTable, SqlTableDetails, SqlTxState, WorkspaceState } from '../../../shared/types/oxequery'
 import { namedToPositional, scanParameters, splitStatements, statementAt } from '../../../shared/sqlText'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ResultGrid, type GridSort } from './ResultGrid'
 import { SQL_NULL, displayCell, formatRows, type CopyFormat } from './grid-format'
+
+// Monaco (4.5 MB) arrives with the first SQL tab, not with the view: the view's chunk pair, which the idle preload
+// warms up, stays small.
+const Editor = lazy(() => import('./SqlEditor'))
 import { LibraryMenu } from './LibraryMenu'
 import { ExportButton, TableEditor } from './TableEditor'
 import { SchemaTree } from './SchemaTree'
@@ -364,7 +367,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}
       <div className="oq-editor" style={{ height: editorHeight }} onKeyDownCapture={event => {
         if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); runAllRef.current() }
-      }}><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => { patch(active.id, { sql: value ?? '' }); lint.schedule() }}
+      }}><Suspense fallback={<Skeleton variant="block" decorative />}><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => { patch(active.id, { sql: value ?? '' }); lint.schedule() }}
         onMount={(instance, monaco) => {
           editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); registerSqlExtras(monaco); lint.mark()
           instance.onDidFocusEditorText(() => bindCompletion(monaco, connection))
@@ -373,7 +376,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         }}
         options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 }, formatOnPaste: false,
           // Space, `(` and `.` end a word in SQL; they must not also accept whatever suggestion is highlighted (Enter and Tab do).
-          acceptSuggestionOnCommitCharacter: false }} /></div>
+          acceptSuggestionOnCommitCharacter: false }} /></Suspense></div>
       <Splitter orientation="horizontal" label={t('workbench.editorHeight')} value={editorHeight} min={EDITOR_HEIGHT.min} max={editorMax} defaultValue={EDITOR_HEIGHT.default} onChange={height => layout.set({ editorHeight: height })} />
       {paramsAsk && <ParamsBar names={paramsAsk.names} values={paramValues}
         onChange={(name, value) => setParamValues(current => ({ ...current, [name]: value }))}

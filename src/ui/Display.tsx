@@ -124,8 +124,9 @@ export function Notice({ intent = 'info', title, children, actions, className }:
 }
 
 /** The shape of content on its way: lines of text, or one block. Announced once as loading, never read line by line. */
-export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading') }: { lines?: number; variant?: 'text' | 'block'; label?: string }): ReactElement {
-  return <div className={styles.skeleton} role="status" aria-label={label}>
+export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading'), decorative = false }: { lines?: number; variant?: 'text' | 'block'; label?: string; decorative?: boolean }): ReactElement {
+  // `decorative`: next to something that already announces the loading (a busy region, a status beside it).
+  return <div className={styles.skeleton} {...(decorative ? { 'aria-hidden': true as const } : { role: 'status' as const, 'aria-label': label })}>
     {variant === 'block'
       ? <span className={cx(styles.skeletonBar, styles.skeletonBlock)} aria-hidden="true" />
       : Array.from({ length: Math.max(1, lines) }, (_, index) => <span key={index} className={styles.skeletonBar} aria-hidden="true" />)}
@@ -137,9 +138,10 @@ export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loadi
  * real one arrives), the header with the view's name and placeholder rows. The region is busy and says "Loading…"
  * once, politely (the Skeleton's status); collapsed to the rail it shows a few short bars without the header.
  */
+/** Busy (aria-busy) but silent: the view's work area announces the one loading, so a switch is not announced twice. */
 export function SidebarSkeleton({ label, title, collapsed = false }: { label: string; title: string; collapsed?: boolean }): ReactElement {
   return <aside className={cx('thread-navigation', collapsed && 'thread-navigation-collapsed')} aria-label={label} aria-busy="true">
-    <div className={cx('nav-panel', styles.sidebarRows)}>{!collapsed && <div className="nav-panel-title"><strong>{title}</strong></div>}<Skeleton lines={collapsed ? 3 : 5} label={i18n.t('ui.loadingEllipsis')} /></div>
+    <div className={cx('nav-panel', styles.sidebarRows)}>{!collapsed && <div className="nav-panel-title"><strong>{title}</strong></div>}<Skeleton decorative lines={collapsed ? 3 : 5} /></div>
   </aside>
 }
 

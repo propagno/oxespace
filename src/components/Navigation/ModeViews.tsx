@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { LoadingState, SidebarSkeleton } from '../../ui'
@@ -45,8 +45,23 @@ export function ViewSidebarSkeleton({ view }: { view: DataView | 'thread' }): Re
     : <SidebarSkeleton label={t('nav.viewSidebar', { name: NAMES[view] })} title={NAMES[view]} collapsed={collapsed} />
 }
 
+const SIDEBARS = { data: OxeQuerySidebar, pods: OxePodSidebar, post: OxePostSidebar }
+const VIEWS = { data: OxeQueryView, pods: OxePodView, post: OxePostView }
+
+/** A view's sidebar: a chunk that fails to load shows its error here, with Try again, and leaves the window alone. */
+/** The Thread sidebar's frame while its chunk loads or fails: the skeleton, and an error that stays in the sidebar. */
+export function ThreadSidebarBoundary({ children }: { children: ReactNode }): ReactElement {
+  const { t } = useTranslation('thread')
+  return <ErrorBoundary compact label={t('sidebar.conversations')} onReset={ThreadSidebar.retry}>
+    <Suspense fallback={<ViewSidebarSkeleton view="thread" />}>{children}</Suspense>
+  </ErrorBoundary>
+}
+
 export function DataSidebar({ view }: { view: DataView }): ReactElement {
-  return <Suspense fallback={<ViewSidebarSkeleton view={view} />}>{view === 'data' ? <OxeQuerySidebar /> : view === 'pods' ? <OxePodSidebar /> : <OxePostSidebar />}</Suspense>
+  const Sidebar = SIDEBARS[view]
+  return <ErrorBoundary compact label={NAMES[view]} onReset={Sidebar.retry}>
+    <Suspense fallback={<ViewSidebarSkeleton view={view} />}><Sidebar /></Suspense>
+  </ErrorBoundary>
 }
 
 /**
@@ -63,7 +78,7 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
   useEffect(() => { if (view === initial.current) return; initial.current = null; void import('../../lib/idlePreload').then(m => m.rememberView(view)).catch(() => undefined) }, [view])
   return <>{ORDER.filter(item => opened.includes(item) || item === view).map(item =>
     <div key={item} className={HOSTS[item]} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
-      <ErrorBoundary label={NAMES[item]}><Suspense fallback={<LoadingState brand label={t('nav.loadingView', { name: NAMES[item] })} />}>
+      <ErrorBoundary label={NAMES[item]} onReset={VIEWS[item].retry}><Suspense fallback={<LoadingState brand label={t('nav.loadingView', { name: NAMES[item] })} />}>
         {item === 'data' ? <OxeQueryView active={view === 'data'} /> : item === 'pods' ? <OxePodView active={view === 'pods'} /> : <OxePostView active={view === 'post'} />}
       </Suspense></ErrorBoundary>
     </div>)}</>
