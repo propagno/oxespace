@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { delimiter, dirname, extname, join } from 'node:path'
 import type { ConversationTransport } from './codex-conversation'
 import { recordRuntime, type RuntimeDetail } from '../runtime-diagnostics'
+import { recordIncident } from '../diagnostics/incident-sink'
 
 /** Thread subscription processes share a native account, never an API env key. */
 export function subscriptionEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
@@ -56,6 +57,11 @@ export function interactiveConversationCommand(command: string, args: string[], 
   return { executable, args, env: nativeEnv }
 }
 
+/** The CLI's bare name: the only part of a command that failed to start which the incident journal hashes. */
+function agentName(command: string): string {
+  return command.replace(/\\/g, '/').split('/').pop()?.replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase() || 'agent'
+}
+
 export class AgentProcessTransport implements ConversationTransport {
   private readonly child: ChildProcessWithoutNullStreams
   private closed = false
@@ -73,7 +79,8 @@ export class AgentProcessTransport implements ConversationTransport {
       'OXESPACE_EXECUTION_ID', 'OXESPACE_EXECUTION_TOKEN', 'OXESPACE_EXECUTION_GENERATION', 'ENABLE_TOOL_SEARCH']) {
       if (mcpEnvironment[key]) env[key] = mcpEnvironment[key]
     }
-    const resolved = interactiveConversationCommand(command, args, env)
+    let resolved: ReturnType<typeof interactiveConversationCommand>
+    try { resolved = interactiveConversationCommand(command, args, env) } catch (error) { recordIncident('incident.agent.startFailed', agentName(command)); throw error }
     this.child = spawn(resolved.executable, resolved.args, { cwd, env: resolved.env, windowsHide: true, stdio: 'pipe',
       detached: process.platform !== 'win32' })
     const startedAt = Date.now()
@@ -82,7 +89,12 @@ export class AgentProcessTransport implements ConversationTransport {
     // Consume stderr without retaining potentially sensitive provider diagnostics.
     this.child.stderr.on('data', (chunk: Buffer) => this.diagnosticListener(chunk))
     this.child.stdin.on('error', () => this.end())
-    this.child.on('error', () => { recordRuntime('process-error', { ...diagnosticContext, pid: this.child.pid, state: 'failed' }); this.end() })
+    this.child.on('error', () => {
+      recordRuntime('process-error', { ...diagnosticContext, pid: this.child.pid, state: 'failed' })
+      // No pid: the agent never started (missing or blocked executable). Only the command's name is hashed.
+      if (this.child.pid === undefined) recordIncident('incident.agent.startFailed', agentName(command))
+      this.end()
+    })
     this.child.on('close', (code) => {
       recordRuntime('process-exit', { ...diagnosticContext, pid: this.child.pid, exitCode: code ?? undefined, durationMs: Date.now() - startedAt })
       this.end()

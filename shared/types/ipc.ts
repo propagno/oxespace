@@ -232,6 +232,16 @@ export const IPC_CHANNELS = {
     notify: 'notifications:notify',
     onActivate: 'notifications:on-activate'
   },
+  /** B10 · Approvals (shared/types/approvals.ts). Main frame only; never an MCP tool. */
+  approvals: {
+    list: 'approvals:list',
+    respond: 'approvals:respond',
+    ack: 'approvals:ack',
+    unavailable: 'approvals:unavailable',
+    history: 'approvals:history',
+    onRequested: 'approvals:requested',
+    onResolved: 'approvals:resolved'
+  },
   copilot: {
     credits: 'copilot:credits'
   },
@@ -357,6 +367,7 @@ export const IPC_CHANNELS = {
   },
   mcpInternal: {
     getStatus: 'mcp-internal:get-status',
+    toolGroups: 'mcp-internal:tool-groups', setToolGroupMode: 'mcp-internal:set-tool-group-mode',
     regenerateToken: 'mcp-internal:regenerate-token',
     captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
@@ -404,7 +415,10 @@ export const IPC_CHANNELS = {
     exportReport: 'diagnostics:export-report',
     reportInteractive: 'diagnostics:report-interactive',
     buildIssueReport: 'diagnostics:build-issue-report',
-    recordFirstAnswer: 'diagnostics:record-first-answer'
+    recordFirstAnswer: 'diagnostics:record-first-answer',
+    watch: 'diagnostics:watch', unwatch: 'diagnostics:unwatch', onMetrics: 'diagnostics:metrics', incidents: 'diagnostics:incidents',
+    clearIncidents: 'diagnostics:clear-incidents', onIncidentsChanged: 'diagnostics:incidents-changed', previewBundle: 'diagnostics:preview-bundle',
+    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary'
   },
   policy: {
     get: 'policy:get'
@@ -689,6 +703,7 @@ export interface OxeApi {
   clipboard: ClipboardApi
   voice: VoiceApi
   notifications: NotificationsApi
+  approvals?: import('./approvals').ApprovalsApi
   agentHooks: AgentHooksApi
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
@@ -703,7 +718,7 @@ export interface OxeApi {
   session: SessionApi
   skill: SkillApi
   mcp: McpApi
-  mcpInternal: McpInternalApi
+  mcpInternal: McpInternalApi & import('./mcp-tools').McpToolGroupsApi
   agentState: import('./agent-state').AgentStateApi
   browserPreview: import('./browser-preview').BrowserPreviewApi
   oxeContext: OxeContextApi

@@ -48,12 +48,24 @@ export const THREAD_TOOL_GROUPS = {
   /** The app itself: Git, GitHub, Threads, skills, automations, Linear, MCP servers, search and usage.
    * Changes: each action is recorded; pushes, pull requests, releases and the like are approved by a person. */
   app: ['oxespace_git', 'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_automations', 'oxespace_linear',
-    'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings',
+    'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_diagnostics',
     'oxespace_git_change', 'oxespace_github_change', 'oxespace_threads_change', 'oxespace_skills_change', 'oxespace_automations_change',
     'oxespace_workspace_change', 'oxespace_mcp_servers_change']
 } as const satisfies Record<string, readonly string[]>
 
 export type ThreadToolGroup = keyof typeof THREAD_TOOL_GROUPS
+
+/**
+ * An agent in a Code terminal: panes, terminals, scripts, background jobs, worktrees, tasks, agents and integration.
+ * Always on there, never offered to an OxeChat conversation.
+ */
+export const CODE_TOOL_GROUP = ['oxespace_list_panes', 'oxespace_terminal', 'oxespace_list_scripts', 'oxespace_run_script',
+  'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_stop_background_job', 'oxespace_list_worktrees',
+  'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_tasks', 'oxespace_tasks_change', 'oxespace_agents',
+  'oxespace_agents_change', 'oxespace_integration', 'oxespace_memory_diagnostics'] as const
+
+/** Every group of OXESpace tools, the Code terminal's included (Settings › Tools lists these). */
+export const MCP_TOOL_GROUPS = { ...THREAD_TOOL_GROUPS, code: CODE_TOOL_GROUP } as const satisfies Record<string, readonly string[]>
 /** Groups a project can turn on in oxe.yaml; core is always on and roles are detected. */
 export const OPTIONAL_THREAD_TOOL_GROUPS: ThreadToolGroup[] = ['orchestration', 'data', 'docs', 'app']
 
@@ -68,7 +80,7 @@ export const THREAD_MCP_TOOLS: string[] = [...new Set(Object.values(THREAD_TOOL_
 export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_project_context',
   'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
   'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_list_agents', 'oxespace_list_workspaces', 'oxespace_git',
-  'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_automations', 'oxespace_linear', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings',
+  'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_automations', 'oxespace_linear', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_diagnostics',
   'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status',
   'oxespace_documentation_get', 'oxespace_documentation_list', 'oxespace_thread_read', 'oxespace_work_status', 'oxespace_work_result',
   'oxespace_team_status', 'oxespace_team_inbox', 'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']

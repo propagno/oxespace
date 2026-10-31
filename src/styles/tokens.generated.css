@@ -44,6 +44,7 @@
   --layer-modal: 300;
   --layer-toast: 400;
   --layer-tooltip: 500;
+  --statusbar-height: 24px;
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;

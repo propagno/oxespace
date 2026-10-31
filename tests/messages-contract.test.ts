@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
 import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
+import { APPROVAL_REFUSALS } from '../shared/types/approvals'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
 
 const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
@@ -18,6 +19,25 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.request.alreadyResponding': [],
   'thread.request.unanswered': [],
   'app.connectivity.offline': [],
+  'incident.window.crashed': [],
+  'incident.window.rendererGone': [],
+  'incident.ipc.handlerFailed': [],
+  'incident.ipc.validationRejected': [],
+  'incident.agent.startFailed': [],
+  'incident.mcp.quarantined': [],
+  'incident.database.busy': [],
+  'incident.oxequery.timeout': [],
+  'incident.updater.failed': [],
+  'incident.interaction.overBudget': [],
+  'incident.app.journalReset': [],
+  'diagnostics.bundle.fileTooLarge': [],
+  'diagnostics.bundle.tooLarge': [],
+  'bundle.file.snapshot': [],
+  'bundle.file.incidents': [],
+  'bundle.file.logTail': [],
+  'bundle.file.runtime': [],
+  'bundle.file.versions': [],
+  'bundle.file.configuration': [],
   'linear.worktree.exists': ['issue', 'path'],
   'worktree.cleanup.notRemovable': [],
   'worktree.cleanup.blocked': ['reasons'],
@@ -46,6 +66,14 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'oxequery.edit.noKey': [],
   'oxequery.test.connected': [],
   'oxequery.startFailed': ['reason'],
+  'oxequery.sql.copyProgram': [],
+  'oxequery.sql.doBlock': [],
+  'oxequery.sql.callProcedure': [],
+  'oxequery.sql.destructiveInside': ['keyword', 'statement'],
+  'oxequery.sql.rowLock': [],
+  'oxequery.sql.sessionRole': [],
+  'oxequery.sql.tableLock': [],
+  'oxequery.sql.ambiguousEscape': [],
   'oxepod.startFailed': ['reason'],
   'oxepost.network.notFound': [],
   'oxepost.network.refused': [],
@@ -66,7 +94,76 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.port.privileged': ['port'],
   'remote.port.inUse': ['port'],
   'remote.network.noPrivateInterface': [],
-  'remote.certificate.failed': []
+  'remote.certificate.failed': [],
+  'approvals.title.agent': [],
+  'approvals.title.oxequery': [],
+  'approvals.title.previewAutomation': [],
+  'approvals.title.crash': [],
+  'approvals.summary.mcpConfirm': ['action', 'target', 'tool'],
+  'approvals.summary.oxequery.read': [],
+  'approvals.summary.oxequery.write': [],
+  'approvals.summary.oxequery.action': [],
+  'approvals.summary.preview.closeTab': [],
+  'approvals.summary.preview.click': [],
+  'approvals.summary.preview.fill': [],
+  'approvals.summary.preview.navigate': [],
+  'approvals.summary.preview.scroll': [],
+  'approvals.summary.preview.other': ['action'],
+  'approvals.summary.crash': [],
+  'approvals.requester.pane': ['agent', 'pane'],
+  'approvals.requester.conversation': ['agent', 'conversation'],
+  'approvals.requester.unknownPane': ['pane'],
+  'approvals.requester.unknownConversation': ['conversation'],
+  'approvals.requester.mcpServer': ['server'],
+  'approvals.requester.app': [],
+  'approvals.option.deny': [],
+  'approvals.option.allowOnce': [],
+  'approvals.option.allowSessionReads': [],
+  'approvals.option.closeTab': [],
+  'approvals.option.restart': [],
+  'approvals.option.keepWorking': [],
+  'approvals.note.sql.removes': ['statement'],
+  'approvals.note.sql.noWhere': ['statement'],
+  'approvals.note.sql.alterDrop': [],
+  'approvals.note.sql.withNoWhere': ['statement'],
+  'approvals.note.sql.explainAnalyze': [],
+  'approvals.note.sql.selectInto': [],
+  'approvals.note.sql.notReadOnly': ['statement'],
+  'approvals.note.sql.outsideReach': ['calls'],
+  'approvals.note.production': [],
+  'approvals.note.mongo.deletes': ['count'],
+  'approvals.note.mongo.changes': ['count'],
+  'approvals.note.mongo.emptyFilter': [],
+  'approvals.note.agent.actsOnPrompt': [],
+  'approvals.note.agent.turnStopped': [],
+  'approvals.note.thread.actsOnMessage': [],
+  'approvals.note.skill.followed': [],
+  'approvals.note.automation.runsAlone': [],
+  'approvals.note.worktree.folderDeleted': [],
+  'approvals.note.worktree.forceDiscards': [],
+  'approvals.note.git.branchShared': [],
+  'approvals.note.checkpoint.replaces': [],
+  'approvals.note.github.autoMerge': [],
+  'approvals.note.github.releasePublic': [],
+  'approvals.note.textCut': ['max'],
+  'approvals.note.crash': [],
+  'approvals.unavailable': [],
+  'approvals.expired': [],
+  'approvals.refused.notPending': [],
+  'approvals.refused.staleGeneration': [],
+  'approvals.refused.alreadyAnswered': [],
+  'approvals.refused.unknownOption': [],
+  'approvals.refused.alreadyReported': [],
+  'approvals.refused.tooSoon': [],
+  'approvals.denied.queueFull': ['max'],
+  'approvals.denied.tooLong': ['max'],
+  'notify.prefix.pane': ['agent', 'pane', 'title'],
+  'notify.prefix.conversation': ['agent', 'conversation', 'title'],
+  'notify.prefix.unknownPane': ['pane', 'title'],
+  'notify.prefix.unknownConversation': ['conversation', 'title'],
+  'notify.refused.reservedName': ['name'],
+  'notify.refused.rateLimit': ['perMinute'],
+  'agents.name.reserved': ['name']
 }
 
 describe('C3 message codes', () => {
@@ -90,6 +187,10 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of a pending answer its own code', () => {
     for (const refusal of THREAD_PENDING_REFUSALS) expect(isMessageCode(`thread.request.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of an approval answer its own code', () => {
+    for (const refusal of APPROVAL_REFUSALS) expect(isMessageCode(`approvals.refused.${refusal}`), refusal).toBe(true)
   })
 
   it('accepts a code with parameters and rejects anything else', () => {
