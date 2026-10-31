@@ -54,6 +54,25 @@ test('grid divider: Tab reach and keyboard contextmenu (pt-BR)', async () => {
     for (const key of ['F6', 'Control+F6', 'Shift+F6', 'Control+Tab', 'Alt+F6', 'Escape']) { await page.locator('.xterm').first().click(); await page.keyboard.press(key); await page.waitForTimeout(150); ways[key] = await focused(page) }
     notes.leaveTerminal = ways
     void divider
+    // #254: the sidebar divider's menu at the default width: first item focused, a disabled item skipped by arrows.
+    await page.locator('[role="separator"][aria-label*="barra lateral"]').first().focus()
+    await page.evaluate(() => { const el = document.activeElement as HTMLElement; const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left, clientY: r.top })) })
+    await page.waitForTimeout(300)
+    const menuPath: Array<string | null> = [await focused(page)]
+    for (let i = 0; i < 4; i++) { await page.keyboard.press('ArrowDown'); menuPath.push(await focused(page)) }
+    notes.sidebarMenu = { items: await page.evaluate(() => [...document.querySelectorAll('[role="menu"] [role^="menuitem"]')].map(i => `${(i.textContent ?? '').trim()} disabled=${i.getAttribute('aria-disabled') ?? (i as HTMLButtonElement).disabled ?? false}`)), stillOpenAfterArrows: await page.locator('[role="menu"]').count(), menuPath }
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200)
+    await page.locator('[role="separator"][aria-label*="barra lateral"]').first().focus()
+    await page.keyboard.press('Enter'); await page.waitForTimeout(300)
+    const enterPath: Array<string | null> = [await focused(page)]
+    for (let i = 0; i < 3; i++) { await page.keyboard.press('ArrowDown'); enterPath.push(await focused(page)) }
+    notes.sidebarEnter = { menus: await page.locator('[role="menu"]').count(), items: await page.evaluate(() => [...document.querySelectorAll('[role="menu"] [role^="menuitem"]')].map(i => `${(i.textContent ?? '').trim()} disabled=${i.getAttribute('aria-disabled') ?? String((i as HTMLButtonElement).disabled)}`)), enterPath }
+    const box = await page.locator('[role="separator"][aria-label*="barra lateral"]').first().boundingBox()
+    await page.keyboard.press('Escape')
+    if (box) { await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' }); await page.waitForTimeout(300) }
+    notes.sidebarRightClick = { menus: await page.locator('[role="menu"]').count(), focus: await focused(page) }
+    await page.keyboard.press('Escape')
+    notes.sidebarAfterEscape = { focus: await focused(page), menus: await page.locator('[role="menu"]').count() }
     notes.errors = consoleErrors
   } finally {
     writeFileSync(join(OUT, 'pt-BR-grid.json'), JSON.stringify(notes, null, 2))
