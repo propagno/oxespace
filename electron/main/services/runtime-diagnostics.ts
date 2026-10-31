@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { noteCliVersion } from './diagnostics/facts'
 
 const FILE_BYTES = 512 * 1024
 const RETENTION_MS = 7 * 86400_000
@@ -30,7 +31,7 @@ function safeDetail(input: RuntimeDetail): Record<string, string | number> {
     try { executable = realpathSync(executable) } catch { /* failed launches may not resolve */ }
     const normalized = executable.replace(/\\/g, '/')
     let name = basename(normalized).toLowerCase().replace(/\.(exe|cmd|ps1)$/, '')
-    if (/\/claude\/versions\/\d+\.\d+\.\d+$/.test(normalized)) { result.executableVersion = name; name = 'claude' }
+    if (/\/claude\/versions\/\d+\.\d+\.\d+$/.test(normalized)) { result.executableVersion = name; name = 'claude'; noteCliVersion('claude', String(result.executableVersion)) }
     result.executable = ['claude', 'claude-desktop', 'codex', 'node', 'electron', 'oxespace', 'bash', 'zsh', 'sh', 'pwsh', 'powershell', 'cmd'].includes(name) ? name : 'custom'
     result.executableId = diagnosticId(executable)
   }

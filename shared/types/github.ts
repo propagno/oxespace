@@ -6,6 +6,8 @@ export interface GitHubWorkspaceInput {
 }
 
 export interface GitHubCliStatus {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   available: boolean
   authenticated: boolean
   user: string | null

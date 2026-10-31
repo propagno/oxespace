@@ -7,7 +7,7 @@ import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
-import { Button, EmptyState, type MenuEntry } from '../../ui'
+import { Button, EmptyState, Splitter, type MenuEntry } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
@@ -17,7 +17,7 @@ import { PaneSessionRow } from './PaneSessionRow'
 import { useAgentStore } from '../../store/agent.store'
 import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
-import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import './SidebarNavigation.css'
 import { cachedBranchLabel } from '../../hooks/useGitBranch'
 import { shortcutLabel } from '../../keyboard/keybindings'
@@ -69,7 +69,6 @@ export function Sidebar({
   const setExpanded = useNavigationPrefs(s => s.setExpanded)
   const profiles = useAgentStore(s => s.allProfiles)
   const activePaneId = useUIStore(s => s.activePaneId)
-  const resizing = useRef(false)
   useEffect(() => {
     for (const workspace of workspaces) {
       if (!(workspace.id in expanded)) setExpanded(workspace.id, workspace.id === activeWorkspaceId)
@@ -216,11 +215,7 @@ export function Sidebar({
 
   return (
     <aside className="sidebar sidebar-redesign" style={{ width, minWidth: width, flexBasis: width }}>
-      <div className="sidebar-width-handle" role="separator" aria-label={t('sidebar.width')} aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width} tabIndex={0}
-        onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); setWidth(e.key === 'Home' ? SIDEBAR_MIN_WIDTH : SIDEBAR_MAX_WIDTH) } }}
-        onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
-        onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
-        onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />
+      <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />
       <div className="nav-panel" title={t('sidebar.version', { version: appVersion })}>
       <div className="nav-panel-title"><strong>{t('sidebar.workspaces')}</strong><SidebarActions actions={railPrimary} /></div>
       <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={searchQuery} onChange={setSearchQuery} shortcut="/" />

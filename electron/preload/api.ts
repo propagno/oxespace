@@ -114,6 +114,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       approve: (id, request, decision) => ipc.invoke(IPC_CHANNELS.thread.approve, id, request, decision) as Promise<void>,
       respond: (id, request, response) => ipc.invoke(IPC_CHANNELS.thread.respond, id, request, response) as Promise<void>,
       pin: (id, pinned) => ipc.invoke(IPC_CHANNELS.thread.pin, id, pinned) as Promise<void>,
+      worktreeInspect: id => ipc.invoke(IPC_CHANNELS.thread.worktreeInspect, id) as Promise<import('../../shared/threadWorktree').ThreadWorktreeInspection | null>,
+      worktreeFinish: (id, action, choice) => ipc.invoke(IPC_CHANNELS.thread.worktreeFinish, id, action, choice) as Promise<import('../../shared/threadWorktree').ThreadWorktreeFinishResult>,
       onChanged: listener => {
         const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
         ipc.on(IPC_CHANNELS.thread.changed, handler)
@@ -308,6 +310,19 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onEvent: listener => subscribe<import('../../shared/types/oxepod').OxePodEvent>(ipc, IPC_CHANNELS.oxePod.onEvent, listener)
     },
     oxePost: { call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePost.call, { op, input }) as never },
+    remote: {
+      status: () => ipc.invoke(IPC_CHANNELS.remote.status) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      devices: () => ipc.invoke(IPC_CHANNELS.remote.devices) as Promise<import('../../shared/types/remote').RemoteDevice[]>,
+      onChanged: listener => subscribe<import('../../shared/types/remote').RemoteChange>(ipc, IPC_CHANNELS.remote.changed, listener),
+      setEnabled: input => ipc.invoke(IPC_CHANNELS.remote.setEnabled, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      startPairing: () => ipc.invoke(IPC_CHANNELS.remote.startPairing) as Promise<import('../../shared/types/remote').RemotePairingOffer>,
+      cancelPairing: () => ipc.invoke(IPC_CHANNELS.remote.cancelPairing) as Promise<void>,
+      answerPairing: input => ipc.invoke(IPC_CHANNELS.remote.answerPairing, input) as Promise<void>,
+      revoke: input => ipc.invoke(IPC_CHANNELS.remote.revoke, input) as Promise<void>,
+      rename: input => ipc.invoke(IPC_CHANNELS.remote.rename, input) as Promise<import('../../shared/types/remote').RemoteDevice>,
+      setDesktopName: input => ipc.invoke(IPC_CHANNELS.remote.setDesktopName, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      setPhoneWrite: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneWrite, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>
+    },
     automations: {
       list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,
       create: (input) => ipc.invoke(IPC_CHANNELS.automations.create, input) as Promise<import('../../shared/types/automation').Automation>,
@@ -331,6 +346,15 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       notify: (payload) => ipc.invoke(IPC_CHANNELS.notifications.notify, payload) as Promise<boolean>,
       onActivate: (listener) =>
         subscribe<{ paneId: string; workspaceId: string }>(ipc, IPC_CHANNELS.notifications.onActivate, listener)
+    },
+    approvals: {
+      list: () => ipc.invoke(IPC_CHANNELS.approvals.list) as Promise<import('../../shared/types/approvals').ApprovalRequest[]>,
+      respond: input => ipc.invoke(IPC_CHANNELS.approvals.respond, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      ack: input => ipc.invoke(IPC_CHANNELS.approvals.ack, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      unavailable: input => ipc.invoke(IPC_CHANNELS.approvals.unavailable, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      history: () => ipc.invoke(IPC_CHANNELS.approvals.history) as Promise<import('../../shared/types/approvals').ApprovalHistoryEntry[]>,
+      onRequested: listener => subscribe<import('../../shared/types/approvals').ApprovalRequest>(ipc, IPC_CHANNELS.approvals.onRequested, listener),
+      onResolved: listener => subscribe<import('../../shared/types/approvals').ApprovalResolved>(ipc, IPC_CHANNELS.approvals.onResolved, listener)
     },
     oxe: {
       detect: (force) => ipc.invoke(IPC_CHANNELS.oxe.detect, force) as Promise<import('../../shared/types/oxe').OxeDetect>,
@@ -512,7 +536,16 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       exportReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportReport) as Promise<string | null>,
       reportInteractive: () => ipc.invoke(IPC_CHANNELS.diagnostics.reportInteractive) as Promise<void>,
       buildIssueReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.buildIssueReport) as Promise<import('../../shared/issue-report').IssueReport>,
-      recordFirstAnswer: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.recordFirstAnswer, input) as Promise<void>
+      recordFirstAnswer: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.recordFirstAnswer, input) as Promise<void>,
+      watch: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.watch, input ?? {}) as Promise<{ subscriptionId: string }>,
+      unwatch: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.unwatch, input) as Promise<void>,
+      onMetrics: (listener) => subscribe<import('../../shared/types/diagnostics').DiagnosticsMetrics>(ipc, IPC_CHANNELS.diagnostics.onMetrics, listener),
+      incidents: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.incidents, input ?? {}) as Promise<import('../../shared/types/diagnostics').DiagnosticsIncident[]>,
+      clearIncidents: () => ipc.invoke(IPC_CHANNELS.diagnostics.clearIncidents) as Promise<void>,
+      onIncidentsChanged: (listener) => subscribe<{ count: number }>(ipc, IPC_CHANNELS.diagnostics.onIncidentsChanged, listener),
+      previewBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.previewBundle) as Promise<import('../../shared/types/diagnostics').DiagnosticsBundlePreview>,
+      exportBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportBundle) as Promise<string | null>,
+      analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>
     },
     policy: {
       get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>

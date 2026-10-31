@@ -1,3 +1,5 @@
+import type { MainMessage } from '../messages'
+
 export type McpTransport = 'stdio' | 'http' | 'sse'
 
 export interface McpStdioConfig {
@@ -26,7 +28,11 @@ export type McpServerConfig = McpStdioConfig | McpHttpConfig
 export interface McpServerGuard {
   /** The tools and descriptions seen since trust are remembered, so a later change can be told. */
   toolsRemembered: boolean
-  quarantine: { at: number; reasons: string[]; added: string[]; removed: string[]; changed: string[] } | null
+  /**
+   * `reasons` are English sentences, kept for records written before `codes` existed and for anything that reads
+   * them. `codes` say the same as message codes the window translates (shared/messages.ts); absent on older records.
+   */
+  quarantine: { at: number; reasons: string[]; codes?: MainMessage[]; added: string[]; removed: string[]; changed: string[] } | null
 }
 
 /**
@@ -36,6 +42,8 @@ export interface McpServerGuard {
 export type McpHealthStatus = 'unknown' | 'starting' | 'healthy' | 'needs-auth' | 'unhealthy'
 
 export interface McpServer {
+  /** `healthMessage` as a message code the window translates (C3). */
+  healthMessageCode?: import('../messages').MainMessage
   id: string
   /** Null = global (cross-workspace). */
   workspaceId: string | null
@@ -96,6 +104,8 @@ export interface McpCallToolResult {
 }
 
 export interface McpServerHealthEvent {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   serverId: string
   status: McpHealthStatus
   message: string | null

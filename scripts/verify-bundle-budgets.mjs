@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = process.cwd()
@@ -16,13 +16,16 @@ const budgets = [
   // report, the upgrade rehearsal hooks and the idle CodeGraph close brought the readable, unminified entry to 926 kB,
   // under 5% headroom at 952 KiB. Each of them already loads its heavy parts lazily; minifying the main process is the
   // follow-up that would give this back.
-  { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 1000 * 1024 },
+  // 620 KiB since the main process is minified (B8.1, 2026-10-30): esbuild with keepNames took the entry from 914 to
+  // 575 kB. Its source maps are written beside it but never referenced or packaged; see scripts/symbolicate-stack.mjs.
+  { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 620 * 1024 },
   { label: 'preload entry', dir: 'out/preload', match: /^index\.cjs$/, max: 40 * 1024 },
   // 320 KiB since the renderer is minified (2026-10): the entry went from 474 kB readable to 246 kB.
   { label: 'renderer entry', dir: 'out/renderer/assets', match: /^index-.*\.js$/, max: 320 * 1024 },
   { label: 'renderer base CSS', dir: 'out/renderer/assets', match: /^index-.*\.css$/, max: 500 * 1024 },
   // OxeQuery loads on demand; its worker bundles pg, mongodb and ssh2, so it has its own ceiling.
-  { label: 'OxeQuery worker', dir: 'out/main', match: /^oxequery-worker\.js$/, max: 3 * 1024 * 1024 },
+  // 1.6 MiB since the main process is minified (2026-10-30): the worker went from 2.5 MB to 1.4 MB.
+  { label: 'OxeQuery worker', dir: 'out/main', match: /^oxequery-worker\.js$/, max: 1.6 * 1024 * 1024 },
   { label: 'OxeQuery view chunk', dir: 'out/renderer/assets', match: /^OxeQueryView-.*\.js$/, max: 320 * 1024 },
   { label: 'OxeQuery CSS', dir: 'out/renderer/assets', match: /^OxeQuery-.*\.css$/, max: 64 * 1024 }
 ]
@@ -45,6 +48,21 @@ for (const budget of budgets) {
     console.error(`[bundle] ${budget.label}: requires at least ${REQUIRED_HEADROOM * 100}% headroom`)
     failed = true
   }
+}
+
+// The main process's source maps are private: every chunk has its .map for reading a reported stack, and no chunk
+// may point at one (a sourceMappingURL would have the app, or anyone holding the package, look for it).
+const mainFiles = dir => readdirSync(join(root, dir), { withFileTypes: true }).flatMap(entry => entry.isDirectory()
+  ? (entry.name === 'chunks' ? mainFiles(join(dir, entry.name)) : [])
+  : /\.js$/.test(entry.name) ? [join(dir, entry.name)] : [])
+const mainChunks = mainFiles('out/main')
+const withoutMap = mainChunks.filter(file => !existsSync(join(root, `${file}.map`)))
+const referencing = mainChunks.filter(file => /[#@] sourceMappingURL=/.test(readFileSync(join(root, file), 'utf8')))
+console.log(`[bundle] main source maps: ${mainChunks.length - withoutMap.length} of ${mainChunks.length} chunks, ${referencing.length} referencing one`)
+if (!mainChunks.length || withoutMap.length || referencing.length) {
+  if (withoutMap.length) console.error(`[bundle] main chunks without a source map: ${withoutMap.join(', ')}`)
+  if (referencing.length) console.error(`[bundle] main chunks that reference their source map, which must stay private: ${referencing.join(', ')}`)
+  failed = true
 }
 
 // What the first paint loads: the entry plus every chunk index.html preloads with it. Monaco (4.5 MB) once
