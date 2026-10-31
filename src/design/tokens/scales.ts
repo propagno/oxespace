@@ -19,6 +19,12 @@ export const RADIUS = { sm: '6px', md: '8px', lg: '12px', xl: '16px', full: '999
 /** Control heights per density. */
 export const CONTROL = { compact: { sm: 24, md: 28, lg: 32 }, comfortable: { sm: 28, md: 32, lg: 36 } } as const
 
+/**
+ * The smallest pointer target in either density (WCAG 2.2 SC 2.5.8). A glyph may be drawn smaller (a checkbox box, a
+ * colour dot) when the control around it is at least this big.
+ */
+export const TARGET_MIN = 24
+
 /** Named layers; nothing else sets a z-index. */
 export const LAYER = { base: 0, raised: 1, sticky: 10, dropdown: 100, overlay: 200, modal: 300, toast: 400, tooltip: 500 } as const
 
