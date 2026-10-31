@@ -486,6 +486,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onChanged: (listener) => subscribe<import('../../shared/types/agent-state').PaneAgentStateEvent>(ipc, IPC_CHANNELS.agentState.onChanged, listener)
     },
     mcpInternal: {
+      toolGroups: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.toolGroups, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
+      setToolGroupMode: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.setToolGroupMode, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
       getStatus: () => ipc.invoke(IPC_CHANNELS.mcpInternal.getStatus) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       regenerateToken: () => ipc.invoke(IPC_CHANNELS.mcpInternal.regenerateToken) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       captureWebPreview: () => ipc.invoke(IPC_CHANNELS.mcpInternal.captureWebPreview) as Promise<void>,
