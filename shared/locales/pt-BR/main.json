@@ -284,6 +284,53 @@
       "name": {
         "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
       }
+    },
+    "incident": {
+      "window": {
+        "crashed": "A janela travou.",
+        "rendererGone": "A interface parou de responder e foi reiniciada."
+      },
+      "ipc": {
+        "handlerFailed": "Um pedido da janela falhou em segundo plano.",
+        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado."
+      },
+      "agent": {
+        "startFailed": "Um agente não conseguiu iniciar."
+      },
+      "mcp": {
+        "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar."
+      },
+      "database": {
+        "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."
+      },
+      "oxequery": {
+        "timeout": "Um pedido do OxeQuery esgotou o tempo."
+      },
+      "updater": {
+        "failed": "Não foi possível verificar ou instalar uma atualização."
+      },
+      "interaction": {
+        "overBudget": "Uma interação demorou mais do que o orçamento."
+      },
+      "app": {
+        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou."
+      }
+    },
+    "diagnostics": {
+      "bundle": {
+        "fileTooLarge": "Um arquivo do pacote de diagnóstico passa de 8 MB, então nada foi salvo.",
+        "tooLarge": "O pacote de diagnóstico passa de 32 MB, então nada foi salvo."
+      }
+    },
+    "bundle": {
+      "file": {
+        "snapshot": "Processos, armazenamento, conectividade e versões",
+        "incidents": "O diário de incidentes: códigos, áreas e contagens",
+        "logTail": "Últimas linhas do log do app: horário, nível e só as mensagens fixas do próprio app",
+        "runtime": "Eventos recentes de execução, redigidos",
+        "versions": "Versões do app, do Electron, do Chrome, do Node e do sistema",
+        "configuration": "Configurações que ajudam no diagnóstico, sem segredos"
+      }
     }
   }
 }
