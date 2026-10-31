@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -27,7 +28,7 @@ test('session actions open to the side, archive, restore and delete through Elec
       ipcMain.handle('thread:list', () => threads)
       ipcMain.handle('thread:read', (_event, id) => ({ thread: threads.find(thread => thread.id === id), events: [] }))
       ipcMain.handle('thread:create', (_event, input) => {
-        const thread = { id: `session-${threads.length + 1}`, workspaceId: 'thread:test-project', projectId: 'test-project', rootPath, provider: input.provider, nativeSessionId: null, title: 'New thread', status: 'idle', pinned: false, createdAt: Date.now(), updatedAt: Date.now() }
+        const thread = { id: `session-${threads.length + 1}`, workspaceId: 'thread:test-project', projectId: 'test-project', rootPath, provider: input.provider, nativeSessionId: null, title: 'New conversation', status: 'idle', pinned: false, createdAt: Date.now(), updatedAt: Date.now() }
         threads.push(thread); changed(String(thread.id)); return { thread, events: [] }
       })
       ipcMain.handle('thread:command', (_event, id, command) => {
@@ -47,7 +48,7 @@ test('session actions open to the side, archive, restore and delete through Elec
         await window.oxe.thread!.command!(snapshot.thread.id, `/rename ${name}`)
       }
     })
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     const alpha = page.locator('.thread-navigation-row:not(.thread-archived-row) .thread-navigation-item').filter({ hasText: 'Alpha session' })
     const beta = page.locator('.thread-navigation-row:not(.thread-archived-row) .thread-navigation-item').filter({ hasText: 'Beta session' })
     await expect(alpha).toBeVisible()

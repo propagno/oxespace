@@ -120,14 +120,14 @@
     },
     "density": {
       "title": "Density",
-      "hint": "How tightly controls and lists sit. Workspaces and the Thread list follow this unless you set their own.",
+      "hint": "How tightly controls and lists sit. Workspaces and the OxeChat list follow this unless you set their own.",
       "compact": "Compact",
       "comfortable": "Comfortable",
       "workspaceOverride_one": "1 workspace uses its own density.",
       "workspaceOverride_other": "{{count}} workspaces use their own density.",
       "useAppInWorkspaces": "Use app density in all workspaces",
-      "threadOverride": "The Thread list uses its own density: {{density}}.",
-      "useAppInThread": "Use app density in the Thread list"
+      "threadOverride": "The OxeChat list uses its own density: {{density}}.",
+      "useAppInThread": "Use app density in the OxeChat list"
     },
     "motion": {
       "title": "Motion",
@@ -242,7 +242,7 @@
     "never": "Never",
     "minutes_one": "{{count}} minute without activity",
     "minutes_other": "{{count}} minutes without activity",
-    "hint": "Each open Thread conversation keeps an agent process and its MCP servers running. Closing idle ones frees memory; your next message resumes the same session. A conversation with a running turn, a question, queued messages, a background task or a permission allowed for the session stays open.",
+    "hint": "Each open OxeChat conversation keeps an agent process and its MCP servers running. Closing idle ones frees memory; your next message resumes the same session. A conversation with a running turn, a question, queued messages, a background task or a permission allowed for the session stays open.",
     "saveFailed": "Could not save this setting"
   },
   "semantic": {
@@ -459,7 +459,7 @@
   },
   "activity": {
     "title": "Agent activity",
-    "hint": "What agents changed through OXESpace (commits, pushes, pull requests, Threads, tasks, skills, automations) and what you decided. Database and container requests are listed in OxeQuery.",
+    "hint": "What agents changed through OXESpace (commits, pushes, pull requests, conversations, tasks, skills, automations) and what you decided. Database and container requests are listed in OxeQuery.",
     "decisions": {
       "auto": "ran",
       "approved": "you approved",
@@ -544,6 +544,7 @@
     "reset": "Reset",
     "offLabel": "Turn off shortcut for {{name}}",
     "off": "Turn off",
-    "resetAll": "Reset all shortcuts"
+    "resetAll": "Reset all shortcuts",
+    "fixed": "Always on"
   }
 }

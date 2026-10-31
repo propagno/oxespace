@@ -137,7 +137,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   // ---- Web Preview --------------------------------------------------------------
   'web_preview.use': {
     label: 'Open, drive and capture the Web Preview',
-    tools: { oxespace_open_web_preview: 'write', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
+    // B15: open_web_preview is confirm, and a local http(s) URL (localhost, *.localhost, 127.0.0.1, [::1], any port,
+    // written plainly) skips the question and runs as write. Any other host asks first; other schemes, file: included, are refused.
+    tools: { oxespace_open_web_preview: 'confirm', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
     ipc: ['browserPreview.session', 'browserPreview.mount', 'browserPreview.bounds', 'browserPreview.designMode', 'browserPreview.setZoom', 'browserPreview.reload',
       'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.close', 'mcpInternal.captureWebPreview']
   },
@@ -210,6 +212,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['thread.list', 'thread.read', 'thread.history', 'thread.readSince', 'thread.usageSummary', 'thread.contextUsage', 'thread.projects', 'thread.turnFiles',
       'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'session.list']
   },
+  'thread.side_chat': { label: 'A side chat about a conversation', excluded: 'The person\'s read-only scratch copy of a conversation; agents ask in their own.', ipc: ['thread.sideOpen', 'thread.sideSend', 'thread.sideClose'] },
   'thread.drive': {
     label: 'Create Threads, send, steer, stop, set the model, rename, archive',
     tools: {
