@@ -29,7 +29,7 @@
     "pages": {
       "general": {
         "label": "Geral",
-        "hint": "Navegação e preferências de workspace"
+        "hint": "Navegação, workspace e privacidade"
       },
       "providers": {
         "label": "Agentes",
@@ -78,7 +78,17 @@
     "description": "Preferências que valem para todos os workspaces.",
     "navigation": "Navegação entre workspaces",
     "cacheLabel": "Workspaces visitados há pouco que ficam prontos",
-    "cacheHint": "Mantém os terminais disponíveis ao trocar de workspace. As mudanças valem na hora."
+    "cacheHint": "Mantém os terminais disponíveis ao trocar de workspace. As mudanças valem na hora.",
+    "privacy": "Privacidade",
+    "seenSites": {
+      "label": "Sites que você abriu",
+      "hint": "Um link para um site que você ainda não abriu pelo OXESpace pede confirmação antes. Limpe a lista para voltar a confirmar todos os sites.",
+      "count_one": "{{count}} site lembrado.",
+      "count_other": "{{count}} sites lembrados.",
+      "clear": "Limpar sites que você abriu",
+      "cleared_one": "{{count}} site esquecido",
+      "cleared_other": "{{count}} sites esquecidos"
+    }
   },
   "appearance": {
     "kicker": "Aparência global",

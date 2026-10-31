@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, GitCompareArrows, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
-import { Github } from '../Brand/GithubIcon'
+import { Github } from '../Brand/GithubIcon'; import { openExternalLink } from '../../lib/externalLinks'
 import { openInChanges } from '../../store/changes-request.store'
 import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState, ErrorState, LoadingState } from '../../ui'
@@ -822,7 +822,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
             </Button>
           ) : null}
           {selected.url ? (
-            <Button variant="ghost" size="sm" onClick={() => window.open(selected.url ?? '', '_blank')}>
+            <Button variant="ghost" size="sm" onClick={() => void openExternalLink(selected.url ?? '', { source: 'github' })}>
               {tc('github.viewOnGitHub')} <ExternalLink size={12} aria-hidden="true" />
             </Button>
           ) : null}
@@ -838,7 +838,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
           <div className="github-tab-header-title"><span>{tc('github.prs.title')}</span></div>
           <div className="github-tab-header-actions">
             <Button variant="ghost" size="sm" square title={tc('github.refresh')} aria-label={tc('github.refresh')} onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
-            <Button variant="secondary" size="sm" disabled={!repoName} title={tc('github.prs.newTitle')} onClick={() => repoName && window.open(`https://github.com/${repoName}/compare`, '_blank')}>{tc('github.prs.new')}</Button>
+            <Button variant="secondary" size="sm" disabled={!repoName} title={tc('github.prs.newTitle')} onClick={() => repoName && void openExternalLink(`https://github.com/${repoName}/compare`, { source: 'github' })}>{tc('github.prs.new')}</Button>
           </div>
         </div>
         <div className="github-tab-sep" />
@@ -975,7 +975,7 @@ function CommitDetailView({ details }: { details: GitHubCommitDetails }): ReactE
         ))}
       </div>
       {details.url ? (
-        <Button variant="ghost" size="sm" onClick={() => window.open(details.url ?? '', '_blank')}>
+        <Button variant="ghost" size="sm" onClick={() => void openExternalLink(details.url ?? '', { source: 'github' })}>
           {tc('github.viewOnGitHub')} <ExternalLink size={12} aria-hidden="true" />
         </Button>
       ) : null}
@@ -1017,7 +1017,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
             <div>{selected.isDraft ? tc('github.releases.draft') : selected.isPrerelease ? tc('github.releases.prerelease') : tc('github.releases.release')}</div>
           </div>
           {selected.url ? (
-            <Button variant="ghost" size="sm" onClick={() => window.open(selected.url ?? '', '_blank')}>
+            <Button variant="ghost" size="sm" onClick={() => void openExternalLink(selected.url ?? '', { source: 'github' })}>
               {tc('github.viewOnGitHub')} <ExternalLink size={12} aria-hidden="true" />
             </Button>
           ) : null}
@@ -1377,7 +1377,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
           </Button>
         ) : null}
         {run.url ? (
-          <Button variant="ghost" onClick={() => window.open(run.url ?? '', '_blank')}>
+          <Button variant="ghost" onClick={() => void openExternalLink(run.url ?? '', { source: 'github' })}>
             <ExternalLink size={12} aria-hidden="true" /> {tc('github.viewOnGitHub')}
           </Button>
         ) : null}

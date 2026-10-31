@@ -14,6 +14,7 @@ import { threadNavigationStatus } from './threadNavigationStatus'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, TextField } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
 import { localizeConfirmation } from './threadConfirmationText'
+import { openExternalLink } from '../../lib/externalLinks'
 
 function sessionDate(timestamp: number): string { return formatDateTime(timestamp, { dateStyle: 'medium', timeStyle: 'short' }) }
 
@@ -66,7 +67,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
 
   const footer = panel.surface === 'rename'
     ? <><Button onClick={onClose}>{t('common.cancel')}</Button><Button type="submit" form="thread-rename-form" variant="primary" loading={pending} disabled={!canRename}>{t('commandDialog.rename')}</Button></>
-    : !panel.surface && output && panel.externalUrl ? <Button onClick={() => window.open(panel.externalUrl, '_blank', 'noopener,noreferrer')}>{t('commandDialog.openBrowser')}</Button>
+    : !panel.surface && output && panel.externalUrl ? <Button onClick={() => void openExternalLink(panel.externalUrl!, { source: 'app' })}>{t('commandDialog.openBrowser')}</Button>
     : !panel.surface && output && panel.text ? <Button onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError(t('commandDialog.copyFailed')))}>{t('commandDialog.copy')}</Button>
     : undefined
 
