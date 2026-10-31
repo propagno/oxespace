@@ -82,7 +82,7 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
 
       await page.keyboard.press('Control+k')
       await page.keyboard.insertText('Approval history')
-      await page.locator('[cmdk-item]', { hasText: 'Approval history' }).first().click()
+      await page.locator('[cmdk-item]', { hasText: 'Help: Show approval history' }).first().click()
       const panel = page.getByTestId('approval-history')
       await expect(panel.getByTestId('approval-history-row')).toHaveCount(1)
       await expect(panel).toContainText('Denied')
@@ -168,6 +168,89 @@ test('main’s sample: the crash prompt comes first and is acknowledged; a cut t
     await expect(dialog.locator('[data-intent="deny"]')).toBeVisible()
     await page.screenshot({ path: `${SHOTS}/approval-cut-text.png` })
     expect(await history(page)).toEqual(expect.arrayContaining(['approval-crash:deny:user']))
+  } finally {
+    await app.close()
+  }
+})
+
+// R1 · A click that reaches A's button after main settled A and B took its place never answers B. The click is sent
+// from main's own resolved event, before the window re-renders: the race the review found.
+test('a click on a request main just settled does not answer the next one; that one renders fresh', async () => {
+  test.setTimeout(120_000)
+  const { app, page } = await launchWith([
+    approval('race-a', 1, { agentText: text('request A'), expiresAt: Date.now() + 25_000 }),
+    approval('race-b', 2, { agentText: text('request B') })
+  ])
+  try {
+    const dialog = page.getByTestId('approval-dialog')
+    await expect(dialog).toContainText('request A', { timeout: 15_000 })
+    await page.evaluate(() => {
+      window.oxe.approvals!.onResolved(resolved => {
+        if (resolved.id !== 'race-a') return
+        const allow = document.querySelector<HTMLButtonElement>('[data-testid="approval-dialog"] [data-intent="allow"]')
+        ;(window as unknown as { raced?: string }).raced = allow?.closest('[data-testid="approval-dialog"]')?.textContent?.includes('request A') ? 'clicked A' : 'missed'
+        allow?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+      })
+    })
+    await expect(dialog).toContainText('request B', { timeout: 40_000 })
+    expect(await page.evaluate(() => (window as unknown as { raced?: string }).raced)).toBe('clicked A')
+    await page.waitForTimeout(1_000)
+    await expect(dialog).toContainText('request B')
+    expect(await history(page)).toEqual(['race-a:deny:timeout'])
+    await page.waitForTimeout(ARMED)
+    await dialog.getByRole('button', { name: 'Allow once' }).click()
+    await expect(dialog).toHaveCount(0)
+    expect(await history(page)).toEqual(['race-b:allow:user', 'race-a:deny:timeout'])
+  } finally {
+    await app.close()
+  }
+})
+
+// R3 · The critical hold counts only while the window is visible and focused, and starts over when focus returns.
+test('the critical hold pauses when the window loses focus and starts over when it comes back', async () => {
+  test.setTimeout(120_000)
+  const { app, page } = await launchWith([approval('focus', 0, { risk: 'critical', allowDelayMs: 2_000, enterDisabled: true })])
+  try {
+    const dialog = page.getByTestId('approval-dialog')
+    const allow = dialog.getByRole('button', { name: 'Allow once' })
+    await expect(dialog).toBeVisible({ timeout: 15_000 })
+    await expect(allow).toBeEnabled({ timeout: 5_000 })
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+    await expect(allow).toBeDisabled()
+    await expect(page.getByTestId('approval-hold')).toContainText('Allow waits until this window is in front')
+    await page.waitForTimeout(2_500)
+    await expect(allow).toBeDisabled()
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(page.getByTestId('approval-hold')).toContainText('Allow is available in')
+    await page.waitForTimeout(1_000)
+    await expect(allow).toBeDisabled()
+    await expect(allow).toBeEnabled({ timeout: 3_000 })
+    await allow.click()
+    await expect(dialog).toHaveCount(0)
+    expect(await history(page)).toEqual(['focus:allow:user'])
+  } finally {
+    await app.close()
+  }
+})
+
+// R9 · Keys typed outside the dialog never answer it.
+test('Escape or Enter typed outside the dialog does not answer it', async () => {
+  test.setTimeout(120_000)
+  const { app, page } = await launchWith([approval('outside', 0)])
+  try {
+    const dialog = page.getByTestId('approval-dialog')
+    await expect(dialog).toBeVisible({ timeout: 15_000 })
+    await page.waitForTimeout(ARMED)
+    await page.evaluate(() => {
+      for (const key of ['Escape', 'Enter', ' ']) document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+    })
+    await page.waitForTimeout(500)
+    await expect(dialog).toBeVisible()
+    expect(await history(page)).toEqual([])
+    // Its own Escape still denies.
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    expect(await history(page)).toEqual(['outside:deny:user'])
   } finally {
     await app.close()
   }

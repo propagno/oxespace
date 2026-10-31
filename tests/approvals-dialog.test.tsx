@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { approvalPacing } from '../shared/approval-rules'
 import { mainMessage } from '../shared/messages'
 import { changeLanguage } from '../src/i18n'
@@ -12,6 +12,7 @@ import { resetApprovalsBoot, OPEN_APPROVAL_HISTORY_EVENT } from '../src/componen
 import { useApprovalsStore } from '../src/components/Approvals/approvals.store'
 import { ApprovalCenter } from '../src/components/Approvals/ApprovalCenter'
 import type { ApprovalsMockHook, MockRequestInput } from '../src/components/Approvals/approvalsMock'
+import { Toaster } from '../src/ui'
 
 /** F18 · the in-app approval window on the B10 contract, against the in-window mock of `approvals.*`. */
 
@@ -22,15 +23,17 @@ beforeEach(() => {
   resetApprovalsBoot()
   useApprovalsStore.getState().reset()
   hook = installApprovalsMock().hook
+  // jsdom reports no focus until something is focused; the window under test is in front.
+  vi.spyOn(document, 'hasFocus').mockReturnValue(true)
 })
-afterEach(() => cleanup())
+afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 const dialog = () => screen.getByTestId('approval-dialog')
 const request = (partial: MockRequestInput = {}) => act(() => { hook.request(partial) })
 const pane = (agent: string, number: number) => ({ kind: 'agent' as const, id: `pane:${number}`, label: mainMessage('approvals.requester.pane', { agent, pane: number }) })
 
 async function mount(armMs = 0) {
-  render(<ApprovalCenter armMs={armMs} />)
+  render(<><ApprovalCenter armMs={armMs} /><Toaster /></>)
   await waitFor(() => expect(screen.getByTestId('approval-dialog')).toBeInTheDocument())
 }
 
@@ -60,21 +63,23 @@ describe('approval dialog', () => {
     request({ id: 'crash', createdAt: 5, kind: 'crash', ackRequired: true, title: mainMessage('approvals.title.crash', {}), summary: mainMessage('approvals.summary.crash', {}) })
     await mount()
     expect(dialog()).toHaveTextContent('OXESpace hit an unexpected error')
-    await waitFor(() => expect(hook.acks).toEqual([{ id: 'crash', generation: 1 }]))
+    await waitFor(() => expect(hook.acks).toEqual([{ id: 'crash', generation: 1, visible: true, focused: true }]))
     act(() => useApprovalsStore.setState(state => ({ queue: [...state.queue] })))
     expect(hook.acks).toHaveLength(1)
     // The queued one is acknowledged only when its turn comes.
     await user.click(within(dialog()).getByRole('button', { name: 'Deny' }))
-    await waitFor(() => expect(hook.acks).toEqual([{ id: 'crash', generation: 1 }, { id: 'old', generation: 1 }]))
+    await waitFor(() => expect(hook.acks).toEqual([{ id: 'crash', generation: 1, visible: true, focused: true }, { id: 'old', generation: 1, visible: true, focused: true }]))
   })
 
-  it('a request its source cancels while on screen closes, the next one opens, and the history says cancelled', async () => {
+  it('a request its source cancels while on screen closes, the next one opens without its notice, and the history says cancelled', async () => {
     request({ id: 'c1', createdAt: 1 })
     request({ id: 'c2', createdAt: 2, requester: pane('Codex', 4) })
     await mount()
     act(() => hook.settle('c1', 'cancelled'))
     await waitFor(() => expect(dialog()).toHaveTextContent('Codex · pane 4'))
-    expect(dialog()).toHaveTextContent('The request was cancelled before an answer.')
+    // R5: told apart from the next request, never inside it.
+    expect(dialog()).not.toHaveTextContent('The request was cancelled before an answer.')
+    expect((await screen.findAllByText('The request was cancelled before an answer.')).some(node => !dialog().contains(node))).toBe(true)
     expect(useApprovalsStore.getState().history.map(row => [row.id, row.by])).toEqual([['c1', 'cancelled']])
     expect(hook.responses).toEqual([])
   })
@@ -278,7 +283,7 @@ describe('approval dialog', () => {
     await user.click(within(dialog()).getByRole('button', { name: 'Allow once' }))
     await waitFor(() => expect(useApprovalsStore.getState().queue[0]?.id).toBe('h2'))
     act(() => hook.settle('h2', 'timeout'))
-    await waitFor(() => expect(dialog()).toHaveTextContent('The request expired before an answer and was denied.'))
+    expect((await screen.findAllByText('The request expired before an answer and was denied.')).length).toBeGreaterThan(0)
     act(() => hook.settle('h3', 'native'))
     act(() => hook.settle('h4', 'cancelled'))
     await waitFor(() => expect(screen.queryByTestId('approval-dialog')).toBeNull())

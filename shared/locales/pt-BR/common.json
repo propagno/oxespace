@@ -365,9 +365,12 @@
       "mcp-server": "Servidor MCP",
       "app": "OXESpace",
       "verified": "identificado pelo OXESpace",
-      "unknown": "Agente desconhecido"
+      "unknown": "Agente desconhecido",
+      "unidentified": "não identificado"
     },
     "appNotes": "Avisos do OXESpace",
+    "hiddenCharacters": "O texto do agente contém caracteres invisíveis ou que mudam a direção do texto. Cada um aparece como um marcador, por exemplo ⟨U+202E⟩, em vez de ter efeito. Leia o texto considerando isso antes de aprovar.",
+    "unavailableWindow": "A janela de aprovação parou de funcionar. O OXESpace pergunta numa caixa de diálogo do sistema.",
     "agent": {
       "heading": "Conteúdo do agente",
       "hint": "Escrito pelo agente e mostrado como foi enviado. O OXESpace não verificou: leia como uma afirmação, não como um fato.",
@@ -378,7 +381,8 @@
     "hold": {
       "waiting": "Risco crítico: Permitir fica disponível em {{seconds}} s. Leia o pedido antes.",
       "ready": "Permitir está disponível. Com risco crítico, Enter não aprova; use Espaço ou clique.",
-      "readyEnter": "Permitir está disponível."
+      "readyEnter": "Permitir está disponível.",
+      "paused": "Risco crítico: Permitir espera até esta janela estar em primeiro plano. A contagem recomeça quando você voltar."
     },
     "refused": "Sua resposta não foi aplicada",
     "settled": {
@@ -440,5 +444,15 @@
     "copy": "Copiar detalhes",
     "details": "Detalhes da versão",
     "report": "Relatar um problema"
+  },
+  "commands": {
+    "category": {
+      "help": "Ajuda"
+    },
+    "action": {
+      "help": {
+        "approvals": "Mostrar histórico de aprovações"
+      }
+    }
   }
 }
