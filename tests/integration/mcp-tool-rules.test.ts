@@ -6,6 +6,8 @@ import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { FileSystemService } from '../../electron/main/services/file-system.service'
 import { ThreadPermissionStore } from '../../electron/main/services/conversation/thread-permissions'
 import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
+import { readManagedMcp } from '../../electron/main/services/conversation/thread-managed-mcp'
+import { McpConfigSync } from '../../electron/main/services/mcp-sync.service'
 import { threadMcpArguments } from '../../electron/main/services/conversation/thread-mcp'
 import { confirmLevelTools, setToolRule, toolRules, type ToolRulesDeps } from '../../electron/main/services/mcp-tool-rules'
 import { policyDeniedToolNames, setPolicyStore } from '../../electron/main/services/policy'
@@ -30,12 +32,23 @@ afterEach(() => {
 
 const temp = (prefix: string) => { const dir = mkdtempSync(join(tmpdir(), prefix)); roots.push(dir); return dir }
 
-function project() {
+/** A Code workspace 'A' at the root, or a project that exists only in OxeChat conversations (`thread:p`). */
+function project(kind: 'workspace' | 'conversation' = 'workspace') {
   const root = temp('oxe-tool-rules-')
   const userData = temp('oxe-tool-rules-user-')
   const db = openInMemoryDatabase(); databases.push(db)
-  db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('A', 'A', ?, '1x1', 'builtin-claude')").run(root)
+  if (kind === 'workspace') {
+    db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('A', 'A', ?, '1x1', 'builtin-claude')").run(root)
+  } else {
+    db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES ('p', 'p', ?, 'P', 0, 0)").run(root)
+    db.prepare("INSERT INTO thread_project_contexts (project_id, root_path) VALUES ('p', ?)").run(root)
+  }
+  // The app's resolver (file-system.ipc.ts): a workspace by id, or a conversation project's registered root.
   const files = new FileSystemService((workspaceId, requested) => {
+    if (workspaceId.startsWith('thread:')) {
+      const row = db.prepare('SELECT root_path FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').get(workspaceId.slice('thread:'.length), requested) as { root_path: string } | undefined
+      return row?.root_path ?? null
+    }
     const row = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
     return row && row.root_path === requested ? row.root_path : null
   })
@@ -274,6 +287,58 @@ describe('Per-tool rules, CCR from FRONTEND (B7.3)', () => {
     for (const rule of rules.filter(rule => rule.server !== 'oxespace-delegation')) {
       expect(rule).toMatchObject({ decision: 'ask', editable: true, allowedDecisions: ['allow', 'ask', 'deny'], confirmLevel: false })
     }
+  })
+})
+
+describe('Per-tool rules, review fixes (B7.3)', () => {
+  const insertAt = (db: AppDatabase, id: string, name: string, createdAt: number, ...tools: string[]) =>
+    db.prepare('INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, created_at, updated_at, guard_json) VALUES (?, NULL, ?, ?, ?, 1, 1, ?, ?, ?)')
+      .run(id, name, 'stdio', '{"transport":"stdio","command":"x","args":[],"env":{}}', createdAt, createdAt, JSON.stringify({ pin: { hash: 'x', at: 0 }, tools: tools.map(tool => ({ name: tool, hash: tool })), quarantine: null }))
+
+  it('keys two servers that normalize alike apart, the same in Settings, the conversation and .mcp.json, so a deny reaches the right one', async () => {
+    const { root, db, deps } = project()
+    insertAt(db, 'first', 'My Server', 1, 'run')
+    insertAt(db, 'second', 'my-server', 2, 'run')
+    const servers = new McpManager(db)
+    expect(servers.list('A').map(server => [server.name, server.key])).toEqual([['My Server', 'my-server'], ['my-server', 'my-server-2']])
+    expect(servers.get('second')?.key).toBe('my-server-2')
+    const managed = readManagedMcp(db, 'A')
+    expect(managed.servers.map(server => server.key).sort()).toEqual(['my-server', 'my-server-2'])
+    new McpConfigSync(db).syncWorkspace('A')
+    const written = JSON.parse(readFileSync(join(root, '.mcp.json'), 'utf8')) as { mcpServers: Record<string, unknown> }
+    expect(Object.keys(written.mcpServers).sort()).toEqual(['my-server', 'my-server-2'])
+
+    // One row per server, under its key; a deny on the second holds for the second only.
+    const rules = await toolRules({ ...deps, servers }, root)
+    expect(rules.filter(rule => rule.tool === 'run').map(rule => rule.server)).toEqual(['my-server', 'my-server-2'])
+    await setToolRule(deps, { rootPath: root, server: 'my-server-2', tool: 'run', decision: 'deny' })
+    const denied = policyDeniedToolNames(root)
+    expect(denied).toContain('mcp__my-server-2__run')
+    expect(denied).not.toContain('mcp__my-server__run')
+    expect(threadMcpArguments('claude', [], '/bridge.cjs', managed, [], undefined, denied).join(' ')).toContain('--disallowedTools mcp__my-server-2__run')
+    const codex = threadMcpArguments('codex', [], '/bridge.cjs', managed, [], undefined, denied)
+    expect(codex).toContain('mcp_servers.my-server-2.disabled_tools=["run"]')
+    expect(codex.filter(argument => argument.startsWith('mcp_servers.my-server.'))).toEqual([])
+    const after = await toolRules({ ...deps, servers }, root)
+    expect(find(after, 'my-server-2', 'run')).toMatchObject({ decision: 'deny', source: 'project', scope: 'everywhere' })
+    expect(find(after, 'my-server', 'run')).toMatchObject({ decision: 'ask' })
+  })
+
+  it('serves a project that exists only in conversations, with no Code workspace', async () => {
+    const { root, db, deps, policyFile, readPolicy, audit } = project('conversation')
+    insertAt(db, 'g', 'GitHub', 1, 'create_issue')
+    const rules = await toolRules(deps, root)
+    expect(find(rules, 'github', 'create_issue')).toMatchObject({ decision: 'ask', source: 'default', editable: true })
+    expect(existsSync(join(root, '.oxespace'))).toBe(false)
+    const after = await setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'deny' })
+    expect(readPolicy().rules).toEqual([{ effect: 'deny', action: 'tool.use', resource: 'mcp__github__create_issue' }])
+    expect(find(after, 'github', 'create_issue')).toMatchObject({ decision: 'deny', source: 'project', editable: true, scope: 'everywhere' })
+    expect(audit()).toEqual([['configuration', 'Blocked the MCP tool github/create_issue in .oxespace/policy.json']])
+    expect(policyDeniedToolNames(root)).toContain('mcp__github__create_issue')
+    // And back, through the same file.
+    await setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'ask' })
+    expect(readPolicy().rules).toEqual([])
+    expect(existsSync(policyFile)).toBe(true)
   })
 })
 

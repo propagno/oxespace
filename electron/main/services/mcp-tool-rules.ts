@@ -11,11 +11,11 @@ import type { AppDatabase } from '../db'
 import { evaluatePolicy, parsePolicy, type LoadedPolicy, type PolicyRule } from '../../../shared/policy'
 import { MCP_COVERAGE } from '../../../shared/mcp-coverage'
 import type { MessageParams } from '../../../shared/messages'
-import { serverKey } from '../../../shared/types/mcp'
 import { MCP_TOOL_DECISIONS, type McpToolDecision, type McpToolRule, type McpToolRuleRefusalCode } from '../../../shared/types/mcp-tools'
 import type { ThreadPermissionRule } from '../../../shared/types/thread'
 import type { FileSystemService } from './file-system.service'
 import { ThreadPermissionStore } from './conversation/thread-permissions'
+import { mcpServerKeys } from './mcp-keys'
 import { parseGuard } from './mcp-pin'
 import { policyStore } from './policy'
 import type { PolicyStore } from './policy/policy-store'
@@ -33,7 +33,7 @@ export interface ToolRulesDeps {
   db: AppDatabase
   files: FileSystemService
   policy?: PolicyStore | null
-  servers?: { list(workspaceId: string | null): Array<{ name: string; key?: string; workspaceId: string | null; tools: Array<{ name: string }> }> }
+  servers?: { list(workspaceId: string | null): Array<{ id: string; name: string; workspaceId: string | null; tools: Array<{ name: string }> }> }
 }
 
 /** A refusal the window turns into words (C3): the message is the code, one of `MCP_TOOL_RULE_REFUSAL_CODES`. */
@@ -61,19 +61,25 @@ function registeredProject(db: AppDatabase, rootPath: string): string | null {
 
 const isInternal = (server: { name: string; workspaceId: string | null }) => server.name === 'oxespace' && server.workspaceId === null
 
-/** Tools of the servers configured for the project (global and its workspaces'), as last seen. */
+/**
+ * Tools of the servers configured for the project (global and its workspaces'), as last seen, under the key a
+ * conversation of the project gives each server (mcp-keys.ts, over the same scope), so a rule on the key holds there.
+ */
 function configuredTools(deps: ToolRulesDeps, rootPath: string): Array<[string, string]> {
   const workspaces = (deps.db.prepare('SELECT id FROM workspaces WHERE root_path = ?').all(rootPath) as { id: string }[]).map(row => row.id)
-  const rows = deps.db.prepare(`SELECT name, workspace_id, guard_json FROM mcp_servers WHERE workspace_id IS NULL${workspaces.length ? ` OR workspace_id IN (${workspaces.map(() => '?').join(', ')})` : ''}`)
-    .all(...workspaces) as { name: string; workspace_id: string | null; guard_json: string | null }[]
+  const keys = mcpServerKeys(deps.db, workspaces)
+  const rows = deps.db.prepare(`SELECT id, name, workspace_id, guard_json FROM mcp_servers WHERE workspace_id IS NULL${workspaces.length ? ` OR workspace_id IN (${workspaces.map(() => '?').join(', ')})` : ''}`)
+    .all(...workspaces) as { id: string; name: string; workspace_id: string | null; guard_json: string | null }[]
   const found: Array<[string, string]> = []
   for (const row of rows) {
-    if (isInternal({ name: row.name, workspaceId: row.workspace_id })) continue
-    for (const tool of parseGuard(row.guard_json)?.tools ?? []) found.push([serverKey(row.name), tool.name])
+    const key = keys.get(row.id)
+    if (!key || isInternal({ name: row.name, workspaceId: row.workspace_id })) continue
+    for (const tool of parseGuard(row.guard_json)?.tools ?? []) found.push([key, tool.name])
   }
   for (const workspaceId of workspaces.length ? workspaces : [null]) {
     for (const server of deps.servers?.list(workspaceId) ?? []) {
-      if (!isInternal(server)) for (const tool of server.tools) found.push([server.key ?? serverKey(server.name), tool.name])
+      const key = keys.get(server.id)
+      if (key && !isInternal(server)) for (const tool of server.tools) found.push([key, tool.name])
     }
   }
   return found

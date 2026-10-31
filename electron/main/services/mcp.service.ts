@@ -18,7 +18,7 @@ import type {
   McpTransport,
   UpdateMcpServerInput
 } from '../../../shared/types/mcp'
-import { serverKey } from '../../../shared/types/mcp'
+import { mcpServerKeys } from './mcp-keys'
 import { McpConfigSync } from './mcp-sync.service'
 import { inheritedEnvironment } from './policy'
 import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
@@ -154,12 +154,14 @@ export class McpManager {
          ORDER BY workspace_id IS NULL DESC, name ASC`
       )
       .all(workspaceId) as McpServerRow[]
-    return rows.map((row) => this.hydrateServer(mapRow(row)))
+    const keys = mcpServerKeys(this.db, workspaceId ? [workspaceId] : [])
+    return rows.map((row) => this.hydrateServer(mapRow(row, keys.get(row.id))))
   }
 
   /** For the diagnostics panel (B8.3): counts only, no names or commands. */
   healthCounts(): { total: number; healthy: number; quarantined: number; failing: number } {
-    const servers = (this.db.prepare('SELECT * FROM mcp_servers').all() as McpServerRow[]).map(row => this.hydrateServer(mapRow(row)))
+    // Counts only: no key is needed, and none leaves here.
+    const servers = (this.db.prepare('SELECT * FROM mcp_servers').all() as McpServerRow[]).map(row => this.hydrateServer(mapRow(row, undefined)))
     const quarantined = servers.filter(server => server.guard?.quarantine).length
     return { total: servers.length, healthy: servers.filter(server => server.health === 'healthy').length, quarantined,
       failing: servers.filter(server => server.health === 'unhealthy' && !server.guard?.quarantine).length }
@@ -167,7 +169,7 @@ export class McpManager {
 
   get(id: string): McpServer | null {
     const row = this.db.prepare('SELECT * FROM mcp_servers WHERE id = ?').get(id) as McpServerRow | undefined
-    return row ? this.hydrateServer(mapRow(row)) : null
+    return row ? this.hydrateServer(mapRow(row, mcpServerKeys(this.db, row.workspace_id ? [row.workspace_id] : []).get(row.id))) : null
   }
 
   create(input: CreateMcpServerInput): McpServer {
@@ -617,12 +619,13 @@ export class McpManager {
   }
 }
 
-function mapRow(row: McpServerRow): McpServer {
+/** `key` is the server's key in its scope (mcp-keys.ts): the global servers with its workspace's. */
+function mapRow(row: McpServerRow, key: string | undefined): McpServer {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
     name: row.name,
-    key: serverKey(row.name),
+    key,
     transport: row.transport,
     config: JSON.parse(row.config_json) as McpServerConfig,
     enabled: row.enabled === 1,

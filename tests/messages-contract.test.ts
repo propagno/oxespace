@@ -194,6 +194,8 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of an approval answer its own code', () => {
     for (const refusal of APPROVAL_REFUSALS) expect(isMessageCode(`approvals.refused.${refusal}`), refusal).toBe(true)
+  })
+
   it('gives every refusal of a tool rule a code (B7.3)', () => {
     for (const refusal of MCP_TOOL_RULE_REFUSAL_CODES) expect(isMessageCode(refusal), refusal).toBe(true)
   })

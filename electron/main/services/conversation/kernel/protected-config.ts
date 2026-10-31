@@ -1,21 +1,26 @@
 /**
- * Files that steer an agent: its instructions, its MCP servers and its hooks.
+ * Files that steer an agent: its instructions, its MCP servers, its hooks, and the project's policy.
  *
  * Text an agent reads (a web page, an issue, a file in a cloned repository) can try to make it rewrite
  * these, so that the next session, or another agent, starts under someone else's orders: an injection
  * that outlives the conversation it arrived in. A change to one of them is never approved by a saved
  * rule, by the built-in lists or by "allow for this session"; a person looks at it each time.
  *
+ * The policy file holds the tools the person blocked (Settings › Tools, B7.3), so an agent must not be
+ * able to lift its own deny under a rule that allows the folder; `oxe.yaml` holds which tool groups a
+ * conversation is offered.
+ *
  * Pure: it reasons about path and command text only.
  */
 import { baseName, splitShellCommand, tokenize } from '../shell-command-rules'
 
-export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks'
+export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks' | 'policy'
 
 export const PROTECTED_CONFIG_LABEL: Record<ProtectedConfigKind, string> = {
   instructions: 'agent instructions',
   mcp: 'MCP server settings',
-  hooks: 'agent hooks'
+  hooks: 'agent hooks',
+  policy: 'the project\'s policy and tool rules'
 }
 
 const NAMES: Record<string, ProtectedConfigKind> = {
@@ -26,11 +31,13 @@ const NAMES: Record<string, ProtectedConfigKind> = {
   '.cursorrules': 'instructions',
   '.windsurfrules': 'instructions',
   'copilot-instructions.md': 'instructions',
-  '.mcp.json': 'mcp'
+  '.mcp.json': 'mcp',
+  'oxe.yaml': 'policy'
 }
 
 /** Matched against the whole path, lower-cased, with forward slashes. */
 const PLACES: Array<{ kind: ProtectedConfigKind; pattern: RegExp }> = [
+  { kind: 'policy', pattern: /(^|\/)\.oxespace\/policy\.json$/ },
   { kind: 'hooks', pattern: /(^|\/)\.claude\/settings(\.local)?\.json$/ },
   { kind: 'hooks', pattern: /(^|\/)\.claude\/hooks\// },
   { kind: 'hooks', pattern: /(^|\/)\.codex\/hooks(\.json|\/)/ },
