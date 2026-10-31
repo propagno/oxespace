@@ -1,6 +1,6 @@
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, type LucideIcon } from 'lucide-react'
+import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, ShieldAlert, type LucideIcon } from 'lucide-react'
 import { Menu } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
@@ -58,6 +58,8 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import './CodeChrome.css'
 import { i18n } from '../../i18n'
 import { useTranslation } from 'react-i18next'
+import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
+import { quarantinedCount } from '../MCP/mcpQuarantine'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -169,6 +171,8 @@ function WorkspaceSurfaceComponent({
   // follow the active pane, and each header names what it is reading.
   const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] === true)
   const openConnections = useUIStore((s) => s.openMcpPanel)
+  const workspaceMcp = useMcpStore(useMemo(() => selectMcpServers(workspace.id), [workspace.id]))
+  const quarantinedMcp = quarantinedCount(workspaceMcp)
   // …including a worktree the pane's agent moved into, as reported by its hooks.
   const activeLocation = useTerminalStore((s) => (activePaneId ? s.panes[activePaneId]?.location : null) ?? null)
   const panelScope = useMemo(
@@ -495,8 +499,9 @@ function WorkspaceSurfaceComponent({
       {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} className="workspace-topbar-action" />)}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
         trigger={<button type="button" className="workspace-topbar-action" aria-label={tc('panels.more')} title={tc('panels.more')}><PanelsTopLeft size={14} aria-hidden="true" /><span>{tc('panels.menu')}</span></button>} />}
-      <button type="button" className="workspace-topbar-action" aria-label={tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections}>
+      <button type="button" className="workspace-topbar-action" aria-label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} data-testid="workspace-topbar-mcp">
         <PlugZap size={14} aria-hidden="true" /><span>MCP</span>
+        {quarantinedMcp > 0 ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid="workspace-topbar-mcp-quarantined"><ShieldAlert size={10} />{quarantinedMcp}</span> : null}
       </button>
       <button type="button" className="workspace-topbar-action" aria-label={tc('workspace.topbar.activity')} title={tc('tools.background.detail')} aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
         <Activity size={14} aria-hidden="true" /><span>{tc('workspace.topbar.activityShort')}</span>

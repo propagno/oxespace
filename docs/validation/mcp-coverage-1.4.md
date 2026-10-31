@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 28 | 1 | 11 | 77 |
+| 37 | 30 | 2 | 14 | 83 |
 
 The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
 manifest declares 154 tool-or-action entries.
