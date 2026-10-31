@@ -51,6 +51,13 @@
       "server": {
         "quarantined": "Em quarentena: ele mudou depois que você confiou nele. Revise e confie de novo para usá-lo.",
         "untrusted": "Ainda não confiável. Revise o comando e confie nele antes de testar."
+      },
+      "toolGroups": {
+        "unknownProject": "Esta pasta não é um projeto que o OXESpace conhece. Abra-a como workspace ou adicione-a ao OxeChat antes.",
+        "invalidYaml": "O oxe.yaml deste projeto não é um YAML válido. Corrija-o à mão e tente de novo.",
+        "notMapping": "O oxe.yaml deste projeto não é uma lista de configurações. Corrija-o à mão e tente de novo.",
+        "inlineThread": "thread está escrito em uma linha no oxe.yaml. Defina os grupos de ferramentas em thread.tools à mão.",
+        "unsafeEdit": "Não foi possível mudar o oxe.yaml sem mexer em outras configurações. Defina os grupos de ferramentas em thread.tools à mão."
       }
     },
     "thread": {
@@ -60,19 +67,6 @@
         "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
         "unanswered": "Responda a todas as perguntas antes de continuar.",
         "guardedDecision": "Uma alteração em instruções de agente, configurações MCP ou hooks é aprovada uma vez, nunca para a sessão. Responda de novo."
-      },
-      "side": {
-        "unavailable": "Este agente ainda não abre um chat lateral.",
-        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
-      },
-      "sections": {
-        "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
-        "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",
-        "nameEmpty": "Dê um nome à seção.",
-        "nameTooLong": "O nome de uma seção tem no máximo {{max}} caracteres.",
-        "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
-        "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
-        "unknownWorkspace": "Este workspace não existe mais."
       },
       "commands": {
         "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
@@ -91,18 +85,40 @@
       "queue": {
         "deliveryUnconfirmed": "Não foi possível confirmar a entrega desta mensagem."
       },
+      "side": {
+        "unavailable": "Este agente ainda não abre um chat lateral.",
+        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
+      },
       "protectedConfig": {
         "instructions": "\"{{path}}\" guarda instruções de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
         "mcp": "\"{{path}}\" guarda configurações de servidor MCP. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
         "hooks": "\"{{path}}\" guarda hooks de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
         "warning": "Um texto que o agente leu (uma página, uma issue, um arquivo) pode estar dirigindo esta alteração. Confira se foi você quem pediu.",
         "rewritesTracked": "{{command}} reescreve arquivos versionados sem nomeá-los, e instruções de agente, configurações MCP ou hooks podem estar entre eles, então precisa da sua confirmação a cada vez."
+      },
+      "sections": {
+        "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
+        "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",
+        "nameEmpty": "Dê um nome à seção.",
+        "nameTooLong": "O nome de uma seção tem no máximo {{max}} caracteres.",
+        "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
+        "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
+        "unknownWorkspace": "Este workspace não existe mais."
       }
     },
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
       }
+    },
+    "activity": {
+      "invalid": "Não foi possível salvar esta atividade. Recarregue o app e tente de novo.",
+      "tooMany": "No máximo {{max}} entradas de atividade podem ser salvas de uma vez.",
+      "titleTooLong": "O título de uma atividade tem no máximo {{max}} caracteres.",
+      "detailTooLong": "O detalhe de uma atividade tem no máximo {{max}} caracteres.",
+      "hiddenCharacters": "O texto de uma atividade não pode ter caracteres de controle ou invisíveis.",
+      "future": "Esta atividade tem data no futuro. Confira o relógio do computador.",
+      "secret": "Esta atividade não foi salva porque o texto parece uma senha, token ou chave."
     },
     "remote": {
       "port": {
@@ -393,6 +409,11 @@
         "runtime": "Eventos recentes de execução, redigidos",
         "versions": "Versões do app, do Electron, do Chrome, do Node e do sistema",
         "configuration": "Configurações que ajudam no diagnóstico, sem segredos"
+      }
+    },
+    "project": {
+      "file": {
+        "changedMeanwhile": "{{file}} mudou no disco depois de ser lido. Nada foi salvo; tente de novo."
       }
     },
     "workspace": {
