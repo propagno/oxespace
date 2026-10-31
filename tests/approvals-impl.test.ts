@@ -158,6 +158,22 @@ describe('attention when a request waits (B10 R3)', () => {
   })
 })
 
+describe('stopping the attention signal (B10 S4)', () => {
+  it('stops flashing when the window gains focus, and on endAttention', async () => {
+    const { askForAttention, endAttention } = await import('../electron/main/services/approvals/attention')
+    let onFocus: (() => void) | undefined
+    const window = { isFocused: () => false, flashFrame: vi.fn(), once: vi.fn((_event: 'focus', listener: () => void) => { onFocus = listener }) }
+    askForAttention([window], { supported: () => false, show: vi.fn(), title: async () => '' })
+    expect(window.flashFrame).toHaveBeenLastCalledWith(true)
+    expect(window.once).toHaveBeenCalledWith('focus', expect.any(Function))
+    onFocus!()
+    expect(window.flashFrame).toHaveBeenLastCalledWith(false)
+    const other = { isFocused: () => true, flashFrame: vi.fn() }
+    endAttention([other])
+    expect(other.flashFrame).toHaveBeenCalledWith(false)
+  })
+})
+
 describe('refusals agents read (B10)', () => {
   it('are the C3 catalog sentence in English', () => {
     expect(englishText(mainMessage('agents.name.reserved', { name: 'OXESpace' }))).toBe('A pane cannot be named after "OXESpace"; that name belongs to the app.')
