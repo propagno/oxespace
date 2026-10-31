@@ -158,14 +158,20 @@ export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom'
   // a divider would start a drag on a click in the menu, an arrow key would resize, a tree row would open its file.
   const contain = (event: SyntheticEvent): void => { event.stopPropagation() }
   const containKeys = (event: KeyboardEvent<HTMLDivElement>): void => { if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation() }
+  const content = useRef<HTMLDivElement>(null)
+  // The menu is opened from code, so the keyboard lands on its first item, the way a menu opened by a key does.
+  const focusFirstItem = (): void => { requestAnimationFrame(() => content.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus()) }
   return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
     <RadixMenu.Trigger asChild><span className={styles.menuAnchor} aria-hidden="true" tabIndex={-1} /></RadixMenu.Trigger>
     <RadixMenu.Portal>
-      <RadixMenu.Content className={cx(styles.floating, styles.menu)} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-labelledby={undefined} aria-label={label}
+      <RadixMenu.Content ref={content} className={cx(styles.floating, styles.menu)} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-labelledby={undefined} aria-label={label}
+        onOpenAutoFocus={event => { event.preventDefault(); focusFirstItem() }}
         onCloseAutoFocus={event => { const target = returnFocus?.(); if (target) { event.preventDefault(); target.focus() } }}
-        // Focus on the element the menu belongs to is not "outside": reopened right after a close, the earlier close
-        // hands focus back to it a moment later, and that must not dismiss the menu just opened (a Windows CI race).
-        onFocusOutside={event => { const owner = returnFocus?.(); if (owner && event.target instanceof Node && owner.contains(event.target)) event.preventDefault() }}
+        // Focus landing on the element a menu belongs to (its owner: a divider, a grip, a tree row, whichever element
+        // `returnFocus` names) is not "outside". A menu reopened right after a close receives the earlier close's
+        // focus hand-back a moment later; that must not dismiss it (a Windows CI race), and the keyboard goes back to
+        // the first item, so the menu stays walkable instead of standing open with focus on the owner.
+        onFocusOutside={event => { const owner = returnFocus?.(); if (owner && event.target instanceof Node && owner.contains(event.target)) { event.preventDefault(); focusFirstItem() } }}
         onPointerDown={contain} onPointerUp={contain} onMouseDown={contain} onClick={contain} onDoubleClick={contain} onContextMenu={contain} onKeyDown={containKeys}>
         {menuItems(items)}
       </RadixMenu.Content>

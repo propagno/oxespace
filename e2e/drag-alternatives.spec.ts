@@ -58,6 +58,8 @@ test('dividers and the file tree work without dragging', async () => {
       await expect(divider).toBeFocused()
       await page.keyboard.press(key)
       await expect(dividerMenu).toBeVisible()
+      // A menu a keyboard user can walk: its first item holds the focus, also after the earlier menu's focus hand-back.
+      await expect(dividerMenu.getByRole('menuitem').first()).toBeFocused()
       await page.keyboard.press('Escape')
       await expect(dividerMenu).toHaveCount(0)
     }
