@@ -91,6 +91,7 @@
         "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",
         "mcp": "\"{{path}}\" holds MCP server settings. A change there steers every later session, so it needs your confirmation each time.",
         "hooks": "\"{{path}}\" holds agent hooks. A change there steers every later session, so it needs your confirmation each time.",
+        "policy": "\"{{path}}\" holds the project's agent policy and tool groups, including the tools you blocked. A change there steers every later session, so it needs your confirmation each time.",
         "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
       }
