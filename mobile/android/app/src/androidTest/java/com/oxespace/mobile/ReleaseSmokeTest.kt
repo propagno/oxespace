@@ -39,7 +39,11 @@ class ReleaseSmokeTest {
     @Test
     fun readsEveryKindOfDesktopFrame() {
         val hello = (read("""{"type":"hello","versions":[1],"desktopName":"Studio","challenge":"$challenge"}""") as FrameRead.Ok).frame
-        assertEquals(RemoteHelloFrame(versions = listOf(1L), desktopName = "Studio", challenge = challenge), hello)
+        // Only what the app itself reads: a constructor it never calls is rightly gone from the shrunk build.
+        hello as RemoteHelloFrame
+        assertEquals(listOf(1L), hello.versions)
+        assertEquals("Studio", hello.desktopName)
+        assertEquals(challenge, hello.challenge)
 
         val ack = (read("""{"type":"ack","id":"a1","result":{"accessToken":"t","expiresInMs":900000}}""") as FrameRead.Ok).frame
         assertEquals("a1", (ack as RemoteAckFrame).id)
