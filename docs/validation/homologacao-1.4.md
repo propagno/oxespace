@@ -170,6 +170,8 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Contrato `remote.*` (B9) | #174 | BACKEND | Homologado (contrato; na `main` 0809c08c) |
 | Profundidade do quadro C5 + WebGL sob demanda | #226 | BACKEND + FRONTEND | Homologado (na `main` fc07f5e9/7e2dfdd5) |
 | Contrato B10 `approvals.*` | #235 | BACKEND | Homologado (contrato; na `main` 7e2dfdd5), com nota sobre nomes de sistema |
+| F19 split além dos presets | #240 | FRONTEND | Homologado (na `main` c4a4d84d) |
+| Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado com ressalvas (d0b09011): 9 de 9 fechados; restam Administração, distros/GNOME, root/sudo, Security/Segurança |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -438,6 +440,41 @@ no `readRemoteFrame` (por exemplo, 64 níveis), com teste.
   sistema operacional. Critério de aceite sugerido: nomes de SO e de fornecedor (Windows, Microsoft, Ubuntu, Linux,
   macOS, Apple) por contenção; "Sistema", "System", "Administrador" e "Administrator" como palavra inicial; e
   "Thread" reservado.
+
+### F19 split além dos presets (#240): Homologado
+
+- Pré-homologação no PR mesclado com a `main`, em pt-BR, no mock (dark) e no app real (light), em `pre-240`:
+  - layout de 16 painéis, depois "Dividir à direita";
+  - `Ctrl+Shift+\` 5 vezes;
+  - "Dividir à direita" de novo, depois layout 1 e layout 16.
+
+  A janela fica de pé, sem boundary e sem erro de console, e a paleta reabre. Com o layout dividido ligado, o split
+  cresce para 17 e depois 23 painéis, igual à `main` anterior.
+- Na `main` c4a4d84d, a sequência B (layout dividido desligado → 16 painéis → dividir à direita), que derrubava a
+  janela, agora mantém os 16 painéis. Aparece o aviso traduzido "This pane cannot be split here · Every place in this
+  layout is taken…", e a paleta reabre. Captura em `audit-menus/sequence-sequence-b.json-0-2.png`.
+- Observações, sem bloquear:
+  - Na pré-homologação, logo depois de voltar para 16 painéis, os títulos repetiam ("Terminal 3" três vezes) e os
+    painéis vinham vazios. Depois de 4 s ficou igual à `main`, então era só a inicialização.
+  - Numa das execuções, o painel 1 ficou em branco depois dos 4 s, enquanto na `main` mostrava o prompt. Aconteceu
+    uma vez só; fica para observar.
+  - O toast novo não é mais `[data-sonner-toast]`, e os roteiros de feedback precisam de um seletor por papel.
+
+### Nomes reservados de SO e fornecedor (#247): Pré-homologado com ressalvas
+
+A sonda tem 88 nomes, em `probes/reserved-names-probe.mts.txt` (rodar com `npx jiti`).
+- Os 9 que passavam no #235 agora são pegos.
+- As imitações de produto continuam pegas, e também:
+  - "W i n d o w s", "Wind0ws" e "Windows" fullwidth;
+  - "Microsoft-Teams", "MacOS Updater", "Linux kernel", "Sistema-op", "admin-bot" e "App Store".
+- Passam corretamente, porque o critério é palavra inteira: Windowsill, Microsoftware, Linuxbrew, Apps, Appium,
+  Codex, Codespace, Chatbot, Code Reviewer, Thread helper e My System.
+- Ressalvas enviadas ao BACKEND:
+  1. "Administração" passa, enquanto "Administrador" é pego (Admin* não se aplica com ç/ã).
+  2. Debian, Fedora e "GNOME Keyring" passam.
+  3. "root" e "sudo" passam, e são o pedido de privilégio clássico do Linux.
+  4. "Security" e "Segurança" sozinhos passam.
+  5. Nota baixa: "OxeBot" e "OXE" passam (prefixo da família de produtos).
 
 ### Achados fora dos itens da onda
 

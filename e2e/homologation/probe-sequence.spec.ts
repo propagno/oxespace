@@ -27,14 +27,14 @@ test(`sequence ${START}..${END}`, async () => {
       const before = consoleErrors.length
       if (await option.isVisible().catch(() => false)) await option.click()
       await page.waitForTimeout(700)
-      log.push({ i, item: item.text, newErrors: consoleErrors.slice(before) })
+      log.push({ i, item: item.text, newErrors: consoleErrors.slice(before), toasts: await page.locator('[data-sonner-toast]').allInnerTexts().catch(() => []), panes: await page.locator('.xterm').count() })
       writeFileSync(out, JSON.stringify(log, null, 2))
     }
     for (let k = 0; k < 3; k++) await page.keyboard.press('Escape')
     await page.keyboard.press('Control+k')
     const reopened = await page.locator('[cmdk-root]').waitFor({ timeout: 3_000 }).then(() => true, () => false)
-    const state = await page.evaluate(() => ({ focus: `${document.activeElement?.tagName} ${String((document.activeElement as HTMLElement)?.className ?? '').slice(0, 80)}`, dialogs: [...document.querySelectorAll('[role="dialog"]')].map(d => d.getAttribute('aria-label')), panes: document.querySelectorAll('.xterm').length }))
+    const state = await page.evaluate(() => ({ focus: `${document.activeElement?.tagName} ${String((document.activeElement as HTMLElement)?.className ?? '').slice(0, 80)}`, dialogs: [...document.querySelectorAll('[role="dialog"]')].map(d => d.getAttribute('aria-label')), panes: document.querySelectorAll('.xterm').length, toasts: [...document.querySelectorAll('[data-sonner-toast]')].map(t => (t.textContent ?? '').trim().slice(0, 200)) }))
     log.push({ end: true, reopened, state })
-    await page.screenshot({ path: out.replace('.json', '.png') })
+    await page.screenshot({ path: out.replace(/.json$/, '.png') })
   } finally { writeFileSync(out, JSON.stringify(log, null, 2)); await app.close() }
 })
