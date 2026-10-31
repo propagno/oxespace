@@ -2,6 +2,9 @@ import { shell } from 'electron'
 import { recordIncident } from '../services/diagnostics/incident-sink'
 import { externalUrlRefusal } from './external-url'
 
+// The main window imports the URL rules it navigates by from here, with the opener, in one line.
+export { isAppNavigation, isLoopbackHttpUrl } from './external-url'
+
 /** Refusals recorded per minute; past that, one rate-limited incident says a burst is going on. */
 export const EXTERNAL_REFUSALS_PER_MINUTE = 20
 
