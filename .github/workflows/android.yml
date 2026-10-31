@@ -8,16 +8,20 @@ on:
     paths:
       - "mobile/android/**"
       - "shared/remote/**"
-      - "shared/locales/**"
+      - "shared/locales/*/mobile.json"
       - "src/design/tokens/**"
+      - "scripts/android/**"
       - ".github/workflows/android.yml"
   pull_request:
     branches: [main]
+    # Only the locale catalogs the app is generated from (shared/locales/<lang>/mobile.json), not every
+    # desktop string; and the generator itself, which the push list above also gets.
     paths:
       - "mobile/android/**"
       - "shared/remote/**"
-      - "shared/locales/**"
+      - "shared/locales/*/mobile.json"
       - "src/design/tokens/**"
+      - "scripts/android/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 
