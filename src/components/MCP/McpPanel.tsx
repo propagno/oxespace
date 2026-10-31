@@ -413,7 +413,8 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
             {server.trusted ? <span className="mcp-server-tag">{tc('mcp.trusted')}</span>
               : quarantined ? <span className="mcp-server-tag is-quarantined" data-testid="mcp-quarantine-chip"><ShieldAlert size={11} aria-hidden="true" />{tc('mcp.quarantined')}</span>
               : <span className="mcp-server-tag">{tc('mcp.reviewRequired')}</span>}
-            {server.tools.length > 0 ? <span>{tc('mcp.tools', { count: server.tools.length })}</span> : null}
+            {/* A quarantined server offers no tools, whatever it listed before. */}
+            {quarantined ? <span data-testid="mcp-server-tools">{tc('mcp.toolsQuarantined')}</span> : server.tools.length > 0 ? <span data-testid="mcp-server-tools">{tc('mcp.tools', { count: server.tools.length })}</span> : null}
             {server.healthMessage && server.health !== 'healthy' ? <span className={server.health === 'unhealthy' ? 'mcp-server-err' : undefined}>{server.healthMessage}</span> : null}
           </span>
         </div>

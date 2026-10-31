@@ -162,6 +162,11 @@
         "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda.",
         "ambiguousEscape": "Uma barra invertida num texto pode encerrá-lo antes num servidor com standard_conforming_strings desligado, e então roda mais do que o texto mostra."
       },
+      "session": {
+        "busy": "Esta conexão tem uma transação aberta ou um comando em execução, então não pode ser reaberta agora. Faça commit ou rollback da transação, ou espere o comando terminar, e tente de novo.",
+        "limit": "Esta conexão já tem {{limit}} conexões com o banco abertas. Espere uma terminar e tente de novo.",
+        "agentTransaction": "Um agente não pode abrir uma transação: cada instrução dele roda sozinha. A transação foi desfeita."
+      },
       "mongo": {
         "confirmName": "Esta é uma conexão de produção. Digite o nome dela para alterar este documento.",
         "confirm": "Esta alteração precisa da sua confirmação.",
@@ -224,7 +229,8 @@
         "mcpServer": "Servidor MCP {{server}}",
         "app": "OXESpace",
         "unknownPane": "Agente desconhecido · painel {{pane}}",
-        "unknownConversation": "Agente desconhecido · conversa {{conversation}}"
+        "unknownConversation": "Agente desconhecido · conversa {{conversation}}",
+        "preview": "Automação do Web Preview"
       },
       "option": {
         "deny": "Negar",
@@ -279,7 +285,12 @@
           "releasePublic": "Um release publicado fica visível para todos com acesso ao repositório e pode notificar quem o acompanha."
         },
         "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
-        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app."
+        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app.",
+        "hiddenCharacters": "O texto tem caracteres invisíveis ou que mudam a direção, então o que você vê pode não ser o que roda.",
+        "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar.",
+        "preview": {
+          "notLocal": "Esta página não está no localhost. Ela pode carregar qualquer coisa e vê o que for digitado nela."
+        }
       },
       "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
       "expired": "Ninguém respondeu a tempo, então o pedido foi negado.",
@@ -289,11 +300,17 @@
         "alreadyAnswered": "Este pedido já tem uma resposta.",
         "unknownOption": "Essa resposta não é uma das opções deste pedido.",
         "alreadyReported": "Este pedido já foi informado como não exibido.",
-        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece."
+        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece.",
+        "notShown": "Este pedido ainda não apareceu no app, então não pode ser permitido."
       },
       "denied": {
         "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
-        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores."
+        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores.",
+        "timeout": "Ninguém respondeu a tempo, então foi negado.",
+        "cancelled": "O pedido foi retirado antes de alguém responder."
+      },
+      "notify": {
+        "waiting": "OXESpace: aprovação aguardando"
       }
     },
     "notify": {
@@ -337,7 +354,8 @@
         "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."
       },
       "oxequery": {
-        "timeout": "Um pedido do OxeQuery esgotou o tempo."
+        "timeout": "Um pedido do OxeQuery esgotou o tempo.",
+        "restartDeferred": "O worker do OxeQuery parou de responder. O reinício foi adiado porque uma conexão tem uma transação aberta ou um comando em execução."
       },
       "updater": {
         "failed": "Não foi possível verificar ou instalar uma atualização."
@@ -346,7 +364,10 @@
         "overBudget": "Uma interação demorou mais do que o orçamento."
       },
       "app": {
-        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou."
+        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou.",
+        "closeUnanswered": "A janela não respondeu a um fechamento ou saída em 3 segundos; o app seguiu em frente.",
+        "closeRendererGone": "A janela parou enquanto um fechamento ou saída esperava por ela; o app seguiu em frente.",
+        "closeGuardFailed": "A verificação antes de fechar falhou; o app fechou sem perguntar à janela."
       }
     },
     "diagnostics": {

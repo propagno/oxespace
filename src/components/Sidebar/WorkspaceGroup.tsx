@@ -378,7 +378,7 @@ function RemoveWorkspaceModal({ workspaceName, onCancel, onConfirm }: RemoveWork
 
 function activitySummary(a: WorkspaceActivity): string {
   if (!a.total) return ''
-  const parts = (['thinking', 'awaiting', 'starting', 'error', 'idle', 'exited'] as const)
+  const parts = (['needs-decision', 'thinking', 'awaiting', 'starting', 'error', 'idle', 'exited'] as const)
     .filter(state => a.counts[state]).map(state => i18n.t(`sidebar.activity.${state}`, { ns: 'code', count: a.counts[state] }))
   const agents = i18n.t('sidebar.activity.agents', { ns: 'code', count: a.total })
   return parts.length ? `${agents} · ${parts.join(', ')}` : agents

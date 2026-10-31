@@ -162,6 +162,11 @@
         "tableLock": "VACUUM FULL locks the whole table while it runs.",
         "ambiguousEscape": "A backslash in a string can end it early on a server with standard_conforming_strings off, and then more of this text runs than it shows."
       },
+      "session": {
+        "busy": "This connection has a transaction open or a command running, so it cannot be reopened now. Commit or roll back the transaction, or wait for the command, then try again.",
+        "limit": "This connection already has {{limit}} database connections open. Wait for one to finish, then try again.",
+        "agentTransaction": "An agent cannot open a transaction: each of its statements runs on its own. The transaction was rolled back."
+      },
       "mongo": {
         "confirmName": "This is a production connection. Type its name to change this document.",
         "confirm": "This change needs your confirmation.",
@@ -224,7 +229,8 @@
         "mcpServer": "MCP server {{server}}",
         "app": "OXESpace",
         "unknownPane": "Unknown agent · pane {{pane}}",
-        "unknownConversation": "Unknown agent · conversation {{conversation}}"
+        "unknownConversation": "Unknown agent · conversation {{conversation}}",
+        "preview": "Web Preview automation"
       },
       "option": {
         "deny": "Deny",
@@ -279,7 +285,12 @@
           "releasePublic": "A published release is visible to everyone with access to the repository and may notify watchers."
         },
         "textCut": "The text is longer than {{max}} characters, so only part of it is shown. It cannot be approved.",
-        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app."
+        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app.",
+        "hiddenCharacters": "The text holds invisible or direction-changing characters, so what you see may not be what runs.",
+        "nativeCriticalDenyOnly": "This change is critical, and the system dialog cannot hold Allow back, so it can only be denied here. Open OXESpace to approve it.",
+        "preview": {
+          "notLocal": "This page is not on localhost. It can load anything, and it sees what is typed into it."
+        }
       },
       "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
       "expired": "Nobody answered in time, so the request was denied.",
@@ -289,11 +300,17 @@
         "alreadyAnswered": "This request already has an answer.",
         "unknownOption": "That answer is not one of the options this request offers.",
         "alreadyReported": "This request was already reported as not shown.",
-        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears."
+        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears.",
+        "notShown": "This request has not been shown in the app yet, so it cannot be allowed."
       },
       "denied": {
         "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
-        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps."
+        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps.",
+        "timeout": "Nobody answered in time, so it was denied.",
+        "cancelled": "The request was withdrawn before anyone answered."
+      },
+      "notify": {
+        "waiting": "OXESpace: approval waiting"
       }
     },
     "notify": {
@@ -337,7 +354,8 @@
         "busy": "The local database was busy and a write had to wait."
       },
       "oxequery": {
-        "timeout": "An OxeQuery request ran out of time."
+        "timeout": "An OxeQuery request ran out of time.",
+        "restartDeferred": "The OxeQuery worker stopped answering. Its restart was put off because a connection has a transaction open or a command running."
       },
       "updater": {
         "failed": "An update could not be checked or installed."
@@ -346,7 +364,10 @@
         "overBudget": "An interaction took longer than its budget."
       },
       "app": {
-        "journalReset": "The diagnostics journal was unreadable and started over."
+        "journalReset": "The diagnostics journal was unreadable and started over.",
+        "closeUnanswered": "The window did not answer a close or quit within 3 seconds; the app went ahead.",
+        "closeRendererGone": "The window stopped while a close or quit waited on it; the app went ahead.",
+        "closeGuardFailed": "The check before closing failed; the app closed without asking the window."
       }
     },
     "diagnostics": {

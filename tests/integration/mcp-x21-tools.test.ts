@@ -114,7 +114,7 @@ describe('checkpoints', () => {
     const service = github()
     const { asked, ctx } = setup({ app: { github: service } })
     expect(await call('oxespace_git_change', { action: 'delete_checkpoint', checkpointId: 'c1' }, ctx)).toMatchObject({ ok: true })
-    expect(asked[0]).toMatchObject({ summary: 'pane:p1 wants to delete checkpoint "before refactor"', text: 'Delete checkpoint "before refactor"\nin /repo' })
+    expect(asked[0]).toMatchObject({ summary: expect.objectContaining({ code: 'approvals.summary.mcpConfirm', params: expect.objectContaining({ tool: 'oxespace_git_change', action: 'delete_checkpoint' }) }), text: 'Delete checkpoint "before refactor"\nin /repo' })
     expect(service.deleteCheckpoint).toHaveBeenCalledWith({ checkpointId: 'c1' })
   })
 
@@ -151,7 +151,7 @@ describe('workspace tools behind the policy door', () => {
     const declined = setup({ decide: 'deny' })
     expect(await call('oxespace_remove_worktree', { path: '../wt', force: true }, declined.ctx)).toMatchObject({ ok: false, code: 'denied' })
     expect(declined.asked[0].text).toBe('git worktree remove --force ../wt\nfrom /repo')
-    expect(declined.asked[0].reasons).toContain('--force also discards uncommitted changes.')
+    expect(declined.asked[0].notes).toContainEqual({ code: 'approvals.note.worktree.forceDiscards', params: {} })
     expect(declined.ctx.github.removeWorktree).not.toHaveBeenCalled()
     const approved = setup()
     await call('oxespace_remove_worktree', { path: '../wt' }, approved.ctx)
