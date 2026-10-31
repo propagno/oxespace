@@ -48,6 +48,23 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
 | `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite` |
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
+| `mcp.tool_rules_admin` | `mcpInternal.setToolRule` |
+
+### Per-tool rules (B7.3): where each one holds
+
+Settings › Tools sets, per MCP tool of a project, `allow`, `ask` or `deny` (`electron/main/services/mcp-tool-rules.ts`).
+
+- **`deny`** is `{ "effect": "deny", "action": "tool.use", "resource": "mcp__<server>__<tool>" }` in the project's
+  `.oxespace/policy.json`. It holds everywhere: OxeChat hides the tool at launch (Claude `--disallowedTools`, Codex
+  `disabled_tools` for the servers OXESpace attaches) and declines its approvals; the internal MCP server refuses
+  `tools/call` for an OXESpace tool (`mcp__oxespace-delegation__<tool>`) whatever key the caller's CLI uses, which covers
+  agents in OxeCode terminals.
+- **`allow`** is a project permission rule (`tool`, `<server>/<tool>`). It answers OxeChat approvals only. Agents in
+  OxeCode terminals keep following their own CLI's permissions (`.claude/settings*.json`, Codex approval policy); OXESpace
+  does not write those. An OXESpace tool with any action of the `confirm` level cannot be allowed
+  (`mcp.toolRule.confirmLevel`): it asks the person every time.
+- **`ask`** removes both. Rules from the user or managed policy, and permission rules saved for all projects, are shown
+  as not editable (`mcp.toolRule.locked`) and never written.
 
 ## New in X21
 
@@ -150,6 +167,7 @@ before. Code panes receive the whole registry.
 | `diagnostics.read` | Summary of the incident journal and a snapshot of the app | **read**: `oxespace_diagnostics` (app group): the same Markdown summary as the window's "Ask for an analysis". |
 | `remote.devices_read` | Remote gateway status and paired phones | Excluded: The person's devices, shown in Settings › Devices; agents have no use for them. |
 | `remote.gateway_admin` | Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane | **Forbidden**: Opens a network surface and grants device access. |
+| `mcp.tool_rules_admin` | Choose, per MCP tool, to run it without asking, ask, or block it | **Forbidden**: Approvals and access stay with the person. |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |

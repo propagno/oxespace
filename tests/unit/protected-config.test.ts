@@ -17,8 +17,12 @@ describe('files that steer agents', () => {
       ['.github/copilot-instructions.md', 'instructions'], ['.cursor/rules/style.mdc', 'instructions'],
       ['.mcp.json', 'mcp'], ['apps/web/.mcp.json', 'mcp'], ['.cursor/mcp.json', 'mcp'], ['.codex/config.toml', 'mcp'],
       ['.claude/settings.json', 'hooks'], ['.claude/settings.local.json', 'hooks'], ['.claude/hooks/pre.sh', 'hooks'], ['.git/hooks/pre-commit', 'hooks'], ['.husky/pre-push', 'hooks'],
-      ['/repo/AGENTS.md', 'instructions']
+      ['/repo/AGENTS.md', 'instructions'],
+      // The project's policy (the tools the person blocked, B7.3) and its tool groups.
+      ['.oxespace/policy.json', 'mcp'], ['C:\\repo\\.oxespace\\policy.json', 'mcp'], ['packages/app/.OXESpace/Policy.JSON', 'mcp'],
+      ['oxe.yaml', 'mcp'], ['/repo/oxe.yaml', 'mcp'], ['sub\\OXE.YAML', 'mcp']
     ] as const) expect(protectedConfigKind(path), path).toBe(kind)
+    for (const path of ['policy.json', '.oxespace/other.json', 'oxe.yaml.bak', 'docs/oxe.yaml.md']) expect(protectedConfigKind(path), path).toBeNull()
   })
 
   it('are found in Windows spellings: drive letters, backslashes, a leading dot, mixed slashes and case', () => {
@@ -72,6 +76,16 @@ describe('approvals of changes to those files', () => {
     expect(edit('.claude/hooks/pre.sh', [rule('path', '.claude/**')])).toMatchObject({ decision: 'ask', guarded: true })
   })
 
+  it('ask for the policy file and oxe.yaml under a rule that allows them: an agent cannot lift its own deny (B7.3)', () => {
+    const rules = [rule('path', '.oxespace/**'), rule('path', '**'), rule('path', 'oxe.yaml'), rule('command', 'tee')]
+    const policy = edit('.oxespace/policy.json', rules)
+    expect(policy).toMatchObject({ decision: 'ask', guarded: true })
+    expect(policy!.reasons.join(' ')).toMatch(/MCP server settings/)
+    expect(edit('oxe.yaml', rules)).toMatchObject({ decision: 'ask', guarded: true })
+    expect(evaluatePermission({ kind: 'approval', command: 'tee .oxespace/policy.json' }, '/repo', rules, posix)).toMatchObject({ decision: 'ask', guarded: true })
+    expect(edit('.oxespace/notes.json', rules)).toMatchObject({ decision: 'allow' })
+  })
+
   it('still let a saved deny rule decline them', () => {
     expect(edit('AGENTS.md', [rule('path', 'AGENTS.md', 'deny')])).toMatchObject({ decision: 'deny' })
   })
@@ -110,6 +124,12 @@ describe('the approval card for those files', () => {
     expect(present('Edit', { file_path: '/repo/AGENTS.md' }).decisions).toEqual(['accept', 'decline'])
     expect(present('Write', { file_path: '/repo/.mcp.json' }).suggestions).toEqual([])
     expect(present('Bash', { command: 'tee CLAUDE.md' }).decisions).toEqual(['accept', 'decline'])
+    // The policy file: a session grant taken from its card would let the agent lift the person's deny.
+    for (const path of ['/repo/.oxespace/policy.json', 'C:\\repo\\oxe.yaml']) {
+      const card = present('Edit', { file_path: path })
+      expect(card.decisions, path).toEqual(['accept', 'decline'])
+      expect(card.suggestions, path).toEqual([])
+    }
   })
 
   it('still offers it for ordinary files', () => {

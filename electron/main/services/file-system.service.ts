@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { watch, type FSWatcher } from 'node:fs'
 import { readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
-import { normalize, relative, resolve, sep } from 'node:path'
+import { dirname, normalize, relative, resolve, sep } from 'node:path'
 import type {
   FileSystemFileChangedEvent,
   FileSystemListTreeInput,
@@ -16,6 +16,7 @@ import type {
   FileTreeNode
 } from '../../../shared/types/ipc'
 import { safeJoin } from '../utils/safe-join'
+import { mkdir } from 'node:fs/promises'
 
 export const MAX_TEXT_FILE_BYTES = 2 * 1024 * 1024
 /** Previews stream base64 over IPC, which inflates ~33%; cap higher than text
@@ -142,6 +143,18 @@ export class FileSystemService {
     }
   }
 
+  /** Creates a file that does not exist yet, under the same root checks as writeFile. Not reachable from the window. */
+  async createFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult> {
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, dirname(filePath))
+    if (Buffer.byteLength(input.content, 'utf8') > MAX_TEXT_FILE_BYTES) throw new Error('File is larger than 2 MB')
+    // `wx` fails when the file appeared meanwhile instead of replacing it.
+    await writeFile(filePath, input.content, { encoding: 'utf8', flag: 'wx' })
+    const created = await stat(filePath)
+    return { relativePath: normalizeRelativePath(input.relativePath), size: created.size, mtimeMs: created.mtimeMs }
+  }
+
   async watchFile(input: FileSystemWatchFileInput, onChanged: (event: FileSystemFileChangedEvent) => void): Promise<FileSystemWatchFileResult> {
     const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
     const filePath = safeJoin(rootPath, input.relativePath)
@@ -171,6 +184,19 @@ export class FileSystemService {
     if (entry.timeout) clearTimeout(entry.timeout)
     entry.watcher.close()
     this.watchers.delete(watchId)
+  }
+
+  /**
+   * Creates one folder whose parent already exists inside the root (never a chain of folders), and accepts one that is
+   * already there. The result is checked again, so a link planted meanwhile cannot lead outside. Not reachable from the window.
+   */
+  async createDirectory(input: { workspaceId: string; rootPath: string; relativePath: string }): Promise<void> {
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const directoryPath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, dirname(directoryPath))
+    await mkdir(directoryPath).catch((error: NodeJS.ErrnoException) => { if (error?.code !== 'EEXIST') throw error })
+    await assertCanonicalInside(rootPath, directoryPath)
+    if (!(await stat(directoryPath)).isDirectory()) throw new Error('Path is not a directory')
   }
 
   closeAll(): void {
