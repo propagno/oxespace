@@ -139,7 +139,16 @@
       "test": {
         "connected": "Conectado"
       },
-      "startFailed": "O OxeQuery não iniciou: {{reason}}"
+      "startFailed": "O OxeQuery não iniciou: {{reason}}",
+      "sql": {
+        "copyProgram": "COPY … PROGRAM executa um comando de shell no servidor do banco.",
+        "doBlock": "DO executa código no banco; o efeito não é conhecido antes de rodar.",
+        "callProcedure": "CALL executa um procedimento armazenado; o efeito não é conhecido antes de rodar.",
+        "destructiveInside": "{{statement}} contém {{keyword}}, que pode apagar dados ou objetos.",
+        "rowLock": "FOR UPDATE / FOR SHARE trava as linhas lidas até o fim da transação.",
+        "sessionRole": "SET ROLE muda o usuário da sessão e, com ele, o que os próximos comandos podem fazer.",
+        "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda."
+      }
     },
     "oxepod": {
       "startFailed": "O OxePod não iniciou: {{reason}}"
@@ -164,6 +173,172 @@
         "tls": "O certificado do servidor não foi aceito ({{code}}). O OxePost sempre verifica certificados: confie no certificado neste computador ou use o endereço para o qual ele foi emitido.",
         "failed": "O pedido falhou.",
         "failedWith": "O pedido falhou: {{detail}}"
+      }
+    },
+    "approvals": {
+      "title": {
+        "agent": "Pedido de um agente",
+        "oxequery": "OxeQuery · pedido de um agente",
+        "previewAutomation": "Ação do agente no navegador",
+        "crash": "O OXESpace encontrou um erro inesperado"
+      },
+      "summary": {
+        "mcpConfirm": "Quer executar {{tool}} › {{action}} em {{target}}",
+        "oxequery": {
+          "read": "Quer ler dados",
+          "write": "Quer alterar dados no banco",
+          "action": "Quer executar uma ação no contêiner"
+        },
+        "preview": {
+          "closeTab": "Quer fechar uma aba do navegador",
+          "click": "Quer clicar no Navegador",
+          "fill": "Quer digitar num campo do Navegador",
+          "navigate": "Quer abrir outra página no Navegador",
+          "scroll": "Quer rolar a página no Navegador",
+          "other": "Quer {{action}} no Navegador"
+        },
+        "crash": "O app continua funcionando, mas seu estado não é mais garantido. Reinicie para ficar seguro."
+      },
+      "requester": {
+        "pane": "{{agent}} · painel {{pane}}",
+        "conversation": "{{agent}} · conversa {{conversation}}",
+        "mcpServer": "Servidor MCP {{server}}",
+        "app": "OXESpace",
+        "unknownPane": "Agente desconhecido · painel {{pane}}",
+        "unknownConversation": "Agente desconhecido · conversa {{conversation}}"
+      },
+      "option": {
+        "deny": "Negar",
+        "allowOnce": "Permitir uma vez",
+        "allowSessionReads": "Permitir leituras nesta conexão nesta execução",
+        "closeTab": "Fechar aba",
+        "restart": "Reiniciar",
+        "keepWorking": "Continuar trabalhando"
+      },
+      "note": {
+        "sql": {
+          "removes": "{{statement}} remove objetos ou dados de forma permanente.",
+          "noWhere": "{{statement}} sem cláusula WHERE afeta todas as linhas.",
+          "alterDrop": "ALTER … DROP remove uma coluna, restrição ou objeto.",
+          "withNoWhere": "{{statement}} dentro de WITH não tem cláusula WHERE.",
+          "explainAnalyze": "EXPLAIN ANALYZE executa a instrução.",
+          "selectInto": "SELECT INTO cria uma tabela.",
+          "notReadOnly": "{{statement}} não é uma instrução reconhecida como somente leitura.",
+          "outsideReach": "Chama {{calls}}, que alcança fora do banco (arquivos do servidor, outros servidores, outras sessões ou a configuração do servidor)."
+        },
+        "production": "Esta é uma conexão de produção.",
+        "mongo": {
+          "deletes": "Documentos que serão excluídos: {{count}}.",
+          "changes": "Documentos que serão alterados: {{count}}.",
+          "emptyFilter": "O filtro está vazio: todos os documentos da coleção correspondem."
+        },
+        "agent": {
+          "actsOnPrompt": "Esse agente vai agir sobre este prompt com o próprio acesso.",
+          "turnStopped": "O turno em andamento é interrompido antes."
+        },
+        "thread": {
+          "actsOnMessage": "A outra conversa vai agir sobre esta mensagem com o próprio acesso."
+        },
+        "skill": {
+          "followed": "Todo agente que chamar esta skill segue estas instruções."
+        },
+        "automation": {
+          "runsAlone": "O agente roda sozinho nesta agenda até a automação ser desligada."
+        },
+        "worktree": {
+          "folderDeleted": "A pasta é excluída, com os arquivos não rastreados e ignorados dentro dela.",
+          "forceDiscards": "--force também descarta alterações não commitadas."
+        },
+        "git": {
+          "branchShared": "Outros terminais e conversas nesta pasta vão ver a outra branch."
+        },
+        "checkpoint": {
+          "replaces": "As alterações não commitadas da árvore de trabalho são substituídas."
+        },
+        "github": {
+          "autoMerge": "O pull request é mesclado sozinho quando as verificações e revisões passarem.",
+          "releasePublic": "Um release publicado fica visível para todos com acesso ao repositório e pode notificar quem o acompanha."
+        },
+        "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
+        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app."
+      },
+      "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
+      "expired": "Ninguém respondeu a tempo, então o pedido foi negado.",
+      "refused": {
+        "notPending": "Este pedido já foi respondido, cancelado ou expirou.",
+        "staleGeneration": "Este pedido foi feito de novo desde que apareceu. Responda ao atual.",
+        "alreadyAnswered": "Este pedido já tem uma resposta.",
+        "unknownOption": "Essa resposta não é uma das opções deste pedido.",
+        "alreadyReported": "Este pedido já foi informado como não exibido.",
+        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece."
+      },
+      "denied": {
+        "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
+        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores."
+      }
+    },
+    "notify": {
+      "prefix": {
+        "pane": "{{agent}} no painel {{pane}}: {{title}}",
+        "conversation": "{{agent}} na conversa {{conversation}}: {{title}}",
+        "unknownPane": "Agente desconhecido no painel {{pane}}: {{title}}",
+        "unknownConversation": "Agente desconhecido na conversa {{conversation}}: {{title}}"
+      },
+      "refused": {
+        "reservedName": "Uma notificação não pode usar o nome \"{{name}}\"; ele pertence ao app.",
+        "rateLimit": "Notificações demais: no máximo {{perMinute}} por minuto."
+      }
+    },
+    "agents": {
+      "name": {
+        "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
+      }
+    },
+    "incident": {
+      "window": {
+        "crashed": "A janela travou.",
+        "rendererGone": "A interface parou de responder e foi reiniciada."
+      },
+      "ipc": {
+        "handlerFailed": "Um pedido da janela falhou em segundo plano.",
+        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado."
+      },
+      "agent": {
+        "startFailed": "Um agente não conseguiu iniciar."
+      },
+      "mcp": {
+        "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar."
+      },
+      "database": {
+        "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."
+      },
+      "oxequery": {
+        "timeout": "Um pedido do OxeQuery esgotou o tempo."
+      },
+      "updater": {
+        "failed": "Não foi possível verificar ou instalar uma atualização."
+      },
+      "interaction": {
+        "overBudget": "Uma interação demorou mais do que o orçamento."
+      },
+      "app": {
+        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou."
+      }
+    },
+    "diagnostics": {
+      "bundle": {
+        "fileTooLarge": "Um arquivo do pacote de diagnóstico passa de 8 MB, então nada foi salvo.",
+        "tooLarge": "O pacote de diagnóstico passa de 32 MB, então nada foi salvo."
+      }
+    },
+    "bundle": {
+      "file": {
+        "snapshot": "Processos, armazenamento, conectividade e versões",
+        "incidents": "O diário de incidentes: códigos, áreas e contagens",
+        "logTail": "Últimas linhas do log do app: horário, nível e só as mensagens fixas do próprio app",
+        "runtime": "Eventos recentes de execução, redigidos",
+        "versions": "Versões do app, do Electron, do Chrome, do Node e do sistema",
+        "configuration": "Configurações que ajudam no diagnóstico, sem segredos"
       }
     }
   }
