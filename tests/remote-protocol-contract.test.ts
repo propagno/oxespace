@@ -197,7 +197,7 @@ describe('C5 payloads (M4, M5)', () => {
   })
 
   it('keeps the payload limits the CCR sets, inside a frame', () => {
-    expect(REMOTE_TEXT_LIMITS).toEqual({ itemText: 8_000, detail: 2_000, terminalChunk: 32_000, threadPage: 50, objective: 500 })
+    expect(REMOTE_TEXT_LIMITS).toEqual({ itemText: 8_000, detail: 2_000, terminalChunk: 32_000, threadPage: 50, objective: 500, agentsPage: 200, agentTitle: 200 })
     expect(REMOTE_LIMITS.terminalWriteBytes).toBe(4 * 1024)
     expect(REMOTE_LIMITS.clientIdDedupeMs).toBeGreaterThanOrEqual(10 * 60_000)
     // A terminal chunk, even all 3-byte characters, fits a frame with room for the envelope.

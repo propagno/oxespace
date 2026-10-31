@@ -35,6 +35,7 @@ import {
   type Workspace
 } from '../../shared/types/ipc'
 import type { GitDiff } from '../../shared/types/git'
+import { createAgentsApi } from './agents'
 
 export interface PreloadIpc {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>
@@ -371,6 +372,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       seen: at => ipc.invoke(IPC_CHANNELS.activity.seen, at) as Promise<import('../../shared/types/activity').ActivitySeenResult>,
       resolve: input => ipc.invoke(IPC_CHANNELS.activity.resolve, input) as Promise<import('../../shared/types/activity').ActivityResolveResult>
     },
+    agents: createAgentsApi(ipc),
     oxe: {
       detect: (force) => ipc.invoke(IPC_CHANNELS.oxe.detect, force) as Promise<import('../../shared/types/oxe').OxeDetect>,
       status: (rootPath, force) => ipc.invoke(IPC_CHANNELS.oxe.status, rootPath, force) as Promise<import('../../shared/types/oxe').OxeStatusResult>,

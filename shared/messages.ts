@@ -307,6 +307,20 @@ export interface MessageParams {
   'notify.refused.rateLimit': { perMinute: number }
   /** A pane name an agent chose contains a name only the app uses. */
   'agents.name.reserved': { name: string }
+  /** S7.1 · Refusals of a mark-seen (AGENTS_REFUSALS); a refused call stores nothing. */
+  'agents.refused.invalid': Record<string, never>
+  'agents.refused.notFound': Record<string, never>
+  /** S7.1 · One source of the agents read model could not be read; the others keep updating (§5.3). */
+  'agents.unavailable.pane': Record<string, never>
+  'agents.unavailable.conversation': Record<string, never>
+  'agents.unavailable.delegation': Record<string, never>
+  'agents.unavailable.work': Record<string, never>
+  /** S7.1 · The main-built title of a conversation request on an agent row, by `ThreadRequest.kind` (never the agent's text). */
+  'agents.request.approval': Record<string, never>
+  'agents.request.question': Record<string, never>
+  'agents.request.permissions': Record<string, never>
+  'agents.request.elicitation': Record<string, never>
+  'agents.request.tool': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -522,7 +536,18 @@ export const MESSAGE_CODES = [
   'notify.prefix.unknownConversation',
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
-  'agents.name.reserved'
+  'agents.name.reserved',
+  'agents.refused.invalid',
+  'agents.refused.notFound',
+  'agents.unavailable.pane',
+  'agents.unavailable.conversation',
+  'agents.unavailable.delegation',
+  'agents.unavailable.work',
+  'agents.request.approval',
+  'agents.request.question',
+  'agents.request.permissions',
+  'agents.request.elicitation',
+  'agents.request.tool'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

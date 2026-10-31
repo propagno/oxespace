@@ -353,6 +353,23 @@
     "agents": {
       "name": {
         "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      },
+      "refused": {
+        "invalid": "Couldn't mark this agent as seen.",
+        "notFound": "This agent is no longer listed."
+      },
+      "unavailable": {
+        "pane": "Couldn't read the agents in panes.",
+        "conversation": "Couldn't read the conversations.",
+        "delegation": "Couldn't read the delegations.",
+        "work": "Couldn't read the Agent Work runs."
+      },
+      "request": {
+        "approval": "Wants to run an action",
+        "question": "Has a question for you",
+        "permissions": "Asks for more access",
+        "elicitation": "Needs information from you",
+        "tool": "Wants to use a tool"
       }
     },
     "incident": {

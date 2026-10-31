@@ -46,17 +46,21 @@ export const REMOTE_LIMITS = {
 export const REMOTE_FRAME_TYPES = ['hello', 'auth', 'subscribe', 'unsubscribe', 'event', 'snapshot', 'command', 'ack', 'error'] as const
 export type RemoteFrameType = typeof REMOTE_FRAME_TYPES[number]
 
-/** What the phone can watch. Terminal output is read-only slices of the pane's ring buffer, by sequence. */
-export const REMOTE_SUBSCRIPTIONS = ['workspaces', 'threads', 'thread', 'pendingRequests', 'terminal', 'jobs', 'delegations'] as const
+/**
+ * What the phone can watch. Terminal output is read-only slices of the pane's ring buffer, by sequence. `agents` (S7.1)
+ * is every agent already mapped to the desktop's seven states.
+ */
+export const REMOTE_SUBSCRIPTIONS = ['workspaces', 'threads', 'thread', 'pendingRequests', 'terminal', 'jobs', 'delegations', 'agents'] as const
 export type RemoteSubscription = typeof REMOTE_SUBSCRIPTIONS[number]
 
 /**
  * What the phone can do. `thread.respondRequest` answers a Thread request by id and generation (B1.1) after biometric
  * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop;
- * `thread.history` reads older items of a conversation. Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
- * and is recorded in the desktop's audit with the device id.
+ * `thread.history` reads older items of a conversation; `agent.markSeen` (S7.1) only clears an agent's "finished", as
+ * opening it on the desktop does. Every command counts toward `REMOTE_LIMITS.commandsPerMinute` and is recorded in the
+ * desktop's audit with the device id.
  */
-export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history'] as const
+export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history', 'agent.markSeen'] as const
 export type RemoteCommand = typeof REMOTE_COMMANDS[number]
 
 /** Never a command, a subscription or an argument of the remote protocol. */
@@ -387,7 +391,11 @@ export const REMOTE_TEXT_LIMITS = {
   /** Items per page of a conversation snapshot. */
   threadPage: 50,
   /** Characters of a delegation's objective. */
-  objective: 500
+  objective: 500,
+  /** Rows per page of an `agents` snapshot. */
+  agentsPage: 200,
+  /** Characters of an agent row's title, workspace name and request title. */
+  agentTitle: 200
 } as const
 
 // ---- workspaces: snapshot and every event carry the whole list (it is small) ---------------------------------------
@@ -511,6 +519,70 @@ export interface RemoteJobsData { jobs: RemoteJob[] }
 export interface RemoteDelegation { id: string; workspaceId: string; objective: string; state: string; error?: string; branch?: string; destinationThreadId?: string; updatedAt: number }
 export interface RemoteDelegationsData { delegations: RemoteDelegation[] }
 
+// ---- agents: snapshot, then upserts and removals (S7.1, like `threads`) --------------------------------------------
+//
+// Every agent the person has running, mapped on the desktop by the shared function (shared/agents/agentState.ts), so
+// the phone never maps a state itself. An estimated pane state arrives as `unknown`. Left out on purpose: cwd and
+// paths, session ids, per-row cost (§8 privacy) and the desktop's "Ended recently" (a removed row is gone).
+
+/** The seven states, in their order of precedence and of sorting. */
+export const REMOTE_AGENT_STATES = ['needs-you', 'failed', 'working', 'finished', 'idle', 'stopped', 'unknown'] as const
+export type RemoteAgentState = typeof REMOTE_AGENT_STATES[number]
+
+/** What a row is; also the sources that answer separately. */
+export const REMOTE_AGENT_KINDS = ['pane', 'conversation', 'delegation', 'work'] as const
+export type RemoteAgentKind = typeof REMOTE_AGENT_KINDS[number]
+
+/** The desktop's four risk levels (B10), as words; the phone picks the badge style from the glossary. */
+export const REMOTE_APPROVAL_RISKS = ['low', 'medium', 'high', 'critical'] as const
+export type RemoteApprovalRisk = typeof REMOTE_APPROVAL_RISKS[number]
+
+export interface RemoteAgentRow {
+  /** Stable and opaque: `<kind>:<source id>`. */
+  id: string
+  kind: RemoteAgentKind
+  state: RemoteAgentState
+  /** When it entered this state (epoch ms); for needs-you, when it started waiting. */
+  since: number
+  /** Never a path or an id; cut to `REMOTE_TEXT_LIMITS.agentTitle`. */
+  title: string
+  /** `claude`, `codex`, …; absent when the source has none. */
+  provider?: string
+  /** For grouping; never a path. */
+  workspaceName: string
+  /** The row of the agent that started this one (a delegation, a work run). */
+  parentId?: string
+  /** Conversation rows: Open, Stop and Respond. */
+  threadId?: string
+  /** Pane rows: Open the terminal. */
+  paneId?: string
+  /** Needs-you rows: the first request waiting. */
+  request?: {
+    /** The conversation of the request; absent for a desktop approval outside one. */
+    threadId?: string
+    requestId: string
+    /** Built by the desktop, never the agent's own text. */
+    title: string
+    risk?: RemoteApprovalRisk
+    /** False: "Answer on the computer", no Respond on the phone. */
+    answerable: boolean
+    /** Other requests waiting behind it. */
+    more: number
+  }
+  /** Agent Work runs: "3 of 5 tasks". */
+  tasks?: { done: number; total: number }
+  /** The desktop allows Stop (`thread.interrupt`) from the phone now; v1: running conversations only. */
+  canInterrupt?: boolean
+}
+/**
+ * Snapshot: every agent, in pages of `REMOTE_TEXT_LIMITS.agentsPage`. `unavailable` names the sources that failed this
+ * time (the phone shows the partial notice). `nudgeAfterMs` is the desktop's needs-you timer setting, absent when it is
+ * off: the phone sends its one reminder from a row's `since`.
+ */
+export interface RemoteAgentsSnapshot { agents: RemoteAgentRow[]; unavailable?: RemoteAgentKind[]; nudgeAfterMs?: number }
+/** Event: what changed. `unavailable`, when present, replaces the list the phone holds. */
+export interface RemoteAgentsEvent { upsert?: RemoteAgentRow[]; removed?: string[]; unavailable?: RemoteAgentKind[] }
+
 // ---- commands: args, and ack.result -------------------------------------------------------------------------------
 /**
  * `clientId` is made by the phone once per message and repeated on a resend after reconnecting; the desktop applies a
@@ -534,6 +606,11 @@ export interface RemoteRespondRequestResult { resolution: string }
 export interface RemoteTerminalWriteArgs { paneId: string; data: string }
 /** Older items of a conversation, for scrolling back. `ack.result` is a `RemoteThreadSnapshot` page. */
 export interface RemoteThreadHistoryArgs { threadId: string; beforeSeq: number }
+/**
+ * The phone opened the row or chose "Mark as seen": the same marker as on the desktop, nothing else changes. Not
+ * person-only: it never answers, stops or starts anything. An unknown id is `not-found`.
+ */
+export interface RemoteAgentMarkSeenArgs { agentId: string }
 
 /** The args each command takes. */
 export interface RemoteCommandArgs {
@@ -543,4 +620,5 @@ export interface RemoteCommandArgs {
   'thread.respondRequest': RemoteRespondRequestArgs
   'terminal.write': RemoteTerminalWriteArgs
   'thread.history': RemoteThreadHistoryArgs
+  'agent.markSeen': RemoteAgentMarkSeenArgs
 }

@@ -353,6 +353,23 @@
     "agents": {
       "name": {
         "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
+      },
+      "refused": {
+        "invalid": "Não foi possível marcar este agente como visto.",
+        "notFound": "Este agente não está mais na lista."
+      },
+      "unavailable": {
+        "pane": "Não foi possível ler os agentes dos painéis.",
+        "conversation": "Não foi possível ler as conversas.",
+        "delegation": "Não foi possível ler as delegações.",
+        "work": "Não foi possível ler as execuções do Trabalho dos agentes."
+      },
+      "request": {
+        "approval": "Quer executar uma ação",
+        "question": "Tem uma pergunta para você",
+        "permissions": "Pede mais acesso",
+        "elicitation": "Precisa de informações suas",
+        "tool": "Quer usar uma ferramenta"
       }
     },
     "incident": {

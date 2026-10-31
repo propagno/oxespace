@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 30 | 2 | 15 | 84 |
+| 37 | 30 | 2 | 17 | 86 |
 
 The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
 manifest declares 154 tool-or-action entries.
@@ -51,6 +51,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
 | `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
+| `agents.central` | `agents.overview`, `agents.markSeen` (S7.1: the person's roster of agents and what they have seen; `agents.changed` is an event) |
 
 ## New in X21
 
@@ -160,6 +161,7 @@ before. Code panes receive the whole registry.
 | `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
 | `app.open_external` | Open a link in the system browser or mail app | **Forbidden**: Person-only, like an approval: the window calls it after the person confirmed the link's host. |
 | `app.activity` | The activity center's entries and when the person last looked at them (F30) | **Forbidden**: For 1.4, the person's own notification history: an agent neither reads it nor writes into it. |
+| `agents.central` | The agents central: every agent's state across modes, and marking one as seen (S7.1) | **Forbidden**: For the person: an agent neither reads the roster nor clears what the person has not seen. Agents read their own with oxespace_list_agents and oxespace_delegation_status. |
 | `mcp_internal.tool_groups_admin` | Choose how a project offers each group of OXESpace tools | **Forbidden**: Raises what agents can reach. |
 | `settings.diagnostics` | Diagnostics snapshot, live measurements, problem bundles and reports | Excluded: Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them. |
 | `diagnostics.read` | Summary of the incident journal and a snapshot of the app | **read**: `oxespace_diagnostics` (app group): the same Markdown summary as the window's "Ask for an analysis". |

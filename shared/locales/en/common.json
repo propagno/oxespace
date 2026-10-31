@@ -426,5 +426,18 @@
       "open": "Open",
       "cancel": "Cancel"
     }
+  },
+  "agents": {
+    "state": {
+      "needsYou": "Needs you",
+      "failed": "Failed",
+      "working": "Working",
+      "finished": "Finished",
+      "idle": "Idle",
+      "stopped": "Stopped",
+      "unknown": "Not confirmed",
+      "starting": "Starting",
+      "exited": "Exited"
+    }
   }
 }

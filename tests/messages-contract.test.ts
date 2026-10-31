@@ -3,6 +3,7 @@ import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
 import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
 import { ACTIVITY_REFUSALS } from '../shared/types/activity'
+import { AGENTS_REFUSALS } from '../shared/types/ipc/agents'
 import { APPROVAL_REFUSALS } from '../shared/types/approvals'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
 import { THREAD_SECTIONS_REFUSALS } from '../shared/types/thread-sections'
@@ -223,7 +224,18 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'notify.prefix.unknownConversation': ['conversation', 'title'],
   'notify.refused.reservedName': ['name'],
   'notify.refused.rateLimit': ['perMinute'],
-  'agents.name.reserved': ['name']
+  'agents.name.reserved': ['name'],
+  'agents.refused.invalid': [],
+  'agents.refused.notFound': [],
+  'agents.unavailable.pane': [],
+  'agents.unavailable.conversation': [],
+  'agents.unavailable.delegation': [],
+  'agents.unavailable.work': [],
+  'agents.request.approval': [],
+  'agents.request.question': [],
+  'agents.request.permissions': [],
+  'agents.request.elicitation': [],
+  'agents.request.tool': []
 }
 
 describe('C3 message codes', () => {
@@ -259,6 +271,10 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of a workspace root its own code', () => {
     for (const refusal of WORKSPACE_ROOT_REFUSALS) expect(isMessageCode(`workspace.root.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of a mark-seen its own code', () => {
+    for (const refusal of AGENTS_REFUSALS) expect(isMessageCode(`agents.refused.${refusal}`), refusal).toBe(true)
   })
 
   it('gives every refusal of an approval answer its own code', () => {
