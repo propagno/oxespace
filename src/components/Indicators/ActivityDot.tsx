@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export type ActivityLevel = 'thinking' | 'awaiting' | 'idle' | 'error' | 'exited' | 'starting'
+export type ActivityLevel = 'thinking' | 'needs-decision' | 'awaiting' | 'idle' | 'error' | 'exited' | 'starting'
 
 interface ActivityDotProps {
   level: ActivityLevel
@@ -12,6 +12,9 @@ interface ActivityDotProps {
    * already labelled "agent: <role>").
    */
   ariaLabel?: string
+  /** A status guessed from output timing: drawn weaker (dashed, dimmer) so it is not read as certain. */
+  estimated?: boolean
+  title?: string
 }
 
 
@@ -26,8 +29,8 @@ interface ActivityDotProps {
  * Centralizing the JSX prevents three places (PaneSessionRow, PaneContainer,
  * IntegrationPanel) from drifting on the level → label mapping.
  */
-export function ActivityDot({ level, ariaLabel }: ActivityDotProps): ReactElement {
+export function ActivityDot({ level, ariaLabel, estimated, title }: ActivityDotProps): ReactElement {
   const { t } = useTranslation()
   const label = ariaLabel ?? t(`activityDot.${level}`)
-  return <span className={`pane-activity-dot activity-${level}`} aria-label={label} />
+  return <span className={`pane-activity-dot activity-${level}${estimated ? ' is-estimated' : ''}`} aria-label={label} title={title} />
 }

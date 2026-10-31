@@ -28,6 +28,8 @@ vi.mock('electron', () => ({
 vi.mock('electron-log/main.js', () => ({ default: { transports: { file: { getFile: () => ({ path: join(hooks.userData, 'logs', 'main.log') }) } } } }))
 vi.mock('../electron/main/db', () => ({ resolveAppDatabasePath: () => join(hooks.userData, 'oxespace.sqlite3') }))
 vi.mock('../electron/main/updater', () => ({ getAppUpdateState: () => ({ preferences: { mode: 'auto', channel: 'stable', pinnedVersion: null } }) }))
+// A fixed data volume: on a CI runner the real free space moves between two reads, and the summary compares two reads.
+vi.mock('node:fs/promises', async importOriginal => ({ ...await importOriginal<typeof import('node:fs/promises')>(), statfs: async () => ({ bavail: 20_000_000, bsize: 4096, blocks: 50_000_000 }) }))
 
 import { installIncidentHooks, registerDiagnosticsIpc, resetDiagnosticsIpcForTests } from '../electron/main/ipc/diagnostics.ipc'
 import { APP_READ_TOOLS } from '../electron/main/mcp-internal/app-read-tools'

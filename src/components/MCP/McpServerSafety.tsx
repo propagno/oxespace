@@ -3,6 +3,7 @@ import { useMemo, type ReactElement } from 'react'
 import type { McpServer } from '../../../shared/types/mcp'
 import { launcherPackage } from '../../../shared/mcp-launcher'
 import { scanToolDescriptions } from '../../../shared/mcp-scan'
+import { McpRunsNow } from './McpRunsNow'
 import { useTranslation } from 'react-i18next'
 import { formatMainMessage } from '../../i18n/mainMessage'
 
@@ -24,6 +25,8 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
   const { t } = useTranslation('code')
   const findings = useMemo(() => scanToolDescriptions(server.tools), [server.tools])
   const quarantine = server.guard?.quarantine ?? null
+  // Its command, arguments, environment or URL changed since it was trusted: show what it runs now.
+  const configChanged = Boolean(quarantine?.codes?.some(message => message.code === 'mcp.quarantine.configChanged'))
   const launcher = launcherPackage(server.config)
   const floating = server.trusted && launcher !== null && launcher.version === null
   if (!quarantine && findings.length === 0 && !floating) return null
@@ -36,6 +39,7 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
             <strong>{t('mcp.safety.quarantineTitle')}</strong>
             {quarantineReasons(quarantine).map((reason) => <p key={reason}>{reason}</p>)}
             <p>{t('mcp.safety.quarantineBody')}</p>
+            {configChanged ? <McpRunsNow config={server.config} /> : null}
           </div>
         </div>
       ) : null}
