@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, randomBytes, X509Certificate } from 'node:crypto'
+import { createHash, randomBytes, type KeyObject, type X509Certificate } from 'node:crypto'
 import https from 'node:https'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { networkInterfaces, type NetworkInterfaceInfo } from 'node:os'
@@ -13,9 +13,9 @@ import {
 } from '../../../../shared/remote/protocol'
 import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingOffer } from '../../../../shared/types/remote'
 import { createSecretCipher, type SafeStorageLike } from '../oxequery/secret-cipher'
-import { certificateFingerprint, createGatewayCertificate } from './certificate'
+import { certificateFingerprint, createGatewayCertificate, decodeKeyDer, encodeKeyDer, readCertificateDer, readPrivateKeyDer } from './certificate'
 import { RemoteConnection, type AuthOutcome, type ConnectionHost, type RemoteTopicSource } from './connection'
-import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput } from './inputs'
+import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parsePhoneWriteInput, parseRenameInput, parseSetEnabledInput } from './inputs'
 import { isPrivateAddress, listenAddresses, peerAddress, type ListenAddress } from './network'
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
@@ -58,6 +58,8 @@ interface Running {
   tokens: AccessTokens
 }
 
+interface GatewayMaterial { certificate: X509Certificate; key: KeyObject; fingerprint: string }
+
 class GatewayStartError extends Error {
   constructor(readonly reason: NonNullable<RemoteGatewayStatus['error']>) { super(reason.code) }
 }
@@ -86,6 +88,8 @@ export class RemoteGateway implements ConnectionHost {
   private readonly commandTimes = new Map<string, number[]>()
   private readonly lastSeenWrite = new Map<string, number>()
   private authAudits = { windowStart: 0, count: 0 }
+  /** Panes the person let a phone type into (M5 uses it). Kept only in memory, so it is empty on every launch. */
+  private readonly phoneWritePanes = new Set<string>()
   /** Signs access tokens. Made at each launch and kept only in memory: a restart ends every access token, never a pairing. */
   private readonly tokenKey = randomBytes(32)
   /** `ws` with compression off and the C5 frame cap; it never listens itself, upgrades are handed to it. */
@@ -112,6 +116,7 @@ export class RemoteGateway implements ConnectionHost {
     return {
       enabled: !!running,
       desktopName: this.desktopName,
+      phoneWritePanes: [...this.phoneWritePanes],
       listening: running ? { addresses: running.addresses.map(entry => entry.address), port: running.port } : null,
       fingerprint: running?.fingerprint ?? (der ? certificateFingerprint(der) : null),
       devices: this.store.activeCount(),
@@ -199,6 +204,17 @@ export class RemoteGateway implements ConnectionHost {
     return status
   }
 
+  /** The person lets a phone type into a pane, or stops it. Nothing is stored: a restart stops every pane. */
+  setPhoneWrite(value: unknown): RemoteGatewayStatus {
+    const { paneId, allowed } = parsePhoneWriteInput(value)
+    if (allowed) this.phoneWritePanes.add(paneId)
+    else this.phoneWritePanes.delete(paneId)
+    this.store.audit({ action: 'phone-write', outcome: allowed ? 'allowed' : 'stopped' })
+    const status = this.status()
+    this.deps.broadcast({ status })
+    return status
+  }
+
   /** On quit: closes everything, like switching it off. */
   stop(): Promise<void> {
     return this.serialize(() => this.shutdown('quit'))
@@ -238,17 +254,17 @@ export class RemoteGateway implements ConnectionHost {
     return { port, addresses: bound, servers, fingerprint: material.fingerprint, tokens: new AccessTokens(this.tokenKey, this.now) }
   }
 
-  /** The certificate, made the first time and read back from `safeStorage` after that. */
-  private material(): { certificatePem: string; keyPem: string; fingerprint: string } {
+  /** The certificate, made the first time and read back from `safeStorage` after that, as DER only. */
+  private material(): GatewayMaterial {
     const cipher = createSecretCipher(this.deps.storage, this.deps.platform, this.deps.env)
     if (!cipher.available()) throw new GatewayStartError(mainMessage('remote.certificate.failed', {}))
     const settings = this.store.settings()
     if (settings.certificateDer && settings.certificateKey) {
       try {
-        const certificate = new X509Certificate(settings.certificateDer)
-        const keyPem = cipher.decrypt(settings.certificateKey)
-        if (!certificate.checkPrivateKey(createPrivateKey(keyPem))) throw new Error('mismatch')
-        return { certificatePem: certificate.toString(), keyPem, fingerprint: certificateFingerprint(settings.certificateDer) }
+        const certificate = readCertificateDer(settings.certificateDer)
+        const key = readPrivateKeyDer(decodeKeyDer(cipher.decrypt(settings.certificateKey)))
+        if (!certificate.checkPrivateKey(key)) throw new Error('mismatch')
+        return { certificate, key, fingerprint: certificateFingerprint(settings.certificateDer) }
       } catch {
         // The stored key cannot be read back (the system key changed): a new certificate means every phone's pin
         // is wrong, so every device is revoked and pairs again.
@@ -258,17 +274,18 @@ export class RemoteGateway implements ConnectionHost {
     }
     try {
       const certificate = createGatewayCertificate(this.now())
-      this.store.saveCertificate({ der: certificate.der, encryptedKey: cipher.encrypt(certificate.keyPem) })
+      this.store.saveCertificate({ der: certificate.der, encryptedKey: cipher.encrypt(encodeKeyDer(certificate.keyDer)) })
       this.store.audit({ action: 'certificate', outcome: 'created' })
-      return { certificatePem: new X509Certificate(certificate.der).toString(), keyPem: certificate.keyPem, fingerprint: certificateFingerprint(certificate.der) }
+      return { certificate: readCertificateDer(certificate.der), key: readPrivateKeyDer(certificate.keyDer), fingerprint: certificateFingerprint(certificate.der) }
     } catch {
       throw new GatewayStartError(mainMessage('remote.certificate.failed', {}))
     }
   }
 
-  private createServer(material: { certificatePem: string; keyPem: string }): https.Server {
+  private createServer(material: GatewayMaterial): https.Server {
+    // Node's TLS options take PEM only: it is written here from the parsed DER, and never read back.
     const server = https.createServer({
-      cert: material.certificatePem, key: material.keyPem, minVersion: 'TLSv1.2', handshakeTimeout: 10_000, maxHeaderSize: 8 * 1024
+      cert: material.certificate.toString(), key: material.key.export({ format: 'pem', type: 'pkcs8' }), minVersion: 'TLSv1.2', handshakeTimeout: 10_000, maxHeaderSize: 8 * 1024
     }, (req, res) => { void this.request(req, res) })
     server.headersTimeout = 10_000
     server.requestTimeout = (this.deps.promptTimeoutMs ?? PAIRING_PROMPT_TIMEOUT_MS) + 30_000

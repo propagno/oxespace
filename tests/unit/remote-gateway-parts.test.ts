@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { createPrivateKey, generateKeyPairSync, sign, X509Certificate } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { certificateFingerprint, createGatewayCertificate, derInteger, derOid, derTime } from '../../electron/main/services/remote/certificate'
+import { certificateFingerprint, createGatewayCertificate, decodeKeyDer, derInteger, derOid, derTime, encodeKeyDer, readCertificateDer, readPrivateKeyDer } from '../../electron/main/services/remote/certificate'
 import { RemoteConnection, mentionsForbidden, type ConnectionHost, type FrameSocket } from '../../electron/main/services/remote/connection'
 import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput } from '../../electron/main/services/remote/inputs'
 import { isPrivateAddress, listenAddresses, peerAddress } from '../../electron/main/services/remote/network'
@@ -18,12 +18,30 @@ describe('certificate', () => {
     const made = createGatewayCertificate(now)
     const certificate = new X509Certificate(made.der)
     expect(certificate.verify(certificate.publicKey)).toBe(true)
-    expect(certificate.checkPrivateKey(createPrivateKey(made.keyPem))).toBe(true)
+    expect(certificate.checkPrivateKey(createPrivateKey({ key: made.keyDer, format: 'der', type: 'pkcs8' }))).toBe(true)
     expect(certificate.publicKey.asymmetricKeyDetails?.namedCurve).toBe('prime256v1')
     expect(certificate.ca).toBe(false)
     expect(new Date(certificate.validTo).getUTCFullYear()).toBe(2036)
     expect(certificate.fingerprint256.replace(/:/g, '').toLowerCase()).toBe(certificateFingerprint(made.der))
     expect(createGatewayCertificate(now).der.equals(made.der)).toBe(false)
+  })
+
+  test('DER only: the certificate and its key read back from DER, and PEM text is refused on every path', () => {
+    const made = createGatewayCertificate()
+    const certificate = readCertificateDer(made.der)
+    expect(certificate.checkPrivateKey(readPrivateKeyDer(made.keyDer))).toBe(true)
+    expect(decodeKeyDer(encodeKeyDer(made.keyDer)).equals(made.keyDer)).toBe(true)
+
+    const certificatePem = Buffer.from(certificate.toString())
+    const keyPem = readPrivateKeyDer(made.keyDer).export({ format: 'pem', type: 'pkcs8' }).toString()
+    expect(() => readCertificateDer(certificatePem)).toThrow('Not a DER certificate')
+    expect(() => readPrivateKeyDer(Buffer.from(keyPem))).toThrow('Not a DER private key')
+    expect(() => decodeKeyDer(keyPem)).toThrow('Not a DER private key')
+    // Trailing bytes after the DER, or a key that is not base64 of exactly its DER, are refused too.
+    expect(() => readCertificateDer(Buffer.concat([made.der, Buffer.from([0])]))).toThrow()
+    expect(() => decodeKeyDer(`${encodeKeyDer(made.keyDer)}=`)).toThrow('Not a DER private key')
+    expect(() => decodeKeyDer(` ${encodeKeyDer(made.keyDer)}`)).toThrow('Not a DER private key')
+    expect(() => decodeKeyDer('')).toThrow('Not a DER private key')
   })
 
   test('DER pieces', () => {
@@ -200,6 +218,41 @@ describe('connection', () => {
     for (let index = 0; index < 700; index += 1) connection.receive(JSON.stringify({ type: 'unsubscribe', id: `u${index}`, subscription: 'x' }))
     expect(out.sent.some(frame => frame.code === 'rate-limited')).toBe(true)
     expect(out.closes.length).toBeGreaterThan(0)
+    connection.closed()
+  })
+
+  test('a connection never outlives its access token: it closes with token-expired unless a new auth comes first', () => {
+    vi.useFakeTimers()
+    const out = socket()
+    let expiresAt = Date.now() + 1_000
+    let emit: ((frame: { kind: 'snapshot' | 'event'; seq: number; schemaVersion: number; data: unknown }) => void) | null = null
+    const connection = new RemoteConnection('10.0.0.2', host({
+      now: () => Date.now(),
+      authenticate: () => ({ ok: true, deviceId: 'd', expiresAt, result: { accessToken: 't', expiresInMs: expiresAt - Date.now() } }),
+      topic: () => ({ open: (_request, next) => { emit = next; return { close: () => {} } } })
+    }))
+    connection.attach(out.socket)
+    connection.receive(JSON.stringify({ type: 'hello', versions: [1] }))
+    connection.receive(JSON.stringify({ type: 'auth', id: 'a', accessToken: 't' }))
+    connection.receive(JSON.stringify({ type: 'subscribe', id: 's', topic: 'jobs' }))
+    expect(out.sent.at(-1)).toEqual({ type: 'ack', id: 's', subscription: 'sub-1' })
+
+    // A new auth before the deadline moves it.
+    vi.advanceTimersByTime(800)
+    expiresAt = Date.now() + 1_000
+    connection.receive(JSON.stringify({ type: 'auth', id: 'b', accessToken: 't' }))
+    vi.advanceTimersByTime(800)
+    expect(out.closes).toEqual([])
+    emit!({ kind: 'event', seq: 1, schemaVersion: 1, data: {} })
+    expect(out.sent.at(-1)).toMatchObject({ type: 'event', subscription: 'sub-1', seq: 1 })
+
+    // Past it, nothing more is streamed and the socket closes.
+    vi.advanceTimersByTime(200)
+    expect(out.sent.at(-1)).toEqual({ type: 'error', code: 'token-expired' })
+    expect(out.closes).toEqual([1008])
+    const sent = out.sent.length
+    emit!({ kind: 'event', seq: 2, schemaVersion: 1, data: {} })
+    expect(out.sent).toHaveLength(sent)
     connection.closed()
   })
 

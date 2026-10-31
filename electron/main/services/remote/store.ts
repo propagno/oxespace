@@ -17,13 +17,13 @@ export interface DeviceRecord {
 export interface GatewaySettings {
   port: number
   certificateDer: Buffer | null
-  /** `safeStorage` ciphertext of the certificate's PKCS#8 PEM key. */
+  /** `safeStorage` ciphertext of the certificate's PKCS#8 DER key (as base64 text). */
   certificateKey: Buffer | null
   /** The name phones see, or null for the default. */
   desktopName: string | null
 }
 
-export type RemoteAuditAction = 'enable' | 'disable' | 'pairing-start' | 'pairing-cancel' | 'pairing' | 'revoke' | 'rename' | 'desktop-name' | 'auth-failure' | 'certificate'
+export type RemoteAuditAction = 'enable' | 'disable' | 'pairing-start' | 'pairing-cancel' | 'pairing' | 'revoke' | 'rename' | 'desktop-name' | 'phone-write' | 'auth-failure' | 'certificate'
 
 export interface RemoteAuditRecord {
   action: RemoteAuditAction

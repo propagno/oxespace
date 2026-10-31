@@ -60,6 +60,16 @@ export function parseDeviceName(value: unknown): string {
   return name
 }
 
+const PANE_ID = /^[A-Za-z0-9._:-]{1,200}$/
+
+/** `{ paneId, allowed }`: whether a phone may type into that pane. */
+export function parsePhoneWriteInput(value: unknown): { paneId: string; allowed: boolean } {
+  const input = record(value, 'Pane input', ['paneId', 'allowed'])
+  if (typeof input.paneId !== 'string' || !PANE_ID.test(input.paneId)) throw new Error('Invalid pane')
+  if (typeof input.allowed !== 'boolean') throw new Error('allowed must be a boolean')
+  return { paneId: input.paneId, allowed: input.allowed }
+}
+
 /** `{ name }`: the name phones see, trimmed, 1–32 characters without control characters; `null` goes back to the default. */
 export function parseDesktopNameInput(value: unknown): { name: string | null } {
   const input = record(value, 'Desktop name input', ['name'])

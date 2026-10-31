@@ -72,6 +72,8 @@ export class RemoteConnection {
   private windowStart = 0
   private framesInWindow = 0
   private readonly authTimer: ReturnType<typeof setTimeout>
+  /** Ends the connection when its access token runs out without a new `auth`: a stream never outlives its token. */
+  private expiryTimer: ReturnType<typeof setTimeout> | null = null
   private socket: FrameSocket | null = null
   private ended = false
 
@@ -123,6 +125,7 @@ export class RemoteConnection {
     if (this.ended) return
     this.ended = true
     clearTimeout(this.authTimer)
+    if (this.expiryTimer) clearTimeout(this.expiryTimer)
     for (const subscription of this.subscriptions.values()) { try { subscription.close() } catch { /* a source failing to close does not matter now */ } }
     this.subscriptions.clear()
     this.host.closed(this)
@@ -160,6 +163,7 @@ export class RemoteConnection {
     const first = this.state !== 'ready'
     this.state = 'ready'
     clearTimeout(this.authTimer)
+    this.watchExpiry()
     this.send({ type: 'ack', id, result: outcome.result })
     if (first) this.host.authenticated(this)
   }
@@ -180,7 +184,7 @@ export class RemoteConnection {
     let pending: RemoteTopicFrame[] | null = []
     const emit = (data: RemoteTopicFrame) => {
       if (pending) pending.push(data)
-      else if (this.subscriptions.has(subscription)) this.send({ type: data.kind, subscription, seq: data.seq, schemaVersion: data.schemaVersion, data: data.data })
+      else if (this.subscriptions.has(subscription) && this.host.now() < this.expiresAt) this.send({ type: data.kind, subscription, seq: data.seq, schemaVersion: data.schemaVersion, data: data.data })
     }
     let handle: { close(): void } | null
     try { handle = source.open({ deviceId: this.deviceId!, ...(frame.target !== undefined ? { target: frame.target } : {}), ...(frame.sinceSeq !== undefined ? { sinceSeq: frame.sinceSeq } : {}) }, emit) } catch { return this.error('internal', id) }
@@ -222,6 +226,17 @@ export class RemoteConnection {
     if (this.host.now() >= this.expiresAt) { this.error('token-expired', id); return false }
     this.host.seen(deviceId)
     return true
+  }
+
+  /** A new `auth` before the token runs out moves the deadline; otherwise the phone is told and the socket closes. */
+  private watchExpiry(): void {
+    if (this.expiryTimer) clearTimeout(this.expiryTimer)
+    this.expiryTimer = setTimeout(() => {
+      this.expiryTimer = null
+      if (!this.ended && this.host.now() >= this.expiresAt) this.fail('token-expired')
+      else if (!this.ended) this.watchExpiry()
+    }, Math.max(0, this.expiresAt - this.host.now()))
+    this.expiryTimer.unref?.()
   }
 
   private withinFrameRate(): boolean {
