@@ -11,8 +11,12 @@ release secrets or protected Environment configuration.
 
 | Job | When | What |
 |-----|------|------|
-| **build** (matrix: `windows-x64`, `linux-x64`) | Always | Dependency and build-tool audits → Electron support window → typecheck → lint → unit/integration tests → build → native verify → E2E and performance gate. If a release is planned, also builds the platform packages (NSIS installer; AppImage and `.deb`), runs the packaged-build smoke test, and produces the SBOM, checksums and uploads artifacts. The two legs never cancel each other. |
-| **release** | Only if `build` succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
+| **changes** | Always (not on a draft PR) | Classifies a PR's files (docs-only, OxeQuery) and resolves the one commit every later job checks out. |
+| **quick** (`linux-x64`) | Unless the PR is docs-only | Plans build vs release → dependency and build-tool audits → notices → Electron support window → typecheck → lint (file-size guard first) → migration-numbering guard → build with bundle budgets. The first red, in about 6 minutes. |
+| **unit** (matrix: `windows-x64`, `linux-x64`) | Same as quick, in parallel with it | Unit and integration tests with coverage (serial, as before); uploads `coverage-summary-<platform>`. |
+| **e2e** (matrix: `windows-x64`, `linux-x64`) | On a PR, after quick passes; on main, tags and dispatches always | Build with bundle budgets → native verify → upgrade rehearsal → OxeQuery coverage gate → E2E and performance gate. Uploads `main-sourcemaps-<platform>` when the run does not package. |
+| **package** (matrix: `windows-x64`, `linux-x64`) | Only when a release or a packaged smoke was planned, after quick, unit and e2e pass | Builds the planned commit, packages it (NSIS installer; AppImage and `.deb`), runs the packaged-build smoke test, and for a release produces the SBOM, checksums and uploads artifacts. The two legs never cancel each other. |
+| **release** | Only if every job above succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
 
 ---
 
