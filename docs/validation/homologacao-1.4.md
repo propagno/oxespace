@@ -172,6 +172,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Contrato B10 `approvals.*` | #235 | BACKEND | Homologado (contrato; na `main` 7e2dfdd5), com nota sobre nomes de sistema |
 | F19 split além dos presets | #240 | FRONTEND | Homologado (na `main` c4a4d84d) |
 | Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado (499ffbcd): ressalvas fechadas, sonda de 134 nomes |
+| Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Em andamento: pt-BR com 13 de 14 casos ok e 1 ressalva (caminho entre aspas); falta o en |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -486,6 +487,37 @@ polkit, root/sudo, Security/Segurança, Oxe*). Pares juntados também são pegos
   - "Security Reviewer", "Root Cause Analyst", "Admin Panel", "Adminer" e "Administrativo";
   - "Gnome lover", "Fedora fan" e "GitHub Copilot".
 - Nota baixa: "OX E" passa, enquanto "OXE" é pego (só 2 letras soltas).
+
+### Raiz do workspace e aviso no assistente (#239 adb46037 + #244 3f3e2d66): em andamento
+
+App real em perfil descartável, pt-BR, com 14 caminhos digitados no assistente (`pre-239-244`).
+- Recusados na hora, com a mensagem sob o campo, o campo marcado como inválido, o caminho mantido e nenhum workspace
+  criado:
+
+  | Caminho | Mensagem | Tempo |
+  |---|---|---|
+  | `meu-projeto` | "Use o caminho completo da pasta…" | 101 ms |
+  | `.` | "Use o caminho completo da pasta…" | 65 ms |
+  | `C:\nao\existe\pasta` | "A pasta … não existe. Crie a pasta ou escolha outra." | 64 ms |
+  | um arquivo | "… é um arquivo, não uma pasta." | 547 ms |
+  | `Q:\projeto` | "não existe" | 42 ms |
+  | UNC inacessível | "não existe" | 1,3 s |
+  | `C:\Windows\System32\config` | "não consegue abrir… Confira as permissões" | 566 ms |
+  | `C:\Users\CON` | "não existe" | 51 ms |
+
+  "Escolher outra pasta" aparece. A área da pasta fica vermelha, com o ícone de pasta cortada.
+- Aceitos:
+  - pasta com espaços e acentos ("Projetos São João\meu app ção");
+  - o mesmo caminho com espaços no fim, que são removidos;
+  - um caminho com `..`, que abre o workspace já existente, sem duplicar.
+- Vazio ou só espaços: o botão "Criar o workspace" fica desabilitado, então o pedido nem sai pela interface. O código
+  `notAbsolute` para vazio, chamado direto, ainda falta conferir.
+- **Ressalva (atrapalha):** o caminho entre aspas, que é o que o Explorer copia em "Copiar como caminho", é recusado
+  como "é um caminho relativo". Critério de aceite: tirar as aspas das pontas antes de validar (como já é feito com
+  os espaços) ou, no mínimo, dizer "remova as aspas".
+- Cosmético, a confirmar: logo depois de criar, os títulos dos painéis repetem ("Terminal 2" duas vezes) enquanto os
+  shells iniciam. É o mesmo efeito visto no #240.
+- A execução foi interrompida pelo sistema por falta de memória antes do en. O en fica pendente.
 
 ### Achados fora dos itens da onda
 
