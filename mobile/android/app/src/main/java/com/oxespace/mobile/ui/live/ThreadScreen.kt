@@ -60,6 +60,9 @@ import com.oxespace.mobile.protocol.RemoteThreadItem
 import com.oxespace.mobile.protocol.RemoteThreadSendArgs
 import com.oxespace.mobile.protocol.RemoteThreadSteerArgs
 import com.oxespace.mobile.R
+import com.oxespace.mobile.approval.Gated
+import com.oxespace.mobile.approval.PresenceGate
+import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
@@ -70,7 +73,7 @@ import kotlinx.coroutines.launch
 /** One conversation, live: messages, reasoning, tools, plans, requests and turn ends, newest at the bottom. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ThreadScreen(threadId: String, watched: Watched<ThreadTimeline>, commands: CommandApi, onBack: () -> Unit) {
+fun ThreadScreen(threadId: String, watched: Watched<ThreadTimeline>, commands: CommandApi, presence: PresenceGate, onBack: () -> Unit) {
     val tick by watched.changes.collectAsStateWithLifecycle()
     val timeline = watched.store
     val header = timeline.header
@@ -96,7 +99,7 @@ fun ThreadScreen(threadId: String, watched: Watched<ThreadTimeline>, commands: C
                 },
             )
         },
-        bottomBar = { Composer(threadId, running = header?.status == "running", canSteer = header?.canSteer == true, commands = commands) },
+        bottomBar = { Composer(threadId, running = header?.status == "running", canSteer = header?.canSteer == true, commands = commands, presence = presence) },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
@@ -214,7 +217,7 @@ private fun Collapsible(title: String, text: String, color: Color) {
  * drop can't make it arrive twice; after a refusal the next try is a new message. The text stays until it's sent.
  */
 @Composable
-private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, commands: CommandApi) {
+private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, commands: CommandApi, presence: PresenceGate) {
     val scope = rememberCoroutineScope()
     var text by rememberSaveable(threadId) { mutableStateOf("") }
     var clientId by rememberSaveable(threadId) { mutableStateOf(UUID.randomUUID().toString()) }
@@ -252,10 +255,19 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, comm
                 onClick = {
                     busy = true
                     scope.launch {
-                        val result = if (steer) commands.steer(RemoteThreadSteerArgs(threadId, text, clientId)) else commands.send(RemoteThreadSendArgs(threadId, text, clientId))
-                        message = commandMessage(result)
-                        if (result is CommandResult.Done) text = ""
-                        clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
+                        val gated = presence.run(PresenceReason.SEND) {
+                            if (steer) commands.steer(RemoteThreadSteerArgs(threadId, text, clientId)) else commands.send(RemoteThreadSendArgs(threadId, text, clientId))
+                        }
+                        when (gated) {
+                            // Nothing left the phone: the text and its clientId stay as they were.
+                            is Gated.Blocked -> message = presenceMessage(gated.reason)
+                            is Gated.Done -> {
+                                val result = gated.value
+                                message = commandMessage(result)
+                                if (result is CommandResult.Done) text = ""
+                                clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
+                            }
+                        }
                         busy = false
                     }
                 },

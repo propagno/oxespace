@@ -1,6 +1,7 @@
 package com.oxespace.mobile.ui.live
 
 import com.oxespace.mobile.R
+import com.oxespace.mobile.approval.Presence
 import com.oxespace.mobile.protocol.RemoteErrorCode
 import com.oxespace.mobile.protocol.live.CommandResult
 
@@ -12,6 +13,13 @@ import com.oxespace.mobile.protocol.live.CommandResult
 fun clientIdAfter(result: CommandResult, current: String, newId: () -> String): String = when (result) {
     is CommandResult.Done, is CommandResult.Refused -> newId()
     CommandResult.NoAnswer, CommandResult.Offline -> current
+}
+
+/** Why nothing left the phone when the person didn't prove it's them. */
+fun presenceMessage(reason: Presence): Int = when (reason) {
+    Presence.CONFIRMED -> throw IllegalArgumentException("confirmed presence blocks nothing")
+    Presence.NOT_CONFIRMED -> R.string.presence_not_confirmed
+    Presence.NO_SCREEN_LOCK -> R.string.presence_no_screen_lock
 }
 
 /** What to tell the person after a command, or null when it went through. */

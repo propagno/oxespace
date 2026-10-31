@@ -149,7 +149,7 @@
   },
   "request": {
     "title": "Request",
-    "from": "From {{thread}}",
+    "from": "From {{conversation}}",
     "command": "Command",
     "cwd": "Folder",
     "paths": "Files it would change",
@@ -195,6 +195,15 @@
   "terminalInput": {
     "placeholder": "Type in this terminal",
     "send": "Send",
-    "notShared": "Typing from the phone is off for this terminal. Turn it on in OXESpace on your computer."
+    "notShared": "Typing from the phone is off for this terminal. On your computer, turn on “Allow typing from the phone” in the terminal’s ⋯ menu."
+  },
+  "presence": {
+    "send": "Confirm it’s you to send from this phone",
+    "type": "Confirm it’s you to type into this terminal",
+    "window": "Good for 5 minutes on this phone.",
+    "notConfirmed": "Nothing was sent: the confirmation on this phone was cancelled.",
+    "noScreenLock": "Set a screen lock on this phone to send from it. Nothing was sent.",
+    "confirm": "Confirm it’s you",
+    "locked": "Confirm it’s you before typing into this terminal."
   }
 }

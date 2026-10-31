@@ -154,7 +154,7 @@
   },
   "request": {
     "title": "Pedido",
-    "from": "De {{thread}}",
+    "from": "De {{conversation}}",
     "command": "Comando",
     "cwd": "Pasta",
     "paths": "Arquivos que ele alteraria",
@@ -200,6 +200,15 @@
   "terminalInput": {
     "placeholder": "Digite neste terminal",
     "send": "Enviar",
-    "notShared": "A digitação pelo celular está desligada neste terminal. Ligue no OXESpace do computador."
+    "notShared": "A digitação pelo celular está desligada neste terminal. No computador, ligue “Permitir digitar pelo celular” no menu ⋯ do terminal."
+  },
+  "presence": {
+    "send": "Confirme que é você para enviar pelo celular",
+    "type": "Confirme que é você para digitar neste terminal",
+    "window": "Vale por 5 minutos neste celular.",
+    "notConfirmed": "Nada foi enviado: a confirmação neste celular foi cancelada.",
+    "noScreenLock": "Defina um bloqueio de tela neste celular para enviar por ele. Nada foi enviado.",
+    "confirm": "Confirmar que sou eu",
+    "locked": "Confirme que é você antes de digitar neste terminal."
   }
 }

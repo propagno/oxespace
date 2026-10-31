@@ -55,6 +55,10 @@ import com.oxespace.mobile.protocol.live.TerminalBuffer
 import com.oxespace.mobile.protocol.RemotePane
 import com.oxespace.mobile.protocol.RemoteTerminalWriteArgs
 import com.oxespace.mobile.R
+import com.oxespace.mobile.approval.Gated
+import com.oxespace.mobile.approval.Presence
+import com.oxespace.mobile.approval.PresenceGate
+import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.terminal.Ansi
 import com.oxespace.mobile.ui.theme.Oxe
@@ -66,7 +70,7 @@ import kotlinx.coroutines.launch
 /** A pane's output, read-only, in the desktop's terminal colors; follows the newest line. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, onBack: () -> Unit) {
+fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, onBack: () -> Unit) {
     val tick by watched.changes.collectAsStateWithLifecycle()
     val colors = Oxe.colors
     val text = remember(tick, colors) { colored(watched.store.output, colors) }
@@ -100,7 +104,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 },
             )
         },
-        bottomBar = { if (pane.phoneWrite) TerminalInput(pane.id, commands) },
+        bottomBar = { if (pane.phoneWrite) TerminalInput(pane.id, commands, presence) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).background(colors.surfaceSunken)) {
             if (redacted > 0) {
@@ -159,8 +163,15 @@ private fun colored(output: String, colors: OxeColors): AnnotatedString = buildA
  * 4 KiB; a refusal (the desktop turned typing off meanwhile) says so and keeps the text.
  */
 @Composable
-private fun TerminalInput(paneId: String, commands: CommandApi) {
+private fun TerminalInput(paneId: String, commands: CommandApi, presence: PresenceGate) {
     val scope = rememberCoroutineScope()
+    // Opening a terminal the phone can type into asks right away (MB-M-01); inside the window nothing is shown.
+    var unlocked by remember(paneId) { mutableStateOf<Presence?>(null) }
+    LaunchedEffect(paneId) { unlocked = presence.confirm(PresenceReason.TYPE) }
+    if (unlocked != Presence.CONFIRMED) {
+        LockedInput(unlocked) { scope.launch { unlocked = presence.confirm(PresenceReason.TYPE) } }
+        return
+    }
     var text by rememberSaveable(paneId) { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
@@ -183,22 +194,47 @@ private fun TerminalInput(paneId: String, commands: CommandApi) {
                     busy = true
                     scope.launch {
                         val pieces = terminalPieces(text)
-                        var result: CommandResult = CommandResult.Done(null)
                         var sent = 0
-                        for (piece in pieces) {
-                            result = commands.terminalWrite(RemoteTerminalWriteArgs(paneId, piece))
-                            if (result !is CommandResult.Done) break
-                            sent++
+                        val gated = presence.run(PresenceReason.TYPE) {
+                            var result: CommandResult = CommandResult.Done(null)
+                            for (piece in pieces) {
+                                result = commands.terminalWrite(RemoteTerminalWriteArgs(paneId, piece))
+                                if (result !is CommandResult.Done) break
+                                sent++
+                            }
+                            result
                         }
-                        message = commandMessage(result)
-                        // What went through is in the terminal already: only the rest stays, so sending again can't repeat it.
-                        text = unsentText(pieces, sent)
+                        when (gated) {
+                            // The window closed meanwhile and the person didn't open it again: the text stays.
+                            is Gated.Blocked -> message = presenceMessage(gated.reason)
+                            is Gated.Done -> {
+                                message = commandMessage(gated.value)
+                                // What went through is in the terminal already: only the rest stays, so sending again can't repeat it.
+                                text = unsentText(pieces, sent)
+                            }
+                        }
                         busy = false
                     }
                 },
                 enabled = !busy && text.isNotEmpty(),
                 modifier = Modifier.heightIn(min = 48.dp),
             ) { Text(stringResource(R.string.terminal_input_send)) }
+        }
+    }
+}
+
+/** In place of the input until the person proves it's them: why, and a button to try again. */
+@Composable
+private fun LockedInput(presence: Presence?, onConfirm: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(Oxe.colors.surfaceChrome).navigationBarsPadding().imePadding().padding(OxeSpace.space3),
+        verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
+    ) {
+        val why = if (presence == Presence.NO_SCREEN_LOCK) R.string.presence_no_screen_lock else R.string.presence_locked
+        Text(stringResource(why), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+        // While the first prompt is up there is nothing to press; without a screen lock pressing would change nothing.
+        if (presence == Presence.NOT_CONFIRMED) {
+            Button(onClick = onConfirm, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.presence_confirm)) }
         }
     }
 }

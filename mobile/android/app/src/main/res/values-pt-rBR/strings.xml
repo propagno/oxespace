@@ -103,6 +103,13 @@
     <string name="pairing_verification_description">Código de verificação %1$s</string>
     <string name="pairing_waiting_body">%1$s está perguntando se pode parear com este celular. Aceite só se aparecer este código:</string>
     <string name="pairing_waiting_title">Confirme no computador</string>
+    <string name="presence_confirm">Confirmar que sou eu</string>
+    <string name="presence_locked">Confirme que é você antes de digitar neste terminal.</string>
+    <string name="presence_no_screen_lock">Defina um bloqueio de tela neste celular para enviar por ele. Nada foi enviado.</string>
+    <string name="presence_not_confirmed">Nada foi enviado: a confirmação neste celular foi cancelada.</string>
+    <string name="presence_send">Confirme que é você para enviar pelo celular</string>
+    <string name="presence_type">Confirme que é você para digitar neste terminal</string>
+    <string name="presence_window">Vale por 5 minutos neste celular.</string>
     <string name="request_answered">Respondido.</string>
     <string name="request_command">Comando</string>
     <string name="request_cwd">Pasta</string>
@@ -134,7 +141,7 @@
         <item quantity="other">%1$d valores secretos escondidos pelo seu computador.</item>
         <item quantity="many">%1$d valores secretos escondidos pelo seu computador.</item>
     </plurals>
-    <string name="terminal_input_not_shared">A digitação pelo celular está desligada neste terminal. Ligue no OXESpace do computador.</string>
+    <string name="terminal_input_not_shared">A digitação pelo celular está desligada neste terminal. No computador, ligue “Permitir digitar pelo celular” no menu ⋯ do terminal.</string>
     <string name="terminal_input_placeholder">Digite neste terminal</string>
     <string name="terminal_input_send">Enviar</string>
     <string name="thread_agent">Agente</string>

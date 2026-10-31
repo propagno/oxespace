@@ -10,10 +10,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.oxespace.mobile.approval.KeystorePresence
+import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.pairing.PairingViewModel
 import com.oxespace.mobile.session.DesktopStatus
 import com.oxespace.mobile.session.SessionViewModel
@@ -73,6 +76,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun Live(connected: DesktopStatus.Connected) {
         val live = session.live
+        // One window for the whole app: proving presence in a conversation also covers a terminal opened right after.
+        val presence = remember { PresenceGate(KeystorePresence(applicationContext)) }
         var threadId by rememberSaveable { mutableStateOf<String?>(null) }
         var paneId by rememberSaveable { mutableStateOf<String?>(null) }
         var requestKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -94,13 +99,13 @@ class MainActivity : ComponentActivity() {
                 val watched = live.openThread(openThread)
                 DisposableEffect(openThread) { onDispose { live.closeThread(openThread) } }
                 BackHandler { threadId = null }
-                ThreadScreen(openThread, watched, live.streams.commands, onBack = { threadId = null })
+                ThreadScreen(openThread, watched, live.streams.commands, presence, onBack = { threadId = null })
             }
             openPane != null -> {
                 val watched = live.openTerminal(openPane.id)
                 DisposableEffect(openPane.id) { onDispose { live.closeTerminal(openPane.id) } }
                 BackHandler { paneId = null }
-                TerminalScreen(openPane, watched, live.streams.commands, onBack = { paneId = null })
+                TerminalScreen(openPane, watched, live.streams.commands, presence, onBack = { paneId = null })
             }
             else -> LiveHome(
                 desktopName = name,
