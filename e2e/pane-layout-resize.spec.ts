@@ -36,7 +36,7 @@ test('three terminals resize in both axes without replacing terminal DOM', async
       expect(Math.abs(orientation === 'vertical' ? after.x - box.x : after.y - box.y)).toBeGreaterThan(25)
     }
     await expect(grid.locator('.terminal-pane[data-preserved="yes"]')).toHaveCount(3)
-    const keyboardHandle = grid.getByRole('separator', { name: 'Resize rows' })
+    const keyboardHandle = grid.getByRole('separator', { name: 'Divider between rows' })
     const beforeKeyboard = (await keyboardHandle.boundingBox())!
     await keyboardHandle.focus()
     await page.keyboard.press('ArrowDown')

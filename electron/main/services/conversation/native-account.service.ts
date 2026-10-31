@@ -4,6 +4,7 @@ import type { AgentAccountContext, AgentAccountSnapshot } from '../../../../shar
 import type { ThreadProvider } from '../../../../shared/types/thread'
 import { AgentRpcPeer } from './rpc-peer'
 import { AgentProcessTransport } from './process-transport'
+import { noteAccount } from '../diagnostics/facts'
 
 export interface NativeAuthScope { id: string; provider: ThreadProvider; command: string; cwd: string }
 export interface AccountTransport {
@@ -67,6 +68,7 @@ export class NativeAccountService {
   }
   private publish(snapshot: AgentAccountSnapshot): AgentAccountSnapshot {
     if (!this.stopped) { this.snapshots.set(snapshot.scopeId, snapshot); this.deps.changed(snapshot) }
+    if (snapshot.state === 'connected' || snapshot.state === 'signed-out') noteAccount(snapshot.provider, snapshot.state === 'connected')
     return snapshot
   }
   private failure(scope: NativeAuthScope, code: AgentAccountSnapshot['errorCode']): AgentAccountSnapshot {

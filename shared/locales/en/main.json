@@ -14,12 +14,43 @@
       "ok": "OK"
     }
   },
+  "dialogs": {
+    "approval": {
+      "deny": "Deny",
+      "allowOnce": "Allow once",
+      "allowSession": "Allow reads like this for this run"
+    },
+    "previewAutomation": {
+      "title": "Agent browser action",
+      "cancel": "Cancel",
+      "allowOnce": "Allow once",
+      "closeTab": "Close tab",
+      "closeTabMessage": "Allow the agent to close this browser tab?",
+      "closeTabDetail": "Tab: {{tab}}\nUnsaved page changes may be lost.",
+      "action": {
+        "click": "Allow the agent to click in the Browser?",
+        "fill": "Allow the agent to type into a field in the Browser?",
+        "navigate": "Allow the agent to open another page in the Browser?",
+        "scroll": "Allow the agent to scroll in the Browser?",
+        "other": "Allow the agent to {{action}} in the Browser?"
+      },
+      "actionDetail": "Page: {{page}}\nTarget: {{target}}\nThis may change real system data. Text values are not recorded in the operation history."
+    }
+  },
   "messages": {
     "mcp": {
       "quarantine": {
         "changed": "The description or inputs of {{tools}} changed after you trusted it.",
         "added": "It added {{tools}}.",
-        "removed": "It removed {{tools}}."
+        "removed": "It removed {{tools}}.",
+        "configChanged": "Its command, arguments, environment or URL changed after you trusted it."
+      },
+      "signIn": {
+        "waiting": "Waiting for you to sign in in the browser…"
+      },
+      "server": {
+        "quarantined": "Quarantined: it changed after you trusted it. Review it and trust it again to use it.",
+        "untrusted": "Not trusted yet. Review its command and trust it before testing."
       }
     },
     "thread": {
@@ -28,11 +59,286 @@
         "staleGeneration": "The conversation restarted since this request was shown. Open it to see what is waiting now.",
         "alreadyResponding": "An answer to this request is already being sent.",
         "unanswered": "Answer every question before continuing."
+      },
+      "commands": {
+        "configure": "Configure the provider in Agent Settings and use Refresh commands to try again.",
+        "busy": "Command discovery is busy. Use Refresh commands to try again.",
+        "claudeFailed": "Could not load Claude commands. Check the CLI in Agent Settings and use Refresh commands to try again.",
+        "codexFailed": "Could not load Codex skills. Check the CLI in Agent Settings and use Refresh commands to try again."
+      },
+      "capability": {
+        "readOnly": "Turned off by this conversation’s read-only tool policy.",
+        "mcpReadOnly": "Limited by this conversation’s read-only policy: OXESpace lookups only, no MCP servers of your own."
+      },
+      "observe": {
+        "unsupported": "No connected provider can report this conversation’s state. The outcome is still unconfirmed.",
+        "changed": "The provider’s state changed during recovery. The conversation here was kept; check again."
+      },
+      "queue": {
+        "deliveryUnconfirmed": "Delivery of this message could not be confirmed."
       }
     },
     "app": {
       "connectivity": {
         "offline": "No network connection."
+      }
+    },
+    "remote": {
+      "port": {
+        "privileged": "Pick a port of 1024 or above; port {{port}} is reserved by the system.",
+        "inUse": "Port {{port}} is already in use by another program. Pick another port."
+      },
+      "network": {
+        "noPrivateInterface": "No private network was found to listen on. Connect to your local Wi-Fi or Ethernet and try again."
+      },
+      "certificate": {
+        "failed": "The connection certificate could not be created or read from secure storage."
+      }
+    },
+    "linear": {
+      "worktree": {
+        "exists": "A worktree for {{issue}} already exists at {{path}}."
+      }
+    },
+    "worktree": {
+      "cleanup": {
+        "notRemovable": "This is not a removable worktree of this repository.",
+        "blocked": "Blocked: {{reasons}}.",
+        "needsConfirmation": "Needs confirmation: {{reasons}}."
+      }
+    },
+    "github": {
+      "cli": {
+        "missing": "GitHub CLI not found. Install it from https://cli.github.com/ and run gh auth login."
+      }
+    },
+    "git": {
+      "base": {
+        "unresolved": "Base “{{base}}” could not be resolved and the repository has no commits."
+      }
+    },
+    "oxe": {
+      "status": {
+        "unreadable": "Could not read the output of oxe status."
+      },
+      "dashboard": {
+        "timeout": "The dashboard did not respond in time."
+      }
+    },
+    "memory": {
+      "disabled": "Project memory is turned off.",
+      "unavailable": "Project memory is temporarily unavailable. Agents keep working.",
+      "runtimeUnavailable": "Memory credentials or runtime are unavailable."
+    },
+    "oxequery": {
+      "edit": {
+        "readOnly": "This connection is read-only. Turn read-only off to edit data.",
+        "notTable": "Only tables can be edited, not views or foreign tables.",
+        "noKey": "This table has no primary key or unique NOT NULL index, so a row cannot be identified safely."
+      },
+      "test": {
+        "connected": "Connected"
+      },
+      "startFailed": "OxeQuery did not start: {{reason}}",
+      "sql": {
+        "copyProgram": "COPY … PROGRAM runs a shell command on the database server.",
+        "doBlock": "DO runs code in the database; its effect is not known before it runs.",
+        "callProcedure": "CALL runs a stored procedure; its effect is not known before it runs.",
+        "destructiveInside": "{{statement}} contains {{keyword}}, which can remove data or objects.",
+        "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.",
+        "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
+        "tableLock": "VACUUM FULL locks the whole table while it runs."
+      }
+    },
+    "oxepod": {
+      "startFailed": "OxePod did not start: {{reason}}"
+    },
+    "oxepost": {
+      "network": {
+        "notFound": "The host name was not found. Check the URL and the connection.",
+        "refused": "The connection was refused: nothing is listening at that address and port.",
+        "reset": "The server closed the connection before answering.",
+        "timedOut": "The connection timed out.",
+        "lookupFailed": "The host name could not be looked up right now.",
+        "hostUnreachable": "The host cannot be reached.",
+        "networkUnreachable": "The network cannot be reached."
+      },
+      "send": {
+        "invalidUrl": "The URL is not valid. It needs a scheme, such as https://example.com/path",
+        "scheme": "Only http and https URLs can be sent.",
+        "bodyNotAllowed": "{{method}} cannot carry a body. Change the method or clear the body.",
+        "bodyTooLarge": "The body is larger than 5 MB.",
+        "invalidHeader": "“{{name}}” is not a valid header.",
+        "timeout": "No complete answer within {{seconds}} seconds.",
+        "tls": "The server's certificate was not accepted ({{code}}). OxePost always verifies certificates: trust the certificate on this computer or use the address it was issued for.",
+        "failed": "The request failed.",
+        "failedWith": "The request failed: {{detail}}"
+      }
+    },
+    "approvals": {
+      "title": {
+        "agent": "Request from an agent",
+        "oxequery": "OxeQuery · request from an agent",
+        "previewAutomation": "Agent browser action",
+        "crash": "OXESpace hit an unexpected error"
+      },
+      "summary": {
+        "mcpConfirm": "Wants to run {{tool}} › {{action}} on {{target}}",
+        "oxequery": {
+          "read": "Wants to read data",
+          "write": "Wants to change data in the database",
+          "action": "Wants to run a container action"
+        },
+        "preview": {
+          "closeTab": "Wants to close a browser tab",
+          "click": "Wants to click in the Browser",
+          "fill": "Wants to type into a field in the Browser",
+          "navigate": "Wants to open another page in the Browser",
+          "scroll": "Wants to scroll in the Browser",
+          "other": "Wants to {{action}} in the Browser"
+        },
+        "crash": "The app keeps running, but its state is no longer certain. Restart it to be safe."
+      },
+      "requester": {
+        "pane": "{{agent}} · pane {{pane}}",
+        "conversation": "{{agent}} · conversation {{conversation}}",
+        "mcpServer": "MCP server {{server}}",
+        "app": "OXESpace",
+        "unknownPane": "Unknown agent · pane {{pane}}",
+        "unknownConversation": "Unknown agent · conversation {{conversation}}"
+      },
+      "option": {
+        "deny": "Deny",
+        "allowOnce": "Allow once",
+        "allowSessionReads": "Allow reads on this connection for this run",
+        "closeTab": "Close tab",
+        "restart": "Restart",
+        "keepWorking": "Keep working"
+      },
+      "note": {
+        "sql": {
+          "removes": "{{statement}} permanently removes objects or data.",
+          "noWhere": "{{statement}} without a WHERE clause affects every row.",
+          "alterDrop": "ALTER … DROP removes a column, constraint or object.",
+          "withNoWhere": "{{statement}} inside WITH has no WHERE clause.",
+          "explainAnalyze": "EXPLAIN ANALYZE runs the statement.",
+          "selectInto": "SELECT INTO creates a table.",
+          "notReadOnly": "{{statement}} is not a recognised read-only statement.",
+          "outsideReach": "Calls {{calls}}, which reaches outside the database (server files, other servers, other sessions or the server's configuration)."
+        },
+        "production": "This is a production connection.",
+        "mongo": {
+          "deletes": "Documents that will be deleted: {{count}}.",
+          "changes": "Documents that will be changed: {{count}}.",
+          "emptyFilter": "The filter is empty: every document in the collection matches."
+        },
+        "agent": {
+          "actsOnPrompt": "That agent will act on this prompt with its own access.",
+          "turnStopped": "Its running turn is stopped first."
+        },
+        "thread": {
+          "actsOnMessage": "The other conversation will act on this message with its own access."
+        },
+        "skill": {
+          "followed": "Every agent that calls this skill follows these instructions."
+        },
+        "automation": {
+          "runsAlone": "The agent runs on its own on this schedule until the automation is turned off."
+        },
+        "worktree": {
+          "folderDeleted": "Its folder is deleted, with untracked and ignored files in it.",
+          "forceDiscards": "--force also discards uncommitted changes."
+        },
+        "git": {
+          "branchShared": "Other terminals and conversations working in this folder will see the other branch."
+        },
+        "checkpoint": {
+          "replaces": "Uncommitted changes in the work tree are replaced."
+        },
+        "github": {
+          "autoMerge": "The pull request merges by itself once its checks and reviews pass.",
+          "releasePublic": "A published release is visible to everyone with access to the repository and may notify watchers."
+        },
+        "textCut": "The text is longer than {{max}} characters, so only part of it is shown. It cannot be approved.",
+        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app."
+      },
+      "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
+      "expired": "Nobody answered in time, so the request was denied.",
+      "refused": {
+        "notPending": "This request was already answered, cancelled or expired.",
+        "staleGeneration": "This request was asked again since it was shown. Answer the current one.",
+        "alreadyAnswered": "This request already has an answer.",
+        "unknownOption": "That answer is not one of the options this request offers.",
+        "alreadyReported": "This request was already reported as not shown.",
+        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears."
+      },
+      "denied": {
+        "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
+        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps."
+      }
+    },
+    "notify": {
+      "prefix": {
+        "pane": "{{agent}} in pane {{pane}}: {{title}}",
+        "conversation": "{{agent}} in conversation {{conversation}}: {{title}}",
+        "unknownPane": "Unknown agent in pane {{pane}}: {{title}}",
+        "unknownConversation": "Unknown agent in conversation {{conversation}}: {{title}}"
+      },
+      "refused": {
+        "reservedName": "A notification cannot use the name \"{{name}}\"; it belongs to the app.",
+        "rateLimit": "Too many notifications: at most {{perMinute}} a minute."
+      }
+    },
+    "agents": {
+      "name": {
+        "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      }
+    },
+    "incident": {
+      "window": {
+        "crashed": "The window crashed.",
+        "rendererGone": "The interface stopped responding and was restarted."
+      },
+      "ipc": {
+        "handlerFailed": "A request from the window failed in the background.",
+        "validationRejected": "The window sent a request the app refused as malformed."
+      },
+      "agent": {
+        "startFailed": "An agent could not start."
+      },
+      "mcp": {
+        "quarantined": "An MCP server was quarantined after it changed."
+      },
+      "database": {
+        "busy": "The local database was busy and a write had to wait."
+      },
+      "oxequery": {
+        "timeout": "An OxeQuery request ran out of time."
+      },
+      "updater": {
+        "failed": "An update could not be checked or installed."
+      },
+      "interaction": {
+        "overBudget": "An interaction took longer than its budget."
+      },
+      "app": {
+        "journalReset": "The diagnostics journal was unreadable and started over."
+      }
+    },
+    "diagnostics": {
+      "bundle": {
+        "fileTooLarge": "A file in the diagnostics bundle is larger than 8 MB, so nothing was saved.",
+        "tooLarge": "The diagnostics bundle is larger than 32 MB, so nothing was saved."
+      }
+    },
+    "bundle": {
+      "file": {
+        "snapshot": "Processes, storage, connectivity and versions",
+        "incidents": "The incident journal: codes, areas and counts",
+        "logTail": "Last lines of the app log: time, level and the app's own fixed messages only",
+        "runtime": "Recent runtime events, redacted",
+        "versions": "App, Electron, Chrome, Node and system versions",
+        "configuration": "Settings that help a diagnosis, without secrets"
       }
     }
   }

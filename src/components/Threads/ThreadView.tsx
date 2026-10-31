@@ -10,7 +10,7 @@ import { ThreadEmptyState } from './ThreadEmptyState'
 import { useThreadStore } from '../../store/thread.store'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { useAccountStore, selectAccount } from '../../store/account.store'
-import { accountContext, accountMessage } from './ProviderAccountsPanel'
+import { accountContext, accountMessage } from './accountMessages'
 import { useThreadCommands } from './useThreadCommands'
 import { useFileMentions } from './useFileMentions'
 import { PrStatusBar } from '../GitHub/PrStatusBar'
@@ -54,6 +54,7 @@ const ThreadReviewHost = lazy(() => import('./ThreadReviewHost'))
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { threadWorkingRoot } from './threadChanges'
+import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
 import './ThreadWorkbench.css'
 import './ThreadView.css'
 import { formatClock, formatNumber } from '../../utils/formatTime'
@@ -204,6 +205,13 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     const id = snapshot.thread.id
     if (text.trim() === '/usage') {
       useUIStore.getState().openUsage()
+      if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, '')
+      return
+    }
+    // Archiving or deleting a conversation that owns a worktree first asks what to do with the worktree.
+    const ending = /^\/(archive|delete)$/i.exec(text.trim())
+    if (ending && snapshot.thread.ownedWorktree) {
+      useThreadWorktreeFinishStore.getState().ask(id, ending[1].toLowerCase() as 'archive' | 'delete')
       if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, '')
       return
     }
