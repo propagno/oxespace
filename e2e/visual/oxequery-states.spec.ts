@@ -34,26 +34,18 @@ for (const theme of THEMES) {
       await openView(page, 'OxePod')
       await expect(containerRow(page, 'mongo-dev')).toBeVisible()
       await expect(page.getByRole('region', { name: 'mongo-dev details' })).toBeVisible()
-      // "running for 2 hours" is measured against the clock of the run; the Started date in About is that clock too,
-      // and sizes its card, so it is replaced with a fixed one like the times of the activity table below.
-      const since = (name: string): Locator => page.getByRole('region', { name: `${name} details` }).locator('h2 + span')
-      const pinStarted = async (): Promise<void> => {
-        const started = page.getByRole('region', { name: 'About' }).locator('dt', { hasText: /^Started$/ }).locator('xpath=following-sibling::dd')
-        await expect(started).toBeVisible()
-        await started.evaluateAll(cells => { for (const cell of cells) cell.textContent = '10/18/2026, 8:00:00 AM' })
-      }
-      await pinStarted()
-      await shot('containers', undefined, [since('mongo-dev')])
+      // "running for 2 hours" and the Started date are the clock of the run: the app marks both volatile (data-oq-volatile),
+      // and the capture masks them.
+      await shot('oxepod-containers')
 
       await page.getByRole('complementary', { name: /OxePod/ }).getByRole('button', { name: 'Images, volumes and networks' }).last().click()
       await expect(page.getByRole('region', { name: 'Images, volumes and networks' })).toBeVisible()
-      await shot('containers-resources')
+      await shot('oxepod-containers-resources')
 
       await containerRow(page, 'pg-dev').click()
       await expect(page.getByRole('region', { name: 'pg-dev details' })).toBeVisible()
       await expect(page.getByRole('region', { name: 'Database detected' })).toBeVisible()
-      await pinStarted()
-      await shot('container-details', undefined, [since('pg-dev')])
+      await shot('oxepod-container-details')
 
       // The connection forms, the local database wizard and the audit stay in OxeQuery.
       await openView(page, 'OxeQuery')
@@ -66,6 +58,7 @@ for (const theme of THEMES) {
       await shot('dialog-new-database', wizard)
       await page.keyboard.press('Escape')
       await expect(wizard).toBeHidden()
+      await expect(wizard).toBeHidden()
 
       await page.getByRole('button', { name: 'New connection' }).first().click()
       const form = page.getByRole('dialog', { name: 'New connection' })
@@ -77,6 +70,7 @@ for (const theme of THEMES) {
       await form.getByRole('button', { name: /SSH tunnel/ }).click()
       await shot('dialog-connection-security', form)
       await page.keyboard.press('Escape')
+      await expect(form).toBeHidden()
 
       await page.locator('.oq-sidebar').getByRole('button', { name: 'Agent activity' }).click()
       const activity = page.getByRole('region', { name: 'Agent activity' })
