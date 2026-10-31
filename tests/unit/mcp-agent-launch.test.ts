@@ -49,8 +49,12 @@ describe('MCP servers for an agent started in a Code terminal', () => {
     const launch = await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], {})
     expect(Object.keys((JSON.parse(launch.args[launch.args.indexOf('--mcp-config') + 1]) as { mcpServers: object }).mcpServers)).toEqual(['oxespace-delegation'])
     // OXESPACE_PANE_BRIDGE: the .mcp.json entry Claude also loads steps aside, so the pane has one OXESpace server.
-    expect(launch.env).toEqual({ ENABLE_TOOL_SEARCH: 'true', OXESPACE_PANE_BRIDGE: '1' })
-    expect((await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).env).toEqual({ OXESPACE_PANE_BRIDGE: '1' })
+    const token = expect.stringMatching(/^[0-9a-f-]{36}$/)
+    expect(launch.env).toEqual({ ENABLE_TOOL_SEARCH: 'true', OXESPACE_PANE_BRIDGE: token })
+    const plain = await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })
+    expect(plain.env).toEqual({ OXESPACE_PANE_BRIDGE: token })
+    // A fresh token per launch: one launch's claim never silences another's entry.
+    expect(plain.env?.OXESPACE_PANE_BRIDGE).not.toBe(launch.env?.OXESPACE_PANE_BRIDGE)
   })
 
   it('asks the .mcp.json entry to step aside only for Claude, which loads it next to its own bridge', async () => {

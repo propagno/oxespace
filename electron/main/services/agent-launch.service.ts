@@ -1,5 +1,6 @@
 import { basename, join } from 'node:path'
 import { existsSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { DelegationTask } from '../../../shared/types/delegation'
 import type { TerminalManager } from './terminal.service'
@@ -38,8 +39,9 @@ export async function codeAgentMcpLaunch(db: AppDatabase, provider: string, brid
   // Other agents read the workspace's .mcp.json and get no bridge arguments here; the plan only matters for these two.
   const plan = sessionToolPlan(provider === 'claude' || provider === 'codex' ? usesToolSearch(provider, { ...source, ...search }) : false, { code: true }, modes)
   const own = agentMcpArguments(provider, bridge, plan)
-  // Claude Code also loads the workspace's .mcp.json entry; with this variable that entry lists nothing (one server).
-  if (provider === 'claude') return { args: [...own, ...args], env: { ...search, [PANE_BRIDGE_ENV]: '1' } }
+  // Claude Code also loads the workspace's .mcp.json entry; with this launch's token, that entry lists nothing (one
+  // server). A fresh token per launch, so a claude this agent starts itself keeps its tools (oxespace-mcp.cjs).
+  if (provider === 'claude') return { args: [...own, ...args], env: { ...search, [PANE_BRIDGE_ENV]: randomUUID() } }
   if (provider !== 'codex') return { args: [...own, ...args], env: search }
   try {
     const managed = readManagedMcp(db, workspaceId)

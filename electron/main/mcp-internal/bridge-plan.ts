@@ -11,8 +11,9 @@ export interface BridgePlan {
 
 /**
  * One OXESpace server per agent. The workspace's `.mcp.json` entry carries PROJECT_ENTRY_FLAG; an agent OXESpace starts
- * in a Code terminal with its own bridge (`--mcp-config`) also gets PANE_BRIDGE_ENV=1. Claude Code loads both servers,
- * so the project entry then lists no tools, and the session pays for the OXESpace tools once.
+ * in a Code terminal with its own bridge (`--mcp-config`) also gets PANE_BRIDGE_ENV, a fresh token per launch. Claude
+ * Code loads both servers, so the project entry that agent starts lists no tools, and the session pays for the OXESpace
+ * tools once. A `claude` the agent starts itself inherits the token, but its entry serves as usual (oxespace-mcp.cjs).
  */
 export const PROJECT_ENTRY_FLAG = '--project-entry'
 export const PANE_BRIDGE_ENV = 'OXESPACE_PANE_BRIDGE'
