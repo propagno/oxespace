@@ -329,7 +329,7 @@ test.describe('offer audit', () => {
         'Tools/Usage & limits': dialog('Usage & rate limits'),
         'Tools/Linear issues': dialog('Linear issues'),
         'Help/Keyboard shortcuts': dialog('Keyboard shortcuts'),
-        'Help/Diagnostics': settingsPage('Diagnostics'),
+        'Help/Diagnostics': both(settingsPage('Diagnostics'), testId('diagnostics-health')),
         'Help/Report a problem…': dialog('Report a problem'),
         'Help/Check for updates…': settingsPage('Updates')
       }

@@ -141,8 +141,6 @@
     "description": "Compact local diagnostics: up to 1.5 MiB for seven days. Export excludes prompts, terminal output and command arguments.",
     "refresh": "Refresh",
     "refreshTitle": "Re-run checks",
-    "savedReport": "Saved sanitized report to {{path}}",
-    "exportCancelled": "Export cancelled.",
     "checking": "Checking…",
     "failing": "{{count}} failing",
     "warning": "{{count}} warning",
@@ -151,7 +149,221 @@
     "healthy": "healthy",
     "platform": "Platform",
     "workspaces": "Workspaces",
-    "export": "Export report"
+    "checksTitle": "Environment checks",
+    "health": {
+      "title": "Health",
+      "measuring": "Measured every few seconds, only while this page is open.",
+      "loading": "Taking the first measurement…",
+      "unavailable": "Live measurements aren't available in this version of OXESpace.",
+      "failed": "Couldn't start measuring.",
+      "allClear": "Everything looks normal.",
+      "attention": "Needs attention: {{cards}}.",
+      "whatToDo": "What to do:"
+    },
+    "tone": {
+      "ok": "Normal",
+      "warning": "Attention",
+      "error": "Problem",
+      "unknown": "Unknown"
+    },
+    "processKind": {
+      "main": "The app's core",
+      "renderer": "The interface",
+      "gpu": "Graphics",
+      "oxequery-worker": "OxeQuery",
+      "codegraph": "CodeGraph",
+      "utility": "A helper process",
+      "other": "Another process"
+    },
+    "cards": {
+      "cpu": {
+        "title": "CPU",
+        "meter": "OXESpace CPU use",
+        "figure": "{{percent}}%",
+        "alerts": {
+          "normal": { "text": "Average of the last measurements. Normal." },
+          "high": {
+            "text": "OXESpace has been busy: {{percent}}% CPU on average.",
+            "action": "See which part is busy under Processes and agents, and stop terminals or agents you aren't using."
+          },
+          "veryHigh": {
+            "text": "OXESpace is using {{percent}}% CPU on average; the computer may feel slow.",
+            "action": "Stop terminals or agents you aren't using. If it stays this high, ask for analysis."
+          }
+        }
+      },
+      "memory": {
+        "title": "Memory",
+        "meter": "OXESpace memory use",
+        "figure": "{{bytes}}",
+        "alerts": {
+          "normal": { "text": "All OXESpace processes together. Normal." },
+          "high": {
+            "text": "OXESpace is using {{bytes}} of memory.",
+            "action": "Close panes, conversations and OxeQuery tabs you aren't using."
+          },
+          "veryHigh": {
+            "text": "OXESpace is using {{bytes}} of memory; the computer may start to slow down.",
+            "action": "Close what you aren't using, or restart OXESpace. If it grows again, ask for analysis."
+          }
+        }
+      },
+      "disk": {
+        "title": "Disk",
+        "figure": "{{bytes}} free",
+        "figureUnknown": "—",
+        "alerts": {
+          "normal": { "text": "Plenty of room for the database and logs." },
+          "low": {
+            "text": "Only {{bytes}} free on the disk that holds OXESpace's data.",
+            "action": "Free some space soon: the database and logs need room to save your work."
+          },
+          "almostFull": {
+            "text": "Only {{bytes}} free: saving may fail.",
+            "action": "Free space now: empty the recycle bin or remove large files you don't need."
+          },
+          "unknown": {
+            "text": "The free space couldn't be read.",
+            "action": "Nothing to do here. If saving fails, check the disk in your system settings."
+          }
+        }
+      },
+      "database": {
+        "title": "Database",
+        "figure": "{{bytes}}",
+        "detail": "Logs: {{logs}}",
+        "alerts": {
+          "normal": { "text": "Conversations, settings and history. Normal." },
+          "large": {
+            "text": "The local database has grown to {{bytes}}.",
+            "action": "Archive or delete conversations you no longer need."
+          },
+          "busy": {
+            "text_one": "The database was busy once in the last day.",
+            "text_other": "The database was busy {{count}} times in the last day.",
+            "action": "Close other OXESpace windows. If it keeps happening, ask for analysis."
+          }
+        }
+      },
+      "processes": {
+        "title": "Processes and agents",
+        "figure": "{{processes}} processes",
+        "detail": "Terminals: {{terminals}} · Agents: {{agents}} · MCP servers healthy: {{mcpHealthy}} of {{mcpTotal}}",
+        "alerts": {
+          "normal": { "text": "Nothing unusual." },
+          "mcpFailing": {
+            "text_one": "{{count}} MCP server is failing.",
+            "text_other": "{{count}} MCP servers are failing.",
+            "action": "Open Tools › MCP servers to see the error and restart the server."
+          },
+          "mcpQuarantined": {
+            "text_one": "{{count}} MCP server is quarantined after it changed.",
+            "text_other": "{{count}} MCP servers are quarantined after they changed.",
+            "action": "Review the change in Tools › MCP servers before trusting it again."
+          },
+          "heavyProcess": {
+            "text": "{{kind}} alone is using {{bytes}} of memory.",
+            "action": "Close panes and conversations you aren't using. If it keeps growing, restart OXESpace."
+          }
+        }
+      },
+      "network": {
+        "title": "Network and phone",
+        "state": {
+          "online": "Online",
+          "offline": "Offline",
+          "unknown": "Not checked yet"
+        },
+        "phone": {
+          "phoneUnavailable": "Phone access isn't part of this build.",
+          "phoneOff": "Phone access is off.",
+          "phoneNone": "Phone access is on; no phone is paired.",
+          "phoneConnected": "Paired phones connected: {{connected}} of {{devices}}.",
+          "phoneAway": "No paired phone is connected."
+        },
+        "alerts": {
+          "normal": { "text": "Connected to the network." },
+          "offline": {
+            "text": "No network connection.",
+            "action": "Agents, updates and the phone need the network. Check Wi-Fi or the cable; OXESpace reconnects by itself."
+          },
+          "phoneAway": {
+            "text": "Your paired phone isn't connected.",
+            "action": "Open OXESpace on the phone, on the same network, or pair it again."
+          },
+          "unknown": {
+            "text": "The connection hasn't been checked yet.",
+            "action": "Nothing to do yet; the next measurement checks it."
+          }
+        }
+      }
+    },
+    "journal": {
+      "title": "Problem journal",
+      "description": "Problems OXESpace noted on this computer in the last 30 days, grouped by kind. No content, prompts or paths.",
+      "area": "Area",
+      "allAreas": "All areas ({{count}})",
+      "areaOption": "{{area}} ({{count}})",
+      "list": "Noted problems",
+      "areas": {
+        "app": "App",
+        "window": "Window",
+        "ipc": "Background requests",
+        "agent": "Agents",
+        "mcp": "MCP servers",
+        "database": "Database",
+        "oxequery": "OxeQuery",
+        "updater": "Updates",
+        "interaction": "Responsiveness"
+      },
+      "actions": {
+        "app": "Nothing to do; the journal starts over by itself. If it happens again, ask for analysis.",
+        "window": "Restart OXESpace if the window misbehaves. If it happens again, ask for analysis.",
+        "ipc": "Try the action again. If it keeps failing, ask for analysis.",
+        "agent": "Check that the agent's CLI is installed and signed in, in Settings › Agents.",
+        "mcp": "Review the server's change in Tools › MCP servers before trusting it again.",
+        "database": "Close other OXESpace windows. If it keeps happening, ask for analysis.",
+        "oxequery": "Check the database connection and try a smaller query.",
+        "updater": "Check your connection and try again in Settings › Updates.",
+        "interaction": "If the app feels slow, close panes and conversations you aren't using."
+      },
+      "times_one": "once",
+      "times_other": "{{count}} times",
+      "when": "Last {{last}} · {{times}}",
+      "loading": "Reading the journal…",
+      "empty": "No problems noted in the last 30 days.",
+      "emptyArea": "Nothing noted in this area.",
+      "failed": "Couldn't read the problem journal.",
+      "clear": "Clear journal",
+      "clearTitle": "Clear the problem journal?",
+      "clearDescription": "Every noted problem is removed from this computer. Problems are noted again from now on.",
+      "cleared": "Problem journal cleared",
+      "clearFailed": "Couldn't clear the problem journal"
+    },
+    "actions": {
+      "label": "Diagnostics actions",
+      "copy": "Copy information",
+      "copyWhat": "Diagnostics information",
+      "export": "Export bundle",
+      "ask": "Ask for analysis",
+      "askHint": "Opens a new conversation with the diagnostics summary in its draft. Nothing is sent until you send it.",
+      "summaryFailed": "Couldn't prepare the diagnostics summary",
+      "askFailed": "Couldn't open a new conversation"
+    },
+    "bundle": {
+      "title": "Export diagnostics bundle",
+      "description": "What the .zip will contain, already redacted. Nothing is sent anywhere.",
+      "loading": "Preparing the preview…",
+      "failed": "Couldn't prepare the preview",
+      "files": "Files in the bundle",
+      "redactions_one": "{{count}} value was redacted (paths, names and secrets).",
+      "redactions_other": "{{count}} values were redacted (paths, names and secrets).",
+      "redactionsNone": "Nothing needed redacting.",
+      "save": "Save bundle…",
+      "saved": "Diagnostics bundle saved",
+      "cancelled": "Export cancelled.",
+      "saveFailed": "Couldn't save the bundle"
+    }
   },
   "checked": {
     "justNow": "Checked just now",

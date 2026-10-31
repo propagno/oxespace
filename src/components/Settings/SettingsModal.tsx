@@ -18,6 +18,7 @@ import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyl
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, SegmentedControl, Switch, TextField, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'
+import { DiagnosticsPanel } from '../Diagnostics/DiagnosticsPanel'
 import { humanizeError } from '../../utils/humanizeError'
 
 export interface SettingsModalProps {
@@ -108,13 +109,6 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
 
   useEffect(refresh, [])
 
-  const exportReport = (): void => {
-    setNotice(null)
-    void window.oxe.diagnostics.exportReport()
-      .then((path) => setNotice(path ? t('diagnostics.savedReport', { path }) : t('diagnostics.exportCancelled')))
-      .catch((error) => setNotice(humanizeError(error)))
-  }
-
   const failing = snapshot?.checks.filter((check) => check.tone === 'error').length ?? 0
   const warning = snapshot?.checks.filter((check) => check.tone === 'warning').length ?? 0
   const failingText = t('diagnostics.failing', { count: failing })
@@ -143,6 +137,10 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         }
       />
       <div className="settings-content-body">
+        {/* Live health, the problem journal and the hand-over actions (F11); it measures only while this page is open. */}
+        <DiagnosticsPanel onLeave={onClose} />
+
+        <h3 className="settings-form-group-title">{t('diagnostics.checksTitle')}</h3>
         <div className="diagnostics-hero" data-testid="diagnostics-summary">
           <div className="diagnostics-hero-text">
             <strong>{summary}</strong>
@@ -178,12 +176,6 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         ) : null}
 
         {notice ? <div className="settings-callout" role="status">{notice}</div> : null}
-
-        <div className="settings-inline-actions">
-          <Button variant="primary" onClick={exportReport}>
-            <Download size={14} aria-hidden="true" /> {t('diagnostics.export')}
-          </Button>
-        </div>
 
         <AgentActivitySettings />
       </div>

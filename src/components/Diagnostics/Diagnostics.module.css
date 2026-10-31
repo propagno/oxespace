@@ -1,0 +1,47 @@
+/* Help › Diagnostics: health cards, problem journal and the hand-over actions. Tokens only; light and dark follow them. */
+.panel { display: grid; gap: var(--space-4); min-width: 0; }
+.toolbar { gap: var(--space-2); }
+.hint { flex-basis: 100%; font-size: var(--text-xs); color: var(--text-muted); }
+.section { min-width: 0; }
+.note { margin: 0 0 var(--space-3); font-size: var(--text-xs); color: var(--text-muted); line-height: var(--leading-normal); }
+
+.summary { margin: 0 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-primary); }
+.summary[data-tone='warning'] { color: var(--intent-warning-fg); }
+.summary[data-tone='error'] { color: var(--intent-danger-fg); }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3); }
+.card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--duration-base) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard);
+}
+.card[data-tone='warning'] { border-color: var(--intent-warning-solid); box-shadow: inset 3px 0 0 var(--intent-warning-solid); }
+.card[data-tone='error'] { border-color: var(--intent-danger-solid); box-shadow: inset 3px 0 0 var(--intent-danger-solid); }
+.cardHead { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.cardTitle { margin: 0; min-width: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cardBadge { margin-left: auto; }
+.figure { margin: 0; font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--weight-semibold); color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.detail { margin: 0; font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.alert { margin: 0; font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-snug); }
+.action { margin: 0; font-size: var(--text-xs); color: var(--text-primary); line-height: var(--leading-normal); }
+.action strong { font-weight: var(--weight-semibold); }
+
+.areaSelect { min-width: 0; max-width: 220px; }
+.timeline { display: grid; gap: var(--space-3); margin: 0; padding: 0 0 0 var(--space-3); list-style: none; border-left: 1px solid var(--border-default); }
+.incident { position: relative; display: flex; gap: var(--space-2); min-width: 0; }
+.incidentMark { position: absolute; left: calc(var(--space-3) * -1 - 4px); top: var(--space-1); width: 7px; height: 7px; border-radius: 50%; background: var(--intent-warning-solid); }
+.incidentBody { display: grid; gap: var(--space-1); min-width: 0; }
+.incidentText { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-sm); color: var(--text-primary); }
+
+.bundle { display: grid; gap: var(--space-2); }
+.bundleTitle { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.bundleFiles { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.bundleFiles li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1) var(--space-2); padding: var(--space-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.bundleFiles code { font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.bundleSummary { grid-column: 1 / -1; font-size: var(--text-xs); color: var(--text-secondary); }

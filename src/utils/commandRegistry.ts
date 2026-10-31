@@ -52,6 +52,14 @@ export function registerCommands(source: string, commands: ContributedCommand[])
   return () => { sources.delete(source); rebuild() }
 }
 
+/** Runs a contributed command by id, as the palette would. False when it is not registered or is disabled now. */
+export function runCommand(id: string): boolean {
+  const command = snapshot.find(item => item.id === id)
+  if (!command || command.disabled) return false
+  command.run()
+  return true
+}
+
 /** Palette actions contributed by feature modules, stable between changes. */
 export function useContributedCommands(): CommandPaletteAction[] {
   return useSyncExternalStore(

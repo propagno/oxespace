@@ -10,6 +10,9 @@ import { i18n } from '../i18n'
 // Read once, before the store exists: the writer needs the saved edit times to let old drafts expire.
 const storedDrafts = loadStoredDrafts()
 
+/** Text waiting for the next new conversation, and where it came from (the dialog names it). */
+export interface PendingDraft { text: string; source: 'diagnostics' }
+
 interface ThreadState {
   threads: ConversationThread[]; projects: ThreadProjectSummary[]; unavailableProjects: string[]
   selectedId: string | null; snapshot: ThreadSnapshot | null
@@ -37,6 +40,12 @@ interface ThreadState {
   refresh: (id: string) => Promise<void>
   loadProjects: () => Promise<void>
   setDraft: (id: string, text: string) => void
+  /**
+   * Text another view hands to the next new conversation (Settings › Diagnostics › Ask for analysis). The new
+   * conversation dialog says so and puts it in the draft on create; it is never sent by itself and not persisted.
+   */
+  pendingDraft: PendingDraft | null
+  setPendingDraft: (draft: PendingDraft | null) => void
   addAttachment: (id: string, attachment: ThreadAttachment) => void
   removeAttachment: (id: string, attachmentId: string) => void
   clearAttachments: (id: string) => void
@@ -213,6 +222,8 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     } catch { /* Catalog reload handles deleted workspaces. */ }
   },
   setDraft: (id, text) => set(state => ({ drafts: { ...state.drafts, [id]: text } })),
+  pendingDraft: null,
+  setPendingDraft: pendingDraft => set({ pendingDraft }),
   addAttachment: (id, attachment) => set(state => ({ attachments: { ...state.attachments, [id]: [...(state.attachments[id] ?? []).filter(value => value.id !== attachment.id), attachment].slice(0, 8) } })),
   removeAttachment: (id, attachmentId) => set(state => ({ attachments: { ...state.attachments, [id]: (state.attachments[id] ?? []).filter(value => value.id !== attachmentId) } })),
   clearAttachments: id => set(state => ({ attachments: { ...state.attachments, [id]: [] } })),
