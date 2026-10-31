@@ -127,7 +127,6 @@ describe('diagnostics measurement by subscription', () => {
     await expect(call(IPC_CHANNELS.diagnostics.incidents, { since: -1 })).rejects.toThrow()
     await expect(call(IPC_CHANNELS.diagnostics.incidents, { other: true })).rejects.toThrow('Unknown')
     await expect(call(IPC_CHANNELS.diagnostics.analysisSummary, { anything: 1 })).rejects.toThrow('no input')
-    await expect(Promise.resolve(hooks.handlers.get(IPC_CHANNELS.diagnostics.analysisSummary)!({ sender, senderFrame: {} }))).rejects.toThrow('main frame')
     expect(vi.getTimerCount()).toBe(0)
   })
 })

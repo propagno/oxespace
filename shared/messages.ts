@@ -37,6 +37,8 @@ export interface MessageParams {
   'thread.protectedConfig.rewritesTracked': { command: string }
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** B12: the IPC sender guard refused a call from a sender other than the app window's main frame. */
+  'ipc.sender.refused': Record<string, never>
   /** The provider cannot fork its session into a side chat (B1.2). */
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
@@ -46,6 +48,7 @@ export interface MessageParams {
   'incident.window.rendererGone': Record<string, never>
   'incident.ipc.handlerFailed': Record<string, never>
   'incident.ipc.validationRejected': Record<string, never>
+  'incident.ipc.senderRefused': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
   'incident.database.busy': Record<string, never>
@@ -296,12 +299,14 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.warning',
   'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
+  'ipc.sender.refused',
   'thread.side.unavailable',
   'thread.side.noSession',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
+  'incident.ipc.senderRefused',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
   'incident.database.busy',
