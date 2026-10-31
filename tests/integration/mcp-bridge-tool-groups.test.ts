@@ -120,6 +120,48 @@ describe('turning a tool group on in a session (B7.2)', () => {
     } finally { await endpoint.close() }
   })
 
+  it('tells the agent when its tools beat grep, once in initialize, and only where those tools are listed (S5)', async () => {
+    const endpoint = await server()
+    try {
+      const instructions = async (session: ReturnType<typeof bridge>) => ((await session.request('initialize', {})).result as { instructions?: string }).instructions
+      const text = await instructions(bridge(endpoint.port, [...TOOLS, 'oxespace_hybrid_explore']))
+      expect(text).toContain('oxespace_hybrid_explore')
+      expect(text!.length).toBeLessThanOrEqual(600)
+      // A plan without the code tools, or a bridge that lists nothing, says nothing about them.
+      expect(await instructions(bridge(endpoint.port, TOOLS))).toBeUndefined()
+      expect(await instructions(bridge(endpoint.port, [...TOOLS, 'oxespace_hybrid_explore'], undefined, { args: ['--project-entry'], env: { OXESPACE_PANE_BRIDGE: randomUUID() } }))).toBeUndefined()
+    } finally { await endpoint.close() }
+  })
+
+  it('names only the tools OXESpace really lists when a group turns on, and the rest as unavailable', async () => {
+    const endpoint = await server()
+    try {
+      // oxespace_memory_sessions is in the group but OXESpace does not list it (memory off).
+      const session = bridge(endpoint.port, ['oxespace_capabilities', 'oxespace_tools_enable'], { orchestration: ['oxespace_containers_list', 'oxespace_memory_sessions'] })
+      await session.listed()
+      const reply = await session.call('oxespace_tools_enable', { group: 'orchestration' })
+      expect(reply).toMatchObject({ status: 'ok', tools: ['oxespace_containers_list'], unavailable: ['oxespace_memory_sessions'] })
+      expect(await session.listed()).toEqual(['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_containers_list'])
+    } finally { await endpoint.close() }
+  })
+
+  it('answers a client started without the app\'s port and token instead of leaving it waiting', async () => {
+    const child = spawn(process.execPath, [BRIDGE], { env: { ...process.env, OXESPACE_MCP_PORT: '', OXESPACE_MCP_TOKEN: '', OXESPACE_PANE_BRIDGE: '' } })
+    children.push(child)
+    let out = ''
+    child.stdout.on('data', chunk => { out += chunk })
+    const reply = async (id: number) => {
+      await expect.poll(() => out.split('\n').some(line => line.includes(`"id":${id}`)), { timeout: 5000, interval: 10 }).toBe(true)
+      return JSON.parse(out.split('\n').find(line => line.includes(`"id":${id}`))!) as Record<string, { tools?: unknown[]; message?: string; protocolVersion?: string }>
+    }
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })}\n`)
+    expect((await reply(1)).result.protocolVersion).toBeTruthy()
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })}\n`)
+    expect((await reply(2)).result.tools).toEqual([])
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'oxespace_capabilities', arguments: {} } })}\n`)
+    expect((await reply(3)).error.message).toContain('OXESpace terminal')
+  })
+
   it('as the .mcp.json entry in a pane with its own bridge, lists nothing and forwards nothing: one OXESpace server', async () => {
     const endpoint = await server()
     try {

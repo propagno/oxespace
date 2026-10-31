@@ -44,6 +44,9 @@ function stepsAside() {
   return false
 }
 const STEPS_ASIDE = stepsAside()
+// Sent once per session in initialize: when these tools beat grep and file reads. Claude's tool search reads it to decide
+// when to look here (S5, docs/design/teardown-s7-s5.md). One line, at most 600 chars; the T8 test reads and measures it.
+const INSTRUCTIONS = 'Prefer these to grep and reading many files: oxespace_hybrid_explore to find where code lives or how a feature works; oxespace_code_impact and oxespace_code_callers before changing a symbol; oxespace_semantic_search for an idea with no exact name. More tools: oxespace_tools_enable or tool search.'
 const allowIndex = process.argv.indexOf('--allowed-tools')
 const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
 // Groups this session may turn on with oxespace_tools_enable: { group: [tool, ...] } (B7.2). Off groups are never here.
@@ -68,10 +71,13 @@ const READ_ONLY_TOOLS = new Set([
   'oxespace_diagnostics'
 ])
 
-if ((!PORT || !TOKEN) && !OPTIONAL_MEMORY) {
-  process.stderr.write('[oxespace-mcp] missing OXESPACE_MCP_PORT/TOKEN env — is OXESpace running?\n')
-  process.exit(2)
-}
+// Started without the app's port and token (a client reading .mcp.json outside an OXESpace terminal): still answer, so the
+// client never hangs on initialize. It lists nothing and every call says where to start the agent (homologation of #316).
+const UNCONNECTED = (!PORT || !TOKEN) && !OPTIONAL_MEMORY
+const UNCONNECTED_MESSAGE = 'OXESpace is not connected to this session: start the agent from an OXESpace terminal, with OXESpace running.'
+if (UNCONNECTED) process.stderr.write('[oxespace-mcp] missing OXESPACE_MCP_PORT/TOKEN env: is OXESpace running? Listing no tools.\n')
+/** The tool names OXESpace listed last, before this session's filter; null until the first tools/list. */
+let serverTools = null
 
 /** Write a JSON-RPC envelope to stdout, newline-delimited. */
 function send(envelope) {
@@ -98,7 +104,11 @@ function enableGroup(args) {
   enabledGroups.add(group)
   for (const tool of tools) allowedTools.add(tool)
   if (!already) send({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' })
-  return textResult({ status: 'ok', group, tools, note: 'If these tools do not appear in your tool list, this client did not reload it: ask the person to start a new conversation, or to set the group to always in Settings > Tools.' })
+  // Say what the app actually lists: some tools are off in this app now (memory tools while memory is off), and the
+  // group's list alone would promise them (homologation of #316). Unknown until the first tools/list: then all of them.
+  const added = serverTools ? tools.filter(tool => serverTools.has(tool)) : tools
+  const unavailable = tools.filter(tool => !added.includes(tool))
+  return textResult({ status: 'ok', group, tools: added, ...(unavailable.length ? { unavailable, unavailableReason: 'Not offered by OXESpace right now, for example memory tools while memory is off.' } : {}), note: 'If these tools do not appear in your tool list, this client did not reload it: ask the person to start a new conversation, or to set the group to always in Settings > Tools.' })
 }
 
 /** Adds this session's groups to oxespace_capabilities: which were turned on here and which still can be. */
@@ -221,7 +231,9 @@ async function dispatch(msg) {
     ok(msg.id, {
       protocolVersion: PROTOCOL_VERSION,
       capabilities: { tools: enableable ? { listChanged: true } : {} },
-      serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
+      serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
+      // Only where those tools are listed: never from a bridge that lists nothing, or one whose plan leaves them out.
+      ...(!STEPS_ASIDE && !UNCONNECTED && (!allowedTools || allowedTools.has('oxespace_hybrid_explore')) ? { instructions: INSTRUCTIONS } : {})
     })
     return
   }
@@ -232,10 +244,11 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/list') {
-    if (STEPS_ASIDE) return ok(msg.id, { tools: [] })
+    if (STEPS_ASIDE || UNCONNECTED) return ok(msg.id, { tools: [] })
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return ok(msg.id, { tools: [] })
     try {
       const result = await rpc('tools/list', undefined, true)
+      if (result) serverTools = new Set((result.tools || []).map(tool => tool.name))
       if (allowedTools && result) result.tools = (result.tools || []).filter(tool => allowedTools.has(tool.name))
       ok(msg.id, result || { tools: [] })
     } catch (e) {
@@ -245,6 +258,7 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/call') {
+    if (UNCONNECTED) return err(msg.id, -32002, UNCONNECTED_MESSAGE)
     if (STEPS_ASIDE) return err(msg.id, -32602, 'OXESpace started this agent with its own OXESpace server (oxespace-delegation); use its tools')
     if (allowedTools && !allowedTools.has(msg.params && msg.params.name)) return err(msg.id, -32602, 'This tool is not available in Thread')
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return err(msg.id, -32602, 'Memory is not bound to an OXESpace execution')

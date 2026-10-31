@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import type { AppDatabase } from '../../electron/main/db/index'
 import { codeAgentMcpLaunch } from '../../electron/main/services/agent-launch.service'
 import { agentStatusFor } from '../../src/components/MCP/mcpAgentStatus'
-import { CODE_TOOL_GROUP, MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
+import { CODE_START_TOOLS, CODE_TOOL_GROUP, MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
 
 function dbWith(rows: Array<{ name: string; workspace_id: string | null; config: unknown }>, rootPath?: string): AppDatabase {
   return { prepare: () => ({
@@ -86,10 +86,11 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
     expect(enableable(args)).toEqual({})
   })
 
-  it('gives Claude without tool search core, the Code group and the enable tool for the on-demand groups', async () => {
+  it('gives Claude without tool search core, the Code terminal\'s start tools and the enable tool for the rest (T8)', async () => {
     const args = (await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).args
-    expect(allowed(args)).toEqual([...thread('core'), ...CODE_TOOL_GROUP, 'oxespace_tools_enable'])
-    expect(Object.keys(enableable(args)).sort()).toEqual(['app', 'data', 'docs', 'orchestration'])
+    expect(allowed(args)).toEqual([...thread('core'), ...CODE_START_TOOLS, 'oxespace_tools_enable'])
+    expect(Object.keys(enableable(args)).sort()).toEqual(['app', 'code', 'data', 'docs', 'orchestration'])
+    expect(new Set([...CODE_START_TOOLS, ...enableable(args).code])).toEqual(new Set(CODE_TOOL_GROUP))
   })
 
   it('follows the project\'s modes in oxe.yaml', async () => {
@@ -103,7 +104,7 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
     expect(codex).not.toContain('oxespace_db_query')
     const noSearch = (await codeAgentMcpLaunch(inProject, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).args
     expect(allowed(noSearch)).toEqual(expect.arrayContaining(thread('docs')))
-    expect(Object.keys(enableable(noSearch)).sort()).toEqual(['app', 'orchestration'])
+    expect(Object.keys(enableable(noSearch)).sort()).toEqual(['app', 'code', 'orchestration'])
   })
 })
 
