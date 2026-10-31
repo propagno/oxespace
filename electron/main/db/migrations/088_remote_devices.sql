@@ -42,4 +42,4 @@ CREATE INDEX IF NOT EXISTS idx_remote_audit_ts ON remote_audit(ts DESC);
 CREATE TRIGGER IF NOT EXISTS remote_audit_no_update BEFORE UPDATE ON remote_audit
 BEGIN SELECT RAISE(ABORT, 'remote_audit is append-only'); END;
 
-PRAGMA user_version = 86;
+PRAGMA user_version = 88;

@@ -50,6 +50,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
+| `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
 
 ## New in X21
 
@@ -85,7 +86,7 @@ before. Code panes receive the whole registry.
 
 | Id | Capability | MCP tools by level, or the decision |
 |---|---|---|
-| `context.discovery` | Discover tools, the caller's execution and the project context | **read**: `oxespace_capabilities`, `oxespace_execution_context`, `oxespace_project_context` |
+| `context.discovery` | Discover tools, the caller's execution and the project context | **read**: `oxespace_capabilities`, `oxespace_tools_enable`, `oxespace_execution_context`, `oxespace_project_context` |
 | `code.workspaces` | List workspaces | **read**: `oxespace_list_workspaces` |
 | `code.workspace_settings` | Read the workspace's settings | **read**: `oxespace_settings#workspace` |
 | `code.workspace_admin` | Create, delete, reorder or switch workspaces; change their settings and panel layout | Excluded: The person's layout and preferences. Deleting a workspace is never exposed. |
@@ -158,6 +159,7 @@ before. Code panes receive the whole registry.
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
 | `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
 | `app.open_external` | Open a link in the system browser or mail app | **Forbidden**: Person-only, like an approval: the window calls it after the person confirmed the link's host. |
+| `app.activity` | The activity center's entries and when the person last looked at them (F30) | **Forbidden**: For 1.4, the person's own notification history: an agent neither reads it nor writes into it. |
 | `mcp_internal.tool_groups_admin` | Choose how a project offers each group of OXESpace tools | **Forbidden**: Raises what agents can reach. |
 | `settings.diagnostics` | Diagnostics snapshot, live measurements, problem bundles and reports | Excluded: Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them. |
 | `diagnostics.read` | Summary of the incident journal and a snapshot of the app | **read**: `oxespace_diagnostics` (app group): the same Markdown summary as the window's "Ask for an analysis". |

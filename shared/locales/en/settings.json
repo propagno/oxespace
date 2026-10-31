@@ -63,6 +63,10 @@
         "label": "Policy",
         "hint": "What agents are blocked from using"
       },
+      "devices": {
+        "label": "Devices",
+        "hint": "Phones paired with this computer"
+      },
       "diagnostics": {
         "label": "Diagnostics",
         "hint": "Application health and troubleshooting"
@@ -546,5 +550,127 @@
     "off": "Turn off",
     "resetAll": "Reset all shortcuts",
     "fixed": "Always on"
+  },
+  "devices": {
+    "title": "Devices",
+    "intro": "Use OXESpace from your Android phone on the same network: follow conversations, answer requests and watch terminals. The phone talks only to this computer, over your local network, never through the internet.",
+    "loadFailed": "Could not read the phone connection.",
+    "unavailable": "The phone connection is not available in this version.",
+    "gateway": {
+      "title": "Phone connection",
+      "label": "Let phones on this network connect",
+      "hint": "Off by default. When on, OXESpace listens only on private network addresses, over an encrypted connection that only paired phones can use.",
+      "listening": "Listening on {{addresses}}, port {{port}}",
+      "off": "Off. No port is open.",
+      "failed": "Could not change the phone connection: {{error}}"
+    },
+    "firewall": {
+      "title": "Before phones can connect",
+      "windowsAsk": "Windows will ask whether OXESpace may accept connections. Allow it on private networks, such as your home or office Wi-Fi.",
+      "windowsPublic": "Public networks can stay unchecked: the phone and this computer talk only over your local network.",
+      "otherAsk": "Your system may ask whether OXESpace may accept incoming connections. Allow it so phones on your network can reach this computer.",
+      "internet": "Nothing is exposed to the internet. OXESpace listens only on private network addresses, and only phones you pair here can use the connection.",
+      "later": "If you refuse, phones cannot reach this computer. You can change the answer later in the firewall settings of your system.",
+      "confirm": "Turn on"
+    },
+    "name": {
+      "title": "Name of this computer",
+      "label": "Name phones see",
+      "hint": "Shown on the phone when it connects. The network name of your computer is never sent.",
+      "save": "Save name",
+      "reset": "Use \"{{name}}\"",
+      "saved": "Phones will see \"{{name}}\"",
+      "tooLong": "Use at most {{max}} characters.",
+      "empty": "Type a name, or use the default.",
+      "failed": "Could not save the name: {{error}}"
+    },
+    "pairing": {
+      "title": "Pair a phone",
+      "hint": "Open OXESpace on the phone and scan the code. Each code works once and lasts two minutes.",
+      "start": "Show pairing code",
+      "needsGateway": "Turn on the phone connection first.",
+      "full": "You have reached {{max}} phones. Remove one to pair another.",
+      "qrLabel": "Pairing QR code. Point the phone's camera at the code.",
+      "fingerprint": "Certificate fingerprint",
+      "fingerprintHint": "The phone checks this before it trusts the connection.",
+      "expiresIn": "Expires in {{time}}",
+      "expired": "This code has expired.",
+      "newCode": "Show a new code",
+      "cancel": "Cancel",
+      "failed": "Could not show a pairing code: {{error}}",
+      "unreadable": "The pairing code could not be read. Show a new code.",
+      "prompt": {
+        "title": "Pair {{device}}?",
+        "description": "Pair only if the phone shows the same code.",
+        "codeLabel": "Verification code on the phone",
+        "accept": "Pair",
+        "refuse": "Refuse",
+        "paired": "{{device}} paired",
+        "failed": "Could not answer: {{error}}"
+      }
+    },
+    "list": {
+      "title": "Paired phones",
+      "count": "{{count}} of {{max}}",
+      "empty": "No phone paired yet",
+      "emptyHint": "Pair a phone above to see it here.",
+      "connected": "Connected",
+      "disconnected": "Not connected",
+      "paired": "Paired {{date}}",
+      "lastSeen": "Last seen {{date}}",
+      "neverSeen": "Never connected",
+      "rename": "Rename {{name}}",
+      "renameTitle": "Rename phone",
+      "renameLabel": "Phone name",
+      "renameSave": "Save",
+      "remove": "Remove",
+      "removeLabel": "Remove {{name}}",
+      "removeTitle": "Remove {{name}}?",
+      "removeDescription": "The phone is disconnected right away and can no longer connect. To use it again, pair it again.",
+      "removed": "{{name}} removed",
+      "failed": "Could not change the phone: {{error}}"
+    },
+    "typing": {
+      "title": "Typing in terminals",
+      "none": "Phones cannot type in any terminal. To allow it in one terminal, open its ⋯ menu and choose \"Allow typing from the phone\". It turns off again when OXESpace restarts.",
+      "some": "Terminals a phone can type in: {{count}}. It turns off again when OXESpace restarts.",
+      "stopAll": "Stop typing from the phone everywhere",
+      "failed": "Could not stop typing from the phone: {{error}}"
+    },
+    "scope": {
+      "title": "What a phone can do",
+      "can": "From the phone",
+      "cannot": "Only at this computer",
+      "deskOnly": "Requests that only this computer can answer (guarded actions, permissions and secret questions) stay here.",
+      "subscriptions": {
+        "workspaces": "See workspaces and panes",
+        "threads": "See conversations",
+        "thread": "Follow a conversation as it happens",
+        "pendingRequests": "See requests waiting for you",
+        "terminal": "Watch terminal output (read only)",
+        "jobs": "See background jobs",
+        "delegations": "See delegations"
+      },
+      "commands": {
+        "threadSend": "Send a message to a conversation",
+        "threadSteer": "Steer a turn while it runs",
+        "threadInterrupt": "Stop a running turn",
+        "threadRespondRequest": "Accept or decline a conversation request, after confirming on the phone with fingerprint or face",
+        "terminalWrite": "Type in a terminal you allowed here",
+        "threadHistory": "Read older messages"
+      },
+      "forbidden": {
+        "oxequeryApprove": "Approve OxeQuery changes",
+        "mcpConfirm": "Confirm MCP tool calls that ask for it",
+        "mcpTrust": "Trust an MCP server",
+        "accountsSignIn": "Sign in to an account",
+        "accountsToken": "Read or change sign-in tokens",
+        "secretsRead": "Read secrets",
+        "secretsWrite": "Change secrets",
+        "policyEdit": "Change policy",
+        "threadAccess": "Change what a conversation may access",
+        "hostExec": "Run commands on this computer"
+      }
+    }
   }
 }
