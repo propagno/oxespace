@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui
 
+import androidx.compose.runtime.CompositionLocalProvider
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import app.cash.paparazzi.accessibility.AccessibilityRenderExtension
@@ -10,6 +11,7 @@ import com.oxespace.mobile.ui.live.RequestScreen
 import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.PairingScreen
 import com.oxespace.mobile.pairing.PairingState
+import com.oxespace.mobile.ui.live.LocalClock
 import com.oxespace.mobile.ui.theme.OxeTheme
 import org.junit.Rule
 import org.junit.Test
@@ -37,7 +39,9 @@ class AccessibilitySnapshotTest {
     fun waitingForTheDesktop() = paparazzi.snapshot { OxeTheme { PairingScreen(PairingState.Waiting("Studio", "28T5CY"), {}, {}) { } } }
 
     @Test
-    fun liveHome() = paparazzi.snapshot { OxeTheme { LiveHome("Studio", null, Samples.live(), {}, {}, {}, {}, {}) } }
+    fun liveHome() = paparazzi.snapshot {
+        OxeTheme { CompositionLocalProvider(LocalClock provides Samples.clock) { LiveHome("Studio", null, Samples.live(), {}, {}, {}, {}, {}) } }
+    }
 
     @Test
     fun conversation() = paparazzi.snapshot { OxeTheme { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true) {} } }

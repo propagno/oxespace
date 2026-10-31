@@ -6,9 +6,34 @@ import { projectIdentity } from '../services/memory/memory-project.service'
 
 const exec = promisify(execFile)
 
+/** What each optional group is for, as oxespace_capabilities tells an agent. */
+const TOOL_GROUP_PURPOSES = {
+  orchestration: 'start other agents and conversations, delegate and follow Work runs',
+  data: 'databases and containers through OxeQuery; every data read and change is approved by a person',
+  docs: 'web previews and documentation captures',
+  app: 'Git, GitHub, conversations, skills, automations, Linear, MCP servers, search, usage and settings'
+}
+
+/**
+ * Turns a tool group on for this session. The OXESpace bridge of a conversation answers it, since it owns the
+ * session's tool list; reaching the server means this session has nothing left to turn on.
+ */
+const toolsEnable: ToolEntry = {
+  descriptor: {
+    name: 'oxespace_tools_enable',
+    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs or app. Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
+    inputSchema: { type: 'object', properties: { group: { type: 'string', enum: ['orchestration', 'data', 'docs', 'app'] } }, required: ['group'], additionalProperties: false },
+    // True: it changes nothing outside the session; each tool it lists keeps its own level and approval.
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  },
+  requiresWorkspace: false,
+  handler: async () => ({ content: [{ type: 'text' as const, text: JSON.stringify({ schemaVersion: 1, status: 'ok', data: { enabled: [], note: 'This session already lists every OXESpace tool it can use.' } }) }] })
+}
+
 /** Discovery is read-only and authenticated independently of optional memory. */
 export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
-  return ['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_memory_diagnostics'].map(name => ({
+  // Discovery first, in the order agents and tests know; the group switch B7.2 adds comes last.
+  return [...['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_memory_diagnostics'].map((name): ToolEntry => ({
     descriptor: { name, description: name === 'oxespace_capabilities'
       ? 'Discover registered OXESpace tools and execution requirements. Availability is not authorization.'
       : name === 'oxespace_execution_context'
@@ -42,9 +67,9 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
         limits: { concurrentDelegationsPerProject: 4, recursiveDelegation: false },
         // A conversation is offered only some groups; say how to get the others.
         ...(execution.owner.kind === 'thread' ? { threadToolGroups: {
-          offered: 'core tools, plus team or delegation/work tools when this conversation has that role',
-          optional: ['orchestration', 'data', 'docs', 'app'],
-          enable: 'Add `thread:\n  tools: [orchestration, data, docs, app]` to oxe.yaml at the project root, then start a new conversation.'
+          offered: 'core tools, plus team or delegation/work tools when this conversation has that role, plus each group the project does not turn off',
+          groups: TOOL_GROUP_PURPOSES,
+          enable: 'With tool search, search for the tool you need. Otherwise call oxespace_tools_enable with the group; sessionToolGroups lists what can still be turned on. A group the project turns off stays off.'
         } } : {})
       })
       if (name === 'oxespace_memory_diagnostics') {
@@ -76,5 +101,5 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
         launchCwd: execution.cwd, currentShellCwd: 'unknown', agentProfileId: pane?.agentProfileId ?? null,
         originPaneId: pane?.originPaneId ?? null, git })
     }
-  }))
+  })), toolsEnable]
 }

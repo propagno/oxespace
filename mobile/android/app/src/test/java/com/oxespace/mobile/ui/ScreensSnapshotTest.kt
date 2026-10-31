@@ -3,6 +3,7 @@ package com.oxespace.mobile.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import com.android.resources.NightMode
@@ -18,6 +19,7 @@ import com.oxespace.mobile.ui.live.TerminalScreen
 import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.PairingScreen
 import com.oxespace.mobile.ui.theme.Oxe
+import com.oxespace.mobile.ui.live.LocalClock
 import com.oxespace.mobile.ui.theme.OxeTheme
 import org.junit.Rule
 import org.junit.Test
@@ -46,7 +48,8 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
 
     private val commands = LiveStreams().commands
 
-    private fun shot(name: String, content: @Composable () -> Unit) = paparazzi.snapshot(name) { OxeTheme { content() } }
+    private fun shot(name: String, content: @Composable () -> Unit) =
+        paparazzi.snapshot(name) { OxeTheme { CompositionLocalProvider(LocalClock provides Samples.clock) { content() } } }
 
     @Test
     fun home() {
