@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -234,6 +234,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Answer a Thread\'s approvals and questions',
     forbidden: 'Approvals stay with the person.',
     ipc: ['thread.approve', 'thread.respond', 'thread.pendingRequestsAll', 'thread.respondPending']
+  },
+  'approvals.admin': {
+    label: 'Answer, acknowledge or list the app\'s approval requests (agent actions, OxeQuery, preview automation, crash restart)',
+    forbidden: 'Approvals stay with the person: an agent never answers, lists or skips a request raised for the person.',
+    ipc: ['approvals.list', 'approvals.respond', 'approvals.ack', 'approvals.unavailable', 'approvals.history']
   },
   'thread.access': {
     label: 'Permission rules and auto-approval',

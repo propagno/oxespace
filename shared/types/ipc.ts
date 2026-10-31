@@ -232,6 +232,16 @@ export const IPC_CHANNELS = {
     notify: 'notifications:notify',
     onActivate: 'notifications:on-activate'
   },
+  /** B10 · Approvals (shared/types/approvals.ts). Main frame only; never an MCP tool. */
+  approvals: {
+    list: 'approvals:list',
+    respond: 'approvals:respond',
+    ack: 'approvals:ack',
+    unavailable: 'approvals:unavailable',
+    history: 'approvals:history',
+    onRequested: 'approvals:requested',
+    onResolved: 'approvals:resolved'
+  },
   copilot: {
     credits: 'copilot:credits'
   },
@@ -692,6 +702,7 @@ export interface OxeApi {
   clipboard: ClipboardApi
   voice: VoiceApi
   notifications: NotificationsApi
+  approvals?: import('./approvals').ApprovalsApi
   agentHooks: AgentHooksApi
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
