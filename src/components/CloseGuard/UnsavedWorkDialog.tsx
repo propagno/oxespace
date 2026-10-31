@@ -2,7 +2,7 @@ import { useState, type ReactElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useTranslation } from 'react-i18next'
 import type { CloseAnswer, CloseReason } from '../../../shared/types/app'
-import { Button, Dialog } from '../../ui'
+import { Button, Dialog, ErrorState } from '../../ui'
 import { saveAllUnsaved, unsavedWork, type UnsavedItem } from '../../lib/unsavedWork'
 import styles from './UnsavedWorkDialog.module.css'
 
@@ -34,7 +34,7 @@ export function UnsavedWorkDialog({ reason, onDone }: { reason: CloseReason; onD
     <ul className={styles.list} aria-label={t('closeGuard.listLabel')}>
       {items.map(item => <li key={item.id}><strong>{item.label}</strong>{item.detail ? <small>{item.detail}</small> : null}</li>)}
     </ul>
-    {failed ? <p role="alert" className={styles.error}>{t('closeGuard.saveFailed', { count: items.length })}</p> : null}
+    {failed ? <div className={styles.error}><ErrorState compact title={t('closeGuard.saveFailed', { count: items.length })} /></div> : null}
   </Dialog>
 }
 

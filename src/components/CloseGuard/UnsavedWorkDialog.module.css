@@ -3,4 +3,4 @@
 .list li { display: grid; gap: 2px; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--fill-hover); }
 .list strong { overflow-wrap: anywhere; color: var(--text-primary); font-size: var(--text-sm); font-weight: var(--weight-medium); }
 .list small { color: var(--text-secondary); font-size: var(--text-xs); }
-.error { margin: var(--space-2) 0 0; color: var(--intent-danger-fg); font-size: var(--text-sm); }
+.error { margin-top: var(--space-2); }
