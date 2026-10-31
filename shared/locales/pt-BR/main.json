@@ -166,6 +166,125 @@
         "failedWith": "O pedido falhou: {{detail}}"
       }
     },
+    "approvals": {
+      "title": {
+        "agent": "Pedido de um agente",
+        "oxequery": "OxeQuery · pedido de um agente",
+        "previewAutomation": "Ação do agente no navegador",
+        "crash": "O OXESpace encontrou um erro inesperado"
+      },
+      "summary": {
+        "mcpConfirm": "Quer executar {{tool}} › {{action}} em {{target}}",
+        "oxequery": {
+          "read": "Quer ler dados",
+          "write": "Quer alterar dados no banco",
+          "action": "Quer executar uma ação no contêiner"
+        },
+        "preview": {
+          "closeTab": "Quer fechar uma aba do navegador",
+          "click": "Quer clicar no Navegador",
+          "fill": "Quer digitar num campo do Navegador",
+          "navigate": "Quer abrir outra página no Navegador",
+          "scroll": "Quer rolar a página no Navegador",
+          "other": "Quer {{action}} no Navegador"
+        },
+        "crash": "O app continua funcionando, mas seu estado não é mais garantido. Reinicie para ficar seguro."
+      },
+      "requester": {
+        "pane": "{{agent}} · painel {{pane}}",
+        "conversation": "{{agent}} · conversa {{conversation}}",
+        "mcpServer": "Servidor MCP {{server}}",
+        "app": "OXESpace",
+        "unknownPane": "Agente desconhecido · painel {{pane}}",
+        "unknownConversation": "Agente desconhecido · conversa {{conversation}}"
+      },
+      "option": {
+        "deny": "Negar",
+        "allowOnce": "Permitir uma vez",
+        "allowSessionReads": "Permitir leituras nesta conexão nesta execução",
+        "closeTab": "Fechar aba",
+        "restart": "Reiniciar",
+        "keepWorking": "Continuar trabalhando"
+      },
+      "note": {
+        "sql": {
+          "removes": "{{statement}} remove objetos ou dados de forma permanente.",
+          "noWhere": "{{statement}} sem cláusula WHERE afeta todas as linhas.",
+          "alterDrop": "ALTER … DROP remove uma coluna, restrição ou objeto.",
+          "withNoWhere": "{{statement}} dentro de WITH não tem cláusula WHERE.",
+          "explainAnalyze": "EXPLAIN ANALYZE executa a instrução.",
+          "selectInto": "SELECT INTO cria uma tabela.",
+          "notReadOnly": "{{statement}} não é uma instrução reconhecida como somente leitura.",
+          "outsideReach": "Chama {{calls}}, que alcança fora do banco (arquivos do servidor, outros servidores, outras sessões ou a configuração do servidor)."
+        },
+        "production": "Esta é uma conexão de produção.",
+        "mongo": {
+          "deletes": "Documentos que serão excluídos: {{count}}.",
+          "changes": "Documentos que serão alterados: {{count}}.",
+          "emptyFilter": "O filtro está vazio: todos os documentos da coleção correspondem."
+        },
+        "agent": {
+          "actsOnPrompt": "Esse agente vai agir sobre este prompt com o próprio acesso.",
+          "turnStopped": "O turno em andamento é interrompido antes."
+        },
+        "thread": {
+          "actsOnMessage": "A outra conversa vai agir sobre esta mensagem com o próprio acesso."
+        },
+        "skill": {
+          "followed": "Todo agente que chamar esta skill segue estas instruções."
+        },
+        "automation": {
+          "runsAlone": "O agente roda sozinho nesta agenda até a automação ser desligada."
+        },
+        "worktree": {
+          "folderDeleted": "A pasta é excluída, com os arquivos não rastreados e ignorados dentro dela.",
+          "forceDiscards": "--force também descarta alterações não commitadas."
+        },
+        "git": {
+          "branchShared": "Outros terminais e conversas nesta pasta vão ver a outra branch."
+        },
+        "checkpoint": {
+          "replaces": "As alterações não commitadas da árvore de trabalho são substituídas."
+        },
+        "github": {
+          "autoMerge": "O pull request é mesclado sozinho quando as verificações e revisões passarem.",
+          "releasePublic": "Um release publicado fica visível para todos com acesso ao repositório e pode notificar quem o acompanha."
+        },
+        "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
+        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app."
+      },
+      "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
+      "expired": "Ninguém respondeu a tempo, então o pedido foi negado.",
+      "refused": {
+        "notPending": "Este pedido já foi respondido, cancelado ou expirou.",
+        "staleGeneration": "Este pedido foi feito de novo desde que apareceu. Responda ao atual.",
+        "alreadyAnswered": "Este pedido já tem uma resposta.",
+        "unknownOption": "Essa resposta não é uma das opções deste pedido.",
+        "alreadyReported": "Este pedido já foi informado como não exibido.",
+        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece."
+      },
+      "denied": {
+        "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
+        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores."
+      }
+    },
+    "notify": {
+      "prefix": {
+        "pane": "{{agent}} no painel {{pane}}: {{title}}",
+        "conversation": "{{agent}} na conversa {{conversation}}: {{title}}",
+        "unknownPane": "Agente desconhecido no painel {{pane}}: {{title}}",
+        "unknownConversation": "Agente desconhecido na conversa {{conversation}}: {{title}}"
+      },
+      "refused": {
+        "reservedName": "Uma notificação não pode usar o nome \"{{name}}\"; ele pertence ao app.",
+        "rateLimit": "Notificações demais: no máximo {{perMinute}} por minuto."
+      }
+    },
+    "agents": {
+      "name": {
+        "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
+      }
+    },
     "workspace": {
       "root": {
         "notAbsolute": "Use o caminho completo da pasta, a partir da unidade ou de /. “{{path}}” é um caminho relativo.",
