@@ -10,6 +10,7 @@ import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
+import paneMenu from './PaneMenu.module.css'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
@@ -275,7 +276,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                 {isTerminalPane ? (
                   <>
                     <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />{tc('paneMenu.details')}</button>
-                    <button type="button" role="menuitem" className="pane-actions-popover-item" data-testid="pane-why-status" onClick={event => { event.stopPropagation(); runMenuAction(() => setExplainOpen(true)) }}><CircleHelp size={14} aria-hidden="true" />{tc('paneMenu.whyStatus')}</button>
+                    <Button variant="ghost" role="menuitem" className={paneMenu.item} data-testid="pane-why-status" onClick={event => { event.stopPropagation(); runMenuAction(() => setExplainOpen(true)) }}><CircleHelp size={14} aria-hidden="true" />{tc('paneMenu.whyStatus')}</Button>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                     <button
                       type="button"
