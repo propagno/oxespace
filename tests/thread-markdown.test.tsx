@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
+import { stubOpenExternal } from './helpers/openExternal'
 import { ThreadMarkdown } from '../src/components/Threads/ThreadMarkdown'
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -29,13 +30,13 @@ it('preserves code whitespace when copying and renders nested and task lists', a
 
 it('keeps external links functional without navigating the app or executing HTML', async () => {
   localStorage.clear()
-  const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+  const open = stubOpenExternal()
   render(<ThreadMarkdown text={'[Docs](https://example.com/docs)\n\n[Unsafe](javascript:alert(1))\n\n<script>alert(1)</script>'} />)
   // Text that names something other than the address shows the real host after it, and asks before opening.
   fireEvent.click(screen.getByRole('link', { name: 'Docs (example.com)' }))
   expect(open).not.toHaveBeenCalled()
   fireEvent.click(await screen.findByRole('button', { name: 'Open' }))
-  await waitFor(() => expect(open).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener,noreferrer'))
+  await waitFor(() => expect(open).toHaveBeenCalledWith('https://example.com/docs'))
   expect(screen.getAllByRole('link')).toHaveLength(1)
   expect(document.querySelector('script')).toBeNull()
 })

@@ -21,6 +21,9 @@ Then, from `mobile/android`:
 
 The debug APK lands in `app/build/outputs/apk/debug/`. CI runs the same command (`.github/workflows/android.yml`).
 
+Instrumented tests (Keystore, pinned TLS, the WSS session) need a device or emulator: `./gradlew connectedDebugAndroidTest`.
+On CI they run on request: Actions › Android emulator › Run workflow (`.github/workflows/android-emulator.yml`).
+
 ## Screenshots
 
 Every screen has screenshot goldens (Paparazzi, `app/src/test/snapshots`): each state in light and dark, en and
