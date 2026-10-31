@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -340,6 +340,24 @@ describe('Per-tool rules, review fixes (B7.3)', () => {
     await setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'ask' })
     expect(readPolicy().rules).toEqual([])
     expect(existsSync(policyFile)).toBe(true)
+  })
+
+  it('replaces policy.json atomically and refuses, writing nothing, when the file changed after it was read', async () => {
+    const { root, deps, files, policyFile } = project()
+    mkdirSync(join(root, '.oxespace'))
+    const original = JSON.stringify({ rules: [{ effect: 'deny', action: 'provider.use', resource: 'codex' }] })
+    writeFileSync(policyFile, original)
+    const meanwhile = JSON.stringify({ rules: [] })
+    // Someone saves the file between the read and the replace: the replace's check finds a different mtime.
+    const realRead = files.readFile.bind(files)
+    vi.spyOn(files, 'readFile').mockImplementationOnce(async input => {
+      const read = await realRead(input)
+      writeFileSync(policyFile, meanwhile)
+      return { ...read, mtimeMs: read.mtimeMs - 1000 }
+    })
+    await expect(setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'deny' })).rejects.toMatchObject({ code: 'project.file.changedMeanwhile' })
+    expect(readFileSync(policyFile, 'utf8')).toBe(meanwhile)
+    expect(readdirSync(join(root, '.oxespace'))).toEqual(['policy.json'])
   })
 })
 

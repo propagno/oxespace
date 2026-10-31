@@ -176,10 +176,11 @@ export async function setToolRule(deps: ToolRulesDeps, input: { rootPath: string
   const policy = policyOf(deps)
   const target = { workspaceId, rootPath, relativePath: POLICY_FILE }
   const path = join(rootPath, '.oxespace', 'policy.json')
-  const existing = await deps.files.readFile(target).then(file => file.content, (error: NodeJS.ErrnoException) => {
+  const read = await deps.files.readFile(target).catch((error: NodeJS.ErrnoException) => {
     if (error?.code === 'ENOENT') return null
     throw error
   })
+  const existing = read?.content ?? null
   let document: { rules: unknown[] } & Record<string, unknown> = { rules: [] }
   if (existing !== null) {
     if ('problem' in parsePolicy(existing, 'project', path)) throw new ToolRuleRefusal('mcp.toolRule.invalidPolicy', {})
@@ -203,12 +204,9 @@ export async function setToolRule(deps: ToolRulesDeps, input: { rootPath: string
     const eol = existing?.includes('\r\n') ? '\r\n' : '\n'
     const content = JSON.stringify({ ...document, rules }, null, 2).replace(/\n/g, eol) + eol
     if ('problem' in parsePolicy(content, 'project', path)) throw new ToolRuleRefusal('mcp.toolRule.invalidPolicy', {})
-    if (existing === null) {
-      await deps.files.createDirectory({ workspaceId, rootPath, relativePath: '.oxespace' })
-      await deps.files.createFile({ ...target, content })
-    } else {
-      await deps.files.writeFile({ ...target, content })
-    }
+    if (existing === null) await deps.files.createDirectory({ workspaceId, rootPath, relativePath: '.oxespace' })
+    // Replaced atomically, and only if nobody changed the file since it was read (the same check as oxe.yaml's writer).
+    await deps.files.replaceFile({ ...target, content, expectedMtimeMs: read?.mtimeMs ?? null })
     policy.forget(path)
     store.audit({ projectRoot: rootPath, action: 'configuration', actor: 'user',
       summary: decision === 'deny' ? `Blocked the MCP tool ${name} in ${POLICY_FILE}` : `Removed the block on the MCP tool ${name} from ${POLICY_FILE}` })
