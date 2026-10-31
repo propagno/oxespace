@@ -161,6 +161,8 @@
     <string name="request_send_answers">Send answers</string>
     <string name="request_title">Request</string>
     <string name="request_tool">Tool</string>
+    <string name="request_truncated">Part of this request didn\'t fit on the phone. The full text is only on your computer, so from here you can only decline it.</string>
+    <string name="request_truncated_question">Part of this question didn\'t fit on the phone. Answer it on your computer, where you can read all of it.</string>
     <string name="request_warnings">Worth a second look</string>
     <string name="terminal_empty">No output yet.</string>
     <plurals name="terminal_redacted">

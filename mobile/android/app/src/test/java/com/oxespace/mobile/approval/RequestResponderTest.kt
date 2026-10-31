@@ -49,6 +49,21 @@ class RequestResponderTest {
     }
 
     @Test
+    fun aRequestThePhoneWasNotShownInFullCanOnlyBeDeclined() = runBlocking {
+        val responder = responder(confirm = true)
+        // Even if the desktop offered accept on a truncated approval, the phone never sends it.
+        val cut = request.copy(truncated = true)
+        assertEquals(AnswerOutcome.Blocked(AnswerBlock.TRUNCATED), responder.answer(cut, decision = "accept"))
+        assertTrue(confirmations.isEmpty())
+        assertEquals(AnswerOutcome.Sent(CommandResult.Done(null)), responder.answer(cut.copy(decisions = listOf("decline")), decision = "decline"))
+        assertEquals("decline", sent.single().response.decision)
+        // A truncated question offers nothing to answer here, whatever its other fields say.
+        val question = request.copy(kind = "question", decisions = emptyList(), truncated = true)
+        assertEquals(AnswerOutcome.Blocked(AnswerBlock.TRUNCATED), responder.answer(question, answers = mapOf("q1" to listOf("Yes"))))
+        assertEquals(1, sent.size)
+    }
+
+    @Test
     fun answersQuestionsAndKeepsAReasonOnlyWhenGiven() = runBlocking {
         val question = request.copy(kind = "question", decisions = emptyList())
         responder(confirm = true).answer(question, answers = mapOf("q1" to listOf("Yes")), reason = "  ")

@@ -164,6 +164,8 @@
     <string name="request_send_answers">Enviar respostas</string>
     <string name="request_title">Pedido</string>
     <string name="request_tool">Ferramenta</string>
+    <string name="request_truncated">Parte deste pedido não coube no celular. O texto completo está só no computador, então daqui você só pode recusar.</string>
+    <string name="request_truncated_question">Parte desta pergunta não coube no celular. Responda no computador, onde dá para ler tudo.</string>
     <string name="request_warnings">Vale olhar de novo</string>
     <string name="terminal_empty">Ainda sem saída.</string>
     <plurals name="terminal_redacted">
