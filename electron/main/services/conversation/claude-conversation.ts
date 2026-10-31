@@ -64,7 +64,12 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private todoTools = new Map<string, Extract<ThreadEvent, { type: 'plan' }>['steps']>()
   private worktreeTools = new Map<string, 'EnterWorktree' | 'ExitWorktree'>()
 
-  constructor(private readonly createTransport: (args: string[], cwd: string) => PrintTransport) {}
+  /**
+   * `fork` (side chat, B1.2): the first launch resumes the session as a copy under `sessionId`, which OXESpace
+   * created, so the original is never written; `args` are extra launch flags. Later launches resume the copy.
+   */
+  constructor(private readonly createTransport: (args: string[], cwd: string) => PrintTransport,
+    private readonly fork?: { sessionId: string; args: readonly string[] }) {}
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
     if (this.context || this.disposed) throw new Error('Conversation adapter cannot be started twice')
     this.context = { ...context }
@@ -119,7 +124,9 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const args = [...runtimeArgs,
       ...(this.context.model ? ['--model', this.context.model] : []),
       ...(this.context.reasoningEffort ? ['--effort', this.context.reasoningEffort] : []),
-      ...(this.context.nativeSessionId ? ['--resume', sessionId] : ['--session-id', sessionId])]
+      ...(this.context.nativeSessionId ? ['--resume', sessionId] : ['--session-id', sessionId]),
+      ...(this.fork && this.context.nativeSessionId && sessionId !== this.fork.sessionId ? ['--fork-session', '--session-id', this.fork.sessionId] : []),
+      ...(this.fork?.args ?? [])]
     this.completed = false
     this.answerShown = false
     this.authenticationFailed = false
