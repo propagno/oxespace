@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.oxespace.mobile"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.oxespace.mobile"
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -38,8 +38,7 @@ android {
         abortOnError = true
         checkDependencies = true
         // New library releases are taken on purpose, in their own PR, not because lint saw them.
-        // So is a new Android API level (OldTargetApi): it changes runtime behavior and needs its SDK on every machine.
-        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion", "OldTargetApi")
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
     }
 }
 

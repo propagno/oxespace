@@ -14,6 +14,9 @@ import {
   REMOTE_PAIRING_ERROR_CODES,
   REMOTE_PAIRING_SCHEME,
   REMOTE_WS_PATH,
+  REMOTE_TEXT_LIMITS,
+  type RemoteCommandArgs,
+  type RemotePendingRequest,
   readRemoteFrame,
   REMOTE_CLIENT_FRAMES,
   REMOTE_COMMANDS,
@@ -61,6 +64,13 @@ describe('C5 remote protocol', () => {
     // Size is counted in bytes, not characters.
     expect(readRemoteFrame(JSON.stringify({ type: 'hello', versions: [1], pad: 'é'.repeat(REMOTE_LIMITS.maxFrameBytes / 2) }), 'client')).toEqual({ ok: false, code: 'frame-too-large' })
     for (const text of ['', 'not json', '[]', 'null', '1', '{"type":"teleport"}']) expect(readRemoteFrame(text, 'client'), text).toEqual({ ok: false, code: 'malformed' })
+    // Homologation #187: deep nesting is refused before parsing, so nothing recursive downstream can overflow the stack.
+    const nested = (levels: number) => `{"type":"hello","versions":[1],"x":${'['.repeat(levels)}${']'.repeat(levels)}}`
+    expect(readRemoteFrame(nested(20_000), 'client')).toEqual({ ok: false, code: 'malformed' })
+    expect(readRemoteFrame(nested(REMOTE_LIMITS.maxFrameDepth), 'client')).toEqual({ ok: false, code: 'malformed' })
+    expect(readRemoteFrame(nested(REMOTE_LIMITS.maxFrameDepth - 1), 'client').ok).toBe(true)
+    // Brackets inside a string, escaped quotes included, are text, not nesting.
+    expect(readRemoteFrame(JSON.stringify({ type: 'hello', versions: [1], note: `\\"${'['.repeat(500)}` }), 'client').ok).toBe(true)
     expect(readRemoteFrame('{"type":"event","subscription":"s","seq":1,"schemaVersion":1,"data":{}}', 'client')).toEqual({ ok: false, code: 'malformed' })
     expect(readRemoteFrame('{"type":"command","id":"1","command":"host.exec","args":{}}', 'client')).toEqual({ ok: false, code: 'unknown-command' })
     expect(readRemoteFrame('{"type":"command","id":"1","command":"oxequery.approve","args":{}}', 'client')).toEqual({ ok: false, code: 'unknown-command' })
@@ -176,5 +186,34 @@ describe('C5 pairing', () => {
     const vector = new Uint8Array(32); vector.set([0x12, 0x34, 0x56, 0x78])
     expect(pairingVerification(vector)).toBe('28T5CY')
     expect(() => pairingVerification(new Uint8Array(31))).toThrow()
+  })
+})
+
+describe('C5 payloads (M4, M5)', () => {
+  it('adds the history command and keeps every command clear of forbidden capabilities', () => {
+    expect(REMOTE_COMMANDS).toContain('thread.history')
+    const offered = [...REMOTE_COMMANDS, ...REMOTE_SUBSCRIPTIONS] as string[]
+    expect(offered.filter(name => FORBIDDEN_WORDS.test(name))).toEqual([])
+  })
+
+  it('keeps the payload limits the CCR sets, inside a frame', () => {
+    expect(REMOTE_TEXT_LIMITS).toEqual({ itemText: 8_000, detail: 2_000, terminalChunk: 32_000, threadPage: 50, objective: 500 })
+    expect(REMOTE_LIMITS.terminalWriteBytes).toBe(4 * 1024)
+    expect(REMOTE_LIMITS.clientIdDedupeMs).toBeGreaterThanOrEqual(10 * 60_000)
+    // A terminal chunk, even all 3-byte characters, fits a frame with room for the envelope.
+    expect(REMOTE_TEXT_LIMITS.terminalChunk * 3).toBeLessThan(REMOTE_LIMITS.maxFrameBytes * 2)
+    expect(REMOTE_TEXT_LIMITS.terminalChunk).toBeLessThan(REMOTE_LIMITS.maxFrameBytes)
+  })
+
+  it('never offers the phone what only the desktop may do in a request', () => {
+    const request: RemotePendingRequest = {
+      threadId: 't', workspaceId: 'w', threadTitle: 'T', requestId: 'r', generation: 1, kind: 'approval', title: 'Run', decisions: ['accept', 'decline', 'cancel'],
+      answerable: true, createdAt: 1
+    }
+    // "Accept for the session" is not a decision the phone can send, by type.
+    const decisions: RemotePendingRequest['decisions'] = request.decisions
+    expect(decisions).not.toContain('acceptForSession' as never)
+    const args: RemoteCommandArgs['thread.respondRequest'] = { threadId: 't', requestId: 'r', generation: 1, response: { decision: 'accept' } }
+    expect(Object.keys(args.response)).toEqual(['decision'])
   })
 })

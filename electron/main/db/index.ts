@@ -4,6 +4,7 @@ import { app } from 'electron'
 import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { recordIncident } from '../services/diagnostics/incident-sink'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -43,6 +44,7 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
     } catch (err) {
       lastErr = err
       if (!isTransientDbError(err)) break // corruption/ABI — retrying won't help
+      if (/SQLITE_BUSY|SQLITE_LOCKED|database is locked/i.test(dbErrLabel(err))) recordIncident('incident.database.busy', 'open')
       if (attempt < OPEN_MAX_ATTEMPTS) {
         // eslint-disable-next-line no-console
         console.warn(`[db] open attempt ${attempt}/${OPEN_MAX_ATTEMPTS} failed (${dbErrLabel(err)}); retrying…`)

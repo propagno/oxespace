@@ -40,7 +40,7 @@ import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { registerSemanticIpc } from './ipc/semantic.ipc'
-import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
+import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
@@ -118,6 +118,7 @@ const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 async function registerIpcHandlers(): Promise<() => void> {
   const noop = (): void => {}
   if (ipcRegistered) return noop
+  installIncidentHooks() // B8.3: a throwing handler or a crashed window becomes an incident; before any handler exists
 
   // Launched from a desktop icon, this process inherits the session PATH, not
   // the shell's — so agent CLIs under ~/.local/bin, ~/.npm-global/bin or a
@@ -474,7 +475,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
-  registerDiagnosticsIpc(db, internalMcp)
+  registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
   registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath)
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).

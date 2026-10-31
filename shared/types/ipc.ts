@@ -209,7 +209,7 @@ export const IPC_CHANNELS = {
   remote: {
     status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
     cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-    setDesktopName: 'remote:set-desktop-name'
+    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write'
   },
   oxePost: { call: 'oxePost:call' },
   automations: {
@@ -231,6 +231,16 @@ export const IPC_CHANNELS = {
   notifications: {
     notify: 'notifications:notify',
     onActivate: 'notifications:on-activate'
+  },
+  /** B10 · Approvals (shared/types/approvals.ts). Main frame only; never an MCP tool. */
+  approvals: {
+    list: 'approvals:list',
+    respond: 'approvals:respond',
+    ack: 'approvals:ack',
+    unavailable: 'approvals:unavailable',
+    history: 'approvals:history',
+    onRequested: 'approvals:requested',
+    onResolved: 'approvals:resolved'
   },
   copilot: {
     credits: 'copilot:credits'
@@ -405,7 +415,10 @@ export const IPC_CHANNELS = {
     exportReport: 'diagnostics:export-report',
     reportInteractive: 'diagnostics:report-interactive',
     buildIssueReport: 'diagnostics:build-issue-report',
-    recordFirstAnswer: 'diagnostics:record-first-answer'
+    recordFirstAnswer: 'diagnostics:record-first-answer',
+    watch: 'diagnostics:watch', unwatch: 'diagnostics:unwatch', onMetrics: 'diagnostics:metrics', incidents: 'diagnostics:incidents',
+    clearIncidents: 'diagnostics:clear-incidents', onIncidentsChanged: 'diagnostics:incidents-changed', previewBundle: 'diagnostics:preview-bundle',
+    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary'
   },
   policy: {
     get: 'policy:get'
@@ -690,6 +703,7 @@ export interface OxeApi {
   clipboard: ClipboardApi
   voice: VoiceApi
   notifications: NotificationsApi
+  approvals?: import('./approvals').ApprovalsApi
   agentHooks: AgentHooksApi
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
