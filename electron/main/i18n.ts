@@ -50,6 +50,11 @@ export function tMain(key: ParseKeys<'main'>, values?: Record<string, unknown>):
   return (instance().t as unknown as (key: string, options: object) => string)(key, { ns: 'main', ...values })
 }
 
+/** The language native dialogs speak now, for list formatting of C3 parameters. */
+export function mainLanguage(): string {
+  return instance().language || 'en'
+}
+
 /** Follows the renderer: any value but a known language falls back to the operating system's. */
 export function setMainLanguage(value: unknown): Language {
   const language = value === 'en' || value === 'pt-BR' ? value : languageFor('system', systemLocale())

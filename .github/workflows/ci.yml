@@ -23,6 +23,7 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       # Prefer GitHub's native "Use workflow from" branch. Only set this when you
@@ -59,6 +60,8 @@ permissions:
 jobs:
   build:
     name: Typecheck, test and build (${{ matrix.label }})
+    # A draft PR runs nothing; marking it ready for review starts the run.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     permissions:
@@ -526,6 +529,8 @@ jobs:
   # gate: a database client that was only ever tested against mocks must not ship.
   oxequery-live:
     name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
+    # A draft PR runs nothing; marking it ready for review starts the run.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
@@ -570,6 +575,8 @@ jobs:
   # engine matrix above already covers Podman against the default versions.
   oxequery-live-versions:
     name: OxeQuery live tests (PostgreSQL ${{ matrix.pg }}, MongoDB ${{ matrix.mongo }})
+    # A draft PR runs nothing; marking it ready for review starts the run.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:

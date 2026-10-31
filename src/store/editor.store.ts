@@ -4,6 +4,7 @@ import type { FileSystemFileChangedEvent } from '../../shared/types/ipc'
 import { detectEditorLanguage } from '../components/Editor/language'
 import { isBinaryPreview, previewKind } from '../components/Preview/previewKind'
 import { i18n } from '../i18n'
+import { registerUnsavedSource } from '../lib/unsavedWork'
 import { humanizeError } from '../utils/humanizeError'
 
 interface EditorConflict {
@@ -69,6 +70,8 @@ interface EditorState {
   restoreSession: (workspaceId: string, rootPath: string) => Promise<void>
   updateContent: (workspaceId: string, content: string) => void
   saveFile: (workspaceId: string) => Promise<void>
+  /** Writes one open file, active or not (the close guard saves every edited file). */
+  savePath: (workspaceId: string, relativePath: string) => Promise<void>
   markExternalChange: (event: FileSystemFileChangedEvent) => void
   /** Ends the active file's conflict: take the version on disk, or keep the local edits (still unsaved). */
   resolveConflict: (workspaceId: string, keep: 'disk' | 'mine') => void
@@ -281,8 +284,12 @@ export const useEditorStore = create<EditorState>()(
 
       saveFile: async (workspaceId) => {
         const path = get().activePath[workspaceId]
-        const file = path ? get().files[workspaceId]?.[path] : null
-        if (!path || !file) return
+        if (path) await get().savePath(workspaceId, path)
+      },
+
+      savePath: async (workspaceId, path) => {
+        const file = get().files[workspaceId]?.[path]
+        if (!file) return
 
         set((state) => ({
           files: {
@@ -399,3 +406,19 @@ export function selectActiveFile(state: EditorState, workspaceId: string): Edito
 function toMessage(error: unknown): string {
   return humanizeError(error, i18n.t('editor.unexpected', { ns: 'code' }))
 }
+
+/** Open files edited and not written yet, in every workspace. */
+export function unsavedEditorFiles(state: Pick<EditorState, 'files'> = useEditorStore.getState()): EditorFileState[] {
+  return Object.values(state.files).flatMap(byPath => Object.values(byPath)).filter(file => !file.isLoading && file.content !== file.lastSavedContent)
+}
+
+registerUnsavedSource({
+  id: 'editor',
+  items: () => unsavedEditorFiles().map(file => ({
+    id: `${file.workspaceId}:${file.relativePath}`, label: file.relativePath,
+    detail: i18n.t('closeGuard.inEditor', { ns: 'common', folder: file.rootPath.split(/[\\/]/).filter(Boolean).pop() ?? file.rootPath })
+  })),
+  saveAll: async () => {
+    for (const file of unsavedEditorFiles()) await useEditorStore.getState().savePath(file.workspaceId, file.relativePath)
+  }
+})

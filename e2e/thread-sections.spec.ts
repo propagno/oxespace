@@ -77,6 +77,10 @@ test('sections organise conversations by menu, drag and keyboard, and persist', 
     await page.keyboard.press('ArrowRight')
     await page.getByTestId('thread-move-to-section').getByRole('menuitemradio', { name: 'Work' }).click()
     await expect.poll(() => titlesIn(section(page, 'Work'))).toEqual(['Alpha plan'])
+    // Said politely, and the focus goes to the moved row, never to the page.
+    const announcer = page.getByTestId('thread-sections-announcer')
+    await expect(announcer).toHaveText('Moved Alpha plan to Work')
+    await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[data-thread-row]') ? (document.activeElement as HTMLElement).innerText : document.activeElement?.tagName)).toContain('Alpha plan')
 
     // Move another by dragging it onto a section: the same move.
     await nav(page).locator('.thread-navigation-row', { hasText: 'Bravo review' }).dragTo(section(page, 'Later'))
@@ -116,6 +120,7 @@ test('sections organise conversations by menu, drag and keyboard, and persist', 
     const confirm = page.getByRole('dialog', { name: 'Delete this section?' })
     await expect(confirm).toContainText('its 1 conversation goes back to no section')
     await confirm.getByRole('button', { name: 'Delete section' }).click()
+    await expect(page.getByTestId('thread-sections-announcer')).toHaveText('Section deleted; 1 conversation went back to No section')
     await expect(section(page, 'Work')).toHaveCount(0)
     await expect(page.locator('.thread-navigation-item')).toHaveCount(TITLES.length)
     await expect.poll(() => titlesIn(nav(page).locator('.thread-project-rows'))).toEqual(['Alpha plan', 'Charlie notes', 'Delta spike'])
