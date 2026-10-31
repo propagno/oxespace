@@ -47,7 +47,7 @@
         <item quantity="one">%1$d waiting</item>
         <item quantity="other">%1$d waiting</item>
     </plurals>
-    <string name="live_phone_write">Typing allowed from the phone</string>
+    <string name="live_phone_write">Phone can type</string>
     <string name="live_read_only">Read-only</string>
     <plurals name="live_requests_badge">
         <item quantity="one">%1$d request waiting</item>

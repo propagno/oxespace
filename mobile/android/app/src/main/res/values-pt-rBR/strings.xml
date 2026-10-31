@@ -48,7 +48,7 @@
         <item quantity="other">%1$d esperando</item>
         <item quantity="many">%1$d esperando</item>
     </plurals>
-    <string name="live_phone_write">Digitação liberada pelo celular</string>
+    <string name="live_phone_write">Celular pode digitar</string>
     <string name="live_read_only">Só leitura</string>
     <plurals name="live_requests_badge">
         <item quantity="one">%1$d pedido esperando</item>
