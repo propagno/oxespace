@@ -182,6 +182,37 @@ describe('the phone row (C5, §8)', () => {
     expect(remote.request?.title).toBe('Wants to run an action in … with [redacted]')
   })
 
+  it('strips hidden characters before cleaning, so a token split by a zero-width space is still redacted (SECURITY M2)', () => {
+    const token = 'ghp_' + 'A'.repeat(18) + '​' + 'A'.repeat(18)
+    const remote = toRemoteAgentRow(row('delegation:d1', { title: `push with ${token}` }), context({ workspaceName: `ws ${token}`, requestTitle: `run ${token}` }))
+    const whole = 'ghp_' + 'A'.repeat(36)
+    for (const text of [remote.title, remote.workspaceName]) {
+      expect(text).not.toContain(whole)
+      expect(text).not.toContain('A'.repeat(18))
+      expect(text).toContain('[redacted]')
+    }
+    const withRequest = toRemoteAgentRow(row('conversation:t1', { pendingRequest: { via: 'thread', id: 'r1', title: { code: 'agents.request.approval', params: {} }, since: NOW, more: 0 } }), context({ requestTitle: `run ${token}` }))
+    expect(withRequest.request?.title).toBe('run [redacted]')
+  })
+
+  it('leaves out a request or a parent whose id fails the gateway rule, so no row outgrows its frame (SECURITY L5)', () => {
+    const huge = 'r'.repeat(70_000)
+    const desktop = row('conversation:t1', {
+      state: 'needs-you', parentKey: `work:${'w'.repeat(300)}` as AgentKey,
+      pendingRequest: { via: 'thread', id: huge, threadId: 't1', title: { code: 'agents.request.approval', params: {} }, since: NOW, more: 0 }
+    })
+    const remote = toRemoteAgentRow(desktop, context({ requestTitle: 'Wants to run an action', requestAnswerable: true }))
+    expect(remote).not.toHaveProperty('request')
+    expect(remote).not.toHaveProperty('parentId')
+    expect(toRemoteAgentRow(row('pane:p1', { parentKey: 'shell:x' as AgentKey }), context())).not.toHaveProperty('parentId')
+    expect(toRemoteAgentRow(row('pane:p1', { pendingRequest: { via: 'approval', id: 'a 1', title: { code: 'approvals.title.agent', params: {} }, since: NOW, more: 0 } }), context())).not.toHaveProperty('request')
+    expect(toRemoteAgentRow(row('conversation:t2', { pendingRequest: { via: 'thread', id: 'r1', threadId: 'x'.repeat(201), title: { code: 'agents.request.question', params: {} }, since: NOW, more: 0 } }), context())).not.toHaveProperty('request')
+    // The row and every page it lands on stay small.
+    expect(new TextEncoder().encode(JSON.stringify(remote)).byteLength).toBeLessThan(4_096)
+    const pages = pageRemoteAgents({ agents: Array.from({ length: 50 }, () => remote) })
+    for (const page of pages) expect(new TextEncoder().encode(JSON.stringify(page)).byteLength).toBeLessThanOrEqual(REMOTE_LIMITS.maxFrameBytes)
+  })
+
   it('requires the cleaner, and applies it to the title, the workspace name and the request title', () => {
     const seen: string[] = []
     const spy = (text: string) => { seen.push(text); return text }
@@ -305,8 +336,8 @@ describe('C5 unknown-value rule (coordinator ruling on ARCHITECT M1/Q5)', () => 
     expect(header).toMatch(/does NOT bump the version/)
     expect(header).toMatch(/unknown state reads as\s+\*?\s*`unknown`/)
     expect(header).toMatch(/row of an unknown kind is dropped/)
-    expect(header).toMatch(/unknown risk reads as none/)
-    expect(REMOTE_UNKNOWN_VALUES).toEqual({ RemoteAgentState: 'unknown', RemoteAgentKind: 'drop-row', RemoteApprovalRisk: 'null' })
+    expect(header).toMatch(/unknown risk reads as `critical`/)
+    expect(REMOTE_UNKNOWN_VALUES).toEqual({ RemoteAgentState: 'unknown', RemoteAgentKind: 'drop-row', RemoteApprovalRisk: 'critical' })
   })
 
   it('makes those fields strings in Kotlin, each with its read rule', () => {
@@ -318,7 +349,8 @@ describe('C5 unknown-value rule (coordinator ruling on ARCHITECT M1/Q5)', () => 
     expect(kotlin).toContain('    val unavailable: List<String>? = null,')
     expect(kotlin).toContain('        fun read(wire: String): RemoteAgentState = fromWire(wire) ?: UNKNOWN')
     expect(kotlin).toContain('        fun read(wire: String): RemoteAgentKind? = fromWire(wire)')
-    expect(kotlin).toContain('        fun read(wire: String?): RemoteApprovalRisk? = wire?.let { fromWire(it) }')
+    expect(kotlin).toContain('        fun read(wire: String): RemoteApprovalRisk = fromWire(wire) ?: CRITICAL')
+    expect(kotlin).not.toContain('RemoteApprovalRisk? = wire?.let')
     // A set without a rule keeps its enum type and has no read().
     expect(kotlin).toContain('    val topic: RemoteSubscription,')
     expect(kotlin.slice(kotlin.indexOf('enum class RemoteSubscription'), kotlin.indexOf('enum class RemoteCommand'))).not.toContain('fun read(')
@@ -326,6 +358,8 @@ describe('C5 unknown-value rule (coordinator ruling on ARCHITECT M1/Q5)', () => 
 
   it('refuses a rule that names no set or no value', () => {
     expect(() => protocolKotlin(source, { ...protocol, REMOTE_UNKNOWN_VALUES: { RemoteNothing: 'null' } })).toThrow(/no list alias/)
+    // The generator still knows the null rule, for a set where none is the safe reading.
+    expect(protocolKotlin(source, { ...protocol, REMOTE_UNKNOWN_VALUES: { ...REMOTE_UNKNOWN_VALUES, RemoteApprovalRisk: 'null' } })).toContain('fun read(wire: String?): RemoteApprovalRisk? = wire?.let { fromWire(it) }')
     expect(() => protocolKotlin(source, { ...protocol, REMOTE_UNKNOWN_VALUES: { RemoteAgentState: 'gone' } })).toThrow(/not a value/)
   })
 })

@@ -9,8 +9,8 @@
  * Unknown values (coordinator ruling, S7.1): adding a value to `REMOTE_AGENT_STATES`, `REMOTE_AGENT_KINDS` or
  * `REMOTE_APPROVAL_RISKS` does NOT bump the version. Fields of these sets travel as plain strings, so a frame always
  * decodes, and the phone reads each one through its rule in `REMOTE_UNKNOWN_VALUES`: an unknown state reads as
- * `unknown`, a row of an unknown kind is dropped, an unknown risk reads as none (null). The generated enums carry the
- * rule as `read(wire)`.
+ * `unknown`, a row of an unknown kind is dropped, an unknown risk reads as `critical` (the strongest badge). The
+ * generated enums carry the rule as `read(wire)`.
  *
  * What the phone can never do is listed in `REMOTE_FORBIDDEN`: approvals of OxeQuery and of MCP `confirm`, sign-in and
  * tokens, secrets, MCP trust, policy edits and `host.exec` stay with the person, at the desktop. A test keeps every
@@ -551,9 +551,10 @@ export type RemoteApprovalRisk = typeof REMOTE_APPROVAL_RISKS[number]
 
 /**
  * How the phone reads a value of these sets it does not know (see the header): `unknown` for a state, `drop-row` for
- * a kind (the row is skipped), `null` for a risk (shown without one). Their fields are strings on the phone.
+ * a kind (the row is skipped), `critical` for a risk (a later level shows with the strongest badge). Their fields are
+ * strings on the phone.
  */
-export const REMOTE_UNKNOWN_VALUES = { RemoteAgentState: 'unknown', RemoteAgentKind: 'drop-row', RemoteApprovalRisk: 'null' } as const
+export const REMOTE_UNKNOWN_VALUES = { RemoteAgentState: 'unknown', RemoteAgentKind: 'drop-row', RemoteApprovalRisk: 'critical' } as const
 
 export interface RemoteAgentRow {
   /** Stable and opaque: `<kind>:<source id>`. */

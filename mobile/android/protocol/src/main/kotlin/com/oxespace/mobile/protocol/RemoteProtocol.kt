@@ -19,8 +19,8 @@ import kotlinx.serialization.json.JsonObject
  * Unknown values (coordinator ruling, S7.1): adding a value to `REMOTE_AGENT_STATES`, `REMOTE_AGENT_KINDS` or
  * `REMOTE_APPROVAL_RISKS` does NOT bump the version. Fields of these sets travel as plain strings, so a frame always
  * decodes, and the phone reads each one through its rule in `REMOTE_UNKNOWN_VALUES`: an unknown state reads as
- * `unknown`, a row of an unknown kind is dropped, an unknown risk reads as none (null). The generated enums carry the
- * rule as `read(wire)`.
+ * `unknown`, a row of an unknown kind is dropped, an unknown risk reads as `critical` (the strongest badge). The
+ * generated enums carry the rule as `read(wire)`.
  *
  * What the phone can never do is listed in `REMOTE_FORBIDDEN`: approvals of OxeQuery and of MCP `confirm`, sign-in and
  * tokens, secrets, MCP trust, policy edits and `host.exec` stay with the person, at the desktop. A test keeps every
@@ -227,8 +227,8 @@ enum class RemoteApprovalRisk(val wire: String) {
     companion object {
         fun fromWire(wire: String): RemoteApprovalRisk? = entries.firstOrNull { it.wire == wire }
 
-        /** A value this app does not know reads as none. */
-        fun read(wire: String?): RemoteApprovalRisk? = wire?.let { fromWire(it) }
+        /** A value this app does not know reads as CRITICAL. */
+        fun read(wire: String): RemoteApprovalRisk = fromWire(wire) ?: CRITICAL
     }
 }
 

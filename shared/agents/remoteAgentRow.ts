@@ -17,12 +17,22 @@ const CONTROL = /[\u0000-\u001f\u007f-\u009f]+/g
 const HIDDEN = new RegExp(HIDDEN_CHARACTERS.source, 'gu')
 
 /**
- * One line of shown text: control characters become a space, the hidden characters of `shared/hidden-characters.ts`
- * (bidi controls, zero-width, tags…) are removed, so a title cannot pose as another row; then cut on code points.
+ * One plain line: the hidden characters of `shared/hidden-characters.ts` (bidi controls, zero-width, tags…) are
+ * removed, so a title cannot pose as another row, and control characters become a space.
  */
+export function plainText(text: string): string {
+  return text.replace(HIDDEN, '').replace(CONTROL, ' ').replace(/ {2,}/g, ' ').trim()
+}
+
+/** Cut on code points, with an ellipsis. */
+function cut(text: string, max: number): string {
+  const points = [...text]
+  return points.length > max ? `${points.slice(0, max - 1).join('')}…` : text
+}
+
+/** `plainText`, then cut on code points. */
 export function cutText(text: string, max: number): string {
-  const points = [...text.replace(HIDDEN, '').replace(CONTROL, ' ').replace(/ {2,}/g, ' ').trim()]
-  return points.length > max ? `${points.slice(0, max - 1).join('')}…` : points.join('')
+  return cut(plainText(text), max)
 }
 
 /** A provider or manifest id as the phone may receive it; anything else is left out. */
@@ -44,7 +54,11 @@ export interface RemoteAgentContext {
   canInterrupt?: boolean
 }
 
-const shown = (context: RemoteAgentContext, text: string): string => cutText(context.clean(text), REMOTE_TEXT_LIMITS.agentTitle)
+/**
+ * Strip FIRST, then clean, then cut: a token split by a zero-width character would slip past the redactor, and a later
+ * strip would put it back together. The cleaner sees the text as the phone will show it.
+ */
+const shown = (context: RemoteAgentContext, text: string): string => cut(plainText(context.clean(plainText(text))), REMOTE_TEXT_LIMITS.agentTitle)
 
 /** The phone's row: the same state, mapped on the desktop. Only this function builds one. */
 export function toRemoteAgentRow(row: AgentOverviewRow, context: RemoteAgentContext): RemoteAgentRow {
@@ -57,10 +71,11 @@ export function toRemoteAgentRow(row: AgentOverviewRow, context: RemoteAgentCont
     workspaceName: shown(context, context.workspaceName)
   }
   if (row.provider && REMOTE_PROVIDER_PATTERN.test(row.provider)) remote.provider = row.provider
-  if (row.parentKey) remote.parentId = row.parentKey
+  // Ids that fail the gateway's rule are left out, so no field can grow a row past its frame.
+  if (row.parentKey && parseAgentKey(row.parentKey)) remote.parentId = row.parentKey
   if (row.kind === 'conversation') remote.threadId = row.id
   if (row.kind === 'pane') remote.paneId = row.id
-  if (row.pendingRequest) {
+  if (row.pendingRequest && REMOTE_AGENT_ID.test(row.pendingRequest.id) && (row.pendingRequest.threadId === undefined || REMOTE_AGENT_ID.test(row.pendingRequest.threadId))) {
     const request = row.pendingRequest
     remote.request = {
       requestId: request.id,
