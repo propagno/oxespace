@@ -150,7 +150,7 @@ describe('PostgreSQL: the person and an agent', () => {
     const changed = { ...person, password: 'rotated' }
     const refused = await failure(() => request(changed, () => core.sqlRun(changed, 'SELECT 1')))
     expect(refused.code).toBe('conflict')
-    expect(refused.messageCode).toEqual({ code: 'oxequery.session.busy', params: {} })
+    expect(refused.codes.message).toEqual({ code: 'oxequery.session.busy', params: {} })
     expect(server.pg[0].ended).toBe(false)
     expect(core.txState(person).state).toBe('open')
 
@@ -192,7 +192,7 @@ describe('PostgreSQL: the person and an agent', () => {
     const write = { ...agent, readOnly: false }
     const refused = await failure(() => request(write, () => core.sqlRun(write, 'BEGIN', { confirmed: true })))
     expect(refused.code).toBe('invalid')
-    expect(refused.messageCode).toEqual({ code: 'oxequery.session.agentTransaction', params: {} })
+    expect(refused.codes.message).toEqual({ code: 'oxequery.session.agentTransaction', params: {} })
     expect(core.txState(write).state).toBe('none')
     expect(server.pg[0].inTx).toBe(false)
   })
@@ -224,7 +224,7 @@ describe('PostgreSQL: the person and an agent', () => {
     const cancels = [core.sqlCancel(person), core.sqlCancel(person)]
     const refused = await failure(() => core.sqlCancel(person))
     expect(refused.code).toBe('limit')
-    expect(refused.messageCode).toEqual({ code: 'oxequery.session.limit', params: { limit: MAX_CONNECTIONS_PER_SLOT } })
+    expect(refused.codes.message).toEqual({ code: 'oxequery.session.limit', params: { limit: MAX_CONNECTIONS_PER_SLOT } })
     // The cap is per role: the agent still gets its session.
     const agentRead = request(agent, () => core.sqlRun(agent, 'SELECT 1'))
     server.connecting.open()
@@ -297,7 +297,7 @@ describe('MongoDB: the person and an agent', () => {
     const changed = { ...mongoPerson, password: 'rotated' }
     const refused = await failure(() => request(changed, () => core.mongoFind(changed, find)))
     expect(refused.code).toBe('conflict')
-    expect(refused.messageCode?.code).toBe('oxequery.session.busy')
+    expect(refused.codes.message?.code).toBe('oxequery.session.busy')
     expect(server.mongo[0].closed).toBe(0)
     server.insert.open()
     await importing
