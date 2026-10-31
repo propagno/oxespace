@@ -163,6 +163,9 @@ export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom'
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-labelledby={undefined} aria-label={label}
         onCloseAutoFocus={event => { const target = returnFocus?.(); if (target) { event.preventDefault(); target.focus() } }}
+        // Focus on the element the menu belongs to is not "outside": reopened right after a close, the earlier close
+        // hands focus back to it a moment later, and that must not dismiss the menu just opened (a Windows CI race).
+        onFocusOutside={event => { const owner = returnFocus?.(); if (owner && event.target instanceof Node && owner.contains(event.target)) event.preventDefault() }}
         onPointerDown={contain} onPointerUp={contain} onMouseDown={contain} onClick={contain} onDoubleClick={contain} onContextMenu={contain} onKeyDown={containKeys}>
         {menuItems(items)}
       </RadixMenu.Content>
