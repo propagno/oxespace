@@ -1,5 +1,6 @@
 package com.oxespace.mobile
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -8,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,11 +19,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.approval.KeystorePresence
 import com.oxespace.mobile.approval.PresenceGate
+import com.oxespace.mobile.notify.NotificationTaps
+import com.oxespace.mobile.pairing.PairedDesktop
 import com.oxespace.mobile.pairing.PairingViewModel
 import com.oxespace.mobile.session.DesktopStatus
 import com.oxespace.mobile.session.SessionViewModel
 import com.oxespace.mobile.ui.AddressDialog
 import com.oxespace.mobile.ui.HomeScreen
+import com.oxespace.mobile.ui.live.AskForNotifications
 import com.oxespace.mobile.ui.live.LiveHome
 import com.oxespace.mobile.ui.live.RequestScreen
 import com.oxespace.mobile.ui.live.TerminalScreen
@@ -34,17 +39,31 @@ class MainActivity : ComponentActivity() {
     private val session: SessionViewModel by viewModels()
     private val pairing: PairingViewModel by viewModels()
 
+    /** Where a tapped notification asked to go: a request (thread id, request id) or a conversation. */
+    private var opening by mutableStateOf<Pair<String, String?>?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        readNotificationTap(intent)
         setContent {
             OxeTheme {
                 var showPairing by rememberSaveable { mutableStateOf(false) }
                 val status by session.status.collectAsStateWithLifecycle()
-                val connected = status as? DesktopStatus.Connected
+                // Once connected, a drop keeps the person where they were and says so; the home is for before that.
+                var wasConnected by rememberSaveable { mutableStateOf(false) }
+                if (status is DesktopStatus.Connected) wasConnected = true
+                if (status is DesktopStatus.Unpaired) wasConnected = false
+                val liveDesktop = when (val current = status) {
+                    is DesktopStatus.Connected -> current.desktop
+                    is DesktopStatus.Reconnecting -> current.desktop.takeIf { wasConnected }
+                    is DesktopStatus.Unreachable -> current.desktop.takeIf { wasConnected }
+                    is DesktopStatus.OffNetwork -> current.desktop.takeIf { wasConnected }
+                    else -> null
+                }
                 when {
                     showPairing -> Pairing(onDone = { showPairing = false; session.start() }, onBack = { showPairing = false })
-                    connected != null -> Live(connected)
+                    liveDesktop != null -> Live(liveDesktop, status)
                     else -> HomeScreen(
                         status = status,
                         onPair = {
@@ -74,7 +93,7 @@ class MainActivity : ComponentActivity() {
 
     /** The connected app: the live home, one conversation or one terminal at a time, with Back to return. */
     @Composable
-    private fun Live(connected: DesktopStatus.Connected) {
+    private fun Live(desktop: PairedDesktop, status: DesktopStatus) {
         val live = session.live
         // One window for the whole app: proving presence in a conversation also covers a terminal opened right after.
         val presence = remember { PresenceGate(KeystorePresence(applicationContext)) }
@@ -83,8 +102,24 @@ class MainActivity : ComponentActivity() {
         var requestKey by rememberSaveable { mutableStateOf<String?>(null) }
         val requests by live.pendingRequests.items.collectAsStateWithLifecycle()
         var askingAddress by rememberSaveable { mutableStateOf(false) }
+        AskForNotifications()
+        // A tapped notification: open its request or conversation, once.
+        val tap = opening
+        LaunchedEffect(tap) {
+            if (tap != null) {
+                val (thread, request) = tap
+                if (request != null) requestKey = "$thread/$request" else threadId = thread
+                opening = null
+            }
+        }
         val workspaces by live.workspaces.items.collectAsStateWithLifecycle()
-        val name = connected.desktopName ?: connected.desktop.desktopName ?: stringResource(R.string.home_unknown_desktop)
+        val name = (status as? DesktopStatus.Connected)?.desktopName ?: desktop.desktopName ?: stringResource(R.string.home_unknown_desktop)
+        val banner = when (status) {
+            is DesktopStatus.Reconnecting -> stringResource(R.string.home_status_reconnecting, name)
+            is DesktopStatus.Unreachable -> stringResource(R.string.home_status_unreachable, name)
+            is DesktopStatus.OffNetwork -> stringResource(R.string.home_status_off_network, name)
+            else -> null
+        }
 
         val openThread = threadId
         val openPane = paneId?.let { id -> workspaces.flatMap { it.panes }.firstOrNull { it.id == id } }
@@ -99,7 +134,7 @@ class MainActivity : ComponentActivity() {
                 val watched = live.openThread(openThread)
                 DisposableEffect(openThread) { onDispose { live.closeThread(openThread) } }
                 BackHandler { threadId = null }
-                ThreadScreen(openThread, watched, live.streams.commands, presence, onBack = { threadId = null })
+                ThreadScreen(openThread, watched, live.streams.commands, presence, connected = status is DesktopStatus.Connected, onBack = { threadId = null })
             }
             openPane != null -> {
                 val watched = live.openTerminal(openPane.id)
@@ -109,6 +144,7 @@ class MainActivity : ComponentActivity() {
             }
             else -> LiveHome(
                 desktopName = name,
+                banner = banner,
                 live = live,
                 onOpenThread = { threadId = it },
                 onOpenRequest = { requestKey = "${it.threadId}/${it.requestId}" },
@@ -117,17 +153,28 @@ class MainActivity : ComponentActivity() {
                 onUnpair = session::unpair,
             )
         }
-        if (askingAddress) AddressDialog(initial = connected.desktop.manualHost.orEmpty(), onSave = session::setManualHost, onDismiss = { askingAddress = false })
+        if (askingAddress) AddressDialog(initial = desktop.manualHost.orEmpty(), onSave = session::setManualHost, onDismiss = { askingAddress = false })
     }
 
-    /** The session runs while the app is visible; staying connected in the background is M6's service. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        readNotificationTap(intent)
+    }
+
+    /** Only a tap on one of this app's notifications opens a conversation or request; see [NotificationTaps]. */
+    private fun readNotificationTap(intent: Intent?) {
+        val target = NotificationTaps.read(intent) ?: return
+        opening = target.threadId to target.requestId
+    }
+
+    /** On screen the session runs here; in the background the foreground service keeps it. */
     override fun onStart() {
         super.onStart()
-        session.start()
+        session.onVisible()
     }
 
     override fun onStop() {
-        session.stop()
+        session.onHidden()
         super.onStop()
     }
 }
