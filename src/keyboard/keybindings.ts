@@ -90,6 +90,7 @@ export const KEYBINDINGS = [
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread', label: 'Permissions' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread', label: 'Model' },
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread', label: 'Reasoning effort' },
+  { id: 'thread.sideChat', chords: ['Mod+.'], scope: 'thread', label: 'Side chat' },
 
   // OxePod
   { id: 'oxepod.filter', chords: ['/'], scope: 'oxepod', label: 'Find a container', when: context => !inTextField(context.target) },
