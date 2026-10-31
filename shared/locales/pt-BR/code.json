@@ -120,6 +120,14 @@
     "loadingFolder": "Carregando {{name}}",
     "emptyFolder": "Pasta vazia",
     "noFiles": "Nenhum arquivo",
+    "browser": {
+      "pathMenu": "Caminho de {{name}}",
+      "copyPath": "Copiar caminho",
+      "copyRelativePath": "Copiar caminho relativo",
+      "path": "Caminho",
+      "pathCopied": "Caminho copiado",
+      "relativePathCopied": "Caminho relativo copiado"
+    },
     "workspaceFiles": "Arquivos do workspace",
     "fit": "Clique para ajustar",
     "fullSize": "Clique para ver no tamanho real",
@@ -131,6 +139,8 @@
       "closeOthers": "Fechar as outras abas",
       "pin": "Fixar a aba",
       "unpin": "Desafixar a aba",
+      "moveLeft": "Mover para a esquerda",
+      "moveRight": "Mover para a direita",
       "closeOthersTitle": "As abas fixadas e as com alterações não salvas continuam abertas"
     },
     "conflict": {
@@ -199,7 +209,7 @@
     "delegatedEmptyHint": "As tarefas delegadas a agentes neste projeto aparecem aqui. Os comandos que um agente roda ficam na conversa dele.",
     "empty": "Nenhuma tarefa",
     "emptyStatus": "Nenhuma tarefa: {{status}}",
-    "emptyHint": "Rode um comando em segundo plano a partir de um terminal: pressione <strong>{{shortcut}}</strong> e digite <strong>/bg npm run build</strong>. Os comandos que um agente roda no Thread ficam naquela conversa.",
+    "emptyHint": "Rode um comando em segundo plano a partir de um terminal: pressione <strong>{{shortcut}}</strong> e digite <strong>/bg npm run build</strong>. Os comandos que um agente roda no OxeChat ficam naquela conversa.",
     "removeFailed": "Não foi possível remover {{name}}",
     "stopFailed": "Não foi possível parar {{name}}",
     "exit": "saída {{code}}",
@@ -766,6 +776,7 @@
       "fullLogs": "Logs completos da execução",
       "truncated": "cortado",
       "logs": "Logs",
+      "logsCopied": "Logs copiados",
       "copyLogs": "Copiar os logs",
       "copy": "Copiar",
       "closeLogs": "Fechar os logs",
@@ -795,6 +806,7 @@
     },
     "setup": {
       "command": "Comando",
+      "commandCopied": "Comando copiado",
       "cliTitle": "É preciso o GitHub CLI",
       "authTitle": "É preciso entrar",
       "cliBody": "Instale o GitHub CLI para usar pull requests, releases e os outros recursos do GitHub.",
@@ -811,6 +823,11 @@
     }
   },
   "pane": {
+    "boundary": "este painel",
+    "splitRefused": {
+      "title": "Não dá para dividir este painel aqui",
+      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente."
+    },
     "attention": {
       "blocked": "Precisa da sua aprovação ou resposta",
       "done": "Concluído, ainda não visto",
@@ -898,6 +915,7 @@
     "noMembers": "Nenhum membro ainda.",
     "session": {
       "context": "Contexto da sessão",
+      "contextCopied": "Contexto da sessão copiado",
       "delegated": "Tarefa delegada",
       "unread": "Saída não lida",
       "tone": {
@@ -927,7 +945,7 @@
     "localOnly": "O modo local só aceita localhost, 127.0.0.1 e ::1. Ligue Externo para outros sites.",
     "pageFailed": "A página não pôde ser carregada.",
     "designWait": "Espere a página terminar de carregar antes de usar o Modo Design.",
-    "addedToDraft": "Adicionado ao rascunho do Thread ativo.",
+    "addedToDraft": "Adicionado ao rascunho da conversa ativa.",
     "agentExternal": "Um agente pediu um endereço externo. Ligue Externo para abri-lo.",
     "copied": "Prévia copiada para a área de transferência.",
     "close": "Fechar o navegador",
@@ -989,6 +1007,9 @@
     "retry": "Tentar de novo"
   },
   "workspace": {
+    "closeFailed": "Não foi possível fechar o workspace",
+    "settingsFailed": "Não foi possível salvar as configurações do workspace",
+    "gridBoundary": "os painéis deste workspace",
     "panel": {
       "restore": "Restaurar a largura do painel",
       "expand": "Expandir o painel",
@@ -1193,6 +1214,9 @@
     "topbar": {
       "label": "Status do workspace",
       "mcp": "Abrir os servidores MCP",
+      "mcpQuarantined_one": "Abrir os servidores MCP: {{count}} em quarentena",
+      "mcpQuarantined_many": "Abrir os servidores MCP: {{count}} em quarentena",
+      "mcpQuarantined_other": "Abrir os servidores MCP: {{count}} em quarentena",
       "activity": "Mostrar ou ocultar a atividade em segundo plano",
       "activityShort": "Atividade",
       "panels": "Painéis do workspace",
@@ -1229,7 +1253,7 @@
     "loading": "Carregando…",
     "intro": "Conhecimento local compartilhado entre os worktrees deste repositório. Cada agente mantém a própria sessão.",
     "enabled": "Ligada",
-    "capture": "Capturar a atividade do projeto (hooks nativos do Code e eventos suportados do Thread)",
+    "capture": "Capturar a atividade do projeto (hooks nativos do OxeCode e eventos suportados do OxeChat)",
     "context": "Fornecer contexto relevante às novas sessões de agentes",
     "privacy": "Prompts capturados, atividade de ferramentas e trechos suportados do assistente Claude ficam no serviço de memória local. O contexto dado a um agente na nuvem pode ir para o fornecedor desse agente. Nenhum modelo na nuvem é configurado para o serviço de memória gerenciado.",
     "runtimeTitle": "Configuração do runtime",
@@ -1429,7 +1453,7 @@
     "session": "Sessão nativa",
     "generation": "geração {{value}}",
     "preparing": "Preparando a branch, o worktree e a continuação…",
-    "threadStarted": "Thread iniciado e ligado à sessão do provedor.",
+    "threadStarted": "Conversa iniciada e ligada à sessão do provedor.",
     "terminalStarted": "Terminal do agente iniciado. Confira os pedidos de login, confiança ou aceite.",
     "handoff": "Tarefa e continuação"
   },
@@ -1449,7 +1473,7 @@
     "choose": "Escolha a pasta do projeto",
     "picking": "Escolhendo…",
     "existing": "Workspaces existentes",
-    "alreadyOpen": "Já aberto no Code",
+    "alreadyOpen": "Já aberto no OxeCode",
     "alreadyHint_one": "Esta pasta já tem um workspace. Abri-lo mantém os terminais e o layout dele.",
     "alreadyHint_many": "Esta pasta já tem {{count}} workspaces. Abrir um deles mantém os terminais e o layout.",
     "alreadyHint_other": "Esta pasta já tem {{count}} workspaces. Abrir um deles mantém os terminais e o layout.",
@@ -1615,7 +1639,7 @@
         "disabled": "O agente está com este servidor desligado.",
         "unknown": "O agente não informou.",
         "not-loaded": "A sessão começou sem ele. Conversas novas o carregam.",
-        "not-checked": "Abra uma conversa do Thread para ver se o agente conectou. Os terminais o carregam quando o agente reinicia."
+        "not-checked": "Abra uma conversa do OxeChat para ver se o agente conectou. Os terminais o carregam quando o agente reinicia."
       }
     },
     "health": {
@@ -1692,7 +1716,7 @@
     "failed": "Não foi possível carregar os servidores MCP",
     "search": "Buscar servidores MCP",
     "searchPlaceholder": "Buscar conexões",
-    "installedNote": "Seus agentes se conectam a estes servidores por conta própria: o Claude Code e o Copilot CLI pelo <strong>.mcp.json</strong> na raiz do workspace, o Codex pelas configurações de inicialização. Testar verifica se o servidor responde; se o agente conectou aparece ao lado dele numa conversa do Thread. Reinicie a sessão do agente para aplicar as mudanças.",
+    "installedNote": "Seus agentes se conectam a estes servidores por conta própria: o Claude Code e o Copilot CLI pelo <strong>.mcp.json</strong> na raiz do workspace, o Codex pelas configurações de inicialização. Testar verifica se o servidor responde; se o agente conectou aparece ao lado dele numa conversa do OxeChat. Reinicie a sessão do agente para aplicar as mudanças.",
     "add": "Adicionar servidor MCP",
     "importOpen": "Importar do Claude Desktop, do Cursor ou do Windsurf",
     "views": "Vista dos servidores MCP",
@@ -1712,6 +1736,17 @@
     "tools_one": "{{count}} ferramenta",
     "tools_many": "{{count}} ferramentas",
     "tools_other": "{{count}} ferramentas",
+    "tools_zero": "Nenhuma ferramenta",
+    "quarantinedCount_one": "{{count}} em quarentena",
+    "quarantinedCount_many": "{{count}} em quarentena",
+    "quarantinedCount_other": "{{count}} em quarentena",
+    "trustAgain": "Confiar de novo…",
+    "trustAgainLabel": "Confiar de novo em {{name}}",
+    "trustAgainTitle": "Confiar de novo em {{name}}?",
+    "trustAgainBody": "Ele mudou depois que você confiou nele. Confiar de novo oferece as ferramentas dele aos agentes e permite que ele inicie. Leia o que mudou antes.",
+    "trustAgainConfirm": "Confiar de novo e testar",
+    "activityTitle": "{{name}} está em quarentena",
+    "activityDetail": "Ele mudou depois que você confiou nele. Revise antes de confiar de novo.",
     "testedAt": "O OXESpace testou às {{time}}",
     "notTested": "O OXESpace não o testou desde que abriu",
     "stopTest": "Parar o teste",
@@ -1782,7 +1817,7 @@
     "quarantined": "em quarentena",
     "safety": {
       "quarantineTitle": "Em quarentena: mudou depois de você confiar nele",
-      "quarantineBody": "Ele não é oferecido aos agentes e não inicia. Leia abaixo o que ele diz agora; depois use Testar para confiar nele de novo, ou remova-o.",
+      "quarantineBody": "Ele não é oferecido aos agentes e não inicia. Leia abaixo o que ele diz agora; depois use Confiar de novo… para confiar nele de novo, ou remova-o.",
       "descTitle": "Descrições de ferramentas com instruções para o modelo",
       "descBody": "Um agente lê essas descrições como parte do contexto. Podem ser inofensivas, mas uma descrição deve dizer o que a ferramenta faz, não dizer ao agente o que fazer.",
       "floatingTitle": "Sem versão fixa",
@@ -1798,6 +1833,7 @@
     }
   },
   "skills": {
+    "createFailed": "Não foi possível criar a skill",
     "needTerminal": "Selecione ou inicie um terminal antes de usar uma skill.",
     "sent": "/{{name}} enviada ao terminal ativo.",
     "copied": "Prompt de /{{name}} copiado.",

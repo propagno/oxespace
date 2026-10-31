@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { realpath } from 'node:fs/promises'
@@ -36,7 +37,7 @@ test('Claude native pages use the production worker and survive an Electron rest
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     snapshot = await page.evaluate(id => window.oxe.thread!.read(id), threadId)
     expect(snapshot.thread.nativeHistoryCursor?.claudeParent).toBe('message-199')
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.locator('.thread-navigation-item').filter({ hasText: snapshot.thread.title }).click()
     await expect(page.getByText('Native question 1199', { exact: true })).toBeVisible()
     const bounds = await page.locator('.thread-timeline').evaluate(node => ({ width: node.clientWidth, contentWidth: node.scrollWidth, height: node.clientHeight }))

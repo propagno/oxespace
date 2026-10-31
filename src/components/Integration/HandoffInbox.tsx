@@ -2,7 +2,7 @@ import { Archive, CheckCircle2, Send } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { IntegrationGroup, IntegrationHandoff } from '../../../shared/types/integration'
 import { useIntegrationStore } from '../../store/integration.store'
-import { Button, Select, TextField, TextArea } from '../../ui'
+import { Button, EmptyState, Notice, Select, TextField, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 // One empty list for every group without handoffs: a fresh [] per read makes zustand 5 re-render forever.
@@ -157,11 +157,9 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
           targetMemberId={targetMemberId}
           title={title}
         />
-        {error ? <div className="integration-error" role="alert">{error}</div> : null}
+        {error ? <Notice intent="danger">{error}</Notice> : null}
         {notice ? <div className="integration-notice" role="status">{notice}</div> : null}
-        <div className="integration-empty-inline">
-          <span>No handoffs yet. Send a focused request to keep this delivery moving.</span>
-        </div>
+        <EmptyState compact title="No handoffs yet. Send a focused request to keep this delivery moving." />
       </div>
     )
   }
@@ -180,7 +178,7 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
         targetMemberId={targetMemberId}
         title={title}
       />
-      {error ? <div className="integration-error" role="alert">{error}</div> : null}
+      {error ? <Notice intent="danger">{error}</Notice> : null}
       {notice ? <div className="integration-notice" role="status">{notice}</div> : null}
       <div className="integration-handoff-list">
         {active.map((handoff) => (

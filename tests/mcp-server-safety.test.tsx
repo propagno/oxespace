@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { McpServerSafety } from '../src/components/MCP/McpServerSafety'
+import { changeLanguage } from '../src/i18n'
 import type { McpServer } from '../shared/types/mcp'
 
 afterEach(cleanup)
@@ -36,6 +37,28 @@ describe('McpServerSafety', () => {
     expect(box).toHaveAttribute('role', 'status')
     expect(box).toHaveTextContent('"read" changed')
     expect(box).toHaveTextContent('not offered to agents')
+  })
+
+  it('words a quarantine from its message codes in the interface language, instead of the English reasons', async () => {
+    const quarantine = {
+      at: 1, reasons: ['English reason that must not show'], added: ['c', 'd'], removed: [], changed: [],
+      codes: [{ code: 'mcp.quarantine.added' as const, params: { tools: ['"c"', '"d"'] } }, { code: 'mcp.quarantine.configChanged' as const, params: {} }]
+    }
+    render(<McpServerSafety server={server({ trusted: false, guard: { toolsRemembered: true, quarantine } })} />)
+    let box = screen.getByTestId('mcp-quarantine')
+    expect(box).toHaveTextContent('It added "c" and "d".')
+    expect(box).toHaveTextContent('Its command, arguments, environment or URL changed after you trusted it.')
+    expect(box).not.toHaveTextContent('English reason')
+    cleanup()
+    await changeLanguage('pt-BR')
+    try {
+      render(<McpServerSafety server={server({ trusted: false, guard: { toolsRemembered: true, quarantine } })} />)
+      box = screen.getByTestId('mcp-quarantine')
+      expect(box).toHaveTextContent('Ele adicionou "c" e "d".')
+      expect(box).toHaveTextContent('O comando, os argumentos, o ambiente ou a URL dele mudaram')
+    } finally {
+      await changeLanguage('en')
+    }
   })
 
   it('says a trusted server runs a floating version, but not an untrusted one or a pinned one', () => {

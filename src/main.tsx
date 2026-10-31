@@ -10,7 +10,9 @@ import '@fontsource/ibm-plex-mono/500.css'
 import '@fontsource-variable/bricolage-grotesque'
 import { App } from './App'
 import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
+import { TerminalFocusHost } from './components/Keyboard/TerminalFocusHost'
 import { ReportProblemHost } from './components/Diagnostics/ReportProblemHost'
+import { AboutHost } from './components/About/AboutHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
@@ -34,7 +36,9 @@ void initI18n().catch(error => console.error('[i18n] could not start the transla
       {/* A crash anywhere above the views' own boundaries shows OXESpace's message, never a blank window. */}
       <ErrorBoundary page label="OXESpace"><App /></ErrorBoundary>
       <ShortcutGuideHost />
+      <TerminalFocusHost />
       <ReportProblemHost />
+      <AboutHost />
       <StartupInteractiveMark />
     </React.StrictMode>
   )

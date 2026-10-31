@@ -1,10 +1,10 @@
+import { modeButton, type AppMode } from './modes'
 import { expect, type Page } from '@playwright/test'
 
-/** The views of the title bar, by their product names. */
-export async function openView(page: Page, name: 'Code' | 'Thread' | 'OxeQuery' | 'OxePod' | 'OxePost'): Promise<void> {
-  const navigation = page.locator('nav[aria-label="Application view"], nav[aria-label="Visão do aplicativo"]')
-  await navigation.getByRole('button', { name, exact: true }).click()
-  await expect(navigation.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true')
+/** A view of the title bar, by its mode id (e2e/helpers/modes.ts), so a renamed mode never breaks a spec. */
+export async function openView(page: Page, mode: AppMode): Promise<void> {
+  await modeButton(page, mode).click()
+  await expect(modeButton(page, mode)).toHaveAttribute('aria-pressed', 'true')
 }
 
 /** A container row in the OxePod sidebar; its name also carries the state dot and the port. */
@@ -18,7 +18,7 @@ export function containerRow(page: Page, name: string) {
  * connection to the container already exists, the same button opens it instead.
  */
 export async function connectFromContainer(page: Page, name: string, labels = { connect: /in OxeQuery$/, save: 'Save and open' }): Promise<void> {
-  await openView(page, 'OxePod')
+  await openView(page, 'pods')
   await containerRow(page, name).click()
   await page.getByRole('button', { name: labels.connect }).click()
   const form = page.getByRole('dialog').filter({ has: page.locator('input[type="password"]') })
