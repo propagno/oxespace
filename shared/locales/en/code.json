@@ -794,8 +794,8 @@
     "splitRefused": {
       "title": "This pane cannot be split here",
       "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely.",
-      "tooNarrow": "Each half would be narrower than {{width}} px. Maximize this pane, close another one, or make the window wider.",
-      "tooShort": "Each half would be shorter than {{height}} px. Maximize this pane, close another one, or make the window taller."
+      "tooNarrow": "Each half would be narrower than {{width}} px. Close another pane, or make the window wider.",
+      "tooShort": "Each half would be shorter than {{height}} px. Close another pane, or make the window taller."
     },
     "attention": {
       "blocked": "Needs your approval or answer",

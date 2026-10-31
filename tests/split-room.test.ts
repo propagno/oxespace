@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { MIN_PANE_HEIGHT_PX, MIN_PANE_WIDTH_PX, paneSize, splitHasRoom } from '../src/components/Grid/splitRoom'
+import type { PaneNode } from '../shared/types/pane-tree'
+import { layoutPaneSize, MIN_PANE_HEIGHT_PX, MIN_PANE_WIDTH_PX, paneSize, splitHasRoom } from '../src/components/Grid/splitRoom'
 
 afterEach(() => { document.body.innerHTML = '' })
 
@@ -28,5 +29,15 @@ describe('room to split a pane', () => {
     expect(paneSize('p "1"')).toBeNull()
     pane.getBoundingClientRect = () => ({ width: 700, height: 400 }) as DOMRect
     expect(paneSize('p "1"')).toEqual({ width: 700, height: 400 })
+  })
+  it('measures from the layout, so a maximized pane is judged by the room it goes back to', () => {
+    // Four columns side by side in a 1440 px grid: each has ~350 px, too narrow to split beside, maximized or not.
+    const tree = { kind: 'split', direction: 'horizontal', children: ['a', 'b', 'c', 'd'].map(paneId => ({ kind: 'leaf', paneId })) } as unknown as PaneNode
+    const size = layoutPaneSize(tree, 'a', { width: 1440, height: 800 })!
+    expect(Math.round(size.width)).toBe(350)
+    expect(splitHasRoom(size, 'vertical')).toBe(false)
+    expect(splitHasRoom(size, 'horizontal')).toBe(true)
+    expect(layoutPaneSize(tree, 'missing', { width: 1440, height: 800 })).toBeNull()
+    expect(layoutPaneSize(tree, 'a', null)).toBeNull()
   })
 })
