@@ -29,14 +29,17 @@ function Boom({ token }: { token: string }): never {
   error.stack = STACK
   throw error
 }
+// The report module loads with the first error (src/lib/rendererErrorsBoot.ts): one turn lets it arrive.
+const settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0))
 const noLeak = (payload: unknown): void => {
   const text = JSON.stringify(payload)
   for (const secret of ['hunter2', 'dana', 'Users', 'payroll', 'secrets', '.env', 'prop-value-xyz', 'index-abc', 'localhost', 'could not read']) expect(text, secret).not.toContain(secret)
 }
 
 describe('the report', () => {
-  it('holds names and a stack hash, never the message, props or paths', () => {
+  it('holds names and a stack hash, never the message, props or paths', async () => {
     render(<ErrorBoundary id="pane" label="the pane"><Boom token="prop-value-xyz" /></ErrorBoundary>)
+    await settle()
     expect(sent).toHaveLength(1)
     expect(Object.keys(sent[0]).sort()).toEqual(['boundary', 'component', 'errorName', 'kind', 'stackHash'])
     expect(sent[0]).toMatchObject({ kind: 'boundary', boundary: 'pane', component: 'Boom', errorName: 'Error' })
@@ -84,12 +87,14 @@ describe('stack hash', () => {
 
 describe('boundaries', () => {
   const ids: RendererErrorBoundary[] = ['root', 'window', 'conversations', 'mode-view', 'workspace-grid', 'workspace-panel', 'pane', 'terminal']
-  it.each(ids)('%s sends its id', id => {
+  it.each(ids)('%s sends its id', async id => {
     render(<ErrorBoundary id={id} label="x"><Boom token="prop-value-xyz" /></ErrorBoundary>)
+    await settle()
     expect(sent.at(-1)).toMatchObject({ kind: 'boundary', boundary: id })
   })
-  it('a view boundary names the view', () => {
+  it('a view boundary names the view', async () => {
     render(<ErrorBoundary id="mode-view" component="OxeQuery" label="OxeQuery"><Boom token="t" /></ErrorBoundary>)
+    await settle()
     expect(sent.at(-1)).toMatchObject({ boundary: 'mode-view', component: 'OxeQuery' })
   })
   it('every boundary in the app carries its id', () => {
@@ -113,7 +118,7 @@ describe('boundaries', () => {
 })
 
 describe('errors nothing caught', () => {
-  it('uncaught errors and unhandled rejections are reported without a boundary', () => {
+  it('uncaught errors and unhandled rejections are reported without a boundary', async () => {
     installRendererErrorReporting()
     installRendererErrorReporting()
     const error = new RangeError(SECRET)
@@ -121,19 +126,22 @@ describe('errors nothing caught', () => {
     window.dispatchEvent(new ErrorEvent('error', { error, message: SECRET }))
     const rejection = Object.assign(new Event('unhandledrejection'), { reason: Object.assign(new Error(SECRET), { name: 'AbortError' }) })
     window.dispatchEvent(rejection)
+    await settle()
     expect(sent).toHaveLength(2)
     expect(sent[0]).toMatchObject({ kind: 'uncaught', errorName: 'RangeError' })
     expect(sent[1]).toMatchObject({ kind: 'unhandledRejection', errorName: 'AbortError' })
     for (const report of sent) { expect(report).not.toHaveProperty('boundary'); noLeak(report) }
   })
-  it('sends the same crash once a minute', () => {
+  it('sends the same crash once a minute', async () => {
     const crash = (): Error => Object.assign(new Error('x'), { stack: STACK })
     window.dispatchEvent(new ErrorEvent('error', { error: crash() }))
     window.dispatchEvent(new ErrorEvent('error', { error: crash() }))
+    await settle()
     expect(sent).toHaveLength(1)
     const other = new Error('y')
     other.stack = STACK.replace('10:5', '12:5')
     window.dispatchEvent(new ErrorEvent('error', { error: other }))
+    await settle()
     expect(sent).toHaveLength(2)
   })
 })
