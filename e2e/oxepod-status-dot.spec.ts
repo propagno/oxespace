@@ -14,7 +14,7 @@ test('OxePod status dots are small circles in every state, light and dark', asyn
     for (const appearance of ['light', 'dark'] as const) {
       // setAppearance reloads the window: open OxePod again and wait for a running container's dot.
       await setAppearance(page, appearance)
-      await openView(page, 'OxePod')
+      await openView(page, 'pods')
       await expect(pod.locator('[data-status-dot="success"]').first()).toBeVisible()
       const boxes = await dots.evaluateAll(nodes => nodes.map(node => {
         const box = node.getBoundingClientRect()

@@ -22,6 +22,7 @@ describe('deriveThreadTitle', () => {
     expect(readThreadTitle('New thread')).toBe('')
     expect(readThreadTitle(null)).toBe('')
     expect(readThreadTitle('New thread pool')).toBe('New thread pool')
+    expect(readThreadTitle('New conversation')).toBe('')
     expect(readThreadTitle('new thread')).toBe('new thread')
     expect(isUnnamedThreadTitle('')).toBe(true)
     expect(isUnnamedThreadTitle('New thread')).toBe(true)

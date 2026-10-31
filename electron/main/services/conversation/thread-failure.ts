@@ -27,7 +27,7 @@ export function threadFailure(value: unknown): ThreadFailure {
   else if (httpStatus === 401 || /unauthorized|authentication[_ ]failed|failed to authenticate|oauth.*(?:expired|revoked)|not logged in/i.test(hint)) { code = 'authentication'; message = 'Your agent account needs to be reconnected.' }
   else if (/usageLimitExceeded|usage[_ ]limit|weekly limit|credits_depleted|hit your limit|insufficient_quota|exceeded your current quota/i.test(hint)) { code = 'usage'; message = 'The provider reported an exhausted usage allowance.' }
   else if (httpStatus === 429 || /rateLimitExceeded|rate limit|too many requests/i.test(hint)) { code = 'rate-limit'; message = 'The provider is limiting requests. Check usage and retry later.' }
-  else if (/contextWindowExceeded|context window/i.test(hint)) { code = 'context'; message = 'The conversation exceeded the model context window. Compact it or start a new thread.' }
+  else if (/contextWindowExceeded|context window/i.test(hint)) { code = 'context'; message = 'The conversation exceeded the model context window. Compact it or start a new conversation.' }
   else if (/sessionBudgetExceeded/i.test(hint)) { code = 'budget'; message = 'The session exceeded its configured budget.' }
   else if ((httpStatus && httpStatus >= 500) || /serverOverloaded|internalServerError/i.test(hint)) { code = 'server'; message = 'The provider reported a server failure. Retry later.' }
   else if (/sandboxError/i.test(hint)) { code = 'sandbox'; message = 'The agent could not run an operation in its sandbox.' }

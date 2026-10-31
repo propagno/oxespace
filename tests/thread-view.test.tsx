@@ -103,7 +103,7 @@ describe('Thread workspace UI', () => {
         { type: 'completed', status: 'completed' }
       ] } }))
       await waitFor(() => expect(screen.getByRole('button', { name: 'Changes' })).toHaveAttribute('aria-pressed', 'false'))
-      expect(screen.queryByLabelText('Thread workbench')).toBeNull()
+      expect(screen.queryByLabelText('OxeChat workbench')).toBeNull()
     } finally { width.mockRestore() }
   })
   it('keeps the composed request when the native session is busy elsewhere', async () => {
@@ -140,7 +140,7 @@ describe('Thread workspace UI', () => {
     expect(screen.getByRole('button', { name: 'Other Restore' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Repo Restore' }))
     await waitFor(() => expect(useThreadStore.getState().hiddenProjects).toEqual(['other']))
-    expect(screen.getByRole('button', { name: 'New thread in Repo' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'New conversation in Repo' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Other Restore' })).toBeVisible()
   })
   it('keeps conversations in creation order while one of them is active', () => {
@@ -180,7 +180,7 @@ describe('Thread workspace UI', () => {
     f.api.command = vi.fn(async () => ({ kind: 'navigate' }))
     vi.mocked(f.api.list).mockResolvedValue([])
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={onCreate} />)
-    fireEvent.click(screen.getByRole('button', { name: 'New thread in Repo' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New conversation in Repo' }))
     expect(onCreate).toHaveBeenCalledWith('project', '/repo')
     await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
     await user.click(screen.getByRole('menuitem', { name: 'Delete conversation' }))
@@ -308,7 +308,7 @@ describe('Thread workspace UI', () => {
     fireEvent.keyDown(input, { key: 'Escape' })
     fireEvent.change(input, { target: { value: '/' } })
     act(() => { input.blur(); input.focus() })
-    await screen.findByRole('listbox', { name: 'Thread commands' })
+    await screen.findByRole('listbox', { name: 'Conversation commands' })
     expect(f.api.commands).toHaveBeenCalledTimes(1)
     fireEvent.mouseDown(screen.getByRole('button', { name: 'Refresh commands' }))
     fireEvent.click(screen.getByRole('button', { name: 'Refresh commands' }))
@@ -344,7 +344,7 @@ describe('Thread workspace UI', () => {
   it('shows the provider resume ID separately from internal OXESpace IDs', async () => {
     const f = fixture()
     f.api.command = vi.fn(async () => ({ kind: 'panel', title: 'Conversation status', rows: [
-      { label: 'Thread ID', detail: 'local-thread-id' }, { label: 'Project ID', detail: 'local-project-id' },
+      { label: 'Conversation ID', detail: 'local-thread-id' }, { label: 'Project ID', detail: 'local-project-id' },
       { label: 'Workspace ID', detail: 'local-workspace-id' }, { label: 'Provider', detail: 'claude' },
       { label: 'Status', detail: 'idle' }, { label: 'Native session ID (resume)', detail: 'native-claude-id' },
       { label: 'Directory', detail: '/repo' }
@@ -454,7 +454,7 @@ describe('Thread workspace UI', () => {
     const f = fixture(); render(<ThreadView workspace={f.workspace} />)
     const input = screen.getByRole('textbox', { name: 'Message' })
     fireEvent.focus(input); fireEvent.change(input, { target: { value: '/' } })
-    await screen.findByRole('listbox', { name: 'Thread commands' })
+    await screen.findByRole('listbox', { name: 'Conversation commands' })
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(input).toHaveValue('/')
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
@@ -500,7 +500,7 @@ describe('Thread workspace UI', () => {
     ;(input as HTMLTextAreaElement).setSelectionRange(0, 9)
     await act(async () => { await new Promise(resolve => requestAnimationFrame(() => resolve(null))) })
     expect([(input as HTMLTextAreaElement).selectionStart, (input as HTMLTextAreaElement).selectionEnd]).toEqual([0, 9])
-    fireEvent.click(screen.getByRole('button', { name: 'Show thread commands' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show conversation commands' }))
     fireEvent.click(await screen.findByRole('option', { name: /oxe-plan/ }))
     expect(input).toHaveValue('/oxe-plan ')
     expect(f.api.send).not.toHaveBeenCalled()
@@ -615,7 +615,7 @@ describe('Thread workspace UI', () => {
     fireEvent.click(screen.getByRole('button', { name: /^(?:Unread conversation )?Auth investigation/ }))
     await waitFor(() => expect(f.api.read).toHaveBeenCalledWith('thread'))
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('code-workspace')
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Filter threads' }), { target: { value: 'missing' } })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Filter conversations' }), { target: { value: 'missing' } })
     expect(screen.getByText('No conversations found.')).toBeInTheDocument()
   })
   it('offers MCP servers instead of a Delegated work shortcut in the conversation header', async () => {
