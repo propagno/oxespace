@@ -17,10 +17,13 @@ export function useAttentionSummary(): AttentionSummary {
   return useMemo(() => summarizeAttention(live), [live])
 }
 
-/** Spoken form for the badge, so the count is not color alone. */
-export function describeAttention(counts: AttentionCounts): string {
+/**
+ * Spoken form for the badge, so the count is not color alone. In Code what needs a person is an agent stopped
+ * on an approval or a question, so it is worded as a decision there.
+ */
+export function describeAttention(counts: AttentionCounts, scope: 'code' | 'thread' = 'thread'): string {
   const parts: string[] = []
-  if (counts.needsYou) parts.push(i18n.t('attention.needsYou', { count: counts.needsYou }))
+  if (counts.needsYou) parts.push(i18n.t(scope === 'code' ? 'attention.needsDecision' : 'attention.needsYou', { count: counts.needsYou }))
   if (counts.failed) parts.push(i18n.t('attention.failed', { count: counts.failed }))
   if (!parts.length && counts.working) parts.push(i18n.t('attention.working', { count: counts.working }))
   return parts.join(', ')

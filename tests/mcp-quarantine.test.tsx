@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { McpServer } from '../shared/types/mcp'
 import { quarantineFixtureServers } from '../electron/main/e2e/mcp-fixture'
 import { McpPanel } from '../src/components/MCP/McpPanel'
+import { McpRunsNow } from '../src/components/MCP/McpRunsNow'
 import { quarantinedCount } from '../src/components/MCP/mcpQuarantine'
 import { useMcpQuarantineActivity } from '../src/hooks/useMcpQuarantineActivity'
 import { openActivityTarget } from '../src/components/Activity/openActivityTarget'
@@ -44,6 +45,9 @@ describe('MCP quarantine', () => {
     expect(screen.getAllByTestId('mcp-quarantine-chip')).toHaveLength(2)
     expect(screen.getAllByTestId('mcp-quarantine-chip')[0]).toHaveClass('is-quarantined')
     expect(screen.getAllByTestId('mcp-quarantine-chip')[0].querySelector('svg')).not.toBeNull()
+    // Quarantined servers offer no tools, whatever they listed before (docs-search listed 2); the trusted one counts.
+    const tools = screen.getAllByTestId('mcp-server-tools').map(item => item.textContent)
+    expect(tools).toEqual(['No tools while quarantined', 'No tools while quarantined', '1 tool'])
   })
 
   it('a quarantined server offers "Trust again…" instead of Test; the never-trusted one keeps Test and its inline question', async () => {
@@ -86,6 +90,29 @@ describe('MCP quarantine', () => {
     expect(i18n.t('mcp.tools', { ns: 'code', count: 0 })).toBe('Nenhuma ferramenta')
     expect(i18n.t('mcp.tools', { ns: 'code', count: 2 })).toBe('2 ferramentas')
     expect(i18n.t('mcp.quarantinedCount', { ns: 'code', count: 2 })).toBe('2 em quarentena')
+  })
+})
+
+describe('a quarantine from a changed configuration', () => {
+  it('the confirmation shows what the server runs now; a tools change does not', async () => {
+    const user = await openInstalled()
+    await user.click(screen.getByRole('button', { name: 'Trust deploy-helper again' }))
+    const dialog = await screen.findByTestId('mcp-trust-again')
+    expect(within(dialog).getByTestId('mcp-runs-now-command')).toHaveTextContent('node deploy-helper.js --target staging')
+    expect(within(dialog).getByTestId('mcp-runs-now-keys')).toHaveTextContent('none')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Trust docs-search again' }))
+    expect(within(await screen.findByTestId('mcp-trust-again')).queryByTestId('mcp-runs-now')).toBeNull()
+  })
+  it('names environment variables and headers, never their values', () => {
+    const { unmount } = render(<McpRunsNow config={{ transport: 'stdio', command: 'npx', args: ['-y', 'server'], env: { API_KEY: 'sk-secret-123', REGION: 'eu' } }} />)
+    expect(screen.getByTestId('mcp-runs-now-keys')).toHaveTextContent('API_KEYREGION')
+    expect(document.body).not.toHaveTextContent('sk-secret-123')
+    unmount()
+    render(<McpRunsNow config={{ transport: 'http', url: 'https://mcp.example/sse', headers: { Authorization: 'Bearer token-abc' } }} />)
+    expect(screen.getByTestId('mcp-runs-now-url')).toHaveTextContent('https://mcp.example/sse')
+    expect(screen.getByTestId('mcp-runs-now-keys')).toHaveTextContent('Authorization')
+    expect(document.body).not.toHaveTextContent('token-abc')
   })
 })
 
