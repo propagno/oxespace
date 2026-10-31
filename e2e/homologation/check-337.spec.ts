@@ -23,7 +23,10 @@ test.afterAll(() => writeFileSync(join(OUT, 'notes.json'), JSON.stringify(notes,
 
 test('#337: the spec process carries no sentinel', () => {
   notes.specProcess = sentinelKeys(process.env)
+  // Test switches the scrub must leave alone (the run sets them to acc-keep).
+  notes.kept = ['OXESPACE_MEMORY_RUNNER', 'EXPERIMENTAL_MEMORY', 'AI_MEMORY_TEST_BINARY'].map(k => `${k}=${process.env[k] ?? '(gone)'}`)
   expect(notes.specProcess).toEqual([])
+  expect(notes.kept).toEqual(['OXESPACE_MEMORY_RUNNER=acc-keep', 'EXPERIMENTAL_MEMORY=acc-keep', 'AI_MEMORY_TEST_BINARY=acc-keep'])
 })
 
 test('#337: the shared launchApp helper starts the app without them', async () => {
