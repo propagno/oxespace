@@ -18,7 +18,7 @@ import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } fr
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
-import { deriveThreadTitle } from './thread-title'
+import { deriveThreadTitle, isUnnamedThreadTitle, parseThreadRow } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
 import { briefBlock, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
@@ -221,7 +221,7 @@ export class ThreadOrchestrator {
        ORDER BY CAST(json_extract(turn.data_json, '$.sequence') AS INTEGER) DESC LIMIT 1) AS last_turn_status
       FROM conversation_threads`).all() as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
       .map(row => {
-        const thread = JSON.parse(row.data_json) as ConversationThread
+        const thread = parseThreadRow<ConversationThread>(row.data_json)
         if (!thread.lastTurnStatus && row.last_turn_status) thread.lastTurnStatus = row.last_turn_status
         return thread
       })
@@ -231,7 +231,7 @@ export class ThreadOrchestrator {
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
-      title: 'New thread', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
+      title: '', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
     this.db.transaction(() => {
       // Legacy/delegated callers enter here with a validated directory but no
       // renderer project-registration step. Keep their conversation durable.
@@ -564,7 +564,7 @@ export class ThreadOrchestrator {
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
     delete snapshot.thread.queuePause
-    if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
+    if (isUnnamedThreadTitle(snapshot.thread.title) && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
