@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { ApprovalPresentation } from '../approvals/drafts'
 import type { MainMessage } from '../../../../shared/messages'
+import { onExecutionEnded } from '../execution-registry'
 
 export type ApprovalDecision = 'allow-once' | 'allow-session' | 'deny'
 export type ApprovalRisk = 'read' | 'write' | 'action'
@@ -42,14 +43,14 @@ export type ApprovalState =
 
 export const APPROVAL_TTL_MS = 5 * 60_000
 const DENY_MEMORY_MS = 60_000
-/** "Allow reads for this run" lapses on its own: the broker is not told when an execution ends. */
+/** "Allow reads for this run" ends with the execution (endExecution), and lapses on its own after this anyway. */
 const SESSION_READ_TTL_MS = 4 * 60 * 60_000
 
 export function textHash(text: string): string {
   return createHash('sha256').update(text).digest('hex')
 }
 
-interface Pending { requestId: string; promise: Promise<ApprovalDecision | PrompterRefusal> }
+interface Pending { requestId: string; promise: Promise<ApprovalDecision | PrompterRefusal>; controller: AbortController }
 
 /**
  * Decides whether an agent may run a statement. A grant is bound to the execution,
@@ -63,7 +64,11 @@ export class ApprovalBroker {
   private readonly sessionReads = new Map<string, number>()
   private readonly pending = new Map<string, Pending>()
 
-  constructor(private readonly prompter: ApprovalPrompter | undefined, private readonly now: () => number = Date.now, private readonly defaultWaitMs = 45_000) {}
+  constructor(private readonly prompter: ApprovalPrompter | undefined, private readonly now: () => number = Date.now, private readonly defaultWaitMs = 45_000,
+    executionEnded: (listener: (execution: { id: string }) => void) => unknown = onExecutionEnded) {
+    // B23: the actor key is the execution id, so an ended execution's asks and grants end with it.
+    executionEnded(execution => this.endExecution(execution.id))
+  }
 
   private key(executionKey: string, scope: string, tool: string, hash: string): string {
     return `${executionKey}|${scope}|${tool}|${hash}`
@@ -73,8 +78,13 @@ export class ApprovalBroker {
     for (const [key, at] of this.sessionReads) if (now - at > SESSION_READ_TTL_MS) this.sessionReads.delete(key)
   }
 
-  /** Forget everything an execution was granted (it ended). */
+  /**
+   * The execution ended (its pane closed or exited, its session ended or was replaced): cancel what it is still asking,
+   * so the person is not left with a request nobody waits for (the center closes it, native dialog included, as
+   * `approvals.denied.cancelled`), and forget what it was granted.
+   */
   endExecution(executionKey: string): void {
+    for (const [key, pending] of [...this.pending]) if (key.startsWith(`${executionKey}|`)) { this.pending.delete(key); pending.controller.abort() }
     for (const key of [...this.grants.keys()]) if (key.startsWith(`${executionKey}|`)) this.grants.delete(key)
     for (const key of [...this.sessionReads.keys()]) if (key.startsWith(`${executionKey}|`)) this.sessionReads.delete(key)
   }
@@ -120,7 +130,7 @@ export class ApprovalBroker {
         }
         return decision
       })
-      pending = { requestId, promise }
+      pending = { requestId, promise, controller }
       this.pending.set(key, pending)
     }
     let waiting: ReturnType<typeof setTimeout> | undefined

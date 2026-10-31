@@ -13,6 +13,27 @@ export interface AgentExecution {
   generation: number
   token: string
 }
+/**
+ * B23 · What an execution asked for lives no longer than the execution. When a pane closes or exits, or a conversation's
+ * session ends or is replaced, everything waiting on its behalf is cancelled: approval brokers listen here and cancel
+ * the execution's pending asks (and drop its grants), and work that asks without a broker takes the owner's signal.
+ * Module-level, like the approval center, so a broker or service needs no extra wiring.
+ */
+const endedListeners = new Set<(execution: AgentExecution) => void>()
+const ownerSignals = new Map<string, AbortController>()
+const ownerKey = (owner: ExecutionOwner): string => `${owner.kind}:${owner.id}`
+
+/** Calls `listener` with every execution that ends; returns the unsubscribe. A failing listener never stops the others. */
+export function onExecutionEnded(listener: (execution: AgentExecution) => void): () => void {
+  endedListeners.add(listener)
+  return () => { endedListeners.delete(listener) }
+}
+
+/** Aborted when the owner's current execution ends; undefined when the owner has none (nothing to tie the ask to). */
+export function executionSignal(owner: ExecutionOwner | undefined): AbortSignal | undefined {
+  return owner ? ownerSignals.get(ownerKey(owner))?.signal : undefined
+}
+
 /** Process-lifetime credentials; unrelated to provider conversation IDs or memory availability. */
 export class ExecutionRegistry {
   private executions = new Map<string, AgentExecution>()
@@ -27,6 +48,7 @@ export class ExecutionRegistry {
     const execution: AgentExecution = { ...input, paneId, owner, canonicalRoot: resolve(input.cwd), generation,
       id: randomUUID(), token: randomBytes(32).toString('hex') }
     this.executions.set(execution.id, execution)
+    ownerSignals.set(ownerKey, new AbortController())
     return { OXESPACE_EXECUTION_ID: execution.id, OXESPACE_EXECUTION_TOKEN: execution.token,
       OXESPACE_EXECUTION_GENERATION: String(generation), OXESPACE_WORKSPACE_ID: input.workspaceId }
   }
@@ -43,7 +65,14 @@ export class ExecutionRegistry {
   end(paneId: string): void { this.endOwner({ kind: 'pane', id: paneId }) }
   endOwner(owner: ExecutionOwner): void {
     const key = this.key(owner)
-    for (const [id, execution] of this.executions) if (this.key(execution.owner) === key) this.executions.delete(id)
+    const ended: AgentExecution[] = []
+    for (const [id, execution] of this.executions) if (this.key(execution.owner) === key) { this.executions.delete(id); ended.push(execution) }
+    const signal = ownerSignals.get(key)
+    ownerSignals.delete(key)
+    signal?.abort()
+    for (const execution of ended) for (const listener of endedListeners) {
+      try { listener(execution) } catch { /* one listener's failure never keeps another's asks alive */ }
+    }
   }
   private key(owner: ExecutionOwner): string { return `${owner.kind}:${owner.id}` }
 }
