@@ -5,23 +5,41 @@ import { humanizeError } from '../../utils/humanizeError'
 import { isHandedOff } from './approvalsBoot'
 import { historyRow, queueOrder, type ApprovalHistoryRow } from './approvalsRules'
 
-/** Something to tell the person above the request on screen. */
-export type ApprovalNotice =
+/** The request a notice or an answer belongs to: its id and generation. */
+export interface ApprovalRef { id: string; generation: number }
+
+export const refKey = (ref: ApprovalRef): string => `${ref.id}#${ref.generation}`
+
+/**
+ * Something to tell the person about one request, shown only while that request (that generation) is on screen: a
+ * notice never carries over to the next request. A stale-generation refusal also shows on the newer generation of
+ * the same request, which it explains.
+ */
+export type ApprovalNotice = ApprovalRef & (
   /** Main refused the answer; its C3 message says why. The queue was read again. */
-  | { kind: 'refused'; message: MainMessage }
+  | { kind: 'refused'; refusal: string; message: MainMessage }
   /** The answer could not be delivered; the shared error path words it. */
   | { kind: 'failed'; text: string }
-  /** The request on screen was settled without the person. */
-  | { kind: 'settled'; by: 'timeout' | 'cancelled' | 'native' }
+)
+
+/** The request on screen was settled without the person (expired, cancelled, answered natively): told once, apart from the next request. */
+export interface ApprovalSettled extends ApprovalRef { by: 'timeout' | 'cancelled' | 'native' }
+
+export function noticeFor(notice: ApprovalNotice | null, request: ApprovalRef): ApprovalNotice | null {
+  if (!notice || notice.id !== request.id) return null
+  if (notice.generation === request.generation) return notice
+  return notice.kind === 'refused' && notice.refusal === 'staleGeneration' && request.generation > notice.generation ? notice : null
+}
 
 interface ApprovalsState {
   /** Pending requests, oldest first. The first one is on screen. */
   queue: ApprovalRequest[]
   /** This session's decisions, newest first. */
   history: ApprovalHistoryRow[]
-  /** The request whose answer is on its way. */
-  busyId: string | null
+  /** The request (`id#generation`) whose answer is on its way. */
+  busy: string | null
   notice: ApprovalNotice | null
+  settled: ApprovalSettled | null
   historyOpen: boolean
 }
 
@@ -29,15 +47,30 @@ interface ApprovalsActions {
   sync(api: ApprovalsApi): Promise<void>
   received(request: ApprovalRequest): void
   resolved(resolution: ApprovalResolved): void
-  respond(api: ApprovalsApi, optionId: string): Promise<void>
+  /**
+   * Answers the request the person saw (`shown`, captured when it was rendered), never whatever is first in the queue
+   * at the moment of the call. Nothing is sent when that request (that generation) is no longer pending here, or the
+   * option is not one of its options.
+   */
+  respond(api: ApprovalsApi, shown: Pick<ApprovalRequest, 'id' | 'generation' | 'options'>, optionId: string): Promise<void>
   setHistoryOpen(open: boolean): void
   dismissNotice(): void
+  takeSettled(): ApprovalSettled | null
   reset(): void
 }
 
-const initial: ApprovalsState = { queue: [], history: [], busyId: null, notice: null, historyOpen: false }
+const initial: ApprovalsState = { queue: [], history: [], busy: null, notice: null, settled: null, historyOpen: false }
 
-const keep = (queue: ApprovalRequest[]): ApprovalRequest[] => queue.filter(request => !isHandedOff(request)).sort(queueOrder)
+/** One entry per request id, its newest generation; handed-off ones left out. */
+function keep(queue: ApprovalRequest[]): ApprovalRequest[] {
+  const newest = new Map<string, ApprovalRequest>()
+  for (const request of queue) {
+    if (isHandedOff(request)) continue
+    const known = newest.get(request.id)
+    if (!known || request.generation >= known.generation) newest.set(request.id, request)
+  }
+  return [...newest.values()].sort(queueOrder)
+}
 
 function mergeHistory(current: ApprovalHistoryRow[], incoming: ApprovalHistoryRow[]): ApprovalHistoryRow[] {
   const byId = new Map(current.map(entry => [entry.id, entry]))
@@ -60,45 +93,56 @@ export const useApprovalsStore = create<ApprovalsState & ApprovalsActions>()((se
 
   received(request) {
     if (isHandedOff(request)) return
-    set(state => ({ queue: keep([...state.queue.filter(item => item.id !== request.id), request]) }))
+    set(state => {
+      // An older generation arriving late never replaces the newer one.
+      const known = state.queue.find(item => item.id === request.id)
+      if (known && known.generation > request.generation) return state
+      return { queue: keep([...state.queue.filter(item => item.id !== request.id), request]) }
+    })
   },
 
   resolved(resolution) {
-    const { queue, history, busyId } = get()
+    const { queue, history, busy } = get()
     const request = queue.find(item => item.id === resolution.id)
-    if (!request) return
+    // Nothing here, or a resolution for an older generation: the newer one stays open (R8).
+    if (!request || request.generation > resolution.generation) return
     const onScreen = queue[0]?.id === resolution.id
     set({
       queue: queue.filter(item => item.id !== resolution.id),
       history: history.some(entry => entry.id === resolution.id) ? history : mergeHistory(history, [rowOf(request, resolution)]),
-      ...(onScreen && (resolution.by === 'timeout' || resolution.by === 'cancelled' || resolution.by === 'native') ? { notice: { kind: 'settled', by: resolution.by } as const } : {}),
-      ...(busyId === resolution.id ? { busyId: null } : {})
+      ...(onScreen && (resolution.by === 'timeout' || resolution.by === 'cancelled' || resolution.by === 'native') ? { settled: { id: request.id, generation: request.generation, by: resolution.by } } : {}),
+      ...(busy === refKey(request) ? { busy: null } : {})
     })
   },
 
-  async respond(api, optionId) {
-    const request = get().queue[0]
-    if (!request || get().busyId) return
-    const option = request.options.find(item => item.id === optionId)
-    if (!option) return
-    set({ busyId: request.id, notice: null })
+  async respond(api, shown, optionId) {
+    if (get().busy) return
+    // The request the person saw, at the generation they saw: if it is gone or was re-issued, nothing is answered.
+    const request = get().queue.find(item => item.id === shown.id && item.generation === shown.generation)
+    if (!request) return
+    // The option must be one the person saw on this request, and still one of its options.
+    const option = shown.options.find(item => item.id === optionId)
+    if (!option || !request.options.some(item => item.id === optionId && item.intent === option.intent)) return
+    const ref = { id: request.id, generation: request.generation }
+    set({ busy: refKey(ref), notice: null })
     try {
-      const result = await api.respond({ id: request.id, optionId, generation: request.generation })
+      const result = await api.respond({ ...ref, optionId })
       if (result.ok) {
         // Main also announces it on approvals:resolved; whichever arrives first records it once.
-        get().resolved({ id: request.id, generation: request.generation, outcome: option.intent, optionId, by: 'user' })
-        set({ busyId: null })
+        get().resolved({ ...ref, outcome: option.intent, optionId, by: 'user' })
+        set({ busy: null })
         return
       }
-      set({ busyId: null, notice: { kind: 'refused', message: result.message } })
+      set({ busy: null, notice: { ...ref, kind: 'refused', refusal: result.refusal, message: result.message } })
       // A refused answer means the window's copy is out of date: read the queue again.
       await get().sync(api).catch(() => {})
     } catch (cause) {
-      set({ busyId: null, notice: { kind: 'failed', text: humanizeError(cause) } })
+      set({ busy: null, notice: { ...ref, kind: 'failed', text: humanizeError(cause) } })
     }
   },
 
   setHistoryOpen(open) { set({ historyOpen: open }) },
   dismissNotice() { set({ notice: null }) },
+  takeSettled() { const settled = get().settled; if (settled) set({ settled: null }); return settled },
   reset() { set({ ...initial }) }
 }))

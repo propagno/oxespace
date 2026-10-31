@@ -23,6 +23,8 @@ export interface DialogProps {
   /** Accessible name of the close button. */
   closeLabel?: string
   testId?: string
+  /** Called before Escape closes the dialog; preventDefault keeps it open (e.g. an Escape typed somewhere else). */
+  onEscapeKeyDown?: (event: globalThis.KeyboardEvent) => void
 }
 
 /**
@@ -35,7 +37,7 @@ export function focusSurfaceUnlessChosen(event: Event): void {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown }: DialogProps): ReactElement {
   const previous = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null)
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
@@ -44,6 +46,7 @@ export function Dialog({ title, description, onClose, children, footer, size = '
         // Without a description, tell Radix there is none instead of pointing at a missing element.
         {...(description ? {} : { 'aria-describedby': undefined })}
         onOpenAutoFocus={focusSurfaceUnlessChosen}
+        onEscapeKeyDown={onEscapeKeyDown}
         onCloseAutoFocus={event => {
           event.preventDefault()
           const chosen = returnFocusTo?.() ?? previous.current

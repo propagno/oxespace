@@ -1,10 +1,10 @@
-import { useEffect, useRef, type ReactElement } from 'react'
+import { useEffect, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ShieldCheck } from 'lucide-react'
 import { toast } from '../../ui'
 import type { ApprovalsApi } from '../../../shared/types/approvals'
 import { approvalsApi } from './approvalsApi'
-import { OPEN_APPROVAL_HISTORY_EVENT, reportShown, takeHistoryRequest } from './approvalsBoot'
+import { OPEN_APPROVAL_HISTORY_EVENT, reportShown, takeHistoryRequest, trackQueue } from './approvalsBoot'
 import { useApprovalsStore } from './approvals.store'
 import { ApprovalDialog } from './ApprovalDialog'
 import { ApprovalHistory } from './ApprovalHistory'
@@ -13,11 +13,19 @@ import { registerCommands } from '../../utils/commandRegistry'
 import { i18n } from '../../i18n'
 
 // What was approved or denied in this session, and who asked. Registered with this chunk, which loads at idle right
-// after boot, so the boot bundle does not carry it; registered again when the language changes.
-const registerHistoryCommand = (): void => { registerCommands('approvals', [{
-  id: 'help.approvals', label: approvalT('approvals.history.command'), icon: ShieldCheck, category: 'Help', keywords: ['approvals', 'permissions', 'allowed', 'denied', 'decisions', 'security'],
-  run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_HISTORY_EVENT))) }
-}]) }
+// after boot, so the boot bundle does not carry it; registered again when the language changes. Worded like the
+// palette's catalog (F17): "<Category>: <Action>" from `commands.category.help` and `commands.action.help.approvals`.
+// TODO(F17): use commandText('Help', 'help.approvals', …) once src/commands/commandText.ts is on main.
+const registerHistoryCommand = (): void => {
+  const category = approvalT('commands.category.help')
+  const action = approvalT('commands.action.help.approvals')
+  registerCommands('approvals', [{
+    id: 'help.approvals', label: `${category}: ${action}`, icon: ShieldCheck, category: 'Help',
+    // The former label, in the language on screen, still finds it.
+    keywords: ['approvals', 'aprovações', 'histórico', 'history', 'permissions', 'allowed', 'denied', 'decisions', 'security', approvalT('approvals.history.command')],
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_HISTORY_EVENT))) }
+  }])
+}
 registerHistoryCommand()
 i18n.on('languageChanged', registerHistoryCommand)
 
@@ -31,8 +39,7 @@ export function ApprovalCenter({ armMs }: { armMs?: number } = {}): ReactElement
   const api = approvalsApi() as ApprovalsApi
   const queue = useApprovalsStore(state => state.queue)
   const historyOpen = useApprovalsStore(state => state.historyOpen)
-  const notice = useApprovalsStore(state => state.notice)
-  const hadQueue = useRef(false)
+  const settled = useApprovalsStore(state => state.settled)
 
   useEffect(() => {
     const store = useApprovalsStore.getState()
@@ -49,21 +56,20 @@ export function ApprovalCenter({ armMs }: { armMs?: number } = {}): ReactElement
   // The history reads main's record again when it opens (it also lists requests main settled without showing them).
   useEffect(() => { if (historyOpen) void useApprovalsStore.getState().sync(api).catch(() => {}) }, [historyOpen, api])
 
-  // The dialog is on screen with these requests in its queue: their fail-safe stops.
-  useEffect(() => { if (queue.length && !historyOpen) reportShown(queue, api) }, [queue, historyOpen, api])
+  // The window holds these requests (a crash hands them back to main); on screen, their fail-safe stops.
+  useEffect(() => { trackQueue(queue); if (queue.length && !historyOpen) reportShown(queue) }, [queue, historyOpen])
 
-  // The last request settled without the person while it was on screen: say so, since the dialog closes.
+  // The request on screen was settled without the person: say so apart from the dialog, so nothing about it is
+  // carried onto the next request (R5).
   useEffect(() => {
-    if (queue.length) { hadQueue.current = true; return }
-    if (hadQueue.current && notice?.kind === 'settled') {
-      toast({ title: approvalT(`approvals.settled.${notice.by}`), intent: 'info' })
-      useApprovalsStore.getState().dismissNotice()
-    }
-    hadQueue.current = false
-  }, [queue.length, notice])
+    if (!settled) return
+    const taken = useApprovalsStore.getState().takeSettled()
+    if (taken) toast({ title: approvalT(`approvals.settled.${taken.by}`), intent: 'info' })
+  }, [settled])
 
   if (historyOpen) return <ApprovalHistory onClose={() => useApprovalsStore.getState().setHistoryOpen(false)} hasPending={queue.length > 0} />
   const request = queue[0]
   if (!request) return null
-  return <ApprovalDialog request={request} position={1} total={queue.length} api={api} armMs={armMs} />
+  // Keyed by id and generation: a re-issued or next request is a fresh dialog, with nothing kept from the one before.
+  return <ApprovalDialog key={`${request.id}#${request.generation}`} request={request} position={1} total={queue.length} api={api} armMs={armMs} />
 }

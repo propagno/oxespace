@@ -1,7 +1,7 @@
 import { allowTooSoon } from '../../../shared/approval-rules'
 import { mainMessage } from '../../../shared/messages'
 import {
-  APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalRefusal,
+  APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS, type ApprovalAckInput, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalRefusal,
   type ApprovalRequest, type ApprovalResolved, type ApprovalResolvedBy, type ApprovalsApi
 } from '../../../shared/types/approvals'
 import { setApprovalsApi } from './approvalsApi'
@@ -24,7 +24,7 @@ export interface ApprovalsMockHook {
   /** Adds a history entry main settled without showing it (queue full, too long). */
   record(entry: ApprovalHistoryEntry & { reason?: { code: string; params: Record<string, unknown> } }): void
   readonly responses: ReadonlyArray<{ id: string; optionId: string; generation: number }>
-  readonly acks: ReadonlyArray<ApprovalAnswerInput>
+  readonly acks: ReadonlyArray<ApprovalAckInput>
   readonly unavailable: ReadonlyArray<ApprovalAnswerInput>
   reset(): void
 }
@@ -78,7 +78,8 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
   const requested = new Set<(request: ApprovalRequest) => void>()
   const resolved = new Set<(resolution: ApprovalResolved) => void>()
   const responses: Array<{ id: string; optionId: string; generation: number }> = []
-  const acks: ApprovalAnswerInput[] = []
+  const acks: ApprovalAckInput[] = []
+  const acked = new Set<string>()
   const unavailable: ApprovalAnswerInput[] = []
 
   const refuse = (refusal: ApprovalRefusal): ApprovalCallResult => ({ ok: false, refusal, message: mainMessage(`approvals.refused.${refusal}`, {}) })
@@ -118,7 +119,7 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
     acks,
     unavailable,
     reset() {
-      pending.clear(); history = []; reported.clear(); displayedAt.clear(); forced = null; responses.length = 0; acks.length = 0; unavailable.length = 0
+      pending.clear(); history = []; reported.clear(); displayedAt.clear(); acked.clear(); forced = null; responses.length = 0; acks.length = 0; unavailable.length = 0
     }
   }
 
@@ -133,7 +134,9 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
       if (typeof request === 'string') return refuse(request)
       const option = request.options.find(item => item.id === input.optionId)
       if (!option) return refuse('unknownOption')
-      // As main: an allow before the ack, or sooner than allowDelayMs after it, is refused and the request stays.
+      // As main (#238): an allow at any risk before any ack is refused notShown; one sooner than allowDelayMs after the
+      // first visible and focused ack is refused tooSoon. The request stays either way.
+      if (option.intent !== 'deny' && !acked.has(`${request.id}#${request.generation}`)) return refuse('notShown')
       if (allowTooSoon(request, option.intent, displayedAt.get(request.id), Date.now())) return refuse('tooSoon')
       settle(request, input.optionId, 'user')
       return { ok: true, id: request.id }
@@ -142,7 +145,9 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
       acks.push(input)
       const request = current(input)
       if (typeof request === 'string') return refuse(request)
-      if (!displayedAt.has(request.id)) displayedAt.set(request.id, Date.now())
+      acked.add(`${request.id}#${request.generation}`)
+      // As main (#238): the hold starts at the first ack with visible and focused both exactly true; later acks keep it.
+      if (input.visible === true && input.focused === true && !displayedAt.has(request.id)) displayedAt.set(request.id, Date.now())
       return { ok: true, id: request.id }
     },
     async unavailable(input) {
