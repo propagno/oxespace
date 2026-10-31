@@ -27,8 +27,9 @@ const focusedTerminal = (page: Page): Promise<string | null> => page.evaluate(()
 })
 const focusedRegion = (page: Page): Promise<string> => page.evaluate(() => {
   const active = document.activeElement
-  const region = active?.closest('.workbench-titlebar, .app-shell > aside, .workspace-grid, .workspace-split-grid, .workspace-panel-stack, .app-statusbar')
-  return region ? region.className.split(' ')[0] : `none (${active?.tagName})`
+  const region = active?.closest('[data-focus-region], .workbench-titlebar, .app-shell > aside, .workspace-grid, .workspace-split-grid, .workspace-panel-stack, .app-statusbar')
+  // A region named by data-focus-region (the mode switch, inside the title bar) is its own stop, as F6 treats it.
+  return region ? region.getAttribute('data-focus-region') ?? region.className.split(' ')[0] : `none (${active?.tagName})`
 })
 
 test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable and their menu returns focus', async () => {
@@ -104,8 +105,8 @@ test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable a
 
     // T5: F6 round every region and back; no region keeps a tabindex it was given only to take focus.
     const terminalInput = page.locator(`[data-terminal-pane="${first}"] .xterm-helper-textarea`)
-    const regionTabindexes = (): Promise<string[]> => page.evaluate(() => [...document.querySelectorAll('.workbench-titlebar, .app-shell > aside, .workspace-grid, .workspace-split-grid, .workspace-panel-stack, .app-statusbar')]
-      .map(region => `${region.className.split(' ')[0]}=${region.getAttribute('tabindex')}`))
+    const regionTabindexes = (): Promise<string[]> => page.evaluate(() => [...document.querySelectorAll('[data-focus-region], .workbench-titlebar, .app-shell > aside, .workspace-grid, .workspace-split-grid, .workspace-panel-stack, .app-statusbar')]
+      .map(region => `${region.getAttribute('data-focus-region') ?? region.className.split(' ')[0]}=${region.getAttribute('tabindex')}`))
     await terminalInput.focus()
     const tabindexesBefore = await regionTabindexes()
     // Each F6 is handled after the key event, so wait for focus to reach the next region: a press still pending when
