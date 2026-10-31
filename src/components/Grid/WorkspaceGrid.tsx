@@ -86,7 +86,7 @@ export function WorkspaceGrid({
                           data-oxe-maximized={panelMaximized ? '1' : undefined}
                         >
                           {pane ? (
-                            <ErrorBoundary compact label={i18n.t('pane.boundary', { ns: 'code' })}>
+                            <ErrorBoundary id="pane" compact label={i18n.t('pane.boundary', { ns: 'code' })}>
                               <PaneContainer
                                 pane={pane}
                                 workspace={workspace}

@@ -222,7 +222,7 @@ export function WorkspaceSplitGrid({
             data-compact-active={pane.id === (activePaneId ?? rects[0]?.paneId) ? 'true' : undefined}
             style={style}
           >
-            <ErrorBoundary compact label={i18n.t('pane.boundary', { ns: 'code' })}>
+            <ErrorBoundary id="pane" compact label={i18n.t('pane.boundary', { ns: 'code' })}>
               <PaneContainer
                 pane={pane}
                 workspace={workspace}

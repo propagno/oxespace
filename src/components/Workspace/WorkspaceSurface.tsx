@@ -457,7 +457,7 @@ function WorkspaceSurfaceComponent({
     })
   }
 
-  const grid = <ErrorBoundary label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
+  const grid = <ErrorBoundary id="workspace-grid" label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
     <WorkspaceSplitGrid
       workspace={workspace}
       tree={tree}
@@ -593,7 +593,7 @@ function WorkspaceSurfaceComponent({
                   </nav>}
                   <div className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
                     {sidePanels.map(panel => <div key={panel.id} hidden={panel.id !== activeSideId}>
-                      <ErrorBoundary label={tc('workspace.panel.this')}><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
+                      <ErrorBoundary id="workspace-panel" label={tc('workspace.panel.this')}><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
                     </div>)}
                   </div>
                 </div>
