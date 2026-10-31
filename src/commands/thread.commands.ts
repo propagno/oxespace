@@ -1,11 +1,17 @@
 import { CircleDollarSign, FolderInput, FolderPlus, History, ListChecks, MessageSquarePlus, PencilLine, ScrollText, Undo2, UserRound } from 'lucide-react'
 import type { ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
+import { i18n } from '../i18n'
 import { useThreadStore } from '../store/thread.store'
 import { toast } from '../ui'
 import type { ContributedCommand } from '../utils/commandRegistry'
 import { humanizeError } from '../utils/humanizeError'
 import { navigableThreads } from '../utils/threadNavigation'
 import { useCommandSource } from './useCommandSource'
+
+/** Agent accounts are checked inside a project; without one there is nothing to show yet. */
+export function sayAddProjectFirst(): void {
+  toast({ title: i18n.t('thread:accounts.needProject'), description: i18n.t('thread:accounts.needProjectText') })
+}
 
 /** ThreadView runs `{ text }` as if it was typed in the composer of the active conversation. */
 export const THREAD_RUN_COMMAND_EVENT = 'oxe:thread-run-command'
@@ -21,7 +27,7 @@ export interface ThreadCommandContext {
   openAccounts: () => void
 }
 
-const CATEGORY = 'Thread'
+const CATEGORY = 'OxeChat'
 
 /** Opens the project's latest conversation, or a new one when it has none. */
 function switchProject(ctx: ThreadCommandContext, projectId: string): void {
@@ -37,15 +43,15 @@ export async function undoLastTurn(snapshot: ThreadSnapshot): Promise<void> {
   const turn = [...(snapshot.turns ?? [])].reverse().find(item => item.status !== 'running')
   if (!api?.turnFiles || !api.undoTurnFile) return
   // Said, not silent: the palette only offers this after a finished turn, but the conversation may change under it.
-  if (!turn) { toast({ title: 'Nothing to undo', description: 'This conversation has no finished turn yet.' }); return }
+  if (!turn) { toast({ title: i18n.t('thread:undoTurn.nothing'), description: i18n.t('thread:undoTurn.noTurn') }); return }
   const threadId = snapshot.thread.id
   try {
     const files = (await api.turnFiles(threadId, turn.id)).filter(file => file.state === 'pending')
-    if (!files.length) { toast({ title: 'Nothing to undo', description: 'The last turn left no file changes to restore.' }); return }
+    if (!files.length) { toast({ title: i18n.t('thread:undoTurn.nothing'), description: i18n.t('thread:undoTurn.noFiles') }); return }
     for (const file of files) await api.undoTurnFile(threadId, turn.id, file.path)
-    toast({ title: `Restored ${files.length} ${files.length === 1 ? 'file' : 'files'}`, intent: 'success' })
+    toast({ title: i18n.t('thread:undoTurn.restored', { count: files.length }), intent: 'success' })
   } catch (cause) {
-    toast({ title: 'Could not undo the last turn', description: humanizeError(cause, 'A file changed after the turn.'), intent: 'danger' })
+    toast({ title: i18n.t('thread:undoTurn.failed'), description: humanizeError(cause, i18n.t('thread:undoTurn.changedSince')), intent: 'danger' })
   } finally {
     await useThreadStore.getState().refresh(threadId)
   }
@@ -63,8 +69,8 @@ export function buildThreadCommands(ctx: ThreadCommandContext): ContributedComma
     run: inThread(() => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(THREAD_RUN_COMMAND_EVENT, { detail: { text } }))))
   })
   return [
-    { id: 'thread.new', label: 'New conversation', icon: MessageSquarePlus, category: CATEGORY, keywords: ['thread', 'chat', 'start'], shortcut: 'thread.new', run: inThread(ctx.newThread) },
-    { id: 'thread.add-project', label: 'Add Thread project…', icon: FolderPlus, category: CATEGORY, keywords: ['folder', 'repository'], run: inThread(ctx.addProject) },
+    { id: 'thread.new', label: 'New conversation', icon: MessageSquarePlus, category: CATEGORY, keywords: ['thread', 'chat', 'oxechat', 'start'], shortcut: 'thread.new', run: inThread(ctx.newThread) },
+    { id: 'thread.add-project', label: 'Add OxeChat project…', icon: FolderPlus, category: CATEGORY, keywords: ['folder', 'repository'], run: inThread(ctx.addProject) },
     ...ctx.projects.filter(project => !project.hidden).map(project => ({
       id: `thread.project.${project.projectId}`, label: `Switch to project ${project.displayName}`, detail: project.identityLabel, icon: FolderInput,
       category: CATEGORY, keywords: ['project', 'change', project.displayName], run: inThread(() => switchProject(ctx, project.projectId))

@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'mcp_internal.tool_groups_admin', 'remote.gateway_admin', 'approvals.admin'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -137,7 +137,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   // ---- Web Preview --------------------------------------------------------------
   'web_preview.use': {
     label: 'Open, drive and capture the Web Preview',
-    tools: { oxespace_open_web_preview: 'write', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
+    // B15: open_web_preview is confirm, and a local http(s) URL (localhost, *.localhost, 127.0.0.1, [::1], any port,
+    // written plainly) skips the question and runs as write. Any other host asks first; other schemes, file: included, are refused.
+    tools: { oxespace_open_web_preview: 'confirm', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
     ipc: ['browserPreview.session', 'browserPreview.mount', 'browserPreview.bounds', 'browserPreview.designMode', 'browserPreview.setZoom', 'browserPreview.reload',
       'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.close', 'mcpInternal.captureWebPreview']
   },
@@ -210,6 +212,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['thread.list', 'thread.read', 'thread.history', 'thread.readSince', 'thread.usageSummary', 'thread.contextUsage', 'thread.projects', 'thread.turnFiles',
       'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'session.list']
   },
+  'thread.side_chat': { label: 'A side chat about a conversation', excluded: 'The person\'s read-only scratch copy of a conversation; agents ask in their own.', ipc: ['thread.sideOpen', 'thread.sideSend', 'thread.sideClose'] },
   'thread.drive': {
     label: 'Create Threads, send, steer, stop, set the model, rename, archive',
     tools: {
@@ -234,6 +237,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Answer a Thread\'s approvals and questions',
     forbidden: 'Approvals stay with the person.',
     ipc: ['thread.approve', 'thread.respond', 'thread.pendingRequestsAll', 'thread.respondPending']
+  },
+  'approvals.admin': {
+    label: 'Answer, acknowledge or list the app\'s approval requests (agent actions, OxeQuery, preview automation, crash restart)',
+    forbidden: 'Approvals stay with the person: an agent never answers, lists or skips a request raised for the person.',
+    ipc: ['approvals.list', 'approvals.respond', 'approvals.ack', 'approvals.unavailable', 'approvals.history']
   },
   'thread.access': {
     label: 'Permission rules and auto-approval',
@@ -365,7 +373,21 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'settings.app': {
     label: 'Appearance, UI scale, app updates, RTK, agent hooks',
     excluded: 'The person\'s app maintenance; installing hooks writes into the agents\' own configuration.',
-    ipc: ['app.*', 'rtk.*', 'agentHooks.*']
+    ipc: ['app.*', 'rtk.*', 'agentHooks.*', 'mcpInternal.toolGroups']
+  },
+  'mcp_internal.tool_groups_admin': { label: 'Choose how a project offers each group of OXESpace tools', forbidden: 'Raises what agents can reach.', ipc: ['mcpInternal.setToolGroupMode'] },
+  'settings.diagnostics': {
+    label: 'Diagnostics snapshot, live measurements, problem bundles and reports',
+    excluded: 'Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them.',
+    ipc: ['diagnostics.getSnapshot', 'diagnostics.exportReport', 'diagnostics.reportInteractive', 'diagnostics.buildIssueReport', 'diagnostics.recordFirstAnswer',
+      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary']
+  },
+  'diagnostics.read': {
+    label: 'Summary of the incident journal and a snapshot of the app',
+    // The same Markdown as the window's "Ask for an analysis": incident codes, areas and counts, with aggregate processes
+    // and storage. Never content, paths or raw errors.
+    tools: { oxespace_diagnostics: 'read' },
+    ipc: ['diagnostics.incidents']
   },
   'remote.devices_read': { label: 'Remote gateway status and paired phones', excluded: 'The person\'s devices, shown in Settings › Devices; agents have no use for them.', ipc: ['remote.status', 'remote.devices'] },
   'remote.gateway_admin': {
@@ -373,7 +395,6 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'Opens a network surface and grants device access.',
     ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite']
   },
-  'settings.diagnostics': { label: 'Diagnostics snapshot and reports', excluded: 'Whole-app paths and logs; the person exports them.', ipc: ['diagnostics.*'] },
   'settings.agent_audit': {
     label: 'Audit of agent actions; internal MCP status',
     excluded: 'The person\'s review of what agents did. OxeQuery\'s trail is oxespace_db_activity.',

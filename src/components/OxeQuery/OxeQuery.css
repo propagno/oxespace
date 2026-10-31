@@ -35,6 +35,8 @@
 .oq-toolbar input[type='search'], .oq-toolbar input:not([type]) { flex: 1; min-width: 120px; max-width: 320px; padding: 5px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; }
 .oq-spacer { flex: 1; }
 .oq-check, .oq-inline { display: inline-flex; align-items: center; gap: 6px; }
+/* A checkbox's label is its target: never under --target-min tall (WCAG 2.5.8). */
+label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: var(--target-min); }
 .oq-view button { font: inherit; }
 .oq-view button:disabled { opacity: .45; cursor: default; }
 .oq-view button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
@@ -128,7 +130,6 @@
 .oq-segment { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); width: max-content; }
 .oq-segment button { padding: 4px 12px; border: 0; border-radius: calc(var(--radius-sm) - 1px); color: var(--text-secondary); background: transparent; font-size: var(--text-xs); cursor: pointer; }
 .oq-segment button[data-selected='true'] { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 12%, transparent); }
-.oq-segment button[data-selected='true'][data-environment='prod'] { color: var(--text-on-solid); background: var(--intent-danger-solid); }
 .oq-switch { display: flex; align-items: flex-start; gap: 10px; font-size: var(--text-xs); cursor: pointer; }
 .oq-switch span { display: grid; gap: 2px; }
 .oq-switch small { color: var(--text-muted); }
@@ -348,15 +349,11 @@
 .oq-conn-heading small { margin-left: auto; }
 .oq-connection-row .oq-icon[data-on] { opacity: 1; color: var(--intent-warning-solid, var(--accent)); }
 .oq-color-dot { display: inline-block; flex: none; width: 10px; height: 10px; margin: 0 2px; border-radius: 50%; background: var(--avatar-1); }
-.oq-color-dot[data-color='violet'], .oq-swatches [data-color='violet'] { background: var(--avatar-2); }
-.oq-color-dot[data-color='pink'], .oq-swatches [data-color='pink'] { background: var(--avatar-3); }
-.oq-color-dot[data-color='amber'], .oq-swatches [data-color='amber'] { background: var(--avatar-4); }
-.oq-color-dot[data-color='green'], .oq-swatches [data-color='green'] { background: var(--avatar-5); }
-.oq-color-dot[data-color='teal'], .oq-swatches [data-color='teal'] { background: var(--avatar-6); }
-.oq-swatches { display: inline-flex; align-items: center; gap: 6px; }
-.oq-swatches button { width: 18px; height: 18px; padding: 0; border: 2px solid transparent; border-radius: 50%; background: var(--avatar-1); cursor: pointer; }
-.oq-swatches button[data-color='none'] { background: transparent; border-color: var(--border-default); }
-.oq-swatches button[aria-checked='true'] { border-color: var(--text-primary); }
+.oq-color-dot[data-color='violet'] { background: var(--avatar-2); }
+.oq-color-dot[data-color='pink'] { background: var(--avatar-3); }
+.oq-color-dot[data-color='amber'] { background: var(--avatar-4); }
+.oq-color-dot[data-color='green'] { background: var(--avatar-5); }
+.oq-color-dot[data-color='teal'] { background: var(--avatar-6); }
 .oq-form-pair { display: flex; align-items: center; gap: 16px; }
 .oq-tab[data-color] { border-top: 3px solid var(--avatar-1); }
 .oq-tab[data-color='violet'] { border-top: 3px solid var(--avatar-2); }
@@ -453,17 +450,16 @@
 :is(.oq-view, .oq-scope) :is(.oq-check, .oq-inline) { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-primary); cursor: pointer; }
 :is(.oq-view, .oq-scope) .oq-form-wide.oq-check { display: flex; font-size: var(--text-sm); }
 
-/* Segmented choices mirror src/ui SegmentedControl. */
-.oq-segment { display: inline-flex; gap: 2px; padding: 2px; width: max-content; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); }
-.oq-segment button { min-height: calc(var(--control-sm) - 2px); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: capitalize; }
+/* Segmented choices mirror src/ui SegmentedControl: --control-sm options (24 px at least) on a 1 px inset. */
+.oq-segment { display: inline-flex; gap: 2px; padding: 1px; width: max-content; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.oq-segment button { min-height: max(var(--target-min), var(--control-sm)); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: capitalize; }
 .oq-segment button:hover:not(:disabled) { color: var(--text-primary); background: transparent; }
 .oq-segment button[data-selected='true'], .oq-segment button[aria-selected='true'], .oq-segment button[aria-pressed='true'] { color: var(--text-primary); background: var(--surface-raised); box-shadow: var(--elevation-1); }
-.oq-segment button[data-selected='true'][data-environment='prod'] { color: var(--text-on-solid); background: var(--intent-danger-solid); }
 .oq-connect-by { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); }
 
 /* The Read-only switch row and the safety block read as one calm group. */
 .oq-safety { display: grid; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); }
-.oq-safety > .oq-segment { background: var(--surface-base); }
+.oq-safety > .oq-environment { justify-self: start; background: var(--surface-base); }
 
 /* Container table: cells keep their table layout; the row carries the rule. */
 
