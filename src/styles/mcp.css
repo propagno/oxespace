@@ -300,6 +300,17 @@
 .mcp-server-tag.scope-ws,
 .mcp-server-tag.scope-global { background: var(--surface-quiet); color: var(--tx-secondary); }
 
+/* Quarantined: changed after trust. Alert colour and an icon, so it does not read as one more neutral tag. */
+.mcp-server-tag.is-quarantined,
+.mcp-tab-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
+}
+.mcp-tab-alert { margin-left: 6px; padding: 1px 6px; border-radius: var(--radius-pill); font-size: var(--fs-2xs); font-weight: 600; }
+
 /* Whether the agent connected: the one state that decides if the tools work. */
 .mcp-agent-state.is-connected { background: var(--intent-success-bg); color: var(--intent-success-fg); }
 .mcp-agent-state.is-failed { background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
@@ -650,6 +661,7 @@
 .mcp-safety-box p, .mcp-safety-box ul { margin: 2px 0 0; }
 .mcp-safety-box ul { padding-left: 16px; }
 .mcp-safety-box li { overflow-wrap: anywhere; }
-.mcp-safety-box q { opacity: 0.85; }
+/* The quoted excerpt keeps the box's colour at full strength (a dimmed one fell under 4.5:1); italics set it apart. */
+.mcp-safety-box q { font-style: italic; }
 .mcp-safety-box.is-warning { border: 1px solid var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
 .mcp-safety-box.is-danger { border: 1px solid var(--intent-danger-border); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }

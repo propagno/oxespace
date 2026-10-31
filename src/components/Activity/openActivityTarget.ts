@@ -8,8 +8,8 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 export type ActivityView = import('../../keyboard/keybindings').AppView
 
 /**
- * Takes the person to what an entry is about: the conversation, the pane, the job, or the Settings
- * page for quotas and updates. It only navigates; approving or answering stays where it always was.
+ * Takes the person to what an entry is about: the conversation, the pane, the job, the Settings
+ * page for quotas and updates, or the MCP servers for a quarantine. It only navigates; approving or answering stays where it always was.
  */
 export function openActivityTarget(target: ActivityTarget, selectView: (view: ActivityView) => void): void {
   switch (target.type) {
@@ -33,6 +33,9 @@ export function openActivityTarget(target: ActivityTarget, selectView: (view: Ac
       return
     case 'update':
       useUIStore.getState().openSettingsPage('updates')
+      return
+    case 'mcp':
+      useUIStore.getState().openMcpPanel()
   }
 }
 
