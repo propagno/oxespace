@@ -1,0 +1,70 @@
+// @vitest-environment node
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const incidents: Array<[string, string | undefined]> = []
+vi.mock('../../electron/main/services/diagnostics/incident-sink', () => ({ recordIncident: (code: string, subject?: string) => { incidents.push([code, subject]) } }))
+vi.mock('../../electron/main/services/policy', () => ({ policyStore: () => null }))
+vi.mock('electron', () => ({ app: { getPath: () => tmpdir(), isPackaged: false } }))
+
+const { offGroupBlocking, toolCallBlocked } = await import('../../electron/main/mcp-internal/tool-policy')
+const { projectToolModes } = await import('../../electron/main/services/conversation/tool-groups')
+const { MCP_TOOL_GROUPS } = await import('../../electron/main/services/conversation/thread-mcp')
+
+const off = (...groups: string[]) => projectToolModes({ toolModes: Object.fromEntries(groups.map(group => [group, 'off'])) } as never)
+const DATA_TOOL = MCP_TOOL_GROUPS.data[0]
+const CORE_TOOL = MCP_TOOL_GROUPS.core[0]
+
+const folders: string[] = []
+afterAll(() => { for (const folder of folders) rmSync(folder, { recursive: true, force: true }) })
+beforeEach(() => { incidents.length = 0 })
+
+/** A caller: authenticated (a live execution whose folder is `cwd`) or not, with the registered projects. */
+function ctx(options: { execution?: { cwd: string; workspaceId: string }; workspaces?: string[] } = {}) {
+  return {
+    executionId: options.execution ? 'e1' : undefined, executionToken: options.execution ? 't' : undefined, workspaceId: options.execution?.workspaceId ?? null,
+    executions: { authenticate: () => { if (!options.execution) throw new Error('no'); return options.execution } },
+    workspaceServ: {
+      get: (id: string) => id === 'w1' ? { rootPath: options.execution?.cwd ?? '' } : undefined,
+      list: () => (options.workspaces ?? []).map(rootPath => ({ rootPath }))
+    },
+    db: { prepare: () => ({ all: () => [] }) }
+  } as never
+}
+
+describe('a tool group the project turned off is refused at tools/call, whatever the bridge was told (#357 case 9)', () => {
+  it('blocks a tool only when every configurable group it belongs to is off, and never core', () => {
+    expect(offGroupBlocking(DATA_TOOL, ['/p'], () => off('data'))).toBe('data')
+    expect(offGroupBlocking(DATA_TOOL, ['/p'], () => off())).toBeUndefined()
+    expect(offGroupBlocking(DATA_TOOL, ['/p'], () => off('docs', 'app'))).toBeUndefined()
+    expect(offGroupBlocking(CORE_TOOL, ['/p'], () => off('orchestration', 'data', 'docs', 'app'))).toBeUndefined()
+    // Not an OXESpace group tool at all (the enable switch, an unknown name): not this rule's business.
+    expect(offGroupBlocking('oxespace_tools_enable', ['/p'], () => off('data'))).toBeUndefined()
+  })
+
+  it('judges an authenticated caller by its own execution\'s roots, never by another project', () => {
+    const modes = (root: string) => root === '/mine' ? off() : off('data')
+    expect(toolCallBlocked(DATA_TOOL, ctx({ execution: { cwd: '/mine', workspaceId: 'w1' }, workspaces: ['/mine', '/other'] }), null, modes)).toBeUndefined()
+    const refused = toolCallBlocked(DATA_TOOL, ctx({ execution: { cwd: '/other', workspaceId: 'w1' } }), null, modes)
+    expect(refused).toContain('"data" tools are turned off')
+    expect(refused).toContain('incident.mcp.toolGroupOff')
+    expect(incidents).toEqual([['incident.mcp.toolGroupOff', `data:${DATA_TOOL}`]])
+  })
+
+  it('holds the strictest project for a caller that proves no execution', () => {
+    const modes = (root: string) => root === '/strict' ? off('data') : off()
+    expect(toolCallBlocked(DATA_TOOL, ctx({ workspaces: ['/open', '/strict'] }), null, modes)).toContain('turned off')
+  })
+
+  it('reads the real oxe.yaml from the caller\'s folder, and again when it changes', () => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe-off-group-')); folders.push(root)
+    const caller = ctx({ execution: { cwd: root, workspaceId: 'w1' } })
+    expect(toolCallBlocked(DATA_TOOL, caller, null)).toBeUndefined()
+    writeFileSync(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: off\n')
+    expect(toolCallBlocked(DATA_TOOL, caller, null)).toContain('turned off')
+    writeFileSync(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: always\n')
+    expect(toolCallBlocked(DATA_TOOL, caller, null)).toBeUndefined()
+  })
+})
