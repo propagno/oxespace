@@ -15,7 +15,7 @@
   },
   "tools": {
     "team": {
-      "label": "Equipe",
+      "label": "Equipe do projeto",
       "detail": "Papéis do projeto e caixas de entrada dos agentes"
     },
     "integration": {

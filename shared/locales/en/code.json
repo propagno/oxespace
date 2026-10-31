@@ -15,7 +15,7 @@
   },
   "tools": {
     "team": {
-      "label": "Team",
+      "label": "Project team",
       "detail": "Project roles and agent inboxes"
     },
     "integration": {

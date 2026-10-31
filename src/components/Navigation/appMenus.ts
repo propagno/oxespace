@@ -3,7 +3,7 @@ import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { shortcutLabel, type AppView } from '../../keyboard/keybindings'
 
 export type AppMenuNode =
-  | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; onSelect(): void }
+  | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; title?: string; onSelect(): void }
   | { kind: 'radio'; id: string; label: string; shortcut?: string; checked: boolean; onSelect(): void }
   | { kind: 'separator'; id: string }
   | { kind: 'submenu'; id: string; label: string; disabled?: boolean; children: AppMenuNode[] }
@@ -28,7 +28,7 @@ const VIEWS: Array<[AppView, string]> = [['code', 'OxeCode'], ['thread', 'OxeCha
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
   'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
-  'tool-mcp', 'tool-skills', 'open-usage', 'open-linear', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.updates'] as const
+  'tool-mcp', 'tool-skills', 'tool-team', 'open-usage', 'open-linear', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.updates'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -42,7 +42,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
   const fromAction = (id: MenuActionId, label?: string, shortcut?: string): AppMenuNode | null => {
     const action = byId.get(id)
     if (!action) return null
-    return { kind: 'item', id, label: label ?? action.title, shortcut, disabled: action.disabled, onSelect: action.run }
+    return { kind: 'item', id, label: label ?? action.title, shortcut, disabled: action.disabled, title: action.disabled ? action.subtitle : undefined, onSelect: action.run }
   }
   const group = (prefix: string, strip: RegExp): AppMenuNode[] => ctx.actions
     .filter(action => action.id.startsWith(prefix))
@@ -104,6 +104,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'tools', label: t('menu.tools'), items: compact([
         fromAction('tool-mcp', t('menu.mcpServers')),
         fromAction('tool-skills', t('menu.skills')),
+        fromAction('tool-team', `${t('tools.team.label', { ns: 'code' })}…`, shortcutLabel('team.open')),
         fromAction('open-usage', t('menu.usage')),
         fromAction('open-linear', t('menu.linear'))
       ])

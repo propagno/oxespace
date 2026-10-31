@@ -16,15 +16,16 @@ test('project roles persist and Code and Thread resolve the same team', async ()
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
-    await expect(page.getByRole('button', { name: 'Team', exact: true })).toBeEnabled()
+    await expect(page.getByTestId('wizard-launch-btn')).toBeHidden()
     const ids = await page.evaluate(async path => {
       const workspace = (await window.oxe.workspace.list())[0]
       if (!workspace) throw new Error('Workspace was not registered')
       const project = await window.oxe.thread!.addProject(path)
       return { code: workspace.id, thread: project.projectId }
     }, repo)
-    await page.getByRole('button', { name: 'Team', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Team', exact: true })
+    // Team left the title bar (F35): Mod+Shift+T opens it.
+    await expect(async () => { await page.keyboard.press('Control+Shift+T'); await expect(dialog).toBeVisible({ timeout: 1000 }) }).toPass()
     await expect(dialog.getByText('No members yet.', { exact: false })).toBeVisible()
     await dialog.getByLabel('Member name').fill('Integrator')
     await dialog.getByRole('radio', { name: 'Coordinator / integrator' }).check()

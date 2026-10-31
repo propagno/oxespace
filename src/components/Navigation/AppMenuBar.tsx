@@ -14,7 +14,7 @@ function Nodes({ nodes }: { nodes: AppMenuNode[] }): ReactElement {
       </DropdownMenu.CheckboxItem>
     }
     if (node.kind === 'submenu') return <Submenu key={node.id} label={node.label} nodes={node.children} disabled={node.disabled} />
-    return <DropdownMenu.Item key={node.id} className="app-menu-item" disabled={node.disabled} onSelect={node.onSelect}>
+    return <DropdownMenu.Item key={node.id} className="app-menu-item" disabled={node.disabled} title={node.title} onSelect={node.onSelect}>
       <span className="app-menu-indicator" />{node.label}{node.shortcut && <kbd>{node.shortcut}</kbd>}
     </DropdownMenu.Item>
   })}</>

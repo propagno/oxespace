@@ -38,7 +38,7 @@ function tool(id: ToolId, group: ToolGroup, icon: LucideIcon, rest: { keybinding
  * shortcuts of the shared panel catalog (src/components/Workbench/panelCatalog.ts).
  */
 export const TOOL_CATALOG: ToolMeta[] = [
-  tool('team', 'Project', Users, { keywords: ['roles', 'coordinator', 'members', 'inbox', 'agents'] }),
+  tool('team', 'Project', Users, { keybinding: 'team.open', keywords: ['team', 'equipe', 'time', 'roles', 'papéis', 'coordinator', 'coordenadora', 'members', 'membros', 'inbox', 'caixa de entrada', 'agents'] }),
   tool('integration', 'Project', Network, { keywords: ['integration', 'srv', 'bff', 'handoff'] }),
   tool('github', 'Development', Github, { keywords: ['git', 'pr', 'workflow', 'actions'] }),
   tool('worktrees', 'Development', FolderTree, { keywords: ['branch', 'checkout'] }),
