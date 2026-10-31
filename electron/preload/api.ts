@@ -74,6 +74,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setProjectHidden: (projectId, hidden) => ipc.invoke(IPC_CHANNELS.thread.setProjectHidden, projectId, hidden) as ReturnType<import('../../shared/types/thread').ThreadApi['setProjectHidden']>,
       list: () => ipc.invoke(IPC_CHANNELS.thread.list) as ReturnType<import('../../shared/types/thread').ThreadApi['list']>,
       pendingRequestsAll: () => ipc.invoke(IPC_CHANNELS.thread.pendingRequestsAll) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['pendingRequestsAll']>>,
+      sideOpen: id => ipc.invoke(IPC_CHANNELS.thread.sideOpen, id) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['sideOpen']>>,
+      sideSend: (sideId, text) => ipc.invoke(IPC_CHANNELS.thread.sideSend, sideId, text) as Promise<void>,
+      sideClose: sideId => ipc.invoke(IPC_CHANNELS.thread.sideClose, sideId) as Promise<void>,
+      onSideEvent: listener => subscribe<import('../../shared/types/thread').ThreadSideEvent>(ipc, IPC_CHANNELS.thread.onSideEvent, listener),
       respondPending: input => ipc.invoke(IPC_CHANNELS.thread.respondPending, input) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['respondPending']>>,
       create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
       read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,
@@ -193,7 +197,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     workspace: {
       list: () => ipc.invoke(IPC_CHANNELS.workspace.list) as Promise<Workspace[]>,
       onChanged: (listener) => subscribe<Workspace>(ipc, IPC_CHANNELS.workspace.onChanged, listener),
-      create: (input) => ipc.invoke(IPC_CHANNELS.workspace.create, input) as Promise<Workspace>,
+      create: (input) => ipc.invoke(IPC_CHANNELS.workspace.create, input) as Promise<Workspace | import('../../shared/types/workspace').WorkspaceCreateRefusal>,
       setActive: (id) => ipc.invoke(IPC_CHANNELS.workspace.setActive, id) as Promise<Workspace>,
       delete: (id) => ipc.invoke(IPC_CHANNELS.workspace.delete, id) as Promise<void>,
       closePane: (id) => ipc.invoke(IPC_CHANNELS.workspace.closePane, id) as Promise<Workspace | null>,
@@ -347,6 +351,15 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onActivate: (listener) =>
         subscribe<{ paneId: string; workspaceId: string }>(ipc, IPC_CHANNELS.notifications.onActivate, listener)
     },
+    approvals: {
+      list: () => ipc.invoke(IPC_CHANNELS.approvals.list) as Promise<import('../../shared/types/approvals').ApprovalRequest[]>,
+      respond: input => ipc.invoke(IPC_CHANNELS.approvals.respond, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      ack: input => ipc.invoke(IPC_CHANNELS.approvals.ack, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      unavailable: input => ipc.invoke(IPC_CHANNELS.approvals.unavailable, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      history: () => ipc.invoke(IPC_CHANNELS.approvals.history) as Promise<import('../../shared/types/approvals').ApprovalHistoryEntry[]>,
+      onRequested: listener => subscribe<import('../../shared/types/approvals').ApprovalRequest>(ipc, IPC_CHANNELS.approvals.onRequested, listener),
+      onResolved: listener => subscribe<import('../../shared/types/approvals').ApprovalResolved>(ipc, IPC_CHANNELS.approvals.onResolved, listener)
+    },
     oxe: {
       detect: (force) => ipc.invoke(IPC_CHANNELS.oxe.detect, force) as Promise<import('../../shared/types/oxe').OxeDetect>,
       status: (rootPath, force) => ipc.invoke(IPC_CHANNELS.oxe.status, rootPath, force) as Promise<import('../../shared/types/oxe').OxeStatusResult>,
@@ -477,6 +490,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onChanged: (listener) => subscribe<import('../../shared/types/agent-state').PaneAgentStateEvent>(ipc, IPC_CHANNELS.agentState.onChanged, listener)
     },
     mcpInternal: {
+      toolGroups: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.toolGroups, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
+      setToolGroupMode: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.setToolGroupMode, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
       getStatus: () => ipc.invoke(IPC_CHANNELS.mcpInternal.getStatus) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       regenerateToken: () => ipc.invoke(IPC_CHANNELS.mcpInternal.regenerateToken) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       captureWebPreview: () => ipc.invoke(IPC_CHANNELS.mcpInternal.captureWebPreview) as Promise<void>,
@@ -525,7 +540,16 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       exportReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportReport) as Promise<string | null>,
       reportInteractive: () => ipc.invoke(IPC_CHANNELS.diagnostics.reportInteractive) as Promise<void>,
       buildIssueReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.buildIssueReport) as Promise<import('../../shared/issue-report').IssueReport>,
-      recordFirstAnswer: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.recordFirstAnswer, input) as Promise<void>
+      recordFirstAnswer: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.recordFirstAnswer, input) as Promise<void>,
+      watch: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.watch, input ?? {}) as Promise<{ subscriptionId: string }>,
+      unwatch: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.unwatch, input) as Promise<void>,
+      onMetrics: (listener) => subscribe<import('../../shared/types/diagnostics').DiagnosticsMetrics>(ipc, IPC_CHANNELS.diagnostics.onMetrics, listener),
+      incidents: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.incidents, input ?? {}) as Promise<import('../../shared/types/diagnostics').DiagnosticsIncident[]>,
+      clearIncidents: () => ipc.invoke(IPC_CHANNELS.diagnostics.clearIncidents) as Promise<void>,
+      onIncidentsChanged: (listener) => subscribe<{ count: number }>(ipc, IPC_CHANNELS.diagnostics.onIncidentsChanged, listener),
+      previewBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.previewBundle) as Promise<import('../../shared/types/diagnostics').DiagnosticsBundlePreview>,
+      exportBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportBundle) as Promise<string | null>,
+      analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>
     },
     policy: {
       get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>

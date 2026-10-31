@@ -1,5 +1,7 @@
 {
   "accounts": {
+    "needProject": "Add a project first",
+    "needProjectText": "Agent accounts are checked inside a Thread project.",
     "title": "Agent accounts",
     "description": "Use your subscription with the native agent.",
     "note": "Credentials stay with Claude Code and Codex. Reconnecting changes the native account also used by your CLI sessions.",
@@ -1334,6 +1336,15 @@
     "background": "Background",
     "completed": "Completed",
     "ready": "Ready"
+  },
+  "undoTurn": {
+    "nothing": "Nothing to undo",
+    "noTurn": "This conversation has no finished turn yet.",
+    "noFiles": "The last turn left no file changes to restore.",
+    "restored_one": "{{count}} file restored",
+    "restored_other": "{{count}} files restored",
+    "failed": "Could not undo the last turn",
+    "changedSince": "A file changed after the turn."
   },
   "store": {
     "removeProjectFailed": "Could not remove the project",
