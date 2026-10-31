@@ -1,0 +1,340 @@
+{
+  "activity.detailTooLong": {
+    "max": "number"
+  },
+  "activity.future": {},
+  "activity.hiddenCharacters": {},
+  "activity.invalid": {},
+  "activity.secret": {},
+  "activity.titleTooLong": {
+    "max": "number"
+  },
+  "activity.tooMany": {
+    "max": "number"
+  },
+  "agents.name.reserved": {
+    "name": "string"
+  },
+  "app.connectivity.offline": {},
+  "approvals.denied.cancelled": {},
+  "approvals.denied.queueFull": {
+    "max": "number"
+  },
+  "approvals.denied.timeout": {},
+  "approvals.denied.tooLong": {
+    "max": "number"
+  },
+  "approvals.expired": {},
+  "approvals.note.agent.actsOnPrompt": {},
+  "approvals.note.agent.turnStopped": {},
+  "approvals.note.automation.runsAlone": {},
+  "approvals.note.checkpoint.replaces": {},
+  "approvals.note.crash": {},
+  "approvals.note.git.branchShared": {},
+  "approvals.note.github.autoMerge": {},
+  "approvals.note.github.releasePublic": {},
+  "approvals.note.hiddenCharacters": {},
+  "approvals.note.mongo.changes": {
+    "count": "number"
+  },
+  "approvals.note.mongo.deletes": {
+    "count": "number"
+  },
+  "approvals.note.mongo.emptyFilter": {},
+  "approvals.note.nativeCriticalDenyOnly": {},
+  "approvals.note.preview.notLocal": {},
+  "approvals.note.production": {},
+  "approvals.note.skill.followed": {},
+  "approvals.note.sql.alterDrop": {},
+  "approvals.note.sql.explainAnalyze": {},
+  "approvals.note.sql.notReadOnly": {
+    "statement": "string"
+  },
+  "approvals.note.sql.noWhere": {
+    "statement": "string"
+  },
+  "approvals.note.sql.outsideReach": {
+    "calls": "string[]"
+  },
+  "approvals.note.sql.removes": {
+    "statement": "string"
+  },
+  "approvals.note.sql.selectInto": {},
+  "approvals.note.sql.withNoWhere": {
+    "statement": "string"
+  },
+  "approvals.note.textCut": {
+    "max": "number"
+  },
+  "approvals.note.thread.actsOnMessage": {},
+  "approvals.note.worktree.folderDeleted": {},
+  "approvals.note.worktree.forceDiscards": {},
+  "approvals.notify.waiting": {},
+  "approvals.option.allowOnce": {},
+  "approvals.option.allowSessionReads": {},
+  "approvals.option.closeTab": {},
+  "approvals.option.deny": {},
+  "approvals.option.keepWorking": {},
+  "approvals.option.restart": {},
+  "approvals.refused.alreadyAnswered": {},
+  "approvals.refused.alreadyReported": {},
+  "approvals.refused.notPending": {},
+  "approvals.refused.notShown": {},
+  "approvals.refused.staleGeneration": {},
+  "approvals.refused.tooSoon": {},
+  "approvals.refused.unknownOption": {},
+  "approvals.requester.app": {},
+  "approvals.requester.conversation": {
+    "agent": "string",
+    "conversation": "string"
+  },
+  "approvals.requester.mcpServer": {
+    "server": "string"
+  },
+  "approvals.requester.pane": {
+    "agent": "string",
+    "pane": "number"
+  },
+  "approvals.requester.preview": {},
+  "approvals.requester.unknownConversation": {
+    "conversation": "string"
+  },
+  "approvals.requester.unknownPane": {
+    "pane": "number"
+  },
+  "approvals.summary.crash": {},
+  "approvals.summary.mcpConfirm": {
+    "action": "string",
+    "target": "string",
+    "tool": "string"
+  },
+  "approvals.summary.oxequery.action": {},
+  "approvals.summary.oxequery.read": {},
+  "approvals.summary.oxequery.write": {},
+  "approvals.summary.preview.click": {},
+  "approvals.summary.preview.closeTab": {},
+  "approvals.summary.preview.fill": {},
+  "approvals.summary.preview.navigate": {},
+  "approvals.summary.preview.other": {
+    "action": "string"
+  },
+  "approvals.summary.preview.scroll": {},
+  "approvals.title.agent": {},
+  "approvals.title.crash": {},
+  "approvals.title.oxequery": {},
+  "approvals.title.previewAutomation": {},
+  "approvals.unavailable": {},
+  "bundle.file.configuration": {},
+  "bundle.file.incidents": {},
+  "bundle.file.logTail": {},
+  "bundle.file.runtime": {},
+  "bundle.file.snapshot": {},
+  "bundle.file.versions": {},
+  "diagnostics.bundle.fileTooLarge": {},
+  "diagnostics.bundle.tooLarge": {},
+  "git.base.unresolved": {
+    "base": "string"
+  },
+  "github.cli.missing": {},
+  "incident.agent.startFailed": {},
+  "incident.app.closeGuardFailed": {},
+  "incident.app.closeRendererGone": {},
+  "incident.app.closeUnanswered": {},
+  "incident.app.journalReset": {},
+  "incident.database.busy": {},
+  "incident.interaction.overBudget": {},
+  "incident.ipc.handlerFailed": {},
+  "incident.ipc.validationRejected": {},
+  "incident.mcp.quarantined": {},
+  "incident.oxequery.restartDeferred": {},
+  "incident.oxequery.timeout": {},
+  "incident.updater.failed": {},
+  "incident.window.crashed": {},
+  "incident.window.externalOpenFailed": {},
+  "incident.window.externalRateLimited": {},
+  "incident.window.externalRefused": {},
+  "incident.window.navigationDenied": {},
+  "incident.window.openDenied": {},
+  "incident.window.rendererGone": {},
+  "linear.worktree.exists": {
+    "issue": "string",
+    "path": "string"
+  },
+  "mcp.quarantine.added": {
+    "tools": "string[]"
+  },
+  "mcp.quarantine.changed": {
+    "tools": "string[]"
+  },
+  "mcp.quarantine.configChanged": {},
+  "mcp.quarantine.removed": {
+    "tools": "string[]"
+  },
+  "mcp.server.quarantined": {},
+  "mcp.server.untrusted": {},
+  "mcp.signIn.waiting": {},
+  "mcp.toolGroups.inlineThread": {},
+  "mcp.toolGroups.invalidYaml": {},
+  "mcp.toolGroups.notMapping": {},
+  "mcp.toolGroups.unknownProject": {},
+  "mcp.toolGroups.unsafeEdit": {},
+  "memory.disabled": {},
+  "memory.runtimeUnavailable": {},
+  "memory.unavailable": {},
+  "notify.prefix.conversation": {
+    "agent": "string",
+    "conversation": "string",
+    "title": "string"
+  },
+  "notify.prefix.pane": {
+    "agent": "string",
+    "pane": "number",
+    "title": "string"
+  },
+  "notify.prefix.unknownConversation": {
+    "conversation": "string",
+    "title": "string"
+  },
+  "notify.prefix.unknownPane": {
+    "pane": "number",
+    "title": "string"
+  },
+  "notify.refused.rateLimit": {
+    "perMinute": "number"
+  },
+  "notify.refused.reservedName": {
+    "name": "string"
+  },
+  "oxe.dashboard.timeout": {},
+  "oxe.status.unreadable": {},
+  "oxepod.startFailed": {
+    "reason": "string"
+  },
+  "oxepost.network.hostUnreachable": {},
+  "oxepost.network.lookupFailed": {},
+  "oxepost.network.networkUnreachable": {},
+  "oxepost.network.notFound": {},
+  "oxepost.network.refused": {},
+  "oxepost.network.reset": {},
+  "oxepost.network.timedOut": {},
+  "oxepost.send.bodyNotAllowed": {
+    "method": "string"
+  },
+  "oxepost.send.bodyTooLarge": {},
+  "oxepost.send.failed": {},
+  "oxepost.send.failedWith": {
+    "detail": "string"
+  },
+  "oxepost.send.invalidHeader": {
+    "name": "string"
+  },
+  "oxepost.send.invalidUrl": {},
+  "oxepost.send.scheme": {},
+  "oxepost.send.timeout": {
+    "seconds": "number"
+  },
+  "oxepost.send.tls": {
+    "code": "string"
+  },
+  "oxequery.edit.noKey": {},
+  "oxequery.edit.notTable": {},
+  "oxequery.edit.readOnly": {},
+  "oxequery.mongo.confirm": {},
+  "oxequery.mongo.confirmName": {},
+  "oxequery.mongo.deletes": {},
+  "oxequery.mongo.production": {},
+  "oxequery.session.agentTransaction": {},
+  "oxequery.session.busy": {},
+  "oxequery.session.limit": {
+    "limit": "number"
+  },
+  "oxequery.sql.ambiguousEscape": {},
+  "oxequery.sql.callProcedure": {},
+  "oxequery.sql.copyProgram": {},
+  "oxequery.sql.destructiveInside": {
+    "keyword": "string",
+    "statement": "string"
+  },
+  "oxequery.sql.doBlock": {},
+  "oxequery.sql.rowLock": {},
+  "oxequery.sql.sessionRole": {},
+  "oxequery.sql.tableLock": {},
+  "oxequery.startFailed": {
+    "reason": "string"
+  },
+  "oxequery.test.connected": {},
+  "project.file.changedMeanwhile": {
+    "file": "string"
+  },
+  "remote.certificate.failed": {},
+  "remote.network.noPrivateInterface": {},
+  "remote.port.inUse": {
+    "port": "number"
+  },
+  "remote.port.privileged": {
+    "port": "number"
+  },
+  "thread.capability.mcpReadOnly": {},
+  "thread.capability.readOnly": {},
+  "thread.commands.busy": {},
+  "thread.commands.claudeFailed": {},
+  "thread.commands.codexFailed": {},
+  "thread.commands.configure": {},
+  "thread.observe.changed": {},
+  "thread.observe.unsupported": {},
+  "thread.protectedConfig.hooks": {
+    "path": "string"
+  },
+  "thread.protectedConfig.instructions": {
+    "path": "string"
+  },
+  "thread.protectedConfig.mcp": {
+    "path": "string"
+  },
+  "thread.protectedConfig.rewritesTracked": {
+    "command": "string"
+  },
+  "thread.protectedConfig.warning": {},
+  "thread.queue.deliveryUnconfirmed": {},
+  "thread.request.alreadyResponding": {},
+  "thread.request.guardedDecision": {},
+  "thread.request.notPending": {},
+  "thread.request.staleGeneration": {},
+  "thread.request.unanswered": {},
+  "thread.sections.invalid": {},
+  "thread.sections.nameDuplicate": {
+    "name": "string"
+  },
+  "thread.sections.nameEmpty": {},
+  "thread.sections.nameHidden": {},
+  "thread.sections.nameTooLong": {
+    "max": "number"
+  },
+  "thread.sections.tooMany": {
+    "assignments": "number",
+    "sections": "number"
+  },
+  "thread.sections.unknownWorkspace": {},
+  "thread.side.noSession": {},
+  "thread.side.unavailable": {},
+  "workspace.root.empty": {},
+  "workspace.root.notAbsolute": {
+    "path": "string"
+  },
+  "workspace.root.notDirectory": {
+    "path": "string"
+  },
+  "workspace.root.notFound": {
+    "path": "string"
+  },
+  "workspace.root.unreadable": {
+    "path": "string"
+  },
+  "worktree.cleanup.blocked": {
+    "reasons": "string[]"
+  },
+  "worktree.cleanup.needsConfirmation": {
+    "reasons": "string[]"
+  },
+  "worktree.cleanup.notRemovable": {}
+}
