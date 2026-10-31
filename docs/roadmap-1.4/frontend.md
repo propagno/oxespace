@@ -162,3 +162,9 @@ Dono de `src/**`, `shared/locales/**`, `e2e/visual/**`, `docs/design/**` e `mobi
 ### F10 (extensão) · Aprovação por ferramenta
 - Em cada grupo e servidor MCP, cada ferramenta com permitir / pedir aprovação / bloquear (B7.3).
 
+
+### F16 · Terminais em paralelo econômicos (M)
+- **Objetivo:** vários terminais com agentes rodando sem consumir a máquina.
+- **Escopo:** presença por pane (focado, visível, oculto) com o ritmo de saída do B2.3 (focado 16 ms, visível 100 ms, oculto sem envio); cursor piscando só no pane focado; WebGL priorizado no focado.
+- **Aceite (gate do bench, mediana de 5 janelas de 10 s):** cenário gravado (Claude Code + Codex reais, 6 panes) ≤ base × 0,75 (60,4% de um núcleo; base 80,5%); tecla→pintura no pane focado p95 ≤ 50 ms; pior caso sintético não piora em relação a antes da presença (≤ 106,7%).
+- **Fora do 1.4:** a meta de 64% no pior caso sintético e a meta original de 25% no cenário gravado ficam com o R1 (núcleo do terminal em Rust, protótipo com o BACKEND), porque o custo restante é o parse do xterm.
