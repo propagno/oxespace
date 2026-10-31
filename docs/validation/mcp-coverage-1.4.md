@@ -51,7 +51,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
 | `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
-| `agents.central` | `agents.overview`, `agents.markSeen` (S7.1: the person's roster of agents and what they have seen; `agents.changed` is an event) |
+| `agents.central` | `agents.overview`, `agents.markSeen`, `agents.activate` (S7.1: the person's roster of agents and what they have seen; `agents.changed` is an event; `agents.activate` opens Respond after the person clicked a needs-you notification) |
 
 ## New in X21
 

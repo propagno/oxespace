@@ -84,14 +84,17 @@ export interface AgentOverviewRow {
   /** Agent manifest or provider id (`claude`, `codex`, …), for the icon; absent when the source has none. */
   provider?: string
   mode: AgentMode
-  /** Lifetime total; conversations (and runs, summed) only. Panes have no cost source. */
+  /**
+   * Lifetime total, conversations only in v1 (spec §5.2). Panes have no cost source, and Agent Work run rows carry
+   * no cost in v1: a run cost needs an aggregation rule (its workers are listed under it), which moves to 1.5.
+   */
   cost?: AgentCost
   /** The checkout it works in, when it is not the project root. Desktop only. */
   worktree?: { path: string; branch: string | null }
   pendingRequest?: AgentPendingRequest
   /** Agent Work runs: "3 of 5 tasks" (§3.2; tasks are not rows in v1). */
   tasks?: { done: number; total: number }
-  /** The person looked at it since it last finished (§3.4). */
+  /** The person looked at it since it last finished (§3.4; main keeps the marks in the `agent_seen` table). */
   seen: boolean
   /** The stored `seenAt` for this key, or null when never marked. */
   lastSeenAt: number | null
@@ -160,8 +163,16 @@ export const AGENTS_LIMITS = {
 } as const
 
 /** `window.oxe.agents`; optional while the window may run against an older main. */
+/**
+ * `agents:activate`, pushed when the person clicks the needs-you notification (§5.10): the window opens Respond (the
+ * B10 modal) for `requestId` on that agent, or the agent's row when there is no request. Main sends it only for that
+ * click; the window never infers it from focus.
+ */
+export interface AgentActivateEvent { agentId: AgentKey; requestId?: string }
+
 export interface AgentsApi {
   overview?(): Promise<AgentsOverview>
   markSeen?(input: AgentMarkSeenInput): Promise<AgentMarkSeenResult>
   onChanged?(listener: (change: AgentsChange) => void): () => void
+  onActivate?(listener: (event: AgentActivateEvent) => void): () => void
 }

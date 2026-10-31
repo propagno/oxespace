@@ -51,14 +51,14 @@ const ok = { ok: true } as const
 const sources = Object.fromEntries(AGENT_KINDS.map(kind => [kind, ok])) as AgentsOverview['sources']
 
 describe('agents IPC contract (S7.1, C1)', () => {
-  it('uses two invoke channels and one event in their own group', () => {
-    expect(IPC_CHANNELS.agents).toEqual({ overview: 'agents:overview', markSeen: 'agents:mark-seen', changed: 'agents:changed' })
+  it('uses two invoke channels and two events in their own group', () => {
+    expect(IPC_CHANNELS.agents).toEqual({ overview: 'agents:overview', markSeen: 'agents:mark-seen', changed: 'agents:changed', activate: 'agents:activate' })
   })
 
   it('is for the person: forbidden to agents, and the event is no action', () => {
     const capability = MCP_COVERAGE['agents.central']
     expect('forbidden' in capability && !('tools' in capability)).toBe(true)
-    expect(capability.ipc).toEqual(['agents.overview', 'agents.markSeen'])
+    expect(capability.ipc).toEqual(['agents.overview', 'agents.markSeen', 'agents.activate'])
     expect(MCP_COVERAGE['app.events'].ipc).toContain('*.changed')
   })
 
@@ -81,6 +81,15 @@ describe('agents IPC contract (S7.1, C1)', () => {
     expect(listener).toHaveBeenCalledWith({ seq: 1 })
     off()
     expect(ipc.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.agents.changed, wrapped)
+    // agents:activate: the notification click opens Respond for that agent and request (never inferred from focus).
+    const onActivate = vi.fn()
+    const offActivate = agents.onActivate!(onActivate)
+    const [activateChannel, activateWrapped] = vi.mocked(ipc.on).mock.calls[1]
+    expect(activateChannel).toBe(IPC_CHANNELS.agents.activate)
+    activateWrapped({} as never, { agentId: 'pane:p1', requestId: 'a1' })
+    expect(onActivate).toHaveBeenCalledWith({ agentId: 'pane:p1', requestId: 'a1' })
+    offActivate()
+    expect(ipc.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.agents.activate, activateWrapped)
   })
 
   it('checks a mark-seen: exactly a valid key, and an optional observedSince', () => {

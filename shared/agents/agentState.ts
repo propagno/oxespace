@@ -119,7 +119,7 @@ export function applyAgentOwnership<Row extends { key: AgentKey; parentKey?: Age
   })
 }
 
-// ---- seen (§3.4) --------------------------------------------------------------------------------------------------
+// ---- seen (§3.4: main keeps one mark per agent key in its `agent_seen` table) -------------------------------------
 
 /** "Finished" needs the person not to have looked since it finished: seen when `seenAt` is at or after `finishedAt`. */
 export function isSeenSince(seenAt: number | null | undefined, finishedAt: number): boolean {

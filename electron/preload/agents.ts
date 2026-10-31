@@ -4,17 +4,20 @@
  */
 import type { IpcRendererEvent } from 'electron'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
-import type { AgentMarkSeenResult, AgentsApi, AgentsChange, AgentsOverview } from '../../shared/types/ipc/agents'
+import type { AgentActivateEvent, AgentMarkSeenResult, AgentsApi, AgentsChange, AgentsOverview } from '../../shared/types/ipc/agents'
 import type { PreloadIpc } from './api'
+
+function subscribe<Payload>(ipc: PreloadIpc, channel: string, listener: (payload: Payload) => void): () => void {
+  const wrapped = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as Payload)
+  ipc.on(channel, wrapped)
+  return () => ipc.removeListener(channel, wrapped)
+}
 
 export function createAgentsApi(ipc: PreloadIpc): Required<AgentsApi> {
   return {
     overview: () => ipc.invoke(IPC_CHANNELS.agents.overview) as Promise<AgentsOverview>,
     markSeen: input => ipc.invoke(IPC_CHANNELS.agents.markSeen, input) as Promise<AgentMarkSeenResult>,
-    onChanged: listener => {
-      const wrapped = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as AgentsChange)
-      ipc.on(IPC_CHANNELS.agents.changed, wrapped)
-      return () => ipc.removeListener(IPC_CHANNELS.agents.changed, wrapped)
-    }
+    onChanged: listener => subscribe<AgentsChange>(ipc, IPC_CHANNELS.agents.changed, listener),
+    onActivate: listener => subscribe<AgentActivateEvent>(ipc, IPC_CHANNELS.agents.activate, listener)
   }
 }
