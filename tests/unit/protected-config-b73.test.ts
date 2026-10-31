@@ -12,7 +12,7 @@ import type { ThreadPermissionRule } from '../../shared/types/thread'
 const root = '/repo'
 const rule = (kind: ThreadPermissionRule['kind'], pattern: string): ThreadPermissionRule => ({ id: `${kind}-${pattern}`, projectRoot: root, kind, pattern, decision: 'allow', createdAt: 0 })
 const programs = ['ls', 'grep', '7z', 'Expand-Archive', 'gzip', 'rsync', 'pushd', 'echo', 'printf', 'python', 'python3', 'node', 'git', 'curl', 'cd', 'tar', 'unzip',
-  'cp', 'mv', 'sh', 'bash', 'pwsh', 'powershell', 'Set-Content', 'Out-File', 'tee', 'sed', 'cat', 'jq', 'yq', 'npm', 'npx', 'robocopy', 'xcopy', 'Copy-Item']
+  'cp', 'mv', 'sh', 'bash', 'pwsh', 'powershell', 'Set-Content', 'Out-File', 'tee', 'sed', 'cat', 'jq', 'yq', 'npm', 'npx', 'robocopy', 'xcopy', 'Copy-Item', 'Move-Item']
 const probeRules = [...programs.map(pattern => rule('command', pattern)), rule('path', '**'), rule('path', '.*')]
 const posix = { windows: false } as const
 const command = (text: string, at = root) => evaluatePermission({ kind: 'approval', toolName: 'Bash', command: text }, at, probeRules, posix)
