@@ -99,7 +99,7 @@ describe('boundaries', () => {
   })
   it('every boundary in the app carries its id', () => {
     const expected: Array<[string, RendererErrorBoundary[]]> = [
-      ['src/main.tsx', ['root']], ['src/App.tsx', ['title-bar', 'conversations', 'window']], ['src/components/Activity/ActivityCenter.tsx', ['title-bar']], ['src/components/Voice/VoiceHudSlot.tsx', ['pane']], ['src/components/Navigation/ModeViews.tsx', ['sidebar', 'sidebar', 'mode-view']], ['src/components/Settings/SettingsCenter.tsx', ['settings-page']],
+      ['src/main.tsx', ['root']], ['src/App.tsx', ['conversations', 'window']], ['src/app/UpdateChips.tsx', ['title-bar']], ['src/components/Activity/ActivityCenter.tsx', ['title-bar']], ['src/components/Voice/VoiceHudSlot.tsx', ['pane']], ['src/components/Navigation/ModeViews.tsx', ['sidebar', 'sidebar', 'mode-view']], ['src/components/Settings/SettingsCenter.tsx', ['settings-page']],
       ['src/components/Workspace/WorkspaceSurface.tsx', ['workspace-grid', 'workspace-panel']], ['src/components/Grid/WorkspaceGrid.tsx', ['pane']],
       ['src/components/Grid/WorkspaceSplitGrid.tsx', ['pane']], ['src/components/Panes/TerminalPane.tsx', ['terminal']]
     ]
