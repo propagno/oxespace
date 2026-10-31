@@ -1,0 +1,37 @@
+# Contratos entre Frontend, Backend e Mobile
+
+
+- **C0 · Regra de ouro:** contrato primeiro.
+  - Um PR do BE só com tipos + teste de contrato + mock em `e2e/mock-ipc.ts`.
+  - Depois a implementação (BE) e a tela (FE), em paralelo.
+- **C1 · IPC:**
+  - `IPC_CHANNELS`/`OxeApi` em `shared/types/ipc.ts`, `electron/preload/api.ts`, op-lists (`*:call`) por domínio;
+  - testes `ipc-contracts`, `preload-api`, `*-op-contract` e `mcp-coverage`.
+  - Novos canais: `app:connectivity`, `app:about`, `notifications` com ícone, `thread.pendingRequestsAll` (resposta) e `remote.*` (página Dispositivos).
+- **C2 · Eventos:**
+  - união `ThreadEvent` versionada (`schemaVersion`) e `ThreadDelta` por notificação seguida de leitura;
+  - campos só são adicionados; remover exige CCR e migração.
+- **C3 · Mensagens:**
+  - o main nunca devolve frase de interface, e sim `MessageCode` + parâmetros;
+  - as chaves em `shared/locales/*/main.json` pertencem ao FE.
+  - **Recusas (rejeições de IPC):** o Electron só passa o texto de um erro pelo `invoke`, então uma recusa que a pessoa pode resolver usa:
+    - **um serializador no main:** `MainMessageError(message, textoEmInglês)`, em `electron/main/ipc/main-message-error.ts`;
+    - **um leitor em `shared/`:** `messageFromError(cause)`, em `shared/messages.ts`.
+  - O texto do erro é `"<frase em inglês> #c3 <MainMessage em JSON>"`:
+    - a frase vem antes do marcador fixo (`MAIN_MESSAGE_ERROR_TAG`) e se lê sozinha em logs e relatórios de falha;
+    - os parâmetros de texto passam pela mesma redação do resto do C3: a pasta do usuário fica relativa (`sanitizeDiagnosticText`) e segredos saem (`redactSecrets`);
+    - os parâmetros têm limite (`MAIN_MESSAGE_PARAM_LIMITS`: 200 caracteres por texto, 20 itens por lista).
+  - A janela chama `messageFromError` e formata com `formatMainMessage`. O leitor procura o marcador do fim para o início e usa a última ocorrência cujo resto é uma `MainMessage` válida, então "#c3" na frase em inglês ou dentro de um parâmetro não o engana. Sem marcador, ou com JSON inválido, ela mostra a própria frase genérica.
+  - Entrada malformada (tipo errado, campo desconhecido) continua `Error` comum, sem código.
+  - Primeiro uso: `remote.*` (Configurações › Dispositivos, CCR F9).
+- **C4 · Design tokens:**
+  - fonte única em `src/design/tokens`;
+  - exportação `tokens.json` versionada, consumida pelo CSS e pelo Android;
+  - mudar nome de token é CCR.
+- **C5 · Protocolo remoto:**
+  - `shared/remote/protocol.ts` com versão, frames JSON (`hello`, `auth`, `subscribe`, `event`, `snapshot`, `command`, `ack`, `error`), códigos de erro e limites;
+  - JSON Schema gerado e checado na CI;
+  - teste de capacidades proibidas.
+- **C6 · Migrações:** faixas reservadas por WS a partir de 084 (B1 084–089, B3 090–095, B5 096–099, B6 100–103, B9 104–107); o coordenador mantém `LATEST_DB_VERSION`.
+- **C7 · Arquivos compartilhados:** `ipc.ts`, `preload/api.ts`, `mcp-coverage.ts`, `index.ts`, `db/index.ts`, `fs-allowlist.test.ts`, `file-size-baseline.json`, `verify-bundle-budgets.mjs` e `mock-ipc.ts` só mudam no PR de contrato do item, com o coordenador avisado.
+- **CCR (pedido de mudança de contrato):** quem precisa manda ao coordenador o contrato, a mudança, o porquê e o impacto. O coordenador aprova, ajusta ou recusa, e avisa a outra sessão antes de qualquer código.

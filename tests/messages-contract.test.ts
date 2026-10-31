@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
-import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
+import { isMainMessage, isMessageCode, MAIN_MESSAGE_ERROR_TAG, mainMessage, MESSAGE_CODES, messageFromError, messageKey, messageValues, type MessageCode } from '../shared/messages'
+import { REMOTE_PAIRING_FAILURE_REASONS } from '../shared/types/remote'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
 
 const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
@@ -20,7 +21,15 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.port.privileged': ['port'],
   'remote.port.inUse': ['port'],
   'remote.network.noPrivateInterface': [],
-  'remote.certificate.failed': []
+  'remote.certificate.failed': [],
+  'remote.pairing.failed': ['reason'],
+  'remote.gateway.offline': [],
+  'remote.pairing.limit': ['max'],
+  'remote.device.notFound': [],
+  'remote.device.invalidName': ['max'],
+  'remote.device.reservedName': [],
+  'remote.desktop.invalidName': ['max'],
+  'remote.pane.invalid': []
 }
 
 describe('C3 message codes', () => {
@@ -50,6 +59,30 @@ describe('C3 message codes', () => {
     expect(isMainMessage(mainMessage('mcp.quarantine.added', { tools: ['search'] }))).toBe(true)
     for (const value of [null, 'mcp.quarantine.added', { code: 'mcp.quarantine.added' }, { code: 'made.up', params: {} }, { code: 'app.connectivity.offline', params: [] }]) {
       expect(isMainMessage(value), JSON.stringify(value)).toBe(false)
+    }
+  })
+
+  it.each([['en', en], ['pt-BR', ptBR]] as const)('words every reason a pairing can fail for in %s, through the nested key', (_language, catalog) => {
+    const text = lookup(catalog, messageKey('remote.pairing.failed')) as string
+    const nested = /^\$t\((\w+)\.\{\{reason\}\}\)$/.exec(text)
+    expect(nested, text).not.toBeNull()
+    const words = (catalog as Record<string, unknown>)[nested![1]] as Record<string, unknown>
+    expect(Object.keys(words).sort()).toEqual([...REMOTE_PAIRING_FAILURE_REASONS].sort())
+    for (const reason of REMOTE_PAIRING_FAILURE_REASONS) expect(typeof words[reason] === 'string' && (words[reason] as string).length > 0, reason).toBe(true)
+  })
+
+  it('reads a code after the fixed marker, also inside the text Electron passes across invoke', () => {
+    const message = mainMessage('remote.pairing.limit', { max: 5 })
+    const text = `Too many devices${MAIN_MESSAGE_ERROR_TAG}${JSON.stringify(message)}`
+    expect(MAIN_MESSAGE_ERROR_TAG).toBe(' #c3 ')
+    expect(messageFromError(new Error(text))).toEqual(message)
+    expect(messageFromError(`Error invoking remote method 'remote:start-pairing': MainMessageError: ${text}`)).toEqual(message)
+    expect(messageFromError({ message: text })).toEqual(message)
+  })
+
+  it('finds no code in a plain error, a forged tag or anything else', () => {
+    for (const value of [new Error('Unknown device'), new Error(`x${MAIN_MESSAGE_ERROR_TAG}{"code":"made.up","params":{}}`), new Error(`x${MAIN_MESSAGE_ERROR_TAG}{not json`), null, undefined, 42, {}]) {
+      expect(messageFromError(value)).toBeNull()
     }
   })
 
