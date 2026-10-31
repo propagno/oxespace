@@ -11,10 +11,11 @@ OXESpace intentionally gives local development agents powerful access. Its secur
   - The one exception: a Browser preview guest registered with `trustPreviewGuest` may send the Design Mode `oxe:design-grab` and `oxe:design-cancel` messages (`GUEST_CHANNELS`) from its main frame, which is all its `design-guest` preload sends. The handler then still accepts them only from a visible tab it owns.
   - Per-handler frame checks (`requireAppFrame` and its copies) are gone; a new handler needs no check of its own, and `tests/unit/ipc-sender-guard.test.ts` fails if a channel of `IPC_CHANNELS` is registered without the guard or a module registers or checks senders by itself.
   - Every webContents other than an app window is also denied `window.open`, nested `<webview>` attachment and navigation away from `http(s)` (`web-contents-created`).
+  - The main window has `webviewTag: false`: a `<webview>` guest cannot be created at all.
 - A workspace ID is authoritative. Filesystem requests cannot substitute an arbitrary root, and canonical real paths are checked to prevent `..`, symlink and junction escapes.
 - MCP configurations are executable integration settings. Only servers marked both enabled and trusted are synchronized to clients.
 - Web Preview is local-only by default. Remote HTTP(S) origins require an explicit opt-in and receive a warning. Electron response-header rewriting is limited to loopback traffic.
-- Web Preview renders in a `<webview>` guest, not an iframe — Design Mode has to inject a preload into the previewed page, which a cross-origin iframe cannot carry. The guest is strictly more powerful than the iframe it replaced, so its restrictions are explicit rather than inherited:
+- Web Preview and Design Mode render in a main-process `WebContentsView` (`BrowserPreviewService`). Since B12 the main window has `webviewTag: false`, so no `<webview>` can be created; the rules below for a `<webview>` guest stay as a backstop. Historically, Web Preview rendered in a `<webview>` guest, not an iframe — Design Mode has to inject a preload into the previewed page, which a cross-origin iframe cannot carry. The guest is strictly more powerful than the iframe it replaced, so its restrictions are explicit rather than inherited:
   - `will-attach-webview` pins the guest preload, forces `nodeIntegration: false` / `contextIsolation: true` / `sandbox: true`, and rejects any `src` that is not `http(s)`.
   - The guest is forced into an in-memory partition (`oxe-webpreview`), so preview cookies and storage never touch the app session. The partition is set in the main process, not trusted from the renderer.
   - That session grants no permissions, blocks downloads, and strips the `Referer` header — preserving the `no-referrer` guarantee the previous sandboxed iframe had.
@@ -23,6 +24,12 @@ OXESpace intentionally gives local development agents powerful access. Its secur
 - Third-party integration credentials (Linear) are encrypted with Electron `safeStorage` in the `secure_credentials` table and never cross IPC back to the renderer; when OS encryption is unavailable the row is flagged and the UI warns instead of silently storing plaintext.
 - The local RPC bus (F3) listens on a per-user named pipe / unix socket — never a TCP port — requires a bearer token compared in constant time, and publishes its endpoint only to `<userData>/rpc-endpoint.json`.
 - External URLs are accepted only through explicit protocol/host validation and are opened by the main process.
+
+### Closed findings (IPC)
+
+| Finding | Status | What it was | Why it got through | Control now | Test |
+|---|---|---|---|---|---|
+| IPC sender check accepted the preview guest (B12, #261) | **Closed** | The per-handler check `requireAppFrame` (and its copies in Thread, Team and Delegation) asked only whether the sender belonged to some `BrowserWindow` and whether it called from its own main frame. Terminal, file-system and MCP handlers had no check at all. | The Browser preview's `WebContentsView` is attached to the main window, so `BrowserWindow.fromWebContents` likely answered that window for the guest too; the guest calls from its own main frame, so the frame test passed as well. A previewed page, the project's own dev server included, could then reach privileged channels. | One guard on `ipcMain` for every channel compares the actual webContents with the one the app trusted (`trustAppWindow`) and the frame with its `mainFrame`; the preview guest may send only the Design Mode grab and cancel messages. | `tests/unit/ipc-sender-guard.test.ts`, "refuses every channel from a guest and from a subframe of the main window, with the C3 code and an incident" and "refuses terminal.write, fs.writeFile and mcp.create from a guest or a subframe before the handler runs". |
 
 ## Filesystem invariant
 

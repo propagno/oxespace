@@ -238,6 +238,9 @@ describe('the guard in the source', () => {
     }
     expect(index).toMatch(/const mainWindow = trustAppWindow\(new BrowserWindow\(/)
     expect(index.match(/new BrowserWindow\(/g)).toHaveLength(1) // a second window would need its own, explicit trust
+    // No <webview> guest can exist: the tag is off, and nothing in the renderer renders one.
+    expect(index).toMatch(/^\s*webviewTag: false,/m)
+    expect(index).not.toMatch(/webviewTag: true/)
   })
 
   it('has no module that registers a channel when imported, or that checks the sender itself', () => {

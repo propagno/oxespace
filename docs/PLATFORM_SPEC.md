@@ -122,7 +122,8 @@ campaign are still open; do not rely on it for work you cannot redo), **Initial*
   `ipcMain` (`electron/main/ipc/ipc-sender-guard.ts`), installed before any
   channel is registered. A Browser preview guest may send only the Design Mode
   grab and cancel messages; anything else is refused with `ipc.sender.refused`
-  and recorded as `incident.ipc.senderRefused` (the channel only).
+  and recorded as `incident.ipc.senderRefused` (the channel only). The main
+  window has `webviewTag: false`, so no `<webview>` guest can exist.
 - Only MCP servers that are enabled **and** explicitly trusted are exported to
   agent configurations.
 - Diagnostics redact local paths and credential-shaped values.

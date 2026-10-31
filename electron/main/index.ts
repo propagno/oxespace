@@ -766,9 +766,8 @@ function createMainWindow(): BrowserWindow {
       // remains compatible with Chromium's renderer sandbox. Native PTY/SQLite
       // stay exclusively in the main process behind validated IPC handlers.
       sandbox: true,
-      // Design Mode (#3) needs a <webview> — an iframe cannot be scripted cross-origin, so element
-      // picking is impossible there. Every attach is vetted by the will-attach-webview handler below.
-      webviewTag: true,
+      // No <webview> (B12): the Browser preview and Design Mode run in a main-process WebContentsView.
+      webviewTag: false, // the will-attach-webview handler below stays as a backstop
       zoomFactor: savedUiScale(),
       // A sandboxed preload cannot ask app.getLocale(), so the default interface language travels as an argument.
       additionalArguments: [`--oxe-locale=${systemLocale()}`]
