@@ -118,7 +118,7 @@ parentPort?.on('message', (request: Request) => {
       requestId: request.requestId,
       personAtRisk: core.personAtRisk(),
       error: error instanceof OxeQueryError
-        ? { code: error.code, message: error.message, reasons: error.reasons, detail: error.detail, ...(error.messageCode ? { messageCode: error.messageCode } : {}) }
+        ? { code: error.code, message: error.message, reasons: error.reasons, detail: error.detail, ...(error.codes.message || error.codes.reasons?.length ? { codes: error.codes } : {}) }
         : error instanceof MongoInputError ? { code: 'invalid', message: error.message, reasons: [] }
         : { code: 'query', message: error instanceof Error ? error.message : 'Operation failed', reasons: [] }
     })

@@ -58,7 +58,8 @@
         "notPending": "This request was already answered, cancelled or expired.",
         "staleGeneration": "The conversation restarted since this request was shown. Open it to see what is waiting now.",
         "alreadyResponding": "An answer to this request is already being sent.",
-        "unanswered": "Answer every question before continuing."
+        "unanswered": "Answer every question before continuing.",
+        "guardedDecision": "A change to agent instructions, MCP settings or hooks is approved once, never for the session. Answer it again."
       },
       "side": {
         "unavailable": "This agent cannot open a side chat yet.",
@@ -80,6 +81,13 @@
       },
       "queue": {
         "deliveryUnconfirmed": "Delivery of this message could not be confirmed."
+      },
+      "protectedConfig": {
+        "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",
+        "mcp": "\"{{path}}\" holds MCP server settings. A change there steers every later session, so it needs your confirmation each time.",
+        "hooks": "\"{{path}}\" holds agent hooks. A change there steers every later session, so it needs your confirmation each time.",
+        "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
+        "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
       }
     },
     "app": {
@@ -158,6 +166,12 @@
         "busy": "This connection has a transaction open or a command running, so it cannot be reopened now. Commit or roll back the transaction, or wait for the command, then try again.",
         "limit": "This connection already has {{limit}} database connections open. Wait for one to finish, then try again.",
         "agentTransaction": "An agent cannot open a transaction: each of its statements runs on its own. The transaction was rolled back."
+      },
+      "mongo": {
+        "confirmName": "This is a production connection. Type its name to change this document.",
+        "confirm": "This change needs your confirmation.",
+        "production": "This is a production connection.",
+        "deletes": "The document will be deleted."
       }
     },
     "oxepod": {
@@ -307,7 +321,10 @@
     "incident": {
       "window": {
         "crashed": "The window crashed.",
-        "rendererGone": "The interface stopped responding and was restarted."
+        "rendererGone": "The interface stopped responding and was restarted.",
+        "externalRefused": "A link was not opened outside the app: wrong kind, too long, or with a name and password in it.",
+        "externalRateLimited": "Many links were refused within a minute; the rest were not recorded.",
+        "externalOpenFailed": "The system could not open a link the app allowed; no app is registered for it."
       },
       "ipc": {
         "handlerFailed": "A request from the window failed in the background.",

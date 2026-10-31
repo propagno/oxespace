@@ -101,13 +101,13 @@ export class SessionRegistry {
 
   busyRefusal(): OxeQueryError {
     return new OxeQueryError('conflict', 'This connection has a transaction open or a command running, so it cannot be reopened now. Commit or roll back the transaction, or wait for the command, then try again.',
-      [], {}, mainMessage('oxequery.session.busy', {}))
+      [], {}, { message: mainMessage('oxequery.session.busy', {}) })
   }
 
   /** An agent sent BEGIN: its session never keeps a transaction (locks, and a busy session is never reaped). */
   agentTransactionRefusal(): OxeQueryError {
     return new OxeQueryError('invalid', 'An agent cannot open a transaction: each of its statements runs on its own. The transaction was rolled back.',
-      [], {}, mainMessage('oxequery.session.agentTransaction', {}))
+      [], {}, { message: mainMessage('oxequery.session.agentTransaction', {}) })
   }
 
   /** Takes one of the slot's driver connections, or refuses with `limit`; the returned function gives it back (once). */
@@ -115,7 +115,7 @@ export class SessionRegistry {
     const used = this.opened.get(slot) ?? 0
     if (used >= MAX_CONNECTIONS_PER_SLOT) {
       throw new OxeQueryError('limit', `This connection already has ${MAX_CONNECTIONS_PER_SLOT} database connections open. Wait for one to finish, then try again.`,
-        [], {}, mainMessage('oxequery.session.limit', { limit: MAX_CONNECTIONS_PER_SLOT }))
+        [], {}, { message: mainMessage('oxequery.session.limit', { limit: MAX_CONNECTIONS_PER_SLOT }) })
     }
     this.opened.set(slot, used + 1)
     let held = true

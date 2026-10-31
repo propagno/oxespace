@@ -1,6 +1,6 @@
 # OxeQuery
 
-OxeQuery is the third application mode (next to Code and Thread). It shows the
+OxeQuery is the third application mode (next to OxeCode and OxeChat). It shows the
 containers that run on this machine (Docker or Podman) and connects to
 PostgreSQL and MongoDB, so a database and the container it runs in are one
 click apart.
@@ -199,7 +199,7 @@ SchemaTree / StructureEditor         PreferenceStore
 
 ## Agents (MCP)
 
-AI agents running in a Thread reach OxeQuery through ten tools. **No database and no
+AI agents running in an OxeChat conversation reach OxeQuery through ten tools. **No database and no
 container is available until a person sets *Agent access* on a connection** (Connection →
 Limits and agents); a container is visible to agents only when a connection to it has
 agent access on.
@@ -238,7 +238,7 @@ most). A connection's own setting can only be lower than the cap.
   with string literals removed, the decision and the outcome. Entries are kept as long as
   the settings say (90 days by default).
 - **Providers.** Claude with `bypassPermissions` and Codex with `approvalPolicy: never`
-  do not ask for these tools; the dialog above is what protects you. Read-only Threads are
+  do not ask for these tools; the dialog above is what protects you. Read-only conversations are
   not given the tools at all.
 
 ## Limits (by design, for now)

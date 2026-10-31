@@ -76,7 +76,7 @@ export class OxeQueryWorkerClient {
   private start(): Worker {
     const worker = new Worker(this.path, { resourceLimits: { maxOldGenerationSizeMb: 512 } })
     this.worker = worker
-    worker.on('message', (message: { requestId: number; result?: unknown; progress?: unknown; personAtRisk?: number; error?: { code: OxeQueryError['code']; message: string; reasons?: string[]; detail?: OxeQueryError['detail']; messageCode?: OxeQueryError['messageCode'] } }) => {
+    worker.on('message', (message: { requestId: number; result?: unknown; progress?: unknown; personAtRisk?: number; error?: { code: OxeQueryError['code']; message: string; reasons?: string[]; detail?: OxeQueryError['detail']; codes?: OxeQueryError['codes'] } }) => {
       if (this.worker !== worker) return
       if (typeof message.personAtRisk === 'number') this.personAtRisk = message.personAtRisk
       const request = this.pending.get(message.requestId)
@@ -90,7 +90,7 @@ export class OxeQueryWorkerClient {
       }
       clearTimeout(request.timer); this.pending.delete(message.requestId)
       if (message.error?.code === 'timeout') recordIncident('incident.oxequery.timeout', request.connection?.id ?? request.op)
-      if (message.error) request.reject(new OxeQueryError(message.error.code, message.error.message, message.error.reasons ?? [], message.error.detail ?? {}, message.error.messageCode))
+      if (message.error) request.reject(new OxeQueryError(message.error.code, message.error.message, message.error.reasons ?? [], message.error.detail ?? {}, message.error.codes ?? {}))
       else request.resolve(message.result)
     })
     worker.on('error', (error: unknown) => {

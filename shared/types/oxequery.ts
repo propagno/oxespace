@@ -275,6 +275,8 @@ export interface MongoWriteInput {
   /** EJSON text of the document as the person saw it; a replace or delete is refused if it changed. */
   expected?: string
   confirmed?: boolean
+  /** On a production connection: the connection's name as the person typed it. Main checks it; the worker never sees it. */
+  confirmName?: string
 }
 export interface MongoWriteResult { matched: number; modified: number; deleted: number; insertedId?: string }
 

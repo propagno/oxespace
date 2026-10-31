@@ -30,6 +30,10 @@ import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
+import { installE2eAgentStateHook } from './agent-state-hook'
+import { loadManifests } from '../services/agent-state/manifest'
+import { BUNDLED_MANIFESTS } from '../services/agent-state/bundled-manifests'
+import { broadcastAgentState, registerAgentStateIpc } from '../ipc/agent-state.ipc'
 import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
@@ -52,6 +56,15 @@ export function registerE2eMockIpcHandlers(): void {
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
   registerApprovalsMock()
+  // Never in a packaged build, and only when a spec asks for it: the gate is inside (see agent-state-hook.ts).
+  let agentManifests: ReturnType<typeof loadManifests>['manifests'] | undefined
+  installE2eAgentStateHook(globalThis, process.env, app.isPackaged, {
+    findPane: paneId => workspaces.flatMap(workspace => workspace.panes).find(pane => pane.id === paneId) ?? null,
+    manifests: () => (agentManifests ??= loadManifests(BUNDLED_MANIFESTS).manifests),
+    emit: broadcastAgentState,
+    sendHookStatus: event => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event) },
+    registerIpc: registerAgentStateIpc
+  })
   registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)

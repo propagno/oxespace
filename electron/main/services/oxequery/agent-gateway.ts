@@ -6,11 +6,9 @@ import { textHash, type ApprovalBroker } from '../agent-actions/approval-broker'
 import type { AuditLog, AuditRecord } from './audit-log'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
+import { AgentToolError } from './agent-tool-error'
 
-/** What the model is told when a call is refused; never carries a stack or a server message that was not redacted. */
-export class AgentToolError extends Error {
-  constructor(message: string, readonly code: string = 'refused') { super(message) }
-}
+export { AgentToolError }
 
 export interface AgentActor {
   /** Unique per live execution: grants and rate limits are scoped to it. */
