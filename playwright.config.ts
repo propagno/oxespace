@@ -23,6 +23,9 @@ export default defineConfig({
     // Packaged-artifact smokes need a built installer and are driven by the
     // release leg of CI with OXESPACE_PACKAGED_EXECUTABLE set.
     '**/packaged-linux.spec.ts',
-    '**/packaged-win.spec.ts'
+    '**/packaged-win.spec.ts',
+    // Acceptance specs are written before the code and stay red until their item lands; they run in their own
+    // job (playwright.acceptance.config.ts), never in the smoke run.
+    '**/acceptance/**'
   ]
 })
