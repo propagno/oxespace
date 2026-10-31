@@ -21,7 +21,7 @@ import { evaluateShellCommand, suggestRules } from '../shell-command-rules'
 import { classifyShellRisk, type ShellRisk } from '../shell-risk'
 import { readsOutsideProject } from '../shell-reads'
 import { checkWorkspacePath, type PathSafetyOptions } from '../path-safety'
-import { commandWritesProtected, protectedConfigKind, protectedConfigNote, protectedConfigReason, PROTECTED_CONFIG_WARNING, PROTECTED_CONFIG_WARNING_NOTE } from './protected-config'
+import { commandMentionsProtected, commandRewritesTracked, commandWritesProtected, isPlainSafeRead, protectedConfigKind, protectedConfigNote, protectedConfigReason, PROTECTED_CONFIG_WARNING, PROTECTED_CONFIG_WARNING_NOTE, rewritesTrackedNote, rewritesTrackedReason } from './protected-config'
 import type { MainMessage } from '../../../../../shared/messages'
 
 type Decision = ThreadRequestPolicy['decision']
@@ -153,11 +153,19 @@ export function evaluatePermission(
       reasons: shell.reasons,
       suggestions: shell.decision === 'ask' ? suggestRules(command).map(item => ({ kind: 'command' as const, pattern: item.rule, label: item.label })) : []
     })
-    // P1-17: a command that writes a protected file is guarded whatever else made it ask (a risky command, no rule),
-    // so no provider offers "for the session" for it; a deny stays a deny.
-    const target = commandWritesProtected(command), part = parts[parts.length - 1]
-    if (target && part.decision !== 'deny' && !part.guarded) {
-      Object.assign(part, { decision: 'ask' as const, suggestions: [], guarded: true as const, reasons: [...part.reasons, protectedConfigReason(target.path, target.kind)], reasonCodes: [protectedConfigNote(target.path, target.kind)] })
+    // P1-17 and B16: a command that names a protected file anywhere (an argument, a redirect, code inside -c or -e, a
+    // nested shell, after a cd, a Windows alias), or that rewrites tracked files without naming them (git checkout,
+    // tar x…), is guarded whatever a saved rule says, so no provider offers "for the session"; a deny stays a deny.
+    // Only a plain read from the built-in safe list (cat AGENTS.md) that names one is still answered.
+    const part = parts[parts.length - 1]
+    const target = commandWritesProtected(command) ?? commandMentionsProtected(command)
+    const rewriter = commandRewritesTracked(command)
+    const plainRead = part.decision === 'allow' && outside.length === 0 && isPlainSafeRead(command)
+    if (part.decision !== 'deny' && !part.guarded && ((target && !plainRead) || rewriter)) {
+      const reasons = [...(target && !plainRead ? [protectedConfigReason(target.path, target.kind)] : []), ...(rewriter ? [rewritesTrackedReason(rewriter)] : [])]
+      const reasonCodes = [...(target && !plainRead ? [protectedConfigNote(target.path, target.kind)] : []), ...(rewriter ? [rewritesTrackedNote(rewriter)] : [])]
+      Object.assign(part, { decision: 'ask' as const, suggestions: [], guarded: true as const, reasons: [...part.reasons, ...reasons], reasonCodes })
+      if (viaDefaults) viaDefaults = false
     }
   }
   if (paths.length) parts.push(evaluatePaths(paths, rootPath, rules, options))

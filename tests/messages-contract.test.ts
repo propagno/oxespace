@@ -23,6 +23,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.protectedConfig.mcp': ['path'],
   'thread.protectedConfig.hooks': ['path'],
   'thread.protectedConfig.warning': [],
+  'thread.protectedConfig.rewritesTracked': ['command'],
   'app.connectivity.offline': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],

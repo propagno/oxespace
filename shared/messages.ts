@@ -33,6 +33,8 @@ export interface MessageParams {
   'thread.protectedConfig.mcp': { path: string }
   'thread.protectedConfig.hooks': { path: string }
   'thread.protectedConfig.warning': Record<string, never>
+  /** B16: `command` rewrites tracked files without naming them (git checkout, tar x…), so it needs the person each time. */
+  'thread.protectedConfig.rewritesTracked': { command: string }
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
@@ -233,6 +235,7 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.mcp',
   'thread.protectedConfig.hooks',
   'thread.protectedConfig.warning',
+  'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
   'incident.window.crashed',
   'incident.window.rendererGone',

