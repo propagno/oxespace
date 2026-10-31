@@ -7,7 +7,7 @@
  */
 import { threadConfirmation } from '../../../../../shared/threadConfirmations'
 import type { AppDatabase } from '../../../db'
-import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadCommandResult, ThreadConfiguration, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadAuditEntry, ThreadCommandResult, ThreadConfiguration, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
 import { hasDesktopCommand } from '../../../../../shared/threadDesktopCommands'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../../../shared/threadLimits'
 import { PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../../shared/threadHistoryNotice'
@@ -18,6 +18,7 @@ import type { ThreadHistory, ThreadHistoryWriteOptions } from '../thread-history
 import { threadCapabilityManifest } from '../thread-capabilities'
 import { runCrashRecoveryCommand } from '../thread-crash-recovery'
 import { instructionLabel, instructionSources } from '../instruction-sources'
+import { runNestedArchive } from '../thread-nesting'
 
 export interface CommandHost {
   readonly db: AppDatabase
@@ -28,6 +29,8 @@ export interface CommandHost {
   read(id: string): ThreadSnapshot
   save(snapshot: ThreadSnapshot, options?: ThreadHistoryWriteOptions): void
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId'>): ThreadSnapshot
+  /** Appends to the conversation's audit trail (best effort). */
+  audit(id: string, entry: Omit<ThreadAuditEntry, 'id' | 'at' | 'threadId' | 'projectRoot'>): void
   configure(id: string, input: ThreadConfiguration, revision: number): Promise<unknown>
   interrupt(id: string): Promise<void>
   rewind(id: string, turnId: string): Promise<ThreadRewindResult>
@@ -127,6 +130,9 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       ? snapshot.events.filter(event => event.type === 'message' && event.role === 'assistant').map(event => event.type === 'message' ? event.text : '').at(-1) ?? ''
       : host.exports.markdown(host.history.readImported(id)) }
     if (name === 'stop') { if (host.isBusy(id)) await host.interrupt(id); return { kind: 'applied' } }
+    // B1.3: children that still work are asked about (and archived) together with their parent.
+    const nested = name === 'archive' ? await runNestedArchive(host, id, argument) : undefined
+    if (nested) return nested
     if ((name === 'archive' || name === 'delete') && argument === 'confirm' && host.isBusy(id)) {
       await host.interrupt(id)
       for (let attempt = 0; attempt < 50 && host.isBusy(id); attempt++) await new Promise(resolve => setTimeout(resolve, 100))

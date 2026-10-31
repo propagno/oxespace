@@ -82,7 +82,7 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       const count = ctx.db.prepare('SELECT COUNT(*) AS value FROM mcp_thread_handoffs WHERE origin_thread_id = ?').get(originId) as { value: number }
       if (count.value >= 5) throw new Error('This origin Thread has reached the limit of 5 MCP-created destinations')
       const created = ctx.db.transaction(() => {
-        const snapshot = manager.create({ workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: project.rootPath, provider: source.provider })
+        const snapshot = manager.create({ workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: project.rootPath, provider: source.provider, parent: { threadId: originId, via: 'thread_create' } })
         ctx.db!.prepare('INSERT INTO mcp_thread_handoffs (origin_thread_id, request_key, destination_thread_id, created_at) VALUES (?, ?, ?, ?)')
           .run(originId, requestKey, snapshot.thread.id, Date.now())
         return snapshot.thread.id

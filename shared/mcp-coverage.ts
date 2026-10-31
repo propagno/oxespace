@@ -207,7 +207,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'thread.read': {
     label: 'List and read Threads, their usage, and CLI sessions of the folder',
     tools: { ...each('oxespace_threads', 'read', ['list', 'read', 'usage', 'native_sessions']), oxespace_thread_read: 'read' },
-    ipc: ['thread.list', 'thread.read', 'thread.history', 'thread.readSince', 'thread.usageSummary', 'thread.contextUsage', 'thread.projects', 'thread.turnFiles',
+    ipc: ['thread.list', 'thread.read', 'thread.children', 'thread.history', 'thread.readSince', 'thread.usageSummary', 'thread.contextUsage', 'thread.projects', 'thread.turnFiles',
       'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'session.list']
   },
   'thread.coordinator_admin': { label: 'Make a conversation the project\'s coordinator', forbidden: 'Raises what an agent can reach.', ipc: ['thread.setCoordinator'] },

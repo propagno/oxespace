@@ -4,6 +4,7 @@ import { app } from 'electron'
 import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { backfillThreadParents } from './thread-parent-backfill'
 import { recordIncident } from '../services/diagnostics/incident-sink'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -517,6 +518,7 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 80) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('080_turn_usage_steps.sql'))))()
   if (startingVersion < 82) db.transaction(() => db.exec(readMigration('082_memory_notes.sql')))()
   if (startingVersion < 83) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('083_mcp_guard.sql'))))()
+  if (startingVersion < 84) db.transaction(() => { db.exec(withoutExistingColumns(db, readMigration('084_thread_parent.sql'))); backfillThreadParents(db) })()
   if (startingVersion < 85) db.transaction(() => db.exec(readMigration('085_thread_coordinator.sql')))()
 }
 
