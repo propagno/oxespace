@@ -67,4 +67,27 @@ describe('a tool group the project turned off is refused at tools/call, whatever
     writeFileSync(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: always\n')
     expect(toolCallBlocked(DATA_TOOL, caller, null)).toBeUndefined()
   })
+
+  it('fails closed: deleting, breaking or bloating oxe.yaml never lifts an off read earlier in this run', () => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe-off-closed-')); folders.push(root)
+    const caller = ctx({ execution: { cwd: root, workspaceId: 'w1' } })
+    const file = join(root, 'oxe.yaml')
+    writeFileSync(file, 'thread:\n  tools:\n    data: off\n')
+    expect(toolCallBlocked(DATA_TOOL, caller, null)).toContain('turned off')
+    rmSync(file)
+    expect(toolCallBlocked(DATA_TOOL, caller, null)).toContain('turned off')
+    writeFileSync(file, 'thread: [unclosed\n')
+    expect(toolCallBlocked(DATA_TOOL, caller, null)).toContain('turned off')
+    writeFileSync(file, `# ${'x'.repeat(300 * 1024)}\n`)
+    expect(toolCallBlocked(DATA_TOOL, caller, null)).toContain('turned off')
+    // A valid file is what changes the modes; B7.4 asks the person before such a widening applies.
+    writeFileSync(file, 'thread:\n  tools:\n    data: on-demand\n')
+    expect(toolCallBlocked(DATA_TOOL, caller, null)).toBeUndefined()
+  })
+
+  it('uses the defaults for a root never read from a valid file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe-off-never-')); folders.push(root)
+    writeFileSync(join(root, 'oxe.yaml'), 'thread: [unclosed\n')
+    expect(toolCallBlocked(DATA_TOOL, ctx({ execution: { cwd: root, workspaceId: 'w1' } }), null)).toBeUndefined()
+  })
 })

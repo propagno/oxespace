@@ -90,14 +90,21 @@ export function offGroupBlocking(tool: string, roots: readonly string[], modesOf
   return undefined
 }
 
-/** oxe.yaml's tool modes per root, read again only when the file's size or modification time changes (hot path). */
+/**
+ * oxe.yaml's tool modes per root, read again only when the file's size or times change (hot path).
+ * Fails closed: deleting the file, or making it unreadable, invalid or too large, is one command for the same agent,
+ * so it never lifts an `off` read earlier in this run. The root keeps the last modes read from a valid file, and only a
+ * root never read uses the defaults. B7.4 persists this and asks the person about any widening.
+ */
 const modesCache = new Map<string, { stamp: string; modes: ProjectToolModes }>()
 function cachedToolModes(root: string): ProjectToolModes {
   let stamp = 'missing'
-  try { const stat = statSync(join(root, OXE_YAML_FILE)); stamp = `${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}` } catch { /* no oxe.yaml: defaults */ }
+  try { const stat = statSync(join(root, OXE_YAML_FILE)); stamp = `${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}` } catch { /* no oxe.yaml */ }
   const cached = modesCache.get(root)
   if (cached && cached.stamp === stamp) return cached.modes
-  const modes = projectToolModes(stamp === 'missing' ? undefined : loadRepoConfigSync(root)?.thread)
+  const config = stamp === 'missing' ? null : loadRepoConfigSync(root)
+  // Missing, unreadable, invalid or too large: the last valid read stands (defaults if there never was one).
+  const modes = config ? projectToolModes(config.thread) : cached?.modes ?? projectToolModes(undefined)
   modesCache.set(root, { stamp, modes })
   return modes
 }
