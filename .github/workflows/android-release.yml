@@ -142,7 +142,7 @@ jobs:
           # A runner that crashes before the first test can still end "successful" with 0 tests: require that they ran.
           script: |
             ./gradlew --no-daemon -Poxespace.testBuildType=minified connectedMinifiedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.oxespace.mobile.ReleaseSmokeTest
-            grep -Eq 'tests="[2-9]' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest did not run"; exit 1; }
+            grep -Eq 'tests="[3-9]' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest did not run"; exit 1; }
 
       # MB-M-06: a signed statement, kept by GitHub, that this APK came from this workflow at this tag.
       - name: Attest the APK's provenance

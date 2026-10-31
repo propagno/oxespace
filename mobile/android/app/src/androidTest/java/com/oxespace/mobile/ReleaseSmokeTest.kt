@@ -3,6 +3,7 @@ package com.oxespace.mobile
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.oxespace.mobile.pairing.PairLinkForHomologation
 import com.oxespace.mobile.protocol.FrameRead
 import com.oxespace.mobile.protocol.FrameSource
 import com.oxespace.mobile.protocol.RemoteAckFrame
@@ -13,14 +14,17 @@ import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.RemoteHelloFrame
 import com.oxespace.mobile.protocol.RemoteSnapshotFrame
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
  * MB-M-03: what R8 could break in the shipped build, run against it (the `minified` build type, the release build with
  * the debug key) before the release workflow attaches the APK. The app starts, and every kind of frame the desktop
- * sends is read through the generated serializers, wire names and enum values included. Also passes on debug.
+ * sends is read through the generated serializers, wire names and enum values included; the debug-only pairing link is
+ * ignored. Also passes on debug, where that last check is skipped.
  */
 @RunWith(AndroidJUnit4::class)
 class ReleaseSmokeTest {
@@ -34,6 +38,13 @@ class ReleaseSmokeTest {
             scenario.moveToState(Lifecycle.State.RESUMED)
             scenario.onActivity { assertTrue(!it.isFinishing) }
         }
+    }
+
+    @Test
+    fun theShippedBuildIgnoresAPairingLinkHandedOverAdb() {
+        // On debug this is the homologation path; what matters is the build that ships.
+        assumeFalse(BuildConfig.DEBUG)
+        assertNull(PairLinkForHomologation.read(BuildConfig.DEBUG, "oxespace://pair?v=1&host=192.168.0.12&port=7443"))
     }
 
     @Test
