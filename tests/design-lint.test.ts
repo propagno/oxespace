@@ -104,13 +104,13 @@ describe('design lint', () => {
       expect(properties.filter(property => !['transform', 'scale', 'opacity', 'background-position'].includes(property))).toEqual([])
     })
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
-      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(2)
+      expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(0)
     })
     it('raw <button> outside the primitives does not grow; use <Button> or <IconButton> (FE-M-03)', () => {
       expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(513)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
-      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(11)
+      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(3)
     })
     it('CSS modules time motion with the --duration tokens; fixed timings do not grow', () => {
       const modules = files(join(ROOT, 'src'), path => path.endsWith('.module.css'))

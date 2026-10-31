@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { AgentActionEntry } from '../../../shared/types/mcp-internal'
-import { Button } from '../../ui'
+import { Button, EmptyState, ErrorState } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
 
 function tone(entry: AgentActionEntry): 'ok' | 'warning' | 'error' {
@@ -33,9 +33,9 @@ export function AgentActivitySettings(): ReactElement {
   return <div className="settings-form-group" data-testid="agent-activity">
     <h3 className="settings-form-group-title">{t('activity.title')}</h3>
     <p className="settings-field-hint">{t('activity.hint')}</p>
-    {error ? <div className="settings-callout" role="alert">{error}</div> : null}
+    {error ? <ErrorState compact title={error} /> : null}
     {entries && entries.length === 0 && !error
-      ? <div className="settings-callout">{t('activity.empty')}</div>
+      ? <EmptyState compact title={t('activity.empty')} />
       : <div className="diagnostics-checks" role="list" aria-label={t('activity.list')}>
         {(entries ?? []).map(entry => <div key={entry.id} role="listitem" className={`diagnostics-check tone-${tone(entry)}`}>
           <span className="diagnostics-check-dot" aria-hidden="true" />
