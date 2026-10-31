@@ -176,7 +176,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Toasts (F21) | #245 | FRONTEND | Pré-homologado (a40e1cba): as 3 ressalvas foram fechadas |
 | Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab (virou F23) |
 | Indicadores do OxePod | #248 | FRONTEND | Homologado (na `main` 16d27efa): 8×8, redondos, em claro e escuro |
-| Diagnóstico: medidas, incidentes, pacote, `oxespace_diagnostics` | #203 | BACKEND | Homologado (na `main` 04dcc451): nenhum segredo, caminho ou nome vazou; 2 notas baixas |
+| Diagnóstico: medidas, incidentes, pacote, `oxespace_diagnostics` | #203 | BACKEND | Homologado (na `main` 04dcc451): nenhum segredo, caminho ou nome vazou; as 2 notas baixas foram fechadas no #252 (pré-homologado, 679fa231) |
 | Gate visual (workflow) | #193 | FRONTEND | Homologado (na `main`): o fluxo completo funcionou; as 22 diferenças vêm de baselines antigas, e falta despachar as novas |
 
 ### #157 Roadmap 1.4: Homologado
@@ -638,6 +638,13 @@ Notas baixas para o BACKEND:
 2. Fora do pacote (`packaged: false`), `versions.json`, `snapshot.appVersion` e a ferramenta dizem "OXESpace 44.9.3",
    que é a versão do Electron, em vez de 1.3.3. É a mesma raiz já corrigida no About (#168/#185). Critério: usar a
    mesma fonte de versão do About.
+
+As 2 notas foram fechadas no #252 (679fa231, já com a `main`), com a mesma sonda:
+- `versions.json` traz `"v8": "15.2.124.43-electron.0"` inteiro e `"version": "1.3.3"`;
+- `snapshot.appVersion` é 1.3.3, e `electronVersion` continua 44.9.3;
+- a ferramenta diz "OXESpace 1.3.3 on win32".
+
+Seguem 0 vazamentos nos 8 arquivos e saídas. As substituições passaram de 10 para 9 (a do V8 saiu).
 
 ### Gate visual (#193): Homologado
 
