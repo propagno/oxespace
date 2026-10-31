@@ -188,6 +188,13 @@ for (const base of ['light', 'dark'] as const) {
       report[`settings scope (${base})`] = rows
       expect(rows.find(row => row.checked === 'true')?.background, 'scope: the pressed row is filled with Highlight').toBe(highlight)
       for (const row of rows.filter(item => item.checked !== 'true')) expect(row.background, `scope: "${row.name}" is not`).not.toBe(highlight)
+      // The side nav's current page (aria-current) is marked the same way (homologation of #271).
+      const pages = await settings.getByRole('navigation', { name: 'Settings categories' }).evaluate(element => Array.from(element.querySelectorAll('button'))
+        .filter(node => node.getClientRects().length > 0)
+        .map(node => ({ current: node.getAttribute('aria-current'), background: getComputedStyle(node).backgroundColor })))
+      report[`settings nav (${base})`] = pages
+      expect(pages.find(page => page.current === 'page')?.background, 'settings nav: the current page is filled with Highlight').toBe(highlight)
+      for (const other of pages.filter(page => page.current !== 'page')) expect(other.background, 'settings nav: other pages are not').not.toBe(highlight)
       for (const button of await scope.getByRole('button').all()) {
         const size = await target(button)
         report[`scope target ${await button.textContent()} (${base})`] = size

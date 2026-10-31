@@ -88,7 +88,8 @@ describe('forced colors: the chosen option survives', () => {
 
   it('hand-made radios and pressed toggles outside src/ui get the same mark (src/styles/forced-colors.css)', () => {
     const global = forcedColorBlocks(readFileSync(join(ROOT, 'src/styles/forced-colors.css'), 'utf8')).join('\n')
-    const chosen = ":root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'])"
+    // The current page of a navigation list (Settings' side nav) is a choice too (homologation of #271).
+    const chosen = ":root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page'])"
     const body = declarationsFor(global, chosen).join(' ')
     expect(body).toMatch(/forced-color-adjust:\s*none/)
     expect(body).toMatch(/background:\s*Highlight/)
