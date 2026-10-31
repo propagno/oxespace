@@ -223,6 +223,8 @@ describe('F6 regions', () => {
   })
 
   it('take a lent tabindex back even when focus moves without any focus event (a window without the system focus)', async () => {
+    // A window Chromium counts as covered runs no animation frames at all; the check must not need them.
+    const frames = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0)
     const { status, textarea } = shell()
     document.body.focus()
     for (let step = 0; step < 4; step++) moveFocusRegion(1)
@@ -231,10 +233,10 @@ describe('F6 regions', () => {
     // Focus elsewhere without the events an unfocused window would not fire.
     Object.defineProperty(document, 'activeElement', { configurable: true, get: () => textarea })
     try {
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-      expect(status).not.toHaveAttribute('tabindex')
+      await waitFor(() => expect(status).not.toHaveAttribute('tabindex'))
     } finally {
       delete (document as unknown as { activeElement?: unknown }).activeElement
+      frames.mockRestore()
     }
   })
 
