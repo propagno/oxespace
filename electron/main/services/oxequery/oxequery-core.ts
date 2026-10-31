@@ -295,7 +295,7 @@ export class OxeQueryCore {
         // An agent's session never keeps a transaction: it would hold locks, and the reaper never closes a busy session.
         await client.query('ROLLBACK').catch(() => undefined)
         session.tx = 'none'; session.txStatements = 0; delete session.txSince
-        throw new OxeQueryError('invalid', 'An agent cannot open a transaction: each of its statements runs on its own. The transaction was rolled back.')
+        throw this.sessions.agentTransactionRefusal()
       }
       return { ...result, durationMs: Date.now() - started, ...(notices.length ? { notices } : {}) }
     } catch (error) {

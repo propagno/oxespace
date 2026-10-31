@@ -122,7 +122,7 @@ export class OxeQueryWorkerClient {
       const stop = request.op?.startsWith('sql.') ? 'sql.cancel' : MONGO_CANCELLABLE.has(request.op ?? '') ? 'mongo.cancel' : 'close'
       void this.call(stop, connection).catch(() => undefined)
     }
-    void this.probe()
+    void this.probe(request.connection?.id)
   }
 
   /** Whether a restart would cost the person work: see the class comment. */
@@ -130,8 +130,11 @@ export class OxeQueryWorkerClient {
     return this.personAtRisk > 0 || [...this.pending.values()].some(isPersonWork)
   }
 
-  /** A worker that does not answer a ping in time is stuck, and only then is it restarted. */
-  private probe(): Promise<void> {
+  /**
+   * A worker that does not answer a ping in time is stuck, and only then is it restarted; `connectionId` names the
+   * connection whose timeout asked, for the journal when the restart is put off.
+   */
+  private probe(connectionId?: string): Promise<void> {
     if (this.probing) return this.probing
     const worker = this.worker
     if (!worker) return Promise.resolve()
@@ -142,6 +145,7 @@ export class OxeQueryWorkerClient {
         resolve()
         if (this.worker !== worker) return
         if (this.personSessionAtRisk()) {
+          recordIncident('incident.oxequery.restartDeferred', connectionId)
           try { this.onFault?.('worker did not answer a ping; restart put off while a person session is at risk') } catch { /* logging must not decide */ }
           return
         }

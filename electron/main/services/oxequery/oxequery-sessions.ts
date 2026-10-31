@@ -104,6 +104,12 @@ export class SessionRegistry {
       [], {}, mainMessage('oxequery.session.busy', {}))
   }
 
+  /** An agent sent BEGIN: its session never keeps a transaction (locks, and a busy session is never reaped). */
+  agentTransactionRefusal(): OxeQueryError {
+    return new OxeQueryError('invalid', 'An agent cannot open a transaction: each of its statements runs on its own. The transaction was rolled back.',
+      [], {}, mainMessage('oxequery.session.agentTransaction', {}))
+  }
+
   /** Takes one of the slot's driver connections, or refuses with `limit`; the returned function gives it back (once). */
   reserve(slot: string): () => void {
     const used = this.opened.get(slot) ?? 0

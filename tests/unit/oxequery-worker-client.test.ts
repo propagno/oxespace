@@ -2,8 +2,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { OxeQueryWorkerClient } from '../../electron/main/services/oxequery/worker-client'
+import { connectIncidentJournal, incidentSubject } from '../../electron/main/services/diagnostics/incident-sink'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
 
 // A worker that answers after the delay given as input, standing in for a slow statement.
@@ -116,15 +117,22 @@ describe('OxeQueryWorkerClient time budget', () => {
     expect(await shared.call('commit', person)).toEqual({ state: 'none' })
   })
 
-  it("does not restart a stuck worker while a person session has a transaction open", async () => {
-    const faults: string[] = []
-    const stuck = roles(100, faults)
-    await stuck.call('begin', person)
-    const worker = workerOf(stuck)
-    await expect(stuck.call('hang', agent)).rejects.toThrow(/did not answer in time/)
-    await new Promise(resolve => setTimeout(resolve, 600))
-    expect(workerOf(stuck)).toBe(worker)
-    expect(faults.some(fault => /restart put off while a person session is at risk/.test(fault))).toBe(true)
+  it("does not restart a stuck worker while a person session has a transaction open, and journals the deferral", async () => {
+    const recorded: Array<[string, string | undefined]> = []
+    connectIncidentJournal(async () => ({ record: (code, subject) => { recorded.push([code, subject]) }, flush: () => undefined }))
+    try {
+      const faults: string[] = []
+      const stuck = roles(100, faults)
+      await stuck.call('begin', person)
+      const worker = workerOf(stuck)
+      await expect(stuck.call('hang', agent)).rejects.toThrow(/did not answer in time/)
+      await new Promise(resolve => setTimeout(resolve, 600))
+      expect(workerOf(stuck)).toBe(worker)
+      expect(faults.some(fault => /restart put off while a person session is at risk/.test(fault))).toBe(true)
+      // The deferral is visible in the diagnostics journal, with the connection whose timeout asked (hashed, as every subject).
+      await vi.waitFor(() => expect(recorded).toContainEqual(['incident.oxequery.restartDeferred', incidentSubject('c1')]))
+      expect(recorded.filter(([code]) => code === 'incident.oxequery.restartDeferred')).toHaveLength(1)
+    } finally { connectIncidentJournal(null) }
   })
 
   it("does not restart a stuck worker while a request of the person's is waiting", async () => {

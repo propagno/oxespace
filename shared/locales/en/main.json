@@ -151,7 +151,8 @@
       },
       "session": {
         "busy": "This connection has a transaction open or a command running, so it cannot be reopened now. Commit or roll back the transaction, or wait for the command, then try again.",
-        "limit": "This connection already has {{limit}} database connections open. Wait for one to finish, then try again."
+        "limit": "This connection already has {{limit}} database connections open. Wait for one to finish, then try again.",
+        "agentTransaction": "An agent cannot open a transaction: each of its statements runs on its own. The transaction was rolled back."
       }
     },
     "oxepod": {
@@ -317,7 +318,8 @@
         "busy": "The local database was busy and a write had to wait."
       },
       "oxequery": {
-        "timeout": "An OxeQuery request ran out of time."
+        "timeout": "An OxeQuery request ran out of time.",
+        "restartDeferred": "The OxeQuery worker stopped answering. Its restart was put off because a connection has a transaction open or a command running."
       },
       "updater": {
         "failed": "An update could not be checked or installed."

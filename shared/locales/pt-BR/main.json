@@ -151,7 +151,8 @@
       },
       "session": {
         "busy": "Esta conexão tem uma transação aberta ou um comando em execução, então não pode ser reaberta agora. Faça commit ou rollback da transação, ou espere o comando terminar, e tente de novo.",
-        "limit": "Esta conexão já tem {{limit}} conexões com o banco abertas. Espere uma terminar e tente de novo."
+        "limit": "Esta conexão já tem {{limit}} conexões com o banco abertas. Espere uma terminar e tente de novo.",
+        "agentTransaction": "Um agente não pode abrir uma transação: cada instrução dele roda sozinha. A transação foi desfeita."
       }
     },
     "oxepod": {
@@ -317,7 +318,8 @@
         "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."
       },
       "oxequery": {
-        "timeout": "Um pedido do OxeQuery esgotou o tempo."
+        "timeout": "Um pedido do OxeQuery esgotou o tempo.",
+        "restartDeferred": "O worker do OxeQuery parou de responder. O reinício foi adiado porque uma conexão tem uma transação aberta ou um comando em execução."
       },
       "updater": {
         "failed": "Não foi possível verificar ou instalar uma atualização."

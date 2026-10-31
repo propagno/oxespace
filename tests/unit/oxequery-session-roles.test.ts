@@ -192,6 +192,7 @@ describe('PostgreSQL: the person and an agent', () => {
     const write = { ...agent, readOnly: false }
     const refused = await failure(() => request(write, () => core.sqlRun(write, 'BEGIN', { confirmed: true })))
     expect(refused.code).toBe('invalid')
+    expect(refused.messageCode).toEqual({ code: 'oxequery.session.agentTransaction', params: {} })
     expect(core.txState(write).state).toBe('none')
     expect(server.pg[0].inTx).toBe(false)
   })
