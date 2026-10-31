@@ -4,7 +4,7 @@ import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import type { WebglAddon } from '@xterm/addon-webgl'
 import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
-import { WebLinksAddon } from '@xterm/addon-web-links'
+import { createTerminalLinksAddon } from './terminalLinks'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
@@ -214,7 +214,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
 
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(unicodeAddon)
-    terminal.loadAddon(new WebLinksAddon())
+    terminal.loadAddon(createTerminalLinksAddon())
     terminal.loadAddon(searchAddon)
     searchAddonRef.current = searchAddon
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))

@@ -172,7 +172,7 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
     for (const name of ['github:get-pull-request-status', 'agent-credits:get', 'copilot:credits', 'git:get-status']) ipcMain.removeHandler(name)
     ipcMain.handle('github:get-pull-request-status', () => null)
     ipcMain.handle('copilot:credits', () => ({ installed: false, credits: null, plan: null, error: null }))
-    ipcMain.handle('agent-credits:get', (_event, input: { provider: string }) => ({ provider: input.provider, available: true, installed: true, planLabel: 'Pro', source: 'oauth', observedAtMs: now, error: null }))
+    ipcMain.handle('agent-credits:get', (_event, input: { provider: string }) => ({ provider: input.provider, available: true, installed: true, planLabel: 'Pro', source: 'oauth', observedAtMs: now, error: null, windows: [] }))
     ipcMain.handle('git:get-status', () => ({ branch: 'main', ahead: 0, behind: 0, checkedAt: now, files: [] }))
   }, { fixtureRoot: root, now: NOW - 5 * 60_000 })
 }

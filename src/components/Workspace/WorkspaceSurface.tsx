@@ -1,6 +1,6 @@
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, ShieldAlert, type LucideIcon } from 'lucide-react'
+import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, type LucideIcon } from 'lucide-react'
 import { Menu } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
@@ -53,7 +53,8 @@ function prefetchPanelChunks(): void {
     setTimeout(afterFirstPaint, 0)
   }
 }
-import { IntegrationsStatusChips } from './IntegrationsStatusChips'
+// The status chips poll GitHub and the MCP state after first paint; they are not part of it.
+const IntegrationsStatusChips = lazy(() => import('./IntegrationsStatusChips').then(module => ({ default: module.IntegrationsStatusChips })))
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import './CodeChrome.css'
 import { i18n } from '../../i18n'
@@ -461,7 +462,7 @@ function WorkspaceSurfaceComponent({
     })
   }
 
-  const grid = <ErrorBoundary label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
+  const grid = <ErrorBoundary id="workspace-grid" label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
     <WorkspaceSplitGrid
       workspace={workspace}
       tree={tree}
@@ -501,12 +502,12 @@ function WorkspaceSurfaceComponent({
         trigger={<button type="button" className="workspace-topbar-action" aria-label={tc('panels.more')} title={tc('panels.more')}><PanelsTopLeft size={14} aria-hidden="true" /><span>{tc('panels.menu')}</span></button>} />}
       <button type="button" className="workspace-topbar-action" aria-label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} data-testid="workspace-topbar-mcp">
         <PlugZap size={14} aria-hidden="true" /><span>MCP</span>
-        {quarantinedMcp > 0 ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid="workspace-topbar-mcp-quarantined"><ShieldAlert size={10} />{quarantinedMcp}</span> : null}
+        {quarantinedMcp > 0 ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid="workspace-topbar-mcp-quarantined">{quarantinedMcp > 9 ? '9+' : quarantinedMcp}</span> : null}
       </button>
       <button type="button" className="workspace-topbar-action" aria-label={tc('workspace.topbar.activity')} title={tc('tools.background.detail')} aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
         <Activity size={14} aria-hidden="true" /><span>{tc('workspace.topbar.activityShort')}</span>
       </button>
-      <IntegrationsStatusChips workspace={workspace} isActive={isActive} />
+      <Suspense fallback={null}><IntegrationsStatusChips workspace={workspace} isActive={isActive} /></Suspense>
     </header>
   )
 
@@ -598,7 +599,7 @@ function WorkspaceSurfaceComponent({
                   </nav>}
                   <div className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
                     {sidePanels.map(panel => <div key={panel.id} hidden={panel.id !== activeSideId}>
-                      <ErrorBoundary label={tc('workspace.panel.this')}><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
+                      <ErrorBoundary id="workspace-panel" label={tc('workspace.panel.this')}><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
                     </div>)}
                   </div>
                 </div>

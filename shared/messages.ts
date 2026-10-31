@@ -50,6 +50,8 @@ export interface MessageParams {
   'incident.mcp.quarantined': Record<string, never>
   'incident.database.busy': Record<string, never>
   'incident.oxequery.timeout': Record<string, never>
+  /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
+  'incident.oxequery.restartDeferred': Record<string, never>
   'incident.updater.failed': Record<string, never>
   'incident.interaction.overBudget': Record<string, never>
   'incident.app.journalReset': Record<string, never>
@@ -116,6 +118,12 @@ export interface MessageParams {
   'oxequery.sql.sessionRole': Record<string, never>
   /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
   'oxequery.sql.tableLock': Record<string, never>
+  /** A session with a transaction open or a command running is never closed to reopen it with new settings. */
+  'oxequery.session.busy': Record<string, never>
+  /** One connection already holds the most database connections it may hold for one role (the person or an agent). */
+  'oxequery.session.limit': { limit: number }
+  /** An agent sent BEGIN: an agent's session never keeps a transaction, so it was rolled back and refused. */
+  'oxequery.session.agentTransaction': Record<string, never>
   /** Mongo write (B15): a change on a production connection waits for the connection's name, typed. */
   'oxequery.mongo.confirmName': Record<string, never>
   /** Mongo write: a change that needs the person's confirmation (a delete). */
@@ -278,6 +286,7 @@ export const MESSAGE_CODES = [
   'incident.mcp.quarantined',
   'incident.database.busy',
   'incident.oxequery.timeout',
+  'incident.oxequery.restartDeferred',
   'incident.updater.failed',
   'incident.interaction.overBudget',
   'incident.app.journalReset',
@@ -329,6 +338,9 @@ export const MESSAGE_CODES = [
   'oxequery.sql.rowLock',
   'oxequery.sql.sessionRole',
   'oxequery.sql.tableLock',
+  'oxequery.session.busy',
+  'oxequery.session.limit',
+  'oxequery.session.agentTransaction',
   'oxequery.mongo.confirmName',
   'oxequery.mongo.confirm',
   'oxequery.mongo.production',
