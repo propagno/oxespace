@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Side-by-side review of a visual comparison run. Playwright writes, for each surface that differs, the baseline
  * (`*-expected.png`), what the run drew (`*-actual.png`) and the difference (`*-diff.png`) under test-results/. This
