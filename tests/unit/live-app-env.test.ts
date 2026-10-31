@@ -7,10 +7,13 @@ import { LIVE_APP_ENV, scrubLiveAppEnv, withoutLiveApp } from '../../e2e/helpers
 
 /** What an OXESpace terminal gives every process started in it (terminal executionEnvironment, mcp-sync, agent-launch). */
 const LIVE = ['OXESPACE_MCP_PORT', 'OXESPACE_MCP_TOKEN', 'OXESPACE_EXECUTION_ID', 'OXESPACE_EXECUTION_TOKEN', 'OXESPACE_AGENT_HOOK_PORT',
-  'OXESPACE_AGENT_HOOK_TOKEN', 'OXESPACE_WORKSPACE_ID', 'OXESPACE_MEMORY_RUN_ID', 'OXESPACE_PANE_BRIDGE']
+  'OXESPACE_AGENT_HOOK_TOKEN', 'OXESPACE_WORKSPACE_ID', 'OXESPACE_MEMORY_RUN_ID', 'OXESPACE_PANE_BRIDGE',
+  // memory.service.ts: the live run's capture path (homologation of #337), its capture owner and the memory auth token.
+  'OXESPACE_MEMORY_RUN', 'AI_MEMORY_CAPTURE_OWNER', 'AI_MEMORY_AUTH_TOKEN', 'AI_MEMORY_BACKFILL_ON_START']
 /** What tests set on purpose for the app they start. */
 const TEST_KNOBS = ['OXESPACE_E2E_MOCK_NATIVE', 'OXESPACE_DB_PATH', 'OXESPACE_DISABLE_SINGLE_INSTANCE', 'OXESPACE_LOCALE',
-  'OXESPACE_E2E_AGENT_STATE', 'OXESPACE_PACKAGED_EXECUTABLE', 'OXESPACE_WORKSPACE_IDS', 'PATH']
+  'OXESPACE_E2E_AGENT_STATE', 'OXESPACE_PACKAGED_EXECUTABLE', 'OXESPACE_WORKSPACE_IDS', 'OXESPACE_MEMORY_RUNNER',
+  'OXESPACE_EXPERIMENTAL_MEMORY', 'OXESPACE_AI_MEMORY_TEST_BINARY', 'PATH']
 
 describe('tests never reach the running OXESpace app (harness safety)', () => {
   it('matches every variable that connects a process to the running app, in any case, and no test knob', () => {
