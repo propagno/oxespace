@@ -53,7 +53,8 @@ function prefetchPanelChunks(): void {
     setTimeout(afterFirstPaint, 0)
   }
 }
-import { IntegrationsStatusChips } from './IntegrationsStatusChips'
+// The status chips poll GitHub and the MCP state after first paint; they are not part of it.
+const IntegrationsStatusChips = lazy(() => import('./IntegrationsStatusChips').then(module => ({ default: module.IntegrationsStatusChips })))
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import './CodeChrome.css'
 import { i18n } from '../../i18n'
@@ -506,7 +507,7 @@ function WorkspaceSurfaceComponent({
       <button type="button" className="workspace-topbar-action" aria-label={tc('workspace.topbar.activity')} title={tc('tools.background.detail')} aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
         <Activity size={14} aria-hidden="true" /><span>{tc('workspace.topbar.activityShort')}</span>
       </button>
-      <IntegrationsStatusChips workspace={workspace} isActive={isActive} />
+      <Suspense fallback={null}><IntegrationsStatusChips workspace={workspace} isActive={isActive} /></Suspense>
     </header>
   )
 
