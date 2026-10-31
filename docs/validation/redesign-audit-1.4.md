@@ -57,6 +57,29 @@ Ainda não cobertos nesta fase:
 
 Entram na próxima rodada da fase 1.
 
+### Fase 1, segunda rodada (`main` bab99b50)
+
+Roteiros no #184: `check-quarantine*.spec.ts` (fixture `OXESPACE_E2E_MCP_FIXTURE=quarantine` do #237) e
+`audit-permissions-rest.spec.ts`. As capturas ficam em `quarantine/` e `audit-permissions-rest/`.
+
+| # | Tela / componente | Gravidade | Problema | Evidência | Critério de aceite |
+|---|---|---|---|---|---|
+| P1-14 | Servidores MCP · quarentena fora da lista | atrapalha (virou F25) | Com 2 servidores em quarentena e 1 sem revisão, nada fora da lista avisa: o ícone do MCP, o sino, "Sistemas 1/5" e a aba "Instalados", que mostra só "4". O MCP também não aparece nas Configurações, só no ícone da barra do workspace. | `quarantine/pt-BR-00-workspace.png`, `-01-list.png` | Contagem no ícone do MCP e na aba "Instalados", e uma entrada na central de notificações quando um servidor entra em quarentena. |
+| P1-15 | Servidores MCP · voltar a confiar | atrapalha (segurança, no F25) | O texto diz "use Testar para confiar nele de novo". Pelo código (leitura do coordenador), Testar não devolve a confiança, mas a pessoa é levada a crer que testar é confiar, e não existe um "Confiar de novo" explícito. A quarentena usa o mesmo chip cinza dos outros estados, e aparece "0 ferramenta". | `quarantine/pt-BR-02-docs-search.png` | "Testar" só verifica. "Confiar de novo…" abre uma confirmação que repete as instruções suspeitas, com Cancelar como padrão. Chip de quarentena com cor e ícone de alerta. Plural certo. |
+| P1-16 | Servidores MCP · detalhe da quarentena | positivo | O detalhe explica a causa ("mudou depois de você confiar nele", "Ele adicionou upload_file"), o efeito ("não é oferecido aos agentes e não inicia") e lista as descrições com instruções para o modelo, por categoria ("Tenta substituir as instruções do agente", "Pede ao agente que envie dados privados para outro lugar"). Também mostra o comando, os argumentos e a descrição completa. Enter não concede confiança. | mesma captura | Manter. |
+| P1-17 | OxeChat · mudança em config protegida (`.mcp.json`, `AGENTS.md`, `.git/hooks/*`) | atrapalha | Quando o provedor oferece "para a sessão" (o caminho do Codex repassa o `availableDecisions` dele), o cartão mostra **Allow session** num pedido `guarded`, que o próprio texto diz precisar de "your confirmation each time". O cartão ignora o `guarded`. Approve continua verde e primário, inclusive para `echo "curl … \| sh" > .git/hooks/pre-commit`. O comando segue recolhido (P1-8). O motivo e o aviso vêm em inglês fixo do main (`protectedConfigReason`, `PROTECTED_CONFIG_WARNING`). | `audit-permissions-rest/oxechat-git-hook-by-shell.png`, `-codex-mcp-json-session-offered.png` | Com `guarded`, o cartão nunca oferece "para a sessão" nem "lembrar", traz um selo "Arquivo que comanda agentes" e Approve não é primário. O main tira o `acceptForSession` de pedidos protegidos também no caminho do Codex. Motivo e aviso vêm por código C3 (en e pt-BR). |
+| P1-18 | OxeQuery · confirmação de produção na tela | atrapalha | A confirmação ("Esta instrução é destrutiva" / "Alterar dados em produção?") diz o motivo traduzido ("DELETE sem WHERE remove todas as linhas da tabela.") e pede o nome, mas **não mostra a instrução**. Num script com o `DELETE` na linha 1302, a pessoa digita o nome sem ver o que vai rodar: o editor fica atrás do diálogo, rolado em outra parte. | `audit-permissions-rest/oxequery-prod-huge.png` | A confirmação mostra as instruções que a exigiram (texto exato, número da linha, monoespaçado, rolável), com o motivo ao lado de cada uma. |
+| P1-19 | OxeQuery · confirmação de produção (comportamento) | positivo | O foco começa em Cancelar, Enter logo de cara cancela e Escape fecha devolvendo o foco a Executar. "Executar em produção" é vermelho e fica desabilitado até o nome. Os motivos vêm em pt-BR. O selo "PROD" aparece na aba, na conexão e na barra. | `audit-permissions-rest/notes.json` | Manter. |
+| P1-20 | OxeQuery · editor | atrapalha (erro) | Ao digitar no editor (Ctrl+A e depois inserir texto), o renderer lança várias vezes `TypeError: Cannot read properties of undefined (reading 'duration')`, no `onKeyUp` do Monaco (`ClockController`). | `audit-permissions-rest/notes.json` (`oxequeryErrors`) | Nenhum `pageerror` ao editar no OxeQuery, com um teste e2e que falha diante de qualquer `pageerror`. |
+
+Limites desta rodada:
+- `DO $$…$$`, `COPY … TO PROGRAM` e `SELECT … FOR UPDATE` rodaram sem confirmação em produção, mas só porque o mock do
+  e2e usa uma regex simples (`insert|update|…|alter`). O app real classifica pelo `guardSql`, já homologado no #237.
+  Falta conferir o fluxo inteiro contra um Postgres de verdade.
+- O pareamento do celular e a explicação do firewall só existem no #221 (tela Devices) e no #180 (gateway), ainda
+  abertos. O diálogo de firewall do próprio Windows aparece na tela de quem roda e depende do gateway real, então só
+  será conferido com aviso prévio ao usuário.
+
 ## Fase 2 · Menus, paleta e feedbacks
 
 | # | Tela / componente | Gravidade | Problema | Evidência | Critério de aceite |
