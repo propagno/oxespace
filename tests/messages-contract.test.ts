@@ -4,6 +4,7 @@ import ptBR from '../shared/locales/pt-BR/main.json'
 import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
 import { APPROVAL_REFUSALS } from '../shared/types/approvals'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
+import { WORKSPACE_ROOT_REFUSALS } from '../shared/types/workspace'
 
 const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
 const placeholders = (text: string) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]).sort()
@@ -18,7 +19,15 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
   'thread.request.unanswered': [],
+  'thread.request.guardedDecision': [],
+  'thread.protectedConfig.instructions': ['path'],
+  'thread.protectedConfig.mcp': ['path'],
+  'thread.protectedConfig.hooks': ['path'],
+  'thread.protectedConfig.warning': [],
+  'thread.protectedConfig.rewritesTracked': ['command'],
   'app.connectivity.offline': [],
+  'thread.side.unavailable': [],
+  'thread.side.noSession': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
   'incident.ipc.handlerFailed': [],
@@ -30,6 +39,11 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.updater.failed': [],
   'incident.interaction.overBudget': [],
   'incident.app.journalReset': [],
+  'incident.window.externalRefused': [],
+  'incident.window.externalRateLimited': [],
+  'incident.window.externalOpenFailed': [],
+  'incident.window.openDenied': [],
+  'incident.window.navigationDenied': [],
   'diagnostics.bundle.fileTooLarge': [],
   'diagnostics.bundle.tooLarge': [],
   'bundle.file.snapshot': [],
@@ -73,6 +87,11 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'oxequery.sql.rowLock': [],
   'oxequery.sql.sessionRole': [],
   'oxequery.sql.tableLock': [],
+  'oxequery.mongo.confirmName': [],
+  'oxequery.mongo.confirm': [],
+  'oxequery.mongo.production': [],
+  'oxequery.mongo.deletes': [],
+  'oxequery.sql.ambiguousEscape': [],
   'oxepod.startFailed': ['reason'],
   'oxepost.network.notFound': [],
   'oxepost.network.refused': [],
@@ -94,6 +113,11 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.port.inUse': ['port'],
   'remote.network.noPrivateInterface': [],
   'remote.certificate.failed': [],
+  'workspace.root.empty': [],
+  'workspace.root.notAbsolute': ['path'],
+  'workspace.root.notFound': ['path'],
+  'workspace.root.notDirectory': ['path'],
+  'workspace.root.unreadable': ['path'],
   'approvals.title.agent': [],
   'approvals.title.oxequery': [],
   'approvals.title.previewAutomation': [],
@@ -186,6 +210,10 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of a pending answer its own code', () => {
     for (const refusal of THREAD_PENDING_REFUSALS) expect(isMessageCode(`thread.request.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of a workspace root its own code', () => {
+    for (const refusal of WORKSPACE_ROOT_REFUSALS) expect(isMessageCode(`workspace.root.${refusal}`), refusal).toBe(true)
   })
 
   it('gives every refusal of an approval answer its own code', () => {
