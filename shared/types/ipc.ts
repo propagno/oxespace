@@ -1,4 +1,4 @@
-import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from './workspace'
+import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace, WorkspaceCreateRefusal } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
 import type {
   CreateTaskInput,
@@ -367,6 +367,7 @@ export const IPC_CHANNELS = {
   },
   mcpInternal: {
     getStatus: 'mcp-internal:get-status',
+    toolGroups: 'mcp-internal:tool-groups', setToolGroupMode: 'mcp-internal:set-tool-group-mode',
     regenerateToken: 'mcp-internal:regenerate-token',
     captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
@@ -427,7 +428,8 @@ export const IPC_CHANNELS = {
 export interface WorkspaceApi {
   list(): Promise<Workspace[]>
   onChanged(listener: (workspace: Workspace) => void): () => void
-  create(input: CreateWorkspaceInput): Promise<Workspace>
+  /** The workspace, or the refusal of a root that is not an existing folder (nothing was written then). */
+  create(input: CreateWorkspaceInput): Promise<Workspace | WorkspaceCreateRefusal>
   setActive(id: string): Promise<Workspace>
   delete(id: string): Promise<void>
   closePane(id: string): Promise<Workspace | null>
@@ -717,7 +719,7 @@ export interface OxeApi {
   session: SessionApi
   skill: SkillApi
   mcp: McpApi
-  mcpInternal: McpInternalApi
+  mcpInternal: McpInternalApi & import('./mcp-tools').McpToolGroupsApi
   agentState: import('./agent-state').AgentStateApi
   browserPreview: import('./browser-preview').BrowserPreviewApi
   oxeContext: OxeContextApi
