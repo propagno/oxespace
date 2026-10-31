@@ -1263,6 +1263,8 @@
     "restartToDelete": "Restart the updated application to delete conversations."
   },
   "sections": {
+    "notKept_one": "Could not keep {{count}} section. The rest of the list is as before.",
+    "notKept_other": "Could not keep {{count}} sections. The rest of the list is as before.",
     "newSection": "New section…",
     "newTitle": "New section",
     "newDescription": "Group this project’s conversations under a name. Conversations stay where they are until you move them.",

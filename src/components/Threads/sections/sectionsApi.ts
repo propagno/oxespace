@@ -1,6 +1,9 @@
 import type { ThreadApi } from '../../../../shared/types/thread'
 import type { ThreadSections, ThreadSectionsRefusal } from '../../../../shared/types/thread-sections'
+import { i18n } from '../../../i18n'
+import { formatMainMessage } from '../../../i18n/mainMessage'
 import { useThreadStore } from '../../../store/thread.store'
+import { toast } from '../../../ui'
 import { normalizeSectionName, sameSectionName, SECTION_NAME_MAX, SectionError, type SectionedThread, type ThreadSection, type ThreadSectionsApi } from './sectionsContract'
 
 /**
@@ -75,7 +78,8 @@ function createStore(): Store {
     return queued(workspaceId, async () => {
       const next = change(structuredClone(await read(projectId)))
       const result = await required().saveSections(workspaceId, next)
-      if (!result.ok) throw REFUSAL_CODE[result.refusal] ? new SectionError(REFUSAL_CODE[result.refusal]!, { max: SECTION_NAME_MAX }) : Object.assign(new Error(result.message.code), { code: result.message.code })
+      // A name refusal is worded under the field; any other in main's words (C3), never as its code.
+      if (!result.ok) throw REFUSAL_CODE[result.refusal] ? new SectionError(REFUSAL_CODE[result.refusal]!, { max: SECTION_NAME_MAX }) : new Error(formatMainMessage(result.message))
       states.set(workspaceId, result.state)
       for (const listener of [...listeners]) listener({ projectId })
       return result.state
@@ -86,7 +90,12 @@ function createStore(): Store {
   async function migrate(projectId: string, workspaceId: string, stored: ThreadSections): Promise<ThreadSections> {
     const legacy = readLegacy(projectId)
     if (!legacy) return stored
-    if (stored.sections.length) { forgetLegacy(projectId); return stored }
+    if (stored.sections.length) {
+      // Main already keeps this project's sections: they win, and the local copy is not merged in.
+      forgetLegacy(projectId)
+      reportNotKept(legacy.sections.map(section => section.name))
+      return stored
+    }
     const sections = legacy.sections.filter(section => normalizeSectionName(section.name))
       .filter((section, index, list) => list.findIndex(other => sameSectionName(other.name, section.name)) === index)
       .sort((a, b) => a.order - b.order).map((section, order) => ({ id: section.id, name: normalizeSectionName(section.name)!, order, collapsed: section.collapsed === true }))
@@ -96,6 +105,8 @@ function createStore(): Store {
     // Kept locally when main refuses, so nothing is lost; the next start tries again.
     if (!result.ok) return stored
     forgetLegacy(projectId)
+    // An empty or invalid name, or a second section with the same name, is not carried over: said once.
+    reportNotKept(legacy.sections.filter(section => !ids.has(section.id)).map(section => section.name))
     return result.state
   }
 
@@ -174,6 +185,13 @@ function createStore(): Store {
       return () => { listeners.delete(listener) }
     }
   }
+}
+
+/** One notice for the sections a move to main left out; their names go to the console only. */
+function reportNotKept(names: readonly string[]): void {
+  if (!names.length) return
+  console.info('[OXESpace] sections not carried over from this window:', names)
+  toast({ title: i18n.t('thread:sections.notKept', { count: names.length }), intent: 'info' })
 }
 
 interface LegacyRecord { sections: Array<{ id: string; name: string; order: number; collapsed?: boolean }>; assignments: Record<string, string> }

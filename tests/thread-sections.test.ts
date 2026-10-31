@@ -5,7 +5,9 @@ import type { ThreadSections } from '../shared/types/thread-sections'
 import { LEGACY_STORAGE_PREFIX, projectAssignments, resetSectionsForTests, sectionsApi } from '../src/components/Threads/sections/sectionsApi'
 import { normalizeSectionName, sameSectionName, SECTION_NAME_MAX, sectionErrorCode, SectionError, type ThreadSection } from '../src/components/Threads/sections/sectionsContract'
 import { groupBySection, moveSectionIds } from '../src/components/Threads/sections/sectionsModel'
+import { sectionErrorText } from '../src/components/Threads/sections/useThreadSections'
 import { useThreadStore } from '../src/store/thread.store'
+import { useToasts } from '../src/ui/Toast'
 
 const thread = (id: string, projectId: string, extra: Record<string, unknown> = {}): ConversationThread =>
   ({ id, workspaceId: `thread:${projectId}`, projectId, rootPath: '/repo', provider: 'claude', title: id, pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1, ...extra }) as ConversationThread
@@ -27,7 +29,7 @@ function setup() {
   return { api: sectionsApi(), main, bridge }
 }
 
-beforeEach(() => { localStorage.clear(); resetSectionsForTests() })
+beforeEach(() => { localStorage.clear(); resetSectionsForTests(); useToasts.setState({ items: [] }) })
 afterEach(() => { delete (window as unknown as { oxe?: unknown }).oxe })
 
 const rejection = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => sectionErrorCode(error))
@@ -95,7 +97,10 @@ describe('sections over the main process', () => {
     bridge.saveSections.mockResolvedValueOnce({ ok: false, refusal: 'nameDuplicate', message: { code: 'thread.sections.nameDuplicate', params: {} } } as never)
     expect(await rejection(api.createSection({ projectId: 'p1', name: 'Ideas' }))).toBe('thread.section.duplicateName')
     bridge.saveSections.mockResolvedValueOnce({ ok: false, refusal: 'tooMany', message: { code: 'thread.sections.tooMany', params: {} } } as never)
-    await expect(api.createSection({ projectId: 'p1', name: 'More' })).rejects.toMatchObject({ code: 'thread.sections.tooMany' })
+    const refused = await api.createSection({ projectId: 'p1', name: 'More' }).then(() => null, (cause: unknown) => cause)
+    // Said in main's words, never as its code.
+    expect(sectionErrorText(refused)).toMatch(/^A workspace/)
+    expect(sectionErrorText(refused)).not.toMatch(/thread\.sections?\./)
     expect((await api.listSections('p1')).map(section => section.name)).toEqual(['Work'])
   })
 
@@ -175,6 +180,8 @@ describe('sections kept in this window before main kept them', () => {
     expect((await api.listSections('p1')).map(section => [section.name, section.collapsed])).toEqual([['Work', true]])
     // Main keeps assignments of its own conversations only; a duplicate name is not carried over.
     expect(main.get('thread:p1')).toEqual({ sections: [{ id: 'work', name: 'Work', order: 0, collapsed: true }], assignments: { a: 'work' } })
+    // The duplicate name was left out, and said once.
+    expect(useToasts.getState().items.map(item => item.title)).toEqual(['Could not keep 1 section. The rest of the list is as before.'])
     expect(localStorage.getItem(`${LEGACY_STORAGE_PREFIX}p1`)).toBeNull()
     resetSectionsForTests()
     await sectionsApi().listSections('p1')
@@ -186,6 +193,7 @@ describe('sections kept in this window before main kept them', () => {
     const { api, main, bridge } = setup()
     main.set('thread:p1', { sections: [{ id: 'main', name: 'From main', order: 0, collapsed: false }], assignments: {} })
     expect((await api.listSections('p1')).map(section => section.name)).toEqual(['From main'])
+    expect(useToasts.getState().items.map(item => item.title)).toEqual(['Could not keep 2 sections. The rest of the list is as before.'])
     expect(bridge.saveSections).not.toHaveBeenCalled()
     expect(localStorage.getItem(`${LEGACY_STORAGE_PREFIX}p1`)).toBeNull()
   })
