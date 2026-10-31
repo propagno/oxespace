@@ -226,7 +226,8 @@ describe('nested conversations: what archiving does to a child (review fixes)', 
     for (const id of [live, stored]) {
       const thread = manager.read(id).thread
       expect(thread.archived).toBe(true)
-      expect(thread.status).toBe('idle')
+      // The live child's turn was interrupted on the way, so it reads as any interrupted turn does; neither waits any more.
+      expect(thread.status).toBe(id === live ? 'interrupted' : 'idle')
       expect(persisted(manager, id)).toEqual([['cancelled', 'interrupted']])
       expect(manager.read(id).events.some(event => event.type === 'request-resolved' && event.id === `ask-${id}` && event.state === 'cancelled')).toBe(true)
       expect(manager.readForRenderer(id).pendingRequests).toEqual([])
