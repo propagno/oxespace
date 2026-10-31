@@ -1984,5 +1984,10 @@
     "requests_many": "{{count}} requisições",
     "requests_other": "{{count}} requisições",
     "error": "Erro do terminal"
+  },
+  "reviewComments": {
+    "delete": "Excluir comentário",
+    "deleted": "Comentário excluído",
+    "undo": "Desfazer"
   }
 }
