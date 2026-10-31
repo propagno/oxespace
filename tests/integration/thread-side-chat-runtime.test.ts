@@ -10,7 +10,7 @@ import type { ConversationThread, ThreadSideEvent } from '../../shared/types/thr
 
 const hooks = vi.hoisted(() => ({
   launches: [] as { command: string; args: string[]; cwd: string; env: Record<string, string>; writes: Record<string, unknown>[]; closed: boolean }[],
-  codexFork: (_params: Record<string, unknown>): { result?: unknown; error?: string } => ({ result: { thread: { id: 'fork-codex', ephemeral: true }, model: 'gpt' } })
+  codexFork: (params: Record<string, unknown>): { result?: unknown; error?: string } => ({ result: { thread: { id: 'fork-codex', ephemeral: true }, model: 'gpt', approvalPolicy: params.approvalPolicy } })
 }))
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir(), getAppPath: () => tmpdir(), getVersion: () => '0.0.0', isPackaged: false }, BrowserWindow: { getAllWindows: () => [] } }))
 vi.mock('../../electron/main/services/conversation/process-transport', () => ({
@@ -49,6 +49,7 @@ const previousHome = process.env.CLAUDE_CONFIG_DIR
 
 beforeEach(async () => {
   hooks.launches.length = 0
+  hooks.codexFork = params => ({ result: { thread: { id: 'fork-codex', ephemeral: true }, model: 'gpt', approvalPolicy: params.approvalPolicy } })
   db = openInMemoryDatabase()
   db.prepare("INSERT INTO internal_mcp_meta(id, port, token, generated_at) VALUES('singleton', 4555, 'secret-token', 1)").run()
   root = await mkdtemp(join(tmpdir(), 'oxe-side-root-'))
@@ -130,16 +131,18 @@ describe('side chat runtime (B1.2)', () => {
   it('forks Codex as an ephemeral copy with the read-only lookups and never resumes the main thread', async () => {
     const { createThreadSideChats } = await import('../../electron/main/services/conversation/thread-side-runtime')
     const thread = main('codex'), before = changes()
-    hooks.codexFork = () => ({ result: { thread: { id: 'fork-codex', ephemeral: true }, model: 'gpt' } })
-    const chats = createThreadSideChats(db, '/bin/oxespace-mcp.cjs', manager(thread).manager)
+    hooks.codexFork = params => ({ result: { thread: { id: 'fork-codex', ephemeral: true }, model: 'gpt', approvalPolicy: params.approvalPolicy } })
+    // The platform is injected: a Linux host here, Windows in the next test.
+    const chats = createThreadSideChats(db, '/bin/oxespace-mcp.cjs', manager(thread).manager, 'linux')
     const opened = await chats.open(thread.id, () => {})
     expect(opened.ok).toBe(true)
     const launch = hooks.launches[0]
     const methods = launch.writes.map(write => write.method)
     expect(methods).toContain('thread/fork')
     expect(methods).not.toContain('thread/resume')
-    expect(launch.writes.find(write => write.method === 'thread/fork')?.params).toMatchObject({ threadId: 'native-codex', ephemeral: true, sandbox: 'read-only',
+    expect(launch.writes.find(write => write.method === 'thread/fork')?.params).toMatchObject({ threadId: 'native-codex', ephemeral: true, sandbox: 'read-only', approvalPolicy: 'on-request',
       config: { 'mcp_servers.oxespace-delegation.default_tools_approval_mode': 'prompt' } })
+    expect((launch.writes.find(write => write.method === 'thread/fork')!.params as { config: Record<string, unknown> }).config).not.toHaveProperty('approval_policy')
     // Only the read-only lookups this conversation has are approved, each by name; the bridge itself still asks.
     const forkConfig = launch.writes.find(write => write.method === 'thread/fork')!.params as { config: Record<string, unknown> }
     const approved = Object.entries(forkConfig.config).filter(([, value]) => value === 'approve').map(([key]) => key.split('.')[3])
@@ -154,10 +157,26 @@ describe('side chat runtime (B1.2)', () => {
     expect(launch.closed).toBe(true)
   })
 
+  it('on Windows forks Codex with the untrusted policy, and refuses when the app-server does not report it back', async () => {
+    const { createThreadSideChats } = await import('../../electron/main/services/conversation/thread-side-runtime')
+    const thread = main('codex')
+    const chats = createThreadSideChats(db, '/bin/oxespace-mcp.cjs', manager(thread).manager, 'win32')
+    expect((await chats.open(thread.id, () => {})).ok).toBe(true)
+    const fork = hooks.launches[0].writes.find(write => write.method === 'thread/fork')!.params as { approvalPolicy: string; config: Record<string, unknown> }
+    expect(fork.approvalPolicy).toBe('untrusted')
+    expect(fork.config.approval_policy).toBe('untrusted')
+    await chats.stop()
+    // A version that answers with another policy cannot be made to ask before every command: unavailable, and the copy is closed.
+    hooks.codexFork = () => ({ result: { thread: { id: 'fork-codex', ephemeral: true }, model: 'gpt', approvalPolicy: 'on-request' } })
+    const strict = createThreadSideChats(db, '/bin/oxespace-mcp.cjs', manager(thread).manager, 'win32')
+    expect(await strict.open(thread.id, () => {})).toEqual({ ok: false, message: { code: 'thread.side.unavailable', params: {} } })
+    expect(hooks.launches[1].closed).toBe(true)
+  })
+
   it('answers unavailable when the installed Codex cannot fork, and noSession before the first message', async () => {
     const { createThreadSideChats } = await import('../../electron/main/services/conversation/thread-side-runtime')
     hooks.codexFork = () => ({ error: 'Method not found' })
-    const chats = createThreadSideChats(db, '/bin/oxespace-mcp.cjs', manager(main('codex')).manager)
+    const chats = createThreadSideChats(db, '/bin/oxespace-mcp.cjs', manager(main('codex')).manager, 'linux')
     expect(await chats.open('thread-A', () => {})).toEqual({ ok: false, message: { code: 'thread.side.unavailable', params: {} } })
     expect(hooks.launches[0].closed).toBe(true)
     const fresh = createThreadSideChats(db, '/bin/oxespace-mcp.cjs', manager(main('codex', { nativeSessionId: null })).manager)

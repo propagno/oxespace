@@ -25,7 +25,7 @@ function claudeFixture(fork = { sessionId: FORK, args: ['--disallowedTools', ...
 
 const USER_SERVERS = { 'oxespace-delegation': { command: 'node' }, userwriter: { command: 'node', default_tools_approval_mode: 'auto', tools: { write_marker: { approval_mode: 'approve' } } } }
 
-function codexFixture(fork: (params: Record<string, unknown>) => { result?: unknown; error?: string }, options: { version?: string; servers?: unknown; statuses?: unknown[]; config?: unknown; lookups?: string[] } = {}) {
+function codexFixture(fork: (params: Record<string, unknown>) => { result?: unknown; error?: string }, options: { version?: string; servers?: unknown; statuses?: unknown[]; config?: unknown; lookups?: string[]; platform?: NodeJS.Platform } = {}) {
   let receive: (chunk: Uint8Array) => void = () => {}
   const requests: { method: string; params: Record<string, unknown> }[] = []
   const responses: Record<string, unknown>[] = []
@@ -65,7 +65,8 @@ function codexFixture(fork: (params: Record<string, unknown>) => { result?: unkn
     if (accepted) ran.push(`${server}/${tool}`)
     return { asked: true, ran: accepted }
   }
-  return { adapter: new CodexConversationAdapter(transport, { ephemeral: true, lookups: options.lookups }), requests, responses, transport, serverRequest, callTool, ran }
+  // The platform is injected, never read from the machine the tests run on: Linux unless a test says otherwise.
+  return { adapter: new CodexConversationAdapter(transport, { ephemeral: true, lookups: options.lookups, platform: options.platform ?? 'linux' }), requests, responses, transport, serverRequest, callTool, ran }
 }
 
 function thread(overrides: Partial<ConversationThread> = {}): ConversationThread {
@@ -208,6 +209,38 @@ describe('side chat: Codex fork', () => {
     expect(f.responses.filter(response => (response.result as { action?: string } | undefined)?.action === 'decline')).toHaveLength(3)
     expect(s.events.some(event => event.event.type === 'request')).toBe(false)
     await s.chats.stop()
+  })
+
+  it('on Windows forces the untrusted policy, so every shell command asks and is declined', async () => {
+    const f = codexFixture(params => ({ result: { thread: { id: 'fork-A', ephemeral: true }, approvalPolicy: params.approvalPolicy } }), { platform: 'win32' })
+    const s = sideFixture(thread({ provider: 'codex' }))
+    vi.mocked(s.host.connect).mockResolvedValueOnce(f.adapter)
+    const opened = await s.chats.open('thread-A', s.emit)
+    if (!opened.ok) throw Error('expected a side chat')
+    const fork = f.requests.find(request => request.method === 'thread/fork')!.params
+    expect(fork.approvalPolicy).toBe('untrusted')
+    expect((fork.config as Record<string, unknown>).approval_policy).toBe('untrusted')
+    await s.chats.send(opened.side.sideId, 'List the files')
+    f.serverRequest(950, 'item/commandExecution/requestApproval', { threadId: 'fork-A', turnId: 't', itemId: 'cmd', command: 'dir', cwd: 'C:\\project', reason: 'List the project' })
+    await vi.waitFor(() => expect(f.responses).toContainEqual(expect.objectContaining({ id: 950, result: expect.objectContaining({ decision: 'decline' }) })))
+    expect(s.events.some(event => event.event.type === 'request' || event.event.type === 'approval')).toBe(false)
+    await s.chats.stop()
+  })
+
+  it('elsewhere keeps the on-request policy and no approval_policy override', async () => {
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true }, approvalPolicy: 'on-request' } }), { platform: 'darwin' })
+    await start(f.adapter, 'native-A')
+    const fork = f.requests.find(request => request.method === 'thread/fork')!.params
+    expect(fork.approvalPolicy).toBe('on-request')
+    expect(fork.config as Record<string, unknown>).not.toHaveProperty('approval_policy')
+    await f.adapter.dispose()
+  })
+
+  it('refuses to open on Windows when the app-server does not report the untrusted policy back', async () => {
+    for (const reported of ['on-request', undefined]) {
+      const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true }, ...(reported ? { approvalPolicy: reported } : {}) } }), { platform: 'win32' })
+      await expect(start(f.adapter, 'native-A')).rejects.toBeInstanceOf(CodexForkUnsupportedError)
+    }
   })
 
   it('declines a user MCP tool call the copy asks about, and shows nothing', async () => {

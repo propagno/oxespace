@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgentInput, ThreadEvent, ThreadConfiguration, ThreadCommandResult, ThreadFailure, ThreadUsage, ThreadAttachment, ThreadQueuedInput, ThreadRequest, ThreadRequestResponse } from '../../../../shared/types/thread'
 import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
-import { codexSupportsSideFork, sideForkApprovalOverrides, uncoveredMcpServers } from './codex-side-fork'
+import { codexSupportsSideFork, sideForkApprovalOverrides, sideForkPolicyHonoured, uncoveredMcpServers } from './codex-side-fork'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { normalizeCodexTokenUsage } from './thread-context'
@@ -103,8 +103,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   /**
    * `fork` (side chat, B1.2): start as an ephemeral copy of the session instead of resuming it. `lookups` are the
    * OXESpace read-only tools that may run there without asking; every other MCP tool asks (see codex-side-fork.ts).
+   * `platform` decides the approval policy of the copy (every shell command asks on Windows); it defaults to this one.
    */
-  constructor(private readonly transport: ConversationTransport, private readonly fork?: { ephemeral: true; lookups?: readonly string[] }) {}
+  constructor(private readonly transport: ConversationTransport, private readonly fork?: { ephemeral: true; lookups?: readonly string[]; platform?: NodeJS.Platform }) {}
 
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
     if (this.rpc || this.disposed) throw new Error('Conversation adapter cannot be started twice')
@@ -176,8 +177,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private async startFork(rpc: AgentRpcPeer, context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void, handshake: unknown): Promise<void> {
     if (!context.nativeSessionId) throw new CodexForkUnsupportedError('There is no session to copy')
     if (!codexSupportsSideFork(handshake)) throw new CodexForkUnsupportedError('This Codex version is older than the one verified for side chats')
-    const approvals = sideForkApprovalOverrides(await rpc.request('config/read', { cwd: context.rootPath, includeLayers: false }).catch(() => null), this.fork?.lookups)
+    const approvals = sideForkApprovalOverrides(await rpc.request('config/read', { cwd: context.rootPath, includeLayers: false }).catch(() => null), this.fork?.lookups, this.fork?.platform ?? process.platform)
     if (!approvals) throw new CodexForkUnsupportedError('An MCP server could not be set to ask before every tool call')
+    if (approvals.approvalPolicy) this.approvalPolicy = approvals.approvalPolicy
     let response: Record<string, unknown>
     try {
       response = record(await rpc.request('thread/fork', { threadId: context.nativeSessionId, ephemeral: true, excludeTurns: true, cwd: context.rootPath,
@@ -196,6 +198,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       await rpc.request('thread/delete', { threadId: this.threadId }).catch(() => {})
       throw new CodexForkUnsupportedError('This Codex version cannot keep a copy off disk')
     }
+    // On Windows the copy must confirm it asks before every shell command; a version that ignores the policy is refused.
+    if (!sideForkPolicyHonoured(response, approvals.approvalPolicy)) throw new CodexForkUnsupportedError('The app-server did not apply the approval policy the copy needs on this platform')
     // The servers the copy really has: one the override did not reach (a plugin's, an app connector) refuses it.
     const statuses: unknown[] = []
     for (let cursor: string | null = null, page = 0; page < 20; page++) {

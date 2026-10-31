@@ -23,7 +23,7 @@ export async function sideChatMcpTools(db: AppDatabase, thread: ConversationThre
  * id OXESpace creates, Codex forks an ephemeral thread. Neither gets the main conversation's MCP lease, memory run or
  * hooks; the OXESpace bridge is limited to read-only lookups and third-party servers are left out.
  */
-export function createThreadSideChats(db: AppDatabase, bridge: string, manager: ThreadManager): ThreadSideChats {
+export function createThreadSideChats(db: AppDatabase, bridge: string, manager: ThreadManager, platform: NodeJS.Platform = process.platform): ThreadSideChats {
   return new ThreadSideChats({
     readThread: id => manager.readThread(id),
     subscribe: (id, listener) => manager.subscribe(id, listener),
@@ -42,7 +42,7 @@ export function createThreadSideChats(db: AppDatabase, bridge: string, manager: 
       return thread.provider === 'claude'
         ? new ClaudeConversationAdapter((args, cwd) => new AgentProcessTransport(profile.command, launch(args), cwd, env, diagnostic),
           { sessionId: forkId, args: ['--disallowedTools', ...SIDE_CHAT_DISALLOWED_TOOLS] })
-        : new CodexConversationAdapter(new AgentProcessTransport(profile.command, launch(['app-server', '--listen', 'stdio://']), thread.rootPath, env, diagnostic), { ephemeral: true, lookups: tools })
+        : new CodexConversationAdapter(new AgentProcessTransport(profile.command, launch(['app-server', '--listen', 'stdio://']), thread.rootPath, env, diagnostic), { ephemeral: true, lookups: tools, platform })
     },
     // Codex's copy is ephemeral and never reaches disk; Claude's is the one `<forkId>.jsonl` beside the session.
     discard: async (thread, forkId, keep) => { if (thread.provider === 'claude') await removeClaudeSessionCopy({ rootPath: thread.rootPath, forkId, keep }) }

@@ -8,6 +8,10 @@
  *    `plugins = { <id> = { enabled = false } }` for every configured plugin, and `features.apps = false`.
  * An older version, a name the dotted override cannot address, or a server the copy still reports that the override did
  * not reach means the copy cannot be made safe, and the side chat is reported as unavailable.
+ *
+ * On Windows the Codex sandbox is weaker than on the other platforms, so the copy also forces `approval_policy =
+ * "untrusted"`: every shell command asks, and the side chat declines it. The fork's answer must report that policy
+ * back, or the side chat is reported as unavailable there.
  */
 
 import { THREAD_READ_ONLY_MCP_TOOLS } from './thread-mcp'
@@ -46,14 +50,19 @@ export function codexSupportsSideFork(handshake: unknown): boolean {
  *
  * The one exemption: on the OXESpace bridge, each of `lookups` that is in THREAD_READ_ONLY_MCP_TOOLS is approved by
  * name. The bridge itself stays at "prompt", so any other OXESpace tool still asks and is declined.
+ *
+ * `approvalPolicy` is the policy the fork must run with: "untrusted" on Windows (also set in `config`), none elsewhere,
+ * where the adapter's own policy stands.
  */
-export function sideForkApprovalOverrides(configRead: unknown, lookups: readonly string[] = []): { config: Record<string, unknown>; servers: Set<string> } | null {
+export function sideForkApprovalOverrides(configRead: unknown, lookups: readonly string[] = [], platform: NodeJS.Platform = process.platform): { config: Record<string, unknown>; servers: Set<string>; approvalPolicy: 'untrusted' | null } | null {
   const effective = record(record(configRead).config)
   // No answer means nothing is known about the servers; an answer without any is an empty list.
   if (!Object.keys(effective).length || (effective.mcp_servers != null && typeof effective.mcp_servers !== 'object')) return null
   const servers = record(effective.mcp_servers)
   const plugins = Object.keys(record(effective.plugins))
-  const config: Record<string, unknown> = { 'features.apps': false, ...(plugins.length ? { plugins: Object.fromEntries(plugins.map(id => [id, { enabled: false }])) } : {}) }
+  const approvalPolicy = sideForkApprovalPolicy(platform)
+  const config: Record<string, unknown> = { 'features.apps': false, ...(approvalPolicy ? { approval_policy: approvalPolicy } : {}),
+    ...(plugins.length ? { plugins: Object.fromEntries(plugins.map(id => [id, { enabled: false }])) } : {}) }
   for (const [server, value] of Object.entries(servers)) {
     if (!NAME.test(server)) return null
     config[`mcp_servers.${server}.default_tools_approval_mode`] = 'prompt'
@@ -65,7 +74,17 @@ export function sideForkApprovalOverrides(configRead: unknown, lookups: readonly
   if (OXESPACE_BRIDGE_SERVER in servers) {
     for (const tool of lookups) if (THREAD_READ_ONLY_MCP_TOOLS.includes(tool) && NAME.test(tool)) config[`mcp_servers.${OXESPACE_BRIDGE_SERVER}.tools.${tool}.approval_mode`] = 'approve'
   }
-  return { config, servers: new Set(Object.keys(servers)) }
+  return { config, servers: new Set(Object.keys(servers)), approvalPolicy }
+}
+
+/** The approval policy a side chat copy must run with on this platform: every shell command asks on Windows. */
+export function sideForkApprovalPolicy(platform: NodeJS.Platform): 'untrusted' | null {
+  return platform === 'win32' ? 'untrusted' : null
+}
+
+/** Whether the fork's answer reports the policy the copy was asked for; a version that ignores it cannot be made safe. */
+export function sideForkPolicyHonoured(forkResponse: unknown, required: 'untrusted' | null): boolean {
+  return required === null || record(forkResponse).approvalPolicy === required
 }
 
 /** Servers the fork reports that the override did not cover; any one of them refuses the side chat. */
