@@ -110,7 +110,7 @@ describe('MongoWorkbench', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'items' }))
     await screen.findByText('_id: 507f1f77bcf86cd799439011')
     api.on('mongo.write', (input: Record<string, unknown>) => {
-      if (input.confirmName !== 'Shop prod') throw { ...refusal('confirm-name', 'Type its name.', ['English for logs']), reasonCodes: [{ code: 'oxequery.mongo.production', params: {} }] }
+      if (input.confirmName !== 'Shop prod') throw { ...refusal('confirm-name', 'Type its name.', ['English for logs']), codes: [{ code: 'oxequery.mongo.production', params: {} }] }
       return { matched: 1, modified: 1, deleted: 0 }
     })
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit document' })[0]!)

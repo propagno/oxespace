@@ -605,6 +605,24 @@ export type ThreadPendingResponseResult =
   | { ok: true; threadId: string; requestId: string; resolution: ThreadRequestResolution }
   | { ok: false; refusal: ThreadPendingRefusal; message: import('../messages').MainMessage }
 
+/**
+ * A side chat (B1.2): an ephemeral read-only copy of a conversation's native session, to ask about it without changing it.
+ * It never writes to the main conversation, is not saved, and is thrown away when closed, when the main conversation
+ * closes, and when the app quits.
+ */
+export interface ThreadSideChat {
+  sideId: string
+  threadId: string
+  provider: ThreadProvider
+  readOnly: true
+}
+
+/** What a side chat sends to the window: the same events a conversation shows, usage included so its cost is visible. */
+export interface ThreadSideEvent { sideId: string; event: ThreadEvent }
+
+/** Opening refused: the provider cannot fork its session, or the conversation has no native session yet. */
+export type ThreadSideOpenResult = { ok: true; side: ThreadSideChat } | { ok: false; message: import('../messages').MainMessage }
+
 export interface ThreadApi {
   artifact?(id: string, artifactId: string): Promise<ThreadArtifact>
   exportPortable?(id: string): Promise<string | null>
@@ -623,6 +641,11 @@ export interface ThreadApi {
   list(): Promise<ConversationThread[]>
   /** Requests still pending in every conversation that waits for approval. Read-only. */
   pendingRequestsAll?(): Promise<ThreadPendingRequestSummary[]>
+  /** Side chat (B1.2): open a read-only copy, send to it, close it. Nothing reaches the main conversation. */
+  sideOpen?(id: string): Promise<ThreadSideOpenResult>
+  sideSend?(sideId: string, text: string): Promise<void>
+  sideClose?(sideId: string): Promise<void>
+  onSideEvent?(listener: (event: ThreadSideEvent) => void): () => void
   /** Answers one of those requests by id and generation. Approvals stay with the person: never an MCP tool. */
   respondPending?(input: ThreadPendingResponseInput): Promise<ThreadPendingResponseResult>
   /**

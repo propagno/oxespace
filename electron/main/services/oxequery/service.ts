@@ -100,7 +100,7 @@ export function toErrorInfo(error: unknown): OxeQueryErrorInfo {
   if (error instanceof OxeQueryError) {
     return {
       code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}), ...error.detail,
-      ...(error.codes.message ? { messageCode: error.codes.message } : {}), ...(error.codes.reasons?.length ? { reasonCodes: error.codes.reasons } : {})
+      ...(error.codes.message ? { messageCode: error.codes.message } : {}), ...(error.codes.reasons?.length ? { codes: [...(error.detail.codes ?? []), ...error.codes.reasons] } : {})
     }
   }
   if (error instanceof ContainerRuntimeError) return { code: error.code, message: error.message }

@@ -2,7 +2,7 @@ import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import { policyBlockedMessage, type PolicyAction, type PolicyDecision } from '../../../../shared/policy'
 import { dbWriteResource, effectiveSafety, nameMatches, type EnvironmentLimits } from '../../../../shared/oxequerySafety'
 import type { ConnectionSafety } from '../../../../shared/types/oxequery'
-import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
+import { guardCodes, OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql, isMutating } from './sql-guard'
 
 /**
@@ -52,10 +52,10 @@ export function guardConnection(resolved: ResolvedConnection, name: string, limi
 export function checkWrite(guarded: Guarded, sql: string, typedName: unknown): void {
   const verdict = guardSql(sql)
   if (!isMutating(verdict)) return
-  if (guarded.blocked) throw new OxeQueryError('read-only', guarded.blocked, verdict.reasons)
+  if (guarded.blocked) throw new OxeQueryError('read-only', guarded.blocked, verdict.reasons, guardCodes(verdict))
   if (guarded.safety.readOnly) return
   if (guarded.safety.typedConfirmation && !nameMatches(typedName, guarded.name)) {
-    throw new OxeQueryError('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.', verdict.reasons)
+    throw new OxeQueryError('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.', verdict.reasons, guardCodes(verdict))
   }
 }
 
