@@ -47,8 +47,9 @@ export interface McpServer {
   workspaceId: string | null
   name: string
   /**
-   * `serverKey(name)`: the server's key in a conversation and in `.mcp.json`, and the `server` of its tool rules (B7.3),
-   * so the window can group rules under its servers. Main fills it on every server it returns.
+   * The server's key in a conversation and in `.mcp.json`, and the `server` of its tool rules (B7.3), so the window can
+   * group rules under its servers: `serverKey(name)`, with `-2`, `-3`… when two servers of the scope (the global ones
+   * with the workspace's) normalize alike, in creation order. Main fills it on every server it returns.
    */
   key?: string
   transport: McpTransport

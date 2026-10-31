@@ -100,7 +100,7 @@ export const isMcpToolRuleRefusal = (message: unknown): message is McpToolRuleRe
 export interface McpToolRule {
   /**
    * The MCP server's key, `oxespace-delegation` for OXESpace's own tools. A configured server's is its `McpServer.key`
-   * (`serverKey(name)`), so the window can group rows under the servers it lists.
+   * (`serverKey(name)`, suffixed when two servers normalize alike), so the window can group rows under the servers it lists.
    */
   server: string
   tool: string
