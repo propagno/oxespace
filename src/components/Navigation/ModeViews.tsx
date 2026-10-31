@@ -52,14 +52,14 @@ const VIEWS = { data: OxeQueryView, pods: OxePodView, post: OxePostView }
 /** The Thread sidebar's frame while its chunk loads or fails: the skeleton, and an error that stays in the sidebar. */
 export function ThreadSidebarBoundary({ children }: { children: ReactNode }): ReactElement {
   const { t } = useTranslation('thread')
-  return <ErrorBoundary compact label={t('sidebar.conversations')} onReset={ThreadSidebar.retry}>
+  return <ErrorBoundary id="sidebar" component="ThreadSidebar" compact label={t('sidebar.conversations')} onReset={ThreadSidebar.retry}>
     <Suspense fallback={<ViewSidebarSkeleton view="thread" />}>{children}</Suspense>
   </ErrorBoundary>
 }
 
 export function DataSidebar({ view }: { view: DataView }): ReactElement {
   const Sidebar = SIDEBARS[view]
-  return <ErrorBoundary compact label={NAMES[view]} onReset={Sidebar.retry}>
+  return <ErrorBoundary id="sidebar" component={NAMES[view]} compact label={NAMES[view]} onReset={Sidebar.retry}>
     <Suspense fallback={<ViewSidebarSkeleton view={view} />}><Sidebar /></Suspense>
   </ErrorBoundary>
 }
