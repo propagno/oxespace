@@ -137,3 +137,62 @@ describe('SQL risk: dollar quotes', () => {
     expect(guardSql('SELECT 1 AS x$$; DELETE FROM users; --$$').kind).toBe('destructive')
   })
 })
+
+/**
+ * Homologation (#184): `SELECT '\''; DELETE FROM users` read as one harmless statement. With standard_conforming_strings
+ * off, `\'` escapes the quote and the DELETE runs. A string holding a backslash is read both ways; the worse one wins.
+ * The SQL each case sends is in its comment, without TypeScript's own escaping.
+ */
+describe('a backslash in an ordinary string (legacy escapes)', () => {
+  const ambiguous = (sql: string) => (guardSql(sql).codes ?? []).some(code => code.code === 'oxequery.sql.ambiguousEscape')
+
+  it('grades the hidden statement destructive and says why', () => {
+    // SELECT '\''; DELETE FROM users
+    const verdict = guardSql("SELECT '\\''; DELETE FROM users")
+    expect(verdict.kind).toBe('destructive')
+    expect(verdict.statements).toBe(2)
+    expect(verdict.reasons).toContainEqual(expect.stringMatching(/standard_conforming_strings off/))
+    expect(ambiguous("SELECT '\\''; DELETE FROM users")).toBe(true)
+  })
+
+  it.each([
+    // SELECT 'it''s'
+    ["SELECT 'it''s'", 1],
+    // SELECT 'C:\path'
+    ["SELECT 'C:\\path'", 1],
+    // SELECT 'C:\\path\\' (each backslash escaped, so both readings end the string at the last quote)
+    ["SELECT 'C:\\\\path\\\\'", 1],
+    // SELECT 'C:\path\' (a backslash right before the closing quote: the legacy reading runs the string to the end of
+    // the text, which is still one read)
+    ["SELECT 'C:\\path\\'", 1],
+    // SELECT '\'' with nothing after it
+    ["SELECT '\\''", 1]
+  ])('leaves %j a read of %i statement, with no ambiguity code', (sql, statements) => {
+    const verdict = guardSql(sql)
+    expect(verdict.kind).toBe('read')
+    expect(verdict.statements).toBe(statements)
+    expect(ambiguous(sql)).toBe(false)
+  })
+
+  it('keeps E strings as they were: their backslashes always escape', () => {
+    // SELECT E'\''
+    expect(guardSql("SELECT E'\\''")).toMatchObject({ kind: 'read', statements: 1 })
+    // SELECT E'\''; DELETE FROM users
+    const verdict = guardSql("SELECT E'\\''; DELETE FROM users")
+    expect(verdict.kind).toBe('destructive')
+    expect(ambiguous("SELECT E'\\''; DELETE FROM users")).toBe(false)
+  })
+
+  it('never treats a U& string\'s backslash as a quote escape', () => {
+    // SELECT U&'d\0061t\+000061'
+    expect(guardSql("SELECT U&'d\\0061t\\+000061'")).toMatchObject({ kind: 'read', statements: 1 })
+    expect(ambiguous("SELECT U&'d\\0061t\\+000061'")).toBe(false)
+  })
+
+  it('reads a function hidden the same way as reaching outside the database', () => {
+    // SELECT '\''; SELECT pg_read_file('/etc/passwd')
+    const verdict = guardSql("SELECT '\\''; SELECT pg_read_file('/etc/passwd')")
+    expect(verdict.kind).toBe('write')
+    expect(ambiguous("SELECT '\\''; SELECT pg_read_file('/etc/passwd')")).toBe(true)
+  })
+})

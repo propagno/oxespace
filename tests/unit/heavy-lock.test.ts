@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
-import { isStale, readLock, release, tryTake } from '../../scripts/heavy-lock.mjs'
+import { isStale, readLock, release, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
 
 const folder = mkdtempSync(join(tmpdir(), 'oxe-heavy-lock-'))
 afterAll(() => rmSync(folder, { recursive: true, force: true }))
@@ -45,6 +45,15 @@ describe('machine-wide heavy lock', () => {
     rmSync(path)
   })
 
+  it('waits for free memory after it holds the lock, and 0 turns the check off', async () => {
+    const readings = [0.4, 0.8, 1.6]
+    let onWait = 0
+    expect(await waitForMemory(1, () => readings.shift() ?? 9, 1, () => { onWait++ })).toBe(2)
+    expect(onWait).toBe(1)
+    expect(await waitForMemory(1, () => 3.2, 1)).toBe(0)
+    expect(await waitForMemory(0, () => 0.1, 1)).toBe(0)
+  })
+
   it('runs two heavy commands one after the other, never together', async () => {
     const path = lockAt('run')
     const log = lockAt('log.txt')
@@ -52,7 +61,8 @@ describe('machine-wide heavy lock', () => {
     const step = (name: string) => `const fs=require('fs');fs.appendFileSync(${JSON.stringify(log)},'${name}-start\\n');setTimeout(()=>{fs.appendFileSync(${JSON.stringify(log)},'${name}-end\\n')},600)`
     const run = (name: string) => new Promise<number>(resolve => {
       const child = spawn(process.execPath, [join('scripts', 'heavy-lock.mjs'), '--owner', name, '--', process.execPath, '-e', step(name)],
-        { env: { ...process.env, OXESPACE_HEAVY_LOCK: path }, stdio: 'ignore' })
+        // The floor is off here: this checks the serialization, whatever memory the runner has.
+        { env: { ...process.env, OXESPACE_HEAVY_LOCK: path, OXESPACE_HEAVY_MIN_FREE_GB: '0' }, stdio: 'ignore' })
       child.on('close', code => resolve(code ?? 1))
     })
     expect(await Promise.all([run('a'), run('b')])).toEqual([0, 0])

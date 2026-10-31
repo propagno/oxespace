@@ -32,7 +32,7 @@ export function conversationCommand(command: string, args: string[], env: NodeJS
   if (platform === 'win32' && ['.cmd', '.ps1', '.bat'].includes(extname(executable).toLowerCase())) {
     const entry = join(dirname(executable), 'node_modules', '@openai', 'codex', 'bin', 'codex.js')
     if (!existsSync(entry) || !/^codex\.(cmd|ps1|bat)$/i.test(executable.split(/[\\/]/).at(-1) ?? '')) {
-      throw new Error('Configure a native agent executable; arbitrary shell scripts are not supported for Thread')
+      throw new Error('Configure a native agent executable; arbitrary shell scripts are not supported for OxeChat')
     }
     return { executable: process.execPath, args: [entry, ...args], env: { ...env, ELECTRON_RUN_AS_NODE: '1' } }
   }

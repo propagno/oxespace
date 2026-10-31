@@ -1,7 +1,8 @@
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import { policyBlockedMessage, type PolicyAction, type PolicyDecision } from '../../../../shared/policy'
 import { dbWriteResource, effectiveSafety, nameMatches, type EnvironmentLimits } from '../../../../shared/oxequerySafety'
 import type { ConnectionSafety } from '../../../../shared/types/oxequery'
-import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
+import { guardCodes, OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql, isMutating } from './sql-guard'
 
 /**
@@ -51,10 +52,31 @@ export function guardConnection(resolved: ResolvedConnection, name: string, limi
 export function checkWrite(guarded: Guarded, sql: string, typedName: unknown): void {
   const verdict = guardSql(sql)
   if (!isMutating(verdict)) return
-  if (guarded.blocked) throw new OxeQueryError('read-only', guarded.blocked, verdict.reasons)
+  if (guarded.blocked) throw new OxeQueryError('read-only', guarded.blocked, verdict.reasons, guardCodes(verdict))
   if (guarded.safety.readOnly) return
   if (guarded.safety.typedConfirmation && !nameMatches(typedName, guarded.name)) {
-    throw new OxeQueryError('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.', verdict.reasons)
+    throw new OxeQueryError('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.', verdict.reasons, guardCodes(verdict))
+  }
+}
+
+/**
+ * The same rules for one MongoDB document write (B15): policy first, then on a production connection the typed name,
+ * checked here and never taken from the window's word for it, then a delete's confirmation. The reasons travel as C3
+ * codes; the English stays for logs.
+ */
+export function checkMongoWrite(guarded: Guarded, op: 'insert' | 'replace' | 'delete', confirmed: boolean, typedName: unknown): void {
+  const reasons: string[] = []
+  const codes: MainMessage[] = []
+  if (guarded.safety.typedConfirmation) { reasons.push('This is a production connection.'); codes.push(mainMessage('oxequery.mongo.production', {})) }
+  if (op === 'delete') { reasons.push('The document will be deleted.'); codes.push(mainMessage('oxequery.mongo.deletes', {})) }
+  if (guarded.blocked) throw new OxeQueryError('read-only', guarded.blocked, reasons, {}, { reasons: codes })
+  if (guarded.safety.readOnly) return
+  if (guarded.safety.typedConfirmation && !nameMatches(typedName, guarded.name)) {
+    throw new OxeQueryError('confirm-name', 'This is a production connection. Type its name to change this document.', reasons, {},
+      { message: mainMessage('oxequery.mongo.confirmName', {}), reasons: codes })
+  }
+  if (op === 'delete' && !confirmed) {
+    throw new OxeQueryError('confirm', 'This change needs your confirmation.', reasons, {}, { message: mainMessage('oxequery.mongo.confirm', {}), reasons: codes })
   }
 }
 

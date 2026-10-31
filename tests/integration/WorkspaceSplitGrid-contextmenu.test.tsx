@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
 import { WorkspaceSplitGrid } from '../../src/components/Grid/WorkspaceSplitGrid'
@@ -21,6 +21,11 @@ describe('WorkspaceSplitGrid divider, context menu', () => {
     expect(notCancelled).toBe(false)
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Move the divider left' }))
     expect(onResize).toHaveBeenCalledWith([], 0, -5)
+    // A choice closes the menu and gives focus back to the divider, whose arrows keep resizing (F23).
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    expect(divider).toHaveFocus()
+    fireEvent.keyDown(divider, { key: 'ArrowRight' })
+    expect(onResize).toHaveBeenLastCalledWith([], 0, 2)
   })
 })
 

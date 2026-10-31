@@ -3,7 +3,7 @@ import { codeWorkspace, domainTool, int, parsed, service, str, bool, type Action
 import { ActionRefused } from '../services/agent-actions/agent-actions'
 import { parseLinearListIssuesInput, parseSearchInput } from '../ipc/validation'
 import { threadReadout } from './thread-handoff-tools'
-import { stripAnsi } from '../services/github/parsers'
+import { stripAnsi } from '../utils/strip-ansi'
 import { maskLogLine } from '../services/oxequery/agent-output'
 import { lazy } from './app-settings-tools'
 import type { ToolContext } from './tool-registry'

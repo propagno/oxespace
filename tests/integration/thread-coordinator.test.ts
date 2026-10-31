@@ -69,13 +69,13 @@ function waiting(db: AppDatabase, id: string, projectId: string, request: Partia
 }
 
 describe('coordinator flag (B1.4)', () => {
-  it('is created by migration 085, also on a database upgraded from 83', async () => {
+  it('is created by migration 087, also on a database upgraded from 83', async () => {
     const { db } = fixture()
-    expect(LATEST_DB_VERSION).toBe(85)
-    expect(db.pragma('user_version', { simple: true })).toBe(85)
+    expect(LATEST_DB_VERSION).toBe(87)
+    expect(db.pragma('user_version', { simple: true })).toBe(87)
     db.exec('DROP TABLE thread_project_coordinators; PRAGMA user_version = 83;')
     runMigrations(db)
-    expect(db.pragma('user_version', { simple: true })).toBe(85)
+    expect(db.pragma('user_version', { simple: true })).toBe(87)
     expect(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'thread_project_coordinators'").get()).toBeTruthy()
   })
 
