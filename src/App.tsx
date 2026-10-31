@@ -10,7 +10,7 @@ import { DelegationNotice } from './components/Delegation/DelegationNotice'
 import { useTranslation } from 'react-i18next'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
-import { Button, cx, Toaster, TitleTooltips, TooltipProvider, LoadingState, toast } from './ui'
+import { Button, cx, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
 import { reportSplitRefused } from './components/Grid/splitRefusal'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
@@ -72,6 +72,7 @@ import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { matchesHotkey } from './keyboard/chords'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
+import { projectTeam } from './app/projectTeam'
 import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 
@@ -653,16 +654,7 @@ export function App(): ReactElement {
   const threadProjects = useThreadStore(state => state.projects)
   const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
 
-  // The Team belongs to a project: the selected workspace in Code, the selected project in Thread.
-  const teamTarget = applicationView === 'thread' ? (threadProject ? { kind: 'thread' as const, id: threadProject.projectId } : null)
-    : applicationView === 'code' ? (activeWorkspace ? { kind: 'code' as const, id: activeWorkspace.id } : null) : null
-  // Why it can't open here: the palette's description, the Tools menu's tooltip and the shortcut's toast.
-  const teamUnavailable = teamTarget ? undefined : applicationView === 'code' ? t('team.button.needsWorkspace') : applicationView === 'thread' ? t('team.button.needsProject') : t('team.button.otherViews')
-  const openTeam = (): void => { if (teamTarget) setTeamScope(teamTarget) }
-  const openTeamFromShortcut = (): void => {
-    if (teamTarget) setTeamScope(teamTarget)
-    else toast({ title: t('tools.team.label', { ns: 'code' }), description: teamUnavailable, intent: 'info' })
-  }
+  const team = projectTeam(applicationView, activeWorkspace?.id, threadProject?.projectId, setTeamScope)
 
   // Code's side panels: buttons in the workspace bar for Changes and Browser, the rest in the Panels menu (also on the rail).
   const codePanelItems: WorkbenchPanelItem[] = activeWorkspace ? [
@@ -678,11 +670,11 @@ export function App(): ReactElement {
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
     'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel, skills: openSkillsBrowser, semantic: () => setSemanticActivityOpen(true),
-    editor: toggleEditor, review: toggleReviewPanel, team: openTeam, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
+    editor: toggleEditor, review: toggleReviewPanel, team: team.open, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
   // Palette and menu commands live in src/commands/*.commands.ts.
-  useCodeCommands({ applicationView, activeWorkspace, activePane, hasTeamTarget: teamTarget !== null, teamUnavailable, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
+  useCodeCommands({ applicationView, activeWorkspace, activePane, hasTeamTarget: team.target !== null, teamUnavailable: team.unavailable, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
     openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
     splitActivePane, toggleActivePaneMaximize, toggleActivePaneVoice, openDesignSystem: () => setDesignSystemOpen(true) })
   const commandActions = useContributedCommands()
@@ -694,7 +686,7 @@ export function App(): ReactElement {
     store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
   }
   useKeybindings({
-    'team.open': openTeamFromShortcut,
+    'team.open': team.openOrSay,
     'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': toggleSidebar,
     'voice.toggle': toggleActivePaneVoice, 'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
     'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),

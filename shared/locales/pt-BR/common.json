@@ -404,7 +404,6 @@
   },
   "team": {
     "button": {
-      "label": "Equipe",
       "needsWorkspace": "Abra um workspace para abrir a equipe dele",
       "needsProject": "Selecione um projeto do OxeChat para abrir a equipe dele",
       "otherViews": "A equipe está disponível no OxeCode e no OxeChat"

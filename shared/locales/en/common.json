@@ -397,7 +397,6 @@
   },
   "team": {
     "button": {
-      "label": "Team",
       "needsWorkspace": "Open a workspace to open its team",
       "needsProject": "Select an OxeChat project to open its team",
       "otherViews": "Team is available in OxeCode and OxeChat"

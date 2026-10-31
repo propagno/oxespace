@@ -39,13 +39,16 @@ describe('the project Team, off the title bar (F35)', () => {
     expect(teamCommand({ hasTeamTarget: true }).label).toBe('Equipe do projeto')
   })
 
-  it('says why it cannot open: the palette description and the Tools menu tooltip', () => {
+  it('says why it cannot open: the palette description and the second line of the Tools menu item', () => {
     const reason = 'Open a workspace to open its team'
     expect(teamCommand({ teamUnavailable: reason })).toMatchObject({ disabled: true, detail: reason })
     const item = toolsMenu({ teamUnavailable: reason }).find(node => node.id === 'tool-team')
-    expect(item).toMatchObject({ kind: 'item', label: 'Project team…', shortcut: shortcutLabel('team.open'), disabled: true, title: reason })
-    // Openable, the item has no tooltip of its own.
-    expect(toolsMenu({ hasTeamTarget: true }).find(node => node.id === 'tool-team')).toMatchObject({ disabled: false, title: undefined })
+    // Not `disabled`: a disabled menu item is skipped by the keyboard and screen readers, and its reason with it.
+    expect(item).toMatchObject({ kind: 'item', label: 'Project team…', shortcut: shortcutLabel('team.open'), unavailable: reason })
+    expect(item && 'disabled' in item ? item.disabled : undefined).toBeFalsy()
+    const openable = toolsMenu({ hasTeamTarget: true }).find(node => node.id === 'tool-team')
+    expect(openable).toMatchObject({ disabled: false })
+    expect(openable).not.toHaveProperty('unavailable')
   })
 
   it('reads "Equipe do projeto…" in the Portuguese Tools menu, next to MCP servers and Skills', async () => {

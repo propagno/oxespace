@@ -1,9 +1,14 @@
 import { i18n } from '../../i18n'
+import { toast } from '../../ui/Toast'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { shortcutLabel, type AppView } from '../../keyboard/keybindings'
 
 export type AppMenuNode =
-  | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; title?: string; onSelect(): void }
+  /**
+   * `unavailable`: the item can't run here and says why. Unlike `disabled` it stays reachable by keyboard and screen
+   * readers (aria-disabled), shows the reason as a second line, and selecting it says the reason again as a toast.
+   */
+  | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; unavailable?: string; onSelect(): void }
   | { kind: 'radio'; id: string; label: string; shortcut?: string; checked: boolean; onSelect(): void }
   | { kind: 'separator'; id: string }
   | { kind: 'submenu'; id: string; label: string; disabled?: boolean; children: AppMenuNode[] }
@@ -42,7 +47,15 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
   const fromAction = (id: MenuActionId, label?: string, shortcut?: string): AppMenuNode | null => {
     const action = byId.get(id)
     if (!action) return null
-    return { kind: 'item', id, label: label ?? action.title, shortcut, disabled: action.disabled, title: action.disabled ? action.subtitle : undefined, onSelect: action.run }
+    return { kind: 'item', id, label: label ?? action.title, shortcut, disabled: action.disabled, onSelect: action.run }
+  }
+  /** An action whose palette description says why it can't run: reachable, with that reason (Team). */
+  const explained = (id: MenuActionId, label: string, shortcut?: string): AppMenuNode | null => {
+    const action = byId.get(id)
+    if (!action) return null
+    if (!action.disabled || !action.subtitle) return { kind: 'item', id, label, shortcut, disabled: action.disabled, onSelect: action.run }
+    const reason = action.subtitle
+    return { kind: 'item', id, label, shortcut, unavailable: reason, onSelect: () => { toast({ title: label.replace(/…$/, ''), description: reason, intent: 'info' }) } }
   }
   const group = (prefix: string, strip: RegExp): AppMenuNode[] => ctx.actions
     .filter(action => action.id.startsWith(prefix))
@@ -104,7 +117,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'tools', label: t('menu.tools'), items: compact([
         fromAction('tool-mcp', t('menu.mcpServers')),
         fromAction('tool-skills', t('menu.skills')),
-        fromAction('tool-team', `${t('tools.team.label', { ns: 'code' })}…`, shortcutLabel('team.open')),
+        explained('tool-team', `${t('tools.team.label', { ns: 'code' })}…`, shortcutLabel('team.open')),
         fromAction('open-usage', t('menu.usage')),
         fromAction('open-linear', t('menu.linear'))
       ])

@@ -25,7 +25,7 @@ test('Team is off the title bar and opens from the palette, the Tools menu, Mod+
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env })
   try {
     const page = await app.firstWindow()
-    const dialog = page.getByRole('dialog', { name: 'Team', exact: true })
+    const dialog = page.getByRole('dialog', { name: 'Project team', exact: true })
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
 
     // No workspace yet: the menu item is off and says why.

@@ -23,7 +23,7 @@ test('project roles persist and Code and Thread resolve the same team', async ()
       const project = await window.oxe.thread!.addProject(path)
       return { code: workspace.id, thread: project.projectId }
     }, repo)
-    const dialog = page.getByRole('dialog', { name: 'Team', exact: true })
+    const dialog = page.getByRole('dialog', { name: 'Project team', exact: true })
     // Team left the title bar (F35): Mod+Shift+T opens it.
     await expect(async () => { await page.keyboard.press('Control+Shift+T'); await expect(dialog).toBeVisible({ timeout: 1000 }) }).toPass()
     await expect(dialog.getByText('No members yet.', { exact: false })).toBeVisible()
