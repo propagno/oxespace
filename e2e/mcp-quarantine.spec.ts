@@ -19,6 +19,13 @@ test('quarantined MCP servers: counted, flagged, in the activity center, and tru
     const mcpButton = page.getByTestId('workspace-topbar-mcp')
     await expect(page.getByTestId('workspace-topbar-mcp-quarantined')).toHaveText('2')
     await expect(mcpButton).toHaveAccessibleName('Open MCP servers: 2 quarantined')
+    // Visible, not only in the name, also in a narrow window where the button labels are hidden.
+    await expect(page.getByTestId('workspace-topbar-mcp-quarantined')).toBeVisible()
+    await resizeWindow(app, 820, 700)
+    await expect(page.getByTestId('workspace-topbar-mcp-quarantined')).toBeVisible()
+    const box = (await page.getByTestId('workspace-topbar-mcp').boundingBox())!
+    await page.screenshot({ path: 'test-results/mcp-topbar-badge-narrow.png', clip: { x: box.x - 8, y: box.y - 8, width: box.width + 16, height: box.height + 16 } })
+    await resizeWindow(app, 1280, 800)
 
     // The activity center has one "needs you" entry per quarantined server, and it leads to the MCP panel.
     await page.getByTestId('activity-bell').click()
@@ -33,6 +40,8 @@ test('quarantined MCP servers: counted, flagged, in the activity center, and tru
     await expect(page.getByTestId('mcp-installed-quarantined')).toHaveText('2 quarantined')
     await expect(page.getByTestId('mcp-quarantine-chip')).toHaveCount(2)
     await expect(panel.getByRole('button', { name: 'Trust docs-search again' })).toBeVisible()
+    // docs-search listed 2 tools; while quarantined it offers none.
+    await expect(panel.locator('.mcp-server-row', { hasText: 'docs-search' }).getByTestId('mcp-server-tools')).toHaveText('No tools while quarantined')
     await page.waitForTimeout(300)
     await page.screenshot({ path: 'test-results/mcp-quarantine-installed.png' })
 
@@ -52,6 +61,14 @@ test('quarantined MCP servers: counted, flagged, in the activity center, and tru
     await page.keyboard.press('Enter')
     await expect(dialog).toHaveCount(0)
     await expect(page.getByTestId('mcp-quarantine-chip')).toHaveCount(2)
+
+    // deploy-helper's configuration changed: its confirmation shows what it runs now.
+    await panel.getByRole('button', { name: 'Trust deploy-helper again' }).click()
+    await expect(dialog.getByTestId('mcp-runs-now-command')).toHaveText('node deploy-helper.js --target staging')
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: 'test-results/mcp-trust-again-config.png' })
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
 
     // Confirming trusts it again and tests it: one fewer everywhere.
     await panel.getByRole('button', { name: 'Trust docs-search again' }).click()
