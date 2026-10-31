@@ -3,7 +3,7 @@
  * per project in localStorage (memory when storage is blocked) and follows the contract's rules and C3 codes, so
  * the list, its tests and e2e behave as they will against the real API.
  */
-import { normalizeSectionName, SECTION_NAME_MAX, SectionError, type ThreadSection, type ThreadSectionsApi } from './sectionsContract'
+import { normalizeSectionName, sameSectionName, SECTION_NAME_MAX, SectionError, type ThreadSection, type ThreadSectionsApi } from './sectionsContract'
 
 export const SECTIONS_STORAGE_PREFIX = 'oxe-thread-sections:'
 
@@ -57,9 +57,11 @@ export function createSectionsMock(options: { storage: SectionsStorage; lookup: 
     }
     throw new SectionError('thread.section.notFound')
   }
-  const validName = (name: string): string => {
+  const validName = (name: string, record: ProjectRecord, except?: string): string => {
     const valid = normalizeSectionName(name)
     if (!valid) throw new SectionError('thread.section.invalidName', { max: SECTION_NAME_MAX })
+    // One name per project, whatever its case: two "Work" sections cannot be told apart.
+    if (record.sections.some(section => section.id !== except && sameSectionName(section.name, valid))) throw new SectionError('thread.section.duplicateName')
     return valid
   }
   const sorted = (record: ProjectRecord): ThreadSection[] => [...record.sections].sort((a, b) => a.order - b.order)
@@ -69,13 +71,13 @@ export function createSectionsMock(options: { storage: SectionsStorage; lookup: 
     async listSections(projectId) { return sorted(read(projectId)) },
     async createSection({ projectId, name }) {
       const record = read(projectId)
-      const section: ThreadSection = { id: newId(), projectId, name: validName(name), order: record.sections.length, collapsed: false, createdAt: now() }
+      const section: ThreadSection = { id: newId(), projectId, name: validName(name, record), order: record.sections.length, collapsed: false, createdAt: now() }
       record.sections.push(section); write(projectId, record)
       return section
     },
     async renameSection({ id, name }) {
-      const valid = validName(name)
       const { projectId, record, section } = owner(id)
+      const valid = validName(name, record, id)
       section.name = valid; write(projectId, record)
       return { ...section }
     },

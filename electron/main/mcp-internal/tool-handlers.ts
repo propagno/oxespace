@@ -19,6 +19,7 @@ import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
 import { savePreviewCapture } from '../services/documentation/preview-capture-store'
 import { semanticProjects } from '../services/semantic-projects'
+import { mainMessage } from '../../../shared/messages'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -276,7 +277,7 @@ export function previewApproval(target: Extract<PreviewUrl, { kind: 'external' }
   return {
     summary: `open ${target.href} in the Web Preview`,
     text: `Open in the Web Preview:\n${target.href}`,
-    reasons: ['This page is not on localhost. It can load anything, and it sees what is typed into it.']
+    notes: [mainMessage('approvals.note.preview.notLocal', {})]
   }
 }
 
@@ -290,6 +291,8 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
   const url = expectString(input.url, 'url')
   const target = classifyPreviewUrl(url)
   if (target.kind === 'refused') {
+    // Never echo a URL that carries credentials.
+    if (target.reason === 'credentials') return errorResult('The preview does not open URLs with a user name or password in them.')
     return errorResult(`URL "${url}" is not safe to open (must be http or https).`)
   }
   const threadId = execution.owner.kind === 'thread' ? execution.owner.id : undefined

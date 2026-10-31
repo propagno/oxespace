@@ -697,6 +697,10 @@ export interface ThreadApi {
   undoTurnFile?(id: string, turnId: string, path: string): Promise<void>
   turnFileHunks?(id: string, turnId: string, path: string): Promise<ThreadFileHunk[]>
   undoTurnHunk?(id: string, turnId: string, path: string, hunkId: string): Promise<void>
+  /** F13: the sections of a conversation workspace (a conversation's `workspaceId`, e.g. `thread:<project id>`). */
+  sections?(workspaceId: string): Promise<import('./thread-sections').ThreadSections>
+  /** F13: replaces the whole state; returns what was stored, or a C3 refusal that stored nothing. */
+  saveSections?(workspaceId: string, state: import('./thread-sections').ThreadSections): Promise<import('./thread-sections').ThreadSectionsSaveResult>
   permissionRules?(id: string): Promise<ThreadPermissionRule[]>
   addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
   removePermissionRule?(id: string, ruleId: string): Promise<void>

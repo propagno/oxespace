@@ -2,13 +2,16 @@ import { app, BrowserWindow, ipcMain, net } from 'electron'
 import { release } from 'node:os'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { requireAppFrame } from './ipc-guards'
+import { registerActivityIpc } from './activity.ipc'
+import type { AppDatabase } from '../db'
 import { openExternalOrRecord } from '../utils/external-open'
 
 /**
  * `app:connectivity` (+ `app:connectivity-changed`), `app:about` and `app:open-external`. The module behind the first two
- * loads on first use.
+ * loads on first use. It also registers the activity center's channels (F30, `activity:*`), whose store loads on first use.
  */
-export function registerAppInfoIpc(): () => void {
+export function registerAppInfoIpc(db: AppDatabase): () => void {
+  registerActivityIpc({ db })
   let watcher: import('../services/app-info').ConnectivityWatcher | undefined
   const service = () => import('../services/app-info')
   ipcMain.handle(IPC_CHANNELS.app.connectivity, async event => {
