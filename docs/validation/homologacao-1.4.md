@@ -176,6 +176,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Toasts (F21) | #245 | FRONTEND | Pré-homologado (a40e1cba): as 3 ressalvas foram fechadas |
 | Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab (virou F23) |
 | Indicadores do OxePod | #248 | FRONTEND | Homologado (na `main` 16d27efa): 8×8, redondos, em claro e escuro |
+| Diagnóstico: medidas, incidentes, pacote, `oxespace_diagnostics` | #203 | BACKEND | Homologado (na `main` 04dcc451): nenhum segredo, caminho ou nome vazou; 2 notas baixas |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -593,6 +594,41 @@ Na `main` 6666d723, no Windows, em pt-BR e en (`check-241`, `check-241b`).
     teclado.
   - Critério de aceite: uma tecla documentada para sair do terminal (por exemplo F6 entre regiões, ou um modo "Tab
     move o foco" como o do VS Code), dita no leitor de tela ao entrar no terminal e listada em `wcag-2.2.md`.
+
+### Diagnóstico (#203): Homologado
+
+Na `main` 04dcc451, app real em perfil descartável (`check-203`). Todos os valores plantados eram falsos e estavam em:
+- o ambiente: chave Anthropic, token GitHub, segredo AWS, `DATABASE_URL` com senha e host interno, Bearer JWT;
+- um `main.old.log` antigo, no formato real do log, com 7 linhas adversariais:
+  - URL com usuário e senha e `?token=`;
+  - `ANTHROPIC_API_KEY=`;
+  - caminho absoluto e e-mail;
+  - `Authorization Bearer`;
+  - uma senha em texto livre ("the password is …");
+  - caminho UNC;
+  - IPv4/IPv6 com máquina e usuário;
+- o nome da pasta do workspace ("cliente-acme-confidencial");
+- um remote git com token;
+- um `workspace.create` com o token no caminho.
+
+O que foi verificado:
+- O pacote foi exportado com o diálogo de salvar respondido por um caminho temporário, sem diálogo nativo na tela.
+  Foi aberto com o `tar` do Windows: 6 arquivos, 10 substituições contadas.
+- A ferramenta `oxespace_diagnostics` foi chamada pelo MCP interno como um agente, e o `analysisSummary` pela IPC.
+  As duas devolvem o mesmo texto.
+- Buscas em todos os arquivos e nas duas saídas, por cada valor plantado, prefixos (`ghp_HMLFAKE`, `sk-ant-api03`),
+  nome do usuário, nome da máquina, `C:\Users`, a pasta temporária, os IPs e `@`: **0 ocorrências**.
+- O trecho do log é seguro por construção: só passam linhas cuja mensagem começa por uma entrada da lista permitida,
+  cortada nela ("listening on …"). As 7 linhas adversariais foram descartadas inteiras e entraram na contagem.
+- O incidente gravado (`incident.ipc.validationRejected`) traz só o hash de 8 caracteres no `subject`.
+
+Notas baixas para o BACKEND:
+1. A redação de IP pega a versão do V8 (`"v8": "[ip]-electron.0"`), porque 4 números de até 3 dígitos parecem um IPv4.
+   O suporte perde a versão do V8. Critério: não redigir dentro de `versions`, ou exigir que não haja `-` ou letras
+   colados.
+2. Fora do pacote (`packaged: false`), `versions.json`, `snapshot.appVersion` e a ferramenta dizem "OXESpace 44.9.3",
+   que é a versão do Electron, em vez de 1.3.3. É a mesma raiz já corrigida no About (#168/#185). Critério: usar a
+   mesma fonte de versão do About.
 
 ### Achados fora dos itens da onda
 
