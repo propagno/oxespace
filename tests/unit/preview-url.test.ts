@@ -14,7 +14,6 @@ describe('classifyPreviewUrl', () => {
     'https://example.com', 'http://192.168.0.10:3000', 'http://10.0.0.1', 'http://127.0.0.2', 'http://0.0.0.0:3000',
     // Tricks that read as local to a careless check.
     'http://localhost.evil.com', 'http://localhost.evil.com:5173', 'http://evil.com/localhost', 'http://evil.com?http://localhost',
-    'http://127.0.0.1@evil.com', 'http://localhost@evil.com', 'http://user:pass@localhost:3000', 'http://localhost:3000@evil.com',
     'http://[::ffff:7f00:1]', 'http://[::ffff:127.0.0.1]', 'http://[0:0:0:0:0:0:0:1]',
     'http://2130706433', 'http://0177.0.0.1', 'http://0x7f.0.0.1', 'http://0x7f000001', 'http://127.1', 'http://017700000001',
     'http://LOCALHOST', 'http://LocalHost:5173', 'http://APP.LOCALHOST', 'http://localhost.', 'http://localhost%2e',
@@ -22,6 +21,15 @@ describe('classifyPreviewUrl', () => {
     ' http://localhost', 'http://local\thost', 'http://localhost\u200b', 'http://localhost\u00ad:3000', 'http://ｌocalhost'
   ])('asks before %s', url => {
     expect(classifyPreviewUrl(url)).toMatchObject({ kind: 'external' })
+  })
+
+  it.each([
+    // A user name or password is refused, never asked for: `localhost@` reads as local, and an approval would show them.
+    'http://localhost@evil.example/', 'http://user:pass@localhost:3000', 'http://127.0.0.1@evil.com', 'http://localhost@evil.com',
+    'http://localhost:3000@evil.com', 'https://user@localhost', 'http://:pass@localhost', 'http://user:@127.0.0.1:8080',
+    'http://@localhost', 'HTTP://Admin:Secret@LOCALHOST:3000/x'
+  ])('refuses %s, which carries a user name or password', url => {
+    expect(classifyPreviewUrl(url)).toEqual({ kind: 'refused', reason: 'credentials' })
   })
 
   it('names the parsed URL, which is what the approval and the preview will see', () => {
