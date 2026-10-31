@@ -392,3 +392,41 @@ describe('P1-17 · a change to a file that steers agents is answered by a person
     expect(screen.getByRole('button', { name: 'Allow session' })).toBeInTheDocument()
   })
 })
+
+describe('S1 · keys right after the dialog gains the keyboard are not answers', () => {
+  it('an Escape typed the instant focus comes back into the dialog does not dismiss it; a later one does', async () => {
+    request({ id: 'vim' })
+    render(<><textarea aria-label="vim" /><ApprovalCenter armMs={200} /></>)
+    await waitFor(() => expect(screen.getByTestId('approval-dialog')).toBeInTheDocument())
+    await sleep(300)
+    const surface = screen.getByRole('dialog')
+    const deny = within(dialog()).getByRole('button', { name: 'Deny' })
+    // Focus comes into the dialog from the editor, and Escape follows at once.
+    act(() => { surface.dispatchEvent(new FocusEvent('focusin', { bubbles: true, relatedTarget: screen.getByLabelText('vim') })) })
+    fireEvent.keyDown(deny, { key: 'Escape' })
+    await sleep(20)
+    expect(hook.responses).toEqual([])
+    expect(dialog()).toBeInTheDocument()
+    // The window comes back to the front, and Enter on Deny follows at once.
+    blur(); focus()
+    fireEvent.keyDown(deny, { key: 'Enter' })
+    fireEvent.click(deny, { detail: 0 })
+    await sleep(20)
+    expect(hook.responses).toEqual([])
+    // Moving between the dialog's own controls does not re-arm it.
+    await sleep(250)
+    act(() => { deny.dispatchEvent(new FocusEvent('focusin', { bubbles: true, relatedTarget: within(dialog()).getByRole('button', { name: 'Allow once' }) })) })
+    fireEvent.keyDown(deny, { key: 'Escape' })
+    await waitFor(() => expect(hook.responses).toEqual([{ id: 'vim', optionId: 'deny', generation: 1 }]))
+  })
+
+  it('a mouse click is never held back by it', async () => {
+    request({ id: 'mouse' })
+    render(<ApprovalCenter armMs={200} />)
+    await waitFor(() => expect(screen.getByTestId('approval-dialog')).toBeInTheDocument())
+    await sleep(300)
+    blur(); focus()
+    await userEvent.setup().click(within(dialog()).getByRole('button', { name: 'Allow once' }))
+    await waitFor(() => expect(hook.responses).toEqual([{ id: 'mouse', optionId: 'allow', generation: 1 }]))
+  })
+})

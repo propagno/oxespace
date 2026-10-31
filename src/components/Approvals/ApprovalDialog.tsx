@@ -64,6 +64,9 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
   const notesHeading = useId()
   const inside = useRef<HTMLDivElement>(null)
   const shownAt = useRef(performance.now())
+  // When the dialog last gained the keyboard (mounted, focus came into it from outside, the window came back): keys in
+  // the moments after that were meant for whatever had focus before, such as an Escape typed in vim (S1).
+  const keysArmedAt = useRef(performance.now())
   // Read before the dialog takes focus: someone typing elsewhere does not get a button under their keys (R9).
   const startedTyping = useRef(typingIn(document.activeElement))
   // The option whose own key (Enter, Space) went down on it; a keyboard click without that is not the person's (R9).
@@ -82,6 +85,19 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
     }, 0)
     return () => clearTimeout(timer)
   }, [instance])
+  useEffect(() => { if (looking) keysArmedAt.current = performance.now() }, [looking])
+  useEffect(() => {
+    // On the document: the dialog's portal may not be in the page yet when this runs.
+    const onFocusIn = (event: FocusEvent): void => {
+      const surface = inside.current?.closest('[role="dialog"]')
+      if (!surface || !(event.target instanceof Node) || !surface.contains(event.target)) return
+      const from = event.relatedTarget instanceof Node ? event.relatedTarget : null
+      if (!from || !surface.contains(from)) keysArmedAt.current = performance.now()
+    }
+    document.addEventListener('focusin', onFocusIn, true)
+    return () => document.removeEventListener('focusin', onFocusIn, true)
+  }, [])
+  const keysTooSoon = (): boolean => performance.now() - keysArmedAt.current < armMs
   // Main's pacing drives the hold and Enter (B10): allowDelayMs counted while the request is on screen and looked at.
   const held = holdsAllow(request)
   const holdLeft = useAllowHold(held, instance, request.allowDelayMs, looking)
@@ -109,14 +125,15 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
     const fromKey = event.detail === 0
     const ownKey = pressed.current === optionId
     pressed.current = null
-    if (fromKey && !ownKey) return
+    if (fromKey && (!ownKey || keysTooSoon())) return
     choose(optionId)
   }
-  // Escape denies only when it is typed in this dialog, and never as a held key's repeat (R9).
+  // Escape denies only when it is typed in this dialog, never as a held key's repeat (R9), and not in the moments
+  // after the dialog gained the keyboard (S1).
   const onEscape = (event: globalThis.KeyboardEvent): void => {
     const target = event.target instanceof Node ? event.target : null
     const dialog = inside.current?.closest('[role="dialog"]')
-    if (event.repeat || !target || !dialog?.contains(target)) event.preventDefault()
+    if (event.repeat || !target || !dialog?.contains(target) || keysTooSoon()) event.preventDefault()
   }
 
   const shownRisk = effectiveRisk(request)
