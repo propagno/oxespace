@@ -50,6 +50,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.window.externalRefused': [],
   'incident.window.externalRateLimited': [],
   'incident.window.externalOpenFailed': [],
+  'incident.window.openDenied': [],
+  'incident.window.navigationDenied': [],
   'diagnostics.bundle.fileTooLarge': [],
   'diagnostics.bundle.tooLarge': [],
   'bundle.file.snapshot': [],
