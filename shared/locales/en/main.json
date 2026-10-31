@@ -60,6 +60,10 @@
         "alreadyResponding": "An answer to this request is already being sent.",
         "unanswered": "Answer every question before continuing."
       },
+      "side": {
+        "unavailable": "This agent cannot open a side chat yet.",
+        "noSession": "Send a message first: a side chat copies the conversation so far."
+      },
       "commands": {
         "configure": "Configure the provider in Agent Settings and use Refresh commands to try again.",
         "busy": "Command discovery is busy. Use Refresh commands to try again.",
@@ -147,7 +151,8 @@
         "destructiveInside": "{{statement}} contains {{keyword}}, which can remove data or objects.",
         "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.",
         "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
-        "tableLock": "VACUUM FULL locks the whole table while it runs."
+        "tableLock": "VACUUM FULL locks the whole table while it runs.",
+        "ambiguousEscape": "A backslash in a string can end it early on a server with standard_conforming_strings off, and then more of this text runs than it shows."
       }
     },
     "oxepod": {
@@ -339,6 +344,15 @@
         "runtime": "Recent runtime events, redacted",
         "versions": "App, Electron, Chrome, Node and system versions",
         "configuration": "Settings that help a diagnosis, without secrets"
+      }
+    },
+    "workspace": {
+      "root": {
+        "empty": "Choose the folder for this workspace.",
+        "notAbsolute": "Use the full path of the folder, starting at the drive or at /. “{{path}}” is a relative path.",
+        "notFound": "The folder {{path}} does not exist. Create it or choose another folder.",
+        "notDirectory": "{{path}} is a file, not a folder. Choose a folder.",
+        "unreadable": "OXESpace cannot open the folder {{path}}. Check its permissions or choose another folder."
       }
     }
   }

@@ -28,6 +28,10 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** The provider cannot fork its session into a side chat (B1.2). */
+  'thread.side.unavailable': Record<string, never>
+  /** The conversation has no native session to copy yet: send a message first. */
+  'thread.side.noSession': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -94,6 +98,8 @@ export interface MessageParams {
   'oxequery.sql.sessionRole': Record<string, never>
   /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
   'oxequery.sql.tableLock': Record<string, never>
+  /** SQL risk: a backslash in an ordinary string can end it early on a legacy server, so more runs than the text shows. */
+  'oxequery.sql.ambiguousEscape': Record<string, never>
   'oxepod.startFailed': { reason: string }
   'oxepost.network.notFound': Record<string, never>
   'oxepost.network.refused': Record<string, never>
@@ -119,6 +125,16 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** A workspace root that is not an absolute path (a relative one would depend on where the app started). */
+  /** No folder was given: the text was empty, or only spaces or quotes. */
+  'workspace.root.empty': Record<string, never>
+  'workspace.root.notAbsolute': { path: string }
+  /** A workspace root that does not exist. */
+  'workspace.root.notFound': { path: string }
+  /** A workspace root that is a file, not a folder. */
+  'workspace.root.notDirectory': { path: string }
+  /** A workspace root the app is not allowed to open or list. */
+  'workspace.root.unreadable': { path: string }
   // B10 · Approvals (shared/types/approvals.ts). Titles, summaries, requesters, options and the app's notes.
   'approvals.title.agent': Record<string, never>
   'approvals.title.oxequery': Record<string, never>
@@ -220,6 +236,8 @@ export const MESSAGE_CODES = [
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
   'app.connectivity.offline',
+  'thread.side.unavailable',
+  'thread.side.noSession',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
@@ -274,6 +292,7 @@ export const MESSAGE_CODES = [
   'oxequery.sql.rowLock',
   'oxequery.sql.sessionRole',
   'oxequery.sql.tableLock',
+  'oxequery.sql.ambiguousEscape',
   'oxepod.startFailed',
   'oxepost.network.notFound',
   'oxepost.network.refused',
@@ -295,6 +314,11 @@ export const MESSAGE_CODES = [
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
   'remote.certificate.failed',
+  'workspace.root.empty',
+  'workspace.root.notAbsolute',
+  'workspace.root.notFound',
+  'workspace.root.notDirectory',
+  'workspace.root.unreadable',
   'approvals.title.agent',
   'approvals.title.oxequery',
   'approvals.title.previewAutomation',

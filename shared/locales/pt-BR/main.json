@@ -60,6 +60,10 @@
         "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
         "unanswered": "Responda a todas as perguntas antes de continuar."
       },
+      "side": {
+        "unavailable": "Este agente ainda não abre um chat lateral.",
+        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
+      },
       "commands": {
         "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
         "busy": "A busca de comandos está ocupada. Use Atualizar comandos para tentar de novo.",
@@ -147,7 +151,8 @@
         "destructiveInside": "{{statement}} contém {{keyword}}, que pode apagar dados ou objetos.",
         "rowLock": "FOR UPDATE / FOR SHARE trava as linhas lidas até o fim da transação.",
         "sessionRole": "SET ROLE muda o usuário da sessão e, com ele, o que os próximos comandos podem fazer.",
-        "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda."
+        "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda.",
+        "ambiguousEscape": "Uma barra invertida num texto pode encerrá-lo antes num servidor com standard_conforming_strings desligado, e então roda mais do que o texto mostra."
       }
     },
     "oxepod": {
@@ -339,6 +344,15 @@
         "runtime": "Eventos recentes de execução, redigidos",
         "versions": "Versões do app, do Electron, do Chrome, do Node e do sistema",
         "configuration": "Configurações que ajudam no diagnóstico, sem segredos"
+      }
+    },
+    "workspace": {
+      "root": {
+        "empty": "Escolha a pasta deste workspace.",
+        "notAbsolute": "Use o caminho completo da pasta, a partir da unidade ou de /. “{{path}}” é um caminho relativo.",
+        "notFound": "A pasta {{path}} não existe. Crie a pasta ou escolha outra.",
+        "notDirectory": "{{path}} é um arquivo, não uma pasta. Escolha uma pasta.",
+        "unreadable": "O OXESpace não consegue abrir a pasta {{path}}. Confira as permissões ou escolha outra pasta."
       }
     }
   }
