@@ -592,7 +592,7 @@
       "prompt": {
         "title": "Pair {{device}}?",
         "description": "Pair only if the phone shows the same code.",
-        "codeLabel": "Code on the phone",
+        "codeLabel": "Verification code on the phone",
         "accept": "Pair",
         "refuse": "Refuse",
         "paired": "{{device}} paired",

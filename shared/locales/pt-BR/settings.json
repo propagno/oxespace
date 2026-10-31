@@ -615,7 +615,7 @@
       "prompt": {
         "title": "Parear {{device}}?",
         "description": "Pareie só se o celular mostrar o mesmo código.",
-        "codeLabel": "Código no celular",
+        "codeLabel": "Código de verificação no celular",
         "accept": "Parear",
         "refuse": "Recusar",
         "paired": "{{device}} pareado",
