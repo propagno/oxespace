@@ -61,6 +61,6 @@ function isPermissionError(error: unknown): boolean {
   return code === 'EACCES' || code === 'EPERM'
 }
 
-function refuse(refusal: WorkspaceRootRefusal, path: string): WorkspaceCreateRefusal {
+function refuse(refusal: Exclude<WorkspaceRootRefusal, 'empty'>, path: string): WorkspaceCreateRefusal {
   return { ok: false, refusal, message: mainMessage(`workspace.root.${refusal}`, { path }) }
 }
