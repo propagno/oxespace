@@ -113,6 +113,11 @@ test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable a
       await expect.poll(() => focusedRegion(page)).not.toMatch(/^none/)
     }
     await terminalInput.focus()
+    // Where the walk ended and where focus is now, in the log: T5 has failed only on CI runners.
+    console.log('[T5]', await focusedRegion(page), await page.evaluate(() => {
+      const active = document.activeElement
+      return `${active?.tagName}.${String(active?.className).split(' ')[0]} focus=${document.hasFocus()} visible=${document.visibilityState}`
+    }))
     // T5: every region's tabindex is what it was before the walk. A tabindex the app set itself stays (the Windows title
     // bar has one), so the check is "unchanged", not "none".
     await expect.poll(regionTabindexes).toEqual(tabindexesBefore)
