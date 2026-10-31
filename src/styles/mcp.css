@@ -673,3 +673,11 @@
 .mcp-runs-now dt { color: inherit; font-weight: 600; }
 .mcp-runs-now dd { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; min-width: 0; }
 .mcp-runs-now code { overflow-wrap: anywhere; }
+
+/* Before and after, when main kept what was trusted: the side is named, a changed field is marked. */
+.mcp-runs-now dl > div.is-changed { grid-template-columns: max-content 1fr; }
+.mcp-runs-now dl > div.is-changed dt::after { content: ' •'; color: inherit; }
+.mcp-runs-now dl > div:has(dd + dd) { grid-template-columns: max-content 1fr; grid-template-rows: auto auto; }
+.mcp-runs-now dl > div:has(dd + dd) dt { grid-row: span 2; }
+.mcp-runs-now-side { margin-right: 6px; font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.04em; opacity: 1; font-weight: 600; }
+.mcp-runs-now-hidden { margin: 4px 0 0; font-style: italic; }

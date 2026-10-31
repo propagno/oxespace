@@ -34,7 +34,7 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
             {(quarantine.codes?.length ? quarantine.codes.map((message) => tm(messageKey(message.code), messageValues(message, i18n.language))) : quarantine.reasons)
               .map((reason) => <p key={reason}>{reason}</p>)}
             <p>{t('mcp.safety.quarantineBody')}</p>
-            {configChanged ? <McpRunsNow config={server.config} /> : null}
+            {configChanged ? <McpRunsNow config={server.config} trusted={quarantine?.trusted} /> : null}
           </div>
         </div>
       ) : null}

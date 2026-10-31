@@ -98,12 +98,24 @@ describe('a quarantine from a changed configuration', () => {
     const user = await openInstalled()
     await user.click(screen.getByRole('button', { name: 'Trust deploy-helper again' }))
     const dialog = await screen.findByTestId('mcp-trust-again')
-    expect(within(dialog).getByTestId('mcp-runs-now-command')).toHaveTextContent('node deploy-helper.js --target staging')
-    expect(within(dialog).getByTestId('mcp-runs-now-keys')).toHaveTextContent('none')
+    // Main kept what was trusted: both sides show, the changed ones marked, secrets never.
+    const command = within(dialog).getByTestId('mcp-runs-now-command')
+    expect(command).toHaveTextContent('Trustednode deploy-helper.js --target dev --token [redacted]')
+    expect(command).toHaveTextContent('Nownode deploy-helper.js --target staging')
+    expect(command).toHaveAttribute('data-changed', 'true')
+    expect(within(dialog).getByTestId('mcp-runs-now-keys')).toHaveTextContent('TrustedDEPLOY_REGIONNownone')
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await user.click(screen.getByRole('button', { name: 'Trust docs-search again' }))
     expect(within(await screen.findByTestId('mcp-trust-again')).queryByTestId('mcp-runs-now')).toBeNull()
   })
+  it('a change hidden by the redaction says so instead of looking the same', () => {
+    render(<McpRunsNow config={{ transport: 'stdio', command: 'npx', args: ['server', '--token', 'new-secret'], env: {} }}
+      trusted={{ transport: 'stdio', command: 'npx', args: ['server', '--token', '[redacted]'], envKeys: [] }} />)
+    expect(screen.getByTestId('mcp-runs-now-command')).not.toHaveAttribute('data-changed')
+    expect(screen.getByTestId('mcp-runs-now-hidden')).toHaveTextContent('What changed is hidden')
+    expect(document.body).not.toHaveTextContent('new-secret')
+  })
+
   it('names environment variables and headers, never their values', () => {
     const { unmount } = render(<McpRunsNow config={{ transport: 'stdio', command: 'npx', args: ['-y', 'server'], env: { API_KEY: 'sk-secret-123', REGION: 'eu' } }} />)
     expect(screen.getByTestId('mcp-runs-now-keys')).toHaveTextContent('API_KEYREGION')
