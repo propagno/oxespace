@@ -124,7 +124,9 @@
       "pathMenu": "Caminho de {{name}}",
       "copyPath": "Copiar caminho",
       "copyRelativePath": "Copiar caminho relativo",
-      "path": "Caminho"
+      "path": "Caminho",
+      "pathCopied": "Caminho copiado",
+      "relativePathCopied": "Caminho relativo copiado"
     },
     "workspaceFiles": "Arquivos do workspace",
     "fit": "Clique para ajustar",
@@ -780,6 +782,7 @@
       "fullLogs": "Logs completos da execução",
       "truncated": "cortado",
       "logs": "Logs",
+      "logsCopied": "Logs copiados",
       "copyLogs": "Copiar os logs",
       "copy": "Copiar",
       "closeLogs": "Fechar os logs",
@@ -809,6 +812,7 @@
     },
     "setup": {
       "command": "Comando",
+      "commandCopied": "Comando copiado",
       "cliTitle": "É preciso o GitHub CLI",
       "authTitle": "É preciso entrar",
       "cliBody": "Instale o GitHub CLI para usar pull requests, releases e os outros recursos do GitHub.",
@@ -829,6 +833,11 @@
     "cliMissing": "GitHub CLI não encontrado. Instale-o a partir de cli.github.com e execute gh auth login."
   },
   "pane": {
+    "boundary": "este painel",
+    "splitRefused": {
+      "title": "Não dá para dividir este painel aqui",
+      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente."
+    },
     "attention": {
       "blocked": "Precisa da sua aprovação ou resposta",
       "done": "Concluído, ainda não visto",
@@ -916,6 +925,7 @@
     "noMembers": "Nenhum membro ainda.",
     "session": {
       "context": "Contexto da sessão",
+      "contextCopied": "Contexto da sessão copiado",
       "delegated": "Tarefa delegada",
       "unread": "Saída não lida",
       "tone": {
@@ -1007,6 +1017,9 @@
     "retry": "Tentar de novo"
   },
   "workspace": {
+    "closeFailed": "Não foi possível fechar o workspace",
+    "settingsFailed": "Não foi possível salvar as configurações do workspace",
+    "gridBoundary": "os painéis deste workspace",
     "panel": {
       "restore": "Restaurar a largura do painel",
       "expand": "Expandir o painel",
@@ -1816,6 +1829,7 @@
     }
   },
   "skills": {
+    "createFailed": "Não foi possível criar a skill",
     "needTerminal": "Selecione ou inicie um terminal antes de usar uma skill.",
     "sent": "/{{name}} enviada ao terminal ativo.",
     "copied": "Prompt de /{{name}} copiado.",

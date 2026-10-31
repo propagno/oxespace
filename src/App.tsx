@@ -2,7 +2,7 @@ import { Activity, Palette } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
 import './commands/settings.commands'
 import { useCodeCommands } from './commands/code.commands'
-import { useThreadCommands } from './commands/thread.commands'
+import { sayAddProjectFirst, useThreadCommands } from './commands/thread.commands'
 import { DataHosts, DataSidebar, isDataView, useModeActions } from './components/Navigation/ModeViews'
 import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
 import { TeamButton } from './components/Teams/TeamButton'
@@ -10,7 +10,8 @@ import { DelegationNotice } from './components/Delegation/DelegationNotice'
 import { useTranslation } from 'react-i18next'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
-import { Button, cx, toast, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
+import { Button, cx, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
+import { reportSplitRefused } from './components/Grid/splitRefusal'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
@@ -586,13 +587,9 @@ export function App(): ReactElement {
     else openWebPreview(activeWorkspaceId)
   }
 
-  const splitWorkspacePane = useCallback((
-    workspaceId: string,
-    paneId: string,
-    direction: 'vertical' | 'horizontal'
-  ): void => {
+  const splitWorkspacePane = useCallback((workspaceId: string, paneId: string, direction: 'vertical' | 'horizontal'): void => {
     if (!useUIStore.getState().splitLayoutEnabled) {
-      void splitPane(paneId, direction)
+      void splitPane(paneId, direction).catch(reportSplitRefused)
       return
     }
 
@@ -776,7 +773,7 @@ export function App(): ReactElement {
   useThreadShortcuts(applicationView === 'thread', newThread)
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
-  const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else toast({ title: t('app.accounts.title'), description: t('app.accounts.description') }) }
+  const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
   useThreadCommands({ snapshot: threadSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
     addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts })
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {

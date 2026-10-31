@@ -75,6 +75,11 @@
     "reportProblem": "Report a problem…",
     "checkUpdates": "Check for updates…"
   },
+  "activityCenter": {
+    "nothingToRead": "Nothing to mark as read",
+    "nothingToReadText": "Every activity item is already read.",
+    "allRead": "All activity marked as read"
+  },
   "report": {
     "title": "Report a problem",
     "description": "This is the issue we would open on GitHub. Nothing is sent until you choose what to do with it.",
@@ -86,6 +91,7 @@
     "retry": "Try again",
     "copy": "Copy text",
     "copyWhat": "Report",
+    "copied": "Report copied",
     "open": "Open on GitHub",
     "opened": "GitHub opened in your browser",
     "truncated": "The text is too long for a link, so GitHub receives the first part. Use Copy text to share all of it."
@@ -247,6 +253,7 @@
     "resets": "Resets {{when}}."
   },
   "ui": {
+    "changeNotSaved": "The change was not saved.",
     "divider": {
       "columns": "Divider between columns",
       "rows": "Divider between rows",
@@ -269,13 +276,19 @@
     "cancel": "Cancel",
     "close": "Close",
     "dismiss": "Dismiss",
+    "toast": {
+      "region": "Notifications",
+      "dismiss": "Dismiss notification",
+      "repeated_one": "Repeated {{count}} time",
+      "repeated_other": "Repeated {{count}} times"
+    },
     "copy": {
       "text": "Text",
       "done": "{{what}} copied",
       "failed": "Could not copy: {{what}}",
-      "unavailable": "The clipboard is not available."
+      "unavailable": "The clipboard is not available.",
+      "textDone": "Text copied"
     },
-    "notSaved": "The change was not saved.",
     "offline": {
       "title": "You are offline",
       "message": "This needs the network. It comes back by itself when the connection does.",
@@ -334,10 +347,6 @@
   },
   "app": {
     "workbench": "OXESpace workbench",
-    "accounts": {
-      "title": "Add a project first",
-      "description": "Provider accounts are checked inside an OxeChat project."
-    },
     "loadingWorkspaces": "Loading workspaces",
     "boundary": {
       "conversations": "the conversations",
@@ -574,10 +583,7 @@
     "about": "About OXESpace",
     "aboutKeywords": "about version",
     "activity": {
-      "markAllRead": "Activity: Mark all as read",
-      "nothing": "Nothing to mark as read",
-      "nothingDetail": "Every activity item is already read.",
-      "allRead": "All activity marked as read"
+      "markAllRead": "Activity: Mark all as read"
     },
     "code": {
       "newWorkspaceDetail": "Open the New Workspace wizard",
@@ -604,13 +610,6 @@
       "stopTerminal": "Stop terminal"
     },
     "thread": {
-      "nothingToUndo": "Nothing to undo",
-      "noFinishedTurn": "This conversation has no finished turn yet.",
-      "noChanges": "The last turn left no file changes to restore.",
-      "restored_one": "Restored {{count}} file",
-      "restored_other": "Restored {{count}} files",
-      "undoFailed": "Could not undo the last turn",
-      "undoFailedDetail": "A file changed after the turn.",
       "addProject": "Add OxeChat project…",
       "switchProject": "Switch to project {{project}}",
       "resume": "Resume a session",
@@ -663,13 +662,10 @@
       "github": "Unexpected GitHub error",
       "workspace": "Unexpected workspace error"
     },
-    "skillCreate": "Could not create the skill",
     "workspace": {
       "switch": "Failed to switch workspace",
-      "close": "Could not close the workspace",
       "panelState": "Could not save the panel state",
-      "reorder": "Failed to reorder workspaces",
-      "settings": "Could not save the workspace settings"
+      "reorder": "Failed to reorder workspaces"
     }
   },
   "about": {
@@ -696,6 +692,7 @@
     },
     "copy": "Copy details",
     "details": "Build details",
+    "detailsCopied": "Build details copied",
     "report": "Report a problem"
   }
 }

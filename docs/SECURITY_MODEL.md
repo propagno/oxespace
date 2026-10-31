@@ -63,6 +63,29 @@ OxeQuery connects the app to databases and to the local container engine, and ex
 
 Provider permission prompts are **not** a control for these tools: Claude in `bypassPermissions` and Codex with `approvalPolicy: never` do not ask. The OxeQuery gateway is the authority.
 
+### Closed findings
+
+| Finding | Status | What it was | Why Postgres runs it | Control now | Test |
+|---|---|---|---|---|---|
+| SQL classifier: dollar quote after an identifier (B10, #237) | **Closed** | `SELECT foo$a$ FROM t; DROP TABLE users; --$a$` was classified as a plain **read**. The classifier (`sql-guard.ts`) opened a dollar quote at the `$a$` after `foo`, read everything up to the second `$a$` as a string, and never saw the `;` or the DROP. A read skips the destructive confirmation in the workbench, and an agent's `oxespace_db_query` accepts it (that call still runs on a read-only connection, so the server refuses the DROP there). | Identifiers may contain `$` after their first character, and a dollar quote that follows an identifier must be separated from it by whitespace. So Postgres reads `foo$a$` as one column name, ends the statement at `;`, runs `DROP TABLE users`, and treats `--$a$` as a comment. | `dollarTag()` opens no dollar quote right after an identifier character (letter, digit, `_` or `$`), as Postgres does. Both the tokenizer and `outsideReach` use it. The tag rule itself (`$$`, `$[A-Za-z_]*$`) is unchanged. | `tests/unit/oxequery-sql-risk.test.ts`, "does not open a quote right after an identifier, as Postgres does not": `foo$a$ … DROP` and `x$$ … DELETE` are both destructive. |
+
+## Approvals (B10)
+
+Every request an agent raises for the person (confirm-level MCP actions, OxeQuery statements, preview automation) and the app's own restart offer after an unexpected error go through one channel family, `approvals.*` (`shared/types/approvals.ts`):
+
+| Threat | Control |
+|---|---|
+| A native dialog cuts or hides what is approved (the Windows dialog drops a long `detail`) | The app's modal shows the requester's text whole, scrollable, up to `APPROVAL_AGENT_TEXT_MAX`; past that the request is flagged `truncated` and offers deny only |
+| Agent text posing as app warnings (fake bullets, markdown, a `DROP` behind `-- read only`) | `appNotes` are C3 codes the app chose; `agentText` is always `untrusted: true` and shown verbatim in its own labelled monospace block; risk comes from `guardSql`/`classifyShellRisk`, which skip comments |
+| An agent impersonating the app ("OXESpace wants to …", a pane named "OXESpace") | The requester comes from the authenticated execution and its owner, labelled by the app (provider and pane position); reserved names are refused as pane names and notification text after NFKC, case, accent, invisible-character and confusable folding (`reservedNameIn`) |
+| A reflex click, or a buggy or compromised window, approving a destructive change | At `critical` risk an allow is never the default, Enter does nothing, and main refuses an allow (`tooSoon`) that comes before the window's ack or within `APPROVAL_CRITICAL_ALLOW_DELAY_MS` of it; a deny is always accepted |
+| A text too long to review, or a flood of requests | One review cap in every door: above `APPROVAL_AGENT_TEXT_MAX` a change is refused before it is shown, never cut; past `APPROVAL_QUEUE_MAX` a new request is denied with its own code and logged |
+| A forged, repeated or late answer | Main frame only; one answer per `id` and `generation`, validated against the request's options; a second, stale or unknown answer is refused with a typed code; an unanswered request is denied after `APPROVAL_TIMEOUT_MS` |
+| Notification spoofing and flooding | Agent notifications carry an app-assigned requester prefix, refuse reserved names and are limited to `NOTIFY_PER_MINUTE` per execution |
+| An agent answering for the person | `approvals.admin` is a forbidden MCP capability; no tool reaches these channels |
+
+The native dialog is a fallback only: no app window exists, the window reported `approvals.unavailable` for that one request, or a request that needs a handshake (`crash`) was not acknowledged within `APPROVAL_ACK_TIMEOUT_MS`. The renderer-gone notice stays native because the renderer that would draw the modal is gone.
+
 ## Dependency and release controls
 
 CI blocks moderate-or-higher production advisories with `npm run security:audit`, blocks high/critical build-tool advisories with `npm run security:audit:tools`, and verifies that the exactly pinned Electron belongs to a supported major line. Electron is a devDependency but ships in the product, so the production audit alone is insufficient. Transitive fixes may be pinned through `overrides`, with the lockfile committed. Build-tool advisories and dated triage are recorded in `docs/validation/stabilization-2026-10-07.md`. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.
