@@ -39,6 +39,30 @@
   }
   :is(:is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'])[data-highlighted], [cmdk-item][data-selected='true'], :is([role='option'], [role='treeitem'], [role='row'], [role='gridcell'])[aria-selected='true']) * { color: inherit; background-color: transparent; border-color: currentColor; }
   ::selection { background: Highlight; color: HighlightText; }
+
+  /* Chosen options: a radio card or segment, and a pressed toggle button, drawn by hand outside src/ui (the database
+     engine cards, the appearance and layout cards, filter segments, the Settings scope and category rows, and the current
+     page of a navigation list such as Settings' side nav). Their
+     choice was only a fill, so the chosen one is filled with Highlight and keeps a Highlight edge; the radios not
+     chosen keep a ButtonText edge, so a row of them still reads as choices. The primitives in src/ui carry their own; a
+     colour swatch (data-swatch) keeps its colour and is ringed instead (src/ui/Field.module.css). */
+  :root [role='radio']:not([aria-checked='true'], :focus-visible, [data-swatch]) { outline: 1px solid ButtonText; outline-offset: -1px; }
+  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']) {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']) * { color: inherit; background-color: transparent; border-color: currentColor; }
+  /* The focus ring on a chosen option would vanish into its fill; it takes the text color and stands off. */
+  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+
+  /* The hand-made switch in the thread's configuration (auto-accept edits): a track and thumb drawn with lines, in
+     Highlight once on, the thumb on the right. */
+  .thread-config-switch > i { forced-color-adjust: none; box-sizing: border-box; border: 2px solid CanvasText; background: Canvas; }
+  .thread-config-switch > i::after { top: 0; left: 0; background: CanvasText; box-shadow: none; }
+  .thread-config-switch[aria-checked='true'] > i { border-color: Highlight; background: Highlight; }
+  .thread-config-switch[aria-checked='true'] > i::after { background: HighlightText; }
   /* The active tab is marked by a colored bar; an underline survives the palette. */
   [role='tab'][aria-selected='true'] { text-decoration: underline 2px; text-underline-offset: 4px; }
 

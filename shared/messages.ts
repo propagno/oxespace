@@ -50,14 +50,26 @@ export interface MessageParams {
   'incident.mcp.quarantined': Record<string, never>
   'incident.database.busy': Record<string, never>
   'incident.oxequery.timeout': Record<string, never>
+  /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
+  'incident.oxequery.restartDeferred': Record<string, never>
   'incident.updater.failed': Record<string, never>
   'incident.interaction.overBudget': Record<string, never>
   'incident.app.journalReset': Record<string, never>
+  /** F26: the window gave no first answer to a close or quit within 3 s; main went ahead. */
+  'incident.app.closeUnanswered': Record<string, never>
+  /** F26: the window's renderer went away while a close or quit was waiting on it; main went ahead. */
+  'incident.app.closeRendererGone': Record<string, never>
+  /** F26: the close guard hit an error or an inconsistent state; the close or quit went ahead unasked. */
+  'incident.app.closeGuardFailed': Record<string, never>
   /** A link the main window tried to open outside the app was refused (its reason is the incident's subject). */
   'incident.window.externalRefused': Record<string, never>
   'incident.window.externalRateLimited': Record<string, never>
   /** The system refused to open a link the app allowed (no mail app or browser registered for it). */
   'incident.window.externalOpenFailed': Record<string, never>
+  /** The main window called window.open; it opens nothing by itself (links leave through app:open-external). */
+  'incident.window.openDenied': Record<string, never>
+  /** The main window tried to navigate or redirect away from the app; it was kept in place and nothing was opened. */
+  'incident.window.navigationDenied': Record<string, never>
   /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
   'diagnostics.bundle.fileTooLarge': Record<string, never>
   /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
@@ -124,6 +136,12 @@ export interface MessageParams {
   'oxequery.sql.sessionRole': Record<string, never>
   /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
   'oxequery.sql.tableLock': Record<string, never>
+  /** A session with a transaction open or a command running is never closed to reopen it with new settings. */
+  'oxequery.session.busy': Record<string, never>
+  /** One connection already holds the most database connections it may hold for one role (the person or an agent). */
+  'oxequery.session.limit': { limit: number }
+  /** An agent sent BEGIN: an agent's session never keeps a transaction, so it was rolled back and refused. */
+  'oxequery.session.agentTransaction': Record<string, never>
   /** Mongo write (B15): a change on a production connection waits for the connection's name, typed. */
   'oxequery.mongo.confirmName': Record<string, never>
   /** Mongo write: a change that needs the person's confirmation (a delete). */
@@ -198,6 +216,8 @@ export interface MessageParams {
   'approvals.requester.unknownConversation': { conversation: string }
   'approvals.requester.mcpServer': { server: string }
   'approvals.requester.app': Record<string, never>
+  /** A Web Preview automation call with no pane or conversation behind it. */
+  'approvals.requester.preview': Record<string, never>
   'approvals.option.deny': Record<string, never>
   'approvals.option.allowOnce': Record<string, never>
   'approvals.option.allowSessionReads': Record<string, never>
@@ -222,6 +242,8 @@ export interface MessageParams {
   'approvals.note.thread.actsOnMessage': Record<string, never>
   'approvals.note.skill.followed': Record<string, never>
   'approvals.note.automation.runsAlone': Record<string, never>
+  /** B15: an agent asks to open a page that is not on this computer's loopback. */
+  'approvals.note.preview.notLocal': Record<string, never>
   'approvals.note.worktree.folderDeleted': Record<string, never>
   'approvals.note.worktree.forceDiscards': Record<string, never>
   'approvals.note.git.branchShared': Record<string, never>
@@ -231,6 +253,12 @@ export interface MessageParams {
   /** The requester's text was longer than the window shows; only deny is offered. */
   'approvals.note.textCut': { max: number }
   'approvals.note.crash': Record<string, never>
+  /** R2: the requester's text holds bidi controls or invisible characters; the risk is at least high. */
+  'approvals.note.hiddenCharacters': Record<string, never>
+  /** The system dialog cannot hold Allow back for 2 s, so a critical request is deny-only there. */
+  'approvals.note.nativeCriticalDenyOnly': Record<string, never>
+  /** R3: the OS notification when a request waits and the window is not focused. Fixed text, never request content. */
+  'approvals.notify.waiting': Record<string, never>
   /** The window could not show the modal for a request, so it opened in a system dialog. */
   'approvals.unavailable': Record<string, never>
   /** Nobody answered in time; the request was denied. */
@@ -243,8 +271,12 @@ export interface MessageParams {
   'approvals.refused.alreadyReported': Record<string, never>
   /** An allow at critical risk before the modal had been shown for APPROVAL_CRITICAL_ALLOW_DELAY_MS. */
   'approvals.refused.tooSoon': Record<string, never>
+  /** R1: an allow before the window acknowledged showing the request, at any risk. */
+  'approvals.refused.notShown': Record<string, never>
   /** Denied before it was shown: APPROVAL_QUEUE_MAX requests were already waiting. */
   'approvals.denied.queueFull': { max: number }
+  'approvals.denied.timeout': Record<string, never>
+  'approvals.denied.cancelled': Record<string, never>
   /** Denied before it was shown: the text to approve is longer than a person reviews. */
   'approvals.denied.tooLong': { max: number }
   /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
@@ -286,12 +318,18 @@ export const MESSAGE_CODES = [
   'incident.mcp.quarantined',
   'incident.database.busy',
   'incident.oxequery.timeout',
+  'incident.oxequery.restartDeferred',
   'incident.updater.failed',
   'incident.interaction.overBudget',
   'incident.app.journalReset',
+  'incident.app.closeUnanswered',
+  'incident.app.closeRendererGone',
+  'incident.app.closeGuardFailed',
   'incident.window.externalRefused',
   'incident.window.externalRateLimited',
   'incident.window.externalOpenFailed',
+  'incident.window.openDenied',
+  'incident.window.navigationDenied',
   'diagnostics.bundle.fileTooLarge',
   'diagnostics.bundle.tooLarge',
   'bundle.file.snapshot',
@@ -341,6 +379,9 @@ export const MESSAGE_CODES = [
   'oxequery.sql.rowLock',
   'oxequery.sql.sessionRole',
   'oxequery.sql.tableLock',
+  'oxequery.session.busy',
+  'oxequery.session.limit',
+  'oxequery.session.agentTransaction',
   'oxequery.mongo.confirmName',
   'oxequery.mongo.confirm',
   'oxequery.mongo.production',
@@ -393,6 +434,7 @@ export const MESSAGE_CODES = [
   'approvals.requester.unknownConversation',
   'approvals.requester.mcpServer',
   'approvals.requester.app',
+  'approvals.requester.preview',
   'approvals.option.deny',
   'approvals.option.allowOnce',
   'approvals.option.allowSessionReads',
@@ -416,6 +458,7 @@ export const MESSAGE_CODES = [
   'approvals.note.thread.actsOnMessage',
   'approvals.note.skill.followed',
   'approvals.note.automation.runsAlone',
+  'approvals.note.preview.notLocal',
   'approvals.note.worktree.folderDeleted',
   'approvals.note.worktree.forceDiscards',
   'approvals.note.git.branchShared',
@@ -424,6 +467,9 @@ export const MESSAGE_CODES = [
   'approvals.note.github.releasePublic',
   'approvals.note.textCut',
   'approvals.note.crash',
+  'approvals.note.hiddenCharacters',
+  'approvals.note.nativeCriticalDenyOnly',
+  'approvals.notify.waiting',
   'approvals.unavailable',
   'approvals.expired',
   'approvals.refused.notPending',
@@ -432,7 +478,10 @@ export const MESSAGE_CODES = [
   'approvals.refused.unknownOption',
   'approvals.refused.alreadyReported',
   'approvals.refused.tooSoon',
+  'approvals.refused.notShown',
   'approvals.denied.queueFull',
+  'approvals.denied.timeout',
+  'approvals.denied.cancelled',
   'approvals.denied.tooLong',
   'notify.prefix.pane',
   'notify.prefix.conversation',

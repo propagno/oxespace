@@ -1,9 +1,10 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { RendererRecoveryPolicy } from './renderer-recovery'
+import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
@@ -60,7 +61,7 @@ import { SearchService } from './services/search.service'
 import { AutomationStore } from './services/automations/store'
 import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
-import { isAppNavigation, isLoopbackHttpUrl, openExternalOrRecord } from './utils/external-open'
+import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './services/browser-preview.service'
@@ -91,13 +92,10 @@ process.on('uncaughtException', (error) => {
   // The app keeps running, but its state is no longer known: say so once, and offer a clean restart.
   if (unexpectedErrorShown || !app.isReady() || !app.isPackaged) return
   unexpectedErrorShown = true
-  const window = BrowserWindow.getAllWindows()[0]
-  const options: Electron.MessageBoxOptions = {
-    type: 'error', title: tMain('crash.unexpected.title'), message: tMain('crash.unexpected.message'), detail: tMain('crash.unexpected.detail'),
-    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true }
-  void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options) // icon, or none
-    .then(shown => window ? dialog.showMessageBox(window, shown) : dialog.showMessageBox(shown))
-    .then(({ response }) => { if (response === 0) { app.relaunch(); app.quit() } }).catch(() => {})
+  // B10: the app's modal when a window acknowledges it within 3 s; the system dialog otherwise (the window may be what broke).
+  void Promise.all([import('./services/approvals'), import('./services/approvals/drafts')])
+    .then(([{ approvalCenter }, { crashDraft }]) => approvalCenter.ask(crashDraft()))
+    .then(outcome => { if (outcome.intent === 'allow') { app.relaunch(); app.quit() } }).catch(() => {})
 })
 process.on('unhandledRejection', (reason) => {
   log.error('[main] unhandledRejection', reason)
@@ -441,6 +439,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   app.on('before-quit', () => teamDelivery.stop())
   registerTeamIpc(db, teamAccess)
 
+  // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
+  const approvals = await import('./services/approvals/wiring')
+  approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
     delegation: delegationService, executions, team: teamAccess,
@@ -455,7 +456,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     app: {
       github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
       terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService,
-      notify: (title, body) => { if (!Notification.isSupported()) return false; new Notification({ title, body, silent: false }).show(); return true },
+      notify: approvals.showAgentNotice,
       agents: {
         state: agentState, terminal: terminalManager, profiles: () => delegationAgents.list(), resolve: id => launcher.resolve(id),
         mcpArgs: provider => agentMcpArguments(provider, join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs')),
@@ -801,10 +802,8 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
-  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe, so its guest has
-  // to carry the same restrictions explicitly — they are not defaults. The guest
-  // runs in its own in-memory partition, which also keeps preview cookies and
-  // storage out of the app's session.
+  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe: its guest carries the same restrictions explicitly, in
+  // its own in-memory partition, which also keeps preview cookies and storage out of the app's session.
 
   // A guest must not be able to spawn windows; external links go to the OS browser.
   mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
@@ -830,6 +829,7 @@ function createMainWindow(): BrowserWindow {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
   })
+  installCloseGuard(mainWindow) // F26: ask the window before it closes or the app quits
 
   // Relax frame-blocking headers only for loopback development servers. Remote
   // sites retain their X-Frame-Options/frame-ancestors policy even when the user
@@ -857,24 +857,12 @@ function createMainWindow(): BrowserWindow {
     callback({ responseHeaders: next })
   })
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    openExternalOrRecord(url)
-    return { action: 'deny' }
-  })
-
-  // The window that holds the preload API only ever shows the app itself. A dropped link, a link in
-  // agent output or a redirect would otherwise load a remote page that keeps that API.
+  // The window that holds the preload API only ever shows the app itself, and opens nothing on its own: a link leaves
+  // through app:open-external, after the person confirmed its host. The rest is denied and journalled.
   const appUrl = isDev && process.env.ELECTRON_RENDERER_URL
     ? new URL(process.env.ELECTRON_RENDERER_URL).origin
     : pathToFileURL(join(app.getAppPath(), 'out', 'renderer', 'index.html')).href
-  const keepInApp = (event: Electron.Event, url: string): void => {
-    if (isAppNavigation(url, appUrl)) return
-    event.preventDefault()
-    // The reason only: the URL may carry a token, a path or a host that must not reach the log.
-    log.warn('[main] blocked navigation of the main window', openExternalOrRecord(url) ? 'opened outside' : 'refused')
-  }
-  mainWindow.webContents.on('will-navigate', keepInApp)
-  mainWindow.webContents.on('will-redirect', keepInApp)
+  guardMainWindowLinks(mainWindow.webContents, appUrl)
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     log.error('Renderer failed to load', { errorCode, errorDescription, validatedURL })
