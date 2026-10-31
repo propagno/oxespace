@@ -350,7 +350,9 @@
         "otherAgent": "This pane now starts a different agent, so its previous session was not resumed.",
         "launchOverride": "This start had its own arguments or prompt, so the previous session was not resumed.",
         "blocked": "Your organization's policy does not allow this agent here, so its session was not resumed.",
-        "disabled": "Resuming agent sessions is turned off in Settings."
+        "disabled": "Resuming agent sessions is turned off in Settings.",
+        "startedFresh": "This pane was restarted with a new session; the previous one will not come back.",
+        "failedToLoad": "The agent could not load its previous session and closed, so this pane started a new one."
       }
     },
     "incident": {

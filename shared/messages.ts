@@ -56,6 +56,10 @@ export interface MessageParams {
   'agents.resume.launchOverride': Record<string, never>
   'agents.resume.blocked': Record<string, never>
   'agents.resume.disabled': Record<string, never>
+  /** The person restarted the pane without its session (terminal.restart with `resume: false`). */
+  'agents.resume.startedFresh': Record<string, never>
+  /** The resumed agent exited at once: its session would not load, so the pane started fresh and forgot it. */
+  'agents.resume.failedToLoad': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -337,6 +341,8 @@ export const MESSAGE_CODES = [
   'agents.resume.launchOverride',
   'agents.resume.blocked',
   'agents.resume.disabled',
+  'agents.resume.startedFresh',
+  'agents.resume.failedToLoad',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',

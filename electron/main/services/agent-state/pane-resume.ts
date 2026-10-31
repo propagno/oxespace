@@ -44,6 +44,21 @@ function notResumed(agent: ResumableAgent, sessionId: string, code: 'sessionMiss
   return { outcome: 'notResumed', agent, sessionId, message: mainMessage(`agents.resume.${code}`, {}) }
 }
 
+/** A resumed process that exits sooner than this after its start could not load the session. */
+export const RESUME_LOAD_MS = 5_000
+
+/** B17 · What the start after a resume that could not load reports. */
+export function failedToLoadStatus(session: { agent: ResumableAgent; sessionId: string }): PaneAgentResume {
+  return { outcome: 'notResumed', agent: session.agent, sessionId: session.sessionId, message: mainMessage('agents.resume.failedToLoad', {}) }
+}
+
+/** B17 · What a restart with `resume: false` reports: the session it left behind, or that there was none. */
+export function startedFreshStatus(record: PaneResumeRecord | null): PaneAgentResume {
+  return record && record !== 'none'
+    ? { outcome: 'notResumed', agent: record.agent, sessionId: record.sessionId, message: mainMessage('agents.resume.startedFresh', {}) }
+    : { outcome: 'nothingRecorded' }
+}
+
 export async function planPaneResume(record: PaneResumeRecord | null, start: PaneResumeStart, cwd: string, deps: PaneResumeDeps): Promise<PaneResumePlan> {
   const unchanged = { agentCommand: start.agentCommand, extraArgs: [] }
   if (record === null) return unchanged

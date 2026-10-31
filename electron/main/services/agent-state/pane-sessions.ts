@@ -41,8 +41,9 @@ export class PaneAgentSessions {
    * Called on every start of a pane. Only the pane's first start in this app run gets an answer (null after that):
    * the session recorded for the pane, with whether the person wants agents resumed, or `none`.
    */
-  take(paneId: string, wanted: boolean): PaneResumeRecord | null {
-    if (this.resumedThisRun.has(paneId)) return null
+  take(paneId: string, wanted: boolean, again = false): PaneResumeRecord | null {
+    // `again`: a restart of the pane asks again (B17); a plain later start does not.
+    if (this.resumedThisRun.has(paneId) && !again) return null
     this.resumedThisRun.add(paneId)
     const row = this.db.prepare('SELECT agent, session_id FROM pane_agent_sessions WHERE pane_id = ?').get(paneId) as { agent: ResumableAgent; session_id: string } | undefined
     return row && (row.agent === 'claude' || row.agent === 'codex') && SESSION_ID.test(row.session_id) ? { agent: row.agent, sessionId: row.session_id, wanted } : 'none'

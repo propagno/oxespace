@@ -22,6 +22,7 @@ import { defaultSplitShellProfileId, fallbackShellProfiles } from '../services/s
 import { FileSystemService } from '../services/file-system.service'
 import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../services/workspace-root'
 import { worktreeOrWorkspaceRoot } from '../ipc/file-system.ipc'
+import { registerTerminalRestartMock } from './terminal-restart-mock'
 import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
 import { registerOxePodMock } from './oxepod-mock'
@@ -290,7 +291,8 @@ export function registerE2eMockIpcHandlers(): void {
   })
   ipcMain.handle(IPC_CHANNELS.terminal.resize, () => undefined)
   ipcMain.handle(IPC_CHANNELS.terminal.stop, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.terminal.restart, () => undefined)
+  // B17: every valid restart is recorded with its resume flag on `globalThis.__oxeTerminalRestarts` for the specs.
+  registerTerminalRestartMock(globalThis as unknown as Record<string, unknown>)
   // The mock never keeps a session, so a mounting view is told to start fresh
   // rather than waiting for a replay that will not come.
   ipcMain.handle(IPC_CHANNELS.terminal.attach, () => ({

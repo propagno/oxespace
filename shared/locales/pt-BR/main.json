@@ -350,7 +350,9 @@
         "otherAgent": "Este painel agora inicia outro agente, então a sessão anterior não foi retomada.",
         "launchOverride": "Este início tinha argumentos ou prompt próprios, então a sessão anterior não foi retomada.",
         "blocked": "A política da sua organização não permite este agente aqui, então a sessão não foi retomada.",
-        "disabled": "Retomar sessões de agente está desligado nas Configurações."
+        "disabled": "Retomar sessões de agente está desligado nas Configurações.",
+        "startedFresh": "Este painel foi reiniciado com uma sessão nova; a anterior não volta mais.",
+        "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova."
       }
     },
     "incident": {
