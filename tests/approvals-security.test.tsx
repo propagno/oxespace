@@ -352,9 +352,11 @@ describe('palette · the approval history command follows the catalog pattern (F
     const { result } = renderHook(() => useContributedCommands())
     const command = () => result.current.find(item => item.id === 'help.approvals')
     expect(command()).toMatchObject({ title: 'Help: Show approval history', category: 'Help' })
-    expect(command()?.keywords).toEqual(expect.arrayContaining(['approvals', 'aprovações', 'histórico']))
+    expect(command()?.keywords).toEqual(expect.arrayContaining(['approvals', 'history']))
     await act(async () => { await changeLanguage('pt-BR') })
     expect(command()?.title).toBe('Ajuda: Mostrar histórico de aprovações')
+    // The search words come from the catalog; in Portuguese the English ones still find it.
+    expect(command()?.keywords).toEqual(expect.arrayContaining(['aprovações', 'histórico', 'approvals']))
     await act(async () => { await changeLanguage('en') })
   })
 })

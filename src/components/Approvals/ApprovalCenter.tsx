@@ -22,7 +22,7 @@ const registerHistoryCommand = (): void => {
   registerCommands('approvals', [{
     id: 'help.approvals', label: `${category}: ${action}`, icon: ShieldCheck, category: 'Help',
     // The former label, in the language on screen, still finds it.
-    keywords: ['approvals', 'aprovações', 'histórico', 'history', 'permissions', 'allowed', 'denied', 'decisions', 'security', approvalT('approvals.history.command')],
+    keywords: [...approvalT('approvals.keywords').split(' '), approvalT('approvals.history.command')],
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_HISTORY_EVENT))) }
   }])
 }

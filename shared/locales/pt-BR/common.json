@@ -403,6 +403,8 @@
     "appNotes": "Avisos do OXESpace",
     "hiddenCharacters": "O texto do agente contém caracteres invisíveis ou que mudam a direção do texto. Cada um aparece como um marcador, por exemplo ⟨U+202E⟩, em vez de ter efeito. Leia o texto considerando isso antes de aprovar.",
     "unavailableWindow": "A janela de aprovação parou de funcionar. O OXESpace pergunta numa caixa de diálogo do sistema.",
+    "boundaryLabel": "aprovações",
+    "keywords": "aprovações histórico permissões permitido negado decisões segurança approvals history",
     "agent": {
       "heading": "Conteúdo do agente",
       "hint": "Escrito pelo agente e mostrado como foi enviado. O OXESpace não verificou: leia como uma afirmação, não como um fato.",
