@@ -174,7 +174,8 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F19 split além dos presets | #240 | FRONTEND | Homologado (na `main` c4a4d84d) |
 | Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado (499ffbcd): ressalvas fechadas, sonda de 134 nomes |
 | Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Pré-homologado (#239 31564312 + #244 3f3e2d66): pt-BR e en ok, aspas corrigidas, o vazio vira `refusal:'empty'` |
-| Toasts (F21) | #245 | FRONTEND | Pré-homologado (a40e1cba): as 3 ressalvas foram fechadas |
+| Toasts (F21) | #245 | FRONTEND | Homologado (na `main` b5270492): fusão em ×N, toast próprio para o caminho relativo, pausa, teclado, Escape e posição acima da barra de status, em pt-BR e en, sem erros |
+| Checklist inicial e painel de contas sob demanda | #234 | FRONTEND | Homologado (na `main` b5270492): o checklist aparece em 310 ms e "Agent settings" abre Configurações › Agentes com a verificação de saúde, sem erros. O inglês no checklist em pt-BR já existia antes (igual à captura da auditoria), e fica com o #197 |
 | Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab (virou F23) |
 | Indicadores do OxePod | #248 | FRONTEND | Homologado (na `main` 16d27efa): 8×8, redondos, em claro e escuro |
 | Diagnóstico: medidas, incidentes, pacote, `oxespace_diagnostics` | #203 | BACKEND | Homologado (na `main` 04dcc451): nenhum segredo, caminho ou nome vazou; as 2 notas baixas foram fechadas no #252 (pré-homologado, 679fa231) |
