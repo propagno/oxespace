@@ -1,5 +1,7 @@
 {
   "accounts": {
+    "needProject": "Adicione um projeto primeiro",
+    "needProjectText": "As contas dos agentes são verificadas dentro de um projeto do Thread.",
     "title": "Contas dos agentes",
     "description": "Use a sua assinatura com o agente nativo.",
     "note": "As credenciais ficam com o Claude Code e o Codex. Reconectar muda a conta nativa usada também pelas suas sessões na CLI.",
@@ -1330,6 +1332,16 @@
     "background": "Em segundo plano",
     "completed": "Concluída",
     "ready": "Pronta"
+  },
+  "undoTurn": {
+    "nothing": "Nada para desfazer",
+    "noTurn": "Esta conversa ainda não tem um turno concluído.",
+    "noFiles": "O último turno não deixou alterações de arquivo para restaurar.",
+    "restored_one": "{{count}} arquivo restaurado",
+    "restored_other": "{{count}} arquivos restaurados",
+    "restored_many": "{{count}} arquivos restaurados",
+    "failed": "Não foi possível desfazer o último turno",
+    "changedSince": "Um arquivo mudou depois do turno."
   },
   "store": {
     "removeProjectFailed": "Não foi possível remover o projeto",
