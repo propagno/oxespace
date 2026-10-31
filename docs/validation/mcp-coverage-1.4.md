@@ -67,6 +67,15 @@ Existing tools now behind the same policy door as domain tools (they predate it 
 `oxespace_remove_worktree` is **confirm** (it deletes the folder with its untracked and ignored files).
 A caller without a live execution gets `no-execution` instead of the effect.
 
+`oxespace_open_web_preview` (B15) is **confirm**, and the level depends on the URL. http(s) to `localhost`,
+`*.localhost`, `127.0.0.1` or `[::1]`, on any port, skips the question and runs as **write**, as before. Any other
+host waits for a person to approve that exact URL; nothing is queued for the preview until then. Every other scheme
+(`file:`, `javascript:`, `data:`, `blob:`, `about:`, `chrome:`, `devtools:`, `mailto:`, custom ones) is refused
+without asking. `file:` stays refused in 1.4 because the preview loads http(s) only, so an approval could not lead
+anywhere; opening a file after an approval is a post-1.4 item. The host must be written the way the URL parser writes it: `http://2130706433`, `http://0177.0.0.1`,
+`http://LOCALHOST`, `http://[::ffff:7f00:1]`, `http://localhost.evil.com` and `http://127.0.0.1@evil.com` all ask
+(`electron/main/utils/preview-url.ts`).
+
 None of these is in the core Thread group, so an ordinary Thread sends the same tool definitions as
 before. Code panes receive the whole registry.
 
@@ -98,7 +107,7 @@ before. Code panes receive the whole registry.
 | `code.oxe_workflow` | OXE workflow state and dashboard | Excluded: The state is in .oxe/ files the agent reads itself; the dashboard is a window for the person. |
 | `code.notifications` | Desktop notification | **write**: `oxespace_workspace_change#notify` |
 | `code.local_input` | Clipboard and voice | Excluded: The person's own input devices. |
-| `web_preview.use` | Open, drive and capture the Web Preview | **read**: `oxespace_capture_web_preview`<br>**write**: `oxespace_open_web_preview`, `oxespace_preview_interact` |
+| `web_preview.use` | Open, drive and capture the Web Preview | **read**: `oxespace_capture_web_preview`<br>**write**: `oxespace_preview_interact`<br>**confirm**: `oxespace_open_web_preview` (a local http(s) URL runs as write; see below) |
 | `web_preview.access` | Let the preview reach external sites | **Forbidden**: Raises access. |
 | `git.read` | Status, branch, diffs, files at a ref, checkpoints | **read**: `oxespace_git#status`, `oxespace_git#branch`, `oxespace_git#diff_summary`, `oxespace_git#diff`, `oxespace_git#file_at_ref`, `oxespace_git#checkpoints` |
 | `git.change` | Stage, commit, branch, fetch, pull, push, checkpoints | **write**: `oxespace_git_change#stage`, `oxespace_git_change#stage_all`, `oxespace_git_change#unstage`, `oxespace_git_change#commit`, `oxespace_git_change#create_branch`, `oxespace_git_change#fetch`, `oxespace_git_change#pull`, `oxespace_git_change#create_checkpoint`<br>**confirm**: `oxespace_git_change#checkout`, `oxespace_git_change#push`, `oxespace_git_change#restore_checkpoint`, `oxespace_git_change#delete_checkpoint` |

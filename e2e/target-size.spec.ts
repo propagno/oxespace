@@ -139,19 +139,19 @@ test('audited surfaces have targets of at least 24×24 px in both densities', as
       await page.keyboard.press('Escape')
       await expect(settingsDialog(page)).toHaveCount(0)
 
-      await openView(page, 'OxePod')
+      await openView(page, 'pods')
       const pod = page.getByRole('complementary', { name: /OxePod/ })
       await expect(pod.getByRole('radiogroup', { name: 'Container engine' })).toBeVisible()
       await check(page, `${tag}-oxepod-sidebar`, pod)
 
-      await openView(page, 'OxeQuery')
+      await openView(page, 'data')
       await page.getByRole('button', { name: 'New connection' }).first().click()
       const form = page.getByRole('dialog', { name: 'New connection' })
       await expect(form.getByRole('radiogroup', { name: 'Environment' })).toBeVisible()
       await check(page, `${tag}-oxequery-new-connection`, form)
       await page.keyboard.press('Escape')
       await expect(form).toHaveCount(0)
-      await openView(page, 'Code')
+      await openView(page, 'code')
     }
   } finally {
     await app.close()

@@ -9,7 +9,7 @@ import { chordsCollide, formatChord, matchesChord, parseChord, type ParsedChord 
  * from here, so a shortcut is defined once and shown the same everywhere.
  */
 export type KeybindingScope = 'global' | 'code' | 'thread' | 'oxequery' | 'oxepod' | 'oxepost' | 'terminal'
-/** The application's views: Code, Thread, OxeQuery (`data`), OxePod (`pods`) and OxePost (`post`). */
+/** The application's views: OxeCode (`code`), OxeChat (`thread`), OxeQuery (`data`), OxePod (`pods`) and OxePost (`post`). */
 export type AppView = 'code' | 'thread' | 'data' | 'pods' | 'post'
 export const APP_VIEWS: readonly AppView[] = ['code', 'thread', 'data', 'pods', 'post']
 
@@ -28,6 +28,10 @@ export interface Keybinding {
   when?: (context: KeybindingContext) => boolean
   /** A focused terminal hands these chords to the app instead of the shell. */
   reservedInTerminal?: boolean
+  /** Also reserved in the Thread native CLI, which otherwise owns its whole keymap: the ways out of a terminal (WCAG 2.1.2). */
+  everyTerminal?: boolean
+  /** Not rebindable and never off: F6 is the one way out of any region that always works. */
+  fixed?: boolean
 }
 
 export const inXterm = (target: Element | null): boolean => Boolean(target?.closest('.xterm'))
@@ -36,7 +40,7 @@ export const inEditor = (target: Element | null): boolean => Boolean(target?.clo
 /** Anywhere a key types text: inputs, text areas, editable content, editors and terminals. */
 export const inTextField = (target: Element | null): boolean => Boolean(target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) || inEditor(target)
 
-export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'Code', terminal: 'Terminal', thread: 'Thread', oxequery: 'OxeQuery', oxepod: 'OxePod', oxepost: 'OxePost' }
+export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'OxeCode', terminal: 'Terminal', thread: 'OxeChat', oxequery: 'OxeQuery', oxepod: 'OxePod', oxepost: 'OxePost' }
 
 export const KEYBINDINGS = [
   // Global
@@ -47,11 +51,16 @@ export const KEYBINDINGS = [
   { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', label: 'Open activity center', reservedInTerminal: true },
   { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', label: 'Toggle voice input', when: context => context.view === 'code' || context.view === 'thread' },
   // The four views, in the order of the switch in the title bar.
-  { id: 'view.code', chords: ['Mod+1'], scope: 'global', label: 'Show Code', reservedInTerminal: true },
-  { id: 'view.thread', chords: ['Mod+2'], scope: 'global', label: 'Show Thread', reservedInTerminal: true },
+  { id: 'view.code', chords: ['Mod+1'], scope: 'global', label: 'Show OxeCode', reservedInTerminal: true },
+  { id: 'view.thread', chords: ['Mod+2'], scope: 'global', label: 'Show OxeChat', reservedInTerminal: true },
   { id: 'view.data', chords: ['Mod+3'], scope: 'global', label: 'Show OxeQuery', reservedInTerminal: true },
   { id: 'view.pods', chords: ['Mod+4'], scope: 'global', label: 'Show OxePod', reservedInTerminal: true },
   { id: 'view.post', chords: ['Mod+5'], scope: 'global', label: 'Show OxePost', reservedInTerminal: true },
+  // The ways out of a terminal (WCAG 2.1.2 No Keyboard Trap): F6 moves between the window's regions, and the
+  // toggle (Ctrl+M, as in VS Code) makes Tab move focus in the focused terminal instead of reaching the shell.
+  { id: 'focus.nextRegion', chords: ['F6'], scope: 'global', label: 'Move focus to the next region', reservedInTerminal: true, everyTerminal: true, fixed: true },
+  { id: 'focus.previousRegion', chords: ['Shift+F6'], scope: 'global', label: 'Move focus to the previous region', reservedInTerminal: true, everyTerminal: true, fixed: true },
+  { id: 'terminal.tabMovesFocus', chords: ['Ctrl+M'], scope: 'global', label: 'Tab moves focus in the terminal', reservedInTerminal: true, everyTerminal: true, when: context => inXterm(context.target) },
   // Code
   { id: 'code.changes', chords: ['Mod+Shift+D'], scope: 'code', label: 'Changes' },
   { id: 'code.browser', chords: ['Mod+Shift+B'], scope: 'code', label: 'Browser' },
@@ -110,11 +119,12 @@ const parsed = (chord: string): ParsedChord => {
 
 /** The chords in effect: the user's override from Settings › Keyboard (an empty list turns it off) or the default. */
 export function chordsFor(id: KeybindingId): string[] {
+  if (getKeybinding(id).fixed) return [...getKeybinding(id).chords]
   return useSettingsStore.getState().keybindingOverrides[id] ?? [...getKeybinding(id).chords]
 }
 
 export function isOverridden(id: KeybindingId): boolean {
-  return id in useSettingsStore.getState().keybindingOverrides
+  return !getKeybinding(id).fixed && id in useSettingsStore.getState().keybindingOverrides
 }
 
 /**
@@ -173,10 +183,18 @@ export function bindingsCollide(a: Keybinding, b: Keybinding, chordsA: string[],
   return chordsA.some(x => chordsB.some(y => chordsCollide(x, y)))
 }
 
-/** True when a focused terminal should give this key to the app rather than the shell. */
-export function isTerminalReservedChord(event: KeyboardEvent): boolean {
-  return (KEYBINDINGS as readonly Keybinding[]).some(binding => binding.reservedInTerminal
-    && chordsFor(binding.id as KeybindingId).some(chord => matchesChord(event, parsed(chord))))
+/** True when the key press is one of the chords in effect for `id`. */
+export function matchesBinding(event: KeyboardEvent, id: KeybindingId): boolean {
+  return chordsFor(id).some(chord => matchesChord(event, parsed(chord)))
+}
+
+/**
+ * True when a focused terminal should give this key to the app rather than the shell. In the Thread native CLI
+ * (`nativeCli`) only the ways out of the terminal are reserved; it owns the rest of its keymap.
+ */
+export function isTerminalReservedChord(event: KeyboardEvent, nativeCli = false): boolean {
+  return (KEYBINDINGS as readonly Keybinding[]).some(binding => binding.reservedInTerminal && (!nativeCli || binding.everyTerminal)
+    && matchesBinding(event, binding.id as KeybindingId))
 }
 
 /** Return false when the shortcut does not apply right now; the key then goes on as usual. */
@@ -185,9 +203,9 @@ type HandlerMap = Partial<Record<KeybindingId, KeybindingHandler>>
 
 const layers: Array<{ current: HandlerMap }> = []
 
-function blocked(target: Element | null): boolean {
-  // The native CLI owns its keymap, including Ctrl+R, Ctrl+B and Ctrl+J.
-  if (target?.closest('.thread-native-cli')) return true
+function blocked(target: Element | null, binding: Keybinding): boolean {
+  // The native CLI owns its keymap, including Ctrl+R, Ctrl+B and Ctrl+J, but not the ways out of it.
+  if (target?.closest('.thread-native-cli') && !binding.everyTerminal) return true
   const ui = useUIStore.getState()
   return ui.isSettingsOpen || ui.isWorkspaceSettingsOpen
 }
@@ -195,9 +213,9 @@ function blocked(target: Element | null): boolean {
 export function dispatchKeybinding(event: KeyboardEvent): boolean {
   if (event.defaultPrevented || event.isComposing) return false
   const target = event.target instanceof Element ? event.target : null
-  if (blocked(target)) return false
   const context: KeybindingContext = { view: activeView, target }
   for (const binding of KEYBINDINGS as readonly Keybinding[]) {
+    if (blocked(target, binding)) continue
     if (!scopeIsActive(binding.scope, context.view)) continue
     if (!chordsFor(binding.id as KeybindingId).some(chord => matchesChord(event, parsed(chord)))) continue
     if (binding.when && !binding.when(context)) continue
