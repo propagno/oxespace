@@ -36,5 +36,5 @@ export function ApprovalsHost(): ReactElement | null {
     const cancelPreload = schedulePreload()
     return () => { stop(); cancelPreload() }
   }, [])
-  return Center && <ErrorBoundary label={i18n.t('approvals.boundaryLabel')} fallback={<ApprovalsUnavailable />}><Center /></ErrorBoundary>
+  return Center && <ErrorBoundary id="approvals" label={i18n.t('approvals.boundaryLabel')} fallback={<ApprovalsUnavailable />}><Center /></ErrorBoundary>
 }
