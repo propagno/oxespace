@@ -110,6 +110,7 @@
 .skeletonBar:nth-child(3n) { width: 62%; }
 .skeletonBar:nth-child(3n + 2) { width: 84%; }
 .skeletonBlock { height: calc(var(--control-lg) * 3); width: 100%; }
+.sidebarRows > :last-child { padding-inline: var(--space-3); }
 :global([data-motion='reduce']) .skeletonBar { animation: none; }
 .separator { flex: none; background: var(--border-subtle); }
 .separator[data-orientation='horizontal'] { height: 1px; width: 100%; }

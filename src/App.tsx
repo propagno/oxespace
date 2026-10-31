@@ -3,7 +3,8 @@ import { useContributedCommands } from './utils/commandRegistry'
 import './commands/settings.commands'
 import { useCodeCommands } from './commands/code.commands'
 import { useThreadCommands } from './commands/thread.commands'
-import { DataHosts, DataSidebar, isDataView, useModeActions } from './components/Navigation/ModeViews'
+import { DataHosts, DataSidebar, isDataView, useModeActions, ViewSidebarSkeleton } from './components/Navigation/ModeViews'
+import { SettingsCenter } from './components/Settings/SettingsHost'
 import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
@@ -24,7 +25,6 @@ import { humanizeError } from './utils/humanizeError'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
-const SettingsCenter = lazy(() => import('./components/Settings/SettingsCenter').then((m) => ({ default: m.SettingsCenter })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
 const TeamDialog = lazy(() => import('./components/Teams/TeamDialog').then(m => ({ default: m.TeamDialog })))
 const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
@@ -826,7 +826,7 @@ export function App(): ReactElement {
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
       {isDataView(applicationView) ? <DataSidebar view={applicationView} />
-      : applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
+      : applicationView === 'thread' ? <Suspense fallback={<ViewSidebarSkeleton view="thread" />}><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
         const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
         else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })

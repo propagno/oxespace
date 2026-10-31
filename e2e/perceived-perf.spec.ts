@@ -20,6 +20,9 @@
  * One extra launch (OXESPACE_PERF_SHOTS=0 skips it) repeats the probes while capturing screenshots, and keeps
  * the one taken inside the longest blank span under e2e/screenshots/perceived-perf/; its numbers are not used.
  *
+ * The first test gates (on the medians): first feedback, main-region blank and sidebar blank at most 100 ms for every
+ * surface, cold and warm. The second compares the renderer's idle memory with the idle preload on and off.
+ *
  * Build first: npx electron-vite build
  * Run: npx playwright test --config playwright.tools.config.ts perceived-perf.spec.ts --workers=1 --reporter=line
  */
@@ -339,4 +342,52 @@ test('perceived performance: first feedback, first content and blank time per su
     try { await session(true) } catch (error) { console.log(`[SHOT] capture launch failed: ${(error as Error).message.split('\n')[0]}`) }
   }
   expect(Object.keys(results.cold).length, 'at least one launch measured the surfaces').toBeGreaterThan(0)
+  // The F7 gate, on the median of the launches: every surface answers within 100 ms and no region stays blank longer.
+  for (const phase of ['cold', 'warm'] as const) {
+    for (const [name, samples] of Object.entries(results[phase])) {
+      const med = (pick: (s: Sample) => number | null): number => median(samples.map(s => pick(s) ?? Infinity))
+      expect.soft(med(s => s.feedback), `${name} ${phase}: first feedback`).toBeLessThanOrEqual(BLANK_GOAL_MS)
+      expect.soft(med(s => s.blank), `${name} ${phase}: main region blank`).toBeLessThanOrEqual(BLANK_GOAL_MS)
+      expect.soft(med(s => s.sidebarBlank), `${name} ${phase}: sidebar blank`).toBeLessThanOrEqual(BLANK_GOAL_MS)
+    }
+  }
+})
+
+/**
+ * What the idle preload costs an idle window: the renderer's working set and JS heap a few seconds after start, with
+ * the preload (most recent view OxeQuery, plus Settings) and with it switched off (`oxe.preload` = 'off').
+ */
+test('perceived performance: idle memory cost of the preload', async () => {
+  test.setTimeout(10 * 60_000)
+  const samples: Record<'on' | 'off', Array<{ workingSetMb: number; heapMb: number; marks: string[] }>> = { on: [], off: [] }
+  for (const mode of ['on', 'off', 'on', 'off', 'on', 'off'] as const) {
+    const { app, page } = await launch()
+    try {
+      await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+      await page.evaluate(off => {
+        localStorage.setItem('oxe.recent-view', 'data')
+        if (off) localStorage.setItem('oxe.preload', 'off'); else localStorage.removeItem('oxe.preload')
+      }, mode === 'off')
+      await page.reload()
+      await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+      await page.waitForTimeout(6_000)
+      const marks = await page.evaluate(() => performance.getEntriesByType('mark').map(entry => entry.name).filter(name => name.startsWith('oxe:preload')))
+      const heapMb = await page.evaluate(() => ((performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0) / 1024 / 1024)
+      const workingSetMb = await app.evaluate(({ app: electronApp, BrowserWindow }) => {
+        const pid = BrowserWindow.getAllWindows()[0].webContents.getOSProcessId()
+        return (electronApp.getAppMetrics().find(metric => metric.pid === pid)?.memory.workingSetSize ?? 0) / 1024
+      })
+      samples[mode].push({ workingSetMb, heapMb, marks })
+    } finally {
+      await app.close().catch(() => undefined)
+    }
+  }
+  for (const mode of ['on', 'off'] as const) {
+    const list = samples[mode]
+    console.log(`[RESULT] idle renderer, preload ${mode.padEnd(3)} working set median ${median(list.map(s => s.workingSetMb)).toFixed(1)} MB` +
+      ` (${list.map(s => s.workingSetMb.toFixed(0)).join(', ')}) · JS heap median ${median(list.map(s => s.heapMb)).toFixed(1)} MB · marks ${[...new Set(list.flatMap(s => s.marks))].join(' ') || 'none'}`)
+  }
+  const cost = (key: 'workingSetMb' | 'heapMb'): string => (median(samples.on.map(s => s[key])) - median(samples.off.map(s => s[key]))).toFixed(1)
+  console.log(`[RESULT] idle preload cost: working set ${cost('workingSetMb')} MB · JS heap ${cost('heapMb')} MB`)
+  expect(samples.on.length + samples.off.length).toBe(6)
 })

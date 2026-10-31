@@ -133,6 +133,17 @@ export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loadi
 }
 
 /**
+ * A view's sidebar on its way: the sidebar frame (its width comes from the app shell's grid, so nothing moves when the
+ * real one arrives), the header with the view's name and placeholder rows. The region is busy and says "Loading…"
+ * once, politely (the Skeleton's status); collapsed to the rail it shows a few short bars without the header.
+ */
+export function SidebarSkeleton({ label, title, collapsed = false }: { label: string; title: string; collapsed?: boolean }): ReactElement {
+  return <aside className={cx('thread-navigation', collapsed && 'thread-navigation-collapsed')} aria-label={label} aria-busy="true">
+    <div className={cx('nav-panel', styles.sidebarRows)}>{!collapsed && <div className="nav-panel-title"><strong>{title}</strong></div>}<Skeleton lines={collapsed ? 3 : 5} label={i18n.t('ui.loadingEllipsis')} /></div>
+  </aside>
+}
+
+/**
  * A turning ring. With a label it is announced as loading; `decorative` hides it from assistive technology when the
  * text next to it already says what is happening (a "Saving…" button).
  */

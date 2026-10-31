@@ -1,8 +1,10 @@
 import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from '../common/ErrorBoundary'
-import { LoadingState } from '../../ui'
+import { LoadingState, SidebarSkeleton } from '../../ui'
 import type { AppView } from '../../keyboard/keybindings'
+import { useUIStore } from '../../store/ui.store'
+import { scheduleIdle } from '../../lib/preloadSchedule'
 
 // OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in the entry chunk until first use.
 const OxeQuerySidebar = lazy(() => import('../OxeQuery/OxeQuerySidebar').then(m => ({ default: m.OxeQuerySidebar })))
@@ -20,9 +22,18 @@ const NAMES: Record<DataView, string> = { data: 'OxeQuery', pods: 'OxePod', post
 const HOSTS: Record<DataView, string> = { data: 'oq-host', pods: 'pod-host', post: 'post-host' }
 const ORDER: readonly DataView[] = ['data', 'pods', 'post']
 
-export function DataSidebar({ view }: { view: DataView }): ReactElement {
+/** What a lazy view's sidebar shows while its chunk loads: the same frame and header, with placeholder rows. */
+export function ViewSidebarSkeleton({ view }: { view: DataView | 'thread' }): ReactElement {
   const { t } = useTranslation()
-  return <Suspense fallback={<aside className="thread-navigation" aria-label={t('nav.viewSidebar', { name: NAMES[view] })} />}>{view === 'data' ? <OxeQuerySidebar /> : view === 'pods' ? <OxePodSidebar /> : <OxePostSidebar />}</Suspense>
+  const { t: tt } = useTranslation('thread')
+  const collapsed = useUIStore(state => state.isSidebarCollapsed)
+  return view === 'thread'
+    ? <SidebarSkeleton label={tt('sidebar.region')} title={tt('sidebar.conversations')} collapsed={collapsed} />
+    : <SidebarSkeleton label={t('nav.viewSidebar', { name: NAMES[view] })} title={NAMES[view]} collapsed={collapsed} />
+}
+
+export function DataSidebar({ view }: { view: DataView }): ReactElement {
+  return <Suspense fallback={<ViewSidebarSkeleton view={view} />}>{view === 'data' ? <OxeQuerySidebar /> : view === 'pods' ? <OxePodSidebar /> : <OxePostSidebar />}</Suspense>
 }
 
 /**
@@ -34,6 +45,9 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
   const { t } = useTranslation()
   const [opened, setOpened] = useState<DataView[]>([])
   if (isDataView(view) && !opened.includes(view)) setOpened([...opened, view])
+  // Every start shows Code first; only the views the person switches to count as the most recent one.
+  const initial = useRef<AppView | null>(view)
+  useEffect(() => { if (view === initial.current) return; initial.current = null; void import('../../lib/idlePreload').then(m => m.rememberView(view)).catch(() => undefined) }, [view])
   return <>{ORDER.filter(item => opened.includes(item) || item === view).map(item =>
     <div key={item} className={HOSTS[item]} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
       <ErrorBoundary label={NAMES[item]}><Suspense fallback={<LoadingState brand label={t('nav.loadingView', { name: NAMES[item] })} />}>
@@ -48,6 +62,7 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
  * view first, then lets the action find its control.
  */
 export function useModeActions(select: (view: AppView) => void): void {
+  useIdlePreload()
   const latest = useRef(select)
   useEffect(() => { latest.current = select })
   useEffect(() => {
@@ -62,5 +77,17 @@ export function useModeActions(select: (view: AppView) => void): void {
       ]
     })
     return () => { cancelled = true; off.forEach(stop => stop()) }
+  }, [])
+}
+
+/**
+ * Once the window is idle after its first paint, warms up the chunks of the view used most recently and Settings
+ * (src/lib/idlePreload.ts decides, and skips on battery or low memory). Cancelled when the app unmounts.
+ */
+function useIdlePreload(): void {
+  useEffect(() => {
+    let cancelled = false
+    const cancel = scheduleIdle(() => { void import('../../lib/idlePreload').then(m => m.runIdlePreload(() => cancelled)).catch(() => undefined) })
+    return () => { cancelled = true; cancel() }
   }, [])
 }
