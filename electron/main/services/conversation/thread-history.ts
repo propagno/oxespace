@@ -114,13 +114,16 @@ export class ThreadHistory {
   /**
    * The same pending-request read as a conversation's window, across every conversation waiting for
    * approval. Returns titles only: the activity center points at a request, it never answers one.
-   * CROSS JOIN keeps the waiting conversations as the outer loop, so only their events are read.
+   * CROSS JOIN keeps the waiting conversations as the outer loop, so only their events are read. An archived
+   * conversation is never listed: nobody answers it. `projectId` narrows it to one project (the coordinator's read).
    */
-  pendingRequestsAll(limit = 200): ThreadPendingRequestSummary[] {
+  pendingRequestsAll(limit = 200, options: { projectId?: string } = {}): ThreadPendingRequestSummary[] {
     const rows = this.db.prepare(`SELECT e.thread_id, t.workspace_id, json_extract(t.data_json, '$.title') AS thread_title, e.data_json
       FROM conversation_threads t CROSS JOIN conversation_events e ON e.thread_id = t.id
-      WHERE json_extract(t.data_json, '$.status') = 'approval' AND json_extract(e.data_json, '$.type') = 'request' AND json_extract(e.data_json, '$.request.state') = 'pending'
-      ORDER BY e.thread_id, e.seq LIMIT ?`).all(limit) as { thread_id: string; workspace_id: string; thread_title: string | null; data_json: string }[]
+      WHERE json_extract(t.data_json, '$.status') = 'approval' AND coalesce(json_extract(t.data_json, '$.archived'), 0) = 0
+        AND (? IS NULL OR t.thread_project_id = ?)
+        AND json_extract(e.data_json, '$.type') = 'request' AND json_extract(e.data_json, '$.request.state') = 'pending'
+      ORDER BY e.thread_id, e.seq LIMIT ?`).all(options.projectId ?? null, options.projectId ?? null, limit) as { thread_id: string; workspace_id: string; thread_title: string | null; data_json: string }[]
     return rows.map(row => {
       const request = (JSON.parse(row.data_json) as Extract<ThreadEvent, { type: 'request' }>).request
       return { threadId: row.thread_id, workspaceId: row.workspace_id, threadTitle: row.thread_title ?? '', requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation }

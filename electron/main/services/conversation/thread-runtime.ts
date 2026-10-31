@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import type { AppDatabase } from '../../db'
 import { IPC_CHANNELS } from '../../../../shared/types/ipc'
 import { ThreadManager } from './thread-manager'
+import { clearRevokedThreadTools } from './thread-coordinator'
 import { AgentProcessTransport } from './process-transport'
 import { CodexConversationAdapter } from './codex-conversation'
 import { ClaudeConversationAdapter } from './claude-conversation'
@@ -58,6 +59,7 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       const denied = [...deniedMcpTools(new ThreadPermissionStore(db).rules(thread.rootPath)), ...policyDeniedMcpNames(thread.rootPath).map(server => ({ server, tool: '*' }))]
       // So do tool groups: only what this conversation's role and project need.
       const tools = threadToolList(threadToolRoles(db, thread.id), (await loadRepoConfig(thread.rootPath).catch(() => null))?.thread?.tools)
+      clearRevokedThreadTools(thread.id) // this session is launched with the current list
       const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied, tools, policyDeniedToolNames(thread.rootPath)), cwd, env, { thread: thread.id, generation: thread.generation })
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
         : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))

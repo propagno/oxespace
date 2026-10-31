@@ -1,5 +1,8 @@
 import { ThreadOrchestrator } from './thread-orchestrator'
-import { coordinatorIds, isThreadCoordinator, setThreadCoordinator, withCoordinator } from './thread-coordinator'
+import { coordinatorIds, isThreadCoordinator, revokeThreadTools, setThreadCoordinator, withCoordinator } from './thread-coordinator'
+import { suspendConversation } from './thread-idle'
+import { threadToolList, threadToolRoles } from './thread-mcp'
+import { loadRepoConfig } from '../repo-config/loader'
 import type { ConversationThread, ThreadCommandResult, ThreadDelta, ThreadSnapshot, ThreadSyncCursor } from '../../../../shared/types/thread'
 
 /**
@@ -29,12 +32,27 @@ export class ThreadManager extends ThreadOrchestrator {
   /** `/archive` is the one way a conversation is archived; an archived coordinator stops being one, and un-archiving does not restore it. */
   override async command(id: string, text: string): Promise<ThreadCommandResult> {
     const result = await super.command(id, text)
-    if (isThreadCoordinator(this.db, id) && this.readThread(id).archived) this.setCoordinator(id, false)
+    if (isThreadCoordinator(this.db, id) && this.readThread(id).archived) await this.setCoordinator(id, false)
     return result
   }
 
-  /** The person's choice only (`thread:set-coordinator`); never an MCP tool. Another conversation of the project stops being it. */
-  setCoordinator(id: string, coordinator: boolean): void {
-    for (const changed of setThreadCoordinator(this.db, id, coordinator)) this.changed(changed)
+  /**
+   * The person's choice only (`thread:set-coordinator`); never an MCP tool. Another conversation of the project
+   * stops being it. A session keeps the tool list it started with, so each conversation whose role changed has
+   * its process closed when nothing holds it (the next message resumes the session with the right tools); the
+   * tools a demoted coordinator loses are refused by the server meanwhile.
+   */
+  async setCoordinator(id: string, coordinator: boolean): Promise<void> {
+    const before = new Map<string, string[]>()
+    const plan = async (threadId: string) => threadToolList(threadToolRoles(this.db, threadId), (await loadRepoConfig(this.readThread(threadId).rootPath).catch(() => null))?.thread?.tools)
+    const peers = [id, ...coordinatorIds(this.db)].filter((value, index, all) => all.indexOf(value) === index)
+    for (const threadId of peers) before.set(threadId, await plan(threadId))
+    const changed = setThreadCoordinator(this.db, id, coordinator)
+    for (const threadId of changed) {
+      const now = await plan(threadId)
+      revokeThreadTools(threadId, (before.get(threadId) ?? []).filter(tool => !now.includes(tool)))
+      await suspendConversation(this.idleHost(), threadId)
+      this.changed(threadId)
+    }
   }
 }

@@ -1,5 +1,6 @@
 import type { AppDatabase } from '../../db'
-import type { ConversationThread, ThreadEvent, ThreadRequest } from '../../../../shared/types/thread'
+import type { ConversationThread, ThreadRequest } from '../../../../shared/types/thread'
+import { ThreadHistory } from './thread-history'
 
 /**
  * The project's coordinator conversation (B1.4). The person chooses it; a project has at most one, kept in
@@ -54,6 +55,24 @@ export function setThreadCoordinator(db: Database, threadId: string, coordinator
   })()
 }
 
+/**
+ * Tools a running session was started with and lost since (the coordinator's, when the conversation stopped
+ * being it mid-session). The bridge cannot take a tool back from a session, so the server refuses the call
+ * itself until the conversation's next session starts with the right list. Kept in this process, like the
+ * sessions themselves.
+ */
+const revoked = new Map<string, Set<string>>()
+
+export function revokeThreadTools(threadId: string, tools: Iterable<string>): void {
+  const set = new Set([...(revoked.get(threadId) ?? []), ...tools])
+  if (set.size) revoked.set(threadId, set)
+}
+
+/** Called when the conversation's next session starts: it is launched with its current tool list. */
+export function clearRevokedThreadTools(threadId: string): void { revoked.delete(threadId) }
+
+export function isRevokedThreadTool(threadId: string, tool: string): boolean { return revoked.get(threadId)?.has(tool) ?? false }
+
 /** One request waiting in the project, as the coordinator sees it: nothing to act on, only who waits and since when. */
 export interface CoordinatorPendingRequest {
   threadId: string
@@ -68,24 +87,18 @@ const line = (value: unknown, max: number): string => typeof value === 'string' 
 const KINDS: readonly ThreadRequest['kind'][] = ['approval', 'question', 'permissions', 'elicitation', 'tool']
 
 /**
- * The pending requests of the coordinator's project. Only the title, the kind, the conversation and the age are
- * returned: no command, argument, path, request id or generation, so nothing here can answer a request. Empty
- * when the conversation is not its project's coordinator.
+ * The pending requests of the coordinator's project: the activity center's own read (`pendingRequestsAll`,
+ * which already leaves archived conversations out), narrowed to the project. Only the title, the kind, the
+ * conversation and the age are returned: no command, argument, path, request id or generation, so nothing
+ * here can answer a request. Empty when the conversation is not its project's coordinator.
  */
-export function coordinatorPendingRequests(db: Pick<AppDatabase, 'prepare'>, coordinatorThreadId: string, limit = 30, now = Date.now()) {
-  const rows = db.prepare(`SELECT e.thread_id, json_extract(t.data_json, '$.title') AS thread_title, e.data_json
-    FROM thread_project_coordinators c JOIN conversation_threads t ON t.thread_project_id = c.project_id
-    CROSS JOIN conversation_events e ON e.thread_id = t.id
-    WHERE c.thread_id = ? AND json_extract(t.data_json, '$.status') = 'approval'
-      AND json_extract(e.data_json, '$.type') = 'request' AND json_extract(e.data_json, '$.request.state') = 'pending'
-    ORDER BY e.thread_id, e.seq LIMIT 201`).all(coordinatorThreadId) as { thread_id: string; thread_title: string | null; data_json: string }[]
-  const items: CoordinatorPendingRequest[] = rows.map(row => {
-    const request = (JSON.parse(row.data_json) as Extract<ThreadEvent, { type: 'request' }>).request
-    return {
-      threadId: row.thread_id, threadTitle: line(row.thread_title, 120),
-      kind: KINDS.includes(request.kind) ? request.kind : 'approval', title: line(request.title, 160),
-      ageSeconds: Math.max(0, Math.round((now - (Number.isFinite(request.createdAt) ? request.createdAt : now)) / 1000))
-    }
-  }).sort((a, b) => b.ageSeconds - a.ageSeconds)
+export function coordinatorPendingRequests(db: AppDatabase, coordinatorThreadId: string, limit = 30, now = Date.now()) {
+  const project = (db.prepare('SELECT project_id FROM thread_project_coordinators WHERE thread_id = ?').get(coordinatorThreadId) as { project_id: string } | undefined)?.project_id
+  const requests = project ? new ThreadHistory(db).pendingRequestsAll(201, { projectId: project }) : []
+  const items: CoordinatorPendingRequest[] = requests.map(request => ({
+    threadId: request.threadId, threadTitle: line(request.threadTitle, 120),
+    kind: KINDS.includes(request.kind) ? request.kind : 'approval', title: line(request.title, 160),
+    ageSeconds: Math.max(0, Math.round((now - (Number.isFinite(request.createdAt) ? request.createdAt : now)) / 1000))
+  })).sort((a, b) => b.ageSeconds - a.ageSeconds)
   return { items: items.slice(0, limit), total: items.length, ...(items.length > limit ? { truncated: true } : {}) }
 }

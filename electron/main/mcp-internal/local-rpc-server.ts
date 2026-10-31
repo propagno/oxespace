@@ -144,6 +144,12 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           error: { code: INTERNAL_MCP_ERROR_CODES.TOOL_NOT_FOUND, message: `Unknown tool: ${name}` }
         }
       }
+      // A session keeps the tool list it started with; a tool its conversation lost since (B1.4) is refused here.
+      let caller: { kind: 'pane' | 'thread'; id: string } | undefined
+      try { caller = deps.executions?.authenticate(executionId, executionToken, workspaceId).owner } catch { /* not a live execution */ }
+      if (caller?.kind === 'thread' && (await import('../services/conversation/thread-coordinator')).isRevokedThreadTool(caller.id, name)) {
+        return { jsonrpc: '2.0', id, result: errorResult(`${name} is no longer available in this conversation: it stopped being the project's coordinator. Continue without it.`) }
+      }
       // Workspace-scoped tools no longer hard-fail when the header is missing.
       // Handlers call requireWorkspace(), which prefers a valid header id and
       // otherwise falls back to the active workspace (stale/missing bridge env).

@@ -197,7 +197,7 @@ export class ThreadOrchestrator {
     return suspendIdle(this.idleHost(), now)
   }
 
-  private idleHost(): IdleHost {
+  protected idleHost(): IdleHost {
     return {
       db: this.db,
       isStopping: () => this.stopping,

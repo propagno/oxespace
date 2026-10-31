@@ -60,24 +60,34 @@ export async function suspendIdle(host: IdleHost, now = Date.now()): Promise<str
   const minutes = idleSuspendMinutes(host.db)
   if (!minutes || host.isStopping()) return []
   const suspended: string[] = []
-  for (const [id, adapter] of host.adapters()) {
+  for (const [id] of host.adapters()) {
     const since = host.lastActivity(id)
     if (since === undefined) { host.touch(id, now); continue }
-    if (now - since < minutes * 60_000 || !canSuspend(host, id)) continue
-    host.detach(id)
-    const closing = adapter.dispose().catch(() => {})
-    host.trackClosing(id, closing)
-    try { await closing } finally { host.untrackClosing(id, closing) }
-    // A message sent while the process was closing already started a new session.
-    if (host.hasAdapter(id)) continue
-    try {
-      const snapshot = host.read(id)
-      snapshot.thread.connection = { ...host.closeSession(id, now), suspendedAt: now }
-      snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, false, adapter.evidence, snapshot.thread)
-      host.save(snapshot, { eventsFrom: snapshot.events.length })
-    } catch { /* Deleted while closing. */ }
-    recordRuntime('thread-suspend', { thread: id })
-    suspended.push(id)
+    if (now - since >= minutes * 60_000 && await suspendConversation(host, id, now)) suspended.push(id)
   }
   return suspended
+}
+
+/**
+ * Closes one conversation's agent process when nothing holds it; the next message resumes the provider
+ * session, now with the conversation's current tool list (a coordinator marked or unmarked mid-session, B1.4).
+ * False when it is busy or already closed.
+ */
+export async function suspendConversation(host: IdleHost, id: string, now = Date.now()): Promise<boolean> {
+  const adapter = host.adapters().find(([key]) => key === id)?.[1]
+  if (!adapter || host.isStopping() || !canSuspend(host, id)) return false
+  host.detach(id)
+  const closing = adapter.dispose().catch(() => {})
+  host.trackClosing(id, closing)
+  try { await closing } finally { host.untrackClosing(id, closing) }
+  // A message sent while the process was closing already started a new session.
+  if (host.hasAdapter(id)) return false
+  try {
+    const snapshot = host.read(id)
+    snapshot.thread.connection = { ...host.closeSession(id, now), suspendedAt: now }
+    snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, false, adapter.evidence, snapshot.thread)
+    host.save(snapshot, { eventsFrom: snapshot.events.length })
+  } catch { /* Deleted while closing. */ }
+  recordRuntime('thread-suspend', { thread: id })
+  return true
 }
