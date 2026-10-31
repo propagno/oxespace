@@ -7,6 +7,7 @@ import { canonicalPath } from '../git-common-dir'
 import type { GitHubCreateWorktreeInput, GitHubMessageResult, GitHubRemoveWorktreeInput } from '../../../../shared/types/github'
 import { checkoutDirectoryName, validateExplicitBranchName } from '../delegation/delegation-branch'
 import type { ThreadWorktreeErrorCode } from '../../../../shared/threadWorktree'
+import { readThreadTitle } from './thread-title'
 
 /** What creating a worktree needs from the Git service; the same operation the Worktrees panel uses. */
 export interface ThreadWorktreeHost {
@@ -114,7 +115,7 @@ export function threadsInWorktree(db: { prepare(sql: string): { all(): unknown[]
   const inside = (path: unknown): boolean => typeof path === 'string' && (key(path) === target || key(path).startsWith(`${target}/`))
   const rows = db.prepare(`SELECT id, json_extract(data_json, '$.title') AS title, json_extract(data_json, '$.rootPath') AS root,
     json_extract(data_json, '$.observedLocation.checkoutRoot') AS observed, json_extract(data_json, '$.archived') AS archived FROM conversation_threads`).all() as { id: string; title: string | null; root: unknown; observed: unknown; archived: unknown }[]
-  return rows.filter(row => !row.archived && (inside(row.root) || inside(row.observed))).map(row => ({ id: row.id, title: row.title ?? 'Conversation' }))
+  return rows.filter(row => !row.archived && (inside(row.root) || inside(row.observed))).map(row => ({ id: row.id, title: row.title === null ? 'Conversation' : readThreadTitle(row.title) }))
 }
 
 /** The provider could not start because the conversation's folder is gone (a removed worktree). */
