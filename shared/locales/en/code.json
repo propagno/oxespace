@@ -123,7 +123,8 @@
       "copyPath": "Copy path",
       "copyRelativePath": "Copy relative path",
       "path": "Path",
-      "pathCopied": "Path copied"
+      "pathCopied": "Path copied",
+      "relativePathCopied": "Relative path copied"
     },
     "workspaceFiles": "Workspace files",
     "fit": "Click to fit",

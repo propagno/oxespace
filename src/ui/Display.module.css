@@ -151,7 +151,7 @@
 .avatar { flex: none; display: inline-grid; place-items: center; border-radius: var(--radius-sm); color: var(--text-on-identity); font-size: var(--text-2xs); font-weight: var(--weight-semibold); }
 
 /* Toasts */
-.toasts { position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: var(--layer-toast); display: grid; gap: var(--space-2); width: min(380px, calc(100vw - 32px)); }
+.toasts { position: fixed; right: var(--space-4); bottom: calc(var(--statusbar-height) + var(--space-3)); z-index: var(--layer-toast); display: grid; gap: var(--space-2); width: min(380px, calc(100vw - 32px)); }
 .toast {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

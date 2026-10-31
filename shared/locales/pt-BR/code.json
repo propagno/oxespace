@@ -125,7 +125,8 @@
       "copyPath": "Copiar caminho",
       "copyRelativePath": "Copiar caminho relativo",
       "path": "Caminho",
-      "pathCopied": "Caminho copiado"
+      "pathCopied": "Caminho copiado",
+      "relativePathCopied": "Caminho relativo copiado"
     },
     "workspaceFiles": "Arquivos do workspace",
     "fit": "Clique para ajustar",

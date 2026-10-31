@@ -80,6 +80,19 @@ describe('Toaster', () => {
     expect(screen.queryByText(/×/)).toBeNull()
   })
 
+  it('merges only the same message: "Copy path" and "Copy relative path" stay two toasts', async () => {
+    // The merge key is the message as shown (its catalog key with its values): different keys never merge, so
+    // alternating the two copies does not hide which one ran (homologation #245).
+    await mount(<Toaster />)
+    for (let i = 0; i < 2; i++) {
+      raise({ title: 'Path copied', intent: 'success' })
+      raise({ title: 'Relative path copied', intent: 'success' })
+    }
+    expect(toasts()).toHaveLength(2)
+    expect(within(toasts()[0]).getByText('×2')).toHaveAttribute('aria-hidden', 'true')
+    expect(within(toasts()[1]).getByText('×2')).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('announces a burst of repeats once, with the final count', async () => {
     await mount(<Toaster />)
     raise({ title: 'Text copied', intent: 'success' })

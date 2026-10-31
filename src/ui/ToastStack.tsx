@@ -49,7 +49,7 @@ function ToastView({ item, paused, close }: { item: ToastItem; paused: boolean; 
   return <div ref={ref} data-toast={intent} className={cx(styles.toast, styles[intent])} role={intent === 'danger' ? 'alert' : undefined} onKeyDown={onKeyDown}>
     <Icon size={16} className={styles.toastIcon} aria-hidden="true" />
     <div>
-      <div className={styles.toastTitle}><strong>{item.title}</strong>{item.count > 1 && <span className={styles.toastCount} aria-hidden="true">×{item.count}</span>}</div>
+      <div className={styles.toastTitle}><strong>{item.title}</strong>{item.count > 1 && <span className={styles.toastCount} aria-hidden="true"> ×{item.count}</span>}</div>
       {item.description && <p>{item.description}</p>}
       <span className="sr-only">{spoken > 1 ? i18n.t('ui.toast.repeated', { count: spoken }) : ''}</span>
       {item.action && <div className={styles.toastActions}><Button size="sm" onClick={() => { item.action!.run(); dismissToast(item.id) }}>{item.action.label}</Button></div>}

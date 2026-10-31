@@ -29,6 +29,14 @@ async function markAllRead(page: Page): Promise<void> {
   await expect(input).toBeHidden()
 }
 
+/** The stack sits above the status bar and never covers it (homologation #245). */
+async function expectAboveStatusBar(page: Page, item: Locator): Promise<void> {
+  const bar = page.locator('footer.app-statusbar').first()
+  if (!(await bar.isVisible())) return
+  const [toastBox, barBox] = [await item.boundingBox(), await bar.boundingBox()]
+  expect(toastBox && barBox && toastBox.y + toastBox.height <= barBox.y, 'toast bottom above the status bar').toBe(true)
+}
+
 async function axe(page: Page): Promise<string[]> {
   const result = await new AxeBuilder({ page }).setLegacyMode(true).withTags(TAGS).include('section[aria-label="Notifications"]').analyze()
   return result.violations.map(violation => `${violation.id}: ${violation.nodes.map(node => node.target.join(' ')).join(', ')}`)
@@ -57,6 +65,7 @@ test.describe('toasts', () => {
     expect(await region(page).getAttribute('aria-live')).toBe('polite')
 
     expect(await axe(page)).toEqual([])
+    await expectAboveStatusBar(page, item)
     await item.screenshot({ path: join(OUT, 'light.png') })
     await page.screenshot({ path: join(OUT, 'light-page.png') })
 
@@ -90,6 +99,7 @@ test.describe('toasts', () => {
     await expect(item).toContainText('×2')
     await page.mouse.move(10, 300)
     expect(await axe(page)).toEqual([])
+    await expectAboveStatusBar(page, item)
     await item.screenshot({ path: join(OUT, 'dark.png') })
     await page.screenshot({ path: join(OUT, 'dark-page.png') })
   })
