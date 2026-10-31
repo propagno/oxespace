@@ -30,6 +30,7 @@ describe('E2E MCP fixture gate', () => {
     const servers = ipc.invoke(IPC_CHANNELS.mcp.list) as McpServer[]
     expect(servers.map(server => server.name)).toEqual(['docs-search', 'deploy-helper', 'new-server', 'notes'])
     expect(servers.find(server => server.name === 'deploy-helper')?.guard?.quarantine?.codes).toEqual([{ code: 'mcp.quarantine.configChanged', params: {} }])
+    expect(servers.find(server => server.name === 'deploy-helper')?.guard?.quarantine?.trusted).toMatchObject({ transport: 'stdio', args: ['deploy-helper.js', '--target', 'dev', '--token', '[redacted]'] })
   })
 
   it('needs both the E2E mocks and the fixture name', () => {
