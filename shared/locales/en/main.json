@@ -144,7 +144,8 @@
         "reservedName": "That name is one only OXESpace may use. Pick another name for the device."
       },
       "desktop": {
-        "invalidName": "Give this computer a name of 1 to {{max}} characters, without line breaks."
+        "invalidName": "Give this computer a name of 1 to {{max}} characters, without line breaks or hidden characters.",
+        "reservedName": "That name could pass for OXESpace or the system on the phone. Pick another name for this computer."
       },
       "pane": {
         "invalid": "This terminal is no longer available."

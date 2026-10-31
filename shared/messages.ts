@@ -210,6 +210,8 @@ export interface MessageParams {
   'remote.device.reservedName': Record<string, never>
   /** A desktop name that is empty, longer than `max` or has control characters. */
   'remote.desktop.invalidName': { max: number }
+  /** The name phones see for this computer passes for the app or the system ("Windows Security"). */
+  'remote.desktop.reservedName': Record<string, never>
   /** A pane id that cannot be a pane. */
   'remote.pane.invalid': Record<string, never>
   /** A workspace root that is not an absolute path (a relative one would depend on where the app started). */
@@ -464,6 +466,7 @@ export const MESSAGE_CODES = [
   'remote.device.invalidName',
   'remote.device.reservedName',
   'remote.desktop.invalidName',
+  'remote.desktop.reservedName',
   'remote.pane.invalid',
   'workspace.root.empty',
   'workspace.root.notAbsolute',

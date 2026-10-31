@@ -1,4 +1,5 @@
 import { reservedNameIn } from '../../../../shared/approval-rules'
+import { hasHiddenCharacters } from '../../../../shared/hidden-characters'
 import { mainMessage } from '../../../../shared/messages'
 import { MainMessageError } from '../../ipc/main-message-error'
 import { REMOTE_LIMITS } from '../../../../shared/remote/protocol'
@@ -83,25 +84,20 @@ export function parseDeviceName(value: unknown): string {
   return name
 }
 
-const PANE_ID = /^[A-Za-z0-9._:-]{1,200}$/
-
-/** `{ paneId, allowed }`: whether a phone may type into that pane. */
-export function parsePhoneWriteInput(value: unknown): { paneId: string; allowed: boolean } {
-  const input = record(value, 'Pane input', ['paneId', 'allowed'])
-  if (typeof input.paneId !== 'string' || !PANE_ID.test(input.paneId)) throw new Error('Invalid pane')
-  if (typeof input.allowed !== 'boolean') throw new Error('allowed must be a boolean')
-  return { paneId: input.paneId, allowed: input.allowed }
-}
-
-/** `{ name }`: the name phones see, trimmed, 1–32 characters without control characters; `null` goes back to the default. */
+/**
+ * `{ name }`: the name phones see, trimmed, 1–32 characters without control or hidden characters (bidi, zero-width:
+ * the phone would show something else than what was typed), and not a name only the app or the system speaks as
+ * ("Windows Security", "OXESpace Admin"). `null` goes back to the default.
+ */
 export function parseDesktopNameInput(value: unknown): { name: string | null } {
   const input = record(value, 'Desktop name input', ['name'])
   if (input.name === null) return { name: null }
   if (typeof input.name !== 'string') throw new Error('name must be a string or null')
   const name = input.name.trim()
-  if (!name || name.length > REMOTE_MAX_DESKTOP_NAME_LENGTH || /[\u0000-\u001f\u007f]/.test(name)) {
+  if (!name || name.length > REMOTE_MAX_DESKTOP_NAME_LENGTH || /[\u0000-\u001f\u007f]/.test(name) || hasHiddenCharacters(name)) {
     throw new MainMessageError(mainMessage('remote.desktop.invalidName', { max: REMOTE_MAX_DESKTOP_NAME_LENGTH }), 'Invalid desktop name')
   }
+  if (reservedNameIn(name)) throw new MainMessageError(mainMessage('remote.desktop.reservedName', {}), 'Reserved desktop name')
   return { name }
 }
 

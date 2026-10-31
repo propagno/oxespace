@@ -157,7 +157,6 @@ export class RemoteGateway implements ConnectionHost {
     return {
       enabled: !!running,
       desktopName: this.desktopName,
-      phoneWritePanes: [...this.phoneWritePanes],
       listening: running ? { addresses: running.addresses.map(entry => entry.address), port: running.port } : null,
       fingerprint: running?.fingerprint ?? (der ? certificateFingerprint(der) : null),
       devices: this.store.activeCount(),

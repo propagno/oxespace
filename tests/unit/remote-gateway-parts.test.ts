@@ -193,6 +193,15 @@ describe('window inputs', () => {
     expect(code(() => parseDeviceId('x'))).toEqual({ code: 'remote.device.notFound', params: {} })
     expect(code(() => parseDeviceName(''))).toEqual({ code: 'remote.device.invalidName', params: { max: REMOTE_LIMITS.maxDeviceNameLength } })
     expect(code(() => parseDesktopNameInput({ name: 'x'.repeat(33) }))).toEqual({ code: 'remote.desktop.invalidName', params: { max: 32 } })
+    // HOMOLOGATION check-221: the name phones see may not pass for the system or the app, nor hide characters.
+    // Vendor names ("Windows Security") join when #247's wider rules land; the shared reservedNameIn decides.
+    for (const name of ['OXESpace Admin', 'System', 'O X E Space']) {
+      expect(code(() => parseDesktopNameInput({ name })), name).toEqual({ code: 'remote.desktop.reservedName', params: {} })
+    }
+    for (const name of ['Studio‮exe.txt', 'Stu​dio']) {
+      expect(code(() => parseDesktopNameInput({ name })), name).toEqual({ code: 'remote.desktop.invalidName', params: { max: 32 } })
+    }
+    expect(parseDesktopNameInput({ name: 'Studio do Edu' })).toEqual({ name: 'Studio do Edu' })
     expect(code(() => parseSetPhoneWriteInput({ paneId: 'a b', allowed: true }))).toEqual({ code: 'remote.pane.invalid', params: {} })
     for (const run of [() => parseDeviceId(5), () => parseDeviceName(null), () => parseDesktopNameInput({ name: 5 }), () => parseSetPhoneWriteInput({ paneId: 5, allowed: true }),
       () => parseRenameInput({ deviceId: '00000000-0000-4000-8000-000000000000', name: 'a', extra: 1 })]) {

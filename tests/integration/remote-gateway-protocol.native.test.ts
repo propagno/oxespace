@@ -309,7 +309,8 @@ describe('remote gateway: no internal token ever crosses it', () => {
 
   test('the gateway\'s code imports nothing that holds internal tokens', () => {
     const root = resolve(__dirname, '../../electron/main/services/remote')
-    const allowed = [/^shared\//, /^electron\/main\/services\/remote\//, /^electron\/main\/db(\/index)?$/, /^electron\/main\/services\/oxequery\/secret-cipher$/, /^electron\/main\/services\/oxequery\/connection-store$/]
+    // thread-history: M4's pending-requests topic reads conversations from the database; it holds no token.
+    const allowed = [/^shared\//, /^electron\/main\/services\/remote\//, /^electron\/main\/db(\/index)?$/, /^electron\/main\/services\/oxequery\/secret-cipher$/, /^electron\/main\/services\/oxequery\/connection-store$/, /^electron\/main\/services\/conversation\/thread-history$/, /^electron\/main\/ipc\/main-message-error$/]
     const repo = resolve(__dirname, '../..')
     const seen = new Set<string>()
     const visit = (file: string) => {
@@ -333,7 +334,8 @@ describe('remote gateway: the token signing key lives only in memory', () => {
     const key = (p.h.gateway as unknown as { tokenKey: Buffer }).tokenKey
     expect(key).toHaveLength(32)
     const columns = (p.h.db.prepare("PRAGMA table_info('remote_gateway')").all() as Array<{ name: string }>).map(column => column.name)
-    expect(columns).toEqual(['id', 'port', 'certificate_der', 'certificate_key', 'desktop_name', 'updated_at'])
+    // listened_before (089, M4/M5) is added after the table was created, so it comes last.
+    expect(columns).toEqual(['id', 'port', 'certificate_der', 'certificate_key', 'desktop_name', 'updated_at', 'listened_before'])
     // No cell of any table holds the key, in any encoding.
     const tables = (p.h.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map(row => row.name)
     const needles = [key.toString('hex'), key.toString('base64'), key.toString('base64url')]

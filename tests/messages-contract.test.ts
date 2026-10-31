@@ -150,6 +150,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.device.invalidName': ['max'],
   'remote.device.reservedName': [],
   'remote.desktop.invalidName': ['max'],
+  'remote.desktop.reservedName': [],
   'remote.pane.invalid': [],
   'workspace.root.empty': [],
   'workspace.root.notAbsolute': ['path'],

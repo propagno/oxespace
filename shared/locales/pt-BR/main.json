@@ -144,7 +144,8 @@
         "reservedName": "Esse nome só o OXESpace pode usar. Escolha outro nome para o dispositivo."
       },
       "desktop": {
-        "invalidName": "Dê a este computador um nome de 1 a {{max}} caracteres, sem quebras de linha."
+        "invalidName": "Dê a este computador um nome de 1 a {{max}} caracteres, sem quebras de linha nem caracteres ocultos.",
+        "reservedName": "Esse nome poderia se passar pelo OXESpace ou pelo sistema no celular. Escolha outro nome para este computador."
       },
       "pane": {
         "invalid": "Este terminal não está mais disponível."
