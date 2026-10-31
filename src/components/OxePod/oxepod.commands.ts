@@ -1,4 +1,5 @@
 import { Boxes, Eraser, HardDrive, Search, ShieldCheck } from 'lucide-react'
+import { commandText } from '../../commands/commandText'
 import { i18n } from '../../i18n'
 import { registerCommands, type ContributedCommand } from '../../utils/commandRegistry'
 import { requestOxePodAction, type OxePodAction } from './oxepod-bridge'
@@ -18,8 +19,8 @@ const ENTRIES: Array<{ action: OxePodAction; icon: typeof Boxes; keywords: strin
 
 export function oxePodCommands(): ContributedCommand[] {
   return ENTRIES.map(({ action, icon, keywords, detail }) => ({
-    id: `oxepod.${action}`, category: 'OxePod', icon, keywords, run: () => requestOxePodAction(action),
-    label: i18n.t(`podsCommands.${action}.label`), ...(detail ? { detail: i18n.t(`podsCommands.${action}.detail` as 'podsCommands.open.detail') } : {})
+    id: `oxepod.${action}`, icon, run: () => requestOxePodAction(action),
+    ...commandText('OxePod', `oxepod.${action}`, { keywords }), ...(detail ? { detail: i18n.t(`podsCommands.${action}.detail` as 'podsCommands.open.detail') } : {})
   }))
 }
 

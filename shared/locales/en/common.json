@@ -39,10 +39,7 @@
   },
   "menu": {
     "file": "File",
-    "newWorkspace": "New workspace…",
-    "addProject": "Add project…",
     "settings": "Settings",
-    "workspaceSettings": "Workspace settings",
     "exit": "Exit",
     "edit": "Edit",
     "undo": "Undo",
@@ -52,30 +49,12 @@
     "paste": "Paste",
     "selectAll": "Select all",
     "view": "View",
-    "toggleSidebar": "Toggle sidebar",
-    "files": "Files",
-    "sourceControl": "Commit & pull request",
-    "backgroundActivity": "Background activity",
-    "splitLayout": "Toggle split layout",
-    "balancePanes": "Balance panes",
     "appearance": "Appearance",
     "density": "Density",
     "layout": "Layout",
-    "splitRight": "Split pane right",
-    "splitDown": "Split pane down",
-    "maximizePane": "Maximize / restore pane",
     "help": "Help",
-    "mcpServers": "MCP servers",
-    "skills": "Skills",
-    "usage": "Usage & limits",
-    "linear": "Linear issues",
-    "about": "About OXESpace (v{{version}})",
     "commandPalette": "Command palette…",
-    "tools": "Tools",
-    "keyboardShortcuts": "Keyboard shortcuts",
-    "diagnostics": "Diagnostics",
-    "reportProblem": "Report a problem…",
-    "checkUpdates": "Check for updates…"
+    "tools": "Tools"
   },
   "activityCenter": {
     "nothingToRead": "Nothing to mark as read",
@@ -195,66 +174,27 @@
   },
   "oxequeryCommands": {
     "open": {
-      "label": "Open OxeQuery",
       "detail": "Databases"
     },
-    "newConnection": {
-      "label": "New database connection"
-    },
-    "newQuery": {
-      "label": "New query tab"
-    },
-    "runAll": {
-      "label": "Run all statements"
-    },
-    "searchObjects": {
-      "label": "Search database objects"
-    },
-    "newTable": {
-      "label": "New table"
-    },
-    "settings": {
-      "label": "OxeQuery settings"
-    },
-    "importConnections": {
-      "label": "Import connections"
-    },
     "exportConnections": {
-      "label": "Export connections",
       "detail": "Without passwords"
     },
     "newDatabase": {
-      "label": "New local database",
       "detail": "PostgreSQL or MongoDB in a container"
-    },
-    "activity": {
-      "label": "Agent activity on databases"
     }
   },
   "postCommands": {
-    "open": { "label": "Open OxePost", "detail": "API requests, environments and cURL" },
-    "newRequest": { "label": "New API request", "detail": "Saved in .oxespace/requests" },
-    "filter": { "label": "Find an API request" },
-    "import": { "label": "Import cURL or OpenAPI", "detail": "Becomes request files" },
-    "environments": { "label": "API environments", "detail": "Variables and secrets" },
+    "open": { "detail": "API requests, environments and cURL" },
+    "newRequest": { "detail": "Saved in .oxespace/requests" },
+    "import": { "detail": "Becomes request files" },
+    "environments": { "detail": "Variables and secrets" },
     "defaultName": "New request"
   },
   "podsCommands": {
     "open": {
-      "label": "Open OxePod",
       "detail": "Containers, Docker and Podman"
     },
-    "filter": {
-      "label": "Find a container"
-    },
-    "resources": {
-      "label": "Images, volumes and networks"
-    },
-    "activity": {
-      "label": "Agent activity on containers"
-    },
     "pruneContainers": {
-      "label": "Clean up stopped containers",
       "detail": "Asks first"
     }
   },
@@ -586,23 +526,196 @@
   "commands": {
     "category": {
       "general": "General",
-      "workspace": "Workspace",
-      "project": "Project",
-      "development": "Development",
-      "agents": "AI & Agents",
-      "system": "System",
+      "goTo": "Go to",
       "view": "View",
-      "appearance": "Appearance",
       "layout": "Layout",
+      "appearance": "Appearance",
+      "workspace": "Workspace",
       "terminal": "Terminal",
+      "git": "Git",
+      "agents": "Agents",
+      "activity": "Activity",
       "settings": "Settings",
       "help": "Help"
     },
-    "settingsPage": "Settings: {{page}}",
-    "reportProblem": "Report a problem",
-    "about": "About OXESpace",
+    "action": {
+      "activity": {
+        "open": "Open activity center",
+        "markAllRead": "Mark all as read"
+      },
+      "help": {
+        "shortcuts": "Show keyboard shortcuts",
+        "report-problem": "Report a problem…",
+        "about": "About OXESpace"
+      },
+      "settings": {
+        "general": "Open general settings",
+        "providers": "Open agent settings",
+        "appearance": "Open appearance settings",
+        "terminal": "Open terminal settings",
+        "keyboard": "Open keyboard settings",
+        "voice": "Open voice settings",
+        "notifications": "Open notification settings",
+        "updates": "Check for updates",
+        "policy": "Open policy settings",
+        "diagnostics": "Open diagnostics"
+      },
+      "oxequery": {
+        "open": "Open",
+        "newConnection": "Add a database connection",
+        "newDatabase": "Create a local database",
+        "newQuery": "Open a new query tab",
+        "runAll": "Run all statements",
+        "searchObjects": "Search database objects",
+        "newTable": "Create a table",
+        "settings": "Open settings",
+        "importConnections": "Import connections",
+        "exportConnections": "Export connections",
+        "activity": "Show agent activity on databases"
+      },
+      "oxepod": {
+        "open": "Open",
+        "filter": "Find a container",
+        "resources": "Show images, volumes and networks",
+        "activity": "Show agent activity on containers",
+        "pruneContainers": "Clean up stopped containers"
+      },
+      "oxepost": {
+        "open": "Open",
+        "newRequest": "Create an API request",
+        "filter": "Find an API request",
+        "import": "Import cURL or OpenAPI",
+        "environments": "Manage API environments"
+      },
+      "thread": {
+        "new": "Start a new conversation",
+        "add-project": "Add a project…",
+        "project": "Switch to project {{project}}",
+        "resume": "Resume a session",
+        "rename": "Rename the conversation",
+        "spending": "Show conversation spending",
+        "events": "Show conversation events",
+        "rules": "Show approval rules",
+        "undo-last-turn": "Undo the last turn’s file changes",
+        "accounts": "Manage provider accounts"
+      },
+      "new-workspace": "Create a workspace…",
+      "workspace-settings": "Open workspace settings",
+      "toggle-sidebar": "Toggle sidebar",
+      "tool-team": "Open the team",
+      "tool-integration": "Open multi-repo coordination",
+      "tool-github": "Toggle commit & pull request panel",
+      "tool-worktrees": "Toggle worktrees panel",
+      "tool-scripts": "Toggle scripts panel",
+      "tool-search": "Find in files",
+      "tool-web-preview": "Toggle browser panel",
+      "tool-background": "Toggle background activity panel",
+      "tool-slash": "Show agent commands",
+      "tool-mcp": "Manage MCP servers",
+      "tool-skills": "Browse skills",
+      "tool-semantic": "Show semantic index log",
+      "tool-editor": "Toggle files panel",
+      "tool-review": "Toggle changes panel",
+      "open-linear": "Open Linear issues",
+      "balance-pane-layout": "Balance panes",
+      "toggle-split-layout": "Toggle split layout",
+      "open-usage": "Show usage and limits",
+      "design-system": "Open the design system viewer",
+      "appearance-system": "Follow the system theme",
+      "appearance-light": "Use the light theme",
+      "appearance-dark": "Use the dark theme",
+      "density-default": "Use the app default density",
+      "density-compact": "Use compact density",
+      "density-comfortable": "Use comfortable density",
+      "layout_one": "Use {{count}} pane",
+      "layout_other": "Use {{count}} panes",
+      "split-vertical": "Split pane right",
+      "split-horizontal": "Split pane down",
+      "maximize-pane": "Maximize or restore pane",
+      "toggle-oxevoice": "Toggle voice input",
+      "restart-terminal": "Restart",
+      "stop-terminal": "Stop"
+    },
+    "formerly": {
+      "help": {
+        "shortcuts": "Keyboard shortcuts",
+        "report-problem": "Report a problem"
+      },
+      "settings": {
+        "general": "Settings: General",
+        "providers": "Settings: Agents",
+        "appearance": "Settings: Appearance",
+        "terminal": "Settings: Terminal",
+        "keyboard": "Settings: Keyboard",
+        "voice": "Settings: Voice",
+        "notifications": "Settings: Notifications",
+        "updates": "Settings: Updates | Check for updates…",
+        "policy": "Settings: Policy",
+        "diagnostics": "Settings: Diagnostics | Diagnostics"
+      },
+      "oxequery": {
+        "open": "Open OxeQuery",
+        "newConnection": "New database connection",
+        "newDatabase": "New local database",
+        "newQuery": "New query tab",
+        "newTable": "New table",
+        "settings": "OxeQuery settings",
+        "activity": "Agent activity on databases"
+      },
+      "oxepod": {
+        "open": "Open OxePod",
+        "resources": "Images, volumes and networks",
+        "activity": "Agent activity on containers"
+      },
+      "oxepost": {
+        "open": "Open OxePost",
+        "newRequest": "New API request",
+        "environments": "API environments"
+      },
+      "thread": {
+        "new": "New conversation",
+        "add-project": "Add OxeChat project… | Add project…",
+        "rename": "Rename conversation",
+        "spending": "Conversation spending",
+        "events": "Conversation events",
+        "rules": "Approval rules",
+        "accounts": "Provider accounts"
+      },
+      "new-workspace": "New workspace…",
+      "workspace-settings": "Workspace settings",
+      "tool-team": "Team",
+      "tool-integration": "Multi-repo coordination",
+      "tool-github": "Commit & pull request",
+      "tool-worktrees": "Worktrees",
+      "tool-scripts": "Scripts",
+      "tool-web-preview": "Browser",
+      "tool-background": "Background activity",
+      "tool-slash": "Terminal commands",
+      "tool-mcp": "MCP servers",
+      "tool-skills": "Skills",
+      "tool-semantic": "Semantic index log",
+      "tool-editor": "Files",
+      "tool-review": "Changes",
+      "open-linear": "Linear issues",
+      "open-usage": "Usage & limits",
+      "design-system": "Design System: Open Viewer",
+      "appearance-system": "Appearance: Follow system",
+      "appearance-light": "Appearance: Light",
+      "appearance-dark": "Appearance: Dark",
+      "density-default": "Density: App default",
+      "density-compact": "Density: Compact",
+      "density-comfortable": "Density: Comfortable",
+      "layout_one": "Layout: {{count}} pane",
+      "layout_other": "Layout: {{count}} panes",
+      "maximize-pane": "Maximize / restore pane",
+      "restart-terminal": "Restart terminal",
+      "stop-terminal": "Stop terminal"
+    },
     "aboutKeywords": "about version",
     "activity": {
+      "nothing": "Nothing to mark as read",
+      "nothingDetail": "Every activity item is already read.",
+      "allRead": "All activity marked as read",
       "markAllRead": "Activity: Mark all as read"
     },
     "code": {
@@ -612,24 +725,20 @@
       "balanceDetail": "Restore equal sizes within each split",
       "splitLayoutDetail": "Recursive resizable panes (default on)",
       "usageDetail": "Claude, Codex & Copilot quota + resets",
-      "designSystem": "Design System: Open Viewer",
       "designSystemDetail": "Tokens and components in light and dark",
-      "appearance": "Appearance: {{mode}}",
-      "appearanceMode": {
-        "system": "Follow system",
-        "light": "Light",
-        "dark": "Dark"
-      },
       "appearanceDetail": "Applies to the whole application",
-      "density": "Density: {{density}}",
       "densityDetail": "Workspace density",
-      "layout_one": "Layout: {{count}} pane",
-      "layout_other": "Layout: {{count}} panes",
       "layoutDetail": "Workspace layout preset",
-      "voiceDetail": "Speak into the active terminal, editor, or OxeChat draft",
-      "stopTerminal": "Stop terminal"
+      "voiceDetail": "Speak into the active terminal, editor, or OxeChat draft"
     },
     "thread": {
+      "nothingToUndo": "Nothing to undo",
+      "noFinishedTurn": "This conversation has no finished turn yet.",
+      "noChanges": "The last turn left no file changes to restore.",
+      "restored_one": "Restored {{count}} file",
+      "restored_other": "Restored {{count}} files",
+      "undoFailed": "Could not undo the last turn",
+      "undoFailedDetail": "A file changed after the turn.",
       "addProject": "Add OxeChat project…",
       "switchProject": "Switch to project {{project}}",
       "resume": "Resume a session",
@@ -645,8 +754,6 @@
       "description": "Search files and run commands",
       "placeholder": "Search files and commands…",
       "recent": "Recent",
-      "workspaces": "Workspaces",
-      "agents": "Agents",
       "files": "Files",
       "semantic": "Semantic · e5-base",
       "searching": "Searching contents…",
