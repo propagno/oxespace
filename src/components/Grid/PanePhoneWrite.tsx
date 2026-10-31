@@ -1,9 +1,10 @@
 import { Smartphone } from 'lucide-react'
 import type { ReactElement } from 'react'
-import { toast } from '../../ui'
+import { Button, toast } from '../../ui'
 import { i18n } from '../../i18n'
 import { remoteApi, useRemoteGateway, useRemoteStore } from '../../store/remote.store'
 import styles from './PanePhoneWrite.module.css'
+import paneMenu from './PaneMenu.module.css'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -33,8 +34,8 @@ export function PhoneWriteBadge(): ReactElement {
 
 /** The ⋯ menu entry that turns typing from the phone on or off for one terminal. */
 export function PhoneWriteMenuItem({ paneId, allowed, onDone }: { paneId: string; allowed: boolean; onDone: (action: () => void) => void }): ReactElement {
-  return <button type="button" role="menuitemcheckbox" aria-checked={allowed} className="pane-actions-popover-item" data-testid="pane-phone-write-toggle"
+  return <Button variant="ghost" role="menuitemcheckbox" aria-checked={allowed} className={paneMenu.item} data-testid="pane-phone-write-toggle"
     onClick={event => { event.stopPropagation(); onDone(() => { void setPhoneWrite(paneId, !allowed) }) }}>
     <Smartphone size={14} aria-hidden="true" />{tc('paneMenu.phoneWrite')}<span className={styles.check} aria-hidden="true">{allowed ? '✓' : ''}</span>
-  </button>
+  </Button>
 }
