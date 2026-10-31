@@ -1,9 +1,14 @@
 package com.oxespace.mobile
 
+import android.content.Intent
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.oxespace.mobile.pairing.PairLinkForHomologation
+import com.oxespace.mobile.pairing.PairingState
+import com.oxespace.mobile.pairing.PairingViewModel
 import com.oxespace.mobile.protocol.FrameRead
 import com.oxespace.mobile.protocol.FrameSource
 import com.oxespace.mobile.protocol.RemoteAckFrame
@@ -44,7 +49,17 @@ class ReleaseSmokeTest {
     fun theShippedBuildIgnoresAPairingLinkHandedOverAdb() {
         // On debug this is the homologation path; what matters is the build that ships.
         assumeFalse(BuildConfig.DEBUG)
-        assertNull(PairLinkForHomologation.read(BuildConfig.DEBUG, "oxespace://pair?v=1&host=192.168.0.12&port=7443"))
+        val link = "oxespace://pair?v=1&host=192.168.0.12&port=7443&fp=${"b".repeat(64)}&code=AbCdEfGhIjKlMnOpQrSt_-&name=Studio"
+        assertNull(PairLinkForHomologation.read(BuildConfig.DEBUG, link))
+        // Through the exported launcher, as adb or another app would send it: the pairing never leaves "scanning".
+        val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java).putExtra(PairLinkForHomologation.EXTRA, link)
+        ActivityScenario.launch<MainActivity>(intent).use { scenario ->
+            scenario.moveToState(Lifecycle.State.RESUMED)
+            Thread.sleep(1_000)
+            scenario.onActivity { activity ->
+                assertEquals(PairingState.Scanning, ViewModelProvider(activity)[PairingViewModel::class.java].state.value)
+            }
+        }
     }
 
     @Test

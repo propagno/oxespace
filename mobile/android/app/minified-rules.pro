@@ -12,3 +12,5 @@
 -keep enum com.oxespace.mobile.protocol.FrameSource { *; }
 # ReleaseSmokeTest checks that the shipped build ignores the debug-only pairing link.
 -keep class com.oxespace.mobile.pairing.PairLinkForHomologation { *; }
+-keep class com.oxespace.mobile.pairing.PairingViewModel { *; }
+-keep class com.oxespace.mobile.pairing.PairingState** { *; }

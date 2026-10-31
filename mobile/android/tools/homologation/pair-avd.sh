@@ -16,6 +16,11 @@ case "$link" in
   oxespace://pair\?*) ;;
   *) echo "not an OXESpace pairing QR" >&2; exit 1 ;;
 esac
+# It goes into a device shell command: only the characters the desktop's URLSearchParams emits, so a crafted QR (a
+# quote, a semicolon) can't run anything there.
+case "$link" in
+  *[!A-Za-z0-9._*%+=\&:/?-]*) echo "unexpected characters in the QR" >&2; exit 1 ;;
+esac
 adb="${ANDROID_HOME:-${LOCALAPPDATA:-}/Android/Sdk}/platform-tools/adb"
 # The link holds the one-time code: it goes straight to the app and is never printed or saved here.
 "$adb" shell am start -n com.oxespace.mobile/.MainActivity --es pair_link "'$link'" > /dev/null
