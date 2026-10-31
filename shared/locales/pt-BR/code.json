@@ -833,7 +833,29 @@
       "done": "Concluído, ainda não visto",
       "awaiting": "Aguardando sua resposta"
     },
+    "origin": {
+      "lifecycle": "Pelo ciclo de vida do agente",
+      "screen": "Lido da tela do agente",
+      "hook": "Informado pelos hooks do agente",
+      "heuristic": "Estimado pela atividade do terminal"
+    },
+    "decisionAnnounce": "{{agent}} precisa da sua decisão: {{reason}}",
+    "decisionNotice": {
+      "title": "{{agent}} — precisa da sua decisão",
+      "body": "{{workspace}}: o agente parou e está esperando sua aprovação ou resposta."
+    },
+    "notice": {
+      "agent": "Agente",
+      "finishedTitle": "{{agent}} — esperando por você",
+      "finishedBody": "{{workspace}}: o agente terminou e está esperando sua resposta.",
+      "endedTitle": "{{agent}} — sessão encerrada",
+      "endedBody": "{{workspace}}: o terminal do agente foi fechado.",
+      "errorTitle": "{{agent}} — precisa de atenção",
+      "errorBody": "{{workspace}}: {{error}}",
+      "errorFallback": "o agente encontrou um erro."
+    },
     "status": {
+      "needs-decision": "Precisa da sua decisão",
       "thinking": "Pensando",
       "awaiting": "Aguardando",
       "starting": "Iniciando",
@@ -842,6 +864,7 @@
       "idle": "Ocioso"
     },
     "fallback": {
+      "needs-decision": "Precisa da sua decisão",
       "thinking": "Agente pensando",
       "awaiting": "Aguardando resposta",
       "starting": "Iniciando o terminal",
@@ -879,6 +902,9 @@
       "agents_one": "{{count}} agente",
       "agents_many": "{{count}} agentes",
       "agents_other": "{{count}} agentes",
+      "needs-decision_one": "{{count}} precisa da sua decisão",
+      "needs-decision_many": "{{count}} precisam da sua decisão",
+      "needs-decision_other": "{{count}} precisam da sua decisão",
       "thinking_one": "{{count}} pensando",
       "thinking_many": "{{count}} pensando",
       "thinking_other": "{{count}} pensando",
@@ -919,6 +945,7 @@
       "delegated": "Tarefa delegada",
       "unread": "Saída não lida",
       "tone": {
+        "needs-decision": "precisa da sua decisão",
         "thinking": "pensando",
         "awaiting": "aguardando",
         "idle": "ocioso",
@@ -1214,6 +1241,9 @@
     "topbar": {
       "label": "Status do workspace",
       "mcp": "Abrir os servidores MCP",
+      "mcpQuarantined_one": "Abrir os servidores MCP: {{count}} em quarentena",
+      "mcpQuarantined_many": "Abrir os servidores MCP: {{count}} em quarentena",
+      "mcpQuarantined_other": "Abrir os servidores MCP: {{count}} em quarentena",
       "activity": "Mostrar ou ocultar a atividade em segundo plano",
       "activityShort": "Atividade",
       "panels": "Painéis do workspace",
@@ -1733,6 +1763,18 @@
     "tools_one": "{{count}} ferramenta",
     "tools_many": "{{count}} ferramentas",
     "tools_other": "{{count}} ferramentas",
+    "tools_zero": "Nenhuma ferramenta",
+    "toolsQuarantined": "Nenhuma ferramenta enquanto estiver em quarentena",
+    "quarantinedCount_one": "{{count}} em quarentena",
+    "quarantinedCount_many": "{{count}} em quarentena",
+    "quarantinedCount_other": "{{count}} em quarentena",
+    "trustAgain": "Confiar de novo…",
+    "trustAgainLabel": "Confiar de novo em {{name}}",
+    "trustAgainTitle": "Confiar de novo em {{name}}?",
+    "trustAgainBody": "Ele mudou depois que você confiou nele. Confiar de novo oferece as ferramentas dele aos agentes e permite que ele inicie. Leia o que mudou antes.",
+    "trustAgainConfirm": "Confiar de novo e testar",
+    "activityTitle": "{{name}} está em quarentena",
+    "activityDetail": "Ele mudou depois que você confiou nele. Revise antes de confiar de novo.",
     "testedAt": "O OXESpace testou às {{time}}",
     "notTested": "O OXESpace não o testou desde que abriu",
     "stopTest": "Parar o teste",
@@ -1803,7 +1845,13 @@
     "quarantined": "em quarentena",
     "safety": {
       "quarantineTitle": "Em quarentena: mudou depois de você confiar nele",
-      "quarantineBody": "Ele não é oferecido aos agentes e não inicia. Leia abaixo o que ele diz agora; depois use Testar para confiar nele de novo, ou remova-o.",
+      "quarantineBody": "Ele não é oferecido aos agentes e não inicia. Leia abaixo o que ele diz agora; depois use Confiar de novo… para confiar nele de novo, ou remova-o.",
+      "runsNow": "O que ele executa agora",
+      "command": "Comando",
+      "url": "URL",
+      "envKeys": "Variáveis de ambiente (valores ocultos)",
+      "headerKeys": "Cabeçalhos (valores ocultos)",
+      "none": "nenhuma",
       "descTitle": "Descrições de ferramentas com instruções para o modelo",
       "descBody": "Um agente lê essas descrições como parte do contexto. Podem ser inofensivas, mas uma descrição deve dizer o que a ferramenta faz, não dizer ao agente o que fazer.",
       "floatingTitle": "Sem versão fixa",
@@ -1888,6 +1936,31 @@
     "phoneWriteBadge": "Celular pode digitar",
     "phoneWriteBadgeTitle": "Um celular pareado pode digitar neste terminal. Desligue no menu ⋯.",
     "phoneWriteFailed": "Não foi possível mudar a digitação pelo celular",
+    "whyStatus": "Por que este status?",
+    "explain": {
+      "description": "O que o OXESpace leu para decidir o status deste painel.",
+      "shown": "Exibido",
+      "origin": "Vem de",
+      "lifecycle": "Estado do ciclo de vida",
+      "since": "Desde",
+      "hook": "Último aviso do hook",
+      "screen": "Regra da tela",
+      "fallback": "Padrão da tela",
+      "pendingIdle": "Confirmando que parou",
+      "none": "O OXESpace não tem um aviso do ciclo de vida deste painel, então o status é estimado pela atividade do terminal.",
+      "unavailable": "A explicação do status não está disponível nesta versão.",
+      "failed": "Não foi possível ler por que este painel tem este status.",
+      "reading": "Lendo…",
+      "technical": "Detalhes técnicos",
+      "yes": "Sim",
+      "states": {
+        "working": "Trabalhando",
+        "blocked": "Esperando uma decisão",
+        "done": "Terminou o turno",
+        "idle": "Ocioso",
+        "unknown": "Desconhecido"
+      }
+    },
     "detailsUnavailable": "Detalhes da sessão indisponíveis",
     "detailsFailed": "Não foi possível ler a sessão",
     "rename": "Renomear o painel",
@@ -1974,5 +2047,10 @@
     "requests_many": "{{count}} requisições",
     "requests_other": "{{count}} requisições",
     "error": "Erro do terminal"
+  },
+  "reviewComments": {
+    "delete": "Excluir comentário",
+    "deleted": "Comentário excluído",
+    "undo": "Desfazer"
   }
 }

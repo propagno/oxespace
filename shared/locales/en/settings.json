@@ -29,7 +29,7 @@
     "pages": {
       "general": {
         "label": "General",
-        "hint": "Navigation and workspace preferences"
+        "hint": "Navigation, workspace and privacy preferences"
       },
       "providers": {
         "label": "Agents",
@@ -82,7 +82,17 @@
     "description": "Preferences that apply across every workspace.",
     "navigation": "Workspace navigation",
     "cacheLabel": "Recently visited workspaces kept ready",
-    "cacheHint": "Keep terminal views available when switching workspaces. Changes apply automatically."
+    "cacheHint": "Keep terminal views available when switching workspaces. Changes apply automatically.",
+    "privacy": "Privacy",
+    "seenSites": {
+      "label": "Sites you've opened",
+      "hint": "A link to a site you haven't opened from OXESpace before asks first. Clear the list to be asked again for every site.",
+      "count_one": "{{count}} site remembered.",
+      "count_other": "{{count}} sites remembered.",
+      "clear": "Clear sites you've opened",
+      "cleared_one": "Forgot {{count}} site",
+      "cleared_other": "Forgot {{count}} sites"
+    }
   },
   "appearance": {
     "kicker": "Global appearance",

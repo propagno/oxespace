@@ -1,4 +1,4 @@
-import { Eraser, Info, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
+import { CircleHelp, Eraser, Info, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { TerminalStatusResult } from '../../../shared/types/ipc'
@@ -10,6 +10,7 @@ import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
+import paneMenu from './PaneMenu.module.css'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
@@ -19,6 +20,7 @@ const tc = i18n.getFixedT(null, 'code')
 const detailRows = (items: string[][]): Array<{ label: string; detail: string }> => items.map(([label, detail]) => ({ label, detail }))
 // Opened on request only, so it stays out of the startup bundle.
 const ProviderSessionFinder = lazy(() => import('./ProviderSessionFinder').then(module => ({ default: module.ProviderSessionFinder })))
+const StatusExplainDialog = lazy(() => import('./StatusExplainDialog').then(module => ({ default: module.StatusExplainDialog })))
 const TerminalFocusMenuItems = lazy(() => import('./TerminalFocusMenuItems').then(module => ({ default: module.TerminalFocusMenuItems })))
 
 interface PaneContainerProps {
@@ -87,6 +89,10 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   const [menuOpen, setMenuOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [providerSessionsOpen, setProviderSessionsOpen] = useState(false)
+  const [explainOpen, setExplainOpen] = useState(false)
+  const needsDecision = display.statusTone === 'needs-decision'
+  // The status in words, with where it comes from (UX-07): the dot's tooltip and the header's screen-reader text.
+  const statusText = display.originLabel ? `${display.statusLabel} · ${display.originLabel}` : display.statusLabel
   const [sessionDetails, setSessionDetails] = useState<TerminalStatusResult | null>(null)
   const [sessionDetailsError, setSessionDetailsError] = useState('')
   useEffect(() => {
@@ -169,10 +175,13 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   }
 
   return (
-    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
+    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
       <header className="pane-header">
         <div className="pane-header-left">
-          <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}`} aria-hidden="true" />
+          <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`} aria-hidden="true" title={statusText} data-testid="pane-status-dot" data-origin={display.statusOrigin ?? undefined} />
+          <span className="sr-only" data-testid="pane-status-text">{statusText}</span>
+          {/* Polite and once: the text appears when the pane enters the state and stays while it holds. */}
+          <span className="sr-only" role="status" data-testid="pane-decision-live">{needsDecision ? tc('pane.decisionAnnounce', { agent: display.providerLabel, reason: display.attentionReason ?? display.statusLabel }) : ''}</span>
           <span
             className={`pane-agent-chip provider-${display.providerKey}`}
             title={display.subtitle}
@@ -184,6 +193,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
             ) : <SquareTerminal size={14} aria-hidden="true" />}
             <span className="pane-agent-chip-label">{display.providerLabel}</span>
           </span>
+          {needsDecision && <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">{display.statusLabel}</span>}
           <span className="pane-header-divider" aria-hidden="true">/</span>
           {isTerminalPane && <PaneBranchBadge workspace={workspace} pane={pane} />}
           {isTerminalPane && phoneWrite.allowed && <PhoneWriteBadge />}
@@ -270,6 +280,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                 {isTerminalPane ? (
                   <>
                     <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />{tc('paneMenu.details')}</button>
+                    <Button variant="ghost" role="menuitem" className={paneMenu.item} data-testid="pane-why-status" onClick={event => { event.stopPropagation(); runMenuAction(() => setExplainOpen(true)) }}><CircleHelp size={14} aria-hidden="true" />{tc('paneMenu.whyStatus')}</Button>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                     <button
                       type="button"
@@ -382,6 +393,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           ...(sessionDetails?.startedAt ? [[tc('paneMenu.startedAt'), formatDateTime(sessionDetails.startedAt)]] : [])
         ])} /></details>
       </Dialog>}
+      {explainOpen && <Suspense fallback={null}><StatusExplainDialog paneId={pane.id} display={display} onClose={() => setExplainOpen(false)} /></Suspense>}
       {providerSessionsOpen && <Suspense fallback={null}><ProviderSessionFinder workspaceId={workspace.id} rootPath={pane.rootPath ?? workspace.rootPath} onClose={() => setProviderSessionsOpen(false)} /></Suspense>}
     </section>
   )
