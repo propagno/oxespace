@@ -7,6 +7,7 @@
 
 import type { MaintenanceAction, StructureAction, StructurePlan, StructureResult } from './oxequery-structure'
 import type { ContainerEngine } from './oxepod'
+import type { MainMessage } from '../messages'
 
 export type DatabaseEngine = 'postgres' | 'mongodb'
 
@@ -138,6 +139,8 @@ export interface OxeQueryConnectionInput {
 }
 
 export interface ConnectionTestResult {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   ok: boolean
   message: string
   serverVersion?: string
@@ -213,6 +216,8 @@ export interface SqlGuardVerdict {
   kind: 'read' | 'write' | 'ddl' | 'destructive' | 'empty'
   reasons: string[]
   statements: number
+  /** C3 codes for the reasons that have one, for the window to show in the person's language. */
+  codes?: MainMessage[]
 }
 
 export interface SqlTable { schema: string; name: string; kind: 'table' | 'view' | 'materialized view' | 'foreign table' | 'partitioned table'; approxRows?: number }
@@ -252,6 +257,8 @@ export type SqlRowChange =
 export interface SqlApplyInput { connectionId: string; schema: string; table: string; changes: SqlRowChange[]; confirmed?: boolean }
 export interface SqlApplyResult { applied: number; statements: string[] }
 export interface SqlEditability {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   editable: boolean
   /** Why not, in words for a person. */
   reason?: string
@@ -596,6 +603,8 @@ export interface OxeQueryOps {
 export type OxeQueryOp = keyof OxeQueryOps
 
 export interface OxeQueryErrorInfo {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   code: 'engine-missing' | 'daemon' | 'not-found' | 'invalid' | 'failed' | 'read-only' | 'confirm' | 'confirm-name' | 'connect' | 'query' | 'timeout' | 'cancelled'
     | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict'
   message: string

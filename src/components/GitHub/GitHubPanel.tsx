@@ -1407,7 +1407,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
               <Button
                
                 variant="ghost" size="sm"
-                onClick={() => void copyText(logs.text, tc('github.actions.logs'))}
+                onClick={() => void copyText(logs.text, tc('github.actions.logs'), tc('github.actions.logsCopied'))}
                 title={tc('github.actions.copyLogs')}
               >
                 <Copy size={12} aria-hidden="true" /> {tc('github.actions.copy')}
@@ -1469,7 +1469,7 @@ function WorkflowRuntimeTree({ run, jobs, workspaceId }: { run: GitHubWorkflowRu
             {!collapsed ? (
               <div className="github-actions-step-list">
                 {job.steps.length === 0 ? (
-                  <span className="github-actions-step-empty">{tc('github.actions.noSteps')}</span>
+                  <EmptyState compact title={tc('github.actions.noSteps')} />
                 ) : (
                   job.steps.map((step) => (
                     <div key={`${key}:${step.number ?? step.name}`} className="github-actions-step-row">
@@ -1644,7 +1644,7 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
     ? ['winget install GitHub.cli', 'scoop install gh']
     : ['sudo apt install gh', 'sudo dnf install gh']
 
-  const copyCmd = (cmd: string): void => { void copyText(cmd, tc('github.setup.command')) }
+  const copyCmd = (cmd: string): void => { void copyText(cmd, tc('github.setup.command'), tc('github.setup.commandCopied')) }
 
   return (
     <div className="github-cli-setup">

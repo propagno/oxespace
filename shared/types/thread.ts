@@ -56,7 +56,7 @@ export interface ThreadCommand {
   execution?: 'conversation' | 'cli' | 'desktop' | 'unavailable'
   unavailableReason?: string
 }
-export interface ThreadCommandCatalog { commands: ThreadCommand[]; warning?: string }
+export interface ThreadCommandCatalog { commands: ThreadCommand[]; warning?: string; /** `warning` as a message code (C3). */ messageCode?: import('../messages').MainMessage }
 export interface ThreadModel { id: string; label: string; description: string; efforts: string[]; defaultEffort?: string; isDefault?: boolean }
 export interface ThreadConfiguration {
   model?: string
@@ -73,6 +73,8 @@ export interface ThreadConfiguration {
 export interface ThreadModelCatalog { models: ThreadModel[]; defaultModel?: string; defaultEffort?: string; defaultKnown?: boolean }
 export type ThreadCapabilityAvailability = 'supported' | 'unavailable' | 'experimental'
 export interface ThreadCapability {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   availability: ThreadCapabilityAvailability
   enabled: boolean
   authorized: boolean
@@ -275,6 +277,8 @@ export interface ThreadRequestResponse {
 }
 
 export interface ThreadQueuedInput {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   id: string
   operationId?: string
   nativeId?: string
@@ -352,6 +356,26 @@ export interface ThreadSubagent {
 }
 export interface ThreadTurn { id: string; operationId?: string; nativeId?: string; sequence: number; startedAt?: number; completedAt?: number; status: 'running' | 'completed' | 'failed' | 'interrupted'; configuration: ThreadConfiguration; attachmentIds?: string[] }
 
+/** A worktree created for one conversation; the record that lets archiving clean it up. */
+export interface OwnedThreadWorktree {
+  /** Folder of the worktree; also the conversation's root. */
+  path: string
+  branch: string
+  /** The repository checkout it was made from. */
+  projectRoot: string
+  /** Commit the branch started at, to tell new work from the starting point. */
+  baseSha: string
+  createdAt: number
+}
+
+/** What the new-conversation dialog may ask for when the conversation gets its own worktree. */
+export interface ThreadWorktreeRequestInput {
+  branch?: string
+  baseRef?: string
+  /** The person saw that uncommitted changes in the project are not carried over and went on. */
+  allowDirtyBase?: boolean
+}
+
 export interface ConversationThread {
   nativeHistoryCursor?: { before: number; size: number; identity: string; skipSuffix?: boolean; fingerprint?: string; modifiedAt?: number; claudeLineage?: 'linked' | 'legacy'; claudeParent?: string }
   agentProfileId?: string
@@ -365,6 +389,11 @@ export interface ConversationThread {
    * changes: checkpoints and the provider's own session records are tied to it.
    */
   observedLocation?: import('./agent-hooks').SessionLocation
+  /**
+   * Set when this conversation was started in a worktree of its own (the "isolated worktree" option).
+   * Archiving or deleting the conversation then offers to clean that worktree up.
+   */
+  ownedWorktree?: OwnedThreadWorktree
   provider: ThreadProvider
   nativeSessionId: string | null
   title: string
@@ -414,6 +443,8 @@ export interface ConversationThread {
 }
 
 export interface ThreadProviderObservation {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   state: 'running' | 'awaiting-input' | 'completed' | 'interrupted' | 'failed' | 'idle' | 'unknown'
   observedAt: number
   source: 'codex-app-server' | 'unavailable'
@@ -621,7 +652,7 @@ export interface ThreadApi {
    * With `worktree`, a new branch is created in its own worktree next to the repository and the conversation
    * starts there. Refusals carry a cause the dialog can show (branch exists, invalid base…).
    */
-  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: { branch?: string; baseRef?: string } }): Promise<ThreadSnapshot>
+  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: ThreadWorktreeRequestInput }): Promise<ThreadSnapshot>
   read(id: string): Promise<ThreadSnapshot>
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>
@@ -665,6 +696,10 @@ export interface ThreadApi {
   approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void>
   respond?(id: string, requestId: string, response: ThreadRequestResponse): Promise<void>
   pin(id: string, pinned: boolean): Promise<void>
+  /** What Git says about the worktree this conversation was started in; null when it has none. */
+  worktreeInspect?(id: string): Promise<import('../threadWorktree').ThreadWorktreeInspection | null>
+  /** Archives or deletes the conversation, then cleans up its worktree as the choice allows. */
+  worktreeFinish?(id: string, action: import('../threadWorktree').ThreadWorktreeFinishAction, choice: import('../threadWorktree').ThreadWorktreeChoice): Promise<import('../threadWorktree').ThreadWorktreeFinishResult>
   onChanged(listener: (value: { threadId: string }) => void): () => void
 }
 

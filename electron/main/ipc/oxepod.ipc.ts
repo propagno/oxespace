@@ -26,7 +26,7 @@ export function registerOxePodIpc(load: () => Promise<OxePodIpcService>, describ
     if (typeof body.op !== 'string' || !OPS.has(body.op)) throw new Error('Unknown OxePod operation')
     let service: OxePodIpcService
     // The view asks through this channel; answer with the reason instead of a rejected call.
-    try { service = await load() } catch (error) { return { ok: false, error: { code: 'failed', message: `OxePod did not start: ${describeFailure(error)}` } } }
+    try { service = await load() } catch (error) { return { ok: false, error: { code: 'failed', message: `OxePod did not start: ${describeFailure(error)}`, messageCode: { code: 'oxepod.startFailed', params: { reason: describeFailure(error) } } } } }
     return service.call(body.op as OxePodOp, body.input)
   })
 }

@@ -40,14 +40,17 @@ export function policyDeniedMcpNames(projectRoot?: string | null, policy: Policy
   return [...names]
 }
 
-/** Tool names a policy denies outright (no wildcards), still denied after every layer. Claude hides them at launch. */
+/**
+ * Tool names a policy denies, still denied after every layer, for launch exclusions: exact names, plus MCP rules with
+ * wildcards or a whole server (`mcp__github`, `mcp__github__*`, `mcp__github__delete_*`), which thread-mcp.ts resolves per CLI.
+ */
 export function policyDeniedToolNames(projectRoot?: string | null, policy: PolicyStore | null = policyStore()): string[] {
   if (!policy) return []
   const loaded = policy.load(projectRoot)
   const names = new Set<string>()
   for (const source of loaded.sources) {
     for (const rule of source.rules) {
-      if (rule.action !== 'tool.use' || rule.effect !== 'deny' || rule.resource.includes('*')) continue
+      if (rule.action !== 'tool.use' || rule.effect !== 'deny' || (rule.resource.includes('*') && !/^mcp__[^*]/i.test(rule.resource))) continue
       if (!evaluatePolicy(loaded, 'tool.use', rule.resource).allowed) names.add(rule.resource)
     }
   }

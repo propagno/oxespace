@@ -17,6 +17,9 @@ files:
   # the installer: the optional semantic index downloads or imports it into
   # userData (services/semantic-model-store.ts).
   - "!**/node_modules/@xenova/transformers/.cache/**"
+  # The main process's source maps are private: CI keeps them as the main-sourcemaps artifact, and
+  # scripts/symbolicate-stack.mjs reads them to turn a reported stack back into source lines.
+  - "!out/**/*.map"
 # NOTE: pruning the ONNX Runtime prebuilds for other platforms is done by
 # scripts/slim-pack-deps.mjs (which both `dist:win` and `dist:linux` run before
 # electron-builder), NOT by a filter here. A `files` filter cannot vary by
