@@ -235,8 +235,7 @@
   text-overflow: ellipsis;
 }
 .github-actions-job-meta,
-.github-actions-step-state,
-.github-actions-step-empty {
+.github-actions-step-state {
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
 }
@@ -256,9 +255,6 @@
   font-size: var(--fs-xs);
 }
 .github-actions-step-row:hover { background: var(--bg-elevated); }
-.github-actions-step-empty {
-  padding: 6px 10px;
-}
 .github-actions-v2-detail-hint {
   font-size: var(--fs-xs);
   color: var(--tx-muted);
