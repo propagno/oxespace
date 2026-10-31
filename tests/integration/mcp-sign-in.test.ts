@@ -20,7 +20,10 @@ describe('MCP sign-in page', () => {
       const manager = new McpManager(db) as unknown as Internals & InstanceType<typeof McpManager>
       const runtime: Runtime = { server: { id: 's1' } }
       manager.runtimes.set('s1', runtime)
-      manager.watchSignIn(runtime, 'Please authorize: https://auth.example.com/authorize?state=abc')
+      // mcp-remote prints the URL on a line of its own; a URL inside other text is not taken.
+      manager.watchSignIn(runtime, 'Please authorize: https://auth.example.com/authorize?state=other')
+      expect(runtime.authUrl).toBeUndefined()
+      manager.watchSignIn(runtime, 'https://auth.example.com/authorize?state=abc')
       expect(runtime.authUrl).toBe('https://auth.example.com/authorize?state=abc')
       vi.advanceTimersByTime(60_000)
       expect(openExternalOrRecord).not.toHaveBeenCalled()
