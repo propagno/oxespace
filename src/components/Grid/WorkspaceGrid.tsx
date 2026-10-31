@@ -2,8 +2,10 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { Fragment, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
-import { getPaneAt, LAYOUTS } from './layouts'
+import { getPaneAt, layoutOf } from './layouts'
 import { PaneContainer } from './PaneContainer'
+import { ErrorBoundary } from '../common/ErrorBoundary'
+import { i18n } from '../../i18n'
 
 interface WorkspaceGridProps {
   workspace: Workspace
@@ -32,7 +34,7 @@ export function WorkspaceGrid({
   onToggleMaximize,
   workspace
 }: WorkspaceGridProps): ReactElement {
-  const preset = LAYOUTS[workspace.layout]
+  const preset = layoutOf(workspace.layout)
   const visiblePanes = workspace.panes.filter(p => p.rowIndex >= 0 && p.columnIndex >= 0)
   const layout = {
     rows: Math.max(preset.rows, ...visiblePanes.map(p => p.rowIndex + 1)),
@@ -84,19 +86,21 @@ export function WorkspaceGrid({
                           data-oxe-maximized={panelMaximized ? '1' : undefined}
                         >
                           {pane ? (
-                            <PaneContainer
-                              pane={pane}
-                              workspace={workspace}
-                              agentProfile={getAgentProfile(agentProfiles, pane.agentProfileId)}
-                              autoStart={workspace.autoStart}
-                              isMaximized={panelMaximized}
-                              isActive={pane.id === activePaneId}
-                              onClose={onClosePane}
-                              onToggleMaximize={onToggleMaximize}
-                              onActivate={onActivatePane}
-                              onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
-                              onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}
-                            />
+                            <ErrorBoundary compact label={i18n.t('pane.boundary', { ns: 'code' })}>
+                              <PaneContainer
+                                pane={pane}
+                                workspace={workspace}
+                                agentProfile={getAgentProfile(agentProfiles, pane.agentProfileId)}
+                                autoStart={workspace.autoStart}
+                                isMaximized={panelMaximized}
+                                isActive={pane.id === activePaneId}
+                                onClose={onClosePane}
+                                onToggleMaximize={onToggleMaximize}
+                                onActivate={onActivatePane}
+                                onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
+                                onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}
+                              />
+                            </ErrorBoundary>
                           ) : null}
                         </Panel>
                         {columnIndex < layout.columns - 1 ? (

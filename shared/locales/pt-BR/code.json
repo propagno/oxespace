@@ -822,6 +822,11 @@
     }
   },
   "pane": {
+    "boundary": "este painel",
+    "splitRefused": {
+      "title": "Não dá para dividir este painel aqui",
+      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente."
+    },
     "attention": {
       "blocked": "Precisa da sua aprovação ou resposta",
       "done": "Concluído, ainda não visto",
@@ -1003,6 +1008,7 @@
   "workspace": {
     "closeFailed": "Não foi possível fechar o workspace",
     "settingsFailed": "Não foi possível salvar as configurações do workspace",
+    "gridBoundary": "os painéis deste workspace",
     "panel": {
       "restore": "Restaurar a largura do painel",
       "expand": "Expandir o painel",

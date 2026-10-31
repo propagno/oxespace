@@ -347,6 +347,15 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onActivate: (listener) =>
         subscribe<{ paneId: string; workspaceId: string }>(ipc, IPC_CHANNELS.notifications.onActivate, listener)
     },
+    approvals: {
+      list: () => ipc.invoke(IPC_CHANNELS.approvals.list) as Promise<import('../../shared/types/approvals').ApprovalRequest[]>,
+      respond: input => ipc.invoke(IPC_CHANNELS.approvals.respond, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      ack: input => ipc.invoke(IPC_CHANNELS.approvals.ack, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      unavailable: input => ipc.invoke(IPC_CHANNELS.approvals.unavailable, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
+      history: () => ipc.invoke(IPC_CHANNELS.approvals.history) as Promise<import('../../shared/types/approvals').ApprovalHistoryEntry[]>,
+      onRequested: listener => subscribe<import('../../shared/types/approvals').ApprovalRequest>(ipc, IPC_CHANNELS.approvals.onRequested, listener),
+      onResolved: listener => subscribe<import('../../shared/types/approvals').ApprovalResolved>(ipc, IPC_CHANNELS.approvals.onResolved, listener)
+    },
     oxe: {
       detect: (force) => ipc.invoke(IPC_CHANNELS.oxe.detect, force) as Promise<import('../../shared/types/oxe').OxeDetect>,
       status: (rootPath, force) => ipc.invoke(IPC_CHANNELS.oxe.status, rootPath, force) as Promise<import('../../shared/types/oxe').OxeStatusResult>,
