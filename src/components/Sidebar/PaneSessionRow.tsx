@@ -130,7 +130,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   function copyContext(): void {
     setMenu(null)
     const context = `${display.meta}\n${display.title}\n${display.subtitle}`
-    void copyText(context, t('sidebar.session.context'))
+    void copyText(context, t('sidebar.session.context'), t('sidebar.session.contextCopied'))
   }
 
   useEffect(() => {

@@ -75,6 +75,11 @@
     "reportProblem": "Report a problem…",
     "checkUpdates": "Check for updates…"
   },
+  "activityCenter": {
+    "nothingToRead": "Nothing to mark as read",
+    "nothingToReadText": "Every activity item is already read.",
+    "allRead": "All activity marked as read"
+  },
   "report": {
     "title": "Report a problem",
     "description": "This is the issue we would open on GitHub. Nothing is sent until you choose what to do with it.",
@@ -86,6 +91,7 @@
     "retry": "Try again",
     "copy": "Copy text",
     "copyWhat": "Report",
+    "copied": "Report copied",
     "open": "Open on GitHub",
     "opened": "GitHub opened in your browser",
     "truncated": "The text is too long for a link, so GitHub receives the first part. Use Copy text to share all of it."
@@ -260,6 +266,7 @@
     "resets": "Resets {{when}}."
   },
   "ui": {
+    "changeNotSaved": "The change was not saved.",
     "divider": {
       "columns": "Divider between columns",
       "rows": "Divider between rows",
@@ -282,11 +289,18 @@
     "cancel": "Cancel",
     "close": "Close",
     "dismiss": "Dismiss",
+    "toast": {
+      "region": "Notifications",
+      "dismiss": "Dismiss notification",
+      "repeated_one": "Repeated {{count}} time",
+      "repeated_other": "Repeated {{count}} times"
+    },
     "copy": {
       "text": "Text",
       "done": "{{what}} copied",
       "failed": "Could not copy: {{what}}",
-      "unavailable": "The clipboard is not available."
+      "unavailable": "The clipboard is not available.",
+      "textDone": "Text copied"
     },
     "offline": {
       "title": "You are offline",
@@ -368,6 +382,7 @@
     },
     "copy": "Copy details",
     "details": "Build details",
+    "detailsCopied": "Build details copied",
     "report": "Report a problem"
   }
 }
