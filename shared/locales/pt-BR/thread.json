@@ -1630,6 +1630,7 @@
     "ask": "Pergunte ao chat lateral",
     "placeholder": "Pergunte sobre esta conversa…",
     "send": "Perguntar",
+    "nul": "A pergunta tem um caractere nulo, que não pode ser enviado. Remova-o e tente de novo.",
     "close": "Fechar o chat lateral ({{shortcut}})",
     "openMenu": "Chat lateral",
     "closeMenu": "Fechar o chat lateral"

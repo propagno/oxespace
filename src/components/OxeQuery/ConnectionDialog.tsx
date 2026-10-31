@@ -238,7 +238,7 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
   const description = editing?.containerRef ? t('form.fromContainer', { name: editing.containerRef }) : draft?.containerRef ? t('form.fromContainerDraft', { name: draft.containerRef }) : t('form.description')
   return <Dialog className="oq-scope" title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={() => { if (!busy) close() }}
     footer={<>
-      <Button disabled={busy} loading={busy} onClick={() => void check()}>{t('form.test')}</Button>
+      <Button loading={busy} onClick={() => void check()}>{t('form.test')}</Button>
       {!editing && <Button disabled={busy} onClick={() => void connectOnce()} title={t('form.connectOnceTitle')}>{t('form.connectOnce')}</Button>}
       <span className="oq-spacer" />
       <Button disabled={busy} onClick={close}>{t('common.cancel')}</Button>

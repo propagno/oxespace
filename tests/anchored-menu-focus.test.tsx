@@ -90,4 +90,25 @@ describeDialog('a dialog opened from a menu item', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Pin' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'More' })).toHaveFocus())
   })
+  test('closing it gives focus back to the button that opened the menu, not to the main input of the view', async () => {
+    const { Menu, ConfirmDialog } = await import('../src/ui')
+    const { useState } = await import('react')
+    const userEvent = (await import('@testing-library/user-event')).default
+    function Host() {
+      const [open, setOpen] = useState(false)
+      return <>
+        <textarea aria-label="Message" data-dialog-return />
+        <Menu label="Conversation actions" trigger={<button type="button">⋯</button>} items={[{ label: 'Delete…', onSelect: () => setOpen(true) }]} />
+        {open && <ConfirmDialog title="Delete this?" description="It is removed." confirmLabel="Delete" onConfirm={() => setOpen(false)} onCancel={() => setOpen(false)} />}
+      </>
+    }
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.click(screen.getByRole('button', { name: '⋯' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Delete…' }))
+    await screen.findByRole('dialog', { name: 'Delete this?' })
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.getByRole('button', { name: '⋯' })).toHaveFocus())
+  })
 })
