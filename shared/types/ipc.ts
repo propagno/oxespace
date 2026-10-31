@@ -87,7 +87,9 @@ export const IPC_CHANNELS = {
     setAppearance: 'app:set-appearance',
     setLanguage: 'app:set-language',
     setUiScale: 'app:set-ui-scale',
-    connectivity: 'app:connectivity', onConnectivity: 'app:connectivity-changed', about: 'app:about'
+    connectivity: 'app:connectivity', onConnectivity: 'app:connectivity-changed', about: 'app:about',
+    /** F26: main → window before a close or quit, and the window's answer. */
+    closeRequested: 'app:close-requested', closeAnswer: 'app:close-answer'
   },
   rtk: {
     getStatus: 'rtk:get-status',

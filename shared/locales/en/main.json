@@ -338,7 +338,9 @@
         "overBudget": "An interaction took longer than its budget."
       },
       "app": {
-        "journalReset": "The diagnostics journal was unreadable and started over."
+        "journalReset": "The diagnostics journal was unreadable and started over.",
+        "closeUnanswered": "The window did not answer a close or quit within 3 seconds; the app went ahead.",
+        "closeRendererGone": "The window stopped while a close or quit waited on it; the app went ahead."
       }
     },
     "diagnostics": {

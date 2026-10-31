@@ -39,6 +39,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.updater.failed': [],
   'incident.interaction.overBudget': [],
   'incident.app.journalReset': [],
+  'incident.app.closeUnanswered': [],
+  'incident.app.closeRendererGone': [],
   'incident.window.externalRefused': [],
   'incident.window.externalRateLimited': [],
   'incident.window.externalOpenFailed': [],
