@@ -1,18 +1,31 @@
-import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { LoadingState, SidebarSkeleton } from '../../ui'
 import type { AppView } from '../../keyboard/keybindings'
 import { useUIStore } from '../../store/ui.store'
 import { scheduleIdle } from '../../lib/preloadSchedule'
+import { chunk, lazyFrom } from '../../lib/chunk'
 
-// OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in the entry chunk until first use.
-const OxeQuerySidebar = lazy(() => import('../OxeQuery/OxeQuerySidebar').then(m => ({ default: m.OxeQuerySidebar })))
-const OxeQueryView = lazy(() => import('../OxeQuery/OxeQueryView').then(m => ({ default: m.OxeQueryView })))
-const OxePodSidebar = lazy(() => import('../OxePod/OxePodSidebar').then(m => ({ default: m.OxePodSidebar })))
-const OxePodView = lazy(() => import('../OxePod/OxePodView').then(m => ({ default: m.OxePodView })))
-const OxePostSidebar = lazy(() => import('../OxePost/OxePostSidebar').then(m => ({ default: m.OxePostSidebar })))
-const OxePostView = lazy(() => import('../OxePost/OxePostView').then(m => ({ default: m.OxePostView })))
+/**
+ * Thread, OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in
+ * the entry chunk until first use. Each view's sidebar and work area are one chunk pair requested together, so they
+ * reveal in one commit; the idle preload (src/lib/idlePreload.ts) loads the same pairs.
+ */
+export const VIEW_CHUNKS = {
+  thread: chunk(() => Promise.all([import('../Threads/ThreadSidebar'), import('../Threads/ThreadGrid')])),
+  data: chunk(() => Promise.all([import('../OxeQuery/OxeQuerySidebar'), import('../OxeQuery/OxeQueryView')])),
+  pods: chunk(() => Promise.all([import('../OxePod/OxePodSidebar'), import('../OxePod/OxePodView')])),
+  post: chunk(() => Promise.all([import('../OxePost/OxePostSidebar'), import('../OxePost/OxePostView')]))
+}
+export const ThreadSidebar = lazyFrom(VIEW_CHUNKS.thread, ([sidebar]) => sidebar.ThreadSidebar)
+export const ThreadGrid = lazyFrom(VIEW_CHUNKS.thread, ([, grid]) => grid.ThreadGrid)
+const OxeQuerySidebar = lazyFrom(VIEW_CHUNKS.data, ([sidebar]) => sidebar.OxeQuerySidebar)
+const OxeQueryView = lazyFrom(VIEW_CHUNKS.data, ([, view]) => view.OxeQueryView)
+const OxePodSidebar = lazyFrom(VIEW_CHUNKS.pods, ([sidebar]) => sidebar.OxePodSidebar)
+const OxePodView = lazyFrom(VIEW_CHUNKS.pods, ([, view]) => view.OxePodView)
+const OxePostSidebar = lazyFrom(VIEW_CHUNKS.post, ([sidebar]) => sidebar.OxePostSidebar)
+const OxePostView = lazyFrom(VIEW_CHUNKS.post, ([, view]) => view.OxePostView)
 
 export type DataView = 'data' | 'pods' | 'post'
 /** The views with their own lazy sidebar and work area, laid out alike. */

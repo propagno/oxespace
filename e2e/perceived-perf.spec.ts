@@ -32,8 +32,28 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { installThreadFixtures, registerThreadProject, setThreadState } from './helpers/thread-fixtures'
 
-const LAUNCHES = 5
+const LAUNCHES = Number(process.env.OXESPACE_PERF_LAUNCHES ?? 5)
 const BLANK_GOAL_MS = 100
+/**
+ * First content, median ms of 5 launches, measured on main before F7 (phase 1 baseline, commit 0a48638d):
+ *
+ *   surface                 cold  warm
+ *   OxeCode (Code)            60    35
+ *   OxeChat (Thread)         335    22
+ *   OxeQuery                 335    22
+ *   OxePod                   341    14
+ *   OxePost                  336    20
+ *   Settings · Agents        344    26
+ *   Settings · Appearance     29    26
+ *
+ * The gate fails a surface whose median first content exceeds its baseline by more than 10%, or by more than one
+ * frame (16.7 ms) for the warm numbers, which are a frame or two and would otherwise fail on frame rounding alone.
+ */
+const CONTENT_BASELINE_MS: Record<'cold' | 'warm', Record<string, number>> = {
+  cold: { 'OxeCode (Code)': 60, 'OxeChat (Thread)': 335, OxeQuery: 335, OxePod: 341, OxePost: 336, 'Settings · Agents': 344, 'Settings · Appearance': 29 },
+  warm: { 'OxeCode (Code)': 35, 'OxeChat (Thread)': 22, OxeQuery: 22, OxePod: 14, OxePost: 20, 'Settings · Agents': 26, 'Settings · Appearance': 26 }
+}
+const contentLimit = (baseline: number): number => Math.max(baseline * 1.1, baseline + 16.7)
 const CAPTURE = process.env.OXESPACE_PERF_SHOTS !== '0'
 const SHOTS_DIR = join(process.cwd(), 'e2e', 'screenshots', 'perceived-perf')
 
@@ -64,6 +84,8 @@ interface Sample {
   sidebarScene: string
   frames: number
   longestFrame: number
+  /** Each change of what is on screen: main and sidebar loaders (L/l) and which content selectors match (1/0). */
+  trace: string
 }
 
 /**
@@ -114,6 +136,7 @@ function probeInPage(probe: Probe): Promise<Sample> {
 
   type Frame = { t: number; blank: boolean; sidebarBlank: boolean; feedback: boolean; content: boolean; scene?: string; sidebarScene?: string }
   const frames: Frame[] = []
+  const trace: string[] = []
   return new Promise(resolve => {
     const start = performance.now()
     const tick = (): void => {
@@ -126,6 +149,8 @@ function probeInPage(probe: Probe): Promise<Sample> {
       // Before a dialog exists the previous screen is still on show: no feedback yet, but not blank either.
       const blank = probe.dialog ? !!dialog && (!region || (!painted(region) && !loaderIn(region))) : !region || (!painted(region) && !loaderIn(region))
       const sidebarBlank = probe.sidebar ? !sidebar || (!painted(sidebar) && !loaderIn(sidebar)) : false
+      const state = `${loaderIn(region) ? 'L' : '-'}${loaderIn(sidebar) ? 'l' : '-'} ${probe.content.map(selector => Array.from(document.querySelectorAll(selector)).some(el => shown(el) && sized(el)) ? 1 : 0).join('')}`
+      if (!trace.length || !trace[trace.length - 1].endsWith(` ${state}`)) trace.push(`${Math.round(t)} ${state}`)
       const previous = frames[frames.length - 1]
       const frame: Frame = { t, blank, sidebarBlank, feedback: loading || content || (probe.dialog && !!dialog), content }
       if (blank && !previous?.blank) frame.scene = describe(probe.dialog ? dialog : region)
@@ -154,7 +179,8 @@ function probeInPage(probe: Probe): Promise<Sample> {
           content: firstContent?.t ?? null,
           blank: main.span, sidebarBlank: side.span, blankFrom: main.from, blankTo: main.to,
           scene: main.scene, sidebarScene: side.scene, frames: frames.length,
-          longestFrame: frames.reduce((max, f, i) => i ? Math.max(max, f.t - frames[i - 1].t) : f.t, 0)
+          longestFrame: frames.reduce((max, f, i) => i ? Math.max(max, f.t - frames[i - 1].t) : f.t, 0),
+          trace: trace.join(' | ')
         })
         return
       }
@@ -286,7 +312,11 @@ async function session(shots: boolean): Promise<void> {
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-1').click()
-    const record = (phase: 'cold' | 'warm', name: string, sample: Sample): void => { if (!shots) push(results[phase], name, sample) }
+    const record = (phase: 'cold' | 'warm', name: string, sample: Sample): void => {
+      if (shots) return
+      if (phase === 'cold' && !results.cold[name]) console.log(`[TRACE] ${name} cold: ${sample.trace}`)
+      push(results[phase], name, sample)
+    }
     record('cold', CODE_COLD.name, await measure(page, CODE_COLD, 'cold', shots))
     // A conversation exists before Thread opens, so its first open selects it (thread.store load picks the first).
     await registerThreadProject(app, page, repo)
@@ -349,45 +379,57 @@ test('perceived performance: first feedback, first content and blank time per su
       expect.soft(med(s => s.feedback), `${name} ${phase}: first feedback`).toBeLessThanOrEqual(BLANK_GOAL_MS)
       expect.soft(med(s => s.blank), `${name} ${phase}: main region blank`).toBeLessThanOrEqual(BLANK_GOAL_MS)
       expect.soft(med(s => s.sidebarBlank), `${name} ${phase}: sidebar blank`).toBeLessThanOrEqual(BLANK_GOAL_MS)
+      const baseline = CONTENT_BASELINE_MS[phase][name]
+      if (baseline !== undefined) expect.soft(med(s => s.content), `${name} ${phase}: first content against the ${baseline} ms baseline`).toBeLessThanOrEqual(contentLimit(baseline))
     }
   }
 })
 
 /**
- * What the idle preload costs an idle window: the renderer's working set and JS heap a few seconds after start, with
- * the preload (most recent view OxeQuery, plus Settings) and with it switched off (`oxe.preload` = 'off').
+ * What the idle preload costs an idle window: the renderer's working set and JS heap 6 s after start, most recent view
+ * OxeQuery, in three setups: (a) the default on a machine under 8 GB (deviceMemory 4: Settings only), (b) deviceMemory
+ * forced to 8 and charging (OxeQuery and Settings), (c) the preload off (`oxe.preload` = 'off').
  */
 test('perceived performance: idle memory cost of the preload', async () => {
-  test.setTimeout(10 * 60_000)
-  const samples: Record<'on' | 'off', Array<{ workingSetMb: number; heapMb: number; marks: string[] }>> = { on: [], off: [] }
-  for (const mode of ['on', 'off', 'on', 'off', 'on', 'off'] as const) {
-    const { app, page } = await launch()
-    try {
-      await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
-      await page.evaluate(off => {
-        localStorage.setItem('oxe.recent-view', 'data')
-        if (off) localStorage.setItem('oxe.preload', 'off'); else localStorage.removeItem('oxe.preload')
-      }, mode === 'off')
-      await page.reload()
-      await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
-      await page.waitForTimeout(6_000)
-      const marks = await page.evaluate(() => performance.getEntriesByType('mark').map(entry => entry.name).filter(name => name.startsWith('oxe:preload')))
-      const heapMb = await page.evaluate(() => ((performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0) / 1024 / 1024)
-      const workingSetMb = await app.evaluate(({ app: electronApp, BrowserWindow }) => {
-        const pid = BrowserWindow.getAllWindows()[0].webContents.getOSProcessId()
-        return (electronApp.getAppMetrics().find(metric => metric.pid === pid)?.memory.workingSetSize ?? 0) / 1024
-      })
-      samples[mode].push({ workingSetMb, heapMb, marks })
-    } finally {
-      await app.close().catch(() => undefined)
+  test.setTimeout(12 * 60_000)
+  type Setup = 'a settings only' | 'b view + settings' | 'c off'
+  const setups: Setup[] = ['a settings only', 'b view + settings', 'c off']
+  const samples = Object.fromEntries(setups.map(setup => [setup, [] as Array<{ workingSetMb: number; heapMb: number; marks: string[] }>])) as Record<Setup, Array<{ workingSetMb: number; heapMb: number; marks: string[] }>>
+  for (let round = 0; round < 3; round++) {
+    for (const setup of setups) {
+      const { app, page } = await launch()
+      try {
+        await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+        const memory = setup.startsWith('b') ? 8 : 4
+        await page.addInitScript(gb => {
+          Object.defineProperty(Navigator.prototype, 'deviceMemory', { configurable: true, get: () => gb })
+          Object.defineProperty(Navigator.prototype, 'getBattery', { configurable: true, value: () => Promise.resolve({ charging: true }) })
+        }, memory)
+        await page.evaluate(off => {
+          localStorage.setItem('oxe.recent-view', 'data')
+          if (off) localStorage.setItem('oxe.preload', 'off'); else localStorage.removeItem('oxe.preload')
+        }, setup.startsWith('c'))
+        await page.reload()
+        await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+        await page.waitForTimeout(6_000)
+        const marks = await page.evaluate(() => performance.getEntriesByType('mark').map(entry => entry.name).filter(name => name.startsWith('oxe:preload')))
+        const heapMb = await page.evaluate(() => ((performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0) / 1024 / 1024)
+        const workingSetMb = await app.evaluate(({ app: electronApp, BrowserWindow }) => {
+          const pid = BrowserWindow.getAllWindows()[0].webContents.getOSProcessId()
+          return (electronApp.getAppMetrics().find(metric => metric.pid === pid)?.memory.workingSetSize ?? 0) / 1024
+        })
+        samples[setup].push({ workingSetMb, heapMb, marks })
+      } finally {
+        await app.close().catch(() => undefined)
+      }
     }
   }
-  for (const mode of ['on', 'off'] as const) {
-    const list = samples[mode]
-    console.log(`[RESULT] idle renderer, preload ${mode.padEnd(3)} working set median ${median(list.map(s => s.workingSetMb)).toFixed(1)} MB` +
+  for (const setup of setups) {
+    const list = samples[setup]
+    console.log(`[RESULT] idle renderer, (${setup.padEnd(17)}) working set median ${median(list.map(s => s.workingSetMb)).toFixed(1)} MB` +
       ` (${list.map(s => s.workingSetMb.toFixed(0)).join(', ')}) · JS heap median ${median(list.map(s => s.heapMb)).toFixed(1)} MB · marks ${[...new Set(list.flatMap(s => s.marks))].join(' ') || 'none'}`)
   }
-  const cost = (key: 'workingSetMb' | 'heapMb'): string => (median(samples.on.map(s => s[key])) - median(samples.off.map(s => s[key]))).toFixed(1)
-  console.log(`[RESULT] idle preload cost: working set ${cost('workingSetMb')} MB · JS heap ${cost('heapMb')} MB`)
-  expect(samples.on.length + samples.off.length).toBe(6)
+  const off = median(samples['c off'].map(s => s.workingSetMb))
+  for (const setup of setups.slice(0, 2)) console.log(`[RESULT] idle preload cost (${setup}): working set ${(median(samples[setup].map(s => s.workingSetMb)) - off).toFixed(1)} MB`)
+  expect(Object.values(samples).flat()).toHaveLength(9)
 })

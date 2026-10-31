@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { Suspense, type ReactElement } from 'react'
 import { SidebarSkeleton } from '../src/ui'
+import { chunk, lazyFrom } from '../src/lib/chunk'
 
 // The Settings chunk stays pending until a test lets it through, so the shell is what the first click shows.
 const gate = vi.hoisted(() => { let open: () => void = () => undefined; const ready = new Promise<void>(resolve => { open = resolve }); return { ready, open: () => open() } })
@@ -50,5 +52,32 @@ describe('Settings opening', () => {
     await act(async () => { gate.open(); await gate.ready; await new Promise(resolve => setTimeout(resolve, 0)) })
     expect(await screen.findByRole('dialog', { name: 'Real settings' })).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull()
+  })
+})
+
+describe('views from a shared chunk', () => {
+  it('a preloaded chunk renders at once, without its fallback', async () => {
+    const source = chunk(async () => ({ Sidebar: () => <p>sidebar</p>, View: () => <p>view</p> }))
+    await source.load()
+    const Sidebar = lazyFrom(source, module => module.Sidebar)
+    const View = lazyFrom(source, module => module.View)
+    render(<Suspense fallback={<p>waiting</p>}><Sidebar /><View /></Suspense>)
+    expect(screen.getByText('sidebar')).toBeInTheDocument()
+    expect(screen.getByText('view')).toBeInTheDocument()
+    expect(screen.queryByText('waiting')).toBeNull()
+  })
+
+  it('two boundaries on one chunk wait for the same request and reveal together', async () => {
+    let calls = 0
+    let release: () => void = () => undefined
+    const source = chunk(() => { calls++; return new Promise<{ A: () => ReactElement; B: () => ReactElement }>(resolve => { release = () => resolve({ A: () => <p>a</p>, B: () => <p>b</p> }) }) })
+    const A = lazyFrom(source, module => module.A)
+    const B = lazyFrom(source, module => module.B)
+    render(<><Suspense fallback={<p>wait a</p>}><A /></Suspense><Suspense fallback={<p>wait b</p>}><B /></Suspense></>)
+    expect(screen.getByText('wait a')).toBeInTheDocument()
+    expect(calls).toBe(1)
+    await act(async () => { release(); await Promise.resolve() })
+    expect(await screen.findByText('a')).toBeInTheDocument()
+    expect(screen.getByText('b')).toBeInTheDocument()
   })
 })

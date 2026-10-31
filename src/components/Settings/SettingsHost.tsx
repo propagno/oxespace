@@ -1,13 +1,16 @@
 import { X } from 'lucide-react'
-import { lazy, Suspense, type ComponentProps, type ReactElement } from 'react'
+import { Suspense, type ComponentProps, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { LoadingState } from '../../ui'
 import type { SettingsCenter as SettingsCenterView } from './SettingsCenter'
+import { chunk, lazyFrom } from '../../lib/chunk'
 // In the boot stylesheet, so the shell below already has the full-screen layout the real Settings fills in.
 import './SettingsCenter.css'
 
-const LazySettingsCenter = lazy(() => import('./SettingsCenter').then(module => ({ default: module.SettingsCenter })))
+/** Preloaded at idle (src/lib/idlePreload.ts); once it has arrived, Settings opens without the shell. */
+export const SETTINGS_CHUNK = chunk(() => import('./SettingsCenter'))
+const LazySettingsCenter = lazyFrom(SETTINGS_CHUNK, module => module.SettingsCenter)
 
 /**
  * Settings as the click opens it, before its chunk has loaded: the same full-screen frame (its navigation column at

@@ -3,7 +3,7 @@ import { useContributedCommands } from './utils/commandRegistry'
 import './commands/settings.commands'
 import { useCodeCommands } from './commands/code.commands'
 import { useThreadCommands } from './commands/thread.commands'
-import { DataHosts, DataSidebar, isDataView, useModeActions, ViewSidebarSkeleton } from './components/Navigation/ModeViews'
+import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, useModeActions, ViewSidebarSkeleton } from './components/Navigation/ModeViews'
 import { SettingsCenter } from './components/Settings/SettingsHost'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
@@ -26,8 +26,6 @@ const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
 const TeamDialog = lazy(() => import('./components/Teams/TeamDialog').then(m => ({ default: m.TeamDialog })))
-const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
-const ThreadSidebar = lazy(() => import('./components/Threads/ThreadSidebar').then(m => ({ default: m.ThreadSidebar })))
 const FirstRunChecklist = lazy(() => import('./components/Onboarding/FirstRunChecklist').then(m => ({ default: m.FirstRunChecklist })))
 const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
 const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
