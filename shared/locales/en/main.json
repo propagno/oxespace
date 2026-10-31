@@ -344,6 +344,13 @@
     "agents": {
       "name": {
         "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      },
+      "resume": {
+        "sessionMissing": "The agent's previous session is no longer on disk for this folder, so a new one started.",
+        "otherAgent": "This pane now starts a different agent, so its previous session was not resumed.",
+        "launchOverride": "This start had its own arguments or prompt, so the previous session was not resumed.",
+        "blocked": "Your organization's policy does not allow this agent here, so its session was not resumed.",
+        "disabled": "Resuming agent sessions is turned off in Settings."
       }
     },
     "incident": {

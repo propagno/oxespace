@@ -50,6 +50,12 @@ export interface MessageParams {
   /** `name` is the second section's name, trimmed, as the person typed it. */
   'thread.sections.nameDuplicate': { name: string }
   'thread.sections.unknownWorkspace': Record<string, never>
+  /** B17 · Why a pane's recorded agent session was not resumed on its first start (PaneAgentResume `notResumed`). */
+  'agents.resume.sessionMissing': Record<string, never>
+  'agents.resume.otherAgent': Record<string, never>
+  'agents.resume.launchOverride': Record<string, never>
+  'agents.resume.blocked': Record<string, never>
+  'agents.resume.disabled': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -326,6 +332,11 @@ export const MESSAGE_CODES = [
   'thread.sections.nameHidden',
   'thread.sections.nameDuplicate',
   'thread.sections.unknownWorkspace',
+  'agents.resume.sessionMissing',
+  'agents.resume.otherAgent',
+  'agents.resume.launchOverride',
+  'agents.resume.blocked',
+  'agents.resume.disabled',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',

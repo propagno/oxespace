@@ -1,9 +1,13 @@
 import type { AppDatabase } from '../../db'
+import { NATIVE_SESSION_ID } from './native-session-files'
 
 export type ResumableAgent = 'claude' | 'codex'
 
-/** Session ids are provider-generated: letters, digits and a few separators, never shell syntax. */
-const SESSION_ID = /^[A-Za-z0-9._:-]{1,200}$/
+/** Session ids are provider-generated UUIDs (Claude Code, Codex); anything else is never recorded nor resumed. */
+const SESSION_ID = NATIVE_SESSION_ID
+
+/** What a pane's first start in this app run finds: the session recorded for it and whether the person wants it back. */
+export type PaneResumeRecord = { agent: ResumableAgent; sessionId: string; wanted: boolean } | 'none'
 
 /** The arguments that reopen a session, matching the pane's manual "restore session" action. */
 export function resumeArgs(agent: ResumableAgent, sessionId: string): string[] {
@@ -34,14 +38,13 @@ export class PaneAgentSessions {
   }
 
   /**
-   * Called on every start of a pane. Returns the session to reopen only for the pane's first start in
-   * this app run, and only when the person wants agents resumed.
+   * Called on every start of a pane. Only the pane's first start in this app run gets an answer (null after that):
+   * the session recorded for the pane, with whether the person wants agents resumed, or `none`.
    */
-  take(paneId: string, wanted: boolean): { agent: ResumableAgent; sessionId: string } | null {
+  take(paneId: string, wanted: boolean): PaneResumeRecord | null {
     if (this.resumedThisRun.has(paneId)) return null
     this.resumedThisRun.add(paneId)
-    if (!wanted) return null
     const row = this.db.prepare('SELECT agent, session_id FROM pane_agent_sessions WHERE pane_id = ?').get(paneId) as { agent: ResumableAgent; session_id: string } | undefined
-    return row && SESSION_ID.test(row.session_id) ? { agent: row.agent, sessionId: row.session_id } : null
+    return row && (row.agent === 'claude' || row.agent === 'codex') && SESSION_ID.test(row.session_id) ? { agent: row.agent, sessionId: row.session_id, wanted } : 'none'
   }
 }

@@ -41,6 +41,7 @@ import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import type { GitCompareMode } from '../../../shared/types/git'
+import type { PaneAgentResume } from '../../../shared/types/ipc'
 import { planSplit } from '../../../shared/workspace-split'
 import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
 import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog, ThreadSideOpenResult } from '../../../shared/types/thread'
@@ -294,7 +295,11 @@ export function registerE2eMockIpcHandlers(): void {
     running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false
   }))
   ipcMain.handle(IPC_CHANNELS.terminal.detach, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.terminal.status, () => ({ running: false, seq: 0, altScreen: false }))
+  // B17: a spec shows a pane's resume outcome with `globalThis.__oxeAgentResume = { [paneId]: PaneAgentResume }`.
+  ipcMain.handle(IPC_CHANNELS.terminal.status, (_event: IpcMainInvokeEvent, paneId: unknown) => {
+    const seeded = (globalThis as { __oxeAgentResume?: Record<string, PaneAgentResume> }).__oxeAgentResume?.[String(paneId)]
+    return { running: false, seq: 0, altScreen: false, ...(seeded ? { agentResume: seeded } : {}) }
+  })
   ipcMain.handle(IPC_CHANNELS.voice.transcribe, () => ({ text: '', durationMs: 0 }))
   ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.voice.ensureModel, () => ({ size: 'base', ready: false, path: '', engineReady: false }))

@@ -344,6 +344,13 @@
     "agents": {
       "name": {
         "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
+      },
+      "resume": {
+        "sessionMissing": "A sessão anterior do agente não está mais no disco para esta pasta, então uma nova foi iniciada.",
+        "otherAgent": "Este painel agora inicia outro agente, então a sessão anterior não foi retomada.",
+        "launchOverride": "Este início tinha argumentos ou prompt próprios, então a sessão anterior não foi retomada.",
+        "blocked": "A política da sua organização não permite este agente aqui, então a sessão não foi retomada.",
+        "disabled": "Retomar sessões de agente está desligado nas Configurações."
       }
     },
     "incident": {

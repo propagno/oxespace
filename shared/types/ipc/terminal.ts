@@ -1,5 +1,6 @@
 /** Terminal and pane inputs, events and results that cross the IPC boundary. Re-exported by `../ipc`. */
 import type { PaneType } from '../workspace'
+import type { MainMessage } from '../../messages'
 
 export interface TerminalStartInput {
   paneId: string
@@ -90,7 +91,19 @@ export interface TerminalStatusResult {
   executable?: string
   pid?: number
   startedAt?: number
+  /** B17 · What the pane's first start in this app run did with its agent's native session; absent before that start. */
+  agentResume?: PaneAgentResume
 }
+
+/**
+ * B17 · The native session (Claude Code, Codex) a pane's first start after the app opened went back to:
+ * `resumed` (main started the provider on it), `notResumed` (one was recorded for the pane, and `message` says why it
+ * was not used, C3 `agents.resume.*`), or `nothingRecorded`.
+ */
+export type PaneAgentResume =
+  | { outcome: 'resumed'; agent: 'claude' | 'codex'; sessionId: string }
+  | { outcome: 'notResumed'; agent: 'claude' | 'codex'; sessionId: string; message: MainMessage }
+  | { outcome: 'nothingRecorded' }
 
 export interface SplitPaneInput {
   paneId: string

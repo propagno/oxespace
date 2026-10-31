@@ -12,10 +12,11 @@ import { getRtkService, type RtkService } from './rtk.service'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
-import { agentFromCommand } from './agent-state/agents'
-import { resumeArgs } from './agent-state/pane-sessions'
+import type { PaneResumeRecord } from './agent-state/pane-sessions'
+import { claudeSessionToAssign, planPaneResume } from './agent-state/pane-resume'
+import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
-import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
@@ -44,8 +45,12 @@ interface TerminalManagerOptions {
   oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
   /** Sees every terminal's lifecycle and output, e.g. to read what an agent shows on screen. */
   observer?: TerminalObserver
-  /** The agent session to reopen on a pane's first start in this app run (see PaneAgentSessions). */
-  resumeSession?: (paneId: string, wanted: boolean) => { agent: 'claude' | 'codex'; sessionId: string } | null
+  /** The agent session recorded for a pane, answered on its first start in this app run only (see PaneAgentSessions). */
+  resumeSession?: (paneId: string, wanted: boolean) => PaneResumeRecord | null
+  /** Records the session id main gave a Claude Code it started (`--session-id`), as the hooks would. */
+  assignSession?: (paneId: string, agent: 'claude', sessionId: string) => void
+  /** Where the providers keep their sessions; the user's own folders by default. For tests. */
+  nativeSessionRoots?: NativeSessionRoots
 }
 
 export interface TerminalObserver {
@@ -132,6 +137,10 @@ export class TerminalManager {
   private readonly oxeQueryShell?: TerminalManagerOptions['oxeQueryShell']
   private readonly observer?: TerminalObserver
   private readonly resumeSession?: TerminalManagerOptions['resumeSession']
+  private readonly assignSession?: TerminalManagerOptions['assignSession']
+  private readonly nativeSessionRoots?: NativeSessionRoots
+  /** B17 · What each pane's first start in this run did with its agent's session, for terminal.status. */
+  private readonly agentResumes = new Map<string, PaneAgentResume>()
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -154,6 +163,8 @@ export class TerminalManager {
     this.oxeQueryShell = options.oxeQueryShell
     this.observer = options.observer
     this.resumeSession = options.resumeSession
+    this.assignSession = options.assignSession
+    this.nativeSessionRoots = options.nativeSessionRoots
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
     this.platform = options.platform ?? process.platform
@@ -236,33 +247,38 @@ export class TerminalManager {
     }
     const shellArgs = JSON.parse(launch.shell_args_json) as string[]
 
-    // Claude Code and Codex start only where the policy lets them; a plain shell is never blocked.
-    const agentName = (input.launch?.executable ?? input.agentCommand?.trim().split(/\s+/)[0] ?? '').replace(/\\/g, '/').split('/').pop()?.replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase()
-    if (agentName === 'claude' || agentName === 'codex') assertProviderAllowed(agentName, launch.workspace_root_path)
-    const agentParts = input.agentCommand ? input.agentCommand.trim().split(/\s+/) : null
-    const executable = input.launch ? resolveExecutable(input.launch.executable, this.env, this.platform) : agentParts
-      ? resolveExecutable(agentParts[0], this.env, this.platform)
-      : resolveExecutable(launch.shell_executable, this.env, this.platform)
-    let args = input.launch ? input.launch.args : agentParts
-      ? [...agentParts.slice(1), ...(input.agentArgs ?? [])]
-      : [...shellArgs, ...(input.agentArgs ?? [])]
-    // After an app restart, reopen the agent's own session in this pane (herdr's native session restore).
-    let typedResume: string | null = null
-    const resume = !threadShell && !oxeShell && !input.launch ? this.resumeSession?.(input.paneId, input.resumeAgent === true) ?? null : null
-    if (resume && !input.agentArgs?.length) {
-      const extra = resumeArgs(resume.agent, resume.sessionId)
-      if (agentParts && agentFromCommand(agentParts[0]) === resume.agent) args = [...args, ...extra]
-      // A shell pane where the person started the agent by hand: type the same command there.
-      else if (!agentParts && !input.initialPrompt) typedResume = [resume.agent, ...extra].join(' ')
-    }
-    let mcpEnv: Record<string, string> = {}
-    if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = await this.agentMcpArgs(executable, args, input.workspaceId))
-
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = launch.pane_root_path && existsSync(launch.pane_root_path)
       ? launch.pane_root_path
       : launch.workspace_root_path
     if (input.requireCwd && (cwd !== input.requireCwd || !existsSync(input.requireCwd))) throw new Error('Delegated worktree is missing; refusing workspace-root fallback')
+
+    // B17 · On the pane's first start in this app run, go back to its agent's native session (herdr's native
+    // session restore), with arguments main builds from the recorded id. A shell pane whose agent was typed by hand
+    // starts the provider itself rather than typing into the shell.
+    const consulted = !threadShell && !oxeShell && !input.launch ? this.resumeSession?.(input.paneId, input.resumeAgent === true) ?? null : null
+    const plan = await planPaneResume(consulted, input, cwd, {
+      allowed: agent => { try { assertProviderAllowed(agent, launch.workspace_root_path); return true } catch { return false } },
+      exists: (agent, sessionId, dir) => nativeSessionExists(agent, sessionId, dir, this.nativeSessionRoots)
+    })
+    if (plan.status) this.agentResumes.set(input.paneId, plan.status)
+    const agentCommand = plan.agentCommand
+
+    // Claude Code and Codex start only where the policy lets them; a plain shell is never blocked.
+    const agentName = (input.launch?.executable ?? agentCommand?.trim().split(/\s+/)[0] ?? '').replace(/\\/g, '/').split('/').pop()?.replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase()
+    if (agentName === 'claude' || agentName === 'codex') assertProviderAllowed(agentName, launch.workspace_root_path)
+    const agentParts = agentCommand ? agentCommand.trim().split(/\s+/) : null
+    const executable = input.launch ? resolveExecutable(input.launch.executable, this.env, this.platform) : agentParts
+      ? resolveExecutable(agentParts[0], this.env, this.platform)
+      : resolveExecutable(launch.shell_executable, this.env, this.platform)
+    let args = input.launch ? input.launch.args : agentParts
+      ? [...agentParts.slice(1), ...(input.agentArgs ?? []), ...plan.extraArgs]
+      : [...shellArgs, ...(input.agentArgs ?? [])]
+    // A fresh Claude conversation gets a session id main knows, so the pane can resume it without the hooks.
+    const assigned = this.assignSession && !threadShell && !oxeShell && !input.launch && !plan.extraArgs.length ? claudeSessionToAssign(agentParts?.[0] ?? launch.shell_executable, args) : null
+    if (assigned) { args = ['--session-id', assigned, ...args]; this.assignSession?.(input.paneId, 'claude', assigned) }
+    let mcpEnv: Record<string, string> = {}
+    if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = await this.agentMcpArgs(executable, args, input.workspaceId))
 
     // Provider CLIs get the environment without secret-looking variables the provider does not need (S7). Plain
     // shells and other agents keep the full environment: that is the person's own shell.
@@ -342,9 +358,9 @@ export class TerminalManager {
     } catch (error) {
       recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
       this.notifyLaunchExit(input.paneId)
-      if (input.agentCommand || input.launch) {
+      if (agentCommand || input.launch) {
         recordIncident('incident.agent.startFailed', agentName || 'agent')
-        throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`, { cause: error })
+        throw new Error(`Unable to start agent "${input.launch?.executable ?? agentCommand}". ${toMessage(error)}`, { cause: error })
       }
       throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`, { cause: error })
     }
@@ -377,7 +393,7 @@ export class TerminalManager {
       activityNotifiedAt: 0
     })
 
-    this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : input.agentCommand ?? executable)
+    this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : agentCommand ?? executable)
     ptyProcess.onData((data) => {
       this.sessions.get(input.paneId)?.outputBatcher.push(data)
       this.observer?.output(input.paneId, data)
@@ -394,7 +410,7 @@ export class TerminalManager {
       this.emitExit({ paneId: input.paneId, exitCode })
     })
 
-    const typed = input.initialPrompt ?? typedResume
+    const typed = input.initialPrompt
     if (typed) {
       let sent = false
       ptyProcess.onData(() => {
@@ -543,8 +559,10 @@ export class TerminalManager {
 
   status(paneId: string): TerminalStatusResult {
     const session = this.sessions.get(paneId)
-    if (!session) return { running: false, seq: 0, altScreen: false }
-    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt }
+    const resumed = this.agentResumes.get(paneId)
+    const agentResume = resumed ? { agentResume: resumed } : {}
+    if (!session) return { running: false, seq: 0, altScreen: false, ...agentResume }
+    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt, ...agentResume }
   }
 
   /**
