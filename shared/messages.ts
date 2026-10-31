@@ -49,6 +49,10 @@ export interface MessageParams {
   'incident.window.externalRateLimited': Record<string, never>
   /** The system refused to open a link the app allowed (no mail app or browser registered for it). */
   'incident.window.externalOpenFailed': Record<string, never>
+  /** The main window called window.open; it opens nothing by itself (links leave through app:open-external). */
+  'incident.window.openDenied': Record<string, never>
+  /** The main window tried to navigate or redirect away from the app; it was kept in place and nothing was opened. */
+  'incident.window.navigationDenied': Record<string, never>
   /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
   'diagnostics.bundle.fileTooLarge': Record<string, never>
   /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
@@ -257,6 +261,8 @@ export const MESSAGE_CODES = [
   'incident.window.externalRefused',
   'incident.window.externalRateLimited',
   'incident.window.externalOpenFailed',
+  'incident.window.openDenied',
+  'incident.window.navigationDenied',
   'diagnostics.bundle.fileTooLarge',
   'diagnostics.bundle.tooLarge',
   'bundle.file.snapshot',
