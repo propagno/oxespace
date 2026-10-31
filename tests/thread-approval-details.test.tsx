@@ -125,4 +125,17 @@ describe('Thread command approval', () => {
     expect(screen.getByRole('button', { name: 'Allow session' })).toBeInTheDocument()
     expect(screen.queryByTestId('approval-hold')).toBeNull()
   })
+
+  // FE-M-11: file changes come from the request's structure, not its English title (titles become translated text).
+  it('reads a file-change approval from toolName, whatever its title says', () => {
+    const request: ThreadRequest = { id: 'files', nativeId: 'files', nativeMethod: 'item/fileChange/requestApproval', kind: 'approval', toolName: 'fileChange', title: 'Aprovar alterações em arquivos', detail: 'src/a.ts', generation: 1, createdAt: 1, state: 'pending' }
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn()} />)
+    expect(screen.getAllByText(/File changes/).length).toBeGreaterThan(0)
+  })
+
+  it('does not take a command titled "Approve file changes" for a file change', () => {
+    const request: ThreadRequest = { id: 'cmd', nativeId: 'cmd', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', toolName: 'command', title: 'Approve file changes', detail: 'ls', command: 'ls', generation: 1, createdAt: 1, state: 'pending' }
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn()} />)
+    expect(screen.queryByText(/File changes/)).toBeNull()
+  })
 })

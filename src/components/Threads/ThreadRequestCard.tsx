@@ -72,7 +72,8 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
   // B10 risk rules on the card too (P1-8): Approve is quiet above low risk; at critical risk it waits 2 s, Enter never
   // activates it and nothing is remembered; "allow session" only at low risk.
   const approvalCommand = request.command ?? request.detail ?? ''
-  const fileChanges = request.title === 'Approve file changes'
+  // From the request's structure, never its title: titles become translated C3 text (FE-M-11).
+  const fileChanges = request.kind === 'approval' && request.toolName === 'fileChange'
   const risk = request.kind === 'approval' ? threadApprovalRisk(request, fileChanges || approvalCommandPreview(approvalCommand).writesFiles) : 'low'
   const critical = risk === 'critical'
   const holdLeft = useAllowHold(request.kind === 'approval' && request.state === 'pending' && critical, draftKey)
