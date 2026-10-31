@@ -37,43 +37,75 @@ the person respond, stop, resume and open; the same picture on the phone.
 | Requests | B10 `approvals.*` (risk computed by main, modal), `RemotePendingRequest` | "needs you" + Respond |
 | Team roles | `TeamMember.connection.owner {kind: pane\|thread}` | role badge on rows |
 | Feed | F30 activity store (`needs-you/finished/failed`, targets pane/thread/background) | cross-links |
-| Mode attention | `ModeSwitch` attention counts | entry point (§6) |
+| Mode attention | `src/store/activity.feed.ts` (`codeLive`/`threadLive` → `LiveAttention`), read by `ModeSwitch` | **replaced** by the shared mapping (§3.3); entry point (§6) |
 | Primitives | `ToolPanel`, `Splitter`, `StatusDot`, `Badge`, `Menu`, `Tabs`, `SegmentedControl`, `EmptyState`, `ErrorState`, `OfflineState`, `Notice`, `Skeleton`, `ConfirmDialog`, `Tooltip`, `Kbd`, `toast`, `AgentProviderIcon` | everything on screen |
 | Phone | `LiveHome.kt` tabs (Threads, Requests, Terminals, Tasks), `RequestScreen.kt` (biometrics), `OxeTokens.kt` | S7.4 |
 
-Nothing in this spec needs new persistence. S7.1 is a **read model** aggregated by main from the sources above.
+S7.1 is a **read model** aggregated by main from the sources above, plus **one small new main-side store: who has seen
+what** (§3.4). Nothing else is persisted.
 
 ## 3. One vocabulary for agent state
 
-Today each source speaks its own states (5 for panes, 7 for conversations, 9 for delegations, 7 for workers). The
-central shows **seven**, in this priority order (also the sort order, §5.3):
+### 3.1 The seven states
+
+Today each source speaks its own states (pane lifecycle 5 + renderer tones, conversation `ThreadStatus` 5,
+delegation 9, work run 5). The central shows **seven**. Their order is also the **precedence** when several
+conditions hold at once, and the sort order (§5.3):
 
 | # | State | en | pt-BR | StatusDot | Means |
 |---|---|---|---|---|---|
-| 1 | `needs-you` | Needs you | Precisa de você | `attention` | stopped on an approval, question, review or permission |
+| 1 | `needs-you` | Needs you | Precisa de você | `attention` | stopped on an approval, question, review or permission **the person** must answer |
 | 2 | `failed` | Failed | Falhou | `danger` | last turn/run ended in error; nothing running |
-| 3 | `working` | Working | Trabalhando | `running` | a turn, run or delegation is in progress |
-| 4 | `finished` | Finished | Terminou | `success` | finished since the person last looked (unseen) |
+| 3 | `working` | Working | Trabalhando | `running` | a turn, run or delegation is in progress, or the agent is starting |
+| 4 | `finished` | Finished | Terminou | `success` | finished since the person last looked at it (unseen, §3.4) |
 | 5 | `idle` | Idle | Ocioso | `idle` | alive, waiting for a new prompt, already seen |
 | 6 | `stopped` | Stopped | Interrompido | `idle` + stop glyph | interrupted or cancelled by someone |
 | 7 | `unknown` | Not confirmed | Não confirmado | `idle`, dashed ring | no report; shown weaker, never as certain (UX-07) |
 
-Mapping (for the S7.1 contract; BACKEND owns the final table and its contract test):
+### 3.2 Mapping from the sources (S7.1 contract; BACKEND owns the final table and its contract test)
 
-| Source | needs-you | failed | working | finished | idle | stopped | unknown |
+Each row lists the exact source fields. A source state appears in exactly one column; when several columns match,
+the leftmost (highest precedence) wins.
+
+| Source and fields | needs-you | failed | working | finished | idle | stopped | unknown |
 |---|---|---|---|---|---|---|---|
-| Pane (`AgentLifecycleState`) | `blocked` | terminal `error` | `working` | `done` & `!seen` | `idle`, or `done` & `seen` | process `exited` by stop | `unknown` |
-| Conversation | `approval` or `pendingRequests > 0` | `failed` | `running` or `backgroundRunning > 0` | last turn `completed` & unread | `idle` | `interrupted` | `unknown` |
-| Delegation | `blocked`, `review` | `failed` | `preparing`, `starting`, `accepted` | `approved` & unseen | `approved` & seen | `cancelled`, `interrupted` | — |
-| Worker run | `blocked` | `failed` | `running` | `succeeded` & unseen | `succeeded` & seen | `cancelled` | — |
+| **Pane**: lifecycle `AgentLifecycleState` (main), terminal `status`; tone `PaneDisplayTone` on the desktop | `blocked` | terminal `error` | `working`, terminal `starting` | `done` & unseen | `idle`; `done` & seen | stopped by the person | `unknown` |
+| **Conversation**: `ThreadStatus` `status`, `lastTurnStatus`, `pendingRequests`, `backgroundRunning`, `providerObservation.state` | `approval`; `pendingRequests > 0`; observation `awaiting-input` | `failed` | `running`; `backgroundRunning > 0` | `idle` & `lastTurnStatus = completed` & unseen | `idle` otherwise | `interrupted` | — (no source state) |
+| **Delegation**: `DelegationState`, requester | `blocked`/`review` **and the requester is the person** | `failed` | `preparing`, `starting`, `accepted`; `blocked`/`review` with an agent requester (meta: "Waiting for its lead" / "Aguardando quem delegou") | `approved` & unseen | `approved` & seen | `cancelled`, `interrupted` | — |
+| **Work run**: `WorkRunStatus` (5) | `blocked` | `failed` | `running` | `succeeded` & unseen | `succeeded` & seen | `cancelled` | — |
 
-"Unseen" uses the existing `seen` (panes) and the F30 `lastSeenAt` (others); opening a row marks it seen.
+- Terminal `exited` (not stopped by the person) is not a state: the row **ends** (§5.3 "Ended").
+- Work **tasks** (`WorkTaskStatus`) are not rows in v1; the run's meta line says "3 of 5 tasks" / "3 de 5 tarefas".
+- **Estimated pane states.** The renderer's tone also uses timing guesses (hook tone with age, output activity) that
+  main can't compute. On the desktop the central uses the same tone as the sidebar, so the two never disagree; an
+  estimated `working` keeps the weaker "estimated" style. Main's read model, and therefore the phone, sees only the
+  lifecycle: an estimated pane is `unknown` ("Not confirmed") there. This difference is deliberate and tested.
+
+### 3.3 One function, every surface (charter rule 4)
+
+The mapping lives in **one pure shared function** (e.g. `shared/agents/agentState.ts`) with one contract test. Main's
+S7.1 read model, the central, `activity.feed.ts` (mode-switch badges), `PaneSessionRow`, `ThreadSidebar` and the
+pane/thread headers all call it, and their labels come from `agents.state.*`. Rewriting `activity.feed.ts`,
+`ModeSwitch`, `PaneSessionRow` and `ThreadSidebar` onto it is **in scope of S7.1/S7.2**. One visible consequence: a
+failed conversation stays `failed` until something new happens, as everywhere else; it no longer drops off the badge
+once read (today `threadLive` counts `failed` only while unread). The badge counts needs-you + failed + working.
+
+### 3.4 Who has seen what (the one new store)
+
+"Finished" needs to know, per agent, whether the person looked at it since it finished. Today only panes have it
+(`PaneAgentState.seen`, main). Conversations keep `unreadIds` in renderer localStorage (main and the phone can't see
+it), and delegations and work runs have nothing. F30 `lastSeenAt` is one global time for the bell, not per agent.
+
+S7.1 adds a **main-side `seenAt` per agent key** (`{kind, id}` → epoch ms), persisted in an existing key-value or
+settings store so "Finished" survives a restart (same promise as F30). Conversation `unreadIds` move to it; the
+renderer and the phone read and mark it over IPC / the `agent.markSeen` remote command (§11.5). Opening a row, or
+"Mark as seen", sets it. Owner: BACKEND.
 
 ## 4. Information architecture
 
 ```
 Agents (central)
-├─ Header: title · live summary ("2 need you · 4 working · US$ 3.10 today") · ⋯ menu (Project team…, Settings)
+├─ Header: title · live summary ("2 need you · 4 working · US$ 3.10 reported") · ⋯ menu (Project team…, Settings)
 ├─ Toolbar: filter [All | Needs you | Working | Finished] · group by [Project | State | Mode] · search
 ├─ Groups (default: by project/workspace, in sidebar order)
 │   └─ Agent rows (sorted by state priority, then waiting time)
@@ -113,8 +145,10 @@ they appear only nested under the agent that started them, when it is known.
   Never a path, never an id.
 - Meta line: mode label (OxeCode/OxeChat/Delegation/Worker), provider, team role badge when the agent is a connected
   team member, time in state ("6 min" = since `since`; for needs-you it is the wait time), cost.
-- Cost: provider-reported `usd` → "US$ 0.42"; tokens only → "18k tokens"; nothing → omitted (no "—" noise). Estimated
-  values carry "≈" and a tooltip "Estimated from tokens". Header total sums only reported values and says so.
+- Cost (conversations only in v1): the conversation's reported total (`ThreadCostReport.totalUsd`, its whole life) →
+  "US$ 0.42"; tokens only → "18k tokens"; nothing → omitted (no "—" noise). Estimated values carry "≈" and a tooltip
+  "Estimated from tokens". **Pane rows show no cost** (no source). The header sums the reported totals of the agents
+  listed and says "reported"; there is no "today" in v1 (`turn-cost` has no timestamp).
 - Line 3 appears only for `needs-you`: the first pending request's main-built title and risk `Badge`
   (low=neutral, medium=warning, high/critical=danger); "+2 more" when several.
 - Heights: comfortable **56 px** (2 lines) / **76 px** (3 lines); compact density **44 / 60 px**. Nested rows indent
@@ -128,8 +162,14 @@ they appear only nested under the agent that started them, when it is known.
 - **Rows never jump under the pointer or the focus.** While the pointer is over the list or focus is inside it, state
   changes update in place (dot, label, meta) but reordering is held; a pill "3 changes · Update order" appears at the
   top. Leaving the list or pressing the pill applies the order. Same rule as Linear's inbox/GitHub's "new items".
-- A state change reaches the row in ≤ 1 s (S7.1 acceptance). The dot cross-fades on `--duration-fast` (120 ms);
-  nothing else animates.
+- A state change reaches the row in ≤ 1 s (S7.1 acceptance). That needs a **push** from main: S7.1 emits events driven
+  by the agent-state service, the thread orchestrator, delegation and work changes, never polling. Each row carries
+  the sequence it came from (`stateChangeSeq` for panes, a per-source counter otherwise) so a late event never
+  overwrites a newer one. The dot cross-fades on `--duration-fast` (120 ms); nothing else animates.
+- Each source answers separately: the read model returns `sources: {pane, thread, delegation, work}` each `ok` or a
+  C3 code. One failing source shows the §5.7 partial `Notice`; the others keep updating.
+- After a restart: restored panes show "Not confirmed" until a hook or the screen reports; "Ended recently" starts
+  empty (it lives in memory); "Finished" survives (§3.4).
 - **Nothing disappears without feedback.** An agent that ends (pane closed, conversation archived, delegation done and
   seen) shows "Ended" for 5 s in place, then moves to "Ended recently" (kept 10 min, max 20 rows).
 
@@ -228,6 +268,12 @@ icon. Recorded as an ASK to the coordinator (§11).
 
 The phone already has Threads, Requests, Terminals and Tasks tabs. The central becomes the phone's **home**:
 
+- **Protocol (CCR before S7.1, §11.5).** Today `REMOTE_SUBSCRIPTIONS` has no agents or work-run topic, `RemotePane` has
+  no `seen` and `RemoteThreadSummary` no unread, so the phone cannot tell finished from idle. The phone must not
+  re-implement the mapping in Kotlin (rule 4): a new `agents` subscription carries rows **already mapped** by the shared
+  function (§3.3), with `provider`, no paths, no session ids, no per-row cost; plus the `agent.markSeen` command. The
+  PR that changes `shared/remote/protocol.ts` runs `android:generate` and commits the Kotlin.
+
 - Bottom navigation (Material 3 `NavigationBar`, 3 items): **Agents** · **Requests** (badge) · **More**
   (paired desktop name and connection, app language, version, unpair). Threads/Terminals/Tasks become **filter chips** inside Agents (M3 `FilterChip`):
   All · Need you · Conversations · Terminals · Tasks.
@@ -249,7 +295,7 @@ The phone already has Threads, Requests, Terminals and Tasks tabs. The central b
 |---|---|---|
 | title | Agents | Agentes |
 | summary | {n} need you · {m} working | {n} precisam de você · {m} trabalhando |
-| summary.cost | {usd} today | {usd} hoje |
+| summary.cost | {usd} reported | {usd} informados |
 | filter.all / needs / working / finished | All / Needs you / Working / Finished | Todos / Precisam de você / Trabalhando / Concluídos |
 | group.project / state / mode | Project / State / Mode | Projeto / Estado / Modo |
 | ended | Ended | Encerrado |
@@ -296,8 +342,8 @@ roadmap; HML flags it if the glossary decides otherwise).
   exist as commands. Cost S.
 - **IDEA 2 · "Since you left"**: when the window regains focus after > 15 min, the summary says "While you were away: 3
   finished, 1 needs you" (Linear/Slack catch-up). Uses F30 `lastSeenAt`. Cost S.
-- **IDEA 3 · Budget glance**: header cost turns warning when today's reported cost passes a person-set limit. Cost M
-  (needs a setting).
+- **IDEA 3 · Budget glance**: a per-day reported cost (needs `turn-cost` timestamps) and a warning when it passes a
+  person-set limit. Cost M (needs a setting and the timestamp).
 
 ## 13. Acceptance hooks (for HOMOLOGATION)
 
@@ -307,3 +353,14 @@ Test ids: `agents-panel`, `agents-summary`, `agents-filter`, `agent-row` with `d
 Scenarios beyond S7.2/S7.3/S7.4 rows: rows don't reorder under the pointer; an ended agent never vanishes without the
 "Ended" step; Respond always opens the B10 modal (no inline allow); pt-BR has no English except product names;
 light/dark; forced colors; 960×640 and 4K.
+
+## 14. Implementation notes (from the ARCHITECT review)
+
+- Channels in a new `shared/types/ipc/agents.ts` (as `semantic.ts` and `terminal.ts` already are), not in `ipc.ts`;
+  preload bridge in its own per-domain module, not `electron/preload/api.ts`; e2e double in
+  `electron/main/e2e/agents-mock.ts`, not `mock-ipc.ts`.
+- Every new `agents:*` channel gets a `forbidden` or `excluded` entry in `shared/mcp-coverage.ts` (the central is for
+  the person; `tests/mcp-coverage.test.ts` enforces it).
+- The panel is mounted with `lazy()` like `TeamDialog`; only the shortcut and the palette command load at start, so
+  the renderer entry keeps its ≥ 8 % headroom.
+- Panel width and docked/full state live in a main-side settings key, not in `App.tsx` state.
