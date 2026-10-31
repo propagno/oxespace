@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { AppView } from '../../keyboard/keybindings'
 import { Button } from '../../ui'
 import { OxeLogo } from '../Brand/OxeLogo'
+import { FirstRunChecklistFallback } from './FirstRunChecklistFallback'
 
 // The checklist only shows on first run, so it stays out of the entry bundle.
 const FirstRunChecklist = lazy(() => import('./FirstRunChecklist').then(m => ({ default: m.FirstRunChecklist })))
@@ -20,7 +21,7 @@ export function NoWorkspaceStart({ onNewWorkspace, onSelectMode, onAddProject }:
         <span>{t('app.start.elsewhere')}</span>
         {(['thread', 'data', 'pods', 'post'] as const).map(view => <Button key={view} variant="ghost" size="sm" onClick={() => onSelectMode(view)}>{t(`app.start.open.${view}`)}</Button>)}
       </div>
-      <Suspense fallback={null}><FirstRunChecklist onNewWorkspace={onNewWorkspace} onAddProject={onAddProject} /></Suspense>
+      <Suspense fallback={<FirstRunChecklistFallback />}><FirstRunChecklist onNewWorkspace={onNewWorkspace} onAddProject={onAddProject} /></Suspense>
     </div>
   )
 }
