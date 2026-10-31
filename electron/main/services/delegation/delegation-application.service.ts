@@ -18,6 +18,7 @@ import { DelegationGitProvisioner } from './delegation-git-provisioner'
 import { KnowledgeTransferService, type DelegationEnrichment } from './knowledge-transfer.service'
 import { captureDelegationSessions } from './delegation-session-context'
 import type { ThreadDelegationHost } from './thread-delegation-host'
+import { notifyAgentSource } from '../agents/source-events'
 
 const exec = promisify(execFile)
 const terminalStates = new Set<DelegationState>(['cancelled', 'approved'])
@@ -95,6 +96,7 @@ export class DelegationApplicationService {
   private event(task: DelegationTask, kind: string, text: string): void {
     this.db.prepare('INSERT INTO delegation_events(task_id,kind,text,created_at) VALUES(?,?,?,?)').run(task.id, kind, text, Date.now())
     this.deps.changed(task.workspaceId, task.id)
+    notifyAgentSource({ source: 'delegation', id: task.id })
     if (task.originWorkspaceId && task.originWorkspaceId !== task.workspaceId) this.deps.changed(task.originWorkspaceId, task.id)
   }
   async status(workspaceId: string, cursor?: string, limit = 100) {
@@ -130,7 +132,8 @@ export class DelegationApplicationService {
         'Start an independent persistent OxeChat conversation', 'Persist handoff, operation journal and native session binding'
       ] }
   }
-  async create(origin: AgentExecution, input: DelegationInput): Promise<DelegationTask> {
+  /** `requestedBy: 'person'` when the window created it (S7.1: then its blocked or review state needs the person). */
+  async create(origin: AgentExecution, input: DelegationInput, requestedBy?: 'person'): Promise<DelegationTask> {
     origin = this.deps.executions.authenticate(origin.id, origin.token, origin.workspaceId)
     for (const field of ['key','agentProfileId','objective','handoff','acceptance'] as const) {
       if (typeof input[field] !== 'string' || !input[field].trim() || input[field].length > (field === 'handoff' ? 16000 : 2000)) throw new Error(`Invalid ${field}`)
@@ -213,7 +216,7 @@ export class DelegationApplicationService {
     const task: DelegationTask = { ...normalized, id, workspaceId: targetId, originPaneId: origin.paneId, originExecutionId: origin.id,
       originWorkspaceId: origin.workspaceId, originProjectId: originProject, originCwd: origin.cwd, evidence, sessionContext,
       project, cwd, branch: checkout.branch, path: checkout.path, checkout,
-      baseSha: checkout.baseSha, localChanges, state: 'preparing', createdAt: Date.now(), updatedAt: Date.now() }
+      baseSha: checkout.baseSha, localChanges, state: 'preparing', createdAt: Date.now(), updatedAt: Date.now(), ...(requestedBy ? { requestedBy } : {}) }
     this.db.transaction(() => {
       this.save(task); this.coordinator.initialize(task)
       this.db.prepare('INSERT INTO coordination_requests VALUES (?, ?, ?, ?)').run(origin.paneId, input.key, payloadHash, id)
@@ -243,7 +246,7 @@ export class DelegationApplicationService {
       }
     } else if (!workspace.panes.some(pane => pane.id === owner.id)) throw new Error('Origin terminal belongs to another workspace')
     if (!execution || execution.workspaceId !== workspaceId) throw new Error('Start the origin agent before delegating')
-    return this.create(execution, input)
+    return this.create(execution, input, 'person')
   }
   private schedule(id: string): void {
     if (this.pending.has(id) || this.closing) return

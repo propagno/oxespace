@@ -18,6 +18,7 @@ import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import { registerThreadSectionsIpc } from './thread-sections.ipc'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
+import { notifyAgentStop } from '../services/agents/source-events'
 
 function string(value: unknown): string {
   if (typeof value !== 'string' || !value || value.length > 65536 || value.includes('\0')) throw new Error('Invalid thread input')
@@ -313,7 +314,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   ipcMain.handle(IPC_CHANNELS.thread.contextUsage, (event, id: unknown) => { sender(event); return manager.then(service => service.contextUsage(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.resumeQueue, (event, id: unknown) => { sender(event); return manager.then(service => service.resumeQueue(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.sendQueuedNow, (event, id: unknown, itemId: unknown) => { sender(event); return manager.then(service => service.sendQueuedNow(string(id), string(itemId))) })
-  ipcMain.handle(IPC_CHANNELS.thread.interrupt, (event, id: unknown) => { sender(event); return manager.then(service => service.interrupt(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.interrupt, (event, id: unknown) => { sender(event); const threadId = string(id); notifyAgentStop(`conversation:${threadId}`); return manager.then(service => service.interrupt(threadId)) })
   ipcMain.handle(IPC_CHANNELS.thread.approve, (event, id: unknown, request: unknown, decision: unknown) => {
     sender(event)
     if (decision !== 'accept' && decision !== 'decline') throw new Error('Invalid approval decision')

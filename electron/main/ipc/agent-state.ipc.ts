@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { PaneAgentStateEvent } from '../../../shared/types/agent-state'
 import type { AgentStateService } from '../services/agent-state/agent-state.service'
 import { requireAppFrame } from './ipc-guards'
+import { notifyAgentSource } from '../services/agents/source-events'
 
 /** Renderer-facing agent lifecycle state: the sidebar, pane chips, notifications and the "why" view read it. */
 export function registerAgentStateIpc(service: AgentStateService): void {
@@ -21,5 +22,6 @@ export function registerAgentStateIpc(service: AgentStateService): void {
 }
 
 export function broadcastAgentState(event: PaneAgentStateEvent): void {
+  notifyAgentSource({ source: 'pane', id: event.paneId, ...('cleared' in event ? { deleted: true } : {}) })
   for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.agentState.onChanged, event)
 }

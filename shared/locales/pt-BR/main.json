@@ -370,6 +370,10 @@
         "permissions": "Pede mais acesso",
         "elicitation": "Precisa de informações suas",
         "tool": "Quer usar uma ferramenta"
+      },
+      "nudge": {
+        "single": "{{agent}} precisa de você há {{minutes}} min",
+        "batch": "{{count}} agentes precisam de você"
       }
     },
     "incident": {

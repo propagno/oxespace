@@ -235,7 +235,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'agents.request.question': [],
   'agents.request.permissions': [],
   'agents.request.elicitation': [],
-  'agents.request.tool': []
+  'agents.request.tool': [],
+  'agents.nudge.single': ['agent', 'minutes'],
+  'agents.nudge.batch': ['count']
 }
 
 describe('C3 message codes', () => {

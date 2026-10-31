@@ -96,6 +96,8 @@ export interface DelegationTask extends DelegationInput {
   checkout?: DelegationCheckout
   nativeSession?: DelegationNativeSession
   destinationThreadId?: string
+  /** Set when the person created it from the window; absent when an agent did (`oxespace_delegate_task`). */
+  requestedBy?: 'person'
   knowledgeBundle?: KnowledgeTransferBundle
   recoveryActions?: DelegationRecoveryAction[]
   evidence?: { path: string; commit: string; sha256: string; text: string }[]

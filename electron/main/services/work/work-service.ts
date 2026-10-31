@@ -15,6 +15,7 @@ import type { AppDatabase } from '../../db'
 import type { ConversationThread, ThreadConfiguration, ThreadSnapshot } from '../../../../shared/types/thread'
 import type { WorkEvent, WorkPlanInput, WorkRun, WorkRunStatus, WorkTask, WorkTaskResult, WorkTaskStatus } from '../../../../shared/types/work'
 import { turnVerdict } from '../../../../shared/threadTurnVerdict'
+import { notifyAgentSource } from '../agents/source-events'
 
 export interface WorkHost {
   read(id: string): ThreadSnapshot
@@ -271,6 +272,8 @@ export class WorkService {
 
   private event(runId: string, taskId: string | undefined, kind: string, detail: string): void {
     this.db.prepare('INSERT INTO work_events (run_id, task_id, at, kind, detail) VALUES (?, ?, ?, ?, ?)').run(runId, taskId ?? null, Date.now(), kind, detail.slice(0, 2000))
+    // Every change of a run or its tasks records an event; the agents read model hears of it here (S7.1).
+    notifyAgentSource({ source: 'work', id: runId })
   }
 
   /** Promotes, cancels and starts tasks until nothing changes. Safe to call from anywhere. */

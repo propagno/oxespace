@@ -4,13 +4,14 @@
 import { BrowserWindow, Notification } from 'electron'
 import { ApprovalCenter } from './approval-center'
 import { askForAttention, endAttention } from './attention'
+import { notifyAgentSource } from '../agents/source-events'
 
 function liveWindows(): BrowserWindow[] {
   return BrowserWindow.getAllWindows().filter(window => !window.isDestroyed() && !window.webContents.isDestroyed() && !window.webContents.isCrashed())
 }
 
 export const approvalCenter = new ApprovalCenter({
-  send: (channel, payload) => { for (const window of liveWindows()) window.webContents.send(channel, payload) },
+  send: (channel, payload) => { for (const window of liveWindows()) window.webContents.send(channel, payload); notifyAgentSource({ source: 'approval' }) },
   hasWindow: () => liveWindows().length > 0,
   attention: () => askForAttention(liveWindows(), {
     supported: () => Notification.isSupported(),

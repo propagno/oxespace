@@ -321,6 +321,9 @@ export interface MessageParams {
   'agents.request.permissions': Record<string, never>
   'agents.request.elicitation': Record<string, never>
   'agents.request.tool': Record<string, never>
+  /** S7.1 · The needs-you desktop notification (§5.10): one agent waiting `minutes`, or `count` agents together. */
+  'agents.nudge.single': { agent: string; minutes: number }
+  'agents.nudge.batch': { count: number }
 }
 
 export type MessageCode = keyof MessageParams
@@ -547,7 +550,9 @@ export const MESSAGE_CODES = [
   'agents.request.question',
   'agents.request.permissions',
   'agents.request.elicitation',
-  'agents.request.tool'
+  'agents.request.tool',
+  'agents.nudge.single',
+  'agents.nudge.batch'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

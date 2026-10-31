@@ -251,7 +251,6 @@ async function registerIpcHandlers(): Promise<() => void> {
     },
     userDataPath: app.getPath('userData')
   })
-  
   terminalForHistory = terminalManager
   // Semantic search service. emitLog broadcasts each activity-log line to every
   // renderer window so Tools → Semantic Activity can show processing live.
@@ -442,6 +441,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
   const approvals = await import('./services/approvals/wiring')
   approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
+  ;(await import('./services/agents/wiring')).wireAgents({ db, agentState, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() }) // S7.1, on demand
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
     delegation: delegationService, executions, team: teamAccess,

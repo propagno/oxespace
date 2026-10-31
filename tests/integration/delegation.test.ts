@@ -63,6 +63,8 @@ describe('delegation lifecycle', () => {
         .run(id, f.ws.id, 'project', JSON.stringify(thread), JSON.stringify(events))
     }
     const created = await f.service.create(f.origin, { ...f.input, sourceThreadIds: ids, includeMemory: true })
+    // S7.1: one an agent created (oxespace_delegate_task) carries no requester mark.
+    expect(created).not.toHaveProperty('requestedBy')
     expect(created.sessionContext).toHaveLength(2)
     await vi.waitFor(() => expect(f.service.get(created.id).knowledgeBundle).toBeTruthy(), { timeout: 10000 })
     const context = f.service.get(created.id).knowledgeBundle!.context
@@ -85,6 +87,8 @@ describe('delegation lifecycle', () => {
     const created = await f.service.createFromSurface(f.ws.id, { kind: 'pane', id: f.origin.paneId }, { ...f.input, branchIntent: intent, previewId: preview.previewId })
     expect(created.branch).toBe(preview.checkout.branch)
     expect(created.path).toBe(preview.checkout.path)
+    // S7.1: a delegation the person created from the window waits on the person, not on an agent.
+    expect(created.requestedBy).toBe('person')
     await expect(f.service.createFromSurface(f.ws.id, { kind: 'pane', id: 'unrelated' }, f.input)).rejects.toThrow('another workspace')
     await f.service.stop()
   }, 20000)
