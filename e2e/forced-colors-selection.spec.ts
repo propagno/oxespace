@@ -207,7 +207,7 @@ for (const base of ['light', 'dark'] as const) {
       await expect(settings).toHaveCount(0)
 
       // OxePod: Docker / Podman.
-      await openView(page, 'OxePod')
+      await openView(page, 'pods')
       const pod = page.getByRole('complementary', { name: /OxePod/ })
       await expectChoicesMarked(page, 'oxepod', pod, ['Container engine'])
       await expectTick(pod, 'Container engine')
@@ -215,7 +215,7 @@ for (const base of ['light', 'dark'] as const) {
       await scan(page, 'oxepod')
 
       // OxeQuery › New connection: engine cards, Host/URL, environment, the Read-only switch and Favorite.
-      await openView(page, 'OxeQuery')
+      await openView(page, 'data')
       await page.getByRole('button', { name: 'New connection' }).first().click()
       const form = page.getByRole('dialog', { name: 'New connection' })
       await expect(form.getByRole('radiogroup', { name: 'Environment' })).toBeVisible()
