@@ -1,5 +1,6 @@
 import type { ConversationThread, ThreadStatus } from '../../shared/types/thread'
 import { i18n } from '../i18n'
+import { withoutReservedName } from '../../shared/reserved-names'
 
 /**
  * One decision for "should this thread demand attention", used for both the
@@ -45,7 +46,9 @@ export function decideThreadAttention({ previous, current, viewing }: ThreadAtte
 }
 
 export function threadAttentionText(kind: ThreadAttentionKind, title: string): { title: string; body: string } {
-  const name = title.trim() || i18n.t('notify.untitled', { ns: 'thread' })
+  // B10: the title can come from the agent; a reserved app name in it is never shown as the sender.
+  const untitled = i18n.t('notify.untitled', { ns: 'thread' })
+  const name = withoutReservedName(title.trim(), untitled) || untitled
   switch (kind) {
     case 'needs-approval': return { title: i18n.t('notify.approval', { ns: 'thread', name }), body: i18n.t('notify.approvalBody', { ns: 'thread' }) }
     case 'failed': return { title: i18n.t('notify.failed', { ns: 'thread', name }), body: i18n.t('notify.failedBody', { ns: 'thread' }) }

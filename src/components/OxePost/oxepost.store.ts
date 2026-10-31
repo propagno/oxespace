@@ -3,6 +3,8 @@ import { emptyRequest, serializeRequest } from '../../../shared/oxepost/format'
 import { i18n } from '../../i18n'
 import type { PostEnvironmentView, PostRequest, PostRequestEntry, PostResponse } from '../../../shared/oxepost/types'
 import { PostError, messageOf, post } from './client'
+import { i18n } from '../../i18n'
+import { registerUnsavedSource } from '../../lib/unsavedWork'
 
 export type PostDialog = 'import' | 'environments' | null
 export interface SendFailure { code: string; message: string }
@@ -151,3 +153,14 @@ export const useOxePostStore = create<PostState>((set, get) => ({
 }))
 
 export const isDirty = (state: Pick<PostState, 'draft' | 'baseline'>): boolean => snapshot(state.draft) !== state.baseline
+
+// The request being edited, when it changed since it was opened or saved: the close guard lists it and can save it.
+registerUnsavedSource({
+  id: 'oxepost',
+  items: () => {
+    const state = useOxePostStore.getState()
+    if (!state.workspaceId || snapshot(state.draft) === state.baseline) return []
+    return [{ id: state.selected ?? 'new', label: state.draft.name.trim() || i18n.t('closeGuard.untitledRequest', { ns: 'common' }), detail: i18n.t('closeGuard.inOxePost', { ns: 'common' }) }]
+  },
+  saveAll: async () => { await useOxePostStore.getState().save() }
+})
