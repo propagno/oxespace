@@ -7,7 +7,7 @@ import { useWorkspaceStore } from '../../src/store/workspace.store'
 import { useActivityStore } from '../../src/store/activity.store'
 import { useSettingsStore } from '../../src/store/settings.store'
 import { describeAttention, useAttentionSummary } from '../../src/hooks/useAttentionSummary'
-import { useAgentNotifications } from '../../src/hooks/useAgentNotifications'
+import { noticeLabel, useAgentNotifications } from '../../src/hooks/useAgentNotifications'
 import { PaneSessionRow } from '../../src/components/Sidebar/PaneSessionRow'
 import { ModeSwitch } from '../../src/components/Navigation/ModeSwitch'
 import { explainRows } from '../../src/components/Grid/StatusExplainDialog'
@@ -76,6 +76,9 @@ describe('the sidebar row and the pane header', () => {
     expect(within(done).getByTestId('pane-row-status')).toHaveTextContent('Claude · Awaiting')
     expect(blocked.querySelector('.activity-needs-decision')).not.toBeNull()
     expect(done.querySelector('.activity-needs-decision')).toBeNull()
+    // Not color alone, in the compact layout too: a mark beside the name.
+    expect(within(blocked).getByTestId('pane-row-decision-mark')).toHaveAttribute('aria-hidden', 'true')
+    expect(within(done).queryByTestId('pane-row-decision-mark')).toBeNull()
     expect(blocked).toHaveTextContent("needs your decision, Reported by the agent's hooks")
     expect(within(blocked).getByTestId('pane-row-status')).toHaveAttribute('title', "Needs your approval or answer · Reported by the agent's hooks")
   })
@@ -133,6 +136,16 @@ describe('the Code counter', () => {
   })
 })
 
+describe('the name a notice uses', () => {
+  it('names the pane after its agent, or the agent its shell profile launches, and "Agent" only when unknown', () => {
+    expect(noticeLabel(pane('p'), null)).toBe('Claude')
+    expect(noticeLabel({ ...pane('p'), agentName: null, shellProfileId: 'builtin-codex' }, null)).toBe('Codex')
+    expect(noticeLabel({ ...pane('p'), agentName: null, shellProfileId: 'builtin-claude' }, null)).toBe('Claude')
+    expect(noticeLabel({ ...pane('p'), agentName: null, displayName: 'Reviewer' }, null)).toBe('Reviewer')
+    expect(noticeLabel({ ...pane('p'), agentName: null, shellProfileId: 'builtin-pwsh' }, 'PowerShell')).toBe('Agent')
+  })
+})
+
 describe('notifications for a decision', () => {
   const notify = vi.fn(async (_payload: { title: string; body: string; paneId: string; workspaceId: string }) => true)
   beforeEach(() => {
@@ -155,13 +168,13 @@ describe('notifications for a decision', () => {
     setState('done')
     tick(12_000)
     expect(notify).toHaveBeenCalledTimes(1)
-    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Claude — waiting for you' })
+    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Claude — waiting for you', body: 'demo: the agent finished and is waiting for your reply.' })
 
     setState('blocked')
     tick()
     expect(notify).toHaveBeenCalledTimes(2)
     expect(notify.mock.calls[1][0]).toMatchObject({ title: 'Claude — needs your decision', paneId: 'p1', workspaceId: 'ws-1' })
-    expect(useActivityStore.getState().items[0]).toMatchObject({ kind: 'needs-you', id: 'p1', detail: 'demo: the agent stopped and is waiting for your approval or answer.' })
+    expect(useActivityStore.getState().items[0]).toMatchObject({ kind: 'needs-you', id: 'p1', title: 'Claude', detail: 'demo: the agent stopped and is waiting for your approval or answer.' })
 
     // Held, it does not ping again; answered, the request leaves the list.
     tick(6000)
@@ -169,6 +182,16 @@ describe('notifications for a decision', () => {
     setState('working')
     tick()
     expect(useActivityStore.getState().items.some(item => item.kind === 'needs-you')).toBe(false)
+  })
+
+  it('names an unnamed pane after the agent its shell launches, not a generic word', () => {
+    useWorkspaceStore.setState({ workspaces: [workspace([{ ...pane('p1'), agentName: null, shellProfileId: 'builtin-codex' }])] })
+    renderHook(() => useAgentNotifications())
+    tick()
+    setState('blocked')
+    tick()
+    expect(useActivityStore.getState().items[0]).toMatchObject({ title: 'Codex' })
+    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Codex — needs your decision' })
   })
 
   it('a finished turn still waits for the stability gate and the cooldown', () => {

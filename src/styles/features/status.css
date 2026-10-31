@@ -107,6 +107,8 @@
 
 /* The sidebar row's state line, in the same warning words. */
 .pane-row-preview.is-decision { color: var(--intent-warning-fg); font-weight: 600; }
+/* Beside the row's name, visible in the compact layout too. */
+.pane-row-decision-mark { flex-shrink: 0; color: var(--intent-warning-fg); }
 
 
 /* Consolidated integration control. Five equal-looking topbar chips competed

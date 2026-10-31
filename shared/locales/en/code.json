@@ -811,6 +811,16 @@
       "title": "{{agent}} — needs your decision",
       "body": "{{workspace}}: the agent stopped and is waiting for your approval or answer."
     },
+    "notice": {
+      "agent": "Agent",
+      "finishedTitle": "{{agent}} — waiting for you",
+      "finishedBody": "{{workspace}}: the agent finished and is waiting for your reply.",
+      "endedTitle": "{{agent}} — session ended",
+      "endedBody": "{{workspace}}: the agent terminal was closed.",
+      "errorTitle": "{{agent}} — needs attention",
+      "errorBody": "{{workspace}}: {{error}}",
+      "errorFallback": "the agent hit an error."
+    },
     "status": {
       "needs-decision": "Needs your decision",
       "thinking": "Thinking",

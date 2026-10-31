@@ -1,4 +1,4 @@
-import { GitBranch, SquareTerminal } from 'lucide-react'
+import { GitBranch, Hand, SquareTerminal } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import { copyText } from '../../ui'
 import { useTranslation } from 'react-i18next'
@@ -207,6 +207,9 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           >
             {label}
           </span>
+          {/* Shape, not color: the compact row hides the state line, so a decision is marked beside the name. The
+              screen-reader text below already says it. */}
+          {needsDecision && <Hand size={12} className="pane-row-decision-mark" aria-hidden="true" data-testid="pane-row-decision-mark" />}
           {lastActivityAt && !editing && !hasTopContext ? (
             <span className={`pane-row-time title-time${isRecent ? ' recent' : ''}`}>
               {formatActivityTime(lastActivityAt)}

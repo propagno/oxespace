@@ -3,10 +3,22 @@ import { useTerminalStore } from '../store/terminal.store'
 import { useWorkspaceStore } from '../store/workspace.store'
 import { useSettingsStore } from '../store/settings.store'
 import { useActivityStore } from '../store/activity.store'
-import { deriveStatusTone, type PaneDisplayTone } from '../utils/paneDisplay'
+import { deriveStatusTone, resolvePaneIdentity, type PaneDisplayTone } from '../utils/paneDisplay'
+import type { WorkspacePane } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
+
+/**
+ * The name a notice and an activity entry use: the pane's own name, its agent, or the agent its shell profile
+ * launches (Claude, Codex...). The generic "Agent" only when none of them is known.
+ */
+export function noticeLabel(pane: WorkspacePane, shellProfileName: string | null): string {
+  const named = (pane.displayName || pane.agentName)?.trim()
+  if (named) return named
+  const identity = resolvePaneIdentity({ pane, profile: null, shellProfileName })
+  return identity.key === 'shell' ? tc('pane.notice.agent') : identity.label
+}
 
 /**
  * Horizon 1 · item 1+2 — native desktop notifications driven by the fine-grained
@@ -62,7 +74,7 @@ export function useAgentNotifications(): void {
       const notificationsEnabled = useSettingsStore.getState().notificationsEnabled
       const activity = useActivityStore.getState()
       const { panes: termPanes, activePaneId } = useTerminalStore.getState()
-      const workspaces = useWorkspaceStore.getState().workspaces
+      const { workspaces, shellProfiles } = useWorkspaceStore.getState()
       const windowFocused = typeof document !== 'undefined' ? document.hasFocus() : true
       const now = Date.now()
 
@@ -74,7 +86,8 @@ export function useAgentNotifications(): void {
 
           const tone = deriveStatusTone(entry)
           const existing = tracks.get(pane.id)
-          const label = (pane.displayName || pane.agentName || 'Agente').trim()
+          const label = noticeLabel(pane, shellProfiles.find(profile => profile.id === (pane.shellProfileId ?? ws.defaultShellProfileId))?.name ?? null)
+          const errorBody = (): string => tc('pane.notice.errorBody', { workspace: ws.name, error: entry.error ?? tc('pane.notice.errorFallback') })
           const target = { type: 'pane' as const, workspaceId: ws.id, paneId: pane.id }
           // Don't ping about the pane the user is actively looking at.
           const isViewing = windowFocused && activePaneId === pane.id
@@ -114,7 +127,7 @@ export function useAgentNotifications(): void {
             // Same stability gate as the ping, so token gaps do not fill the list.
             if (!existing.recordedAwaiting && existing.awaitingSince !== null && now - existing.awaitingSince >= AWAITING_STABLE_MS) {
               existing.recordedAwaiting = true
-              activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: `${ws.name}: the agent finished and is waiting for your reply.`, read: isViewing })
+              activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: tc('pane.notice.finishedBody', { workspace: ws.name }), read: isViewing })
             }
             if (
               !existing.notifiedAwaiting &&
@@ -124,7 +137,7 @@ export function useAgentNotifications(): void {
               !windowFocused
             ) {
               existing.notifiedAwaiting = true
-              notify(`${label} — waiting for you`, `${ws.name}: the agent finished and is waiting for your reply.`)
+              notify(tc('pane.notice.finishedTitle', { agent: label }), tc('pane.notice.finishedBody', { workspace: ws.name }))
             }
           } else {
             existing.awaitingSince = null
@@ -137,14 +150,14 @@ export function useAgentNotifications(): void {
           // exited / error fire once on the transition into that tone.
           if (tone !== existing.tone && (tone === 'exited' || tone === 'error')) {
             activity.record(tone === 'exited'
-              ? { source: 'code', id: pane.id, kind: 'finished', target, title: label, detail: `${ws.name}: the agent terminal was closed.`, read: isViewing }
-              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: `${ws.name}: ${entry.error ?? 'the agent hit an error.'}`, read: isViewing })
+              ? { source: 'code', id: pane.id, kind: 'finished', target, title: label, detail: tc('pane.notice.endedBody', { workspace: ws.name }), read: isViewing }
+              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: errorBody(), read: isViewing })
           }
           if (tone !== existing.tone && !isViewing) {
             if (tone === 'exited') {
-              notify(`${label} — session ended`, `${ws.name}: the agent terminal was closed.`)
+              notify(tc('pane.notice.endedTitle', { agent: label }), tc('pane.notice.endedBody', { workspace: ws.name }))
             } else if (tone === 'error') {
-              notify(`${label} — needs attention`, `${ws.name}: ${entry.error ?? 'the agent hit an error.'}`)
+              notify(tc('pane.notice.errorTitle', { agent: label }), errorBody())
             }
           }
 

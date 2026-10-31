@@ -69,6 +69,9 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
     await expect(row(page, blocked).getByTestId('pane-row-status')).toContainText('Needs your decision')
     await expect(row(page, done).getByTestId('pane-row-status')).toContainText('Awaiting')
     await expect(row(page, blocked)).toContainText("needs your decision, Reported by the agent's hooks")
+    // The compact row hides its state line: a visible mark beside the name, not the dot's color alone.
+    await expect(row(page, blocked).getByTestId('pane-row-decision-mark')).toBeVisible()
+    await expect(row(page, done).getByTestId('pane-row-decision-mark')).toHaveCount(0)
 
     // The Code button counts only the decision.
     const badge = page.getByTestId('attention-badge')
@@ -85,6 +88,8 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
     await page.getByTestId('activity-bell').click()
     const center = page.getByTestId('activity-center')
     await expect(center).toContainText('the agent stopped and is waiting for your approval or answer')
+    // Named after the pane's agent, never the old untranslated "Agente".
+    await expect(center).not.toContainText('Agente')
     await page.screenshot({ path: join(OUT, 'activity-light.png') })
     await page.keyboard.press('Escape')
 
@@ -102,6 +107,7 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
     await setAppearance(page, 'dark')
     await expect(header(page, blocked).getByTestId('pane-decision-chip')).toHaveText('Needs your decision')
     await expect(page.getByTestId('attention-badge')).toHaveText('1')
+    await expect(row(page, blocked).getByTestId('pane-row-decision-mark')).toBeVisible()
     await page.screenshot({ path: join(OUT, 'panes-dark.png') })
 
     // Answered: the request leaves the counter.
