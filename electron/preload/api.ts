@@ -116,6 +116,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       pin: (id, pinned) => ipc.invoke(IPC_CHANNELS.thread.pin, id, pinned) as Promise<void>,
       worktreeInspect: id => ipc.invoke(IPC_CHANNELS.thread.worktreeInspect, id) as Promise<import('../../shared/threadWorktree').ThreadWorktreeInspection | null>,
       worktreeFinish: (id, action, choice) => ipc.invoke(IPC_CHANNELS.thread.worktreeFinish, id, action, choice) as Promise<import('../../shared/threadWorktree').ThreadWorktreeFinishResult>,
+      setCoordinator: (id, coordinator) => ipc.invoke(IPC_CHANNELS.thread.setCoordinator, id, coordinator) as Promise<void>,
       onChanged: listener => {
         const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
         ipc.on(IPC_CHANNELS.thread.changed, handler)

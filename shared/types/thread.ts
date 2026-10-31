@@ -427,6 +427,12 @@ export interface ConversationThread {
   configurationRevision?: number
   pendingConfiguration?: ThreadConfiguration
   archived?: boolean
+  /**
+   * The project's coordinator conversation (B1.4), at most one per project, chosen by the person. It is offered the
+   * orchestration tools, a read-only summary of the project's conversations and pending requests, and the project's memory.
+   * It never answers another conversation's approvals.
+   */
+  coordinator?: true
   generation?: number
   queue?: ThreadQueuedInput[]
   /** Set when a turn ended without completing while input was queued; the next item waits for the user. */
@@ -677,6 +683,8 @@ export interface ThreadApi {
   worktreeInspect?(id: string): Promise<import('../threadWorktree').ThreadWorktreeInspection | null>
   /** Archives or deletes the conversation, then cleans up its worktree as the choice allows. */
   worktreeFinish?(id: string, action: import('../threadWorktree').ThreadWorktreeFinishAction, choice: import('../threadWorktree').ThreadWorktreeChoice): Promise<import('../threadWorktree').ThreadWorktreeFinishResult>
+  /** Makes this conversation the project's coordinator, or stops it being one; another one stops being it. The person's choice only. */
+  setCoordinator?(id: string, coordinator: boolean): Promise<void>
   onChanged(listener: (value: { threadId: string }) => void): () => void
 }
 

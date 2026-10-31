@@ -18,11 +18,11 @@ interface Base { label: string; ipc?: readonly string[] }
 export type McpCapability =
   | Base & { tools: Readonly<Record<string, McpLevel>> }
   | Base & { excluded: string }
-  | Base & { planned: 'P7' | 'H8'; reason: string }
+  | Base & { planned: 'P7' | 'H8' | 'B1.4'; reason: string }
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'thread.coordinator_admin'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -210,6 +210,12 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['thread.list', 'thread.read', 'thread.history', 'thread.readSince', 'thread.usageSummary', 'thread.contextUsage', 'thread.projects', 'thread.turnFiles',
       'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'session.list']
   },
+  'thread.coordinator_admin': { label: 'Make a conversation the project\'s coordinator', forbidden: 'Raises what an agent can reach.', ipc: ['thread.setCoordinator'] },
+  'thread.coordinator_read': {
+    label: 'The coordinator\'s summary of the project\'s pending requests',
+    planned: 'B1.4',
+    reason: 'An oxespace_threads action, pending (read), offered only to the coordinator conversation: title, kind, conversation and age of each pending request, inside the untrusted-output block since other agents wrote them. No command, argument or path, and nothing that answers a request; approvals stay with the person.'
+  },
   'thread.drive': {
     label: 'Create Threads, send, steer, stop, set the model, rename, archive',
     tools: {
@@ -258,6 +264,10 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['team.messages', 'team.send']
   },
   'team.admin': { label: 'Add members, pick the coordinator, archive, delivery', excluded: 'The person builds the team.', ipc: ['team.command'] },
+  // oxespace_delegation_control `approve` is the requesting agent accepting the result of a task it delegated: an
+  // agreement between agents, never the approval of a person's request, and it never merges. For the coordinator
+  // conversation (B1.4) it holds only for tasks the coordinator itself delegated, without taking over another
+  // requester's control.
   'delegation.use': {
     label: 'Delegate a task and follow it',
     tools: {
