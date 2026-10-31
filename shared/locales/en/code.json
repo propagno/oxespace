@@ -122,7 +122,9 @@
       "pathMenu": "Path of {{name}}",
       "copyPath": "Copy path",
       "copyRelativePath": "Copy relative path",
-      "path": "Path"
+      "path": "Path",
+      "pathCopied": "Path copied",
+      "relativePathCopied": "Relative path copied"
     },
     "workspaceFiles": "Workspace files",
     "fit": "Click to fit",
@@ -742,6 +744,7 @@
       "fullLogs": "Full run logs",
       "truncated": "truncated",
       "logs": "Logs",
+      "logsCopied": "Logs copied",
       "copyLogs": "Copy the logs",
       "copy": "Copy",
       "closeLogs": "Close logs",
@@ -770,6 +773,7 @@
     },
     "setup": {
       "command": "Command",
+      "commandCopied": "Command copied",
       "cliTitle": "GitHub CLI required",
       "authTitle": "Sign-in required",
       "cliBody": "Install the GitHub CLI to use pull requests, releases and the other GitHub features.",
@@ -867,6 +871,7 @@
     "noMembers": "No members yet.",
     "session": {
       "context": "Session context",
+      "contextCopied": "Session context copied",
       "delegated": "Delegated task",
       "unread": "Unread output",
       "tone": {
@@ -958,6 +963,8 @@
     "retry": "Retry"
   },
   "workspace": {
+    "closeFailed": "Could not close the workspace",
+    "settingsFailed": "Could not save the workspace settings",
     "gridBoundary": "the panes of this workspace",
     "panel": {
       "restore": "Restore panel width",
@@ -1747,6 +1754,7 @@
     }
   },
   "skills": {
+    "createFailed": "Could not create the skill",
     "needTerminal": "Select or start a terminal before using a skill.",
     "sent": "/{{name}} sent to the active terminal.",
     "copied": "Prompt for /{{name}} copied.",
