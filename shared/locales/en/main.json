@@ -323,6 +323,10 @@
       },
       "app": {
         "journalReset": "The diagnostics journal was unreadable and started over."
+      },
+      "external": {
+        "refused": "A link was not opened outside the app: wrong kind, too long, or with a name and password in it.",
+        "rateLimited": "Many links were refused within a minute; the rest were not recorded."
       }
     },
     "diagnostics": {

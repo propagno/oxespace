@@ -323,6 +323,10 @@
       },
       "app": {
         "journalReset": "O diário de diagnóstico estava ilegível e recomeçou."
+      },
+      "external": {
+        "refused": "Um link não foi aberto fora do app: tipo não permitido, longo demais ou com nome e senha nele.",
+        "rateLimited": "Muitos links foram recusados em um minuto; os demais não foram registrados."
       }
     },
     "diagnostics": {
