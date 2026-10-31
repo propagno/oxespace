@@ -64,7 +64,7 @@ for (const [locale, appearance] of [['pt-BR', 'light'], ['en-US', 'dark']] as co
       n.lifetimeMs = gone
 
       // 2. Different copies in a row: how many stack, in what order.
-      for (let i = 0; i < 3; i++) await copy(i)
+      for (let i = 0; i < 3; i++) await copy(i % 2)
       await copy(0)
       await page.waitForTimeout(300)
       n.mixed = await toasts(page)
@@ -99,7 +99,7 @@ for (const [locale, appearance] of [['pt-BR', 'light'], ['en-US', 'dark']] as co
       const beforeEsc = (await toasts(page)).cards.length
       await page.keyboard.press('Escape')
       await page.waitForTimeout(400)
-      n.escape = { before: beforeEsc, after: (await toasts(page)).cards.length, focus: await focused(page) }
+      n.escape = { before: beforeEsc, after: (await toasts(page)).cards.length, focus: await focused(page), html: await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 400)), parent: await page.evaluate(() => document.activeElement?.parentElement?.outerHTML.slice(0, 300)) }
       // Escape in the editor with a toast up: does it eat the editor's Escape?
       await copy(0)
       await page.locator('.monaco-editor, textarea, [contenteditable="true"]').first().click().catch(() => undefined)

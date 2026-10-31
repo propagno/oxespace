@@ -173,6 +173,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F19 split além dos presets | #240 | FRONTEND | Homologado (na `main` c4a4d84d) |
 | Nomes reservados de SO e fornecedor | #247 | BACKEND | Pré-homologado (499ffbcd): ressalvas fechadas, sonda de 134 nomes |
 | Raiz do workspace (B11) + aviso no assistente (F20) | #239 + #244 | BACKEND + FRONTEND | Pré-homologado (751229ab + 3f3e2d66): pt-BR e en ok, aspas corrigidas; nota baixa sobre o vazio no IPC |
+| Toasts (F21) | #245 | FRONTEND | Pré-homologado com ressalvas (0c84c5b8): 2 notas de texto e 1 de posição |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -537,7 +538,29 @@ Reverificação com #239 751229ab + #244, em pt-BR e en:
 
 - **Nota baixa para o BACKEND:** o caminho vazio e o só de espaços não voltam como `notAbsolute`, como o BACKEND
   esperava. O IPC lança `Error: rootPath must not be empty`, cru e em inglês. Pela interface isso não aparece,
-  porque o botão fica desabilitado, mas um agente ou um renderer antigo recebe um erro sem código C3.
+  porque o botão fica desabilitado, mas um agente ou um renderer antigo recebe um erro sem código C3. Corrigido
+  depois pelo BACKEND com `refusal:'empty'`; falta reconferir.
+
+### Toasts (#245): Pré-homologado com ressalvas
+
+PR mesclado com a `main`, em pt-BR claro e en escuro, achando o toast pelo que se vê (cartão com botão de fechar), em
+`pre-245`.
+- Rajada de 5 "Copiar caminho": um cartão só, "Caminho copiado ×5" ("Path copied ×5"). A região educada anuncia
+  "Repetida 5 vezes" ("Repeated 5 times") uma vez. O toast dura cerca de 7 s a partir do começo da rajada.
+- 13 s com o mouse em cima: o toast continua lá.
+- O toast não rouba o foco, que fica no arquivo.
+- Pelo teclado, 5 Tabs alcançam "Dispensar notificação" ("Dismiss notification"). Escape fecha e devolve o foco para
+  onde estava. Escape no editor fica com o editor, e o toast continua, como combinado com o FRONTEND.
+- Sem erros de console nos dois idiomas. Uma execução pt-BR teve o clique do menu de contexto esgotando o tempo, e
+  não se repetiu em 3 execuções.
+- Ressalvas para o FRONTEND:
+  1. **Atrapalha (baixo):** "Copiar caminho relativo" mostra o mesmo "Caminho copiado" que "Copiar caminho" e se funde
+     com ele ("×4" depois de alternar). Não dá para saber qual dos dois foi copiado. Critério: "Caminho relativo
+     copiado" / "Relative path copied" como toast próprio.
+  2. **Cosmético:** a região viva lê "Caminho copiado×5", e o leitor de tela fala o sinal "×" colado. Critério: o
+     contador escondido do leitor (`aria-hidden`), já que "Repetida 5 vezes" diz o mesmo.
+  3. **Cosmético:** o toast cobre a ponta direita da barra de status ("4 painéis · terminal"), em 1280×860.
+     Critério: ficar acima da barra de status.
 
 ### Achados fora dos itens da onda
 
