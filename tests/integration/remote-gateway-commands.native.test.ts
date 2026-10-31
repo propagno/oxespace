@@ -65,6 +65,30 @@ describe('remote commands: thread', () => {
     expect(await answer('short', 'accept')).toMatchObject({ type: 'ack', result: { resolution: 'approved' } })
   })
 
+  test('respondRequest: a question the phone saw cut is the desktop\'s alone, and a cut warning makes an approval deny-only', async () => {
+    const over = REMOTE_TEXT_LIMITS.detail + 1
+    const phone = await phoneWithDesktop(harnesses, desk => desk.threads.create('t1', { status: 'approval' }, [
+      pendingRequest('long-q', { kind: 'question', questions: [{ id: 'q1', question: 'x'.repeat(over) }] }),
+      pendingRequest('wide-q', { kind: 'question', questions: [{ id: 'q1', question: 'Which?', options: [{ label: 'o'.repeat(over) }] }] }),
+      pendingRequest('many-q', { kind: 'question', questions: Array.from({ length: 21 }, (_, index) => ({ id: `q${index}`, question: `Q${index}?` })) }),
+      pendingRequest('warned', { policy: { decision: 'ask', reasons: [], warnings: ['w'.repeat(over)] } })
+    ]))
+    const { threads } = phone.desk
+    const socket = await signIn(phone)
+    const answer = (requestId: string, response: unknown) => run(socket, 'thread.respondRequest', { threadId: 't1', requestId, generation: 1, response })
+    const listed = (await subscribe(socket, 'pendingRequests')).frames[0].data as { requests: Array<{ requestId: string; answerable: boolean; decisions: string[]; truncated?: true }> }
+    expect(listed.requests.map(request => [request.requestId, request.truncated, request.answerable, request.decisions])).toEqual([
+      ['long-q', true, false, []], ['wide-q', true, false, []], ['many-q', true, false, []], ['warned', true, true, ['decline']]
+    ])
+    for (const requestId of ['long-q', 'wide-q', 'many-q']) {
+      expect(await answer(requestId, { answers: { q1: ['a'] } })).toMatchObject({ code: 'forbidden' })
+      expect(await answer(requestId, { decision: 'decline' })).toMatchObject({ code: 'forbidden' })
+    }
+    expect(await answer('warned', { decision: 'accept' })).toMatchObject({ code: 'forbidden' })
+    expect(await answer('warned', { decision: 'decline' })).toMatchObject({ type: 'ack', result: { resolution: 'declined' } })
+    expect(threads.responses.map(entry => entry.requestId)).toEqual(['warned'])
+  })
+
   test('respondRequest: answered once by id and generation; not answerable is forbidden; repeats and old generations are refused', async () => {
     const phone = await phoneWithDesktop(harnesses, desk => desk.threads.create('t1', { status: 'approval' }, [
       pendingRequest('r1'),

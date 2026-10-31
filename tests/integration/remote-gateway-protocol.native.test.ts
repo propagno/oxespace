@@ -370,3 +370,40 @@ describe('remote gateway: the token signing key lives only in memory', () => {
   })
 })
 
+
+describe('remote gateway: connection slots', () => {
+  test('connections still to sign in share bounded slots: the oldest makes room, signed-in phones keep theirs', async () => {
+    const p = await paired({ limits: { connections: 4, unauthenticatedPerAddress: 10, unauthenticated: 2 } })
+    const first = await TestSocket.connect(p.target), second = await TestSocket.connect(p.target)
+    // A third still to sign in: the oldest is told and closed, and its slot is free at once.
+    const third = await TestSocket.connect(p.target)
+    expect((await first.closed).code).toBe(1008)
+    expect(first.frames.at(-1)).toEqual({ type: 'error', code: 'unauthenticated' })
+    expect(second.closeCode).toBeNull()
+    // A phone arriving to sign in takes a waiting slot too, from the oldest waiting; once signed in it holds its own.
+    const one = await signedIn(p)
+    expect((await second.closed).code).toBe(1008)
+    const two = await signedIn(p)
+    expect(third.closeCode).toBeNull()
+    const fourth = await TestSocket.connect(p.target)
+    for (const socket of [third, fourth]) {
+      await socket.ask({ type: 'hello', versions: [1] })
+      expect(await socket.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toMatchObject({ type: 'ack' })
+    }
+    // Every slot signed in: the next connection is refused, and no phone is evicted for it.
+    expect(await TestSocket.open(p.target)).toBe(503)
+    for (const socket of [one, two, third, fourth]) expect(socket.closeCode).toBeNull()
+  })
+
+  test('one address may hold a few connections still to sign in, no more', async () => {
+    const p = await paired({ limits: { unauthenticatedPerAddress: 2 } })
+    const a = await TestSocket.connect(p.target), b = await TestSocket.connect(p.target)
+    expect(await TestSocket.open(p.target)).toBe(429)
+    await a.ask({ type: 'hello', versions: [1] })
+    expect(await a.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toMatchObject({ type: 'ack' })
+    // Signed in, it no longer counts against the address's waiting slots.
+    const c = await TestSocket.connect(p.target)
+    expect(c.closeCode).toBeNull()
+    expect(b.closeCode).toBeNull()
+  })
+})

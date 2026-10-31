@@ -39,4 +39,38 @@ describe('a pending request the phone cannot show whole', () => {
     expect(shown.truncated).toBeUndefined()
     expect(shown.decisions).toEqual(['accept', 'decline'])
   })
+
+  test('a cut warning or a 21st warning count as not shown whole; an approval stays deny-only', () => {
+    const over = 'w'.repeat(REMOTE_TEXT_LIMITS.detail + 1)
+    for (const warnings of [[over], Array.from({ length: 21 }, (_, index) => `warning ${index}`)]) {
+      const shown = pending({ policy: { decision: 'ask', reasons: [], warnings } })
+      expect(shown.truncated).toBe(true)
+      expect(shown.decisions).toEqual(['decline'])
+      expect(shown.answerable).toBe(true)
+    }
+    expect(pending({ policy: { decision: 'ask', reasons: [], warnings: ['w'.repeat(REMOTE_TEXT_LIMITS.detail)] } }).truncated).toBeUndefined()
+  })
+
+  test('a question the phone cannot show whole is the desktop\'s alone: not answerable, not even declined', () => {
+    const question = (fields: Record<string, unknown>) => pending({ kind: 'question', availableDecisions: undefined, questions: [{ id: 'q1', question: 'Which?', ...fields }] })
+    const over = 'x'.repeat(REMOTE_TEXT_LIMITS.detail + 1)
+    const cut = [
+      question({ question: over }),
+      question({ header: 'h'.repeat(201) }),
+      question({ options: [{ label: over }] }),
+      question({ options: [{ label: 'ok', description: over }] }),
+      question({ options: Array.from({ length: 51 }, (_, index) => ({ label: `option ${index}` })) }),
+      pending({ kind: 'question', availableDecisions: undefined, questions: Array.from({ length: 21 }, (_, index) => ({ id: `q${index}`, question: `Q${index}?` })) })
+    ]
+    for (const [index, shown] of cut.entries()) {
+      expect(shown.truncated, `case ${index}`).toBe(true)
+      expect(shown.answerable, `case ${index}`).toBe(false)
+      expect(shown.decisions, `case ${index}`).toEqual([])
+    }
+    const whole = question({ question: 'x'.repeat(REMOTE_TEXT_LIMITS.detail), options: [{ label: 'main', description: 'the branch' }] })
+    expect(whole.truncated).toBeUndefined()
+    expect(whole.answerable).toBe(true)
+    expect(whole.decisions).toEqual(['decline'])
+    expect(whole.questions?.[0].options).toEqual([{ label: 'main', description: 'the branch' }])
+  })
 })

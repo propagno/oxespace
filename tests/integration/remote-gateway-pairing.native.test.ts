@@ -410,6 +410,39 @@ describe('remote gateway: what the window is told (CCR F9)', () => {
     expect(new RemoteStore(h.db).auditEntries().some(entry => entry.action === 'pairing' && entry.outcome === 'abandoned')).toBe(true)
   })
 
+  test('a phone may not call itself by a name only the app speaks as; invisible format characters are no name', async () => {
+    const h = harness()
+    await h.enable()
+    const phone = newPhone()
+    // Reserved: refused before the code is spent, with `reserved-name` for the phone and the window alike.
+    for (const name of ['OXESpace', 'Sistema', 'OXESpace: update', 'S​istema']) {
+      const mark = h.pairingFailures.length
+      const { res } = await h.pair({ name, phone })
+      expect([res.status, res.body], name).toEqual([403, { code: 'reserved-name' }])
+      expect(toldSince(h, mark, { publicKey: phone.publicKey, name })).toEqual([failed('reserved-name')])
+    }
+    expect(h.gateway.devices()).toEqual([])
+    expect(new RemoteStore(h.db).auditEntries().filter(entry => entry.action === 'pairing' && entry.outcome === 'reserved-name')).toHaveLength(4)
+    // Four attempts used; the window passes so the next ones are not locked out.
+    h.passAttemptWindow()
+    // A name that is only a zero-width space is no name at all.
+    let mark = h.pairingFailures.length
+    expect((await h.pair({ name: '​', phone })).res.body).toEqual({ code: 'malformed' })
+    expect(toldSince(h, mark, phone)).toEqual([failed('invalid')])
+    // The format characters inside a good name are dropped.
+    mark = h.pairingFailures.length
+    const { res } = await h.pair({ name: 'Ana​‍s Pixel', phone })
+    expect(res.status).toBe(200)
+    expect(h.pairingFailures).toHaveLength(mark)
+    const { deviceId } = res.body as { deviceId: string }
+    expect(h.gateway.devices()[0].name).toBe('Anas Pixel')
+    // The same rule at rename, with its own code.
+    const code = (run: () => unknown) => { try { run() } catch (error) { return messageFromError(error) } throw new Error('did not throw') }
+    for (const name of ['OXESpace', 'Sistema', 'oxe​space']) expect(code(() => h.gateway.rename({ deviceId, name })), name).toEqual({ code: 'remote.device.reservedName', params: {} })
+    expect(code(() => h.gateway.rename({ deviceId, name: ' ​ ' }))).toEqual({ code: 'remote.device.invalidName', params: { max: 64 } })
+    expect(h.gateway.rename({ deviceId, name: 'My​Phone' }).name).toBe('MyPhone')
+  })
+
   test('a flood of bad requests reaches the window at most twenty times a minute', async () => {
     const h = harness()
     const target = await h.enable()

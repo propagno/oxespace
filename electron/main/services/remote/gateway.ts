@@ -93,13 +93,13 @@ const json = (res: ServerResponse, status: number, body: unknown): void => {
 }
 
 const PAIRING_STATUS: Record<RemotePairingErrorCode, number> = {
-  malformed: 400, 'pairing-invalid': 403, 'pairing-refused': 403, 'pairing-used': 409, 'too-many-devices': 409, 'pairing-expired': 410, 'pairing-locked': 429
+  malformed: 400, 'pairing-invalid': 403, 'pairing-refused': 403, 'reserved-name': 403, 'pairing-used': 409, 'too-many-devices': 409, 'pairing-expired': 410, 'pairing-locked': 429
 }
 
 /** What the window is told for each answer the phone gets. A question that timed out is `expired`, said where it happens. */
 const PAIRING_FAILURE_REASON: Record<RemotePairingErrorCode, RemotePairingFailureReason> = {
   malformed: 'invalid', 'pairing-invalid': 'invalid', 'pairing-used': 'invalid', 'pairing-locked': 'invalid', 'pairing-expired': 'expired',
-  'pairing-refused': 'refused', 'too-many-devices': 'limit'
+  'pairing-refused': 'refused', 'too-many-devices': 'limit', 'reserved-name': 'reserved-name'
 }
 
 export class RemoteGateway implements ConnectionHost {
@@ -399,12 +399,12 @@ export class RemoteGateway implements ConnectionHost {
     const publicKey = readDevicePublicKey(Buffer.from(read.request.publicKey, 'base64url'))
     if (!publicKey) return this.pairFailure(res, 'malformed')
     const outcome = (code: string) => this.store.audit({ action: 'pairing', outcome: code, remoteAddress: address })
-    // The name the phone chose, without invisible format characters; a name only the app may speak as is refused,
-    // before the code is spent, and the window hears why. The phone hears `malformed`, as for any name it may not use.
+    // The name the phone chose, without invisible format characters. A name only the app may speak as is refused
+    // before the code is spent: the phone hears `reserved-name` (it checks the same lists first), the window the reason.
     const deviceName = cleanDeviceName(read.request.deviceName)
     const named = deviceNameProblem(deviceName)
     if (named === 'invalid') return this.pairFailure(res, 'malformed')
-    if (named === 'reserved') { outcome('reserved-name'); return this.pairFailure(res, 'malformed', 'reserved-name') }
+    if (named === 'reserved') { outcome('reserved-name'); return this.pairFailure(res, 'reserved-name') }
 
     const claim = this.pairing.claim(read.request.code)
     if (claim !== 'ok') { outcome(claim); return this.pairFailure(res, claim) }

@@ -1,3 +1,8 @@
+// The one import: the reserved-name lists the phone gets through the Kotlin generator (B10, shared/approval-rules.ts).
+// It stays above the header so the header remains the leading comment of REMOTE_PROTOCOL_VERSION, which the generator
+// copies as the Kotlin file's preamble.
+import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES } from '../approval-rules'
+
 /**
  * C5 · Remote protocol between the desktop gateway (B9, off by default, LAN only, TLS only) and the Android companion.
  *
@@ -282,8 +287,19 @@ export interface RemotePairResponse {
   expiresInMs: number
 }
 
-export const REMOTE_PAIRING_ERROR_CODES = ['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid'] as const
+/** Why `POST /pair` refused; `reserved-name` is a device name only the app may speak as (the lists below). */
+export const REMOTE_PAIRING_ERROR_CODES = ['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid', 'reserved-name'] as const
 export type RemotePairingErrorCode = typeof REMOTE_PAIRING_ERROR_CODES[number]
+
+/**
+ * Names a phone may not give itself, from their one source (B10 `reservedNameIn`, shared/approval-rules.ts): the
+ * desktop answers `reserved-name`, and the phone checks the same lists before asking. These are refused wherever they
+ * appear in the name ("OXESpace: update"). The desktop compares after folding case, accents, invisible characters and
+ * look-alike letters and digits, so a name that passes the phone's plain check may still be refused.
+ */
+export const REMOTE_RESERVED_NAME_FRAGMENTS: readonly string[] = [...RESERVED_APP_NAMES]
+/** Generic words refused only as the whole name ("System", "Sistema"); "filesystem" stays allowed. */
+export const REMOTE_RESERVED_NAMES: readonly string[] = [...RESERVED_EXACT_NAMES]
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/
 /** Base64url without padding of exactly `bytes` bytes. */

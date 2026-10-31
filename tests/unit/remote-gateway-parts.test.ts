@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { certificateFingerprint, createGatewayCertificate, derInteger, derOid, derTime } from '../../electron/main/services/remote/certificate'
 import { RemoteConnection, mentionsForbidden, type ConnectionHost, type FrameSocket } from '../../electron/main/services/remote/connection'
 import {
-  parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput
+  deviceNameProblem, parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput
 } from '../../electron/main/services/remote/inputs'
 import { messageFromError } from '../../shared/messages'
 import { isPrivateAddress, listenAddresses, peerAddress } from '../../electron/main/services/remote/network'
@@ -181,6 +181,19 @@ describe('window inputs', () => {
       expect(code(run)).toBeNull()
     }
   })
+
+  test('a device name loses its invisible format characters, and one only the app speaks as is refused', () => {
+    const code = (run: () => unknown) => { try { run() } catch (error) { return messageFromError(error) } throw new Error('did not throw') }
+    expect(parseDeviceName('My​Phone‍')).toBe('MyPhone')
+    expect(parseDeviceName(' Pixel of Ana ')).toBe('Pixel of Ana')
+    expect(code(() => parseDeviceName('​‌'))).toEqual({ code: 'remote.device.invalidName', params: { max: 64 } })
+    for (const name of ['OXESpace', 'Sistema', 'System', 'O​XESpace', 'oxespace of Ana', '0XESPACE', 'ＯＸＥＳＰＡＣＥ']) {
+      expect(code(() => parseDeviceName(name)), name).toEqual({ code: 'remote.device.reservedName', params: {} })
+    }
+    expect(deviceNameProblem('filesystem')).toBeNull()
+    expect(deviceNameProblem('')).toBe('invalid')
+    expect(deviceNameProblem('Sistema')).toBe('reserved')
+  })
 })
 
 describe('websocket upgrade', () => {
@@ -210,6 +223,42 @@ describe('connection', () => {
     expect(out.sent.at(-1)).toEqual({ type: 'error', code: 'unauthenticated' })
     expect(out.closes).toEqual([1008])
     connection.closed()
+  })
+
+  test('a connection that only listens is closed when its token ends; a new sign-in re-arms the timer', () => {
+    vi.useFakeTimers()
+    let now = 0
+    const out = socket()
+    const connection = new RemoteConnection('10.0.0.2', host({ now: () => now, authenticate: () => ({ ok: true, deviceId: 'd', expiresAt: now + 1_000, result: { accessToken: 't', expiresInMs: 1_000 } }) }))
+    connection.attach(out.socket)
+    connection.receive(JSON.stringify({ type: 'hello', versions: [1] }))
+    connection.receive(JSON.stringify({ type: 'auth', id: 'a', accessToken: 't' }))
+    expect(out.sent.at(-1)).toMatchObject({ type: 'ack', id: 'a' })
+    now = 900
+    vi.advanceTimersByTime(900)
+    // Signed in again before the end: the new token's end counts.
+    connection.receive(JSON.stringify({ type: 'auth', id: 'b', accessToken: 't2' }))
+    now = 1_500
+    vi.advanceTimersByTime(600)
+    expect(out.closes).toEqual([])
+    now = 1_900
+    vi.advanceTimersByTime(400)
+    expect(out.sent.at(-1)).toEqual({ type: 'error', code: 'token-expired' })
+    expect(out.closes).toEqual([1008])
+    connection.closed()
+  })
+
+  test('evicted while still to sign in: told so, closed, and gone from the host at once', () => {
+    const closed: RemoteConnection[] = []
+    const out = socket()
+    const connection = new RemoteConnection('10.0.0.2', host({ closed: value => { closed.push(value) } }))
+    connection.attach(out.socket)
+    connection.evict()
+    expect(out.sent).toEqual([{ type: 'error', code: 'unauthenticated' }])
+    expect(out.closes).toEqual([1008])
+    expect(closed).toEqual([connection])
+    connection.closed()
+    expect(closed).toHaveLength(1)
   })
 
   test('a frame flood ends the connection', () => {

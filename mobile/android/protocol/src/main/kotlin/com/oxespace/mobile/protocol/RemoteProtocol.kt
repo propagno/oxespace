@@ -133,6 +133,7 @@ enum class RemoteErrorCode(val wire: String) {
     }
 }
 
+/** Why `POST /pair` refused; `reserved-name` is a device name only the app may speak as (the lists below). */
 @Serializable
 enum class RemotePairingErrorCode(val wire: String) {
     @SerialName("pairing-expired") PAIRING_EXPIRED("pairing-expired"),
@@ -142,6 +143,7 @@ enum class RemotePairingErrorCode(val wire: String) {
     @SerialName("too-many-devices") TOO_MANY_DEVICES("too-many-devices"),
     @SerialName("malformed") MALFORMED("malformed"),
     @SerialName("pairing-invalid") PAIRING_INVALID("pairing-invalid"),
+    @SerialName("reserved-name") RESERVED_NAME("reserved-name"),
     ;
 
     companion object {
@@ -170,6 +172,30 @@ val REMOTE_CLIENT_FRAMES: Set<RemoteFrameType> = setOf(
     RemoteFrameType.SUBSCRIBE,
     RemoteFrameType.UNSUBSCRIBE,
     RemoteFrameType.COMMAND,
+)
+
+/**
+ * Names a phone may not give itself, from their one source (B10 `reservedNameIn`, shared/approval-rules.ts): the
+ * desktop answers `reserved-name`, and the phone checks the same lists before asking. These are refused wherever they
+ * appear in the name ("OXESpace: update"). The desktop compares after folding case, accents, invisible characters and
+ * look-alike letters and digits, so a name that passes the phone's plain check may still be refused.
+ */
+val REMOTE_RESERVED_NAME_FRAGMENTS: Set<String> = setOf(
+    "OXESpace",
+    "OxeChat",
+    "OxeCode",
+    "OxeQuery",
+    "OxePod",
+    "OxePost",
+)
+
+/** Generic words refused only as the whole name ("System", "Sistema"); "filesystem" stays allowed. */
+val REMOTE_RESERVED_NAMES: Set<String> = setOf(
+    "System",
+    "Sistema",
+    "App",
+    "Aplicativo",
+    "Application",
 )
 
 /** Every frame; the JSON `type` field picks the class. */
