@@ -37,7 +37,7 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
         calls.create.push(input)
         const path = `${root}-worktrees/feature-e2e-ab12`
         const thread = { id: `t${threads.length + 1}`, workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: input.worktree ? path : root, provider: input.provider,
-          nativeSessionId: null, title: 'New thread', pinned: false, status: 'idle', createdAt: 1, updatedAt: 1,
+          nativeSessionId: null, title: 'New conversation', pinned: false, status: 'idle', createdAt: 1, updatedAt: 1,
           ...(input.worktree ? { ownedWorktree: { path, branch: input.worktree.branch ?? 'thread/generated', projectRoot: root, baseSha: 'a'.repeat(40), createdAt: 1 } } : {}) }
         threads.push(thread); changed(String(thread.id)); return { thread, events: [] }
       })
