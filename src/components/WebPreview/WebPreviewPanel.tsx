@@ -5,6 +5,7 @@ import type { DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
+import { openExternalLink } from '../../lib/externalLinks'
 import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { DesignGrabSheet } from './DesignGrabSheet'
@@ -185,7 +186,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   }, [pendingWebPreview, previewKey, activeTabId, setPendingWebPreview, allowExternal, applySession])
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
-  const openExternal = (): void => { if (url) window.open(url, '_blank', 'noopener,noreferrer') }
+  const openExternal = (): void => { if (url) void openExternalLink(url, { source: 'preview' }) }
   const viewportConfig = VIEWPORTS[viewport]
   const handleCapture = async (): Promise<void> => {
     if (!url || capturing) return

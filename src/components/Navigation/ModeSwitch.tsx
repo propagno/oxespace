@@ -20,7 +20,7 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
   const attention = useAttentionSummary()
   const go = (next: NavigationMode) => () => { if (next !== mode) onSelect(next) }
   useKeybindings({ 'view.code': go('code'), 'view.thread': go('thread'), 'view.data': go('data'), 'view.pods': go('pods'), 'view.post': go('post') })
-  return <nav className={styles.switch} aria-label={t('nav.applicationView')}>
+  return <nav className={styles.switch} aria-label={t('nav.applicationView')} data-focus-region="modes">
     {MODES.map(item => {
       const counts = item.mode === 'code' ? attention.code : item.mode === 'thread' ? attention.thread : null
       const attentionId = counts && counts.needsYou + counts.failed + counts.working > 0 ? `mode-attention-${item.mode}` : undefined
@@ -31,7 +31,7 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
           onClick={() => { if (item.mode !== mode) onSelect(item.mode) }}>
           {item.label}
         </button>
-        {counts && attentionId && <Attention id={attentionId} counts={counts} />}
+        {counts && attentionId && <Attention id={attentionId} counts={counts} scope={item.mode === 'code' ? 'code' : 'thread'} />}
       </span>
     })}
   </nav>
@@ -39,8 +39,9 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
 
 const withKey = (title: string, mode: NavigationMode): string => { const key = shortcutLabel(`view.${mode}` as KeybindingId); return key ? `${title} (${key})` : title }
 
-function Attention({ id, counts }: { id: string; counts: AttentionCounts }) {
+function Attention({ id, counts, scope }: { id: string; counts: AttentionCounts; scope: 'code' | 'thread' }) {
   const total = counts.needsYou + counts.failed
-  if (total === 0) return <span id={id} className={styles.working} role="status" aria-label={describeAttention(counts)} data-testid="working-indicator" />
-  return <span id={id} className={cx(styles.badge, counts.needsYou === 0 && styles.badgeFailed)} role="status" aria-label={describeAttention(counts)} data-testid="attention-badge">{total > 9 ? '9+' : total}</span>
+  const label = describeAttention(counts, scope)
+  if (total === 0) return <span id={id} className={styles.working} role="status" aria-label={label} data-testid="working-indicator" />
+  return <span id={id} className={cx(styles.badge, counts.needsYou === 0 && styles.badgeFailed)} role="status" aria-label={label} data-testid="attention-badge">{total > 9 ? '9+' : total}</span>
 }

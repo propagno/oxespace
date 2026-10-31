@@ -20,6 +20,7 @@ kotlin {
 dependencies {
     api(libs.kotlinx.serialization.json)
     api(libs.okhttp)
+    api(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.okhttp.tls)
