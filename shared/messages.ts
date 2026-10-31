@@ -28,6 +28,10 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** The provider cannot fork its session into a side chat (B1.2). */
+  'thread.side.unavailable': Record<string, never>
+  /** The conversation has no native session to copy yet: send a message first. */
+  'thread.side.noSession': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -232,6 +236,8 @@ export const MESSAGE_CODES = [
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
   'app.connectivity.offline',
+  'thread.side.unavailable',
+  'thread.side.noSession',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',

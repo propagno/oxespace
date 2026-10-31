@@ -20,6 +20,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.request.alreadyResponding': [],
   'thread.request.unanswered': [],
   'app.connectivity.offline': [],
+  'thread.side.unavailable': [],
+  'thread.side.noSession': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
   'incident.ipc.handlerFailed': [],

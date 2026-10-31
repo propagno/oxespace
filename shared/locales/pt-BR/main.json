@@ -60,6 +60,10 @@
         "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
         "unanswered": "Responda a todas as perguntas antes de continuar."
       },
+      "side": {
+        "unavailable": "Este agente ainda não abre um chat lateral.",
+        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
+      },
       "commands": {
         "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
         "busy": "A busca de comandos está ocupada. Use Atualizar comandos para tentar de novo.",

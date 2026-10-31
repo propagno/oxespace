@@ -60,6 +60,10 @@
         "alreadyResponding": "An answer to this request is already being sent.",
         "unanswered": "Answer every question before continuing."
       },
+      "side": {
+        "unavailable": "This agent cannot open a side chat yet.",
+        "noSession": "Send a message first: a side chat copies the conversation so far."
+      },
       "commands": {
         "configure": "Configure the provider in Agent Settings and use Refresh commands to try again.",
         "busy": "Command discovery is busy. Use Refresh commands to try again.",
