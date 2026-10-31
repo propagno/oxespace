@@ -77,6 +77,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'oxequery.session.busy': [],
   'oxequery.session.limit': ['limit'],
   'oxequery.session.agentTransaction': [],
+  'oxequery.sql.ambiguousEscape': [],
   'oxepod.startFailed': ['reason'],
   'oxepost.network.notFound': [],
   'oxepost.network.refused': [],

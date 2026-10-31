@@ -147,7 +147,8 @@
         "destructiveInside": "{{statement}} contém {{keyword}}, que pode apagar dados ou objetos.",
         "rowLock": "FOR UPDATE / FOR SHARE trava as linhas lidas até o fim da transação.",
         "sessionRole": "SET ROLE muda o usuário da sessão e, com ele, o que os próximos comandos podem fazer.",
-        "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda."
+        "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda.",
+        "ambiguousEscape": "Uma barra invertida num texto pode encerrá-lo antes num servidor com standard_conforming_strings desligado, e então roda mais do que o texto mostra."
       },
       "session": {
         "busy": "Esta conexão tem uma transação aberta ou um comando em execução, então não pode ser reaberta agora. Faça commit ou rollback da transação, ou espere o comando terminar, e tente de novo.",
