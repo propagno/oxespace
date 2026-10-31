@@ -88,6 +88,8 @@ export const IPC_CHANNELS = {
     setLanguage: 'app:set-language',
     setUiScale: 'app:set-ui-scale',
     connectivity: 'app:connectivity', onConnectivity: 'app:connectivity-changed', about: 'app:about',
+    /** F26: main → window before a close or quit, and the window's answer. */
+    closeRequested: 'app:close-requested', closeAnswer: 'app:close-answer',
     /** The main window's only way out to the system browser or mail app. */
     openExternal: 'app:open-external'
   },
