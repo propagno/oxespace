@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
-import { describeLock, isStale, noteWaiting, readLock, release, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
+import { acquire, describeLock, dequeue, enqueue, isMyTurn, isStale, priorityFor, readLock, readQueue, release, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
 
 const folder = mkdtempSync(join(tmpdir(), 'oxe-heavy-lock-'))
 afterAll(() => rmSync(folder, { recursive: true, force: true }))
@@ -45,54 +45,118 @@ describe('machine-wide heavy lock', () => {
     rmSync(path)
   })
 
-  it('waits for free memory after it holds the lock, and 0 turns the check off', async () => {
+  it('waits for free memory without a cap, and 0 turns the check off', async () => {
     const readings = [0.4, 0.8, 1.6]
     let onWait = 0
-    expect(await waitForMemory(1, () => readings.shift() ?? 9, 1, () => { onWait++ })).toBe(2)
+    const heard: number[] = []
+    expect(await waitForMemory(1, () => readings.shift() ?? 9, 1, () => { onWait++ }, (free: number) => { heard.push(free) })).toBe(2)
     expect(onWait).toBe(1)
+    expect(heard).toEqual([0.4, 0.8])
     expect(await waitForMemory(1, () => 3.2, 1)).toBe(0)
     expect(await waitForMemory(0, () => 0.1, 1)).toBe(0)
   })
 
-  it('stops waiting for memory after maxWaitMs and says so with null, hearing every low reading', async () => {
-    const heard: number[] = []
-    expect(await waitForMemory(1, () => 0.3, 1, () => {}, 0, free => { heard.push(free) })).toBeNull()
-    expect(heard).toEqual([0.3])
-    // Within the cap it still waits, and a reading at the floor ends the wait.
-    const readings = [0.5, 1]
-    expect(await waitForMemory(1, () => readings.shift() ?? 9, 1, () => {}, 60_000)).toBe(1)
+  it('gives each owner a priority: explicit first, else its role, else normal', () => {
+    expect(priorityFor('be-mcpcore')).toBe(1)
+    expect(priorityFor('hml-check-316')).toBe(2)
+    expect(priorityFor('release:1.4.0')).toBe(2)
+    expect(priorityFor('coord')).toBe(2)
+    expect(priorityFor('hml', 'low')).toBe(0)
+    expect(priorityFor('be', ' HIGH ')).toBe(2)
+    // An unknown name is ignored, never trusted as a number.
+    expect(priorityFor('be', '99')).toBe(1)
+    expect(priorityFor(undefined)).toBe(1)
   })
 
-  it('lets the holder note that it waits for memory, which --status shows, and only the holder', () => {
-    const path = lockAt('waiting')
-    expect(tryTake('be-test', 'npm run build', path)).toBe(true)
-    expect(describeLock(readLock(path))).not.toContain('idle')
-    expect(noteWaiting({ memory: { free: 0.6, need: 1.5 } }, path)).toBe(true)
-    expect(readLock(path)).toMatchObject({ owner: 'be-test', pid: process.pid, waiting: { memory: { free: 0.6, need: 1.5 } } })
-    expect(describeLock(readLock(path))).toContain('(idle: waiting for memory, 0.6 GB free, need 1.5)')
-    expect(isStale(readLock(path))).toBe(false)
-    expect(noteWaiting(null, path)).toBe(true)
-    expect(readLock(path)?.waiting).toBeUndefined()
+  it('orders the queue by priority, then by who came first, and drops waiters that are gone', () => {
+    const path = lockAt('queue')
+    const now = Date.now()
+    // The parent process is alive for the whole test; a PID this large is not.
+    enqueue({ owner: 'earlier', pid: process.ppid, priority: 1, since: now - 1000, command: 'a', waiting: 'lock' }, path)
+    enqueue({ owner: 'me', pid: process.pid, priority: 2, since: now, command: 'b', waiting: 'lock' }, path)
+    enqueue({ owner: 'ghost', pid: 2 ** 22 + 12345, priority: 2, since: now - 5000, command: 'c', waiting: 'lock' }, path)
+    expect(readQueue(path).map((entry: { owner: string }) => entry.owner)).toEqual(['me', 'earlier'])
+    expect(existsSync(join(`${path}.queue`, `${2 ** 22 + 12345}.json`))).toBe(false)
+    expect(isMyTurn(process.pid, path)).toBe(true)
+    expect(isMyTurn(process.ppid, path)).toBe(false)
+    // Same priority: whoever queued first goes first.
+    enqueue({ owner: 'me', pid: process.pid, priority: 1, since: now, command: 'b', waiting: 'lock' }, path)
+    expect(isMyTurn(process.pid, path)).toBe(false)
+    // A waiter still waiting for memory gives no turn away and takes none.
+    enqueue({ owner: 'earlier', pid: process.ppid, priority: 2, since: now - 1000, command: 'a', waiting: 'memory', free: 0.2, need: 1 }, path)
+    expect(isMyTurn(process.pid, path)).toBe(true)
+    expect(describeLock(null, now, readQueue(path))).toBe(`free\n  1. earlier (pid ${process.ppid}, high) waiting for memory, 0.2 GB free, need 1: a\n  2. me (pid ${process.pid}, normal) waiting for the lock: b`)
+    dequeue(process.ppid, path)
+    dequeue(process.pid, path)
+    expect(readQueue(path)).toEqual([])
+  })
+
+  it('waits for memory without the lock, and only then takes it', async () => {
+    const path = lockAt('preflight')
+    const readings = [0.3, 0.5, 2, 2]
+    const heldWhileLow: unknown[] = []
+    const log: string[] = []
+    await acquire({ owner: 'be-test', command: 'npm run build', priority: 1, path, floor: 1, pollMs: 1, log: (line: string) => log.push(line),
+      read: () => { const free = readings.shift() ?? 2; if (free < 1) heldWhileLow.push(readLock(path)); return free } })
+    expect(heldWhileLow).toEqual([null, null])
+    expect(readLock(path)).toMatchObject({ owner: 'be-test', pid: process.pid })
+    expect(log).toEqual(['waiting: 0.3 GB free, 1 GB needed (not holding the lock)', 'waiting: 0.5 GB free, 1 GB needed (not holding the lock)'])
+    // Holding the lock, it has left the queue.
+    expect(readQueue(path)).toEqual([])
     release(path)
-    // Not the holder: nothing is written.
-    writeFileSync(path, JSON.stringify({ owner: 'other', pid: process.pid + 1, command: 'x', takenAt: Date.now() }))
-    expect(noteWaiting({ memory: { free: 0.1, need: 1 } }, path)).toBe(false)
-    expect(readLock(path)?.waiting).toBeUndefined()
-    rmSync(path)
-    expect(describeLock(null)).toBe('free')
   })
 
-  it('gives the lock back when memory never comes, and queues again instead of holding it idle', async () => {
-    const path = lockAt('giveback')
-    const child = spawn(process.execPath, [join('scripts', 'heavy-lock.mjs'), '--owner', 'starved', '--', process.execPath, '-e', '1'],
-      { env: { ...process.env, OXESPACE_HEAVY_LOCK: path, OXESPACE_HEAVY_MIN_FREE_GB: '100000', OXESPACE_HEAVY_MEMORY_WAIT_MINUTES: '0.0005' } })
+  it('gives the lock straight back when memory drops right after taking it', async () => {
+    const path = lockAt('drop')
+    // Preflight ok, then low right after the lock, then ok twice.
+    const readings = [2, 0.4, 2, 2]
+    const lockAtThirdRead: unknown[] = []
+    const log: string[] = []
+    let reads = 0
+    await acquire({ owner: 'be-test', command: 'x', priority: 1, path, floor: 1, pollMs: 1, log: (line: string) => log.push(line),
+      read: () => { if (++reads === 3) lockAtThirdRead.push(readLock(path)); return readings.shift() ?? 2 } })
+    expect(log).toEqual(['gave the lock back: 0.4 GB free right after taking it, 1 GB needed'])
+    expect(lockAtThirdRead).toEqual([null])
+    expect(readLock(path)).toMatchObject({ owner: 'be-test' })
+    release(path)
+  })
+
+  it('lets a higher-priority waiter go first, even with the lock free', async () => {
+    const path = lockAt('priority')
+    enqueue({ owner: 'hml', pid: process.ppid, priority: 2, since: Date.now(), command: 'e2e', waiting: 'lock' }, path)
+    const log: string[] = []
+    let done = false
+    const taking = acquire({ owner: 'be-test', command: 'x', priority: 1, path, floor: 0, pollMs: 5, log: (line: string) => log.push(line) }).then(() => { done = true })
+    await new Promise(resolve => setTimeout(resolve, 80))
+    expect(done).toBe(false)
+    expect(readLock(path)).toBeNull()
+    expect(log).toEqual(['waiting: hml is ahead in the queue'])
+    dequeue(process.ppid, path)
+    await taking
+    expect(readLock(path)).toMatchObject({ owner: 'be-test' })
+    release(path)
+  })
+
+  it('never takes the lock while memory is missing, so another holder gets in and --status shows the waiter', async () => {
+    const path = lockAt('starved')
+    const child = spawn(process.execPath, [join('scripts', 'heavy-lock.mjs'), '--owner', 'starved', '--priority', 'high', '--', process.execPath, '-e', '1'],
+      { env: { ...process.env, OXESPACE_HEAVY_LOCK: path, OXESPACE_HEAVY_MIN_FREE_GB: '100000', OXESPACE_HEAVY_POLL_MS: '20' } })
     let stderr = ''
     child.stderr.on('data', chunk => { stderr += chunk })
     try {
-      await expect.poll(() => stderr, { timeout: 20_000, interval: 50 }).toContain('gave the lock back')
-      // Between its turns the lock is free, so another holder gets in.
-      await expect.poll(() => tryTake('patient', 'npm run build', path), { timeout: 20_000, interval: 25 }).toBe(true)
-      expect(readLock(path)?.owner).toBe('patient')
+      await expect.poll(() => stderr, { timeout: 20_000, interval: 50 }).toContain('(not holding the lock)')
+      expect(readLock(path)).toBeNull()
+      // It waits for memory, so it takes no turn from a normal command that can start.
+      expect(isMyTurn(process.pid, path)).toBe(true)
+      expect(tryTake('patient', 'npm run build', path)).toBe(true)
+      const status = await new Promise<string>(resolve => {
+        const reader = spawn(process.execPath, [join('scripts', 'heavy-lock.mjs'), '--status'], { env: { ...process.env, OXESPACE_HEAVY_LOCK: path } })
+        let out = ''
+        reader.stdout.on('data', chunk => { out += chunk })
+        reader.on('close', () => resolve(out))
+      })
+      expect(status).toContain('held by patient')
+      expect(status).toMatch(/1\. starved \(pid \d+, high\) waiting for memory, [\d.]+ GB free, need 100000/)
       release(path)
     } finally {
       child.kill()
