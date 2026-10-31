@@ -26,6 +26,16 @@ function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 function text(value: unknown): string { return typeof value === 'string' ? value : '' }
+
+/**
+ * The files a Codex file-change approval touches: `changes` is a list of `{ path }` (item/fileChange/requestApproval) or
+ * an object keyed by path (applyPatchApproval). The permission policy needs them to see a protected file.
+ */
+export function codexApprovalPaths(params: Record<string, unknown>): string[] {
+  const changes = params.changes
+  const paths = Array.isArray(changes) ? changes.map(value => text(record(value).path)) : changes && typeof changes === 'object' ? Object.keys(changes) : []
+  return paths.filter(Boolean).slice(0, 100).map(value => value.slice(0, 1000))
+}
 function subagentStatus(value: unknown): import('../../../../shared/types/thread').ThreadSubagent['status'] {
   if (value === 'pendingInit') return 'pending'
   if (value === 'running') return 'running'
@@ -781,6 +791,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     type RequestDecision = NonNullable<ThreadRequest['availableDecisions']>[number]
     const available = (Array.isArray(params.availableDecisions) ? params.availableDecisions : []).filter((value): value is RequestDecision => typeof value === 'string' && ['accept', 'acceptForSession', 'decline', 'cancel'].includes(value))
     const fileChange = method.includes('file') || method === 'applyPatchApproval'
-    return { id, nativeId: id, nativeMethod: method, kind: 'approval', toolName: fileChange ? 'fileChange' : 'command', title: fileChange ? 'Approve file changes' : 'Approve command', detail: detail || 'The agent requests your permission.', ...(command ? { command } : {}), ...(reason ? { reason } : {}), ...(text(params.cwd) ? { cwd: text(params.cwd).slice(0, 1000) } : {}), generation: 0, createdAt: Date.now(), state: 'pending', turnId: text(params.turnId), availableDecisions: available.length ? available : ['accept', 'decline'] }
+    const paths = fileChange ? codexApprovalPaths(params) : []
+    return { id, nativeId: id, nativeMethod: method, kind: 'approval', toolName: fileChange ? 'fileChange' : 'command', title: fileChange ? 'Approve file changes' : 'Approve command', detail: detail || 'The agent requests your permission.', ...(command ? { command } : {}), ...(paths.length ? { paths } : {}), ...(reason ? { reason } : {}), ...(text(params.cwd) ? { cwd: text(params.cwd).slice(0, 1000) } : {}), generation: 0, createdAt: Date.now(), state: 'pending', turnId: text(params.turnId), availableDecisions: available.length ? available : ['accept', 'decline'] }
   }
 }
