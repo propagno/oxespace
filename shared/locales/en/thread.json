@@ -145,12 +145,14 @@
     "reviewCommand": "Review the command before allowing it to run.",
     "toolRequest": "Provider tool request",
     "fileChanges": "File changes",
-    "reason": "Agent reason: {{reason}}",
+    "reason": "Reason given by the agent",
+    "reasonHint": "Written by the agent. OXESpace did not check it.",
     "plan": "Plan",
     "toolInput": "Tool input",
     "proposedChange": "Proposed change",
     "readable": "Readable preview",
-    "exactBelow": "The exact request is available below",
+    "readableHint": "Easier to read. The exact text above is what runs.",
+    "directory": "In {{path}}",
     "exact": "Exact command or request",
     "copied": "Copied",
     "copyExact": "Copy exact text"
@@ -1142,7 +1144,11 @@
     "rememberTitle": "Saves {{patterns}} as an allow rule for this project",
     "always": "Always allow {{labels}}",
     "cancel": "Cancel",
-    "decline": "Decline"
+    "decline": "Decline",
+    "holdWaiting": "Critical risk: Approve is available in {{seconds}} s. Read the command first.",
+    "holdReady": "Approve is available. Enter does not approve a critical command; use Space or click.",
+    "guarded": "Agent-steering file",
+    "guardedHint": "This changes a file that steers agents (instructions, MCP settings, hooks). Only a person approves it, each time; it is never remembered."
   },
   "requests": {
     "waiting": "The agent is waiting for your answer",

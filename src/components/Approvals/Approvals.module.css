@@ -1,0 +1,90 @@
+/* F18 · In-app approvals. Tokens only; light and dark come from them. */
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.queue { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-secondary); }
+.critical { font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Production is the one thing in the header that must not be missed: a solid band, an icon and the word itself. */
+.production {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--intent-danger-solid);
+  color: var(--text-on-solid);
+  font-size: var(--text-sm);
+}
+.production strong { font-weight: var(--weight-bold); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.requester { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-3); font-size: var(--text-sm); }
+.requester dt { color: var(--text-secondary); }
+.requester dd { margin: 0; }
+.muted { color: var(--text-secondary); font-size: var(--text-xs); }
+
+.sectionTitle { margin: 0; font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* The app's own notes: warnings in OXESpace's voice, never green (a warning must not read as "safe"). */
+.appNotes {
+  margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--intent-warning-solid);
+  border-radius: var(--radius-sm);
+  background: var(--intent-warning-bg);
+  font-size: var(--text-sm);
+}
+.appNotes ul { margin: var(--space-1) 0 0; padding-left: var(--space-4); display: grid; gap: var(--space-1); }
+
+/* The agent's words: a sunken, dashed box in monospace, clearly not OXESpace's interface. */
+.agent {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  min-width: 0;
+}
+.agentHeader { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.agentHint { margin: 0; font-size: var(--text-xs); color: var(--text-secondary); }
+.agentText {
+  margin: 0;
+  max-height: 40vh;
+  overflow: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* An invisible or bidi character the agent sent, shown as its code point; it never takes effect. */
+.hiddenChar {
+  unicode-bidi: isolate;
+  direction: ltr;
+  margin: 0 1px;
+  padding: 0 2px;
+  border: 1px solid var(--intent-danger-solid);
+  border-radius: var(--radius-sm);
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.agentText:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+
+.expires { margin: var(--space-3) 0 0; font-size: var(--text-xs); color: var(--text-secondary); }
+
+.history { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.history th { text-align: left; font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-secondary); padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--border-subtle); }
+.history td { padding: var(--space-2); border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+
+/* The countdown before allow unlocks at critical risk. */
+.hold { margin: var(--space-3) 0 0; font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--intent-danger-fg); }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

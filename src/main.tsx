@@ -13,6 +13,7 @@ import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
 import { TerminalFocusHost } from './components/Keyboard/TerminalFocusHost'
 import { ReportProblemHost } from './components/Diagnostics/ReportProblemHost'
 import { AboutHost } from './components/About/AboutHost'
+import { ApprovalsHost } from './components/Approvals/ApprovalsHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { installRendererErrorReporting } from './lib/rendererErrors'
@@ -46,6 +47,8 @@ void initI18n().catch(error => console.error('[i18n] could not start the transla
       <TerminalFocusHost />
       <ReportProblemHost />
       <AboutHost />
+      {/* Approval requests from main, in the window instead of a native dialog (F18). Its window loads at idle. */}
+      <ApprovalsHost />
       <StartupInteractiveMark />
     </React.StrictMode>
   )

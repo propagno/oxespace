@@ -371,6 +371,92 @@
     "unchecked": "CLIs de agentes ainda não verificadas",
     "uncheckedDetail": "Verifique quais CLIs de agentes estão instaladas nesta máquina."
   },
+  "approvals": {
+    "summaryTarget": "{{summary}} · {{target}}",
+    "facts": "Risco: {{risk}}. Pedido por {{requester}}.",
+    "factsEnvironment": "Risco: {{risk}}. Ambiente: {{environment}}. Pedido por {{requester}}.",
+    "factsProduction": "Risco: {{risk}}. Ambiente de produção: {{environment}}. Pedido por {{requester}}.",
+    "queue": "Pedido {{position}} de {{total}}",
+    "closeDeny": "Negar e fechar",
+    "risk": {
+      "label": "Risco: {{level}}",
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "critical": "Crítico"
+    },
+    "environment": {
+      "label": "Ambiente de {{kind}}: {{name}}",
+      "kind": {
+        "local": "trabalho local",
+        "dev": "desenvolvimento",
+        "prod": "produção"
+      },
+      "productionLabel": "Produção · {{name}}",
+      "productionHint": "Mudanças aqui afetam usuários e dados reais."
+    },
+    "requester": {
+      "label": "Pedido por",
+      "agent": "Agente",
+      "mcp-server": "Servidor MCP",
+      "app": "OXESpace",
+      "verified": "identificado pelo OXESpace",
+      "unknown": "Agente desconhecido",
+      "unidentified": "não identificado"
+    },
+    "appNotes": "Avisos do OXESpace",
+    "hiddenCharacters": "O texto do agente contém caracteres invisíveis ou que mudam a direção do texto. Cada um aparece como um marcador, por exemplo ⟨U+202E⟩, em vez de ter efeito. Leia o texto considerando isso antes de aprovar.",
+    "unavailableWindow": "A janela de aprovação parou de funcionar. O OXESpace pergunta numa caixa de diálogo do sistema.",
+    "boundaryLabel": "aprovações",
+    "keywords": "aprovações histórico permissões permitido negado decisões segurança approvals history",
+    "agent": {
+      "heading": "Conteúdo do agente",
+      "hint": "Escrito pelo agente e mostrado como foi enviado. O OXESpace não verificou: leia como uma afirmação, não como um fato.",
+      "empty": "O agente não enviou texto.",
+      "length": "{{length}} caracteres"
+    },
+    "expires": "Se você não responder até {{time}}, o pedido será negado.",
+    "hold": {
+      "waiting": "Risco crítico: Permitir fica disponível em {{seconds}} s. Leia o pedido antes.",
+      "ready": "Permitir está disponível. Com risco crítico, Enter não aprova; use Espaço ou clique.",
+      "readyEnter": "Permitir está disponível.",
+      "paused": "Risco crítico: Permitir espera até esta janela estar em primeiro plano. A contagem recomeça quando você voltar."
+    },
+    "refused": "Sua resposta não foi aplicada",
+    "settled": {
+      "timeout": "O pedido expirou sem resposta e foi negado.",
+      "cancelled": "O pedido foi cancelado antes de uma resposta.",
+      "native": "O pedido foi respondido na caixa de diálogo do sistema."
+    },
+    "outcome": {
+      "deny": "Negado",
+      "allow": "Permitido uma vez",
+      "allow-session": "Permitido nesta sessão"
+    },
+    "by": {
+      "timeout": "Expirou, negado",
+      "cancelled": "Cancelado",
+      "native": "Respondido na caixa de diálogo do sistema",
+      "refused": "Negado pelo OXESpace"
+    },
+    "history": {
+      "open": "Histórico",
+      "command": "Histórico de aprovações",
+      "title": "Decisões de aprovação",
+      "description": "Pedidos respondidos nesta sessão, do mais recente ao mais antigo.",
+      "empty": "Nenhuma decisão nesta sessão ainda.",
+      "back": "Voltar ao pedido",
+      "close": "Fechar",
+      "columns": {
+        "time": "Hora",
+        "what": "O quê",
+        "who": "Pedido por",
+        "decision": "Decisão"
+      }
+    },
+    "unknownCode": "O OXESpace enviou um aviso que esta versão não consegue mostrar (código {{code}}).",
+    "sqlUnknown": "SQL arriscado: o OXESpace apontou um risco neste comando que esta versão não consegue descrever (código {{code}})."
+  },
   "about": {
     "title": "Sobre o OXESpace",
     "versionLine": "Versão {{version}}",
@@ -397,6 +483,16 @@
     "details": "Detalhes da versão",
     "detailsCopied": "Detalhes da versão copiados",
     "report": "Relatar um problema"
+  },
+  "commands": {
+    "category": {
+      "help": "Ajuda"
+    },
+    "action": {
+      "help": {
+        "approvals": "Mostrar histórico de aprovações"
+      }
+    }
   },
   "closeGuard": {
     "titleClose": "Salvar as alterações antes de fechar?",

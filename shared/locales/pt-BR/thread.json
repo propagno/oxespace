@@ -152,12 +152,14 @@
     "reviewCommand": "Revise o comando antes de permitir que ele rode.",
     "toolRequest": "Pedido de ferramenta do provedor",
     "fileChanges": "Alterações de arquivos",
-    "reason": "Motivo do agente: {{reason}}",
+    "reason": "Motivo dado pelo agente",
+    "reasonHint": "Escrito pelo agente. O OXESpace não verificou.",
     "plan": "Plano",
     "toolInput": "Entrada da ferramenta",
     "proposedChange": "Alteração proposta",
     "readable": "Prévia legível",
-    "exactBelow": "O pedido exato está logo abaixo",
+    "readableHint": "Mais fácil de ler. O que roda é o texto exato acima.",
+    "directory": "Em {{path}}",
     "exact": "Comando ou pedido exato",
     "copied": "Copiado",
     "copyExact": "Copiar o texto exato"
@@ -1165,7 +1167,11 @@
     "rememberTitle": "Salva {{patterns}} como regra de permissão para este projeto",
     "always": "Sempre permitir {{labels}}",
     "cancel": "Cancelar",
-    "decline": "Recusar"
+    "decline": "Recusar",
+    "holdWaiting": "Risco crítico: Aprovar fica disponível em {{seconds}} s. Leia o comando antes.",
+    "holdReady": "Aprovar está disponível. Com comando crítico, Enter não aprova; use Espaço ou clique.",
+    "guarded": "Arquivo que orienta o agente",
+    "guardedHint": "Isto altera um arquivo que orienta os agentes (instruções, configurações MCP, hooks). Só uma pessoa aprova, a cada vez; nunca fica lembrado."
   },
   "requests": {
     "waiting": "O agente está esperando a sua resposta",

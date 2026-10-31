@@ -83,7 +83,7 @@ describe('stack hash', () => {
 })
 
 describe('boundaries', () => {
-  const ids: RendererErrorBoundary[] = ['root', 'window', 'conversations', 'mode-view', 'workspace-grid', 'workspace-panel', 'pane', 'terminal']
+  const ids: RendererErrorBoundary[] = ['root', 'window', 'conversations', 'mode-view', 'workspace-grid', 'workspace-panel', 'pane', 'terminal', 'approvals']
   it.each(ids)('%s sends its id', id => {
     render(<ErrorBoundary id={id} label="x"><Boom token="prop-value-xyz" /></ErrorBoundary>)
     expect(sent.at(-1)).toMatchObject({ kind: 'boundary', boundary: id })
@@ -96,7 +96,8 @@ describe('boundaries', () => {
     const expected: Array<[string, RendererErrorBoundary[]]> = [
       ['src/main.tsx', ['root']], ['src/App.tsx', ['conversations', 'window']], ['src/components/Navigation/ModeViews.tsx', ['mode-view']],
       ['src/components/Workspace/WorkspaceSurface.tsx', ['workspace-grid', 'workspace-panel']], ['src/components/Grid/WorkspaceGrid.tsx', ['pane']],
-      ['src/components/Grid/WorkspaceSplitGrid.tsx', ['pane']], ['src/components/Panes/TerminalPane.tsx', ['terminal']]
+      ['src/components/Grid/WorkspaceSplitGrid.tsx', ['pane']], ['src/components/Panes/TerminalPane.tsx', ['terminal']],
+      ['src/components/Approvals/ApprovalsHost.tsx', ['approvals']]
     ]
     for (const [file, wanted] of expected) {
       const found = [...readFileSync(join(ROOT, file), 'utf8').matchAll(/<ErrorBoundary\b[^>]*\bid="([^"]+)"/g)].map(match => match[1])
