@@ -3,7 +3,6 @@ import { emptyRequest, serializeRequest } from '../../../shared/oxepost/format'
 import { i18n } from '../../i18n'
 import type { PostEnvironmentView, PostRequest, PostRequestEntry, PostResponse } from '../../../shared/oxepost/types'
 import { PostError, messageOf, post } from './client'
-import { i18n } from '../../i18n'
 import { registerUnsavedSource } from '../../lib/unsavedWork'
 
 export type PostDialog = 'import' | 'environments' | null
