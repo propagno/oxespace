@@ -402,7 +402,7 @@
       "otherViews": "Team is available in OxeCode and OxeChat"
     },
     "roles": {
-      "coordinator": "Coordinator / integrator",
+      "coordinator": "Coordinator",
       "project-manager": "Project manager",
       "product-manager": "Product manager",
       "developer": "Developer",
