@@ -152,7 +152,8 @@
         "destructiveInside": "{{statement}} contains {{keyword}}, which can remove data or objects.",
         "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.",
         "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
-        "tableLock": "VACUUM FULL locks the whole table while it runs."
+        "tableLock": "VACUUM FULL locks the whole table while it runs.",
+        "ambiguousEscape": "A backslash in a string can end it early on a server with standard_conforming_strings off, and then more of this text runs than it shows."
       }
     },
     "oxepod": {
