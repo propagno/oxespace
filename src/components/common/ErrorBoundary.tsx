@@ -1,7 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { i18n } from '../../i18n'
 import { Button, ErrorState } from '../../ui'
-import { firstComponent, rendererErrorReport, reportRendererError, type RendererErrorBoundary } from '../../lib/rendererErrors'
+import type { RendererErrorBoundary } from '../../lib/rendererErrors'
+import { reportBoundaryError } from '../../lib/rendererErrorsBoot'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -11,6 +12,8 @@ interface ErrorBoundaryProps {
   component?: string
   /** Short label for the fallback copy and logs (e.g. "the terminal"). */
   label?: string
+  /** Runs before Try again renders the children again: a lazy part retries its chunk (lazyFrom's retry). */
+  onReset?: () => void
   /** Custom fallback; defaults to an error state with Try again. */
   fallback?: ReactNode
   /** One line instead of a card, for small panels. */
@@ -37,10 +40,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error(`[OXESpace] ErrorBoundary caught (${this.props.label ?? 'component'})`, error, info.componentStack)
-    reportRendererError(rendererErrorReport('boundary', error, { boundary: this.props.id, component: this.props.component ?? firstComponent(info.componentStack) }))
+    void reportBoundaryError(error, this.props.id, this.props.component, info.componentStack)
   }
 
-  private readonly reset = (): void => this.setState({ error: null })
+  private readonly reset = (): void => { this.props.onReset?.(); this.setState({ error: null }) }
 
   render(): ReactNode {
     if (!this.state.error) return this.props.children

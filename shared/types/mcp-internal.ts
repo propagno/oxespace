@@ -62,6 +62,8 @@ export interface InternalMcpToolDescriptor {
     required?: string[]
     additionalProperties?: boolean
   }
+  /** MCP tool annotations: hints for the client, never a substitute for the server's own checks. */
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean }
 }
 
 /** Content block returned in a `tools/call` result (MCP spec content array). */

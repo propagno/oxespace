@@ -18,6 +18,8 @@ data class PairedDesktop(
     val fingerprint: String,
     val desktopName: String?,
     val keyAlias: String,
+    /** An address the person typed, for networks where the last one changed; tried after it. */
+    val manualHost: String? = null,
 )
 
 interface PairedDesktopStore {

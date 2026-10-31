@@ -1383,7 +1383,7 @@ THE SOFTWARE.
 
 OXESpace ships these packages as separate files and loads them at run time.
 
-## ws 8.18.3
+## ws 8.22.0
 
 - License: MIT
 - Source: https://github.com/websockets/ws

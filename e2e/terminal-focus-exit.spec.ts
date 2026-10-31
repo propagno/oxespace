@@ -108,14 +108,17 @@ test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable a
       .map(region => `${region.className.split(' ')[0]}=${region.getAttribute('tabindex')}`))
     await terminalInput.focus()
     const tabindexesBefore = await regionTabindexes()
+    // Each F6 is handled after the key event, so wait for focus to reach the next region: a press still pending when
+    // the walk ends would pull focus back out of the terminal focused below.
     for (let step = 0; step < 7; step++) {
+      const before = await focusedRegion(page)
       await page.keyboard.press('F6')
-      await expect.poll(() => focusedRegion(page)).not.toMatch(/^none/)
+      await expect.poll(() => focusedRegion(page)).not.toMatch(new RegExp(`^(none|${before})`))
     }
     await terminalInput.focus()
     // T5: every region's tabindex is what it was before the walk. A tabindex the app set itself stays (the Windows title
     // bar has one), so the check is "unchanged", not "none".
-    expect(await regionTabindexes()).toEqual(tabindexesBefore)
+    await expect.poll(regionTabindexes).toEqual(tabindexesBefore)
 
     // T1: "Send F6 to the program" in this pane's ⋯ menu: F6 and Shift+F6 reach the program, Ctrl+M still gets out.
     const firstPane = page.getByTestId('pane-container').filter({ has: page.locator(`[data-terminal-pane="${first}"]`) })

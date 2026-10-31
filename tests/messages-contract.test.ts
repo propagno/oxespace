@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
 import { isMainMessage, isMessageCode, MAIN_MESSAGE_ERROR_TAG, mainMessage, MESSAGE_CODES, messageFromError, messageKey, messageValues, type MessageCode } from '../shared/messages'
+import { ACTIVITY_REFUSALS } from '../shared/types/activity'
 import { APPROVAL_REFUSALS } from '../shared/types/approvals'
 import { REMOTE_PAIRING_FAILURE_REASONS } from '../shared/types/remote'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
+import { THREAD_SECTIONS_REFUSALS } from '../shared/types/thread-sections'
 import { WORKSPACE_ROOT_REFUSALS } from '../shared/types/workspace'
 
 const lookup = (catalog: unknown, key: string): unknown => key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog)
@@ -29,6 +31,20 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'app.connectivity.offline': [],
   'thread.side.unavailable': [],
   'thread.side.noSession': [],
+  'activity.invalid': [],
+  'activity.tooMany': ['max'],
+  'activity.titleTooLong': ['max'],
+  'activity.detailTooLong': ['max'],
+  'activity.hiddenCharacters': [],
+  'activity.future': [],
+  'activity.secret': [],
+  'thread.sections.invalid': [],
+  'thread.sections.tooMany': ['assignments', 'sections'],
+  'thread.sections.nameEmpty': [],
+  'thread.sections.nameTooLong': ['max'],
+  'thread.sections.nameHidden': [],
+  'thread.sections.nameDuplicate': ['name'],
+  'thread.sections.unknownWorkspace': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
   'incident.ipc.handlerFailed': [],
@@ -41,6 +57,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.updater.failed': [],
   'incident.interaction.overBudget': [],
   'incident.app.journalReset': [],
+  'incident.app.closeUnanswered': [],
+  'incident.app.closeRendererGone': [],
+  'incident.app.closeGuardFailed': [],
   'incident.window.externalRefused': [],
   'incident.window.externalRateLimited': [],
   'incident.window.externalOpenFailed': [],
@@ -61,6 +80,12 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.signIn.waiting': [],
   'mcp.server.quarantined': [],
   'mcp.server.untrusted': [],
+  'mcp.toolGroups.unknownProject': [],
+  'mcp.toolGroups.invalidYaml': [],
+  'mcp.toolGroups.notMapping': [],
+  'mcp.toolGroups.inlineThread': [],
+  'mcp.toolGroups.unsafeEdit': [],
+  'project.file.changedMeanwhile': ['file'],
   'github.cli.missing': [],
   'git.base.unresolved': ['base'],
   'oxe.status.unreadable': [],
@@ -152,6 +177,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.requester.unknownConversation': ['conversation'],
   'approvals.requester.mcpServer': ['server'],
   'approvals.requester.app': [],
+  'approvals.requester.preview': [],
   'approvals.option.deny': [],
   'approvals.option.allowOnce': [],
   'approvals.option.allowSessionReads': [],
@@ -175,6 +201,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.note.thread.actsOnMessage': [],
   'approvals.note.skill.followed': [],
   'approvals.note.automation.runsAlone': [],
+  'approvals.note.preview.notLocal': [],
   'approvals.note.worktree.folderDeleted': [],
   'approvals.note.worktree.forceDiscards': [],
   'approvals.note.git.branchShared': [],
@@ -183,6 +210,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.note.github.releasePublic': [],
   'approvals.note.textCut': ['max'],
   'approvals.note.crash': [],
+  'approvals.note.hiddenCharacters': [],
+  'approvals.note.nativeCriticalDenyOnly': [],
+  'approvals.notify.waiting': [],
   'approvals.unavailable': [],
   'approvals.expired': [],
   'approvals.refused.notPending': [],
@@ -191,7 +221,10 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.refused.unknownOption': [],
   'approvals.refused.alreadyReported': [],
   'approvals.refused.tooSoon': [],
+  'approvals.refused.notShown': [],
   'approvals.denied.queueFull': ['max'],
+  'approvals.denied.timeout': [],
+  'approvals.denied.cancelled': [],
   'approvals.denied.tooLong': ['max'],
   'notify.prefix.pane': ['agent', 'pane', 'title'],
   'notify.prefix.conversation': ['agent', 'conversation', 'title'],
@@ -223,6 +256,14 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of a pending answer its own code', () => {
     for (const refusal of THREAD_PENDING_REFUSALS) expect(isMessageCode(`thread.request.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of an activity call its own code', () => {
+    for (const refusal of ACTIVITY_REFUSALS) expect(isMessageCode(`activity.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of a sections save its own code', () => {
+    for (const refusal of THREAD_SECTIONS_REFUSALS) expect(isMessageCode(`thread.sections.${refusal}`), refusal).toBe(true)
   })
 
   it('gives every refusal of a workspace root its own code', () => {

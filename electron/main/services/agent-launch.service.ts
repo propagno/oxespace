@@ -7,9 +7,15 @@ import type { AppDatabase } from '../db/index'
 import { codexMcpArguments, readManagedMcp } from './conversation/thread-managed-mcp'
 
 const forwarded = ['OXESPACE_MCP_PORT','OXESPACE_MCP_TOKEN','OXESPACE_WORKSPACE_ID','OXESPACE_EXECUTION_ID','OXESPACE_EXECUTION_TOKEN','OXESPACE_MEMORY_RUN_ID']
-export function agentMcpArguments(provider: string, bridge: string): string[] {
-  if (provider === 'claude') return ['--mcp-config', JSON.stringify({ mcpServers: { 'oxespace-delegation': { command: 'node', args: [bridge] } } })]
-  if (provider === 'codex') return ['-c', 'mcp_servers.oxespace-delegation.command="node"', '-c', `mcp_servers.oxespace-delegation.args=${JSON.stringify([bridge])}`,
+/** The bridge's own arguments: the session's tool list and the groups it may turn on, when a plan limits them (B7.2). */
+export function bridgeArguments(bridge: string, plan?: { tools: readonly string[]; enableable: Readonly<Record<string, readonly string[]>> }): string[] {
+  if (!plan) return [bridge]
+  return [bridge, '--allowed-tools', JSON.stringify(plan.tools), ...(Object.keys(plan.enableable).length ? ['--enableable-groups', JSON.stringify(plan.enableable)] : [])]
+}
+export function agentMcpArguments(provider: string, bridge: string, plan?: Parameters<typeof bridgeArguments>[1]): string[] {
+  const args = bridgeArguments(bridge, plan)
+  if (provider === 'claude') return ['--mcp-config', JSON.stringify({ mcpServers: { 'oxespace-delegation': { command: 'node', args } } })]
+  if (provider === 'codex') return ['-c', 'mcp_servers.oxespace-delegation.command="node"', '-c', `mcp_servers.oxespace-delegation.args=${JSON.stringify(args)}`,
     '-c', `mcp_servers.oxespace-delegation.env_vars=${JSON.stringify(forwarded)}`]
   return []
 }
@@ -20,15 +26,25 @@ export function agentMcpArguments(provider: string, bridge: string): string[] {
  * Nothing is written to ~/.codex/config.toml, and a `codex` started outside
  * OXESpace does not see them. Secrets go in `env`, referenced by name.
  */
-export function codeAgentMcpLaunch(db: AppDatabase, provider: string, bridge: string, workspaceId: string, args: string[]): { args: string[]; env?: Record<string, string> } {
-  const own = agentMcpArguments(provider, bridge)
-  if (provider !== 'codex') return { args: [...own, ...args] }
+export async function codeAgentMcpLaunch(db: AppDatabase, provider: string, bridge: string, workspaceId: string, args: string[],
+  source: NodeJS.ProcessEnv = process.env): Promise<{ args: string[]; env?: Record<string, string> }> {
+  // The same groups as an OxeChat conversation, plus the Code terminal's own, by the project's modes (B2.2).
+  const [{ projectToolModes, sessionToolPlan, usesToolSearch }, { toolSearchEnvironment }, { loadRepoConfig }] = await Promise.all([
+    import('./conversation/tool-groups'), import('./conversation/thread-mcp'), import('./repo-config/loader')])
+  let root: string | undefined
+  try { root = (db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined)?.root_path } catch { /* defaults */ }
+  const modes = projectToolModes(root ? (await loadRepoConfig(root).catch(() => null))?.thread : undefined)
+  const search = provider === 'claude' || provider === 'codex' ? toolSearchEnvironment(provider, source) : {}
+  // Other agents read the workspace's .mcp.json and get no bridge arguments here; the plan only matters for these two.
+  const plan = sessionToolPlan(provider === 'claude' || provider === 'codex' ? usesToolSearch(provider, { ...source, ...search }) : false, { code: true }, modes)
+  const own = agentMcpArguments(provider, bridge, plan)
+  if (provider !== 'codex') return { args: [...own, ...args], env: search }
   try {
     const managed = readManagedMcp(db, workspaceId)
-    return { args: [...own, ...codexMcpArguments(managed), ...args], env: managed.env }
+    return { args: [...own, ...codexMcpArguments(managed), ...args], env: { ...managed.env, ...search } }
   } catch {
     // The launch never fails over the extra servers.
-    return { args: [...own, ...args] }
+    return { args: [...own, ...args], env: search }
   }
 }
 export class AgentLaunchService {

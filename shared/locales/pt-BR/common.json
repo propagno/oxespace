@@ -398,9 +398,30 @@
     "detailsCopied": "Detalhes da versão copiados",
     "report": "Relatar um problema"
   },
+  "closeGuard": {
+    "titleClose": "Salvar as alterações antes de fechar?",
+    "titleQuit": "Salvar as alterações antes de sair?",
+    "description_one": "{{count}} alteração ainda não foi salva. Fechar sem salvar a perde.",
+    "description_many": "{{count}} alterações ainda não foram salvas. Fechar sem salvar as perde.",
+    "description_other": "{{count}} alterações ainda não foram salvas. Fechar sem salvar as perde.",
+    "listLabel": "Alterações não salvas",
+    "cancel": "Cancelar",
+    "discardClose": "Fechar sem salvar",
+    "discardQuit": "Sair sem salvar",
+    "saveClose": "Salvar tudo e fechar",
+    "saveQuit": "Salvar tudo e sair",
+    "saveFailed_one": "{{count}} alteração não pôde ser salva, então nada foi fechado. Confira e tente de novo.",
+    "saveFailed_many": "{{count}} alterações não puderam ser salvas, então nada foi fechado. Confira e tente de novo.",
+    "saveFailed_other": "{{count}} alterações não puderam ser salvas, então nada foi fechado. Confira e tente de novo.",
+    "inEditor": "Editor do OxeCode · {{folder}}",
+    "inOxePost": "Requisição do OxePost",
+    "untitledRequest": "Requisição sem nome"
+  },
   "links": {
     "refused": "Este link não foi aberto",
     "refusedHint": "Só links da web (http, https) e de e-mail (mailto) com até 2.048 caracteres, sem usuário nem senha, abrem fora do OXESpace.",
+    "notOpened": "O link não abriu",
+    "notOpenedHint": "O OXESpace não conseguiu entregá-lo ao seu navegador. Tente de novo ou copie o endereço.",
     "hostSuffix": "({{host}})",
     "terminalHint": "{{key}}+clique para abrir o link",
     "confirm": {

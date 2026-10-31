@@ -17,7 +17,7 @@ export interface DeviceRecord {
 export interface GatewaySettings {
   port: number
   certificateDer: Buffer | null
-  /** `safeStorage` ciphertext of the certificate's PKCS#8 PEM key. */
+  /** `safeStorage` ciphertext of the certificate's PKCS#8 DER key (as base64 text). */
   certificateKey: Buffer | null
   /** The name phones see, or null for the default. */
   desktopName: string | null

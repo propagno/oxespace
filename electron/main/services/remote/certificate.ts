@@ -1,4 +1,4 @@
-import { createHash, generateKeyPairSync, randomBytes, sign } from 'node:crypto'
+import { createHash, createPrivateKey, generateKeyPairSync, randomBytes, sign, X509Certificate, type KeyObject } from 'node:crypto'
 
 /**
  * The gateway's self-signed TLS certificate (EC P-256, ECDSA with SHA-256), built with Node's crypto and a small DER
@@ -6,13 +6,16 @@ import { createHash, generateKeyPairSync, randomBytes, sign } from 'node:crypto'
  *
  * It carries no host name or address: the phone pins its SHA-256 fingerprint from the pairing QR instead of checking
  * names, so the certificate survives a change of the desktop's LAN address.
+ *
+ * DER only: the certificate and its key are kept and read back as DER, and nothing here parses PEM text. PEM is only
+ * written, at the moment the TLS server is made, because Node's TLS options take nothing else.
  */
 
 export interface GatewayCertificate {
   /** The certificate, DER. Public. */
   der: Buffer
-  /** The private key, PKCS#8 PEM. Kept only encrypted with `safeStorage`. */
-  keyPem: string
+  /** The private key, PKCS#8 DER. Kept only encrypted with `safeStorage`. */
+  keyDer: Buffer
 }
 
 const CERTIFICATE_YEARS = 10
@@ -94,8 +97,30 @@ export function createGatewayCertificate(now = Date.now()): GatewayCertificate {
   const signature = sign('sha256', tbs, privateKey)
   return {
     der: sequence(tbs, ECDSA_WITH_SHA256, bitString(signature)),
-    keyPem: privateKey.export({ format: 'pem', type: 'pkcs8' }).toString()
+    keyDer: privateKey.export({ format: 'der', type: 'pkcs8' })
   }
+}
+
+/** A certificate from its DER, refusing anything else (PEM text included): exactly these bytes, or it throws. */
+export function readCertificateDer(der: Buffer): X509Certificate {
+  if (!Buffer.isBuffer(der) || der[0] !== 0x30) throw new Error('Not a DER certificate')
+  const certificate = new X509Certificate(der)
+  if (!certificate.raw.equals(der)) throw new Error('Not a DER certificate')
+  return certificate
+}
+
+/** A PKCS#8 private key from its DER, refusing anything else (PEM text included). */
+export function readPrivateKeyDer(der: Buffer): KeyObject {
+  if (!Buffer.isBuffer(der) || der[0] !== 0x30) throw new Error('Not a DER private key')
+  return createPrivateKey({ key: der, format: 'der', type: 'pkcs8' })
+}
+
+/** The key's DER as the text `safeStorage` encrypts (base64), and back; anything that is not exactly that is refused. */
+export const encodeKeyDer = (der: Buffer): string => der.toString('base64')
+export function decodeKeyDer(text: string): Buffer {
+  const der = /^[A-Za-z0-9+/]+={0,2}$/.test(text) ? Buffer.from(text, 'base64') : Buffer.alloc(0)
+  if (!der.length || der.toString('base64') !== text) throw new Error('Not a DER private key')
+  return der
 }
 
 /** What the QR and the status carry: SHA-256 of the DER, 64 lowercase hex characters. */

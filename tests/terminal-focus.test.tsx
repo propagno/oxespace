@@ -179,6 +179,25 @@ describe('F6 regions', () => {
     return { sidebarButton: document.querySelector('aside input') as HTMLButtonElement, textarea: terminal('a', document.getElementById('grid')!), status: document.querySelector('.app-statusbar') as HTMLElement }
   }
 
+  it('the mode switch is a stop of its own, and the sidebar is entered at its filter, never at its width divider', () => {
+    document.body.innerHTML = `<main class="app-shell">
+      <header class="workbench-titlebar"><button type="button">File</button><nav data-focus-region="modes" aria-label="Application view"><button type="button" data-app-mode="code">OxeCode</button></nav></header>
+      <aside class="sidebar"><div role="separator" tabindex="0" aria-label="Sidebar width"></div><input aria-label="Filter"><button type="button">conversation</button></aside>
+    </main>`
+    document.body.focus()
+    moveFocusRegion(1)
+    expect(document.activeElement).toHaveTextContent('File')
+    moveFocusRegion(1)
+    expect(document.activeElement).toHaveTextContent('OxeCode')
+    moveFocusRegion(1)
+    expect(document.activeElement).toHaveAttribute('aria-label', 'Filter')
+    moveFocusRegion(-1)
+    expect(document.activeElement).toHaveTextContent('OxeCode')
+    moveFocusRegion(-1)
+    // The title bar is entered at its own controls, not at the mode switch inside it.
+    expect(document.activeElement).toHaveTextContent('File')
+  })
+
   it('go title bar → sidebar → work area → status bar and round; hidden hosts are skipped', () => {
     const { status } = shell()
     expect(focusRegions().map(region => region.className)).toEqual(['workbench-titlebar', 'sidebar', 'workspace-grid', 'app-statusbar'])
@@ -201,6 +220,24 @@ describe('F6 regions', () => {
     expect(document.activeElement).toBe(status)
     moveFocusRegion(-1)
     expect(document.querySelectorAll('[tabindex="-1"]')).toHaveLength(0)
+  })
+
+  it('take a lent tabindex back even when focus moves without any focus event (a window without the system focus)', async () => {
+    // A window Chromium counts as covered runs no animation frames at all; the check must not need them.
+    const frames = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0)
+    const { status, textarea } = shell()
+    document.body.focus()
+    for (let step = 0; step < 4; step++) moveFocusRegion(1)
+    expect(document.activeElement).toBe(status)
+    expect(status).toHaveAttribute('tabindex', '-1')
+    // Focus elsewhere without the events an unfocused window would not fire.
+    Object.defineProperty(document, 'activeElement', { configurable: true, get: () => textarea })
+    try {
+      await waitFor(() => expect(status).not.toHaveAttribute('tabindex'))
+    } finally {
+      delete (document as unknown as { activeElement?: unknown }).activeElement
+      frames.mockRestore()
+    }
   })
 
   it('leave no tabindex behind, and keep a tabindex the page set itself (T5)', () => {

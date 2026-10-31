@@ -3,7 +3,7 @@ import { isDerSignature, REMOTE_LIMITS, refreshSigningInput, type RemoteAuthResu
 
 /**
  * Access tokens for paired phones: `v1.<payload>.<mac>`, where the payload names the device and the expiry in the
- * desktop's clock, and the MAC is HMAC-SHA-256 with a key kept in `safeStorage`. The phone never computes validity;
+ * desktop's clock, and the MAC is HMAC-SHA-256 with a key made at each launch and kept only in memory (never stored). The phone never computes validity;
  * the desktop does, so a phone with a wrong clock still works and cannot stretch a token.
  */
 

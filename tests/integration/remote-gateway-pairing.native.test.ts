@@ -1,16 +1,16 @@
 // @vitest-environment node
-import { X509Certificate } from 'node:crypto'
+import { createPrivateKey, X509Certificate } from 'node:crypto'
 import http from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
 import { hostname, networkInterfaces } from 'node:os'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { isPrivateAddress } from '../../electron/main/services/remote/network'
 import { RemoteStore } from '../../electron/main/services/remote/store'
 import { MainMessageError } from '../../electron/main/ipc/main-message-error'
 import { messageFromError } from '../../shared/messages'
 import { isCertificateFingerprint, isPairingCode, pairingVerification, readPairingUri, REMOTE_LIMITS } from '../../shared/remote/protocol'
-import { connectPinned, peerFingerprint, request } from '../helpers/remote-client'
+import { connectPinned, peerCertificate, peerFingerprint, request } from '../helpers/remote-client'
 import { fakeSafeStorage, freePort, Harness, LOOPBACK, newPhone, spkiDigest, tcpOpen } from '../helpers/remote-gateway-harness'
 
 const harnesses: Harness[] = []
@@ -30,7 +30,7 @@ describe('remote gateway: off by default, on only by the person', () => {
 
     // The certificate the TLS server presents is the one whose fingerprint the status (and so the QR) carries.
     const socket = await connectPinned(target)
-    const certificate = new X509Certificate(socket.getPeerX509Certificate()!.raw)
+    const certificate = peerCertificate(socket)
     expect(peerFingerprint(socket)).toBe(target.fp)
     socket.destroy()
     expect(certificate.publicKey.asymmetricKeyDetails?.namedCurve).toBe('prime256v1')
@@ -53,6 +53,42 @@ describe('remote gateway: off by default, on only by the person', () => {
     expect(await tcpOpen('127.0.0.1', h.port)).toBe(false)
     const actions = new RemoteStore(h.db).auditEntries().map(entry => `${entry.action}:${entry.outcome}`)
     expect(actions).toEqual(expect.arrayContaining(['certificate:created', 'enable:ok', 'disable:ok']))
+  })
+
+  test('while it is off, nothing ever listens: making it, reading it, naming the desktop and switching it off open no socket', async () => {
+    const listen = vi.spyOn(net.Server.prototype, 'listen')
+    try {
+      const h = harness()
+      h.gateway.status()
+      h.gateway.devices()
+      h.gateway.setDesktopName({ name: 'Desk' })
+      await h.gateway.setEnabled({ enabled: false })
+      expect(() => h.gateway.startPairing()).toThrow('Turn the gateway on first')
+      await h.gateway.setEnabled({ enabled: true, port: 80 }) // refused before any socket
+      expect(listen).not.toHaveBeenCalled()
+      expect(h.gateway.status()).toMatchObject({ enabled: false, listening: null })
+    } finally { listen.mockRestore() }
+  })
+
+  test('it only ever tries to listen on private addresses: never the wildcard, loopback or a public address', async () => {
+    const entry = (address: string, family: 'IPv4' | 'IPv6') => ({ address, family, internal: false, netmask: '', mac: '', cidr: null })
+    const interfaces = () => ({
+      lo: LOOPBACK.lo, wan: [entry('203.0.113.7', 'IPv4'), entry('2001:db8::7', 'IPv6')], any: [entry('0.0.0.0', 'IPv4'), entry('::', 'IPv6')],
+      lan: [entry('192.168.77.10', 'IPv4'), entry('fd00:77::10', 'IPv6')]
+    }) as never
+    const hosts: unknown[] = []
+    const port = await freePort()
+    const listen = vi.spyOn(net.Server.prototype, 'listen').mockImplementation(function (this: net.Server, ...args: unknown[]) {
+      hosts.push((args[0] as { host?: unknown }).host)
+      // Nothing is really bound: each address reports it cannot be, as one that is not on this machine would.
+      queueMicrotask(() => this.emit('error', Object.assign(new Error('not here'), { code: 'EADDRNOTAVAIL' })))
+      return this
+    })
+    try {
+      const h = harness({ isAllowedAddress: undefined, interfaces })
+      expect(await h.gateway.setEnabled({ enabled: true, port })).toMatchObject({ enabled: false, error: { code: 'remote.network.noPrivateInterface' } })
+      expect(hosts).toEqual(['192.168.77.10', 'fd00:77::10'])
+    } finally { listen.mockRestore() }
   })
 
   test('routes other than POST /pair answer 404/405 as JSON, without CORS', async () => {
@@ -112,6 +148,10 @@ describe('remote gateway: off by default, on only by the person', () => {
     const row = h.db.prepare('SELECT certificate_key FROM remote_gateway').get() as { certificate_key: Buffer }
     expect(row.certificate_key.toString('latin1')).not.toContain('PRIVATE KEY')
     expect(row.certificate_key.subarray(0, 4).toString()).toBe('ENC1')
+    // What is encrypted is the key's PKCS#8 DER (as base64), never PEM text.
+    const stored = fakeSafeStorage().decryptString(row.certificate_key)
+    expect(stored).not.toContain('PRIVATE KEY')
+    expect(createPrivateKey({ key: Buffer.from(stored, 'base64'), format: 'der', type: 'pkcs8' }).asymmetricKeyDetails?.namedCurve).toBe('prime256v1')
 
     const { res } = await h.pair()
     expect(res.status).toBe(200)
@@ -130,6 +170,29 @@ describe('remote gateway: off by default, on only by the person', () => {
     expect(replaced.fp).not.toBe(first.fp)
     expect(h.gateway.devices()).toEqual([])
     expect(new RemoteStore(h.db).auditEntries().some(entry => entry.action === 'certificate' && entry.outcome === 'replaced')).toBe(true)
+  })
+
+  test('DER only: a PEM certificate or a PEM key in storage is never parsed, and is replaced like an unreadable one', async () => {
+    for (const corrupt of ['certificate', 'key'] as const) {
+      const h = harness()
+      const first = await h.enable()
+      expect((await h.pair()).res.status).toBe(200)
+      await h.gateway.stop()
+      const row = h.db.prepare('SELECT certificate_der, certificate_key FROM remote_gateway').get() as { certificate_der: Buffer; certificate_key: Buffer }
+      const storage = fakeSafeStorage()
+      if (corrupt === 'certificate') {
+        h.db.prepare('UPDATE remote_gateway SET certificate_der = ?').run(Buffer.from(new X509Certificate(row.certificate_der).toString()))
+      } else {
+        const der = Buffer.from(storage.decryptString(row.certificate_key), 'base64')
+        const pem = createPrivateKey({ key: der, format: 'der', type: 'pkcs8' }).export({ format: 'pem', type: 'pkcs8' }).toString()
+        h.db.prepare('UPDATE remote_gateway SET certificate_key = ?').run(storage.encryptString(pem))
+      }
+      h.gateway = h.create()
+      const replaced = await h.enable()
+      expect(replaced.fp, corrupt).not.toBe(first.fp)
+      expect(h.gateway.devices(), corrupt).toEqual([])
+      expect(new RemoteStore(h.db).auditEntries().some(entry => entry.action === 'certificate' && entry.outcome === 'replaced'), corrupt).toBe(true)
+    }
   })
 
   test.runIf(process.env.CI && Object.values(networkInterfaces()).flat().some(entry => entry && isPrivateAddress(entry.address)))('on a real machine it listens only on private addresses', async () => {
@@ -263,6 +326,30 @@ describe('remote gateway: pairing', () => {
     const otherTarget = await other.enable()
     expect(otherTarget.fp).not.toBe(target.fp)
     await expect(connectPinned({ ...otherTarget, fp: target.fp })).rejects.toThrow('certificate pin mismatch')
+  })
+})
+
+describe('remote gateway: panes a phone may type into', () => {
+  test('none on launch; only the person allows or stops one; strict input; never stored, so a restart stops every pane', async () => {
+    const h = harness()
+    expect(h.gateway.status().phoneWritePanes).toEqual([])
+    expect(h.gateway.setPhoneWrite({ paneId: 'pane-1', allowed: true }).phoneWritePanes).toEqual(['pane-1'])
+    expect(h.gateway.setPhoneWrite({ paneId: 'pane:2', allowed: true }).phoneWritePanes).toEqual(['pane-1', 'pane:2'])
+    expect(h.changes.at(-1)).toEqual({ status: expect.objectContaining({ phoneWritePanes: ['pane-1', 'pane:2'] }) })
+    expect(h.gateway.setPhoneWrite({ paneId: 'pane-1', allowed: false }).phoneWritePanes).toEqual(['pane:2'])
+    for (const input of [undefined, null, {}, { paneId: '', allowed: true }, { paneId: 'a b', allowed: true }, { paneId: 'x'.repeat(201), allowed: true },
+      { paneId: 'p', allowed: 'yes' }, { paneId: 'p', allowed: true, extra: 1 }, { paneId: 1, allowed: true }]) {
+      expect(() => h.gateway.setPhoneWrite(input), JSON.stringify(input)).toThrow()
+    }
+    const tables = (h.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map(row => row.name)
+    for (const table of tables) {
+      for (const row of h.db.prepare(`SELECT * FROM "${table}"`).all() as Array<Record<string, unknown>>) {
+        expect(Object.values(row).some(value => typeof value === 'string' && value.includes('pane:2')), table).toBe(false)
+      }
+    }
+    await h.gateway.stop()
+    h.gateway = h.create()
+    expect(h.gateway.status().phoneWritePanes).toEqual([])
   })
 })
 

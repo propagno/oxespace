@@ -27,7 +27,7 @@
     "test:e2e": "playwright test",
     "bench:cpu": "vitest bench --run tests/bench/hotpaths.bench.ts",
     "bench:services": "vitest bench --run tests/bench/services.bench.ts",
-    "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts memory-footprint.spec.ts",
+    "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts",
     "bench:web-preview": "playwright test --config playwright.tools.config.ts browser-preview-performance.spec.ts",
     "bench:semantic": "node scripts/semantic-eval.mjs",
     "bench:semantic:gate": "node scripts/semantic-quality-gate.mjs",
@@ -104,7 +104,7 @@
     "sql-formatter": "^15.9.0",
     "tree-sitter-wasms": "^0.1.13",
     "web-tree-sitter": "0.25.10",
-    "ws": "8.18.3",
+    "ws": "^8.22.0",
     "zustand": "^5.0.16"
   },
   "optionalDependencies": {
