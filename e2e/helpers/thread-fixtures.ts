@@ -143,6 +143,8 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
   await app.evaluate(({ ipcMain, BrowserWindow }, { fixtureRoot, now }) => {
     const g = globalThis as Record<string, unknown>
     let snapshot: Record<string, unknown> | null = null
+    // A spec that replaces a handler (the list, a command) can still read the conversation the fixture serves.
+    g.e2eThreadSnapshot = () => snapshot
     const changed = () => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('thread:changed', { threadId: 'e2e-thread' }) }
     g.applyThreadState = (state: { status: string; title: string; provider?: string; extra?: Record<string, unknown>; events: unknown[] }) => {
       const thread = snapshot!.thread as Record<string, unknown>

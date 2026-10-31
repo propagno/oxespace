@@ -1,0 +1,13 @@
+/* The conversations this one started: a count in the header, the list in a popover. */
+.trigger { position: relative; gap: 4px; }
+.waiting { position: absolute; top: 2px; right: 2px; width: 6px; height: 6px; border-radius: var(--radius-full); background: var(--intent-warning-solid); }
+.panel { width: min(340px, calc(100vw - 32px)); padding: var(--space-2); }
+.header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-1) var(--space-2) var(--space-2); }
+.header strong { font-size: var(--text-sm); color: var(--text-primary); }
+.header small, .loading { color: var(--text-secondary); font-size: var(--text-xs); }
+.loading { margin: 0; padding: var(--space-2); }
+.list { display: grid; gap: 2px; max-height: 320px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.item { display: flex; align-items: center; gap: var(--space-1); }
+.item .open { flex: 1; min-width: 0; justify-content: flex-start; gap: var(--space-2); height: auto; min-height: 30px; padding: 4px 8px; font-weight: inherit; }
+.name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: var(--text-primary); }
+.item small { flex: none; color: var(--text-secondary); font-size: var(--text-2xs); }

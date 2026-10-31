@@ -1,11 +1,11 @@
 import { useShallow } from 'zustand/react/shallow'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, Splitter, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
-import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
+import { AlignJustify, Archive, GitBranch, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
@@ -18,7 +18,7 @@ import { useSettingsStore } from '../../store/settings.store'
 import { resolveDensity } from '../../design/density'
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { threadConfirmation } from '../../../shared/threadConfirmations'
-import { threadConfirmationText } from './threadConfirmationText'
+import { localizeConfirmation, threadConfirmationText } from './threadConfirmationText'
 import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
 import { ThreadWorktreeFinishDialog } from './ThreadWorktreeFinishDialog'
 import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
@@ -29,6 +29,8 @@ import { useSectionDrag } from './sections/useSectionDrag'
 import { groupBySection } from './sections/sectionsModel'
 import { ThreadSectionGroup, moveToSectionEntry } from './sections/ThreadSectionGroup'
 import { ThreadSectionDialogs } from './sections/ThreadSectionDialogs'
+import type { ThreadConfirmation } from '../../../shared/threadConfirmations'
+import { childCounts, nestConversations, nestingDepth } from './threadNesting'
 import sectionStyles from './sections/ThreadSections.module.css'
 
 /** Threads shown per project before "Show more" (a search or the selected thread always shows). */
@@ -51,7 +53,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   // A conversation that owns a worktree asks what to do with it before it is archived or deleted.
   const finishRequest = useThreadWorktreeFinishStore(state => state.request), askWorktreeFinish = useThreadWorktreeFinishStore(state => state.ask)
   const finishThread = finishRequest ? threads.find(thread => thread.id === finishRequest.threadId) : undefined
-  const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
+  const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string; /** Main asked again: conversations it started still work (B1.3). */ children?: ThreadConfirmation } | null>(null)
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<string[]>([])
@@ -105,13 +107,16 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     } catch (error) { setActionError(humanizeError(error, t('sidebar.restoreFailed'))) }
     finally { setRestoringId(null) }
   }
+  const threadsById = useMemo(() => new Map(threads.map(thread => [thread.id, thread])), [threads])
   const row = (thread: ConversationThread) => {
     const status = threadNavigationStatus(thread), unread = unreadIds.includes(thread.id)
-    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))} {...drag.rowProps(thread)}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
+    // Nested conversations (B1.3): a child sits under the one that started it; a parent says what its children do.
+    const depth = nestingDepth(thread, threadsById), started = childCounts(thread.id, threads)
+    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))} data-depth={depth || undefined} style={depth ? { '--thread-depth': depth } as CSSProperties : undefined} {...drag.rowProps(thread)}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
     title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
     <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
-    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={12} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
+    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span>{started.total > 0 && <>{' '}<small className={cx(styles.started, started.waiting > 0 && styles.startedWaiting)} data-testid="thread-started-count" aria-hidden="true"><GitBranch size={11} />{started.total}</small><span className="sr-only">{t('sidebar.started', { count: started.total, working: started.working, waiting: started.waiting, failed: started.failed })}</span></>}{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={12} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
     {status.kind === 'attention' ? <small className={styles.needs}>{t('status.attention')}</small> : <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>}
   </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: thread.title })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: thread.title })} side="right" items={[
     { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
@@ -158,8 +163,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
             const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
             const visible = split.loose.filter((thread, index) => index < limit || thread.id === selectedId)
             return <>
-              {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
-              <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <button type="button" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</button>}</div>
+              {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={{ ...item, threads: nestConversations(item.threads) }} index={index} total={split.sections.length} searching={!!query} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
+              <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{nestConversations(visible).map(row)}{split.loose.length > visible.length && <button type="button" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</button>}</div>
             </>
           })()}</div>}
         </section>)}
@@ -203,6 +208,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     {confirmation && <ConfirmDialog cancelLabel={t('common.cancel')}
       {...(confirmation.kind === 'project'
         ? { title: t('sidebar.removeProject.title'), confirmLabel: t('sidebar.removeProject.confirm'), danger: true, description: t('sidebar.removeProject.description', { name: confirmation.title }) }
+        : confirmation.children ? localizeConfirmation(confirmation.children, confirmation.title)
         : threadConfirmationText(confirmation.kind === 'thread' ? 'delete' : 'archive', confirmation.title))}
       busy={acting}
       error={actionError}
@@ -211,7 +217,13 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         // Removing a project and archiving show at once; a failed save undoes them with a toast.
         if (confirmation.kind === 'project') { setConfirmation(null); void useThreadStore.getState().hideProject(confirmation.id); return }
         if (confirmation.kind === 'archive' && window.oxe.thread?.command) {
-          setConfirmation(null); void useThreadStore.getState().archiveThread(confirmation.id).then(saved => { if (saved) setShowArchived(true) }); return
+          const asked = confirmation
+          setConfirmation(null)
+          void useThreadStore.getState().archiveThread(asked.id, Boolean(asked.children)).then(outcome => {
+            if (outcome === true) setShowArchived(true)
+            // Conversations it started still work: ask once more, naming them, before taking them along.
+            else if (outcome) setConfirmation({ ...asked, children: outcome })
+          }); return
         }
         setActing(true); setActionError('')
         void (async () => {

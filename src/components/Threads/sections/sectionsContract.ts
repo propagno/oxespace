@@ -1,7 +1,7 @@
 /**
  * F13 · Sections in the conversation list: the approved contract, renderer side.
  *
- * TODO(CCR F13): `ThreadSection`, `ThreadSectionsApi`, the `sectionId` / `parentThreadId` summary fields and the
+ * TODO(CCR F13): `ThreadSection`, `ThreadSectionsApi`, the `sectionId` summary field and the
  * `thread.section.*` codes move to shared/types/thread.ts, shared/types/ipc.ts (preload) and shared/messages.ts when
  * the contract PR lands. Then delete this file's types, import those, and drop the localStorage mock in sectionsMock.ts.
  */
@@ -21,9 +21,10 @@ export interface ThreadSection {
 export type SectionedThread = ConversationThread & {
   /** null or absent: no section. A child reports its parent's section. */
   sectionId?: string | null
-  /** TODO(CCR F13): field name of nested conversations (B1.3); children follow their parent's section. */
-  parentThreadId?: string | null
 }
+
+/** The conversation that started this one (B1.3, `thread.parent`), or null; a child follows its parent's section. */
+export const parentIdOf = (thread: Pick<ConversationThread, 'parent'>): string | null => thread.parent?.threadId ?? null
 
 /** The methods the contract adds to `window.oxe.thread`. */
 export interface ThreadSectionsApi {

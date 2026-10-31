@@ -1,5 +1,6 @@
 import { useThreadStore } from '../../../store/thread.store'
 import type { SectionedThread, ThreadSectionsApi } from './sectionsContract'
+import { parentIdOf } from './sectionsContract'
 import { browserStorage, createSectionsMock, type SectionsMock } from './sectionsMock'
 
 let mock: SectionsMock | null = null
@@ -16,7 +17,7 @@ function localMock(): SectionsMock {
     storage: browserStorage(),
     lookup: threadId => {
       const thread = useThreadStore.getState().threads.find(item => item.id === threadId) as SectionedThread | undefined
-      return thread && { projectId: thread.projectId, parentThreadId: thread.parentThreadId }
+      return thread && { projectId: thread.projectId, parentThreadId: parentIdOf(thread) }
     }
   })
   return mock
@@ -37,7 +38,8 @@ export function sectionsUseMock(): boolean { return !realApi() }
 export function sectionIdOf(thread: SectionedThread, threads: readonly SectionedThread[], assignmentsOf: (projectId: string) => Record<string, string> = projectId => localMock().assignments(projectId)): string | null {
   if (realApi()) return thread.sectionId ?? null
   const assignments = assignmentsOf(thread.projectId)
-  const parent = thread.parentThreadId ? threads.find(item => item.id === thread.parentThreadId) : undefined
+  const parentId = parentIdOf(thread)
+  const parent = parentId ? threads.find(item => item.id === parentId) : undefined
   return assignments[(parent ?? thread).id] ?? null
 }
 

@@ -11,7 +11,7 @@ import type { ConversationThread, ThreadApi } from '../shared/types/thread'
 const base: ConversationThread = { id: 'a', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'claude', title: 'Alpha', pinned: false, status: 'idle', nativeSessionId: null, createdAt: 3, updatedAt: 3 }
 
 function fixture() {
-  const threads = [base, { ...base, id: 'b', title: 'Bravo', createdAt: 2 }, { ...base, id: 'child', title: 'Nested', createdAt: 1, parentThreadId: 'a' } as ConversationThread]
+  const threads = [base, { ...base, id: 'b', title: 'Bravo', createdAt: 2 }, { ...base, id: 'child', title: 'Nested', createdAt: 1, parent: { threadId: 'a', via: 'thread_create' } } as ConversationThread]
   const api = { list: vi.fn(async () => threads), projects: vi.fn(async () => ({ projects: [], unavailable: [] })), onChanged: vi.fn(() => () => {}) } as unknown as ThreadApi
   Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api } })
   useThreadStore.setState({ threads, projects: [{ projectId: 'project', displayName: 'Repo', identityLabel: '/repo', hidden: false, contexts: [{ rootPath: '/repo', label: 'Repo' }] }], selectedId: null, secondaryId: null, errors: {}, hiddenProjects: [], expanded: {}, unreadIds: [] })
@@ -43,7 +43,7 @@ describe('sections in the conversation list', () => {
     submenu.focus()
     await user.keyboard('{ArrowRight}')
     await user.click(await screen.findByRole('menuitemradio', { name: 'Work' }))
-    await waitFor(() => expect(titlesIn(region('Work'))).toEqual(['Alpha', 'Bravo', 'Nested']))
+    await waitFor(() => expect(titlesIn(region('Work'))).toEqual(['Alpha', 'Nested', 'Bravo']))
 
     await user.click(screen.getByRole('button', { name: 'Actions for Nested' }))
     expect(screen.getByRole('menuitem', { name: 'Section follows the parent conversation' })).toHaveAttribute('aria-disabled', 'true')
@@ -64,7 +64,7 @@ describe('sections in the conversation list', () => {
     fireEvent(loose, over)
     expect(over.defaultPrevented).toBe(true)
     fireEvent.drop(loose, { dataTransfer })
-    await waitFor(() => expect(titlesIn(document.querySelector('.thread-project-rows')!)).toEqual(['Alpha', 'Bravo', 'Nested']))
+    await waitFor(() => expect(titlesIn(document.querySelector('.thread-project-rows')!)).toEqual(['Alpha', 'Nested', 'Bravo']))
     expect(region('Work')).toHaveTextContent('Drag a conversation here')
   })
 

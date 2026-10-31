@@ -430,6 +430,14 @@
     "saving": "Saving"
   },
   "confirm": {
+    "archiveChildren": {
+      "title": "Archive this conversation and the ones it started?",
+      "confirm": "Archive all",
+      "description_one": "{{count}} conversation it started is still working. It stops and is archived with it; you can restore it from Archived in the sidebar.",
+      "description_other": "{{count}} conversations it started are still working. They stop and are archived with it; you can restore them from Archived in the sidebar.",
+      "descriptionNamed_one": "{{count}} conversation that “{{name}}” started is still working. It stops and is archived with it; you can restore it from Archived in the sidebar.",
+      "descriptionNamed_other": "{{count}} conversations that “{{name}}” started are still working. They stop and are archived with it; you can restore them from Archived in the sidebar."
+    },
     "archive": {
       "title": "Archive this conversation?",
       "confirm": "Archive conversation",
@@ -1193,6 +1201,8 @@
     "failed": "Could not change semantic search."
   },
   "sidebar": {
+    "started_one": "Started {{count}} conversation: {{working}} working, {{waiting}} waiting for you, {{failed}} failed",
+    "started_other": "Started {{count}} conversations: {{working}} working, {{waiting}} waiting for you, {{failed}} failed",
     "age": {
       "now": "now",
       "minutes_one": "{{count}}m",
@@ -1588,5 +1598,16 @@
     "close": "Close side chat ({{shortcut}})",
     "openMenu": "Side chat",
     "closeMenu": "Close side chat"
+  },
+  "children": {
+    "title": "Conversations it started",
+    "button_one": "{{count}} conversation",
+    "button_other": "{{count}} conversations",
+    "summary_one": "Started {{count}} conversation: {{working}} working, {{waiting}} waiting for you",
+    "summary_other": "Started {{count}} conversations: {{working}} working, {{waiting}} waiting for you",
+    "loading": "Reading the conversations it started…",
+    "failed": "Could not read the conversations it started.",
+    "archived": "Archived",
+    "openBeside": "Open {{name}} beside this one"
   }
 }

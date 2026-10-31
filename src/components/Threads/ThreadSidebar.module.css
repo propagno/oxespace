@@ -102,3 +102,9 @@
 .archivedRow .item { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .archivedRow .item > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .archivedRow .item > small { flex: none; color: var(--text-muted); font-size: var(--text-2xs); }
+
+/* Nested conversations (B1.3): a child is indented under the conversation that started it, with a guide line. */
+.row[data-depth] { margin-left: calc(var(--thread-depth, 1) * 14px); }
+.row[data-depth]::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; border-left: 1px solid var(--border-subtle); }
+.started { display: inline-flex; flex: none; align-self: flex-start; width: max-content; align-items: center; gap: 2px; margin-left: 4px; padding: 0 4px; border-radius: var(--radius-sm); background: var(--fill-hover); color: var(--text-secondary); font-size: var(--text-2xs); font-weight: var(--weight-medium); vertical-align: middle; }
+.startedWaiting { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }

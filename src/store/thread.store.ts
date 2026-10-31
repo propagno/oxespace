@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ConversationThread, ThreadAttachment, ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
 import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCache'
-import { threadConfirmation } from '../../shared/threadConfirmations'
+import { threadConfirmation, type ThreadConfirmation } from '../../shared/threadConfirmations'
 import { createDraftWriter, loadStoredDrafts } from '../utils/threadDrafts'
 import { optimistic } from './optimistic'
 import { i18n } from '../i18n'
@@ -27,7 +27,11 @@ interface ThreadState {
   /** Pin, rename and archive show at once and roll back with a toast when the change is not saved. */
   pinThread: (id: string, pinned: boolean) => Promise<void>
   renameThread: (id: string, title: string) => Promise<void>
-  archiveThread: (id: string) => Promise<boolean>
+  /**
+   * Archives at once and saves. When conversations it started still work, main refuses and asks again (B1.3): the
+   * archive is undone and the confirmation comes back; `withChildren` archives them along.
+   */
+  archiveThread: (id: string, withChildren?: boolean) => Promise<boolean | ThreadConfirmation>
   select: (id: string | null, markRead?: boolean) => Promise<void>
   openSecondary: (id: string) => Promise<void>
   closeSecondary: () => void
@@ -45,6 +49,8 @@ interface ThreadState {
   adopt: (snapshot: ThreadSnapshot) => void
   updateSnapshot: (snapshot: ThreadSnapshot) => void
 }
+/** Archives a conversation and the conversations it started that still work (B1.3). */
+export const ARCHIVE_WITH_CHILDREN = '/archive confirm-with-children'
 const refreshVersions = new Map<string, number>()
 /** One conversation's metadata changed in the list and, when it is open, in its header. */
 function patchThread(state: ThreadState, id: string, change: Partial<ConversationThread>): Partial<ThreadState> {
@@ -81,10 +87,16 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
       { rollbackMessage: i18n.t('thread:store.renameFailed'), revert: state => patchThread(state, id, { title: previous }) })
     if (saved) await get().refresh(id)
   },
-  archiveThread: async id => {
+  archiveThread: async (id, withChildren = false) => {
     if (!window.oxe.thread?.command) return false
-    const saved = await optimistic(set, get, state => patchThread(state, id, { archived: true }), async () => { await window.oxe.thread!.command!(id, threadConfirmation('archive').command); return true },
-      { rollbackMessage: i18n.t('thread:store.archiveFailed'), revert: state => patchThread(state, id, { archived: false }) })
+    const command = withChildren ? ARCHIVE_WITH_CHILDREN : threadConfirmation('archive').command
+    const outcome = await optimistic(set, get, state => patchThread(state, id, { archived: true }), async () => {
+      const result = await window.oxe.thread!.command!(id, command)
+      return result?.refusal === 'hasActiveChildren' && result.confirm ? result.confirm : true
+    }, { rollbackMessage: i18n.t('thread:store.archiveFailed'), revert: state => patchThread(state, id, { archived: false }),
+      reconcile: (result, state) => result === true ? undefined : patchThread(state, id, { archived: false }) })
+    if (outcome && outcome !== true) return outcome
+    const saved = outcome === true
     // The catalog reload moves the selection off the archived conversation.
     if (saved) await get().load()
     return saved === true

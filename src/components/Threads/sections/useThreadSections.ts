@@ -4,6 +4,7 @@ import { useThreadStore } from '../../../store/thread.store'
 import { humanizeError } from '../../../utils/humanizeError'
 import { SECTION_NAME_MAX, sectionErrorCode, type SectionedThread, type ThreadSection } from './sectionsContract'
 import { mockAssignments, sectionIdOf, sectionsApi, sectionsUseMock } from './sectionsApi'
+import { parentIdOf } from './sectionsContract'
 import { moveSectionIds } from './sectionsModel'
 
 /**
@@ -69,7 +70,7 @@ export function useThreadSections(projectIds: readonly string[], threads: readon
     clearError: () => setError(''),
     dialog,
     setDialog,
-    moveTo: (thread: SectionedThread, sectionId: string | null) => thread.parentThreadId ? (setError(sectionErrorText({ code: 'thread.section.childFollowsParent' })), Promise.resolve(false))
+    moveTo: (thread: SectionedThread, sectionId: string | null) => parentIdOf(thread) ? (setError(sectionErrorText({ code: 'thread.section.childFollowsParent' })), Promise.resolve(false))
       : run(() => api().moveToSection({ threadId: thread.id, sectionId })),
     setCollapsed: (section: ThreadSection, collapsed: boolean) => run(() => api().setSectionCollapsed({ id: section.id, collapsed })),
     shift: (section: ThreadSection, delta: -1 | 1) => {

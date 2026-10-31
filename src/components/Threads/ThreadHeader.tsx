@@ -12,6 +12,7 @@ import { THREAD_BAR_PANELS, THREAD_MENU_PANELS, type WorkbenchPanelId } from '..
 import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
 import { shortcutLabel } from '../../keyboard/keybindings'
+import { ThreadChildren } from './ThreadChildren'
 import './ThreadHeaderChrome.css'
 
 /** Thread's own panel ids for the shared panel names. Worktrees is Code only and never listed here. */
@@ -52,6 +53,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
     <div className="thread-heading-actions">
     {thread && THREAD_BAR_PANELS.map(id => <WorkbenchPanelToggle key={id} className="thread-review-trigger thread-panel-toggle" item={{ id, label: threadPanelLabel(id), title: threadPanelTitle(id), active: activePanel === THREAD_PANEL[id], onToggle: () => onTogglePanel(THREAD_PANEL[id]) }} />)}
+    {thread && <ThreadChildren thread={thread} />}
     <Menu label={t('header.moreActions')} align="end" items={[
       ...(thread ? [
         { label: t('header.delegate'), icon: <Waypoints size={14} aria-hidden="true" />, disabled: pending || running, onSelect: onDelegate },

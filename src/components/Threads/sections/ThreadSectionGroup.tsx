@@ -7,6 +7,7 @@ import type { SectionedThread, ThreadSection } from './sectionsContract'
 import type { SectionGroup } from './sectionsModel'
 import type { DropTarget, DropZoneProps } from './useSectionDrag'
 import type { ThreadSectionsController } from './useThreadSections'
+import { parentIdOf } from './sectionsContract'
 import styles from './ThreadSections.module.css'
 
 const NO_SECTION = '\u0000none'
@@ -54,7 +55,7 @@ export function ThreadSectionGroup({ group, index, total, searching, controller,
 /** The conversation menu's "Move to section ›" entry: the same moves as dragging, from the keyboard. */
 export function moveToSectionEntry(thread: SectionedThread, sections: readonly ThreadSection[], controller: ThreadSectionsController): MenuEntry {
   const t = i18n.t.bind(i18n)
-  if (thread.parentThreadId) return { label: t('thread:sections.followsParent'), icon: <FolderInput size={14} />, disabled: true, onSelect: () => {} }
+  if (parentIdOf(thread)) return { label: t('thread:sections.followsParent'), icon: <FolderInput size={14} />, disabled: true, onSelect: () => {} }
   const current = controller.sectionOf(thread)
   return { type: 'submenu', label: t('thread:sections.moveTo'), icon: <FolderInput size={14} />, testId: 'thread-move-to-section', items: [
     { type: 'radio', value: current ?? NO_SECTION, onValueChange: value => void controller.moveTo(thread, value === NO_SECTION ? null : value),

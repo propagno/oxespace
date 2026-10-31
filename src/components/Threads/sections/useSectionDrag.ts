@@ -1,4 +1,5 @@
 import { useState, type DragEvent, type HTMLAttributes } from 'react'
+import { parentIdOf } from './sectionsContract'
 import type { SectionedThread } from './sectionsContract'
 
 /** The drag payload type: a conversation id, readable only on drop. */
@@ -17,7 +18,7 @@ export function useSectionDrag(threads: readonly SectionedThread[], onMove: (thr
   const keyOf = (target: DropTarget): string => `${target.projectId}\n${target.sectionId ?? ''}`
   const end = (): void => { setDragging(null); setOver(null) }
 
-  const rowProps = (thread: SectionedThread): HTMLAttributes<HTMLDivElement> & { draggable?: boolean } => thread.parentThreadId ? {} : {
+  const rowProps = (thread: SectionedThread): HTMLAttributes<HTMLDivElement> & { draggable?: boolean } => parentIdOf(thread) ? {} : {
     draggable: true,
     onDragStart: (event: DragEvent<HTMLDivElement>) => {
       event.dataTransfer.setData(THREAD_DRAG_TYPE, thread.id)

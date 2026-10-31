@@ -438,6 +438,16 @@
     "saving": "Salvando"
   },
   "confirm": {
+    "archiveChildren": {
+      "title": "Arquivar esta conversa e as que ela iniciou?",
+      "confirm": "Arquivar todas",
+      "description_one": "{{count}} conversa que ela iniciou ainda está trabalhando. Ela para e é arquivada junto; você pode restaurá-la em Arquivadas, na barra lateral.",
+      "description_many": "{{count}} conversas que ela iniciou ainda estão trabalhando. Elas param e são arquivadas junto; você pode restaurá-las em Arquivadas, na barra lateral.",
+      "description_other": "{{count}} conversas que ela iniciou ainda estão trabalhando. Elas param e são arquivadas junto; você pode restaurá-las em Arquivadas, na barra lateral.",
+      "descriptionNamed_one": "{{count}} conversa que “{{name}}” iniciou ainda está trabalhando. Ela para e é arquivada junto; você pode restaurá-la em Arquivadas, na barra lateral.",
+      "descriptionNamed_many": "{{count}} conversas que “{{name}}” iniciou ainda estão trabalhando. Elas param e são arquivadas junto; você pode restaurá-las em Arquivadas, na barra lateral.",
+      "descriptionNamed_other": "{{count}} conversas que “{{name}}” iniciou ainda estão trabalhando. Elas param e são arquivadas junto; você pode restaurá-las em Arquivadas, na barra lateral."
+    },
     "archive": {
       "title": "Arquivar esta conversa?",
       "confirm": "Arquivar conversa",
@@ -1218,6 +1228,9 @@
     "failed": "Não foi possível alterar a busca semântica."
   },
   "sidebar": {
+    "started_one": "Iniciou {{count}} conversa: {{working}} trabalhando, {{waiting}} esperando você, {{failed}} com falha",
+    "started_many": "Iniciou {{count}} conversas: {{working}} trabalhando, {{waiting}} esperando você, {{failed}} com falha",
+    "started_other": "Iniciou {{count}} conversas: {{working}} trabalhando, {{waiting}} esperando você, {{failed}} com falha",
     "age": {
       "now": "agora",
       "minutes_one": "{{count}} min",
@@ -1626,5 +1639,18 @@
     "close": "Fechar o chat lateral ({{shortcut}})",
     "openMenu": "Chat lateral",
     "closeMenu": "Fechar o chat lateral"
+  },
+  "children": {
+    "title": "Conversas que ela iniciou",
+    "button_one": "{{count}} conversa",
+    "button_many": "{{count}} conversas",
+    "button_other": "{{count}} conversas",
+    "summary_one": "Iniciou {{count}} conversa: {{working}} trabalhando, {{waiting}} esperando você",
+    "summary_many": "Iniciou {{count}} conversas: {{working}} trabalhando, {{waiting}} esperando você",
+    "summary_other": "Iniciou {{count}} conversas: {{working}} trabalhando, {{waiting}} esperando você",
+    "loading": "Lendo as conversas que ela iniciou…",
+    "failed": "Não foi possível ler as conversas que ela iniciou.",
+    "archived": "Arquivada",
+    "openBeside": "Abrir {{name}} ao lado desta"
   }
 }
