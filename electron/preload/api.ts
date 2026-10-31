@@ -95,6 +95,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       undoTurnFile: (id, turnId, path) => ipc.invoke(IPC_CHANNELS.thread.undoTurnFile, id, turnId, path) as Promise<void>,
       turnFileHunks: (id, turnId, path) => ipc.invoke(IPC_CHANNELS.thread.turnFileHunks, id, turnId, path) as Promise<import('../../shared/types/thread').ThreadFileHunk[]>,
       undoTurnHunk: (id, turnId, path, hunkId) => ipc.invoke(IPC_CHANNELS.thread.undoTurnHunk, id, turnId, path, hunkId) as Promise<void>,
+      sections: workspaceId => ipc.invoke(IPC_CHANNELS.thread.sections, workspaceId) as Promise<import('../../shared/types/thread-sections').ThreadSections>,
+      saveSections: (workspaceId, state) => ipc.invoke(IPC_CHANNELS.thread.saveSections, workspaceId, state) as Promise<import('../../shared/types/thread-sections').ThreadSectionsSaveResult>,
       permissionRules: (id) => ipc.invoke(IPC_CHANNELS.thread.permissionRules, id) as Promise<import('../../shared/types/thread').ThreadPermissionRule[]>,
       addPermissionRule: (id, rule) => ipc.invoke(IPC_CHANNELS.thread.addPermissionRule, id, rule) as Promise<import('../../shared/types/thread').ThreadPermissionRule>,
       removePermissionRule: (id, ruleId) => ipc.invoke(IPC_CHANNELS.thread.removePermissionRule, id, ruleId) as Promise<void>,

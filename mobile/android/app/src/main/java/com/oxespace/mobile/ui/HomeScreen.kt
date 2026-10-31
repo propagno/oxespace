@@ -120,7 +120,7 @@ private fun Paired(
 }
 
 @Composable
-private fun AddressDialog(initial: String, onSave: (String) -> Boolean, onDismiss: () -> Unit) {
+fun AddressDialog(initial: String, onSave: (String) -> Boolean, onDismiss: () -> Unit) {
     var text by rememberSaveable { mutableStateOf(initial) }
     var invalid by rememberSaveable { mutableStateOf(false) }
     AlertDialog(

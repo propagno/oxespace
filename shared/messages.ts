@@ -41,6 +41,15 @@ export interface MessageParams {
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** F13 · Refusals of a sections save (THREAD_SECTIONS_REFUSALS); a refused save stores nothing. */
+  'thread.sections.invalid': Record<string, never>
+  'thread.sections.tooMany': { sections: number; assignments: number }
+  'thread.sections.nameEmpty': Record<string, never>
+  'thread.sections.nameTooLong': { max: number }
+  'thread.sections.nameHidden': Record<string, never>
+  /** `name` is the second section's name, trimmed, as the person typed it. */
+  'thread.sections.nameDuplicate': { name: string }
+  'thread.sections.unknownWorkspace': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -89,6 +98,18 @@ export interface MessageParams {
   'mcp.signIn.waiting': Record<string, never>
   'mcp.server.quarantined': Record<string, never>
   'mcp.server.untrusted': Record<string, never>
+  /** Settings › Tools (F10): the folder is neither a Code workspace nor an OxeChat project, so its tool groups are not OXESpace's to read or change. */
+  'mcp.toolGroups.unknownProject': Record<string, never>
+  /** Settings › Tools: the project's oxe.yaml is not valid YAML; it is left as it is until fixed by hand. */
+  'mcp.toolGroups.invalidYaml': Record<string, never>
+  /** Settings › Tools: oxe.yaml is valid YAML but not a mapping of settings. */
+  'mcp.toolGroups.notMapping': Record<string, never>
+  /** Settings › Tools: `thread` in oxe.yaml is written inline (`thread: { … }`), which this editor does not rewrite. */
+  'mcp.toolGroups.inlineThread': Record<string, never>
+  /** Settings › Tools: the edit would have changed more than `thread.tools` (anchors, aliases, an unusual layout), so nothing was written. */
+  'mcp.toolGroups.unsafeEdit': Record<string, never>
+  /** A project file changed on disk after OXESpace read it (another editor, a git checkout); nothing was written. */
+  'project.file.changedMeanwhile': { file: string }
   'github.cli.missing': Record<string, never>
   'git.base.unresolved': { base: string }
   'oxe.status.unreadable': Record<string, never>
@@ -298,6 +319,13 @@ export const MESSAGE_CODES = [
   'app.connectivity.offline',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.sections.invalid',
+  'thread.sections.tooMany',
+  'thread.sections.nameEmpty',
+  'thread.sections.nameTooLong',
+  'thread.sections.nameHidden',
+  'thread.sections.nameDuplicate',
+  'thread.sections.unknownWorkspace',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
@@ -333,6 +361,12 @@ export const MESSAGE_CODES = [
   'mcp.signIn.waiting',
   'mcp.server.quarantined',
   'mcp.server.untrusted',
+  'mcp.toolGroups.unknownProject',
+  'mcp.toolGroups.invalidYaml',
+  'mcp.toolGroups.notMapping',
+  'mcp.toolGroups.inlineThread',
+  'mcp.toolGroups.unsafeEdit',
+  'project.file.changedMeanwhile',
   'github.cli.missing',
   'git.base.unresolved',
   'oxe.status.unreadable',
