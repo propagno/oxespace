@@ -80,7 +80,7 @@ test('#316: what a generic MCP client gets from the workspace .mcp.json', async 
     const list = async () => { const r = await client!.call('tools/list'); const tools = r.result?.tools ?? []; return { count: tools.length, chars: JSON.stringify(tools).length, names: tools.map(t => t.name), error: r.error } }
     const before = await list()
     notes.before = before
-    const enable = async (args: unknown) => { const r = await client!.call('tools/call', { name: 'oxespace_tools_enable', arguments: args }); return { isError: r.result?.isError ?? null, error: r.error ?? null, text: (r.result?.content?.[0]?.text ?? '').slice(0, 240) } }
+    const enable = async (args: unknown) => { const r = await client!.call('tools/call', { name: 'oxespace_tools_enable', arguments: args }); return { isError: r.result?.isError ?? null, error: r.error ?? null, text: (r.result?.content?.[0]?.text ?? '').slice(0, 4000) } }
     notes.enable = {
       empty: await enable({}),
       nonString: await enable({ group: 42 }),
