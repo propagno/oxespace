@@ -32,6 +32,8 @@
   "attention": {
     "needsYou_one": "{{count}} needs you",
     "needsYou_other": "{{count}} need you",
+    "needsDecision_one": "{{count}} needs your decision",
+    "needsDecision_other": "{{count}} need your decision",
     "failed": "{{count}} failed",
     "working": "{{count}} working"
   },

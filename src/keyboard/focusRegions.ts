@@ -22,6 +22,37 @@ const TABBABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([ty
 
 /** The last element focused inside each region. */
 const lastFocused = new WeakMap<Element, HTMLElement>()
+/** Regions that hold a tabindex only because F6 gave them one, to take focus with nothing else to focus. */
+const lent = new Set<HTMLElement>()
+
+/**
+ * Without the system's focus, focus moves fire no events at all, so while a tabindex is lent a frame-by-frame check
+ * takes it back once focus is no longer in its region. It stops when nothing is lent.
+ */
+let watching = false
+function watchLent(): void {
+  if (watching || typeof requestAnimationFrame !== 'function') return
+  watching = true
+  const tick = (): void => {
+    for (const region of lent) {
+      if (region.contains(document.activeElement)) continue
+      region.removeAttribute('tabindex')
+      lent.delete(region)
+    }
+    if (lent.size) requestAnimationFrame(tick)
+    else watching = false
+  }
+  requestAnimationFrame(tick)
+}
+
+/** Takes back the tabindex F6 lent, from every region but `keep`. */
+function returnTabindexes(keep?: HTMLElement): void {
+  for (const region of lent) {
+    if (region === keep) continue
+    region.removeAttribute('tabindex')
+    lent.delete(region)
+  }
+}
 
 const shown = (element: Element): boolean => element.getClientRects().length > 0 && !element.closest('[aria-hidden="true"], [hidden], [inert]')
 
@@ -39,10 +70,14 @@ function enter(region: HTMLElement): void {
     : [...region.querySelectorAll<HTMLElement>(TABBABLE)].find(shown)
   if (target) { target.focus(); return }
   // A region with nothing to focus still takes focus, so the next F6 knows where it is. The tabindex goes again
-  // when focus leaves it, so it does not stay in the page for Tab order and screen-reader navigation.
+  // when focus leaves it, so it does not stay in the page for Tab order and screen-reader navigation. A window
+  // without the system's focus (a CI runner, another app in front) moves focus without blur events, so the next
+  // F6 also takes it back, and so does a later focusout.
   if (!region.hasAttribute('tabindex')) {
     region.tabIndex = -1
-    region.addEventListener('blur', () => region.removeAttribute('tabindex'), { once: true })
+    lent.add(region)
+    watchLent()
+    region.addEventListener('focusout', () => { if (lent.delete(region)) region.removeAttribute('tabindex') }, { once: true })
   }
   region.focus()
 }
@@ -56,6 +91,8 @@ export function moveFocusRegion(direction: 1 | -1, from: Element | null = docume
   const current = regionOf(from, regions)
   if (current && from instanceof HTMLElement && from !== current) lastFocused.set(current, from)
   const index = current ? regions.indexOf(current) : direction === 1 ? -1 : 0
-  enter(regions[(index + direction + regions.length) % regions.length])
+  const target = regions[(index + direction + regions.length) % regions.length]
+  returnTabindexes(target)
+  enter(target)
   return true
 }
