@@ -76,10 +76,10 @@ describe('Settings › Devices contract (remote.*)', () => {
   })
 
   it('names the reasons a pairing can fail for, the same as the message code carries', () => {
-    expect([...REMOTE_PAIRING_FAILURE_REASONS]).toEqual(['invalid', 'expired', 'refused', 'limit', 'peer-closed'])
+    expect([...REMOTE_PAIRING_FAILURE_REASONS]).toEqual(['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name'])
     const reasons: Array<MessageParams['remote.pairing.failed']['reason']> = [...REMOTE_PAIRING_FAILURE_REASONS]
     const back: RemotePairingFailureReason[] = reasons
-    expect(back).toHaveLength(5)
+    expect(back).toHaveLength(6)
   })
 
   it('reports whether the gateway ever listened, as part of every status', () => {

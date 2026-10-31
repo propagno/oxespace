@@ -55,7 +55,8 @@
       },
       "device": {
         "notFound": "This device is no longer paired.",
-        "invalidName": "Give the device a name of 1 to {{max}} characters, without line breaks."
+        "invalidName": "Give the device a name of 1 to {{max}} characters, without line breaks.",
+        "reservedName": "That name is one only OXESpace may use. Pick another name for the device."
       },
       "desktop": {
         "invalidName": "Give this computer a name of 1 to {{max}} characters, without line breaks."
@@ -70,6 +71,7 @@
     "expired": "The pairing code or the question on this computer expired. Show a new code and try again.",
     "refused": "Pairing was declined on this computer.",
     "limit": "The phone could not pair: this computer already has the maximum number of devices.",
-    "peer-closed": "The phone stopped pairing before you answered. Show a new code to try again."
+    "peer-closed": "The phone stopped pairing before you answered. Show a new code to try again.",
+    "reserved-name": "The phone gave itself a name only OXESpace may use. Rename it on the phone and try again."
   }
 }

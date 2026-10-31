@@ -19,6 +19,19 @@ describe('C3 in a rejection (MainMessageError and messageFromError)', () => {
     for (const plain of [new Error('Too many devices'), acrossIpc(new Error('enabled must be a boolean')), 'Unknown device', undefined]) expect(shown(plain)).toBe('generic')
   })
 
+  it('the marker is " #c3 " with its spaces, and "#c3" in the English text or in a parameter does not mislead the read', () => {
+    expect(MAIN_MESSAGE_ERROR_TAG).toBe(' #c3 ')
+    const message = mainMessage('mcp.quarantine.changed', { tools: ['see #c3 notes', `ticket${MAIN_MESSAGE_ERROR_TAG}42`, 'c3'] })
+    for (const english of ['Tool c3 changed', 'See #c3 for the reason', `Marked${MAIN_MESSAGE_ERROR_TAG}by hand`, `${MAIN_MESSAGE_ERROR_TAG}{"code":"app.connectivity.offline","params":{}}`]) {
+      const error = new MainMessageError(message, english)
+      expect(messageFromError(error), english).toEqual(message)
+      expect(messageFromError(acrossIpc(error)), english).toEqual(message)
+      expect(error.message.startsWith(english)).toBe(true)
+    }
+    // Without a real message after any marker, there is nothing to read.
+    expect(messageFromError(new Error(`a${MAIN_MESSAGE_ERROR_TAG}b${MAIN_MESSAGE_ERROR_TAG}c`))).toBeNull()
+  })
+
   it('keeps the English sentence first and readable on its own, for logs and crash reports', () => {
     const error = new MainMessageError(mainMessage('remote.gateway.offline', {}), 'Turn the gateway on first')
     const [english, json] = error.message.split(MAIN_MESSAGE_ERROR_TAG)

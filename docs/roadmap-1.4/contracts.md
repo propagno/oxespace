@@ -21,7 +21,7 @@
     - a frase vem antes do marcador fixo (`MAIN_MESSAGE_ERROR_TAG`) e se lê sozinha em logs e relatórios de falha;
     - os parâmetros de texto passam pela mesma redação do resto do C3: a pasta do usuário fica relativa (`sanitizeDiagnosticText`) e segredos saem (`redactSecrets`);
     - os parâmetros têm limite (`MAIN_MESSAGE_PARAM_LIMITS`: 200 caracteres por texto, 20 itens por lista).
-  - A janela chama `messageFromError` e formata com `formatMainMessage`. Sem marcador, ou com JSON inválido, ela mostra a própria frase genérica.
+  - A janela chama `messageFromError` e formata com `formatMainMessage`. O leitor procura o marcador do fim para o início e usa a última ocorrência cujo resto é uma `MainMessage` válida, então "#c3" na frase em inglês ou dentro de um parâmetro não o engana. Sem marcador, ou com JSON inválido, ela mostra a própria frase genérica.
   - Entrada malformada (tipo errado, campo desconhecido) continua `Error` comum, sem código.
   - Primeiro uso: `remote.*` (Configurações › Dispositivos, CCR F9).
 - **C4 · Design tokens:**
