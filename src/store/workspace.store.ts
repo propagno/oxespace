@@ -1,9 +1,23 @@
 import { create } from 'zustand'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
-import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
+import { isWorkspaceCreateRefusal, type WorkspaceCreateRefusal } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
+
+/**
+ * The main process refused the folder (it is not an absolute path to a folder that exists and can be listed).
+ * The message is already in the interface language; `refusal` keeps the code so the wizard can word it next to
+ * the folder field, and follow a language change, instead of showing a generic failure.
+ */
+export class WorkspaceRootRefusedError extends Error {
+  readonly refusal: WorkspaceCreateRefusal
+  constructor(refusal: WorkspaceCreateRefusal, message: string) {
+    super(message)
+    this.name = 'WorkspaceRootRefusedError'
+    this.refusal = refusal
+  }
+}
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -74,7 +88,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const [{ messageKey, messageValues }, { i18n }] = await Promise.all([import('../../shared/messages'), import('../i18n')])
       const { message } = workspace
       const tm = i18n.getFixedT(null, 'main') as unknown as (key: string, values: Record<string, string>) => string
-      throw new Error(tm(messageKey(message.code), messageValues(message, i18n.language)))
+      throw new WorkspaceRootRefusedError(workspace, tm(messageKey(message.code), messageValues(message, i18n.language)))
     }
     set((state) => ({
       // The main process can return an existing workspace for this folder.

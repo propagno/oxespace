@@ -1,12 +1,13 @@
-import { Check, FolderOpen, Minus, Plus, Terminal } from 'lucide-react'
-import { useRef, useState, type ReactElement } from 'react'
+import { Check, FolderOpen, FolderX, Minus, Plus, Terminal } from 'lucide-react'
+import { useId, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
-import type { PaneAgentBinding, ShellProfile, Workspace, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
+import { isWorkspaceCreateRefusal, type PaneAgentBinding, type ShellProfile, type Workspace, type WorkspaceCreateRefusal, type WorkspaceLayoutPreset } from '../../../shared/types/workspace'
+import { messageKey, messageValues } from '../../../shared/messages'
 import { isSameRootPath } from '../../../shared/utils/path'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
-import { Button, Dialog, EmptyState, ErrorState } from '../../ui'
+import { Button, Dialog, EmptyState, ErrorState, FieldError } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
 
@@ -36,6 +37,12 @@ interface NewWorkspaceModalProps {
  *  (builtin-powershell on Windows, builtin-bash on Linux/macOS). */
 const AGENT_SHELL_PROFILE_IDS = new Set(['builtin-claude', 'builtin-copilot'])
 
+/** The refusal a failed create carries (the workspace store's WorkspaceRootRefusedError), or null for any other failure. */
+function rootRefusalOf(error: unknown): WorkspaceCreateRefusal | null {
+  const refusal = error && typeof error === 'object' ? (error as { refusal?: unknown }).refusal : undefined
+  return isWorkspaceCreateRefusal(refusal) ? refusal : null
+}
+
 /** Columns × rows of each layout; its name and description come from the catalog. */
 const PRESET_GRID: Record<WorkspaceLayoutPreset, { cols: number; rows: number }> = {
   1: { cols: 1, rows: 1 }, 2: { cols: 2, rows: 1 }, 4: { cols: 2, rows: 2 }, 6: { cols: 3, rows: 2 }, 8: { cols: 4, rows: 2 },
@@ -55,6 +62,11 @@ export function NewWorkspaceModal({
   onClose
 }: NewWorkspaceModalProps): ReactElement {
   const { t } = useTranslation('code')
+  // The refusal's sentence comes from the main process as a C3 code; the catalog test checks each code's values.
+  const { t: tMain, i18n } = useTranslation('main')
+  const tm = tMain as unknown as (key: string, values: Record<string, string>) => string
+  const refusalId = useId()
+  const folderInputRef = useRef<HTMLInputElement | null>(null)
   const [rootPath, setRootPath] = useState('')
   const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(4)
   const [agentCounts, setAgentCounts] = useState<Record<string, number>>({})
@@ -62,6 +74,8 @@ export function NewWorkspaceModal({
   const [isPickingFolder, setIsPickingFolder] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Main refused this exact path; editing the path or choosing another folder hides it.
+  const [rootRefusal, setRootRefusal] = useState<{ path: string; refusal: WorkspaceCreateRefusal } | null>(null)
   const [selectedExistingId, setSelectedExistingId] = useState<string | null>(null)
   const returnFocusRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null)
   const closeAndRestoreFocus = (): void => {
@@ -81,6 +95,7 @@ export function NewWorkspaceModal({
   const selectedExisting = matchingWorkspaces.find((workspace) => workspace.id === selectedExistingId)
     ?? matchingWorkspaces.find((workspace) => workspace.id === activeWorkspaceId)
     ?? matchingWorkspaces[0]
+  const shownRefusal = rootRefusal && rootRefusal.path === rootPath.trim() ? rootRefusal.refusal : null
   const folderBasename = hasFolder
     ? rootPath.trim().split(/[\\/]/).filter(Boolean).at(-1) ?? rootPath.trim()
     : null
@@ -95,6 +110,12 @@ export function NewWorkspaceModal({
     } finally {
       setIsPickingFolder(false)
     }
+  }
+
+  const chooseAnotherFolder = async (): Promise<void> => {
+    await handlePickFolder()
+    // The field is remounted when the path first fills, so focus it after React has rendered the new value.
+    requestAnimationFrame(() => folderInputRef.current?.focus())
   }
 
   const incrementAgent = (agentProfileId: string): void => {
@@ -122,6 +143,7 @@ export function NewWorkspaceModal({
     }
     setIsSubmitting(true)
     setError(null)
+    setRootRefusal(null)
     try {
       if (selectedExisting && onOpenExisting) {
         await onOpenExisting(selectedExisting.id)
@@ -162,7 +184,14 @@ export function NewWorkspaceModal({
         agentBindings: [...agentBindings, ...shellBindings]
       })
     } catch (err) {
-      setError(humanizeError(err, t('newWorkspace.failed')))
+      const refusal = rootRefusalOf(err)
+      if (refusal) {
+        // Nothing was created: keep the typed path and say why next to it.
+        setRootRefusal({ path: rootPath.trim(), refusal })
+        requestAnimationFrame(() => folderInputRef.current?.focus())
+      } else {
+        setError(humanizeError(err, t('newWorkspace.failed')))
+      }
       setIsSubmitting(false)
     }
   }
@@ -190,9 +219,9 @@ export function NewWorkspaceModal({
         <div className="new-workspace-body">
           <section className="new-workspace-section">
             <div className="new-workspace-section-title">{t('worktree.create.folder')}</div>
-            <div className={`new-workspace-folder-zone${hasFolder ? ' has-path' : ''}`}>
+            <div className={`new-workspace-folder-zone${hasFolder ? ' has-path' : ''}${shownRefusal ? ' is-refused' : ''}`}>
               <div className="new-workspace-folder-zone-icon" aria-hidden="true">
-                {hasFolder ? <Check size={16} /> : <FolderOpen size={16} />}
+                {shownRefusal ? <FolderX size={16} /> : hasFolder ? <Check size={16} /> : <FolderOpen size={16} />}
               </div>
               <div className="new-workspace-folder-zone-main">
                 {hasFolder ? (
@@ -204,6 +233,9 @@ export function NewWorkspaceModal({
                       value={rootPath}
                       onChange={(event) => setRootPath(event.currentTarget.value)}
                       data-testid="wizard-dir-input"
+                      ref={folderInputRef}
+                      aria-invalid={shownRefusal ? true : undefined}
+                      aria-describedby={shownRefusal ? refusalId : undefined}
                       spellCheck={false}
                       aria-label={t('newWorkspace.path')}
                     />
@@ -218,6 +250,9 @@ export function NewWorkspaceModal({
                       value={rootPath}
                       onChange={(event) => setRootPath(event.currentTarget.value)}
                       data-testid="wizard-dir-input"
+                      ref={folderInputRef}
+                      aria-invalid={shownRefusal ? true : undefined}
+                      aria-describedby={shownRefusal ? refusalId : undefined}
                       spellCheck={false}
                       autoFocus
                       aria-label={t('newWorkspace.path')}
@@ -229,6 +264,17 @@ export function NewWorkspaceModal({
                 {isPickingFolder ? t('newWorkspace.picking') : t('worktree.create.browse')}
               </Button>
             </div>
+            {shownRefusal ? (
+              <div className="new-workspace-root-refusal" data-testid="wizard-root-refusal" data-refusal={shownRefusal.refusal}>
+                <FieldError id={refusalId}>{tm(messageKey(shownRefusal.message.code), messageValues(shownRefusal.message, i18n.language))}</FieldError>
+                {shownRefusal.refusal === 'notFound' ? <p className="new-workspace-root-refusal-hint">{t('newWorkspace.rootNotFoundHint')}</p> : null}
+                <div>
+                  <Button size="sm" icon={<FolderOpen size={14} aria-hidden="true" />} onClick={() => void chooseAnotherFolder()} disabled={isPickingFolder} data-testid="wizard-choose-another">
+                    {t('newWorkspace.chooseAnother')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           {selectedExisting && onOpenExisting ? (

@@ -74,6 +74,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setProjectHidden: (projectId, hidden) => ipc.invoke(IPC_CHANNELS.thread.setProjectHidden, projectId, hidden) as ReturnType<import('../../shared/types/thread').ThreadApi['setProjectHidden']>,
       list: () => ipc.invoke(IPC_CHANNELS.thread.list) as ReturnType<import('../../shared/types/thread').ThreadApi['list']>,
       pendingRequestsAll: () => ipc.invoke(IPC_CHANNELS.thread.pendingRequestsAll) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['pendingRequestsAll']>>,
+      sideOpen: id => ipc.invoke(IPC_CHANNELS.thread.sideOpen, id) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['sideOpen']>>,
+      sideSend: (sideId, text) => ipc.invoke(IPC_CHANNELS.thread.sideSend, sideId, text) as Promise<void>,
+      sideClose: sideId => ipc.invoke(IPC_CHANNELS.thread.sideClose, sideId) as Promise<void>,
+      onSideEvent: listener => subscribe<import('../../shared/types/thread').ThreadSideEvent>(ipc, IPC_CHANNELS.thread.onSideEvent, listener),
       respondPending: input => ipc.invoke(IPC_CHANNELS.thread.respondPending, input) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['respondPending']>>,
       create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
       read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,
@@ -486,6 +490,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onChanged: (listener) => subscribe<import('../../shared/types/agent-state').PaneAgentStateEvent>(ipc, IPC_CHANNELS.agentState.onChanged, listener)
     },
     mcpInternal: {
+      toolGroups: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.toolGroups, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
+      setToolGroupMode: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.setToolGroupMode, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
       getStatus: () => ipc.invoke(IPC_CHANNELS.mcpInternal.getStatus) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       regenerateToken: () => ipc.invoke(IPC_CHANNELS.mcpInternal.regenerateToken) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       captureWebPreview: () => ipc.invoke(IPC_CHANNELS.mcpInternal.captureWebPreview) as Promise<void>,

@@ -52,7 +52,7 @@ export class AgentActions {
 
   async run<T>(actor: ActionActor, request: ActionRequest, perform: () => Promise<T>): Promise<T> {
     if (request.level === 'read') return perform()
-    if (!actor.authenticated) throw new ActionRefused('This action changes OXESpace, so it must come from an agent running inside OXESpace (a Code pane or a Thread).', 'no-execution')
+    if (!actor.authenticated) throw new ActionRefused('This action changes OXESpace, so it must come from an agent running inside OXESpace (an OxeCode pane or an OxeChat conversation).', 'no-execution')
     this.limit(actor)
     const text = request.text ?? `${request.action}${request.target ? ` on ${request.target}` : ''}`
     const hash = textHash(text)
