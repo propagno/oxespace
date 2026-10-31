@@ -28,6 +28,29 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** Diagnostics journal (B8.3): one kind of incident. */
+  'incident.window.crashed': Record<string, never>
+  'incident.window.rendererGone': Record<string, never>
+  'incident.ipc.handlerFailed': Record<string, never>
+  'incident.ipc.validationRejected': Record<string, never>
+  'incident.agent.startFailed': Record<string, never>
+  'incident.mcp.quarantined': Record<string, never>
+  'incident.database.busy': Record<string, never>
+  'incident.oxequery.timeout': Record<string, never>
+  'incident.updater.failed': Record<string, never>
+  'incident.interaction.overBudget': Record<string, never>
+  'incident.app.journalReset': Record<string, never>
+  /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
+  'diagnostics.bundle.fileTooLarge': Record<string, never>
+  /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
+  'diagnostics.bundle.tooLarge': Record<string, never>
+  /** What each file of the diagnostics bundle holds (B8.3 preview). */
+  'bundle.file.snapshot': Record<string, never>
+  'bundle.file.incidents': Record<string, never>
+  'bundle.file.logTail': Record<string, never>
+  'bundle.file.runtime': Record<string, never>
+  'bundle.file.versions': Record<string, never>
+  'bundle.file.configuration': Record<string, never>
   // Main-process sentences the window used to receive ready-made in English (C3 sweep).
   'linear.worktree.exists': { issue: string; path: string }
   'worktree.cleanup.notRemovable': Record<string, never>
@@ -57,6 +80,20 @@ export interface MessageParams {
   'oxequery.edit.noKey': Record<string, never>
   'oxequery.test.connected': Record<string, never>
   'oxequery.startFailed': { reason: string }
+  /** SQL risk: `COPY … TO/FROM PROGRAM` runs a shell command on the database server. */
+  'oxequery.sql.copyProgram': Record<string, never>
+  /** SQL risk: a `DO` block runs code whose effect is not known before it runs. */
+  'oxequery.sql.doBlock': Record<string, never>
+  /** SQL risk: `CALL` runs a stored procedure whose effect is not known before it runs. */
+  'oxequery.sql.callProcedure': Record<string, never>
+  /** SQL risk: a `DO` or `CALL` carries a destructive keyword (DROP, TRUNCATE, DELETE, …) in its body or arguments. */
+  'oxequery.sql.destructiveInside': { statement: string; keyword: string }
+  /** SQL risk: `SELECT … FOR UPDATE / FOR SHARE` locks the rows it reads. */
+  'oxequery.sql.rowLock': Record<string, never>
+  /** SQL risk: `SET ROLE` / `SET SESSION AUTHORIZATION` changes the session user. */
+  'oxequery.sql.sessionRole': Record<string, never>
+  /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
+  'oxequery.sql.tableLock': Record<string, never>
   'oxepod.startFailed': { reason: string }
   'oxepost.network.notFound': Record<string, never>
   'oxepost.network.refused': Record<string, never>
@@ -89,7 +126,94 @@ export interface MessageParams {
   /** A workspace root that is a file, not a folder. */
   'workspace.root.notDirectory': { path: string }
   /** A workspace root the app is not allowed to open or list. */
-  'workspace.root.unreadable': { path: string }
+  'workspace.root.unreadable': { path: string },
+  // B10 · Approvals (shared/types/approvals.ts). Titles, summaries, requesters, options and the app's notes.
+  'approvals.title.agent': Record<string, never>
+  'approvals.title.oxequery': Record<string, never>
+  'approvals.title.previewAutomation': Record<string, never>
+  'approvals.title.crash': Record<string, never>
+  /**
+   * A `confirm`-level MCP tool; `tool` and `action` are the tool's identifiers (`oxespace_git`, `push`), not sentences, and
+   * `target` is what it applies to from the app's records (a project path, a server, a resource).
+   */
+  'approvals.summary.mcpConfirm': { tool: string; action: string; target: string }
+  'approvals.summary.oxequery.read': Record<string, never>
+  'approvals.summary.oxequery.write': Record<string, never>
+  'approvals.summary.oxequery.action': Record<string, never>
+  'approvals.summary.preview.closeTab': Record<string, never>
+  'approvals.summary.preview.click': Record<string, never>
+  'approvals.summary.preview.fill': Record<string, never>
+  'approvals.summary.preview.navigate': Record<string, never>
+  'approvals.summary.preview.scroll': Record<string, never>
+  'approvals.summary.preview.other': { action: string }
+  'approvals.summary.crash': Record<string, never>
+  /** The app's name for who asks: the agent's provider and the pane's position, never the pane's chosen name. */
+  'approvals.requester.pane': { agent: string; pane: number }
+  /** A conversation, by provider and a short id the app assigned. */
+  'approvals.requester.conversation': { agent: string; conversation: string }
+  /** The provider is not known to the app: never a provider name, so it cannot pass for a trusted one. */
+  'approvals.requester.unknownPane': { pane: number }
+  'approvals.requester.unknownConversation': { conversation: string }
+  'approvals.requester.mcpServer': { server: string }
+  'approvals.requester.app': Record<string, never>
+  'approvals.option.deny': Record<string, never>
+  'approvals.option.allowOnce': Record<string, never>
+  'approvals.option.allowSessionReads': Record<string, never>
+  'approvals.option.closeTab': Record<string, never>
+  'approvals.option.restart': Record<string, never>
+  'approvals.option.keepWorking': Record<string, never>
+  /** `statement` is the SQL keyword the classifier saw (`DROP`, `DELETE`). */
+  'approvals.note.sql.removes': { statement: string }
+  'approvals.note.sql.noWhere': { statement: string }
+  'approvals.note.sql.alterDrop': Record<string, never>
+  'approvals.note.sql.withNoWhere': { statement: string }
+  'approvals.note.sql.explainAnalyze': Record<string, never>
+  'approvals.note.sql.selectInto': Record<string, never>
+  'approvals.note.sql.notReadOnly': { statement: string }
+  'approvals.note.sql.outsideReach': { calls: string[] }
+  'approvals.note.production': Record<string, never>
+  'approvals.note.mongo.deletes': { count: number }
+  'approvals.note.mongo.changes': { count: number }
+  'approvals.note.mongo.emptyFilter': Record<string, never>
+  'approvals.note.agent.actsOnPrompt': Record<string, never>
+  'approvals.note.agent.turnStopped': Record<string, never>
+  'approvals.note.thread.actsOnMessage': Record<string, never>
+  'approvals.note.skill.followed': Record<string, never>
+  'approvals.note.automation.runsAlone': Record<string, never>
+  'approvals.note.worktree.folderDeleted': Record<string, never>
+  'approvals.note.worktree.forceDiscards': Record<string, never>
+  'approvals.note.git.branchShared': Record<string, never>
+  'approvals.note.checkpoint.replaces': Record<string, never>
+  'approvals.note.github.autoMerge': Record<string, never>
+  'approvals.note.github.releasePublic': Record<string, never>
+  /** The requester's text was longer than the window shows; only deny is offered. */
+  'approvals.note.textCut': { max: number }
+  'approvals.note.crash': Record<string, never>
+  /** The window could not show the modal for a request, so it opened in a system dialog. */
+  'approvals.unavailable': Record<string, never>
+  /** Nobody answered in time; the request was denied. */
+  'approvals.expired': Record<string, never>
+  /** Refusals of `approvals.respond`, `ack` and `unavailable` (APPROVAL_REFUSALS). */
+  'approvals.refused.notPending': Record<string, never>
+  'approvals.refused.staleGeneration': Record<string, never>
+  'approvals.refused.alreadyAnswered': Record<string, never>
+  'approvals.refused.unknownOption': Record<string, never>
+  'approvals.refused.alreadyReported': Record<string, never>
+  /** An allow at critical risk before the modal had been shown for APPROVAL_CRITICAL_ALLOW_DELAY_MS. */
+  'approvals.refused.tooSoon': Record<string, never>
+  /** Denied before it was shown: APPROVAL_QUEUE_MAX requests were already waiting. */
+  'approvals.denied.queueFull': { max: number }
+  /** Denied before it was shown: the text to approve is longer than a person reviews. */
+  'approvals.denied.tooLong': { max: number }
+  /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
+  'notify.prefix.pane': { agent: string; pane: number; title: string }
+  'notify.prefix.conversation': { agent: string; conversation: string; title: string }
+  'notify.prefix.unknownPane': { pane: number; title: string }
+  'notify.prefix.unknownConversation': { conversation: string; title: string }
+  'notify.refused.reservedName': { name: string }
+  'notify.refused.rateLimit': { perMinute: number }
+  /** A pane name an agent chose contains a name only the app uses. */
+  'agents.name.reserved': { name: string }
 }
 
 export type MessageCode = keyof MessageParams
@@ -104,6 +228,25 @@ export const MESSAGE_CODES = [
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
   'app.connectivity.offline',
+  'incident.window.crashed',
+  'incident.window.rendererGone',
+  'incident.ipc.handlerFailed',
+  'incident.ipc.validationRejected',
+  'incident.agent.startFailed',
+  'incident.mcp.quarantined',
+  'incident.database.busy',
+  'incident.oxequery.timeout',
+  'incident.updater.failed',
+  'incident.interaction.overBudget',
+  'incident.app.journalReset',
+  'diagnostics.bundle.fileTooLarge',
+  'diagnostics.bundle.tooLarge',
+  'bundle.file.snapshot',
+  'bundle.file.incidents',
+  'bundle.file.logTail',
+  'bundle.file.runtime',
+  'bundle.file.versions',
+  'bundle.file.configuration',
   'linear.worktree.exists',
   'worktree.cleanup.notRemovable',
   'worktree.cleanup.blocked',
@@ -132,6 +275,13 @@ export const MESSAGE_CODES = [
   'oxequery.edit.noKey',
   'oxequery.test.connected',
   'oxequery.startFailed',
+  'oxequery.sql.copyProgram',
+  'oxequery.sql.doBlock',
+  'oxequery.sql.callProcedure',
+  'oxequery.sql.destructiveInside',
+  'oxequery.sql.rowLock',
+  'oxequery.sql.sessionRole',
+  'oxequery.sql.tableLock',
   'oxepod.startFailed',
   'oxepost.network.notFound',
   'oxepost.network.refused',
@@ -156,7 +306,76 @@ export const MESSAGE_CODES = [
   'workspace.root.notAbsolute',
   'workspace.root.notFound',
   'workspace.root.notDirectory',
-  'workspace.root.unreadable'
+  'workspace.root.unreadable',
+  'approvals.title.agent',
+  'approvals.title.oxequery',
+  'approvals.title.previewAutomation',
+  'approvals.title.crash',
+  'approvals.summary.mcpConfirm',
+  'approvals.summary.oxequery.read',
+  'approvals.summary.oxequery.write',
+  'approvals.summary.oxequery.action',
+  'approvals.summary.preview.closeTab',
+  'approvals.summary.preview.click',
+  'approvals.summary.preview.fill',
+  'approvals.summary.preview.navigate',
+  'approvals.summary.preview.scroll',
+  'approvals.summary.preview.other',
+  'approvals.summary.crash',
+  'approvals.requester.pane',
+  'approvals.requester.conversation',
+  'approvals.requester.unknownPane',
+  'approvals.requester.unknownConversation',
+  'approvals.requester.mcpServer',
+  'approvals.requester.app',
+  'approvals.option.deny',
+  'approvals.option.allowOnce',
+  'approvals.option.allowSessionReads',
+  'approvals.option.closeTab',
+  'approvals.option.restart',
+  'approvals.option.keepWorking',
+  'approvals.note.sql.removes',
+  'approvals.note.sql.noWhere',
+  'approvals.note.sql.alterDrop',
+  'approvals.note.sql.withNoWhere',
+  'approvals.note.sql.explainAnalyze',
+  'approvals.note.sql.selectInto',
+  'approvals.note.sql.notReadOnly',
+  'approvals.note.sql.outsideReach',
+  'approvals.note.production',
+  'approvals.note.mongo.deletes',
+  'approvals.note.mongo.changes',
+  'approvals.note.mongo.emptyFilter',
+  'approvals.note.agent.actsOnPrompt',
+  'approvals.note.agent.turnStopped',
+  'approvals.note.thread.actsOnMessage',
+  'approvals.note.skill.followed',
+  'approvals.note.automation.runsAlone',
+  'approvals.note.worktree.folderDeleted',
+  'approvals.note.worktree.forceDiscards',
+  'approvals.note.git.branchShared',
+  'approvals.note.checkpoint.replaces',
+  'approvals.note.github.autoMerge',
+  'approvals.note.github.releasePublic',
+  'approvals.note.textCut',
+  'approvals.note.crash',
+  'approvals.unavailable',
+  'approvals.expired',
+  'approvals.refused.notPending',
+  'approvals.refused.staleGeneration',
+  'approvals.refused.alreadyAnswered',
+  'approvals.refused.unknownOption',
+  'approvals.refused.alreadyReported',
+  'approvals.refused.tooSoon',
+  'approvals.denied.queueFull',
+  'approvals.denied.tooLong',
+  'notify.prefix.pane',
+  'notify.prefix.conversation',
+  'notify.prefix.unknownPane',
+  'notify.prefix.unknownConversation',
+  'notify.refused.reservedName',
+  'notify.refused.rateLimit',
+  'agents.name.reserved'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

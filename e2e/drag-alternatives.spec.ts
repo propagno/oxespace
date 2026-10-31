@@ -49,8 +49,10 @@ test('dividers and the file tree work without dragging', async () => {
     await expect.poll(() => divider.evaluate(element => (element as HTMLElement).style.left + (element as HTMLElement).style.top)).not.toBe(left)
     await page.keyboard.press('Escape')
     // The same menu from the keyboard: Space and Shift+F10, like the other dividers; Escape gives focus back.
+    // (On Linux, Chromium turns Shift+F10 into a contextmenu event; the divider opens its menu from that too.)
     for (const key of ['Space', 'Shift+F10']) {
       await divider.focus()
+      await expect(divider).toBeFocused()
       await page.keyboard.press(key)
       await expect(dividerMenu).toBeVisible()
       await page.keyboard.press('Escape')
