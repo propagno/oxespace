@@ -24,13 +24,15 @@ import { worktreeOrWorkspaceRoot } from '../ipc/file-system.ipc'
 import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
 import { registerOxePodMock } from './oxepod-mock'
+import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
-import { registerApprovalsMock } from './approvals-mock'
 import { installMcpFixture } from './mcp-fixture'
+import { registerApprovalsMock } from './approvals-mock'
 import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import type { GitCompareMode } from '../../../shared/types/git'
+import { planSplit } from '../../../shared/workspace-split'
 import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
 import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog } from '../../../shared/types/thread'
 import { version as packageVersion } from '../../../package.json'
@@ -42,10 +44,11 @@ export function registerE2eMockIpcHandlers(): void {
   const workspaces: Workspace[] = []
   registerOxeQueryMock()
   registerOxePodMock()
+  registerDiagnosticsMock()
   registerRemoteMock()
-  registerApprovalsMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
+  registerApprovalsMock()
   registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
@@ -110,12 +113,11 @@ export function registerE2eMockIpcHandlers(): void {
     if (!workspace) throw new Error(`Pane ${input.paneId} not found`)
     const source = workspace.panes.find((pane) => pane.id === input.paneId)
     if (!source) throw new Error(`Pane ${input.paneId} not found`)
-    const [rows, columns] = workspace.layout.split('x').map(Number)
-    const targetRow = input.direction === 'horizontal' ? source.rowIndex + 1 : source.rowIndex
-    const targetColumn = input.direction === 'horizontal' ? source.columnIndex : source.columnIndex + 1
-    const nextLayout = input.direction === 'horizontal'
-      ? `${Math.max(rows, targetRow + 1)}x${columns}` as WorkspaceLayout
-      : `${rows}x${Math.max(columns, targetColumn + 1)}` as WorkspaceLayout
+    // The real rule (WorkspaceService.splitPane): the next preset, or a refusal; never a layout the grid has no preset for.
+    const direction = input.direction === 'horizontal' ? 'horizontal' : 'vertical'
+    const plan = planSplit(workspace.layout, workspace.panes, source, direction)
+    if (!plan.ok) throw new Error(plan.reason === 'occupied' ? 'Target slot is already occupied' : `Cannot split ${direction}ly: layout limit reached`)
+    const { layout: nextLayout, rowIndex: targetRow, columnIndex: targetColumn } = plan
     workspace.layout = nextLayout
     workspace.layoutPreset = layoutToPreset(nextLayout)
     workspace.panes.push({

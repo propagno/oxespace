@@ -145,7 +145,9 @@
         "doBlock": "DO runs code in the database; its effect is not known before it runs.",
         "callProcedure": "CALL runs a stored procedure; its effect is not known before it runs.",
         "destructiveInside": "{{statement}} contains {{keyword}}, which can remove data or objects.",
-        "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends."
+        "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.",
+        "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
+        "tableLock": "VACUUM FULL locks the whole table while it runs."
       }
     },
     "oxepod": {
@@ -292,6 +294,53 @@
     "agents": {
       "name": {
         "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      }
+    },
+    "incident": {
+      "window": {
+        "crashed": "The window crashed.",
+        "rendererGone": "The interface stopped responding and was restarted."
+      },
+      "ipc": {
+        "handlerFailed": "A request from the window failed in the background.",
+        "validationRejected": "The window sent a request the app refused as malformed."
+      },
+      "agent": {
+        "startFailed": "An agent could not start."
+      },
+      "mcp": {
+        "quarantined": "An MCP server was quarantined after it changed."
+      },
+      "database": {
+        "busy": "The local database was busy and a write had to wait."
+      },
+      "oxequery": {
+        "timeout": "An OxeQuery request ran out of time."
+      },
+      "updater": {
+        "failed": "An update could not be checked or installed."
+      },
+      "interaction": {
+        "overBudget": "An interaction took longer than its budget."
+      },
+      "app": {
+        "journalReset": "The diagnostics journal was unreadable and started over."
+      }
+    },
+    "diagnostics": {
+      "bundle": {
+        "fileTooLarge": "A file in the diagnostics bundle is larger than 8 MB, so nothing was saved.",
+        "tooLarge": "The diagnostics bundle is larger than 32 MB, so nothing was saved."
+      }
+    },
+    "bundle": {
+      "file": {
+        "snapshot": "Processes, storage, connectivity and versions",
+        "incidents": "The incident journal: codes, areas and counts",
+        "logTail": "Last lines of the app log: time, level and the app's own fixed messages only",
+        "runtime": "Recent runtime events, redacted",
+        "versions": "App, Electron, Chrome, Node and system versions",
+        "configuration": "Settings that help a diagnosis, without secrets"
       }
     }
   }

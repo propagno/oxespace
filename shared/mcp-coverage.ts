@@ -372,13 +372,25 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'The person\'s app maintenance; installing hooks writes into the agents\' own configuration.',
     ipc: ['app.*', 'rtk.*', 'agentHooks.*']
   },
+  'settings.diagnostics': {
+    label: 'Diagnostics snapshot, live measurements, problem bundles and reports',
+    excluded: 'Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them.',
+    ipc: ['diagnostics.getSnapshot', 'diagnostics.exportReport', 'diagnostics.reportInteractive', 'diagnostics.buildIssueReport', 'diagnostics.recordFirstAnswer',
+      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary']
+  },
+  'diagnostics.read': {
+    label: 'Summary of the incident journal and a snapshot of the app',
+    // The same Markdown as the window's "Ask for an analysis": incident codes, areas and counts, with aggregate processes
+    // and storage. Never content, paths or raw errors.
+    tools: { oxespace_diagnostics: 'read' },
+    ipc: ['diagnostics.incidents']
+  },
   'remote.devices_read': { label: 'Remote gateway status and paired phones', excluded: 'The person\'s devices, shown in Settings › Devices; agents have no use for them.', ipc: ['remote.status', 'remote.devices'] },
   'remote.gateway_admin': {
     label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane',
     forbidden: 'Opens a network surface and grants device access.',
     ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite']
   },
-  'settings.diagnostics': { label: 'Diagnostics snapshot and reports', excluded: 'Whole-app paths and logs; the person exports them.', ipc: ['diagnostics.*'] },
   'settings.agent_audit': {
     label: 'Audit of agent actions; internal MCP status',
     excluded: 'The person\'s review of what agents did. OxeQuery\'s trail is oxespace_db_activity.',

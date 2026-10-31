@@ -22,6 +22,7 @@ import { McpConfigSync } from './mcp-sync.service'
 import { inheritedEnvironment } from './policy'
 import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
 import { probeHttpServer } from './mcp-http-probe'
+import { recordIncident } from './diagnostics/incident-sink'
 import { checkConfig, parseGuard, summarizeGuard, trustState, configHash, type GuardState, type GuardVerdict } from './mcp-pin'
 
 interface McpServerRow {
@@ -153,6 +154,14 @@ export class McpManager {
       )
       .all(workspaceId) as McpServerRow[]
     return rows.map((row) => this.hydrateServer(mapRow(row)))
+  }
+
+  /** For the diagnostics panel (B8.3): counts only, no names or commands. */
+  healthCounts(): { total: number; healthy: number; quarantined: number; failing: number } {
+    const servers = (this.db.prepare('SELECT * FROM mcp_servers').all() as McpServerRow[]).map(row => this.hydrateServer(mapRow(row)))
+    const quarantined = servers.filter(server => server.guard?.quarantine).length
+    return { total: servers.length, healthy: servers.filter(server => server.health === 'healthy').length, quarantined,
+      failing: servers.filter(server => server.health === 'unhealthy' && !server.guard?.quarantine).length }
   }
 
   get(id: string): McpServer | null {
@@ -515,6 +524,7 @@ export class McpManager {
     this.syncFile(server.workspaceId)
     // eslint-disable-next-line no-console
     console.warn(`[mcp] quarantined "${server.name}": ${verdict.quarantine.reasons.join(' ')}`)
+    recordIncident('incident.mcp.quarantined', server.id)
     this.emitHealth({ serverId: server.id, status: 'unhealthy', message, messageCode: { code: 'mcp.server.quarantined', params: {} } })
     throw new Error(message)
   }

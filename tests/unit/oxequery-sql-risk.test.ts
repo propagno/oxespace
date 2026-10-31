@@ -9,7 +9,10 @@ import type { MessageCode } from '../../shared/messages'
  */
 type Case = [sql: string, kind: 'read' | 'write' | 'ddl' | 'destructive', reason: RegExp | null]
 
-/** P1-12: the 22 adversarial inputs the classifier already withstood in the audit's probe (main f211ca7f). */
+/**
+ * P1-12: adversarial inputs the classifier already withstood in the audit's probe (main f211ca7f). The first 22 were
+ * written from #228's categories; the last three come from homologation's own probe (#184, sql-guard-probe.mts.txt).
+ */
 const ADVERSARIAL: Case[] = [
   ['WITH d AS (DELETE FROM users RETURNING *) SELECT * FROM d', 'destructive', /DELETE inside WITH has no WHERE clause/],
   ['WITH u AS (UPDATE users SET admin = true RETURNING *) SELECT * FROM u', 'destructive', /UPDATE inside WITH has no WHERE clause/],
@@ -29,10 +32,15 @@ const ADVERSARIAL: Case[] = [
   ['TRUNCATE users', 'destructive', /TRUNCATE permanently removes/],
   ['ALTER TABLE users DROP COLUMN email', 'destructive', /ALTER \.\.\. DROP/],
   ['GRANT ALL ON users TO PUBLIC', 'ddl', null],
-  ['PREPARE purge AS DELETE FROM users', 'write', null],
+  // Stricter since homologation's review of #237: the statement inside PREPARE is inspected (was write, no reason).
+  ['PREPARE purge AS DELETE FROM users', 'destructive', /PREPARE contains DELETE/],
   ['EXECUTE purge', 'write', null],
   ['SELECT $q$DELETE FROM users$q$', 'read', null],
-  ["SELECT 'x'';DROP TABLE users;--'", 'read', null]
+  ["SELECT 'x'';DROP TABLE users;--'", 'read', null],
+  ['SET ROLE postgres', 'ddl', /changes the session user/],
+  ['VACUUM FULL users', 'ddl', /locks the whole table/],
+  ['-- read only\nDROP TABLE users', 'destructive', /DROP permanently removes/],
+  ['PREPARE p AS DELETE FROM users; EXECUTE p', 'destructive', /PREPARE contains DELETE/]
 ]
 
 /** P1-13: the cases that reached the confirmation without their worst reason. */
@@ -63,7 +71,7 @@ const NEW_REASONS: [sql: string, kind: 'write' | 'destructive', codes: MessageCo
 ]
 
 describe('SQL risk: adversarial inputs (#228 P1-12)', () => {
-  it('keeps all 22', () => { expect(ADVERSARIAL).toHaveLength(22) })
+  it('keeps all 26', () => { expect(ADVERSARIAL).toHaveLength(26) })
 
   it.each(ADVERSARIAL)('%s', (sql, kind, reason) => {
     const verdict = guardSql(sql)
@@ -79,6 +87,28 @@ describe('SQL risk: reasons the confirmation must show (#228 P1-13)', () => {
     expect(verdict.kind).toBe(kind)
     expect(verdict.reasons.some(item => reason.test(item)), verdict.reasons.join(' | ')).toBe(true)
     expect((verdict.codes ?? []).map(message => message.code)).toEqual(codes)
+  })
+
+  it('gives role changes and VACUUM FULL a reason without changing their kind', () => {
+    for (const sql of ['SET ROLE postgres', 'SET LOCAL ROLE admin', 'SET SESSION AUTHORIZATION admin', 'RESET ROLE']) {
+      expect(guardSql(sql), sql).toMatchObject({ kind: 'ddl', codes: [{ code: 'oxequery.sql.sessionRole', params: {} }] })
+    }
+    expect(guardSql('VACUUM (FULL) users')).toMatchObject({ kind: 'ddl', codes: [{ code: 'oxequery.sql.tableLock', params: {} }] })
+    expect(guardSql('SET search_path = public')).toMatchObject({ kind: 'ddl', reasons: [] })
+    expect(guardSql('VACUUM users')).toMatchObject({ kind: 'ddl', reasons: [] })
+  })
+
+  it('judges the statement inside PREPARE, which the following EXECUTE runs', () => {
+    expect(guardSql('PREPARE p AS DELETE FROM users; EXECUTE p')).toMatchObject({
+      kind: 'destructive', statements: 2, codes: [{ code: 'oxequery.sql.destructiveInside', params: { statement: 'PREPARE', keyword: 'DELETE' } }]
+    })
+    expect(guardSql('PREPARE p (text) AS DROP TABLE users').kind).toBe('destructive')
+    expect(guardSql("PREPARE p AS COPY users TO PROGRAM 'id'").codes?.map(message => message.code)).toEqual(['oxequery.sql.copyProgram', 'oxequery.sql.destructiveInside'])
+    // No false alarm, and no loosening: a prepared read stays what it was (write, as PREPARE always was).
+    expect(guardSql('PREPARE p AS SELECT 1; EXECUTE p')).toMatchObject({ kind: 'write', reasons: [] })
+    // `$1` is a parameter, not a dollar quote, so the WHERE is seen.
+    expect(guardSql('PREPARE p (int) AS DELETE FROM users WHERE id = $1')).toMatchObject({ kind: 'write', reasons: [] })
+    expect(guardSql('PREPARE p (int, text) AS UPDATE users SET name = $2 WHERE id = $1; EXECUTE p (1, $$x$$)')).toMatchObject({ kind: 'write', reasons: [] })
   })
 
   it('names the statement and keyword found inside', () => {

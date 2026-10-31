@@ -101,6 +101,8 @@ interface Verdict { kind: Kind; reason?: string; code?: MainMessage }
 
 const COPY_PROGRAM = 'COPY ... PROGRAM runs a shell command on the database server.'
 const ROW_LOCK = 'SELECT ... FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.'
+const SESSION_ROLE = 'SET ROLE / SET SESSION AUTHORIZATION changes the session user, and with it what later statements may do.'
+const TABLE_LOCK = 'VACUUM FULL locks the whole table while it runs.'
 const RUNS_CODE: Record<'DO' | 'CALL', string> = {
   DO: 'DO runs code in the database; its effect is not known before it runs.',
   CALL: 'CALL runs a stored procedure; its effect is not known before it runs.'
@@ -152,6 +154,18 @@ function classify(words: string[], texts: string[]): Verdict | Verdict[] {
   if (first === 'COPY' && outer.includes('PROGRAM')) {
     return { kind: 'destructive', reason: COPY_PROGRAM, code: mainMessage('oxequery.sql.copyProgram', {}) }
   }
+  if (first === 'PREPARE') {
+    // PREPARE name [ (types) ] AS <statement>: the EXECUTE that follows runs the inner statement, so it is judged here.
+    let depth = 0
+    const as = words.findIndex(word => { if (word === '(') depth++; else if (word === ')') depth = Math.max(0, depth - 1); return depth === 0 && word === 'AS' })
+    const inner = as === -1 ? [] : [classify(words.slice(as + 1), texts)].flat()
+    const destructive = inner.some(verdict => verdict.kind === 'destructive')
+    const keyword = destructive ? destructiveWord(words.slice(as + 1)) ?? words[as + 1] : undefined
+    return [{ kind: 'write' }, ...inner, ...(keyword ? [{
+      kind: 'destructive' as const, reason: `PREPARE contains ${keyword}, which can remove data or objects.`,
+      code: mainMessage('oxequery.sql.destructiveInside', { statement: 'PREPARE', keyword })
+    }] : [])]
+  }
   if (first === 'DO' || first === 'CALL') {
     const runs: Verdict = { kind: 'write', reason: RUNS_CODE[first], code: mainMessage(first === 'DO' ? 'oxequery.sql.doBlock' : 'oxequery.sql.callProcedure', {}) }
     const inside = destructiveInside(words.slice(1), texts)
@@ -190,6 +204,11 @@ function classifyPlain(words: string[], outer: string[], first: string): Verdict
   }
   if (READ.has(first)) return { kind: 'read' }
   if (WRITE.has(first)) return { kind: 'write' }
+  // Same kind as any other DDL; these only add the reason the confirmation shows.
+  if ((first === 'SET' || first === 'RESET') && (outer.slice(1, 3).includes('ROLE') || (outer.slice(1, 3).includes('SESSION') && outer.includes('AUTHORIZATION')))) {
+    return { kind: 'ddl', reason: SESSION_ROLE, code: mainMessage('oxequery.sql.sessionRole', {}) }
+  }
+  if (first === 'VACUUM' && words.includes('FULL')) return { kind: 'ddl', reason: TABLE_LOCK, code: mainMessage('oxequery.sql.tableLock', {}) }
   if (DDL.has(first)) return { kind: 'ddl' }
   return { kind: 'write', reason: `${first} is not a recognised read-only statement` }
 }
