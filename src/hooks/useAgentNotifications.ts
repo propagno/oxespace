@@ -4,6 +4,9 @@ import { useWorkspaceStore } from '../store/workspace.store'
 import { useSettingsStore } from '../store/settings.store'
 import { useActivityStore } from '../store/activity.store'
 import { deriveStatusTone, type PaneDisplayTone } from '../utils/paneDisplay'
+import { i18n } from '../i18n'
+
+const tc = i18n.getFixedT(null, 'code')
 
 /**
  * Horizon 1 · item 1+2 — native desktop notifications driven by the fine-grained
@@ -25,6 +28,12 @@ import { deriveStatusTone, type PaneDisplayTone } from '../utils/paneDisplay'
  *      regardless of how often the tone flaps.
  *   3. Stability gate: only notify after the pane has held `awaiting` for
  *      AWAITING_STABLE_MS — a real "done, prompting you" pause, not a token gap.
+ *
+ * `needs-decision` (an agent stopped on an approval or a question) is none of
+ * that: it comes from the agent's lifecycle, not output timing, so it is
+ * recorded and pinged on entry, focused or not, and outside the cooldown — a
+ * finished turn a minute ago must not hide a request now. Only the pane being
+ * looked at is spared the ping.
  */
 
 const POLL_MS = 1500
@@ -36,6 +45,7 @@ interface PaneTrack {
   awaitingSince: number | null
   notifiedAwaiting: boolean
   recordedAwaiting: boolean
+  recordedDecision: boolean
   lastNotifiedAt: number | null
 }
 
@@ -64,23 +74,36 @@ export function useAgentNotifications(): void {
 
           const tone = deriveStatusTone(entry)
           const existing = tracks.get(pane.id)
-          // First sighting — record state, never notify (avoids a burst on load).
-          if (!existing) {
-            tracks.set(pane.id, { tone, awaitingSince: tone === 'awaiting' ? now : null, notifiedAwaiting: false, recordedAwaiting: false, lastNotifiedAt: null })
-            continue
-          }
-
+          const label = (pane.displayName || pane.agentName || 'Agente').trim()
+          const target = { type: 'pane' as const, workspaceId: ws.id, paneId: pane.id }
           // Don't ping about the pane the user is actively looking at.
           const isViewing = windowFocused && activePaneId === pane.id
-          const label = (pane.displayName || pane.agentName || 'Agente').trim()
+          const recordDecision = (): void => activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: tc('pane.decisionNotice.body', { workspace: ws.name }), read: isViewing })
+          // First sighting — record state, never notify (avoids a burst on load).
+          if (!existing) {
+            // A request already waiting at load is listed (never pinged): it still needs the person.
+            if (tone === 'needs-decision') recordDecision()
+            tracks.set(pane.id, { tone, awaitingSince: tone === 'awaiting' ? now : null, notifiedAwaiting: false, recordedAwaiting: false, recordedDecision: tone === 'needs-decision', lastNotifiedAt: null })
+            continue
+          }
           // Global per-pane rate limit: at most one ping per cooldown window,
           // whatever the tone does in between.
           const onCooldown = existing.lastNotifiedAt !== null && now - existing.lastNotifiedAt < COOLDOWN_MS
-          const target = { type: 'pane' as const, workspaceId: ws.id, paneId: pane.id }
           const notify = (title: string, body: string): void => {
             if (onCooldown || !notificationsEnabled) return
             existing.lastNotifiedAt = now
             fire(title, body, pane.id, ws.id)
+          }
+
+          if (tone === 'needs-decision') {
+            if (existing.tone !== 'needs-decision') {
+              existing.recordedDecision = true
+              recordDecision()
+              if (notificationsEnabled && !isViewing) fire(tc('pane.decisionNotice.title', { agent: label }), tc('pane.decisionNotice.body', { workspace: ws.name }), pane.id, ws.id)
+            }
+          } else if (existing.recordedDecision) {
+            existing.recordedDecision = false
+            activity.resolve('code', pane.id)
           }
 
           if (tone === 'awaiting') {
@@ -106,7 +129,8 @@ export function useAgentNotifications(): void {
           } else {
             existing.awaitingSince = null
             existing.notifiedAwaiting = false
-            if (existing.recordedAwaiting) activity.resolve('code', pane.id)
+            // A decision just took the same entry's place; resolving would drop it.
+            if (existing.recordedAwaiting && tone !== 'needs-decision') activity.resolve('code', pane.id)
             existing.recordedAwaiting = false
           }
 

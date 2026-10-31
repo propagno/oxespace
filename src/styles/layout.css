@@ -415,6 +415,7 @@
 /* Collapsed-rail status pip — recolor the existing absolute dot by tone. */
 .sidebar-rail-pip.activity-thinking { background: var(--dot-green); --pulse-opacity: 0.4; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
 .sidebar-rail-pip.activity-awaiting { background: var(--brand); }
+.sidebar-rail-pip.activity-needs-decision { background: var(--intent-warning-bg); border: 2px solid var(--intent-warning-solid); box-sizing: border-box; }
 .sidebar-rail-pip.activity-starting { background: var(--dot-yellow); }
 .sidebar-rail-pip.activity-error { background: var(--dot-red); }
 
