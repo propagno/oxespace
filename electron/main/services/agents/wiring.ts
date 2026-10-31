@@ -44,7 +44,7 @@ export function wireAgents(deps: AgentsWiringDeps): void {
       subscribe: listener => sources.onAgentSource(listener),
       subscribeStops: (listener, failed) => { const offs = [sources.onAgentStop(listener), sources.onAgentStopFailed(failed)]; return () => { for (const off of offs) off() } },
       publish: (change: AgentsChange) => { for (const window of windows()) window.webContents.send(IPC_CHANNELS.agents.changed, change) },
-      nudge: rows => showNudge(nudgeNotice(rows, tMain as Translate, Date.now())),
+      nudge: rows => showNudge(nudgeNotice(rows, tMain as Translate, nudgeAfterMs ?? null)),
       focused: () => BrowserWindow.getFocusedWindow() !== null,
       markPaneSeen: paneId => deps.agentState.markSeen(paneId),
       timers: readAgentTimers(process.env, agentTimersE2e(process.env, app.isPackaged)),

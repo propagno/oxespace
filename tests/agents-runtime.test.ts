@@ -537,11 +537,17 @@ describe('S7.1 runtime · after the ARCHITECT review of #356', () => {
     const t = (key: string, values?: Record<string, unknown>) => `${key}${values ? JSON.stringify(values) : ''}`
     const waiting = (key: string, id: string): AgentOverviewRow => ({ key: key as AgentOverviewRow['key'], kind: 'pane', id: key.slice(5), workspaceId: 'w', mode: 'code', title: `Agent ${id}`, state: 'needs-you', since: T0, seen: false, lastSeenAt: null, rev: 1,
       pendingRequest: { via: 'approval', id, title: { code: 'approvals.title.agent', params: {} }, since: T0, more: 0 } })
-    expect(nudgeNotice([waiting('pane:p1', 'a1')], t, T0 + 120_000)).toEqual({
+    expect(nudgeNotice([waiting('pane:p1', 'a1')], t, 120_000)).toEqual({
       title: 'messages.agents.nudge.single{"agent":"Agent a1","minutes":2}', body: 'messages.approvals.title.agent', activate: { agentId: 'pane:p1', requestId: 'a1' }
     })
-    expect(nudgeNotice([waiting('pane:p1', 'a1'), waiting('pane:p2', 'a2')], t, T0 + 120_000)).toMatchObject({ title: 'messages.agents.nudge.batch{"count":2}', activate: { agentId: 'pane:p1', requestId: 'a1' } })
-    expect(nudgeNotice([], t, T0)).toBeNull()
+    // #355: the title carries the chosen delay (1, 2 or 5), not the time measured.
+    for (const [afterMs, minutes] of [[60_000, 1], [120_000, 2], [300_000, 5]] as const) {
+      expect(nudgeNotice([waiting('pane:p1', 'a1')], t, afterMs)?.title).toBe(`messages.agents.nudge.single{"agent":"Agent a1","minutes":${minutes}}`)
+    }
+    expect(nudgeNotice([waiting('pane:p1', 'a1'), waiting('pane:p2', 'a2')], t, 120_000)).toMatchObject({ title: 'messages.agents.nudge.batch{"count":2}', activate: { agentId: 'pane:p1', requestId: 'a1' } })
+    expect(nudgeNotice([], t, 120_000)).toBeNull()
+    // With the setting off there is no notification at all.
+    expect(nudgeNotice([waiting('pane:p1', 'a1')], t, null)).toBeNull()
   })
 
   it('takes the nudge setting through IPC as exactly { afterMs }', async () => {

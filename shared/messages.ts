@@ -321,7 +321,7 @@ export interface MessageParams {
   'agents.request.permissions': Record<string, never>
   'agents.request.elicitation': Record<string, never>
   'agents.request.tool': Record<string, never>
-  /** S7.1 · The needs-you desktop notification (§5.10): one agent waiting `minutes`, or `count` agents together. */
+  /** S7.1 · The needs-you desktop notification (§5.10, #355): one agent, with `minutes` the chosen delay (1, 2 or 5), or `count` agents together. */
   'agents.nudge.single': { agent: string; minutes: number }
   'agents.nudge.batch': { count: number }
 }
