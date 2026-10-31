@@ -44,7 +44,9 @@ jobs:
         with:
           node-version: '22'
       - name: Install the provider CLIs
-        # Versions reach the shell as variables, never pasted into it.
+        # Versions reach the shell as variables, never pasted into it. bash on every runner: Windows defaults to pwsh,
+        # where ${CLAUDE_VERSION} would be a PowerShell variable, not the environment one.
+        shell: bash
         env:
           CLAUDE_VERSION: ${{ inputs.claude_version || 'latest' }}
           CODEX_VERSION: ${{ inputs.codex_version || 'latest' }}
