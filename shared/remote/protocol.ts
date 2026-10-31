@@ -464,7 +464,13 @@ export interface RemotePendingRequest {
   redacted?: number
   /** Questions without `secret` only, with options as on the desktop. */
   questions?: { id: string; header?: string; question: string; options?: { label: string; description?: string }[]; multiple?: boolean; required?: boolean }[]
-  /** Offered by the provider; "accept for the session" is never offered on the phone. */
+  /**
+   * True when the phone is not shown all of it: the command or detail was cut to `REMOTE_TEXT_LIMITS.detail`, or files
+   * or the working directory were left out. The phone is then offered no `accept` (deny only, as in B10) and says the
+   * full text is on the desktop; an `accept` sent anyway is `forbidden`.
+   */
+  truncated?: true
+  /** Offered by the provider; "accept for the session" is never offered on the phone, nor `accept` when `truncated`. */
   decisions: ('accept' | 'decline' | 'cancel')[]
   /**
    * False when only the desktop can answer: guarded requests, permissions, elicitation, tool and secret questions.

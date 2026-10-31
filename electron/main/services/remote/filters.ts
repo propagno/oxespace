@@ -119,7 +119,11 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
   const warnings = (request.policy?.warnings ?? []).slice(0, 20).map(warning => clean(warning, all, REMOTE_TEXT_LIMITS.detail))
   const redacted = (command?.redacted ?? 0) + warnings.reduce((sum, warning) => sum + warning.redacted, 0)
   const cwd = request.cwd ? relativeTo(thread.rootPath, request.cwd) : undefined
-  const paths = (request.paths ?? []).map(path => relativeTo(thread.rootPath, path)).filter((path): path is string => path !== undefined).slice(0, 100)
+  const shownPaths = (request.paths ?? []).map(path => relativeTo(thread.rootPath, path)).filter((path): path is string => path !== undefined)
+  const paths = shownPaths.slice(0, 100)
+  const detail = request.detail ? clean(request.detail, all, REMOTE_TEXT_LIMITS.detail) : undefined
+  // Anything the phone cannot show whole leaves the decision to the desktop: no accept on what was not seen.
+  const truncated = !!command?.truncated || !!detail?.truncated || (!!request.cwd && cwd === undefined) || paths.length < (request.paths?.length ?? 0)
   const questions = (request.questions ?? []).filter(question => !question.secret).slice(0, 20).map(question => ({
     id: question.id,
     ...(question.header ? { header: text(question.header, all, TITLE) } : {}),
@@ -131,7 +135,7 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
   return {
     threadId: thread.id, workspaceId: thread.workspaceId, threadTitle: text(thread.title, all, TITLE), requestId: request.id, generation: request.generation,
     kind: request.kind, title: text(request.title, all, TITLE),
-    ...(request.detail ? { detail: clean(request.detail, all, REMOTE_TEXT_LIMITS.detail).text } : {}),
+    ...(detail ? { detail: detail.text } : {}),
     ...(command ? { command: command.text } : {}),
     ...(cwd ? { cwd } : {}),
     ...(request.reason ? { reason: text(request.reason, all, REMOTE_TEXT_LIMITS.detail) } : {}),
@@ -141,7 +145,8 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
     ...(warnings.length ? { warnings: warnings.map(warning => warning.text) } : {}),
     ...(redacted ? { redacted } : {}),
     ...(questions.length ? { questions } : {}),
-    decisions: decisionsOf(request),
+    ...(truncated ? { truncated: true as const } : {}),
+    decisions: truncated ? decisionsOf(request).filter(decision => decision !== 'accept') : decisionsOf(request),
     answerable: isAnswerable(request),
     createdAt: request.createdAt,
     ...(request.expiresAt !== undefined ? { expiresAt: request.expiresAt } : {})

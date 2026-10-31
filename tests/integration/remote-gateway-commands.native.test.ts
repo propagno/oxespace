@@ -52,6 +52,19 @@ describe('remote commands: thread', () => {
     expect(phone.desk.threads.interrupted).toEqual(['t1'])
   })
 
+  // Assessor BE-M-10: what the phone saw cut cannot be accepted from the phone, only declined.
+  test('respondRequest: a request the phone saw cut is deny-only', async () => {
+    const phone = await phoneWithDesktop(harnesses, desk => desk.threads.create('t1', { status: 'approval' }, [
+      pendingRequest('long', { command: `echo ${'a'.repeat(REMOTE_TEXT_LIMITS.detail)}` }),
+      pendingRequest('short', { command: 'echo ok' })
+    ]))
+    const socket = await signIn(phone)
+    const answer = (requestId: string, decision: string) => run(socket, 'thread.respondRequest', { threadId: 't1', requestId, generation: 1, response: { decision } })
+    expect(await answer('long', 'accept')).toMatchObject({ code: 'forbidden' })
+    expect(await answer('long', 'decline')).toMatchObject({ type: 'ack', result: { resolution: 'declined' } })
+    expect(await answer('short', 'accept')).toMatchObject({ type: 'ack', result: { resolution: 'approved' } })
+  })
+
   test('respondRequest: answered once by id and generation; not answerable is forbidden; repeats and old generations are refused', async () => {
     const phone = await phoneWithDesktop(harnesses, desk => desk.threads.create('t1', { status: 'approval' }, [
       pendingRequest('r1'),

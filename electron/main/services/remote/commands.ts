@@ -3,7 +3,7 @@ import {
   type RemoteCommand, type RemoteCommandArgs, type RemoteErrorCode, type RemoteRespondRequestArgs, type RemoteThreadSnapshot
 } from '../../../../shared/remote/protocol'
 import type { RemoteDesktop } from './desktop'
-import { isAnswerable, decisionsOf, toThreadHeader } from './filters'
+import { isAnswerable, toPendingRequest, toThreadHeader } from './filters'
 import { fitPage, numbered, threadItems } from './topics'
 
 /**
@@ -170,7 +170,9 @@ export class RemoteCommands {
     if (!isAnswerable(request)) return { ok: false, code: 'forbidden' }
     if (request.generation !== args.generation) return { ok: false, code: 'stale-generation' }
     const { decision, answers } = args.response
-    if (decision !== undefined && !decisionsOf(request).includes(decision)) return { ok: false, code: 'forbidden' }
+    // The decisions the phone was offered, so an accept on a request it saw cut is refused here too.
+    const offered = toPendingRequest(listed, desktop.roots()).decisions
+    if (decision !== undefined && !offered.includes(decision)) return { ok: false, code: 'forbidden' }
     if (request.kind === 'approval' && (answers !== undefined || decision === undefined)) return { ok: false, code: 'malformed' }
     if (answers !== undefined) {
       // Only the questions the phone was shown, which are never secret.
