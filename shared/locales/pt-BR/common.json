@@ -383,7 +383,13 @@
       "low": "Baixo",
       "medium": "Médio",
       "high": "Alto",
-      "critical": "Crítico"
+      "critical": "Crítico",
+      "hint": {
+        "low": "Só lê",
+        "medium": "Muda algo",
+        "high": "Apaga, eleva acesso ou publica",
+        "critical": "Não tem volta ou afeta produção"
+      }
     },
     "environment": {
       "label": "Ambiente de {{kind}}: {{name}}",

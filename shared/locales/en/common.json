@@ -376,7 +376,13 @@
       "low": "Low",
       "medium": "Medium",
       "high": "High",
-      "critical": "Critical"
+      "critical": "Critical",
+      "hint": {
+        "low": "Only reads",
+        "medium": "Changes something",
+        "high": "Deletes, escalates access or publishes",
+        "critical": "Can't be undone, or affects production"
+      }
     },
     "environment": {
       "label": "{{kind}} environment: {{name}}",

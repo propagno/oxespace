@@ -162,7 +162,10 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
       {options.map(option => {
         const isDefault = option.id === fallback?.id
         const allow = option.intent !== 'deny'
-        const variant = !allow || option.intent === 'allow-session' ? 'secondary' : dangerous ? 'danger' : 'primary'
+        // The emphasis follows Enter: where Deny is the default (medium risk and up), Deny is the primary button and
+        // the ways to allow step back; where Allow is the default, it leads, in danger red when the request is risky.
+        const denyLeads = fallback?.intent === 'deny'
+        const variant = !allow ? (denyLeads ? 'primary' : 'secondary') : denyLeads || option.intent === 'allow-session' ? 'secondary' : dangerous ? 'danger' : 'primary'
         return <Button key={`${instance}:${option.id}`} variant={variant} autoFocus={isDefault && !startedTyping.current} disabled={!!busyKey || (allow && holdLeft > 0)}
           data-intent={option.intent} data-default={isDefault ? 'true' : undefined} onClick={onOptionClick(option.id)} onKeyDown={onOptionKeyDown(option)}>
           {formatMainMessage(option.label)}
@@ -174,6 +177,8 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
       <Badge intent={risk.intent} className={shownRisk === 'critical' ? styles.critical : undefined}>
         <RiskIcon size={12} aria-hidden="true" />{t('approvals.risk.label', { level: riskName(shownRisk) })}
       </Badge>
+      {/* What the level means, in one line (glossary §6). */}
+      <span className={styles.riskHint} data-testid="approval-risk-hint">{t(`approvals.risk.hint.${shownRisk}`)}</span>
       {environment && !production && <Badge>{t('approvals.environment.label', { name: environment.name, kind: t(`approvals.environment.kind.${environment.kind}`) })}</Badge>}
     </div>
     {production && environment && <p className={styles.production} data-testid="approval-production">
