@@ -1,6 +1,9 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { codeWorkspace, domainTool, int, service, str, bool, type ActionScope, type Args } from './domain-tool'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
+import { reservedNameIn } from '../../../shared/approval-rules'
+import { englishText } from '../agent-text'
+import { mainMessage } from '../../../shared/messages'
 import { readableTail } from './app-read-tools'
 import type { AgentLifecycleState, PaneAgentState } from '../../../shared/types/agent-state'
 
@@ -112,9 +115,12 @@ export const AGENT_CHANGE_TOOLS: ToolEntry[] = [
         if (!profile) throw new ActionRefused(`No ${provider} agent profile is configured. The person can add one in Settings > Agents.`, 'unavailable')
         const model = str(args, 'model', 100)
         if (model && !MODEL.test(model)) throw new ActionRefused('Invalid model name.', 'invalid')
+        // B10: a pane is never named like the app; checked before the pane exists.
+        const name = str(args, 'name', 60)?.replace(/[\r\n]+/g, ' ')
+        const reserved = name ? reservedNameIn(name) : null
+        if (reserved) throw new ActionRefused(englishText(mainMessage('agents.name.reserved', { name: reserved })), 'reserved-name')
         const resolved = service_.resolve(profile.agentProfileId)
         const { paneId: created } = service_.createPane(workspaceId)
-        const name = str(args, 'name', 60)?.replace(/[\r\n]+/g, ' ')
         service_.workspaceChanged(service_.setPaneAgent(created, profile.agentProfileId, name ?? null))
         owners.set(created, scope.actor.key)
         const modelArgs = model ? (resolved.provider === 'claude' ? ['--model', model] : ['-m', model]) : []
@@ -131,7 +137,7 @@ export const AGENT_CHANGE_TOOLS: ToolEntry[] = [
       confirm: (args, scope, ctx) => {
         const target = targetPane(args, scope, ctx)
         liveAgent(ctx, target.paneId)
-        return target.owned ? null : { summary: `send a prompt to the agent in "${target.name}"`, text: str(args, 'text', 20_000) ?? '', reasons: ['That agent will act on this prompt with its own access.'] }
+        return target.owned ? null : { summary: `send a prompt to the agent in "${target.name}"`, text: str(args, 'text', 20_000) ?? '', notes: [mainMessage('approvals.note.agent.actsOnPrompt', {})] }
       },
       run: async (args, scope, ctx) => {
         const target = targetPane(args, scope, ctx)

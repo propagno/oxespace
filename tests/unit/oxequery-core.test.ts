@@ -14,7 +14,8 @@ describe('session lifecycle', () => {
     const core = new OxeQueryCore(); cores.push(core)
     const internals = core as unknown as Internals
     const ended: string[] = []
-    const session = (id: string, lastUsed: number, running = false) => ({ key: id, running, tx: 'none', lastUsed, client: { end: async () => { ended.push(id) } } })
+    // A session is filed under its slot (the connection and its role); the reaper closes slots.
+    const session = (id: string, lastUsed: number, running = false) => ({ key: id, slot: id, role: 'person', release: () => undefined, running, tx: 'none', lastUsed, client: { end: async () => { ended.push(id) } } })
     const now = 100 * 60_000
     internals.pg.set('idle', session('idle', now - 11 * 60_000))
     internals.pg.set('busy', session('busy', now - 30 * 60_000, true))
@@ -37,7 +38,7 @@ describe('session lifecycle', () => {
     const core = new OxeQueryCore(); cores.push(core)
     const internals = core as unknown as Internals
     const close = vi.fn(async () => undefined)
-    internals.mongo.set('m', { key: 'm', client: { close }, lastUsed: 0 })
+    internals.mongo.set('m', { key: 'm', slot: 'm', role: 'person', release: () => undefined, client: { close }, lastUsed: 0 } as never)
     expect(await core.reapIdle(11 * 60_000 + 1)).toBe(1)
     expect(close).toHaveBeenCalled()
   })
