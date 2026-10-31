@@ -25,6 +25,7 @@ import { worktreeOrWorkspaceRoot } from '../ipc/file-system.ipc'
 import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
 import { registerOxePodMock } from './oxepod-mock'
+import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
 import { registerApprovalsMock } from './approvals-mock'
 import { registerOxePostIpc } from '../ipc/oxepost.ipc'
@@ -43,6 +44,7 @@ export function registerE2eMockIpcHandlers(): void {
   const workspaces: Workspace[] = []
   registerOxeQueryMock()
   registerOxePodMock()
+  registerDiagnosticsMock()
   registerRemoteMock()
   registerApprovalsMock()
   registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)

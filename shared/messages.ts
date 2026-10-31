@@ -28,6 +28,29 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** Diagnostics journal (B8.3): one kind of incident. */
+  'incident.window.crashed': Record<string, never>
+  'incident.window.rendererGone': Record<string, never>
+  'incident.ipc.handlerFailed': Record<string, never>
+  'incident.ipc.validationRejected': Record<string, never>
+  'incident.agent.startFailed': Record<string, never>
+  'incident.mcp.quarantined': Record<string, never>
+  'incident.database.busy': Record<string, never>
+  'incident.oxequery.timeout': Record<string, never>
+  'incident.updater.failed': Record<string, never>
+  'incident.interaction.overBudget': Record<string, never>
+  'incident.app.journalReset': Record<string, never>
+  /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
+  'diagnostics.bundle.fileTooLarge': Record<string, never>
+  /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
+  'diagnostics.bundle.tooLarge': Record<string, never>
+  /** What each file of the diagnostics bundle holds (B8.3 preview). */
+  'bundle.file.snapshot': Record<string, never>
+  'bundle.file.incidents': Record<string, never>
+  'bundle.file.logTail': Record<string, never>
+  'bundle.file.runtime': Record<string, never>
+  'bundle.file.versions': Record<string, never>
+  'bundle.file.configuration': Record<string, never>
   // Main-process sentences the window used to receive ready-made in English (C3 sweep).
   'linear.worktree.exists': { issue: string; path: string }
   'worktree.cleanup.notRemovable': Record<string, never>
@@ -193,6 +216,25 @@ export const MESSAGE_CODES = [
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
   'app.connectivity.offline',
+  'incident.window.crashed',
+  'incident.window.rendererGone',
+  'incident.ipc.handlerFailed',
+  'incident.ipc.validationRejected',
+  'incident.agent.startFailed',
+  'incident.mcp.quarantined',
+  'incident.database.busy',
+  'incident.oxequery.timeout',
+  'incident.updater.failed',
+  'incident.interaction.overBudget',
+  'incident.app.journalReset',
+  'diagnostics.bundle.fileTooLarge',
+  'diagnostics.bundle.tooLarge',
+  'bundle.file.snapshot',
+  'bundle.file.incidents',
+  'bundle.file.logTail',
+  'bundle.file.runtime',
+  'bundle.file.versions',
+  'bundle.file.configuration',
   'linear.worktree.exists',
   'worktree.cleanup.notRemovable',
   'worktree.cleanup.blocked',
