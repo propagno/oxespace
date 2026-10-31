@@ -49,19 +49,26 @@ describe('external links', () => {
     }
     expect(openExternal).not.toHaveBeenCalled()
     expect(recordIncident.mock.calls).toEqual([
-      ['incident.external.refused', 'protocol'], ['incident.external.refused', 'credentials'],
-      ['incident.external.refused', 'length'], ['incident.external.refused', 'malformed']
+      ['incident.window.externalRefused', 'protocol'], ['incident.window.externalRefused', 'credentials'],
+      ['incident.window.externalRefused', 'length'], ['incident.window.externalRefused', 'malformed']
     ])
     expect(JSON.stringify(recordIncident.mock.calls)).not.toMatch(/example|secret|pass|private/)
+  })
+
+  it('journals a link the system refused to open, without the URL', async () => {
+    openExternal.mockRejectedValueOnce(new Error('no handler for mailto'))
+    expect(openExternalOrRecord('mailto:nobody@example.com')).toBe(true)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(recordIncident.mock.calls).toEqual([['incident.window.externalOpenFailed']])
   })
 
   it('records at most the limit per minute, then once that a burst is going on', () => {
     const start = 1_000_000
     for (let index = 0; index < EXTERNAL_REFUSALS_PER_MINUTE + 15; index++) openExternalOrRecord('file:///x', start + index)
     expect(recordIncident).toHaveBeenCalledTimes(EXTERNAL_REFUSALS_PER_MINUTE + 1)
-    expect(recordIncident).toHaveBeenLastCalledWith('incident.external.rateLimited')
+    expect(recordIncident).toHaveBeenLastCalledWith('incident.window.externalRateLimited')
     // A new minute records again.
     openExternalOrRecord('file:///x', start + 60_000)
-    expect(recordIncident).toHaveBeenLastCalledWith('incident.external.refused', 'protocol')
+    expect(recordIncident).toHaveBeenLastCalledWith('incident.window.externalRefused', 'protocol')
   })
 })

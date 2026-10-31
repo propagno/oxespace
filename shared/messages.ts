@@ -41,8 +41,10 @@ export interface MessageParams {
   'incident.interaction.overBudget': Record<string, never>
   'incident.app.journalReset': Record<string, never>
   /** A link the main window tried to open outside the app was refused (its reason is the incident's subject). */
-  'incident.external.refused': Record<string, never>
-  'incident.external.rateLimited': Record<string, never>
+  'incident.window.externalRefused': Record<string, never>
+  'incident.window.externalRateLimited': Record<string, never>
+  /** The system refused to open a link the app allowed (no mail app or browser registered for it). */
+  'incident.window.externalOpenFailed': Record<string, never>
   /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
   'diagnostics.bundle.fileTooLarge': Record<string, never>
   /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
@@ -234,8 +236,9 @@ export const MESSAGE_CODES = [
   'incident.updater.failed',
   'incident.interaction.overBudget',
   'incident.app.journalReset',
-  'incident.external.refused',
-  'incident.external.rateLimited',
+  'incident.window.externalRefused',
+  'incident.window.externalRateLimited',
+  'incident.window.externalOpenFailed',
   'diagnostics.bundle.fileTooLarge',
   'diagnostics.bundle.tooLarge',
   'bundle.file.snapshot',

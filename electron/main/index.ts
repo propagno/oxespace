@@ -868,8 +868,8 @@ function createMainWindow(): BrowserWindow {
   const keepInApp = (event: Electron.Event, url: string): void => {
     if (isAppNavigation(url, appUrl)) return
     event.preventDefault()
-    log.warn('[main] blocked navigation of the main window', url.slice(0, 200))
-    openExternalOrRecord(url)
+    // The reason only: the URL may carry a token, a path or a host that must not reach the log.
+    log.warn('[main] blocked navigation of the main window', openExternalOrRecord(url) ? 'opened outside' : 'refused')
   }
   mainWindow.webContents.on('will-navigate', keepInApp)
   mainWindow.webContents.on('will-redirect', keepInApp)

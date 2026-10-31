@@ -19,16 +19,17 @@ let burstNoted = false
 export function openExternalOrRecord(url: string, now = Date.now()): boolean {
   const refusal = externalUrlRefusal(url)
   if (refusal === null) {
-    void shell.openExternal(url)
+    // The system may have no handler (a mailto: with no mail app on Linux): journalled, still without the URL.
+    shell.openExternal(url).catch(() => recordIncident('incident.window.externalOpenFailed'))
     return true
   }
   if (now - windowStart >= 60_000) { windowStart = now; recorded = 0; burstNoted = false }
   if (recorded < EXTERNAL_REFUSALS_PER_MINUTE) {
     recorded++
-    recordIncident('incident.external.refused', refusal)
+    recordIncident('incident.window.externalRefused', refusal)
   } else if (!burstNoted) {
     burstNoted = true
-    recordIncident('incident.external.rateLimited')
+    recordIncident('incident.window.externalRateLimited')
   }
   return false
 }

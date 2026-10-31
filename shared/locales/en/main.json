@@ -297,7 +297,10 @@
     "incident": {
       "window": {
         "crashed": "The window crashed.",
-        "rendererGone": "The interface stopped responding and was restarted."
+        "rendererGone": "The interface stopped responding and was restarted.",
+        "externalRefused": "A link was not opened outside the app: wrong kind, too long, or with a name and password in it.",
+        "externalRateLimited": "Many links were refused within a minute; the rest were not recorded.",
+        "externalOpenFailed": "The system could not open a link the app allowed; no app is registered for it."
       },
       "ipc": {
         "handlerFailed": "A request from the window failed in the background.",
@@ -323,10 +326,6 @@
       },
       "app": {
         "journalReset": "The diagnostics journal was unreadable and started over."
-      },
-      "external": {
-        "refused": "A link was not opened outside the app: wrong kind, too long, or with a name and password in it.",
-        "rateLimited": "Many links were refused within a minute; the rest were not recorded."
       }
     },
     "diagnostics": {
