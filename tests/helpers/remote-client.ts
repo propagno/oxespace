@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, X509Certificate } from 'node:crypto'
 import https from 'node:https'
 import tls from 'node:tls'
 import { REMOTE_WS_PATH } from '../../shared/remote/protocol'
@@ -13,14 +13,33 @@ export const received: string[] = []
 
 export interface Target { host: string; port: number; fp: string }
 
+/**
+ * The certificate the pin was checked against, kept at handshake time: once the server closes the socket, Node no
+ * longer reports a peer certificate, and a CI runner may get there before the test reads it.
+ */
+const pinned = new WeakMap<tls.TLSSocket, X509Certificate>()
+
+/** The server's certificate: the one kept at handshake, else read now (the X509 accessor, or the raw DER). */
+export function peerCertificate(socket: tls.TLSSocket): X509Certificate {
+  const kept = pinned.get(socket)
+  if (kept) return kept
+  const live = socket.getPeerX509Certificate()
+  if (live) return live
+  const raw = socket.getPeerCertificate(true)?.raw
+  if (!raw) throw new Error('the server presented no certificate')
+  return new X509Certificate(raw)
+}
+
 export function peerFingerprint(socket: tls.TLSSocket): string {
-  return createHash('sha256').update(socket.getPeerX509Certificate()!.raw).digest('hex')
+  return createHash('sha256').update(peerCertificate(socket).raw).digest('hex')
 }
 
 /** TLS to the gateway, refused unless its certificate is the pinned one; nothing is sent before the check. */
 export function connectPinned(target: Target): Promise<tls.TLSSocket> {
   return new Promise((resolve, reject) => {
+    // The callback is 'secureConnect': the handshake is done and the peer certificate is there to keep.
     const socket = tls.connect({ host: target.host, port: target.port, rejectUnauthorized: false }, () => {
+      pinned.set(socket, peerCertificate(socket))
       if (peerFingerprint(socket) !== target.fp) { socket.destroy(); reject(new Error('certificate pin mismatch')); return }
       socket.off('error', reject)
       resolve(socket)

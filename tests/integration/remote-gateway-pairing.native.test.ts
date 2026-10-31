@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { isPrivateAddress } from '../../electron/main/services/remote/network'
 import { RemoteStore } from '../../electron/main/services/remote/store'
 import { isCertificateFingerprint, isPairingCode, pairingVerification, readPairingUri, REMOTE_LIMITS } from '../../shared/remote/protocol'
-import { connectPinned, peerFingerprint, request } from '../helpers/remote-client'
+import { connectPinned, peerCertificate, peerFingerprint, request } from '../helpers/remote-client'
 import { fakeSafeStorage, freePort, Harness, LOOPBACK, newPhone, spkiDigest, tcpOpen } from '../helpers/remote-gateway-harness'
 
 const harnesses: Harness[] = []
@@ -27,7 +27,7 @@ describe('remote gateway: off by default, on only by the person', () => {
 
     // The certificate the TLS server presents is the one whose fingerprint the status (and so the QR) carries.
     const socket = await connectPinned(target)
-    const certificate = new X509Certificate(socket.getPeerX509Certificate()!.raw)
+    const certificate = peerCertificate(socket)
     expect(peerFingerprint(socket)).toBe(target.fp)
     socket.destroy()
     expect(certificate.publicKey.asymmetricKeyDetails?.namedCurve).toBe('prime256v1')
