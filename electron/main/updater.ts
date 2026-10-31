@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import { recordIncident } from './services/diagnostics/incident-sink'
+import { bypassCloseGuard } from './window-close-guard'
 import type { AppUpdateChannel, AppUpdatePreferences, AppUpdateState, AppUpdateStatus } from '../../shared/types/updater'
 
 /**
@@ -225,11 +226,14 @@ export async function checkForAppUpdates(manual = false): Promise<AppUpdateState
 
 export function quitAndInstallUpdate(): boolean {
   if (!autoUpdaterRef || state.status !== 'downloaded') return false
+  // F26: the install quits without asking the window; autosaved drafts cover it.
+  const askAgain = bypassCloseGuard()
   try {
     // isSilent=false, isForceRunAfter=true — restart into the new version.
     autoUpdaterRef.quitAndInstall(false, true)
     return true
   } catch (err) {
+    askAgain()
     log.warn('[updater] quitAndInstall failed', err)
     setState({
       status: 'error',

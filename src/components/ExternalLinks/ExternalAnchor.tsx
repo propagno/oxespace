@@ -25,7 +25,7 @@ export function ExternalAnchor({ href, children, source = 'markdown', className 
   if (!url || !href) return null
   const text = textOf(children)
   const follow = (event: MouseEvent): void => { event.preventDefault(); void openExternalLink(href, { text, source }) }
-  return <a className={className} href={url.href} title={url.href} target="_blank" rel="noopener noreferrer" onClick={follow}
+  return <a className={className} href={url.href} title={url.href} rel="noopener noreferrer" onClick={follow}
     onAuxClick={event => { if (event.button === 1) follow(event) }}>
     {children}{source !== 'app' && host && text.trim() && !textIsAddress(url, text) && <>{' '}<span className={styles.host} data-testid="external-link-suffix">{t('links.hostSuffix', { host })}</span></>}
   </a>
