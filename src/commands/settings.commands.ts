@@ -1,4 +1,4 @@
-import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Mic, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, type LucideIcon } from 'lucide-react'
 import { OPEN_ABOUT_EVENT } from '../components/About/AboutHost'
 import { OPEN_REPORT_PROBLEM_EVENT } from '../components/Diagnostics/ReportProblemHost'
 import { OPEN_SHORTCUT_GUIDE_EVENT } from '../components/Keyboard/ShortcutGuideHost'
@@ -18,6 +18,7 @@ const PAGES: Array<{ page: SettingsPageId; icon: LucideIcon; keywords?: string[]
   { page: 'notifications', icon: Bell, keywords: ['alerts', 'sounds'] },
   { page: 'updates', icon: ArrowUpCircle, keywords: ['version', 'download'] },
   { page: 'policy', icon: ShieldCheck, keywords: ['rules', 'block', 'deny'] },
+  { page: 'devices', icon: Smartphone, keywords: ['phone', 'mobile', 'android', 'pair', 'remote'] },
   { page: 'diagnostics', icon: Activity, keywords: ['health', 'logs', 'troubleshooting'] }
 ]
 

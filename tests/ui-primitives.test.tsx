@@ -13,9 +13,14 @@ describe('Button', () => {
     const button = screen.getByRole('button', { name: 'Save' })
     expect(button).toHaveAttribute('type', 'button')
     fireEvent.click(button); expect(click).toHaveBeenCalledTimes(1)
+    // Loading keeps the focus where it is (FE-M-14): unavailable and busy, clicks ignored, not disabled.
+    button.focus()
     rerender(<Button onClick={click} loading>Save</Button>)
-    expect(button).toBeDisabled()
+    expect(button).not.toBeDisabled()
+    expect(button).toHaveFocus()
+    expect(button).toHaveAttribute('aria-disabled', 'true')
     expect(button).toHaveAttribute('aria-busy', 'true')
+    fireEvent.click(button); expect(click).toHaveBeenCalledTimes(1)
   })
 
   it('names icon-only buttons for screen readers and as a title', () => {

@@ -65,6 +65,15 @@
         "unavailable": "Este agente ainda não abre um chat lateral.",
         "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
       },
+      "sections": {
+        "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
+        "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",
+        "nameEmpty": "Dê um nome à seção.",
+        "nameTooLong": "O nome de uma seção tem no máximo {{max}} caracteres.",
+        "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
+        "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
+        "unknownWorkspace": "Este workspace não existe mais."
+      },
       "commands": {
         "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
         "busy": "A busca de comandos está ocupada. Use Atualizar comandos para tentar de novo.",

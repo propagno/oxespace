@@ -834,6 +834,8 @@
   "links": {
     "refused": "This link was not opened",
     "refusedHint": "Only web (http, https) and email (mailto) links up to 2,048 characters, without a user name or password, open outside OXESpace.",
+    "notOpened": "The link did not open",
+    "notOpenedHint": "OXESpace could not hand it to your browser. Try again, or copy the address.",
     "hostSuffix": "({{host}})",
     "terminalHint": "{{key}}+click to open the link",
     "confirm": {
