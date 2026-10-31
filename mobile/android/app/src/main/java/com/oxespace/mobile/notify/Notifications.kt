@@ -87,7 +87,7 @@ class Notifications(private val context: Context) {
             is AlertTarget.Thread -> intent.putExtra(EXTRA_THREAD, target.threadId)
             null -> Unit
         }
-        return PendingIntent.getActivity(context, key.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        return PendingIntent.getActivity(context, key.hashCode(), NotificationTaps.sign(intent), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     companion object {

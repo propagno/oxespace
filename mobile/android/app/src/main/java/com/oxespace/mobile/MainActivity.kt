@@ -19,7 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.approval.KeystorePresence
 import com.oxespace.mobile.approval.PresenceGate
-import com.oxespace.mobile.notify.Notifications
+import com.oxespace.mobile.notify.NotificationTaps
 import com.oxespace.mobile.pairing.PairedDesktop
 import com.oxespace.mobile.pairing.PairingViewModel
 import com.oxespace.mobile.session.DesktopStatus
@@ -161,9 +161,10 @@ class MainActivity : ComponentActivity() {
         readNotificationTap(intent)
     }
 
+    /** Only a tap on one of this app's notifications opens a conversation or request; see [NotificationTaps]. */
     private fun readNotificationTap(intent: Intent?) {
-        val thread = intent?.getStringExtra(Notifications.EXTRA_THREAD) ?: return
-        opening = thread to intent.getStringExtra(Notifications.EXTRA_REQUEST)
+        val target = NotificationTaps.read(intent) ?: return
+        opening = target.threadId to target.requestId
     }
 
     /** On screen the session runs here; in the background the foreground service keeps it. */
