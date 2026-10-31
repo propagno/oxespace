@@ -41,7 +41,7 @@ export class ThreadProjectService {
 
   context(projectId: string, rootPath?: string): { projectId: string; rootPath: string } {
     const row = this.db.prepare('SELECT id, root_path FROM thread_projects WHERE id = ? AND hidden = 0').get(projectId) as { id: string; root_path: string } | undefined
-    if (!row) throw Error('Thread project is unavailable. Restore or add the project first.')
+    if (!row) throw Error('OxeChat project is unavailable. Restore or add the project first.')
     const selected = rootPath ?? row.root_path
     if (!this.db.prepare('SELECT 1 FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').get(projectId, selected)) throw Error('Directory does not belong to this Thread project')
     if (!existsSync(selected)) throw Error('Project directory is unavailable. Relink the project before starting a conversation.')
@@ -50,7 +50,7 @@ export class ThreadProjectService {
 
   /** Registers another checkout of the project (a worktree created for a conversation). */
   addContext(projectId: string, rootPath: string): void {
-    if (!this.db.prepare('SELECT 1 FROM thread_projects WHERE id = ?').get(projectId)) throw Error('Thread project not found')
+    if (!this.db.prepare('SELECT 1 FROM thread_projects WHERE id = ?').get(projectId)) throw Error('OxeChat project not found')
     this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(projectId, rootPath)
   }
 
@@ -61,17 +61,17 @@ export class ThreadProjectService {
 
   setHidden(projectId: string, hidden: boolean): void {
     const result = this.db.prepare('UPDATE thread_projects SET hidden = ?, updated_at = ? WHERE id = ?').run(hidden ? 1 : 0, Date.now(), projectId)
-    if (!result.changes) throw Error('Thread project not found')
+    if (!result.changes) throw Error('OxeChat project not found')
   }
 
   async relink(projectId: string, rootPath: string): Promise<ThreadProjectSummary> {
     const canonical = await realpath(rootPath)
     const identity = await projectIdentity(canonical)
     const current = this.db.prepare('SELECT identity, root_path FROM thread_projects WHERE id = ?').get(projectId) as { identity: string; root_path: string } | undefined
-    if (!current) throw Error('Thread project not found')
+    if (!current) throw Error('OxeChat project not found')
     if (existsSync(current.root_path) && identity !== current.identity) throw Error('Choose a directory from the same project')
     const owner = this.db.prepare('SELECT id FROM thread_projects WHERE identity = ? AND id <> ?').get(identity, projectId) as { id: string } | undefined
-    if (owner) throw Error('This directory belongs to another Thread project')
+    if (owner) throw Error('This directory belongs to another OxeChat project')
     const now = Date.now()
     this.db.transaction(() => {
       this.db.prepare('UPDATE thread_projects SET identity = ?, root_path = ?, display_name = ?, hidden = 0, updated_at = ? WHERE id = ?')
