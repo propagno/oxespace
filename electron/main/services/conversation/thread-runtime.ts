@@ -13,21 +13,25 @@ import { ThreadNativeCli } from './thread-cli'
 import { NativeHistoryWorkerClient } from './native-history-worker-client'
 import { CodexStateReader } from './codex-state-reader'
 import { ThreadModelService } from './thread-models'
-import { bindThreadMcp, deniedMcpTools, threadMcpArguments, threadToolList, threadToolRoles, toolSearchEnvironment, type ThreadMcpBindings } from './thread-mcp'
+import { bindThreadMcp, deniedMcpTools, threadMcpArguments, threadToolRoles, toolSearchEnvironment, type ThreadMcpBindings } from './thread-mcp'
+import { projectToolModes, sessionToolPlan, usesToolSearch } from './tool-groups'
 import { loadRepoConfig } from '../repo-config/loader'
 import { ThreadPermissionStore } from './thread-permissions'
 import { readManagedMcp } from './thread-managed-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
 import { assertProviderAllowed, mcpServerAllowed, policyDeniedMcpNames, policyDeniedToolNames } from '../policy'
 
+/** The agent profile a conversation runs with; a child profile runs its parent's executable. */
+export function threadAgentProfile(db: AppDatabase, thread: import('../../../../shared/types/thread').ConversationThread) {
+  const profiles = new AgentService(db).list()
+  const selected = thread.agentProfileId ? profiles.find(profile => profile.agentProfileId === thread.agentProfileId)
+    : profiles.find(profile => profile.provider === thread.provider && !profile.parentProvider)
+  if (!selected || (selected.parentProvider ?? selected.provider) !== thread.provider) throw new Error('Configure the selected agent profile in Agent Settings')
+  return selected.parentProvider ? { ...selected, command: profiles.find(profile => profile.provider === selected.parentProvider && !profile.parentProvider)?.command ?? '' } : selected
+}
+
 export function createThreadManager(db: AppDatabase, accounts: NativeAccountService, mcp: ThreadMcpBindings): ThreadManager {
-  const resolveProfile = (thread: import('../../../../shared/types/thread').ConversationThread) => {
-    const profiles = new AgentService(db).list()
-    const selected = thread.agentProfileId ? profiles.find(profile => profile.agentProfileId === thread.agentProfileId)
-      : profiles.find(profile => profile.provider === thread.provider && !profile.parentProvider)
-    if (!selected || (selected.parentProvider ?? selected.provider) !== thread.provider) throw new Error('Configure the selected agent profile in Agent Settings')
-    return selected.parentProvider ? { ...selected, command: profiles.find(profile => profile.provider === selected.parentProvider && !profile.parentProvider)?.command ?? '' } : selected
-  }
+  const resolveProfile = (thread: import('../../../../shared/types/thread').ConversationThread) => threadAgentProfile(db, thread)
   const executable = (thread: import('../../../../shared/types/thread').ConversationThread) => {
     const profile = resolveProfile(thread)
     if (!profile) throw new Error('Configure the agent in Agent Settings')
@@ -56,9 +60,10 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       // Deny rules for MCP tools take effect when the session starts.
       // Policy denials by name too, so a server configured directly in the CLI is excluded as well.
       const denied = [...deniedMcpTools(new ThreadPermissionStore(db).rules(thread.rootPath)), ...policyDeniedMcpNames(thread.rootPath).map(server => ({ server, tool: '*' }))]
-      // So do tool groups: only what this conversation's role and project need.
-      const tools = threadToolList(threadToolRoles(db, thread.id), (await loadRepoConfig(thread.rootPath).catch(() => null))?.thread?.tools)
-      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied, tools, policyDeniedToolNames(thread.rootPath)), cwd, env, { thread: thread.id, generation: thread.generation })
+      // So do tool groups: the role's, and each group by the project's mode; on demand ones load as needed (B7.2).
+      const modes = projectToolModes((await loadRepoConfig(thread.rootPath).catch(() => null))?.thread)
+      const { tools, enableable } = sessionToolPlan(usesToolSearch(thread.provider, { ...process.env, ...env }), threadToolRoles(db, thread.id), modes)
+      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied, tools, policyDeniedToolNames(thread.rootPath), enableable), cwd, env, { thread: thread.id, generation: thread.generation })
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
         : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))
       return bindThreadMcp(adapter, () => mcp.end(thread.id, executionId))

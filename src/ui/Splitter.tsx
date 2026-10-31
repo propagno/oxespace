@@ -28,8 +28,8 @@ const CLICK_SLOP = 3
 
 /**
  * A draggable divider between two panels: pointer drag, arrow keys, Home/End for the limits and a double click to
- * restore the default size. Dragging is never the only way (WCAG 2.5.7): a click without dragging, or Enter, opens
- * Smaller, Larger and Restore, each a single click.
+ * restore the default size. Dragging is never the only way (WCAG 2.5.7): a click without dragging, Enter, Space or the
+ * context-menu keys open Smaller, Larger and Restore, each a single click, like the pane grid's dividers.
  */
 export function Splitter({ orientation, label, value, min, max, defaultValue, onChange, after = false, step = 16, className, edge = false }: SplitterProps): ReactElement {
   const drag = useRef<{ start: number; size: number; moved: boolean } | null>(null)
@@ -42,7 +42,7 @@ export function Splitter({ orientation, label, value, min, max, defaultValue, on
   // The panel's own size, whichever side of the splitter it is on.
   const resize = (change: number): void => onChange(clamp(value + change))
   return <div ref={separator} role="separator" tabIndex={0} aria-label={label} aria-orientation={orientation} aria-valuemin={min} aria-valuemax={max} aria-valuenow={clamp(value)}
-      aria-keyshortcuts="Enter" className={cx(styles.splitter, edge && styles.edge, className)} data-orientation={orientation}
+      aria-keyshortcuts="Enter Shift+F10" className={cx(styles.splitter, edge && styles.edge, className)} data-orientation={orientation}
       onPointerDown={event => { drag.current = { start: axis(event), size: value, moved: false }; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault() }}
       onPointerMove={event => {
         if (!drag.current) return
@@ -58,8 +58,11 @@ export function Splitter({ orientation, label, value, min, max, defaultValue, on
         if (change) { event.preventDefault(); onChange(clamp(value + change * direction)) }
         if (event.key === 'Home') { event.preventDefault(); onChange(min) }
         if (event.key === 'End') { event.preventDefault(); onChange(max) }
-        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setMenu(true) }
-      }}>
+        if (event.key === 'Enter' || event.key === ' ' || event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setMenu(true) }
+      }}
+      // Shift+F10 and the context-menu key often reach the page only as a contextmenu event (Chromium on Linux and
+      // Windows): open the same menu from it, and from a right click.
+      onContextMenu={event => { event.preventDefault(); setMenu(true) }}>
       {/* Inside the separator: it may not carry aria-expanded or aria-haspopup itself. */}
       <AnchoredMenu open={menu} onOpenChange={setMenu} side={orientation === 'vertical' ? 'right' : 'bottom'} label={i18n.t('ui.splitter.menu', { name: label })} returnFocus={() => separator.current}
         items={[

@@ -1,0 +1,18 @@
+/* The pane header's "Phone can type" sign and the ⋯ menu check. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--intent-warning-border);
+  border-radius: var(--radius-full);
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.label { overflow: hidden; text-overflow: ellipsis; }
+.check { margin-left: auto; color: var(--text-accent); }

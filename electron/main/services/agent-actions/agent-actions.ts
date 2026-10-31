@@ -1,6 +1,10 @@
 import type { ApprovalBroker } from './approval-broker'
 import { textHash } from './approval-broker'
 import type { ActionAudit, ActionLevel } from './action-audit'
+import { englishText } from '../../agent-text'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
+import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequester, type ApprovalRisk } from '../../../../shared/types/approvals'
+import { ownerFromLabel, requesterFor } from '../approvals/requester'
 
 /** A refusal the model can act on; `code` is stable and documented in MCP_AUTOMATION.md. */
 export class ActionRefused extends Error {
@@ -15,6 +19,8 @@ export interface ActionActor {
   workspaceId: string | null
   /** False for a caller without a live OXESpace execution (a CLI started elsewhere). */
   authenticated: boolean
+  /** Who the person sees asking, assigned from the execution's owner (B10); derived from `label` when absent. */
+  requester?: ApprovalRequester
 }
 
 export interface ActionRequest {
@@ -27,12 +33,20 @@ export interface ActionRequest {
   target?: string
   /** For `confirm`: exactly what will happen; the approval is bound to its hash. */
   text?: string
-  reasons?: string[]
+  /** The app's own warnings, as C3 codes (B10). */
+  notes?: MainMessage[]
+  /** The risk the person sees; `medium` unless the tool says otherwise. */
+  risk?: ApprovalRisk
 }
 
 export const ACTION_RATE_PER_MINUTE = 30
-/** A person approves exactly what they can read; anything longer is refused rather than shortened. */
-export const MAX_REVIEWABLE = 6000
+
+/** The MCP code for a request main denied without showing it (B10): the agent may back off and retry a full queue. */
+export function refusalCode(refusal: MainMessage): string {
+  return refusal.code === 'approvals.denied.queueFull' ? 'queue-full' : refusal.code === 'approvals.denied.tooLong' ? 'too-long' : 'denied'
+}
+/** A person approves exactly what they can read; anything longer is refused rather than shortened (B10: one cap for every door). */
+export const MAX_REVIEWABLE = APPROVAL_AGENT_TEXT_MAX
 
 /**
  * The policy door for every MCP tool outside OxeQuery. The level comes from the
@@ -52,24 +66,33 @@ export class AgentActions {
 
   async run<T>(actor: ActionActor, request: ActionRequest, perform: () => Promise<T>): Promise<T> {
     if (request.level === 'read') return perform()
-    if (!actor.authenticated) throw new ActionRefused('This action changes OXESpace, so it must come from an agent running inside OXESpace (a Code pane or a Thread).', 'no-execution')
+    if (!actor.authenticated) throw new ActionRefused('This action changes OXESpace, so it must come from an agent running inside OXESpace (an OxeCode pane or an OxeChat conversation).', 'no-execution')
     this.limit(actor)
     const text = request.text ?? `${request.action}${request.target ? ` on ${request.target}` : ''}`
     const hash = textHash(text)
     const base = { actor: actor.label, workspaceId: actor.workspaceId, tool: request.tool, action: request.action, level: request.level, textHash: hash, text }
     let decision: 'auto' | 'approved' = 'auto'
     if (request.level === 'confirm') {
-      if (text.length > MAX_REVIEWABLE) throw new ActionRefused(`This request is longer than ${MAX_REVIEWABLE} characters, which is more than a person can review. Split it into smaller steps.`, 'too-long')
+      if ([...text].length > MAX_REVIEWABLE) throw new ActionRefused(englishText(mainMessage('approvals.denied.tooLong', { max: MAX_REVIEWABLE })), 'too-long')
+      const owner = ownerFromLabel(actor.label)
+      const requester = actor.requester ?? (owner ? requesterFor(owner) : undefined)
+      if (!requester) throw new ActionRefused('This action changes OXESpace, so it must come from an agent running inside OXESpace (a Code pane or a Thread).', 'no-execution')
+      const target = request.target ?? ''
       const broker = this.deps.broker
       const state = broker
         ? await broker.require(actor.key, `${request.tool}|${request.target ?? ''}`, {
-          actor: actor.label, tool: `${request.tool}.${request.action}`, title: 'OXESpace — request from an agent',
-          summary: `${actor.label} wants to ${request.summary ?? request.action}`, target: request.target ?? '', risk: 'action', text, reasons: request.reasons ?? []
+          actor: actor.label, tool: `${request.tool}.${request.action}`, risk: 'action', text,
+          kind: 'mcp-confirm', requester, level: request.risk ?? 'medium', title: mainMessage('approvals.title.agent', {}),
+          summary: mainMessage('approvals.summary.mcpConfirm', { tool: request.tool, action: request.action, target }), target, notes: request.notes ?? []
         })
         : { state: 'denied' as const }
       if (state.state === 'denied') {
         this.deps.audit?.record({ ...base, decision: 'denied', outcome: 'skipped', errorCode: 'denied' })
         throw new ActionRefused('The person declined this request. Do not retry it unchanged.', 'denied')
+      }
+      if (state.state === 'refused') {
+        this.deps.audit?.record({ ...base, decision: 'refused', outcome: 'skipped', errorCode: refusalCode(state.refusal) })
+        throw new ActionRefused(englishText(state.refusal), refusalCode(state.refusal))
       }
       if (state.state === 'pending') {
         this.deps.audit?.record({ ...base, decision: 'pending', outcome: 'skipped', errorCode: 'approval-pending' })

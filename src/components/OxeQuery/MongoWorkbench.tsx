@@ -4,6 +4,8 @@ import { ChevronDown, ChevronRight, Copy, Database, Pencil, Play, Plus, RefreshC
 import type { MongoCollectionInfo, MongoDatabaseInfo, MongoExplainSummary, MongoResult, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { describeMongoQuery, parseMongoQuery, stringifyMongoQuery } from '../../../shared/mongoQueryText'
 import { OxeQueryClientError, errorMessage, oq } from './client'
+import { nameMatches } from '../../../shared/oxequerySafety'
+import { messageKey, messageValues } from '../../../shared/messages'
 import { ExportButton } from './TableEditor'
 import { ImportButton } from './ImportDialog'
 import { LibraryMenu } from './LibraryMenu'
@@ -16,9 +18,11 @@ import { DocumentTree, ExplainCard } from './MongoPanels'
 import { PAGE_SIZES, cloneDocument, documentLabel, jsonProblem, prettyDocument } from './mongo-model'
 import { flattenDocuments } from './mongo-view'
 import { ResultGrid } from './ResultGrid'
-import { FieldError, Select, TextArea } from '../../ui/Field'
+import { FieldError, Select, TextArea, TextField } from '../../ui/Field'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { mongoWritePreview } from './confirm-statements'
+import { MongoWriteDetails } from './ConfirmStatements'
 import { Splitter } from '../../ui/Splitter'
 import { MONGO_INPUTS_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 import { Dialog } from '../../ui/Overlay'
@@ -44,6 +48,7 @@ const INPUTS_CHROME = 50
 
 export function MongoWorkbench({ connection }: { connection: OxeQueryConnection }): ReactElement {
   const { t } = useTranslation('oxequery')
+  const { t: tMain, i18n } = useTranslation('main')
   const layout = useOxeQueryLayout()
   const main = useRef<HTMLDivElement>(null)
   const mainHeight = useHeight(main)
@@ -71,7 +76,9 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   // `original` is the document as it was read (null for a new one); it is sent back so a concurrent change is detected.
   const [editing, setEditing] = useState<{ original: string | null; text: string; mode: 'edit' | 'delete' } | null>(null)
   const [writeError, setWriteError] = useState('')
-  const [confirm, setConfirm] = useState<string[] | null>(null)
+  /** `typed`: production, so main waits for the connection's name before it changes anything. */
+  const [confirm, setConfirm] = useState<{ reasons: string[]; typed: boolean } | null>(null)
+  const [typedName, setTypedName] = useState('')
   const [writing, setWriting] = useState(false)
 
   const problems = useMemo(() => mode === 'find'
@@ -153,20 +160,24 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
     setEditing({ original, text: kind === 'edit' ? prettyDocument(original) : '', mode: kind })
   }
 
-  const write = async (confirmed = false): Promise<void> => {
+  const write = async (confirmed = false, confirmName?: string): Promise<void> => {
     if (!target || !editing) return
     setWriting(true); setWriteError('')
     try {
       const op = editing.mode === 'delete' ? 'delete' : editing.original === null ? 'insert' : 'replace'
       await oq('mongo.write', {
-        connectionId: connection.id, ...target, op, confirmed,
+        connectionId: connection.id, ...target, op, confirmed, ...(confirmName !== undefined ? { confirmName } : {}),
         ...(op === 'delete' ? {} : { document: editing.text }),
         ...(editing.original !== null ? { expected: editing.original } : {})
       })
-      setEditing(null); setConfirm(null)
+      setEditing(null); setConfirm(null); setTypedName('')
       void run(skip)
     } catch (cause) {
-      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirm(cause.reasons)
+      if (cause instanceof OxeQueryClientError && (cause.code === 'confirm' || cause.code === 'confirm-name')) {
+        const tm = tMain as unknown as (key: string, values: Record<string, string>) => string
+        const reasons = cause.reasonCodes.length ? cause.reasonCodes.map(message => tm(messageKey(message.code), messageValues(message, i18n.language))) : cause.reasons
+        setConfirm({ reasons, typed: cause.code === 'confirm-name' })
+      }
       else setWriteError(cause instanceof OxeQueryClientError && cause.code === 'conflict' ? `${cause.message} ${t('mongo.conflict')}` : errorMessage(cause))
     } finally { setWriting(false) }
   }
@@ -262,9 +273,13 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             {editing.mode === 'delete' && <pre className="oq-doc-preview">{prettyDocument(editing.original ?? '')}</pre>}
             {writeError && <ErrorState compact title={t('mongo.writeFailed')} message={writeError} />}
             {confirm && <ConfirmDialog danger title={t('mongo.confirmTitle')} confirmLabel={t('common.confirm')} cancelLabel={t('common.cancel')} busy={writing}
+              confirmDisabled={confirm.typed && !nameMatches(typedName, connection.name)}
               description={connection.environment === 'prod' ? t('workbench.confirm.production') : t('mongo.confirmCheck')}
-              onCancel={() => setConfirm(null)} onConfirm={() => void write(true)}>
-              <ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
+              onCancel={() => { setConfirm(null); setTypedName('') }} onConfirm={() => void write(true, confirm.typed ? typedName.trim() : undefined)}>
+              <ul>{confirm.reasons.map(item => <li key={item}>{item}</li>)}</ul>
+              {target && <MongoWriteDetails preview={mongoWritePreview({ op: editing.mode === 'delete' ? 'delete' : editing.original === null ? 'insert' : 'replace', ...target, original: editing.original, document: editing.mode === 'delete' ? null : editing.text })} />}
+              {confirm.typed && <TextField label={t('workbench.confirm.typeName', { name: connection.name })} value={typedName} autoComplete="off" spellCheck={false} mono
+                onChange={event => setTypedName(event.target.value)} />}
             </ConfirmDialog>}
           </Dialog>}
           {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>

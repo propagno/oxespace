@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { watch, type FSWatcher } from 'node:fs'
-import { readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
-import { dirname, normalize, relative, resolve, sep } from 'node:path'
+import { chmod, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { basename, dirname, join, normalize, relative, resolve, sep } from 'node:path'
 import type {
   FileSystemFileChangedEvent,
   FileSystemListTreeInput,
@@ -16,7 +16,7 @@ import type {
   FileTreeNode
 } from '../../../shared/types/ipc'
 import { safeJoin } from '../utils/safe-join'
-import { mkdir } from 'node:fs/promises'
+import { MainRefusal } from './main-refusal'
 
 export const MAX_TEXT_FILE_BYTES = 2 * 1024 * 1024
 /** Previews stream base64 over IPC, which inflates ~33%; cap higher than text
@@ -153,6 +153,44 @@ export class FileSystemService {
     await writeFile(filePath, input.content, { encoding: 'utf8', flag: 'wx' })
     const created = await stat(filePath)
     return { relativePath: normalizeRelativePath(input.relativePath), size: created.size, mtimeMs: created.mtimeMs }
+  }
+
+  /**
+   * Replaces a project file atomically, for a read-modify-write the main process does on the person's behalf (oxe.yaml,
+   * .oxespace/policy.json). `expectedMtimeMs` is the `mtimeMs` `readFile` returned, or `null` when the file did not
+   * exist. The content goes to a temporary file in the same folder, the target is checked again (unchanged since it was
+   * read, still inside the root, still a file), and the temporary file is renamed over it, so a crash leaves the old file
+   * or the new one, never half of one. A target that changed or appeared meanwhile is refused with
+   * `project.file.changedMeanwhile`, writing nothing. Not reachable from the window.
+   */
+  async replaceFile(input: FileSystemWriteFileInput & { expectedMtimeMs: number | null }): Promise<FileSystemWriteFileResult> {
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    const relativePath = normalizeRelativePath(input.relativePath)
+    await assertCanonicalInside(rootPath, dirname(filePath))
+    if (Buffer.byteLength(input.content, 'utf8') > MAX_TEXT_FILE_BYTES) throw new Error('File is larger than 2 MB')
+    const unchanged = async () => {
+      const current = await stat(filePath).catch((error: NodeJS.ErrnoException) => { if (error?.code === 'ENOENT') return null; throw error })
+      const same = input.expectedMtimeMs === null ? current === null : !!current && current.isFile() && current.mtimeMs === input.expectedMtimeMs
+      if (!same) throw new MainRefusal('project.file.changedMeanwhile', { file: relativePath })
+      // A link out of the root is judged by its target, as writeFile does.
+      if (current) await assertCanonicalInside(rootPath, filePath)
+      return current
+    }
+    const current = await unchanged()
+    const temporary = join(dirname(filePath), `.${basename(filePath)}.${randomUUID()}.tmp`)
+    try {
+      await writeFile(temporary, input.content, { encoding: 'utf8', flag: 'wx' })
+      if (current && process.platform !== 'win32') await chmod(temporary, current.mode & 0o7777)
+      // Checked again right before the rename: an editor's save while the content was written is not overwritten.
+      await unchanged()
+      await rename(temporary, filePath)
+    } catch (error) {
+      await rm(temporary, { force: true }).catch(() => undefined)
+      throw error
+    }
+    const written = await stat(filePath)
+    return { relativePath, size: written.size, mtimeMs: written.mtimeMs }
   }
 
   async watchFile(input: FileSystemWatchFileInput, onChanged: (event: FileSystemFileChangedEvent) => void): Promise<FileSystemWatchFileResult> {

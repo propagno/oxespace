@@ -42,6 +42,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/experimental-features.ts',
   // Reads the app's own translation catalogs (locales/<language>/main.json next to the bundle); fixed names only.
   'electron/main/i18n.ts',
+  // The English catalog (locales/en/main.json), for the C3 refusals agents read (B10); a fixed name only.
+  'electron/main/agent-text.ts',
   // Stat only: confirms that a project root sent by the renderer is an existing directory before a process
   // (the oxe CLI, a dashboard server) starts in it. Reads, lists and writes nothing.
   'electron/main/ipc/ipc-guards.ts',
@@ -105,7 +107,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // settings files (project .claude/.codex and the user's provider home).
   'electron/main/services/conversation/thread-model-override.ts',
   // Rewinds a Claude session by writing a prefix copy of one UUID-named JSONL
-  // transcript beside it (flag 'wx'); the original is never modified.
+  // transcript beside it (flag 'wx'); the original is never modified. Closing a side chat (B1.2) unlinks only
+  // its own copy, `<forkId>.jsonl` for the UUID OXESpace created, and refuses the main session's id.
   'electron/main/services/conversation/claude-transcript-fork.ts',
   // Reads one user-chosen certificate or key (64 KiB at most) from a native open dialog;
   // the renderer supplies a kind, never a path.

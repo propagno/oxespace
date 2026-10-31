@@ -35,8 +35,8 @@ Reutilize a mesma `key` para repetir uma solicitação. Alterar o conteúdo com 
 
 Tarefas em execução ficam `interrupted` após reiniciar a aplicação; não são relançadas cegamente. Código e worktree permanecem no disco. Na origem:
 
-1. Abra **Delegated Work** em Code ou Thread e localize a tarefa pela branch, objetivo ou ID.
-2. Se o destino tiver uma sessão Thread nativa vinculada, use **Continue/Resume**: o OXESpace verifica provider, diretório e ID exato antes de retomar. Um destino ainda ativo oferece **Open**.
+1. Abra **Delegated Work** no OxeCode ou no OxeChat e localize a tarefa pela branch, objetivo ou ID.
+2. Se o destino tiver uma sessão nativa do OxeChat vinculada, use **Continue/Resume**: o OXESpace verifica provider, diretório e ID exato antes de retomar. Um destino ainda ativo oferece **Open**.
 3. Se não houver sessão retomável, avalie o handoff e use **New session** de forma explícita. **Retry** fica reservado ao provisionamento sem sessão nativa retomável.
 4. Para que outro terminal de origem acompanhe a mesma tarefa via MCP, use **Reconnect origin terminal**; a UI permanece disponível sem essa reconexão.
 

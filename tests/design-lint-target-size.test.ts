@@ -26,7 +26,8 @@ export function rules(css: string): Array<{ selector: string; declarations: Reco
       const colon = part.indexOf(':')
       if (colon > 0) declarations[part.slice(0, colon).trim()] = part.slice(colon + 1).trim()
     }
-    for (const selector of match[1].split(',')) out.push({ selector: selector.trim(), declarations })
+    // A comma inside :is(), :not() or :has() belongs to that selector, not to the list.
+    for (const selector of match[1].split(/,(?![^(]*\))/)) out.push({ selector: selector.trim(), declarations })
   }
   return out
 }
@@ -52,8 +53,8 @@ export function px(value: string | undefined, scope: Record<string, string>, dep
   return Number.isFinite(result) ? result : undefined
 }
 
-function box(file: string, selectors: string[], density: Density): { width: number; height: number } {
-  const all = rules(readFileSync(join(UI, file), 'utf8'))
+function box(file: string, selectors: string[], density: Density, dir = UI): { width: number; height: number } {
+  const all = rules(readFileSync(join(dir, file), 'utf8'))
   const declarations: Record<string, string> = {}
   for (const selector of selectors) {
     const found = all.filter(rule => rule.selector === selector)
@@ -108,6 +109,7 @@ describe('design lint: target size (WCAG 2.5.8)', () => {
     expect(px('max(var(--target-min, 24px), calc(var(--a) - 6px))', scope)).toBe(24)
     expect(px('min(var(--a), 20px)', scope)).toBe(20)
     expect(rules('@layer x { .a, .b { height: 1px } }').map(rule => rule.selector)).toEqual(['.a', '.b'])
+    expect(rules('label:is(.a, .b):has(> input), .c:not(.d, .e) { height: 1px }').map(rule => rule.selector)).toEqual(['label:is(.a, .b):has(> input)', '.c:not(.d, .e)'])
   })
 
   for (const density of DENSITIES) {
@@ -144,6 +146,27 @@ describe('design lint: target size (WCAG 2.5.8)', () => {
     })
     expect(report).toEqual([])
   })
+
+  /**
+   * Hand-made targets outside src/ui that the homologation of F22 measured under 24 px (F31): the Settings scope rows,
+   * the Favorite checkbox of a new connection (its label is the target; the native box stays 16 px, Chromium ignores
+   * padding on it) and the workspace name in the Code sidebar. Media queries are flattened, so the narrowest layout's
+   * rule is the one measured. e2e/target-size.spec.ts measures the same in the running app.
+   */
+  const LEGACY: Array<{ name: string; file: string; selectors: string[]; fillsWidth?: string }> = [
+    { name: 'Settings scope row', file: 'src/components/Settings/SettingsCenter.css', selectors: ['.settings-scope-choices button'], fillsWidth: 'a row spans the scope box; in the narrow layout its label makes it wider' },
+    { name: 'OxeQuery checkbox label (Favorite)', file: 'src/components/OxeQuery/OxeQuery.css', selectors: ["label:is(.oq-check, .oq-inline):has(> input[type='checkbox'])"], fillsWidth: 'the 16 px box, the gap and the label text' },
+    { name: 'workspace name in the Code sidebar', file: 'src/styles/layout.css', selectors: ['.ws-group-name'], fillsWidth: 'the name spans its row' }
+  ]
+  for (const density of DENSITIES) {
+    it(`the hand-made targets the homologation measured are at least ${TARGET_MIN} px (${density})`, () => {
+      const report = LEGACY.flatMap(target => {
+        const size = box(target.file, target.selectors, density, ROOT)
+        return (target.fillsWidth || size.width >= TARGET_MIN) && size.height >= TARGET_MIN ? [] : [`${target.name}: ${size.width}×${size.height}`]
+      })
+      expect(report).toEqual([])
+    })
+  }
 
   it('the exemptions name rules that exist', () => {
     const selectors = new Set(readdirSync(UI).filter(name => name.endsWith('.module.css')).flatMap(file => rules(readFileSync(join(UI, file), 'utf8')).map(rule => rule.selector)))

@@ -37,6 +37,16 @@ test('dividers and the file tree work without dragging', async () => {
     await expect(sidebarMenu).toHaveCount(0)
     await expect(sidebar).toHaveAttribute('aria-valuenow', '280')
     await expect(sidebar).toBeFocused()
+    // The keyboard opens it like the grid dividers below: Space and Shift+F10 (a contextmenu event on Linux).
+    for (const key of ['Space', 'Shift+F10']) {
+      await sidebar.focus()
+      await page.keyboard.press(key)
+      await expect(sidebarMenu).toBeVisible()
+      await expect(sidebarMenu.getByRole('menuitem').first()).toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(sidebarMenu).toHaveCount(0)
+      await expect(sidebar).toBeFocused()
+    }
 
     // A divider of the pane grid moves with its menu.
     const divider = page.getByTestId('split-resize-handle').first()

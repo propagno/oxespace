@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgentInput, ThreadEvent, ThreadConfiguration, ThreadCommandResult, ThreadFailure, ThreadUsage, ThreadAttachment, ThreadQueuedInput, ThreadRequest, ThreadRequestResponse } from '../../../../shared/types/thread'
 import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
+import { codexSupportsSideFork, sideForkApprovalOverrides, sideForkPolicyHonoured, uncoveredMcpServers } from './codex-side-fork'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { normalizeCodexTokenUsage } from './thread-context'
@@ -62,6 +63,9 @@ function dynamicToolOutput(value: unknown): string {
   }).filter(Boolean).join('\n').slice(-65536)
 }
 
+/** The installed Codex cannot open a side chat: no `thread/fork`, or no ephemeral copy. */
+export class CodexForkUnsupportedError extends Error {}
+
 /** Codex stable App Server protocol. The transport owns process spawning/cleanup. */
 export class CodexConversationAdapter implements AgentConversationAdapter {
   readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: true, queue: true, steering: true, nativeSessions: true, rewind: true }
@@ -106,7 +110,12 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
 
   get closed(): boolean { return this.disposed }
 
-  constructor(private readonly transport: ConversationTransport) {}
+  /**
+   * `fork` (side chat, B1.2): start as an ephemeral copy of the session instead of resuming it. `lookups` are the
+   * OXESpace read-only tools that may run there without asking; every other MCP tool asks (see codex-side-fork.ts).
+   * `platform` decides the approval policy of the copy (every shell command asks on Windows); it defaults to this one.
+   */
+  constructor(private readonly transport: ConversationTransport, private readonly fork?: { ephemeral: true; lookups?: readonly string[]; platform?: NodeJS.Platform }) {}
 
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
     if (this.rpc || this.disposed) throw new Error('Conversation adapter cannot be started twice')
@@ -145,6 +154,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       if (protocolVersion) this.evidence.protocolVersion = protocolVersion.slice(0, 80)
       this.evidence.verified = 'native'
       rpc.notify('initialized')
+      if (this.fork) { await this.startFork(rpc, context, emit, handshake); return }
       const response = record(await rpc.request(context.nativeSessionId ? 'thread/resume' : 'thread/start', {
         ...(context.nativeSessionId ? { threadId: context.nativeSessionId } : {}),
         // Thread renders its bounded local history separately. Hydrating all
@@ -167,6 +177,52 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       await this.dispose()
       throw error
     }
+  }
+
+  /**
+   * A side chat: `thread/fork` with `ephemeral`, so nothing reaches disk. Support is read from the answer, never assumed:
+   * a server without the method, or one that returns a copy it would keep, is reported as unsupported. Every MCP tool,
+   * the person's own servers included, must ask for approval in the copy (see codex-side-fork.ts), or it does not open.
+   */
+  private async startFork(rpc: AgentRpcPeer, context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void, handshake: unknown): Promise<void> {
+    if (!context.nativeSessionId) throw new CodexForkUnsupportedError('There is no session to copy')
+    if (!codexSupportsSideFork(handshake)) throw new CodexForkUnsupportedError('This Codex version is older than the one verified for side chats')
+    const approvals = sideForkApprovalOverrides(await rpc.request('config/read', { cwd: context.rootPath, includeLayers: false }).catch(() => null), this.fork?.lookups, this.fork?.platform ?? process.platform)
+    if (!approvals) throw new CodexForkUnsupportedError('An MCP server could not be set to ask before every tool call')
+    if (approvals.approvalPolicy) this.approvalPolicy = approvals.approvalPolicy
+    let response: Record<string, unknown>
+    try {
+      response = record(await rpc.request('thread/fork', { threadId: context.nativeSessionId, ephemeral: true, excludeTurns: true, cwd: context.rootPath,
+        approvalPolicy: this.approvalPolicy, sandbox: this.nativeSandbox, config: approvals.config, ...(context.model ? { model: context.model } : {}) }))
+    } catch (error) {
+      // The provider's own words travel in the failure detail; the message is OXESpace's summary.
+      const message = [error instanceof Error ? error.message : String(error), error instanceof ThreadAgentError ? error.failure.detail ?? '' : ''].join(' ')
+      if (/method not found|unknown (?:variant|method)|not supported|unsupported|unknown field/i.test(message)) throw new CodexForkUnsupportedError(message)
+      throw error
+    }
+    const thread = record(response.thread)
+    this.threadId = text(thread.id)
+    if (!this.threadId || this.threadId === context.nativeSessionId) throw new CodexForkUnsupportedError('The app-server did not return a copy')
+    if (thread.ephemeral !== true) {
+      // A copy this version would keep is removed again by its own id; the original is never named.
+      await rpc.request('thread/delete', { threadId: this.threadId }).catch(() => {})
+      throw new CodexForkUnsupportedError('This Codex version cannot keep a copy off disk')
+    }
+    // On Windows the copy must confirm it asks before every shell command; a version that ignores the policy is refused.
+    if (!sideForkPolicyHonoured(response, approvals.approvalPolicy)) throw new CodexForkUnsupportedError('The app-server did not apply the approval policy the copy needs on this platform')
+    // The servers the copy really has: one the override did not reach (a plugin's, an app connector) refuses it.
+    const statuses: unknown[] = []
+    for (let cursor: string | null = null, page = 0; page < 20; page++) {
+      const result = record(await rpc.request('mcpServerStatus/list', { threadId: this.threadId, limit: 100, ...(cursor ? { cursor } : {}) }).catch(() => null))
+      if (!Array.isArray(result.data)) throw new CodexForkUnsupportedError('The MCP servers of the copy could not be listed')
+      statuses.push(...result.data)
+      cursor = typeof result.nextCursor === 'string' && result.nextCursor ? result.nextCursor : null
+      if (!cursor) break
+    }
+    if (uncoveredMcpServers(statuses, approvals.servers).length) throw new CodexForkUnsupportedError('An MCP server of the copy would run tools without asking')
+    this.model = context.model || text(response.model)
+    emit({ type: 'session', nativeSessionId: this.threadId })
+    emit({ type: 'configuration', model: this.model || undefined, access: this.access, networkAccess: false, approvalPolicy: this.approvalPolicy, confirmed: true })
   }
 
   async send(input: string, skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {

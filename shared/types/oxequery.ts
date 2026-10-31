@@ -275,6 +275,8 @@ export interface MongoWriteInput {
   /** EJSON text of the document as the person saw it; a replace or delete is refused if it changed. */
   expected?: string
   confirmed?: boolean
+  /** On a production connection: the connection's name as the person typed it. Main checks it; the worker never sees it. */
+  confirmName?: string
 }
 export interface MongoWriteResult { matched: number; modified: number; deleted: number; insertedId?: string }
 
@@ -606,7 +608,7 @@ export interface OxeQueryErrorInfo {
   /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
   messageCode?: import('../messages').MainMessage
   code: 'engine-missing' | 'daemon' | 'not-found' | 'invalid' | 'failed' | 'read-only' | 'confirm' | 'confirm-name' | 'connect' | 'query' | 'timeout' | 'cancelled'
-    | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict'
+    | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict' | 'limit'
   message: string
   /** Why a statement was flagged, when code is 'confirm', 'confirm-name' or 'read-only'. */
   reasons?: string[]

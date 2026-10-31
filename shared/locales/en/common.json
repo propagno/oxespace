@@ -10,8 +10,8 @@
   "nav": {
     "applicationView": "Application view",
     "modeTitle": {
-      "code": "Code: terminals and agents in your workspaces",
-      "thread": "Thread: conversations with an agent",
+      "code": "OxeCode: terminals and agents in your workspaces",
+      "thread": "OxeChat: conversations with an agent",
       "data": "OxeQuery: databases",
       "pods": "OxePod: containers",
       "post": "OxePost: API requests"
@@ -32,6 +32,8 @@
   "attention": {
     "needsYou_one": "{{count}} needs you",
     "needsYou_other": "{{count}} need you",
+    "needsDecision_one": "{{count}} needs your decision",
+    "needsDecision_other": "{{count}} need your decision",
     "failed": "{{count}} failed",
     "working": "{{count}} working"
   },
@@ -103,7 +105,8 @@
     "guide": {
       "title": "Keyboard shortcuts",
       "description": "What works in {{view}} right now.",
-      "customize": "Customize shortcuts"
+      "customize": "Customize shortcuts",
+      "f6ToProgram": "In a terminal pane with “Send F6 to the program” on (in its ⋯ menu), F6 and Shift+F6 go to the program there, for mc, htop or tig; {{toggle}} still makes Tab move focus out of it."
     },
     "bindings": {
       "palette": {
@@ -139,7 +142,12 @@
         "slash": "Terminal commands",
         "zoomIn": "Terminal font bigger",
         "zoomOut": "Terminal font smaller",
-        "zoomReset": "Terminal font reset"
+        "zoomReset": "Terminal font reset",
+        "tabMovesFocus": "Tab moves focus in the terminal"
+      },
+      "focus": {
+        "nextRegion": "Move focus to the next region",
+        "previousRegion": "Move focus to the previous region"
       },
       "thread": {
         "new": "New conversation",
@@ -152,14 +160,15 @@
         "browser": "Browser",
         "permissions": "Permissions",
         "model": "Model",
-        "effort": "Reasoning effort"
+        "effort": "Reasoning effort",
+        "sideChat": "Side chat"
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts"
       },
       "view": {
-        "code": "Show Code",
-        "thread": "Show Thread",
+        "code": "Show OxeCode",
+        "thread": "Show OxeChat",
         "data": "Show OxeQuery",
         "pods": "Show OxePod",
         "post": "Show OxePost"
@@ -171,6 +180,17 @@
         "send": "Send the request",
         "filter": "Find a request"
       }
+    },
+    "terminalFocus": {
+      "hint": "Terminal. Press F6 to leave, or {{toggle}} to make Tab move focus.",
+      "hintF6": "Terminal. Press F6 to leave.",
+      "on": "Tab moves focus: on",
+      "off": "Tab moves focus: off",
+      "badge": "Tab moves focus",
+      "menu": "Tab moves focus",
+      "toggleKeyToShell": "Send {{key}} to the shell",
+      "hintF6ToProgram": "Terminal. F6 goes to the program here. Press {{toggle}} to make Tab move focus.",
+      "f6ToProgram": "Send F6 to the program"
     }
   },
   "oxequeryCommands": {
@@ -332,8 +352,8 @@
     "join": "{{first}} and {{last}}",
     "ready_one": "{{names}} is ready",
     "ready_other": "{{names}} are ready",
-    "readyBoth": "Code and Thread can use it.",
-    "readyCodeOnly": "Code can run it. Thread needs Claude Code or Codex.",
+    "readyBoth": "OxeCode and OxeChat can use it.",
+    "readyCodeOnly": "OxeCode can run it. OxeChat needs Claude Code or Codex.",
     "checking": "Checking for agent CLIs…",
     "checkingDetail": "Looking for the commands on your PATH.",
     "partial_one": "{{names}} was found but not ready",
@@ -370,5 +390,41 @@
     "details": "Build details",
     "detailsCopied": "Build details copied",
     "report": "Report a problem"
+  },
+  "closeGuard": {
+    "titleClose": "Save your changes before closing?",
+    "titleQuit": "Save your changes before quitting?",
+    "description_one": "{{count}} change is not saved yet. Closing without saving loses it.",
+    "description_other": "{{count}} changes are not saved yet. Closing without saving loses them.",
+    "listLabel": "Unsaved changes",
+    "cancel": "Cancel",
+    "discardClose": "Close without saving",
+    "discardQuit": "Quit without saving",
+    "saveClose": "Save all and close",
+    "saveQuit": "Save all and quit",
+    "saveFailed_one": "{{count}} change could not be saved, so nothing was closed. Check it and try again.",
+    "saveFailed_other": "{{count}} changes could not be saved, so nothing was closed. Check them and try again.",
+    "inEditor": "OxeCode editor · {{folder}}",
+    "inOxePost": "OxePost request",
+    "untitledRequest": "Untitled request"
+  },
+  "links": {
+    "refused": "This link was not opened",
+    "refusedHint": "Only web (http, https) and email (mailto) links up to 2,048 characters, without a user name or password, open outside OXESpace.",
+    "notOpened": "The link did not open",
+    "notOpenedHint": "OXESpace could not hand it to your browser. Try again, or copy the address.",
+    "hostSuffix": "({{host}})",
+    "terminalHint": "{{key}}+click to open the link",
+    "confirm": {
+      "title": "Open this link in your browser?",
+      "newHost": "You haven't opened a link to this site from OXESpace before. Check the address before you continue.",
+      "textDiffers": "The link's text is not where it goes. Check the address before you continue.",
+      "host": "Site",
+      "idn": "Written with international characters. Your browser reaches it as {{ascii}}.",
+      "text": "Link text",
+      "address": "Full address",
+      "open": "Open",
+      "cancel": "Cancel"
+    }
   }
 }
