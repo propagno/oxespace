@@ -5,6 +5,8 @@
 .mcp-view-tabs button[aria-selected='true'] { background: var(--fill-selected); color: var(--text-primary); }
 .mcp-view-tabs button:not([aria-selected='true']):hover { color: var(--tx-primary); }
 .mcp-view-tabs small { margin-left: 6px; opacity: .7; }
+/* The quarantine count is an alert, not a quiet count: full strength, so it keeps its contrast. */
+.mcp-view-tabs small.mcp-tab-alert { opacity: 1; }
 
 .mcp-catalog { padding: 4px 14px 16px; }
 .mcp-catalog h3 { margin: 18px 0 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }

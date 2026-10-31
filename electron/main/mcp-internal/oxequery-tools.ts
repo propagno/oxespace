@@ -1,5 +1,6 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
-import { AgentToolError } from '../services/oxequery/agent-gateway'
+// The error class alone: the gateway itself loads with OxeQuery, on its first request, not with the main entry.
+import { AgentToolError } from '../services/oxequery/agent-tool-error'
 
 const connection = { type: 'string', minLength: 1, maxLength: 200, description: 'Connection name or id from oxespace_db_connections.' }
 

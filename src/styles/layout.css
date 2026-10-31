@@ -308,7 +308,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.25;
+  /* One line as tall as the minimum target (WCAG 2.5.8), so the name stays centred in a 24 px button. */
+  line-height: var(--target-min);
+  min-block-size: var(--target-min);
   min-width: 0;
   transition: color var(--transition-base);
   /* A real button so the keyboard reaches the row; it must look like the text it replaced. */
@@ -1469,6 +1471,8 @@
   cursor: pointer;
 }
 .workspace-topbar-action:hover { color: var(--tx-primary); background: var(--nav-hover); }
+/* MCP servers in quarantine: a count in the alert colour, read out by the button's own name. */
+.workspace-topbar-alert { display: inline-flex; align-items: center; gap: 2px; padding: 0 5px; border-radius: var(--radius-pill); background: var(--intent-danger-bg); color: var(--intent-danger-fg); font-size: var(--fs-2xs); font-weight: 600; }
 .workspace-topbar-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 900px) { .workspace-topbar-action span { display: none; } }
 
