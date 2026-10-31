@@ -110,7 +110,9 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.app.closeGuardFailed': 'app',
   'incident.window.externalRefused': 'window',
   'incident.window.externalRateLimited': 'window',
-  'incident.window.externalOpenFailed': 'window'
+  'incident.window.externalOpenFailed': 'window',
+  'incident.window.openDenied': 'window',
+  'incident.window.navigationDenied': 'window'
 } as const satisfies Record<string, DiagnosticsArea>
 export type DiagnosticsIncidentCode = keyof typeof DIAGNOSTICS_INCIDENT_CODES
 

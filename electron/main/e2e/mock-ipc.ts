@@ -28,6 +28,7 @@ import { registerOxePodMock } from './oxepod-mock'
 import { registerMcpToolsMock } from './mcp-tools-mock'
 import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
+import { registerOpenExternalMock } from './open-external-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
 import { registerCloseGuardMock } from './close-guard-mock'
@@ -54,6 +55,7 @@ export function registerE2eMockIpcHandlers(): void {
   registerMcpToolsMock()
   registerDiagnosticsMock()
   registerRemoteMock()
+  registerOpenExternalMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
   registerApprovalsMock()
