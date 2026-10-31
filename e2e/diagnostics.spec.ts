@@ -65,6 +65,9 @@ test('Help › Diagnostics: cards, journal, export with preview, ask for analysi
     const preview = page.getByRole('dialog', { name: 'Export diagnostics bundle' })
     await expect(preview).toContainText('snapshot.json')
     await expect(preview).toContainText('main-log-tail.txt')
+    // The files' summaries are the C3 codes' words.
+    await expect(preview).toContainText('Processes, storage, connectivity and versions')
+    await expect(preview).not.toContainText('bundle.file')
     await expect(preview).toContainText('3 values were redacted')
     await preview.getByRole('button', { name: 'Save bundle…' }).click()
     await expect(preview).toContainText('Export cancelled.')

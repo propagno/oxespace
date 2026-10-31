@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DIAGNOSTICS_AREAS, type DiagnosticsArea, type DiagnosticsIncident } from '../../../shared/types/diagnostics'
-import { formatMainMessage, loadMainMessages } from '../../i18n/messages'
+import { formatMainMessage } from '../../i18n/messages'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Panel, Select, toast } from '../../ui'
 import { formatDateTime, formatRelative } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
@@ -17,15 +17,9 @@ type Filter = DiagnosticsArea | 'all'
  */
 export function IncidentJournal({ incidents, status, reload }: { incidents: DiagnosticsIncident[]; status: JournalStatus; reload: () => void }): ReactElement {
   const { t } = useTranslation('settings')
-  const [catalog, setCatalog] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
   const [confirming, setConfirming] = useState(false)
   const [clearing, setClearing] = useState(false)
-  useEffect(() => {
-    let alive = true
-    void loadMainMessages().catch(() => undefined).finally(() => { if (alive) setCatalog(true) })
-    return () => { alive = false }
-  }, [])
 
   const counts = new Map<DiagnosticsArea, number>()
   for (const incident of incidents) counts.set(incident.area, (counts.get(incident.area) ?? 0) + 1)
@@ -55,7 +49,7 @@ export function IncidentJournal({ incidents, status, reload }: { incidents: Diag
   </> : undefined
 
   let body: ReactElement
-  if (status === 'loading' || (status === 'ready' && !catalog)) body = <LoadingState label={t('diagnostics.journal.loading')} />
+  if (status === 'loading') body = <LoadingState label={t('diagnostics.journal.loading')} />
   else if (status === 'failed' || status === 'unavailable') body = <ErrorState compact title={t('diagnostics.journal.failed')} onRetry={status === 'failed' ? reload : undefined} />
   else if (!incidents.length) body = <EmptyState compact title={t('diagnostics.journal.empty')} />
   else if (!shown.length) body = <EmptyState compact title={t('diagnostics.journal.emptyArea')} />

@@ -2,9 +2,13 @@ import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DiagnosticsBundlePreview } from '../../../shared/types/diagnostics'
 import { Button, Dialog, ErrorState, LoadingState, toast } from '../../ui'
+import { formatMainMessage, mainMessageFromError } from '../../i18n/messages'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatBytes } from './diagnosticsFormat'
 import styles from './Diagnostics.module.css'
+
+/** The refusals of the export the main process sends as C3 codes (B8.3): the bundle is over a size cap. */
+const SAVE_REFUSALS = ['diagnostics.bundle.fileTooLarge', 'diagnostics.bundle.tooLarge'] as const
 
 /**
  * Export with a preview first: what the .zip will contain, already redacted, and only then the save dialog.
@@ -38,7 +42,7 @@ export function BundleExportDialog({ onClose }: { onClose: () => void }): ReactE
       if (path) { toast({ title: t('diagnostics.bundle.saved'), description: path, intent: 'success' }); onClose() }
       else setNote(t('diagnostics.bundle.cancelled'))
     } catch (cause) {
-      toast({ title: t('diagnostics.bundle.saveFailed'), description: humanizeError(cause), intent: 'danger' })
+      toast({ title: t('diagnostics.bundle.saveFailed'), description: mainMessageFromError(cause, SAVE_REFUSALS) ?? humanizeError(cause), intent: 'danger' })
     } finally { setSaving(false) }
   }
 
@@ -57,7 +61,7 @@ export function BundleExportDialog({ onClose }: { onClose: () => void }): ReactE
             {preview.files.map(file => <li key={file.name}>
               <code>{file.name}</code>
               <span className={styles.detail}>{formatBytes(file.bytes)}</span>
-              <span className={styles.bundleSummary}>{file.summary}</span>
+              <span className={styles.bundleSummary}>{formatMainMessage(file.summary)}</span>
             </li>)}
           </ul>
           <p className={styles.note}>{preview.redactions > 0 ? t('diagnostics.bundle.redactions', { count: preview.redactions }) : t('diagnostics.bundle.redactionsNone')}</p>

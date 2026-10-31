@@ -4,7 +4,7 @@ import ptBR from '../shared/locales/pt-BR/settings.json'
 import { DIAGNOSTICS_INCIDENT_CODES, type DiagnosticsMetrics } from '../shared/types/diagnostics'
 import { HEALTH_CARDS, HEALTH_THRESHOLDS, alerting, averageCpu, healthCards } from '../src/components/Diagnostics/diagnosticsHealth'
 import { changeLanguage } from '../src/i18n'
-import { formatMainMessage, loadMainMessages } from '../src/i18n/messages'
+import { formatMainMessage, mainMessageFromError } from '../src/i18n/messages'
 
 const GB = 1024 ** 3
 const base = (patch: Partial<DiagnosticsMetrics> = {}): DiagnosticsMetrics => ({
@@ -68,10 +68,19 @@ describe('diagnostics health thresholds', () => {
 
 describe('formatMainMessage', () => {
   it('turns a C3 code into words in the interface language', async () => {
-    await loadMainMessages()
+    await changeLanguage('en')
     expect(formatMainMessage({ code: 'incident.database.busy', params: {} })).toBe('The local database was busy and a write had to wait.')
     await changeLanguage('pt-BR')
     expect(formatMainMessage({ code: 'incident.database.busy', params: {} })).toBe('O banco de dados local estava ocupado e uma gravação precisou esperar.')
     expect(formatMainMessage({ code: 'mcp.quarantine.added', params: { tools: ['a', 'b'] } })).toBe('Ele adicionou a e b.')
+  })
+
+  it('words a refusal code a failed request carries, and leaves other errors alone', async () => {
+    await changeLanguage('en')
+    const refusal = new Error("Error invoking remote method 'diagnostics:export-bundle': Error: diagnostics.bundle.tooLarge")
+    expect(mainMessageFromError(refusal, ['diagnostics.bundle.tooLarge'])).toBe(formatMainMessage({ code: 'diagnostics.bundle.tooLarge', params: {} }))
+    expect(mainMessageFromError(refusal, ['diagnostics.bundle.tooLarge'])).not.toContain('diagnostics.bundle')
+    expect(mainMessageFromError(refusal, ['diagnostics.bundle.fileTooLarge'])).toBeNull()
+    expect(mainMessageFromError(new Error('disk full'), ['diagnostics.bundle.tooLarge'])).toBeNull()
   })
 })

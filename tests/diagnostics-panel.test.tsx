@@ -45,7 +45,7 @@ beforeEach(() => {
     incidents: vi.fn(async () => INCIDENTS),
     onIncidentsChanged: vi.fn(() => () => undefined),
     clearIncidents: vi.fn(async () => undefined),
-    previewBundle: vi.fn(async () => ({ files: [{ name: 'snapshot.json', bytes: 2048, summary: 'Processes and versions' }, { name: 'incidents.json', bytes: 512, summary: '2 incident kinds' }], redactions: 3 })),
+    previewBundle: vi.fn(async () => ({ files: [{ name: 'snapshot.json', bytes: 2048, summary: { code: 'bundle.file.snapshot', params: {} } }, { name: 'incidents.json', bytes: 512, summary: { code: 'bundle.file.incidents', params: {} } }], redactions: 3 })),
     exportBundle: vi.fn(async () => 'C:/out/oxespace-diagnostics.zip'),
     analysisSummary: vi.fn(async () => SUMMARY)
   }
@@ -146,6 +146,9 @@ describe('Help › Diagnostics panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Export bundle' }))
     const dialog = await screen.findByRole('dialog', { name: 'Export diagnostics bundle' })
     await within(dialog).findByText('snapshot.json')
+    // Each file's summary is the C3 code's words, never the code.
+    expect(dialog).toHaveTextContent('Processes, storage, connectivity and versions')
+    expect(dialog).not.toHaveTextContent('bundle.file')
     expect(dialog).toHaveTextContent('3 values were redacted')
     expect(api.exportBundle).not.toHaveBeenCalled()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save bundle…' }))
