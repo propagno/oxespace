@@ -10,12 +10,14 @@ import type { ThreadPanel } from '../../store/thread-workbench.store'
  * configuration pickers; chords live in src/keyboard/keybindings.ts) and the global voice events.
  * Inactive cells (side-by-side layouts) listen to nothing.
  */
-export function useThreadShortcuts({ active, voice, togglePanel, openControl, onFind, runCommand }: {
+export function useThreadShortcuts({ active, voice, togglePanel, openControl, onFind, onSideChat, runCommand }: {
   active: boolean
   voice: ReturnType<typeof useOxeVoice>
   togglePanel: (panel: ThreadPanel) => void
   openControl: (control: 'model' | 'effort' | 'permissions') => void
   onFind: () => void
+  /** Opens or closes the side chat drawer (B1.2). */
+  onSideChat: () => void
   /** Runs a composer command (the palette's Thread entries send these). */
   runCommand: (text: string) => Promise<void>
 }) {
@@ -46,6 +48,7 @@ export function useThreadShortcuts({ active, voice, togglePanel, openControl, on
     'thread.browser': () => togglePanel('preview'),
     'thread.permissions': () => openControl('permissions'),
     'thread.model': () => openControl('model'),
-    'thread.effort': () => openControl('effort')
+    'thread.effort': () => openControl('effort'),
+    'thread.sideChat': onSideChat
   }, active)
 }
