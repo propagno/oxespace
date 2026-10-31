@@ -6,7 +6,7 @@
  * request lapse as denied. Answers follow the contract: one per request and generation, the option must be one of the
  * request's, and a repeat is refused with its code. `approvals.unavailable` resolves the request `by: 'native'` (denied),
  * standing in for the system dialog. An allow at critical risk sooner than `allowDelayMs` after the
- * window's ack is refused `tooSoon`, as main does.
+ * window's visible and focused ack is refused `tooSoon`, and any allow before an ack `notShown`, as main does.
  */
 import { createHash } from 'node:crypto'
 import { BrowserWindow, ipcMain } from 'electron'
@@ -62,6 +62,7 @@ export function registerApprovalsMock(): void {
   const ttl = Number(process.env.OXESPACE_E2E_APPROVALS_TTL_MS) || APPROVAL_TIMEOUT_MS
   const pending = new Map<string, ApprovalRequest>()
   const reported = new Set<string>()
+  const shownAt = new Map<string, number>()
   const displayedAt = new Map<string, number>()
   const history: ApprovalHistoryEntry[] = []
   const send = (channel: string, payload: unknown) => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, payload) }
@@ -90,14 +91,16 @@ export function registerApprovalsMock(): void {
     if (typeof request === 'string') return refuse(request)
     const option = request.options.find(item => item.id === input.optionId)
     if (!option) return refuse('unknownOption')
+    if (option.intent !== 'deny' && !shownAt.has(request.id)) return refuse('notShown')
     if (allowTooSoon(request, option.intent, displayedAt.get(request.id), Date.now())) return refuse('tooSoon')
     resolve(request, option.id, 'user')
     return { ok: true, id: request.id }
   })
-  ipcMain.handle(IPC_CHANNELS.approvals.ack, (event, input: ApprovalAnswerInput): ApprovalCallResult => {
+  ipcMain.handle(IPC_CHANNELS.approvals.ack, (event, input: ApprovalAnswerInput & { visible?: unknown; focused?: unknown }): ApprovalCallResult => {
     const request = current(input)
     if (typeof request === 'string') return refuse(request)
-    if (!displayedAt.has(request.id)) displayedAt.set(request.id, Date.now())
+    if (!shownAt.has(request.id)) shownAt.set(request.id, Date.now())
+    if (input.visible === true && input.focused === true && !displayedAt.has(request.id)) displayedAt.set(request.id, Date.now())
     return { ok: true, id: request.id }
   })
   ipcMain.handle(IPC_CHANNELS.approvals.unavailable, (event, input: ApprovalAnswerInput): ApprovalCallResult => {

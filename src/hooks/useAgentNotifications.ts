@@ -4,6 +4,7 @@ import { useWorkspaceStore } from '../store/workspace.store'
 import { useSettingsStore } from '../store/settings.store'
 import { useActivityStore } from '../store/activity.store'
 import { deriveStatusTone, type PaneDisplayTone } from '../utils/paneDisplay'
+import { agentErrorDetail, paneNoticeLabel } from '../utils/agentNotice'
 
 /**
  * Horizon 1 · item 1+2 — native desktop notifications driven by the fine-grained
@@ -72,7 +73,7 @@ export function useAgentNotifications(): void {
 
           // Don't ping about the pane the user is actively looking at.
           const isViewing = windowFocused && activePaneId === pane.id
-          const label = (pane.displayName || pane.agentName || 'Agente').trim()
+          const label = paneNoticeLabel(pane, 'Agente')
           // Global per-pane rate limit: at most one ping per cooldown window,
           // whatever the tone does in between.
           const onCooldown = existing.lastNotifiedAt !== null && now - existing.lastNotifiedAt < COOLDOWN_MS
@@ -114,13 +115,13 @@ export function useAgentNotifications(): void {
           if (tone !== existing.tone && (tone === 'exited' || tone === 'error')) {
             activity.record(tone === 'exited'
               ? { source: 'code', id: pane.id, kind: 'finished', target, title: label, detail: `${ws.name}: the agent terminal was closed.`, read: isViewing }
-              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: `${ws.name}: ${entry.error ?? 'the agent hit an error.'}`, read: isViewing })
+              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: `${ws.name}: ${agentErrorDetail(entry.error, 'the agent hit an error.')}`, read: isViewing })
           }
           if (tone !== existing.tone && !isViewing) {
             if (tone === 'exited') {
               notify(`${label} — session ended`, `${ws.name}: the agent terminal was closed.`)
             } else if (tone === 'error') {
-              notify(`${label} — needs attention`, `${ws.name}: ${entry.error ?? 'the agent hit an error.'}`)
+              notify(`${label} — needs attention`, `${ws.name}: ${agentErrorDetail(entry.error, 'the agent hit an error.')}`)
             }
           }
 
