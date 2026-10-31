@@ -26,6 +26,15 @@ export interface MessageParams {
   'thread.request.alreadyResponding': Record<string, never>
   /** A question was answered without an answer for every required question. */
   'thread.request.unanswered': Record<string, never>
+  /** A guarded request (agent instructions, MCP settings, hooks) was answered "for the session": it is approved once or declined. */
+  'thread.request.guardedDecision': Record<string, never>
+  /** Why a change needs the person each time; `path` is the file as the request names it. */
+  'thread.protectedConfig.instructions': { path: string }
+  'thread.protectedConfig.mcp': { path: string }
+  'thread.protectedConfig.hooks': { path: string }
+  'thread.protectedConfig.warning': Record<string, never>
+  /** B16: `command` rewrites tracked files without naming them (git checkout, tar x…), so it needs the person each time. */
+  'thread.protectedConfig.rewritesTracked': { command: string }
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
   /** The provider cannot fork its session into a side chat (B1.2). */
@@ -44,6 +53,11 @@ export interface MessageParams {
   'incident.updater.failed': Record<string, never>
   'incident.interaction.overBudget': Record<string, never>
   'incident.app.journalReset': Record<string, never>
+  /** A link the main window tried to open outside the app was refused (its reason is the incident's subject). */
+  'incident.window.externalRefused': Record<string, never>
+  'incident.window.externalRateLimited': Record<string, never>
+  /** The system refused to open a link the app allowed (no mail app or browser registered for it). */
+  'incident.window.externalOpenFailed': Record<string, never>
   /** Diagnostics bundle (B8.3): one of its files is over the per-file cap; nothing was saved. */
   'diagnostics.bundle.fileTooLarge': Record<string, never>
   /** Diagnostics bundle (B8.3): the whole archive is over its cap; nothing was saved. */
@@ -98,6 +112,14 @@ export interface MessageParams {
   'oxequery.sql.sessionRole': Record<string, never>
   /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
   'oxequery.sql.tableLock': Record<string, never>
+  /** Mongo write (B15): a change on a production connection waits for the connection's name, typed. */
+  'oxequery.mongo.confirmName': Record<string, never>
+  /** Mongo write: a change that needs the person's confirmation (a delete). */
+  'oxequery.mongo.confirm': Record<string, never>
+  /** Mongo write reason: the connection is a production one. */
+  'oxequery.mongo.production': Record<string, never>
+  /** Mongo write reason: the document will be deleted. */
+  'oxequery.mongo.deletes': Record<string, never>
   /** SQL risk: a backslash in an ordinary string can end it early on a legacy server, so more runs than the text shows. */
   'oxequery.sql.ambiguousEscape': Record<string, never>
   'oxepod.startFailed': { reason: string }
@@ -235,6 +257,12 @@ export const MESSAGE_CODES = [
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
+  'thread.request.guardedDecision',
+  'thread.protectedConfig.instructions',
+  'thread.protectedConfig.mcp',
+  'thread.protectedConfig.hooks',
+  'thread.protectedConfig.warning',
+  'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
   'thread.side.unavailable',
   'thread.side.noSession',
@@ -249,6 +277,9 @@ export const MESSAGE_CODES = [
   'incident.updater.failed',
   'incident.interaction.overBudget',
   'incident.app.journalReset',
+  'incident.window.externalRefused',
+  'incident.window.externalRateLimited',
+  'incident.window.externalOpenFailed',
   'diagnostics.bundle.fileTooLarge',
   'diagnostics.bundle.tooLarge',
   'bundle.file.snapshot',
@@ -292,6 +323,10 @@ export const MESSAGE_CODES = [
   'oxequery.sql.rowLock',
   'oxequery.sql.sessionRole',
   'oxequery.sql.tableLock',
+  'oxequery.mongo.confirmName',
+  'oxequery.mongo.confirm',
+  'oxequery.mongo.production',
+  'oxequery.mongo.deletes',
   'oxequery.sql.ambiguousEscape',
   'oxepod.startFailed',
   'oxepost.network.notFound',

@@ -20,6 +20,7 @@ const detailRows = (items: string[][]): Array<{ label: string; detail: string }>
 // Opened on request only, so it stays out of the startup bundle.
 const ProviderSessionFinder = lazy(() => import('./ProviderSessionFinder').then(module => ({ default: module.ProviderSessionFinder })))
 const StatusExplainDialog = lazy(() => import('./StatusExplainDialog').then(module => ({ default: module.StatusExplainDialog })))
+const TerminalFocusMenuItems = lazy(() => import('./TerminalFocusMenuItems').then(module => ({ default: module.TerminalFocusMenuItems })))
 
 interface PaneContainerProps {
   pane: WorkspacePane
@@ -308,6 +309,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       <RotateCcw size={14} aria-hidden="true" />
                       {tc('paneMenu.newSession')}
                     </button>
+                    <Suspense fallback={null}><TerminalFocusMenuItems paneId={pane.id} onDone={() => setMenuOpen(false)} /></Suspense>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                   </>
                 ) : null}

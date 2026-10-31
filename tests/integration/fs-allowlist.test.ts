@@ -105,7 +105,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // settings files (project .claude/.codex and the user's provider home).
   'electron/main/services/conversation/thread-model-override.ts',
   // Rewinds a Claude session by writing a prefix copy of one UUID-named JSONL
-  // transcript beside it (flag 'wx'); the original is never modified.
+  // transcript beside it (flag 'wx'); the original is never modified. Closing a side chat (B1.2) unlinks only
+  // its own copy, `<forkId>.jsonl` for the UUID OXESpace created, and refuses the main session's id.
   'electron/main/services/conversation/claude-transcript-fork.ts',
   // Reads one user-chosen certificate or key (64 KiB at most) from a native open dialog;
   // the renderer supplies a kind, never a path.
