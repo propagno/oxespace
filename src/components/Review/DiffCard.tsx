@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import type { GitDiffFile, GitDiffHunk, GitDiffLine } from '../../../shared/types/git'
 import { commentAnchor, type DiffComment, type DiffSide } from '../../../shared/types/diff-comments'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
+import { i18n } from '../../i18n'
+import { toast } from '../../ui/Toast'
 import type { DiffMode } from '../../store/git.store'
 import { formatRelative } from '../../utils/formatTime'
 
@@ -97,7 +99,7 @@ function useFileComments(workspaceId: string, filePath: string): {
 } {
   const comments = useDiffCommentsStore((s) => s.comments)
   const add = useDiffCommentsStore((s) => s.add)
-  const removeComment = useDiffCommentsStore((s) => s.remove)
+  const remove = useDiffCommentsStore((s) => s.remove)
   const [editing, setEditing] = useState<string | null>(null)
 
   const byAnchor = useMemo(() => {
@@ -117,6 +119,17 @@ function useFileComments(workspaceId: string, filePath: string): {
     if (!trimmed) return
     add({ workspaceId, filePath, side, lineNo, lineContent, body: trimmed })
     setEditing(null)
+  }
+
+  // Deleting a comment is one click away from losing what was written: it says so, with Undo.
+  const removeComment = (id: string): void => {
+    const removed = useDiffCommentsStore.getState().comments.filter((c) => c.id === id)
+    if (!removed.length) return
+    remove(id)
+    toast({
+      title: i18n.t('reviewComments.deleted', { ns: 'code' }), intent: 'info', duration: 8000,
+      action: { label: i18n.t('reviewComments.undo', { ns: 'code' }), run: () => useDiffCommentsStore.getState().restore(removed) }
+    })
   }
 
   return { byAnchor, editing, setEditing, saveComment, removeComment }

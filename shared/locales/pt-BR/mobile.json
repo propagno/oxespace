@@ -1,6 +1,44 @@
 {
   "home": {
     "title": "Seu computador no bolso",
-    "body": "Pareie este celular com o OXESpace no seu computador, na mesma Wi-Fi, para acompanhar e responder suas sessões."
+    "body": "Pareie este celular com o OXESpace no seu computador, na mesma Wi-Fi, para acompanhar e responder suas sessões.",
+    "pair": "Parear com o computador",
+    "pairedTitle": "Pareado com {{desktop}}",
+    "pairedBody": "Este celular acompanha e responde suas sessões em {{desktop}} enquanto os dois estiverem na mesma rede.",
+    "unpair": "Desparear",
+    "unknownDesktop": "seu computador"
+  },
+  "pairing": {
+    "title": "Parear com o computador",
+    "instructions": "No computador, abra OXESpace › Configurações › Dispositivos, ligue a conexão com o celular e aponte a câmera para o código que aparece lá.",
+    "cameraDescription": "Imagem da câmera para ler o código de pareamento",
+    "cameraNeeded": "A câmera lê o código de pareamento na tela do computador. Nada do que ela vê sai do celular.",
+    "allowCamera": "Permitir câmera",
+    "openSettings": "Abrir configurações",
+    "cameraDenied": "O acesso à câmera está desligado para o OXESpace. Ligue nas configurações do celular para ler o código de pareamento.",
+    "badCode": {
+      "notPairing": "Esse não é um código de pareamento do OXESpace. Aponte a câmera para o código em Configurações › Dispositivos.",
+      "unsupportedVersion": "Esse código vem de outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
+      "publicHost": "Esse código aponta para fora da sua rede local. O OXESpace só pareia na mesma Wi-Fi.",
+      "malformed": "Não deu para ler esse código. Mostre um novo no computador e tente de novo."
+    },
+    "waitingTitle": "Confirme no computador",
+    "waitingBody": "{{desktop}} está perguntando se pode parear com este celular. Aceite só se aparecer este código:",
+    "verificationDescription": "Código de verificação {{code}}",
+    "pairedTitle": "Pareado",
+    "pairedBody": "Este celular agora está pareado com {{desktop}}.",
+    "done": "Concluir",
+    "scanAgain": "Ler outro código",
+    "failed": {
+      "codeExpired": "O código expirou. Mostre um novo no computador e leia em até 2 minutos.",
+      "codeUsed": "Esse código já foi usado. Mostre um novo no computador.",
+      "codeInvalid": "Esse código não foi aceito. Mostre um novo no computador e leia de novo.",
+      "refusedOnDesktop": "O pareamento foi recusado no computador.",
+      "locked": "Tentativas de pareamento demais. Espere 2 minutos e tente de novo.",
+      "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
+      "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
+      "unreachable": "Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
+      "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador."
+    }
   }
 }

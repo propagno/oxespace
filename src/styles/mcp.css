@@ -665,3 +665,11 @@
 .mcp-safety-box q { font-style: italic; }
 .mcp-safety-box.is-warning { border: 1px solid var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
 .mcp-safety-box.is-danger { border: 1px solid var(--intent-danger-border); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
+
+/* A quarantine from a changed configuration: what the server runs now, values of variables and headers never shown. */
+.mcp-runs-now { display: grid; gap: 4px; margin-top: 6px; }
+.mcp-runs-now dl { display: grid; gap: 4px; margin: 0; }
+.mcp-runs-now dl > div { display: grid; grid-template-columns: max-content 1fr; gap: 8px; align-items: baseline; }
+.mcp-runs-now dt { color: inherit; font-weight: 600; }
+.mcp-runs-now dd { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; min-width: 0; }
+.mcp-runs-now code { overflow-wrap: anywhere; }

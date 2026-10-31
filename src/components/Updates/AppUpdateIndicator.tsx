@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, Popover } from '../../ui'
+import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 
 const RELEASE_URL = 'https://github.com/propagno/oxespace/releases/latest'
 
@@ -25,7 +26,7 @@ export function AppUpdateIndicator(): ReactElement | null {
       <div className="app-update-popover">
         <strong>OXESpace {app.availableVersion}</strong>
         <p>{manual ? t('updates.app.manual') : app.status === 'downloaded' ? t('updates.app.downloaded') : app.status === 'downloading' ? t('updates.app.downloading', { percent: app.progress ?? 0 }) : t('updates.app.background')}</p>
-        {manual ? <a href={RELEASE_URL} target="_blank" rel="noopener noreferrer">{t('updates.app.releases')} <ArrowUpCircle size={14} /></a> : app.status === 'downloaded' ? <Button size="sm" variant="primary" icon={<RefreshCw size={14} />} onClick={() => void quitAndInstall()}>{t('updates.app.install')}</Button> : null}
+        {manual ? <ExternalAnchor href={RELEASE_URL} source="app">{t('updates.app.releases')} <ArrowUpCircle size={14} /></ExternalAnchor> : app.status === 'downloaded' ? <Button size="sm" variant="primary" icon={<RefreshCw size={14} />} onClick={() => void quitAndInstall()}>{t('updates.app.install')}</Button> : null}
       </div>
     </Popover>
   </div>

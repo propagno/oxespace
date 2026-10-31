@@ -96,7 +96,7 @@ describe('ErrorBoundary', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     let crash = true
     function Child(): JSX.Element { if (crash) throw new Error('render failed'); return <p>Recovered</p> }
-    render(<div><p>Outside</p><ErrorBoundary label="the panel"><Child /></ErrorBoundary></div>)
+    render(<div><p>Outside</p><ErrorBoundary id="workspace-panel" label="the panel"><Child /></ErrorBoundary></div>)
     expect(screen.getByText('Outside')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong while showing the panel.')
     expect(screen.getByText('render failed')).toBeInTheDocument()
@@ -110,7 +110,7 @@ describe('ErrorBoundary', () => {
     const reload = vi.fn()
     vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, reload })
     function Child(): JSX.Element { throw new Error('render failed') }
-    const { container } = render(<ErrorBoundary page label="OXESpace"><Child /></ErrorBoundary>)
+    const { container } = render(<ErrorBoundary id="root" page label="OXESpace"><Child /></ErrorBoundary>)
     expect(container.querySelector('.error-boundary-page')).not.toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent('OXESpace could not show this window.')
     expect(screen.getByRole('alert').querySelector('svg')).not.toBeNull()

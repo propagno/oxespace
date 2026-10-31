@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ToolPanel, Button, EmptyState, Notice } from '../../ui'
 import type { LinearIssue, LinearIssueScope } from '../../../shared/types/linear'
 import { useLinearStore } from '../../store/linear.store'
+import { openExternalLink } from '../../lib/externalLinks'
 
 interface LinearPanelProps {
   workspaceId: string | null
@@ -175,7 +176,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
                    
                     variant="ghost" size="sm" square
                     aria-label={t('linear.open', { id: issue.identifier })}
-                    onClick={() => window.open(issue.url, '_blank', 'noopener')}
+                    onClick={() => void openExternalLink(issue.url, { source: 'linear' })}
                   >
                     <ExternalLink size={12} aria-hidden="true" />
                   </Button>
