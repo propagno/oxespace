@@ -13,7 +13,6 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { approvalPacing, allowTooSoon, boundAgentText } from '../../../shared/approval-rules'
 import { mainMessage } from '../../../shared/messages'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import { requireAppFrame } from '../ipc/ipc-guards'
 import {
   APPROVAL_AGENT_TEXT_MAX, APPROVAL_SCHEMA_VERSION, APPROVAL_TIMEOUT_MS, type ApprovalAnswerInput, type ApprovalCallResult, type ApprovalHistoryEntry, type ApprovalOption,
   type ApprovalRefusal, type ApprovalRequest, type ApprovalResolved, type ApprovalResolvedBy
@@ -84,10 +83,9 @@ export function registerApprovalsMock(): void {
     return input?.generation === request.generation ? request : 'staleGeneration'
   }
 
-  ipcMain.handle(IPC_CHANNELS.approvals.list, event => { requireAppFrame(event, 'Approvals'); return [...pending.values()] })
-  ipcMain.handle(IPC_CHANNELS.approvals.history, event => { requireAppFrame(event, 'Approvals'); return history })
+  ipcMain.handle(IPC_CHANNELS.approvals.list, event => [...pending.values()])
+  ipcMain.handle(IPC_CHANNELS.approvals.history, event => history)
   ipcMain.handle(IPC_CHANNELS.approvals.respond, (event, input: { id?: unknown; generation?: unknown; optionId?: unknown }): ApprovalCallResult => {
-    requireAppFrame(event, 'Approvals')
     const request = current(input as ApprovalAnswerInput)
     if (typeof request === 'string') return refuse(request)
     const option = request.options.find(item => item.id === input.optionId)
@@ -97,14 +95,12 @@ export function registerApprovalsMock(): void {
     return { ok: true, id: request.id }
   })
   ipcMain.handle(IPC_CHANNELS.approvals.ack, (event, input: ApprovalAnswerInput): ApprovalCallResult => {
-    requireAppFrame(event, 'Approvals')
     const request = current(input)
     if (typeof request === 'string') return refuse(request)
     if (!displayedAt.has(request.id)) displayedAt.set(request.id, Date.now())
     return { ok: true, id: request.id }
   })
   ipcMain.handle(IPC_CHANNELS.approvals.unavailable, (event, input: ApprovalAnswerInput): ApprovalCallResult => {
-    requireAppFrame(event, 'Approvals')
     const request = current(input)
     if (typeof request === 'string') return refuse(request)
     const key = `${request.id}#${request.generation}`

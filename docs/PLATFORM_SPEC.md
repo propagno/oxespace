@@ -117,8 +117,12 @@ campaign are still open; do not rely on it for work you cannot redo), **Initial*
 - Renderer: context isolation on, Node integration off, sandbox on.
 - File system access is bound to an authorised workspace root and checked after
   canonicalisation (`realpath`), without case folding.
-- IPC inputs are validated in the main process; Thread, Team and Delegation
-  handlers also verify the sender frame.
+- IPC inputs are validated in the main process. Every channel answers only the
+  main frame of the app's own window, trusted by identity: one guard on
+  `ipcMain` (`electron/main/ipc/ipc-sender-guard.ts`), installed before any
+  channel is registered. A Browser preview guest may send only the Design Mode
+  grab and cancel messages; anything else is refused with `ipc.sender.refused`
+  and recorded as `incident.ipc.senderRefused` (the channel only).
 - Only MCP servers that are enabled **and** explicitly trusted are exported to
   agent configurations.
 - Diagnostics redact local paths and credential-shaped values.

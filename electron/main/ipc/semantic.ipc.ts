@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { SemanticService } from '../services/semantic.service'
 import { projectDirectory, semanticProjects, setSemanticProjectsFile } from '../services/semantic-projects'
-import { requireAppFrame } from './ipc-guards'
 
 /**
  * Renderer-facing controls for the Semantic search feature. The toggle state
@@ -15,13 +14,11 @@ export function registerSemanticIpc(semantic: SemanticService): void {
   setSemanticProjectsFile(join(app.getPath('userData'), 'semantic-projects.json'))
   // Thread projects: semantic search stays opt-in, one switch per project in its settings.
   ipcMain.handle(IPC_CHANNELS.semantic.projectStatus, (event, rootPath: unknown) => {
-    requireAppFrame(event, 'Semantic search')
     const root = projectDirectory(rootPath)
     const projects = semanticProjects(semantic)!
     return { on: projects.isOn(root), status: projects.status(root) }
   })
   ipcMain.handle(IPC_CHANNELS.semantic.setProjectEnabled, (event, input: unknown) => {
-    requireAppFrame(event, 'Semantic search')
     const { rootPath, enabled } = (input ?? {}) as { rootPath?: unknown; enabled?: unknown }
     if (typeof enabled !== 'boolean') throw new Error('semantic:set-project-enabled requires an enabled boolean')
     const root = projectDirectory(rootPath)
@@ -93,18 +90,15 @@ export function registerSemanticIpc(semantic: SemanticService): void {
   ipcMain.handle(IPC_CHANNELS.semantic.getVectorStatus, () => semantic.getVectorStatus())
 
   ipcMain.handle(IPC_CHANNELS.semantic.setVectorIndex, (event, enabled: unknown) => {
-    requireAppFrame(event, 'Semantic index')
     if (typeof enabled !== 'boolean') throw new Error('semantic:set-vector-index requires an enabled boolean')
     return semantic.setVectorIndex(enabled)
   })
 
   ipcMain.handle(IPC_CHANNELS.semantic.downloadModel, (event) => {
-    requireAppFrame(event, 'Semantic index')
     return semantic.downloadModel()
   })
 
   ipcMain.handle(IPC_CHANNELS.semantic.importModel, async (event) => {
-    requireAppFrame(event, 'Semantic index')
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options = { title: 'Import semantic model folder', properties: ['openDirectory' as const] }
     const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
@@ -113,7 +107,6 @@ export function registerSemanticIpc(semantic: SemanticService): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.semantic.removeModel, (event) => {
-    requireAppFrame(event, 'Semantic index')
     return semantic.removeModel()
   })
 

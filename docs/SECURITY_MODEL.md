@@ -5,6 +5,12 @@ OXESpace intentionally gives local development agents powerful access. Its secur
 ## Trust boundaries
 
 - The renderer is untrusted web content relative to the Electron main process. Browser windows run with context isolation and sandboxing; privileged operations use the typed preload bridge.
+- One sender guard covers every IPC channel (B12, `electron/main/ipc/ipc-sender-guard.ts`). It wraps `ipcMain.handle`, `handleOnce`, `on`, `once` and the other listener registrations at the top of the main entry, before any module registers a channel, so lazily loaded modules and the E2E mocks go through it too. A call is answered only when `event.sender` is a webContents the app trusted by identity (`trustAppWindow`, the one main window) and `event.senderFrame` is that webContents' `mainFrame`. A subframe of the window, a `<webview>` guest, a Browser preview guest (`WebContentsView`, which also runs the project's own dev server) or a destroyed frame is refused:
+  - an invoke rejects with the C3 code `ipc.sender.refused` as its message, never a sentence; a send is dropped;
+  - each refusal records `incident.ipc.senderRefused` in the diagnostics journal, with only the channel (hashed) as its subject: no URL, path or payload.
+  - The one exception: a Browser preview guest registered with `trustPreviewGuest` may send the Design Mode `oxe:design-grab` and `oxe:design-cancel` messages (`GUEST_CHANNELS`) from its main frame, which is all its `design-guest` preload sends. The handler then still accepts them only from a visible tab it owns.
+  - Per-handler frame checks (`requireAppFrame` and its copies) are gone; a new handler needs no check of its own, and `tests/unit/ipc-sender-guard.test.ts` fails if a channel of `IPC_CHANNELS` is registered without the guard or a module registers or checks senders by itself.
+  - Every webContents other than an app window is also denied `window.open`, nested `<webview>` attachment and navigation away from `http(s)` (`web-contents-created`).
 - A workspace ID is authoritative. Filesystem requests cannot substitute an arbitrary root, and canonical real paths are checked to prevent `..`, symlink and junction escapes.
 - MCP configurations are executable integration settings. Only servers marked both enabled and trusted are synchronized to clients.
 - Web Preview is local-only by default. Remote HTTP(S) origins require an explicit opt-in and receive a warning. Electron response-header rewriting is limited to loopback traffic.

@@ -28,11 +28,14 @@ export interface MessageParams {
   'thread.request.unanswered': Record<string, never>
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** B12: the IPC sender guard refused a call from a sender other than the app window's main frame. */
+  'ipc.sender.refused': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
   'incident.ipc.handlerFailed': Record<string, never>
   'incident.ipc.validationRejected': Record<string, never>
+  'incident.ipc.senderRefused': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
   'incident.database.busy': Record<string, never>
@@ -220,10 +223,12 @@ export const MESSAGE_CODES = [
   'thread.request.alreadyResponding',
   'thread.request.unanswered',
   'app.connectivity.offline',
+  'ipc.sender.refused',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
+  'incident.ipc.senderRefused',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
   'incident.database.busy',

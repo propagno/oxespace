@@ -6,6 +6,7 @@ import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/ty
 import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, BrowserPreviewMountResult, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { ExecutionOwner } from './execution-registry'
 import { previewSessionFor, securePreviewGuest } from './browser-preview-security'
+import { trustPreviewGuest } from '../ipc/ipc-sender-guard'
 
 interface BrowserTab {
   window: BrowserWindow
@@ -122,6 +123,7 @@ export class BrowserPreviewService {
       window.contentView.addChildView(view)
       view.setVisible(false)
       securePreviewGuest(view.webContents)
+      trustPreviewGuest(view.webContents) // its design-guest preload may send the Design Mode channels, and only those
       const current = tab
       const isCurrent = (): boolean => this.tabs.get(key) === current && !view.webContents.isDestroyed()
       view.webContents.on('will-navigate', (event, next) => { try { checkedUrl(next,current.allowExternal) } catch { event.preventDefault() } })

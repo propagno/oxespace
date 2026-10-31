@@ -66,7 +66,9 @@ import { registerBrowserPreviewIpc } from './services/browser-preview.service'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 import { redactLogMessage } from './services/log-redaction'
+import { installIpcSenderGuard, trustAppWindow } from './ipc/ipc-sender-guard'
 
+installIpcSenderGuard() // B12: before any channel exists (markAppReady registers one ahead of registerIpcHandlers)
 log.initialize()
 log.transports.file.maxSize = 512 * 1024
 log.hooks.push(redactLogMessage)
@@ -746,7 +748,7 @@ function createMainWindow(): BrowserWindow {
     ? { titleBarStyle: 'hiddenInset' }
     : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: initialWindowColors().symbols, height: 36 } }
 
-  const mainWindow = new BrowserWindow({
+  const mainWindow = trustAppWindow(new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 960,
@@ -771,7 +773,7 @@ function createMainWindow(): BrowserWindow {
       // A sandboxed preload cannot ask app.getLocale(), so the default interface language travels as an argument.
       additionalArguments: [`--oxe-locale=${systemLocale()}`]
     }
-  })
+  }))
 
   if (process.platform !== 'darwin') mainWindow.setMenuBarVisibility(false)
 
@@ -799,11 +801,8 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
-  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe, so its guest has
-  // to carry the same restrictions explicitly — they are not defaults. The guest
-  // runs in its own in-memory partition, which also keeps preview cookies and
-  // storage out of the app's session.
-
+  // The <webview> guest carries the old sandboxed iframe's restrictions explicitly (they are not defaults), in its
+  // own in-memory partition. It is not trusted by the IPC sender guard: no channel answers it.
   // A guest must not be able to spawn windows; external links go to the OS browser.
   mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
     securePreviewGuest(guestWebContents)
