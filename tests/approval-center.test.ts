@@ -56,6 +56,39 @@ describe('approval center: an agent request needs the window to say it is shown'
     await expect(outcome).resolves.toMatchObject({ intent: 'allow', by: 'native' })
   })
 
+  it('still goes native when the ack timer fires before the clock says 3 s (Windows timer resolution)', async () => {
+    // When the 3 s timer fires, the clock reads 5 ms short of it, so the rule reads 2,995 ms and says "wait".
+    let lag = 0
+    const native: Array<(optionId: string | null) => void> = []
+    const center = new ApprovalCenter({
+      send: () => {}, hasWindow: () => true, now: () => Date.now() - lag,
+      native: () => new Promise(resolve => { native.push(resolve) })
+    })
+    const outcome = center.ask(draft())
+    lag = 5
+    vi.advanceTimersByTime(APPROVAL_ACK_TIMEOUT_MS)
+    expect(native).toHaveLength(0)
+    lag = 0
+    vi.advanceTimersByTime(5)
+    expect(native).toHaveLength(1)
+    native[0]('deny')
+    await expect(outcome).resolves.toMatchObject({ intent: 'deny', by: 'native' })
+  })
+
+  it('stops checking once the window acknowledges the request', () => {
+    let lag = 0
+    const native: unknown[] = []
+    const center = new ApprovalCenter({ send: () => {}, hasWindow: () => true, now: () => Date.now() - lag, native: async request => { native.push(request); return null } })
+    void center.ask(draft())
+    lag = 5
+    vi.advanceTimersByTime(APPROVAL_ACK_TIMEOUT_MS)
+    const [request] = center.list()
+    lag = 0
+    center.ack({ id: request.id, generation: 1, visible: true, focused: true })
+    vi.advanceTimersByTime(APPROVAL_ACK_TIMEOUT_MS * 10)
+    expect(native).toHaveLength(0)
+  })
+
   it('an MCP server request needs the ack too; only the app\'s own prompts may wait for the window', () => {
     const h = harness()
     void h.center.ask(draft('medium', { requester: { kind: 'mcp-server', id: 's1', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 1 }) } }))
