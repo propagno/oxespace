@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../shared/types/mcp'
 import { mcpServerAllowed } from './policy'
+import { projectOfferedTools, projectToolModes } from './conversation/tool-groups'
+import { loadRepoConfigSync } from './repo-config/loader'
 
 /**
  * Materializes the workspace's enabled MCP servers into `<workspaceRoot>/.mcp.json`
@@ -123,7 +125,10 @@ export class McpConfigSync {
       const isInternal = row.name === 'oxespace' && row.workspace_id === null
       const entry = serializeConfig(row.config_json, {
         injectWorkspaceId: isInternal && workspaceId ? workspaceId : null,
-        internal: isInternal
+        internal: isInternal,
+        // A tool group the project turned off in oxe.yaml is not offered here either (B7.2): the bridge lists and
+        // answers only these tools. Nothing off leaves the entry as it was.
+        allowedTools: isInternal ? projectOfferedTools(projectToolModes(loadRepoConfigSync(workspaceRoot)?.thread)) : null
       })
       if (!entry) continue
       const key = sanitizeKey(row.name)
@@ -306,6 +311,8 @@ function approveOxespaceToolsInCopilot(workspaceRoot: string, serverName: string
 interface SerializeOptions {
   injectWorkspaceId: string | null
   internal: boolean
+  /** The internal bridge's `--allowed-tools`, or null for every tool. */
+  allowedTools?: string[] | null
 }
 
 function serializeConfig(configJson: string, options: SerializeOptions): unknown {
@@ -327,9 +334,10 @@ function serializeConfig(configJson: string, options: SerializeOptions): unknown
     if (options.injectWorkspaceId) {
       env.OXESPACE_WORKSPACE_ID = options.injectWorkspaceId
     }
+    const args = cfg.args ?? []
     const entry: Record<string, unknown> = {
       command: cfg.command,
-      args: cfg.args ?? []
+      args: options.internal && options.allowedTools && !args.includes('--allowed-tools') ? [...args, '--allowed-tools', JSON.stringify(options.allowedTools)] : args
     }
     if (Object.keys(env).length > 0) entry.env = env
     return entry
