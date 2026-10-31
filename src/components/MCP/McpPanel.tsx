@@ -1,4 +1,4 @@
-import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, KeyRound, Plus, PlugZap, RotateCw, Search, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
+import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, KeyRound, Plus, PlugZap, RotateCw, Search, ShieldAlert, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { ToolPanel, Button, ConfirmDialog, EmptyState, ErrorState, TextField, Select, TextArea } from '../../ui'
 import { useTranslation } from 'react-i18next'
@@ -18,6 +18,7 @@ import { AGENT_STATE_HINT, AGENT_STATE_LABEL, agentStatusFor, type McpAgentState
 import { formatClock } from '../../utils/formatTime'
 import { RichText } from '../../i18n/RichText'
 import { McpServerSafety } from './McpServerSafety'
+import { isQuarantined, quarantinedCount } from './mcpQuarantine'
 
 interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and tested as soon as it is saved. */ fromCatalog?: boolean; /** A remote catalog server: the values fill its headers. */ remote?: McpCatalogEntry }
 
@@ -51,6 +52,8 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [trustPromptId, setTrustPromptId] = useState<string | null>(null)
+  // A quarantined server is trusted again only through its own confirmation, never by Test.
+  const [trustAgain, setTrustAgain] = useState<McpServer | null>(null)
   const [removePromptId, setRemovePromptId] = useState<string | null>(null)
   // Built-in OXESpace MCP — the global row OXESpace auto-creates on boot.
   // Rendered as a special read-only card at the top of the list so users
@@ -96,6 +99,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   // the rest of the panel doesn't try to edit/delete it.
   const builtInServer = servers.find((s) => s.workspaceId === null && s.name === 'oxespace') ?? null
   const otherServers = builtInServer ? servers.filter((s) => s.id !== builtInServer.id) : servers
+  const quarantined = quarantinedCount(otherServers)
   const visibleServers = otherServers.filter((server) => `${server.name} ${server.transport} ${server.health} ${server.workspaceId ? 'workspace' : 'global'}`.toLowerCase().includes(query.trim().toLowerCase()))
 
   // Catalog "+": servers without secrets are created right away; the rest open
@@ -224,7 +228,8 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
       <div className="mcp-view-tabs" role="tablist" aria-label={t('mcp.views')}>
         {conversationServers?.length ? <button type="button" role="tab" aria-selected={view === 'conversation'} onClick={() => setView('conversation')}>{t('mcp.view.conversation')}<small>{conversationServers.filter(server => server.status === 'connected').length}</small></button> : null}
         <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>{t('mcp.view.catalog')}</button>
-        <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>{t('mcp.view.installed')}<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>
+        <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>{t('mcp.view.installed')}<small>{otherServers.length + (builtInServer ? 1 : 0)}</small>
+          {quarantined > 0 ? <small className="mcp-tab-alert" data-testid="mcp-installed-quarantined"><ShieldAlert size={11} aria-hidden="true" />{t('mcp.quarantinedCount', { count: quarantined })}</small> : null}</button>
       </div>
 
       {view === 'conversation' && conversationServers ? (
@@ -266,6 +271,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
               onTrustAndTest={() => void handleTrustAndTest(server)}
               onCancelTrust={() => setTrustPromptId(null)}
               onTest={() => void handleTest(server)}
+              onTrustAgain={() => setTrustAgain(server)}
               onStop={() => void handleStop(server.id)}
               onRemove={() => void handleRemove(server)}
               onCancelRemove={() => setRemovePromptId(null)}
@@ -276,6 +282,11 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
       )}
 
       <footer className="mcp-panel-footer">{t('mcp.footer')}</footer>
+      {trustAgain && <ConfirmDialog testId="mcp-trust-again" danger title={t('mcp.trustAgainTitle', { name: trustAgain.name })} description={t('mcp.trustAgainBody')}
+        confirmLabel={t('mcp.trustAgainConfirm')} busy={busy === trustAgain.id}
+        onCancel={() => setTrustAgain(null)} onConfirm={() => { const server = trustAgain; void handleTrustAndTest(server).finally(() => setTrustAgain(null)) }}>
+        <McpServerSafety server={trustAgain} />
+      </ConfirmDialog>}
       {confirmRegenerate && <ConfirmDialog title={t('mcp.builtin.confirmTitle')} description={t('mcp.builtin.confirmBody')} confirmLabel={t('mcp.builtin.regenerate')}
         onCancel={() => setConfirmRegenerate(false)} onConfirm={() => { setConfirmRegenerate(false); void handleRegenerateToken() }} />}
     </ToolPanel>
@@ -370,6 +381,8 @@ interface McpServerRowProps {
   expanded: boolean
   onToggle: () => void
   onTest: () => void
+  /** Quarantined servers only: opens the confirmation that trusts it again. */
+  onTrustAgain: () => void
   trustPrompt: boolean
   removePrompt: boolean
   onTrustAndTest: () => void
@@ -382,9 +395,10 @@ interface McpServerRowProps {
 /** What OXESpace's own test found; the agent's connection is reported separately. */
 const testLabel = (health: McpHealthStatus): string => tc(`mcp.test.${health}`)
 
-function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removePrompt, onToggle, onTest, onTrustAndTest, onCancelTrust, onStop, onRemove, onCancelRemove }: McpServerRowProps): ReactElement {
+function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removePrompt, onToggle, onTest, onTrustAgain, onTrustAndTest, onCancelTrust, onStop, onRemove, onCancelRemove }: McpServerRowProps): ReactElement {
   const testing = server.health === 'starting'
   const remote = server.config.transport !== 'stdio'
+  const quarantined = isQuarantined(server)
   return (
     <div className={`mcp-server-row health-${server.health}${expanded ? ' expanded' : ''}`}>
       <button type="button" className="mcp-server-main" onClick={onToggle} aria-expanded={expanded}>
@@ -396,7 +410,9 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
             <span className="mcp-server-tag" title={server.testedAtMs ? tc('mcp.testedAt', { time: formatClock(server.testedAtMs) }) : tc('mcp.notTested')}>{testLabel(server.health)}</span>
             <span className="mcp-server-tag">{server.transport}</span>
             {server.workspaceId ? <span className="mcp-server-tag scope-ws">{tc('mcp.scope.workspace')}</span> : <span className="mcp-server-tag scope-global">{tc('mcp.scope.global')}</span>}
-            {server.trusted ? <span className="mcp-server-tag">{tc('mcp.trusted')}</span> : <span className="mcp-server-tag">{server.guard?.quarantine ? tc('mcp.quarantined') : tc('mcp.reviewRequired')}</span>}
+            {server.trusted ? <span className="mcp-server-tag">{tc('mcp.trusted')}</span>
+              : quarantined ? <span className="mcp-server-tag is-quarantined" data-testid="mcp-quarantine-chip"><ShieldAlert size={11} aria-hidden="true" />{tc('mcp.quarantined')}</span>
+              : <span className="mcp-server-tag">{tc('mcp.reviewRequired')}</span>}
             {server.tools.length > 0 ? <span>{tc('mcp.tools', { count: server.tools.length })}</span> : null}
             {server.healthMessage && server.health !== 'healthy' ? <span className={server.health === 'unhealthy' ? 'mcp-server-err' : undefined}>{server.healthMessage}</span> : null}
           </span>
@@ -408,6 +424,11 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
         {testing ? (
           <Button variant="ghost" size="sm" onClick={onStop} title={tc('mcp.stopTest')}>
             <Square size={12} aria-hidden="true" /> {tc('background.stop')}
+          </Button>
+        ) : quarantined ? (
+          // Test never trusts a quarantined server: trusting it again is its own decision, with what changed in view.
+          <Button variant="ghost" size="sm" disabled={busy} onClick={onTrustAgain} aria-label={tc('mcp.trustAgainLabel', { name: server.name })} data-testid="mcp-trust-again-button">
+            <ShieldCheck size={12} aria-hidden="true" /> {tc('mcp.trustAgain')}
           </Button>
         ) : (
           <Button variant="ghost" size="sm" disabled={busy} onClick={onTest} title={tc('mcp.testServerTitle')}>
@@ -422,13 +443,13 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
       {expanded ? (
         <div className="mcp-server-detail">
           <McpServerSafety server={server} />
-          {!server.trusted ? (
+          {!server.trusted && !quarantined ? (
             <div className="mcp-server-trust-box">
               <ShieldCheck size={14} aria-hidden="true" />
               <span>{tc('mcp.reviewHint')}</span>
             </div>
           ) : null}
-          {trustPrompt ? (
+          {trustPrompt && !quarantined ? (
             <div className="mcp-inline-confirm">
               <span>{tc('mcp.trustQuestion')}</span>
               <Button variant="ghost" size="sm" disabled={busy} onClick={onCancelTrust}>{tc('github.cancel')}</Button>
