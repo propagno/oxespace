@@ -41,6 +41,16 @@ export interface MessageParams {
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
+  'activity.invalid': Record<string, never>
+  'activity.tooMany': { max: number }
+  'activity.titleTooLong': { max: number }
+  'activity.detailTooLong': { max: number }
+  'activity.hiddenCharacters': Record<string, never>
+  /** A time more than a minute ahead of the computer's clock. */
+  'activity.future': Record<string, never>
+  /** An entry's text looks like a password, token or key; the whole call is refused, nothing is stored. */
+  'activity.secret': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -298,6 +308,13 @@ export const MESSAGE_CODES = [
   'app.connectivity.offline',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'activity.invalid',
+  'activity.tooMany',
+  'activity.titleTooLong',
+  'activity.detailTooLong',
+  'activity.hiddenCharacters',
+  'activity.future',
+  'activity.secret',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
