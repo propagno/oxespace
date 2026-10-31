@@ -93,7 +93,7 @@ export interface ThreadCapabilityManifest {
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
 export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
-export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate' | 'confirm'; confirm?: import('../threadConfirmations').ThreadConfirmation; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work' | 'events'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
+export interface ThreadCommandResult { /** `/archive confirm` on a conversation with active children: confirm again, with them (B1.3). */ refusal?: 'hasActiveChildren'; kind: 'applied' | 'panel' | 'navigate' | 'confirm'; confirm?: import('../threadConfirmations').ThreadConfirmation; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work' | 'events'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
   id: string
@@ -431,6 +431,8 @@ export interface ConversationThread {
   configurationRevision?: number
   pendingConfiguration?: ThreadConfiguration
   archived?: boolean
+  /** The conversation that started this one (B1.3): through oxespace_thread_create, a Work plan or a delegation. */
+  parent?: ThreadParentLink
   generation?: number
   queue?: ThreadQueuedInput[]
   /** Set when a turn ended without completing while input was queued; the next item waits for the user. */
@@ -609,6 +611,27 @@ export type ThreadPendingResponseResult =
   | { ok: true; threadId: string; requestId: string; resolution: ThreadRequestResolution }
   | { ok: false; refusal: ThreadPendingRefusal; message: import('../messages').MainMessage }
 
+/** How a conversation was started by another one (B1.3). */
+export const THREAD_PARENT_VIA = ['thread_create', 'work', 'delegation'] as const
+export interface ThreadParentLink { threadId: string; via: typeof THREAD_PARENT_VIA[number] }
+
+/** One child conversation, as the parent's view lists it. */
+export interface ThreadChildSummary {
+  id: string
+  title: string
+  status: ConversationThread['status']
+  via: ThreadParentLink['via']
+  archived: boolean
+  updatedAt: number
+}
+
+/** A conversation's direct children and their combined state; a child lists its own. */
+export interface ThreadChildrenSummary {
+  threadId: string
+  children: ThreadChildSummary[]
+  aggregate: { running: number; approval: number; failed: number; done: number }
+}
+
 /**
  * A side chat (B1.2): an ephemeral read-only copy of a conversation's native session, to ask about it without changing it.
  * It never writes to the main conversation, is not saved, and is thrown away when closed, when the main conversation
@@ -645,6 +668,8 @@ export interface ThreadApi {
   list(): Promise<ConversationThread[]>
   /** Requests still pending in every conversation that waits for approval. Read-only. */
   pendingRequestsAll?(): Promise<ThreadPendingRequestSummary[]>
+  /** The conversation's direct children and their combined state (B1.3). Read-only. */
+  children?(id: string): Promise<ThreadChildrenSummary>
   /** Side chat (B1.2): open a read-only copy, send to it, close it. Nothing reaches the main conversation. */
   sideOpen?(id: string): Promise<ThreadSideOpenResult>
   sideSend?(sideId: string, text: string): Promise<void>
