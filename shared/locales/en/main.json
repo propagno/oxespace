@@ -174,6 +174,125 @@
         "failed": "The request failed.",
         "failedWith": "The request failed: {{detail}}"
       }
+    },
+    "approvals": {
+      "title": {
+        "agent": "Request from an agent",
+        "oxequery": "OxeQuery · request from an agent",
+        "previewAutomation": "Agent browser action",
+        "crash": "OXESpace hit an unexpected error"
+      },
+      "summary": {
+        "mcpConfirm": "Wants to run {{tool}} › {{action}} on {{target}}",
+        "oxequery": {
+          "read": "Wants to read data",
+          "write": "Wants to change data in the database",
+          "action": "Wants to run a container action"
+        },
+        "preview": {
+          "closeTab": "Wants to close a browser tab",
+          "click": "Wants to click in the Browser",
+          "fill": "Wants to type into a field in the Browser",
+          "navigate": "Wants to open another page in the Browser",
+          "scroll": "Wants to scroll in the Browser",
+          "other": "Wants to {{action}} in the Browser"
+        },
+        "crash": "The app keeps running, but its state is no longer certain. Restart it to be safe."
+      },
+      "requester": {
+        "pane": "{{agent}} · pane {{pane}}",
+        "conversation": "{{agent}} · conversation {{conversation}}",
+        "mcpServer": "MCP server {{server}}",
+        "app": "OXESpace",
+        "unknownPane": "Unknown agent · pane {{pane}}",
+        "unknownConversation": "Unknown agent · conversation {{conversation}}"
+      },
+      "option": {
+        "deny": "Deny",
+        "allowOnce": "Allow once",
+        "allowSessionReads": "Allow reads on this connection for this run",
+        "closeTab": "Close tab",
+        "restart": "Restart",
+        "keepWorking": "Keep working"
+      },
+      "note": {
+        "sql": {
+          "removes": "{{statement}} permanently removes objects or data.",
+          "noWhere": "{{statement}} without a WHERE clause affects every row.",
+          "alterDrop": "ALTER … DROP removes a column, constraint or object.",
+          "withNoWhere": "{{statement}} inside WITH has no WHERE clause.",
+          "explainAnalyze": "EXPLAIN ANALYZE runs the statement.",
+          "selectInto": "SELECT INTO creates a table.",
+          "notReadOnly": "{{statement}} is not a recognised read-only statement.",
+          "outsideReach": "Calls {{calls}}, which reaches outside the database (server files, other servers, other sessions or the server's configuration)."
+        },
+        "production": "This is a production connection.",
+        "mongo": {
+          "deletes": "Documents that will be deleted: {{count}}.",
+          "changes": "Documents that will be changed: {{count}}.",
+          "emptyFilter": "The filter is empty: every document in the collection matches."
+        },
+        "agent": {
+          "actsOnPrompt": "That agent will act on this prompt with its own access.",
+          "turnStopped": "Its running turn is stopped first."
+        },
+        "thread": {
+          "actsOnMessage": "The other conversation will act on this message with its own access."
+        },
+        "skill": {
+          "followed": "Every agent that calls this skill follows these instructions."
+        },
+        "automation": {
+          "runsAlone": "The agent runs on its own on this schedule until the automation is turned off."
+        },
+        "worktree": {
+          "folderDeleted": "Its folder is deleted, with untracked and ignored files in it.",
+          "forceDiscards": "--force also discards uncommitted changes."
+        },
+        "git": {
+          "branchShared": "Other terminals and conversations working in this folder will see the other branch."
+        },
+        "checkpoint": {
+          "replaces": "Uncommitted changes in the work tree are replaced."
+        },
+        "github": {
+          "autoMerge": "The pull request merges by itself once its checks and reviews pass.",
+          "releasePublic": "A published release is visible to everyone with access to the repository and may notify watchers."
+        },
+        "textCut": "The text is longer than {{max}} characters, so only part of it is shown. It cannot be approved.",
+        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app."
+      },
+      "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
+      "expired": "Nobody answered in time, so the request was denied.",
+      "refused": {
+        "notPending": "This request was already answered, cancelled or expired.",
+        "staleGeneration": "This request was asked again since it was shown. Answer the current one.",
+        "alreadyAnswered": "This request already has an answer.",
+        "unknownOption": "That answer is not one of the options this request offers.",
+        "alreadyReported": "This request was already reported as not shown.",
+        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears."
+      },
+      "denied": {
+        "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
+        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps."
+      }
+    },
+    "notify": {
+      "prefix": {
+        "pane": "{{agent}} in pane {{pane}}: {{title}}",
+        "conversation": "{{agent}} in conversation {{conversation}}: {{title}}",
+        "unknownPane": "Unknown agent in pane {{pane}}: {{title}}",
+        "unknownConversation": "Unknown agent in conversation {{conversation}}: {{title}}"
+      },
+      "refused": {
+        "reservedName": "A notification cannot use the name \"{{name}}\"; it belongs to the app.",
+        "rateLimit": "Too many notifications: at most {{perMinute}} a minute."
+      }
+    },
+    "agents": {
+      "name": {
+        "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      }
     }
   }
 }
