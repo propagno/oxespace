@@ -1932,11 +1932,14 @@
     }
   },
   "agentResume": {
-    "resumedChip": "Retomada",
-    "resumedTitle": "Retomou a sessão anterior do {{agent}} {{session}}",
+    "resumedChip": "Sessão retomada",
+    "resumedTitle": "Retomou a sessão anterior do {{agent}}",
     "notResumedChip": "Não retomada",
     "notResumedTitle": "A sessão anterior do {{agent}} não foi retomada: {{reason}}",
     "notResumedNotice": "{{pane}}: a sessão anterior não foi retomada",
+    "notResumedMany_one": "{{count}} painel não retomou a sessão anterior",
+    "notResumedMany_many": "{{count}} painéis não retomaram a sessão anterior",
+    "notResumedMany_other": "{{count}} painéis não retomaram a sessão anterior",
     "enableMenu": "Ativar a retomada após travamento…",
     "startFresh": "Começar do zero",
     "startFreshTitle": "Começar este painel do {{agent}} do zero?",

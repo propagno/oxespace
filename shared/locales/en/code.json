@@ -1861,11 +1861,13 @@
     }
   },
   "agentResume": {
-    "resumedChip": "Resumed",
-    "resumedTitle": "Resumed the earlier {{agent}} session {{session}}",
+    "resumedChip": "Session resumed",
+    "resumedTitle": "Resumed the earlier {{agent}} session",
     "notResumedChip": "Not resumed",
     "notResumedTitle": "The earlier {{agent}} session was not resumed: {{reason}}",
     "notResumedNotice": "{{pane}}: the earlier session was not resumed",
+    "notResumedMany_one": "{{count}} pane did not resume its earlier session",
+    "notResumedMany_other": "{{count}} panes did not resume their earlier session",
     "enableMenu": "Enable resume after a crash…",
     "startFresh": "Start fresh",
     "startFreshTitle": "Start this {{agent}} pane fresh?",

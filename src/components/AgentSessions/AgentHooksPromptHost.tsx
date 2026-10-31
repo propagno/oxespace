@@ -9,7 +9,8 @@ const AgentHooksPrompt = lazy(() => import('./AgentHooksPrompt').then(module => 
  * (useAgentResumeStore.offerHooks; loaded only then), and "Start this pane fresh?".
  */
 export function AgentHooksPromptHost(): ReactElement | null {
-  const asking = useAgentResumeStore(state => state.asking)
+  // The dialog only when asked for from a pane's menu; offered on its own, the question is a notice in the pane.
+  const asking = useAgentResumeStore(state => state.askingIn?.kind === 'dialog' ? state.asking : null)
   const fresh = useAgentResumeStore(state => state.freshAsk)
   return <>
     {asking && <Suspense fallback={null}><AgentHooksPrompt agent={asking} /></Suspense>}

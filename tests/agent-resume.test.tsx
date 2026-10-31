@@ -1,10 +1,11 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentHooksStatus } from '../shared/types/agent-hooks'
+import type { AgentLifecycleState } from '../shared/types/agent-state'
 import type { PaneAgentResume } from '../shared/types/ipc/terminal'
 import { AgentHooksPromptHost } from '../src/components/AgentSessions/AgentHooksPromptHost'
-import { EnableResumeMenuItem, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../src/components/AgentSessions/PaneResume'
+import { EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../src/components/AgentSessions/PaneResume'
 import { changeLanguage } from '../src/i18n'
 import { useAgentResumeStore, type ResumeAgent } from '../src/store/agent-resume.store'
 import { useToasts } from '../src/ui/Toast'
@@ -22,39 +23,45 @@ function install(outcomes: Record<string, PaneAgentResume>, hooks: Partial<Recor
   return api
 }
 
-function Pane({ id, agent, running = true }: { id: string; agent: ResumeAgent | null; running?: boolean }) {
-  const outcome = usePaneResume(id, `Pane ${id}`, running, agent)
-  return <div data-testid={`pane-${id}`}>{outcome && <PaneResumeMarker outcome={outcome} />}{agent && <EnableResumeMenuItem agent={agent} onDone={run => run()} />}</div>
+function Pane({ id, agent, running = true, agentState = null }: { id: string; agent: ResumeAgent | null; running?: boolean; agentState?: AgentLifecycleState | null }) {
+  const outcome = usePaneResume(id, `Pane ${id}`, running, agent, agentState)
+  return <div data-testid={`pane-${id}`}>
+    {outcome && <PaneResumeMarker paneId={id} outcome={outcome} />}
+    <PaneHooksNotice paneId={id} />
+    {agent && <EnableResumeMenuItem agent={agent} onDone={run => run()} />}
+  </div>
 }
 
 const toastTitles = (): string[] => useToasts.getState().items.map(item => item.title)
+const settle = async (): Promise<void> => { await act(async () => { await Promise.resolve(); await Promise.resolve() }) }
 
 beforeEach(() => { localStorage.clear(); useAgentResumeStore.getState().reset(); useToasts.setState({ items: [] }) })
 afterEach(async () => { cleanup(); delete (window as unknown as { oxe?: unknown }).oxe; await changeLanguage('en') })
 
 describe('what became of a pane\'s earlier session', () => {
-  it('a resumed pane says so, with the agent and the session', async () => {
+  it('a resumed pane says so, read aloud without the session id, until the agent takes a turn', async () => {
     const api = install({ a: { outcome: 'resumed', agent: 'claude', sessionId: '0199a1b2-c3d4-7e5f' } })
-    render(<Pane id="a" agent="claude" />)
+    const { rerender } = render(<Pane id="a" agent="claude" />)
     const marker = await screen.findByTestId('pane-resume-marker')
-    expect(marker).toHaveTextContent('Resumed')
-    expect(marker).toHaveAccessibleName('Resumed the earlier Claude session 0199a1b2')
+    expect(marker).toHaveTextContent('Session resumed')
+    expect(marker).toHaveAccessibleName('Resumed the earlier Claude session')
     expect(marker).toHaveAttribute('title', expect.stringContaining('0199a1b2-c3d4-7e5f'))
-    // Read once, however often the pane renders.
-    cleanup(); render(<Pane id="a" agent="claude" />)
-    await screen.findByTestId('pane-resume-marker')
+    // Its first turn: the sign has done its job.
+    rerender(<Pane id="a" agent="claude" agentState="working" />)
+    await waitFor(() => expect(screen.queryByTestId('pane-resume-marker')).toBeNull())
     expect(api.terminal.status).toHaveBeenCalledTimes(1)
   })
 
-  it('a session that was not resumed says why, in the interface language, once', async () => {
+  it('a session that was not resumed says why in the interface language; several found together are one notice', async () => {
     await changeLanguage('pt-BR')
-    install({ b: { outcome: 'notResumed', agent: 'codex', sessionId: 'abcdef12-99', message: { code: 'agents.resume.sessionMissing', params: {} } } })
-    render(<Pane id="b" agent="codex" />)
-    const marker = await screen.findByTestId('pane-resume-marker')
+    const gone = (paneId: string): PaneAgentResume => ({ outcome: 'notResumed', agent: 'codex', sessionId: `${paneId}-99`, message: { code: 'agents.resume.sessionMissing', params: {} } })
+    install({ b: gone('b'), c: gone('c') })
+    render(<><Pane id="b" agent="codex" /><Pane id="c" agent="codex" /></>)
+    const marker = await within(screen.getByTestId('pane-b')).findByTestId('pane-resume-marker')
     expect(marker).toHaveTextContent('Não retomada')
     expect(marker.getAttribute('aria-label')).toMatch(/^A sessão anterior do Codex não foi retomada: /)
     expect(marker.getAttribute('aria-label')).not.toContain('agents.resume')
-    await waitFor(() => expect(toastTitles()).toEqual(['Pane b: a sessão anterior não foi retomada']))
+    await waitFor(() => expect(toastTitles()).toEqual(['2 painéis não retomaram a sessão anterior']), { timeout: 4000 })
   })
 
   it('nothing is shown when nothing was recorded, before the pane runs, or on an older main', async () => {
@@ -67,30 +74,30 @@ describe('what became of a pane\'s earlier session', () => {
 })
 
 describe('the status hooks question', () => {
-  it('asks once per run when the agent\'s hooks are missing, and "Install" installs them', async () => {
+  it('offered on its own, it is a notice in the pane that started the agent, never a dialog; "Install" installs', async () => {
     const api = install({}, { 'claude-code': 'not_installed' })
     const user = userEvent.setup()
     render(<><Pane id="a" agent="claude" /><Pane id="b" agent="claude" /><AgentHooksPromptHost /></>)
-    const dialog = await screen.findByRole('dialog', { name: 'Let Claude Code panes come back after a crash?' })
-    expect(dialog).toHaveTextContent('~/.claude')
-    expect(dialog).toHaveTextContent('Settings › Notifications')
-    await user.click(screen.getByRole('button', { name: 'Install' }))
+    const notice = await within(screen.getByTestId('pane-a')).findByTestId('pane-hooks-notice')
+    expect(notice).toHaveTextContent('~/.claude')
+    expect(within(screen.getByTestId('pane-b')).queryByTestId('pane-hooks-notice')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await user.click(within(screen.getByTestId('pane-a')).getByRole('button', { name: 'Install' }))
     expect(api.agentHooks.install).toHaveBeenCalledWith('claude-code')
     await waitFor(() => expect(toastTitles()).toContain('Claude Code panes now record their sessions'))
-    expect(screen.queryByRole('dialog')).toBeNull()
-    // Installed: the menu no longer offers it.
+    expect(screen.queryByTestId('pane-hooks-notice')).toBeNull()
     expect(screen.queryByTestId('pane-enable-resume')).toBeNull()
   })
 
-  it('"Not now" waits for the next run; "Don\'t ask again" never asks, but the pane\'s menu still can', async () => {
+  it('"Not now" waits for the next run; "Don\'t ask again" never offers it, but the pane\'s menu opens it as a dialog', async () => {
     install({}, { codex: 'not_installed' })
     const user = userEvent.setup()
     const { unmount } = render(<><Pane id="a" agent="codex" /><AgentHooksPromptHost /></>)
     await user.click(await screen.findByRole('button', { name: 'Not now' }))
     unmount()
     render(<><Pane id="b" agent="codex" /><AgentHooksPromptHost /></>)
-    await act(async () => { await Promise.resolve(); await Promise.resolve() })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await settle()
+    expect(screen.queryByTestId('pane-hooks-notice')).toBeNull()
     cleanup()
 
     // Next run.
@@ -100,63 +107,66 @@ describe('the status hooks question', () => {
     cleanup()
     useAgentResumeStore.getState().reset()
     render(<><Pane id="d" agent="codex" /><AgentHooksPromptHost /></>)
-    await act(async () => { await Promise.resolve(); await Promise.resolve() })
-    expect(screen.queryByRole('dialog')).toBeNull()
-    // Asked for, it asks.
+    await settle()
+    expect(screen.queryByTestId('pane-hooks-notice')).toBeNull()
+    // Asked for from the menu: the dialog.
     await user.click(await screen.findByTestId('pane-enable-resume'))
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Let Codex panes come back after a crash?' })).toBeInTheDocument()
   })
 
   it('reads in pt-BR, and never asks when the hooks are installed or the pane runs another agent', async () => {
     await changeLanguage('pt-BR')
     install({}, { 'claude-code': 'not_installed' })
     render(<><Pane id="a" agent="claude" /><AgentHooksPromptHost /></>)
-    const dialog = await screen.findByRole('dialog', { name: 'Deixar os painéis do Claude Code voltarem após um travamento?' })
-    expect(dialog).toHaveTextContent('Configurações › Notificações')
+    const notice = await screen.findByTestId('pane-hooks-notice')
+    expect(notice.closest('[data-intent]')).toHaveTextContent('Deixar os painéis do Claude Code voltarem após um travamento?')
     for (const name of ['Instalar', 'Agora não', 'Não perguntar de novo']) expect(screen.getByRole('button', { name })).toBeInTheDocument()
     cleanup(); useAgentResumeStore.getState().reset()
     install({}, {})
     render(<><Pane id="b" agent="claude" /><Pane id="c" agent={null} /><AgentHooksPromptHost /></>)
-    await act(async () => { await Promise.resolve(); await Promise.resolve() })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await settle()
+    expect(screen.queryByTestId('pane-hooks-notice')).toBeNull()
   })
 })
 
 describe('a session that would not load', () => {
   it('is a warning with its reason, unlike a fresh start the person chose', () => {
     const failed: PaneAgentResume = { outcome: 'notResumed', agent: 'claude', sessionId: '0199a1b2', message: { code: 'agents.resume.failedToLoad', params: {} } }
-    render(<PaneResumeMarker outcome={failed} />)
+    render(<PaneResumeMarker paneId="x" outcome={failed} />)
     const marker = screen.getByTestId('pane-resume-marker')
     expect(marker).toHaveAttribute('data-outcome', 'notResumed')
     expect(marker).toHaveAccessibleName('The earlier Claude session was not resumed: The agent could not load its previous session and closed, so this pane started a new one.')
     cleanup()
-    const { container } = render(<PaneResumeMarker outcome={{ ...failed, message: { code: 'agents.resume.startedFresh', params: {} } }} />)
+    const { container } = render(<PaneResumeMarker paneId="x" outcome={{ ...failed, message: { code: 'agents.resume.startedFresh', params: {} } }} />)
     expect(container).toBeEmptyDOMElement()
   })
 })
 
 describe('starting a resumed pane fresh', () => {
-  it('asks first, restarts without the session, and then shows neither a marker nor a warning', async () => {
+  it('asks first, restarts without the session, and then shows neither a marker nor a warning; a failure is said in our words', async () => {
     const outcomes: Record<string, PaneAgentResume> = { a: { outcome: 'resumed', agent: 'claude', sessionId: '0199a1b2-c3d4' } }
     const api = install(outcomes)
-    const restart = vi.fn(async () => { outcomes.a = { outcome: 'notResumed', agent: 'claude', sessionId: '0199a1b2-c3d4', message: { code: 'agents.resume.startedFresh', params: {} } } })
+    const restart = vi.fn(async () => { throw new Error('EPERM: raw internals') })
     ;(api.terminal as unknown as { restart: typeof restart }).restart = restart
     const user = userEvent.setup()
     function Resumed() {
       const outcome = usePaneResume('a', 'Pane a', true, 'claude')
-      return <>{outcome && <PaneResumeMarker outcome={outcome} />}{outcome?.outcome === 'resumed' && <StartFreshMenuItem paneId="a" agent="claude" onDone={run => run()} />}</>
+      return <>{outcome && <PaneResumeMarker paneId="a" outcome={outcome} />}{outcome?.outcome === 'resumed' && <StartFreshMenuItem paneId="a" agent="claude" onDone={run => run()} />}</>
     }
     render(<><Resumed /><AgentHooksPromptHost /></>)
     await user.click(await screen.findByTestId('pane-start-fresh'))
     const dialog = await screen.findByRole('dialog', { name: 'Start this Claude pane fresh?' })
-    expect(dialog).toHaveTextContent('what it is doing now stops')
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus())
-    expect(restart).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Start fresh' }))
-    expect(restart).toHaveBeenCalledWith({ paneId: 'a', resume: false })
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus())
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    await user.click(within(dialog).getByRole('button', { name: 'Start fresh' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Could not restart the pane.')
+    expect(dialog).not.toHaveTextContent('EPERM')
+
+    restart.mockImplementation(async () => { outcomes.a = { outcome: 'notResumed', agent: 'claude', sessionId: '0199a1b2-c3d4', message: { code: 'agents.resume.startedFresh', params: {} } } })
+    await user.click(within(dialog).getByRole('button', { name: 'Start fresh' }))
+    expect(restart).toHaveBeenLastCalledWith({ paneId: 'a', resume: false })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     await waitFor(() => expect(screen.queryByTestId('pane-resume-marker')).toBeNull())
-    expect(screen.queryByTestId('pane-start-fresh')).toBeNull()
     expect(toastTitles()).toEqual([])
   })
 })

@@ -27,16 +27,18 @@ test('agent panes show whether their session was resumed, and the hooks question
     await page.reload()
     for (const id of [resumed, notResumed]) await pane(page, id).getByRole('button', { name: 'Start Terminal' }).click()
 
-    await expect(pane(page, resumed).getByTestId('pane-resume-marker')).toHaveAccessibleName('Resumed the earlier Claude session 0199a1b2')
+    await expect(pane(page, resumed).getByTestId('pane-resume-marker')).toHaveAccessibleName('Resumed the earlier Claude session')
+    await expect(pane(page, resumed).getByTestId('pane-resume-marker')).toHaveText('Session resumed')
     const warning = pane(page, notResumed).getByTestId('pane-resume-marker')
     await expect(warning).toHaveText('Not resumed')
     await expect(warning).toHaveAccessibleName("The earlier Claude session was not resumed: The agent's previous session is no longer on disk for this folder, so a new one started.")
     await expect(page.getByText('the earlier session was not resumed', { exact: false })).toBeVisible()
 
-    // Claude Code's hooks are missing: asked once, and nothing is installed until the person says so.
-    const prompt = page.getByTestId('agent-hooks-prompt')
-    await expect(prompt).toBeVisible()
-    await expect(prompt.getByRole('heading', { name: 'Let Claude Code panes come back after a crash?' })).toBeVisible()
+    // Claude Code's hooks are missing: asked once, in a pane, without taking the terminal's focus or opening a dialog.
+    const prompt = page.locator('.pane-hooks-notice')
+    await expect(prompt).toHaveCount(1)
+    await expect(prompt).toContainText('Let Claude Code panes come back after a crash?')
+    await expect(page.getByTestId('agent-hooks-prompt')).toHaveCount(0)
     await page.waitForTimeout(300)
     await page.screenshot({ path: test.info().outputPath('agent-resume.png') })
     expect(await app.evaluate(() => (globalThis as unknown as { __oxeAgentHookInstalls?: string[] }).__oxeAgentHookInstalls ?? [])).toEqual([])

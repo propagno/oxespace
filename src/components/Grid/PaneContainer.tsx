@@ -6,7 +6,7 @@ import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
-import { EnableResumeMenuItem, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
+import { EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
@@ -76,7 +76,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   // F32: what main did with this pane's earlier Claude/Codex session when the app reopened (B17).
   const identityKey = resolvePaneIdentity({ pane, profile: agentProfile, shellProfileName }).key
   const resumeAgent = identityKey === 'claude' || identityKey === 'codex' ? identityKey : null
-  const resume = usePaneResume(pane.id, display.title, isTerminalPane && terminalState.status === 'running', resumeAgent)
+  const resume = usePaneResume(pane.id, display.title, isTerminalPane && terminalState.status === 'running', resumeAgent, terminalState.agentState)
   const terminalCanMutate = terminalState.status === 'running'
   const terminalCanRestart = terminalState.status !== 'starting'
   const phoneWrite = usePhoneWrite(pane.id)
@@ -202,7 +202,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           <span className="pane-header-divider" aria-hidden="true">/</span>
           {isTerminalPane && <PaneBranchBadge workspace={workspace} pane={pane} />}
           {isTerminalPane && phoneWrite.allowed && <PhoneWriteBadge />}
-          {isTerminalPane && resume && <PaneResumeMarker outcome={resume} />}
+          {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
           {renaming ? (
             <input
               ref={renameInputRef}
@@ -377,6 +377,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           </div>
         </div>
       </header>
+      {/* F32: the status-hooks question for this pane's agent, without taking the terminal's focus. */}
+      {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
       {detailsOpen && <Dialog className="desktop-details-dialog" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
         <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>

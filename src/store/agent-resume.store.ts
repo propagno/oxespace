@@ -32,6 +32,14 @@ interface AgentResumeState {
   hooks: Partial<Record<AgentHookAgent, AgentHooksStatus>>
   /** The agent whose hooks the window is asking about now, if any. */
   asking: AgentHookAgent | null
+  /**
+   * Where the question shows: in the pane that started the agent, as a notice that does not take the terminal's focus
+   * (offered on its own), or as a dialog (asked for from the pane's menu).
+   */
+  askingIn: { kind: 'pane'; paneId: string } | { kind: 'dialog' } | null
+  /** Resumed panes whose agent has since taken a turn: their "Session resumed" sign has done its job. */
+  collapsed: Record<string, true>
+  collapse: (paneId: string) => void
   /** Agents already asked about in this run ("Not now" lasts until the app restarts). */
   asked: Partial<Record<AgentHookAgent, true>>
   /** The pane whose "Start fresh" the window is confirming, outside the pane's menu (which closes). */
@@ -44,7 +52,7 @@ interface AgentResumeState {
   /** Reads the hook installs once per run. */
   loadHooks: () => Promise<void>
   /** Asks about this agent's hooks, once per run, when they are missing and the person did not say "Don't ask again". */
-  offerHooks: (agent: ResumeAgent, force?: boolean) => Promise<void>
+  offerHooks: (agent: ResumeAgent, where: { paneId: string } | 'dialog') => Promise<void>
   answerHooks: (answer: 'install' | 'notNow' | 'never') => Promise<AgentHooksStatus | null>
   hooksMissing: (agent: ResumeAgent) => boolean
   reset: () => void
@@ -54,8 +62,12 @@ export const useAgentResumeStore = create<AgentResumeState>((set, get) => ({
   byPane: {},
   hooks: {},
   asking: null,
+  askingIn: null,
   asked: {},
   freshAsk: null,
+  collapsed: {},
+
+  collapse: (paneId) => { if (!get().collapsed[paneId]) set(state => ({ collapsed: { ...state.collapsed, [paneId]: true } })) },
 
   askFresh: (freshAsk) => set({ freshAsk }),
 
@@ -89,19 +101,20 @@ export const useAgentResumeStore = create<AgentResumeState>((set, get) => ({
     return !!status && status.state !== 'installed'
   },
 
-  offerHooks: async (agent, force = false) => {
+  offerHooks: async (agent, where) => {
+    const force = where === 'dialog'
     await get().loadHooks()
     const hook = HOOK_AGENT[agent]
     const state = get()
     if (!state.hooksMissing(agent) || state.asking) return
     if (!force && (state.asked[hook] || readDontAsk().includes(hook))) return
-    set({ asking: hook, asked: { ...state.asked, [hook]: true } })
+    set({ asking: hook, askingIn: where === 'dialog' ? { kind: 'dialog' } : { kind: 'pane', paneId: where.paneId }, asked: { ...state.asked, [hook]: true } })
   },
 
   answerHooks: async (answer) => {
     const agent = get().asking
     if (!agent) return null
-    set({ asking: null })
+    set({ asking: null, askingIn: null })
     if (answer === 'never') dontAskHooks(agent)
     if (answer !== 'install') return null
     const next = await window.oxe.agentHooks.install(agent)
@@ -109,5 +122,5 @@ export const useAgentResumeStore = create<AgentResumeState>((set, get) => ({
     return next
   },
 
-  reset: () => set({ byPane: {}, hooks: {}, asking: null, asked: {}, freshAsk: null })
+  reset: () => set({ byPane: {}, hooks: {}, asking: null, askingIn: null, asked: {}, freshAsk: null, collapsed: {} })
 }))

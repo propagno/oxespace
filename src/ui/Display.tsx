@@ -9,8 +9,16 @@ import styles from './Display.module.css'
 export type Intent = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
 
 /** A short label of state or count. Color only reinforces the text; it never carries the meaning alone. */
-export function Badge({ children, intent = 'neutral', className, title }: { children: ReactNode; intent?: Intent; className?: string; title?: string }): ReactElement {
-  return <span className={cx(styles.badge, intent !== 'neutral' && styles[intent], className)} title={title}>{children}</span>
+/**
+ * A short label with an intent. `icon` goes before the text, decorative; `ariaLabel` names the badge when its visible
+ * text is shorter than what it means (the full sentence then goes to assistive technology); `data-*` passes through.
+ */
+export function Badge({ children, intent = 'neutral', className, title, icon, ariaLabel, ...data }: {
+  children: ReactNode; intent?: Intent; className?: string; title?: string; icon?: ReactNode; ariaLabel?: string
+} & { [key: `data-${string}`]: string | undefined }): ReactElement {
+  return <span className={cx(styles.badge, intent !== 'neutral' && styles[intent], className)} title={title} aria-label={ariaLabel} {...data}>
+    {icon && <span className={styles.badgeIcon} aria-hidden="true">{icon}</span>}{children}
+  </span>
 }
 
 export type Status = 'idle' | 'running' | 'success' | 'attention' | 'danger'

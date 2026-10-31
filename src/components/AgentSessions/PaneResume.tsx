@@ -1,12 +1,13 @@
 import { History, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
+import type { AgentLifecycleState } from '../../../shared/types/agent-state'
 import type { PaneAgentResume } from '../../../shared/types/ipc/terminal'
 import { i18n } from '../../i18n'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { useAgentResumeStore, type ResumeAgent } from '../../store/agent-resume.store'
-import { Button, ConfirmDialog, cx, toast } from '../../ui'
+import { Badge, Button, ConfirmDialog, Notice, toast } from '../../ui'
 import paneMenu from '../Grid/PaneMenu.module.css'
-import styles from './PaneResume.module.css'
+import { answerHooksAndSay, AGENT_HOOK_NAME } from './agentHooksAnswer'
 
 const tc = i18n.getFixedT(null, 'code')
 const AGENT = { claude: 'Claude', codex: 'Codex' } as const
@@ -14,42 +15,83 @@ const AGENT = { claude: 'Claude', codex: 'Codex' } as const
 const STARTED_FRESH = 'agents.resume.startedFresh'
 const startedFresh = (outcome: PaneAgentResume | undefined): boolean => outcome?.outcome === 'notResumed' && outcome.message.code === STARTED_FRESH
 
+/** Panes found not resumed close together (the app reopening with several) are said in one notice. */
+const NOTICE_BATCH_MS = 2000
+let pending: Array<{ pane: string; reason: string }> = []
+let timer: ReturnType<typeof setTimeout> | undefined
+function sayNotResumed(pane: string, reason: string): void {
+  pending.push({ pane, reason })
+  clearTimeout(timer)
+  timer = setTimeout(() => {
+    const batch = pending
+    pending = []
+    if (batch.length === 1) toast({ title: tc('agentResume.notResumedNotice', { pane: batch[0].pane }), description: batch[0].reason, intent: 'warning' })
+    else toast({ title: tc('agentResume.notResumedMany', { count: batch.length }), description: batch.map(item => item.pane).join(', '), intent: 'warning' })
+  }, NOTICE_BATCH_MS)
+}
+
 /**
- * Once the pane runs, reads what main did with its earlier session (B17) and, for a Claude or Codex pane, asks once
- * per run about the status hooks when they are missing. A session that was not resumed is said once, with the reason.
+ * Once the pane runs, reads what main did with its earlier session (B17) and, for a Claude or Codex pane, offers the
+ * status hooks in the pane when they are missing. A session that was not resumed is said, batched with the others
+ * found at the same time; the "Session resumed" sign goes away once the agent has taken a turn.
  */
-export function usePaneResume(paneId: string, paneName: string, running: boolean, agent: ResumeAgent | null): PaneAgentResume | undefined {
+export function usePaneResume(paneId: string, paneName: string, running: boolean, agent: ResumeAgent | null, agentState: AgentLifecycleState | null = null): PaneAgentResume | undefined {
   const outcome = useAgentResumeStore(state => state.byPane[paneId])
   useEffect(() => {
     if (!running) return
     const store = useAgentResumeStore.getState()
     const known = store.byPane[paneId]
     void store.load(paneId).then(found => {
-      if (!known && found?.outcome === 'notResumed' && !startedFresh(found)) {
-        toast({ title: tc('agentResume.notResumedNotice', { pane: paneName }), description: formatMainMessage(found.message), intent: 'warning' })
-      }
-      if (agent) void useAgentResumeStore.getState().offerHooks(agent)
+      if (!known && found?.outcome === 'notResumed' && !startedFresh(found)) sayNotResumed(paneName, formatMainMessage(found.message))
+      if (agent) void useAgentResumeStore.getState().offerHooks(agent, { paneId })
     })
   }, [running, paneId, paneName, agent])
+  useEffect(() => {
+    if (agentState === 'working' && outcome?.outcome === 'resumed') useAgentResumeStore.getState().collapse(paneId)
+  }, [agentState, outcome, paneId])
   return outcome
 }
 
-/** The pane header's sign of what became of its earlier session; nothing when none was recorded. */
-export function PaneResumeMarker({ outcome }: { outcome: PaneAgentResume }): ReactElement | null {
+/** The pane header's sign of what became of its earlier session; nothing when none was recorded or it was started fresh. */
+export function PaneResumeMarker({ paneId, outcome }: { paneId: string; outcome: PaneAgentResume }): ReactElement | null {
+  const collapsed = useAgentResumeStore(state => !!state.collapsed[paneId])
   if (outcome.outcome === 'nothingRecorded' || startedFresh(outcome)) return null
   const agent = AGENT[outcome.agent]
-  const session = outcome.sessionId.slice(0, 8)
   if (outcome.outcome === 'resumed') {
-    const name = tc('agentResume.resumedTitle', { agent, session })
-    return <span className={styles.chip} title={`${name} (${outcome.sessionId})`} aria-label={name} data-testid="pane-resume-marker" data-outcome="resumed">
-      <History size={12} aria-hidden="true" />{tc('agentResume.resumedChip')}
-    </span>
+    if (collapsed) return null
+    const name = tc('agentResume.resumedTitle', { agent })
+    // The session id is for the tooltip only: read aloud, it is noise.
+    return <Badge icon={<History size={12} />} title={`${name} (${outcome.sessionId})`} ariaLabel={name} data-testid="pane-resume-marker" data-outcome="resumed">
+      {tc('agentResume.resumedChip')}
+    </Badge>
   }
-  const reason = formatMainMessage(outcome.message)
-  const name = tc('agentResume.notResumedTitle', { agent, reason })
-  return <span className={cx(styles.chip, styles.warning)} title={name} aria-label={name} data-testid="pane-resume-marker" data-outcome="notResumed">
-    <TriangleAlert size={12} aria-hidden="true" />{tc('agentResume.notResumedChip')}
-  </span>
+  const name = tc('agentResume.notResumedTitle', { agent, reason: formatMainMessage(outcome.message) })
+  return <Badge intent="warning" icon={<TriangleAlert size={12} />} title={name} ariaLabel={name} data-testid="pane-resume-marker" data-outcome="notResumed">
+    {tc('agentResume.notResumedChip')}
+  </Badge>
+}
+
+/**
+ * The status-hooks question inside the pane that started the agent: a notice that never takes the terminal's focus.
+ * The same answers as the dialog the pane's menu opens.
+ */
+export function PaneHooksNotice({ paneId }: { paneId: string }): ReactElement | null {
+  const asking = useAgentResumeStore(state => state.askingIn?.kind === 'pane' && state.askingIn.paneId === paneId ? state.asking : null)
+  const [busy, setBusy] = useState(false)
+  if (!asking) return null
+  const name = AGENT_HOOK_NAME[asking]
+  const answer = (choice: 'install' | 'notNow' | 'never'): void => {
+    setBusy(true)
+    void answerHooksAndSay(choice).finally(() => setBusy(false))
+  }
+  return <Notice intent="info" title={tc('agentResume.hooks.title', { agent: name })} className="pane-hooks-notice"
+    actions={<>
+      <Button size="sm" variant="primary" loading={busy} onClick={() => answer('install')}>{tc('agentResume.hooks.install')}</Button>
+      <Button size="sm" variant="ghost" onClick={() => answer('notNow')}>{tc('agentResume.hooks.notNow')}</Button>
+      <Button size="sm" variant="ghost" onClick={() => answer('never')}>{tc('agentResume.hooks.never')}</Button>
+    </>}>
+    <span data-testid="pane-hooks-notice">{tc('agentResume.hooks.body', { agent: name, folder: asking === 'codex' ? '~/.codex' : '~/.claude' })}</span>
+  </Notice>
 }
 
 /** "Start fresh" in a resumed pane's menu; the question opens outside the menu (StartFreshConfirm). */
@@ -66,31 +108,33 @@ export function StartFreshMenuItem({ paneId, agent, onDone }: { paneId: string; 
  */
 export function StartFreshConfirm({ paneId, agent }: { paneId: string; agent: ResumeAgent }): ReactElement {
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [failed, setFailed] = useState(false)
   const name = AGENT[agent]
   const close = (): void => useAgentResumeStore.getState().askFresh(null)
   const start = async (): Promise<void> => {
     setBusy(true)
-    setError('')
+    setFailed(false)
     try {
       await window.oxe.terminal.restart({ paneId, resume: false })
       close()
       await useAgentResumeStore.getState().reload(paneId)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : tc('agentResume.startFreshFailed'))
+      // The reason in our words; the raw error is for the console.
+      console.warn('[OXESpace] start fresh failed', cause)
+      setFailed(true)
       setBusy(false)
     }
   }
   return <ConfirmDialog title={tc('agentResume.startFreshTitle', { agent: name })} description={tc('agentResume.startFreshBody', { agent: name })}
-    confirmLabel={tc('agentResume.startFresh')} danger busy={busy} error={error || undefined} onConfirm={() => void start()} onCancel={close} />
+    confirmLabel={tc('agentResume.startFresh')} danger busy={busy} error={failed ? tc('agentResume.startFreshFailed') : undefined} onConfirm={() => void start()} onCancel={close} />
 }
 
-/** "Enable resume after a crash…" in the pane's menu, while this agent's status hooks are missing. */
+/** "Enable resume after a crash…" in the pane's menu, while this agent's status hooks are missing: opens the dialog. */
 export function EnableResumeMenuItem({ agent, onDone }: { agent: ResumeAgent; onDone: (action: () => void) => void }): ReactElement | null {
   const missing = useAgentResumeStore(state => state.hooksMissing(agent))
   if (!missing) return null
   return <Button variant="ghost" role="menuitem" className={paneMenu.item} data-testid="pane-enable-resume"
-    onClick={event => { event.stopPropagation(); onDone(() => { void useAgentResumeStore.getState().offerHooks(agent, true) }) }}>
+    onClick={event => { event.stopPropagation(); onDone(() => { void useAgentResumeStore.getState().offerHooks(agent, 'dialog') }) }}>
     <History size={14} aria-hidden="true" />{tc('agentResume.enableMenu')}
   </Button>
 }
