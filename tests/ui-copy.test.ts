@@ -18,8 +18,8 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
   { file: 'electron/main/services/voice.service.ts', includes: 'PT_BR_PROMPT', why: 'transcription prompt for Brazilian Portuguese speech' },
   { file: 'electron/main/services/semantic-retrieval.ts', includes: 'EXHAUSTIVE_INTENT', why: 'multilingual intent regex' },
   { file: 'electron/main/e2e/approvals-mock.ts', includes: '-- leitura apenas, seguro', why: 'adversarial agent text (B10): a Portuguese comment that claims the app checked a hidden DROP; never interface copy' },
-  { file: 'shared/approval-rules.ts', includes: 'Aplicação', why: 'reserved names an agent may not use (B10): data compared after folding, in both languages; never shown as copy' },
-  { file: 'shared/approval-rules.ts', includes: 'Segurança', why: 'reserved names an agent may not use (B10): data compared after folding, in both languages; never shown as copy' }
+  { file: 'shared/reserved-names.ts', includes: 'Aplicação', why: 'reserved names an agent may not use (B10): data compared after folding, in both languages; never shown as copy' },
+  { file: 'shared/reserved-names.ts', includes: 'Segurança', why: 'reserved names an agent may not use (B10): data compared after folding, in both languages; never shown as copy' }
 ]
 
 /**
