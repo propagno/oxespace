@@ -22,7 +22,7 @@
   - `shared/remote/protocol.ts` com versão, frames JSON (`hello`, `auth`, `subscribe`, `event`, `snapshot`, `command`, `ack`, `error`), códigos de erro e limites;
   - JSON Schema gerado e checado na CI;
   - teste de capacidades proibidas.
-- **C6 · Migrações:** faixas reservadas por WS a partir de 084 (B1 084–089, B3 090–095, B5 096–099, B6 100–103, B9 104–107); o coordenador mantém `LATEST_DB_VERSION`.
+- **C6 · Migrações:** não há faixas reservadas. Cada migração usa o próximo número livre na main no momento do merge; quando dois PRs usam o mesmo número, o que faz merge por segundo renumera a sua. O #180 tem o 084. O coordenador mantém `LATEST_DB_VERSION`.
 - **C7 · Arquivos compartilhados:** `ipc.ts`, `preload/api.ts`, `mcp-coverage.ts`, `index.ts`, `db/index.ts`, `fs-allowlist.test.ts`, `file-size-baseline.json`, `verify-bundle-budgets.mjs` e `mock-ipc.ts` só mudam no PR de contrato do item, com o coordenador avisado.
 - **B10 · Aprovações (`approvals.*`):** todo pedido que um agente (ou o próprio app) faz à pessoa aparece no modal do app, nunca num diálogo nativo enquanto existir uma janela do app.
   - Tipos em `shared/types/approvals.ts`, regras puras em `shared/approval-rules.ts`, mock em `electron/main/e2e/approvals-mock.ts` (`OXESPACE_E2E_APPROVALS=sample`).

@@ -233,6 +233,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'The person\'s settings.',
     ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.shellCheck']
   },
+  'thread.sections': {
+    label: 'Sections of the conversation list (F13)',
+    forbidden: 'For 1.4, how the person organizes their own list: an agent neither reads nor rearranges it.',
+    ipc: ['thread.sections', 'thread.saveSections']
+  },
   'thread.approvals': {
     label: 'Answer a Thread\'s approvals and questions',
     forbidden: 'Approvals stay with the person.',
