@@ -140,7 +140,8 @@
         "browser": "Navegador",
         "permissions": "Permissões",
         "model": "Modelo",
-        "effort": "Esforço de raciocínio"
+        "effort": "Esforço de raciocínio",
+        "sideChat": "Chat lateral"
       },
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado"

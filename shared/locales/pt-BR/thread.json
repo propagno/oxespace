@@ -1603,6 +1603,7 @@
     "providerActivity": "Atividade do provedor · {{count}} em execução",
     "noNativeTasks": "Nenhuma tarefa nativa foi informada nesta conversa."
   },
+<<<<<<< HEAD
   "notify": {
     "untitled": "Conversa",
     "approval": "{{name}} — precisa de aprovação",
@@ -1614,5 +1615,30 @@
     "requestsWaiting_one": "{{count}} pedido está esperando a sua decisão.",
     "requestsWaiting_other": "{{count}} pedidos estão esperando a sua decisão.",
     "requestsWaiting_many": "{{count}} pedidos estão esperando a sua decisão."
+=======
+  "side": {
+    "title": "Chat lateral",
+    "region": "Chat lateral",
+    "readOnly": "Cópia somente leitura",
+    "note": "Pergunte sobre esta conversa sem alterá-la. Nada do que você perguntar aqui chega à conversa, e a cópia é descartada quando você fecha.",
+    "costLabel": "Custo até agora:",
+    "noCostYet": "nada ainda",
+    "messages": "Mensagens do chat lateral",
+    "opening": "Abrindo uma cópia da conversa…",
+    "empty": "Pergunte algo sobre esta conversa.",
+    "you": "Você",
+    "copy": "Cópia",
+    "thinking": "A cópia está respondendo…",
+    "working": "A cópia está respondendo: {{activity}}",
+    "openFailed": "O chat lateral não abriu. Tente de novo.",
+    "sendFailed": "A pergunta não chegou ao chat lateral. Feche e abra de novo.",
+    "turnFailed": "A resposta falhou.",
+    "ask": "Pergunte ao chat lateral",
+    "placeholder": "Pergunte sobre esta conversa…",
+    "send": "Perguntar",
+    "close": "Fechar o chat lateral ({{shortcut}})",
+    "openMenu": "Chat lateral",
+    "closeMenu": "Fechar o chat lateral"
+>>>>>>> origin/main
   }
 }

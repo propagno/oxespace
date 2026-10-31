@@ -87,7 +87,9 @@ export const IPC_CHANNELS = {
     setAppearance: 'app:set-appearance',
     setLanguage: 'app:set-language',
     setUiScale: 'app:set-ui-scale',
-    connectivity: 'app:connectivity', onConnectivity: 'app:connectivity-changed', about: 'app:about'
+    connectivity: 'app:connectivity', onConnectivity: 'app:connectivity-changed', about: 'app:about',
+    /** The main window's only way out to the system browser or mail app. */
+    openExternal: 'app:open-external'
   },
   rtk: {
     getStatus: 'rtk:get-status',
