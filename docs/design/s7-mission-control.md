@@ -278,12 +278,16 @@ roadmap; HML flags it if the glossary decides otherwise).
 - **Raycast Action Panel**: every item has its actions behind one key; basis for the row menu and IDEA 1.
 - **Material 3** lists, filter chips and navigation bar; 48 dp targets — phone layout.
 
-## 11. Open decisions (sent to the coordinator as ASK)
+## 11. Decisions (coordinator, 2026-10-31)
 
-1. **Entry point**: no title-bar button in v1 (recommended, respects F35) vs an icon next to the bell.
-2. **Phone pane stop / resume**: needs a remote command (`agent.interrupt`, `agent.resume`) — a protocol CCR for
-   BACKEND+MOBILE (would run `android:generate`). Recommend: out of v1, conversations only.
-3. **Shortcut** `Mod+Shift+O`: FRONTEND checks the catalog; fallback `Mod+Shift+G`.
+1. **Entry point: decided, no title-bar button in v1.** Entry is `Mod+Shift+O`, the palette, View menu, mode-switch
+   badges and the bell footer. Re-checked with the adoption metric after the RC.
+2. **Phone: decided, conversations only in v1** (respond and `thread.interrupt`, both already remote commands).
+   Stopping or resuming a pane from the phone moves to the 1.5 list. It needs its own threat review, because a phone
+   stopping a terminal is a new remote action.
+3. **Vocabulary: decided.** The 7 states in §3 and the single `agents.state.*` i18n namespace are the S7.1 contract.
+   BACKEND owns the mapping test; the sidebar, pane/thread headers, the central and the phone all use these states.
+4. **Shortcut** `Mod+Shift+O` (open): FRONTEND checks it against the keybinding catalog; the fallback is `Mod+Shift+G`.
 
 ## 12. IDEAs (not blockers)
 
