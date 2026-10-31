@@ -70,7 +70,7 @@ export function ContainerDetail({ container, engine, active }: { container: Cont
   return <div className={styles.detail}>
     <section className={styles.card} aria-label={t('detail.label', { name: container.name })}>
       <header className={styles.detailHeader}>
-        <div className={styles.titleBlock}><h2 className={styles.title} title={container.id}>{container.name}</h2><span className={styles.muted}>{container.image} · {since}</span></div>
+        <div className={styles.titleBlock}><h2 className={styles.title} title={container.id}>{container.name}</h2><span className={styles.muted}>{container.image} · <span data-oq-volatile="">{since}</span></span></div>
         <div className={styles.actions} role="group" aria-label={t('detail.actions')}>
           {running ? <>
             <Button size="sm" icon={<Square size={13} aria-hidden="true" />} disabled={busy} aria-label={t('actions.stopNamed', { name: container.name })} onClick={() => request('stop')}>{t('actions.stop')}</Button>
