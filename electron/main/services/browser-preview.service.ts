@@ -5,7 +5,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, BrowserPreviewMountResult, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { ExecutionOwner } from './execution-registry'
-import { previewSessionFor, securePreviewGuest } from './browser-preview-security'
+import { guestProbeWebPreferences, previewSessionFor, securePreviewGuest } from './browser-preview-security'
 import { trustPreviewGuest } from '../ipc/ipc-sender-guard'
 
 interface BrowserTab {
@@ -116,7 +116,7 @@ export class BrowserPreviewService {
     meta.url = url
     let tab = this.tabs.get(key)
     if (!tab) {
-      const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}})
+      const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,...guestProbeWebPreferences()}})
       view.setBackgroundColor('#07080e')
       tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:input.agentAccess === true,visible:false,lease:randomUUID()}
       this.tabs.set(key,tab)

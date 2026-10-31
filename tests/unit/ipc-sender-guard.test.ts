@@ -49,19 +49,21 @@ const { IPC_CHANNELS } = await import('../../shared/types/ipc')
 const { DESIGN_MODE_CHANNELS } = await import('../../shared/types/design-mode')
 
 function webContents(type = 'window') {
-  return Object.assign(new EventEmitter(), { mainFrame: { name: 'main' }, getType: () => type, setWindowOpenHandler: vi.fn() })
+  return Object.assign(new EventEmitter(), { mainFrame: { name: 'main' }, getType: () => type, isDestroyed: () => false, setWindowOpenHandler: vi.fn() })
 }
 const appWindow = webContents()
 trustAppWindow({ webContents: appWindow as never })
 const previewGuest = webContents('browserView')
 trustPreviewGuest(previewGuest as never)
 const strangerGuest = webContents('webview') // e.g. a <webview> guest: never trusted
+const strayWindow = webContents('window') // a BrowserWindow created anywhere but createMainWindow: never trusted either
 
 const fromApp = { sender: appWindow, senderFrame: appWindow.mainFrame }
 const fromAppSubframe = { sender: appWindow, senderFrame: { name: 'iframe' } }
 const fromPreview = { sender: previewGuest, senderFrame: previewGuest.mainFrame }
 const fromPreviewSubframe = { sender: previewGuest, senderFrame: { name: 'iframe' } }
 const fromStranger = { sender: strangerGuest, senderFrame: strangerGuest.mainFrame }
+const fromStrayWindow = { sender: strayWindow, senderFrame: strayWindow.mainFrame }
 const fromDestroyedFrame = { sender: appWindow, senderFrame: null }
 
 const flatten = (value: unknown): string[] => typeof value === 'string' ? [value] : Object.values(value as Record<string, unknown>).flatMap(flatten)
@@ -97,7 +99,7 @@ describe('the IPC sender guard over the whole channel surface', () => {
 
   it('refuses every channel from a guest and from a subframe of the main window, with the C3 code and an incident', async () => {
     for (const channel of ipc.handlers.keys()) {
-      for (const event of [fromStranger, fromPreview, fromAppSubframe, fromDestroyedFrame]) {
+      for (const event of [fromStranger, fromStrayWindow, fromPreview, fromAppSubframe, fromDestroyedFrame]) {
         if (event === fromPreview && GUEST_CHANNELS.has(channel)) continue
         await refusedWithCode(ipc.invoke(channel, event))
       }
@@ -145,7 +147,7 @@ describe('the IPC sender guard on the real modules and the Design Mode exception
   it('refuses terminal.write, fs.writeFile and mcp.create from a guest or a subframe before the handler runs', async () => {
     const write = { paneId: 'pane-1', data: 'rm -rf /\r' }
     const file = { workspaceId: 'ws', rootPath: '/repo', relativePath: 'a.txt', content: 'x' }
-    for (const event of [fromStranger, fromPreview, fromPreviewSubframe, fromAppSubframe]) {
+    for (const event of [fromStranger, fromStrayWindow, fromPreview, fromPreviewSubframe, fromAppSubframe]) {
       await refusedWithCode(ipc.invoke(IPC_CHANNELS.terminal.write, event, write))
       await refusedWithCode(ipc.invoke(IPC_CHANNELS.fs.writeFile, event, file))
       await refusedWithCode(ipc.invoke(IPC_CHANNELS.mcp.create, event, { name: 'evil' }))
@@ -202,11 +204,15 @@ describe('the IPC sender guard on the real modules and the Design Mode exception
     expect([...GUEST_CHANNELS].sort()).toEqual([DESIGN_MODE_CHANNELS.cancel, DESIGN_MODE_CHANNELS.grab].sort())
   })
 
-  it('keeps guests from opening windows, nesting webviews or leaving http(s)', () => {
+  it('keeps guests from opening windows, nesting webviews or leaving http(s)', async () => {
     const application = { on: (name: string, listener: (...args: unknown[]) => void) => hooks.appEvents.set(name, listener) }
     installIpcSenderGuard(new FakeIpcMain(), application as never)
-    const guest = webContents('browserView')
+    const nextTick = () => new Promise(resolve => setImmediate(resolve))
+    // A real WebContentsView guest reports getType() === 'window' (seen in e2e/ipc-sender-guard.spec.ts): the type
+    // decides nothing, the trusted set does.
+    const guest = webContents('window')
     hooks.appEvents.get('web-contents-created')!({}, guest)
+    await nextTick()
     expect(guest.setWindowOpenHandler).toHaveBeenCalledTimes(1)
     expect((guest.setWindowOpenHandler.mock.calls[0][0] as () => unknown)()).toEqual({ action: 'deny' })
     const attach = { preventDefault: vi.fn() }
@@ -219,6 +225,8 @@ describe('the IPC sender guard on the real modules and the Design Mode exception
     expect(toPage.preventDefault).not.toHaveBeenCalled()
     const window = webContents('window')
     hooks.appEvents.get('web-contents-created')!({}, window)
+    trustAppWindow({ webContents: window as never }) // as index.ts does, right after the constructor
+    await nextTick()
     expect(window.setWindowOpenHandler).not.toHaveBeenCalled() // the main window keeps its own rules
   })
 })
@@ -254,7 +262,14 @@ describe('the guard in the source', () => {
   })
 
   it('has the guest preload send only the excepted channels', () => {
-    const preload = readFileSync(join(root, 'electron', 'preload', 'design-guest.ts'), 'utf8')
+    const source = readFileSync(join(root, 'electron', 'preload', 'design-guest.ts'), 'utf8')
+    // The E2E-only probe (tests/unit/guest-probe-gate.test.ts) sends whatever the spec asks: that is its point. It is
+    // the gated block at the end of the file; everything before it is what a shipped guest runs.
+    const gate = source.indexOf('if (process.argv.includes(GUEST_PROBE_ARGUMENT)) {')
+    expect(gate).toBeGreaterThan(0)
+    expect(source.slice(gate).trimEnd().endsWith('}')).toBe(true)
+    expect(source.slice(gate).match(/^\S/gm)).toEqual(['i', '}']) // nothing else at top level after the gate
+    const preload = source.slice(0, gate)
     const calls = [...preload.matchAll(/ipcRenderer\.(send|invoke|sendSync|postMessage)\(([^,)]+)/g)].map(match => match[2].trim())
     expect(calls.length).toBeGreaterThan(0)
     for (const channel of calls) {

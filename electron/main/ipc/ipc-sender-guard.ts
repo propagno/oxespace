@@ -70,10 +70,12 @@ export function installIpcSenderGuard(target: object = ipcMain, application: Pic
       return original.call(this ?? target, channel, wrap(channel, listener, invoke))
     }
   }
-  application?.on('web-contents-created', (_event: unknown, contents: WebContents) => {
-    if (contents.getType() === 'window') return // the main window sets its own open and navigation rules
+  // A WebContentsView guest reports getType() === 'window' too, so the trusted set decides, one tick later: the event
+  // fires inside the BrowserWindow constructor, before trustAppWindow() runs on its result.
+  application?.on('web-contents-created', (_event: unknown, contents: WebContents) => setImmediate(() => {
+    if (contents.isDestroyed() || appWindows.has(contents)) return // the main window sets its own open and navigation rules
     contents.setWindowOpenHandler(() => ({ action: 'deny' }))
     contents.on('will-attach-webview', event => event.preventDefault())
     contents.on('will-navigate', (event, url) => { if (!/^https?:/i.test(url)) event.preventDefault() })
-  })
+  }))
 }
