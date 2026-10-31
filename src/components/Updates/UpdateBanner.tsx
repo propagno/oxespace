@@ -1,5 +1,5 @@
 import { Download } from 'lucide-react'
-import { useEffect, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, Popover } from '../../ui'
 
@@ -8,13 +8,8 @@ import { Button, Popover } from '../../ui'
  */
 export function UpdateBanner(): ReactElement | null {
   const rtk = useUpdaterStore((s) => s.rtk)
-  const bootstrap = useUpdaterStore((s) => s.bootstrap)
   const updateRtk = useUpdaterStore((s) => s.updateRtk)
   const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    bootstrap()
-  }, [bootstrap])
 
   const showRtk = rtk.updateAvailable || rtk.updating
 
