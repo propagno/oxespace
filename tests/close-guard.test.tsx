@@ -80,6 +80,22 @@ describe('close guard', () => {
     expect(answers).toEqual(['hold', 'cancel'])
   })
 
+  it('a save that only partly works keeps holding, lists only what is left, and leaves the choice to the person', async () => {
+    setFiles(editedFile('notes.md', 'one'), editedFile('src/app.ts', 'two'))
+    writeFile.mockImplementation(async (input: { relativePath: string }) => { if (input.relativePath === 'src/app.ts') throw new Error('locked') })
+    const pending = request('r8')
+    fireEvent.click(await screen.findByRole('button', { name: 'Save all and close' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('1 change could not be saved')
+    const dialog = screen.getByTestId('unsaved-work-dialog')
+    expect(dialog).toHaveTextContent('src/app.ts')
+    expect(dialog).not.toHaveTextContent('notes.md')
+    // Still held: nothing is answered for the person.
+    expect(answers).toEqual(['hold'])
+    fireEvent.click(screen.getByRole('button', { name: 'Close without saving' }))
+    await pending
+    expect(answers).toEqual(['hold', 'proceed'])
+  })
+
   it('a request already being asked about is not asked twice', async () => {
     setFiles(editedFile('notes.md'))
     const first = request('r6')
