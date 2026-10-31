@@ -27,7 +27,7 @@ export interface ThreadCommandContext {
   openAccounts: () => void
 }
 
-const CATEGORY = 'Thread'
+const CATEGORY = 'OxeChat'
 
 /** Opens the project's latest conversation, or a new one when it has none. */
 function switchProject(ctx: ThreadCommandContext, projectId: string): void {
@@ -69,8 +69,8 @@ export function buildThreadCommands(ctx: ThreadCommandContext): ContributedComma
     run: inThread(() => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(THREAD_RUN_COMMAND_EVENT, { detail: { text } }))))
   })
   return [
-    { id: 'thread.new', label: 'New conversation', icon: MessageSquarePlus, category: CATEGORY, keywords: ['thread', 'chat', 'start'], shortcut: 'thread.new', run: inThread(ctx.newThread) },
-    { id: 'thread.add-project', label: 'Add Thread project…', icon: FolderPlus, category: CATEGORY, keywords: ['folder', 'repository'], run: inThread(ctx.addProject) },
+    { id: 'thread.new', label: 'New conversation', icon: MessageSquarePlus, category: CATEGORY, keywords: ['thread', 'chat', 'oxechat', 'start'], shortcut: 'thread.new', run: inThread(ctx.newThread) },
+    { id: 'thread.add-project', label: 'Add OxeChat project…', icon: FolderPlus, category: CATEGORY, keywords: ['folder', 'repository'], run: inThread(ctx.addProject) },
     ...ctx.projects.filter(project => !project.hidden).map(project => ({
       id: `thread.project.${project.projectId}`, label: `Switch to project ${project.displayName}`, detail: project.identityLabel, icon: FolderInput,
       category: CATEGORY, keywords: ['project', 'change', project.displayName], run: inThread(() => switchProject(ctx, project.projectId))
