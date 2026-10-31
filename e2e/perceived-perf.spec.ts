@@ -230,7 +230,10 @@ const CODE_COLD: Surface = {
 }
 
 type Samples = Record<string, Sample[]>
-const results: { cold: Samples; warm: Samples; boot: Record<string, number[]> } = { cold: {}, warm: {}, boot: {} }
+type Results = { cold: Samples; warm: Samples; boot: Record<string, number[]> }
+const fresh = (): Results => ({ cold: {}, warm: {}, boot: {} })
+/** The round being measured; a confirmation round starts a fresh one. */
+let results: Results = fresh()
 const push = <T>(into: Record<string, T[]>, key: string, value: T): void => { (into[key] ??= []).push(value) }
 
 async function launch(): Promise<{ app: ElectronApplication; page: Page; repo: string }> {
@@ -364,26 +367,63 @@ function reportAll(): void {
   if (!offenders.length) console.log(`[BLANK] no surface exceeded ${BLANK_GOAL_MS} ms blank`)
 }
 
-test('perceived performance: first feedback, first content and blank time per surface', async () => {
-  test.setTimeout(20 * 60_000)
+/** One gate check: a median and the most it may be. */
+interface Check { label: string; value: number; limit: number }
+
+/** The F7 gate, on the medians of a round: every surface answers within 100 ms, no region stays blank longer, and first content holds its baseline. */
+function gateChecks(round: Results): Check[] {
+  const checks: Check[] = []
+  for (const phase of ['cold', 'warm'] as const) {
+    for (const [name, samples] of Object.entries(round[phase])) {
+      const med = (pick: (s: Sample) => number | null): number => median(samples.map(s => pick(s) ?? Infinity))
+      checks.push({ label: `${name} ${phase}: first feedback`, value: med(s => s.feedback), limit: BLANK_GOAL_MS })
+      checks.push({ label: `${name} ${phase}: main region blank`, value: med(s => s.blank), limit: BLANK_GOAL_MS })
+      checks.push({ label: `${name} ${phase}: sidebar blank`, value: med(s => s.sidebarBlank), limit: BLANK_GOAL_MS })
+      const baseline = CONTENT_BASELINE_MS[phase][name]
+      if (baseline !== undefined) checks.push({ label: `${name} ${phase}: first content against the ${baseline} ms baseline`, value: med(s => s.content), limit: contentLimit(baseline) })
+    }
+  }
+  return checks
+}
+
+/**
+ * On CI (OXESPACE_PERF_GATE=1) a check that fails is measured again in a second round of LAUNCHES launches, and the
+ * gate fails only when it fails in both. A shared runner has slow minutes: a single round 2 ms over its limit
+ * (OxeChat cold 371 against 368.5 on #308) was a 40-minute rerun of the whole job, while a real regression fails
+ * both rounds. The limits stay as they are; locally a run is judged on its one round, as before.
+ */
+const CONFIRM = process.env.OXESPACE_PERF_GATE === '1' && process.env.OXESPACE_PERF_CONFIRM !== '0'
+
+async function measureRound(): Promise<void> {
   for (let i = 0; i < LAUNCHES; i++) {
     try { await session(false) } catch (error) { console.log(`[RESULT] launch ${i + 1} failed: ${(error as Error).message.split('\n')[0]}`) }
   }
   reportAll()
+}
+
+test('perceived performance: first feedback, first content and blank time per surface', async () => {
+  test.setTimeout((CONFIRM ? 36 : 20) * 60_000)
+  await measureRound()
   if (CAPTURE) {
     try { await session(true) } catch (error) { console.log(`[SHOT] capture launch failed: ${(error as Error).message.split('\n')[0]}`) }
   }
   expect(Object.keys(results.cold).length, 'at least one launch measured the surfaces').toBeGreaterThan(0)
-  // The F7 gate, on the median of the launches: every surface answers within 100 ms and no region stays blank longer.
-  for (const phase of ['cold', 'warm'] as const) {
-    for (const [name, samples] of Object.entries(results[phase])) {
-      const med = (pick: (s: Sample) => number | null): number => median(samples.map(s => pick(s) ?? Infinity))
-      expect.soft(med(s => s.feedback), `${name} ${phase}: first feedback`).toBeLessThanOrEqual(BLANK_GOAL_MS)
-      expect.soft(med(s => s.blank), `${name} ${phase}: main region blank`).toBeLessThanOrEqual(BLANK_GOAL_MS)
-      expect.soft(med(s => s.sidebarBlank), `${name} ${phase}: sidebar blank`).toBeLessThanOrEqual(BLANK_GOAL_MS)
-      const baseline = CONTENT_BASELINE_MS[phase][name]
-      if (baseline !== undefined) expect.soft(med(s => s.content), `${name} ${phase}: first content against the ${baseline} ms baseline`).toBeLessThanOrEqual(contentLimit(baseline))
-    }
+  const first = gateChecks(results)
+  const over = (check: Check): boolean => !(check.value <= check.limit)
+  let second: Map<string, Check> | null = null
+  if (CONFIRM && first.some(over)) {
+    console.log(`[CONFIRM] over the limit in round 1, measuring again: ${first.filter(over).map(c => `${c.label} ${c.value.toFixed(0)}/${c.limit.toFixed(0)}`).join('; ')}`)
+    results = fresh()
+    await measureRound()
+    second = new Map(gateChecks(results).map(check => [check.label, check]))
+  }
+  for (const check of first) {
+    const again = second?.get(check.label)
+    // Without a second round, round 1 decides; with one, a check fails only if it is over in both.
+    const failed = over(check) && (!second || !again || over(again))
+    if (second && over(check)) console.log(`[CONFIRM] ${check.label}: round 1 ${check.value.toFixed(0)}, round 2 ${again ? again.value.toFixed(0) : 'n/a'} (limit ${check.limit.toFixed(0)}) → ${failed ? 'regression' : 'runner noise'}`)
+    const shown = again ? `${check.label} (round 1 ${check.value.toFixed(0)}, round 2 ${again.value.toFixed(0)})` : check.label
+    expect.soft(failed ? Math.max(check.value, again?.value ?? -Infinity) : Math.min(check.value, check.limit), shown).toBeLessThanOrEqual(check.limit)
   }
 })
 
