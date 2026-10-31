@@ -16,6 +16,9 @@ import { WS_CLOSE } from './websocket'
  * naming the frame it answers.
  */
 
+/** The keys a subscribe frame may carry: exactly RemoteSubscribeFrame's, C5 (a contract test reads them from protocol.ts). */
+export const SUBSCRIBE_FRAME_KEYS = ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor'] as const
+
 export type AuthOutcome = { ok: true; deviceId: string; expiresAt: number; result: RemoteAuthResult } | { ok: false; code: RemoteErrorCode }
 
 export interface RemoteTopicFrame {
@@ -207,7 +210,7 @@ export class RemoteConnection {
 
   private subscribe(frame: RemoteSubscribeFrame): void {
     const id = frameId(frame)
-    if (!id || !hasOnlyKeys(frame, ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor']) || typeof frame.topic !== 'string' ||
+    if (!id || !hasOnlyKeys(frame, SUBSCRIBE_FRAME_KEYS) || typeof frame.topic !== 'string' ||
       (frame.target !== undefined && (typeof frame.target !== 'string' || !TARGET.test(frame.target))) ||
       (frame.cursor !== undefined && (typeof frame.cursor !== 'string' || !CURSOR.test(frame.cursor))) ||
       (frame.sinceSeq !== undefined && (!Number.isSafeInteger(frame.sinceSeq) || frame.sinceSeq < 0))) return this.error('malformed', id)
