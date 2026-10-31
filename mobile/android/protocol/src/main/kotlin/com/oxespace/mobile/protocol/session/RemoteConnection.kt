@@ -142,6 +142,10 @@ class RemoteConnection(
                     is FrameRead.Ok -> {
                         val forStreams = session.state is SessionState.Ready && streams?.onFrame(read.frame) == true
                         if (!forStreams) send(webSocket, session.onFrame(read.frame))
+                        if (forStreams && streams.faulted) {
+                            refused = RemoteErrorCode.MALFORMED
+                            session.onUnreadable()
+                        }
                     }
                 }
                 publish(session)

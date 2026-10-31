@@ -30,6 +30,9 @@ class LiveStreams(newId: () -> String = { UUID.randomUUID().toString() }) {
         hub.onDisconnected()
     }
 
+    /** A stream the desktop keeps breaking; see [SubscriptionHub.faulted]. */
+    val faulted: Boolean get() = synchronized(lock) { hub.faulted }
+
     /** True when the frame belonged to a stream. */
     fun onFrame(frame: RemoteFrame): Boolean = synchronized(lock) { hub.onFrame(frame) }
 }

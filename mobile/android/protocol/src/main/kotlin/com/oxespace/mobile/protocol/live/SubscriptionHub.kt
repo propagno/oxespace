@@ -29,6 +29,8 @@ class Followed internal constructor(val topic: RemoteSubscription, val target: S
     /** Where to resume from: the gateway's opaque cursor of the last snapshot or event applied. */
     internal var cursor: String? = null
     internal var lastSeq: Long? = null
+    /** Times it asked again since something was last applied. */
+    internal var fruitlessResumes = 0
     internal val pages = mutableListOf<JsonElement>()
 }
 
@@ -40,6 +42,13 @@ class Followed internal constructor(val topic: RemoteSubscription, val target: S
 class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId: () -> String) {
     private val followed = mutableListOf<Followed>()
     private var connected = false
+
+    /**
+     * The desktop keeps breaking a stream (gaps or interruptions [MAX_FRUITLESS_RESUMES] times in a row with nothing
+     * applied): asking again would only loop, so the session should end as a protocol fault. Cleared on reconnecting.
+     */
+    var faulted = false
+        private set
 
     fun follow(topic: RemoteSubscription, target: String? = null, listener: StreamListener): Followed {
         require(followed.size < RemoteLimits.MAX_SUBSCRIPTIONS) { "at most ${RemoteLimits.MAX_SUBSCRIPTIONS} streams" }
@@ -58,6 +67,8 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
     /** The session is authenticated: (re)subscribe every followed stream from where it stopped. */
     fun onConnected() {
         connected = true
+        faulted = false
+        followed.forEach { it.fruitlessResumes = 0 }
         followed.forEach(::subscribe)
     }
 
@@ -94,6 +105,7 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
         val pages = stream.pages.toList()
         stream.pages.clear()
         frame.cursor?.let { stream.cursor = it }
+        stream.fruitlessResumes = 0
         stream.listener.onSnapshot(pages)
     }
 
@@ -101,13 +113,20 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
         // An event in the middle of a paged snapshot breaks it as surely as a gap.
         if (stream.pages.isNotEmpty()) return resubscribe(stream)
         if (!inOrder(stream, frame.seq)) return
+        // The point already applied, sent again: the change is in what the phone holds.
+        if (frame.cursor != null && frame.cursor == stream.cursor) return
         frame.cursor?.let { stream.cursor = it }
+        stream.fruitlessResumes = 0
         stream.listener.onEvent(frame.data)
     }
 
-    /** Frames of one stream come numbered one after another; a gap means something was lost. */
+    /**
+     * Frames of one stream come numbered one after another; a gap means something was lost. A number already seen is
+     * a repeat, dropped without asking again.
+     */
     private fun inOrder(stream: Followed, seq: Long): Boolean {
         val last = stream.lastSeq
+        if (last != null && seq <= last) return false
         if (last != null && seq != last + 1) {
             resubscribe(stream)
             return false
@@ -118,6 +137,10 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
 
     /** Drops this connection's stream and asks again from the last cursor applied. */
     private fun resubscribe(stream: Followed) {
+        if (++stream.fruitlessResumes > MAX_FRUITLESS_RESUMES) {
+            faulted = true
+            return
+        }
         stream.name?.let { send(RemoteUnsubscribeFrame(id = newId(), subscription = it)) }
         stream.forget()
         if (connected) subscribe(stream)
@@ -135,5 +158,9 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
         pendingId = null
         lastSeq = null
         pages.clear()
+    }
+
+    private companion object {
+        const val MAX_FRUITLESS_RESUMES = 3
     }
 }

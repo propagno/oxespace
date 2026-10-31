@@ -110,6 +110,78 @@ class SubscriptionHubTest {
     }
 
     @Test
+    fun dropsARepeatedFrameWithoutAskingAgain() {
+        val recorder = Recorder()
+        hub.follow(RemoteSubscription.THREAD, "t-1", recorder)
+        hub.onConnected()
+        ack("s1")
+        snapshot("s1", 1, "A", cursor = "e:1")
+        event("s1", 2, "B", cursor = "e:2")
+        assertTrue(event("s1", 2, "B", cursor = "e:2"))
+        assertTrue(snapshot("s1", 1, "A", cursor = "e:1"))
+        event("s1", 3, "C", cursor = "e:3")
+        assertEquals(listOf("snapshot:A", "event:B", "event:C"), recorder.log)
+        assertEquals(1, sent.filterIsInstance<RemoteSubscribeFrame>().size)
+    }
+
+    @Test
+    fun doesNotApplyTheCursorItAlreadyHoldsTwice() {
+        val recorder = Recorder()
+        hub.follow(RemoteSubscription.TERMINAL, "pane-1", recorder)
+        hub.onConnected()
+        ack("s1")
+        snapshot("s1", 1, "A", cursor = "10")
+        event("s1", 2, "B", cursor = "12")
+        hub.onDisconnected()
+        hub.onConnected()
+        ack("s2")
+        // Resumed from 12, the gateway sends the event at 12 again before the new ones.
+        event("s2", 1, "B", cursor = "12")
+        event("s2", 2, "C", cursor = "14")
+        assertEquals(listOf("snapshot:A", "event:B", "event:C"), recorder.log)
+        assertFalse(hub.faulted)
+    }
+
+    @Test
+    fun aStreamTheDesktopKeepsBreakingIsAFaultNotALoop() {
+        val recorder = Recorder()
+        hub.follow(RemoteSubscription.TERMINAL, "pane-1", recorder)
+        hub.onConnected()
+        // Every attempt is cut by an event inside its paged snapshot, so nothing is ever applied.
+        repeat(10) { attempt ->
+            if (hub.faulted) return@repeat
+            ack("s$attempt")
+            snapshot("s$attempt", 1, "A", page = RemoteSnapshotFrame.Page(index = 0L, last = false))
+            event("s$attempt", 2, "X")
+        }
+        assertTrue(hub.faulted)
+        assertTrue(recorder.log.isEmpty())
+        assertEquals("the first subscribe and three more", 4, sent.filterIsInstance<RemoteSubscribeFrame>().size)
+        // A new connection starts clean.
+        hub.onDisconnected()
+        hub.onConnected()
+        assertFalse(hub.faulted)
+        ack("s-new")
+        snapshot("s-new", 1, "A", cursor = "1")
+        assertEquals(listOf("snapshot:A"), recorder.log)
+    }
+
+    @Test
+    fun progressResetsTheCountOfAttempts() {
+        val recorder = Recorder()
+        hub.follow(RemoteSubscription.THREAD, "t-1", recorder)
+        hub.onConnected()
+        // A gap now and then, with progress in between, is ordinary and never a fault.
+        repeat(10) { attempt ->
+            ack("s$attempt")
+            event("s$attempt", 1, "E$attempt", cursor = "c$attempt")
+            event("s$attempt", 3, "lost")
+        }
+        assertFalse(hub.faulted)
+        assertEquals(10, recorder.log.size)
+    }
+
+    @Test
     fun reportsARefusedSubscriptionAndStopsFollowingIt() {
         val recorder = Recorder()
         hub.follow(RemoteSubscription.THREAD, "gone", recorder)

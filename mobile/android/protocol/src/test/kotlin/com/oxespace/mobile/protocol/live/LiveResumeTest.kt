@@ -16,6 +16,7 @@ import com.oxespace.mobile.protocol.pairing.PinnedTls
 import com.oxespace.mobile.protocol.pairing.certificateFingerprint
 import com.oxespace.mobile.protocol.session.DesktopTarget
 import com.oxespace.mobile.protocol.session.RemoteConnection
+import com.oxespace.mobile.protocol.session.SessionEnd
 import com.oxespace.mobile.protocol.session.SessionState
 import com.oxespace.mobile.protocol.session.TokenHolder
 import java.net.InetAddress
@@ -36,6 +37,7 @@ import okhttp3.tls.HeldCertificate
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** M4 acceptance: after the network drops and comes back, the conversation resumes without losing or repeating items. */
@@ -59,11 +61,12 @@ class LiveResumeTest {
     }
 
     /** One connection of the gateway: auth, the thread stream from a cursor, and live events while it lasts. */
-    private inner class Gateway(private val desktop: Desktop) : WebSocketListener() {
+    private inner class Gateway(private val desktop: Desktop, private val cutsEverySnapshot: Boolean = false) : WebSocketListener() {
         @Volatile var socket: WebSocket? = null
         @Volatile private var subscription: String? = null
         private var seq = 0L
         val subscribes = CopyOnWriteArrayList<RemoteSubscribeFrame>()
+        val closes = CopyOnWriteArrayList<Int>()
 
         override fun onOpen(webSocket: WebSocket, response: Response) { socket = webSocket }
 
@@ -77,7 +80,11 @@ class LiveResumeTest {
                     subscription = "s-${subscribes.size}"
                     send(RemoteAckFrame(id = frame.id, subscription = subscription))
                     val from = frame.cursor?.removePrefix("e:")?.toIntOrNull()
-                    if (from == null) {
+                    if (cutsEverySnapshot) {
+                        // A desktop gone wrong: the first page of a snapshot, then an event before the rest, every time.
+                        send(RemoteSnapshotFrame(subscription!!, ++seq, 2, json("{}"), null, RemoteSnapshotFrame.Page(index = 0L, last = false)))
+                        pushEvent(0)
+                    } else if (from == null) {
                         val items = desktop.messages.indices.joinToString(",") { desktop.item(it) }
                         send(RemoteSnapshotFrame(subscription!!, ++seq, 2, json("""{"thread":${desktop.header},"items":[$items],"hasMore":false}"""), "e:${desktop.messages.size}"))
                     } else {
@@ -94,13 +101,16 @@ class LiveResumeTest {
             send(RemoteEventFrame(name, ++seq, 2, json("""{"thread":${desktop.header},"items":[${desktop.item(index)}]}"""), "e:${index + 1}"))
         }
 
-        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { webSocket.close(1000, null) }
+        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            closes += code
+            webSocket.close(1000, null)
+        }
 
         private fun send(frame: RemoteFrame) = socket!!.send(RemoteFrames.json.encodeToString(RemoteFrame.serializer(), frame))
         private fun json(text: String): JsonElement = RemoteFrames.json.parseToJsonElement(text)
     }
 
-    private fun connect(streams: LiveStreams, tokens: TokenHolder) = RemoteConnection(
+    private fun connect(streams: LiveStreams, tokens: TokenHolder, awaitReady: Boolean = true) = RemoteConnection(
         target = DesktopTarget("dev-1", fp, server.port, listOf("127.0.0.1")),
         sign = { ByteArray(72) },
         tokens = tokens,
@@ -110,7 +120,7 @@ class LiveResumeTest {
         streams = streams,
     ).also { connection ->
         connection.connect()
-        runBlocking { withTimeout(5_000) { connection.state.first { it is SessionState.Ready } } }
+        if (awaitReady) runBlocking { withTimeout(5_000) { connection.state.first { it is SessionState.Ready } } }
     }
 
     private fun texts(timeline: ThreadTimeline) = timeline.items.map { (it.item as RemoteThreadItem.Message).text }
@@ -150,5 +160,24 @@ class LiveResumeTest {
         assertEquals("resumed from the last cursor applied", "e:3", second.subscribes.single().cursor)
         assertNull("the first connection subscribed from scratch", first.subscribes.single().cursor)
         assertEquals(5, timeline.items.map { it.item }.distinct().size)
+    }
+
+    @Test
+    fun endsTheSessionWhenTheDesktopKeepsBreakingAStream() {
+        val desktop = Desktop().apply { messages += "one" }
+        val gateway = Gateway(desktop, cutsEverySnapshot = true)
+        server.useHttps(HandshakeCertificates.Builder().heldCertificate(certificate).build().sslSocketFactory())
+        server.enqueue(MockResponse.Builder().webSocketUpgrade(gateway).build())
+        server.start(InetAddress.getByName("127.0.0.1"), 0)
+
+        val streams = LiveStreams()
+        val timeline = ThreadTimeline()
+        streams.follow(RemoteSubscription.THREAD, "t-1", timeline)
+        val connection = connect(streams, TokenHolder(), awaitReady = false)
+        assertEquals(SessionState.Ended(SessionEnd.PROTOCOL), runBlocking { withTimeout(5_000) { connection.state.first { it is SessionState.Ended } } })
+        runBlocking { withTimeout(5_000) { while (gateway.closes.isEmpty()) delay(20) } }
+        assertEquals(listOf(1002), gateway.closes.toList())
+        assertEquals("asked four times, then gave up", 4, gateway.subscribes.size)
+        assertTrue(timeline.items.isEmpty())
     }
 }
