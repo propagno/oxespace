@@ -2,10 +2,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, Splitter, cx, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, Splitter, cx, TextField, Badge } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
-import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
+import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound, Crown } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
@@ -51,6 +51,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   // A conversation that owns a worktree asks what to do with it before it is archived or deleted.
   const finishRequest = useThreadWorktreeFinishStore(state => state.request), askWorktreeFinish = useThreadWorktreeFinishStore(state => state.ask)
   const finishThread = finishRequest ? threads.find(thread => thread.id === finishRequest.threadId) : undefined
+  // Making a conversation the coordinator widens what its agent reaches: the person confirms it.
+  const [coordinatorAsk, setCoordinatorAsk] = useState<ConversationThread | null>(null)
   const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -111,10 +113,14 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
     <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
-    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={12} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
+    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span>{thread.coordinator && <>{' '}<Badge intent="info" className={styles.coordinatorBadge}>{t('coordinator.badge')}</Badge></>}{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={12} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
     {status.kind === 'attention' ? <small className={styles.needs}>{t('status.attention')}</small> : <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>}
   </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: thread.title })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: thread.title })} side="right" items={[
     { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
+    thread.coordinator
+      ? { label: t('coordinator.stop'), icon: <Crown size={14} />, onSelect: () => { setActionError(''); void useThreadStore.getState().setCoordinator(thread.id, false) } }
+      : { label: t('coordinator.make'), icon: <Crown size={14} />, onSelect: () => { setActionError(''); requestAnimationFrame(() => setCoordinatorAsk(thread)) } },
+      // (A frame later: the menu gives focus back to its button as it closes, and the question must keep it.)
     { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) } },
     { label: thread.pinned ? t('sidebar.unpin') : t('sidebar.pin'), icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
     moveToSectionEntry(thread, sections.sectionsOf(thread.projectId), sections),
@@ -154,10 +160,13 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
             ]} />
           </div>
           {(query || (expanded[group.id] ?? true)) && <div className={cx('thread-project-children', styles.children)}>{(() => {
-            const split = groupBySection(group.threads, sections.sectionsOf(group.id), sections.sectionOf)
+            // The project's coordinator (B1.4) sits at the top, above the sections, whatever section it was in.
+            const coordinator = group.threads.find(thread => thread.coordinator && !thread.archived)
+            const split = groupBySection(coordinator ? group.threads.filter(thread => thread.id !== coordinator.id) : group.threads, sections.sectionsOf(group.id), sections.sectionOf)
             const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
             const visible = split.loose.filter((thread, index) => index < limit || thread.id === selectedId)
             return <>
+              {coordinator && <div className={cx('thread-project-rows', styles.rows, styles.coordinatorRow)} data-testid="thread-coordinator-row">{row(coordinator)}</div>}
               {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
               <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <button type="button" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</button>}</div>
             </>
@@ -200,6 +209,16 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     </Dialog>}
     <ThreadSectionDialogs controller={sections} />
     {finishRequest && finishThread &&<ThreadWorktreeFinishDialog key={finishRequest.threadId} thread={finishThread} action={finishRequest.action} onOpenInCode={onOpenInCode} onClose={() => useThreadWorktreeFinishStore.getState().clear()} />}
+    {coordinatorAsk && <ConfirmDialog danger testId="thread-coordinator-confirm" cancelLabel={t('common.cancel')} title={t('coordinator.confirmTitle', { name: coordinatorAsk.title.trim() || t('dialogs.newTitle') })}
+      description={t('coordinator.confirmDescription')} confirmLabel={t('coordinator.confirm')}
+      onCancel={() => setCoordinatorAsk(null)}
+      onConfirm={() => { const ask = coordinatorAsk; setCoordinatorAsk(null); void useThreadStore.getState().setCoordinator(ask.id, true) }}>
+      <ul className={styles.coordinatorPoints}>
+        <li>{t('coordinator.pointSees')}</li>
+        <li>{t('coordinator.pointNeverApproves')}</li>
+        {threads.some(item => item.coordinator && item.projectId === coordinatorAsk.projectId && item.id !== coordinatorAsk.id) && <li>{t('coordinator.pointReplaces', { name: threads.find(item => item.coordinator && item.projectId === coordinatorAsk.projectId && item.id !== coordinatorAsk.id)!.title.trim() || t('dialogs.newTitle') })}</li>}
+      </ul>
+    </ConfirmDialog>}
     {confirmation && <ConfirmDialog cancelLabel={t('common.cancel')}
       {...(confirmation.kind === 'project'
         ? { title: t('sidebar.removeProject.title'), confirmLabel: t('sidebar.removeProject.confirm'), danger: true, description: t('sidebar.removeProject.description', { name: confirmation.title }) }

@@ -1626,5 +1626,35 @@
     "close": "Fechar o chat lateral ({{shortcut}})",
     "openMenu": "Chat lateral",
     "closeMenu": "Fechar o chat lateral"
+  },
+  "coordinator": {
+    "badge": "Coordenadora",
+    "make": "Tornar coordenadora…",
+    "stop": "Deixar de ser coordenadora",
+    "failed": "Não foi possível mudar a coordenadora do projeto",
+    "confirmTitle": "Tornar “{{name}}” a coordenadora deste projeto?",
+    "confirm": "Tornar coordenadora",
+    "confirmDescription": "A coordenadora fica fixada no topo do projeto e o agente dela ajuda você a conduzir as outras.",
+    "pointSees": "O agente dela pode ler a memória do projeto e um resumo do que cada conversa está esperando, e pode iniciar e acompanhar conversas.",
+    "pointNeverApproves": "Ela nunca responde um pedido nem uma aprovação: isso fica com você, em cada conversa.",
+    "pointReplaces": "“{{name}}” deixa de ser a coordenadora.",
+    "overview": "Visão do projeto",
+    "overviewCount_one": "{{count}} outra conversa",
+    "overviewCount_many": "{{count}} outras conversas",
+    "overviewCount_other": "{{count}} outras conversas",
+    "overviewSummary_one": "Visão do projeto: {{count}} outra conversa, {{waiting}} esperando você",
+    "overviewSummary_many": "Visão do projeto: {{count}} outras conversas, {{waiting}} esperando você",
+    "overviewSummary_other": "Visão do projeto: {{count}} outras conversas, {{waiting}} esperando você",
+    "overviewEmpty": "Ainda não há outra conversa neste projeto.",
+    "openBeside": "Abrir {{name}} ao lado desta",
+    "overviewNote": "Os pedidos são respondidos na própria conversa.",
+    "requests_one": "{{count}} pedido",
+    "requests_many": "{{count}} pedidos",
+    "requests_other": "{{count}} pedidos",
+    "group": {
+      "waiting": "Esperando você",
+      "working": "Trabalhando",
+      "rest": "As demais"
+    }
   }
 }

@@ -1,0 +1,15 @@
+/* The coordinator's overview of its project: who waits for a decision first, then who works, then the rest. */
+.trigger { position: relative; gap: 4px; }
+.waiting { min-width: 14px; height: 14px; padding: 0 3px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--intent-warning-solid); color: var(--text-on-solid); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: 1; }
+.panel { width: min(360px, calc(100vw - 32px)); max-height: min(480px, 70vh); overflow-y: auto; padding: var(--space-2); }
+.header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-1) var(--space-2) var(--space-2); }
+.header strong { font-size: var(--text-sm); color: var(--text-primary); }
+.header small, .empty, .note { color: var(--text-secondary); font-size: var(--text-xs); }
+.empty { margin: 0; padding: var(--space-2); }
+.note { margin: var(--space-2) var(--space-2) 0; }
+.group h3 { margin: var(--space-2) var(--space-2) var(--space-1); color: var(--text-muted); font-size: var(--text-2xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: 0.04em; }
+.list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.item { display: flex; align-items: center; gap: var(--space-1); }
+.item .open { flex: 1; min-width: 0; justify-content: flex-start; gap: var(--space-2); height: auto; min-height: 30px; padding: 4px 8px; font-weight: inherit; }
+.name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: var(--text-primary); }
+.item small { flex: none; color: var(--text-secondary); font-size: var(--text-2xs); }

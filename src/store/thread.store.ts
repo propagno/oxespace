@@ -26,6 +26,8 @@ interface ThreadState {
   restoreProject: (id: string) => Promise<void>
   /** Pin, rename and archive show at once and roll back with a toast when the change is not saved. */
   pinThread: (id: string, pinned: boolean) => Promise<void>
+  /** Makes a conversation its project's coordinator (B1.4), or stops it; the project's previous one stops. The person's choice only. */
+  setCoordinator: (id: string, coordinator: boolean) => Promise<boolean>
   renameThread: (id: string, title: string) => Promise<void>
   archiveThread: (id: string) => Promise<boolean>
   select: (id: string | null, markRead?: boolean) => Promise<void>
@@ -73,6 +75,24 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     const saved = await optimistic(set, get, state => patchThread(state, id, { pinned }), async () => { await window.oxe.thread!.pin(id, pinned); return true },
       { rollbackMessage: pinned ? i18n.t('thread:store.pinFailed') : i18n.t('thread:store.unpinFailed'), revert: state => patchThread(state, id, { pinned: !pinned }) })
     if (saved) await get().refresh(id)
+  },
+  setCoordinator: async (id, coordinator) => {
+    const api = window.oxe.thread
+    if (!api?.setCoordinator) return false
+    const target = get().threads.find(thread => thread.id === id)
+    if (!target) return false
+    const previous = new Map(get().threads.filter(thread => thread.projectId === target.projectId).map(thread => [thread.id, thread.coordinator]))
+    const apply = (state: ThreadState): Partial<ThreadState> => ({
+      threads: state.threads.map(thread => thread.projectId !== target.projectId ? thread
+        : thread.id === id ? { ...thread, coordinator: coordinator ? true : undefined }
+        : coordinator && thread.coordinator ? { ...thread, coordinator: undefined } : thread)
+    })
+    const saved = await optimistic(set, get, apply, async () => { await api.setCoordinator!(id, coordinator); return true }, {
+      rollbackMessage: i18n.t('thread:coordinator.failed'),
+      revert: state => ({ threads: state.threads.map(thread => previous.has(thread.id) ? { ...thread, coordinator: previous.get(thread.id) } : thread) })
+    })
+    if (saved) await get().refresh(id)
+    return saved === true
   },
   renameThread: async (id, title) => {
     const previous = get().threads.find(thread => thread.id === id)?.title

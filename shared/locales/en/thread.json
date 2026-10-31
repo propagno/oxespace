@@ -1588,5 +1588,32 @@
     "close": "Close side chat ({{shortcut}})",
     "openMenu": "Side chat",
     "closeMenu": "Close side chat"
+  },
+  "coordinator": {
+    "badge": "Coordinator",
+    "make": "Make it the coordinator…",
+    "stop": "Stop being the coordinator",
+    "failed": "Could not change the project's coordinator",
+    "confirmTitle": "Make “{{name}}” the coordinator of this project?",
+    "confirm": "Make coordinator",
+    "confirmDescription": "The coordinator is pinned at the top of the project and its agent helps you run the others.",
+    "pointSees": "Its agent can read the project's memory and a summary of what every conversation is waiting for, and can start and follow conversations.",
+    "pointNeverApproves": "It never answers a request or an approval: those stay with you, in each conversation.",
+    "pointReplaces": "“{{name}}” stops being the coordinator.",
+    "overview": "Project overview",
+    "overviewCount_one": "{{count}} other conversation",
+    "overviewCount_other": "{{count}} other conversations",
+    "overviewSummary_one": "Project overview: {{count}} other conversation, {{waiting}} waiting for you",
+    "overviewSummary_other": "Project overview: {{count}} other conversations, {{waiting}} waiting for you",
+    "overviewEmpty": "No other conversation in this project yet.",
+    "openBeside": "Open {{name}} beside this one",
+    "overviewNote": "Requests are answered in their own conversation.",
+    "requests_one": "{{count}} request",
+    "requests_other": "{{count}} requests",
+    "group": {
+      "waiting": "Waiting for you",
+      "working": "Working",
+      "rest": "The others"
+    }
   }
 }
