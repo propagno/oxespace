@@ -40,6 +40,10 @@ for (const [locale, appearance] of [['pt-BR', 'light'], ['en-US', 'dark']] as co
       await page.waitForTimeout(800)
       const mcpButton = page.getByRole('button', { name: /servidores MCP|MCP servers/ }).first()
       notes.mcpButton = { name: await mcpButton.getAttribute('aria-label'), text: (await mcpButton.innerText().catch(() => '')).trim(), title: await mcpButton.getAttribute('title') }
+      notes.mcpBadge = await mcpButton.evaluate(b => { const badge = b.querySelector('[class*="badge" i], [class*="count" i], span'); const r = badge?.getBoundingClientRect(); return badge ? `${(badge.textContent ?? '').trim()} ${Math.round(r!.width)}x${Math.round(r!.height)} visible=${r!.width > 0}` : 'no badge element' }).catch(() => 'n/a')
+      await resizeWindow(app, 820, 860); await page.waitForTimeout(400)
+      notes.mcpBadge820 = await page.getByRole('button', { name: /servidores MCP|MCP servers/ }).first().evaluate(b => { const badge = b.querySelector('[class*="badge" i], [class*="count" i], span'); const r = badge?.getBoundingClientRect(); return badge ? `${(badge.textContent ?? '').trim()} visible=${!!r && r.width > 0}` : 'no badge element' }).catch(() => 'button not visible at 820')
+      await shot('00-workspace-820'); await resizeWindow(app, 1280, 860); await page.waitForTimeout(300)
       await shot('00-workspace')
       // Activity center.
       await page.keyboard.press('Control+Shift+A'); await page.waitForTimeout(600)
