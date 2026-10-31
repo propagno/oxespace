@@ -177,6 +177,7 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | Menu do divisor por `contextmenu` | #241 | FRONTEND | Homologado (na `main` 6666d723), com 1 nota baixa; achado à parte: o terminal prende o Tab (virou F23) |
 | Indicadores do OxePod | #248 | FRONTEND | Homologado (na `main` 16d27efa): 8×8, redondos, em claro e escuro |
 | Diagnóstico: medidas, incidentes, pacote, `oxespace_diagnostics` | #203 | BACKEND | Homologado (na `main` 04dcc451): nenhum segredo, caminho ou nome vazou; 2 notas baixas |
+| Gate visual (workflow) | #193 | FRONTEND | Homologado (na `main`): o fluxo completo funcionou; as 22 diferenças vêm de baselines antigas, e falta despachar as novas |
 
 ### #157 Roadmap 1.4: Homologado
 
@@ -629,6 +630,28 @@ Notas baixas para o BACKEND:
 2. Fora do pacote (`packaged: false`), `versions.json`, `snapshot.appVersion` e a ferramenta dizem "OXESpace 44.9.3",
    que é a versão do Electron, em vez de 1.3.3. É a mesma raiz já corrigida no About (#168/#185). Critério: usar a
    mesma fonte de versão do About.
+
+### Gate visual (#193): Homologado
+
+O `visual-regression.yml` roda a cada push na `main`, em Windows e Linux. Na execução 41154517991 (`main`
+16d27efa), as duas plataformas seguiram o fluxo inteiro:
+1. "Compare with the baselines" falha;
+2. "Side-by-side review" roda o `scripts/visual-review.mjs`;
+3. o artefato `visual-review-<plataforma>` é enviado (2,6 MB e 2,9 MB);
+4. "Open or update the issue" abre a issue: #249 (windows) e #250 (linux), cada uma com 2 comentários de pushes
+   seguintes.
+
+A issue lista as superfícies, o link do artefato e o caminho para aceitar a mudança.
+
+As 22 diferenças do Windows não são regressão:
+- A baseline é antiga: a esperada tem 3 abas (Code, Thread, OxeQuery) e o estado vazio antigo; a atual tem as 5 abas,
+  o novo estado vazio do F1 e "Abrir OxePod/OxePost". Na amostra conferida (`empty-light-desktop`), toda a diferença
+  vem disso.
+- 5 superfícies nunca tiveram baseline: pt-BR, confortável, forced-colors e o splash claro e escuro. A atual existe,
+  mas a esperada não.
+
+Pela regra de baselines por lote, falta despachar o `visual-baselines.yml` para as duas plataformas. Enquanto isso,
+o gate continua vermelho em todo push e a issue acumula comentários.
 
 ### Achados fora dos itens da onda
 
