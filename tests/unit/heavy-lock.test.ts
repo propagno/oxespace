@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
-import { isStale, readLock, release, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
+import { describeLock, isStale, noteWaiting, readLock, release, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
 
 const folder = mkdtempSync(join(tmpdir(), 'oxe-heavy-lock-'))
 afterAll(() => rmSync(folder, { recursive: true, force: true }))
@@ -53,6 +53,51 @@ describe('machine-wide heavy lock', () => {
     expect(await waitForMemory(1, () => 3.2, 1)).toBe(0)
     expect(await waitForMemory(0, () => 0.1, 1)).toBe(0)
   })
+
+  it('stops waiting for memory after maxWaitMs and says so with null, hearing every low reading', async () => {
+    const heard: number[] = []
+    expect(await waitForMemory(1, () => 0.3, 1, () => {}, 0, free => { heard.push(free) })).toBeNull()
+    expect(heard).toEqual([0.3])
+    // Within the cap it still waits, and a reading at the floor ends the wait.
+    const readings = [0.5, 1]
+    expect(await waitForMemory(1, () => readings.shift() ?? 9, 1, () => {}, 60_000)).toBe(1)
+  })
+
+  it('lets the holder note that it waits for memory, which --status shows, and only the holder', () => {
+    const path = lockAt('waiting')
+    expect(tryTake('be-test', 'npm run build', path)).toBe(true)
+    expect(describeLock(readLock(path))).not.toContain('idle')
+    expect(noteWaiting({ memory: { free: 0.6, need: 1.5 } }, path)).toBe(true)
+    expect(readLock(path)).toMatchObject({ owner: 'be-test', pid: process.pid, waiting: { memory: { free: 0.6, need: 1.5 } } })
+    expect(describeLock(readLock(path))).toContain('(idle: waiting for memory, 0.6 GB free, need 1.5)')
+    expect(isStale(readLock(path))).toBe(false)
+    expect(noteWaiting(null, path)).toBe(true)
+    expect(readLock(path)?.waiting).toBeUndefined()
+    release(path)
+    // Not the holder: nothing is written.
+    writeFileSync(path, JSON.stringify({ owner: 'other', pid: process.pid + 1, command: 'x', takenAt: Date.now() }))
+    expect(noteWaiting({ memory: { free: 0.1, need: 1 } }, path)).toBe(false)
+    expect(readLock(path)?.waiting).toBeUndefined()
+    rmSync(path)
+    expect(describeLock(null)).toBe('free')
+  })
+
+  it('gives the lock back when memory never comes, and queues again instead of holding it idle', async () => {
+    const path = lockAt('giveback')
+    const child = spawn(process.execPath, [join('scripts', 'heavy-lock.mjs'), '--owner', 'starved', '--', process.execPath, '-e', '1'],
+      { env: { ...process.env, OXESPACE_HEAVY_LOCK: path, OXESPACE_HEAVY_MIN_FREE_GB: '100000', OXESPACE_HEAVY_MEMORY_WAIT_MINUTES: '0.0005' } })
+    let stderr = ''
+    child.stderr.on('data', chunk => { stderr += chunk })
+    try {
+      await expect.poll(() => stderr, { timeout: 20_000, interval: 50 }).toContain('gave the lock back')
+      // Between its turns the lock is free, so another holder gets in.
+      await expect.poll(() => tryTake('patient', 'npm run build', path), { timeout: 20_000, interval: 25 }).toBe(true)
+      expect(readLock(path)?.owner).toBe('patient')
+      release(path)
+    } finally {
+      child.kill()
+    }
+  }, 30_000)
 
   it('runs two heavy commands one after the other, never together', async () => {
     const path = lockAt('run')
