@@ -14,7 +14,10 @@ vi.mock('../src/components/Settings/settingsPages', async () => {
   const Page = ({ section }: { section?: string }) => <section data-testid="settings-page">{section ?? 'page'}</section>
   return { SettingsContent: Page, WorkspaceSettingsModal: Page, PolicySettings: Page, KeyboardSettings: Page }
 })
-const { SettingsCenter } = await import('../src/components/Settings/SettingsHost')
+const { SettingsCenter, SETTINGS_FRAME } = await import('../src/components/Settings/SettingsHost')
+// The idle preload loads the frame before anyone clicks Settings (src/lib/idlePreload.ts); with it loaded, the
+// lazy frame renders at once, which is what this test is about.
+await SETTINGS_FRAME.load()
 
 afterEach(() => cleanup())
 

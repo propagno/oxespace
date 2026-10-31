@@ -1005,7 +1005,7 @@ export function App(): ReactElement {
         />
       ) : null}
       {isSettingsOpen || isWorkspaceSettingsOpen ? (
-        <SettingsCenter
+        <Suspense fallback={null}><SettingsCenter
           initialPage={useUIStore.getState().settingsInitialPage}
           initialWorkspaceId={isWorkspaceSettingsOpen && applicationView === 'code' ? activeWorkspace?.id : undefined}
           allowWorkspaceScope={applicationView === 'code'}
@@ -1066,7 +1066,7 @@ export function App(): ReactElement {
             }
           }}
           onClose={() => { if (isSettingsOpen) toggleSettings(); closeWorkspaceSettings() }}
-        />
+        /></Suspense>
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}
       {isSemanticActivityOpen ? (

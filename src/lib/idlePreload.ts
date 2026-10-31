@@ -44,7 +44,7 @@ const LOADERS: Record<PreloadTarget, () => Promise<unknown>> = {
   data: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.data.load()),
   pods: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.pods.load()),
   post: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.post.load()),
-  settings: () => import('../components/Settings/SettingsHost').then(m => m.SETTINGS_CHUNK.load())
+  settings: () => import('../components/Settings/SettingsHost').then(m => m.preloadSettings())
 }
 
 /** The most recent view, when it is one that loads lazily (Code is in the boot bundle). */
