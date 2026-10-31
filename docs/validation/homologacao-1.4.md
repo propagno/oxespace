@@ -159,7 +159,8 @@ O veredito é **Pré-homologado**. Depois do merge, basta uma conferência rápi
 | F1 estados do Code | #179 (main) | FRONTEND | Homologado (na `main` a412f04b) |
 | B1.1 respondPending | #166 | BACKEND | Homologado (contrato; na `main` a412f04b) |
 | B8 conectividade e About (handlers) | #168 + #185 | BACKEND | Homologado (no e2e da `main` f211ca7f o About traz 1.3.3, a versão do pacote) |
-| Risco de SQL (P1-13) + fixture de quarentena | #237 | BACKEND | Homologado (na `main` bab99b50): as sondas dão o mesmo resultado da pré-homologação, mais 8 casos de escape; 1 nota baixa. Falta homologar as telas de quarentena com a fixture |
+| Risco de SQL (P1-13) + fixture de quarentena | #237 | BACKEND | Homologado (na `main` bab99b50): as sondas dão o mesmo resultado da pré-homologação, mais 8 casos de escape; 1 nota baixa, fechada no #253. Telas de quarentena avaliadas com a fixture: 2 achados (um virou o F25) |
+| Escapes ambíguos de SQL | #253 | BACKEND | Pré-homologado (68cb4c93): 17 casos certos, sem alarme falso em caminhos, regex, `LIKE` e JSON |
 | Payloads C5 (assinaturas e comandos, M4) | #187 | BACKEND | Homologado (contrato), com uma nota baixa |
 | Protocolo C5 em Kotlin gerado | #165 | MOBILE | Homologado (job Android verde na `main` 14504372) |
 | Tema Mandacaru e strings para o Android | #169 | MOBILE | Homologado (job Android verde na `main` 15e04898; visual depois do M4/M5) |
@@ -692,6 +693,47 @@ Na `main` bab99b50, `guardSql` foi chamado direto por `npx jiti`:
   "desconhecido" (pede confirmação). Outra opção é ler o `standard_conforming_strings` da conexão.
 - As telas de quarentena com `OXESPACE_E2E_MCP_FIXTURE` ficaram pendentes: a máquina tinha menos de 1 GB livre e o
   build não rodou.
+
+Nota fechada no #253 (68cb4c93), com a sonda de escapes mais 9 casos:
+- Classificados como destructive:
+  - `SELECT '\''; DELETE`;
+  - `'a\''' ; DELETE`;
+  - `SELECT 'x\'', 'y'; DROP TABLE t; --'`, com `ambiguousEscape`;
+  - `$$\'$$; DELETE`.
+- Continuam como leitura: `'C:\path'`, `'C:\path\'`, `'it''s'`, `~ '\d+'`, `LIKE '50\%' ESCAPE '\'` e o JSON
+  `'{"a":"b\"c"}'`.
+- `E''`, `U&''` e `$$` não mudaram.
+
+### Telas de quarentena do MCP (fixture do #237)
+
+Na `main` bab99b50, com `OXESPACE_E2E_MCP_FIXTURE=quarantine`, em pt-BR claro e en escuro, com 2 GB ou mais livres e
+o bloqueio de processo pesado tomado (`check-quarantine*`, capturas em `quarantine/`).
+- **Caminho:** o MCP não está nas Configurações (Geral … Diagnóstico). Abre pelo ícone "Abrir os servidores MCP" na
+  barra do workspace, na aba "Catálogo". Os servidores ficam em "Instalados 4".
+- **Lista:**
+  - `docs-search` e `deploy-helper` aparecem "EM QUARENTENA", e `new-server` aparece "PRECISA DE REVISÃO" ("REVIEW
+    REQUIRED").
+  - Todos os botões têm nome acessível.
+  - Sem erros de console.
+- **Detalhe do `docs-search`** (expande na própria lista, sem diálogo à parte):
+  - Explica bem: "Em quarentena: mudou depois de você confiar nele", "Ele adicionou upload_file", "não é oferecido
+    aos agentes e não inicia".
+  - Tem um bloco "Descrições de ferramentas com instruções para o modelo", com as categorias "Tenta substituir as
+    instruções do agente" e "Pede ao agente que envie dados privados para outro lugar".
+  - Mostra o comando e os argumentos, e a lista das ferramentas expostas com a descrição completa.
+- Enter no cabeçalho da linha só expande ou recolhe, sem conceder confiança. Escape fecha o painel e devolve o foco ao
+  ícone do MCP.
+- **Achado 1 (atrapalha, virou F25):** nada fora da lista avisa que há 2 servidores em quarentena e 1 sem revisão. O
+  ícone do MCP, o sino e "Sistemas 1/5" não têm marca, e a aba "Instalados" mostra só "4".
+- **Achado 2 (atrapalha, segurança):**
+  - O texto manda "use Testar para confiar nele de novo". O mesmo botão "Testar" serve para ver se o servidor responde
+    e para devolver a confiança a um servidor cujas descrições tentam injetar instruções.
+  - Quem quer só testar pode acabar confiando. Na sonda, o clique em "Testar" não mostrou confirmação nem mudou o
+    status. Não ficou claro se o clique acertou o botão, então o efeito real fica para reconferir.
+  - Critério de aceite: separar "Testar" (só verifica, sem conceder confiança) de "Confiar de novo…". O segundo abre
+    uma confirmação que repete as instruções suspeitas e tem "Cancelar" como padrão.
+- **Achado 3 (cosmético):** a quarentena usa o mesmo chip cinza dos outros estados, sem cor nem ícone de alerta, e a
+  linha em quarentena tem o mesmo peso visual de uma confiável. Também aparece "0 ferramenta" em vez de "0 ferramentas".
 
 ### Achados fora dos itens da onda
 
