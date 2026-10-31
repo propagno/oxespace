@@ -62,6 +62,8 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
   'help.shortcuts': dialog('Keyboard shortcuts'),
+  // F18: the approval history; it opens even with no decision yet, and says so.
+  'help.approvals': both(dialog('Approval decisions'), testId('approval-history')),
   'help.report-problem': both(dialog('Report a problem'), testId('report-problem')),
   'help.about': both(dialog('About OXESpace'), testId('about-dialog')),
   'activity.open': testId('activity-center'),
