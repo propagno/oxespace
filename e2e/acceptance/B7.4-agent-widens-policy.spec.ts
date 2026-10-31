@@ -194,12 +194,7 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
     expect.soft(await pending(), '(5) the app\'s own write asks nothing').toHaveLength(0)
     expect.soft(await groupMode('docs'), '(5) the app\'s own write applies').toBe('off')
 
-    // (9) data is off. The agent strips the bridge's tool list from .mcp.json and calls a data tool itself.
-    const mcp = await runAgent('mcp-call', DATA_TOOL)
-    expect(mcp.offeredBefore, `(9) the app's .mcp.json does not offer ${DATA_TOOL} while data is off`).toBe(false)
-    expect(mcp.offeredAfter, '(9) the edited .mcp.json makes the bridge offer every tool').toBe(true)
-    expect.soft(mcp.response ?? '', `(9) ${DATA_TOOL} is refused by the app at tools/call (group off)`).toMatch(/"isError":true|"error":\{/)
-    expect.soft(mcp.response ?? '', '(9) the refusal carries a C3 code').toMatch(/[a-z]\w*\.\w+\.\w+/)
+    // (9) is its own test below: it is the acceptance of a separate BACKEND fix and must run alone.
 
     // (1) Editor-style edit (temp + rename) dropping the deny rule.
     await runAgent('rename-edit', payload('wide', WIDE_POLICY))
@@ -263,6 +258,51 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
   } finally {
     await quitReal(app)
     // Electron may still hold files in user-data for a moment; a leftover temp folder must not hide the result.
+    try { rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }) } catch { /* left in the temp folder */ }
+  }
+})
+
+/**
+ * (9) With the data group off, an agent rewrites the project's .mcp.json so the bridge offers every tool, and calls a
+ * data tool. Main must refuse it at tools/call, judged from the authenticated execution's root and never from the
+ * bridge's arguments, with a C3 code and an incident. Run alone: `-g "\(9\)"`.
+ */
+test('B7.4 (9): an off group is refused at tools/call even after the agent rewrites .mcp.json', async () => {
+  test.setTimeout(180_000)
+  const profile = realProfile('b74m', { OXESPACE_LOCALE: 'en-US' })
+  const { repo, root } = profile
+  writeFileSync(join(repo, 'oxe.yaml'), ACCEPTED_YAML)
+  execFileSync('git', ['add', '.'], { cwd: repo }); execFileSync('git', ['-c', 'user.email=acc@example.invalid', '-c', 'user.name=acc', 'commit', '-q', '-m', 'data off'], { cwd: repo })
+  const agent = join(root, 'agent.js'); writeFileSync(agent, AGENT)
+  const done = join(root, 'done-mcp.json')
+
+  const { app, page } = await launchReal(profile)
+  try {
+    await holdNativeDialogs(app)
+    await openRepo(page, repo)
+    const terminal = page.locator('[data-testid="pane-container"] .xterm').first()
+    await terminal.waitFor({ timeout: 20_000 })
+    // The app's own write (Settings › Tools) also rewrites the workspace .mcp.json with the project's plan.
+    await oxe(page, (o, r: string) => o.mcpInternal.setToolGroupMode({ rootPath: r, group: 'docs', mode: 'off' }), repo)
+    await expect.poll(() => existsSync(join(repo, '.mcp.json')), { timeout: 10_000, message: 'the app wrote the workspace .mcp.json' }).toBe(true)
+    const since = Date.now()
+
+    await terminal.click()
+    await page.keyboard.type(`node "${agent}" mcp-call "${DATA_TOOL}" "${done}" "-"`); await page.keyboard.press('Enter')
+    await expect.poll(() => existsSync(done), { timeout: 30_000, message: 'the agent finished its call' }).toBe(true)
+    const mcp = JSON.parse(readFileSync(done, 'utf8')) as AgentResult
+    expect(mcp.ok, `the agent reached the bridge (${mcp.error ?? 'ok'})`).toBe(true)
+    expect(mcp.execution, 'the agent runs with the pane execution env').toBe(true)
+    expect(mcp.offeredBefore, `the app's .mcp.json does not offer ${DATA_TOOL} while data is off`).toBe(false)
+    expect(mcp.offeredAfter, 'the edited .mcp.json makes the bridge offer every tool').toBe(true)
+    expect.soft(mcp.response ?? '', `${DATA_TOOL} is refused by the app at tools/call (group off)`).toMatch(/"isError":true|"error":\{/)
+    expect.soft(mcp.response ?? '', 'the refusal carries a C3 code').toMatch(/[a-z]\w*\.\w+\.\w+/)
+    expect.soft(mcp.response ?? '', 'no data comes back').not.toContain('connections')
+    const journal = (await oxe(page, o => o.diagnostics.incidents())).filter(i => i.lastAt >= since)
+    expect.soft(journal.length, 'the refused call is in the incident journal').toBeGreaterThan(0)
+    expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).accNative), 'no native dialog').toBe(0)
+  } finally {
+    await quitReal(app)
     try { rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }) } catch { /* left in the temp folder */ }
   }
 })
