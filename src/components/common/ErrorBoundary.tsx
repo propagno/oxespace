@@ -1,7 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { i18n } from '../../i18n'
 import { Button, ErrorState } from '../../ui'
-import { firstComponent, rendererErrorReport, reportRendererError, type RendererErrorBoundary } from '../../lib/rendererErrors'
+import type { RendererErrorBoundary } from '../../lib/rendererErrors'
+import { reportBoundaryError } from '../../lib/rendererErrorsBoot'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -37,7 +38,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error(`[OXESpace] ErrorBoundary caught (${this.props.label ?? 'component'})`, error, info.componentStack)
-    reportRendererError(rendererErrorReport('boundary', error, { boundary: this.props.id, component: this.props.component ?? firstComponent(info.componentStack) }))
+    void reportBoundaryError(error, this.props.id, this.props.component, info.componentStack)
   }
 
   private readonly reset = (): void => this.setState({ error: null })
