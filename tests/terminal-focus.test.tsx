@@ -222,6 +222,22 @@ describe('F6 regions', () => {
     expect(document.querySelectorAll('[tabindex="-1"]')).toHaveLength(0)
   })
 
+  it('take a lent tabindex back even when focus moves without any focus event (a window without the system focus)', async () => {
+    const { status, textarea } = shell()
+    document.body.focus()
+    for (let step = 0; step < 4; step++) moveFocusRegion(1)
+    expect(document.activeElement).toBe(status)
+    expect(status).toHaveAttribute('tabindex', '-1')
+    // Focus elsewhere without the events an unfocused window would not fire.
+    Object.defineProperty(document, 'activeElement', { configurable: true, get: () => textarea })
+    try {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      expect(status).not.toHaveAttribute('tabindex')
+    } finally {
+      delete (document as unknown as { activeElement?: unknown }).activeElement
+    }
+  })
+
   it('leave no tabindex behind, and keep a tabindex the page set itself (T5)', () => {
     const { status } = shell()
     status.tabIndex = 0
