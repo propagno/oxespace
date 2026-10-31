@@ -24,6 +24,6 @@ export function ExternalAnchor({ href, children, source = 'markdown', className 
   if (!url || !href) return null
   const text = textOf(children)
   return <a className={className} href={url.href} title={url.href} target="_blank" rel="noopener noreferrer" onClick={event => { event.preventDefault(); void openExternalLink(href, { text, source }) }}>
-    {children}{host && textMisleads(url, text) && <span className={styles.host} data-testid="external-link-suffix">{t('links.hostSuffix', { host })}</span>}
+    {children}{host && textMisleads(url, text) && <>{' '}<span className={styles.host} data-testid="external-link-suffix">{t('links.hostSuffix', { host })}</span></>}
   </a>
 }
