@@ -31,6 +31,15 @@ class AlertWatcherTest {
     }
 
     @Test
+    fun desktopTextReachesTheNotificationWithoutHiddenOrReorderingCharacters() {
+        val hostile = request("r1").copy(title = "Open report‮exe.txt‬", threadTitle = "Fix​ login⁦" + "x".repeat(300))
+        val post = AlertWatcher().onRequests(listOf(hostile)).single() as AlertChange.Post
+        assertEquals("Open reportexe.txt", post.title)
+        assertTrue(post.text.startsWith("Fix loginxxx"))
+        assertEquals(120, post.text.codePointCount(0, post.text.length))
+    }
+
+    @Test
     fun aRequestThatArrivedWhileAsleepIsAnnouncedWhenTheListComesBack() {
         val watcher = AlertWatcher()
         watcher.onRequests(emptyList())
