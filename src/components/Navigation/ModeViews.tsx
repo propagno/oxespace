@@ -12,22 +12,14 @@ import { chunk, lazyFrom } from '../../lib/chunk'
  * the entry chunk until first use. Each view's sidebar and work area are one chunk pair requested together, so they
  * reveal in one commit; the idle preload (src/lib/idlePreload.ts) loads the same pairs.
  */
-/**
- * OxeChat is the exception: its sidebar and conversation are separate chunks, each revealed by its own boundary.
- * Both are requested in the same render, but the conversation's first commit (timeline, composer, header) no longer
- * waits for the sidebar's module and render (F7: +25 ms on cold first content with the pair). The idle preload still
- * loads both.
- */
-const THREAD_SIDEBAR = chunk(() => import('../Threads/ThreadSidebar'))
-const THREAD_GRID = chunk(() => import('../Threads/ThreadGrid'))
 export const VIEW_CHUNKS = {
-  thread: chunk(() => Promise.all([THREAD_SIDEBAR.load(), THREAD_GRID.load()])),
+  thread: chunk(() => Promise.all([import('../Threads/ThreadSidebar'), import('../Threads/ThreadGrid')])),
   data: chunk(() => Promise.all([import('../OxeQuery/OxeQuerySidebar'), import('../OxeQuery/OxeQueryView')])),
   pods: chunk(() => Promise.all([import('../OxePod/OxePodSidebar'), import('../OxePod/OxePodView')])),
   post: chunk(() => Promise.all([import('../OxePost/OxePostSidebar'), import('../OxePost/OxePostView')]))
 }
-export const ThreadSidebar = lazyFrom(THREAD_SIDEBAR, module => module.ThreadSidebar)
-export const ThreadGrid = lazyFrom(THREAD_GRID, module => module.ThreadGrid)
+export const ThreadSidebar = lazyFrom(VIEW_CHUNKS.thread, ([sidebar]) => sidebar.ThreadSidebar)
+export const ThreadGrid = lazyFrom(VIEW_CHUNKS.thread, ([, grid]) => grid.ThreadGrid)
 const OxeQuerySidebar = lazyFrom(VIEW_CHUNKS.data, ([sidebar]) => sidebar.OxeQuerySidebar)
 const OxeQueryView = lazyFrom(VIEW_CHUNKS.data, ([, view]) => view.OxeQueryView)
 const OxePodSidebar = lazyFrom(VIEW_CHUNKS.pods, ([sidebar]) => sidebar.OxePodSidebar)
