@@ -11,6 +11,8 @@ on:
       - "shared/locales/*/mobile.json"
       - "src/design/tokens/**"
       - "scripts/android/**"
+      - "shared/approval-rules.ts"
+      - "shared/reserved-names.ts"
       - ".github/workflows/android.yml"
   pull_request:
     branches: [main]
@@ -22,6 +24,8 @@ on:
       - "shared/locales/*/mobile.json"
       - "src/design/tokens/**"
       - "scripts/android/**"
+      - "shared/approval-rules.ts"
+      - "shared/reserved-names.ts"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 
