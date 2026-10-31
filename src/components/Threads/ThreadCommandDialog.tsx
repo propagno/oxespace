@@ -13,6 +13,7 @@ import type { ThreadPanelState } from './threadCommandPanels'
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, TextField } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
+import { displayThreadTitle, namedThreadTitle } from './threadTitle'
 import { localizeConfirmation } from './threadConfirmationText'
 import { openExternalLink } from '../../lib/externalLinks'
 
@@ -39,7 +40,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   onDelegations?: () => void
 }) {
   const { t } = useTranslation('thread')
-  const [rename, setRename] = useState(snapshot?.thread.title ?? '')
+  const [rename, setRename] = useState(namedThreadTitle(snapshot?.thread.title))
   const [resumeQuery, setResumeQuery] = useState('')
   const [nativeResumeId, setNativeResumeId] = useState('')
   const api = window.oxe?.thread
@@ -84,8 +85,8 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
     : panel.surface === 'sessions' ? <div className="thread-resume-sections">
       <label className="thread-resume-search">{t('commandDialog.find')}<TextField aria-label={t('commandDialog.find')} type="search" placeholder={t('commandDialog.findPlaceholder')} value={resumeQuery} onChange={event => setResumeQuery(event.target.value)} /></label>
       <section><h3>{t('commandDialog.saved')}</h3><p>{t('commandDialog.savedHint')}</p>
-        <div className="thread-panel-list">{useThreadStore.getState().threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([thread.title, thread.nativeSessionId, thread.id, thread.status])).map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{thread.title}</strong><span>{thread.nativeSessionId ? t('commandDialog.session', { id: thread.nativeSessionId }) : t('commandDialog.notStarted')} · {thread.archived ? t('commandDialog.archived') : threadNavigationStatus(thread).label}</span></button>)}
-          {!useThreadStore.getState().threads.some(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([thread.title, thread.nativeSessionId, thread.id, thread.status])) && <EmptyState compact title={resumeQuery ? t('commandDialog.noSavedMatch') : t('commandDialog.noSaved')} />}
+        <div className="thread-panel-list">{useThreadStore.getState().threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([displayThreadTitle(thread.title), thread.nativeSessionId, thread.id, thread.status])).map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{displayThreadTitle(thread.title)}</strong><span>{thread.nativeSessionId ? t('commandDialog.session', { id: thread.nativeSessionId }) : t('commandDialog.notStarted')} · {thread.archived ? t('commandDialog.archived') : threadNavigationStatus(thread).label}</span></button>)}
+          {!useThreadStore.getState().threads.some(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([displayThreadTitle(thread.title), thread.nativeSessionId, thread.id, thread.status])) && <EmptyState compact title={resumeQuery ? t('commandDialog.noSavedMatch') : t('commandDialog.noSaved')} />}
         </div>
       </section>
       <section><h3>{t('commandDialog.delegated')}</h3>{resume?.notice && <p role="status">{resume.notice}</p>}
