@@ -150,6 +150,14 @@ train dispatches `ci.yml` itself, on the updated branch (with `a11y-axe.yml`, `m
 change to `.github/workflows`: when GitHub refuses a merge (or a branch update) for that, the PR leaves the
 queue with that cause and the coordinator merges it.
 
+**Trust boundary.** Only a label added by someone with write, maintain or admin access counts; the train
+checks the labeler's role and otherwise removes the label. It counts only GitHub Actions check runs and this
+repository's own `push`, `pull_request` and `workflow_dispatch` runs on the head, and it only trusts its own
+`github-actions[bot]` comment, whose state marker it validates. Still, the CI it dispatches runs the PR
+branch's own scripts, so a PR could make its CI pass by changing them. The real gate is branch protection
+on `main` (required reviews and required checks, with no bypass for Actions): the train never merges what
+protection would refuse, and it follows protection's required checks as soon as there are any.
+
 ---
 
 ## Prereleases

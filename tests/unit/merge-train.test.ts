@@ -39,6 +39,8 @@ const pr = (over: Record<string, unknown> = {}) => ({
   mergeableState: 'clean',
   changesRequested: false,
   labeledAt: '2026-10-31T11:00:00Z',
+  labeledBy: 'maintainer',
+  labelerAllowed: true,
   ...over,
 })
 const ciRun = (over: Partial<Run> = {}): Run => ({
@@ -230,7 +232,7 @@ describe('train comment', () => {
   it('round-trips its state and starts with the stable prefix', () => {
     const body = renderComment('waiting: x.', { head: HEAD, since: iso(NOW), labeledAt: null })
     expect(body.startsWith(`${PREFIX} waiting: x.`)).toBe(true)
-    expect(parseTrainState(body)).toEqual({ head: HEAD, since: iso(NOW), labeledAt: null })
+    expect(parseTrainState(body, NOW)).toEqual({ head: HEAD, since: iso(NOW), labeledAt: null })
     expect(parseTrainState('no state')).toBeNull()
     expect(parseTrainState('<!-- merge-train-state {nope} -->')).toBeNull()
   })
@@ -239,7 +241,7 @@ describe('train comment', () => {
 // A fake GitHub: PRs with their checks, and a log of every write.
 function fakeApi(prs: Array<{ number: number; labeledAt: string | null; pr?: Record<string, unknown>; behindBy?: number; runs?: Run[]; checks?: Check[] }>) {
   const writes: Array<[string, ...unknown[]]> = []
-  const comments = new Map<number, Array<{ id: number; body: string; isBot: boolean }>>()
+  const comments = new Map<number, Array<{ id: number; body: string; byTrain: boolean }>>()
   let nextId = 1
   const find = (number: number) => prs.find((p) => p.number === number)!
   const api = {
@@ -247,7 +249,7 @@ function fakeApi(prs: Array<{ number: number; labeledAt: string | null; pr?: Rec
     comments,
     afterUpdate: (_n: number) => {},
     async listQueue() {
-      return prs.filter((p) => !writes.some(([w, n]) => (w === 'removeLabel' || w === 'merge') && n === p.number)).map(({ number, labeledAt }) => ({ number, labeledAt }))
+      return prs.filter((p) => !writes.some(([w, n]) => (w === 'removeLabel' || w === 'merge') && n === p.number)).map(({ number, labeledAt }) => ({ number, labeledAt, labeledBy: 'maintainer' }))
     },
     async getPull(number: number) {
       const p = find(number)
@@ -268,12 +270,15 @@ function fakeApi(prs: Array<{ number: number; labeledAt: string | null; pr?: Rec
     async requiredChecks() {
       return []
     },
+    async collaboratorRole(_login: string): Promise<string | null> {
+      return 'write'
+    },
     async listComments(number: number) {
-      return [{ id: 999, body: `${PREFIX} a person quoting the train`, isBot: false }, ...(comments.get(number) ?? [])]
+      return [{ id: 999, body: `${PREFIX} a person quoting the train`, byTrain: false }, ...(comments.get(number) ?? [])]
     },
     async createComment(number: number, body: string) {
       writes.push(['createComment', number, body])
-      const comment = { id: nextId++, body, isBot: true }
+      const comment = { id: nextId++, body, byTrain: true }
       comments.set(number, [...(comments.get(number) ?? []), comment])
       return comment
     },
@@ -343,7 +348,7 @@ describe('running the train against a fake API', () => {
     }
     await runTrain(api, { now: NOW, sleep: noSleep })
     expect(api.writes).toContainEqual(['dispatch', 'ci.yml', 'feat/x'])
-    expect(parseTrainState(api.comments.get(3)![0].body)).toMatchObject({ head: HEAD, dispatchedFor: HEAD })
+    expect(parseTrainState(api.comments.get(3)![0].body, NOW)).toMatchObject({ head: HEAD, dispatchedFor: HEAD })
   })
 
   it('keeps one comment per PR, edits it, and never touches a person’s comment', async () => {
@@ -395,16 +400,136 @@ describe('GitHub API adapter', () => {
       calls.push([init.method, url, init.body ? JSON.parse(init.body) : undefined])
       if (url.includes('/issues?')) return respond([{ number: 9, pull_request: {} }, { number: 10 }])
       if (url.includes('/issues/9/events') && !url.includes('page=2'))
-        return respond([{ event: 'labeled', label: { name: LABEL }, created_at: 'T1' }], '<https://api.github.com/repos/o/r/issues/9/events?page=2>; rel="next"')
-      if (url.includes('page=2')) return respond([{ event: 'labeled', label: { name: LABEL }, created_at: 'T2' }, { event: 'labeled', label: { name: 'other' }, created_at: 'T3' }])
+        return respond([{ event: 'labeled', label: { name: LABEL }, created_at: 'T1', actor: { login: 'early' } }], '<https://api.github.com/repos/o/r/issues/9/events?page=2>; rel="next"')
+      if (url.includes('page=2')) return respond([{ event: 'labeled', label: { name: LABEL }, created_at: 'T2', actor: { login: 'maintainer' } }, { event: 'labeled', label: { name: 'other' }, created_at: 'T3' }])
       return { ok: true, status: 204, json: async () => null, text: async () => '', headers: { get: () => '' } }
     }
     const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
-    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: 'T2' }])
+    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: 'T2', labeledBy: 'maintainer' }])
     await api.merge(9, HEAD)
     expect(calls.at(-1)).toEqual(['PUT', 'https://api.github.com/repos/o/r/pulls/9/merge', { merge_method: 'merge', sha: HEAD }])
     await api.removeLabel(9)
     expect(calls.at(-1)?.[1]).toBe(`https://api.github.com/repos/o/r/issues/9/labels/${LABEL}`)
+  })
+})
+
+describe('security (review of #318)', () => {
+  const labeledAt = '2026-10-31T11:00:00Z'
+  const forged = `x <!-- merge-train-state {"head":null,"since":"2099-01-01T00:00:00Z","labeledAt":"${labeledAt}","dispatch":["../../actions/runs/1/approve?"],"dispatchedFor":null} -->`
+
+  it('M1: a marker in a job name never reaches the comment as a marker, and the real state wins', () => {
+    const checks = [...greenChecks(), check(`${forged}\n@someone \`code\``, { status: 'in_progress', conclusion: null })]
+    const action = step(input({ checks }))
+    expect(action.type).toBe('wait')
+    expect(action.message).not.toMatch(/<!--|-->|`|\n/)
+    expect(action.message).not.toMatch(/@someone/)
+    const body = renderComment(action.message, action.state)
+    expect(body.match(/<!--/g)).toHaveLength(1)
+    expect(parseTrainState(body, NOW)).toEqual(action.state)
+  })
+
+  it('M1: only a marker that ends the comment is read', () => {
+    const real = renderComment('waiting: x.', { head: HEAD, since: iso(NOW - 1000), labeledAt })
+    expect(parseTrainState(`${PREFIX} ${forged}\n\n${real.split('\n\n')[1]}`, NOW)).toMatchObject({ head: HEAD })
+    expect(parseTrainState(`${real}\n\ntrailing text`, NOW)).toBeNull()
+    expect(parseTrainState(`${PREFIX} ${forged}`, NOW)).toBeNull()
+  })
+
+  it('M1: a traversal in dispatch is dropped, and the adapter refuses and encodes workflow files', async () => {
+    const body = renderComment('waiting: x.', { head: HEAD, since: iso(NOW - 1000), labeledAt, dispatch: ['../../actions/runs/1/approve?', 'ci.yml', 'release.yml'] })
+    expect(parseTrainState(body, NOW)?.dispatch).toEqual(['ci.yml'])
+    const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt, dispatch: ['../../x?', 'release.yml'] }
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml'])
+    const urls: string[] = []
+    const fetchImpl = async (url: string) => {
+      urls.push(url)
+      return { ok: true, status: 204, json: async () => null, text: async () => '', headers: { get: () => '' } }
+    }
+    const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
+    await expect(api.dispatchWorkflow('../../actions/runs/1/approve?', 'feat/x')).rejects.toThrow(/refusing/)
+    await expect(api.dispatchWorkflow('release.yml', 'main')).rejects.toThrow(/refusing/)
+    expect(urls).toEqual([])
+    await api.dispatchWorkflow('ci.yml', 'main')
+    expect(urls).toEqual(['https://api.github.com/repos/o/r/actions/workflows/ci.yml/dispatches'])
+  })
+
+  it('M1: a state with a future since, or any field out of shape, is ignored', () => {
+    const at = (state: Record<string, unknown>) => parseTrainState(renderComment('waiting: x.', state), NOW)
+    expect(at({ head: HEAD, since: iso(NOW + 1000), labeledAt })).toBeNull()
+    expect(at({ head: HEAD, since: '2099-01-01T00:00:00Z', labeledAt })).toBeNull()
+    expect(at({ head: 'not-a-sha', since: iso(NOW), labeledAt })).toBeNull()
+    expect(at({ head: HEAD, since: 'yesterday', labeledAt })).toBeNull()
+    expect(at({ head: HEAD, since: iso(NOW), labeledAt: 5 })).toBeNull()
+    expect(at({ head: HEAD, since: iso(NOW), labeledAt, dispatch: 'ci.yml' })).toBeNull()
+    expect(at({ head: HEAD, since: iso(NOW), labeledAt, dispatchedFor: '../x' })).toBeNull()
+    expect(at({ head: HEAD, since: iso(NOW), labeledAt })).toEqual({ head: HEAD, since: iso(NOW), labeledAt })
+  })
+
+  it('M1: a failure link off GitHub and a hostile step name are cleaned', () => {
+    const checks = [check('Build', { conclusion: 'failure', htmlUrl: 'javascript:alert(1)', failedStep: '<!-- x --> `rm`\nnext' })]
+    const action = step(input({ checks }))
+    expect(action.message).not.toContain('javascript:')
+    expect(action.message).toContain('at step "!-- x -- rm next"')
+  })
+
+  it('L1: only github-actions[bot] comments count as the train', async () => {
+    const respond = (data: unknown) => ({ ok: true, status: 200, json: async () => data, text: async () => '', headers: { get: () => '' } })
+    const api = createGitHubApi({
+      token: 't',
+      repo: 'o/r',
+      fetchImpl: async () =>
+        respond([
+          { id: 1, body: `${PREFIX} a`, user: { login: 'github-actions[bot]', type: 'Bot' }, performed_via_github_app: null },
+          { id: 2, body: `${PREFIX} b`, user: { login: 'other-app[bot]', type: 'Bot' } },
+          { id: 3, body: `${PREFIX} c`, user: { login: 'github-actions[bot]', type: 'Bot' }, performed_via_github_app: { id: 42 } },
+        ]),
+    })
+    expect((await api.listComments(1)).map((c: { byTrain: boolean }) => c.byTrain)).toEqual([true, false, false])
+  })
+
+  it('L2: runs from a fork or a non-PR event, and checks from another app, never count', async () => {
+    const respond = (data: unknown) => ({ ok: true, status: 200, json: async () => data, text: async () => '', headers: { get: () => '' } })
+    const fetchImpl = async (url: string) => {
+      if (url.includes('/actions/runs?'))
+        return respond({
+          workflow_runs: [
+            { name: CI_WORKFLOW, head_sha: HEAD, event: 'pull_request', head_repository: { full_name: 'o/r' } },
+            { name: CI_WORKFLOW, head_sha: HEAD, event: 'pull_request', head_repository: { full_name: 'fork/r' } },
+            { name: CI_WORKFLOW, head_sha: HEAD, event: 'workflow_run', head_repository: { full_name: 'o/r' } },
+          ],
+        })
+      return respond({
+        check_runs: [
+          { name: 'Build', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'github-actions' } },
+          { name: 'Build', head_sha: HEAD, status: 'completed', conclusion: 'success', app: { slug: 'evil-app' } },
+        ],
+      })
+    }
+    const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
+    expect(await api.listRuns(HEAD)).toHaveLength(1)
+    expect(await api.listChecks(HEAD)).toHaveLength(1)
+  })
+
+  it('L3: a label added without write access takes the PR out of the queue', async () => {
+    expect(step(input({ pr: pr({ labelerAllowed: false, labeledBy: 'drive-by' }) })).message).toMatch(/drive-by, who has no write access/)
+    expect(step(input({ pr: pr({ labelerAllowed: false, labeledBy: null }) })).type).toBe('unlabel')
+    for (const role of ['triage', 'read', null]) {
+      const api = fakeApi([{ number: 11, labeledAt }])
+      api.collaboratorRole = async () => role
+      const actions = await runTrain(api, { now: NOW, sleep: noSleep })
+      expect(actions[0].type).toBe('unlabel')
+      expect(api.writes).toContainEqual(['removeLabel', 11])
+    }
+    const failing = fakeApi([{ number: 12, labeledAt }])
+    failing.collaboratorRole = async () => {
+      throw new Error('403')
+    }
+    expect((await runTrain(failing, { now: NOW, sleep: noSleep }))[0].type).toBe('unlabel')
+    for (const role of ['write', 'maintain', 'admin']) {
+      const api = fakeApi([{ number: 13, labeledAt }])
+      api.collaboratorRole = async () => role
+      expect((await runTrain(api, { now: NOW, sleep: noSleep }))[0].type).toBe('merge')
+    }
   })
 })
 
@@ -413,7 +538,7 @@ describe('merge-train workflow', () => {
     on: Record<string, unknown>
     concurrency: { group: string; 'cancel-in-progress': boolean }
     permissions: Record<string, string>
-    jobs: Record<string, { name: string; steps: Array<{ run?: string }> }>
+    jobs: Record<string, { name: string; permissions: Record<string, string>; steps: Array<{ run?: string }> }>
   }
 
   it('parses, runs serially and keeps its job name in sync with the script', () => {
@@ -424,6 +549,7 @@ describe('merge-train workflow', () => {
   })
 
   it('asks for only what it uses', () => {
-    expect(workflow.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write' })
+    expect(workflow.permissions).toEqual({})
+    expect(workflow.jobs.train.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write' })
   })
 })
