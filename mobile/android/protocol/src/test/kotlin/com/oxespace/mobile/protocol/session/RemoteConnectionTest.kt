@@ -101,6 +101,12 @@ class RemoteConnectionTest {
             socket!!.send(desktopFrame(RemoteErrorFrame(code = RemoteErrorCode.REVOKED)))
             socket!!.close(1000, null)
         }
+
+        /** The open stream outlived its token: the desktop says so and closes with 1008 (policy). */
+        fun expire() {
+            socket!!.send(desktopFrame(RemoteErrorFrame(code = RemoteErrorCode.TOKEN_EXPIRED)))
+            socket!!.close(1008, "token-expired")
+        }
     }
 
     private fun desktopFrame(frame: RemoteFrame) = RemoteFrames.json.encodeToString(RemoteFrame.serializer(), frame)
@@ -247,6 +253,29 @@ class RemoteConnectionTest {
         runBlocking { withTimeout(2_000) { while (tokens.token?.value != "tok-2") kotlinx.coroutines.delay(20) } }
         assertTrue(connection.state.value is SessionState.Ready)
         connection.close()
+    }
+
+    @Test
+    fun aTokenThatRanOutIsADropAndTheNextConnectionProvesTheKey() {
+        val tokens = TokenHolder()
+        val first = FakeGateway()
+        val connection = connection(gateway(first).port, tokens = tokens)
+        connection.connect()
+        connection.awaitState { it is SessionState.Ready }
+        first.expire()
+        // A plain drop, so the service reconnects; not a refusal of this phone.
+        assertEquals(SessionState.Ended(SessionEnd.CLOSED), connection.awaitState { it is SessionState.Ended })
+        assertEquals(null, tokens.token)
+
+        val second = FakeGateway()
+        val again = connection(gateway(second).port, tokens = tokens)
+        again.connect()
+        assertEquals(SessionState.Ready("Studio"), again.awaitState { it is SessionState.Ready })
+        val auth = second.received.filterIsInstance<RemoteAuthFrame>().single()
+        assertEquals(null, auth.accessToken)
+        assertTrue(auth.refresh != null)
+        assertEquals("tok-1", tokens.token!!.value)
+        again.close()
     }
 
     @Test

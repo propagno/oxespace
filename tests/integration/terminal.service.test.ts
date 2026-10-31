@@ -69,6 +69,20 @@ describe('TerminalManager', () => {
       expect(pty.spawn).toHaveBeenCalledWith('codex', ['resume', id, '--no-alt-screen'], expect.anything())
     } finally { manager.stopAll(); db.close() }
   })
+  test('records an agent that cannot start as an incident, with only its name hashed (B8.3)', async () => {
+    const { connectIncidentJournal, incidentSubject } = await import('../../electron/main/services/diagnostics/incident-sink')
+    const recorded: Array<[string, string | undefined]> = []
+    connectIncidentJournal(async () => ({ record: (code, subject) => { recorded.push([code, subject]) }, flush: () => undefined }))
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    pty.spawn.mockImplementationOnce(() => { throw new Error('ENOENT /home/person/bin/claude') })
+    const manager = new TerminalManager(db, { pty, platform: 'linux' })
+    try {
+      await expect(manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'claude --model x', disableRtk: true })).rejects.toThrow('Unable to start agent')
+      await vi.waitFor(() => expect(recorded).toEqual([['incident.agent.startFailed', incidentSubject('claude')]]))
+    } finally { manager.stopAll(); db.close(); connectIncidentJournal(null) }
+  })
   test('reopens the recorded agent session on the first start after the app opens, only when asked and only once', async () => {
     const { PaneAgentSessions } = await import('../../electron/main/services/agent-state/pane-sessions')
     const db = openInMemoryDatabase()

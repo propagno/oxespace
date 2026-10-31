@@ -1,9 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
+import { connectFromContainer, containerRow, openView } from '../helpers/oxepod'
 import { expectSurface } from '../helpers/visual'
 
 /**
- * Pixel baselines for the OxeQuery surfaces a person actually looks at: containers, connection forms,
+ * Pixel baselines for the OxeQuery surfaces a person actually looks at: containers (now in OxePod), connection forms,
  * the SQL workbench (result, error, plan, filter, row edit), dialogs, server and settings, and MongoDB.
  * Everything runs against the mock engine (`OXESPACE_E2E_MOCK_NATIVE`), so the data never changes.
  * Each state is compared in both themes at 1280x800.
@@ -20,35 +21,43 @@ const volatile = (page: Page): Locator[] => [
 ]
 
 for (const theme of THEMES) {
-  test(`OxeQuery containers, forms and dialogs — ${theme}`, async () => {
+  test(`OxePod containers, OxeQuery forms and dialogs — ${theme}`, async () => {
     test.setTimeout(180_000)
     const { app, page, workspaceRoot } = await launchApp({ appearance: theme })
     try {
       await resizeWindow(app, 1280, 800)
       await openDemoWorkspace(page, workspaceRoot)
-      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+      const shot = (name: string, target?: Locator, extraMask: Locator[] = []): Promise<void> => settle(page).then(() => expectSurface(page, `${name}-${theme}`, { target, mask: [...volatile(page), ...extraMask] }))
+
+      // Containers live in the OxePod mode (#161): the list is its sidebar, the work area holds the open container,
+      // so these shots take the whole window. The first running container opens by itself.
+      await openView(page, 'OxePod')
+      await expect(containerRow(page, 'mongo-dev')).toBeVisible()
+      await expect(page.getByRole('region', { name: 'mongo-dev details' })).toBeVisible()
+      // "running for 2 hours" and the Started date are the clock of the run: the app marks both volatile (data-oq-volatile),
+      // and the capture masks them.
+      await shot('oxepod-containers')
+
+      await page.getByRole('complementary', { name: /OxePod/ }).getByRole('button', { name: 'Images, volumes and networks' }).last().click()
+      await expect(page.getByRole('region', { name: 'Images, volumes and networks' })).toBeVisible()
+      await shot('oxepod-containers-resources')
+
+      await containerRow(page, 'pg-dev').click()
+      await expect(page.getByRole('region', { name: 'pg-dev details' })).toBeVisible()
+      await expect(page.getByRole('region', { name: 'Database detected' })).toBeVisible()
+      await shot('oxepod-container-details')
+
+      // The connection forms, the local database wizard and the audit stay in OxeQuery.
+      await openView(page, 'OxeQuery')
       const view = page.locator('.oq-view')
       await view.waitFor()
-      const shot = (name: string, target: Locator = view, extraMask: Locator[] = []): Promise<void> => settle(page).then(() => expectSurface(page, `${name}-${theme}`, { target, mask: [...volatile(page), ...extraMask] }))
 
-      await expect(page.getByRole('button', { name: 'mongo-dev', exact: true }).first()).toBeVisible()
-      await shot('containers')
-
-      await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
-      await expect(page.getByRole('button', { name: 'Images, volumes and networks' })).toHaveAttribute('aria-expanded', 'true')
-      await shot('containers-resources')
-      await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
-
-      await page.getByRole('button', { name: 'mongo-dev', exact: true }).first().click()
-      await page.getByRole('complementary', { name: /mongo-dev details/ }).waitFor()
-      await shot('container-details')
-      await page.getByRole('button', { name: 'Close details' }).click()
-
-      await page.getByRole('button', { name: 'New database' }).click()
+      await page.getByRole('button', { name: 'New local database' }).click()
       const wizard = page.getByRole('dialog', { name: 'New database' })
       await wizard.waitFor()
       await shot('dialog-new-database', wizard)
       await page.keyboard.press('Escape')
+      await expect(wizard).toBeHidden()
 
       await page.getByRole('button', { name: 'New connection' }).first().click()
       const form = page.getByRole('dialog', { name: 'New connection' })
@@ -60,13 +69,15 @@ for (const theme of THEMES) {
       await form.getByRole('button', { name: /SSH tunnel/ }).click()
       await shot('dialog-connection-security', form)
       await page.keyboard.press('Escape')
+      await expect(form).toBeHidden()
 
-      await page.getByRole('tab', { name: 'Activity' }).click()
+      await page.locator('.oq-sidebar').getByRole('button', { name: 'Agent activity' }).click()
+      const activity = page.getByRole('region', { name: 'Agent activity' })
+      await activity.waitFor()
       // The first column of the audit table is the time of each entry: it is the moment the test ran. Masking
       // alone is not enough, because the table sizes its columns to that text, so the time is replaced with
       // a fixed one before the capture.
-      // Only the visible table: the Containers tab keeps its own table in the page while hidden.
-      const when = page.locator('.oq-view tbody tr td:first-child').filter({ visible: true })
+      const when = activity.locator('tbody tr td:first-child')
       await expect(when.first()).toBeVisible()
       await when.evaluateAll(cells => { for (const cell of cells) cell.textContent = '10/18/2026, 8:00 AM' })
       await shot('activity', view, [when])
@@ -79,12 +90,12 @@ for (const theme of THEMES) {
     try {
       await resizeWindow(app, 1280, 800)
       await openDemoWorkspace(page, workspaceRoot)
-      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+      // A database container becomes a connection from OxePod (#161), which then opens it in OxeQuery.
+      await connectFromContainer(page, 'pg-dev')
       const view = page.locator('.oq-view')
       await view.waitFor()
       const shot = (name: string, target: Locator = view): Promise<void> => settle(page).then(() => expectSurface(page, `${name}-${theme}`, { target, mask: [...volatile(page), page.locator('.oq-editor')] }))
 
-      await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
       await page.getByRole('button', { name: 'Edit pg-dev' }).click()
       const edit = page.getByRole('dialog', { name: 'Edit connection' })
       await edit.getByRole('switch', { name: /Read-only/ }).setChecked(false)
@@ -144,12 +155,11 @@ for (const theme of THEMES) {
     try {
       await resizeWindow(app, 1280, 800)
       await openDemoWorkspace(page, workspaceRoot)
-      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+      await connectFromContainer(page, 'mongo-dev')
       const view = page.locator('.oq-view')
       await view.waitFor()
       const shot = (name: string, target: Locator = view): Promise<void> => settle(page).then(() => expectSurface(page, `${name}-${theme}`, { target, mask: [...volatile(page), page.locator('.oq-editor')] }))
 
-      await page.getByRole('button', { name: 'Connect to mongo-dev' }).click()
       const sidebar = page.getByRole('navigation', { name: 'Databases' })
       await sidebar.getByRole('button', { name: 'shop', exact: true }).click()
       await sidebar.getByRole('button', { name: 'items', exact: true }).click()
