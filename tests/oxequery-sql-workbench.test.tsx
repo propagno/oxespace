@@ -214,6 +214,37 @@ describe('SqlWorkbench', () => {
       expect(api.callsOf('sql.run')).toHaveLength(1)
     })
 
+    it('shows each flagged statement with its line and reason, and the whole script, before the typed name (P1-18)', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      const script = `${Array.from({ length: 1301 }, (_, index) => `SELECT ${index};`).join('\n')}\nDELETE FROM users;`
+      type(script)
+      fireEvent.click(screen.getByRole('button', { name: 'Run all' }))
+      const confirm = await screen.findByRole('dialog', { name: 'This statement is destructive' })
+      const flagged = within(confirm).getAllByTestId('oxequery-confirm-flagged')
+      expect(flagged).toHaveLength(1)
+      expect(flagged[0]).toHaveTextContent('Line 1302')
+      expect(flagged[0]).toHaveTextContent('DELETE without WHERE')
+      expect(within(flagged[0]).getByRole('region', { name: 'Statement on line 1302' })).toHaveTextContent('1302DELETE FROM users')
+      const whole = within(confirm).getByTestId('oxequery-confirm-script')
+      expect(whole.textContent).toContain('1302DELETE FROM users;')
+      expect(within(confirm).getByText('What will run (1,302 statements)')).toBeInTheDocument()
+      // The statements come before the name field, so nobody types a name for something they have not seen.
+      const field = within(confirm).getByLabelText('Type shop-prod to continue')
+      expect(flagged[0].compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(api.callsOf('sql.script')).toHaveLength(0)
+    })
+
+    it('shows the exact statement for a production write the server flags', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      api.on('sql.run', () => { throw refusal('confirm-name', 'Type its name.') })
+      type("UPDATE users SET name = 'x' WHERE id = 1")
+      run()
+      const confirm = await screen.findByRole('dialog', { name: 'Change data on production?' })
+      expect(within(confirm).getByTestId('oxequery-confirm-script')).toHaveTextContent("1UPDATE users SET name = 'x' WHERE id = 1")
+    })
+
     it('does not ask for the name to read', async () => {
       render(<SqlWorkbench connection={connection(production)} />)
       await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view

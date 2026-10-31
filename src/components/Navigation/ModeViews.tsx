@@ -78,7 +78,7 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
   useEffect(() => { if (view === initial.current) return; initial.current = null; void import('../../lib/idlePreload').then(m => m.rememberView(view)).catch(() => undefined) }, [view])
   return <>{ORDER.filter(item => opened.includes(item) || item === view).map(item =>
     <div key={item} className={HOSTS[item]} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
-      <ErrorBoundary label={NAMES[item]} onReset={VIEWS[item].retry}><Suspense fallback={<LoadingState brand label={t('nav.loadingView', { name: NAMES[item] })} />}>
+      <ErrorBoundary id="mode-view" component={NAMES[item]} label={NAMES[item]} onReset={VIEWS[item].retry}><Suspense fallback={<LoadingState brand label={t('nav.loadingView', { name: NAMES[item] })} />}>
         {item === 'data' ? <OxeQueryView active={view === 'data'} /> : item === 'pods' ? <OxePodView active={view === 'pods'} /> : <OxePostView active={view === 'post'} />}
       </Suspense></ErrorBoundary>
     </div>)}</>

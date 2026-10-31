@@ -1,9 +1,14 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { i18n } from '../../i18n'
 import { Button, ErrorState } from '../../ui'
+import { firstComponent, rendererErrorReport, reportRendererError, type RendererErrorBoundary } from '../../lib/rendererErrors'
 
 interface ErrorBoundaryProps {
   children: ReactNode
+  /** Which boundary this is, for the incident journal; stable across languages, unlike `label`. */
+  id: RendererErrorBoundary
+  /** The component the journal names, when it is better known than the first one in React's stack (a view's name). */
+  component?: string
   /** Short label for the fallback copy and logs (e.g. "the terminal"). */
   label?: string
   /** Runs before Try again renders the children again: a lazy part retries its chunk (lazyFrom's retry). */
@@ -34,6 +39,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error(`[OXESpace] ErrorBoundary caught (${this.props.label ?? 'component'})`, error, info.componentStack)
+    reportRendererError(rendererErrorReport('boundary', error, { boundary: this.props.id, component: this.props.component ?? firstComponent(info.componentStack) }))
   }
 
   private readonly reset = (): void => { this.props.onReset?.(); this.setState({ error: null }) }

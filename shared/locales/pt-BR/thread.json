@@ -1291,6 +1291,42 @@
     },
     "restartToDelete": "Reinicie o aplicativo atualizado para excluir conversas."
   },
+  "sections": {
+    "newSection": "Nova seção…",
+    "newTitle": "Nova seção",
+    "newDescription": "Agrupe as conversas deste projeto sob um nome. Elas ficam onde estão até você movê-las.",
+    "rename": "Renomear seção…",
+    "renameTitle": "Renomear seção",
+    "name": "Nome da seção",
+    "nameHint": "Até {{max}} caracteres.",
+    "create": "Criar seção",
+    "creating": "Criando…",
+    "save": "Renomear",
+    "saving": "Renomeando…",
+    "moveUp": "Mover seção para cima",
+    "moveDown": "Mover seção para baixo",
+    "delete": "Excluir seção…",
+    "deleteTitle": "Excluir esta seção?",
+    "deleteDescription_one": "“{{name}}” será removida e a {{count}} conversa dela volta para Sem seção. Nenhuma conversa é excluída.",
+    "deleteDescription_many": "“{{name}}” será removida e as {{count}} conversas dela voltam para Sem seção. Nenhuma conversa é excluída.",
+    "deleteDescription_other": "“{{name}}” será removida e as {{count}} conversas dela voltam para Sem seção. Nenhuma conversa é excluída.",
+    "deleteConfirm": "Excluir seção",
+    "deleting": "Excluindo…",
+    "actionsFor": "Ações da seção {{name}}",
+    "count_one": "{{count}} conversa",
+    "count_many": "{{count}} conversas",
+    "count_other": "{{count}} conversas",
+    "empty": "Arraste uma conversa para cá ou use Mover para seção no menu dela.",
+    "moveTo": "Mover para seção",
+    "none": "Sem seção",
+    "followsParent": "A seção acompanha a conversa principal",
+    "errors": {
+      "invalidName": "Use de 1 a {{max}} caracteres, sem quebras de linha nem caracteres de controle.",
+      "notFound": "Esta seção não existe mais.",
+      "childFollowsParent": "Uma conversa aninhada fica na seção da conversa principal. Mova a conversa principal.",
+      "failed": "Não foi possível atualizar as seções."
+    }
+  },
   "spending": {
     "scope": {
       "thread": "Esta conversa",
@@ -1566,5 +1602,29 @@
     "nativeActivity": "Atividade nativa em segundo plano",
     "providerActivity": "Atividade do provedor · {{count}} em execução",
     "noNativeTasks": "Nenhuma tarefa nativa foi informada nesta conversa."
+  },
+  "side": {
+    "title": "Chat lateral",
+    "region": "Chat lateral",
+    "readOnly": "Cópia somente leitura",
+    "note": "Pergunte sobre esta conversa sem alterá-la. Nada do que você perguntar aqui chega à conversa, e a cópia é descartada quando você fecha.",
+    "costLabel": "Custo até agora:",
+    "noCostYet": "nada ainda",
+    "messages": "Mensagens do chat lateral",
+    "opening": "Abrindo uma cópia da conversa…",
+    "empty": "Pergunte algo sobre esta conversa.",
+    "you": "Você",
+    "copy": "Cópia",
+    "thinking": "A cópia está respondendo…",
+    "working": "A cópia está respondendo: {{activity}}",
+    "openFailed": "O chat lateral não abriu. Tente de novo.",
+    "sendFailed": "A pergunta não chegou ao chat lateral. Feche e abra de novo.",
+    "turnFailed": "A resposta falhou.",
+    "ask": "Pergunte ao chat lateral",
+    "placeholder": "Pergunte sobre esta conversa…",
+    "send": "Perguntar",
+    "close": "Fechar o chat lateral ({{shortcut}})",
+    "openMenu": "Chat lateral",
+    "closeMenu": "Fechar o chat lateral"
   }
 }

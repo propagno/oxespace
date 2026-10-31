@@ -861,7 +861,7 @@ export function App(): ReactElement {
         ) : activeWorkspace || applicationView !== 'code' ? (
           <>
             <DataHosts view={applicationView} />
-            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary label="the conversations" onReset={ThreadGrid.retry}><Suspense fallback={<LoadingState brand />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
+            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary id="conversations" label="the conversations" onReset={ThreadGrid.retry}><Suspense fallback={<LoadingState brand />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra
@@ -931,7 +931,7 @@ export function App(): ReactElement {
           }} />}
         </Suspense>
       </section>
-      <ErrorBoundary label="this window">
+      <ErrorBoundary id="window" label="this window">
       <Suspense fallback={null}>
       {isNewWorkspaceOpen ? (
         <NewWorkspaceModal
