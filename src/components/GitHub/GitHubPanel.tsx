@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, GitCompareArrows, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
 import { Github } from '../Brand/GithubIcon'; import { openExternalLink } from '../../lib/externalLinks'
+import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { openInChanges } from '../../store/changes-request.store'
 import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState, ErrorState, LoadingState } from '../../ui'
@@ -1661,10 +1662,10 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
               <Button variant="ghost" title={tc('github.actions.copy')} aria-label={tc('github.setup.copy', { command: cmd })} onClick={() => copyCmd(cmd)}><Copy size={12} aria-hidden="true" /></Button>
             </div>
           ))}
-          <a className="github-setup-link" href="https://cli.github.com" target="_blank" rel="noreferrer">
+          <ExternalAnchor className="github-setup-link" href="https://cli.github.com" source="app">
             <ExternalLink size={12} aria-hidden="true" />
             cli.github.com
-          </a>
+          </ExternalAnchor>
         </div>
       ) : null}
 

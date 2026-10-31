@@ -182,3 +182,16 @@ describe('markdown and settings', () => {
     act(() => { localStorage.setItem(SEEN_HOSTS_KEY, JSON.stringify(['c.example'])); clearSeenHosts() })
   })
 })
+
+describe('one way out', () => {
+  it('no renderer file opens a window or a blank-target anchor except through openExternalLink', async () => {
+    const { readdirSync, readFileSync, statSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const files: string[] = []
+    const walk = (dir: string): void => { for (const name of readdirSync(dir)) { const path = join(dir, name); if (statSync(path).isDirectory()) walk(path); else if (/\.tsx?$/.test(name)) files.push(path) } }
+    walk('src')
+    const allowed = new Set([join('src', 'lib', 'externalLinks.ts'), join('src', 'components', 'ExternalLinks', 'ExternalAnchor.tsx')])
+    const offenders = files.filter(file => !allowed.has(file) && /window\.open\(|<a\b[^>]*target=["']_blank["']/.test(readFileSync(file, 'utf8')))
+    expect(offenders).toEqual([])
+  })
+})
