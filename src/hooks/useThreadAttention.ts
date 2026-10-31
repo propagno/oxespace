@@ -3,6 +3,7 @@ import type { ConversationThread, ThreadPendingRequestSummary, ThreadStatus } fr
 import { useActivityStore, type ActivityKind } from '../store/activity.store'
 import { useSettingsStore } from '../store/settings.store'
 import { useThreadStore } from '../store/thread.store'
+import { displayThreadTitle } from '../components/Threads/threadTitle'
 import { decideThreadAttention, threadAttentionText, type ThreadAttentionKind } from '../utils/threadAttention'
 
 /** Prefix that routes a notification click to a thread instead of a terminal pane. */
@@ -52,10 +53,10 @@ export function useThreadAttention(applicationView: import('../keyboard/keybindi
         const watching = view.current === 'thread' && focused && (thread.id === selectedId || thread.id === secondaryId)
         const decision = decideThreadAttention({ previous, current: thread, viewing: watching })
         if (!decision.kind) continue
-        activity.record({ source: 'thread', id: thread.id, kind: ACTIVITY_KIND[decision.kind], target: threadTarget(thread), title: thread.title.trim() || 'Conversation', detail: threadAttentionText(decision.kind, thread.title).body, read: watching })
+        activity.record({ source: 'thread', id: thread.id, kind: ACTIVITY_KIND[decision.kind], target: threadTarget(thread), title: displayThreadTitle(thread.title), detail: threadAttentionText(decision.kind, displayThreadTitle(thread.title)).body, read: watching })
         if (decision.unread) markUnread(thread.id)
         if (decision.notify && notificationsEnabled) {
-          const text = threadAttentionText(decision.kind, thread.title)
+          const text = threadAttentionText(decision.kind, displayThreadTitle(thread.title))
           void window.oxe?.notifications?.notify({
             ...text,
             paneId: `${THREAD_NOTIFICATION_PANE_PREFIX}${thread.id}`,
@@ -98,7 +99,7 @@ async function seedPending(read: () => Promise<ThreadPendingRequestSummary[]>, t
   if (!Array.isArray(pending)) return
   const byThread = new Map<string, ThreadPendingRequestSummary[]>()
   for (const request of pending) byThread.set(request.threadId, [...(byThread.get(request.threadId) ?? []), request])
-  const titles = new Map(threads.map(thread => [thread.id, thread.title.trim()]))
+  const titles = new Map(threads.map(thread => [thread.id, displayThreadTitle(thread.title)]))
   const activity = useActivityStore.getState()
   for (const [threadId, requests] of byThread) {
     // Answered while the read was in flight, or the view went away.
@@ -107,7 +108,7 @@ async function seedPending(read: () => Promise<ThreadPendingRequestSummary[]>, t
     activity.record({
       source: 'thread', id: threadId, kind: 'needs-you',
       target: threadTarget({ id: threadId, workspaceId: first.workspaceId }),
-      title: titles.get(threadId) || first.threadTitle || 'Conversation',
+      title: titles.get(threadId) ?? displayThreadTitle(first.threadTitle),
       detail: requests.length > 1 ? `${requests.length} requests are waiting for your decision.` : first.title,
       at: Math.max(...requests.map(request => request.createdAt))
     })

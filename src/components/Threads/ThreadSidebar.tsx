@@ -23,6 +23,7 @@ import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
 import { ThreadWorktreeFinishDialog } from './ThreadWorktreeFinishDialog'
 import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
 import { humanizeError } from '../../utils/humanizeError'
+import { displayThreadTitle, namedThreadTitle } from './threadTitle'
 import { useListKeyboard } from '../../hooks/useListKeyboard'
 
 /** Threads shown per project before "Show more" (a search or the selected thread always shows). */
@@ -66,7 +67,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   // Also matches by conversation content (native transcript index), not just title/path.
   const contentIds = useThreadContentSearch(query)
   const contentHit = useCallback((thread: ConversationThread) => !!thread.nativeSessionId && contentIds.has(thread.nativeSessionId), [contentIds])
-  const matches = (thread: ConversationThread, name: string) => !thread.archived && !hiddenProjects.includes(thread.projectId) && (`${name} ${thread.title} ${thread.provider} ${thread.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread))
+  const matches = (thread: ConversationThread, name: string) => !thread.archived && !hiddenProjects.includes(thread.projectId) && (`${name} ${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread))
   const groups = useMemo(() => {
     const catalog = new Map(projects.map(p => [p.projectId, { id: p.projectId, name: p.displayName, path: p.identityLabel, rootPath: p.contexts[0]?.rootPath, threads: [] as ConversationThread[] }]))
     for (const thread of threads) {
@@ -77,12 +78,12 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     }
     // Order by creation, not activity: every streamed event bumps updatedAt, and rows that jumped to the top
     // while an agent worked moved the conversation the person was about to click.
-    return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && (`${g.name} ${t.title} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(t))).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)) }))
+    return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && (`${g.name} ${displayThreadTitle(t.title)} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(t))).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)) }))
       .filter(g => !hiddenProjects.includes(g.id) && (!query || g.threads.length || g.name.toLowerCase().includes(query.toLowerCase())))
       .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
   }, [projects, threads, query, hiddenProjects, contentHit])
   const archived = useMemo(() => threads.filter(thread => thread.archived && !hiddenProjects.includes(thread.projectId)
-    && (`${thread.title} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
+    && (`${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
     .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query, contentHit])
   const restoreArchived = async (thread: ConversationThread) => {
     if (!window.oxe.thread?.command) { setActionError(t('sidebar.restartToRestore')); return }
@@ -99,20 +100,20 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const row = (thread: ConversationThread) => {
     const status = threadNavigationStatus(thread), unread = unreadIds.includes(thread.id)
     return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
-    title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
+    title={`${displayThreadTitle(thread.title)}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
     <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
-    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={12} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
+    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{displayThreadTitle(thread.title)}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={12} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
     {status.kind === 'attention' ? <small className={styles.needs}>{t('status.attention')}</small> : <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>}
-  </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: thread.title })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: thread.title })} side="right" items={[
+  </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: displayThreadTitle(thread.title) })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} side="right" items={[
     { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
-    { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) } },
+    { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(namedThreadTitle(thread.title)) } },
     { label: thread.pinned ? t('sidebar.unpin') : t('sidebar.pin'), icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
     { label: unreadIds.includes(thread.id) ? t('sidebar.markRead') : t('sidebar.markUnread'), icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
     { type: 'separator' },
     { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'archive'); else setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) } },
     { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'delete'); else setConfirmation({ kind: 'thread', id: thread.id, title: thread.title }) } }
-  ]} trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: thread.title })} title={t('sidebar.conversationActions')}><MoreHorizontal size={14} /></button>} /></div>
+  ]} trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} title={t('sidebar.conversationActions')}><MoreHorizontal size={14} /></button>} /></div>
   }
   const railPrimary: RailAction[] = [{ id: 'add-project', label: t('sidebar.addProject'), icon: FolderPlus, onClick: onAddProject }]
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
@@ -151,8 +152,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         {archived.length > 0 && <section className={cx('thread-archived-section', styles.section)} aria-label={t('sidebar.archivedRegion')}>
           <button type="button" data-list-item className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>{t('sidebar.archived')}</span>{' '}<small>{archived.length}</small></button>
           {(query || showArchived) && archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
-            <button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} disabled={restoringId !== null} title={[thread.title, `${thread.provider} · ${thread.rootPath}`].join('\n')} onClick={() => void restoreArchived(thread)}><span>{thread.title}</span>{' '}<small>{relativeTime(thread.updatedAt)}</small></button>
-            <button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.restoreNamed', { name: thread.title })} title={t('sidebar.restoreConversation')} disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Spinner size="sm" decorative /> : <ArchiveRestore size={14} />}</button>
+            <button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} disabled={restoringId !== null} title={[displayThreadTitle(thread.title), `${thread.provider} · ${thread.rootPath}`].join('\n')} onClick={() => void restoreArchived(thread)}><span>{displayThreadTitle(thread.title)}</span>{' '}<small>{relativeTime(thread.updatedAt)}</small></button>
+            <button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.restoreNamed', { name: displayThreadTitle(thread.title) })} title={t('sidebar.restoreConversation')} disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Spinner size="sm" decorative /> : <ArchiveRestore size={14} />}</button>
           </div>)}
         </section>}
         {actionError && <ErrorState compact title={actionError} />}
