@@ -8,4 +8,12 @@ CREATE TABLE IF NOT EXISTS agent_seen (
 );
 CREATE INDEX IF NOT EXISTS idx_agent_seen_at ON agent_seen(seen_at);
 
+-- The agents central's own settings, one row per key. Today: `nudge_after_ms`, the needs-you notification delay
+-- (§5.10): 'off' or 60000, 120000, 300000; no row means the 2 min default.
+CREATE TABLE IF NOT EXISTS agent_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
 PRAGMA user_version = 88;

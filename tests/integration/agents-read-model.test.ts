@@ -24,10 +24,12 @@ describe('agent_seen (migration 088)', () => {
   it('keeps the newest mark per key, deletes with the source, and keeps at most the cap', () => {
     const db = database()
     const store = new AgentSeenStore(db, 3)
-    expect(store.mark('conversation:t1', T0)).toBe(T0)
-    expect(store.mark('conversation:t1', T0 - 5)).toBe(T0)
-    expect(store.mark('conversation:t1', T0 + 5)).toBe(T0 + 5)
-    store.mark('pane:a', T0 + 1); store.mark('pane:b', T0 + 2); store.mark('pane:c', T0 + 3)
+    expect(store.mark('conversation:t1', T0)).toEqual({ seenAt: T0, evicted: [] })
+    expect(store.mark('conversation:t1', T0 - 5).seenAt).toBe(T0)
+    expect(store.mark('conversation:t1', T0 + 5).seenAt).toBe(T0 + 5)
+    store.mark('pane:a', T0 + 1); store.mark('pane:b', T0 + 2)
+    // The cap reports what it evicted, so the read model forgets it in memory too.
+    expect(store.mark('pane:c', T0 + 3)).toEqual({ seenAt: T0 + 3, evicted: ['pane:a'] })
     expect([...store.all().keys()].sort()).toEqual(['conversation:t1', 'pane:b', 'pane:c'])
     store.delete('pane:b')
     expect(store.get('pane:b')).toBeNull()
@@ -46,6 +48,10 @@ describe('the read model on a real database', () => {
     thread('t1', { status: 'approval' })
     thread('t2', { status: 'idle', lastTurnStatus: 'completed' })
     thread('t3', { status: 'idle', archived: true })
+    // Looked at after its turn completed, then a metadata write (cost) moved updatedAt past the mark.
+    thread('t4', { status: 'idle', lastTurnStatus: 'completed', updatedAt: T0 + 100 })
+    db.prepare('INSERT INTO conversation_turns (thread_id, id, data_json) VALUES (?, ?, ?)').run('t4', 'turn-1', JSON.stringify({ id: 'turn-1', status: 'completed', completedAt: T0 + 10 }))
+    db.prepare('INSERT INTO agent_seen (agent_key, seen_at) VALUES (?, ?)').run('conversation:t4', T0 + 50)
     db.prepare('INSERT INTO conversation_events (thread_id, seq, data_json) VALUES (?, ?, ?)').run('t1', 1, JSON.stringify({ type: 'request', request: { id: 'r1', kind: 'question', title: 'raw', state: 'pending', createdAt: T0, generation: 1 } }))
     db.prepare('INSERT INTO conversation_events (thread_id, seq, data_json) VALUES (?, ?, ?)').run('t1', 2, JSON.stringify({ type: 'request', request: { id: 'r0', kind: 'approval', title: 'raw', state: 'resolved', createdAt: T0, generation: 1 } }))
     db.prepare(`INSERT INTO work_runs (id, supervisor_thread_id, workspace_id, project_id, project_root, request_key, title, status, created_at, updated_at) VALUES ('run1', 't2', 'w1', 'p', 'C:/repo', 'k', 'Audit', 'running', ?, ?)`).run(T0, T0)
@@ -58,7 +64,7 @@ describe('the read model on a real database', () => {
     const store = new AgentSeenStore(db)
     const changes: AgentsChange[] = []
     const build = () => {
-      const model = new AgentsReadModel({ sources, seen: store, subscribe: onAgentSource, subscribeStops: onAgentStop, publish: change => changes.push(change), nudge: () => undefined,
+      const model = new AgentsReadModel({ sources, seen: store, subscribe: onAgentSource, subscribeStops: listener => onAgentStop(listener), publish: change => changes.push(change), nudge: () => undefined,
         focused: () => true, markPaneSeen: () => undefined, timers: { needsYouMs: 120_000, noReportMs: 10_000 } })
       model.start()
       stops.push(() => model.stop())
@@ -66,7 +72,9 @@ describe('the read model on a real database', () => {
     }
     const model = build()
     const rows = Object.fromEntries(model.overview().rows.map(row => [row.key, row]))
-    expect(Object.keys(rows).sort()).toEqual(['conversation:t1', 'conversation:t2', 'delegation:d1', 'pane:p1', 'work:run1'])
+    expect(Object.keys(rows).sort()).toEqual(['conversation:t1', 'conversation:t2', 'conversation:t4', 'delegation:d1', 'pane:p1', 'work:run1'])
+    // The restart since is the turn's completion, not updatedAt: the person's earlier look still counts.
+    expect(rows['conversation:t4']).toMatchObject({ state: 'idle', since: T0 + 10, seen: true })
     expect(rows['conversation:t1']).toMatchObject({ state: 'needs-you', pendingRequest: { via: 'thread', id: 'r1', title: { code: 'agents.request.question' }, more: 0 } })
     expect(rows['conversation:t2']).toMatchObject({ state: 'finished' })
     expect(rows['delegation:d1']).toMatchObject({ state: 'needs-you', provider: 'claude' })

@@ -1,16 +1,16 @@
 /**
- * S7.1 · Startup wiring for the agents read model: the two `agents:*` handlers now, the model itself on the first
- * call (its modules load then, never at boot). Kept out of index.ts so the entry file stays small.
+ * S7.1 · Startup wiring for the agents read model: the `agents:*` handlers now, the model itself on the first call or
+ * the first source event (its modules load then, never at boot). Kept out of index.ts so the entry file stays small.
  */
 import { app, BrowserWindow, Notification } from 'electron'
-import { agentTimersE2e, readAgentTimers } from '../../../../shared/agents/agentTimers'
-import { messageKey } from '../../../../shared/messages'
+import { agentTimersE2e, readAgentTimers, type AgentNudgeChoice } from '../../../../shared/agents/agentTimers'
 import { IPC_CHANNELS } from '../../../../shared/types/ipc'
 import type { AgentOverviewRow, AgentsChange } from '../../../../shared/types/ipc/agents'
 import type { PaneAgentState } from '../../../../shared/types/agent-state'
 import type { Workspace } from '../../../../shared/types/workspace'
 import type { AppDatabase } from '../../db'
 import { registerAgentsIpc } from '../../ipc/agents.ipc'
+import type { Translate } from './nudge-notice'
 import type { AgentsReadModel } from './read-model'
 
 export interface AgentsWiringDeps {
@@ -27,49 +27,65 @@ export function agentsReadModel(): Promise<AgentsReadModel> | null {
   return loading
 }
 
+const windows = (): BrowserWindow[] => BrowserWindow.getAllWindows().filter(window => !window.isDestroyed())
+
 export function wireAgents(deps: AgentsWiringDeps): void {
+  const settings = import('./agent-settings').then(({ AgentSettingsStore }) => new AgentSettingsStore(deps.db))
+  /** The delay in force, kept in memory: the timers read it on every flush. */
+  let nudgeAfterMs: AgentNudgeChoice | undefined
   const load = (): Promise<AgentsReadModel> => (loading ??= (async () => {
-    const [{ AgentsReadModel }, { dbAgentSources }, { AgentSeenStore }, sources, { approvalCenter }, { tMain }] = await Promise.all([
-      import('./read-model'), import('./db-sources'), import('./agent-seen-store'), import('./source-events'), import('../approvals'), import('../../i18n')
+    const [{ AgentsReadModel }, { dbAgentSources }, { AgentSeenStore }, sources, { approvalCenter }, { tMain }, { nudgeNotice }, store] = await Promise.all([
+      import('./read-model'), import('./db-sources'), import('./agent-seen-store'), import('./source-events'), import('../approvals'), import('../../i18n'), import('./nudge-notice'), settings
     ])
-    const store = new AgentSeenStore(deps.db)
+    nudgeAfterMs ??= store.nudgeAfterMs()
     const model = new AgentsReadModel({
       sources: dbAgentSources({ db: deps.db, panes: deps.agentState, approvals: approvalCenter, workspaces: deps.workspaces, profiles: deps.profiles }),
-      seen: store,
+      seen: new AgentSeenStore(deps.db),
       subscribe: listener => sources.onAgentSource(listener),
-      subscribeStops: listener => sources.onAgentStop(listener),
-      publish: (change: AgentsChange) => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.agents.changed, change) },
-      nudge: rows => showNudge(rows, tMain as (key: string, values?: Record<string, unknown>) => string),
+      subscribeStops: (listener, failed) => { const offs = [sources.onAgentStop(listener), sources.onAgentStopFailed(failed)]; return () => { for (const off of offs) off() } },
+      publish: (change: AgentsChange) => { for (const window of windows()) window.webContents.send(IPC_CHANNELS.agents.changed, change) },
+      nudge: rows => showNudge(nudgeNotice(rows, tMain as Translate, Date.now())),
       focused: () => BrowserWindow.getFocusedWindow() !== null,
       markPaneSeen: paneId => deps.agentState.markSeen(paneId),
-      timers: readAgentTimers(process.env, agentTimersE2e(process.env, app.isPackaged))
+      timers: readAgentTimers(process.env, agentTimersE2e(process.env, app.isPackaged)),
+      nudgeAfterMs: () => nudgeAfterMs ?? null
     })
     model.start()
-    app.on('browser-window-blur', () => model.focusChanged())
+    // Focus can pass through "no window focused" while it moves between two OXESpace windows: check once it settled.
+    app.on('browser-window-blur', () => setImmediate(() => model.focusChanged()))
     app.once('before-quit', () => model.stop())
     return model
   })())
-  registerAgentsIpc({ model: load })
+  registerAgentsIpc({
+    model: load,
+    nudge: {
+      get: async () => ({ afterMs: nudgeAfterMs ?? (nudgeAfterMs = (await settings).nudgeAfterMs()) }),
+      set: async value => {
+        nudgeAfterMs = (await settings).setNudgeAfterMs(value)
+        ;(await loading)?.settingChanged()
+        // Phones get the new delay in a fresh snapshot (C5); the gateway (#204) listens for it.
+        ;(await import('./remote-seam')).requestRemoteAgentsResnapshot()
+        return { afterMs: nudgeAfterMs }
+      }
+    }
+  })
   // Also on the first thing an agent does, so the needs-you nudge works before any window asked for the overview.
   void import('./source-events').then(({ onAgentSource }) => {
     const off = onAgentSource(() => { off(); void load() })
   })
 }
 
-/** One desktop notification for needs-you rows (§5.10). Clicking it brings the window forward; it never answers. */
-function showNudge(rows: AgentOverviewRow[], t: (key: string, values?: Record<string, unknown>) => string): void {
-  if (!rows.length || !Notification.isSupported()) return
-  const [row] = rows
-  const minutes = Math.max(1, Math.round((Date.now() - (row.pendingRequest?.since ?? row.since)) / 60_000))
-  const title = rows.length === 1 ? t(messageKey('agents.nudge.single'), { agent: row.title, minutes }) : t(messageKey('agents.nudge.batch'), { count: rows.length })
-  const body = rows.map(item => (item.pendingRequest ? t(messageKey(item.pendingRequest.title.code)) : item.title)).join(' · ')
-  const notification = new Notification({ title, body, silent: false })
+/** Shows the needs-you notification; its click brings the window forward and asks it to open Respond (`agents:activate`). */
+function showNudge(notice: { title: string; body: string; activate: { agentId: AgentOverviewRow['key']; requestId?: string } } | null): void {
+  if (!notice || !Notification.isSupported()) return
+  const notification = new Notification({ title: notice.title, body: notice.body, silent: false })
   notification.on('click', () => {
-    const window = BrowserWindow.getAllWindows().find(item => !item.isDestroyed())
+    const [window] = windows()
     if (!window) return
     if (window.isMinimized()) window.restore()
     window.show()
     window.focus()
+    window.webContents.send(IPC_CHANNELS.agents.activate, notice.activate)
   })
   notification.show()
 }

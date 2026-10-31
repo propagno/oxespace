@@ -32,6 +32,12 @@ const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
   { module: 'shared/activity.ts', loadedBy: 'services/activity-store.ts, first activity request' },
   { module: 'electron/main/services/conversation/thread-sections.ts', loadedBy: 'ipc/thread-sections.ipc.ts, first sections request' },
   { module: 'electron/main/e2e/mock-ipc.ts', loadedBy: 'index.ts, E2E mock launches only' },
+  { module: 'electron/main/services/agents/wiring.ts', loadedBy: 'index.ts, after the approvals wiring' },
+  { module: 'electron/main/services/agents/read-model.ts', loadedBy: 'services/agents/wiring.ts, first agents call or source event' },
+  { module: 'electron/main/services/agents/db-sources.ts', loadedBy: 'services/agents/wiring.ts, first agents call or source event' },
+  { module: 'electron/main/services/agents/agent-seen-store.ts', loadedBy: 'services/agents/wiring.ts, first agents call or source event' },
+  { module: 'electron/main/services/agents/agent-settings.ts', loadedBy: 'services/agents/wiring.ts, at wiring' },
+  { module: 'electron/main/services/agents/remote-seam.ts', loadedBy: 'services/agents/wiring.ts, a setting change; the gateway (#204)' },
   { module: 'resources/memory/agent-hook.cjs', loadedBy: 'services/memory/agent-memory-adapter.ts, hook setup' },
   { module: 'resources/agent-hooks/oxespace-status-hook.cjs', loadedBy: 'ipc/agent-hooks.ipc.ts, Settings' },
   { module: 'resources/mcp-bridge/oxespace-mcp.cjs', loadedBy: 'mcp-internal/bootstrap.ts, internal MCP start' }

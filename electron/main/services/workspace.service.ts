@@ -22,6 +22,10 @@ import type {
   WorkspacePane
 } from '../../../shared/types/workspace'
 import { planSplit } from '../../../shared/workspace-split'
+import { notifyAgentSource } from './agents/source-events'
+
+/** A pane left its workspace: the agents read model ends a row it kept as Stopped (S7.1). */
+const paneGone = (paneId: string): void => notifyAgentSource({ source: 'pane', id: paneId, deleted: true, closed: true })
 
 interface WorkspaceRow {
   id: string
@@ -222,7 +226,9 @@ export class WorkspaceService {
   }
 
   delete(id: string): void {
+    const panes = this.db.prepare('SELECT id FROM panes WHERE workspace_id = ?').all(id) as { id: string }[]
     this.db.prepare('DELETE FROM workspaces WHERE id = ?').run(id)
+    for (const pane of panes) paneGone(pane.id)
   }
 
   closePane(id: string): Workspace | null {
@@ -234,6 +240,7 @@ export class WorkspaceService {
       return null
     }
     const workspaceId = paneRow.workspace_id
+    paneGone(id)
 
     const compact = this.db.transaction(() => {
       this.db.prepare('DELETE FROM panes WHERE id = ?').run(id)
@@ -497,6 +504,7 @@ export class WorkspaceService {
 
       for (const pane of panesToRemove) {
         this.db.prepare('DELETE FROM panes WHERE id = ?').run(pane.id)
+        paneGone(pane.id)
       }
 
       const existingKeys = new Set(current.panes.filter((pane) => nextPositionKeys.has(positionKey(pane))).map(positionKey))

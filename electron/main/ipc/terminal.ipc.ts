@@ -8,7 +8,7 @@ import {
   parseTerminalWriteInput
 } from './validation'
 import type { TerminalAttachResult, TerminalStatusResult } from '../../../shared/types/ipc'
-import { notifyAgentStop } from '../services/agents/source-events'
+import { notifyAgentStop, notifyAgentStopFailed } from '../services/agents/source-events'
 
 export interface TerminalIpcController {
   start(input: ReturnType<typeof parseTerminalStartInput>): Promise<void> | void
@@ -26,7 +26,14 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event, input: unknown) => controller.start(parseTerminalStartInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.write, (_event, input: unknown) => controller.write(parseTerminalWriteInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.resize, (_event, input: unknown) => controller.resize(parseTerminalResizeInput(input)))
-  ipcMain.handle(IPC_CHANNELS.terminal.stop, (_event, input: unknown) => { const parsed = parseTerminalStopInput(input); notifyAgentStop(`pane:${parsed.paneId}`); return controller.stop(parsed) })
+  ipcMain.handle(IPC_CHANNELS.terminal.stop, (_event, input: unknown) => {
+    const parsed = parseTerminalStopInput(input), key = `pane:${parsed.paneId}`
+    notifyAgentStop(key)
+    try {
+      const result = controller.stop(parsed)
+      return Promise.resolve(result).catch((error: unknown) => { notifyAgentStopFailed(key); throw error })
+    } catch (error) { notifyAgentStopFailed(key); throw error }
+  })
   ipcMain.handle(IPC_CHANNELS.terminal.restart, (_event, input: unknown) => controller.restart(parseTerminalStopInput(input)))
   // attach must stay synchronous inside the handler: it flushes, snapshots and
   // flips the attached flag in one tick so no output is duplicated or lost.

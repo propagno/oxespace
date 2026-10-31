@@ -76,7 +76,8 @@ export class DelegationApplicationService {
     if (!task) throw new Error('Delegation not found')
     return task
   }
-  private save(task: DelegationTask): void { this.repository.save(task) }
+  // Every save tells the agents read model (S7.1), so a new destination pane or conversation is hidden at once.
+  private save(task: DelegationTask): void { this.repository.save(task); notifyAgentSource({ source: 'delegation', id: task.id }) }
   observeThread(thread: ConversationThread): void {
     const row = this.db.prepare("SELECT id FROM delegations WHERE json_extract(payload, '$.destinationThreadId') = ? LIMIT 1").get(thread.id) as { id: string } | undefined
     if (!row) return

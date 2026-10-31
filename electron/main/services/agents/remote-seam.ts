@@ -32,6 +32,21 @@ const remoteRow = (row: AgentOverviewRow, deps: RemoteAgentsSeamDeps) => toRemot
   canInterrupt: deps.canInterrupt(row)
 })
 
+const resnapshot = new Set<() => void>()
+
+/** TODO(#204): the gateway listens here and sends every `agents` subscriber a fresh snapshot (the setting changed). */
+export function onRemoteAgentsResnapshot(listener: () => void): () => void {
+  resnapshot.add(listener)
+  return () => { resnapshot.delete(listener) }
+}
+
+/** The needs-you setting changed: phones get it in a fresh snapshot, never on an event (C5). */
+export function requestRemoteAgentsResnapshot(): void {
+  for (const listener of resnapshot) {
+    try { listener() } catch { /* one subscriber's failure is the gateway's to report */ }
+  }
+}
+
 /** The pages of an `agents` snapshot; the last carries the failed sources and the needs-you setting. */
 export function remoteAgentsSnapshot(overview: AgentsOverview, deps: RemoteAgentsSeamDeps, nudgeAfterMs: number | null): RemoteAgentsSnapshot[] {
   const unavailable = (Object.keys(overview.sources) as (keyof AgentsOverview['sources'])[]).filter(kind => !overview.sources[kind].ok)

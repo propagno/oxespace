@@ -15,6 +15,8 @@ export interface AgentSourceEvent {
   id?: string
   /** The source is gone for good (a closed pane's agent, a deleted conversation): its seen mark goes too. */
   deleted?: true
+  /** Panes only: the pane itself left its workspace, not just its agent (a Stopped row ends then). */
+  closed?: true
 }
 
 type Listener = (event: AgentSourceEvent) => void
@@ -40,6 +42,20 @@ export function notifyAgentStop(key: string): void {
 export function onAgentStop(listener: StopListener): () => void {
   stopListeners.add(listener)
   return () => { stopListeners.delete(listener) }
+}
+
+const cancelListeners = new Set<StopListener>()
+
+/** The Stop failed (`interrupt` or `terminal.stop` threw): nothing was stopped, so its no-report window ends. */
+export function notifyAgentStopFailed(key: string): void {
+  for (const listener of cancelListeners) {
+    try { listener(key) } catch { /* as above */ }
+  }
+}
+
+export function onAgentStopFailed(listener: StopListener): () => void {
+  cancelListeners.add(listener)
+  return () => { cancelListeners.delete(listener) }
 }
 
 export function onAgentSource(listener: Listener): () => void {

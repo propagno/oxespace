@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
 import { validatePlan, WorkError } from '../../electron/main/services/work/work-service'
+import { onAgentSource } from '../../electron/main/services/agents/source-events'
 import type { AgentConversationAdapter, ConversationThread, ThreadEvent } from '../../shared/types/thread'
 import type { WorkPlanInput } from '../../shared/types/work'
 import { removeTempDir } from '../helpers/removeTempDir'
@@ -76,6 +77,23 @@ async function setup(access: 'read-only' | 'workspace-write' = 'workspace-write'
 const plan = (fields: Partial<WorkPlanInput> & Pick<WorkPlanInput, 'tasks'>): WorkPlanInput => ({ key: 'plan-key-1', title: 'Ship the feature', ...fields })
 
 describe('Agent Work', () => {
+  it('tells the agents read model a worker conversation is bound before the worker gets its prompt (S7.1)', { timeout: 30_000 }, async () => {
+    const { manager, supervisor, settle, fakes } = await setup()
+    const boundEarly = new Set<string>()
+    const off = onAgentSource(event => {
+      if (event.source !== 'work' || !event.id) return
+      for (const task of manager.work.run(event.id).tasks) if (task.threadId && !(fakes.get(task.threadId)?.sent.length)) boundEarly.add(task.threadId)
+    })
+    try {
+      const run = manager.work.plan(supervisor.id, plan({ tasks: [{ key: 'api', title: 'Survey the API', prompt: 'List the endpoints' }] }))
+      await settle()
+      const threadId = manager.work.run(run.id).tasks[0].threadId!
+      expect(fakes.get(threadId)?.sent.length).toBeGreaterThan(0)
+      // So the worker nests under work:<run> at once, never as a top-level row until its task ends.
+      expect(boundEarly.has(threadId)).toBe(true)
+    } finally { off() }
+  })
+
   it('fans out, joins, hands results to the dependent task and tells the supervisor once at the end', { timeout: 30_000 }, async () => {
     const { manager, supervisor, settle, worker, finish, supervisorMessages } = await setup()
     const run = manager.work.plan(supervisor.id, plan({ tasks: [

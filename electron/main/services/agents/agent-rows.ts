@@ -13,7 +13,8 @@ import type { ConversationThread, ThreadRequest } from '../../../../shared/types
 import type { WorkRunStatus } from '../../../../shared/types/work'
 import type { Workspace } from '../../../../shared/types/workspace'
 
-export interface ConversationFacts { thread: ConversationThread; requests: ThreadRequest[] }
+/** `completedAt`: the latest turn's completion time, read at load so a restart keeps the time a turn finished. */
+export interface ConversationFacts { thread: ConversationThread; requests: ThreadRequest[]; completedAt?: number }
 export interface WorkFacts {
   run: { id: string; supervisorThreadId: string; workspaceId: string; title: string; status: WorkRunStatus; updatedAt: number }
   tasks: { status: string; threadId: string | null }[]
@@ -21,6 +22,8 @@ export interface WorkFacts {
 
 export interface AgentFacts {
   panes: ReadonlyMap<string, PaneAgentState>
+  /** Panes whose agent left inside a Stop window: kept as Stopped while the pane exists (§3.2, one vocabulary). */
+  stoppedPanes?: ReadonlySet<string>
   conversations: ReadonlyMap<string, ConversationFacts>
   delegations: ReadonlyMap<string, DelegationTask>
   work: ReadonlyMap<string, WorkFacts>
@@ -83,16 +86,21 @@ export function draftRows(facts: AgentFacts): DraftRow[] {
     return pendingRequest ? { state: 'needs-you', pendingRequest } : { state }
   }
 
+  const livePanes = new Set(facts.workspaces.flatMap(workspace => workspace.panes.map(item => item.id)))
   for (const pane of facts.panes.values()) {
     const key = agentKey('pane', pane.paneId)
     if (!parseAgentKey(key)) continue
-    const mapped = agentState({ kind: 'pane', lifecycle: pane.state, terminal: 'running', seen: pane.seen })
+    const stopped = facts.stoppedPanes?.has(pane.paneId) === true
+    // The person stopped it: Stopped while the pane exists, as the renderer's tone shows it; it ends when the pane closes.
+    if (stopped && !livePanes.has(pane.paneId)) continue
+    const mapped = stopped ? agentState({ kind: 'pane', lifecycle: null, terminal: 'exited', stoppedByPerson: true, seen: pane.seen })
+      : agentState({ kind: 'pane', lifecycle: pane.state, terminal: 'running', seen: pane.seen })
     if (mapped.ended) continue
     rows.push({ key, kind: 'pane', id: pane.paneId, workspaceId: pane.workspaceId, mode: 'code', title: titled(paneNames.get(pane.paneId), pane.agent), provider: pane.agent,
       ...withRequest(key, mapped.state), sinceHint: pane.since })
   }
 
-  for (const [threadId, { thread }] of facts.conversations) {
+  for (const [threadId, { thread, completedAt }] of facts.conversations) {
     const key = agentKey('conversation', threadId)
     if (thread.archived || !parseAgentKey(key)) continue
     const pending = requests.get(key)?.length ?? 0
@@ -103,7 +111,7 @@ export function draftRows(facts: AgentFacts): DraftRow[] {
     rows.push({ key, kind: 'conversation', id: threadId, workspaceId: thread.workspaceId, mode: 'thread', title: titled(thread.title, 'Conversation'), provider: thread.provider,
       ...(thread.costReport ? { cost: { usd: thread.costReport.totalUsd, estimated: thread.costReport.source === 'codex-token-usage' } } : {}),
       ...(worktree ? { worktree: { path: worktree, branch: thread.ownedWorktree?.branch ?? null } } : {}),
-      ...withRequest(key, mapped.state), sinceHint: thread.updatedAt })
+      ...withRequest(key, mapped.state), sinceHint: completedAt ?? thread.updatedAt })
   }
 
   for (const task of facts.delegations.values()) {
@@ -182,8 +190,10 @@ export function stampRows(drafts: DraftRow[], facts: AgentFacts, seenAt: Readonl
   }
   rows.sort(compareAgentRows)
   if (rows.length > AGENTS_LIMITS.rows) {
-    const quiet = new Set<AgentState>(['idle', 'stopped', 'unknown'])
-    const droppable = rows.filter(row => quiet.has(row.state)).sort((a, b) => a.since - b.since)
+    // Past the cap, the oldest quiet rows go first (idle, stopped, unknown), then the oldest finished and failed ones.
+    // Needs-you and working rows are never dropped.
+    const rank = (state: AgentState) => (state === 'idle' || state === 'stopped' || state === 'unknown' ? 0 : state === 'finished' || state === 'failed' ? 1 : 2)
+    const droppable = rows.filter(row => rank(row.state) < 2).sort((a, b) => rank(a.state) - rank(b.state) || a.since - b.since)
     const drop = new Set<string>(droppable.slice(0, rows.length - AGENTS_LIMITS.rows).map(row => row.key))
     return { rows: rows.filter(row => !drop.has(row.key)), history: new Map([...next].filter(([key]) => !drop.has(key))) }
   }

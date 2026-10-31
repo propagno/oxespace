@@ -29,10 +29,16 @@ export function dbAgentSources(deps: DbSourceDeps): AgentSources {
   const requestsOf = (threadId: string): ThreadRequest[] =>
     (db.prepare(`SELECT data_json FROM conversation_events WHERE thread_id = ? AND ${PENDING} ORDER BY seq LIMIT 100`).all(threadId) as { data_json: string }[])
       .map(row => (JSON.parse(row.data_json) as Extract<ThreadEvent, { type: 'request' }>).request)
-  const conversation = (id: string, json: string, requests?: ThreadRequest[]): ConversationFacts => {
+  // The latest turn's completion, for a conversation that settled after a completed turn (restart `since`).
+  const completedAtOf = (threadId: string): number | undefined => {
+    const row = db.prepare("SELECT max(json_extract(data_json, '$.completedAt')) AS at FROM conversation_turns WHERE thread_id = ?").get(threadId) as { at: number | null } | undefined
+    return typeof row?.at === 'number' ? row.at : undefined
+  }
+  const conversation = (id: string, json: string, requests?: ThreadRequest[], withCompletion = false): ConversationFacts => {
     const thread = { ...(JSON.parse(json) as ConversationThread), id }
+    const completedAt = withCompletion && thread.status === 'idle' && thread.lastTurnStatus === 'completed' ? completedAtOf(id) : undefined
     // As the conversation's own view: a request counts while the conversation waits on it (ThreadHistory does the same).
-    return { thread, requests: thread.status === 'approval' ? requests ?? requestsOf(id) : [] }
+    return { thread, requests: thread.status === 'approval' ? requests ?? requestsOf(id) : [], ...(completedAt !== undefined ? { completedAt } : {}) }
   }
   type RunRow = { id: string; supervisor_thread_id: string; workspace_id: string; title: string; status: WorkRunStatus; updated_at: number }
   const runFacts = (run: RunRow, tasks: { status: string; thread_id: string | null }[]): WorkFacts => ({
@@ -46,11 +52,13 @@ export function dbAgentSources(deps: DbSourceDeps): AgentSources {
     conversations: {
       all: () => {
         const pending = new Map<string, ThreadRequest[]>()
-        for (const row of db.prepare(`SELECT thread_id, data_json FROM conversation_events WHERE ${PENDING} ORDER BY thread_id, seq`).all() as { thread_id: string; data_json: string }[]) {
+        // Only the conversations waiting for the person have requests that count, so only their events are read.
+        const waiting = `thread_id IN (SELECT id FROM conversation_threads WHERE json_extract(data_json, '$.status') = 'approval')`
+        for (const row of db.prepare(`SELECT thread_id, data_json FROM conversation_events WHERE ${waiting} AND ${PENDING} ORDER BY thread_id, seq`).all() as { thread_id: string; data_json: string }[]) {
           pending.set(row.thread_id, [...(pending.get(row.thread_id) ?? []), (JSON.parse(row.data_json) as Extract<ThreadEvent, { type: 'request' }>).request])
         }
         return (db.prepare("SELECT id, data_json FROM conversation_threads WHERE coalesce(json_extract(data_json, '$.archived'), 0) = 0").all() as { id: string; data_json: string }[])
-          .map(row => conversation(row.id, row.data_json, pending.get(row.id) ?? []))
+          .map(row => conversation(row.id, row.data_json, pending.get(row.id) ?? [], true))
       },
       get: id => {
         const row = db.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(id) as { data_json: string } | undefined

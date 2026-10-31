@@ -332,6 +332,8 @@ export class WorkService {
       const snapshot = this.host.create({ workspaceId: run.workspace_id, projectId: run.project_id, rootPath: run.project_root, provider: task.provider, ...(profile ? { agentProfileId: profile } : {}) })
       const threadId = snapshot.thread.id
       this.db.prepare('UPDATE work_tasks SET thread_id = ?, turn_base = 0 WHERE id = ?').run(threadId, taskId)
+      // The worker conversation nests under its run at once (S7.1), not at the task's next event.
+      notifyAgentSource({ source: 'work', id: run.id })
       await this.host.configure(threadId, { access: task.access, approvalPolicy: 'on-request', networkAccess: false, mode: 'default', hooksEnabled: false }, snapshot.thread.configurationRevision ?? 0)
       await this.host.command(threadId, `/rename ${task.title.slice(0, 120)}`).catch(() => {})
       if (this.stopped || this.current(taskId)?.status !== 'running') return
