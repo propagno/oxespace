@@ -163,8 +163,8 @@
   },
   "approval": {
     "prompt": {
-      "accept": "Aprovar este pedido",
-      "decline": "Recusar este pedido",
+      "accept": "Permitir este pedido uma vez",
+      "decline": "Negar este pedido",
       "cancel": "Cancelar este pedido",
       "answer": "Enviar estas respostas"
     }

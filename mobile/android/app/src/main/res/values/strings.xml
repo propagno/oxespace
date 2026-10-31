@@ -6,10 +6,10 @@
     <string name="action_offline">Not connected to your computer. Nothing was sent.</string>
     <string name="action_rate_limited">Too many actions in a minute. Try again shortly.</string>
     <string name="action_refused">Your computer didn\'t accept it.</string>
-    <string name="approval_prompt_accept">Approve this request</string>
+    <string name="approval_prompt_accept">Allow this request once</string>
     <string name="approval_prompt_answer">Send these answers</string>
     <string name="approval_prompt_cancel">Cancel this request</string>
-    <string name="approval_prompt_decline">Decline this request</string>
+    <string name="approval_prompt_decline">Deny this request</string>
     <string name="composer_placeholder">Message the agent</string>
     <string name="composer_send">Send</string>
     <string name="composer_steer">Steer</string>

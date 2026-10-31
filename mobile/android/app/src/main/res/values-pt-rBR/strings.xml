@@ -6,10 +6,10 @@
     <string name="action_offline">Sem conexão com o computador. Nada foi enviado.</string>
     <string name="action_rate_limited">Ações demais em um minuto. Tente de novo daqui a pouco.</string>
     <string name="action_refused">O computador não aceitou.</string>
-    <string name="approval_prompt_accept">Aprovar este pedido</string>
+    <string name="approval_prompt_accept">Permitir este pedido uma vez</string>
     <string name="approval_prompt_answer">Enviar estas respostas</string>
     <string name="approval_prompt_cancel">Cancelar este pedido</string>
-    <string name="approval_prompt_decline">Recusar este pedido</string>
+    <string name="approval_prompt_decline">Negar este pedido</string>
     <string name="composer_placeholder">Mensagem para o agente</string>
     <string name="composer_send">Enviar</string>
     <string name="composer_steer">Orientar</string>

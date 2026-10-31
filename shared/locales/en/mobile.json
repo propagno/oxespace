@@ -157,8 +157,8 @@
   },
   "approval": {
     "prompt": {
-      "accept": "Approve this request",
-      "decline": "Decline this request",
+      "accept": "Allow this request once",
+      "decline": "Deny this request",
       "cancel": "Cancel this request",
       "answer": "Send these answers"
     }
