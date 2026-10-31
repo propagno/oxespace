@@ -26,20 +26,22 @@ describe('thread:set-coordinator IPC (B1.4)', () => {
     const handler = handlers.get(IPC_CHANNELS.thread.setCoordinator)!
     expect(handler).toBeTypeOf('function')
     const app = { sender: { window: true, mainFrame }, senderFrame: mainFrame }
-    await handler(app, 'thread-A', true)
-    await handler(app, 'thread-A', false)
-    // B1.4 · S7.5: a preview, and a confirmation that hands its token back.
+    // B1.4 · S7.5: a preview, and a confirmation that hands its token back; a confirmation without one is refused (SECURITY L-4).
     const token = { identity: '/repo', teamRevision: 3, coordinatorThreadId: null }
     await handler(app, 'thread-A', true, { preview: true })
     await handler(app, 'thread-A', true, { expect: token })
-    expect(setCoordinator.mock.calls).toEqual([['thread-A', true, {}], ['thread-A', false, {}], ['thread-A', true, { preview: true }], ['thread-A', true, { expect: token }]])
-    for (const invalid of [undefined, 'true', 1, null, {}]) expect(() => handler(app, 'thread-A', invalid)).toThrow('Invalid coordinator input')
+    await handler(app, 'thread-A', false, { preview: true })
+    await handler(app, 'thread-A', false, { expect: { ...token, coordinatorThreadId: 'thread-A' } })
+    expect(setCoordinator.mock.calls).toEqual([['thread-A', true, { preview: true }], ['thread-A', true, { expect: token }],
+      ['thread-A', false, { preview: true }], ['thread-A', false, { expect: { ...token, coordinatorThreadId: 'thread-A' } }]])
+    for (const confirm of [undefined, {}, { preview: false }]) expect(() => handler(app, 'thread-A', true, confirm)).toThrow('preview first')
+    for (const invalid of [undefined, 'true', 1, null, {}]) expect(() => handler(app, 'thread-A', invalid, { preview: true })).toThrow('Invalid coordinator input')
     for (const invalid of ['preview', [], { preview: 'yes' }, { expect: {} }, { expect: { ...token, teamRevision: 1.5 } }, { expect: { ...token, coordinatorThreadId: 'x\0y' } }]) {
       expect(() => handler(app, 'thread-A', true, invalid)).toThrow('Invalid coordinator options')
     }
-    for (const invalid of [undefined, '', 42, { id: 'thread-A' }, 'x\0y', 'x'.repeat(70000)]) expect(() => handler(app, invalid, true)).toThrow('Invalid thread input')
-    expect(() => handler({ sender: { window: true, mainFrame }, senderFrame: {} }, 'thread-A', true)).toThrow('application main frame')
-    expect(() => handler({ sender: { window: false, mainFrame }, senderFrame: mainFrame }, 'thread-A', true)).toThrow('application main frame')
+    for (const invalid of [undefined, '', 42, { id: 'thread-A' }, 'x\0y', 'x'.repeat(70000)]) expect(() => handler(app, invalid, true, { preview: true })).toThrow('Invalid thread input')
+    expect(() => handler({ sender: { window: true, mainFrame }, senderFrame: {} }, 'thread-A', true, { preview: true })).toThrow('application main frame')
+    expect(() => handler({ sender: { window: false, mainFrame }, senderFrame: mainFrame }, 'thread-A', true, { preview: true })).toThrow('application main frame')
     expect(setCoordinator).toHaveBeenCalledTimes(4)
   })
 })

@@ -26,7 +26,7 @@ describe('persistent team foundation', () => {
     const updated = f.repo.replaceCoordinator(f.team.id, f.team.revision, f.developer.id)
     expect(updated.members.find(m => m.id === f.developer.id)?.role).toBe('coordinator')
     expect(updated.members.find(m => m.id === f.coordinator.id)?.role).toBe('developer')
-    expect(() => f.repo.archive(f.team.id, f.team.revision, f.developer.id)).toThrow('Team changed')
+    expect(() => f.repo.archive(f.team.id, f.team.revision, f.developer.id)).toThrow('team.changed')
     expect(() => f.repo.add(f.team.id, updated.revision, 'Duplicate', 'coordinator')).toThrow()
     expect(f.repo.get(f.team.id)).toEqual(updated)
   })

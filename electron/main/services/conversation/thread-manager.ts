@@ -6,6 +6,7 @@ import { threadToolRoles, toolSearchEnvironment } from './thread-mcp'
 import { projectToolModes, sessionToolPlan, usesToolSearch } from './tool-groups'
 import { loadRepoConfig } from '../repo-config/loader'
 import { projectIdentity } from '../memory/memory-project.service'
+import { identityGuard, type IdentityGuard } from './identity-guard'
 import type { ConversationThread, ProjectCoordinatorOptions, ProjectCoordinatorOutcome, ThreadCommandResult, ThreadDelta, ThreadSnapshot, ThreadSyncCursor } from '../../../../shared/types/thread'
 
 /**
@@ -19,6 +20,8 @@ import type { ConversationThread, ProjectCoordinatorOptions, ProjectCoordinatorO
 export class ThreadManager extends ThreadOrchestrator {
   /** How a project root becomes its identity; tests stand in for Git here. */
   coordinatorIdentity: (root: string) => Promise<string> = projectIdentity
+  /** Refuses identities shared with unrelated folders (SECURITY M-1); tests stand in for Git here too. */
+  coordinatorGuard: IdentityGuard = identityGuard
 
   override list(): ConversationThread[] {
     const ids = coordinatorIds(this.db)
@@ -51,14 +54,14 @@ export class ThreadManager extends ThreadOrchestrator {
    * identity stops being it, and the Team follows (ProjectCoordinatorService). A preview changes nothing.
    */
   async setCoordinator(id: string, coordinator: boolean, options: ProjectCoordinatorOptions = {}): Promise<ProjectCoordinatorOutcome> {
-    const outcome = await new ProjectCoordinatorService(this.db, this.coordinatorIdentity).setForThread(id, coordinator, options)
+    const outcome = await new ProjectCoordinatorService(this.db, this.coordinatorIdentity, this.coordinatorGuard).setForThread(id, coordinator, options)
     if (!options.preview) await this.coordinatorsChanged(outcome.changed)
     return outcome
   }
 
-  /** The boot pass: drops drifted rows and backfills them from the Team's coordinator links. */
+  /** The boot pass: drops drifted rows; the first time only, backfills from the Team's coordinator links. */
   async reconcileCoordinators(): Promise<void> {
-    await this.coordinatorsChanged(await reconcileProjectCoordinators(this.db, this.coordinatorIdentity))
+    await this.coordinatorsChanged(await reconcileProjectCoordinators(this.db, this.coordinatorIdentity, this.coordinatorGuard))
   }
 
   /**

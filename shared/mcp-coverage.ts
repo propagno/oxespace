@@ -214,8 +214,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'thread.coordinator_admin': { label: 'Make a conversation the project\'s coordinator', forbidden: 'Raises what an agent can reach.', ipc: ['thread.setCoordinator'] },
   // B1.4: oxespace_threads `pending` is listed and run only for the project's coordinator conversation (DomainAction.role):
-  // title, kind, conversation and age of each pending request, inside the untrusted-output block since other agents wrote
-  // them. No command, argument or path, and nothing that answers a request; approvals stay with the person.
+  // kind, a title built from the kind and the tool name, conversation and age of each pending request, inside the
+  // untrusted-output block since other agents wrote them. Never the request's own title (the CLI's prompt, which can
+  // name a path or a command), no command, argument or path, and nothing that answers a request; approvals stay with the person.
   'thread.coordinator_read': { label: 'The coordinator\'s summary of the project\'s pending requests', tools: each('oxespace_threads', 'read', ['pending']) },
   'thread.side_chat': { label: 'A side chat about a conversation', excluded: 'The person\'s read-only scratch copy of a conversation; agents ask in their own.', ipc: ['thread.sideOpen', 'thread.sideSend', 'thread.sideClose'] },
   'thread.drive': {

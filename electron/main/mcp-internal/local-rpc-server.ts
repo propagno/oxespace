@@ -147,8 +147,14 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
       // A session keeps the tool list it started with; a tool its conversation lost since (B1.4) is refused here.
       let caller: { kind: 'pane' | 'thread'; id: string } | undefined
       try { caller = deps.executions?.authenticate(executionId, executionToken, workspaceId).owner } catch { /* not a live execution */ }
-      if (caller?.kind === 'thread' && (await import('../services/conversation/thread-coordinator')).isRevokedThreadTool(caller.id, name)) {
-        return { jsonrpc: '2.0', id, result: errorResult(`${name} is no longer available in this conversation: it stopped being the project's coordinator. Continue without it.`) }
+      if (caller?.kind === 'thread') {
+        const roles = await import('../services/conversation/thread-coordinator')
+        if (roles.isRevokedThreadTool(caller.id, name)) {
+          return { jsonrpc: '2.0', id, result: errorResult(`${name} is no longer available in this conversation: it stopped being the project's coordinator. Continue without it.`) }
+        }
+        if (deps.db && await roles.isToolOffForConversation(deps.db, caller.id, name)) {
+          return { jsonrpc: '2.0', id, result: errorResult(`${name} is not available in this conversation: its project turns it off, or it is kept for the project's coordinator. Continue without it.`) }
+        }
       }
       // Workspace-scoped tools no longer hard-fail when the header is missing.
       // Handlers call requireWorkspace(), which prefers a valid header id and

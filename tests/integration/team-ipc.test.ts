@@ -5,6 +5,8 @@ import { registerTeamIpc } from '../../electron/main/ipc/team.ipc'
 const hooks = vi.hoisted(() => ({ handlers: new Map<string, (...args: unknown[]) => unknown>(), identify: vi.fn(async () => '/same/git'), window: vi.fn(() => ({})) }))
 vi.mock('electron', () => ({ app: { getPath: () => '', isReady: () => false, getLocale: () => 'en' }, BrowserWindow: { fromWebContents: hooks.window }, ipcMain: { handle: (name: string, handler: (...args: unknown[]) => unknown) => hooks.handlers.set(name, handler) } }))
 vi.mock('../../electron/main/services/memory/memory-project.service', () => ({ projectIdentity: hooks.identify }))
+// Git's guard stands aside (its own tests: identity-guard.test.ts); the roots here are not folders.
+vi.mock('../../electron/main/services/conversation/identity-guard', () => ({ identityGuard: async () => 'ok', createIdentityGuard: () => async () => 'ok' }))
 const databases: AppDatabase[] = []
 afterEach(() => { databases.splice(0).forEach(db => db.close()); hooks.handlers.clear(); hooks.identify.mockReset(); hooks.identify.mockResolvedValue('/same/git'); hooks.window.mockReset(); hooks.window.mockReturnValue({}) })
 process.env.OXESPACE_LOCALE = 'en'
@@ -53,12 +55,18 @@ describe('team actions move the project\'s coordinator conversation (B1.4 · S7.
     expect(changed).not.toHaveBeenCalled()
     const done = await f.command(f.event, scope, 'coordinator', team.revision, bia, undefined, undefined, { expect: preview.token }) as typeof team & { coordinatorChange: { changed: string[] } }
     expect(done.coordinatorChange.changed).toEqual(['x'])
-    expect(done.members.map(m => [m.name, m.role])).toEqual([['Ana', 'developer'], ['Bia', 'coordinator']])
+    expect(done.members.map(m => [m.name, m.role]).sort()).toEqual([['Ana', 'developer'], ['Bia', 'coordinator']])
     expect(rows()).toEqual([{ identity: '/same/git', threadId: 'x' }])
     expect(changed).toHaveBeenCalledWith(['x'])
     // The same token again is stale; the refusal is a C3 code and writes nothing.
     await expect(f.command(f.event, scope, 'coordinator', done.revision, ana, undefined, undefined, { expect: preview.token })).rejects.toThrow('thread.coordinator.changed')
     expect(rows()).toEqual([{ identity: '/same/git', threadId: 'x' }])
     await expect(f.command(f.event, scope, 'coordinator', done.revision, ana, undefined, undefined, { preview: 'yes' })).rejects.toThrow('Invalid coordinator options')
+    // A confirmation without the preview's token is refused (SECURITY L-4); other Team actions need none.
+    await expect(f.command(f.event, scope, 'coordinator', done.revision, ana)).rejects.toThrow('preview first')
+    await expect(f.command(f.event, scope, 'archive', done.revision, ana)).rejects.toThrow('preview first')
+    await expect(f.command(f.event, scope, 'add', done.revision, 'Caio', 'reviewer')).resolves.toMatchObject({ revision: done.revision + 1 })
+    // A stale revision is a C3 code too.
+    await expect(f.command(f.event, scope, 'add', done.revision, 'Duda', 'reviewer')).rejects.toThrow('team.changed')
   })
 })

@@ -595,6 +595,8 @@ export interface ThreadPendingRequestSummary {
   requestId: string
   kind: ThreadRequest['kind']
   title: string
+  /** The tool the request is for, when it names one (the coordinator's summary shows this, never `title`). */
+  toolName?: string
   createdAt: number
   /** The conversation generation the request belongs to; an answer must name it (`respondPending`). */
   generation: number

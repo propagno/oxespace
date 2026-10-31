@@ -2,6 +2,7 @@ import type { AppDatabase } from '../../db'
 import type { AgentExecution, ExecutionOwner, ExecutionRegistry } from '../execution-registry'
 import { projectIdentity } from '../memory/memory-project.service'
 import { TeamRepository } from './team-repository'
+import { MainRefusal } from '../main-refusal'
 
 /** A saved surface is a navigation hint, not an authorization credential.
  * Trusted UI must connect a live execution; restart invalidates that consent binding.
@@ -33,19 +34,9 @@ export class TeamAccess {
 
   /** `within` runs in the same transaction, after the checks and before the link is written: the project's coordinator follows its member (B1.4). */
   async connectFromUi(teamId: string, revision: number, memberId: string, owner: ExecutionOwner, within?: () => void): Promise<void> {
-    if (!owner || !['thread', 'pane'].includes(owner.kind) || typeof owner.id !== 'string') throw Error('Invalid session owner')
-    const execution = this.executions.forOwner(owner)
-    if (!execution) throw Error('Start the agent session before connecting this member')
-    const identity = await this.identify(execution.cwd)
-    this.executions.authenticate(execution.id, execution.token, execution.workspaceId)
+    const { execution, identity } = await this.connection(owner)
     this.db.transaction(() => {
-      const team = this.repository.get(teamId)
-      if (team.revision !== revision) throw Error('Team changed; refresh before connecting')
-      if (identity !== team.projectIdentity || !team.members.some(m => m.id === memberId && !m.archived)) throw Error('Session does not belong to this team')
-      const current = this.connected.get(memberId)
-      const previous = this.db.prepare('SELECT owner_kind AS kind,owner_id AS id FROM agent_team_execution_links WHERE member_id=?').get(memberId) as ExecutionOwner | undefined
-      const same = current?.owner.kind === owner.kind && current.owner.id === owner.id
-      if (current && !same && previous && this.consented(memberId, previous, this.executions.forOwner(previous))) throw Error('Disconnect the current member session first')
+      this.checkConnection(teamId, revision, memberId, owner, identity)
       within?.()
       this.db.prepare(`INSERT INTO agent_team_execution_links VALUES (?,?,?) ON CONFLICT(member_id) DO UPDATE SET owner_kind=excluded.owner_kind,owner_id=excluded.owner_id`)
         .run(memberId, owner.kind, owner.id)
@@ -54,11 +45,34 @@ export class TeamAccess {
     this.delivery.delete(memberId)
     this.connected.set(memberId, { owner: { kind: owner.kind, id: owner.id }, executionId: execution.id })
   }
+  /**
+   * The checks a connection makes before its transaction: a valid owner with a live session of the Team's project.
+   * The coordinator preview (B1.4) runs these and checkConnection too, so a preview that passes is one the
+   * confirmation accepts, unless something changes in between.
+   */
+  async connection(owner: ExecutionOwner): Promise<{ execution: AgentExecution; identity: string }> {
+    if (!owner || typeof owner !== 'object' || !['thread', 'pane'].includes(owner.kind) || typeof owner.id !== 'string') throw Error('Invalid session owner')
+    const execution = this.executions.forOwner(owner)
+    if (!execution) throw Error('Start the agent session before connecting this member')
+    const identity = await this.identify(execution.cwd)
+    this.executions.authenticate(execution.id, execution.token, execution.workspaceId)
+    return { execution, identity }
+  }
+  /** The checks inside the connection's transaction; they write nothing. */
+  checkConnection(teamId: string, revision: number, memberId: string, owner: ExecutionOwner, identity: string): void {
+    const team = this.repository.get(teamId)
+    if (team.revision !== revision) throw new MainRefusal('team.changed', {})
+    if (identity !== team.projectIdentity || !team.members.some(m => m.id === memberId && !m.archived)) throw Error('Session does not belong to this team')
+    const current = this.connected.get(memberId)
+    const previous = this.db.prepare('SELECT owner_kind AS kind,owner_id AS id FROM agent_team_execution_links WHERE member_id=?').get(memberId) as ExecutionOwner | undefined
+    const same = current?.owner.kind === owner.kind && current.owner.id === owner.id
+    if (current && !same && previous && this.consented(memberId, previous, this.executions.forOwner(previous))) throw Error('Disconnect the current member session first')
+  }
   disconnectFromUi(teamId: string, revision: number, memberId: string): void {
     this.delivery.delete(memberId)
     this.db.transaction(() => {
       const team = this.repository.get(teamId)
-      if (team.revision !== revision || !team.members.some(m => m.id === memberId)) throw Error('Team changed; refresh before disconnecting')
+      if (team.revision !== revision || !team.members.some(m => m.id === memberId)) throw new MainRefusal('team.changed', {})
       this.db.prepare('DELETE FROM agent_team_execution_links WHERE member_id=?').run(memberId)
       this.db.prepare('UPDATE agent_teams SET revision=revision+1 WHERE id=?').run(teamId)
     })()
@@ -67,7 +81,7 @@ export class TeamAccess {
   disableDelivery(memberId: string): void { this.delivery.delete(memberId) }
   setDeliveryFromUi(teamId: string, revision: number, memberId: string, enabled: boolean): void {
     const team = this.snapshotFromUi(teamId), member = team.members.find(m => m.id === memberId && !m.archived)
-    if (team.revision !== revision || !member) throw Error('Team changed; refresh first')
+    if (team.revision !== revision || !member) throw new MainRefusal('team.changed', {})
     if (enabled && (member.connection?.state !== 'connected' || member.connection.owner.kind !== 'thread')) throw Error('Automatic delivery requires a connected OxeChat session. OxeCode agents read the inbox through MCP.')
     if (enabled) {
       const row = this.db.prepare('SELECT data_json FROM conversation_threads WHERE id=?').get(member.connection!.owner.id) as { data_json: string } | undefined

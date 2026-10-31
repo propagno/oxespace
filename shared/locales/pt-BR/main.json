@@ -45,6 +45,9 @@
     }
   },
   "messages": {
+    "team": {
+      "changed": "A Equipe do projeto mudou enquanto você a editava. Revise e tente de novo."
+    },
     "mcp": {
       "quarantine": {
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
@@ -100,8 +103,12 @@
         "swap": "{{member}} passa a ser a coordenadora, e {{previous}} passa a ser {{role}}.",
         "teamCoordinatorElsewhere": "{{member}} já é a coordenadora deste projeto, em outra conversa. Para trocar, abra a Equipe do projeto ou conecte esta conversa a {{member}}.",
         "changed": "A coordenadora do projeto mudou enquanto você decidia. Revise de novo antes de confirmar.",
-        "projectChanged": "O projeto desta conversa mudou enquanto era verificado. Tente de novo.",
-        "identityUnavailable": "O OXESpace não conseguiu identificar o repositório deste projeto, então a coordenadora não mudou. Confira se a pasta existe e se o Git responde, e tente de novo."
+        "projectChanged": "O projeto desta conversa acabou de mudar. Tente de novo.",
+        "identityUnavailable": "O OXESpace não conseguiu identificar o repositório deste projeto, então a coordenadora não mudou. Confira se a pasta existe e se o Git responde, e tente de novo.",
+        "teamCoordinatorHere": "{{member}} coordena este projeto a partir desta conversa. Para trocar a coordenadora, abra a Equipe do projeto.",
+        "archived": "Uma conversa arquivada não pode coordenar o projeto. Restaure a conversa primeiro.",
+        "identityAmbiguous": "O OXESpace não consegue distinguir este projeto de outras pastas do mesmo repositório, então a coordenadora não mudou. Abra o projeto pela pasta do próprio repositório e tente de novo.",
+        "otherProject": "Essa conversa é de outro projeto, então não pode coordenar este. Conecte uma conversa deste projeto."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" guarda instruções de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",

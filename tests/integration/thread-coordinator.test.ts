@@ -17,15 +17,18 @@ import { FORBIDDEN_CAPABILITIES, MCP_COVERAGE } from '../../shared/mcp-coverage'
 import type { AgentConversationAdapter, ConversationThread, ThreadEvent, ThreadRequest } from '../../shared/types/thread'
 
 vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
-// The project turns orchestration and the app group off, so the tools a demoted coordinator loses are the ones its role gave it.
+// A test can give the project tool modes (oxe.yaml `thread`); without, every group is on demand.
+const repo = vi.hoisted(() => ({ thread: undefined as unknown }))
 vi.mock('../../electron/main/services/repo-config/loader', async original => ({ ...await original<object>(),
-  loadRepoConfig: async () => ({ thread: { toolModes: { orchestration: 'off', app: 'off' } } }) }))
+  loadRepoConfig: async () => repo.thread ? { thread: repo.thread } : null }))
+/** Orchestration and the app group off: the coordinator's own group is the only thing its role adds. */
+const OFF = { toolModes: { orchestration: 'off', app: 'off' } }
 
 // The swap notice names roles in the interface's language; fix it so the test does not depend on the machine.
 process.env.OXESPACE_LOCALE = 'en'
 const TOKEN = 'c'.repeat(64)
 const cleanup: (() => Promise<void> | void)[] = []
-afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn() })
+afterEach(async () => { repo.thread = undefined; for (const fn of cleanup.splice(0).reverse()) await fn() })
 
 /** p1 and p2 are two identities. Git stands aside: identities are a table. */
 function fixture(live = false) {
@@ -53,6 +56,7 @@ function fixture(live = false) {
   })
   const manager = new ThreadManager(db, factory, notify)
   manager.coordinatorIdentity = identify
+  manager.coordinatorGuard = async () => 'ok'
   if (live) vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
   cleanup.push(() => db.close(), () => manager.stop())
   const create = (projectId = 'p1', parent?: ConversationThread['parent']) => manager.create({ workspaceId: 'ws', projectId, rootPath: roots[projectId], provider: 'claude', ...(parent ? { parent } : {}) }).thread.id
@@ -67,7 +71,8 @@ function fixture(live = false) {
   return { db, manager, notify, create, flagged, factory, adapters, starts, callbacks, turn, identify, repo }
 }
 
-const SECRETS = ['rm -rf /secret-path', '/secret-cwd', 'secret-reason', 'secret-detail', 'request-r1', 'native-r1']
+// The request's own title is the CLI's prompt, which names a path (SECURITY L-1): it never reaches the summary.
+const SECRETS = ['rm -rf /secret-path', '/secret-cwd', 'secret-reason', 'secret-detail', 'request-r1', 'native-r1', '/secret-title-path', 'Claude wants']
 
 /** A conversation of the project waiting for the person, with a request that carries a command, a path and a reason. */
 function waiting(db: AppDatabase, id: string, projectId: string, request: Partial<ThreadRequest> = {}) {
@@ -75,7 +80,7 @@ function waiting(db: AppDatabase, id: string, projectId: string, request: Partia
     title: `Waiting\n${id}`, pinned: false, status: 'approval', createdAt: 1, updatedAt: 1 }
   db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, ?, ?, ?)').run(id, 'ws', projectId, JSON.stringify(thread), '[]')
   const pending: ThreadRequest = { id: 'request-r1', nativeId: 'native-r1', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval',
-    title: 'Run the\ttests', detail: 'secret-detail', command: 'rm -rf /secret-path', cwd: '/secret-cwd', reason: 'secret-reason', generation: 3,
+    title: 'Claude wants to read /secret-title-path', toolName: 'Bash', detail: 'secret-detail', command: 'rm -rf /secret-path', cwd: '/secret-cwd', reason: 'secret-reason', generation: 3,
     createdAt: Date.now() - 90_000, state: 'pending', ...request }
   const resolved: ThreadRequest = { ...pending, id: 'old', title: 'Answered before', state: 'resolved' }
   new ThreadHistory(db).write({ thread, events: [{ type: 'request', id: resolved.id, request: resolved }, { type: 'request', id: pending.id, request: pending }] })
@@ -173,7 +178,7 @@ describe('coordinator flag (B1.4)', () => {
     const a = f.create()
     await expect(f.manager.setCoordinator('missing', true)).rejects.toThrow('Thread not found')
     f.db.prepare("UPDATE conversation_threads SET data_json = json_set(data_json, '$.archived', json('true')) WHERE id = ?").run(a)
-    await expect(new ProjectCoordinatorService(f.db, f.identify).setForThread(a, true)).rejects.toThrow('archived')
+    await expect(new ProjectCoordinatorService(f.db, f.identify, async () => 'ok').setForThread(a, true)).rejects.toThrow('archived')
     expect(f.flagged()).toEqual([])
   })
 })
@@ -273,7 +278,7 @@ describe('oxespace_threads pending (B1.4)', () => {
     expect(text.endsWith('\n[end of untrusted data]')).toBe(true)
     const body = JSON.parse(text.split('\n').slice(1, -1).join('\n')) as { ok: boolean; result: { items: Record<string, unknown>[]; total: number } }
     expect(body.result.total).toBe(1)
-    expect(body.result.items).toEqual([{ threadId: 'waiting', threadTitle: 'Waiting waiting', kind: 'approval', title: 'Run the tests', ageSeconds: expect.any(Number) }])
+    expect(body.result.items).toEqual([{ threadId: 'waiting', threadTitle: 'Waiting waiting', kind: 'approval', title: 'Approve: Bash', ageSeconds: expect.any(Number) }])
     expect(body.result.items[0].ageSeconds).toBeGreaterThanOrEqual(89)
     for (const secret of [...SECRETS, 'Other project', 'Answered before', 'generation']) expect(text).not.toContain(secret)
   })
@@ -281,13 +286,14 @@ describe('oxespace_threads pending (B1.4)', () => {
   it('reads nothing for a conversation that does not coordinate, and bounds what it returns', async () => {
     const f = fixture()
     const coordinator = f.create()
-    for (let index = 0; index < 4; index++) waiting(f.db, `waiting-${index}`, 'p1', { title: `x${'y'.repeat(400)}`, createdAt: Date.now() - index * 1000 })
+    for (let index = 0; index < 4; index++) waiting(f.db, `waiting-${index}`, 'p1', { title: `x${'y'.repeat(400)}`, toolName: 'read /etc/passwd now', createdAt: Date.now() - index * 1000 })
     expect(coordinatorPendingRequests(f.db, coordinator)).toEqual({ items: [], total: 0 })
     await f.manager.setCoordinator(coordinator, true)
     const read = coordinatorPendingRequests(f.db, coordinator, 2)
     expect(read).toMatchObject({ total: 4, truncated: true })
     expect(read.items.map(item => item.threadId)).toEqual(['waiting-3', 'waiting-2'])
-    expect(read.items.every(item => item.title.length === 160)).toBe(true)
+    // A tool name that is not one (a sentence, a path) is left out: only the kind remains.
+    expect(read.items.every(item => item.title === 'Approve')).toBe(true)
   })
 })
 
@@ -325,6 +331,7 @@ describe('the coordinator never answers a request (B1.4)', () => {
 
 describe('review fixes (B1.4)', () => {
   it('a coordinator demoted mid-session loses its tools at once: its process is closed and the server refuses them meanwhile', async () => {
+    repo.thread = OFF
     const f = fixture(true)
     const coordinator = f.create(), next = f.create()
     await f.manager.setCoordinator(coordinator, true)
@@ -332,7 +339,9 @@ describe('review fixes (B1.4)', () => {
     expect(f.adapters.get(coordinator)!.dispose).not.toHaveBeenCalled()
     const rpc = await rpcServer(f)
     const session = rpc.as(coordinator)
-    expect((await rpc.callTool(session, 'oxespace_list_agents', {})).content[0].text).not.toContain('no longer available')
+    expect((await rpc.callTool(session, 'oxespace_threads', { action: 'list' })).content[0].text).not.toMatch(/not available|no longer available/)
+    // The project turns orchestration off: the coordinator does not get it either (SECURITY M-2), refused on each call (L-2).
+    expect((await rpc.callTool(session, 'oxespace_list_agents', {})).content[0].text).toContain('is not available in this conversation')
 
     f.notify.mockClear()
     await f.manager.setCoordinator(next, true)
@@ -340,26 +349,23 @@ describe('review fixes (B1.4)', () => {
     expect(f.adapters.get(coordinator)!.dispose).toHaveBeenCalledOnce()
     expect(f.manager.read(coordinator).thread.connection?.suspendedAt).toBeTypeOf('number')
     expect(f.notify.mock.calls.map(([id]) => id)).toEqual(expect.arrayContaining([coordinator, next]))
-    // Whatever the client still lists, the server refuses each tool it lost: orchestration and the coordinator group.
-    const lost = threadToolList({ coordinator: true }).filter(tool => !threadToolList({}).includes(tool))
-    expect(lost).toEqual(expect.arrayContaining([...THREAD_TOOL_GROUPS.orchestration, 'oxespace_threads']))
-    for (const tool of ['oxespace_list_agents', 'oxespace_delegate_task', 'oxespace_thread_send', 'oxespace_threads']) {
-      expect(isRevokedThreadTool(coordinator, tool), tool).toBe(true)
-      const refused = await rpc.callTool(session, tool, { action: 'list' })
-      expect(refused.isError, tool).toBe(true)
-      expect(refused.content[0].text).toContain('no longer available in this conversation')
-    }
+    // Whatever the client still lists, the server refuses the tool its role gave it.
+    expect(isRevokedThreadTool(coordinator, 'oxespace_threads')).toBe(true)
+    const refused = await rpc.callTool(session, 'oxespace_threads', { action: 'list' })
+    expect(refused.isError).toBe(true)
+    expect(refused.content[0].text).toContain('no longer available in this conversation')
     // Core tools stay; the new coordinator is not refused.
     expect(isRevokedThreadTool(coordinator, 'oxespace_memory_search')).toBe(false)
-    expect((await rpc.callTool(rpc.as(next), 'oxespace_list_agents', {})).content[0].text).not.toContain('no longer available')
+    expect((await rpc.callTool(rpc.as(next), 'oxespace_threads', { action: 'list' })).content[0].text).not.toMatch(/not available|no longer available/)
     // Its next session is launched with the plain list and the refusal is lifted (thread-runtime clears it there).
     await f.turn(coordinator, 'Again')
     expect(f.starts.at(-1)).toBe(`native-${coordinator}`)
     clearRevokedThreadTools(coordinator)
-    expect(isRevokedThreadTool(coordinator, 'oxespace_list_agents')).toBe(false)
+    expect(isRevokedThreadTool(coordinator, 'oxespace_threads')).toBe(false)
   })
 
-  it('a Team-side demotion reaches the running session: its process is closed and orchestration is refused (change 6)', async () => {
+  it('a Team-side demotion reaches the running session: its process is closed and its tools are refused (change 6)', async () => {
+    repo.thread = OFF
     const f = fixture(true)
     const coordinator = f.create()
     const repository = new TeamRepository(f.db)
@@ -369,36 +375,56 @@ describe('review fixes (B1.4)', () => {
     const [ana, caio] = ['Ana', 'Caio'].map(name => team.members.find(m => m.name === name)!.id)
     f.db.prepare("INSERT INTO agent_team_execution_links VALUES (?, 'thread', ?)").run(ana, coordinator)
     f.db.prepare("INSERT INTO agent_team_execution_links VALUES (?, 'pane', 'pane-1')").run(caio)
-    // The boot pass backfills the row from the Team's coordinator link.
+    // The boot pass backfills the row from the Team's coordinator link, the first time.
     await f.manager.reconcileCoordinators()
     expect(f.flagged()).toEqual([coordinator])
     await f.turn(coordinator)
     const rpc = await rpcServer(f)
     const session = rpc.as(coordinator)
-    expect((await rpc.callTool(session, 'oxespace_list_agents', {})).content[0].text).not.toContain('no longer available')
+    expect((await rpc.callTool(session, 'oxespace_threads', { action: 'list' })).content[0].text).not.toMatch(/not available|no longer available/)
     // The Team makes Caio (on a pane) its coordinator; team.ipc runs the same hook after the commit.
-    const change = await new ProjectCoordinatorService(f.db, f.identify).setMemberCoordinator(team.id, repository.get(team.id).revision, caio)
+    const change = await new ProjectCoordinatorService(f.db, f.identify, async () => 'ok').setMemberCoordinator(team.id, repository.get(team.id).revision, caio)
     expect(change.changed).toEqual([coordinator])
     f.notify.mockClear()
     await f.manager.coordinatorsChanged(change.changed)
     expect(f.adapters.get(coordinator)!.dispose).toHaveBeenCalledOnce()
     expect(f.notify).toHaveBeenCalledWith(coordinator)
     expect(f.flagged()).toEqual([])
-    for (const tool of ['oxespace_list_agents', 'oxespace_delegate_task', 'oxespace_threads']) {
+    const refused = await rpc.callTool(session, 'oxespace_threads', { action: 'list' })
+    expect(refused.isError).toBe(true)
+    expect(refused.content[0].text).toContain('no longer available in this conversation')
+  })
+
+  it('refuses a role tool on each call even when the demotion notice never reached the session (SECURITY L-2)', async () => {
+    repo.thread = OFF
+    const f = fixture(true)
+    const coordinator = f.create()
+    await f.manager.setCoordinator(coordinator, true)
+    await f.turn(coordinator)
+    const rpc = await rpcServer(f)
+    const session = rpc.as(coordinator)
+    // Demoted behind the runtime's back: no revocation, no suspension.
+    f.db.prepare('DELETE FROM project_coordinators').run()
+    expect(isRevokedThreadTool(coordinator, 'oxespace_threads')).toBe(false)
+    for (const tool of ['oxespace_threads', 'oxespace_list_agents', 'oxespace_delegate_task']) {
       const refused = await rpc.callTool(session, tool, { action: 'list' })
       expect(refused.isError, tool).toBe(true)
-      expect(refused.content[0].text).toContain('no longer available in this conversation')
+      expect(refused.content[0].text).toContain('is not available in this conversation')
     }
+    // With the groups on demand, every conversation may use them: nothing is refused.
+    repo.thread = undefined
+    expect((await rpc.callTool(session, 'oxespace_list_agents', {})).content[0].text).not.toMatch(/not available|no longer available/)
   })
 
   it('keeps a busy session open on demotion, still refusing the lost tools', async () => {
+    repo.thread = OFF
     const f = fixture(true)
     const coordinator = f.create()
     await f.manager.setCoordinator(coordinator, true)
     await f.manager.send(coordinator, 'Long task')
     await f.manager.setCoordinator(coordinator, false)
     expect(f.adapters.get(coordinator)!.dispose).not.toHaveBeenCalled()
-    expect(isRevokedThreadTool(coordinator, 'oxespace_delegate_task')).toBe(true)
+    expect(isRevokedThreadTool(coordinator, 'oxespace_threads')).toBe(true)
     f.callbacks.get(coordinator)!({ type: 'completed', status: 'completed' })
   })
 

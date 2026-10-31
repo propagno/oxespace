@@ -6,8 +6,10 @@
  * - the conversation's project still has the root the identity was resolved from (`root_path`);
  * - the Team of that identity has no active coordinator member connected to another existing, unarchived conversation.
  * The last one is the Team's precedence: a write path that missed the invariant still cannot make two coordinators.
- * Kept free of other imports, so the tool plan of a Code pane does not load the conversation history.
+ * Kept free of heavier imports (only the incident sink), so the tool plan of a Code pane does not load the conversation history.
  */
+
+import { recordIncident } from '../diagnostics/incident-sink'
 
 const UNARCHIVED = (alias: string) => `COALESCE(json_extract(${alias}.data_json, '$.archived'), 0) = 0`
 
@@ -55,8 +57,23 @@ export function relinkProjectCoordinators(db: Database, projectId: string, ident
 
 const text = (value: unknown, max: number): value is string => typeof value === 'string' && value.length > 0 && value.length <= max && !value.includes('\0')
 
-/** The `{ preview, expect }` a coordinator change takes over IPC (thread:set-coordinator, team:command); anything else throws. */
-export function coordinatorOptions(value: unknown): import('../../../../shared/types/thread').ProjectCoordinatorOptions {
+/**
+ * The `{ preview, expect }` a coordinator change takes over IPC (thread:set-coordinator, team:command); anything else
+ * throws. With `confirm`, a call that is not a preview must hand back the preview's token (SECURITY L-4).
+ */
+export function coordinatorOptions(value: unknown, confirm = false): import('../../../../shared/types/thread').ProjectCoordinatorOptions {
+  const parsed = parseOptions(value)
+  if (confirm && !parsed.preview && !parsed.expect) throw Error('Invalid coordinator options: preview first, then confirm with its token')
+  return parsed
+}
+
+/** A coordinator change notice that failed after the commit: recorded, never thrown (the authority check still holds on each call). */
+export function coordinatorNoticeFailed(ids: readonly string[], error: unknown): void {
+  console.warn('[coordinator] change notice failed for', ids.join(', '), error instanceof Error ? error.message : String(error))
+  recordIncident('incident.ipc.handlerFailed', 'coordinator.changed')
+}
+
+function parseOptions(value: unknown): import('../../../../shared/types/thread').ProjectCoordinatorOptions {
   if (value === undefined || value === null) return {}
   if (typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid coordinator options')
   const { preview, expect } = value as { preview?: unknown; expect?: unknown }

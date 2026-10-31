@@ -16,7 +16,7 @@ import { createThreadWorktree, discardThreadWorktree, ThreadWorktreeError, type 
 import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import { registerThreadSectionsIpc } from './thread-sections.ipc'
-import { coordinatorOptions } from '../services/conversation/coordinator-authority'
+import { coordinatorNoticeFailed, coordinatorOptions } from '../services/conversation/coordinator-authority'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 
@@ -75,7 +75,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   // OxePost's channel is registered from this lazy module: the main entry bundle has no room for another line.
   registerOxePostIpc(workspaceId => (db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined)?.root_path)
   const projects = new MemoryProjectService(db)
-  const threadProjects = new ThreadProjectService(db, ids => { void manager.then(service => service.coordinatorsChanged(ids)).catch(() => {}) })
+  const threadProjects = new ThreadProjectService(db, ids => { void manager.then(service => service.coordinatorsChanged(ids)).catch(error => coordinatorNoticeFailed(ids, error)) })
   // Keep account/project implementation out of the startup entry bundle.
   const accounts: Promise<NativeAccountService> = import('../services/conversation/native-account.service').then(({ NativeAccountService, authScopeId }) => new NativeAccountService({
     resolve: async (context: AgentAccountContext): Promise<NativeAuthScope> => {
@@ -101,7 +101,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   }))
   const manager: Promise<ThreadManager> = import('../services/conversation/thread-runtime').then(async module => module.createThreadManager(db, await accounts, mcp))
   // B1.4 · S7.5 boot pass: drifted coordinator rows go, Team coordinator links are backfilled. Git runs here, off the migration.
-  void manager.then(service => service.reconcileCoordinators?.()).catch(() => {})
+  void manager.then(service => service.reconcileCoordinators?.()).catch(error => coordinatorNoticeFailed(['boot pass'], error))
   const accountContext = (value: unknown): AgentAccountContext => {
     if (!value || typeof value !== 'object') throw Error('Invalid account context')
     const input = value as Record<string, unknown>
@@ -343,12 +343,12 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return manager.then(service => service.pin(string(id), pinned))
   })
   // The person's choice only: the window's main frame, never an MCP tool (thread.coordinator_admin is forbidden).
-  // `{ preview: true }` returns what would change and writes nothing; `{ expect }` hands the preview's token back.
+  // `{ preview: true }` returns what would change and writes nothing; a confirmation must hand the preview's token back (`{ expect }`).
   ipcMain.handle(IPC_CHANNELS.thread.setCoordinator, (event, id: unknown, coordinator: unknown, options: unknown) => {
     sender(event)
     const threadId = string(id)
     if (typeof coordinator !== 'boolean') throw new Error('Invalid coordinator input')
-    const parsed = coordinatorOptions(options)
+    const parsed = coordinatorOptions(options, true)
     return manager.then(service => service.setCoordinator(threadId, coordinator, parsed))
   })
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, sender, id: string })

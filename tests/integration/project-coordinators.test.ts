@@ -15,6 +15,7 @@ import { TeamRepository } from '../../electron/main/services/coordination/team-r
 import { TeamAccess } from '../../electron/main/services/coordination/team-access'
 import { ExecutionRegistry } from '../../electron/main/services/execution-registry'
 import { MainRefusal } from '../../electron/main/services/main-refusal'
+import type { IdentityGuard } from '../../electron/main/services/conversation/identity-guard'
 import { projectIdentity } from '../../electron/main/services/memory/memory-project.service'
 import { setMainLanguage } from '../../electron/main/i18n'
 import type { TeamRole } from '../../shared/types/team'
@@ -40,7 +41,8 @@ function fixture() {
   }
   const identities = new Map([['/repo', 'id-repo'], ['/alias', 'id-repo'], ['/other', 'id-other']])
   const identify = vi.fn(async (root: string) => { const identity = identities.get(root); if (!identity) throw Error('git rev-parse timed out'); return identity })
-  const service = new ProjectCoordinatorService(db, identify)
+  const guard = vi.fn<IdentityGuard>(async () => 'ok')
+  const service = new ProjectCoordinatorService(db, identify, guard)
   const thread = (id: string, project = 'p1', data: Record<string, unknown> = {}) => db.prepare("INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, 'ws', ?, ?, '[]')")
     .run(id, project, JSON.stringify({ id, title: `Conversation ${id}`, rootPath: projects[project], status: 'idle', ...data }))
   const archive = (id: string) => db.prepare("UPDATE conversation_threads SET data_json = json_set(data_json, '$.archived', json('true')) WHERE id = ?").run(id)
@@ -59,7 +61,7 @@ function fixture() {
   /** Everything a refusal must leave untouched. */
   const state = () => JSON.stringify(['project_coordinators', 'agent_teams', 'agent_team_members', 'agent_team_execution_links']
     .map(table => db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all()))
-  return { db, service, identify, identities, thread, archive, teams, team, member, link, revision, roles, rows, state }
+  return { db, service, identify, guard, identities, thread, archive, teams, team, member, link, revision, roles, rows, state }
 }
 
 /**
@@ -122,7 +124,7 @@ describe('rules from a conversation (B1.4 · S7.5)', () => {
     f.thread('x'); f.thread('y', 'p1', { rootPath: '/repo/.worktrees/feat-a' }); f.thread('z')
     const team = f.team()
     f.link(f.member(team, 'Ana'), 'thread', 'y'); f.link(f.member(team, 'Bia'), 'thread', 'x'); f.link(f.member(team, 'Caio'), 'pane', 'pane-1')
-    expect(await reconcileProjectCoordinators(f.db, f.identify)).toEqual(['y'])
+    expect(await reconcileProjectCoordinators(f.db, f.identify, f.guard)).toEqual(['y'])
     invariant(f.db)
     return { ...f, team }
   }
@@ -196,7 +198,7 @@ describe('rules from a conversation (B1.4 · S7.5)', () => {
   it('rule 3: unmarking the coordinator\'s own conversation is refused with nothing written', async () => {
     const f = await teamed()
     const before = f.state()
-    await expect(f.service.setForThread('y', false)).rejects.toEqual(refusal('thread.coordinator.teamCoordinatorElsewhere', { member: 'Ana' }))
+    await expect(f.service.setForThread('y', false)).rejects.toEqual(refusal('thread.coordinator.teamCoordinatorHere', { member: 'Ana' }))
     expect(f.state()).toBe(before)
     invariant(f.db)
   })
@@ -217,6 +219,14 @@ describe('rules from a conversation (B1.4 · S7.5)', () => {
     const f = fixture()
     f.thread('n', 'p4'); f.thread('x')
     await expect(f.service.setForThread('n', true)).rejects.toEqual(refusal('thread.coordinator.identityUnavailable'))
+    // An identity shared with unrelated folders is refused, and a guard Git does not answer is unavailable (SECURITY M-1).
+    f.guard.mockResolvedValueOnce('ambiguous')
+    await expect(f.service.setForThread('x', true)).rejects.toEqual(refusal('thread.coordinator.identityAmbiguous'))
+    f.guard.mockRejectedValueOnce(Error('git timed out'))
+    await expect(f.service.setForThread('x', true)).rejects.toEqual(refusal('thread.coordinator.identityUnavailable'))
+    f.archive('x')
+    await expect(f.service.setForThread('x', true)).rejects.toEqual(refusal('thread.coordinator.archived'))
+    f.db.prepare("UPDATE conversation_threads SET data_json = json_set(data_json, '$.archived', json('false')) WHERE id = 'x'").run()
     f.identify.mockImplementationOnce(async () => { f.db.prepare("UPDATE thread_projects SET root_path = '/moved' WHERE id = 'p1'").run(); return 'id-repo' })
     await expect(f.service.setForThread('x', true)).rejects.toEqual(refusal('thread.coordinator.projectChanged'))
     expect(f.rows()).toEqual([])
@@ -231,7 +241,7 @@ describe('rules from the Team (B1.4 · S7.5)', () => {
     const team = f.team()
     f.link(f.member(team, 'Ana'), 'thread', 'y'); f.link(f.member(team, 'Bia'), 'thread', 'x'); f.link(f.member(team, 'Caio'), 'pane', 'pane-1')
     await f.service.setForThread('o', true) // another repository's coordinator, which no rule here may touch
-    await reconcileProjectCoordinators(f.db, f.identify)
+    await reconcileProjectCoordinators(f.db, f.identify, f.guard)
     expect(f.rows()).toEqual([{ identity: 'id-other', threadId: 'o' }, { identity: 'id-repo', threadId: 'y' }])
     return { ...f, team }
   }
@@ -257,7 +267,7 @@ describe('rules from the Team (B1.4 · S7.5)', () => {
     expect(f.rows()).toEqual([{ identity: 'id-other', threadId: 'o' }])
     invariant(f.db)
     // A stale revision is refused before anything moves, as the Team always did.
-    await expect(f.service.setMemberCoordinator(f.team, 1, f.member(f.team, 'Ana'))).rejects.toThrow('Team changed')
+    await expect(f.service.setMemberCoordinator(f.team, 1, f.member(f.team, 'Ana'))).rejects.toEqual(refusal('team.changed'))
   })
 
   it('TeamRepository.replaceCoordinator swaps too: one semantics for both paths', () => {
@@ -288,6 +298,25 @@ describe('rules from the Team (B1.4 · S7.5)', () => {
     await f.service.connectMember(access, f.team, f.revision(f.team), ana, { kind: 'thread', id: 'w' })
     expect(f.rows()).toContainEqual({ identity: 'id-repo', threadId: 'w' })
     invariant(f.db)
+  })
+
+  it('refuses the coordinator on a conversation of another repository, and a preview with no owner or no session, writing nothing (L1, L2)', async () => {
+    const f = await teamed()
+    const executions = new ExecutionRegistry()
+    const access = new TeamAccess(f.db, executions, f.identify)
+    executions.register({ owner: { kind: 'thread', id: 'o' }, workspaceId: 'ws', cwd: '/repo' }) // its session runs in this repository, its project is another
+    const ana = f.member(f.team, 'Ana'), bia = f.member(f.team, 'Bia')
+    const before = f.state()
+    for (const preview of [true, false]) {
+      await expect(f.service.connectMember(access, f.team, f.revision(f.team), ana, { kind: 'thread', id: 'o' }, { preview })).rejects.toEqual(refusal('thread.coordinator.otherProject'))
+    }
+    await expect(f.service.connectMember(access, f.team, f.revision(f.team), ana, undefined as never, { preview: true })).rejects.toThrow('Invalid session owner')
+    await expect(f.service.connectMember(access, f.team, f.revision(f.team), ana, { kind: 'thread', id: 'w' }, { preview: true })).rejects.toThrow('Start the agent session')
+    // A member that is not the coordinator connects to it as before; the coordinator role then refuses it too.
+    f.link(bia, 'thread', 'o')
+    await expect(f.service.setMemberCoordinator(f.team, f.revision(f.team), bia)).rejects.toEqual(refusal('thread.coordinator.otherProject'))
+    f.link(bia, 'thread', 'x')
+    expect(f.state()).toBe(before)
   })
 
   it('rule 5: disconnecting or archiving the coordinator member keeps the row, and then rule 2 no longer applies', async () => {
@@ -334,13 +363,18 @@ describe('the authority check (B1.4 · S7.5)', () => {
     expect(isThreadCoordinator(f.db, 'y')).toBe(false)
   })
 
-  it('the coordinator role brings orchestration and its group to a session even when the project turns orchestration off', () => {
-    const modes = projectToolModes({ toolModes: { orchestration: 'off', app: 'off' } })
-    const plain = sessionToolPlan(true, {}, modes).tools, coordinator = sessionToolPlan(true, { coordinator: true }, modes).tools
-    expect(coordinator).toEqual(expect.arrayContaining(['oxespace_list_agents', 'oxespace_delegate_task', 'oxespace_threads']))
-    expect(plain).not.toContain('oxespace_list_agents')
+  it('the coordinator role adds its own group to a session, while orchestration follows the project\'s mode (M-2)', () => {
+    const off = projectToolModes({ toolModes: { orchestration: 'off', app: 'off' } })
+    const plain = sessionToolPlan(true, {}, off).tools, coordinator = sessionToolPlan(true, { coordinator: true }, off).tools
+    expect(coordinator).toContain('oxespace_threads')
     expect(plain).not.toContain('oxespace_threads')
-    expect(sessionToolPlan(false, { coordinator: true }, projectToolModes(undefined)).enableable).not.toHaveProperty('orchestration')
+    for (const tools of [plain, coordinator]) expect(tools).not.toContain('oxespace_list_agents')
+    // On demand without tool search, orchestration waits for oxespace_tools_enable, the coordinator's as anyone's.
+    expect(sessionToolPlan(false, { coordinator: true }, projectToolModes(undefined)).enableable).toHaveProperty('orchestration')
+    // With the role and orchestration `always`, each tool is offered once (L5).
+    const always = sessionToolPlan(true, { coordinator: true, team: true, worker: true }, projectToolModes({ toolModes: { orchestration: 'always', app: 'always' } })).tools
+    expect(always).toEqual(expect.arrayContaining(['oxespace_list_agents', 'oxespace_threads']))
+    expect(always.length).toBe(new Set(always).size)
   })
 })
 
@@ -353,12 +387,47 @@ describe('the boot pass and the backfill (B1.4 · S7.5)', () => {
     f.link(f.member(other, 'Ana'), 'thread', 'archived')
     f.link(f.member(third, 'Ana'), 'thread', 'o') // linked across repositories: o is id-other, not id-third
     f.link(f.member(repo, 'Bia'), 'thread', 'gone-soon')
-    expect(await reconcileProjectCoordinators(f.db, f.identify)).toEqual(['x'])
+    expect(await reconcileProjectCoordinators(f.db, f.identify, f.guard)).toEqual(['x'])
     expect(f.rows()).toEqual([{ identity: 'id-repo', threadId: 'x' }])
     f.db.prepare('DELETE FROM agent_team_execution_links WHERE member_id = ?').run(f.member(third, 'Ana')) // the helper cannot tell it is another repository
     invariant(f.db)
-    expect(await reconcileProjectCoordinators(f.db, f.identify)).toEqual([])
+    expect(await reconcileProjectCoordinators(f.db, f.identify, f.guard)).toEqual([])
     expect(f.rows()).toEqual([{ identity: 'id-repo', threadId: 'x' }])
+    // It recorded what it granted, once.
+    expect(JSON.parse((f.db.prepare("SELECT value FROM thread_settings WHERE key = 'coordinator.backfill'").get() as { value: string }).value)).toMatchObject({ granted: ['x'] })
+    // /archive removes the row; /resume un-archives the conversation, which is still connected to the coordinator: no role at the next boot.
+    f.db.prepare("DELETE FROM project_coordinators WHERE thread_id = 'x'").run()
+    f.archive('x')
+    f.db.prepare("UPDATE conversation_threads SET data_json = json_set(data_json, '$.archived', json('false')) WHERE id = 'x'").run()
+    expect(await reconcileProjectCoordinators(f.db, f.identify, f.guard)).toEqual([])
+    expect(f.rows()).toEqual([])
+  })
+
+  it('backfills nothing from an ambiguous identity, and drops a row whose identity became ambiguous (M-1)', async () => {
+    const f = fixture()
+    f.thread('x'); f.thread('o', 'p3')
+    await f.service.setForThread('o', true)
+    const team = f.team()
+    f.link(f.member(team, 'Ana'), 'thread', 'x')
+    f.guard.mockImplementation(async root => root === '/repo' || root === '/other' ? 'ambiguous' : 'ok')
+    expect(await reconcileProjectCoordinators(f.db, f.identify, f.guard)).toEqual(['o'])
+    expect(f.rows()).toEqual([])
+  })
+
+  it('keeps a row the Team\'s precedence holds back when the coordinator\'s conversation is not of that identity (L-3)', async () => {
+    const f = fixture()
+    f.thread('y'); f.thread('x', 'p3')
+    await f.service.setForThread('y', true)
+    const team = f.team()
+    // An old link: the coordinator is connected to x, whose project is another repository.
+    f.link(f.member(team, 'Ana'), 'thread', 'x')
+    expect(isThreadCoordinator(f.db, 'y')).toBe(false)
+    await reconcileProjectCoordinators(f.db, f.identify, f.guard)
+    expect(f.rows()).toEqual([{ identity: 'id-repo', threadId: 'y' }])
+    // Once x really is of this identity, the precedence takes the row away.
+    f.db.prepare("UPDATE conversation_threads SET thread_project_id = 'p1' WHERE id = 'x'").run()
+    await reconcileProjectCoordinators(f.db, f.identify, f.guard)
+    expect(f.rows()).toEqual([])
   })
 
   it('drops drifted rows, keeps a row when Git cannot answer, and never backfills from a failed probe', async () => {
@@ -368,16 +437,16 @@ describe('the boot pass and the backfill (B1.4 · S7.5)', () => {
     await f.service.setForThread('o', true)
     // Git fails for /other: the row stays.
     f.identities.delete('/other')
-    expect(await reconcileProjectCoordinators(f.db, f.identify)).toEqual([])
+    expect(await reconcileProjectCoordinators(f.db, f.identify, f.guard)).toEqual([])
     expect(f.rows()).toHaveLength(2)
     // The root now resolves to another identity (a re-clone): the row goes.
     f.identities.set('/repo', 'id-reclone')
-    expect(await reconcileProjectCoordinators(f.db, f.identify)).toEqual(['x'])
+    expect(await reconcileProjectCoordinators(f.db, f.identify, f.guard)).toEqual(['x'])
     // An archived conversation's row goes; nothing is backfilled from a probe that fails.
     f.archive('o')
     const team = f.team('id-other')
     f.link(f.member(team, 'Ana'), 'thread', 'a')
-    expect(await reconcileProjectCoordinators(f.db, f.identify)).toEqual([])
+    expect(await reconcileProjectCoordinators(f.db, f.identify, f.guard)).toEqual([])
     expect(f.rows()).toEqual([])
   })
 })
@@ -385,7 +454,7 @@ describe('the boot pass and the backfill (B1.4 · S7.5)', () => {
 describe('project relink keeps the coordinator (B1.4 · S7.5)', () => {
   it('re-keys the row to the new root and identity, or removes it when that identity already has a coordinator', async () => {
     const base = mkdtempSync(join(tmpdir(), 'oxe-relink-'))
-    cleanup.push(() => rmSync(base, { recursive: true, force: true }))
+    cleanup.push(() => { try { rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }) } catch { /* Windows may still hold a Git file */ } })
     const [gone, moved, taken] = ['gone', 'moved', 'taken'].map(name => { const path = join(base, name); mkdirSync(path); execFileSync('git', ['init', '-q', path]); return path })
     const f = fixture()
     const identity = async (root: string) => projectIdentity(root)

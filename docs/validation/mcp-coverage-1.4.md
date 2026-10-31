@@ -131,7 +131,7 @@ before. Code panes receive the whole registry.
 | `thread.sections` | Sections of the conversation list (F13) | **Forbidden**: For 1.4, how the person organizes their own list: an agent neither reads nor rearranges it. |
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
 | `thread.coordinator_admin` | Make a conversation the project's coordinator | **Forbidden**: Raises what an agent can reach. |
-| `thread.coordinator_read` | The coordinator's summary of the project's pending requests | **read**: `oxespace_threads#pending`, listed and run only for the project's coordinator conversation; titles, kinds, conversations and ages inside the untrusted-output block; nothing that answers a request. |
+| `thread.coordinator_read` | The coordinator's summary of the project's pending requests | **read**: `oxespace_threads#pending`, listed and run only for the project's coordinator conversation; kinds, titles built from the kind and the tool name (never the request's own title, which can name a path or a command), conversations and ages inside the untrusted-output block; nothing that answers a request. |
 | `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |

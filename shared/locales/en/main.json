@@ -45,6 +45,9 @@
     }
   },
   "messages": {
+    "team": {
+      "changed": "The project team changed while you were editing it. Review it and try again."
+    },
     "mcp": {
       "quarantine": {
         "changed": "The description or inputs of {{tools}} changed after you trusted it.",
@@ -100,8 +103,12 @@
         "swap": "{{member}} becomes the coordinator, and {{previous}} becomes {{role}}.",
         "teamCoordinatorElsewhere": "{{member}} is already this project's coordinator, in another conversation. To change it, open Project team, or connect this conversation to {{member}}.",
         "changed": "The project's coordinator changed while you were deciding. Review it again before you confirm.",
-        "projectChanged": "This conversation's project moved while it was being checked. Try again.",
-        "identityUnavailable": "OXESpace couldn't tell which repository this project belongs to, so the coordinator wasn't changed. Check that the folder is there and that Git answers, then try again."
+        "projectChanged": "This conversation's project just changed. Try again.",
+        "identityUnavailable": "OXESpace couldn't tell which repository this project belongs to, so the coordinator wasn't changed. Check that the folder is there and that Git answers, then try again.",
+        "teamCoordinatorHere": "{{member}} coordinates this project from this conversation. To change the coordinator, open Project team.",
+        "archived": "An archived conversation can't coordinate its project. Restore it first.",
+        "identityAmbiguous": "OXESpace can't tell this project apart from other folders in the same repository, so the coordinator wasn't changed. Open the project from its own repository folder and try again.",
+        "otherProject": "That conversation belongs to another project, so it can't coordinate this one. Connect a conversation from this project."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",

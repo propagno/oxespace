@@ -39,8 +39,9 @@ export interface SessionToolPlan {
  */
 export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { code?: boolean }, modes: ProjectToolModes): SessionToolPlan {
   const groups: (keyof typeof MCP_TOOL_GROUPS)[] = ['core', ...(roles.code ? ['code' as const] : []), ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : []),
-    // The project's coordinator conversation (B1.4): its role brings orchestration whatever the project's mode, as threadToolList does.
-    ...(roles.coordinator ? ['orchestration' as const, 'coordinator' as const] : [])]
+    // The project's coordinator conversation (B1.4): its role adds its own group; orchestration follows the project's
+    // mode like any group, so a project that turns it off keeps it off for the coordinator too (SECURITY M-2).
+    ...(roles.coordinator ? ['coordinator' as const] : [])]
   const enableable: SessionToolPlan['enableable'] = {}
   for (const group of CONFIGURABLE_MCP_TOOL_GROUPS) {
     if (groups.includes(group)) continue

@@ -47,14 +47,24 @@ export interface MessageParams {
    * person's language). A refusal changes nothing.
    */
   'thread.coordinator.swap': { member: string; previous: string; role: string }
-  /** The Team's coordinator `member` is connected to another conversation, or to this one when it is being unmarked. */
+  /** The Team's coordinator `member` is connected to another conversation. */
   'thread.coordinator.teamCoordinatorElsewhere': { member: string }
+  /** Unmarking the conversation the Team's coordinator `member` is connected to. */
+  'thread.coordinator.teamCoordinatorHere': { member: string }
+  /** An archived conversation is marked: it cannot coordinate its project. */
+  'thread.coordinator.archived': Record<string, never>
   /** The coordinator, the Team or the project changed between the preview and the confirmation. */
   'thread.coordinator.changed': Record<string, never>
   /** The conversation's project root changed while its identity was being resolved. */
   'thread.coordinator.projectChanged': Record<string, never>
   /** Git could not say which repository the project belongs to (missing folder, timeout); no path identity is used instead. */
   'thread.coordinator.identityUnavailable': Record<string, never>
+  /** The project's Git identity is shared with unrelated folders (a home-folder repository, a `.git` file pointing elsewhere). */
+  'thread.coordinator.identityAmbiguous': Record<string, never>
+  /** The Team's coordinator is connected to a conversation of another repository. */
+  'thread.coordinator.otherProject': Record<string, never>
+  /** The project's Team changed since the window read it (its revision moved). */
+  'team.changed': Record<string, never>
   /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
   'activity.invalid': Record<string, never>
   'activity.tooMany': { max: number }
@@ -348,6 +358,11 @@ export const MESSAGE_CODES = [
   'thread.coordinator.changed',
   'thread.coordinator.projectChanged',
   'thread.coordinator.identityUnavailable',
+  'thread.coordinator.teamCoordinatorHere',
+  'thread.coordinator.archived',
+  'thread.coordinator.identityAmbiguous',
+  'thread.coordinator.otherProject',
+  'team.changed',
   'activity.invalid',
   'activity.tooMany',
   'activity.titleTooLong',

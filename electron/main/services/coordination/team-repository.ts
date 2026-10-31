@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
+import { MainRefusal } from '../main-refusal'
 import type { AgentTeam, TeamBinding, TeamMember, TeamMessage, TeamMessageKind, TeamRole } from '../../../../shared/types/team'
 
 const roles: TeamRole[] = ['coordinator', 'project-manager', 'product-manager', 'developer', 'reviewer']
@@ -27,7 +28,7 @@ export class TeamRepository {
   }
   private mutate<T>(teamId: string, revision: number, action: () => T): T {
     return this.db.transaction(() => {
-      if (!Number.isSafeInteger(revision) || this.db.prepare('UPDATE agent_teams SET revision=revision+1 WHERE id=? AND revision=?').run(teamId, revision).changes !== 1) throw Error('Team changed; refresh before editing')
+      if (!Number.isSafeInteger(revision) || this.db.prepare('UPDATE agent_teams SET revision=revision+1 WHERE id=? AND revision=?').run(teamId, revision).changes !== 1) throw new MainRefusal('team.changed', {})
       return action()
     })()
   }
