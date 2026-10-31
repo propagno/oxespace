@@ -364,7 +364,10 @@
         "overBudget": "Uma interação demorou mais do que o orçamento."
       },
       "app": {
-        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou."
+        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou.",
+        "closeUnanswered": "A janela não respondeu a um fechamento ou saída em 3 segundos; o app seguiu em frente.",
+        "closeRendererGone": "A janela parou enquanto um fechamento ou saída esperava por ela; o app seguiu em frente.",
+        "closeGuardFailed": "A verificação antes de fechar falhou; o app fechou sem perguntar à janela."
       }
     },
     "diagnostics": {

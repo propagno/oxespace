@@ -1,5 +1,5 @@
 import type { ConversationThread, ThreadStatus } from '../../shared/types/thread'
-import { withoutReservedName } from '../../shared/approval-rules'
+import { withoutReservedName } from '../../shared/reserved-names'
 
 /**
  * One decision for "should this thread demand attention", used for both the

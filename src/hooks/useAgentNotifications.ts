@@ -3,10 +3,10 @@ import { useTerminalStore } from '../store/terminal.store'
 import { useWorkspaceStore } from '../store/workspace.store'
 import { useSettingsStore } from '../store/settings.store'
 import { useActivityStore } from '../store/activity.store'
-import { agentErrorDetail, paneNoticeLabel } from '../utils/agentNotice'
 import { deriveStatusTone, resolvePaneIdentity, type PaneDisplayTone } from '../utils/paneDisplay'
 import type { WorkspacePane } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
+import { agentErrorDetail, paneNoticeLabel } from '../utils/agentNotice'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -15,11 +15,11 @@ const tc = i18n.getFixedT(null, 'code')
  * launches (Claude, Codex...). The generic "Agent" only when none of them is known.
  */
 export function noticeLabel(pane: WorkspacePane, shellProfileName: string | null): string {
-  // B10: a name an agent chose never passes for one of the app's own; the translated word stands in for it.
-  const named = (pane.displayName || pane.agentName)?.trim()
-  if (named) return paneNoticeLabel(pane, tc('pane.notice.agent'))
+  // B10: a name an agent chose may not speak as the app; a reserved name gives way to the generic "Agent".
+  const fallback = tc('pane.notice.agent')
+  if ((pane.displayName || pane.agentName)?.trim()) return paneNoticeLabel(pane, fallback)
   const identity = resolvePaneIdentity({ pane, profile: null, shellProfileName })
-  return identity.key === 'shell' ? tc('pane.notice.agent') : identity.label
+  return identity.key === 'shell' ? fallback : identity.label
 }
 
 /**

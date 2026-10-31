@@ -6,7 +6,22 @@
     "pairedTitle": "Pareado com {{desktop}}",
     "pairedBody": "Este celular acompanha e responde suas sessões em {{desktop}} enquanto os dois estiverem na mesma rede.",
     "unpair": "Desparear",
-    "unknownDesktop": "seu computador"
+    "unknownDesktop": "seu computador",
+    "status": {
+      "connecting": "Conectando a {{desktop}}…",
+      "connected": "Conectado a {{desktop}}",
+      "unreachable": "Não deu para falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com o acesso pelo celular ligado.",
+      "incompatible": "{{desktop}} usa outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
+      "notAccepted": "{{desktop}} não aceita mais este celular. Despareie e pareie de novo."
+    },
+    "revoked": "{{desktop}} removeu este celular. Pareie de novo para reconectar.",
+    "retry": "Tentar de novo",
+    "enterAddress": "Informar o endereço do computador",
+    "addressTitle": "Endereço do computador",
+    "addressHint": "O endereço do computador na sua Wi-Fi, por exemplo 192.168.0.12. O OXESpace mostra em Configurações › Dispositivos.",
+    "addressInvalid": "Use o endereço do computador na sua rede local, como 192.168.0.12.",
+    "save": "Salvar",
+    "cancel": "Cancelar"
   },
   "pairing": {
     "title": "Parear com o computador",

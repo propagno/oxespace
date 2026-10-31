@@ -19,6 +19,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { installRendererErrorReporting } from './lib/rendererErrors'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
 import { initI18n } from './i18n'
+import { installCloseGuard } from './lib/closeGuard'
 import { applyMotion, resolveMotion, savedMotion } from './design/motion'
 // Layer order and the base reset load before every other stylesheet.
 import './styles/reset.css'
@@ -32,6 +33,9 @@ applyMode(resolveMode(savedAppearance()))
 applyMotion(resolveMotion(savedMotion()))
 // Lets the frameless title bar reserve room for macOS traffic lights.
 document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'darwin' : /Win/i.test(navigator.platform) ? 'win32' : 'linux'
+
+// Before anything renders: main asks the window before it closes, and a window that never answers is closed anyway.
+installCloseGuard()
 
 // The interface language loads before the first render, so no text flashes in the other language.
 void initI18n().catch(error => console.error('[i18n] could not start the translator', error)).finally(() => {
