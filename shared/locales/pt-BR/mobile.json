@@ -10,7 +10,7 @@
     "status": {
       "connecting": "Conectando a {{desktop}}…",
       "connected": "Conectado a {{desktop}}",
-      "unreachable": "Não deu para falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
+      "unreachable": "Não foi possível falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
       "incompatible": "{{desktop}} usa outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
       "notAccepted": "{{desktop}} não aceita mais este celular. Despareie e pareie de novo.",
       "reconnecting": "A conexão com {{desktop}} caiu. Reconectando…",
@@ -45,7 +45,7 @@
       "notPairing": "Esse não é um código de pareamento do OXESpace. Aponte a câmera para o código em Configurações › Dispositivos.",
       "unsupportedVersion": "Esse código vem de outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
       "publicHost": "Esse código aponta para fora da sua rede local. O OXESpace só pareia na mesma Wi-Fi.",
-      "malformed": "Não deu para ler esse código. Mostre um novo no computador e tente de novo."
+      "malformed": "Não foi possível ler esse código. Mostre um novo no computador e tente de novo."
     },
     "waitingTitle": "Confirme no computador",
     "waitingBody": "{{desktop}} está perguntando se pode parear com este celular. Aceite só se aparecer este código:",
@@ -62,7 +62,7 @@
       "locked": "Tentativas de pareamento demais. Espere 2 minutos e tente de novo.",
       "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
       "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
-      "unreachable": "Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
+      "unreachable": "Não foi possível falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
       "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador."
     }
   },
@@ -246,7 +246,7 @@
       "connected": "Conectado a {{desktop}}",
       "reconnecting": "Reconectando a {{desktop}}…",
       "offNetwork": "Esperando a Wi-Fi para falar com {{desktop}}",
-      "stopped": "Não deu para manter a conexão com {{desktop}}. Abra o app."
+      "stopped": "Não foi possível manter a conexão com {{desktop}}. Abra o app."
     }
   }
 }
