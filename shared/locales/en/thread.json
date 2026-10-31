@@ -1144,7 +1144,9 @@
     "cancel": "Cancel",
     "decline": "Decline",
     "holdWaiting": "Critical risk: Approve is available in {{seconds}} s. Read the command first.",
-    "holdReady": "Approve is available. Enter does not approve a critical command; use Space or click."
+    "holdReady": "Approve is available. Enter does not approve a critical command; use Space or click.",
+    "guarded": "Agent-steering file",
+    "guardedHint": "This changes a file that steers agents (instructions, MCP settings, hooks). Only a person approves it, each time; it is never remembered."
   },
   "requests": {
     "waiting": "The agent is waiting for your answer",

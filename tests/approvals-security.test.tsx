@@ -357,3 +357,38 @@ describe('palette · the approval history command follows the catalog pattern (F
     await act(async () => { await changeLanguage('en') })
   })
 })
+
+describe('P1-17 · a change to a file that steers agents is answered by a person, each time', () => {
+  const guarded: ThreadRequest = {
+    id: 'mcp-json', nativeId: 'mcp-json', nativeMethod: 'can_use_tool:Edit', kind: 'approval', toolName: 'Edit', title: 'Edit .mcp.json', detail: '{"file_path":".mcp.json"}', command: '{"file_path":".mcp.json"}', paths: ['.mcp.json'],
+    generation: 1, createdAt: 1, state: 'pending', availableDecisions: ['accept', 'acceptForSession', 'decline'],
+    policy: { decision: 'ask', reasons: ['.mcp.json configures the agent’s MCP servers.'], level: 'orange', guarded: true, warnings: ['Changes here steer every agent in this project.'], suggestions: [{ kind: 'path', pattern: '.mcp.json', label: '.mcp.json' }] }
+  }
+
+  it('shows the agent-steering badge, offers no session allow and nothing to remember, and Approve is not primary', () => {
+    render(<ThreadRequestCard request={guarded} disabled={false} onRespond={vi.fn()} onRemember={vi.fn()} />)
+    expect(screen.getByTestId('approval-guarded')).toHaveTextContent('Agent-steering file')
+    expect(screen.getByTestId('approval-guarded-hint')).toHaveTextContent('Only a person approves it, each time')
+    expect(screen.queryByRole('button', { name: 'Allow session' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Always allow/ })).toBeNull()
+    const approve = screen.getByRole('button', { name: 'Approve' })
+    expect(approve.dataset.guarded).toBe('true')
+    expect(approve.className).toMatch(/quiet/)
+    // The reasons the request carries still show, through the policy block, and the exact text is open.
+    expect(screen.getByText('.mcp.json configures the agent’s MCP servers.')).toBeInTheDocument()
+    expect(screen.getByText('Changes here steer every agent in this project.')).toBeInTheDocument()
+    expect(screen.getByTestId('approval-exact')).toBeInTheDocument()
+  })
+
+  it('reads in Portuguese, and a low-risk request without the signal keeps its session option', async () => {
+    await act(async () => { await changeLanguage('pt-BR') })
+    render(<ThreadRequestCard request={guarded} disabled={false} onRespond={vi.fn()} />)
+    expect(screen.getByTestId('approval-guarded')).toHaveTextContent('Arquivo que orienta o agente')
+    await act(async () => { await changeLanguage('en') })
+    cleanup()
+    const plain: ThreadRequest = { ...guarded, id: 'plain', title: 'Approve', toolName: 'command', command: 'ls', detail: 'ls', paths: undefined, policy: { decision: 'ask', reasons: ['ls reads'], level: 'green' } }
+    render(<ThreadRequestCard request={plain} disabled={false} onRespond={vi.fn()} />)
+    expect(screen.queryByTestId('approval-guarded')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Allow session' })).toBeInTheDocument()
+  })
+})
