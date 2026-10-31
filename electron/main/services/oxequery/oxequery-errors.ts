@@ -21,8 +21,11 @@ export function guardCodes(verdict: { codes?: MainMessage[] }): ErrorDetail {
   return verdict.codes?.length ? { codes: verdict.codes } : {}
 }
 
+/** The sentence and the reasons as C3 codes the window translates; the English stays for logs and older clients. */
+export interface ErrorCodes { message?: MainMessage; reasons?: MainMessage[] }
+
 export class OxeQueryError extends Error {
-  constructor(readonly code: OxeQueryErrorCode, message: string, readonly reasons: string[] = [], readonly detail: ErrorDetail = {}) { super(message) }
+  constructor(readonly code: OxeQueryErrorCode, message: string, readonly reasons: string[] = [], readonly detail: ErrorDetail = {}, readonly codes: ErrorCodes = {}) { super(message) }
 }
 
 export class MongoInputError extends Error {}

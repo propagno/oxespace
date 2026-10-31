@@ -654,7 +654,7 @@ export function App(): ReactElement {
   // The Team belongs to a project: the selected workspace in Code, the selected project in Thread.
   const teamTarget = applicationView === 'thread' ? (threadProject ? { kind: 'thread' as const, id: threadProject.projectId } : null)
     : applicationView === 'code' ? (activeWorkspace ? { kind: 'code' as const, id: activeWorkspace.id } : null) : null
-  const teamDisabledReason = isDataView(applicationView) ? 'Team is available in Code and Thread' : applicationView === 'thread' ? 'Select a Thread project to open its team' : 'Open a workspace to open its team'
+  const teamDisabledReason = isDataView(applicationView) ? 'Team is available in OxeCode and OxeChat' : applicationView === 'thread' ? 'Select an OxeChat project to open its team' : 'Open a workspace to open its team'
   const openTeam = (): void => { if (teamTarget) setTeamScope(teamTarget) }
 
   // Code's side panels: buttons in the workspace bar for Changes and Browser, the rest in the Panels menu (also on the rail).
@@ -810,7 +810,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label="OXESpace workbench">
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
-        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by Code and Thread' : teamDisabledReason} onClick={openTeam}>Team</Button><ActivityCenter onSelectView={selectMode} /><UpdateBanner /><AppUpdateIndicator /></div>
+        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by OxeCode and OxeChat' : teamDisabledReason} onClick={openTeam}>Team</Button><ActivityCenter onSelectView={selectMode} /><UpdateBanner /><AppUpdateIndicator /></div>
       </header>
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 'var(--layer-toast)', padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
@@ -914,7 +914,7 @@ export function App(): ReactElement {
             <Button variant="primary" size="lg" icon={<Plus size={14} aria-hidden="true" />} onClick={openNewWorkspaceFromUI}>New workspace</Button>
             <div className="empty-state-alt" role="group" aria-label="Other ways to start">
               <span>Or start somewhere else</span>
-              <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
+              <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open OxeChat</Button>
               <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button><Button variant="ghost" size="sm" onClick={() => selectMode('pods')}>Open OxePod</Button><Button variant="ghost" size="sm" onClick={() => selectMode('post')}>Open OxePost</Button>
             </div>
             <Suspense fallback={<FirstRunChecklistFallback />}><FirstRunChecklist onNewWorkspace={openNewWorkspaceFromUI} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} /></Suspense>
