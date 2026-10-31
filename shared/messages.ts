@@ -41,6 +41,15 @@ export interface MessageParams {
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** F13 · Refusals of a sections save (THREAD_SECTIONS_REFUSALS); a refused save stores nothing. */
+  'thread.sections.invalid': Record<string, never>
+  'thread.sections.tooMany': { sections: number; assignments: number }
+  'thread.sections.nameEmpty': Record<string, never>
+  'thread.sections.nameTooLong': { max: number }
+  'thread.sections.nameHidden': Record<string, never>
+  /** `name` is the second section's name, trimmed, as the person typed it. */
+  'thread.sections.nameDuplicate': { name: string }
+  'thread.sections.unknownWorkspace': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -278,6 +287,13 @@ export const MESSAGE_CODES = [
   'app.connectivity.offline',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.sections.invalid',
+  'thread.sections.tooMany',
+  'thread.sections.nameEmpty',
+  'thread.sections.nameTooLong',
+  'thread.sections.nameHidden',
+  'thread.sections.nameDuplicate',
+  'thread.sections.unknownWorkspace',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
