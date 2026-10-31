@@ -67,6 +67,29 @@ describe('Android sources generated from the contracts', () => {
     expect(constantName('maxFrameBytes')).toBe('MAX_FRAME_BYTES')
   })
 
+  it('maps the payload shapes of M4/M5: tagged unions, extends, nullable, word sets, maps and nested arrays', () => {
+    const shapes = `
+export const REMOTE_TEXT_LIMITS = { itemText: 8_000 } as const
+export interface RemoteSummary { id: string; status: 'idle' | 'running' }
+export interface RemoteHeader extends RemoteSummary { queued: number }
+export interface RemoteJob { exitCode: number | null; steps: { label: string }[]; answers?: Record<string, string[]> }
+/** One item. */
+export type RemoteItem =
+  /** Said by someone. */
+  | { type: 'message'; id: string; text: string }
+  | { type: 'request-resolved'; id: string; header: RemoteHeader }`
+    const kotlin: string = protocolKotlin(protocolSource + shapes, { ...protocol, REMOTE_TEXT_LIMITS: { itemText: 8_000 } })
+    expect(kotlin).toContain('object RemoteTextLimits {\n    const val ITEM_TEXT: Int = 8000\n}')
+    // A set of words is a String, so a value a newer desktop adds still reads.
+    expect(kotlin).toContain('data class RemoteSummary(\n    val id: String,\n    val status: String,\n)')
+    expect(kotlin).toContain('data class RemoteHeader(\n    val id: String,\n    val status: String,\n    val queued: Long,\n)')
+    expect(kotlin).toContain('    val exitCode: Long?,\n    val steps: List<Step>,\n    val answers: Map<String, List<String>>? = null,')
+    expect(kotlin).toContain('    @Serializable\n    data class Step(\n        val label: String,\n    )')
+    expect(kotlin).toContain('/** One item. */\n@Serializable\nsealed interface RemoteItem {')
+    expect(kotlin).toContain('    /** Said by someone. */\n    @Serializable\n    @SerialName("message")\n    data class Message(\n        val id: String,\n        val text: String,\n    ) : RemoteItem')
+    expect(kotlin).toContain('    @SerialName("request-resolved")\n    data class RequestResolved(\n        val id: String,\n        val header: RemoteHeader,\n    ) : RemoteItem')
+  })
+
   it('carries every color role of both modes to Kotlin', () => {
     const kotlin: string = themeKotlin(tokens)
     for (const mode of ['light', 'dark'] as const) {

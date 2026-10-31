@@ -2,6 +2,7 @@ import { ArrowUpCircle, Download, RefreshCw } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, Popover } from '../../ui'
+import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 
 const RELEASE_URL = 'https://github.com/propagno/oxespace/releases/latest'
 
@@ -23,7 +24,7 @@ export function AppUpdateIndicator(): ReactElement | null {
       <div className="app-update-popover">
         <strong>OXESpace {app.availableVersion}</strong>
         <p>{manual ? 'A newer release is available. Development and Linux package installs update manually.' : app.status === 'downloaded' ? 'Downloaded and ready to install.' : app.status === 'downloading' ? `Downloading… ${app.progress ?? 0}%` : 'Downloading in the background.'}</p>
-        {manual ? <a href={RELEASE_URL} target="_blank" rel="noopener noreferrer">Open releases <ArrowUpCircle size={14} /></a> : app.status === 'downloaded' ? <Button size="sm" variant="primary" icon={<RefreshCw size={14} />} onClick={() => void quitAndInstall()}>Restart and install</Button> : null}
+        {manual ? <ExternalAnchor href={RELEASE_URL} source="app">Open releases <ArrowUpCircle size={14} /></ExternalAnchor> : app.status === 'downloaded' ? <Button size="sm" variant="primary" icon={<RefreshCw size={14} />} onClick={() => void quitAndInstall()}>Restart and install</Button> : null}
       </div>
     </Popover>
   </div>
