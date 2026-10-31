@@ -1,5 +1,5 @@
 import { Bone, Brain, Check, History, MoreHorizontal, Play, Zap } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { SessionSummary } from '../../../shared/types/session'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -11,9 +11,10 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
-import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
-import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
-import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
+// The pane's usage chips read quotas and context after the terminal is up; they load on their own.
+const CopilotCreditsStatus = lazy(() => import('../Terminal/CopilotCreditsStatus').then(module => ({ default: module.CopilotCreditsStatus })))
+const AgentCreditsStatus = lazy(() => import('../Terminal/AgentCreditsStatus').then(module => ({ default: module.AgentCreditsStatus })))
+const ContextUsageStatus = lazy(() => import('../Terminal/ContextUsageStatus').then(module => ({ default: module.ContextUsageStatus })))
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { VoiceHud } from '../Voice/VoiceHud'
 
@@ -406,7 +407,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
       {isRunning ? (
         <div className="terminal-content">
-          <ErrorBoundary label={tc('terminalPane.boundary')}>
+          <ErrorBoundary id="terminal" label={tc('terminalPane.boundary')}>
           <TerminalView
             paneId={pane.id}
             workspaceId={workspaceId}
@@ -453,9 +454,11 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
         <div className="terminal-statusbar-spacer" />
 
-        {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} /> : null}
-        {isCopilotPane ? <CopilotCreditsStatus /> : null}
-        {agentCreditsProvider ? <AgentCreditsStatus provider={agentCreditsProvider} /> : null}
+        <Suspense fallback={null}>
+          {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} /> : null}
+          {isCopilotPane ? <CopilotCreditsStatus /> : null}
+          {agentCreditsProvider ? <AgentCreditsStatus provider={agentCreditsProvider} /> : null}
+        </Suspense>
 
         <div className="statusbar-more" ref={moreRef}>
           <button
