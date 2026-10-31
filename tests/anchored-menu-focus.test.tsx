@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { useImperativeHandle, useState, forwardRef, type ReactElement } from 'react'
 import { describe, expect, test, vi } from 'vitest'
 import { AnchoredMenu } from '../src/ui'
@@ -58,5 +58,36 @@ describe('AnchoredMenu and its owner', () => {
       items={[{ label: 'Smaller', onSelect: () => {}, disabled: true }, { label: 'Larger', onSelect: () => {} }]} /></div>)
     await screen.findByRole('menu', { name: 'Sidebar width: size options' })
     await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Larger' })).toHaveFocus())
+  })
+})
+
+import { describe as describeDialog } from 'vitest'
+describeDialog('a dialog opened from a menu item', () => {
+  test('keeps its focus when the menu closes; a plain item still gives focus back to the trigger', async () => {
+    const { Menu, ConfirmDialog } = await import('../src/ui')
+    const { useState } = await import('react')
+    const userEvent = (await import('@testing-library/user-event')).default
+    function Host() {
+      const [open, setOpen] = useState(false)
+      return <>
+        <Menu label="Actions" trigger={<button type="button">More</button>} items={[
+          { label: 'Archive…', onSelect: () => setOpen(true) },
+          { label: 'Pin', onSelect: () => undefined }
+        ]} />
+        {open && <ConfirmDialog title="Archive this?" description="It goes to Archived." confirmLabel="Archive" onConfirm={() => setOpen(false)} onCancel={() => setOpen(false)} />}
+      </>
+    }
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Archive…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Archive this?' })
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus())
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Pin' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'More' })).toHaveFocus())
   })
 })
