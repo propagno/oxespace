@@ -109,6 +109,19 @@ describe('workspace root check (B11)', () => {
     expect(counts(db)).toEqual({ workspaces: 0, panes: 0 })
   })
 
+  // Homologation: an empty root used to throw a raw English sentence; it is a coded refusal like the others.
+  test.each(['', '   ', '""', '\'\'', ' " " '])('an empty root %j is refused as empty, with no row', async (given) => {
+    const result = await ipcMain.invoke('workspace:create', { rootPath: given, layoutPreset: 4 })
+
+    expect(result).toEqual({ ok: false, refusal: 'empty', message: { code: 'workspace.root.empty', params: {} } })
+    expect(counts(db)).toEqual({ workspaces: 0, panes: 0 })
+  })
+
+  test('a root that is not text is still malformed input, not a refusal', async () => {
+    await expect(ipcMain.invoke('workspace:create', { rootPath: 42, layoutPreset: 4 })).rejects.toThrow()
+    expect(counts(db)).toEqual({ workspaces: 0, panes: 0 })
+  })
+
   test('quotes inside a name are kept', () => {
     expect(normalizeWorkspaceRoot('C:\\work\\it"s here')).toBe('C:\\work\\it"s here')
     expect(normalizeWorkspaceRoot('"C:\\work\\it"s here"')).toBe('C:\\work\\it"s here')

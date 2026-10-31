@@ -20,7 +20,7 @@ import { defaultSplitShellProfileId, fallbackShellProfiles } from '../services/s
 // The one real service the mocks keep: file reads are what the editor and
 // preview specs actually assert on, and faking a filesystem would test the fake.
 import { FileSystemService } from '../services/file-system.service'
-import { checkWorkspaceRoot } from '../services/workspace-root'
+import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../services/workspace-root'
 import { worktreeOrWorkspaceRoot } from '../ipc/file-system.ipc'
 import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
@@ -51,13 +51,14 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)
   ipcMain.handle(IPC_CHANNELS.workspace.create, (_event: IpcMainInvokeEvent, input: { rootPath: string; layout?: WorkspaceLayout; layoutPreset?: WorkspaceLayoutPreset; defaultShellProfileId?: string; autoStart?: boolean }) => {
     // The same refusal as the real handler: E2E runs create workspaces on real temporary folders.
-    const root = checkWorkspaceRoot(input.rootPath)
+    const rootPath = normalizeWorkspaceRoot(input.rootPath)
+    const root = checkWorkspaceRoot(rootPath)
     if (!root.ok) return root
     const layout = input.layout ?? presetToLayout(input.layoutPreset ?? 4)
     const workspace: Workspace = {
       id: randomUUID(),
-      name: input.rootPath.replaceAll('\\', '/').split('/').filter(Boolean).at(-1) ?? 'workspace',
-      rootPath: input.rootPath,
+      name: rootPath.replaceAll('\\', '/').split('/').filter(Boolean).at(-1) ?? 'workspace',
+      rootPath,
       layout,
       layoutPreset: input.layoutPreset ?? layoutToPreset(layout),
       themeId: 'midnight',

@@ -83,6 +83,8 @@ export interface MessageParams {
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
   /** A workspace root that is not an absolute path (a relative one would depend on where the app started). */
+  /** No folder was given: the text was empty, or only spaces or quotes. */
+  'workspace.root.empty': Record<string, never>
   'workspace.root.notAbsolute': { path: string }
   /** A workspace root that does not exist. */
   'workspace.root.notFound': { path: string }
@@ -240,6 +242,7 @@ export const MESSAGE_CODES = [
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
   'remote.certificate.failed',
+  'workspace.root.empty',
   'workspace.root.notAbsolute',
   'workspace.root.notFound',
   'workspace.root.notDirectory',

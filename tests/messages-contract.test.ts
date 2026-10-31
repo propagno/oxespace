@@ -69,6 +69,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.port.inUse': ['port'],
   'remote.network.noPrivateInterface': [],
   'remote.certificate.failed': [],
+  'workspace.root.empty': [],
   'workspace.root.notAbsolute': ['path'],
   'workspace.root.notFound': ['path'],
   'workspace.root.notDirectory': ['path'],

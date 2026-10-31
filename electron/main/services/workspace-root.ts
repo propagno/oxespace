@@ -23,6 +23,7 @@ export function normalizeWorkspaceRoot(rootPath: string): string {
 }
 
 export function checkWorkspaceRoot(rootPath: string): { ok: true } | WorkspaceCreateRefusal {
+  if (!rootPath) return { ok: false, refusal: 'empty', message: mainMessage('workspace.root.empty', {}) }
   if (!isAbsolute(rootPath)) return refuse('notAbsolute', rootPath)
   let isDirectory: boolean
   try {
