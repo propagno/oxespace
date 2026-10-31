@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { expect, test } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
 import { installThreadFixtures, registerThreadProject } from './helpers/thread-fixtures'
@@ -36,7 +37,7 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
         calls.create.push(input)
         const path = `${root}-worktrees/feature-e2e-ab12`
         const thread = { id: `t${threads.length + 1}`, workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: input.worktree ? path : root, provider: input.provider,
-          nativeSessionId: null, title: 'New thread', pinned: false, status: 'idle', createdAt: 1, updatedAt: 1,
+          nativeSessionId: null, title: 'New conversation', pinned: false, status: 'idle', createdAt: 1, updatedAt: 1,
           ...(input.worktree ? { ownedWorktree: { path, branch: input.worktree.branch ?? 'thread/generated', projectRoot: root, baseSha: 'a'.repeat(40), createdAt: 1 } } : {}) }
         threads.push(thread); changed(String(thread.id)); return { thread, events: [] }
       })
@@ -59,16 +60,16 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
       })
     }, { root: workspaceRoot })
 
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
-    await page.getByRole('button', { name: 'New thread in repo' }).click()
-    const dialog = page.getByRole('dialog', { name: 'New thread' })
+    await modeButton(page, 'thread').click()
+    await page.getByRole('button', { name: 'New conversation in repo' }).click()
+    const dialog = page.getByRole('dialog', { name: 'New conversation' })
     const option = dialog.getByRole('checkbox', { name: 'Work in an isolated worktree' })
     // Off until the person turns it on.
     await expect(option).not.toBeChecked()
     await option.check()
     await dialog.getByLabel('Branch').fill('feature/e2e')
     await page.screenshot({ path: test.info().outputPath('new-thread-worktree-option.png') })
-    await dialog.getByRole('button', { name: 'Create thread', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Create conversation', exact: true }).click()
 
     // The conversation shows the branch it works on and that it is a worktree.
     const heading = page.locator('.thread-heading')
@@ -82,9 +83,9 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
     expect((await calls()).create).toEqual([{ projectId: 'e2e-project', rootPath: workspaceRoot, provider: 'claude', worktree: { branch: 'feature/e2e' } }])
 
     // The choice is remembered for this project.
-    await page.getByRole('button', { name: 'New thread in repo' }).click()
-    await expect(page.getByRole('dialog', { name: 'New thread' }).getByRole('checkbox', { name: 'Work in an isolated worktree' })).toBeChecked()
-    await page.getByRole('dialog', { name: 'New thread' }).getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: 'New conversation in repo' }).click()
+    await expect(page.getByRole('dialog', { name: 'New conversation' }).getByRole('checkbox', { name: 'Work in an isolated worktree' })).toBeChecked()
+    await page.getByRole('dialog', { name: 'New conversation' }).getByRole('button', { name: 'Cancel' }).click()
 
     // Archiving asks about the worktree first; an empty one goes with the conversation.
     const composer = page.locator('.thread-composer textarea')

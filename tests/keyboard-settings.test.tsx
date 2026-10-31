@@ -19,8 +19,8 @@ describe('Settings › Keyboard', () => {
     expect(within(row('code.files')).getByText('Press the new shortcut, or Esc to cancel')).toBeInTheDocument()
     fireEvent.keyDown(window, { key: 'D', code: 'KeyD', ctrlKey: true, shiftKey: true })
     expect(useSettingsStore.getState().keybindingOverrides['code.files']).toEqual(['Mod+Shift+D'])
-    expect(within(row('code.files')).getByText(/Also used by Changes \(Code\)/)).toBeInTheDocument()
-    expect(within(row('code.changes')).getByText(/Also used by Files \(Code\)/)).toBeInTheDocument()
+    expect(within(row('code.files')).getByText(/Also used by Changes \(OxeCode\)/)).toBeInTheDocument()
+    expect(within(row('code.changes')).getByText(/Also used by Files \(OxeCode\)/)).toBeInTheDocument()
 
     await userEvent.click(within(row('code.files')).getByRole('button', { name: 'Reset shortcut for Files' }))
     expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
@@ -36,6 +36,17 @@ describe('Settings › Keyboard', () => {
     expect(within(row('sidebar.toggle')).getByText('Not set')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Reset all shortcuts' }))
     expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
+  })
+
+  it('lists F6 as always on and the Tab focus toggle as rebindable (WCAG 2.1.2)', async () => {
+    render(<KeyboardSettings />)
+    for (const id of ['focus.nextRegion', 'focus.previousRegion']) {
+      expect(within(row(id)).getByText('Always on')).toBeInTheDocument()
+      expect(within(row(id)).queryByRole('button')).toBeNull()
+    }
+    await userEvent.click(within(row('terminal.tabMovesFocus')).getByRole('button', { name: 'Change shortcut for Tab moves focus in the terminal' }))
+    fireEvent.keyDown(window, { key: 't', code: 'KeyT', ctrlKey: true, altKey: true })
+    expect(chordsFor('terminal.tabMovesFocus')).toEqual(['Mod+Alt+T'])
   })
 })
 

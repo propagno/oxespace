@@ -381,17 +381,6 @@ export function parseWorktreeStatusPorcelainV2(raw: string): {
   return { dirtyCount, untrackedCount, ahead, behind, noUpstream: !hasUpstream }
 }
 
-/**
- * Strips ANSI escape sequences from gh CLI output so the renderer can display
- * logs as plain text. Covers the most common SGR (color) + control sequences;
- * good enough for `gh run view --log`, which uses standard escapes.
- */
-export function stripAnsi(text: string): string {
-  // CSI (Control Sequence Introducer) — `\x1b[ ... letter` (most colors/cursors)
-  // OSC (Operating System Command) — `\x1b] ... BEL` or `\x1b] ... ST`
-  // Other Fe escapes (single-byte after ESC)
-  return text
-    .replace(/\x1B\[[\x3C-\x3F]*[\d;]*[\x20-\x2F]*[\x40-\x7E]/g, '')
-    .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '')
-    .replace(/\x1B[@-_]/g, '')
-}
+// Strips ANSI escape sequences from gh CLI output (`gh run view --log`); lives in utils so the MCP read tools
+// reach it without loading these parsers with the main entry.
+export { stripAnsi } from '../../utils/strip-ansi'

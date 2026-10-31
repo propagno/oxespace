@@ -100,7 +100,7 @@
       "unknown": "unknown"
     },
     "readOnly": "Read-only",
-    "phoneWrite": "Typing allowed from the phone"
+    "phoneWrite": "Phone can type"
   },
   "thread": {
     "you": "You",

@@ -246,11 +246,11 @@ function ProvidersSettingsSection({
   const { t } = useTranslation('settings')
   const [showMissing, setShowMissing] = useState(false)
   const [usingId, setUsingId] = useState<string | null>(null)
-  // The last nightly contract check; one network read when the section opens, cached by the main process.
-  const [compatibility, setCompatibility] = useState<ProviderCompatibility | null>(null)
+  const [compatibility, setCompatibility] = useState<ProviderCompatibility | null>(null) // the nightly contract check, cached by main
   useEffect(() => {
     let active = true
     void window.oxe?.agent?.compatibility?.().then(value => { if (active) setCompatibility(value) }).catch(() => {})
+    void useAgentStore.getState().loadReadiness() // what main knows of each CLI (no probe): not whatever loaded at boot
     return () => { active = false }
   }, [])
   const lastHealthCheckAt = useAgentStore((s) => s.lastHealthCheckAt)

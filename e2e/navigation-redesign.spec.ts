@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -17,7 +18,7 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.getByTestId('wizard-layout-card-2').click()
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(2)
-    await expect(page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Code' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(modeButton(page, 'code')).toHaveAttribute('aria-pressed', 'true')
     // The application menus sit behind one button (Windows and Linux; macOS keeps its native menu bar).
     if (process.platform !== 'darwin') {
       await page.getByRole('button', { name: 'Application menu' }).click()

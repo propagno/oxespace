@@ -110,15 +110,15 @@
     },
     "density": {
       "title": "Densidade",
-      "hint": "Quão juntos ficam controles e listas. Os workspaces e a lista do Thread seguem esta opção, a menos que tenham a própria.",
+      "hint": "Quão juntos ficam controles e listas. Os workspaces e a lista do OxeChat seguem esta opção, a menos que tenham a própria.",
       "compact": "Compacta",
       "comfortable": "Confortável",
       "workspaceOverride_one": "1 workspace usa a própria densidade.",
       "workspaceOverride_many": "{{count}} workspaces usam a própria densidade.",
       "workspaceOverride_other": "{{count}} workspaces usam a própria densidade.",
       "useAppInWorkspaces": "Usar a densidade do app em todos os workspaces",
-      "threadOverride": "A lista do Thread usa a própria densidade: {{density}}.",
-      "useAppInThread": "Usar a densidade do app na lista do Thread"
+      "threadOverride": "A lista do OxeChat usa a própria densidade: {{density}}.",
+      "useAppInThread": "Usar a densidade do app na lista do OxeChat"
     },
     "motion": {
       "title": "Movimento",
@@ -255,7 +255,7 @@
     "minutes_one": "{{count}} minuto sem atividade",
     "minutes_many": "{{count}} minutos sem atividade",
     "minutes_other": "{{count}} minutos sem atividade",
-    "hint": "Cada conversa aberta do Thread mantém um processo de agente e os servidores MCP dele rodando. Encerrar as ociosas libera memória; sua próxima mensagem retoma a mesma sessão. Uma conversa com turno em andamento, pergunta, mensagens na fila, tarefa em segundo plano ou permissão liberada para a sessão continua aberta.",
+    "hint": "Cada conversa aberta do OxeChat mantém um processo de agente e os servidores MCP dele rodando. Encerrar as ociosas libera memória; sua próxima mensagem retoma a mesma sessão. Uma conversa com turno em andamento, pergunta, mensagens na fila, tarefa em segundo plano ou permissão liberada para a sessão continua aberta.",
     "saveFailed": "Não foi possível salvar esta configuração"
   },
   "semantic": {
@@ -472,7 +472,7 @@
   },
   "activity": {
     "title": "Atividade dos agentes",
-    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, Threads, tarefas, skills, automações) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
+    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, conversas, tarefas, skills, automações) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
     "decisions": {
       "auto": "executou",
       "approved": "você aprovou",
@@ -557,6 +557,7 @@
     "reset": "Restaurar",
     "offLabel": "Desligar o atalho de {{name}}",
     "off": "Desligar",
-    "resetAll": "Restaurar todos os atalhos"
+    "resetAll": "Restaurar todos os atalhos",
+    "fixed": "Sempre ativo"
   }
 }
