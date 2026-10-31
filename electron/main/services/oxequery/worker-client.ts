@@ -15,11 +15,25 @@ function describeFault(error: unknown): string {
 const STATEMENT_SLACK_MS = 30_000
 /** After a request times out, the worker must answer a ping this fast or it is restarted. */
 const PROBE_MS = 10_000
+/** Requests that stop or close work rather than do it. */
+const CONTROL_OPS = new Set(['ping', 'close', 'closeAll', 'sql.cancel', 'mongo.cancel'])
+/** Mongo reads that `mongo.cancel` stops (they are tagged in the worker); any other Mongo request is stopped by closing its client. */
+const MONGO_CANCELLABLE = new Set(['mongo.find', 'mongo.aggregate'])
+
+/** Work the person started on a connection: the worker is never restarted under it. */
+function isPersonWork(request: Pick<Pending, 'op' | 'connection'>): boolean {
+  return Boolean(request.connection) && (request.connection?.role ?? 'person') === 'person' && !CONTROL_OPS.has(request.op ?? '')
+}
 
 /**
  * A lazily started worker; a crash fails the requests in flight and the next call starts a fresh one. A request that
- * runs out of time fails alone: its statement is cancelled (or its connection closed), and the worker is restarted
- * only if it no longer answers a ping, so other connections and SSH tunnels survive one slow query.
+ * runs out of time fails alone: its statement is cancelled (or its connection closed), and only for its own role, so an
+ * agent's timeout never touches the person's session.
+ *
+ * Restarting the worker drops every connection, so it is the last resort: only when the worker no longer answers a
+ * ping AND no person session is at risk — none with a transaction open or failed or a command running, as the worker
+ * last reported (`personAtRisk` on every answer), and no request of the person's still waiting. Otherwise the restart
+ * is put off and the next timeout asks again.
  */
 export class OxeQueryWorkerClient {
   private worker?: Worker
@@ -27,6 +41,8 @@ export class OxeQueryWorkerClient {
   private sequence = 0
   private closed = false
   private readonly pending = new Map<number, Pending>()
+  /** The person's sessions at risk, as the worker last reported them. */
+  private personAtRisk = 0
 
   /** `onFault` receives what the worker died of, for the log; the message the user sees carries a short, masked form. */
   constructor(private readonly path: string, private readonly timeoutMs = 120_000, private readonly onFault?: (detail: string) => void, private readonly probeMs = PROBE_MS) {}
@@ -60,8 +76,9 @@ export class OxeQueryWorkerClient {
   private start(): Worker {
     const worker = new Worker(this.path, { resourceLimits: { maxOldGenerationSizeMb: 512 } })
     this.worker = worker
-    worker.on('message', (message: { requestId: number; result?: unknown; progress?: unknown; error?: { code: OxeQueryError['code']; message: string; reasons?: string[]; detail?: OxeQueryError['detail'] } }) => {
+    worker.on('message', (message: { requestId: number; result?: unknown; progress?: unknown; personAtRisk?: number; error?: { code: OxeQueryError['code']; message: string; reasons?: string[]; detail?: OxeQueryError['detail']; messageCode?: OxeQueryError['messageCode'] } }) => {
       if (this.worker !== worker) return
+      if (typeof message.personAtRisk === 'number') this.personAtRisk = message.personAtRisk
       const request = this.pending.get(message.requestId)
       if (!request) return
       if (message.progress !== undefined) {
@@ -73,7 +90,7 @@ export class OxeQueryWorkerClient {
       }
       clearTimeout(request.timer); this.pending.delete(message.requestId)
       if (message.error?.code === 'timeout') recordIncident('incident.oxequery.timeout', request.connection?.id ?? request.op)
-      if (message.error) request.reject(new OxeQueryError(message.error.code, message.error.message, message.error.reasons ?? [], message.error.detail ?? {}))
+      if (message.error) request.reject(new OxeQueryError(message.error.code, message.error.message, message.error.reasons ?? [], message.error.detail ?? {}, message.error.messageCode))
       else request.resolve(message.result)
     })
     worker.on('error', (error: unknown) => {
@@ -97,10 +114,20 @@ export class OxeQueryWorkerClient {
     this.pending.delete(requestId)
     recordIncident('incident.oxequery.timeout', request.connection?.id ?? request.op)
     request.reject(new OxeQueryError('invalid', 'The database did not answer in time. The request was cancelled; your other connections are unaffected.'))
-    if (request.connection && request.op !== 'close' && request.op !== 'sql.cancel') {
-      void this.call(request.op?.startsWith('sql.') ? 'sql.cancel' : 'close', request.connection).catch(() => undefined)
+    // The person's command may still be running in the worker: count it at risk until the worker says otherwise.
+    if (isPersonWork(request)) this.personAtRisk = Math.max(this.personAtRisk, 1)
+    if (request.connection && !CONTROL_OPS.has(request.op ?? '')) {
+      // Stop the work of this request's role only: an agent's timeout cancels the agent's statement, never the person's.
+      const connection = { ...request.connection, role: request.connection.role ?? 'person' as const }
+      const stop = request.op?.startsWith('sql.') ? 'sql.cancel' : MONGO_CANCELLABLE.has(request.op ?? '') ? 'mongo.cancel' : 'close'
+      void this.call(stop, connection).catch(() => undefined)
     }
     void this.probe()
+  }
+
+  /** Whether a restart would cost the person work: see the class comment. */
+  private personSessionAtRisk(): boolean {
+    return this.personAtRisk > 0 || [...this.pending.values()].some(isPersonWork)
   }
 
   /** A worker that does not answer a ping in time is stuck, and only then is it restarted. */
@@ -113,7 +140,12 @@ export class OxeQueryWorkerClient {
       const timer = setTimeout(() => {
         this.pending.delete(requestId)
         resolve()
-        if (this.worker === worker) void this.reset('The database worker stopped responding and was restarted.')
+        if (this.worker !== worker) return
+        if (this.personSessionAtRisk()) {
+          try { this.onFault?.('worker did not answer a ping; restart put off while a person session is at risk') } catch { /* logging must not decide */ }
+          return
+        }
+        void this.reset('The database worker stopped responding and was restarted.')
       }, this.probeMs)
       this.pending.set(requestId, { resolve: () => resolve(), reject: () => resolve(), timer, budgetMs: this.probeMs, op: 'ping' })
       try { worker.postMessage({ requestId, op: 'ping' }) } catch { clearTimeout(timer); this.pending.delete(requestId); resolve() }
@@ -126,6 +158,7 @@ export class OxeQueryWorkerClient {
   private async reset(reason: string): Promise<void> {
     const worker = this.worker
     this.worker = undefined
+    this.personAtRisk = 0
     for (const request of this.pending.values()) { clearTimeout(request.timer); request.reject(new OxeQueryError('invalid', reason)) }
     this.pending.clear()
     await worker?.terminate().catch(() => undefined)

@@ -172,6 +172,31 @@ SchemaTree / StructureEditor         PreferenceStore
   agent), `076` preferences. The connection table is never rebuilt after `067` because
   its children cascade on delete.
 
+### Sessions in the worker
+
+- **By role.** The worker keeps one session per connection *and role*: the person's and
+  an agent's (`role: 'agent'` on the resolved connection the gateway sends). They never
+  share, reopen or close each other.
+- **A busy session is never closed.** A session reopens when its settings change (host,
+  password, TLS, tunnel, timeout; read-only is not one of them, since every read-only
+  statement gets its own `BEGIN READ ONLY`). One with a transaction open or failed, a
+  command running, or another request on it (an import, an export, a bulk write, a find)
+  is not closed: the caller is refused with `conflict` (`oxequery.session.busy`). The idle
+  reaper skips busy sessions too.
+- **Idle.** The person's sessions close after 10 minutes without use, an agent's after 2
+  (`AGENT_IDLE_MS`); the reaper runs every minute. At most 12 sessions stay open.
+- **Cap.** One connection may hold at most 3 driver connections per role
+  (`MAX_CONNECTIONS_PER_SLOT`: the session, the catalog client a *Load more* page needs,
+  and the one that cancels a statement). One more is refused with `limit`
+  (`oxequery.session.limit`). Two requests that open the same session at once share one.
+- **Restarting the worker is the last resort.** A request that times out cancels its own
+  work only, for its own role. The worker is restarted only when it no longer answers a
+  ping **and** no person session is at risk: none with a transaction open or failed or a
+  command running (the worker reports the count with every answer), and no request of the
+  person's still waiting. Otherwise the restart is put off, logged, and asked again at the
+  next timeout. A worker that crashes or exits on its own is replaced; its connections are
+  already gone.
+
 ## Agents (MCP)
 
 AI agents running in a Thread reach OxeQuery through ten tools. **No database and no
@@ -195,6 +220,15 @@ most). A connection's own setting can only be lower than the cap.
   request longer than 6 000 characters is refused rather than shortened.
 - **Reads** run in a `READ ONLY` transaction chosen by the server, one statement at a
   time per connection, with a 20 s limit.
+- **Sessions of their own.** An agent's calls run on the agent's own session of the
+  connection (its own Postgres backend, its own MongoDB client), never on yours. An agent's
+  read cannot close, reopen or join your session: your open transaction stays open, and the
+  agent does not see rows you have not committed. An agent cannot keep a transaction open
+  (a `BEGIN` it sends is rolled back and refused). The agent's session closes after
+  2 minutes without use (`AGENT_IDLE_MS`; yours after 10).
+- **A timeout stops the agent's work only.** It cancels the agent's statement
+  (`pg_cancel_backend` on the agent's backend) or the agent's MongoDB operation (`killOp`
+  on its tagged operation, or the client-side abort). Your session is not touched.
 - **Output** is limited (50 rows by default, 200 max, 16 KB, 512 characters per cell).
   Values of columns and keys that look sensitive, and any name added in the connection's
   *Names agents must not see*, are replaced by `«masked»`. Every result says it is

@@ -606,7 +606,7 @@ export interface OxeQueryErrorInfo {
   /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
   messageCode?: import('../messages').MainMessage
   code: 'engine-missing' | 'daemon' | 'not-found' | 'invalid' | 'failed' | 'read-only' | 'confirm' | 'confirm-name' | 'connect' | 'query' | 'timeout' | 'cancelled'
-    | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict'
+    | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict' | 'limit'
   message: string
   /** Why a statement was flagged, when code is 'confirm', 'confirm-name' or 'read-only'. */
   reasons?: string[]

@@ -94,6 +94,10 @@ export interface MessageParams {
   'oxequery.sql.sessionRole': Record<string, never>
   /** SQL risk: `VACUUM FULL` locks the whole table while it runs. */
   'oxequery.sql.tableLock': Record<string, never>
+  /** A session with a transaction open or a command running is never closed to reopen it with new settings. */
+  'oxequery.session.busy': Record<string, never>
+  /** One connection already holds the most database connections it may hold for one role (the person or an agent). */
+  'oxequery.session.limit': { limit: number }
   'oxepod.startFailed': { reason: string }
   'oxepost.network.notFound': Record<string, never>
   'oxepost.network.refused': Record<string, never>
@@ -274,6 +278,8 @@ export const MESSAGE_CODES = [
   'oxequery.sql.rowLock',
   'oxequery.sql.sessionRole',
   'oxequery.sql.tableLock',
+  'oxequery.session.busy',
+  'oxequery.session.limit',
   'oxepod.startFailed',
   'oxepost.network.notFound',
   'oxepost.network.refused',

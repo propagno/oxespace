@@ -14,6 +14,9 @@ interface Request { requestId: number; op: string; connection?: ResolvedConnecti
 /** Exports that can still be cancelled, by the caller's export id. */
 const exports = new Map<string, { cancelled: boolean }>()
 
+/** Requests that stop or close work; they never count as work on the session they target. */
+const UNTRACKED = new Set(['close', 'sql.cancel', 'mongo.cancel'])
+
 async function handle(request: Request): Promise<unknown> {
   if (request.op === 'export.cancel' || request.op === 'import.cancel') {
     const active = exports.get(String(request.input?.exportId ?? request.input?.importId ?? ''))
@@ -25,9 +28,14 @@ async function handle(request: Request): Promise<unknown> {
   if (request.op === 'closeAll') { await core.closeAll(); return { ok: true } }
   if (request.op === 'ping') return { ok: true, drivers: core.drivers(), node: process.version }
   if (!connection) throw new OxeQueryError('invalid', 'A connection is required.')
+  // While a request runs, its session is busy: a key change or the idle reaper never closes it (oxequery-core `track`).
+  return UNTRACKED.has(request.op) ? dispatch(request, connection, input) : core.track(connection, () => dispatch(request, connection, input))
+}
+
+async function dispatch(request: Request, connection: ResolvedConnection, input: Record<string, unknown>): Promise<unknown> {
   switch (request.op) {
     case 'test': return core.test(connection)
-    case 'close': await core.closeConnection(connection.id); return { ok: true }
+    case 'close': await core.closeConnection(connection.id, connection.role); return { ok: true }
     case 'sql.run': return core.sqlRun(connection, String(input.sql ?? ''), { maxRows: input.maxRows as number | undefined, confirmed: input.confirmed === true, params: input.params as (string | null)[] | undefined, paged: input.paged === true })
     case 'sql.more': return core.sqlMore(connection, String(input.pageId ?? ''), input.maxRows as number | undefined)
     case 'sql.script': return core.sqlScript(connection, String(input.sql ?? ''), { maxRows: input.maxRows as number | undefined, confirmed: input.confirmed === true })
@@ -101,13 +109,16 @@ async function handle(request: Request): Promise<unknown> {
   }
 }
 
+// Every answer says how many of the person's sessions would lose work if the worker stopped: the main process never
+// restarts the worker while that is above zero (worker-client `probe`).
 parentPort?.on('message', (request: Request) => {
   void handle(request).then(
-    result => parentPort?.postMessage({ requestId: request.requestId, result }),
+    result => parentPort?.postMessage({ requestId: request.requestId, result, personAtRisk: core.personAtRisk() }),
     (error: unknown) => parentPort?.postMessage({
       requestId: request.requestId,
+      personAtRisk: core.personAtRisk(),
       error: error instanceof OxeQueryError
-        ? { code: error.code, message: error.message, reasons: error.reasons, detail: error.detail }
+        ? { code: error.code, message: error.message, reasons: error.reasons, detail: error.detail, ...(error.messageCode ? { messageCode: error.messageCode } : {}) }
         : error instanceof MongoInputError ? { code: 'invalid', message: error.message, reasons: [] }
         : { code: 'query', message: error instanceof Error ? error.message : 'Operation failed', reasons: [] }
     })
