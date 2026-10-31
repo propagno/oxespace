@@ -164,6 +164,9 @@ private fun ItemView(item: RemoteThreadItem, onOpenRequest: (String) -> Unit) {
         is RemoteThreadItem.Request -> Card(onClick = if (item.state == "pending") ({ onOpenRequest(item.requestId) }) else null) {
             Text(stringResource(R.string.thread_request, item.title), style = MaterialTheme.typography.titleSmall, color = Oxe.colors.intentWarningFg)
             Text(requestStateLabel(item.state), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
+            if (item.state == "pending") {
+                TextButton(onClick = { onOpenRequest(item.requestId) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.thread_respond)) }
+            }
         }
         is RemoteThreadItem.Subagent -> Text("${toolStateLabel(item.state)} · ${item.agents}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
         is RemoteThreadItem.Completed -> Text(
