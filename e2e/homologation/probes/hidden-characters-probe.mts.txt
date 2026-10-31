@@ -1,0 +1,14 @@
+// #238 probe: characters an agent can hide in approval text, and whether the shared list catches them.
+import { codePointLabel, findHiddenCharacters, hasHiddenCharacters } from '../../../shared/hidden-characters.ts'
+const cases: Array<[string, string]> = [
+  ['RLO', 'rm -rf ~ #\u202Etxt.etadpu'], ['LRO', 'a\u202Db'], ['RLI/PDI', 'a\u2067b\u2069'], ['LRM', 'a\u200Eb'], ['RLM', 'a\u200Fb'], ['ALM', 'a\u061Cb'],
+  ['ZWSP', 'DELETE\u200B FROM'], ['ZWNJ', 'a\u200Cb'], ['ZWJ', 'a\u200Db'], ['WJ', 'a\u2060b'], ['BOM', '\uFEFFDROP TABLE'], ['soft hyphen', 'DE\u00ADLETE'],
+  ['tag chars', 'ok\u{E0049}\u{E0047}\u{E004E}'], ['variation selector', 'a\uFE0Fb'], ['VS supplement', 'a\u{E0100}b'], ['Hangul filler', 'a\u3164b'], ['halfwidth filler', 'a\uFFA0b'],
+  ['Mongolian VS', 'a\u180Eb'], ['interlinear', 'a\uFFF9b'], ['line separator', 'a\u2028b'], ['paragraph separator', 'a\u2029b'], ['NUL', 'a\u0000b'], ['ESC (ANSI)', 'a\u001b[31mred'],
+  ['CR alone', 'echo safe\rrm -rf /'], ['backspace', 'safe\u0008\u0008\u0008rm'], ['NBSP', 'a\u00A0b'], ['ideographic space', 'a\u3000b'], ['combining grapheme joiner', 'a\u034Fb'],
+  ['braille blank', 'a\u2800b'], ['plain', 'SELECT 1'], ['accents', 'ação São João'], ['emoji', 'ok 🔥👍🏽']
+]
+for (const [name, text] of cases) {
+  const found = findHiddenCharacters(text) as unknown
+  console.log(name.padEnd(26), String(hasHiddenCharacters(text)).padEnd(6), JSON.stringify(found).slice(0, 90), [...text].filter(c => /[^\x20-\x7E]/.test(c)).map(c => codePointLabel(c.codePointAt(0)!)).join(' ').slice(0, 60))
+}
