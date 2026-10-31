@@ -139,7 +139,16 @@
       "test": {
         "connected": "Connected"
       },
-      "startFailed": "OxeQuery did not start: {{reason}}"
+      "startFailed": "OxeQuery did not start: {{reason}}",
+      "sql": {
+        "copyProgram": "COPY … PROGRAM runs a shell command on the database server.",
+        "doBlock": "DO runs code in the database; its effect is not known before it runs.",
+        "callProcedure": "CALL runs a stored procedure; its effect is not known before it runs.",
+        "destructiveInside": "{{statement}} contains {{keyword}}, which can remove data or objects.",
+        "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.",
+        "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
+        "tableLock": "VACUUM FULL locks the whole table while it runs."
+      }
     },
     "oxepod": {
       "startFailed": "OxePod did not start: {{reason}}"

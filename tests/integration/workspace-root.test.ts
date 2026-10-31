@@ -11,7 +11,7 @@ import type { FakeIpcMain } from '../helpers/fake-ipc-main'
 import { removeTempDir } from '../helpers/removeTempDir'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
-import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../../electron/main/services/workspace-root'
+import { checkWorkspaceRoot, isFullyQualified, normalizeWorkspaceRoot } from '../../electron/main/services/workspace-root'
 import type { SemanticService } from '../../electron/main/services/semantic.service'
 
 // vi.mock is hoisted above the imports, so the fake it hands out must be hoisted with it.
@@ -120,6 +120,32 @@ describe('workspace root check (B11)', () => {
   test('a root that is not text is still malformed input, not a refusal', async () => {
     await expect(ipcMain.invoke('workspace:create', { rootPath: 42, layoutPreset: 4 })).rejects.toThrow()
     expect(counts(db)).toEqual({ workspaces: 0, panes: 0 })
+  })
+
+  // Review of #239: Windows' isAbsolute takes "\foo", rooted on whichever drive is current.
+  describe('what counts as a full path on Windows', () => {
+    const folder = { statSync: () => ({ isDirectory: () => true }), opendirSync: () => ({ closeSync: () => {} }) }
+    test.each(['\\foo', '/foo', 'C:foo', 'C:', 'foo\\bar', '.\\repo', '..\\repo'])('%j is refused as not absolute', given => {
+      expect(checkWorkspaceRoot(given, 'win32', folder)).toMatchObject({ ok: false, refusal: 'notAbsolute' })
+    })
+    test.each(['C:\\work\\repo', 'c:/work/repo', 'D:\\', '\\\\server\\share\\repo', '//server/share', '\\\\?\\C:\\work', '\\\\.\\C:\\work'])('%j is a full path', given => {
+      expect(isFullyQualified(given, 'win32')).toBe(true)
+      expect(checkWorkspaceRoot(given, 'win32', folder)).toEqual({ ok: true })
+    })
+    test('on Linux and macOS a full path starts at /', () => {
+      expect(isFullyQualified('/home/me/repo', 'linux')).toBe(true)
+      expect(isFullyQualified('C:\\work', 'linux')).toBe(false)
+      expect(isFullyQualified('repo', 'darwin')).toBe(false)
+    })
+  })
+
+  // Review of #239: the unreadable refusal is checked on every platform, not only where chmod works.
+  test.each([['EACCES', 'stat'], ['EPERM', 'stat'], ['EACCES', 'list']])('a folder refused with %s on %s is unreadable', (code, step) => {
+    const denied = () => { throw Object.assign(new Error('denied'), { code }) }
+    const fs = step === 'stat'
+      ? { statSync: denied, opendirSync: () => ({ closeSync: () => {} }) }
+      : { statSync: () => ({ isDirectory: () => true }), opendirSync: denied }
+    expect(checkWorkspaceRoot('/srv/locked', 'linux', fs)).toMatchObject({ ok: false, refusal: 'unreadable', message: { code: 'workspace.root.unreadable' } })
   })
 
   test('quotes inside a name are kept', () => {

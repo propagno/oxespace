@@ -78,6 +78,11 @@
     "reportProblem": "Relatar um problema…",
     "checkUpdates": "Procurar atualizações…"
   },
+  "activityCenter": {
+    "nothingToRead": "Nada para marcar como lido",
+    "nothingToReadText": "Toda a atividade já está lida.",
+    "allRead": "Toda a atividade marcada como lida"
+  },
   "report": {
     "title": "Relatar um problema",
     "description": "Esta é a issue que abriríamos no GitHub. Nada é enviado até você escolher o que fazer com ela.",
@@ -89,6 +94,7 @@
     "retry": "Tentar de novo",
     "copy": "Copiar texto",
     "copyWhat": "Relato",
+    "copied": "Relato copiado",
     "open": "Abrir no GitHub",
     "opened": "GitHub aberto no navegador",
     "truncated": "O texto é grande demais para um link, então o GitHub recebe só o começo. Use Copiar texto para compartilhar tudo."
@@ -249,6 +255,7 @@
     "resets": "Renova em {{when}}."
   },
   "ui": {
+    "changeNotSaved": "A alteração não foi salva.",
     "divider": {
       "columns": "Divisor entre colunas",
       "rows": "Divisor entre linhas",
@@ -271,11 +278,19 @@
     "cancel": "Cancelar",
     "close": "Fechar",
     "dismiss": "Dispensar",
+    "toast": {
+      "region": "Notificações",
+      "dismiss": "Dispensar notificação",
+      "repeated_one": "Repetida {{count}} vez",
+      "repeated_other": "Repetida {{count}} vezes",
+      "repeated_many": "Repetida {{count}} vezes"
+    },
     "copy": {
       "text": "Texto",
       "done": "Copiado: {{what}}",
       "failed": "Não foi possível copiar: {{what}}",
-      "unavailable": "A área de transferência não está disponível."
+      "unavailable": "A área de transferência não está disponível.",
+      "textDone": "Texto copiado"
     },
     "offline": {
       "title": "Você está sem conexão",
@@ -359,6 +374,7 @@
     },
     "copy": "Copiar detalhes",
     "details": "Detalhes da versão",
+    "detailsCopied": "Detalhes da versão copiados",
     "report": "Relatar um problema"
   }
 }

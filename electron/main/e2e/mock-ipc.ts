@@ -27,6 +27,7 @@ import { registerOxeQueryMock } from './oxequery-mock'
 import { registerOxePodMock } from './oxepod-mock'
 import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
+import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
 import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
@@ -46,6 +47,8 @@ export function registerE2eMockIpcHandlers(): void {
   registerOxePodMock()
   registerDiagnosticsMock()
   registerRemoteMock()
+  // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
+  installMcpFixture(ipcMain, process.env, app.isPackaged)
   registerApprovalsMock()
   registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
