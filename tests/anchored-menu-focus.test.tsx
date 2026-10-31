@@ -52,4 +52,11 @@ describe('AnchoredMenu and its owner', () => {
     act(() => { screen.getByRole('button', { name: 'elsewhere' }).focus() })
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
+
+  test('the keyboard skips a disabled first item (a Splitter at its minimum has "Smaller" disabled)', async () => {
+    render(<div tabIndex={0} style={{ position: 'relative' }}><AnchoredMenu open onOpenChange={() => {}} label="Sidebar width: size options"
+      items={[{ label: 'Smaller', onSelect: () => {}, disabled: true }, { label: 'Larger', onSelect: () => {} }]} /></div>)
+    await screen.findByRole('menu', { name: 'Sidebar width: size options' })
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Larger' })).toHaveFocus())
+  })
 })

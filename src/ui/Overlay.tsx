@@ -160,7 +160,7 @@ export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom'
   const containKeys = (event: KeyboardEvent<HTMLDivElement>): void => { if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation() }
   const content = useRef<HTMLDivElement>(null)
   // The menu is opened from code, so the keyboard lands on its first item, the way a menu opened by a key does.
-  const focusFirstItem = (): void => { requestAnimationFrame(() => content.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus()) }
+  const focusFirstItem = (): void => { requestAnimationFrame(() => content.current?.querySelector<HTMLElement>('[role^="menuitem"]:not([data-disabled])')?.focus()) }
   return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
     <RadixMenu.Trigger asChild><span className={styles.menuAnchor} aria-hidden="true" tabIndex={-1} /></RadixMenu.Trigger>
     <RadixMenu.Portal>
