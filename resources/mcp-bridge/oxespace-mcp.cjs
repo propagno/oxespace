@@ -21,6 +21,9 @@ const TOKEN = process.env.OXESPACE_MCP_TOKEN
 const WSID = process.env.OXESPACE_WORKSPACE_ID || ''
 const MEMORY_RUN = process.env.OXESPACE_MEMORY_RUN_ID || ''
 const OPTIONAL_MEMORY = process.argv.includes('--optional-memory')
+// The workspace's .mcp.json entry, started by an agent that OXESpace launched with its own bridge: list nothing, so the
+// agent pays for the OXESpace tools once (bridge-plan.ts, PROJECT_ENTRY_FLAG and PANE_BRIDGE_ENV).
+const STEPS_ASIDE = process.argv.includes('--project-entry') && process.env.OXESPACE_PANE_BRIDGE === '1'
 const allowIndex = process.argv.indexOf('--allowed-tools')
 const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
 // Groups this session may turn on with oxespace_tools_enable: { group: [tool, ...] } (B7.2). Off groups are never here.
@@ -209,6 +212,7 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/list') {
+    if (STEPS_ASIDE) return ok(msg.id, { tools: [] })
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return ok(msg.id, { tools: [] })
     try {
       const result = await rpc('tools/list', undefined, true)
@@ -221,6 +225,7 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/call') {
+    if (STEPS_ASIDE) return err(msg.id, -32602, 'OXESpace started this agent with its own OXESpace server (oxespace-delegation); use its tools')
     if (allowedTools && !allowedTools.has(msg.params && msg.params.name)) return err(msg.id, -32602, 'This tool is not available in Thread')
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return err(msg.id, -32602, 'Memory is not bound to an OXESpace execution')
     if (enableable && msg.params.name === 'oxespace_tools_enable') return ok(msg.id, enableGroup(msg.params.arguments))

@@ -9,6 +9,14 @@ export interface BridgePlan {
   enableable: Readonly<Record<string, readonly string[]>>
 }
 
+/**
+ * One OXESpace server per agent. The workspace's `.mcp.json` entry carries PROJECT_ENTRY_FLAG; an agent OXESpace starts
+ * in a Code terminal with its own bridge (`--mcp-config`) also gets PANE_BRIDGE_ENV=1. Claude Code loads both servers,
+ * so the project entry then lists no tools, and the session pays for the OXESpace tools once.
+ */
+export const PROJECT_ENTRY_FLAG = '--project-entry'
+export const PANE_BRIDGE_ENV = 'OXESPACE_PANE_BRIDGE'
+
 export function bridgePlanFlags(plan: BridgePlan): string[] {
   return ['--allowed-tools', JSON.stringify(plan.tools), ...(Object.keys(plan.enableable).length ? ['--enableable-groups', JSON.stringify(plan.enableable)] : [])]
 }

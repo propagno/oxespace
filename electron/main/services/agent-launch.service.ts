@@ -5,7 +5,7 @@ import type { DelegationTask } from '../../../shared/types/delegation'
 import type { TerminalManager } from './terminal.service'
 import type { AppDatabase } from '../db/index'
 import { codexMcpArguments, readManagedMcp } from './conversation/thread-managed-mcp'
-import { bridgePlanFlags, type BridgePlan } from '../mcp-internal/bridge-plan'
+import { bridgePlanFlags, PANE_BRIDGE_ENV, type BridgePlan } from '../mcp-internal/bridge-plan'
 
 const forwarded = ['OXESPACE_MCP_PORT','OXESPACE_MCP_TOKEN','OXESPACE_WORKSPACE_ID','OXESPACE_EXECUTION_ID','OXESPACE_EXECUTION_TOKEN','OXESPACE_MEMORY_RUN_ID']
 /** The bridge's own arguments: the session's tool list and the groups it may turn on, when a plan limits them (B7.2). */
@@ -38,6 +38,8 @@ export async function codeAgentMcpLaunch(db: AppDatabase, provider: string, brid
   // Other agents read the workspace's .mcp.json and get no bridge arguments here; the plan only matters for these two.
   const plan = sessionToolPlan(provider === 'claude' || provider === 'codex' ? usesToolSearch(provider, { ...source, ...search }) : false, { code: true }, modes)
   const own = agentMcpArguments(provider, bridge, plan)
+  // Claude Code also loads the workspace's .mcp.json entry; with this variable that entry lists nothing (one server).
+  if (provider === 'claude') return { args: [...own, ...args], env: { ...search, [PANE_BRIDGE_ENV]: '1' } }
   if (provider !== 'codex') return { args: [...own, ...args], env: search }
   try {
     const managed = readManagedMcp(db, workspaceId)

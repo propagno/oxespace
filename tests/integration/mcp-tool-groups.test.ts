@@ -188,6 +188,8 @@ describe('the workspace .mcp.json offers a Code terminal\'s plan, not every tool
     let args = internalArgs(root)
     expect(allowedOf(args)).toContain('oxespace_open_web_preview')
     expect(args.filter(arg => arg === '--allowed-tools')).toHaveLength(1)
+    // The project-entry mark that lets the entry step aside in a pane with its own bridge, once.
+    expect(args.filter(arg => arg === '--project-entry')).toHaveLength(1)
     await setToolGroupMode(db, files, { rootPath: root, group: 'docs', mode: 'off' })
     args = internalArgs(root)
     expect(allowedOf(args)).not.toContain('oxespace_open_web_preview')

@@ -5,7 +5,7 @@ import type { AppDatabase } from '../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../shared/types/mcp'
 import { mcpServerAllowed } from './policy'
 import { projectMcpJsonPlan, projectToolModes } from './conversation/tool-groups'
-import { bridgePlanFlags, type BridgePlan } from '../mcp-internal/bridge-plan'
+import { bridgePlanFlags, PROJECT_ENTRY_FLAG, type BridgePlan } from '../mcp-internal/bridge-plan'
 import { loadRepoConfigSync } from './repo-config/loader'
 
 /**
@@ -314,6 +314,7 @@ function withoutPlanFlags(args: readonly string[]): string[] {
   const out: string[] = []
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === '--allowed-tools' || args[i] === '--enableable-groups') { i += 1; continue }
+    if (args[i] === PROJECT_ENTRY_FLAG) continue
     out.push(args[i])
   }
   return out
@@ -348,7 +349,8 @@ function serializeConfig(configJson: string, options: SerializeOptions): unknown
     const args = cfg.args ?? []
     const entry: Record<string, unknown> = {
       command: cfg.command,
-      args: options.internal && options.plan ? [...withoutPlanFlags(args), ...bridgePlanFlags(options.plan)] : args
+      // Marked as the project's entry, so it steps aside in a pane whose agent OXESpace launched with its own bridge.
+      args: options.internal && options.plan ? [...withoutPlanFlags(args), ...bridgePlanFlags(options.plan), PROJECT_ENTRY_FLAG] : args
     }
     if (Object.keys(env).length > 0) entry.env = env
     return entry

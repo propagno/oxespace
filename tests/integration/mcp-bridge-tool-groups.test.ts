@@ -29,9 +29,9 @@ const children: ChildProcessWithoutNullStreams[] = []
 afterEach(() => { for (const child of children.splice(0)) child.kill() })
 
 /** Runs the bridge the way a conversation does and talks to it over stdio. */
-function bridge(port: number, allowed: string[], enableable?: Record<string, string[]>) {
-  const child = spawn(process.execPath, [BRIDGE, '--allowed-tools', JSON.stringify(allowed), ...(enableable ? ['--enableable-groups', JSON.stringify(enableable)] : [])], {
-    env: { ...process.env, OXESPACE_MCP_PORT: String(port), OXESPACE_MCP_TOKEN: 't'.repeat(64), OXESPACE_WORKSPACE_ID: 'ws' }
+function bridge(port: number, allowed: string[], enableable?: Record<string, string[]>, extra: { args?: string[]; env?: Record<string, string> } = {}) {
+  const child = spawn(process.execPath, [BRIDGE, '--allowed-tools', JSON.stringify(allowed), ...(enableable ? ['--enableable-groups', JSON.stringify(enableable)] : []), ...(extra.args ?? [])], {
+    env: { ...process.env, OXESPACE_PANE_BRIDGE: '', OXESPACE_MCP_PORT: String(port), OXESPACE_MCP_TOKEN: 't'.repeat(64), OXESPACE_WORKSPACE_ID: 'ws', ...extra.env }
   })
   children.push(child)
   const lines: Record<string, unknown>[] = []
@@ -112,6 +112,22 @@ describe('turning a tool group on in a session (B7.2)', () => {
       expect(((await session.request('initialize', {})).result as { capabilities: unknown }).capabilities).toEqual({ tools: {} })
       const capabilities = await session.call('oxespace_capabilities', {})
       expect(capabilities.data).toEqual({ tools: [] })
+    } finally { await endpoint.close() }
+  })
+
+  it('as the .mcp.json entry in a pane with its own bridge, lists nothing and forwards nothing: one OXESpace server', async () => {
+    const endpoint = await server()
+    try {
+      const aside = bridge(endpoint.port, TOOLS, undefined, { args: ['--project-entry'], env: { OXESPACE_PANE_BRIDGE: '1' } })
+      expect(await aside.listed()).toEqual([])
+      const refused = await aside.request('tools/call', { name: 'oxespace_code_search', arguments: {} })
+      expect(refused.error).toMatchObject({ code: -32602 })
+      expect(String((refused.error as { message: string }).message)).toContain('oxespace-delegation')
+      expect(endpoint.calls).toEqual([])
+      // The same entry anywhere else (Copilot, a claude typed into a shell) lists its plan as usual.
+      expect(await bridge(endpoint.port, TOOLS, undefined, { args: ['--project-entry'] }).listed()).toEqual(TOOLS)
+      // And the pane's own bridge, which has no project mark, is unaffected by the variable.
+      expect(await bridge(endpoint.port, TOOLS, undefined, { env: { OXESPACE_PANE_BRIDGE: '1' } }).listed()).toEqual(TOOLS)
     } finally { await endpoint.close() }
   })
 })
