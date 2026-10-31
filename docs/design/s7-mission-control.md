@@ -54,7 +54,7 @@ central shows **seven**, in this priority order (also the sort order, §5.3):
 | 2 | `failed` | Failed | Falhou | `danger` | last turn/run ended in error; nothing running |
 | 3 | `working` | Working | Trabalhando | `running` | a turn, run or delegation is in progress |
 | 4 | `finished` | Finished | Terminou | `success` | finished since the person last looked (unseen) |
-| 5 | `idle` | Idle | Parado | `idle` | alive, waiting for a new prompt, already seen |
+| 5 | `idle` | Idle | Ocioso | `idle` | alive, waiting for a new prompt, already seen |
 | 6 | `stopped` | Stopped | Interrompido | `idle` + stop glyph | interrupted or cancelled by someone |
 | 7 | `unknown` | Not confirmed | Não confirmado | `idle`, dashed ring | no report; shown weaker, never as certain (UX-07) |
 
@@ -183,9 +183,9 @@ keybinding catalog so palette, menus and tooltips agree.
 | Empty | `EmptyState`, actions "New agent in OxeCode", "New conversation" | "No agents running" / "Nenhum agente rodando" · "Agents you start in OxeCode or OxeChat show up here." / "Os agentes que você iniciar no OxeCode ou no OxeChat aparecem aqui." |
 | Filter empty | inline text + "Show all" | "No agents need you" / "Nenhum agente precisa de você" |
 | Search empty | inline text | "Nothing matches “{q}”" / "Nada corresponde a “{q}”" |
-| Source partly unavailable | `Notice` (warning) above the list; other sources keep working | "Delegations can't be read right now. The rest is up to date." / "Não deu para ler as delegações agora. O resto está atualizado." |
-| Read model failed | `ErrorState` + "Try again"; last list kept, dimmed, with "Updated {t} ago" | "Couldn't read the agents" / "Não deu para ler os agentes" |
-| Action failed | inline error under the row (`FieldError` style) + toast with "Try again" | "Couldn't stop: {reason}" / "Não deu para parar: {motivo}" |
+| Source partly unavailable | `Notice` (warning) above the list; other sources keep working | "Delegations can't be read right now. The rest is up to date." / "Não foi possível ler as delegações agora. O resto está atualizado." |
+| Read model failed | `ErrorState` + "Try again"; last list kept, dimmed, with "Updated {t} ago" | "Couldn't read the agents" / "Não foi possível ler os agentes" |
+| Action failed | inline error under the row (`FieldError` style) + toast with "Try again" | "Couldn't stop: {reason}" / "Não foi possível parar: {motivo}" |
 | Not confirmed state | dashed ring, label "Not confirmed", tooltip with origin (`originLabel`) | "No report from the agent yet" / "O agente ainda não informou" |
 
 ### 5.8 Accessibility
@@ -264,7 +264,7 @@ The phone already has Threads, Requests, Terminals and Tasks tabs. The central b
 | cost.estimated | Estimated from tokens | Estimado pelos tokens |
 | mode labels | OxeCode / OxeChat / Delegation / Worker | OxeCode / OxeChat / Delegação / Worker |
 
-Voice: short, verb first, no internal ids, no English in pt-BR ("worker" is the product term in both, as in the
+Voice: short, verb first, no internal ids, no English in pt-BR; state and error words follow the app's existing pt-BR ("Ocioso", "Trabalhando", "Não foi possível …") ("worker" is the product term in both, as in the
 roadmap; HML flags it if the glossary decides otherwise).
 
 ## 10. References (market practice)
