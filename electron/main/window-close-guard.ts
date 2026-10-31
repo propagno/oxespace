@@ -73,6 +73,17 @@ export function gateBeforeQuit(target: Emitting, shouldGate: () => boolean, onEr
   return () => { if (target.emit === gated) target.emit = emit }
 }
 
+/**
+ * The forced path: `close()` would hand the decision back to the page (`beforeunload`/`unload`), and a renderer busy
+ * enough to miss the 3 s answer is busy enough to never run them, so the window stayed open. `destroy()` skips the
+ * page and the `close` event, so the guard is not asked again. Fails open to `close()` if destroying throws.
+ */
+function destroyTarget(): void {
+  const window = target
+  if (!window || window.isDestroyed()) return
+  try { window.destroy() } catch { try { window.close() } catch { /* nothing left to try */ } }
+}
+
 function createGuard(): CloseGuard {
   const created = new CloseGuard({
     send: request => {
@@ -80,8 +91,15 @@ function createGuard(): CloseGuard {
       target.webContents.send(IPC_CHANNELS.app.closeRequested, request)
       return true
     },
-    close: () => { if (target && !target.isDestroyed()) target.close() },
-    quit: () => app.quit(),
+    close: forced => {
+      if (!target || target.isDestroyed()) return
+      if (forced) destroyTarget()
+      else target.close()
+    },
+    quit: forced => {
+      // Gone first, so Electron's quit has no window left to wait on; on Windows and Linux window-all-closed quits too.
+      try { if (forced) destroyTarget() } finally { app.quit() }
+    },
     incident: code => recordIncident(code)
   })
   gateBeforeQuit(app, () => created.intercept('quit'), () => created.failOpen())
