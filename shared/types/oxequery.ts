@@ -275,6 +275,8 @@ export interface MongoWriteInput {
   /** EJSON text of the document as the person saw it; a replace or delete is refused if it changed. */
   expected?: string
   confirmed?: boolean
+  /** On a production connection: the connection's name as the person typed it. Main checks it; the worker never sees it. */
+  confirmName?: string
 }
 export interface MongoWriteResult { matched: number; modified: number; deleted: number; insertedId?: string }
 
@@ -610,6 +612,8 @@ export interface OxeQueryErrorInfo {
   message: string
   /** Why a statement was flagged, when code is 'confirm', 'confirm-name' or 'read-only'. */
   reasons?: string[]
+  /** The reasons above as C3 codes, in the same order, when each has one. */
+  reasonCodes?: import('../messages').MainMessage[]
   /** 1-based character offset of the error in the statement the server received. */
   position?: number
   /** PostgreSQL SQLSTATE, e.g. 42P01. */

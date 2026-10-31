@@ -148,6 +148,12 @@
         "rowLock": "FOR UPDATE / FOR SHARE trava as linhas lidas até o fim da transação.",
         "sessionRole": "SET ROLE muda o usuário da sessão e, com ele, o que os próximos comandos podem fazer.",
         "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda."
+      },
+      "mongo": {
+        "confirmName": "Esta é uma conexão de produção. Digite o nome dela para alterar este documento.",
+        "confirm": "Esta alteração precisa da sua confirmação.",
+        "production": "Esta é uma conexão de produção.",
+        "deletes": "O documento será apagado."
       }
     },
     "oxepod": {

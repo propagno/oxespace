@@ -137,7 +137,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   // ---- Web Preview --------------------------------------------------------------
   'web_preview.use': {
     label: 'Open, drive and capture the Web Preview',
-    tools: { oxespace_open_web_preview: 'write', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
+    // B15: open_web_preview is confirm, and a local http(s) URL (localhost, *.localhost, 127.0.0.1, [::1], any port,
+    // written plainly) skips the question and runs as write. Any other host and file: ask first; other schemes are refused.
+    tools: { oxespace_open_web_preview: 'confirm', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
     ipc: ['browserPreview.session', 'browserPreview.mount', 'browserPreview.bounds', 'browserPreview.designMode', 'browserPreview.setZoom', 'browserPreview.reload',
       'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.close', 'mcpInternal.captureWebPreview']
   },

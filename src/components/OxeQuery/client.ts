@@ -4,6 +4,8 @@ import { tq } from './catalog'
 export class OxeQueryClientError extends Error {
   readonly code: OxeQueryErrorInfo['code']
   readonly reasons: string[]
+  /** The reasons as C3 codes, when main sent them; the window shows these in the person's language. */
+  readonly reasonCodes: NonNullable<OxeQueryErrorInfo['reasonCodes']>
   readonly position?: number
   readonly sqlState?: string
   readonly hint?: string
@@ -12,6 +14,7 @@ export class OxeQueryClientError extends Error {
     this.name = 'OxeQueryClientError'
     this.code = info.code
     this.reasons = info.reasons ?? []
+    this.reasonCodes = info.reasonCodes ?? []
     if (info.position !== undefined) this.position = info.position
     if (info.sqlState) this.sqlState = info.sqlState
     if (info.hint) this.hint = info.hint

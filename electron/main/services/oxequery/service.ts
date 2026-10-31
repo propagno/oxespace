@@ -20,7 +20,7 @@ import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from '../agent-actions/approval-broker'
 import { AuditLog } from './audit-log'
 import { integrationBlocked, policyStore } from '../policy'
-import { capRows, checkWrite, guardConnection, type Guarded } from './oxequery-guard'
+import { capRows, checkMongoWrite, checkWrite, guardConnection, type Guarded } from './oxequery-guard'
 import type { ExportFormat } from '../../../../shared/types/oxequery'
 import { stringifyMongoQuery, type MongoQueryText } from '../../../../shared/mongoQueryText'
 
@@ -97,7 +97,12 @@ function engine(value: unknown): ContainerEngine | undefined {
 }
 
 export function toErrorInfo(error: unknown): OxeQueryErrorInfo {
-  if (error instanceof OxeQueryError) return { code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}), ...error.detail }
+  if (error instanceof OxeQueryError) {
+    return {
+      code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}), ...error.detail,
+      ...(error.codes.message ? { messageCode: error.codes.message } : {}), ...(error.codes.reasons?.length ? { reasonCodes: error.codes.reasons } : {})
+    }
+  }
   if (error instanceof ContainerRuntimeError) return { code: error.code, message: error.message }
   if (error instanceof ConnectionInputError || error instanceof PreferenceInputError || error instanceof MongoInputError || error instanceof LibraryInputError || error instanceof WorkspaceInputError) return { code: 'invalid', message: error.message }
   return { code: 'failed', message: error instanceof Error ? error.message.slice(0, 400) : 'OxeQuery failed.' }
@@ -385,13 +390,10 @@ export class OxeQueryService {
       case 'mongo.document': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.document', connection, {
         database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), id: str(input.id, 'Document id', 4096)
       }))
-      case 'mongo.write': return this.requireEngine(input.connectionId, 'mongodb', connection => {
+      case 'mongo.write': return this.requireEngine(input.connectionId, 'mongodb', (connection, guarded) => {
         const op = str(input.op, 'Operation', 16)
-        if (!['insert', 'replace', 'delete'].includes(op)) throw new OxeQueryError('invalid', 'Unsupported write operation.')
-        const reasons: string[] = []
-        if (connection.environment === 'prod') reasons.push('This is a production connection.')
-        if (op === 'delete') reasons.push('The document will be deleted.')
-        if (reasons.length && input.confirmed !== true) throw new OxeQueryError('confirm', 'This change needs your confirmation.', reasons)
+        if (op !== 'insert' && op !== 'replace' && op !== 'delete') throw new OxeQueryError('invalid', 'Unsupported write operation.')
+        checkMongoWrite(guarded, op, input.confirmed === true, input.confirmName)
         return this.worker.call('mongo.write', connection, {
           database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), op,
           document: optionalString(input.document), expected: optionalString(input.expected)

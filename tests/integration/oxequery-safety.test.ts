@@ -194,3 +194,44 @@ describe('organization policy forces read-only', () => {
     expect(safety.ok && safety.value.readOnlyBy).toBeNull()
   })
 })
+
+describe('a Mongo write on production asks for the connection name (B15)', () => {
+  const mongo = { name: 'Shop prod', engine: 'mongodb' as const, host: 'db', port: 27017 }
+  const write = { database: 'shop', collection: 'orders', op: 'replace', document: '{"_id":1,"a":2}', expected: '{"_id":1,"a":1}' }
+
+  it('refuses without the name and with a wrong one before the worker is reached, and runs with the name', async () => {
+    const { service, worker, save } = fixture()
+    const connection = await save(mongo)
+    const writes = () => worker.call.mock.calls.filter(call => call[0] === 'mongo.write')
+    const refused = await failure(service.call('mongo.write', { connectionId: connection.id, ...write, confirmed: true }))
+    expect(refused).toMatchObject({ code: 'confirm-name', messageCode: { code: 'oxequery.mongo.confirmName', params: {} }, reasonCodes: [{ code: 'oxequery.mongo.production', params: {} }] })
+    for (const confirmName of ['shop prod', 'Shop', '', 'Shop prod!']) {
+      expect((await failure(service.call('mongo.write', { connectionId: connection.id, ...write, confirmed: true, confirmName }))).code, confirmName).toBe('confirm-name')
+    }
+    expect(writes()).toHaveLength(0)
+    expect((await service.call('mongo.write', { connectionId: connection.id, ...write, confirmName: ' Shop prod ' })).ok).toBe(true)
+    expect(writes()).toHaveLength(1)
+    // The worker gets the write, never the typed name.
+    expect(writes()[0][2]).not.toHaveProperty('confirmName')
+  })
+
+  it('still asks to confirm a delete on production once the name is typed', async () => {
+    const { service, worker, save } = fixture()
+    const connection = await save(mongo)
+    const remove = { database: 'shop', collection: 'orders', op: 'delete', expected: '{"_id":1}' }
+    const refused = await failure(service.call('mongo.write', { connectionId: connection.id, ...remove, confirmName: 'Shop prod' }))
+    expect(refused).toMatchObject({ code: 'confirm', reasonCodes: [{ code: 'oxequery.mongo.production' }, { code: 'oxequery.mongo.deletes' }] })
+    expect((await service.call('mongo.write', { connectionId: connection.id, ...remove, confirmName: 'Shop prod', confirmed: true })).ok).toBe(true)
+    expect(worker.call.mock.calls.filter(call => call[0] === 'mongo.write')).toHaveLength(1)
+  })
+
+  it('leaves a non-production connection as it was', async () => {
+    const { service, worker, save } = fixture()
+    const connection = await save({ ...mongo, name: 'Shop dev', environment: 'dev' })
+    expect((await service.call('mongo.write', { connectionId: connection.id, ...write })).ok).toBe(true)
+    const refused = await failure(service.call('mongo.write', { connectionId: connection.id, database: 'shop', collection: 'orders', op: 'delete', expected: '{"_id":1}' }))
+    expect(refused).toMatchObject({ code: 'confirm', reasonCodes: [{ code: 'oxequery.mongo.deletes' }] })
+    expect((await service.call('mongo.write', { connectionId: connection.id, database: 'shop', collection: 'orders', op: 'delete', expected: '{"_id":1}', confirmed: true })).ok).toBe(true)
+    expect(worker.call.mock.calls.filter(call => call[0] === 'mongo.write')).toHaveLength(2)
+  })
+})

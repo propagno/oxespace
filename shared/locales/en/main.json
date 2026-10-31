@@ -148,6 +148,12 @@
         "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.",
         "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
         "tableLock": "VACUUM FULL locks the whole table while it runs."
+      },
+      "mongo": {
+        "confirmName": "This is a production connection. Type its name to change this document.",
+        "confirm": "This change needs your confirmation.",
+        "production": "This is a production connection.",
+        "deletes": "The document will be deleted."
       }
     },
     "oxepod": {
