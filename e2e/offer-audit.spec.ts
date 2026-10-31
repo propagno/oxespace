@@ -20,7 +20,7 @@ const view = (shell: keyof typeof VIEW_NAMES): Check => async page => {
   await expect(page.locator(`nav[aria-label="Application view"] button[aria-label="${VIEW_NAMES[shell]}"]`)).toHaveAttribute('aria-pressed', 'true')
 }
 const both = (...checks: Check[]): Check => async page => { for (const check of checks) await check(page) }
-const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
+const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[data-toast], [role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
 const settingsPage = (label: string): Check => both(dialog('Settings'), async page => {
   await expect(page.locator('.settings-center nav[aria-label="Settings categories"] [aria-current="page"]')).toContainText(label)
 })
