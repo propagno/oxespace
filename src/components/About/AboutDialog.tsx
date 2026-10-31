@@ -60,7 +60,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }): ReactElement 
   return <Dialog title={t('about.title')} onClose={onClose} testId="about-dialog"
     footer={<>
       <Button data-align="start" icon={<Bug size={14} aria-hidden="true" />} onClick={() => { onClose(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) }}>{t('about.report')}</Button>
-      {about && <Button icon={<Copy size={14} aria-hidden="true" />} onClick={() => void copyText(aboutText(about), t('about.details'))}>{t('about.copy')}</Button>}
+      {about && <Button icon={<Copy size={14} aria-hidden="true" />} onClick={() => void copyText(aboutText(about), t('about.details'), t('about.detailsCopied'))}>{t('about.copy')}</Button>}
       <Button variant="primary" onClick={onClose}>{t('ui.close')}</Button>
     </>}>
     <div className={styles.identity}>

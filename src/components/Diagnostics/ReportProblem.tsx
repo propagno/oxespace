@@ -31,10 +31,10 @@ export function ReportProblem({ onClose }: { onClose: () => void }): ReactElemen
   const open = (): void => {
     if (!link) return
     void openExternalLink(link.url, { source: 'app' })
-    toast({ title: t('report.opened'), intent: 'success', duration: 2500 })
+    toast({ title: t('report.opened'), intent: 'success' })
     onClose()
   }
-  const copy = async (): Promise<void> => { await copyText(issueClipboardText(draft), t('report.copyWhat')) }
+  const copy = async (): Promise<void> => { await copyText(issueClipboardText(draft), t('report.copyWhat'), t('report.copied')) }
 
   return <Dialog title={t('report.title')} description={t('report.description')} onClose={onClose} size="lg" testId="report-problem"
     footer={<>
