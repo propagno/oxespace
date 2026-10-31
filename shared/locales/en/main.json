@@ -46,7 +46,7 @@
   },
   "messages": {
     "team": {
-      "changed": "The project team changed while you were editing it. Review it and try again."
+      "changed": "The project team changed while you were editing it. The list is up to date now; check it and try again."
     },
     "mcp": {
       "quarantine": {

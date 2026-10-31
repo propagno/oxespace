@@ -6,7 +6,7 @@ import { projectIdentity } from '../services/memory/memory-project.service'
 import { TeamRepository } from '../services/coordination/team-repository'
 import type { TeamAccess } from '../services/coordination/team-access'
 import type { ExecutionOwner } from '../services/execution-registry'
-import { coordinatorNoticeFailed, coordinatorOptions } from '../services/conversation/coordinator-authority'
+import { coordinatorNoticeFailed, coordinatorOptions, TEAM_CONFIRM_WITHOUT_PREVIEW } from '../services/conversation/coordinator-authority'
 import { MainRefusal } from '../services/main-refusal'
 
 /** After a Team change moved the project's coordinator, the thread runtime revokes, suspends and notifies (B1.4 · S7.5). */
@@ -35,7 +35,8 @@ export function registerTeamIpc(db: AppDatabase, access?: TeamAccess, hooks?: Te
   })
   ipcMain.handle(IPC_CHANNELS.team.command, async (event, scope: TeamScope, action: string, revision: number, nameOrId: string, role: TeamRole, owner: ExecutionOwner, options: unknown) => {
     if (!['read', 'add', 'coordinator', 'archive', 'connect', 'disconnect', 'delivery-on', 'delivery-off'].includes(action)) throw Error('Invalid team action')
-    const parsed = coordinatorOptions(options, (TEAM_COORDINATOR_ACTIONS as readonly string[]).includes(action))
+    // Until #290 adds the preview step to the Team dialog, its coordinator actions confirm without a token (TEAM_CONFIRM_WITHOUT_PREVIEW).
+    const parsed = coordinatorOptions(options, !TEAM_CONFIRM_WITHOUT_PREVIEW && (TEAM_COORDINATOR_ACTIONS as readonly string[]).includes(action))
     const team = await resolve(event, scope)
     if ((TEAM_COORDINATOR_ACTIONS as readonly string[]).includes(action)) return coordinatorAction(team.id, action as TeamCoordinatorAction, revision, nameOrId, owner, parsed)
     if (action === 'delivery-on' || action === 'delivery-off') {

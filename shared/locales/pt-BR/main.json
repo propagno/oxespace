@@ -46,7 +46,7 @@
   },
   "messages": {
     "team": {
-      "changed": "A Equipe do projeto mudou enquanto você a editava. Revise e tente de novo."
+      "changed": "A equipe do projeto mudou enquanto você a editava. A lista já foi atualizada; confira e tente de novo."
     },
     "mcp": {
       "quarantine": {

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { registerTeamIpc } from '../../electron/main/ipc/team.ipc'
+import { TEAM_CONFIRM_WITHOUT_PREVIEW } from '../../electron/main/services/conversation/coordinator-authority'
 
 const hooks = vi.hoisted(() => ({ handlers: new Map<string, (...args: unknown[]) => unknown>(), identify: vi.fn(async () => '/same/git'), window: vi.fn(() => ({})) }))
 vi.mock('electron', () => ({ app: { getPath: () => '', isReady: () => false, getLocale: () => 'en' }, BrowserWindow: { fromWebContents: hooks.window }, ipcMain: { handle: (name: string, handler: (...args: unknown[]) => unknown) => hooks.handlers.set(name, handler) } }))
@@ -62,11 +63,18 @@ describe('team actions move the project\'s coordinator conversation (B1.4 · S7.
     await expect(f.command(f.event, scope, 'coordinator', done.revision, ana, undefined, undefined, { expect: preview.token })).rejects.toThrow('thread.coordinator.changed')
     expect(rows()).toEqual([{ identity: '/same/git', threadId: 'x' }])
     await expect(f.command(f.event, scope, 'coordinator', done.revision, ana, undefined, undefined, { preview: 'yes' })).rejects.toThrow('Invalid coordinator options')
-    // A confirmation without the preview's token is refused (SECURITY L-4); other Team actions need none.
-    await expect(f.command(f.event, scope, 'coordinator', done.revision, ana)).rejects.toThrow('preview first')
-    await expect(f.command(f.event, scope, 'archive', done.revision, ana)).rejects.toThrow('preview first')
-    await expect(f.command(f.event, scope, 'add', done.revision, 'Caio', 'reviewer')).resolves.toMatchObject({ revision: done.revision + 1 })
-    // A stale revision is a C3 code too.
-    await expect(f.command(f.event, scope, 'add', done.revision, 'Duda', 'reviewer')).rejects.toThrow('team.changed')
+    // The Team dialog on main confirms without a preview: accepted until #290 flips TEAM_CONFIRM_WITHOUT_PREVIEW, with every check still run.
+    expect(TEAM_CONFIRM_WITHOUT_PREVIEW).toBe(true)
+    const back = await f.command(f.event, scope, 'coordinator', done.revision, ana) as typeof done
+    expect(back.coordinatorChange.changed.sort()).toEqual(['x', 'y'])
+    expect(back.members.map(m => [m.name, m.role]).sort()).toEqual([['Ana', 'coordinator'], ['Bia', 'developer']])
+    expect(rows()).toEqual([{ identity: '/same/git', threadId: 'y' }])
+    expect(changed).toHaveBeenLastCalledWith(expect.arrayContaining(['x', 'y']))
+    // Without a token, a stale revision is still refused, now as a C3 code, and writes nothing.
+    await expect(f.command(f.event, scope, 'coordinator', done.revision, bia)).rejects.toThrow('team.changed')
+    expect(rows()).toEqual([{ identity: '/same/git', threadId: 'y' }])
+    const archived = await f.command(f.event, scope, 'archive', back.revision, bia) as typeof done
+    expect(archived.members.find(m => m.name === 'Bia')).toMatchObject({ archived: true })
+    await expect(f.command(f.event, scope, 'add', back.revision, 'Duda', 'reviewer')).rejects.toThrow('team.changed')
   })
 })

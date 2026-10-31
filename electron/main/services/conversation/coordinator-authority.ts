@@ -67,6 +67,15 @@ export function coordinatorOptions(value: unknown, confirm = false): import('../
   return parsed
 }
 
+/**
+ * The Team dialog on main confirms its four coordinator actions (make coordinator, connect, disconnect, archive)
+ * without a preview, so for now they are accepted without `expect`. They still run every check, inside the one
+ * transaction, with the invariant and the identity guard; a supplied `expect` is still checked. #290 (FRONTEND) adds
+ * the preview step to the Team dialog and flips this to false, so the Team actions require the token like
+ * thread:set-coordinator already does (SECURITY L-4).
+ */
+export const TEAM_CONFIRM_WITHOUT_PREVIEW = true
+
 /** A coordinator change notice that failed after the commit: recorded, never thrown (the authority check still holds on each call). */
 export function coordinatorNoticeFailed(ids: readonly string[], error: unknown): void {
   console.warn('[coordinator] change notice failed for', ids.join(', '), error instanceof Error ? error.message : String(error))
