@@ -55,5 +55,87 @@
       "unreachable": "Couldn't reach your computer. Check that it's on, on the same Wi-Fi, and that the phone connection is on in Settings › Devices.",
       "protocol": "Your computer answered in a way this app doesn't understand. Update the app or OXESpace on your computer."
     }
+  },
+  "live": {
+    "tabs": {
+      "threads": "Conversations",
+      "requests": "Requests",
+      "terminals": "Terminals",
+      "tasks": "Tasks"
+    },
+    "requestsBadge_one": "{{count}} request waiting",
+    "requestsBadge_other": "{{count}} requests waiting",
+    "emptyThreads": "No conversations on {{desktop}} yet.",
+    "emptyRequests": "Nothing waiting for you.",
+    "emptyTerminals": "No open terminals.",
+    "emptyTasks": "No background jobs or delegations.",
+    "loading": "Loading…",
+    "status": {
+      "idle": "Idle",
+      "running": "Working",
+      "approval": "Waiting for you",
+      "interrupted": "Interrupted",
+      "failed": "Failed"
+    },
+    "pendingCount_one": "{{count}} waiting",
+    "pendingCount_other": "{{count}} waiting",
+    "back": "Back",
+    "menu": "More options",
+    "jobs": "Background jobs",
+    "delegations": "Delegations",
+    "job": {
+      "pending": "Starting",
+      "running": "Running",
+      "exited": "Finished",
+      "failed": "Failed",
+      "killed": "Stopped"
+    },
+    "exitCode": "exit code {{code}}",
+    "paneAgent": "{{agent}} · {{state}}",
+    "agentState": {
+      "working": "working",
+      "blocked": "waiting",
+      "done": "done",
+      "idle": "idle",
+      "unknown": "unknown"
+    },
+    "readOnly": "Read-only",
+    "phoneWrite": "Phone can type"
+  },
+  "thread": {
+    "you": "You",
+    "agent": "Agent",
+    "reasoning": "Thinking",
+    "tool": {
+      "running": "Running",
+      "completed": "Done",
+      "failed": "Failed",
+      "unknown": "Unknown"
+    },
+    "filesChanged_one": "{{count}} file changed",
+    "filesChanged_other": "{{count}} files changed",
+    "plan": "Plan",
+    "request": "Request: {{title}}",
+    "requestState": {
+      "pending": "waiting for you",
+      "resolved": "answered",
+      "cancelled": "cancelled",
+      "expired": "expired"
+    },
+    "completed": {
+      "completed": "Turn finished",
+      "interrupted": "Turn interrupted",
+      "failed": "Turn failed"
+    },
+    "truncated": "Shortened on the phone; the full text is on the computer.",
+    "unknownItems_one": "{{count}} item from a newer OXESpace isn't shown.",
+    "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
+    "showOutput": "Show output",
+    "hideOutput": "Hide output"
+  },
+  "terminal": {
+    "redacted_one": "{{count}} secret value hidden by your computer.",
+    "redacted_other": "{{count}} secret values hidden by your computer.",
+    "empty": "No output yet."
   }
 }

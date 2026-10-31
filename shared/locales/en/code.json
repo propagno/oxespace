@@ -1870,6 +1870,10 @@
     }
   },
   "paneMenu": {
+    "phoneWrite": "Allow typing from the phone",
+    "phoneWriteBadge": "Phone can type",
+    "phoneWriteBadgeTitle": "A paired phone can type in this terminal. Turn it off in the ⋯ menu.",
+    "phoneWriteFailed": "Could not change typing from the phone",
     "whyStatus": "Why this status?",
     "explain": {
       "description": "What OXESpace read to decide this pane's status.",

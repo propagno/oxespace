@@ -738,6 +738,8 @@
   "links": {
     "refused": "Este link não foi aberto",
     "refusedHint": "Só links da web (http, https) e de e-mail (mailto) com até 2.048 caracteres, sem usuário nem senha, abrem fora do OXESpace.",
+    "notOpened": "O link não abriu",
+    "notOpenedHint": "O OXESpace não conseguiu entregá-lo ao seu navegador. Tente de novo ou copie o endereço.",
     "hostSuffix": "({{host}})",
     "terminalHint": "{{key}}+clique para abrir o link",
     "confirm": {
