@@ -8,7 +8,7 @@
 import type { AppDatabase } from '../../db'
 import { threadArchiveWithChildren } from '../../../../shared/threadConfirmations'
 import { THREAD_PARENT_VIA, type ConversationThread, type ThreadChildrenSummary, type ThreadChildSummary, type ThreadCommandResult, type ThreadParentLink } from '../../../../shared/types/thread'
-import type { CommandHost } from './kernel/command-router'
+import { archiveConversation, type CommandHost } from './kernel/command-router'
 
 /** How deep `/archive confirm-with-children` follows children of children. */
 export const ARCHIVE_CHILDREN_DEPTH = 5
@@ -67,11 +67,17 @@ async function stopTurn(host: CommandHost, id: string): Promise<void> {
   if (host.isBusy(id)) throw Error('The active turn has not stopped. Try again after it finishes.')
 }
 
-async function archiveOne(host: CommandHost, id: string, summary: string): Promise<void> {
+/**
+ * Archives one child through the manager's own `/archive confirm`, so everything that command does (stopping
+ * the turn, cancelling its pending requests, and what the manager adds, such as B1.4's coordinator) applies
+ * to a child exactly as to a conversation archived by hand. Its own children are already archived, so the
+ * command does not ask again.
+ */
+async function archiveChild(host: CommandHost, id: string): Promise<void> {
   await stopTurn(host, id)
-  await host.disposeAdapter(id)
-  const latest = host.read(id); latest.thread.archived = true; host.save(latest, { eventsFrom: latest.events.length })
-  host.audit(id, { action: 'archive', actor: 'user', summary })
+  const result = await host.command(id, '/archive confirm')
+  if (result.kind !== 'navigate') throw Error(`The conversation ${id} could not be archived${result.refusal ? ` (${result.refusal})` : ''}`)
+  host.audit(id, { action: 'archive', actor: 'user', summary: 'Archived with the conversation that started it' })
 }
 
 /** Archives the children of `id` (theirs first), down to ARCHIVE_CHILDREN_DEPTH levels; returns how many. */
@@ -82,7 +88,7 @@ async function archiveDescendants(host: CommandHost, id: string, depth: number, 
     if (child.archived || seen.has(child.id)) continue
     seen.add(child.id)
     archived += await archiveDescendants(host, child.id, depth + 1, seen)
-    await archiveOne(host, child.id, 'Archived with the conversation that started it')
+    await archiveChild(host, child.id)
     archived += 1
   }
   return archived
@@ -100,7 +106,10 @@ export async function runNestedArchive(host: CommandHost, id: string, argument: 
   if (argument === 'confirm-with-children') {
     if (host.isConfiguring(id)) throw Error('Finish the active operation before running this command')
     const count = await archiveDescendants(host, id, 1, new Set([id]))
-    await archiveOne(host, id, count ? `Archived with ${count} conversation${count === 1 ? '' : 's'} it started` : 'Archived')
+    await stopTurn(host, id)
+    await host.disposeAdapter(id)
+    archiveConversation(host, id)
+    host.audit(id, { action: 'archive', actor: 'user', summary: count ? `Archived with ${count} conversation${count === 1 ? '' : 's'} it started` : 'Archived' })
     return { kind: 'navigate' }
   }
   if (argument && argument !== 'confirm') return undefined

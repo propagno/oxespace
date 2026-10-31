@@ -6,6 +6,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { findTool, type ToolContext } from '../../electron/main/mcp-internal/tool-registry'
 import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
+import { ThreadHistory } from '../../electron/main/services/conversation/thread-history'
+import { AgentActions } from '../../electron/main/services/agent-actions/agent-actions'
+import { ApprovalBroker } from '../../electron/main/services/agent-actions/approval-broker'
 import { ARCHIVE_CHILDREN_DEPTH, threadChildren } from '../../electron/main/services/conversation/thread-nesting'
 import { ThreadDelegationHost } from '../../electron/main/services/delegation/thread-delegation-host'
 import { ExecutionRegistry } from '../../electron/main/services/execution-registry'
@@ -196,5 +199,75 @@ describe('nested conversations: archive (B1.3)', () => {
     // Deepest first, the parent last; one entry each.
     expect(audits(db).map(entry => entry.threadId)).toEqual([chain[5], chain[4], chain[3], chain[2], chain[1], chain[0]])
     expect(audits(db).at(-1)!.summary).toBe('Archived with 5 conversations it started')
+  })
+})
+
+describe('nested conversations: what archiving does to a child (review fixes)', () => {
+  const pending = (id: string, generation = 1): ThreadEvent => ({ type: 'request', id: `ask-${id}`, request: { id: `ask-${id}`, nativeId: `native-${id}`, nativeMethod: 'item/tool/requestUserInput', kind: 'question', title: 'Choose', detail: '', state: 'pending', createdAt: 5, generation } })
+  const persisted = (manager: ThreadManager, id: string) => manager.read(id).events.filter(event => event.type === 'request').map(event => event.type === 'request' ? [event.request.state, event.request.resolution] : [])
+
+  it('archives each child through the manager\'s own /archive confirm, and withdraws what the child was asking', async () => {
+    const { db, manager, create, fakes, save } = setup()
+    const parent = create(undefined, 'Plan')
+    // A child waiting on a live request, and one whose request only survives in the database (after a restart, say).
+    const live = create({ threadId: parent, via: 'thread_create' })
+    await manager.send(live, 'Keep going')
+    fakes.get(live)!.emit(pending(live))
+    const stored = create({ threadId: parent, via: 'work' })
+    const snapshot = manager.read(stored); snapshot.thread.status = 'approval'; snapshot.events.push(pending(stored)); save(snapshot)
+    const history = new ThreadHistory(db)
+    expect(manager.read(live).thread.status).toBe('approval')
+    expect(history.pendingRequestsAll().map(request => request.threadId).sort()).toEqual([live, stored].sort())
+
+    const command = vi.spyOn(manager, 'command')
+    expect(await manager.command(parent, '/archive confirm')).toMatchObject({ kind: 'confirm', refusal: 'hasActiveChildren' })
+    expect(await manager.command(parent, '/archive confirm-with-children')).toEqual({ kind: 'navigate' })
+    expect(command.mock.calls.filter(([id]) => id !== parent)).toEqual(expect.arrayContaining([[live, '/archive confirm'], [stored, '/archive confirm']]))
+    for (const id of [live, stored]) {
+      const thread = manager.read(id).thread
+      expect(thread.archived).toBe(true)
+      expect(thread.status).toBe('idle')
+      expect(persisted(manager, id)).toEqual([['cancelled', 'interrupted']])
+      expect(manager.read(id).events.some(event => event.type === 'request-resolved' && event.id === `ask-${id}` && event.state === 'cancelled')).toBe(true)
+      expect(manager.readForRenderer(id).pendingRequests).toEqual([])
+    }
+    expect(history.pendingRequestsAll()).toEqual([])
+    expect(threadChildren(db, parent).aggregate).toEqual({ running: 0, approval: 0, failed: 0, done: 0 })
+  })
+
+  it('withdraws a conversation\'s own pending request when it is archived by hand', async () => {
+    const { db, manager, create, save } = setup()
+    const lone = create(undefined, 'Waiting')
+    const snapshot = manager.read(lone); snapshot.thread.status = 'approval'; snapshot.events.push(pending(lone)); save(snapshot)
+    expect(new ThreadHistory(db).pendingRequestsAll()).toHaveLength(1)
+    expect(await manager.command(lone, '/archive confirm')).toEqual({ kind: 'navigate' })
+    expect(manager.read(lone).thread).toMatchObject({ archived: true, status: 'idle' })
+    expect(persisted(manager, lone)).toEqual([['cancelled', 'interrupted']])
+    expect(new ThreadHistory(db).pendingRequestsAll()).toEqual([])
+  })
+
+  it('tells an agent the real outcome of archive: refused with the reason while children work, archived otherwise', async () => {
+    const { root, db, manager, create } = setup()
+    const parent = create(undefined, 'Plan')
+    const working = create({ threadId: parent, via: 'thread_create' })
+    await manager.send(working, 'Keep going')
+    const workspace = { id: 'A', rootPath: root, name: 'A', isActive: true, panes: [] }
+    const broker = new ApprovalBroker({ ask: async () => 'allow-once' }, Date.now, 50)
+    const ctx = {
+      db, threads: Promise.resolve(manager), workspaceId: 'A', executionId: 'e1', executionToken: 't',
+      workspaceServ: { get: (id: string) => id === 'A' ? workspace : null, list: () => [workspace] },
+      executions: { authenticate: () => ({ id: 'e1', owner: { kind: 'pane', id: 'p1' }, workspaceId: 'A', canonicalRoot: root, cwd: root }) },
+      agentActions: new AgentActions({ broker })
+    } as unknown as ToolContext
+    const archive = async (threadId: string) => JSON.parse((await findTool('oxespace_threads_change')!.handler({ action: 'archive', threadId }, ctx)).content[0].text!) as { ok: boolean; code?: string; message?: string; result?: unknown }
+    const refused = await archive(parent)
+    expect(refused).toMatchObject({ ok: false, code: 'hasActiveChildren' })
+    expect(refused.message).toContain('1 conversation(s) it started are still working')
+    expect(manager.read(parent).thread.archived).toBeFalsy()
+    expect(manager.read(working).thread.status).toBe('running')
+    // Once the person has dealt with the child, the agent's archive goes through and says so.
+    expect(await manager.command(working, '/archive confirm')).toEqual({ kind: 'navigate' })
+    expect(await archive(parent)).toEqual({ schemaVersion: 1, ok: true, result: { archived: true } })
+    expect(manager.read(parent).thread.archived).toBe(true)
   })
 })

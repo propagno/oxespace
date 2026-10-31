@@ -7,7 +7,7 @@
  */
 import { threadConfirmation } from '../../../../../shared/threadConfirmations'
 import type { AppDatabase } from '../../../db'
-import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadAuditEntry, ThreadCommandResult, ThreadConfiguration, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadAuditEntry, ThreadCommandResult, ThreadConfiguration, ThreadRequest, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
 import { hasDesktopCommand } from '../../../../../shared/threadDesktopCommands'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../../../shared/threadLimits'
 import { PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../../shared/threadHistoryNotice'
@@ -31,6 +31,10 @@ export interface CommandHost {
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId'>): ThreadSnapshot
   /** Appends to the conversation's audit trail (best effort). */
   audit(id: string, entry: Omit<ThreadAuditEntry, 'id' | 'at' | 'threadId' | 'projectRoot'>): void
+  /** Runs a command on another conversation through the manager, so what the manager adds to a command (B1.4) applies. */
+  command(id: string, text: string): Promise<ThreadCommandResult>
+  /** Withdraws the conversation's live pending requests as cancelled, the way an interrupted turn does. */
+  cancelRequests(id: string): ThreadRequest[]
   configure(id: string, input: ThreadConfiguration, revision: number): Promise<unknown>
   interrupt(id: string): Promise<void>
   rewind(id: string, turnId: string): Promise<ThreadRewindResult>
@@ -45,6 +49,30 @@ export interface CommandHost {
   disposeAdapter(id: string): Promise<void>
   /** Removes the conversation, its cached snapshot and its attachments. */
   deleteThread(id: string): Promise<void>
+}
+
+/**
+ * Marks a conversation archived. Nobody answers an archived conversation, so what it was asking is withdrawn
+ * the way an interrupted turn withdraws it: its pending requests are cancelled (live and persisted ones), its
+ * open approvals resolved, and it stops waiting; the activity center and the phone no longer list it.
+ */
+export function archiveConversation(host: CommandHost, id: string): void {
+  const resolvedAt = Date.now()
+  const live = new Map(host.cancelRequests(id).map(request => [request.id, request]))
+  const snapshot = host.read(id)
+  let eventsFrom = snapshot.events.length
+  snapshot.events.forEach((event, index) => {
+    if (event.type !== 'request' || event.request.state !== 'pending') return
+    const request = live.get(event.id)
+    Object.assign(event.request, { state: 'cancelled', resolution: 'interrupted', resolvedAt: request?.resolvedAt ?? resolvedAt })
+    eventsFrom = Math.min(eventsFrom, index)
+    snapshot.events.push({ type: 'request-resolved', id: event.id, state: 'cancelled', resolution: 'interrupted', resolvedAt: event.request.resolvedAt })
+  })
+  const unresolved = snapshot.events.filter(value => value.type === 'approval' && !snapshot.events.some(resolved => resolved.type === 'approval-resolved' && resolved.id === value.id))
+  for (const approval of unresolved) if (approval.type === 'approval') snapshot.events.push({ type: 'approval-resolved', id: approval.id })
+  if (snapshot.thread.status === 'approval') snapshot.thread.status = 'idle'
+  snapshot.thread.archived = true
+  host.save(snapshot, { eventsFrom })
 }
 
 export async function runThreadCommand(host: CommandHost, id: string, text: string): Promise<ThreadCommandResult> {
@@ -155,7 +183,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       if (argument !== 'confirm') return { kind: 'confirm', confirm: threadConfirmation(name) }
       await host.disposeAdapter(id)
       if (name === 'delete') await host.deleteThread(id)
-      else { const latest = host.read(id); latest.thread.archived = true; host.save(latest, { eventsFrom: latest.events.length }) }
+      else archiveConversation(host, id)
       return { kind: 'navigate' }
     }
     if (name === 'quit') { await host.disposeAdapter(id); return { kind: 'applied' } }

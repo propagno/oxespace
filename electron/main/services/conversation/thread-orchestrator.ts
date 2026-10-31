@@ -862,7 +862,7 @@ export class ThreadOrchestrator {
       connectAdapter: (id, thread) => this.connectAdapter(id, thread),
       assertNativeSessionAvailable: (id, provider, nativeSessionId) => this.assertNativeSessionAvailable(id, provider, nativeSessionId),
       adapterCapabilities: id => this.adapters.get(id)?.capabilities,
-      isBusy: id => this.busy.has(id), audit: (id, entry) => this.audit(id, entry),
+      isBusy: id => this.busy.has(id), audit: (id, entry) => this.audit(id, entry), command: (id, text) => this.command(id, text), cancelRequests: id => this.requests.invalidate(id),
       isConfiguring: id => this.configuring.has(id),
       withConfiguring: async (id, run) => {
         this.configuring.add(id)
