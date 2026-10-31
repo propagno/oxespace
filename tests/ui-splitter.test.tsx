@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Splitter } from '../src/ui/Splitter'
 
@@ -64,5 +64,19 @@ describe('Splitter', () => {
     render(<Splitter orientation="horizontal" label="Editor height" value={170} min={80} max={400} defaultValue={170} onChange={vi.fn()} />)
     fireEvent.keyDown(screen.getByRole('separator', { name: 'Editor height' }), { key: 'Enter' })
     expect(await screen.findByRole('menuitem', { name: 'Restore the default size' })).toHaveAttribute('data-disabled')
+  })
+
+  it('opens the same menu from the context-menu keys, as a keydown or as a contextmenu event, like the grid dividers', async () => {
+    render(<Splitter orientation="vertical" label="Sidebar width" value={300} min={240} max={520} defaultValue={280} onChange={vi.fn()} />)
+    const separator = screen.getByRole('separator', { name: 'Sidebar width' })
+    expect(separator).toHaveAttribute('aria-keyshortcuts', 'Enter Shift+F10')
+    for (const open of [() => fireEvent.keyDown(separator, { key: 'F10', shiftKey: true }), () => fireEvent.keyDown(separator, { key: 'ContextMenu' }), () => fireEvent.contextMenu(separator)]) {
+      open()
+      expect(await screen.findByRole('menu', { name: 'Sidebar width: size options' })).toBeInTheDocument()
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    }
+    // The browser's own menu stays shut.
+    expect(fireEvent.contextMenu(separator)).toBe(false)
   })
 })

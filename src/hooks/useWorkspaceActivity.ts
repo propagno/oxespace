@@ -29,7 +29,7 @@ const EMPTY_ENTRY = {
 
 // Priority when collapsing many panes into one card dot: a blocked/awaiting
 // agent must win over background noise so "needs you" never hides behind idle.
-const DOMINANCE: PaneDisplayTone[] = ['error', 'awaiting', 'thinking', 'starting', 'idle', 'exited']
+const DOMINANCE: PaneDisplayTone[] = ['needs-decision', 'error', 'awaiting', 'thinking', 'starting', 'idle', 'exited']
 
 export function useWorkspaceActivity(workspace: Pick<Workspace, 'panes'>): WorkspaceActivity {
   // Keep the selector scoped to this workspace. `useShallow` preserves the
@@ -38,7 +38,7 @@ export function useWorkspaceActivity(workspace: Pick<Workspace, 'panes'>): Works
     workspace.panes.map((pane) => s.panes[pane.id] ?? EMPTY_ENTRY)
   ))
   return useMemo(() => {
-    const counts: Record<PaneDisplayTone, number> = { thinking: 0, awaiting: 0, starting: 0, error: 0, exited: 0, idle: 0 }
+    const counts: Record<PaneDisplayTone, number> = { 'needs-decision': 0, thinking: 0, awaiting: 0, starting: 0, error: 0, exited: 0, idle: 0 }
     let total = 0
     for (let index = 0; index < workspace.panes.length; index++) {
       const pane = workspace.panes[index]

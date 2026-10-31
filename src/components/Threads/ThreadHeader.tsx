@@ -1,4 +1,4 @@
-import { Folder, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X } from 'lucide-react'
+import { Folder, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X, MessagesSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Menu, type MenuEntry } from '../../ui'
 import type { ConversationThread } from '../../../shared/types/thread'
@@ -20,7 +20,7 @@ const THREAD_PANEL = {
 } as Record<WorkbenchPanelId, ThreadPanel>
 
 /** Title, project and branch, and the conversation's panel, view and pin controls. */
-export function ThreadHeader({ thread, workspace, branch, pending, running, activePanel, onTogglePanel, onCommand, onExport, onImport, onDelegate, onPin, onCloseCell }: {
+export function ThreadHeader({ thread, workspace, branch, pending, running, activePanel, onTogglePanel, onCommand, onExport, onImport, onDelegate, sideChatOpen = false, onSideChat, onPin, onCloseCell }: {
   thread?: ConversationThread
   workspace?: Workspace
   branch?: string
@@ -32,6 +32,9 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
   onExport?: () => void
   onImport?: () => void
   onDelegate: () => void
+  /** The side chat drawer (B1.2): open, and its toggle. */
+  sideChatOpen?: boolean
+  onSideChat?: () => void
   onPin: () => void
   onCloseCell?: () => void
 }) {
@@ -52,6 +55,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
     <Menu label={t('header.moreActions')} align="end" items={[
       ...(thread ? [
         { label: t('header.delegate'), icon: <Waypoints size={14} aria-hidden="true" />, disabled: pending || running, onSelect: onDelegate },
+        ...(onSideChat ? [{ label: t(sideChatOpen ? 'side.closeMenu' : 'side.openMenu'), shortcut: shortcutLabel('thread.sideChat'), icon: <MessagesSquare size={14} aria-hidden="true" />, onSelect: onSideChat }] : []),
         { label: thread.pinned ? t('header.unpin') : t('header.pin'), icon: <Pin size={14} aria-hidden="true" />, disabled: pending, onSelect: onPin }
       ] : []),
       { label: t('header.mcp'), icon: <Plug size={14} aria-hidden="true" />, onSelect: () => useUIStore.getState().openMcpPanel() },

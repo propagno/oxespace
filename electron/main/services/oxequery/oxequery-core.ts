@@ -1,6 +1,6 @@
 import { connectionHint } from './connect-hint'
-import { createHash, randomUUID } from 'node:crypto'
-import { Client, type ClientConfig } from 'pg'
+import { randomUUID } from 'node:crypto'
+import { Client } from 'pg'
 import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
 import type {
@@ -12,8 +12,10 @@ import { buildFilterClause } from './filter-clause'
 import { maintenanceStatement, planStructure } from './ddl-builder'
 import type { MaintenanceAction, StructureInput, StructurePlan, StructureResult } from '../../../../shared/types/oxequery-structure'
 import { splitStatements } from '../../../../shared/sqlText'
-import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
-import { mongoTlsOptions, mongoUri, pgSsl, type Endpoint } from './connection-options'
+import { guardCodes, OxeQueryError, type ResolvedConnection, type SessionRole } from './oxequery-errors'
+import { SessionRegistry, sessionKey, slotOf, type PgSession, type TxState } from './oxequery-sessions'
+import { connectMongo, connectPg, type ConnectHost } from './oxequery-connect'
+import { pgSsl, type Endpoint } from './connection-options'
 import { openTunnel, tunnelAvailable, type OpenTunnel } from './ssh-tunnel'
 import { editableEjson, parseDocument, parseEditableDocument, parsePipeline, parseUpdate, parseValidator, toEjson } from './mongo-guard'
 import { summarizeExplain } from './mongo-explain'
@@ -23,9 +25,9 @@ import { parsePlan, planHints } from './plan-parser'
 import { inferSchema } from './mongo-schema'
 import type { MongoBulkInput, MongoBulkResult, MongoCollectionAction, MongoExplainInput, MongoExplainSummary, MongoSchema, MongoStats, MongoValidation, SqlDefinitionTarget } from '../../../../shared/types/oxequery'
 import type { SqlExplain } from '../../../../shared/types/oxequery'
-import { cancelOperation, runTagged, type MongoOperation } from './mongo-cancel'
+import { cancelOperation, runTagged } from './mongo-cancel'
 import { exportRun, importPreview, importRun, type TransferHost } from './oxequery-transfer'
-import { closePage, metaClient, pageResult, readRows, type OpenPage } from './oxequery-paging'
+import { closePage, metaClient, pageResult, readRows } from './oxequery-paging'
 import * as catalog from './oxequery-catalog'
 
 /** A function's arguments after the host and the connection. */
@@ -109,28 +111,14 @@ function clampRows(value: number | undefined): number {
   return Math.max(1, Math.min(Math.trunc(value ?? DEFAULT_ROWS) || DEFAULT_ROWS, MAX_ROWS))
 }
 
-/** Everything that changes how a session is built; a change reopens it. */
-function sessionKey(connection: ResolvedConnection): string {
-  return createHash('sha256').update(JSON.stringify([
-    connection.engine, connection.host, connection.port, connection.database, connection.username, connection.password ?? '', connection.sslMode, connection.readOnly,
-    connection.tls ?? null, connection.mongo ?? null, connection.ssh ?? null, connection.statementTimeoutMs ?? null
-  ])).digest('hex')
-}
+export { AGENT_IDLE_MS, MAX_CONNECTIONS_PER_SLOT, slotOf, type PgSession } from './oxequery-sessions'
 
-/** open: a transaction the person began; failed: a statement in it failed, so only ROLLBACK is accepted. */
-type TxState = 'none' | 'open' | 'failed'
-export interface PgSession { key: string; client: Client; running: boolean; lastUsed: number; endpoint: Endpoint; tunnel?: OpenTunnel; tx: TxState; txStatements: number; txSince?: number; config: ClientConfig; page?: OpenPage; meta?: Client }
-interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel; /** The running find or aggregate, so it can be stopped. */ operation?: MongoOperation }
-
-/** A connection nobody used for this long is closed; it reopens on the next request. */
 const withConnectionHint = (message: string, connection: ResolvedConnection): string => `${message}${connectionHint(message, connection)}`
 
 /** How many tables of one schema are listed; the tree says so when there are more. */
 const MAX_TABLES_LISTED = 20_000
 /** A script this long is a migration, not a query tab. */
 const MAX_SCRIPT_STATEMENTS = 500
-const IDLE_MS = 10 * 60_000
-const MAX_SESSIONS = 12
 /** How long a catalog read waits for the query that is using the connection. */
 const META_WAIT_MS = 10_000
 
@@ -139,7 +127,9 @@ const META_WAIT_MS = 10_000
  * connection can never block the main process; tests drive it directly.
  */
 export class OxeQueryCore {
-  private readonly pg = new Map<string, PgSession>()
+  private readonly sessions = new SessionRegistry()
+  private readonly pg = this.sessions.pg
+  private readonly mongo = this.sessions.mongo
   /** What the catalog lists may use of this core. */
   private readonly catalog: catalog.CatalogHost = {
     pgMeta: (connection, sql, params, maxRows, readOnly) => this.pgMeta(connection, sql, params, maxRows, readOnly),
@@ -153,7 +143,11 @@ export class OxeQueryCore {
     mongoError: (error, connection) => this.mongoError(error, connection),
     columnMeta: (connection, schema, table) => this.columnMeta(connection, schema, table)
   }
-  private readonly mongo = new Map<string, MongoSession>()
+  /** What opening a session may use of this core (oxequery-connect). */
+  private readonly connector: ConnectHost = {
+    sessions: this.sessions, reach: connection => this.reach(connection), pgConfig: (connection, endpoint) => this.pgConfig(connection, endpoint), connectTimeoutMs: CONNECT_TIMEOUT_MS,
+    connectFailure: (error, connection) => new OxeQueryError('connect', withConnectionHint(redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase), connection))
+  }
   private readonly reaper: ReturnType<typeof setInterval>
 
   constructor() {
@@ -161,19 +155,18 @@ export class OxeQueryCore {
     this.reaper.unref?.()
   }
 
-  /** Closes sessions idle past the limit, and the least recently used one when too many are open. */
+  /** Closes sessions idle past their role's limit, and the least recently used when too many are open; never a busy one. */
   async reapIdle(now = Date.now()): Promise<number> {
-    const sessions = [
-      ...[...this.pg].filter(([, session]) => !session.running && session.tx === 'none').map(([id, session]) => ({ id, lastUsed: session.lastUsed })),
-      ...[...this.mongo].map(([id, session]) => ({ id, lastUsed: session.lastUsed }))
-    ].sort((a, b) => a.lastUsed - b.lastUsed)
-    const total = new Set([...this.pg.keys(), ...this.mongo.keys()]).size
-    const stale = sessions.filter(session => now - session.lastUsed > IDLE_MS).map(session => session.id)
-    const surplus = total > MAX_SESSIONS ? sessions.filter(session => !stale.includes(session.id)).slice(0, total - MAX_SESSIONS).map(session => session.id) : []
-    const closing = [...new Set([...stale, ...surplus])]
-    await Promise.allSettled(closing.map(id => this.closeConnection(id)))
+    const closing = this.sessions.reapable(now)
+    await Promise.allSettled(closing.map(slot => this.closeSlot(slot)))
     return closing.length
   }
+
+  /** Runs one worker request; while it runs its session is busy (see oxequery-sessions). */
+  track<T>(connection: ResolvedConnection, run: () => Promise<T>): Promise<T> { return this.sessions.track(connection, run) }
+
+  /** The person's sessions that would lose work if the worker stopped now. */
+  personAtRisk(): number { return this.sessions.personAtRisk() }
 
   // ---- Postgres -----------------------------------------------------------
 
@@ -208,34 +201,20 @@ export class OxeQueryCore {
     return session
   }
 
+  /**
+   * The slot's session, opened on first use. A session whose key no longer matches is reopened only when it is idle:
+   * one with a transaction open or failed, or a command running, is never closed under its owner, and the caller is
+   * refused with `conflict` instead.
+   */
   private async openSession(connection: ResolvedConnection): Promise<PgSession> {
-    const key = sessionKey(connection)
-    const existing = this.pg.get(connection.id)
+    const slot = slotOf(connection), key = sessionKey(connection)
+    const existing = this.pg.get(slot)
     if (existing?.key === key) { existing.lastUsed = Date.now(); return existing }
-    if (existing) await this.closeConnection(connection.id)
-    const { endpoint, tunnel } = await this.reach(connection)
-    // An 'error' event with no listener would crash the worker; the session's own listener is added below.
-    const quiet = (candidate: Client): Client => { candidate.on('error', () => undefined); return candidate }
-    let config: ClientConfig = this.pgConfig(connection, endpoint)
-    let client = quiet(new Client(config))
-    try {
-      try { await client.connect() } catch (error) {
-        // "prefer" tries TLS first; a server without TLS says so, and gets a plain connection like libpq gives it.
-        if (connection.sslMode !== 'prefer' || !/does not support SSL|SSL is not enabled|SSL not supported/i.test(error instanceof Error ? error.message : '')) throw error
-        config = { ...config, ssl: false }
-        client = quiet(new Client(config))
-        await client.connect()
-      }
-    } catch (error) {
-      await tunnel?.close()
-      throw new OxeQueryError('connect', withConnectionHint(redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase), connection))
-    }
-    client.on('error', () => { if (this.pg.get(connection.id)?.client === client) { this.pg.delete(connection.id); void tunnel?.close() } })
-    const session: PgSession = { key, client, config, running: false, lastUsed: Date.now(), endpoint, tx: 'none', txStatements: 0, ...(tunnel ? { tunnel } : {}) }
-    // A tunnel that drops under a live session would leave a client talking to nothing.
-    tunnel?.onClose(() => { if (this.pg.get(connection.id) === session) this.pg.delete(connection.id) })
-    this.pg.set(connection.id, session)
-    return session
+    if (existing && this.sessions.pgBusy(existing)) throw this.sessions.busyRefusal()
+    return this.sessions.openOnce(slot, () => this.openSession(connection), async () => {
+      if (existing) await this.closeSlot(slot)
+      return connectPg(this.connector, connection, slot, key)
+    })
   }
 
   /**
@@ -244,11 +223,21 @@ export class OxeQueryCore {
    * empty (and stay empty) whenever a long statement is in flight.
    */
   private async pgMeta(connection: ResolvedConnection, sql: string, params: unknown[], maxRows: number, readOnly: boolean): Promise<SqlResult> {
-    const session = this.pg.get(connection.id)
+    const session = this.pg.get(slotOf(connection))
     if (!session?.page) return this.pgRun(connection, sql, params, maxRows, readOnly, META_WAIT_MS)
     // A "Load more" page holds the client: catalog reads use the second one rather than closing the person's result.
     const started = Date.now()
-    const raw = await (await metaClient(session, config => new Client(config))).query({ text: sql, values: params, rowMode: 'array' })
+    const meta = await metaClient(session, config => {
+      const release = this.sessions.reserve(session.slot)
+      session.releaseMeta = release
+      const client = new Client(config)
+      client.on('end', release)
+      return client
+    }).catch((error: unknown) => {
+      if (!session.meta) { session.releaseMeta?.(); delete session.releaseMeta }
+      throw error
+    })
+    const raw = await meta.query({ text: sql, values: params, rowMode: 'array' })
     const page = pageResult(raw.fields.map(field => ({ name: field.name, type: TYPE_NAMES[field.dataTypeID] ?? `oid:${field.dataTypeID}` })), (raw.rows as unknown[][]).slice(0, maxRows + 1), maxRows, { cells: row => row.map(cell), capByBytes: rows => capRowsByBytes(rows) })
     return { ...page.result, durationMs: Date.now() - started }
   }
@@ -302,6 +291,12 @@ export class OxeQueryCore {
         }
       }
       this.trackTransaction(session, sql)
+      if (session.role === 'agent' && session.tx !== 'none') {
+        // An agent's session never keeps a transaction: it would hold locks, and the reaper never closes a busy session.
+        await client.query('ROLLBACK').catch(() => undefined)
+        session.tx = 'none'; session.txStatements = 0; delete session.txSince
+        throw this.sessions.agentTransactionRefusal()
+      }
       return { ...result, durationMs: Date.now() - started, ...(notices.length ? { notices } : {}) }
     } catch (error) {
       if (session.tx === 'open') session.tx = 'failed'
@@ -337,7 +332,7 @@ export class OxeQueryCore {
 
   /** The transaction of one connection, for the toolbar. */
   txState(connection: ResolvedConnection): { state: TxState; statements: number; since?: number } {
-    const session = this.pg.get(connection.id)
+    const session = this.pg.get(slotOf(connection))
     return session ? { state: session.tx, statements: session.txStatements, ...(session.txSince ? { since: session.txSince } : {}) } : { state: 'none', statements: 0 }
   }
 
@@ -349,7 +344,7 @@ export class OxeQueryCore {
       if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is already open on this connection.')
       await this.pgRun(connection, 'BEGIN', [], 1, false)
     } else {
-      const session = this.pg.get(connection.id)
+      const session = this.pg.get(slotOf(connection))
       if (!session || session.tx === 'none') throw new OxeQueryError('invalid', 'There is no open transaction on this connection.')
       await this.pgRun(connection, action === 'commit' ? 'COMMIT' : 'ROLLBACK', [], 1, false)
     }
@@ -362,10 +357,10 @@ export class OxeQueryCore {
     const verdict = guardSql(sql)
     if (verdict.kind === 'empty') throw new OxeQueryError('invalid', 'There is nothing to run.')
     if (connection.readOnly && isMutating(verdict)) {
-      throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.', verdict.reasons)
+      throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.', verdict.reasons, guardCodes(verdict))
     }
     if (verdict.kind === 'destructive' && !confirmed) {
-      throw new OxeQueryError('confirm', 'This statement is destructive and needs confirmation.', verdict.reasons)
+      throw new OxeQueryError('confirm', 'This statement is destructive and needs confirmation.', verdict.reasons, guardCodes(verdict))
     }
   }
 
@@ -380,7 +375,7 @@ export class OxeQueryCore {
 
   /** The next rows of the result `sqlRun` left open; the page closes when they run out. */
   async sqlMore(connection: ResolvedConnection, pageId: string, maxRows?: number): Promise<SqlResult> {
-    const session = this.pg.get(connection.id), page = session?.page
+    const session = this.pg.get(slotOf(connection)), page = session?.page
     if (!session || !page || page.id !== pageId) throw new OxeQueryError('invalid', 'This result is no longer open. Run the query again to read more rows.')
     if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
     const limit = clampRows(maxRows ?? connection.maxRows), started = Date.now()
@@ -419,7 +414,7 @@ export class OxeQueryCore {
         throw error
       }
     }
-    if (reasons.size) throw new OxeQueryError('confirm', 'This script has destructive statements and needs confirmation.', [...reasons])
+    if (reasons.size) throw new OxeQueryError('confirm', 'This script has destructive statements and needs confirmation.', [...reasons], guardCodes(guardSql(sql)))
     const statements: ScriptStatementResult[] = []
     const maxRows = clampRows(options.maxRows ?? connection.maxRows)
     for (const [index, span] of spans.entries()) {
@@ -507,16 +502,19 @@ export class OxeQueryCore {
 
   /** Cancels the statement a connection is running by asking the server from a second session. */
   async sqlCancel(connection: ResolvedConnection): Promise<boolean> {
-    const session = this.pg.get(connection.id)
+    const session = this.pg.get(slotOf(connection))
     if (!session?.running) return false
     const pid = (session.client as unknown as { processID?: number }).processID
     if (!pid) return false
+    // The backend of this role's session only: an agent's timeout never cancels the person's statement.
+    const release = this.sessions.reserve(session.slot)
     const killer = new Client(this.pgConfig(connection, session.endpoint))
+    killer.on('error', () => undefined)
     try {
       await killer.connect()
       await killer.query('SELECT pg_cancel_backend($1)', [pid])
       return true
-    } catch { return false } finally { await killer.end().catch(() => undefined) }
+    } catch { return false } finally { await killer.end().catch(() => undefined); release() }
   }
 
   // ---- PostgreSQL editing -------------------------------------------------
@@ -672,30 +670,21 @@ export class OxeQueryCore {
 
   // ---- MongoDB ------------------------------------------------------------
 
+  /** The slot's client, as `openSession` for Postgres: a busy client (an import, an export, a find) is never closed by a key change. */
   private async mongoSession(connection: ResolvedConnection): Promise<MongoClient> {
-    const key = sessionKey(connection)
-    const existing = this.mongo.get(connection.id)
+    const slot = slotOf(connection), key = sessionKey(connection)
+    const existing = this.mongo.get(slot)
     if (existing?.key === key) { existing.lastUsed = Date.now(); return existing.client }
-    if (existing) await this.closeConnection(connection.id)
-    const { endpoint, tunnel } = await this.reach(connection)
-    const client = new MongoClient(mongoUri(connection, endpoint), {
-      serverSelectionTimeoutMS: CONNECT_TIMEOUT_MS, connectTimeoutMS: CONNECT_TIMEOUT_MS, maxPoolSize: 4,
-      ...(mongoTlsOptions(connection) as object)
+    if (existing && this.sessions.mongoBusy(existing)) throw this.sessions.busyRefusal()
+    return this.sessions.openOnce(slot, () => this.mongoSession(connection), async () => {
+      if (existing) await this.closeSlot(slot)
+      return connectMongo(this.connector, connection, slot, key)
     })
-    try { await client.connect() } catch (error) {
-      await client.close().catch(() => undefined)
-      await tunnel?.close()
-      throw new OxeQueryError('connect', withConnectionHint(redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase), connection))
-    }
-    const session: MongoSession = { key, client, lastUsed: Date.now(), ...(tunnel ? { tunnel } : {}) }
-    tunnel?.onClose(() => { if (this.mongo.get(connection.id) === session) this.mongo.delete(connection.id) })
-    this.mongo.set(connection.id, session)
-    return client
   }
 
   /** A long export or import counts as use: without this the idle reaper closes the client under it. */
   private touchMongo(connection: ResolvedConnection): void {
-    const session = this.mongo.get(connection.id)
+    const session = this.mongo.get(slotOf(connection))
     if (session) session.lastUsed = Date.now()
   }
 
@@ -714,12 +703,12 @@ export class OxeQueryCore {
 
   /** Runs a read that `mongoCancel` can stop: tagged on the server, abortable here (see mongo-cancel). */
   private tagged<T>(connection: ResolvedConnection, run: (comment: string, signal: AbortSignal) => Promise<T>): Promise<T> {
-    return runTagged(this.mongo.get(connection.id), run)
+    return runTagged(this.mongo.get(slotOf(connection)), run)
   }
 
   /** Stops the find or aggregate this connection is running, on the server when allowed and always here. */
   mongoCancel(connection: ResolvedConnection): Promise<boolean> {
-    return cancelOperation(this.mongo.get(connection.id))
+    return cancelOperation(this.mongo.get(slotOf(connection)))
   }
 
   /**
@@ -1149,15 +1138,22 @@ export class OxeQueryCore {
     }
   }
 
-  async closeConnection(id: string): Promise<void> {
-    const pg = this.pg.get(id), mongo = this.mongo.get(id)
-    this.pg.delete(id); this.mongo.delete(id)
+  /** Closes a connection's sessions: one role's, or, without a role (the person edited or removed it), all of them. */
+  async closeConnection(id: string, role?: SessionRole): Promise<void> {
+    const roles: SessionRole[] = role ? [role] : ['person', 'agent']
+    await Promise.allSettled(roles.map(each => this.closeSlot(slotOf({ id, role: each }))))
+  }
+
+  private async closeSlot(slot: string): Promise<void> {
+    const pg = this.pg.get(slot), mongo = this.mongo.get(slot)
+    if (pg) this.sessions.forgetPg(pg)
+    if (mongo) this.sessions.forgetMongo(mongo)
     await Promise.allSettled([pg?.client.end(), pg?.meta?.end(), mongo?.client.close()])
     await Promise.allSettled([pg?.tunnel?.close(), mongo?.tunnel?.close()])
   }
 
   async closeAll(): Promise<void> {
     clearInterval(this.reaper)
-    await Promise.allSettled([...new Set([...this.pg.keys(), ...this.mongo.keys()])].map(id => this.closeConnection(id)))
+    await Promise.allSettled(this.sessions.slots().map(slot => this.closeSlot(slot)))
   }
 }

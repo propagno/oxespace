@@ -4,6 +4,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { AgentService } from '../services/agent.service'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
+import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../services/workspace-root'
 import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseUpdateWorkspaceWorktreeStateInput, parseWorkspaceCreateInput } from './validation'
 import type { SemanticService } from '../services/semantic.service'
 
@@ -33,9 +34,16 @@ export function registerWorkspaceIpc(
   const agentService = services.agentService ?? new AgentService(db)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaceService.list())
-  ipcMain.handle(IPC_CHANNELS.workspace.create, (_event, input: unknown) =>
-    workspaceService.create(parseWorkspaceCreateInput(input))
-  )
+  ipcMain.handle(IPC_CHANNELS.workspace.create, (_event, input: unknown) => {
+    // A pasted path loses its surrounding spaces and quotes here, so every caller gets the same root.
+    const rootPath = typeof (input as { rootPath?: unknown } | null)?.rootPath === 'string' ? normalizeWorkspaceRoot((input as { rootPath: string }).rootPath) : undefined
+    // A root that is not an existing folder is refused before the service runs:
+    // no row, no panes, and no terminals started in a folder that is not there.
+    const root = rootPath === undefined ? undefined : checkWorkspaceRoot(rootPath)
+    if (root && !root.ok) return root
+    const parsed = parseWorkspaceCreateInput(rootPath === undefined ? input : { ...(input as object), rootPath })
+    return workspaceService.create(parsed)
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.setActive, (_event, id: unknown) => {
     const workspaceId = parseId(id)
     const workspace = workspaceService.setActive(workspaceId)
