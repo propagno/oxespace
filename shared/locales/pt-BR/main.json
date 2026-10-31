@@ -167,6 +167,11 @@
         "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda.",
         "ambiguousEscape": "Uma barra invertida num texto pode encerrá-lo antes num servidor com standard_conforming_strings desligado, e então roda mais do que o texto mostra."
       },
+      "session": {
+        "busy": "Esta conexão tem uma transação aberta ou um comando em execução, então não pode ser reaberta agora. Faça commit ou rollback da transação, ou espere o comando terminar, e tente de novo.",
+        "limit": "Esta conexão já tem {{limit}} conexões com o banco abertas. Espere uma terminar e tente de novo.",
+        "agentTransaction": "Um agente não pode abrir uma transação: cada instrução dele roda sozinha. A transação foi desfeita."
+      },
       "mongo": {
         "confirmName": "Esta é uma conexão de produção. Digite o nome dela para alterar este documento.",
         "confirm": "Esta alteração precisa da sua confirmação.",
@@ -336,7 +341,9 @@
         "rendererGone": "A interface parou de responder e foi reiniciada.",
         "externalRefused": "Um link não foi aberto fora do app: tipo não permitido, longo demais ou com nome e senha nele.",
         "externalRateLimited": "Muitos links foram recusados em um minuto; os demais não foram registrados.",
-        "externalOpenFailed": "O sistema não conseguiu abrir um link que o app permitiu; nenhum aplicativo está registrado para ele."
+        "externalOpenFailed": "O sistema não conseguiu abrir um link que o app permitiu; nenhum aplicativo está registrado para ele.",
+        "openDenied": "A janela tentou abrir uma nova janela sozinha; nada foi aberto.",
+        "navigationDenied": "A janela tentou sair do app para outra página; ela ficou, e nada foi aberto."
       },
       "ipc": {
         "handlerFailed": "Um pedido da janela falhou em segundo plano.",
@@ -353,7 +360,8 @@
         "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."
       },
       "oxequery": {
-        "timeout": "Um pedido do OxeQuery esgotou o tempo."
+        "timeout": "Um pedido do OxeQuery esgotou o tempo.",
+        "restartDeferred": "O worker do OxeQuery parou de responder. O reinício foi adiado porque uma conexão tem uma transação aberta ou um comando em execução."
       },
       "updater": {
         "failed": "Não foi possível verificar ou instalar uma atualização."

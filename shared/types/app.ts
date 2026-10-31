@@ -39,6 +39,11 @@ export interface AppInfoApi {
   onConnectivity?(listener: (state: AppConnectivity) => void): () => void
   /** Version, build and runtime facts for the About screen. */
   about?(): Promise<AppAbout>
+  /**
+   * Opens a link in the system browser or mail app, once the person confirmed its host. Refused (`opened: false`, and
+   * journalled by its reason) unless it is an http(s) or mailto: URL of at most 2,048 characters without credentials.
+   */
+  openExternal?(url: string): Promise<{ opened: boolean }>
 }
 
 /**
