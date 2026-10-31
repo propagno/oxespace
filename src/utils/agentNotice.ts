@@ -1,4 +1,4 @@
-import { withoutReservedName } from '../../shared/approval-rules'
+import { withoutReservedName } from '../../shared/reserved-names'
 
 /**
  * B10 · The agent-supplied parts of the app's turn notices. A pane label can be a name an agent chose

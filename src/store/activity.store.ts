@@ -8,7 +8,7 @@ import { create } from 'zustand'
  * It only records and navigates. Nothing here approves, answers or changes what it points at.
  */
 export type ActivityKind = 'needs-you' | 'finished' | 'failed' | 'update' | 'quota'
-export type ActivitySource = 'code' | 'thread' | 'background' | 'quota' | 'update'
+export type ActivitySource = 'code' | 'thread' | 'background' | 'quota' | 'update' | 'mcp'
 
 export type ActivityTarget =
   | { type: 'pane'; workspaceId: string; paneId: string }
@@ -16,6 +16,7 @@ export type ActivityTarget =
   | { type: 'background'; workspaceId: string; jobId: string }
   | { type: 'quota'; provider: 'claude' | 'codex' }
   | { type: 'update'; version: string }
+  | { type: 'mcp'; serverId: string }
 
 export interface ActivityItem {
   source: ActivitySource

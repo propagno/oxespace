@@ -124,6 +124,36 @@
 .swatch[aria-checked='true']::before { border-color: var(--text-primary); }
 .swatch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -1px; }
 
+/*
+ * Forced colors (Windows high contrast) drops every author background and shadow, and with them the only thing that
+ * told the chosen segment and an on switch apart. Each selection gets a mark in system colors that the palette keeps:
+ * the chosen segment is filled with Highlight and carries a tick, the others keep a ButtonText edge; the switch draws
+ * its track and thumb with CanvasText lines, and in Highlight once on, with the thumb on the right.
+ */
+@media (forced-colors: active) {
+  .check input { accent-color: ButtonText; }
+  .check input:checked { accent-color: Highlight; }
+
+  .switch, .switch:hover:not(:disabled) { forced-color-adjust: none; border: 2px solid CanvasText; background: Canvas; }
+  .switch::after { top: 1px; left: 1px; background: CanvasText; box-shadow: none; }
+  .switch[aria-checked='true'], .switch[aria-checked='true']:hover:not(:disabled) { border-color: Highlight; background: Highlight; }
+  .switch[aria-checked='true']::after { background: HighlightText; }
+  .switch:disabled, .switch:disabled[aria-checked='true'] { border-color: GrayText; background: Canvas; opacity: 1; }
+  .switch:disabled::after { background: GrayText; }
+
+  .segmented { border-color: CanvasText; }
+  .segment:not([aria-checked='true'], :focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
+  .segment[aria-checked='true'], .segment[aria-checked='true'][data-tone='danger'] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .segment[aria-checked='true']::before { content: '\2713' / ''; font-weight: var(--weight-semibold); }
+  .segment[aria-checked='true'] * { color: inherit; }
+  .segment[aria-checked='true']:focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+
+  .swatch[data-empty]::before { border-color: ButtonText; }
+  .swatch[aria-checked='true']::before { border-color: Canvas; }
+  .swatch[aria-checked='true'] { background: Highlight; }
+  .swatch:focus-visible { outline-color: CanvasText; }
+}
+
 .kbd {
   display: inline-flex;
   align-items: center;

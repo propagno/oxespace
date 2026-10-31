@@ -51,6 +51,7 @@ import { loadDelegationPanel, loadResumeData, type ThreadPanelState } from './th
 
 const ThreadCommandDialog = lazy(() => import('./ThreadCommandDialog'))
 const ThreadReviewHost = lazy(() => import('./ThreadReviewHost'))
+const ThreadSideChat = lazy(() => import('./side/ThreadSideChat').then(module => ({ default: module.ThreadSideChat })))
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { threadWorkingRoot } from './threadChanges'
@@ -105,9 +106,13 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: current === panelId && !keepOpen ? null : panelId })
   }
   const [finding, setFinding] = useState(false)
+  // The conversation the side chat drawer is open for; another conversation closes it, and its copy goes with it.
+  const [sideChatFor, setSideChatFor] = useState<string | null>(null)
+  const sideChatOpen = Boolean(snapshot && sideChatFor === snapshot.thread.id)
+  const toggleSideChat = (): void => setSideChatFor(sideChatOpen || !snapshot ? null : snapshot.thread.id)
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
-  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), runCommand: text => action(() => runCommand(text)) })
+  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onSideChat: toggleSideChat, runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
   const appendToConversation = (prompt: string) => {
@@ -289,7 +294,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
-      onDelegate={() => setDelegationOpen(true)} onPin={() => { if (snapshot) void action(() => api!.pin(snapshot.thread.id, !snapshot.thread.pinned)) }} />
+      onDelegate={() => setDelegationOpen(true)} sideChatOpen={sideChatOpen} onSideChat={toggleSideChat} onPin={() => { if (snapshot) void action(() => api!.pin(snapshot.thread.id, !snapshot.thread.pinned)) }} />
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
     <div ref={timeline} className="thread-timeline" role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
       <div ref={scroll.content} className="thread-reading-column">
@@ -334,6 +339,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   </section>
     {snapshot && review?.panel && <Suspense fallback={null}><ThreadReviewHost snapshot={snapshot} workspace={workspace} panel={review.panel} drawer={drawer} availableWidth={availableWidth} workbench={workbench}
       onClose={closeReview} onReturnFocus={() => textarea.current?.focus()} onSendToConversation={appendToConversation} /></Suspense>}
+    {snapshot && sideChatOpen && <Suspense fallback={null}><ThreadSideChat threadId={snapshot.thread.id} onClose={() => { setSideChatFor(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
   </div>
 }
 

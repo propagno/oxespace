@@ -148,7 +148,8 @@ export class AgentGateway {
     let timer: ReturnType<typeof setTimeout> | undefined
     const guard = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
-        void this.deps.call('sql.cancel', connection).catch(() => undefined)
+        // The agent's own statement only: the connection carries role 'agent', so the person's session is not touched.
+        void this.deps.call(connection.engine === 'mongodb' ? 'mongo.cancel' : 'sql.cancel', connection).catch(() => undefined)
         reject(new AgentToolError(`The call took longer than ${Math.round(limit / 1000)}s and was cancelled.`, 'timeout'))
       }, limit)
     })
@@ -159,7 +160,7 @@ export class AgentGateway {
     if (error instanceof AgentToolError) return error
     if (error instanceof OxeQueryError) {
       // Messages from the worker are already redacted; connection-level details are not forwarded.
-      if (['query', 'invalid', 'read-only', 'timeout', 'cancelled', 'conflict'].includes(error.code)) return new AgentToolError(error.message.slice(0, 600), error.code)
+      if (['query', 'invalid', 'read-only', 'timeout', 'cancelled', 'conflict', 'limit'].includes(error.code)) return new AgentToolError(error.message.slice(0, 600), error.code)
       return new AgentToolError('The database could not be reached.', error.code)
     }
     return new AgentToolError('The operation failed.', 'failed')
@@ -221,7 +222,7 @@ export class AgentGateway {
   private async describe(args: Args, actor: AgentActor): Promise<unknown> {
     const info = this.find(args.connection)
     this.access(info, 'read', actor)
-    const connection = { ...this.deps.resolve(info.id), readOnly: true }
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), readOnly: true, role: 'agent' }
     const started = this.now()
     try {
       const value = await this.serial(info.id, () => this.withTimeout(connection, async () => {
@@ -262,7 +263,7 @@ export class AgentGateway {
       this.log(actor, info, tool, { decision: 'refused', outcome: 'skipped', textHash: hash, text: redactStatement(sql), errorCode: 'not-read' })
       throw new AgentToolError('Only a single statement that reads data can be explained here.', 'not-read')
     }
-    const connection = { ...this.deps.resolve(info.id), readOnly: true }
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), readOnly: true, role: 'agent' }
     const started = this.now()
     try {
       const plan = await this.serial(info.id, () => this.withTimeout(connection, () => this.deps.call<unknown>('sql.explain', connection, { sql, analyze: false })))
@@ -335,7 +336,7 @@ export class AgentGateway {
       throw failure
     }
     const started = this.now()
-    const connection = { ...this.deps.resolve(info.id), readOnly: true }
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), readOnly: true, role: 'agent' }
     try {
       const result = await this.serial(info.id, () => this.withTimeout(connection, () => run(connection)))
       this.log(actor, info, tool, { decision, outcome: 'ok', textHash: hash, text: loggedText, rows: result.rows, durationMs: this.now() - started })
@@ -404,7 +405,7 @@ export class AgentGateway {
       throw failure
     }
     const started = this.now()
-    const connection = this.deps.resolve(info.id)
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), role: 'agent' }
     try {
       const result = await this.serial(info.id, () => this.withTimeout(connection, () => run(connection)))
       this.log(actor, info, tool, { decision, outcome: 'ok', textHash: hash, text: loggedText, rows: result.rows, durationMs: this.now() - started })
