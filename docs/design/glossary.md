@@ -97,7 +97,7 @@ agree.
 | unknown | Not confirmed | Não confirmado |
 | (terminal only) starting / exited | Starting / Exited | Iniciando / Encerrado |
 
-One i18n namespace, `agents.state.*`, holds them. No other catalog may define these state words.
+They describe the agent, so pt-BR uses the masculine everywhere ("Ocioso", "Interrompido"), also on a conversation row. One i18n namespace, `agents.state.*`, holds them. No other catalog may define these state words.
 
 ## 6. Risk (approvals; desktop and phone)
 
@@ -134,6 +134,7 @@ Colour never carries it alone. The badge says "Risco: Alto"; inside a sentence i
 | Close | Close | **Fechar** | | |
 | Open | Open | **Abrir** | | |
 | Stop a turn | Stop | **Parar**; done: "Turno interrompido" | Cancelar | S7 |
+| Steer a running turn | Steer | **Orientar** | Direcionar | desktop composer and phone (mobile audit P14) |
 | Start over | Start fresh | **Começar do zero** | Reiniciar | F32 |
 | Copy | Copy | **Copiar** | | |
 | Save | Save | **Salvar** | Gravar | |
