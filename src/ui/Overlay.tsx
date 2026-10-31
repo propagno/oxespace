@@ -134,6 +134,9 @@ export interface MenuProps {
   label?: string
   testId?: string
   side?: 'top' | 'right' | 'bottom' | 'left'
+  /** Controlled open state, for opening the same menu from elsewhere (a row's context menu). */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -148,8 +151,8 @@ function focusMovedOn(): boolean {
   return active instanceof HTMLElement && active !== document.body && !active.closest('[role="menu"]')
 }
 
-export function Menu({ trigger, items, align = 'start', label, testId, side }: MenuProps): ReactElement {
-  return <RadixMenu.Root modal={false}>
+export function Menu({ trigger, items, align = 'start', label, testId, side, open, onOpenChange }: MenuProps): ReactElement {
+  return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}
