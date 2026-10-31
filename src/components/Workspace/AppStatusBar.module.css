@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  height: 24px;
+  height: var(--statusbar-height);
   padding: 0 var(--space-2);
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-chrome);

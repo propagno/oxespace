@@ -79,7 +79,7 @@ export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.
  * next. Announced politely; a toast is enough for a quick confirmation that needs no next step.
  */
 export function SuccessState({ title, message, actions, compact = false }: { title: ReactNode; message?: ReactNode; actions?: ReactNode; compact?: boolean }): ReactElement {
-  return <div className={cx(styles.success, compact && styles.successCompact)} role="status">
+  return <div className={cx(styles.successState, compact && styles.successCompact)} role="status">
     <span className={styles.successIcon} aria-hidden="true"><CheckCircle2 size={compact ? 14 : 20} /></span>
     <p className={styles.successTitle}>{title}</p>
     {message && <p className={styles.successText}>{message}</p>}
