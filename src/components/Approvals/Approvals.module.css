@@ -64,6 +64,19 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* An invisible or bidi character the agent sent, shown as its code point; it never takes effect. */
+.hiddenChar {
+  unicode-bidi: isolate;
+  direction: ltr;
+  margin: 0 1px;
+  padding: 0 2px;
+  border: 1px solid var(--intent-danger-solid);
+  border-radius: var(--radius-sm);
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
 .agentText:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
 
 .expires { margin: var(--space-3) 0 0; font-size: var(--text-xs); color: var(--text-secondary); }

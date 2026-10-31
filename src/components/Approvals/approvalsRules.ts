@@ -1,5 +1,6 @@
 import type { MainMessage } from '../../../shared/messages'
-import type { ApprovalHistoryEntry, ApprovalOption, ApprovalRequest } from '../../../shared/types/approvals'
+import type { ApprovalHistoryEntry, ApprovalOption, ApprovalRequest, ApprovalRisk } from '../../../shared/types/approvals'
+import { hasHiddenChars } from './hiddenChars'
 
 /**
  * What the window enforces on top of the B10 contract (main enforces the same; shared/approval-rules.ts checks the
@@ -23,6 +24,14 @@ export function denyOption(request: ApprovalRequest): ApprovalOption | undefined
 }
 
 /**
+ * The risk the window shows and acts on: main's, raised to at least high when the agent's text hides characters
+ * (main does the same, B10 R2; the window does not wait for it).
+ */
+export function effectiveRisk(request: Pick<ApprovalRequest, 'risk' | 'agentText'>): ApprovalRisk {
+  return (request.risk === 'low' || request.risk === 'medium') && hasHiddenChars(request.agentText.text) ? 'high' : request.risk
+}
+
+/**
  * The options the window offers, deny first:
  * - a cut text offers deny only (the person must see all of what they approve);
  * - "allow for this run" (allow-session) only at low risk, even if main sent it.
@@ -31,7 +40,7 @@ export function visibleOptions(request: ApprovalRequest): ApprovalOption[] {
   const offered = request.options.filter(option => {
     if (option.intent === 'deny') return true
     if (request.agentText.truncated) return false
-    return option.intent === 'allow' || request.risk === 'low'
+    return option.intent === 'allow' || effectiveRisk(request) === 'low'
   })
   return [...offered.filter(option => option.intent === 'deny'), ...offered.filter(option => option.intent !== 'deny')]
 }

@@ -30,6 +30,14 @@ export const requesterKindName = (requester: ApprovalRequester): string => t(`ap
 /** The requester as main named it; never empty (an unknown provider reads "Unknown agent", B10). */
 export const requesterText = (requester: ApprovalRequester): string => formatMainMessage(requester.label).trim() || t('approvals.requester.unknown')
 
+/**
+ * A requester main could not identify (an unknown provider in a pane or conversation, or no name at all): the window
+ * must not say OXESpace identified it.
+ */
+export function isUnidentified(requester: ApprovalRequester): boolean {
+  return String(requester.label?.code ?? '').startsWith('approvals.requester.unknown') || !formatMainMessage(requester.label).trim()
+}
+
 /** The one summary line: main's generic summary for the action, and what it applies to. Never the agent's words. */
 export function summaryLine(request: Pick<ApprovalRequest, 'summary' | 'target'>): string {
   const summary = formatMainMessage(request.summary)
