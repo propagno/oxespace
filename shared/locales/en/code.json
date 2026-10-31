@@ -800,7 +800,29 @@
       "done": "Finished, not seen yet",
       "awaiting": "Awaiting your input"
     },
+    "origin": {
+      "lifecycle": "From the agent's lifecycle",
+      "screen": "Read from the agent's screen",
+      "hook": "Reported by the agent's hooks",
+      "heuristic": "Estimated from terminal activity"
+    },
+    "decisionAnnounce": "{{agent}} needs your decision: {{reason}}",
+    "decisionNotice": {
+      "title": "{{agent}} — needs your decision",
+      "body": "{{workspace}}: the agent stopped and is waiting for your approval or answer."
+    },
+    "notice": {
+      "agent": "Agent",
+      "finishedTitle": "{{agent}} — waiting for you",
+      "finishedBody": "{{workspace}}: the agent finished and is waiting for your reply.",
+      "endedTitle": "{{agent}} — session ended",
+      "endedBody": "{{workspace}}: the agent terminal was closed.",
+      "errorTitle": "{{agent}} — needs attention",
+      "errorBody": "{{workspace}}: {{error}}",
+      "errorFallback": "the agent hit an error."
+    },
     "status": {
+      "needs-decision": "Needs your decision",
       "thinking": "Thinking",
       "awaiting": "Awaiting",
       "starting": "Starting",
@@ -809,6 +831,7 @@
       "idle": "Idle"
     },
     "fallback": {
+      "needs-decision": "Needs your decision",
       "thinking": "Agent thinking",
       "awaiting": "Awaiting input",
       "starting": "Starting terminal",
@@ -841,6 +864,8 @@
     "activity": {
       "agents_one": "{{count}} agent",
       "agents_other": "{{count}} agents",
+      "needs-decision_one": "{{count}} needs your decision",
+      "needs-decision_other": "{{count}} need your decision",
       "thinking_one": "{{count}} thinking",
       "thinking_other": "{{count}} thinking",
       "awaiting_one": "{{count}} awaiting",
@@ -875,6 +900,7 @@
       "delegated": "Delegated task",
       "unread": "Unread output",
       "tone": {
+        "needs-decision": "needs your decision",
         "thinking": "thinking",
         "awaiting": "awaiting",
         "idle": "idle",
@@ -1828,6 +1854,31 @@
     }
   },
   "paneMenu": {
+    "whyStatus": "Why this status?",
+    "explain": {
+      "description": "What OXESpace read to decide this pane's status.",
+      "shown": "Shown",
+      "origin": "Comes from",
+      "lifecycle": "Lifecycle state",
+      "since": "Since",
+      "hook": "Last hook report",
+      "screen": "Screen rule",
+      "fallback": "Screen fallback",
+      "pendingIdle": "Confirming that it stopped",
+      "none": "OXESpace has no lifecycle report for this pane, so its status is estimated from terminal activity.",
+      "unavailable": "The status explanation is not available in this build.",
+      "failed": "Could not read why this pane has this status.",
+      "reading": "Reading…",
+      "technical": "Technical details",
+      "yes": "Yes",
+      "states": {
+        "working": "Working",
+        "blocked": "Waiting for a decision",
+        "done": "Finished its turn",
+        "idle": "Idle",
+        "unknown": "Unknown"
+      }
+    },
     "detailsUnavailable": "Session details unavailable",
     "detailsFailed": "Could not read the session",
     "rename": "Rename pane",
