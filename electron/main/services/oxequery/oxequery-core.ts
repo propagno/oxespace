@@ -12,7 +12,7 @@ import { buildFilterClause } from './filter-clause'
 import { maintenanceStatement, planStructure } from './ddl-builder'
 import type { MaintenanceAction, StructureInput, StructurePlan, StructureResult } from '../../../../shared/types/oxequery-structure'
 import { splitStatements } from '../../../../shared/sqlText'
-import { OxeQueryError, type ResolvedConnection, type SessionRole } from './oxequery-errors'
+import { guardCodes, OxeQueryError, type ResolvedConnection, type SessionRole } from './oxequery-errors'
 import { SessionRegistry, sessionKey, slotOf, type PgSession, type TxState } from './oxequery-sessions'
 import { connectMongo, connectPg, type ConnectHost } from './oxequery-connect'
 import { pgSsl, type Endpoint } from './connection-options'
@@ -357,10 +357,10 @@ export class OxeQueryCore {
     const verdict = guardSql(sql)
     if (verdict.kind === 'empty') throw new OxeQueryError('invalid', 'There is nothing to run.')
     if (connection.readOnly && isMutating(verdict)) {
-      throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.', verdict.reasons)
+      throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.', verdict.reasons, guardCodes(verdict))
     }
     if (verdict.kind === 'destructive' && !confirmed) {
-      throw new OxeQueryError('confirm', 'This statement is destructive and needs confirmation.', verdict.reasons)
+      throw new OxeQueryError('confirm', 'This statement is destructive and needs confirmation.', verdict.reasons, guardCodes(verdict))
     }
   }
 
@@ -414,7 +414,7 @@ export class OxeQueryCore {
         throw error
       }
     }
-    if (reasons.size) throw new OxeQueryError('confirm', 'This script has destructive statements and needs confirmation.', [...reasons])
+    if (reasons.size) throw new OxeQueryError('confirm', 'This script has destructive statements and needs confirmation.', [...reasons], guardCodes(guardSql(sql)))
     const statements: ScriptStatementResult[] = []
     const maxRows = clampRows(options.maxRows ?? connection.maxRows)
     for (const [index, span] of spans.entries()) {

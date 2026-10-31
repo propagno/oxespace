@@ -1,5 +1,5 @@
-import type { ConnectionEnvironment, DatabaseEngine, MongoOptions, SslMode } from '../../../../shared/types/oxequery'
 import type { MainMessage } from '../../../../shared/messages'
+import type { ConnectionEnvironment, DatabaseEngine, MongoOptions, SslMode } from '../../../../shared/types/oxequery'
 
 /**
  * Types and errors shared by the main process and the database worker. They live
@@ -10,8 +10,16 @@ export type OxeQueryErrorCode =
   | 'read-only' | 'confirm' | 'confirm-name' | 'invalid' | 'connect' | 'query' | 'timeout' | 'cancelled'
   | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict' | 'limit'
 
-/** Where and why a statement failed, as reported by the server. */
-export interface ErrorDetail { position?: number; sqlState?: string; hint?: string }
+/**
+ * Where and why a statement failed, as reported by the server; `codes` are the SQL guard's reasons as message codes
+ * (C3), for a statement the guard stopped before the server saw it.
+ */
+export interface ErrorDetail { position?: number; sqlState?: string; hint?: string; codes?: MainMessage[] }
+
+/** The guard's codes as error detail, only when it gave some. */
+export function guardCodes(verdict: { codes?: MainMessage[] }): ErrorDetail {
+  return verdict.codes?.length ? { codes: verdict.codes } : {}
+}
 
 export class OxeQueryError extends Error {
   /** `messageCode` is the sentence as a C3 code the window translates; `message` stays for logs and agents. */
