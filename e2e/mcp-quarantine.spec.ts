@@ -62,6 +62,14 @@ test('quarantined MCP servers: counted, flagged, in the activity center, and tru
     await expect(dialog).toHaveCount(0)
     await expect(page.getByTestId('mcp-quarantine-chip')).toHaveCount(2)
 
+    // deploy-helper's configuration changed: its confirmation shows what it runs now.
+    await panel.getByRole('button', { name: 'Trust deploy-helper again' }).click()
+    await expect(dialog.getByTestId('mcp-runs-now-command')).toHaveText('node deploy-helper.js --target staging')
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: 'test-results/mcp-trust-again-config.png' })
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+
     // Confirming trusts it again and tests it: one fewer everywhere.
     await panel.getByRole('button', { name: 'Trust docs-search again' }).click()
     await dialog.getByRole('button', { name: 'Trust again and test' }).click()

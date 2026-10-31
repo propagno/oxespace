@@ -1819,6 +1819,12 @@
     "safety": {
       "quarantineTitle": "Em quarentena: mudou depois de você confiar nele",
       "quarantineBody": "Ele não é oferecido aos agentes e não inicia. Leia abaixo o que ele diz agora; depois use Confiar de novo… para confiar nele de novo, ou remova-o.",
+      "runsNow": "O que ele executa agora",
+      "command": "Comando",
+      "url": "URL",
+      "envKeys": "Variáveis de ambiente (valores ocultos)",
+      "headerKeys": "Cabeçalhos (valores ocultos)",
+      "none": "nenhuma",
       "descTitle": "Descrições de ferramentas com instruções para o modelo",
       "descBody": "Um agente lê essas descrições como parte do contexto. Podem ser inofensivas, mas uma descrição deve dizer o que a ferramenta faz, não dizer ao agente o que fazer.",
       "floatingTitle": "Sem versão fixa",
