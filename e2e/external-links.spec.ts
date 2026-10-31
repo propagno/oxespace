@@ -3,17 +3,17 @@ import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
 
 /**
- * Every link that leaves the window goes through one confirmed path (src/lib/externalLinks.ts). window.open is
- * stubbed in the renderer to record calls, so no browser opens. Runs against the built app in the E2E mock mode.
+ * Every link that leaves the window goes through one confirmed path (src/lib/externalLinks.ts) and then main's
+ * app:open-external, whose E2E mock records each request on globalThis.__oxeOpenedExternal and opens nothing.
+ * Runs against the built app in the E2E mock mode.
  */
-async function recordOpens(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const store = window as typeof window & { __opened?: string[] }
-    store.__opened = []
-    window.open = ((url?: string | URL) => { store.__opened!.push(String(url)); return null }) as typeof window.open
-  })
+type OpenedExternal = { url: unknown; opened: boolean }
+async function recordOpens(app: ElectronApplication): Promise<void> {
+  await app.evaluate(() => { (globalThis as typeof globalThis & { __oxeOpenedExternal?: OpenedExternal[] }).__oxeOpenedExternal = [] })
 }
-const opened = (page: Page): Promise<string[]> => page.evaluate(() => [...((window as typeof window & { __opened?: string[] }).__opened ?? [])])
+/** The URLs main opened, in order. */
+const opened = (app: ElectronApplication): Promise<string[]> => app.evaluate(() =>
+  ((globalThis as typeof globalThis & { __oxeOpenedExternal?: OpenedExternal[] }).__oxeOpenedExternal ?? []).filter(item => item.opened).map(item => String(item.url)))
 
 /** Records the pane the terminal writes for, and lets the test print to it as if the shell had. */
 async function captureTerminal(app: ElectronApplication): Promise<void> {
@@ -39,7 +39,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     await captureTerminal(app)
     await openDemoWorkspace(page, workspaceRoot)
     await page.evaluate(() => localStorage.removeItem('oxe.externalLinks.seenHosts'))
-    await recordOpens(page)
+    await recordOpens(app)
 
     // Terminal: a plain click selects; Ctrl+click asks through the same dialog.
     const terminal = page.getByTestId('terminal-view').first()
@@ -57,7 +57,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     await page.mouse.click(onLink.x + 4, onLink.y)
     await page.waitForTimeout(300)
     await expect(page.getByTestId('external-link-dialog')).toHaveCount(0)
-    expect(await opened(page)).toEqual([])
+    expect(await opened(app)).toEqual([])
     await page.keyboard.down('Control')
     await page.mouse.move(onLink.x + 8, onLink.y)
     await page.mouse.click(onLink.x + 8, onLink.y)
@@ -66,12 +66,12 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     await expect(terminalDialog).toBeVisible()
     await expect(terminalDialog.getByTestId('external-link-host')).toHaveText('terminal.example')
     await terminalDialog.getByRole('button', { name: 'Open', exact: true }).click()
-    await expect.poll(() => opened(page)).toEqual(['https://terminal.example/path/to/page'])
+    await expect.poll(() => opened(app)).toEqual(['https://terminal.example/path/to/page'])
 
     // Agent markdown: text that names another site shows the real host and asks.
     await registerThreadProject(app, page, workspaceRoot)
     await openThreadWithState(app, page, workspaceRoot, 'conversation')
-    await recordOpens(page)
+    await recordOpens(app)
     await app.evaluate((_context, root) => {
       ;(globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState({ status: 'idle', title: 'Links', events: [
         { type: 'message', id: 'u1', role: 'user', text: 'Where do I sign in?', cwd: root },
@@ -90,11 +90,11 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused()
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(dialog).toHaveCount(0)
-    expect(await opened(page)).toEqual([])
+    expect(await opened(app)).toEqual([])
 
     await link.click()
     await page.getByTestId('external-link-dialog').getByRole('button', { name: 'Open', exact: true }).click()
-    await expect.poll(() => opened(page)).toEqual(['https://login.evil.example/session?next=%2F'])
+    await expect.poll(() => opened(app)).toEqual(['https://login.evil.example/session?next=%2F'])
 
     // The same host again, with text that names it honestly, goes straight through.
     await app.evaluate(() => {
@@ -104,7 +104,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
       ] })
     })
     await page.locator('.thread-markdown').getByRole('link', { name: 'login.evil.example', exact: true }).click()
-    await expect.poll(() => opened(page)).toHaveLength(2)
+    await expect.poll(() => opened(app)).toHaveLength(2)
     await expect(page.getByTestId('external-link-dialog')).toHaveCount(0)
 
     // Words ("the PR") are not a warning: the host follows them, and a site already opened goes straight through.
@@ -117,7 +117,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     const wordLink = page.locator('.thread-markdown a', { hasText: 'the PR' })
     await expect(wordLink).toContainText('(login.evil.example)')
     await wordLink.click()
-    await expect.poll(() => opened(page)).toHaveLength(3)
+    await expect.poll(() => opened(app)).toHaveLength(3)
     await expect(page.getByTestId('external-link-dialog')).toHaveCount(0)
 
     // Settings › General › Privacy forgets both sites.
