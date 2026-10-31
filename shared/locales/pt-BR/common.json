@@ -106,7 +106,8 @@
     "guide": {
       "title": "Atalhos de teclado",
       "description": "O que funciona no {{view}} agora.",
-      "customize": "Personalizar atalhos"
+      "customize": "Personalizar atalhos",
+      "f6ToProgram": "Num painel de terminal com “Enviar F6 ao programa” ligado (no menu ⋯), F6 e Shift+F6 vão para o programa dele, como mc, htop ou tig; {{toggle}} continua fazendo o Tab mover o foco para fora."
     },
     "bindings": {
       "palette": {
@@ -142,7 +143,12 @@
         "slash": "Comandos do terminal",
         "zoomIn": "Aumentar a fonte do terminal",
         "zoomOut": "Diminuir a fonte do terminal",
-        "zoomReset": "Restaurar a fonte do terminal"
+        "zoomReset": "Restaurar a fonte do terminal",
+        "tabMovesFocus": "Tab move o foco no terminal"
+      },
+      "focus": {
+        "nextRegion": "Mover o foco para a próxima região",
+        "previousRegion": "Mover o foco para a região anterior"
       },
       "thread": {
         "new": "Nova conversa",
@@ -174,6 +180,17 @@
         "send": "Enviar a requisição",
         "filter": "Encontrar uma requisição"
       }
+    },
+    "terminalFocus": {
+      "hint": "Terminal. Pressione F6 para sair ou {{toggle}} para que o Tab mova o foco.",
+      "hintF6": "Terminal. Pressione F6 para sair.",
+      "on": "Tab move o foco: ligado",
+      "off": "Tab move o foco: desligado",
+      "badge": "Tab move o foco",
+      "menu": "Tab move o foco",
+      "toggleKeyToShell": "Enviar {{key}} ao shell",
+      "hintF6ToProgram": "Terminal. Aqui o F6 vai para o programa. Pressione {{toggle}} para que o Tab mova o foco.",
+      "f6ToProgram": "Enviar F6 ao programa"
     }
   },
   "oxequeryCommands": {

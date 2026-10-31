@@ -557,7 +557,8 @@
     "reset": "Restaurar",
     "offLabel": "Desligar o atalho de {{name}}",
     "off": "Desligar",
-    "resetAll": "Restaurar todos os atalhos"
+    "resetAll": "Restaurar todos os atalhos",
+    "fixed": "Sempre ativo"
   },
   "agentConfig": {
     "promptRequired": "O prompt da skill é obrigatório",
