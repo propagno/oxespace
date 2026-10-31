@@ -28,9 +28,12 @@ import { registerOxePodMock } from './oxepod-mock'
 import { registerMcpToolsMock } from './mcp-tools-mock'
 import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
+import { registerActivityMock } from './activity-mock'
+import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
+import { registerCloseGuardMock } from './close-guard-mock'
 import { installE2eAgentStateHook } from './agent-state-hook'
 import { loadManifests } from '../services/agent-state/manifest'
 import { BUNDLED_MANIFESTS } from '../services/agent-state/bundled-manifests'
@@ -54,10 +57,18 @@ export function registerE2eMockIpcHandlers(): void {
   registerMcpToolsMock()
   registerDiagnosticsMock()
   registerRemoteMock()
+  registerActivityMock()
+  registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
   registerOpenExternalMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
   registerApprovalsMock()
+  // F26: the real close guard is not installed here, so app.close() never waits; specs ask through this double.
+  registerCloseGuardMock(app.isPackaged, (channel, request) => {
+    const windows = BrowserWindow.getAllWindows().filter(window => !window.isDestroyed())
+    for (const window of windows) window.webContents.send(channel, request)
+    return windows.length > 0
+  })
   // Never in a packaged build, and only when a spec asks for it: the gate is inside (see agent-state-hook.ts).
   let agentManifests: ReturnType<typeof loadManifests>['manifests'] | undefined
   installE2eAgentStateHook(globalThis, process.env, app.isPackaged, {

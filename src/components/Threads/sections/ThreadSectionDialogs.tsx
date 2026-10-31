@@ -56,6 +56,6 @@ function DeleteSectionDialog({ controller, name, count, onClose }: { controller:
     onConfirm={() => {
       if (dialog?.kind !== 'delete') return
       setBusy(true); setError('')
-      void controller.remove(dialog.section).then(onClose, cause => { setError(sectionErrorText(cause)); setBusy(false) })
+      void controller.remove(dialog.section, dialog.count).then(onClose, cause => { setError(sectionErrorText(cause)); setBusy(false) })
     }} />
 }
