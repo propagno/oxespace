@@ -28,6 +28,8 @@ const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
   { module: 'electron/main/services/diagnostics/zip-writer.ts', loadedBy: 'ipc/diagnostics.ipc.ts, bundle export' },
   { module: 'electron/main/services/issue-report.ts', loadedBy: 'ipc/diagnostics.ipc.ts, problem report' },
   { module: 'electron/main/ipc/thread.ipc.ts', loadedBy: 'index.ts, after OxeQuery starts' },
+  { module: 'electron/main/services/activity-store.ts', loadedBy: 'ipc/activity.ipc.ts, first activity request' },
+  { module: 'shared/activity.ts', loadedBy: 'services/activity-store.ts, first activity request' },
   { module: 'electron/main/e2e/mock-ipc.ts', loadedBy: 'index.ts, E2E mock launches only' },
   { module: 'resources/memory/agent-hook.cjs', loadedBy: 'services/memory/agent-memory-adapter.ts, hook setup' },
   { module: 'resources/agent-hooks/oxespace-status-hook.cjs', loadedBy: 'ipc/agent-hooks.ipc.ts, Settings' },

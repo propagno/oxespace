@@ -95,6 +95,15 @@
         "offline": "No network connection."
       }
     },
+    "activity": {
+      "invalid": "This activity could not be saved. Reload the app and try again.",
+      "tooMany": "At most {{max}} activity entries can be saved at once.",
+      "titleTooLong": "An activity title has at most {{max}} characters.",
+      "detailTooLong": "An activity detail has at most {{max}} characters.",
+      "hiddenCharacters": "Activity text cannot contain control or invisible characters.",
+      "future": "This activity is dated in the future. Check the computer's clock.",
+      "secret": "This activity was not saved because its text looks like a password, token or key."
+    },
     "remote": {
       "port": {
         "privileged": "Pick a port of 1024 or above; port {{port}} is reserved by the system.",

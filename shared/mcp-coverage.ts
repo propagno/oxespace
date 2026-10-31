@@ -380,6 +380,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'Person-only, like an approval: the window calls it after the person confirmed the link\'s host.',
     ipc: ['app.openExternal']
   },
+  'app.activity': {
+    label: 'The activity center\'s entries and when the person last looked at them (F30)',
+    forbidden: 'For 1.4, the person\'s own notification history: an agent neither reads it nor writes into it.',
+    ipc: ['activity.recent', 'activity.record', 'activity.seen']
+  },
   'mcp_internal.tool_groups_admin': { label: 'Choose how a project offers each group of OXESpace tools', forbidden: 'Raises what agents can reach.', ipc: ['mcpInternal.setToolGroupMode'] },
   'settings.diagnostics': {
     label: 'Diagnostics snapshot, live measurements, problem bundles and reports',
