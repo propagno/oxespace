@@ -55,6 +55,8 @@ agree.
 | Agent | agent | **agente** | — | |
 | Team | team | **equipe**; "Equipe do projeto" | time, Team | F35; #197 |
 | Team role | role | **papel** | função, role | "Coordenadora", "Frontend" are role names |
+| Team coordinator (Team role) | Coordinator | **Coordenadora** | | the Team role (`TeamRole.coordinator`) |
+| Project coordinator conversation (B1.4) | Project coordinator | **Coordenadora do projeto** | Coordenadora (alone) | the badge and menu on the OxeChat conversation (#290); kept apart from the Team role until an ARCHITECT review decides whether they are one concept (S7.5) |
 | Delegation | delegation | **delegação** | — | "conversa delegada" for its conversation |
 | Agent Work (feature) | Agent Work | **Trabalho dos agentes** | Agent Work | #197 finding; it describes the feature rather than naming a product |
 | Work run (one execution) | run | **execução** | run, worker | the S7 row's mode label: en "Work", pt-BR "Trabalho" |
