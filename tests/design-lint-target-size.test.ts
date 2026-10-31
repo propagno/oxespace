@@ -82,7 +82,7 @@ const TARGETS: Array<{ name: string; file: string; selectors: string[]; fillsWid
   { name: 'icon-only Button / IconButton md', file: 'Button.module.css', selectors: ['.button', '.icon'] },
   { name: 'IconButton sm (Dialog and Toast close)', file: 'Button.module.css', selectors: ['.button', '.sm', '.icon'] },
   { name: 'IconButton lg', file: 'Button.module.css', selectors: ['.button', '.lg', '.icon'] },
-  { name: 'Checkbox (its label is the target)', file: 'Field.module.css', selectors: ['.check'] },
+  { name: 'Checkbox (its label is the target)', file: 'Field.module.css', selectors: ['.check'], fillsWidth: 'the 16 px box, the gap and the label text make it wider than 24 px' },
   { name: 'Switch', file: 'Field.module.css', selectors: ['.switch'] },
   { name: 'SegmentedControl option (radio)', file: 'Field.module.css', selectors: ['.segment'] },
   { name: 'Swatch', file: 'Field.module.css', selectors: ['.swatch'] },
