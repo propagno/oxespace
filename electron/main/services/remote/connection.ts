@@ -86,6 +86,7 @@ export class RemoteConnection {
   private windowStart = 0
   private framesInWindow = 0
   private readonly authTimer: ReturnType<typeof setTimeout>
+  private expiryTimer: ReturnType<typeof setTimeout> | null = null
   private socket: FrameSocket | null = null
   private ended = false
 
@@ -130,6 +131,24 @@ export class RemoteConnection {
     this.close(WS_CLOSE.policy)
   }
 
+  /** Still to sign in when the gateway needed its slot: told so, closed, and taken off the gateway's count at once. */
+  evict(): void {
+    this.fail('unauthenticated')
+    this.closed()
+  }
+
+  /**
+   * A connection that only listens never asks for a session check, so its token's end is watched by a timer as well:
+   * when it comes, every subscription stops with the connection. Re-armed by each sign-in on the connection.
+   */
+  private armExpiry(): void {
+    if (this.expiryTimer) clearTimeout(this.expiryTimer)
+    this.expiryTimer = setTimeout(() => {
+      if (!this.ended && this.host.now() >= this.expiresAt) { this.closeSubscriptions(); this.fail('token-expired') }
+    }, Math.max(1, this.expiresAt - this.host.now()))
+    this.expiryTimer.unref?.()
+  }
+
   close(code: number = WS_CLOSE.policy): void {
     this.socket?.close(code)
   }
@@ -139,6 +158,7 @@ export class RemoteConnection {
     if (this.ended) return
     this.ended = true
     clearTimeout(this.authTimer)
+    if (this.expiryTimer) clearTimeout(this.expiryTimer)
     this.closeSubscriptions()
     this.host.closed(this)
   }
@@ -177,6 +197,7 @@ export class RemoteConnection {
     if (this.deviceId && this.deviceId !== outcome.deviceId) return this.fail('forbidden', id)
     this.deviceId = outcome.deviceId
     this.expiresAt = outcome.expiresAt
+    this.armExpiry()
     const first = this.state !== 'ready'
     this.state = 'ready'
     clearTimeout(this.authTimer)

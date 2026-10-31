@@ -465,9 +465,11 @@ export interface RemotePendingRequest {
   /** Questions without `secret` only, with options as on the desktop. */
   questions?: { id: string; header?: string; question: string; options?: { label: string; description?: string }[]; multiple?: boolean; required?: boolean }[]
   /**
-   * True when the phone is not shown all of it: the command or detail was cut to `REMOTE_TEXT_LIMITS.detail`, or files
-   * or the working directory were left out. The phone is then offered no `accept` (deny only, as in B10) and says the
-   * full text is on the desktop; an `accept` sent anyway is `forbidden`.
+   * True when the phone is not shown all of it: the command, detail, a warning, a question or an option was cut to
+   * `REMOTE_TEXT_LIMITS.detail`, or files, the working directory, warnings past 20, questions past 20 or options past 50
+   * were left out. An approval is then offered no `accept` (deny only, as in B10) and says the full text is on the
+   * desktop; an `accept` sent anyway is `forbidden`. A question is then `answerable: false` with no decisions: it is
+   * answered on the desktop only, and any `thread.respondRequest` for it is `forbidden`.
    */
   truncated?: true
   /** Offered by the provider; "accept for the session" is never offered on the phone, nor `accept` when `truncated`. */

@@ -1,3 +1,4 @@
+import { reservedNameIn } from '../../../../shared/approval-rules'
 import { mainMessage } from '../../../../shared/messages'
 import { MainMessageError } from '../../ipc/main-message-error'
 import { REMOTE_LIMITS } from '../../../../shared/remote/protocol'
@@ -59,13 +60,26 @@ export function parseDeviceId(value: unknown): string {
   return value
 }
 
-/** A display name: trimmed, 1–64 characters, no control characters. */
+/** A device name without its invisible format characters (zero-width spaces, joiners, direction marks), trimmed. */
+export const cleanDeviceName = (value: string): string => value.replace(/\p{Cf}/gu, '').trim()
+
+/**
+ * Why a cleaned device name is refused: nothing left, too long or control characters (`invalid`), or a name only
+ * the app may speak as, "OXESpace" or "System" and their look-alikes (`reserved`). The phone's own choice at pairing
+ * and the person's at rename go through the same check.
+ */
+export function deviceNameProblem(name: string): 'invalid' | 'reserved' | null {
+  if (!name || name.length > REMOTE_LIMITS.maxDeviceNameLength || /[\u0000-\u001f\u007f-\u009f]/.test(name)) return 'invalid'
+  return reservedNameIn(name) ? 'reserved' : null
+}
+
+/** A display name: cleaned, 1–64 characters, no control characters, not reserved. */
 export function parseDeviceName(value: unknown): string {
   if (typeof value !== 'string') throw new Error('name must be a string')
-  const name = value.trim()
-  if (!name || name.length > REMOTE_LIMITS.maxDeviceNameLength || /[\u0000-\u001f\u007f]/.test(name)) {
-    throw new MainMessageError(mainMessage('remote.device.invalidName', { max: REMOTE_LIMITS.maxDeviceNameLength }), 'Invalid device name')
-  }
+  const name = cleanDeviceName(value)
+  const problem = deviceNameProblem(name)
+  if (problem === 'invalid') throw new MainMessageError(mainMessage('remote.device.invalidName', { max: REMOTE_LIMITS.maxDeviceNameLength }), 'Invalid device name')
+  if (problem === 'reserved') throw new MainMessageError(mainMessage('remote.device.reservedName', {}), 'Reserved device name')
   return name
 }
 

@@ -20,7 +20,9 @@ import { certificateFingerprint, createGatewayCertificate } from './certificate'
 import { auditDetail, RemoteCommands } from './commands'
 import { mentionsForbidden, RemoteConnection, type AuthOutcome, type ConnectionHost, type RemoteCommandAnswer, type RemoteTopicSource } from './connection'
 import type { RemoteDesktop } from './desktop'
-import { deviceNotFound, parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput } from './inputs'
+import {
+  cleanDeviceName, deviceNameProblem, deviceNotFound, parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput
+} from './inputs'
 import { isPrivateAddress, listenAddresses, peerAddress, type ListenAddress } from './network'
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
@@ -39,6 +41,8 @@ import { frameSocket, refuseUpgrade, upgradeRefusal, WS_CLOSE } from './websocke
 
 const MAX_CONNECTIONS = 16
 const MAX_UNAUTHENTICATED_PER_ADDRESS = 4
+/** Connections still to sign in, across every address: half the slots, so signed-in phones always have the other half. */
+const MAX_UNAUTHENTICATED = 8
 const SEEN_WRITE_INTERVAL_MS = 60_000
 const AUTH_FAILURE_AUDITS_PER_MINUTE = 20
 /** Failed pairings told to the window per minute, so a flood of bad requests from the LAN cannot flood the window. */
@@ -63,6 +67,8 @@ export interface RemoteGatewayDeps {
   topicTiming?: { pollMs?: number; debounceMs?: number; flushMs?: number }
   platform?: NodeJS.Platform
   env?: NodeJS.ProcessEnv
+  /** Connection slots, for tests. */
+  limits?: { connections?: number; unauthenticatedPerAddress?: number; unauthenticated?: number }
 }
 
 interface Running {
@@ -393,12 +399,18 @@ export class RemoteGateway implements ConnectionHost {
     const publicKey = readDevicePublicKey(Buffer.from(read.request.publicKey, 'base64url'))
     if (!publicKey) return this.pairFailure(res, 'malformed')
     const outcome = (code: string) => this.store.audit({ action: 'pairing', outcome: code, remoteAddress: address })
+    // The name the phone chose, without invisible format characters; a name only the app may speak as is refused,
+    // before the code is spent, and the window hears why. The phone hears `malformed`, as for any name it may not use.
+    const deviceName = cleanDeviceName(read.request.deviceName)
+    const named = deviceNameProblem(deviceName)
+    if (named === 'invalid') return this.pairFailure(res, 'malformed')
+    if (named === 'reserved') { outcome('reserved-name'); return this.pairFailure(res, 'malformed', 'reserved-name') }
 
     const claim = this.pairing.claim(read.request.code)
     if (claim !== 'ok') { outcome(claim); return this.pairFailure(res, claim) }
     if (this.store.activeCount() >= REMOTE_LIMITS.maxDevices) { outcome('too-many-devices'); return this.pairFailure(res, 'too-many-devices') }
 
-    const asked = this.pairing.ask(read.request.deviceName, pairingVerification(createHash('sha256').update(publicKey).digest()))
+    const asked = this.pairing.ask(deviceName, pairingVerification(createHash('sha256').update(publicKey).digest()))
     if (!asked) { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused') }
     // A phone that hangs up takes its question off the screen.
     const abandon = () => { if (!res.writableEnded) this.pairing.settle('abandoned', asked.promptId) }
@@ -411,7 +423,7 @@ export class RemoteGateway implements ConnectionHost {
     if (answer === 'expired') { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused', 'expired') }
     if (answer !== 'accepted' || this.running !== running) { outcome('pairing-refused'); return this.pairFailure(res, 'pairing-refused') }
     let device: DeviceRecord
-    try { device = this.store.addDevice(read.request.deviceName, publicKey) } catch (caught) {
+    try { device = this.store.addDevice(deviceName, publicKey) } catch (caught) {
       if (caught instanceof TooManyDevicesError) { outcome('too-many-devices'); return this.pairFailure(res, 'too-many-devices') }
       throw caught
     }
@@ -443,9 +455,13 @@ export class RemoteGateway implements ConnectionHost {
     const refusal = upgradeRefusal(req)
     if (refusal !== null) return refuseUpgrade(socket, refusal)
     const address = peerAddress(req.socket.remoteAddress)
-    if (this.connections.size >= MAX_CONNECTIONS) return refuseUpgrade(socket, 503)
-    const waiting = [...this.connections].filter(connection => connection.address === address && !connection.deviceId).length
-    if (waiting >= MAX_UNAUTHENTICATED_PER_ADDRESS) return refuseUpgrade(socket, 429)
+    const limits = { connections: MAX_CONNECTIONS, unauthenticatedPerAddress: MAX_UNAUTHENTICATED_PER_ADDRESS, unauthenticated: MAX_UNAUTHENTICATED, ...this.deps.limits }
+    const waiting = [...this.connections].filter(connection => !connection.deviceId)
+    if (waiting.filter(connection => connection.address === address).length >= limits.unauthenticatedPerAddress) return refuseUpgrade(socket, 429)
+    // Connections still to sign in share a bounded number of slots across every address, and the oldest makes room for
+    // a new one: a few addresses holding sockets open cannot take every slot, and a phone that signs in keeps its own.
+    if (waiting.length >= limits.unauthenticated) waiting[0].evict()
+    if (this.connections.size >= limits.connections) return refuseUpgrade(socket, 503)
     // `ws` checks the handshake itself (version, key) and answers 400 to a bad one.
     this.websockets.handleUpgrade(req, socket, head, ws => {
       const connection = new RemoteConnection(address, this)

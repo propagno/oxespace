@@ -97,8 +97,6 @@ export function toThreadItem(event: ThreadEvent, seq: number, rootsIn: readonly 
 
 // ---- pending requests ---------------------------------------------------------------------------------------------
 
-const QUESTION = 2_000
-
 /** Only the desktop answers these: guarded requests, permissions, elicitation, tools and any secret question. */
 export function isAnswerable(request: ThreadRequest): boolean {
   if (request.state !== 'pending' || request.policy?.guarded) return false
@@ -116,22 +114,35 @@ export function decisionsOf(request: ThreadRequest): Array<'accept' | 'decline' 
 export function toPendingRequest({ thread, request }: RemotePendingRow, roots: readonly string[]): RemotePendingRequest {
   const all = [thread.rootPath, ...roots]
   const command = request.command === undefined ? undefined : clean(request.command, all, REMOTE_TEXT_LIMITS.detail)
-  const warnings = (request.policy?.warnings ?? []).slice(0, 20).map(warning => clean(warning, all, REMOTE_TEXT_LIMITS.detail))
+  const allWarnings = request.policy?.warnings ?? []
+  const warnings = allWarnings.slice(0, 20).map(warning => clean(warning, all, REMOTE_TEXT_LIMITS.detail))
   const redacted = (command?.redacted ?? 0) + warnings.reduce((sum, warning) => sum + warning.redacted, 0)
   const cwd = request.cwd ? relativeTo(thread.rootPath, request.cwd) : undefined
   const shownPaths = (request.paths ?? []).map(path => relativeTo(thread.rootPath, path)).filter((path): path is string => path !== undefined)
   const paths = shownPaths.slice(0, 100)
   const detail = request.detail ? clean(request.detail, all, REMOTE_TEXT_LIMITS.detail) : undefined
-  // Anything the phone cannot show whole leaves the decision to the desktop: no accept on what was not seen.
-  const truncated = !!command?.truncated || !!detail?.truncated || (!!request.cwd && cwd === undefined) || paths.length < (request.paths?.length ?? 0)
-  const questions = (request.questions ?? []).filter(question => !question.secret).slice(0, 20).map(question => ({
-    id: question.id,
-    ...(question.header ? { header: text(question.header, all, TITLE) } : {}),
-    question: text(question.question, all, QUESTION),
-    ...(question.options?.length ? { options: question.options.slice(0, 50).map(option => ({ label: text(option.label, all, LABEL), ...(option.description ? { description: text(option.description, all, QUESTION) } : {}) })) } : {}),
-    ...(question.multiple ? { multiple: true } : {}),
-    ...(question.required !== undefined ? { required: question.required } : {})
-  }))
+  // Every question and option the phone is shown, each cut to the same limit as a command; what was cut is noted.
+  const open = (request.questions ?? []).filter(question => !question.secret)
+  let questionsCut = open.length > 20
+  const questions = open.slice(0, 20).map(question => {
+    const header = question.header ? clean(question.header, all, TITLE) : undefined
+    const body = clean(question.question, all, REMOTE_TEXT_LIMITS.detail)
+    const options = (question.options ?? []).slice(0, 50).map(option => ({ label: clean(option.label, all, REMOTE_TEXT_LIMITS.detail), description: option.description ? clean(option.description, all, REMOTE_TEXT_LIMITS.detail) : undefined }))
+    if (header?.truncated || body.truncated || (question.options?.length ?? 0) > 50 || options.some(option => option.label.truncated || option.description?.truncated)) questionsCut = true
+    return {
+      id: question.id,
+      ...(header ? { header: header.text } : {}),
+      question: body.text,
+      ...(options.length ? { options: options.map(option => ({ label: option.label.text, ...(option.description ? { description: option.description.text } : {}) })) } : {}),
+      ...(question.multiple ? { multiple: true } : {}),
+      ...(question.required !== undefined ? { required: question.required } : {})
+    }
+  })
+  // Anything the phone cannot show whole leaves the decision to the desktop: no accept on what was not seen, and a
+  // question not seen whole is not answered from the phone at all, not even declined.
+  const truncated = !!command?.truncated || !!detail?.truncated || (!!request.cwd && cwd === undefined) || paths.length < (request.paths?.length ?? 0) ||
+    allWarnings.length > 20 || warnings.some(warning => warning.truncated) || questionsCut
+  const desktopOnly = truncated && request.kind === 'question'
   return {
     threadId: thread.id, workspaceId: thread.workspaceId, threadTitle: text(thread.title, all, TITLE), requestId: request.id, generation: request.generation,
     kind: request.kind, title: text(request.title, all, TITLE),
@@ -146,8 +157,8 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
     ...(redacted ? { redacted } : {}),
     ...(questions.length ? { questions } : {}),
     ...(truncated ? { truncated: true as const } : {}),
-    decisions: truncated ? decisionsOf(request).filter(decision => decision !== 'accept') : decisionsOf(request),
-    answerable: isAnswerable(request),
+    decisions: desktopOnly ? [] : truncated ? decisionsOf(request).filter(decision => decision !== 'accept') : decisionsOf(request),
+    answerable: isAnswerable(request) && !desktopOnly,
     createdAt: request.createdAt,
     ...(request.expiresAt !== undefined ? { expiresAt: request.expiresAt } : {})
   }

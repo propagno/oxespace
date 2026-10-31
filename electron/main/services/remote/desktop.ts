@@ -1,4 +1,5 @@
 import type { AppDatabase } from '../../db'
+import { ThreadHistory } from '../conversation/thread-history'
 import type { BackgroundJobStatus } from '../../../../shared/types/background'
 import type { AgentLifecycleState } from '../../../../shared/types/agent-state'
 import type {
@@ -94,6 +95,7 @@ export function refusalOf(error: unknown): ThreadPendingRefusal | undefined {
 
 export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
   const { db, threads, terminals, agentState } = hosts
+  const history = new ThreadHistory(db)
   return {
     roots() {
       const rows = db.prepare('SELECT root_path AS root FROM workspaces UNION SELECT root_path FROM thread_project_contexts').all() as Array<{ root: string | null }>
@@ -114,13 +116,8 @@ export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
         }))
     },
     threads: () => threads.list(),
-    pendingRequests() {
-      const rows = db.prepare(`SELECT t.data_json AS thread_json, e.data_json AS event_json
-        FROM conversation_threads t CROSS JOIN conversation_events e ON e.thread_id = t.id
-        WHERE json_extract(t.data_json, '$.status') = 'approval' AND json_extract(e.data_json, '$.type') = 'request' AND json_extract(e.data_json, '$.request.state') = 'pending'
-        ORDER BY e.thread_id, e.seq LIMIT ?`).all(LIST_LIMIT) as Array<{ thread_json: string; event_json: string }>
-      return rows.map(row => ({ thread: JSON.parse(row.thread_json) as ConversationThread, request: (JSON.parse(row.event_json) as { request: ThreadRequest }).request }))
-    },
+    // The journal's own read of what waits for approval, the same the activity center uses.
+    pendingRequests: () => history.pendingRequestRows(LIST_LIMIT),
     readThread: id => threads.readThread(id),
     threadWindow: id => threads.readForRenderer(id),
     threadSince: (id, cursor) => threads.readSinceForRenderer(id, cursor),
