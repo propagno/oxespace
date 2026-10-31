@@ -102,6 +102,7 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.mcp.quarantined': 'mcp',
   'incident.database.busy': 'database',
   'incident.oxequery.timeout': 'oxequery',
+  'incident.oxequery.restartDeferred': 'oxequery',
   'incident.updater.failed': 'updater',
   'incident.interaction.overBudget': 'interaction',
   'incident.app.journalReset': 'app',
