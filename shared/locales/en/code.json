@@ -122,7 +122,9 @@
       "pathMenu": "Path of {{name}}",
       "copyPath": "Copy path",
       "copyRelativePath": "Copy relative path",
-      "path": "Path"
+      "path": "Path",
+      "pathCopied": "Path copied",
+      "relativePathCopied": "Relative path copied"
     },
     "workspaceFiles": "Workspace files",
     "fit": "Click to fit",
@@ -202,7 +204,7 @@
     "delegatedEmptyHint": "Tasks delegated to agents in this project appear here. Commands an agent runs stay in its conversation.",
     "empty": "No jobs",
     "emptyStatus": "No jobs: {{status}}",
-    "emptyHint": "Run a command in the background from a terminal: press <strong>{{shortcut}}</strong> and type <strong>/bg npm run build</strong>. Commands an agent runs in Thread stay in that conversation.",
+    "emptyHint": "Run a command in the background from a terminal: press <strong>{{shortcut}}</strong> and type <strong>/bg npm run build</strong>. Commands an agent runs in OxeChat stay in that conversation.",
     "removeFailed": "Could not remove {{name}}",
     "stopFailed": "Could not stop {{name}}",
     "exit": "exit {{code}}",
@@ -742,6 +744,7 @@
       "fullLogs": "Full run logs",
       "truncated": "truncated",
       "logs": "Logs",
+      "logsCopied": "Logs copied",
       "copyLogs": "Copy the logs",
       "copy": "Copy",
       "closeLogs": "Close logs",
@@ -770,6 +773,7 @@
     },
     "setup": {
       "command": "Command",
+      "commandCopied": "Command copied",
       "cliTitle": "GitHub CLI required",
       "authTitle": "Sign-in required",
       "cliBody": "Install the GitHub CLI to use pull requests, releases and the other GitHub features.",
@@ -786,6 +790,11 @@
     }
   },
   "pane": {
+    "boundary": "this pane",
+    "splitRefused": {
+      "title": "This pane cannot be split here",
+      "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely."
+    },
     "attention": {
       "blocked": "Needs your approval or answer",
       "done": "Finished, not seen yet",
@@ -862,6 +871,7 @@
     "noMembers": "No members yet.",
     "session": {
       "context": "Session context",
+      "contextCopied": "Session context copied",
       "delegated": "Delegated task",
       "unread": "Unread output",
       "tone": {
@@ -891,7 +901,7 @@
     "localOnly": "Local-only mode accepts localhost, 127.0.0.1 and ::1. Turn on External for other sites.",
     "pageFailed": "The page could not be loaded.",
     "designWait": "Wait for the page to finish loading before using Design Mode.",
-    "addedToDraft": "Added to the active Thread draft.",
+    "addedToDraft": "Added to the draft of the active conversation.",
     "agentExternal": "An agent asked for an external address. Turn on External to open it.",
     "copied": "Preview copied to the clipboard.",
     "close": "Close browser",
@@ -953,6 +963,9 @@
     "retry": "Retry"
   },
   "workspace": {
+    "closeFailed": "Could not close the workspace",
+    "settingsFailed": "Could not save the workspace settings",
+    "gridBoundary": "the panes of this workspace",
     "panel": {
       "restore": "Restore panel width",
       "expand": "Expand panel",
@@ -1182,7 +1195,7 @@
     "loading": "Loading…",
     "intro": "Local knowledge shared across this repository's worktrees. Each agent keeps its own session.",
     "enabled": "Enabled",
-    "capture": "Capture project activity (native Code hooks and supported Thread events)",
+    "capture": "Capture project activity (native OxeCode hooks and supported OxeChat events)",
     "context": "Supply relevant context to new agent sessions",
     "privacy": "Captured prompts, tool activity and supported Claude assistant excerpts stay in the local memory service. Context given to a cloud agent can be sent to that agent's vendor. No cloud model is configured for the managed memory service.",
     "runtimeTitle": "Runtime configuration",
@@ -1377,7 +1390,7 @@
     "session": "Native session",
     "generation": "generation {{value}}",
     "preparing": "Preparing the branch, worktree and handoff…",
-    "threadStarted": "Thread started and linked to its provider session.",
+    "threadStarted": "Conversation started and linked to its provider session.",
     "terminalStarted": "Agent terminal started. Check for login, trust or acceptance prompts.",
     "handoff": "Task and handoff"
   },
@@ -1397,7 +1410,7 @@
     "choose": "Choose a project folder",
     "picking": "Choosing…",
     "existing": "Existing workspaces",
-    "alreadyOpen": "Already open in Code",
+    "alreadyOpen": "Already open in OxeCode",
     "alreadyHint_one": "This folder already has a workspace. Opening it keeps its terminals and layout.",
     "alreadyHint_other": "This folder already has {{count}} workspaces. Opening one keeps its terminals and layout.",
     "oneTerminal": "One terminal",
@@ -1561,7 +1574,7 @@
         "disabled": "The agent has this server turned off.",
         "unknown": "The agent did not say.",
         "not-loaded": "The session started without it. New conversations pick it up.",
-        "not-checked": "Open a Thread conversation to see whether the agent connected. Terminals pick it up when the agent restarts."
+        "not-checked": "Open an OxeChat conversation to see whether the agent connected. Terminals pick it up when the agent restarts."
       }
     },
     "health": {
@@ -1636,7 +1649,7 @@
     "failed": "Could not load the MCP servers",
     "search": "Search MCP servers",
     "searchPlaceholder": "Search connections",
-    "installedNote": "Your agents connect to these servers themselves: Claude Code and Copilot CLI through <strong>.mcp.json</strong> at the workspace root, Codex through its launch settings. Test checks that a server answers; whether the agent connected shows next to it in a Thread conversation. Restart the agent session to pick up changes.",
+    "installedNote": "Your agents connect to these servers themselves: Claude Code and Copilot CLI through <strong>.mcp.json</strong> at the workspace root, Codex through its launch settings. Test checks that a server answers; whether the agent connected shows next to it in an OxeChat conversation. Restart the agent session to pick up changes.",
     "add": "Add MCP server",
     "importOpen": "Import from Claude Desktop, Cursor or Windsurf",
     "views": "MCP servers view",
@@ -1741,6 +1754,7 @@
     }
   },
   "skills": {
+    "createFailed": "Could not create the skill",
     "needTerminal": "Select or start a terminal before using a skill.",
     "sent": "/{{name}} sent to the active terminal.",
     "copied": "Prompt for /{{name}} copied.",

@@ -87,9 +87,9 @@ test('OxeQuery text is readable in light and dark mode', async () => {
       await page.getByRole('dialog', { name: /Server of/ }).waitFor()
       report[`${mode} server dialog`] = await page.evaluate(AUDIT) as unknown[]
       await page.keyboard.press('Escape')
-      await openView(page, 'OxePod')
+      await openView(page, 'pods')
       report[`${mode} containers`] = await page.evaluate(AUDIT) as unknown[]
-      await openView(page, 'OxeQuery')
+      await openView(page, 'data')
       await page.getByRole('tab', { name: 'pg-dev' }).click()
     }
     const failing = Object.fromEntries(Object.entries(report).filter(([, list]) => list.length > 0))

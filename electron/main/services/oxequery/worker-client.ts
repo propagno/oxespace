@@ -1,6 +1,7 @@
 import { Worker } from 'node:worker_threads'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { maskLogLine } from './agent-output'
+import { recordIncident } from '../diagnostics/incident-sink'
 
 interface Pending { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; budgetMs: number; op?: string; connection?: ResolvedConnection; onProgress?: (progress: unknown) => void }
 
@@ -71,6 +72,7 @@ export class OxeQueryWorkerClient {
         return
       }
       clearTimeout(request.timer); this.pending.delete(message.requestId)
+      if (message.error?.code === 'timeout') recordIncident('incident.oxequery.timeout', request.connection?.id ?? request.op)
       if (message.error) request.reject(new OxeQueryError(message.error.code, message.error.message, message.error.reasons ?? [], message.error.detail ?? {}))
       else request.resolve(message.result)
     })
@@ -93,6 +95,7 @@ export class OxeQueryWorkerClient {
     const request = this.pending.get(requestId)
     if (!request) return
     this.pending.delete(requestId)
+    recordIncident('incident.oxequery.timeout', request.connection?.id ?? request.op)
     request.reject(new OxeQueryError('invalid', 'The database did not answer in time. The request was cancelled; your other connections are unaffected.'))
     if (request.connection && request.op !== 'close' && request.op !== 'sql.cancel') {
       void this.call(request.op?.startsWith('sql.') ? 'sql.cancel' : 'close', request.connection).catch(() => undefined)

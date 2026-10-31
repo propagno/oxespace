@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
@@ -39,7 +39,7 @@ import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { registerSemanticIpc } from './ipc/semantic.ipc'
-import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
+import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
@@ -59,7 +59,7 @@ import { SearchService } from './services/search.service'
 import { AutomationStore } from './services/automations/store'
 import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
-import { isAppNavigation, isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
+import { isAppNavigation, isLoopbackHttpUrl, openExternalOrRecord } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './services/browser-preview.service'
@@ -117,6 +117,7 @@ const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 async function registerIpcHandlers(): Promise<() => void> {
   const noop = (): void => {}
   if (ipcRegistered) return noop
+  installIncidentHooks() // B8.3: a throwing handler or a crashed window becomes an incident; before any handler exists
 
   // Launched from a desktop icon, this process inherits the session PATH, not
   // the shell's — so agent CLIs under ~/.local/bin, ~/.npm-global/bin or a
@@ -472,7 +473,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
-  registerDiagnosticsIpc(db, internalMcp)
+  registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
   registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath)
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
@@ -855,7 +856,7 @@ function createMainWindow(): BrowserWindow {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    openExternalOrRecord(url)
     return { action: 'deny' }
   })
 
@@ -867,8 +868,8 @@ function createMainWindow(): BrowserWindow {
   const keepInApp = (event: Electron.Event, url: string): void => {
     if (isAppNavigation(url, appUrl)) return
     event.preventDefault()
-    log.warn('[main] blocked navigation of the main window', url.slice(0, 200))
-    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    // The reason only: the URL may carry a token, a path or a host that must not reach the log.
+    log.warn('[main] blocked navigation of the main window', openExternalOrRecord(url) ? 'opened outside' : 'refused')
   }
   mainWindow.webContents.on('will-navigate', keepInApp)
   mainWindow.webContents.on('will-redirect', keepInApp)

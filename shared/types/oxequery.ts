@@ -7,6 +7,7 @@
 
 import type { MaintenanceAction, StructureAction, StructurePlan, StructureResult } from './oxequery-structure'
 import type { ContainerEngine } from './oxepod'
+import type { MainMessage } from '../messages'
 
 export type DatabaseEngine = 'postgres' | 'mongodb'
 
@@ -215,6 +216,8 @@ export interface SqlGuardVerdict {
   kind: 'read' | 'write' | 'ddl' | 'destructive' | 'empty'
   reasons: string[]
   statements: number
+  /** C3 codes for the reasons that have one, for the window to show in the person's language. */
+  codes?: MainMessage[]
 }
 
 export interface SqlTable { schema: string; name: string; kind: 'table' | 'view' | 'materialized view' | 'foreign table' | 'partitioned table'; approxRows?: number }
@@ -272,6 +275,8 @@ export interface MongoWriteInput {
   /** EJSON text of the document as the person saw it; a replace or delete is refused if it changed. */
   expected?: string
   confirmed?: boolean
+  /** On a production connection: the connection's name as the person typed it. Main checks it; the worker never sees it. */
+  confirmName?: string
 }
 export interface MongoWriteResult { matched: number; modified: number; deleted: number; insertedId?: string }
 
@@ -607,6 +612,8 @@ export interface OxeQueryErrorInfo {
   message: string
   /** Why a statement was flagged, when code is 'confirm', 'confirm-name' or 'read-only'. */
   reasons?: string[]
+  /** The reasons above that have a message code (C3), for the window to show in the person's language. */
+  codes?: import('../messages').MainMessage[]
   /** 1-based character offset of the error in the statement the server received. */
   position?: number
   /** PostgreSQL SQLSTATE, e.g. 42P01. */

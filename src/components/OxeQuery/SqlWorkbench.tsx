@@ -47,8 +47,8 @@ const SAVE_DELAY_MS = 700
 interface Pending { text: string; base: number; reasons: string[]; explain?: 'analyze'; typed?: boolean; destructive?: boolean }
 interface ParamsAsk { text: string; base: number; names: string[]; confirmed: boolean }
 
-function copy(text: string, what = tq('workbench.copiedText')): void {
-  void copyText(text, what)
+function copy(text: string, what = tq('workbench.copiedText'), done = tq('workbench.copiedTextDone')): void {
+  void copyText(text, what, done)
 }
 
 /** Query tabs and toolbar above the editor, which the editor's height does not include. */
@@ -317,7 +317,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const types = useMemo(() => result?.columns.map(column => column.type) ?? [], [result])
   const row = selectedRow !== null && result ? result.rows[selectedRow] : null
   const qualified = active.browse ? `"${active.browse.schema.replace(/"/g, '""')}"."${active.browse.table.replace(/"/g, '""')}"` : undefined
-  const copyAs = (format: CopyFormat): void => { if (result) copy(formatRows(format, columns, result.rows, qualified), t('workbench.copiedResults')) }
+  const copyAs = (format: CopyFormat): void => { if (result) copy(formatRows(format, columns, result.rows, qualified), t('workbench.copiedResults'), t('workbench.copiedResultsDone')) }
   const executedText = active.browse ? null : output?.text ?? null
 
   // The editor is as tall as it was dragged, but never so tall that the results lose their minimum height.
@@ -480,7 +480,7 @@ function DefinitionPanel({ connection, schema, name, kind, onOpen }: { connectio
     {open && <div className="oq-columns-grid">
       {error ? <ErrorState compact title={t('definition.failed')} message={error} /> : text === null ? <LoadingState label={t('definition.loading')} />
         : <><pre className="oq-sql-preview">{text}</pre>
-          <div className="oq-staged-actions"><button type="button" onClick={() => copy(text, t('definition.copied'))}>{t('common.copy')}</button><button type="button" onClick={() => onOpen(text)}>{t('definition.openInTab')}</button></div></>}
+          <div className="oq-staged-actions"><button type="button" onClick={() => copy(text, t('definition.copied'), t('definition.copiedDone'))}>{t('common.copy')}</button><button type="button" onClick={() => onOpen(text)}>{t('definition.openInTab')}</button></div></>}
     </div>}
   </section>
 }

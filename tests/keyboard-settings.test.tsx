@@ -19,8 +19,8 @@ describe('Settings › Keyboard', () => {
     expect(within(row('code.files')).getByText('Press the new shortcut, or Esc to cancel')).toBeInTheDocument()
     fireEvent.keyDown(window, { key: 'D', code: 'KeyD', ctrlKey: true, shiftKey: true })
     expect(useSettingsStore.getState().keybindingOverrides['code.files']).toEqual(['Mod+Shift+D'])
-    expect(within(row('code.files')).getByText(/Also used by Changes \(Code\)/)).toBeInTheDocument()
-    expect(within(row('code.changes')).getByText(/Also used by Files \(Code\)/)).toBeInTheDocument()
+    expect(within(row('code.files')).getByText(/Also used by Changes \(OxeCode\)/)).toBeInTheDocument()
+    expect(within(row('code.changes')).getByText(/Also used by Files \(OxeCode\)/)).toBeInTheDocument()
 
     await userEvent.click(within(row('code.files')).getByRole('button', { name: 'Reset shortcut for Files' }))
     expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
