@@ -15,6 +15,26 @@ function dollarTag(sql: string, index: number): string | undefined {
 }
 
 /**
+ * Whether a backslash escapes the next character inside the string literal opening at `index`. Always in an
+ * `E'…'` string; never in a `U&'…'` one (its backslash starts a Unicode escape); in an ordinary string only in the
+ * legacy reading, as a server with standard_conforming_strings off reads it. The classifier never assumes the setting.
+ */
+function backslashEscapes(sql: string, index: number, legacy: boolean): boolean {
+  if (/[eE]/.test(sql[index - 1] ?? '') && !/[A-Za-z0-9_]/.test(sql[index - 2] ?? '')) return true
+  if (sql[index - 1] === '&' && /[uU]/.test(sql[index - 2] ?? '') && !/[A-Za-z0-9_]/.test(sql[index - 3] ?? '')) return false
+  return legacy
+}
+
+/** True when an ordinary string literal (not E'…', not U&'…') starting at `index` holds a backslash before it closes. */
+function ordinaryWithBackslash(sql: string, index: number, end: number): boolean {
+  if (backslashEscapes(sql, index, true) !== backslashEscapes(sql, index, false)) return sql.slice(index + 1, end).includes('\\')
+  return false
+}
+
+/** How a scan reads backslashes in ordinary strings, and who hears that one held a backslash. */
+export interface EscapeReading { legacy?: boolean; onAmbiguous?: () => void }
+
+/**
  * Splits SQL into top-level statements and returns each one as a list of upper-case
  * word tokens with comments, string literals, quoted identifiers and dollar-quoted
  * bodies removed. It is a classifier, not a parser: it only has to know what a
@@ -22,7 +42,7 @@ function dollarTag(sql: string, index: number): string | undefined {
  * of each statement's string and dollar-quoted literals is collected there, one list per
  * statement, so a `DO` body can be inspected.
  */
-export function tokenizeStatements(sql: string, literals?: string[][]): string[][] {
+export function tokenizeStatements(sql: string, literals?: string[][], reading: EscapeReading = {}): string[][] {
   const statements: string[][] = []
   let words: string[] = []
   let texts: string[] = []
@@ -48,13 +68,15 @@ export function tokenizeStatements(sql: string, literals?: string[][]): string[]
     }
     if (char === '\'' || char === '"') {
       endWord()
-      const escapes = char === '\'' && /[eE]/.test(sql[index - 1] ?? '') && !/[A-Za-z0-9_]/.test(sql[index - 2] ?? '')
+      const escapes = char === '\'' && backslashEscapes(sql, index, reading.legacy ?? false)
+      const open = index
       const start = ++index
       while (index < sql.length) {
         if (escapes && sql[index] === '\\') { index += 2; continue }
         if (sql[index] === char) { if (sql[index + 1] === char) { index += 2; continue } index++; break }
         index++
       }
+      if (char === '\'' && reading.onAmbiguous && ordinaryWithBackslash(sql, open, index)) reading.onAmbiguous()
       if (char === '\'') texts.push(sql.slice(start, Math.max(start, index - 1)).replace(/''/g, '\''))
       words.push(char === '"' ? 'IDENT' : 'STRING')
       continue
@@ -230,7 +252,7 @@ const OUTSIDE_REACH = new Set([
 ])
 
 /** SQL with comments, string literals and dollar-quoted bodies blanked; quoted identifiers are kept. */
-function blankLiterals(sql: string): string {
+function blankLiterals(sql: string, legacy = false): string {
   let out = ''
   for (let index = 0; index < sql.length;) {
     const char = sql[index], next = sql[index + 1]
@@ -245,7 +267,7 @@ function blankLiterals(sql: string): string {
       continue
     }
     if (char === '\'') {
-      const escapes = /[eE]/.test(sql[index - 1] ?? '') && !/[A-Za-z0-9_]/.test(sql[index - 2] ?? '')
+      const escapes = backslashEscapes(sql, index, legacy)
       index++
       while (index < sql.length) {
         if (escapes && sql[index] === '\\') { index += 2; continue }
@@ -271,8 +293,8 @@ function blankLiterals(sql: string): string {
 }
 
 /** Names from the list above that the statement calls, in any case, quoted or schema-qualified. */
-export function outsideReach(sql: string): string[] {
-  const text = blankLiterals(sql)
+export function outsideReach(sql: string, legacy = false): string[] {
+  const text = blankLiterals(sql, legacy)
   const found = new Set<string>()
   for (const match of text.matchAll(/(?:^|[^\w$"])"?([A-Za-z_][\w$]*)"?\s*\(/g)) {
     const name = match[1].toLowerCase()
@@ -281,13 +303,29 @@ export function outsideReach(sql: string): string[] {
   return [...found]
 }
 
+const AMBIGUOUS_ESCAPE = 'A backslash in a string can end it early on a server with standard_conforming_strings off, and then more of this text runs than it shows.'
+
+/**
+ * Classifies SQL. When an ordinary string holds a backslash, the text is read both ways (standard, and as a legacy
+ * server with standard_conforming_strings off reads it) and the more severe verdict wins; when that is the legacy one,
+ * it says so (`oxequery.sql.ambiguousEscape`). The server's setting is never assumed.
+ */
 export function guardSql(sql: string): SqlGuardVerdict {
+  let ambiguous = false
+  const standard = classifySql(sql, { onAmbiguous: () => { ambiguous = true } })
+  if (!ambiguous) return standard
+  const legacy = classifySql(sql, { legacy: true })
+  if (SEVERITY[legacy.kind] <= SEVERITY[standard.kind]) return standard
+  return { ...legacy, reasons: [...legacy.reasons, AMBIGUOUS_ESCAPE], codes: [...(legacy.codes ?? []), mainMessage('oxequery.sql.ambiguousEscape', {})] }
+}
+
+function classifySql(sql: string, reading: EscapeReading): SqlGuardVerdict {
   const literals: string[][] = []
-  const statements = tokenizeStatements(sql, literals)
+  const statements = tokenizeStatements(sql, literals, reading)
   let kind: Kind = 'empty'
   const reasons: string[] = []
   const codes: MainMessage[] = []
-  const reach = statements.length ? outsideReach(sql) : []
+  const reach = statements.length ? outsideReach(sql, reading.legacy ?? false) : []
   if (reach.length) {
     kind = 'write'
     reasons.push(`Calls ${reach.join(', ')}, which reaches outside the database (server files, other servers, other sessions or the server's configuration).`)
