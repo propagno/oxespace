@@ -82,7 +82,8 @@
     "guide": {
       "title": "Keyboard shortcuts",
       "description": "What works in {{view}} right now.",
-      "customize": "Customize shortcuts"
+      "customize": "Customize shortcuts",
+      "f6ToProgram": "In a terminal pane with “Send F6 to the program” on (in its ⋯ menu), F6 and Shift+F6 go to the program there, for mc, htop or tig; {{toggle}} still makes Tab move focus out of it."
     },
     "bindings": {
       "palette": {
@@ -118,7 +119,12 @@
         "slash": "Terminal commands",
         "zoomIn": "Terminal font bigger",
         "zoomOut": "Terminal font smaller",
-        "zoomReset": "Terminal font reset"
+        "zoomReset": "Terminal font reset",
+        "tabMovesFocus": "Tab moves focus in the terminal"
+      },
+      "focus": {
+        "nextRegion": "Move focus to the next region",
+        "previousRegion": "Move focus to the previous region"
       },
       "thread": {
         "new": "New conversation",
@@ -150,6 +156,17 @@
         "send": "Send the request",
         "filter": "Find a request"
       }
+    },
+    "terminalFocus": {
+      "hint": "Terminal. Press F6 to leave, or {{toggle}} to make Tab move focus.",
+      "hintF6": "Terminal. Press F6 to leave.",
+      "on": "Tab moves focus: on",
+      "off": "Tab moves focus: off",
+      "badge": "Tab moves focus",
+      "menu": "Tab moves focus",
+      "toggleKeyToShell": "Send {{key}} to the shell",
+      "hintF6ToProgram": "Terminal. F6 goes to the program here. Press {{toggle}} to make Tab move focus.",
+      "f6ToProgram": "Send F6 to the program"
     }
   },
   "oxequeryCommands": {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, ChevronRight, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
 import { IconButton } from './Button'
@@ -98,6 +98,34 @@ export type MenuEntry =
   | { type: 'radio'; value: string; options: MenuRadioOption[]; onValueChange: (value: string) => void }
   | { type: 'label'; label: ReactNode }
   | { type: 'separator' }
+  /** A nested menu: Right or Enter opens it, Left closes it. Keep to one level. */
+  | { type: 'submenu'; label: string; icon?: ReactNode; items: MenuEntry[]; disabled?: boolean; testId?: string }
+
+/** The entries of a dropdown menu, shared by Menu and AnchoredMenu. */
+function menuEntries(items: MenuEntry[]): ReactNode {
+  return items.map((item, index) => {
+    if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
+    if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
+    if (item.type === 'submenu') return <RadixMenu.Sub key={index}>
+      <RadixMenu.SubTrigger className={styles.menuItem} disabled={item.disabled}>{item.icon}{item.label}<ChevronRight size={14} className={styles.menuSubChevron} aria-hidden="true" /></RadixMenu.SubTrigger>
+      <RadixMenu.Portal>
+        <RadixMenu.SubContent className={cx(styles.floating, styles.menu)} sideOffset={4} collisionPadding={CHROME_COLLISION} data-testid={item.testId} onFocusOutside={event => event.preventDefault()}>{menuEntries(item.items)}</RadixMenu.SubContent>
+      </RadixMenu.Portal>
+    </RadixMenu.Sub>
+    if (item.type === 'radio') return <RadixMenu.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
+      {item.options.map(option => <RadixMenu.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
+        <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
+        <RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+      </RadixMenu.RadioItem>)}
+    </RadixMenu.RadioGroup>
+    if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
+      {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+    </RadixMenu.CheckboxItem>
+    return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
+      {item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
+    </RadixMenu.Item>
+  })
+}
 
 export interface MenuProps {
   trigger: ReactNode
@@ -114,33 +142,13 @@ export interface MenuProps {
  * (axe aria-hidden-focus). Focus still moves into the menu and returns to the trigger.
  * A click outside, Escape or a choice closes it; focus moved by the app (a terminal starting) does not.
  */
-/** The entries of a dropdown menu, shared by Menu and AnchoredMenu. */
-function menuItems(items: MenuEntry[]): ReactNode {
-  return items.map((item, index) => {
-    if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
-    if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
-    if (item.type === 'radio') return <RadixMenu.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
-      {item.options.map(option => <RadixMenu.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
-        <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
-        <RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
-      </RadixMenu.RadioItem>)}
-    </RadixMenu.RadioGroup>
-    if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
-      {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
-    </RadixMenu.CheckboxItem>
-    return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
-      {item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
-    </RadixMenu.Item>
-  })
-}
-
 export function Menu({ trigger, items, align = 'start', label, testId, side }: MenuProps): ReactElement {
   return <RadixMenu.Root modal={false}>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}
         onFocusOutside={event => event.preventDefault()}>
-        {menuItems(items)}
+        {menuEntries(items)}
       </RadixMenu.Content>
     </RadixMenu.Portal>
   </RadixMenu.Root>
@@ -174,7 +182,7 @@ export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom'
         // the first item, so the menu stays walkable instead of standing open with focus on the owner.
         onFocusOutside={event => { const owner = returnFocus?.(); if (owner && event.target instanceof Node && owner.contains(event.target)) { event.preventDefault(); focusFirstItem() } }}
         onPointerDown={contain} onPointerUp={contain} onMouseDown={contain} onClick={contain} onDoubleClick={contain} onContextMenu={contain} onKeyDown={containKeys}>
-        {menuItems(items)}
+        {menuEntries(items)}
       </RadixMenu.Content>
     </RadixMenu.Portal>
   </RadixMenu.Root>

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { encodeClaudeProjectPath } from '../usage/claude-project-path'
@@ -75,4 +75,16 @@ export async function forkClaudeBefore(input: { rootPath: string; sessionId: str
   const sessionId = randomUUID()
   await writeFile(claudeTranscriptPath(input.rootPath, sessionId, input.env), keep.join('\n') + '\n', { encoding: 'utf8', flag: 'wx' })
   return { sessionId }
+}
+
+/**
+ * Removes a side chat's copy (B1.2): only the `<forkId>.jsonl` file of that UUID, never one of the ids in `keep`
+ * (the main conversation's session). A copy that was never written is not an error.
+ */
+export async function removeClaudeSessionCopy(input: { rootPath: string; forkId: string; keep: readonly (string | null | undefined)[]; env?: NodeJS.ProcessEnv }): Promise<boolean> {
+  if (!SESSION_ID.test(input.forkId) || input.keep.some(id => id && id.toLowerCase() === input.forkId.toLowerCase())) return false
+  try { await unlink(claudeTranscriptPath(input.rootPath, input.forkId, input.env)); return true } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw error
+  }
 }

@@ -534,7 +534,8 @@
     "reset": "Reset",
     "offLabel": "Turn off shortcut for {{name}}",
     "off": "Turn off",
-    "resetAll": "Reset all shortcuts"
+    "resetAll": "Reset all shortcuts",
+    "fixed": "Always on"
   },
   "agentConfig": {
     "promptRequired": "Skill prompt is required",

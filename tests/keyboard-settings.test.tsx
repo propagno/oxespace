@@ -38,6 +38,17 @@ describe('Settings › Keyboard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reset all shortcuts' }))
     expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
   })
+
+  it('lists F6 as always on and the Tab focus toggle as rebindable (WCAG 2.1.2)', async () => {
+    render(<KeyboardSettings />)
+    for (const id of ['focus.nextRegion', 'focus.previousRegion']) {
+      expect(within(row(id)).getByText('Always on')).toBeInTheDocument()
+      expect(within(row(id)).queryByRole('button')).toBeNull()
+    }
+    await userEvent.click(within(row('terminal.tabMovesFocus')).getByRole('button', { name: 'Change shortcut for Tab moves focus in the terminal' }))
+    fireEvent.keyDown(window, { key: 't', code: 'KeyT', ctrlKey: true, altKey: true })
+    expect(chordsFor('terminal.tabMovesFocus')).toEqual(['Mod+Alt+T'])
+  })
 })
 
 describe('shortcut guide', () => {
