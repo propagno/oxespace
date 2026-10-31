@@ -10,11 +10,11 @@ describe('deriveThreadTitle', () => {
   it('does not show markup wrapped around the message', () => {
     expect(deriveThreadTitle('<artifact-content-author>draft the PRD</artifact-content-author> Please review the plan')).toBe('Please review the plan')
     expect(deriveThreadTitle('<context path="a.ts">x</context>')).toBe('x')
-    expect(deriveThreadTitle('<only-a-tag>')).toBe('New thread')
+    expect(deriveThreadTitle('<only-a-tag>')).toBe('New conversation')
   })
 
   it('cuts long text at the limit and never returns an empty title', () => {
     expect(deriveThreadTitle('x'.repeat(200))).toHaveLength(80)
-    expect(deriveThreadTitle('   ')).toBe('New thread')
+    expect(deriveThreadTitle('   ')).toBe('New conversation')
   })
 })

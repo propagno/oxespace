@@ -95,7 +95,7 @@ export interface CreateWorkspaceInput {
  * Why the main process refused a workspace root: it must be an absolute path to a folder that exists and
  * can be listed. Each refusal has its own C3 code, `workspace.root.<refusal>`.
  */
-export const WORKSPACE_ROOT_REFUSALS = ['notAbsolute', 'notFound', 'notDirectory', 'unreadable'] as const
+export const WORKSPACE_ROOT_REFUSALS = ['empty', 'notAbsolute', 'notFound', 'notDirectory', 'unreadable'] as const
 export type WorkspaceRootRefusal = typeof WORKSPACE_ROOT_REFUSALS[number]
 
 /** What `workspace:create` returns instead of a workspace when the root is refused; nothing was written. */

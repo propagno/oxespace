@@ -5,7 +5,7 @@
  */
 import { IDENTITY, LOGO, type Mode } from './palette'
 import { colorRoles, elevations } from './semantic'
-import { CHROME, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT, WEIGHT } from './scales'
+import { CHROME, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TARGET_MIN, TEXT, WEIGHT } from './scales'
 
 const block = (selector: string, entries: Record<string, string | number>, extra: string[] = []): string =>
   `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${name}: ${value};`), ...extra.map(line => `  ${line}`)].join('\n')}\n}`
@@ -37,6 +37,7 @@ function staticTokens(): Record<string, string | number> {
   for (const [name, value] of Object.entries(LEADING)) out[`leading-${name}`] = value
   for (const [name, value] of Object.entries(RADIUS)) out[`radius-${name}`] = value
   for (const [name, value] of Object.entries(CONTROL.compact)) out[`control-${name}`] = `${value}px`
+  out['target-min'] = `${TARGET_MIN}px`
   for (const [name, value] of Object.entries(LAYER)) out[`layer-${name}`] = value
   for (const [name, value] of Object.entries(CHROME)) out[name] = value
   for (const [name, value] of Object.entries(MOTION)) out[name] = value
