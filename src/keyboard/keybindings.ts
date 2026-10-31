@@ -9,7 +9,7 @@ import { chordsCollide, formatChord, matchesChord, parseChord, type ParsedChord 
  * from here, so a shortcut is defined once and shown the same everywhere.
  */
 export type KeybindingScope = 'global' | 'code' | 'thread' | 'oxequery' | 'oxepod' | 'oxepost' | 'terminal'
-/** The application's views: Code, Thread, OxeQuery (`data`), OxePod (`pods`) and OxePost (`post`). */
+/** The application's views: OxeCode (`code`), OxeChat (`thread`), OxeQuery (`data`), OxePod (`pods`) and OxePost (`post`). */
 export type AppView = 'code' | 'thread' | 'data' | 'pods' | 'post'
 export const APP_VIEWS: readonly AppView[] = ['code', 'thread', 'data', 'pods', 'post']
 
@@ -36,7 +36,7 @@ export const inEditor = (target: Element | null): boolean => Boolean(target?.clo
 /** Anywhere a key types text: inputs, text areas, editable content, editors and terminals. */
 export const inTextField = (target: Element | null): boolean => Boolean(target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) || inEditor(target)
 
-export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'Code', terminal: 'Terminal', thread: 'Thread', oxequery: 'OxeQuery', oxepod: 'OxePod', oxepost: 'OxePost' }
+export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'OxeCode', terminal: 'Terminal', thread: 'OxeChat', oxequery: 'OxeQuery', oxepod: 'OxePod', oxepost: 'OxePost' }
 
 export const KEYBINDINGS = [
   // Global
@@ -47,8 +47,8 @@ export const KEYBINDINGS = [
   { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', label: 'Open activity center', reservedInTerminal: true },
   { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', label: 'Toggle voice input', when: context => context.view === 'code' || context.view === 'thread' },
   // The four views, in the order of the switch in the title bar.
-  { id: 'view.code', chords: ['Mod+1'], scope: 'global', label: 'Show Code', reservedInTerminal: true },
-  { id: 'view.thread', chords: ['Mod+2'], scope: 'global', label: 'Show Thread', reservedInTerminal: true },
+  { id: 'view.code', chords: ['Mod+1'], scope: 'global', label: 'Show OxeCode', reservedInTerminal: true },
+  { id: 'view.thread', chords: ['Mod+2'], scope: 'global', label: 'Show OxeChat', reservedInTerminal: true },
   { id: 'view.data', chords: ['Mod+3'], scope: 'global', label: 'Show OxeQuery', reservedInTerminal: true },
   { id: 'view.pods', chords: ['Mod+4'], scope: 'global', label: 'Show OxePod', reservedInTerminal: true },
   { id: 'view.post', chords: ['Mod+5'], scope: 'global', label: 'Show OxePost', reservedInTerminal: true },

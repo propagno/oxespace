@@ -24,7 +24,7 @@ const DESCRIBED = new Set(['rename', 'sessions', 'rules', 'work', 'events', 'spe
 const SESSION_ID_SHAPE = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 /** The rows /status sends, in the order shown, with their catalog keys; the main process names them in English. */
 const STATUS_ROWS: Record<string, string> = { Provider: 'provider', 'Native session ID (resume)': 'nativeSession', Status: 'status', Model: 'model', Effort: 'effort', Access: 'access', Network: 'network', Approvals: 'approvals', Mode: 'mode', Connection: 'connection', Directory: 'directory' }
-const INTERNAL_ROWS: Record<string, string> = { 'Thread ID': 'threadId', 'Project ID': 'projectId', 'Workspace ID': 'workspaceId', Generation: 'generation', Operation: 'operation', Hooks: 'hooks' }
+const INTERNAL_ROWS: Record<string, string> = { 'Conversation ID': 'threadId', 'Project ID': 'projectId', 'Workspace ID': 'workspaceId', Generation: 'generation', Operation: 'operation', Hooks: 'hooks' }
 
 /** The dialog a desktop command opens: confirmations, command output, rename, resume, delegations and permission rules. Loaded on demand. */
 export default function ThreadCommandDialog({ panel, snapshot, pending, error, onClose, onError, action, runCommand, onDelegations }: {
