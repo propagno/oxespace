@@ -126,6 +126,8 @@ describe('agent gateway: approval', () => {
     expect(h.asked).toHaveLength(1)
     expect(h.asked[0]).toMatchObject({ risk: 'read', text: 'SELECT id, email, password_hash FROM users' })
     expect(h.calls.find(call => call.op === 'sql.run')?.connection?.readOnly).toBe(true)
+    // On the agent's own session, never on the person's (B14).
+    expect(h.calls.find(call => call.op === 'sql.run')?.connection?.role).toBe('agent')
     expect(result.untrusted).toBe(true)
     expect(result.notice).toMatch(/untrusted/)
     expect(result.masked).toEqual(['password_hash'])
@@ -271,4 +273,34 @@ describe('agent gateway: explain and activity', () => {
     const activity = await h.gateway.handle('oxespace_db_activity', {}, actor) as { entries: { tool: string; decision: string }[] }
     expect(activity.entries[0]).toMatchObject({ tool: 'oxespace_db_query', decision: 'denied' })
   })
+})
+
+describe('agent gateway: a timeout stops the agent only (B14)', () => {
+  for (const engine of ['postgres', 'mongodb'] as const) {
+    it(`cancels the agent's own ${engine} request, on the agent's session`, async () => {
+      const db = openInMemoryDatabase(); databases.push(db)
+      const calls: { op: string; connection?: ResolvedConnection }[] = []
+      const gateway = new AgentGateway({
+        list: () => [connection({ engine })],
+        resolve: id => ({ id, engine, host: 'h', port: 1, database: 'd', username: 'u', sslMode: 'disable', readOnly: false }),
+        call: async (op, resolved) => {
+          calls.push({ op, ...(resolved ? { connection: resolved } : {}) })
+          // The read never answers; the cancel does.
+          return (op === 'sql.run' || op === 'mongo.find' ? new Promise(() => undefined) : { cancelled: true }) as never
+        },
+        containers: { list: async () => ({ containers: [] }), logsTail: async () => '', action: async () => undefined },
+        broker: new ApprovalBroker({ ask: async () => 'allow-once' }),
+        audit: new AuditLog(db),
+        timeoutMs: 50
+      })
+      const request = engine === 'postgres'
+        ? gateway.handle('oxespace_db_query', { connection: 'shop', sql: 'SELECT pg_sleep(60)' }, actor)
+        : gateway.handle('oxespace_mongo_find', { connection: 'shop', database: 'd', collection: 'c' }, actor)
+      expect(await code(request)).toBe('timeout')
+      const stop = calls.find(call => call.op.endsWith('.cancel'))
+      expect(stop).toMatchObject({ op: engine === 'postgres' ? 'sql.cancel' : 'mongo.cancel', connection: { id: 'c1', role: 'agent' } })
+      // Nothing closed the connection: the person's session is not the agent's to stop.
+      expect(calls.some(call => call.op === 'close')).toBe(false)
+    })
+  }
 })

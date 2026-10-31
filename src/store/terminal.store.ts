@@ -20,6 +20,8 @@ export interface TerminalStateEntry {
   hookAt: number | null
   /** The lifecycle state the main process reads from the agent's hooks and screen (herdr's vocabulary). */
   agentState: import('../../shared/types/agent-state').AgentLifecycleState | null
+  /** What main read that state from (the event's `source`: 'hook', 'screen'...), shown as the status's origin. */
+  agentSource: string | null
   /** Where the pane's agent reports working; null until it reports, and again once it ends. */
   location: SessionLocation | null
   /**
@@ -45,7 +47,7 @@ interface TerminalState {
   markRead: (paneId: string) => void
   /** Status reported by the agent's own hooks; `ended` clears it. */
   setHookStatus: (paneId: string, state: 'working' | 'waiting' | 'done' | 'ended', at: number) => void
-  setAgentState: (paneId: string, state: import('../../shared/types/agent-state').AgentLifecycleState | null) => void
+  setAgentState: (paneId: string, state: import('../../shared/types/agent-state').AgentLifecycleState | null, source?: string | null) => void
   /** Directory the pane's agent reports working in. */
   setLocation: (paneId: string, location: SessionLocation | null) => void
   /** The view unmounted but the shell keeps running (workspace left the MRU). */
@@ -68,6 +70,7 @@ const DEFAULT_STATE: TerminalStateEntry = {
   hasUnread: false,
   hookState: null,
   agentState: null,
+  agentSource: null,
   hookAt: null,
   location: null,
   detached: false
@@ -236,12 +239,13 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     })
   },
 
-  setAgentState: (paneId, state) => {
+  setAgentState: (paneId, state, source = null) => {
     clearAwaitingTimer(paneId)
     set(current => {
       const entry = current.panes[paneId] ?? DEFAULT_STATE
-      if (entry.agentState === state) return current
-      return { panes: { ...current.panes, [paneId]: { ...entry, agentState: state } } }
+      const agentSource = state ? source : null
+      if (entry.agentState === state && entry.agentSource === agentSource) return current
+      return { panes: { ...current.panes, [paneId]: { ...entry, agentState: state, agentSource } } }
     })
   },
 
