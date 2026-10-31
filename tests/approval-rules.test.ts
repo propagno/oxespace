@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, reservedNameIn, riskFromShell, riskFromSql } from '../shared/approval-rules'
+import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, foldWords, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, riskFromShell, riskFromSql, SPELLED_WORD_MIN } from '../shared/approval-rules'
 import { mainMessage } from '../shared/messages'
 import { APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_SCHEMA_VERSION, type ApprovalRequest } from '../shared/types/approvals'
 import { guardSql } from '../electron/main/services/oxequery/sql-guard'
@@ -16,7 +16,10 @@ const request = (patch: Partial<ApprovalRequest> = {}): ApprovalRequest => ({
 describe('reserved names (B10)', () => {
   it('lists the app\'s product names', () => {
     expect(RESERVED_APP_NAMES).toEqual(['OXESpace', 'OxeChat', 'OxeCode', 'OxeQuery', 'OxePod', 'OxePost'])
-    expect(RESERVED_EXACT_NAMES).toEqual(['System', 'Sistema', 'App', 'Aplicativo', 'Application'])
+    expect(RESERVED_VENDOR_NAMES).toEqual(['Windows', 'Microsoft', 'Ubuntu', 'Linux', 'macOS', 'Apple', 'Google', 'GitHub'])
+    expect(RESERVED_FIRST_WORDS).toEqual(['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App'])
+    expect(RESERVED_EXACT_NAMES).toEqual(['Thread', 'Code', 'Chat'])
+    expect(SPELLED_WORD_MIN).toBe(3)
   })
 
   it.each([
@@ -34,8 +37,57 @@ describe('reserved names (B10)', () => {
     expect(reservedNameIn(value)).toBe(name)
   })
 
-  it.each(['Reviewer', 'tests', 'filesystem watcher', 'Sistema de testes', 'OXE', 'Space', 'Claude 2', '', 'Apple', 'App builder', 'mapping'])('allows %j', value => {
+  // Homologation's black-box probe of #235 (#184): every product-name imitation was caught; these categories are its
+  // 38 names, rebuilt from the report, each with the verdict it must keep.
+  it.each([
+    ['O X E Space', 'OXESpace'], ['O.X.E.Space', 'OXESpace'], ['OXE\u200BSpace', 'OXESpace'], ['OXE\u00ADSpace', 'OXESpace'], ['\u202EOXESpace', 'OXESpace'],
+    ['ΟΧΕSpace', 'OXESpace'], ['OXESp\u0430ce', 'OXESpace'], ['\u{1D40E}\u{1D417}\u{1D404}Space', 'OXESpace'], ['ⓄⓍⒺSpace', 'OXESpace'], ['Öxespace', 'OXESpace'],
+    ['0XE5PACE', 'OXESpace'], ['OXESp4ce', 'OXESpace'], ['0x3space', 'OXESpace'], ['oxespace.com', 'OXESpace'], ['Segurança do OXESpace', 'OXESpace'],
+    ['OxeChat', 'OxeChat'], ['OXE CODE', 'OxeCode'], ['OxeQuery', 'OxeQuery'], ['OxePod', 'OxePod'], ['OxePost', 'OxePost'],
+    ['Systém', 'System'], ['S y s t e m', 'System'], ['Sistema.', 'Sistema'], ['SYSTEM', 'System'], ['Sistema', 'Sistema'],
+    // What got through #235, refused now.
+    ['System Administrator', 'System'], ['Sistema operacional', 'Sistema'], ['Administrador', 'Administrador'], ['Aplicação', 'Aplicação'],
+    ['Windows', 'Windows'], ['Windows Security', 'Windows'], ['Microsoft', 'Microsoft'], ['Ubuntu', 'Ubuntu'], ['Thread', 'Thread']
+  ])('closes the homologation probe: %j is %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  it.each([
+    ['Microsoft Defender', 'Microsoft'], ['Linux', 'Linux'], ['macOS updater', 'macOS'], ['Apple ID', 'Apple'], ['Google Chrome', 'Google'], ['GitHub Actions', 'GitHub'],
+    ['Segurança do Windows', 'Windows'], ['W1ndows', 'Windows'], ['$ystem Admin', 'System'], ['Admin bot', 'Admin'], ['Administrator', 'Administrator'],
+    ['aplicacao', 'Aplicação'], ['App builder', 'App'], ['Sistema de testes', 'Sistema'], ['T h r e a d', 'Thread'], ['code', 'Code'], ['Chat', 'Chat'],
+    // Spelled out, whatever the separator.
+    ['W i n d o w s', 'Windows'], ['W.i.n.d.o.w.s', 'Windows'], ['W-i-n-d-o-w-s', 'Windows'], ['W_i_n_d_o_w_s', 'Windows'], ['W i n-d.o w s', 'Windows'],
+    ['Open W i n d o w s Security', 'Windows']
+  ])('refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  it.each([
+    'Reviewer', 'tests', 'filesystem watcher', 'filesystem', 'my system', 'OXE', 'Space', 'Claude 2', '', 'mapping',
+    'Linuxbrew', 'Applesauce', 'Code reviewer', 'Chatbot', 'Thread safety', 'A B testing', 'a b c notes', 'Win dows'
+  ])('allows %j', value => {
     expect(reservedNameIn(value)).toBeNull()
+  })
+
+  it('folds words: boundaries kept, spelled-out runs joined, short runs and other words untouched', () => {
+    expect(foldWords('Windows Security')).toEqual(['wlndows', 'securlty'])
+    expect(foldWords('W i n-d.o w s')).toEqual(['wlndows'])
+    expect(foldWords('A B testing')).toEqual(['a', 'b', 'testlng'])
+    expect(foldWords('a b c notes')).toEqual(['abc', 'notes'])
+    expect(foldWords('W1ndows', true)).toEqual(['wlndows'])
+    expect(foldWords('W1ndows')).toEqual(['w', 'ndows'])
+  })
+
+  it('folds words idempotently and never lengthens them', () => {
+    for (const value of ['Windows Security', 'W i n-d.o w s', 'A B testing', 'Sistema de testes', 'ＯＸＥ\u200BSpace', 'rnrn word', 'Aplicação', '!!!', '', 'W_i_n_d_o_w_s and more']) {
+      for (const readSymbols of [false, true]) {
+        const words = foldWords(value, readSymbols)
+        const letters = [...value.normalize('NFKC')].filter(char => /\p{L}/u.test(char)).length
+        expect(words.join('').length, value).toBeLessThanOrEqual(letters + (readSymbols ? value.length : 0))
+        expect(foldWords(words.join(' ')), value).toEqual(words)
+      }
+    }
   })
 
   it('folds letters only, so separators and case do not matter', () => {
@@ -43,7 +95,7 @@ describe('reserved names (B10)', () => {
   })
 
   it('never adds characters, and folding twice changes nothing', () => {
-    for (const name of [...RESERVED_APP_NAMES, ...RESERVED_EXACT_NAMES]) {
+    for (const name of [...RESERVED_APP_NAMES, ...RESERVED_VENDOR_NAMES.filter(name => name !== 'macOS'), ...RESERVED_EXACT_NAMES]) {
       // A plain reserved name folds to itself, in lower case with `i` read as `l`.
       expect(foldName(name), name).toBe(name.toLowerCase().replace(/i/g, 'l'))
       expect(foldName(name.toLowerCase()), name).toBe(foldName(name))

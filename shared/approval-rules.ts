@@ -7,9 +7,17 @@ import { APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_RIS
 
 /** Names only the app speaks as. An agent-chosen pane name, label or notification title may not contain one. */
 export const RESERVED_APP_NAMES = ['OXESpace', 'OxeChat', 'OxeCode', 'OxeQuery', 'OxePod', 'OxePost'] as const
-/** Generic words the app's own notices could be taken for; refused only as the whole name ("filesystem" stays allowed). */
-export const RESERVED_EXACT_NAMES = ['System', 'Sistema', 'App', 'Aplicativo', 'Application'] as const
-export type ReservedAppName = typeof RESERVED_APP_NAMES[number] | typeof RESERVED_EXACT_NAMES[number]
+/**
+ * Operating-system and vendor names a request could pass for ("Windows Security"); refused as a whole word anywhere
+ * in the name, so "Linuxbrew" and "Applesauce" stay allowed.
+ */
+export const RESERVED_VENDOR_NAMES = ['Windows', 'Microsoft', 'Ubuntu', 'Linux', 'macOS', 'Apple', 'Google', 'GitHub'] as const
+/** Words the app's or the system's own notices start with; refused as the first word ("System Administrator", "Admin bot"). */
+export const RESERVED_FIRST_WORDS = ['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App'] as const
+/** The app's internal tab names; refused only as the whole name ("Code reviewer" and "Chatbot" stay allowed). */
+export const RESERVED_EXACT_NAMES = ['Thread', 'Code', 'Chat'] as const
+export type ReservedAppName =
+  | typeof RESERVED_APP_NAMES[number] | typeof RESERVED_VENDOR_NAMES[number] | typeof RESERVED_FIRST_WORDS[number] | typeof RESERVED_EXACT_NAMES[number]
 
 /** Letters from other scripts that read as a Latin letter (a small UTS #39-style skeleton for these names). */
 const CONFUSABLE_LETTERS: Record<string, string> = {
@@ -33,22 +41,57 @@ export function foldName(value: string): string {
   return skeleton(lowerPlain(value).replace(/[^\p{L}]/gu, ''))
 }
 
+const withSymbols = (value: string): string => [...value].map(char => CONFUSABLE_SYMBOLS[char] ?? char).join('')
+
 /** The same fold, reading digits and symbols as the letters they imitate first ("0XESPACE", "$ystem"). */
 function foldNameWithSymbols(value: string): string {
-  return skeleton([...lowerPlain(value)].map(char => CONFUSABLE_SYMBOLS[char] ?? char).join('').replace(/[^\p{L}]/gu, ''))
+  return skeleton(withSymbols(lowerPlain(value)).replace(/[^\p{L}]/gu, ''))
+}
+
+/** A run of at least this many single letters is one spelled-out word ("W i n d o w s"); two ("A B testing") is not. */
+export const SPELLED_WORD_MIN = 3
+
+/**
+ * Folds a name word by word: the same normalisation and skeleton as `foldName`, but split on anything that is not a
+ * letter, so word boundaries survive. A run of SPELLED_WORD_MIN or more single letters, whatever separates them
+ * ("W i n-d.o w s", "W_i_n_d_o_w_s"), is joined into one word first; shorter runs and longer words are left alone.
+ * Never longer than the letters it was given, and folding the joined result again changes nothing.
+ */
+export function foldWords(value: string, readSymbols = false): string[] {
+  const plain = lowerPlain(value)
+  const tokens = (readSymbols ? withSymbols(plain) : plain).split(/[^\p{L}]+/u).filter(Boolean)
+  const words: string[] = []
+  for (let index = 0; index < tokens.length;) {
+    let end = index
+    while (end < tokens.length && [...tokens[end]].length === 1) end++
+    if (end - index >= SPELLED_WORD_MIN) { words.push(tokens.slice(index, end).join('')); index = end; continue }
+    if (end > index) { words.push(...tokens.slice(index, end)); index = end; continue }
+    words.push(tokens[index++])
+  }
+  return words.map(skeleton)
 }
 
 const FOLDED_RESERVED = RESERVED_APP_NAMES.map(name => [name, foldName(name)] as const)
+const FOLDED_VENDOR = RESERVED_VENDOR_NAMES.map(name => [name, foldName(name)] as const)
+const FOLDED_FIRST = RESERVED_FIRST_WORDS.map(name => [name, foldName(name)] as const)
 const FOLDED_EXACT = RESERVED_EXACT_NAMES.map(name => [name, foldName(name)] as const)
 
 /**
- * The reserved name hidden in `value`, if any. Product names by containment, so "OXESpace: security update" is
- * caught; the generic words by equality. Both folds are checked: with symbols dropped ("System!" is "system") and
- * with symbols read as letters ("$ystem" is "system").
+ * The reserved name hidden in `value`, if any:
+ *   product names   by containment anywhere in the whole-string fold ("OXESpace: security update", "O.X.E Space")
+ *   OS and vendors  as a whole word ("Windows Security", "W i n d o w s"; not "Linuxbrew")
+ *   generic words   as the first word ("System Administrator", "Sistema operacional", "Admin bot")
+ *   tab names       as the whole name only ("Thread"; not "Code reviewer")
+ * Both folds are checked: with symbols dropped ("System!" is "system") and with symbols read as letters ("$ystem",
+ * "W1ndows").
  */
 export function reservedNameIn(value: string): ReservedAppName | null {
-  for (const folded of [foldName(value), foldNameWithSymbols(value)]) {
+  for (const readSymbols of [false, true]) {
+    const folded = readSymbols ? foldNameWithSymbols(value) : foldName(value)
+    const words = foldWords(value, readSymbols)
     const found = FOLDED_RESERVED.find(([, reserved]) => folded.includes(reserved))?.[0]
+      ?? FOLDED_VENDOR.find(([, reserved]) => words.includes(reserved))?.[0]
+      ?? FOLDED_FIRST.find(([, reserved]) => words[0] === reserved)?.[0]
       ?? FOLDED_EXACT.find(([, reserved]) => folded === reserved)?.[0]
     if (found) return found
   }

@@ -80,6 +80,21 @@ Every request an agent raises for the person (confirm-level MCP actions, OxeQuer
 
 The native dialog is a fallback only: no app window exists, the window reported `approvals.unavailable` for that one request, or a request that needs a handshake (`crash`) was not acknowledged within `APPROVAL_ACK_TIMEOUT_MS`. The renderer-gone notice stays native because the renderer that would draw the modal is gone.
 
+### Reserved names (`reservedNameIn`, `shared/approval-rules.ts`)
+
+A pane name an agent chooses, and the agent-supplied parts of a notification, may not pass for the app, the operating system or a vendor. Both folds apply to every rule: symbols dropped ("System!") and symbols read as the letters they imitate ("$ystem", "W1ndows"), after NFKC, case, accents, invisible characters and look-alike letters.
+
+| Names | Refused when |
+|---|---|
+| OXESpace, OxeChat, OxeCode, OxeQuery, OxePod, OxePost | contained anywhere in the whole-name fold ("OXESpace: security update", "O.X.E Space") |
+| Windows, Microsoft, Ubuntu, Linux, macOS, Apple, Google, GitHub | a whole word of the name ("Windows Security", "Microsoft Defender"); "Linuxbrew" and "Applesauce" are allowed |
+| System, Sistema, Administrator, Administrador, Admin, Aplicação, Aplicativo, Application, App | the first word ("System Administrator", "Sistema operacional", "Admin bot", and so also "Sistema de testes" and "App builder"); "my system" and "filesystem" are allowed |
+| Thread, Code, Chat (the app's tab names) | the whole name only; "Code reviewer" and "Chatbot" are allowed |
+
+Words are split on anything that is not a letter; a run of three or more single letters, whatever separates them ("W i n d o w s", "W.i.n.d.o.w.s", "W_i_n_d_o_w_s"), is joined into one word first, while two ("A B testing") are left alone. A pane name is refused with `agents.name.reserved` (MCP code `reserved-name`), a notification with `notify.refused.reservedName`.
+
+**Closed finding (homologation, #184):** a black-box probe of #235's `reservedNameIn` with 38 names caught every imitation of the product names, but let through "System Administrator", "Sistema operacional", "Administrador", "Aplicação", "Windows", "Windows Security", "Microsoft", "Ubuntu" and "Thread": the generic words were matched only as the whole name and there were no OS or vendor names. The rule above closes it; `tests/approval-rules.test.ts` keeps each of those names, and the probe's categories, with its verdict.
+
 ## Dependency and release controls
 
 CI blocks moderate-or-higher production advisories with `npm run security:audit`, blocks high/critical build-tool advisories with `npm run security:audit:tools`, and verifies that the exactly pinned Electron belongs to a supported major line. Electron is a devDependency but ships in the product, so the production audit alone is insufficient. Transitive fixes may be pinned through `overrides`, with the lockfile committed. Build-tool advisories and dated triage are recorded in `docs/validation/stabilization-2026-10-07.md`. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.
