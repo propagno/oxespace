@@ -136,7 +136,12 @@
         "slash": "Comandos do terminal",
         "zoomIn": "Aumentar a fonte do terminal",
         "zoomOut": "Diminuir a fonte do terminal",
-        "zoomReset": "Restaurar a fonte do terminal"
+        "zoomReset": "Restaurar a fonte do terminal",
+        "tabMovesFocus": "Tab move o foco no terminal"
+      },
+      "focus": {
+        "nextRegion": "Mover o foco para a próxima região",
+        "previousRegion": "Mover o foco para a região anterior"
       },
       "thread": {
         "new": "Nova conversa",
@@ -168,6 +173,15 @@
         "send": "Enviar a requisição",
         "filter": "Encontrar uma requisição"
       }
+    },
+    "terminalFocus": {
+      "hint": "Terminal. Pressione F6 para sair ou {{toggle}} para que o Tab mova o foco.",
+      "hintF6": "Terminal. Pressione F6 para sair.",
+      "on": "Tab move o foco: ligado",
+      "off": "Tab move o foco: desligado",
+      "badge": "Tab move o foco",
+      "menu": "Tab move o foco",
+      "toggleKeyToShell": "Enviar {{key}} ao shell"
     }
   },
   "oxequeryCommands": {

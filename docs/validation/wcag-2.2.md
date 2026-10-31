@@ -29,6 +29,12 @@ and the documented exceptions.
 
 2.4.12, 2.4.13 and 3.3.9 are level AAA and outside the claim.
 
+## 2.1 criteria corrected in 1.4
+
+| Criterion | Level | Status | How |
+|---|---|---|---|
+| 2.1.2 No Keyboard Trap | A | Pass since F23 (failed before) | The 1.4 homologation found that a focused terminal kept Tab (right for a shell) but also F6, Ctrl+Tab and Escape: only Ctrl+K, Ctrl+B and Ctrl+1–5 got out, so the pane-grid dividers (the 2.5.7 alternative) could not be reached from the keyboard. The 2.1 claim had not looked inside the terminal. Now there are two ways out of every terminal, the Thread native CLI included. **F6 / Shift+F6** move focus to the next / previous region of the window (title bar → sidebar → work area: the pane grid, the conversation or the OxeQuery/OxePod/OxePost view → side panels → status bar, round again; a region not on screen is skipped; coming back to a region returns to where focus was, so Shift+F6 goes back into the terminal). They are fixed: never sent to the shell, never rebound or turned off (Settings › Keyboard says "Always on"). **Tab moves focus**, toggled with Ctrl+M as in VS Code (rebindable in Settings › Keyboard, or from the pane's ⋯ menu): per pane and for the session, Tab and Shift+Tab move focus out of that terminal instead of reaching the shell; the pane shows a "Tab moves focus" badge and a polite live region says "Tab moves focus: on/off". Ctrl+M is Enter (CR) in a terminal, so the toggle takes it from the shell; the Enter key is not affected, and a pane that needs Ctrl+M for a TUI keeps it with "Send Ctrl+M to the shell" in its ⋯ menu (or the toggle is rebound or turned off, and the old key reaches every shell again). When focus enters a terminal, the polite live region says once "Terminal. Press F6 to leave, or Ctrl+M to make Tab move focus." (never on keystrokes). Both are in the shortcut guide. Tests: `tests/terminal-focus.test.tsx`, `tests/integration/TerminalView.test.tsx` (the keys never reach the PTY), `e2e/terminal-focus-exit.spec.ts` (sidebar filter → Tab into the terminal → F6 out → Shift+F6 back → Ctrl+M → Tab out → a divider → Enter opens its menu → Move the divider closes it with focus back on the divider). |
+
 ## Documented exceptions
 
 ### Targets under the sticky prompt pill (2.5.8)

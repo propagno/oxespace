@@ -17,7 +17,8 @@ import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
-import { isTerminalReservedChord } from '../../keyboard/keybindings'
+import { terminalKeyRoute } from '../../keyboard/terminalFocus'
+import { TabFocusBadge } from './TabFocusBadge'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
@@ -470,10 +471,11 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       const key = event.key.toLowerCase()
 
       // xterm cancels every key it understands, so app shortcuts would reach the
-      // shell. Only the reserved ones (palette, settings, sidebar) leave the
-      // terminal; Ctrl+R, Ctrl+J and the rest still go to the PTY. The Thread
-      // native CLI owns its whole keymap.
-      if (isTerminalReservedChord(event) && !hostRef.current?.closest('.thread-native-cli')) return false
+      // shell. Only the reserved ones (palette, settings, sidebar, F6, the Tab
+      // focus toggle) leave the terminal, and Tab itself when this pane's Tab
+      // moves focus; Ctrl+R, Ctrl+J and the rest still go to the PTY. The Thread
+      // native CLI owns its keymap except the ways out (src/keyboard/terminalFocus.ts).
+      if (terminalKeyRoute(event, paneId, Boolean(hostRef.current?.closest('.thread-native-cli'))) !== 'shell') return false
 
       // Ctrl/Cmd+F opens the in-terminal search overlay instead of reaching
       // the PTY. (Shift/Alt variants pass through for TUIs that bind them.)
@@ -930,12 +932,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
         ref={hostRef}
         className={`terminal-view${isDragOver ? ' terminal-drop-active' : ''}`}
         data-testid="terminal-view"
+        data-terminal-pane={paneId}
         data-translucent={translucent ? 'true' : undefined}
         style={translucent ? { ['--term-bg-mix' as never]: `${Math.round(prefs.backgroundOpacity * 100)}%` } : undefined}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       />
+      <TabFocusBadge paneId={paneId} />
       {searchOpen ? (
         <div className="terminal-search" role="search" data-testid="terminal-search">
           <input

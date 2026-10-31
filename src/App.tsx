@@ -4,7 +4,6 @@ import './commands/settings.commands'
 import { useCodeCommands } from './commands/code.commands'
 import { useThreadCommands } from './commands/thread.commands'
 import { DataHosts, DataSidebar, isDataView, useModeActions } from './components/Navigation/ModeViews'
-import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, toast, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
@@ -28,6 +27,8 @@ const SettingsCenter = lazy(() => import('./components/Settings/SettingsCenter')
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
 const TeamDialog = lazy(() => import('./components/Teams/TeamDialog').then(m => ({ default: m.TeamDialog })))
 const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
+// Shown only until the first workspace exists, so it stays out of the startup bundle.
+const FirstRunChecklist = lazy(() => import('./components/Onboarding/FirstRunChecklist').then(m => ({ default: m.FirstRunChecklist })))
 const ThreadSidebar = lazy(() => import('./components/Threads/ThreadSidebar').then(m => ({ default: m.ThreadSidebar })))
 const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
 const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
@@ -918,7 +919,7 @@ export function App(): ReactElement {
               <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
               <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button><Button variant="ghost" size="sm" onClick={() => selectMode('pods')}>Open OxePod</Button><Button variant="ghost" size="sm" onClick={() => selectMode('post')}>Open OxePost</Button>
             </div>
-            <FirstRunChecklist onNewWorkspace={openNewWorkspaceFromUI} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} />
+            <Suspense fallback={null}><FirstRunChecklist onNewWorkspace={openNewWorkspaceFromUI} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} /></Suspense>
           </div>
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}
