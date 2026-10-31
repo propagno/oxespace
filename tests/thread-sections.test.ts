@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createSectionsMock, SECTIONS_STORAGE_PREFIX, type SectionsStorage, type ThreadLookup } from '../src/components/Threads/sections/sectionsMock'
-import { normalizeSectionName, SECTION_NAME_MAX, sectionErrorCode, SectionError, type ThreadSection } from '../src/components/Threads/sections/sectionsContract'
+import { normalizeSectionName, sameSectionName, SECTION_NAME_MAX, sectionErrorCode, SectionError, type ThreadSection } from '../src/components/Threads/sections/sectionsContract'
 import { groupBySection, moveSectionIds } from '../src/components/Threads/sections/sectionsModel'
 
 function memoryStorage(): SectionsStorage & { data: Map<string, string> } {
@@ -26,6 +26,20 @@ describe('section names', () => {
     expect(normalizeSectionName('two\nlines')).toBeNull()
     expect(normalizeSectionName('tab\there')).toBeNull()
     expect(normalizeSectionName('Seção ✓ 🚀')).toBe('Seção ✓ 🚀')
+  })
+  it('refuses bidirectional and format controls that make a name read in another order than it is stored', () => {
+    for (const control of ['‪', '‫', '‬', '‭', '‮', '⁦', '⁧', '⁨', '⁩', '‎', '‏']) {
+      expect(normalizeSectionName(`Work${control}cod.exe`), control.codePointAt(0)!.toString(16)).toBeNull()
+    }
+    // Right-to-left text itself is fine; only the invisible controls are refused.
+    expect(normalizeSectionName('عمل')).toBe('عمل')
+  })
+  it('compares names without case, trimmed, in one Unicode form', () => {
+    expect(sameSectionName('Work', ' work ')).toBe(true)
+    expect(sameSectionName('Seção', 'SEÇÃO')).toBe(true)
+    expect(sameSectionName('Séção'.normalize('NFD'), 'Seção'.normalize('NFC'))).toBe(false)
+    expect(sameSectionName('Café'.normalize('NFD'), 'café')).toBe(true)
+    expect(sameSectionName('Work', 'Works')).toBe(false)
   })
   it('reads the code from the mock, an IPC object and an IPC message', () => {
     expect(sectionErrorCode(new SectionError('thread.section.notFound'))).toBe('thread.section.notFound')
@@ -55,6 +69,17 @@ describe('sections mock', () => {
     const section = await api.createSection({ projectId: 'p1', name: 'Ok' })
     expect(await rejection(api.renameSection({ id: section.id, name: 'bad\u0007' }))).toBe('thread.section.invalidName')
     expect(await rejection(api.renameSection({ id: 'missing', name: 'Fine' }))).toBe('thread.section.notFound')
+  })
+
+  it('refuses a second section with the same name in a project, whatever its case; renaming a section to itself is fine', async () => {
+    const { api } = setup()
+    const work = await api.createSection({ projectId: 'p1', name: 'Work' })
+    await api.createSection({ projectId: 'p1', name: 'Ideas' })
+    expect(await rejection(api.createSection({ projectId: 'p1', name: ' WORK ' }))).toBe('thread.section.duplicateName')
+    expect(await rejection(api.renameSection({ id: work.id, name: 'ideas' }))).toBe('thread.section.duplicateName')
+    await expect(api.renameSection({ id: work.id, name: 'work' })).resolves.toMatchObject({ name: 'work' })
+    // Another project may use the same name.
+    await expect(api.createSection({ projectId: 'p2', name: 'Work' })).resolves.toMatchObject({ name: 'Work' })
   })
 
   it('moves conversations, and deleting a section keeps them with no section', async () => {

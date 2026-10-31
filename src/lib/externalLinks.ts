@@ -1,7 +1,8 @@
 // The one way the window opens a link outside the app. Every caller (agent and file markdown, terminal links,
 // GitHub, Linear, the web preview and the app's own fixed links) comes through here, so the same rules hold for all:
 // only http, https and mailto, at most 2,048 characters, no credentials in the URL, and a confirmation that shows the
-// real host when the visible text names another place or the host was never opened before. The main process checks again.
+// real host when the visible text names another place or the host was never opened before. The main process checks again
+// and is the only one that opens anything (app:open-external): it refuses window.open and every outward navigation.
 import { i18n } from '../i18n'
 import { toast } from '../ui/Toast'
 import { toUnicodeHost } from './punycode'
@@ -113,8 +114,8 @@ export function linkPrompt(url: URL, options: ExternalLinkOptions, seen: readonl
 }
 
 /**
- * Opens a link in the system browser after the checks above. Resolves true when it was handed to the browser.
- * Never throws: a refused link shows a message and resolves false.
+ * Opens a link in the system browser after the checks above, through the main process. Resolves true when main
+ * handed it to the browser. Never throws: a refused or failed link shows a message and resolves false.
  */
 export async function openExternalLink(raw: string, options: ExternalLinkOptions): Promise<boolean> {
   const url = parseExternalUrl(raw)
@@ -131,8 +132,13 @@ export async function openExternalLink(raw: string, options: ExternalLinkOptions
     } catch { confirmed = false }
     if (!confirmed) return false
   }
+  const opened = await window.oxe?.app?.openExternal?.(url.href).then(result => result?.opened === true, () => false) ?? false
+  if (!opened) {
+    toast({ title: i18n.t('links.notOpened', { ns: 'common' }), description: i18n.t('links.notOpenedHint', { ns: 'common' }), intent: 'warning' })
+    return false
+  }
+  // Only a site that really opened is remembered.
   if (options.source !== 'app') { rememberHost(linkHost(url)); window.dispatchEvent(new Event(SEEN_HOSTS_EVENT)) }
-  window.open(url.href, '_blank', 'noopener,noreferrer')
   return true
 }
 
