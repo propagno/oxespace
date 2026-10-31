@@ -2,6 +2,7 @@ import { ShieldAlert, TriangleAlert } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { McpServer } from '../../../shared/types/mcp'
 import { launcherPackage } from '../../../shared/mcp-launcher'
+import { messageKey, messageValues } from '../../../shared/messages'
 import { scanToolDescriptions } from '../../../shared/mcp-scan'
 import { useTranslation } from 'react-i18next'
 
@@ -11,6 +12,10 @@ import { useTranslation } from 'react-i18next'
  */
 export function McpServerSafety({ server }: { server: McpServer }): ReactElement | null {
   const { t } = useTranslation('code')
+  // A quarantine recorded since message codes exist is worded in the interface's language; older ones keep `reasons`.
+  const { t: tMain, i18n } = useTranslation('main')
+  // The key is one of several codes, each with its own values; the catalog test checks they all match.
+  const tm = tMain as unknown as (key: string, values: Record<string, string>) => string
   const findings = useMemo(() => scanToolDescriptions(server.tools), [server.tools])
   const quarantine = server.guard?.quarantine ?? null
   const launcher = launcherPackage(server.config)
@@ -23,7 +28,8 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
           <ShieldAlert size={14} aria-hidden="true" />
           <div>
             <strong>{t('mcp.safety.quarantineTitle')}</strong>
-            {quarantine.reasons.map((reason) => <p key={reason}>{reason}</p>)}
+            {(quarantine.codes?.length ? quarantine.codes.map((message) => tm(messageKey(message.code), messageValues(message, i18n.language))) : quarantine.reasons)
+              .map((reason) => <p key={reason}>{reason}</p>)}
             <p>{t('mcp.safety.quarantineBody')}</p>
           </div>
         </div>

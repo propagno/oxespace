@@ -216,6 +216,35 @@ Every finished turn also has a **verdict** (`shared/threadTurnVerdict.ts`): stat
 files changed, tool calls and failures, duration. A failed turn shows the action
 that fits the failure (retry, wait, sign in, compact, review permissions).
 
+## One worktree per conversation
+
+The new-conversation dialog has **Work in an isolated worktree** (off by default, remembered
+per project in `localStorage`, key `oxe.thread.worktreeDefault`). Turning it on creates a branch
+and a worktree in `<project>-worktrees/` (the folder delegations use, through the same
+`GitHubService.createWorktree`), and the agent runs there. The header shows the branch and a
+*worktree* badge; the thread records what it owns in `ownedWorktree`.
+
+Refusals say what to do and never fall back silently: not a Git repository, uncommitted
+changes in the project (the worktree starts from the base commit without them; the person may
+go on), a taken or invalid branch name, an unknown base. The project folder is offered as a
+separate button and used only when pressed.
+
+Archiving or deleting the conversation (sidebar menu, `/archive`, `/delete`) reads the
+worktree first (`thread:worktree-inspect`):
+
+| State | What happens |
+| --- | --- |
+| No edits, no new files, no unpushed commits | Removed with the conversation after one confirmation. |
+| Edits, new files or unpushed commits | The person chooses: keep the worktree, **Open in Code**, or discard (a second confirmation; commits stay on the branch). |
+| Git unreadable | Treated as "has work": keep is offered, nothing is removed on its own. |
+| Folder already gone | Only the conversation is archived or deleted. |
+
+`thread:worktree-finish` ends the conversation first (stopping its agent), reads the state again
+and removes only what the choice allows, through the Worktrees panel's guarded removal. The
+folder to remove always comes from the stored record and must be a direct child of the project's
+worktree folder; another conversation still working in it blocks removal. Implementation:
+`shared/threadWorktree.ts` (decisions), `thread-worktree-lifecycle.ts` (Git and removal).
+
 ## Context
 
 - **Project brief.** The first message of a conversation carries a short brief

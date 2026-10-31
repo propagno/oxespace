@@ -79,6 +79,9 @@ describe('OxePod op contract', () => {
 
   test('says why OxePod did not start instead of rejecting the call', async () => {
     load.mockRejectedValueOnce(new Error('engine module missing'))
-    await expect(ipcMain.invoke('oxePod:call', { op: 'containers.engines', input: {} })).resolves.toEqual({ ok: false, error: { code: 'failed', message: 'OxePod did not start: reason: engine module missing' } })
+    await expect(ipcMain.invoke('oxePod:call', { op: 'containers.engines', input: {} })).resolves.toEqual({ ok: false, error: {
+      code: 'failed', message: 'OxePod did not start: reason: engine module missing',
+      messageCode: { code: 'oxepod.startFailed', params: { reason: 'reason: engine module missing' } }
+    } })
   })
 })

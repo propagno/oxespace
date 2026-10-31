@@ -118,6 +118,12 @@
     "loadingFolder": "Loading {{name}}",
     "emptyFolder": "Empty folder",
     "noFiles": "No files",
+    "browser": {
+      "pathMenu": "Path of {{name}}",
+      "copyPath": "Copy path",
+      "copyRelativePath": "Copy relative path",
+      "path": "Path"
+    },
     "workspaceFiles": "Workspace files",
     "fit": "Click to fit",
     "fullSize": "Click to view at full size",
@@ -129,6 +135,8 @@
       "closeOthers": "Close other tabs",
       "pin": "Pin tab",
       "unpin": "Unpin tab",
+      "moveLeft": "Move left",
+      "moveRight": "Move right",
       "closeOthersTitle": "Pinned tabs and tabs with unsaved changes stay open"
     },
     "conflict": {
@@ -778,6 +786,11 @@
     }
   },
   "pane": {
+    "boundary": "this pane",
+    "splitRefused": {
+      "title": "This pane cannot be split here",
+      "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely."
+    },
     "attention": {
       "blocked": "Needs your approval or answer",
       "done": "Finished, not seen yet",
@@ -945,6 +958,7 @@
     "retry": "Retry"
   },
   "workspace": {
+    "gridBoundary": "the panes of this workspace",
     "panel": {
       "restore": "Restore panel width",
       "expand": "Expand panel",

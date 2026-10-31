@@ -14,12 +14,43 @@
       "ok": "OK"
     }
   },
+  "dialogs": {
+    "approval": {
+      "deny": "Negar",
+      "allowOnce": "Permitir uma vez",
+      "allowSession": "Permitir leituras como esta nesta execução"
+    },
+    "previewAutomation": {
+      "title": "Ação do agente no navegador",
+      "cancel": "Cancelar",
+      "allowOnce": "Permitir uma vez",
+      "closeTab": "Fechar aba",
+      "closeTabMessage": "Permitir que o agente feche esta aba do navegador?",
+      "closeTabDetail": "Aba: {{tab}}\nAlterações não salvas na página podem ser perdidas.",
+      "action": {
+        "click": "Permitir que o agente clique no Navegador?",
+        "fill": "Permitir que o agente digite em um campo do Navegador?",
+        "navigate": "Permitir que o agente abra outra página no Navegador?",
+        "scroll": "Permitir que o agente role a página no Navegador?",
+        "other": "Permitir que o agente execute \"{{action}}\" no Navegador?"
+      },
+      "actionDetail": "Página: {{page}}\nAlvo: {{target}}\nIsso pode alterar dados reais do sistema. Valores de texto não ficam no histórico de operações."
+    }
+  },
   "messages": {
     "mcp": {
       "quarantine": {
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
         "added": "Ele adicionou {{tools}}.",
-        "removed": "Ele removeu {{tools}}."
+        "removed": "Ele removeu {{tools}}.",
+        "configChanged": "O comando, os argumentos, o ambiente ou a URL dele mudaram depois que você confiou no servidor."
+      },
+      "signIn": {
+        "waiting": "Aguardando você entrar no navegador…"
+      },
+      "server": {
+        "quarantined": "Em quarentena: ele mudou depois que você confiou nele. Revise e confie de novo para usá-lo.",
+        "untrusted": "Ainda não confiável. Revise o comando e confie nele antes de testar."
       }
     },
     "thread": {
@@ -28,11 +59,230 @@
         "staleGeneration": "A conversa reiniciou desde que este pedido apareceu. Abra-a para ver o que está esperando agora.",
         "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
         "unanswered": "Responda a todas as perguntas antes de continuar."
+      },
+      "commands": {
+        "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
+        "busy": "A busca de comandos está ocupada. Use Atualizar comandos para tentar de novo.",
+        "claudeFailed": "Não foi possível carregar os comandos do Claude. Confira a CLI em Configurações de agentes e use Atualizar comandos.",
+        "codexFailed": "Não foi possível carregar as skills do Codex. Confira a CLI em Configurações de agentes e use Atualizar comandos."
+      },
+      "capability": {
+        "readOnly": "Desligado pela política de ferramentas somente leitura desta conversa.",
+        "mcpReadOnly": "Limitado pela política somente leitura desta conversa: só consultas do OXESpace, sem servidores MCP seus."
+      },
+      "observe": {
+        "unsupported": "Nenhum provedor conectado informa o estado desta conversa. O resultado continua sem confirmação.",
+        "changed": "O estado do provedor mudou durante a recuperação. A conversa aqui foi mantida; confira de novo."
+      },
+      "queue": {
+        "deliveryUnconfirmed": "Não foi possível confirmar a entrega desta mensagem."
       }
     },
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
+      }
+    },
+    "remote": {
+      "port": {
+        "privileged": "Escolha uma porta a partir de 1024; a porta {{port}} é reservada pelo sistema.",
+        "inUse": "A porta {{port}} já está em uso por outro programa. Escolha outra porta."
+      },
+      "network": {
+        "noPrivateInterface": "Nenhuma rede privada encontrada para escutar. Conecte-se ao Wi-Fi ou à rede cabeada local e tente de novo."
+      },
+      "certificate": {
+        "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
+      }
+    },
+    "linear": {
+      "worktree": {
+        "exists": "Já existe um worktree para {{issue}} em {{path}}."
+      }
+    },
+    "worktree": {
+      "cleanup": {
+        "notRemovable": "Este não é um worktree removível deste repositório.",
+        "blocked": "Bloqueado: {{reasons}}.",
+        "needsConfirmation": "Precisa de confirmação: {{reasons}}."
+      }
+    },
+    "github": {
+      "cli": {
+        "missing": "GitHub CLI não encontrado. Instale em https://cli.github.com/ e rode gh auth login."
+      }
+    },
+    "git": {
+      "base": {
+        "unresolved": "Não foi possível resolver a base “{{base}}”, e o repositório não tem commits."
+      }
+    },
+    "oxe": {
+      "status": {
+        "unreadable": "Não foi possível ler a saída do oxe status."
+      },
+      "dashboard": {
+        "timeout": "O painel não respondeu a tempo."
+      }
+    },
+    "memory": {
+      "disabled": "A memória do projeto está desligada.",
+      "unavailable": "A memória do projeto está indisponível no momento. Os agentes continuam trabalhando.",
+      "runtimeUnavailable": "As credenciais ou o serviço de memória estão indisponíveis."
+    },
+    "oxequery": {
+      "edit": {
+        "readOnly": "Esta conexão é somente leitura. Desligue o somente leitura para editar dados.",
+        "notTable": "Só tabelas podem ser editadas, não views nem tabelas externas.",
+        "noKey": "Esta tabela não tem chave primária nem índice único NOT NULL, então uma linha não pode ser identificada com segurança."
+      },
+      "test": {
+        "connected": "Conectado"
+      },
+      "startFailed": "O OxeQuery não iniciou: {{reason}}"
+    },
+    "oxepod": {
+      "startFailed": "O OxePod não iniciou: {{reason}}"
+    },
+    "oxepost": {
+      "network": {
+        "notFound": "O nome do host não foi encontrado. Confira a URL e a conexão.",
+        "refused": "A conexão foi recusada: nada está escutando nesse endereço e porta.",
+        "reset": "O servidor fechou a conexão antes de responder.",
+        "timedOut": "A conexão esgotou o tempo.",
+        "lookupFailed": "Não foi possível consultar o nome do host agora.",
+        "hostUnreachable": "O host não pode ser alcançado.",
+        "networkUnreachable": "A rede não pode ser alcançada."
+      },
+      "send": {
+        "invalidUrl": "A URL não é válida. Ela precisa de um esquema, como https://example.com/path",
+        "scheme": "Só URLs http e https podem ser enviadas.",
+        "bodyNotAllowed": "{{method}} não pode ter corpo. Troque o método ou limpe o corpo.",
+        "bodyTooLarge": "O corpo passa de 5 MB.",
+        "invalidHeader": "“{{name}}” não é um cabeçalho válido.",
+        "timeout": "Nenhuma resposta completa em {{seconds}} segundos.",
+        "tls": "O certificado do servidor não foi aceito ({{code}}). O OxePost sempre verifica certificados: confie no certificado neste computador ou use o endereço para o qual ele foi emitido.",
+        "failed": "O pedido falhou.",
+        "failedWith": "O pedido falhou: {{detail}}"
+      }
+    },
+    "approvals": {
+      "title": {
+        "agent": "Pedido de um agente",
+        "oxequery": "OxeQuery · pedido de um agente",
+        "previewAutomation": "Ação do agente no navegador",
+        "crash": "O OXESpace encontrou um erro inesperado"
+      },
+      "summary": {
+        "mcpConfirm": "Quer executar {{tool}} › {{action}} em {{target}}",
+        "oxequery": {
+          "read": "Quer ler dados",
+          "write": "Quer alterar dados no banco",
+          "action": "Quer executar uma ação no contêiner"
+        },
+        "preview": {
+          "closeTab": "Quer fechar uma aba do navegador",
+          "click": "Quer clicar no Navegador",
+          "fill": "Quer digitar num campo do Navegador",
+          "navigate": "Quer abrir outra página no Navegador",
+          "scroll": "Quer rolar a página no Navegador",
+          "other": "Quer {{action}} no Navegador"
+        },
+        "crash": "O app continua funcionando, mas seu estado não é mais garantido. Reinicie para ficar seguro."
+      },
+      "requester": {
+        "pane": "{{agent}} · painel {{pane}}",
+        "conversation": "{{agent}} · conversa {{conversation}}",
+        "mcpServer": "Servidor MCP {{server}}",
+        "app": "OXESpace",
+        "unknownPane": "Agente desconhecido · painel {{pane}}",
+        "unknownConversation": "Agente desconhecido · conversa {{conversation}}"
+      },
+      "option": {
+        "deny": "Negar",
+        "allowOnce": "Permitir uma vez",
+        "allowSessionReads": "Permitir leituras nesta conexão nesta execução",
+        "closeTab": "Fechar aba",
+        "restart": "Reiniciar",
+        "keepWorking": "Continuar trabalhando"
+      },
+      "note": {
+        "sql": {
+          "removes": "{{statement}} remove objetos ou dados de forma permanente.",
+          "noWhere": "{{statement}} sem cláusula WHERE afeta todas as linhas.",
+          "alterDrop": "ALTER … DROP remove uma coluna, restrição ou objeto.",
+          "withNoWhere": "{{statement}} dentro de WITH não tem cláusula WHERE.",
+          "explainAnalyze": "EXPLAIN ANALYZE executa a instrução.",
+          "selectInto": "SELECT INTO cria uma tabela.",
+          "notReadOnly": "{{statement}} não é uma instrução reconhecida como somente leitura.",
+          "outsideReach": "Chama {{calls}}, que alcança fora do banco (arquivos do servidor, outros servidores, outras sessões ou a configuração do servidor)."
+        },
+        "production": "Esta é uma conexão de produção.",
+        "mongo": {
+          "deletes": "Documentos que serão excluídos: {{count}}.",
+          "changes": "Documentos que serão alterados: {{count}}.",
+          "emptyFilter": "O filtro está vazio: todos os documentos da coleção correspondem."
+        },
+        "agent": {
+          "actsOnPrompt": "Esse agente vai agir sobre este prompt com o próprio acesso.",
+          "turnStopped": "O turno em andamento é interrompido antes."
+        },
+        "thread": {
+          "actsOnMessage": "A outra conversa vai agir sobre esta mensagem com o próprio acesso."
+        },
+        "skill": {
+          "followed": "Todo agente que chamar esta skill segue estas instruções."
+        },
+        "automation": {
+          "runsAlone": "O agente roda sozinho nesta agenda até a automação ser desligada."
+        },
+        "worktree": {
+          "folderDeleted": "A pasta é excluída, com os arquivos não rastreados e ignorados dentro dela.",
+          "forceDiscards": "--force também descarta alterações não commitadas."
+        },
+        "git": {
+          "branchShared": "Outros terminais e conversas nesta pasta vão ver a outra branch."
+        },
+        "checkpoint": {
+          "replaces": "As alterações não commitadas da árvore de trabalho são substituídas."
+        },
+        "github": {
+          "autoMerge": "O pull request é mesclado sozinho quando as verificações e revisões passarem.",
+          "releasePublic": "Um release publicado fica visível para todos com acesso ao repositório e pode notificar quem o acompanha."
+        },
+        "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
+        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app."
+      },
+      "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
+      "expired": "Ninguém respondeu a tempo, então o pedido foi negado.",
+      "refused": {
+        "notPending": "Este pedido já foi respondido, cancelado ou expirou.",
+        "staleGeneration": "Este pedido foi feito de novo desde que apareceu. Responda ao atual.",
+        "alreadyAnswered": "Este pedido já tem uma resposta.",
+        "unknownOption": "Essa resposta não é uma das opções deste pedido.",
+        "alreadyReported": "Este pedido já foi informado como não exibido.",
+        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece."
+      },
+      "denied": {
+        "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
+        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores."
+      }
+    },
+    "notify": {
+      "prefix": {
+        "pane": "{{agent}} no painel {{pane}}: {{title}}",
+        "conversation": "{{agent}} na conversa {{conversation}}: {{title}}",
+        "unknownPane": "Agente desconhecido no painel {{pane}}: {{title}}",
+        "unknownConversation": "Agente desconhecido na conversa {{conversation}}: {{title}}"
+      },
+      "refused": {
+        "reservedName": "Uma notificação não pode usar o nome \"{{name}}\"; ele pertence ao app.",
+        "rateLimit": "Notificações demais: no máximo {{perMinute}} por minuto."
+      }
+    },
+    "agents": {
+      "name": {
+        "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
       }
     }
   }

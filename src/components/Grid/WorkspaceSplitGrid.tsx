@@ -3,6 +3,9 @@ import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
 import { computeLayout, isValidPaneTree, type LeafRect, type PaneNode, type ResizeHandle, type SplitDirection } from '../../../shared/types/pane-tree'
 import { PaneContainer } from './PaneContainer'
+import { ErrorBoundary } from '../common/ErrorBoundary'
+import { AnchoredMenu } from '../../ui'
+import { i18n } from '../../i18n'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
 
 type DropZone = 'left' | 'right' | 'top' | 'bottom'
@@ -94,6 +97,7 @@ export function WorkspaceSplitGrid({
     [workspace.panes]
   )
   const isMaximized = Boolean(maximizedPaneId)
+  const [dividerMenu, setDividerMenu] = useState<string | null>(null)
 
   // Window-level listeners during a drag: a 6px handle can't keep the pointer, so
   // capturing moves globally is more reliable than setPointerCapture.
@@ -103,26 +107,32 @@ export function WorkspaceSplitGrid({
     dragCleanup.current?.()
     e.preventDefault()
     const horizontal = handle.direction === 'horizontal'
-    let last = horizontal ? e.clientX : e.clientY
+    const start = horizontal ? e.clientX : e.clientY
+    let last = start
+    // A press that never travels is a click: it opens the divider's menu instead (WCAG 2.5.7).
+    let moved = false
     const containerPx = horizontal ? box.width : box.height
     const onMove = (ev: PointerEvent): void => {
       const current = horizontal ? ev.clientX : ev.clientY
+      if (!moved && Math.abs(current - start) <= 3) return
+      moved = true
       const axisPx = current - last
       if (containerPx <= 0 || axisPx === 0) return
       onResize(handle.path, handle.index, (axisPx * 10_000) / (containerPx * handle.extent))
       last = current
     }
-    const onUp = (): void => {
+    const stop = (): void => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-      window.removeEventListener('blur', onUp)
+      window.removeEventListener('pointercancel', stop)
+      window.removeEventListener('blur', stop)
     }
-    dragCleanup.current = onUp
+    const onUp = (): void => { stop(); if (!moved) setDividerMenu(handleKey(handle)) }
+    dragCleanup.current = stop
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
-    window.addEventListener('blur', onUp)
+    window.addEventListener('pointercancel', stop)
+    window.addEventListener('blur', stop)
   }
 
   // Drag-to-split: grip pointerdown → track the pointer as container %, hit-test
@@ -212,27 +222,29 @@ export function WorkspaceSplitGrid({
             data-compact-active={pane.id === (activePaneId ?? rects[0]?.paneId) ? 'true' : undefined}
             style={style}
           >
-            <PaneContainer
-              pane={pane}
-              workspace={workspace}
-              agentProfile={getAgentProfile(agentProfiles, pane.agentProfileId)}
-              autoStart={workspace.autoStart}
-              isMaximized={focused}
-              isActive={pane.id === activePaneId}
-              onClose={onClosePane}
-              onToggleMaximize={onToggleMaximize}
-              onActivate={onActivatePane}
-              onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
-              onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}
-              onArrange={rects.length > 1 ? position => {
-                if (position === 'balance') usePaneLayoutStore.getState().balance(workspace.id)
-                else {
-                  const index = rects.findIndex(rect => rect.paneId === pane.id)
-                  const target = rects[(index + rects.length - 1) % rects.length]
-                  onMovePane(pane.id, target.paneId, position === 'bottom' ? 'vertical' : 'horizontal', true)
-                }
-              } : undefined}
-            />
+            <ErrorBoundary compact label={i18n.t('pane.boundary', { ns: 'code' })}>
+              <PaneContainer
+                pane={pane}
+                workspace={workspace}
+                agentProfile={getAgentProfile(agentProfiles, pane.agentProfileId)}
+                autoStart={workspace.autoStart}
+                isMaximized={focused}
+                isActive={pane.id === activePaneId}
+                onClose={onClosePane}
+                onToggleMaximize={onToggleMaximize}
+                onActivate={onActivatePane}
+                onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
+                onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}
+                onArrange={rects.length > 1 ? position => {
+                  if (position === 'balance') usePaneLayoutStore.getState().balance(workspace.id)
+                  else {
+                    const index = rects.findIndex(rect => rect.paneId === pane.id)
+                    const target = rects[(index + rects.length - 1) % rects.length]
+                    onMovePane(pane.id, target.paneId, position === 'bottom' ? 'vertical' : 'horizontal', true)
+                  }
+                } : undefined}
+              />
+            </ErrorBoundary>
             {!isMaximized && rects.length > 1 ? (
               <div
                 className="split-drag-grip"
@@ -260,11 +272,17 @@ export function WorkspaceSplitGrid({
               key={`handle-${h.path.join('.')}-${h.index}-${i}`}
               className="split-resize-handle"
               data-testid="split-resize-handle"
+              data-divider={handleKey(h)}
               role="separator"
               tabIndex={0}
-              aria-label={horizontal ? 'Resize columns' : 'Resize rows'}
+              aria-label={i18n.t(horizontal ? 'ui.divider.columns' : 'ui.divider.rows')}
               aria-orientation={horizontal ? 'vertical' : 'horizontal'}
-              title={horizontal ? 'Drag to resize columns · Arrow keys to adjust' : 'Drag to resize rows · Arrow keys to adjust'}
+              // A focusable separator says where it is: the divider's position across the grid, in percent.
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(horizontal ? h.left : h.top)}
+              aria-keyshortcuts="Enter"
+              title={i18n.t('ui.divider.hint')}
               onKeyDown={event => {
                 const decrease = horizontal ? 'ArrowLeft' : 'ArrowUp'
                 const increase = horizontal ? 'ArrowRight' : 'ArrowDown'
@@ -272,15 +290,31 @@ export function WorkspaceSplitGrid({
                   event.preventDefault()
                   onResize(h.path, h.index, event.key === decrease ? -2 : 2)
                 }
+                // The same menu as a click, like the other dividers: Enter, Space or the context-menu keys.
+                if (event.key === 'Enter' || event.key === ' ' || event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
+                  event.preventDefault()
+                  setDividerMenu(handleKey(h))
+                }
               }}
               style={style}
               onPointerDown={beginDrag(h)}
-            />
+            >
+              <AnchoredMenu open={dividerMenu === handleKey(h)} onOpenChange={open => setDividerMenu(open ? handleKey(h) : null)} side={horizontal ? 'right' : 'bottom'}
+                label={i18n.t(horizontal ? 'ui.divider.columns' : 'ui.divider.rows')}
+                returnFocus={() => document.querySelector<HTMLElement>(`[data-divider="${handleKey(h)}"]`)}
+                items={[
+                  { label: i18n.t(horizontal ? 'ui.divider.left' : 'ui.divider.up'), onSelect: () => onResize(h.path, h.index, -5), keepOpen: true },
+                  { label: i18n.t(horizontal ? 'ui.divider.right' : 'ui.divider.down'), onSelect: () => onResize(h.path, h.index, 5), keepOpen: true }
+                ]} />
+            </div>
           )
         })}
     </div>
   )
 }
+
+/** One divider of the split tree, stable across renders while the tree keeps its shape. */
+const handleKey = (handle: ResizeHandle): string => `${handle.path.join('.')}-${handle.index}`
 
 function getAgentProfile(agentProfiles: AgentProfile[], agentProfileId: string | null): AgentProfile | null {
   if (!agentProfileId) return null

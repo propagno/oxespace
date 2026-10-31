@@ -67,7 +67,6 @@
 .changes-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-primary); font: inherit; text-align: left; cursor: pointer; outline: none; }
 .changes-menu-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .changes-menu-item:hover, .changes-menu-item[data-highlighted] { background: var(--nav-hover); }
-.changes-menu-empty { padding: 8px; color: var(--tx-muted); }
 
 /* Monaco: folded regions read like the reference ("N unmodified lines"). */
 .changes-editor .monaco-diff-editor .diff-hidden-lines .center { color: var(--tx-secondary); }
