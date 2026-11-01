@@ -1,53 +1,22 @@
 package com.oxespace.mobile.agents
 
+import com.oxespace.mobile.protocol.RemoteAgentKind
+import com.oxespace.mobile.protocol.RemoteAgentMarkSeenArgs
+import com.oxespace.mobile.protocol.RemoteAgentRow
+import com.oxespace.mobile.protocol.RemoteAgentState
+
 /*
- * S7.4, the phone's mission control (docs/design/s7-mission-control.md §8): DRAFT. The row below stands in for the
- * generated `RemoteAgentRow` until BACKEND's S7.1 CCR adds the `agents` subscription and `agent.markSeen` to C5
- * (shared/remote/protocol.ts → android:generate). The phone never maps states itself: every row arrives already in one
- * of the seven states, computed on the desktop by the shared function. The behaviour functions are stubs; the
- * acceptance tests (AgentsAcceptanceTest) say what they must do and stay red until S7.4 is built.
+ * S7.4, the phone's mission control (docs/design/s7-mission-control.md §8), on the C5 `agents` subscription (S7.1,
+ * #354). The phone never maps states itself: every row arrives already in one of the seven states, computed on the
+ * desktop by the shared function. Here: the list's order and chips, what the phone offers on a row, where a
+ * notification leads, and what opening a row tells the desktop.
  */
 
-/** The seven states (§3, glossary §5), in their precedence order, which is also the list's order. */
-enum class AgentState { NEEDS_YOU, FAILED, WORKING, FINISHED, IDLE, STOPPED, UNKNOWN }
+/** The state of a row, by the C5 rule: a value this app doesn't know reads as UNKNOWN, so a new state needs no bump. */
+fun stateOf(row: RemoteAgentRow): RemoteAgentState = RemoteAgentState.read(row.state)
 
-enum class AgentKind { PANE, CONVERSATION, DELEGATION, WORK }
-
-/** The first request waiting on a needs-you row: enough for the row's third line and for Respond. */
-data class AgentRequestDraft(
-    /** Optional in C5 (#354): a request outside a conversation has none, and then only the row opens. */
-    val threadId: String?,
-    val requestId: String,
-    /** Built by the desktop, never the agent's raw text. */
-    val title: String,
-    /** "low" | "medium" | "high" | "critical" once ApprovalRisk is in C5. */
-    val risk: String?,
-    /** False: "Responda no computador" and no Respond on the phone. */
-    val answerable: Boolean,
-    /** More requests waiting behind it ("+2"). */
-    val more: Int = 0,
-)
-
-/** One row, as the proposed `agents` subscription would send it. No cwd, no session id, no per-row cost (§8). */
-data class AgentRowDraft(
-    /** Stable and opaque: `<kind>:<source id>`. */
-    val id: String,
-    val kind: AgentKind,
-    val state: AgentState,
-    /** When the row entered its state (ms); for needs-you, when it started waiting. */
-    val since: Long,
-    val title: String,
-    val provider: String?,
-    val workspaceName: String,
-    val threadId: String? = null,
-    val paneId: String? = null,
-    val request: AgentRequestDraft? = null,
-    /** Work runs only: "3 de 5 tarefas". */
-    val tasksDone: Int? = null,
-    val tasksTotal: Int? = null,
-    /** The desktop allows Stop from the phone on this row now (v1: running conversations only). */
-    val canInterrupt: Boolean = false,
-)
+/** The kind of a row; the store has already dropped rows of a kind this app doesn't know. */
+fun kindOf(row: RemoteAgentRow): RemoteAgentKind? = RemoteAgentKind.read(row.kind)
 
 /** The filter chips inside Agents (§8). */
 enum class AgentFilter { ALL, NEEDS_YOU, CONVERSATIONS, TERMINALS, TASKS }
@@ -58,20 +27,43 @@ enum class RowAction { RESPOND, OPEN, STOP }
 /** Where a tapped notification for a row leads. */
 sealed interface AgentTapTarget {
     data class Request(val threadId: String, val requestId: String) : AgentTapTarget
-    data class Row(val agentId: String, val reason: String? = null) : AgentTapTarget
+    data class Row(val agentId: String) : AgentTapTarget
 }
 
-/** The rows a filter shows, in the list's order: needs-you longest-waiting first, then failed, working… (§5.3). */
-fun visibleRows(rows: List<AgentRowDraft>, filter: AgentFilter): List<AgentRowDraft> = TODO("S7.4, after the S7.1 CCR")
+/**
+ * The rows a filter shows, in the shared order (§5.3): by state in the order of precedence (needs-you, failed,
+ * working, finished, idle, stopped, unknown), then longest in that state first, then by id so the list never jumps.
+ */
+fun visibleRows(rows: List<RemoteAgentRow>, filter: AgentFilter): List<RemoteAgentRow> =
+    rows.filter { row ->
+        when (filter) {
+            AgentFilter.ALL -> true
+            AgentFilter.NEEDS_YOU -> stateOf(row) == RemoteAgentState.NEEDS_YOU
+            AgentFilter.CONVERSATIONS -> kindOf(row) == RemoteAgentKind.CONVERSATION
+            AgentFilter.TERMINALS -> kindOf(row) == RemoteAgentKind.PANE
+            AgentFilter.TASKS -> kindOf(row) == RemoteAgentKind.WORK || kindOf(row) == RemoteAgentKind.DELEGATION
+        }
+    }.sortedWith(compareBy<RemoteAgentRow>({ stateOf(it).ordinal }, { it.since }, { it.id }))
 
-/** The actions the phone offers on [row]. */
-fun rowActions(row: AgentRowDraft): Set<RowAction> = TODO("S7.4, after the S7.1 CCR")
+/** The actions the phone offers on [row]: every row opens; only a conversation is answered or stopped (§11.2). */
+fun rowActions(row: RemoteAgentRow): Set<RowAction> {
+    if (kindOf(row) != RemoteAgentKind.CONVERSATION) return setOf(RowAction.OPEN)
+    return buildSet {
+        if (answerable(row) != null) add(RowAction.RESPOND)
+        if (row.canInterrupt == true) add(RowAction.STOP)
+        add(RowAction.OPEN)
+    }
+}
+
+/** Where a notification about [row] opens: an answerable request with a thread goes straight to it; else the row. */
+fun tapTarget(row: RemoteAgentRow): AgentTapTarget =
+    answerable(row)?.let { AgentTapTarget.Request(it.threadId!!, it.requestId) } ?: AgentTapTarget.Row(row.id)
 
 /**
- * The state for a wire value. A state the desktop adds later maps to UNKNOWN, so a new state never needs a protocol
- * bump (#354).
+ * Opening a row: the same "seen" marker as on the desktop, sent only for a finished row (the one state it clears), with
+ * the `since` the phone showed, so a row that finished again after it stays Finished.
  */
-fun agentStateOf(wire: String): AgentState = TODO("S7.4, after the S7.1 CCR")
+fun onActivate(row: RemoteAgentRow): RemoteAgentMarkSeenArgs? =
+    if (stateOf(row) == RemoteAgentState.FINISHED) RemoteAgentMarkSeenArgs(agentId = row.id, observedSince = row.since) else null
 
-/** Where a notification about [row] opens: an answerable request with a thread goes straight to it; anything else to the row. */
-fun tapTarget(row: AgentRowDraft): AgentTapTarget = TODO("S7.4, after the S7.1 CCR")
+private fun answerable(row: RemoteAgentRow) = row.request?.takeIf { it.answerable && it.threadId != null }

@@ -2,6 +2,7 @@ package com.oxespace.mobile.session
 
 import com.oxespace.mobile.protocol.RemoteErrorCode
 import com.oxespace.mobile.protocol.RemoteSubscription
+import com.oxespace.mobile.protocol.live.AgentsStore
 import com.oxespace.mobile.protocol.live.Followed
 import com.oxespace.mobile.protocol.live.LiveStreams
 import com.oxespace.mobile.protocol.live.StreamListener
@@ -56,6 +57,7 @@ class Watched<Store : StreamListener>(val store: Store) : StreamListener {
 class LiveRepository(val streams: LiveStreams = LiveStreams()) {
     val workspaces = workspacesStore().also { streams.follow(RemoteSubscription.WORKSPACES, listener = it) }
     val threads = ThreadsStore().also { streams.follow(RemoteSubscription.THREADS, listener = it) }
+    val agents = AgentsStore().also { streams.follow(RemoteSubscription.AGENTS, listener = it) }
     val pendingRequests = pendingRequestsStore().also { streams.follow(RemoteSubscription.PENDING_REQUESTS, listener = it) }
     val jobs = jobsStore().also { streams.follow(RemoteSubscription.JOBS, listener = it) }
     val delegations = delegationsStore().also { streams.follow(RemoteSubscription.DELEGATIONS, listener = it) }

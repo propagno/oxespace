@@ -1,6 +1,7 @@
 package com.oxespace.mobile.protocol.live
 
 import com.oxespace.mobile.protocol.RemoteAckFrame
+import com.oxespace.mobile.protocol.RemoteAgentMarkSeenArgs
 import com.oxespace.mobile.protocol.RemoteCommand
 import com.oxespace.mobile.protocol.RemoteCommandFrame
 import com.oxespace.mobile.protocol.RemoteErrorCode
@@ -60,6 +61,8 @@ class CommandApi internal constructor(private val run: suspend (RemoteCommand, J
     suspend fun respondRequest(args: RemoteRespondRequestArgs) = run(RemoteCommand.THREAD_RESPOND_REQUEST, encode(RemoteRespondRequestArgs.serializer(), args))
     suspend fun terminalWrite(args: RemoteTerminalWriteArgs) = run(RemoteCommand.TERMINAL_WRITE, encode(RemoteTerminalWriteArgs.serializer(), args))
     suspend fun history(args: RemoteThreadHistoryArgs) = run(RemoteCommand.THREAD_HISTORY, encode(RemoteThreadHistoryArgs.serializer(), args))
+    /** Clears an agent's "finished" only (S7.1); it never answers, stops or starts anything. */
+    suspend fun markSeen(args: RemoteAgentMarkSeenArgs) = run(RemoteCommand.AGENT_MARK_SEEN, encode(RemoteAgentMarkSeenArgs.serializer(), args))
 
     private fun <T> encode(serializer: KSerializer<T>, value: T) = RemoteFrames.json.encodeToJsonElement(serializer, value) as JsonObject
 
