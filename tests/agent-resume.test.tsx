@@ -5,7 +5,7 @@ import type { AgentHooksStatus } from '../shared/types/agent-hooks'
 import type { AgentLifecycleState } from '../shared/types/agent-state'
 import type { PaneAgentResume } from '../shared/types/ipc/terminal'
 import { AgentHooksPromptHost } from '../src/components/AgentSessions/AgentHooksPromptHost'
-import { EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../src/components/AgentSessions/PaneResume'
+import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, resumeCommand, usePaneResume } from '../src/components/AgentSessions/PaneResume'
 import { changeLanguage } from '../src/i18n'
 import { useAgentResumeStore, type ResumeAgent } from '../src/store/agent-resume.store'
 import { useToasts } from '../src/ui/Toast'
@@ -168,5 +168,26 @@ describe('starting a resumed pane fresh', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     await waitFor(() => expect(screen.queryByTestId('pane-resume-marker')).toBeNull())
     expect(toastTitles()).toEqual([])
+  })
+})
+
+describe('the pane details name its agent session', () => {
+  it('shows the native id and what became of it, and copies the command that resumes it', async () => {
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    const user = userEvent.setup()
+    const { rerender } = render(<AgentSessionDetails outcome={{ outcome: 'resumed', agent: 'claude', sessionId: '0199a1b2-c3d4' }} />)
+    const row = screen.getByTestId('pane-agent-session')
+    expect(row.textContent).toMatch(/Agent session.{0,120}0199a1b2-c3d4/)
+    expect(row).toHaveTextContent('Resumed when the pane started')
+    await user.click(screen.getByRole('button', { name: 'Copy resume command' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('claude --resume 0199a1b2-c3d4'))
+    rerender(<AgentSessionDetails outcome={{ outcome: 'notResumed', agent: 'codex', sessionId: 'c-9', message: { code: 'agents.resume.sessionMissing', params: {} } }} />)
+    expect(screen.getByTestId('pane-agent-session')).toHaveTextContent(/Not resumed: .+/)
+    expect(screen.getByTestId('pane-agent-session')).not.toHaveTextContent('agents.resume')
+    expect(resumeCommand('codex', 'c-9')).toBe('codex resume c-9')
+    cleanup()
+    const { container } = render(<AgentSessionDetails outcome={{ outcome: 'nothingRecorded' }} />)
+    expect(container).toBeEmptyDOMElement()
   })
 })

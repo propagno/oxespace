@@ -6,7 +6,7 @@ import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
-import { EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
+import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
@@ -381,7 +381,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
       {detailsOpen && <Dialog className="desktop-details-dialog" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
-        <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>
+        {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
+        {resume?.outcome === 'resumed' || resume?.outcome === 'notResumed' ? <AgentSessionDetails outcome={resume} /> : <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>}
         <DetailList rows={detailRows([
           [tc('panels.terminal'), display.title],
           [tc('paneMenu.status'), tc(`paneMenu.state.${terminalState.status}`)],

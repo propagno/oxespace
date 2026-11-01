@@ -6,6 +6,7 @@ import { i18n } from '../../i18n'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { useAgentResumeStore, type ResumeAgent } from '../../store/agent-resume.store'
 import { Badge, Button, ConfirmDialog, Notice, toast } from '../../ui'
+import { copyText } from '../../ui/clipboard'
 import paneMenu from '../Grid/PaneMenu.module.css'
 import { answerHooksAndSay, AGENT_HOOK_NAME } from './agentHooksAnswer'
 
@@ -137,4 +138,27 @@ export function EnableResumeMenuItem({ agent, onDone }: { agent: ResumeAgent; on
     onClick={event => { event.stopPropagation(); onDone(() => { void useAgentResumeStore.getState().offerHooks(agent, 'dialog') }) }}>
     <History size={14} aria-hidden="true" />{tc('agentResume.enableMenu')}
   </Button>
+}
+
+/** The command that opens the same native session outside OXESpace. */
+export const resumeCommand = (agent: ResumeAgent, sessionId: string): string => agent === 'codex' ? `codex resume ${sessionId}` : `claude --resume ${sessionId}`
+
+/**
+ * "Agent session" in the pane's Details (F32): the native Claude Code or Codex session main resumed or recorded for
+ * the pane, and what became of it, with "Copy resume command". Nothing when main recorded none (the identity note says
+ * how to find it then).
+ */
+export function AgentSessionDetails({ outcome }: { outcome: PaneAgentResume | undefined }): ReactElement | null {
+  if (!outcome || outcome.outcome === 'nothingRecorded') return null
+  const agent = AGENT[outcome.agent]
+  const state = outcome.outcome === 'resumed'
+    ? tc('agentResume.details.resumed')
+    : startedFresh(outcome) ? tc('agentResume.details.startedFresh') : tc('agentResume.details.notResumed', { reason: formatMainMessage(outcome.message) })
+  return <div className="pane-agent-session" data-testid="pane-agent-session">
+    <dl className="detail-list">
+      <div><dt>{tc('agentResume.details.label')}</dt><dd><code data-testid="pane-agent-session-id">{outcome.sessionId}</code> <span>({agent})</span></dd></div>
+      <div><dt>{tc('agentResume.details.state')}</dt><dd>{state}</dd></div>
+    </dl>
+    <Button size="sm" onClick={() => void copyText(resumeCommand(outcome.agent, outcome.sessionId), tc('agentResume.details.command'))}>{tc('agentResume.details.copy')}</Button>
+  </div>
 }

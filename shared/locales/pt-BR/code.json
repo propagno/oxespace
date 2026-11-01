@@ -1932,6 +1932,15 @@
     }
   },
   "agentResume": {
+    "details": {
+      "label": "Sessão do agente",
+      "state": "Retomada",
+      "resumed": "Retomada quando o painel iniciou",
+      "startedFresh": "Iniciada do zero, como você escolheu",
+      "notResumed": "Não retomada: {{reason}}",
+      "copy": "Copiar comando de retomada",
+      "command": "Comando de retomada"
+    },
     "resumedChip": "Sessão retomada",
     "resumedTitle": "Retomou a sessão anterior do {{agent}}",
     "notResumedChip": "Não retomada",

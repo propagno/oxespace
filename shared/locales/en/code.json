@@ -1861,6 +1861,15 @@
     }
   },
   "agentResume": {
+    "details": {
+      "label": "Agent session",
+      "state": "Resume",
+      "resumed": "Resumed when the pane started",
+      "startedFresh": "Started fresh, as you chose",
+      "notResumed": "Not resumed: {{reason}}",
+      "copy": "Copy resume command",
+      "command": "Resume command"
+    },
     "resumedChip": "Session resumed",
     "resumedTitle": "Resumed the earlier {{agent}} session",
     "notResumedChip": "Not resumed",
