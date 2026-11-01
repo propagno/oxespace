@@ -1,0 +1,34 @@
+{
+  "hold": "Segure para ditar",
+  "listening": "Ouvindo…",
+  "openSettings": "Abrir as configurações de fala",
+  "consentPlace": "Configurações › Voz",
+  "privacy": {
+    "osCloud": "O áudio é enviado ao serviço de fala da Microsoft",
+    "onDevice": "O áudio fica neste dispositivo"
+  },
+  "consent": {
+    "title": "Usar o serviço de fala da Microsoft?",
+    "body": "O ditado envia seu áudio ao serviço de fala da Microsoft para transformá-lo em texto. Nada é gravado enquanto você não segurar o botão ou o atalho. Você pode desligar isso em {{place}}.",
+    "allow": "Permitir",
+    "decline": "Agora não"
+  },
+  "error": {
+    "generic": "Não foi possível continuar o ditado. Tente de novo."
+  },
+  "unavailable": {
+    "unsupportedOs": "O ditado não está disponível neste sistema",
+    "consentRequired": "Para ditar, permita o serviço de fala da Microsoft.",
+    "speechPrivacyOff": "O reconhecimento de fala online está desligado nas configurações do sistema",
+    "noLanguage": "Nenhum idioma de ditado está instalado. Adicione um nas configurações de fala do sistema.",
+    "engineError": "Não foi possível usar o motor de fala agora. Tente de novo."
+  },
+  "settings": {
+    "title": "Voz",
+    "section": "Serviço de fala da Microsoft",
+    "description": "O ditado envia seu áudio ao serviço de fala da Microsoft para transformá-lo em texto.",
+    "toggle": "Usar o serviço de fala da Microsoft",
+    "off": "Desligado. O ditado volta a pedir permissão.",
+    "on": "Ligado."
+  }
+}

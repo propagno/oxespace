@@ -12,6 +12,7 @@ if (typeof window !== 'undefined') {
   await loadNamespace('oxequery')
   await loadNamespace('pods')
   await loadNamespace('post')
+  await loadNamespace('voice')
 }
 
 // jsdom intentionally omits Canvas. Returning null models a machine without

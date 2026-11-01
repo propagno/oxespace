@@ -1551,31 +1551,6 @@
     "openSupervisor": "Open supervisor",
     "cancel": "Cancel run"
   },
-  "voice": {
-    "hold": "Hold to dictate",
-    "listening": "Listening…",
-    "openSettings": "Open speech settings",
-    "privacy": {
-      "osCloud": "Audio is sent to Microsoft's speech service",
-      "onDevice": "Audio stays on this device"
-    },
-    "consent": {
-      "title": "Use Microsoft's speech service?",
-      "body": "Dictation sends your audio to Microsoft's speech service to turn it into text. Nothing is recorded until you hold the button.",
-      "allow": "Allow",
-      "decline": "Not now"
-    },
-    "error": {
-      "generic": "Dictation stopped. Try again."
-    },
-    "unavailable": {
-      "unsupportedOs": "Dictation is not available on this system",
-      "consentRequired": "Allow the speech service to dictate",
-      "speechPrivacyOff": "Online speech recognition is off in your system settings",
-      "noLanguage": "No dictation language is installed",
-      "engineError": "The speech engine is not working right now"
-    }
-  },
   "workbench": {
     "label": "OxeChat workbench",
     "panels": "Workbench panels",

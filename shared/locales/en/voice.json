@@ -1,0 +1,34 @@
+{
+  "hold": "Hold to dictate",
+  "listening": "Listening…",
+  "openSettings": "Open speech settings",
+  "consentPlace": "Settings › Voice",
+  "privacy": {
+    "osCloud": "Audio is sent to Microsoft's speech service",
+    "onDevice": "Audio stays on this device"
+  },
+  "consent": {
+    "title": "Use Microsoft's speech service?",
+    "body": "Dictation sends your audio to Microsoft's speech service to turn it into text. Nothing is recorded until you hold the button or the shortcut. You can turn this off in {{place}}.",
+    "allow": "Allow",
+    "decline": "Not now"
+  },
+  "error": {
+    "generic": "Couldn't continue dictating. Try again."
+  },
+  "unavailable": {
+    "unsupportedOs": "Dictation is not available on this system",
+    "consentRequired": "To dictate, allow Microsoft's speech service.",
+    "speechPrivacyOff": "Online speech recognition is off in your system settings",
+    "noLanguage": "No dictation language is installed. Add one in your system's speech settings.",
+    "engineError": "Couldn't use the speech engine right now. Try again."
+  },
+  "settings": {
+    "title": "Voice",
+    "section": "Microsoft speech service",
+    "description": "Dictation sends your audio to Microsoft's speech service to turn it into text.",
+    "toggle": "Use Microsoft's speech service",
+    "off": "Off. Dictation will ask again.",
+    "on": "On."
+  }
+}
