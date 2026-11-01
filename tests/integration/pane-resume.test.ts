@@ -1,6 +1,6 @@
 // B17 · Why the agent panes did not go back to their sessions after the crash of 31/10, one test per root cause, and
 // what each pane tells the window. No provider ever runs: the PTY is a fake and the transcripts are fake files.
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -55,8 +55,8 @@ function run(db: AppDatabase) {
   return { sessions, pty, terminals }
 }
 
-function workspace(db: AppDatabase, layout: '1x1' | '1x2' = '1x1') {
-  return new WorkspaceService(db).create({ rootPath: root, layout, autoStart: false })
+function workspace(db: AppDatabase, layout: '1x1' | '1x2' = '1x1', rootPath = root) {
+  return new WorkspaceService(db).create({ rootPath, layout, autoStart: false })
 }
 
 describe('root causes', () => {
@@ -132,6 +132,22 @@ describe('root causes', () => {
       expect(terminals.status(other.id).agentResume).toMatchObject({ outcome: 'notResumed', message: { code: 'agents.resume.otherAgent' } })
       await terminals.start({ workspaceId: ws.id, paneId: custom.id, agentCommand: 'claude', agentArgs: ['--model', 'x'], disableRtk: true, resumeAgent: true })
       expect(terminals.status(custom.id).agentResume).toMatchObject({ outcome: 'notResumed', message: { code: 'agents.resume.launchOverride' } })
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('HML FINDING M: a root stored through a link or a short name resumes the transcript Claude filed under the real path', async () => {
+    const alias = join(dir, 'alias')
+    symlinkSync(root, alias, process.platform === 'win32' ? 'junction' : 'dir')
+    const db = openInMemoryDatabase()
+    const ws = workspace(db, '1x1', alias)
+    new PaneAgentSessions(db).record(ws.panes[0].id, 'claude', A)
+    // Claude started in the pane sees the canonical path (8.3 names expanded, links resolved) as its cwd.
+    claudeTranscript(A, realpathSync.native(root))
+    const { pty, terminals } = run(db)
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.objectContaining({ cwd: alias }))
+      expect(terminals.status(ws.panes[0].id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: A })
     } finally { terminals.stopAll(); db.close() }
   })
 
