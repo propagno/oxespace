@@ -32,6 +32,7 @@ export interface MessageParams {
   'thread.protectedConfig.instructions': { path: string }
   'thread.protectedConfig.mcp': { path: string }
   'thread.protectedConfig.hooks': { path: string }
+  'thread.protectedConfig.git': { path: string }
   'thread.protectedConfig.warning': Record<string, never>
   /** B16: `command` rewrites tracked files without naming them (git checkout, tar x…), so it needs the person each time. */
   'thread.protectedConfig.rewritesTracked': { command: string }
@@ -370,6 +371,7 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.instructions',
   'thread.protectedConfig.mcp',
   'thread.protectedConfig.hooks',
+  'thread.protectedConfig.git',
   'thread.protectedConfig.warning',
   'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
