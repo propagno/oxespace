@@ -16,6 +16,7 @@
  * watcher: a rule takes effect only when it is read, and every read checks.
  */
 import { createHash, randomUUID } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { closeSync, openSync, statSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type { AppDatabase } from '../../db'
@@ -48,7 +49,7 @@ export interface Subject {
   path: string
 }
 
-export type AcceptedVia = 'app-write' | 'person-confirmed' | 'narrowed' | 'baseline-default'
+export type AcceptedVia = 'app-write' | 'person-confirmed' | 'narrowed' | 'baseline-default' | 'inherited'
 
 interface Row { hash: string; json: string; intent: string | null; rejected: string | null; via: AcceptedVia }
 
@@ -76,6 +77,8 @@ interface Pending {
   newJson: string
   /** No accepted row and nothing inherited: the baseline is the app's defaults. */
   firstSight: boolean
+  /** A worktree whose primary checkout cannot be resolved: the strict rule, with no first-sight leniency (review M4). */
+  strict: boolean
   inheritedFrom: string | null
   rejected: boolean
   /** A request ended without the person (expired, cancelled, refused): asked again at the next review point only. */
@@ -174,26 +177,56 @@ function firstSightInterim(file: PolicyChangeFile, current: AnyProjection): AnyP
 export const fileLabel = (subject: Pick<Subject, 'file' | 'layer' | 'path'>): string =>
   subject.file === 'oxe.yaml' ? 'oxe.yaml' : subject.layer === 'project' ? '.oxespace/policy.json' : basename(subject.path)
 
+/** Owners a managed policy may have on Windows: SYSTEM, Administrators, TrustedInstaller (SIDs, so any display language works). */
+const TRUSTED_OWNER_SIDS = new Set(['S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'])
+
+/** The owner SID of a file or folder on Windows, from PowerShell's Get-Acl (argv, no shell); null when it cannot be read. */
+export function windowsOwnerSid(path: string): string | null {
+  try {
+    const literal = path.replace(/'/g, "''")
+    const out = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+      `(Get-Acl -LiteralPath '${literal}').GetOwner([System.Security.Principal.SecurityIdentifier]).Value`], { encoding: 'utf8', timeout: 5_000, windowsHide: true })
+    return out.trim() || null
+  } catch {
+    return null
+  }
+}
+
+/** What the managed probe reads; tests pass stand-ins. */
+export interface ManagedProbeIo {
+  /** Whether this user can open the file to write, or create a file beside it. */
+  writable(path: string): boolean
+  ownerSid(path: string): string | null
+}
+
+const denied = (error: unknown) => ['EPERM', 'EACCES'].includes((error as NodeJS.ErrnoException)?.code ?? '')
+
+/** Opening the file `r+` or creating a probe file (`wx`, removed at once) in its folder; any doubt counts as writable. */
+function probeWritable(path: string): boolean {
+  try { closeSync(openSync(path, 'r+')); return true } catch (error) { if (!denied(error)) return true }
+  const probe = join(dirname(path), `.oxespace-probe-${randomUUID()}`)
+  try {
+    closeSync(openSync(probe, 'wx'))
+    try { unlinkSync(probe) } catch { /* left behind: an empty file of ours */ }
+    return true
+  } catch (error) { return !denied(error) }
+}
+
 /**
  * Whether the managed policy file is out of the user's reach, so an agent running as the user cannot have written it.
- * Linux/macOS: file and folder owned by root with no group or other write bit. Windows: opening the file to write, and
- * creating a file in its folder, are both refused. Anything else (or any doubt) is not protected.
+ * Linux/macOS: file and folder owned by root with no group or other write bit. Windows: this user cannot write the file
+ * or create one in its folder, AND both are owned by SYSTEM, Administrators or TrustedInstaller (a folder a user created
+ * is theirs, and its owner can take write back, review M3). Anything else, or any doubt, is not protected.
  */
-export function managedIsProtected(path: string, platform: NodeJS.Platform = process.platform): boolean {
-  const denied = (error: unknown) => ['EPERM', 'EACCES'].includes((error as NodeJS.ErrnoException)?.code ?? '')
+export function managedIsProtected(path: string, platform: NodeJS.Platform = process.platform, io: ManagedProbeIo = { writable: probeWritable, ownerSid: windowsOwnerSid }): boolean {
   try {
     if (platform !== 'win32') {
       const file = statSync(path)
       const folder = statSync(dirname(path))
       return file.uid === 0 && folder.uid === 0 && (file.mode & 0o022) === 0 && (folder.mode & 0o022) === 0
     }
-    try { closeSync(openSync(path, 'r+')); return false } catch (error) { if (!denied(error)) return false }
-    const probe = join(dirname(path), `.oxespace-probe-${randomUUID()}`)
-    try {
-      closeSync(openSync(probe, 'wx'))
-      try { unlinkSync(probe) } catch { /* left behind: an empty file of ours */ }
-      return false
-    } catch (error) { return denied(error) }
+    if (io.writable(path)) return false
+    return [path, dirname(path)].every(item => TRUSTED_OWNER_SIDS.has(io.ownerSid(item) ?? ''))
   } catch {
     return false
   }
@@ -240,12 +273,18 @@ export class AcceptedConfig {
       row = this.row(subject.id)
     }
     const base = this.baseline(subject, row)
+    // A worktree keeps its primary's version as its own from the first read, so editing or deleting its .git file
+    // later cannot reset it to the defaults or point it at another project (review M4).
+    if (!row && base.inheritedFrom) {
+      this.store(subject.id, { hash: base.hash, json: base.json, intent: null, rejected: null, via: 'inherited' })
+      row = this.row(subject.id)
+    }
     if (hash === base.hash) { this.drop(subject.id); return current }
     let entry = this.pending.get(subject.id)
     if (!entry || entry.newHash !== hash || entry.baseHash !== base.hash) {
       if (entry?.timer) clearTimeout(entry.timer)
       // A rewrite while a request waits keeps that request open: the next check re-issues it with the new content.
-      entry = { subject, baseHash: base.hash, baseJson: base.json, newHash: hash, newJson: JSON.stringify(current), firstSight: base.firstSight,
+      entry = { subject, baseHash: base.hash, baseJson: base.json, newHash: hash, newJson: JSON.stringify(current), firstSight: base.firstSight, strict: base.strict,
         inheritedFrom: base.inheritedFrom, rejected: row?.rejected === hash, deferred: false, forced: false, applied: [], notSplit: false }
       this.pending.set(subject.id, entry)
       if (!entry.rejected) this.schedule(entry)
@@ -364,24 +403,31 @@ export class AcceptedConfig {
   }
 
   /** A linked worktree's primary checkout (git's common dir), whose accepted version a worktree starts from. */
-  private primary(subject: Subject): { key: string; root: string } | null {
+  private primary(subject: Subject): { key: string; root: string } | 'unknown' | null {
     if (!subject.root) return null
     if (!this.primaries.has(subject.key)) {
       const common = gitCommonDir(subject.root)
       const root = common && basename(common) === '.git' ? dirname(common) : null
       const key = root ? this.projectKey(root) : null
-      this.primaries.set(subject.key, root && key && key !== subject.key ? { key, root } : null)
+      let found: { key: string; root: string } | 'unknown' | null = root && key && key !== subject.key ? { key, root } : null
+      // A .git file is a linked worktree; one that does not resolve to a repository is not a fresh project.
+      if (!found && !common) { try { if (statSync(join(subject.root, '.git')).isFile()) found = 'unknown' } catch { /* no .git: not a worktree */ } }
+      this.primaries.set(subject.key, found)
     }
     return this.primaries.get(subject.key) ?? null
   }
 
-  private baseline(subject: Subject, row: Row | undefined): { hash: string; json: string; projection: AnyProjection; firstSight: boolean; inheritedFrom: string | null } {
-    if (row) return { hash: row.hash, json: row.json, projection: JSON.parse(row.json) as AnyProjection, firstSight: false, inheritedFrom: null }
+  private baseline(subject: Subject, row: Row | undefined): { hash: string; json: string; projection: AnyProjection; firstSight: boolean; strict: boolean; inheritedFrom: string | null } {
+    if (row) {
+      const primary = row.via === 'inherited' ? this.primary(subject) : null
+      return { hash: row.hash, json: row.json, projection: JSON.parse(row.json) as AnyProjection, firstSight: false, strict: false, inheritedFrom: primary && primary !== 'unknown' ? primary.root : null }
+    }
     const primary = this.primary(subject)
-    const inherited = primary ? this.row(`${primary.key}\0${subject.file}`) : undefined
-    if (inherited && primary) return { hash: inherited.hash, json: inherited.json, projection: JSON.parse(inherited.json) as AnyProjection, firstSight: false, inheritedFrom: primary.root }
+    const known = primary && primary !== 'unknown' ? primary : null
+    const inherited = known ? this.row(`${known.key}\0${subject.file}`) : undefined
+    if (inherited && known) return { hash: inherited.hash, json: inherited.json, projection: JSON.parse(inherited.json) as AnyProjection, firstSight: false, strict: false, inheritedFrom: known.root }
     const projection = defaultProjection(subject.file)
-    return { hash: projectionHash(subject.file, projection), json: JSON.stringify(projection), projection, firstSight: true, inheritedFrom: null }
+    return { hash: projectionHash(subject.file, projection), json: JSON.stringify(projection), projection, firstSight: true, strict: primary === 'unknown', inheritedFrom: null }
   }
 
   private baselineRow(subject: Subject): Row {
@@ -478,7 +524,7 @@ export class AcceptedConfig {
       const base = JSON.parse(entry.baseJson) as AnyProjection
       const next = JSON.parse(entry.newJson) as AnyProjection
       if (!entry.verdict) {
-        entry.verdict = change.classify(entry.subject, base, next, entry.firstSight)
+        entry.verdict = change.classify(entry.subject, base, next, entry.firstSight && !entry.strict)
         if (entry.verdict.applies) {
           const pure = entry.verdict.tighten > 0 && !entry.firstSight
           if (this.compareAndSet(entry.subject, entry.baseHash, entry.newHash, entry.newJson, entry.firstSight ? 'baseline-default' : 'narrowed') && pure) {
@@ -488,7 +534,9 @@ export class AcceptedConfig {
         }
         // A mixed policy change: its pure narrowing applies now, when it splits exactly; the rest is asked against that.
         // One with a moved or edited rule cannot be split: nothing of it applies early, and the request says so.
-        if (entry.subject.file === 'policy' && !entry.firstSight && next.state === 'value') {
+        // At first sight too: the denies a first-seen file holds are in force while it is asked, so they are stored as
+        // the accepted version before asking, and Deny keeps them (review H1).
+        if (entry.subject.file === 'policy' && next.state === 'value') {
           const split = change.narrowingPart(base, next)
           if (!split) entry.notSplit = true
           else if (split.applied.length && entry.verdict.tighten > 0) {
@@ -525,7 +573,14 @@ export class AcceptedConfig {
     if (wait > 0) { this.schedule(entry, wait); return }
     this.lastAsked.set(id, this.now())
     const next = JSON.parse(entry.newJson) as AnyProjection
-    const text = change.requestText(entry.subject, next, this.deps.readText)
+    // Read once: the text shown must be the version an Allow records, or the request waits for the next read (review M2).
+    const shown = change.readShown(entry.subject, next, this.deps.readText)
+    if (shown === null) {
+      this.pending.delete(id)
+      this.version++
+      return
+    }
+    const text = shown
     const draft = await change.requestDraft(entry.subject, JSON.parse(entry.baseJson) as AnyProjection, next, text, this.context(entry))
     if (this.pending.get(id) !== entry) return
     // A rewrite while the request waits: the same request, the next generation (DESIGN #359: requests never stack).

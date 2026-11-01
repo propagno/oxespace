@@ -14,14 +14,14 @@ import type { Subject } from '../services/policy/accepted-config'
 import { effectiveToolConfig, toolConfigSubject } from '../services/policy/tool-config'
 import { OXE_YAML_FILE } from '../services/repo-config/parser'
 
-/** The first `max` characters of a file, without reading the rest (a policy file can be any size on disk). */
+/** The first `max` bytes of a file as text, without reading the rest (a policy file can be any size on disk). */
 function readHead(path: string, max: number): string | null {
   let fd: number | undefined
   try {
     fd = openSync(path, 'r')
-    const buffer = Buffer.alloc(max * 4)
+    const buffer = Buffer.alloc(max)
     const read = readSync(fd, buffer, 0, buffer.length, 0)
-    return buffer.subarray(0, read).toString('utf8').slice(0, max)
+    return buffer.subarray(0, read).toString('utf8')
   } catch { return null } finally { if (fd !== undefined) try { closeSync(fd) } catch { /* closed */ } }
 }
 

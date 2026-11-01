@@ -315,3 +315,73 @@ describe('B7.4 · the app\'s own writes', () => {
     expect(requests()).toHaveLength(0)
   })
 })
+
+describe('B7.4 · SECURITY review of #372', () => {
+  it('H1: at first sight the denies in force are the accepted version before asking, and Deny keeps them', async () => {
+    const { write, policyFile, read, requests, answer, store, root } = project()
+    write(policyFile, policyText(rule('deny', 'Bash'), { effect: 'allow', action: 'integration.use', resource: 'env:GITHUB_TOKEN' }))
+    expect(await read()).toContain('Bash')
+    const [request] = requests()
+    expect(request.summary.code).toBe('approvals.summary.policyChange.partial')
+    expect(request.risk).toBe('critical')
+    await answer('deny')
+    expect(await read()).toContain('Bash')
+    expect(store.load(root).sources[0].rules).toEqual([rule('deny', 'Bash')])
+  })
+
+  it('H2: a 127 KB policy whose widening line is last is cut by the center and offers Deny only, with that line first', async () => {
+    const { write, policyFile, read, requests } = await accepted()
+    const padding = Array.from({ length: 480 }, (_, index) => rule('allow', `mcp__padding_${index}_${'x'.repeat(170)}`))
+    const text = policyText(rule('deny', DB_EXECUTE), ...padding, { effect: 'allow', action: 'integration.use', resource: 'env:*' })
+    expect(text.length).toBeGreaterThan(110 * 1024)
+    expect(text.length).toBeLessThan(256 * 1024)
+    write(policyFile, text)
+    expect(await read()).toContain(DB_EXECUTE)
+    const [request] = requests()
+    expect(request.agentText).toMatchObject({ truncated: true, length: text.length })
+    expect(request.options.map(option => option.id)).toEqual(['deny'])
+    expect(request.risk).toBe('critical')
+    expect(request.appNotes[0]).toEqual({ code: 'approvals.note.policy.allowAdded', params: { rule: 'integration env:*' } })
+  })
+
+  it('M2: a file swapped between the read that found it and the one that shows it is never shown or accepted', async () => {
+    const { write, policyFile, read, requests, settle, root } = await accepted()
+    write(policyFile, policyText(rule('allow', '*')))
+    policyDeniedToolNames(root)
+    // Swapped before the request is built: the shown text would not be the version an Allow records.
+    write(policyFile, policyText(rule('deny', DB_EXECUTE), rule('deny', 'mcp__swapped')))
+    await settle()
+    expect(requests()).toHaveLength(0)
+    await read()
+    expect(await read()).toContain('mcp__swapped')
+    expect(requests()).toHaveLength(0)
+  })
+
+  it('M4: a worktree keeps its primary\'s version as its own, so deleting its .git file and restarting does not reset it', async () => {
+    const primary = temp('oxe-b74-repo-')
+    const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd, stdio: 'ignore' })
+    git(primary, 'init', '-q')
+    const first = await accepted({ root: primary })
+    git(primary, 'add', '.'); git(primary, 'commit', '-q', '-m', 'accepted')
+    const worktree = join(temp('oxe-b74-wt-'), 'kept')
+    git(primary, 'worktree', 'add', '-q', '-b', 'kept', worktree, 'HEAD')
+    expect(await first.read()).toContain(DB_EXECUTE)
+    expect(first.store.decide('tool.use', DB_EXECUTE, worktree).allowed).toBe(false)
+    await first.settle()
+    expect(first.db.prepare("SELECT accepted_via FROM accepted_project_config WHERE accepted_via = 'inherited'").all()).toHaveLength(1)
+    // The agent deletes the worktree's .git file; the app restarts (a new gate over the same database).
+    rmSync(join(worktree, '.git'), { force: true })
+    const gate = new AcceptedConfig({ db: first.db, quietMs: 0, reissueMs: 0, managedProtected: () => false })
+    const asked: string[] = []
+    gate.connect({ ask: async draft => { asked.push(draft.summary.code); return { intent: 'deny', optionId: 'deny', by: 'timeout' } } })
+    setAcceptedConfig(gate)
+    const store = new PolicyStore({ userData: first.userData, managed: first.managed })
+    setPolicyStore(store)
+    first.write(join(worktree, '.oxespace', 'policy.json'), policyText(rule('allow', 'mcp__oxespace__oxespace_db_*')))
+    expect(store.decide('tool.use', DB_EXECUTE, worktree).allowed).toBe(false)
+    await gate.idle()
+    expect(asked).toHaveLength(1)
+    expect(store.decide('tool.use', DB_EXECUTE, worktree).allowed).toBe(false)
+  })
+})
+

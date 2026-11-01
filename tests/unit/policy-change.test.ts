@@ -1,12 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 import type { PolicyRule } from '../../shared/policy'
-import { APPROVAL_KINDS_REMOTE_FORBIDDEN, APPROVAL_TIMEOUT_MS, remoteMayAnswer } from '../../shared/types/approvals'
+import { APPROVAL_AGENT_TEXT_MAX, APPROVAL_KINDS_REMOTE_FORBIDDEN, APPROVAL_TIMEOUT_MS, remoteMayAnswer } from '../../shared/types/approvals'
 import { REMOTE_FORBIDDEN } from '../../shared/remote/protocol'
 import { allowWithinDefaults, canMatchPrefix, changeRisk, classify, narrowingPart, noteLines, onlyNarrows, requestDraft, ruleKey, ruleParam } from '../../electron/main/services/policy/policy-change'
 import { canonicalJson, defaultModes, projectionHash, type AnyProjection, type ModesValue, type Subject } from '../../electron/main/services/policy/accepted-config'
 import { approvalTimeoutMs, APPROVAL_TIMEOUT_FLOOR_MS } from '../../electron/main/services/approvals/timeout'
-import { ApprovalCenter } from '../../electron/main/services/approvals/approval-center'
+import { ApprovalCenter, APPROVAL_REISSUE_HOLD_MS } from '../../electron/main/services/approvals/approval-center'
+import { managedIsProtected } from '../../electron/main/services/policy/accepted-config'
+import { readShown, safeName, SHOWN_READ_MAX } from '../../electron/main/services/policy/policy-change'
 
 vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
@@ -197,7 +199,8 @@ describe('the request (DESIGN #359)', () => {
 describe('re-issue: the same request, the next generation (DESIGN #359)', () => {
   it('keeps the id, raises the generation, refuses the old one and needs a new ack', async () => {
     const sent: unknown[] = []
-    const center = new ApprovalCenter({ send: (_channel, payload) => sent.push(payload), hasWindow: () => true, native: () => new Promise(() => undefined), ackTimeoutMs: 60_000 })
+    let clock = 1_000
+    const center = new ApprovalCenter({ send: (_channel, payload) => sent.push(payload), hasWindow: () => true, native: () => new Promise(() => undefined), ackTimeoutMs: 60_000, now: () => clock })
     const draft = { kind: 'policyChange' as const, requester: { kind: 'app' as const, id: 'oxespace', label: { code: 'approvals.requester.app' as const, params: {} } }, risk: 'high' as const,
       title: { code: 'approvals.title.policyChange' as const, params: {} }, summary: { code: 'approvals.summary.policyChange.widened' as const, params: { file: 'f' } }, appNotes: [], text: 'one', ackRequired: true,
       options: [{ id: 'deny', label: { code: 'approvals.option.deny' as const, params: {} }, intent: 'deny' as const }, { id: 'allowPolicy', label: { code: 'approvals.option.allowPolicy' as const, params: {} }, intent: 'allow' as const }], defaultOptionId: 'deny' }
@@ -210,6 +213,10 @@ describe('re-issue: the same request, the next generation (DESIGN #359)', () => 
     expect(center.respond({ id, generation: 1, optionId: 'allowPolicy' })).toMatchObject({ ok: false, refusal: 'staleGeneration' })
     expect(center.respond({ id, generation: 2, optionId: 'allowPolicy' })).toMatchObject({ ok: false, refusal: 'notShown' })
     center.ack({ id, generation: 2, visible: true, focused: true })
+    // The modal updated in place: Allow waits a moment, so a click meant for the old generation cannot land (review L3).
+    expect(next?.allowDelayMs).toBe(APPROVAL_REISSUE_HOLD_MS)
+    expect(center.respond({ id, generation: 2, optionId: 'allowPolicy' })).toMatchObject({ ok: false, refusal: 'tooSoon' })
+    clock += APPROVAL_REISSUE_HOLD_MS
     expect(center.respond({ id, generation: 2, optionId: 'allowPolicy' })).toMatchObject({ ok: true })
     await expect(outcome).resolves.toMatchObject({ intent: 'allow', optionId: 'allowPolicy', by: 'user' })
     expect(center.reissue(id, draft)).toBeNull()
@@ -239,3 +246,73 @@ describe('the phone never answers a policy change', () => {
     expect(remoteMayAnswer('action')).toBe(true)
   })
 })
+
+describe('SECURITY review of #372', () => {
+  const subject: Subject = { id: 'project:/r\0policy', key: 'project:/r', file: 'policy', layer: 'project', root: null, path: '/r/.oxespace/policy.json' }
+  const context = { shownBase: rules(deny('mcp__a')), applied: [], notSplit: false, inheritedFrom: null, liveSessions: 0 }
+
+  it('M1: lists an allow that reaches a secret first, even at position 9, and makes it critical', async () => {
+    const harmless = Array.from({ length: 9 }, (_, index) => allow(`mcp__tool${index}`))
+    const next = rules(deny('mcp__a'), ...harmless, allow('env:*', 'integration.use'))
+    const lines = noteLines(project, rules(deny('mcp__a')), next)
+    expect(lines[0].message).toEqual({ code: 'approvals.note.policy.allowAdded', params: { rule: 'integration env:*' } })
+    expect(changeRisk(project, next)).toBe('critical')
+    expect(changeRisk(project, rules(deny('a'), allow('net:*', 'integration.use')))).toBe('critical')
+    expect(changeRisk(project, rules(deny('a'), allow('**')))).toBe('critical')
+    const draft = await requestDraft(subject, rules(deny('mcp__a')), next, '', context)
+    expect(draft.appNotes[0]).toEqual({ code: 'approvals.note.policy.allowAdded', params: { rule: 'integration env:*' } })
+    expect(draft.risk).toBe('critical')
+  })
+
+  it('H2: a file longer than a person reviews goes whole to the center, which cuts it and offers Deny only', async () => {
+    const padding = Array.from({ length: 480 }, (_, index) => allow(`mcp__padding_tool_number_${index}_${'x'.repeat(150)}`))
+    const next = rules(deny('mcp__a'), ...padding, allow('env:*', 'integration.use'))
+    const text = JSON.stringify((next as { value: unknown }).value, null, 2)
+    expect(text.length).toBeGreaterThan(APPROVAL_AGENT_TEXT_MAX)
+    expect(text.endsWith('}')).toBe(true)
+    const draft = await requestDraft(subject, rules(deny('mcp__a')), next, text, context)
+    expect(draft.cutLongText).toBe(true)
+    expect(draft.appNotes.map(note => note.code)).toContain('approvals.note.textCut')
+    const center = new ApprovalCenter({ send: () => undefined, hasWindow: () => true, native: () => new Promise(() => undefined), ackTimeoutMs: 60_000 })
+    void center.ask(draft)
+    const [request] = center.list()
+    expect(request.agentText).toMatchObject({ truncated: true, length: text.length })
+    expect(request.options.map(option => option.id)).toEqual(['deny'])
+    expect(request.risk).toBe('critical')
+  })
+
+  it('M2: shows the text only when it is the version being accepted', () => {
+    const accepted = rules(deny('mcp__a'), allow('env:*', 'integration.use'))
+    const sameFile = JSON.stringify((accepted as { value: unknown }).value)
+    expect(readShown(subject, accepted, () => sameFile)).toBe(sameFile)
+    // Swapped between the read that found the change and the one that shows it: not shown, and nothing can accept it.
+    expect(readShown(subject, accepted, () => JSON.stringify({ rules: [{ effect: 'deny', action: 'tool.use', resource: 'mcp__a' }] }))).toBeNull()
+    expect(readShown(subject, accepted, () => null)).toBeNull()
+    let asked = 0
+    readShown(subject, accepted, (_path, max) => { asked = max; return sameFile })
+    expect(asked).toBe(SHOWN_READ_MAX)
+    expect(readShown(subject, { state: 'absent' }, () => 'anything')).toBe('')
+  })
+
+  it('M3: on Windows the managed file is protected only when nobody here can write it and SYSTEM, Administrators or TrustedInstaller own it', () => {
+    const io = (writable: boolean, owner: string | null) => ({ writable: () => writable, ownerSid: () => owner })
+    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(false, 'S-1-5-18'))).toBe(true)
+    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(false, 'S-1-5-32-544'))).toBe(true)
+    // A folder a user created is theirs: denying themselves write with icacls does not make it the organization's.
+    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(false, 'S-1-5-21-1111-2222-3333-1001'))).toBe(false)
+    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(false, null))).toBe(false)
+    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(true, 'S-1-5-18'))).toBe(false)
+    let folderOwner = 'S-1-5-18'
+    const mixed = { writable: () => false, ownerSid: (path: string) => (path.endsWith('policy.json') ? 'S-1-5-18' : folderOwner) }
+    folderOwner = 'S-1-5-21-1-2-3-1001'
+    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', mixed)).toBe(false)
+  })
+
+  it('L1: an agent-chosen worktree name reaches the app\'s text only in the identifier alphabet', async () => {
+    expect(safeName('wt\u202eexe.txt "Allow"')).toBe('wt?exe.txt??Allow?')
+    const draft = await requestDraft({ ...subject, root: '/p/wt\u202e x' }, rules(deny('a')), rules(allow('b')), '', { ...context, inheritedFrom: '/p/main' })
+    expect(draft.summary.params).toMatchObject({ worktree: 'wt??x' })
+    expect(draft.target).not.toMatch(/[\u202e ]/)
+  })
+})
+

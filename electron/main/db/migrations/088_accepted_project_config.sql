@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS accepted_project_config (
   projection_json TEXT NOT NULL,
   intent_hash TEXT,
   rejected_hash TEXT,
-  accepted_via TEXT NOT NULL CHECK (accepted_via IN ('app-write', 'person-confirmed', 'narrowed', 'baseline-default')),
+  accepted_via TEXT NOT NULL CHECK (accepted_via IN ('app-write', 'person-confirmed', 'narrowed', 'baseline-default', 'inherited')),
   accepted_at INTEGER NOT NULL CHECK (accepted_at >= 0),
   PRIMARY KEY (subject, file)
 );

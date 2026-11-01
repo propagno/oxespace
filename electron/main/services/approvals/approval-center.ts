@@ -25,6 +25,11 @@ export type ApprovalDraft = Omit<ApprovalRequest, 'schemaVersion' | 'id' | 'gene
   text: string
   /** Defaults to true for an agent or an MCP server, false for the app's own prompts. */
   ackRequired?: boolean
+  /**
+   * B7.4 · The text is a file to review, which may be longer than a person reads here: instead of refusing it, the center
+   * cuts it (`truncated: true`) and offers deny options only, at any risk.
+   */
+  cutLongText?: boolean
 }
 
 export interface ApprovalOutcome {
@@ -73,6 +78,13 @@ interface Entry {
 }
 
 const ANSWERED_MEMORY = 1_000
+/** A re-issued generation updates the modal in place: Allow waits this long after it is shown, so a click meant for the old one cannot land on it (B7.4 review L3). */
+export const APPROVAL_REISSUE_HOLD_MS = 1_000
+
+function pacing(risk: ApprovalRequest['risk'], generation: number): { allowDelayMs: number; enterDisabled: boolean } {
+  const base = approvalPacing(risk)
+  return generation > 1 ? { ...base, allowDelayMs: Math.max(base.allowDelayMs, APPROVAL_REISSUE_HOLD_MS) } : base
+}
 
 export class ApprovalCenter {
   private readonly pending = new Map<string, Entry>()
@@ -90,7 +102,7 @@ export class ApprovalCenter {
   ask(draft: ApprovalDraft, signal?: AbortSignal, onAsked?: (request: ApprovalRequest) => void): Promise<ApprovalOutcome> {
     const now = this.now()
     const request = this.build(draft, now, randomUUID(), 1)
-    if (agentTextAdmission(request.agentText.length, request.risk) === 'refuse') return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.tooLong', { max: APPROVAL_AGENT_TEXT_MAX })))
+    if (agentTextAdmission(request.agentText.length, request.risk) === 'refuse' && !draft.cutLongText) return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.tooLong', { max: APPROVAL_AGENT_TEXT_MAX })))
     const max = this.deps.queueMax ?? APPROVAL_QUEUE_MAX
     if (this.pending.size >= max) return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.queueFull', { max })))
     const problems = approvalRequestProblems(request)
@@ -118,7 +130,7 @@ export class ApprovalCenter {
     if (!entry || entry.reported || entry.native) return null
     const now = this.now()
     const request = this.build(draft, now, id, entry.request.generation + 1)
-    if (agentTextAdmission(request.agentText.length, request.risk) === 'refuse' || approvalRequestProblems(request).length) return null
+    if ((agentTextAdmission(request.agentText.length, request.risk) === 'refuse' && !draft.cutLongText) || approvalRequestProblems(request).length) return null
     for (const timer of entry.timers) clearTimeout(timer)
     entry.timers = []
     entry.request = request
@@ -130,7 +142,7 @@ export class ApprovalCenter {
   }
 
   private build(draft: ApprovalDraft, now: number, id: string, generation: number): ApprovalRequest {
-    const { text, ackRequired, ...given } = draft
+    const { text, ackRequired, cutLongText: _cut, ...given } = draft
     // R2: bidi controls or invisible characters make the shown text differ from what runs; the text stays verbatim.
     const hidden = hasHiddenCharacters(text)
     const shown = hidden
@@ -145,7 +157,7 @@ export class ApprovalCenter {
       // (deny-only when critical): a missing panel is the same case as no window. Only the app's own prompts may wait.
       ...shown, schemaVersion: APPROVAL_SCHEMA_VERSION, id, generation, agentText, options,
       ackRequired: ackRequired ?? shown.requester.kind !== 'app',
-      ...approvalPacing(shown.risk), createdAt: now, expiresAt: now + (this.deps.timeoutMs ?? APPROVAL_TIMEOUT_MS)
+      ...pacing(shown.risk, generation), createdAt: now, expiresAt: now + (this.deps.timeoutMs ?? APPROVAL_TIMEOUT_MS)
     }
   }
 

@@ -146,7 +146,19 @@ export function ruleParam(rule: PolicyRule): string {
   return `${kind} ${pattern.length > 120 ? `${pattern.slice(0, 119)}…` : pattern}`
 }
 
-export interface NoteLine { widens: boolean; message: MainMessage }
+/**
+ * `severity` orders the lines (review M1): 0 an allow that can reach a secret (`env:`) or the network (`net:`), 1 a
+ * wildcard allow, a removed deny or an edited rule, 2 any other wider line, 3 a stricter one. The most dangerous lines
+ * always make the 8 listed.
+ */
+export interface NoteLine { widens: boolean; severity: number; message: MainMessage }
+
+/** An allow that can reach a secret or the network: always listed first, and critical. */
+export function reachesSecretOrNetwork(rule: PolicyRule): boolean {
+  return rule.effect === 'allow' && rule.action === 'integration.use' && (canMatchPrefix(rule.resource, 'env:') || canMatchPrefix(rule.resource, 'net:'))
+}
+
+const allowSeverity = (rule: PolicyRule) => reachesSecretOrNetwork(rule) ? 0 : rule.resource.includes('*') ? 1 : 2
 
 /** The diff as C3 notes, from the version shown as accepted to the new one; `.applied` only on what really is in force. */
 export function noteLines(subject: Pick<Subject, 'file'>, shownBase: AnyProjection, next: AnyProjection, applied: readonly string[] = []): NoteLine[] {
@@ -159,14 +171,14 @@ export function noteLines(subject: Pick<Subject, 'file'>, shownBase: AnyProjecti
       const to = after[group]?.mode ?? 'on-demand'
       if (from === to) continue
       const widens = RANK[to] > RANK[from]
-      lines.push({ widens, message: mainMessage(widens ? 'approvals.note.policy.groupRaised' : 'approvals.note.policy.groupLowered', { group, from, to }) })
+      lines.push({ widens, severity: widens ? 2 : 3, message: mainMessage(widens ? 'approvals.note.policy.groupRaised' : 'approvals.note.policy.groupLowered', { group, from, to }) })
     }
   } else if (next.state !== 'invalid') {
     const old = rulesOf(shownBase)
     const rules = rulesOf(next)
     const sorted = (list: PolicyRule[]) => list.map(ruleKey).sort().join('\n')
     if (old.length && sorted(old) === sorted(rules) && old.map(ruleKey).join('\n') !== rules.map(ruleKey).join('\n')) {
-      lines.push({ widens: true, message: mainMessage('approvals.note.policy.reordered', { count: rules.length }) })
+      lines.push({ widens: true, severity: 1, message: mainMessage('approvals.note.policy.reordered', { count: rules.length }) })
     } else {
       const ops = alignRules(old, rules)
       const paired = new Map<number, number>()
@@ -177,19 +189,20 @@ export function noteLines(subject: Pick<Subject, 'file'>, shownBase: AnyProjecti
         const pair = paired.get(index)
         if (pair === -1) return
         if (pair !== undefined) {
-          lines.push({ widens: true, message: mainMessage('approvals.note.policy.ruleEdited', { from: ruleParam(rule), to: ruleParam(ops[pair].rule) }) })
+          lines.push({ widens: true, severity: Math.min(1, allowSeverity(ops[pair].rule)), message: mainMessage('approvals.note.policy.ruleEdited', { from: ruleParam(rule), to: ruleParam(ops[pair].rule) }) })
           return
         }
         const param = { rule: ruleParam(rule) }
         const inForce = done.has(ruleKey(rule))
-        if (op === 'add' && rule.effect === 'allow') lines.push({ widens: true, message: mainMessage('approvals.note.policy.allowAdded', param) })
-        else if (op === 'remove' && rule.effect === 'deny') lines.push({ widens: true, message: mainMessage('approvals.note.policy.denyRemoved', param) })
-        else if (op === 'add') lines.push({ widens: false, message: mainMessage(inForce ? 'approvals.note.policy.denyAdded.applied' : 'approvals.note.policy.denyAdded.waiting', param) })
-        else lines.push({ widens: false, message: mainMessage(inForce ? 'approvals.note.policy.allowRemoved.applied' : 'approvals.note.policy.allowRemoved.waiting', param) })
+        if (op === 'add' && rule.effect === 'allow') lines.push({ widens: true, severity: allowSeverity(rule), message: mainMessage('approvals.note.policy.allowAdded', param) })
+        else if (op === 'remove' && rule.effect === 'deny') lines.push({ widens: true, severity: 1, message: mainMessage('approvals.note.policy.denyRemoved', param) })
+        else if (op === 'add') lines.push({ widens: false, severity: 3, message: mainMessage(inForce ? 'approvals.note.policy.denyAdded.applied' : 'approvals.note.policy.denyAdded.waiting', param) })
+        else lines.push({ widens: false, severity: 3, message: mainMessage(inForce ? 'approvals.note.policy.allowRemoved.applied' : 'approvals.note.policy.allowRemoved.waiting', param) })
       })
     }
   }
-  return [...lines.filter(item => item.widens), ...lines.filter(item => !item.widens)]
+  // A stable sort: the file's order within each severity.
+  return lines.map((line, index) => ({ line, index })).sort((a, b) => a.line.severity - b.line.severity || a.index - b.index).map(({ line }) => line)
 }
 
 /** Whether a change applies at once (only tightens, or changes nothing that grants), with its counts. */
@@ -223,7 +236,8 @@ export function changeRisk(subject: Pick<Subject, 'file'>, next: AnyProjection):
   }
   if (next.state === 'invalid') return 'high'
   const rules = rulesOf(next)
-  return !rules.some(rule => rule.effect === 'deny') || rules.some(rule => rule.effect === 'allow' && rule.resource.trim() === '*') ? 'critical' : 'high'
+  // No deny left, an allow of everything (any resource made only of `*`), or one that can reach a secret or the network.
+  return !rules.some(rule => rule.effect === 'deny') || rules.some(rule => rule.effect === 'allow' && /^\*+$/.test(rule.resource.trim())) || rules.some(reachesSecretOrNetwork) ? 'critical' : 'high'
 }
 
 /** OXESpace tools a policy layer denied before and does not deny after (names from the app's registry). */
@@ -256,11 +270,25 @@ async function committed(subject: Subject, next: AnyProjection): Promise<boolean
   }
 }
 
-/** The request's text: the file as it is now (untrusted), bounded under APPROVAL_AGENT_TEXT_MAX; empty when deleted. */
-export function requestText(subject: Pick<Subject, 'path'>, next: AnyProjection, read?: (path: string, max: number) => string | null): string {
-  if (next.state === 'absent' || !read) return ''
-  return read(subject.path, APPROVAL_AGENT_TEXT_MAX - 1) ?? ''
+/** The most read of a gated file for its request: one byte past the store's limit, so a larger file reads as too large. */
+export const SHOWN_READ_MAX = MAX_POLICY_BYTES + 1
+
+/**
+ * The request's text, read once (review M2): the file as it is now, whole up to the store's limit, so a file longer than
+ * a person reviews is cut by the center and offered Deny only (review H2). Null when what was read is not the version
+ * the request would record, so it is not shown; the next read asks about what is there. Empty when deleted.
+ */
+export function readShown(subject: Pick<Subject, 'path' | 'file' | 'layer'>, next: AnyProjection, read?: (path: string, max: number) => string | null): string | null {
+  if (next.state === 'absent') return ''
+  if (!read) return ''
+  // A file that is gone reads as such (a deleted oxe.yaml is the defaults), and is compared like any other read.
+  const text = read(subject.path, SHOWN_READ_MAX)
+  const shown = subject.file === 'policy' ? parsePolicyProjection(text, subject.layer, subject.path).projection : parseModesProjection(text)
+  return projectionHash(subject.file, shown) === projectionHash(subject.file, next) ? text ?? '' : null
 }
+
+/** Text from an agent-chosen name (a worktree folder) for the app's own words: the identifier alphabet only (review L1). */
+export const safeName = (value: string): string => value.replace(/[^A-Za-z0-9_.:/@-]/g, '?').slice(0, 120)
 
 const sizeLabel = (bytes: number) => bytes >= 1024 * 1024 ? `${Math.round(bytes / (1024 * 1024))} MB` : `${Math.round(bytes / 1024)} KB`
 const folderName = (path: string) => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? path
@@ -269,11 +297,11 @@ const folderName = (path: string) => path.replace(/[\\/]+$/, '').split(/[\\/]/).
 export async function requestDraft(subject: Subject, base: AnyProjection, next: AnyProjection, text: string, context: ChangeContext): Promise<ApprovalDraft> {
   const file = fileLabel(subject)
   const primary = subject.root ? context.inheritedFrom : null
-  const target = primary ? relative(primary, subject.path).replace(/\\/g, '/') : subject.layer === 'project' ? file : subject.path
+  const target = primary ? safeName(relative(primary, subject.path).replace(/\\/g, '/')) : subject.layer === 'project' ? file : subject.path
   const summary = next.state === 'absent' ? mainMessage('approvals.summary.policyChange.deleted', { file })
     : next.state === 'invalid' && next.tooLarge ? mainMessage('approvals.summary.policyChange.tooLarge', { file, max: sizeLabel(MAX_POLICY_BYTES) })
       : next.state === 'invalid' ? mainMessage('approvals.summary.policyChange.invalid', { file })
-        : primary && subject.root ? mainMessage('approvals.summary.policyChange.worktree', { worktree: folderName(subject.root), file })
+        : primary && subject.root ? mainMessage('approvals.summary.policyChange.worktree', { worktree: safeName(folderName(subject.root)), file })
           : context.applied.length ? mainMessage('approvals.summary.policyChange.partial', { file })
             : mainMessage('approvals.summary.policyChange.widened', { file })
   // DESIGN's order (#372): wider lines, what agents could then use, stricter lines, a reorder, the rest; then
@@ -290,6 +318,8 @@ export async function requestDraft(subject: Subject, base: AnyProjection, next: 
   notes.push(...shown.filter(line => !line.widens).map(line => line.message), ...shown.filter(isReorder).map(line => line.message))
   if (lines.length > MAX_NOTE_LINES) notes.push(mainMessage('approvals.note.policy.more', { count: lines.length - MAX_NOTE_LINES }))
   if (context.notSplit) notes.push(mainMessage('approvals.note.policy.notSplit', {}))
+  // Longer than a person reviews here: the center cuts it and offers Deny only (cutLongText).
+  if ([...text].length > APPROVAL_AGENT_TEXT_MAX) notes.push(mainMessage('approvals.note.textCut', { max: APPROVAL_AGENT_TEXT_MAX }))
   if (next.state === 'invalid' && next.problem) notes.push(mainMessage('approvals.note.policy.problem', { problem: next.problem.slice(0, 200) }))
   if (next.state === 'absent') notes.push(mainMessage('approvals.note.policy.noText', {}))
   const atHead = await committed(subject, next).catch(() => null)
@@ -313,6 +343,7 @@ export async function requestDraft(subject: Subject, base: AnyProjection, next: 
     text,
     // The text is the file's, written by someone else: the window must show it, or it goes native.
     ackRequired: true,
+    cutLongText: true,
     options: allow ? [DENY, { id: 'allowPolicy', label: mainMessage('approvals.option.allowPolicy', {}), intent: 'allow' }] : [DENY],
     defaultOptionId: DENY.id
   }

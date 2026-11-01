@@ -61,6 +61,14 @@ describe('B7.4 · the gated files have one reader each', () => {
     expect(outside(allowed, text => writes(text) && namesGated(text))).toEqual([])
   })
 
+  it('makes any remote consumer of the approval center filter requests with remoteMayAnswer (review L4)', () => {
+    // The phone has no path to center requests today; one that is added must not offer a policyChange (policy.edit).
+    const remote = sources.filter(({ path, text }) => /remote/i.test(path) && /approvalCenter|ApprovalCenter|approvals\.(list|onRequested|respond)/.test(text))
+    expect(remote.filter(({ text }) => !/remoteMayAnswer\(/.test(text)).map(({ path }) => path)).toEqual([])
+    const protocol = readFileSync(join('shared', 'remote', 'protocol.ts'), 'utf8')
+    expect(protocol).not.toMatch(/approvals\./)
+  })
+
   it('never offers accepting a change as an MCP tool or a phone command', async () => {
     const { FORBIDDEN_CAPABILITIES, MCP_COVERAGE } = await import('../../shared/mcp-coverage')
     expect(FORBIDDEN_CAPABILITIES).toContain('policy.accept_change')
