@@ -49,7 +49,7 @@ async function openTab(service: InstanceType<typeof BrowserPreviewService>, acti
 
 /** What the window's effect does after any tab change: re-send its state for every tab, with no grant. */
 function rendererResync(service: InstanceType<typeof BrowserPreviewService>, agentAccess: boolean): void {
-  for (const tab of service.tabsFor(window, OWNER)) service.setAccess(window, { ownerKey: OWNER, tabId: tab.id, agentAccess, allowExternal: false })
+  for (const tab of service.tabsFor(window, OWNER)) if (tab.url) service.setAccess(window, { ownerKey: OWNER, tabId: tab.id, agentAccess, allowExternal: false })
 }
 
 describe('T43 · agent access to the preview: main decides, the window asks or reflects', () => {
@@ -66,6 +66,29 @@ describe('T43 · agent access to the preview: main decides, the window asks or r
     // Turning it off from the window always applies.
     expect(service.setAccess(window, { ownerKey: OWNER, tabId: tab, agentAccess: false, allowExternal: false })).toEqual({ agentAccess: false })
     expect(service.activeFor(OWNER)).toBeNull()
+  })
+
+  it('a revoke reaches an owner with no open tab, so reopening the panel does not bring access back (review M1)', async () => {
+    const service = new BrowserPreviewService()
+    const tab = await openTab(service, 'open', true)
+    service.setAccess(window, { ownerKey: OWNER, tabId: tab, agentAccess: true, allowExternal: false, grant: true })
+    service.session(window, { ownerKey: OWNER, action: 'close', tabId: tab })
+    expect(service.revokeAgentAccess({ workspaceId: OWNER })).toBe(1)
+    // The panel opens again with the window's "on" still set, mounting a tab and re-sending.
+    const reopened = await openTab(service, 'new', true)
+    rendererResync(service, true)
+    expect(service.hasAgentAccess(window, OWNER)).toBe(false)
+    expect(service.activeFor(OWNER)).toBeNull()
+    expect(service.setAccess(window, { ownerKey: OWNER, tabId: reopened, agentAccess: true, allowExternal: false })).toEqual({ agentAccess: false })
+  })
+
+  it('a grant made before any tab mounted is cleared by a workspace revoke (its workspace is not known yet)', () => {
+    const service = new BrowserPreviewService()
+    service.session(window, { ownerKey: 'thread:t1', action: 'open' })
+    service.setAccess(window, { ownerKey: 'thread:t1', tabId: '00000000-0000-0000-0000-000000000000', agentAccess: true, allowExternal: false, grant: true })
+    expect(service.hasAgentAccess(window, 'thread:t1')).toBe(true)
+    expect(service.revokeAgentAccess({ workspaceId: OWNER })).toBe(1)
+    expect(service.hasAgentAccess(window, 'thread:t1')).toBe(false)
   })
 
   it('a revoke from main holds through tab changes and the window\'s re-sends, until the person grants again', async () => {

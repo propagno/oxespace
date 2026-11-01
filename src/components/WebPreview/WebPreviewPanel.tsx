@@ -141,7 +141,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   }, [designMode, guestReady, previewKey, activeTabId])
 
   useEffect(() => {
-    for (const tab of tabs) if (tab.url) void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentDocumentation,allowExternal}).catch(() => {})
+    // Main answers what applies (T43): if it says off, the toggle shows off, and turning it on asks the person again.
+    for (const tab of tabs) if (tab.url) void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentDocumentation,allowExternal})
+      .then(result => { if (agentDocumentation && result?.agentAccess === false) setAgentDocumentation(false) }).catch(() => {})
   }, [tabs, previewKey, agentDocumentation, allowExternal])
 
   const toggleDesignMode = useCallback((): void => {
