@@ -237,7 +237,7 @@
         "previewAutomation": "Ação do agente no navegador",
         "crash": "O OXESpace encontrou um erro inesperado",
         "policyChange": "As regras do projeto mudaram fora do OXESpace",
-        "policyChangeUser": "As suas regras mudaram fora do OXESpace",
+        "policyChangeUser": "Suas regras mudaram fora do OXESpace",
         "policyChangeManaged": "As regras da organização mudaram neste computador"
       },
       "summary": {
@@ -348,18 +348,25 @@
             "waiting": "− Deixa de ser permitido: {{rule}}"
           },
           "groupLowered": "↓ Ferramentas de {{group}}: {{from}} → {{to}}",
-          "reordered": "~ A ordem de {{count}} regras mudou; a regra mais abaixo decide",
+          "reordered": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
           "more": "e mais {{count}} alterações no arquivo abaixo",
           "notSplit": "Esta alteração não pode ser separada em partes mais rígidas e mais amplas, então nada dela vale até você decidir.",
           "stillAccepted": "Negar mantém as regras que você aceitou. O OXESpace não altera o arquivo.",
-          "allowEffect": "Permitir aplica o arquivo inteiro como está agora. O OXESpace não altera o arquivo.",
+          "allowEffect": "Permitir aplica o arquivo inteiro como está agora.",
           "noText": "O arquivo não existe mais.",
           "problem": "Erro: {{problem}}",
-          "usable": "Passariam a poder ser usadas: {{tools}}",
-          "committed": "O arquivo é igual à versão commitada no git.",
-          "uncommitted": "O arquivo não é a versão commitada no git.",
-          "liveSessions": "{{count}} sessão(ões) de agente deste projeto estavam rodando quando a mudança foi encontrada.",
-          "managedNotProtected": "Pessoas neste computador conseguem gravar na pasta de política da organização, então as mudanças nela também são perguntadas."
+          "usable": "Os agentes passariam a poder usar: {{tools}}",
+          "committed": "O arquivo é igual à versão commitada no Git.",
+          "uncommitted": "O arquivo é diferente da versão commitada no Git.",
+          "liveSessions": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "managedNotProtected": "Qualquer pessoa neste computador pode gravar na pasta de política da organização, então você também confirma as mudanças nela.",
+          "reordered_one": "~ A ordem de {{count}} regra mudou, e a última regra que se aplica decide",
+          "reordered_many": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
+          "reordered_other": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
+          "usableMore": "Os agentes passariam a poder usar: {{tools}} e mais {{more}}",
+          "liveSessions_one": "{{count}} sessão de agente deste projeto estava rodando quando a mudança foi detectada.",
+          "liveSessions_many": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "liveSessions_other": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada."
         }
       },
       "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
@@ -484,9 +491,9 @@
       },
       "change": {
         "pending": "Uma alteração nas regras deste projeto está esperando sua resposta. Responda antes de mudar esta configuração.",
-        "baseChanged": "As regras mudaram desde que isto foi mostrado. Será perguntado de novo com a versão atual.",
-        "notPending": "Esta alteração nas regras não está mais esperando resposta.",
-        "notApplicable": "Este arquivo não pode ser aplicado como está. Corrija, ou mantenha as regras aceitas."
+        "baseChanged": "As regras mudaram de novo desde que isto apareceu. O pedido volta com a versão atual.",
+        "notPending": "Esta alteração nas regras não está mais esperando sua resposta.",
+        "notApplicable": "Este arquivo não pode ser aplicado como está. Corrija o arquivo ou mantenha as regras aceitas."
       }
     }
   }

@@ -118,6 +118,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.note.policy.noText': [],
   'approvals.note.policy.problem': ['problem'],
   'approvals.note.policy.usable': ['tools'],
+  'approvals.note.policy.usableMore': ['more', 'tools'],
   'approvals.note.policy.committed': [],
   'approvals.note.policy.uncommitted': [],
   'approvals.note.policy.liveSessions': ['count'],
@@ -287,7 +288,9 @@ describe('C3 message codes', () => {
 
   it('keeps catalog keys under messages.* to codes that exist', () => {
     const leaves = (node: unknown, path: string[]): string[] => typeof node === 'string' ? [path.join('.')] : Object.entries(node as object).flatMap(([key, child]) => leaves(child, [...path, key]))
-    for (const catalog of [en, ptBR]) expect(leaves(catalog.messages, []).filter(code => !isMessageCode(code))).toEqual([])
+    // A plural form (`<code>_one`, `_many`, `_other`…, B7.4) belongs to its code; the code itself keeps a plain form.
+    const code = (key: string) => key.replace(/_(zero|one|two|few|many|other)$/, '')
+    for (const catalog of [en, ptBR]) expect(leaves(catalog.messages, []).filter(key => !isMessageCode(code(key)))).toEqual([])
   })
 
   it('gives every refusal of a pending answer its own code', () => {

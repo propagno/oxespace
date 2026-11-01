@@ -144,7 +144,7 @@ describe('the request (DESIGN #359)', () => {
     expect(draft.summary).toEqual({ code: 'approvals.summary.policyChange.widened', params: { file: '.oxespace/policy.json' } })
     expect(draft.options.map(option => option.id)).toEqual(['deny', 'allowPolicy'])
     expect(draft.appNotes.map(note => note.code)).toEqual(expect.arrayContaining(['approvals.note.policy.allowAdded', 'approvals.note.policy.denyRemoved', 'approvals.note.policy.liveSessions', 'approvals.note.policy.stillAccepted']))
-    expect(draft.appNotes.at(-1)?.code).toBe('approvals.note.policy.stillAccepted')
+    expect(draft.appNotes.slice(-2).map(note => note.code)).toEqual(['approvals.note.policy.stillAccepted', 'approvals.note.policy.allowEffect'])
   })
 
   it('is Deny only for an invalid or too large file, and names the variant', async () => {
@@ -166,6 +166,19 @@ describe('the request (DESIGN #359)', () => {
     const draft = await requestDraft(subject, rules(), many, '', { ...context, shownBase: rules() })
     expect(draft.appNotes.filter(note => note.code === 'approvals.note.policy.allowAdded')).toHaveLength(8)
     expect(draft.appNotes).toContainEqual({ code: 'approvals.note.policy.more', params: { count: 4 } })
+  })
+
+  it('orders the notes as DESIGN asks and names at most 5 tools agents could then use (#372)', async () => {
+    const draft = await requestDraft(subject, rules(deny('mcp__oxespace__*'), allow('mcp__z')), rules(deny('mcp__a')), '', { ...context, shownBase: rules(deny('mcp__oxespace__*'), allow('mcp__z')) })
+    const order = draft.appNotes.map(note => note.code)
+    const usable = draft.appNotes.find(note => note.code === 'approvals.note.policy.usableMore')
+    expect(usable?.params).toMatchObject({ more: expect.any(Number) })
+    expect((usable?.params as { tools: string[] }).tools).toHaveLength(5)
+    const at = (code: string) => order.indexOf(code)
+    expect(at('approvals.note.policy.denyRemoved')).toBeLessThan(at('approvals.note.policy.usableMore'))
+    expect(at('approvals.note.policy.usableMore')).toBeLessThan(at('approvals.note.policy.allowRemoved.waiting'))
+    expect(at('approvals.note.policy.allowRemoved.waiting')).toBeLessThan(at('approvals.note.policy.liveSessions'))
+    expect(order.slice(-2)).toEqual(['approvals.note.policy.stillAccepted', 'approvals.note.policy.allowEffect'])
   })
 
   it('never passes the file\'s spacing, quotes or controls into the app\'s own text', () => {

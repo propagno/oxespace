@@ -348,18 +348,23 @@
             "waiting": "− No longer allowed: {{rule}}"
           },
           "groupLowered": "↓ {{group}} tools: {{from}} → {{to}}",
-          "reordered": "~ The order of {{count}} rules changed; a later rule decides",
+          "reordered": "~ The order of {{count}} rules changed, and the last rule that matches decides",
           "more": "and {{count}} more changes in the file below",
           "notSplit": "This change can't be split into stricter and wider parts, so none of it applies until you decide.",
           "stillAccepted": "Deny keeps the rules you accepted. OXESpace doesn't change the file.",
-          "allowEffect": "Allow applies the whole file as it is now. OXESpace doesn't change the file.",
+          "allowEffect": "Allow applies the whole file as it is now.",
           "noText": "The file no longer exists.",
           "problem": "Error: {{problem}}",
-          "usable": "Would become usable: {{tools}}",
-          "committed": "The file matches the version committed in git.",
-          "uncommitted": "The file is not the version committed in git.",
-          "liveSessions": "{{count}} agent session(s) of this project were running when the change was found.",
-          "managedNotProtected": "People on this computer can write to the organization's policy folder, so changes to it are asked about too."
+          "usable": "Agents could then use: {{tools}}",
+          "committed": "The file matches the version committed in Git.",
+          "uncommitted": "The file differs from the version committed in Git.",
+          "liveSessions": "{{count}} agent sessions of this project were running when the change was detected.",
+          "managedNotProtected": "Anyone using this computer can write to the organization's policy folder, so you confirm changes there too.",
+          "reordered_one": "~ The order of {{count}} rule changed, and the last rule that matches decides",
+          "reordered_other": "~ The order of {{count}} rules changed, and the last rule that matches decides",
+          "usableMore": "Agents could then use: {{tools}} and {{more}} more",
+          "liveSessions_one": "{{count}} agent session of this project was running when the change was detected.",
+          "liveSessions_other": "{{count}} agent sessions of this project were running when the change was detected."
         }
       },
       "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
@@ -484,9 +489,9 @@
       },
       "change": {
         "pending": "A change to this project's rules is waiting for your answer. Answer it first, then change this setting.",
-        "baseChanged": "The rules changed since this was shown. It will be asked again with the current version.",
+        "baseChanged": "The rules changed again since this was shown. The request comes back with the current version.",
         "notPending": "This change to the rules is no longer waiting for an answer.",
-        "notApplicable": "This file can't be applied as it is. Fix it, or keep the accepted rules."
+        "notApplicable": "This file can't be applied as it is. Fix the file, or keep the accepted rules."
       }
     }
   }

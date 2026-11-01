@@ -35,6 +35,8 @@ import { parseModesProjection } from './tool-config'
 
 /** Diff lines listed as notes (DESIGN: at most 8, wider first); the rest is counted in `note.policy.more`. */
 export const MAX_NOTE_LINES = 8
+/** OXESpace tools named in the `usable` note; the rest are counted (DESIGN #372). */
+const USABLE_LISTED = 5
 const RANK = { off: 0, 'on-demand': 1, always: 2 } as const
 /** Groups that reach data or secrets: turning one always on is critical (DESIGN #359 §3.1). */
 const CRITICAL_GROUPS: readonly string[] = ['data']
@@ -274,24 +276,30 @@ export async function requestDraft(subject: Subject, base: AnyProjection, next: 
         : primary && subject.root ? mainMessage('approvals.summary.policyChange.worktree', { worktree: folderName(subject.root), file })
           : context.applied.length ? mainMessage('approvals.summary.policyChange.partial', { file })
             : mainMessage('approvals.summary.policyChange.widened', { file })
+  // DESIGN's order (#372): wider lines, what agents could then use, stricter lines, a reorder, the rest; then
+  // provenance, live sessions, the managed note, and what each answer does.
   const lines = noteLines(subject, context.shownBase, next, context.applied)
-  const notes: MainMessage[] = lines.slice(0, MAX_NOTE_LINES).map(item => item.message)
+  const shown = lines.slice(0, MAX_NOTE_LINES)
+  const isReorder = (line: NoteLine) => line.message.code === 'approvals.note.policy.reordered'
+  const notes: MainMessage[] = shown.filter(line => line.widens && !isReorder(line)).map(line => line.message)
+  if (subject.file === 'policy') {
+    const tools = await usableTools(base, next).catch(() => [])
+    if (tools.length > USABLE_LISTED) notes.push(mainMessage('approvals.note.policy.usableMore', { tools: tools.slice(0, USABLE_LISTED), more: tools.length - USABLE_LISTED }))
+    else if (tools.length) notes.push(mainMessage('approvals.note.policy.usable', { tools }))
+  }
+  notes.push(...shown.filter(line => !line.widens).map(line => line.message), ...shown.filter(isReorder).map(line => line.message))
   if (lines.length > MAX_NOTE_LINES) notes.push(mainMessage('approvals.note.policy.more', { count: lines.length - MAX_NOTE_LINES }))
   if (context.notSplit) notes.push(mainMessage('approvals.note.policy.notSplit', {}))
   if (next.state === 'invalid' && next.problem) notes.push(mainMessage('approvals.note.policy.problem', { problem: next.problem.slice(0, 200) }))
   if (next.state === 'absent') notes.push(mainMessage('approvals.note.policy.noText', {}))
-  if (subject.file === 'policy') {
-    const tools = await usableTools(base, next).catch(() => [])
-    if (tools.length) notes.push(mainMessage('approvals.note.policy.usable', { tools: tools.slice(0, 10) }))
-  }
   const atHead = await committed(subject, next).catch(() => null)
   if (atHead !== null) notes.push(mainMessage(atHead ? 'approvals.note.policy.committed' : 'approvals.note.policy.uncommitted', {}))
   if (context.liveSessions > 0) notes.push(mainMessage('approvals.note.policy.liveSessions', { count: context.liveSessions }))
   if (subject.layer === 'managed') notes.push(mainMessage('approvals.note.policy.managedNotProtected', {}))
+  notes.push(mainMessage('approvals.note.policy.stillAccepted', {}))
   // An invalid or too large file cannot be applied: Deny only (DESIGN #359).
   const allow = next.state !== 'invalid'
   if (allow) notes.push(mainMessage('approvals.note.policy.allowEffect', {}))
-  notes.push(mainMessage('approvals.note.policy.stillAccepted', {}))
   const title = subject.layer === 'user' ? 'approvals.title.policyChangeUser' : subject.layer === 'managed' ? 'approvals.title.policyChangeManaged' : 'approvals.title.policyChange'
   return {
     kind: 'policyChange',

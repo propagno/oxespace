@@ -184,6 +184,8 @@ export interface MessageParams {
   'approvals.note.policy.problem': { problem: string }
   /** B7.4 · OXESpace tools this change would let agents use again, from the app's registry (BACKEND draft). */
   'approvals.note.policy.usable': { tools: string[] }
+  /** B7.4 · The first OXESpace tools this change would let agents use again, and how many more (DESIGN #372). */
+  'approvals.note.policy.usableMore': { tools: string[]; more: number }
   /** B7.4 · Git provenance from the app's own check (BACKEND draft). */
   'approvals.note.policy.committed': Record<string, never>
   /** B7.4 · Git provenance from the app's own check (BACKEND draft). */
@@ -504,6 +506,7 @@ export const MESSAGE_CODES = [
   'approvals.note.policy.noText',
   'approvals.note.policy.problem',
   'approvals.note.policy.usable',
+  'approvals.note.policy.usableMore',
   'approvals.note.policy.committed',
   'approvals.note.policy.uncommitted',
   'approvals.note.policy.liveSessions',
