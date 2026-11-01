@@ -16,9 +16,9 @@ vi.mock('../src/components/Navigation/ModeViews', () => ({
 
 function Harness({ onCommit, skeleton = false }: { onCommit: (view: AppView) => void; skeleton?: boolean }) {
   const [view, setView] = useState<AppView>('code')
-  const { pending, select } = useViewSwitch(view, next => { onCommit(next); setView(next) })
+  const { select } = useViewSwitch(view, next => { onCommit(next); setView(next) })
   return <>
-    <ModeSwitch mode={view} pending={pending} onSelect={select} />
+    <ModeSwitch mode={view} onSelect={select} />
     <div data-view={view} data-testid="current">{view}{skeleton && view === 'data' && <span data-view-skeleton="" />}</div>
   </>
 }
@@ -61,6 +61,18 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     await act(async () => { vi.advanceTimersByTime(SKELETON_AFTER_MS * 2) })
     expect(commit).not.toHaveBeenCalled()
     expect(screen.getByTestId('current')).toHaveTextContent('code')
+  })
+
+  it('a view already loaded is selected first and committed after that paint, never in the click itself (#363 CI)', async () => {
+    const commit = vi.fn()
+    loaded = true
+    render(<Harness onCommit={commit} />)
+    act(() => { button('OxeQuery').click() })
+    expect(button('OxeQuery')).toHaveAttribute('aria-pressed', 'true')
+    expect(commit).not.toHaveBeenCalled()
+    await act(async () => { await vi.dynamicImportSettled(); vi.advanceTimersByTime(40) })
+    expect(commit).toHaveBeenCalledWith('data')
+    expect(button('OxeQuery')).toHaveAttribute('aria-busy', 'false')
   })
 
   it('announces the view and moves focus into it at the commit, not at the click', async () => {

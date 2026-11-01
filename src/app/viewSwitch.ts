@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import type { AppView } from '../keyboard/keybindings'
 import { announceFocus } from '../keyboard/terminalFocusActions'
 import type { Chunk } from '../lib/chunk'
@@ -56,9 +56,25 @@ function arrive(view: AppView): void {
   announceFocus(VIEW_NAMES[view])
 }
 
+/**
+ * The view being switched to, while it loads. Kept outside React state on purpose: only the mode buttons read it
+ * (usePendingView), so the first feedback re-renders them alone, not the whole window (#363 CI: 218 ms on a slow CPU
+ * when it re-rendered App).
+ */
+let pendingView: AppView | null = null
+const pendingListeners = new Set<() => void>()
+function setPendingView(view: AppView | null): void {
+  if (pendingView === view) return
+  pendingView = view
+  for (const listener of pendingListeners) listener()
+}
+const subscribePending = (listener: () => void): (() => void) => { pendingListeners.add(listener); return () => { pendingListeners.delete(listener) } }
+/** The view being switched to, while it loads; null otherwise. */
+export function usePendingView(): AppView | null {
+  return useSyncExternalStore(subscribePending, () => pendingView, () => null)
+}
+
 export interface ViewSwitch {
-  /** The view being switched to, while its chunk loads; the mode button shows it selected and busy. */
-  pending: AppView | null
   select: (view: AppView) => void
 }
 
@@ -67,7 +83,6 @@ export interface ViewSwitch {
  * wins: switching again while a view loads replaces the pending one.
  */
 export function useViewSwitch(current: AppView, commit: (view: AppView) => void): ViewSwitch {
-  const [pending, setPending] = useState<AppView | null>(null)
   const target = useRef<AppView | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const arrived = useRef<AppView | null>(null)
@@ -79,17 +94,19 @@ export function useViewSwitch(current: AppView, commit: (view: AppView) => void)
     clearTimeout(timer.current)
     target.current = null
     arrived.current = view
-    setPending(null)
+    setPendingView(null)
     latestCommit.current(view)
   }, [])
 
   const select = useCallback((view: AppView): void => {
     if (view === current && target.current === null) return
     clearTimeout(timer.current)
-    if (view === current) { target.current = null; setPending(null); return }
+    if (view === current) { target.current = null; setPendingView(null); return }
     target.current = view
-    if (readyNow(view)) { finish(view); return }
-    setPending(view)
+    // The button is selected and busy first, and painted, whatever the view costs to render (#363 CI: a loaded chunk
+    // committed in the click's own task, and nothing painted for 158 ms).
+    setPendingView(view)
+    if (readyNow(view)) { requestAnimationFrame(() => { timer.current = setTimeout(() => finish(view), 0) }); return }
     timer.current = setTimeout(() => finish(view), SKELETON_AFTER_MS)
     // A failed load commits too: the view's error boundary says what went wrong, with Try again.
     void chunkOf(view).then(chunk => chunk?.load()).then(() => finish(view), () => finish(view))
@@ -115,6 +132,6 @@ export function useViewSwitch(current: AppView, commit: (view: AppView) => void)
     return () => { cancelAnimationFrame(frame); observer?.disconnect(); clearTimeout(cap) }
   }, [current])
 
-  useEffect(() => () => clearTimeout(timer.current), [])
-  return { pending, select }
+  useEffect(() => () => { clearTimeout(timer.current); setPendingView(null) }, [])
+  return { select }
 }

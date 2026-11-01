@@ -66,6 +66,11 @@ for (const variant of [{ name: 'normal speed', cpu: 1, motion: 'full' }, { name:
     const { app, page, workspaceRoot } = await launchApp({ locale: 'en-US' })
     try {
       await resizeWindow(app, 1280, 860)
+      // The switch must be cold: the idle preload warms the most recent view (src/lib/idlePreload.ts), which an earlier
+      // run in this profile may have left as OxeQuery (#363 CI, Linux: the chunk was loaded and the switch was warm). The
+      // warm path is covered in tests/view-switch.test.tsx.
+      await page.evaluate(() => { localStorage.setItem('oxe.preload', 'off'); localStorage.removeItem('oxe.recent-view') })
+      await page.reload()
       await openDemoWorkspace(page, workspaceRoot)
       await expect(page.locator('[data-testid="pane-container"]').first()).toBeVisible({ timeout: 15_000 })
       if (variant.motion === 'reduce') await page.evaluate(() => { document.documentElement.dataset.motion = 'reduce' })

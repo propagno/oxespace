@@ -4,7 +4,7 @@ import { describeAttention, useAttentionSummary, type AttentionCounts } from '..
 import type { NavigationMode } from './NavigationChrome'
 import { shortcutLabel, useKeybindings, type KeybindingId } from '../../keyboard/keybindings'
 import styles from './ModeSwitch.module.css'
-import { prefetchView } from '../../app/viewSwitch'
+import { prefetchView, usePendingView } from '../../app/viewSwitch'
 
 // Product names, never translated.
 const MODES: Array<{ mode: NavigationMode; label: string }> = [
@@ -17,10 +17,11 @@ const MODES: Array<{ mode: NavigationMode; label: string }> = [
 
 /**
  * The application's views, as one segmented control in the middle of the title bar; Ctrl+1…5 switch between them.
- * `pending`: the view being switched to while it loads. Its button is selected and busy at once (the first feedback),
+ * The view being switched to (usePendingView, src/app/viewSwitch.ts): its button is selected and busy at once (the first feedback),
  * and a view's chunk starts loading as soon as its button is hovered or focused (docs/design/motion.md).
  */
-export function ModeSwitch({ mode, pending = null, onSelect }: { mode: NavigationMode; pending?: NavigationMode | null; onSelect: (mode: NavigationMode) => void }) {
+export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect: (mode: NavigationMode) => void }) {
+  const pending = usePendingView()
   const { t } = useTranslation()
   const attention = useAttentionSummary()
   const shown = pending ?? mode
