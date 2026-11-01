@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { BrowserPreviewMount, BrowserPreviewMountResult } from '../../../shared/types/browser-preview'
 import { useTranslation } from 'react-i18next'
 
+/** How long a re-measure waits for an animation frame before running anyway. */
+const REMEASURE_FALLBACK_MS = 120
+
 export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPreviewMount; active: boolean; zoom: number }): ReactElement {
   const { t } = useTranslation('code')
   const ref = useRef<HTMLDivElement>(null)
@@ -24,9 +27,13 @@ export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPrevi
     if (!mounted) return
     const api = window.oxe.browserPreview
     let frame = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
     let lastBounds = ''
     const measure = (): void => {
+      if (frame) cancelAnimationFrame(frame)
       frame = 0
+      clearTimeout(timer)
+      timer = undefined
       const element = ref.current
       if (!element) return
       const rect = element.getBoundingClientRect()
@@ -39,7 +46,9 @@ export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPrevi
         void api.bounds(next).catch(() => {})
       }
     }
-    const schedule = (): void => { if (!frame) frame = requestAnimationFrame(measure) }
+    // A frame, or a short timer when frames are paused (a window without the system's focus, right after a native
+    // dialog): a dialog that closed must report the preview visible again, or main keeps it covered (#243).
+    const schedule = (): void => { if (frame || timer) return; frame = requestAnimationFrame(measure); timer = setTimeout(measure, REMEASURE_FALLBACK_MS) }
     const resize = new ResizeObserver(schedule)
     if (ref.current) resize.observe(ref.current)
     const mutation = new MutationObserver(schedule)
@@ -49,6 +58,7 @@ export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPrevi
     schedule()
     return () => {
       if (frame) cancelAnimationFrame(frame)
+      clearTimeout(timer)
       void api.bounds({ownerKey,tabId,x:0,y:0,width:0,height:0,visible:false}).catch(() => {})
       resize.disconnect(); mutation.disconnect()
       window.removeEventListener('resize',schedule)
