@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import en from '../shared/locales/en/common.json'
 import ptBR from '../shared/locales/pt-BR/common.json'
 import { approvalsApi, realApprovalsApi, resetApprovalsApi } from '../src/components/Approvals/approvalsApi'
-import { PRELOAD_FALLBACK_MS, resetApprovalsBoot, schedulePreload, SHOW_TIMEOUT_MS, startApprovals, type CenterModule } from '../src/components/Approvals/approvalsBoot'
+import { acknowledge, PRELOAD_FALLBACK_MS, reportShown, resetApprovalsBoot, schedulePreload, SHOW_TIMEOUT_MS, startApprovals, type CenterModule } from '../src/components/Approvals/approvalsBoot'
 import { useApprovalsStore } from '../src/components/Approvals/approvals.store'
 import { ApprovalsHost } from '../src/components/Approvals/ApprovalsHost'
 import { APPROVAL_ACK_TIMEOUT_MS, type ApprovalsApi } from '../shared/types/approvals'
@@ -130,6 +130,28 @@ describe('approvals at boot', () => {
     expect(unavailable).toHaveBeenCalledTimes(1)
     expect(respond).not.toHaveBeenCalled()
     expect(onReady).toHaveBeenCalled()
+    stop()
+  })
+
+  it('acks every request the window holds, the queued ones as not visible, so main never asks them natively too (HML on #243)', async () => {
+    vi.useFakeTimers()
+    resetApprovalsBoot(async () => ({}) as CenterModule)
+    const { mock, unavailable } = spyApi()
+    const stop = startApprovals({ api: mock, onReady: vi.fn() })
+    const ids = ['first', 'second', 'third']
+    for (const id of ids) mock.hook.request({ id })
+    const queue = (await mock.list()).filter(request => ids.includes(request.id))
+    reportShown(queue)
+    expect(mock.hook.acks.map(ack => ack.id).sort()).toEqual([...ids].sort())
+    expect(mock.hook.acks.every(ack => ack.visible === false && ack.focused === false)).toBe(true)
+    // Mounted again with the same queue (a re-render): nothing is sent twice.
+    reportShown(queue)
+    expect(mock.hook.acks).toHaveLength(3)
+    // The one on screen then acks with the window's real attention: that ack still goes, and starts the hold.
+    acknowledge(queue[0], { visible: true, focused: true }, mock)
+    expect(mock.hook.acks.at(-1)).toEqual({ id: queue[0].id, generation: queue[0].generation, visible: true, focused: true })
+    await vi.advanceTimersByTimeAsync(SHOW_TIMEOUT_MS * 2)
+    expect(unavailable).not.toHaveBeenCalled()
     stop()
   })
 

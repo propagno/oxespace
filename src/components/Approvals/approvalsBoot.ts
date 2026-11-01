@@ -78,6 +78,10 @@ export function reportShown(queue: readonly ApprovalRequest[]): void {
     if (handedOff.has(key)) continue
     stopTimer(key)
     shown.add(key)
+    // B10: the window acks every request it holds, not only the one on screen; one queued behind it ("2 of N") is held
+    // but not visible, so its ack says so and never starts the critical hold. Without it main's no-ack timer sends it to
+    // the native dialog as well (HML on #243: 48 of 50 asked twice). The dialog acks it again once it is on screen.
+    if (!acked.has(key)) acknowledge(request, { visible: false, focused: false })
   }
 }
 
