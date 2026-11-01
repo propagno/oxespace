@@ -283,8 +283,33 @@ async function readBoot(app: ElectronApplication, page: Page): Promise<Record<st
 }
 
 /** Runs one probe; with `shots`, screenshots the window meanwhile and keeps the one inside the longest blank. */
+/** Bisect only (F7.3): a CPU profile of each OxeChat cold switch, top functions by self time. */
+async function profiled(page: Page, surface: Surface): Promise<Sample> {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Profiler.enable')
+  await cdp.send('Profiler.setSamplingInterval', { interval: 200 })
+  await cdp.send('Profiler.start')
+  const sample = await page.evaluate(probeInPage, surface.probe)
+  const { profile } = await cdp.send('Profiler.stop') as { profile: { nodes: Array<{ id: number; callFrame: { functionName: string; url: string; lineNumber: number }; hitCount?: number }>; samples?: number[]; timeDeltas?: number[] } }
+  const byNode = new Map<number, number>()
+  ;(profile.samples ?? []).forEach((node, index) => byNode.set(node, (byNode.get(node) ?? 0) + ((profile.timeDeltas ?? [])[index] ?? 0)))
+  const byFunction = new Map<string, number>()
+  for (const node of profile.nodes) {
+    const time = byNode.get(node.id) ?? 0
+    if (!time) continue
+    const file = node.callFrame.url.split('/').pop() ?? ''
+    const key = `${node.callFrame.functionName || '(anonymous)'} ${file}:${node.callFrame.lineNumber}`
+    byFunction.set(key, (byFunction.get(key) ?? 0) + time)
+  }
+  const top = [...byFunction].sort((a, b) => b[1] - a[1]).slice(0, 30)
+  console.log(`[PROFILE] ${surface.name}: content ${sample.content?.toFixed(0)} ms; self time (ms) ${top.map(([name, us]) => `${(us / 1000).toFixed(1)} ${name}`).join(' | ')}`)
+  await cdp.detach().catch(() => undefined)
+  return sample
+}
+
 async function measure(page: Page, surface: Surface, phase: 'cold' | 'warm', shots: boolean): Promise<Sample> {
   await surface.arm(page)
+  if (!shots && phase === 'cold' && (surface.name === 'OxeChat (Thread)' || surface.name === 'OxeQuery')) return profiled(page, surface)
   if (!shots) return page.evaluate(probeInPage, surface.probe)
   let done = false
   const taken: Array<{ at: number; image: Buffer }> = []
