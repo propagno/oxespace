@@ -34,7 +34,7 @@ const quit = (app: ElectronApplication) => app.evaluate(({ app }) => app.exit(0)
 test('F32/B17: four Claude panes come back on their own sessions; a deleted one says why', async () => {
   const s = setup()
   let app = await launch(s)
-  let ids: string[] = []
+  let ids: string[]
   try {
     const page = await app.firstWindow()
     await page.getByTestId('btn-new-workspace').first().waitFor({ timeout: 30_000 })
