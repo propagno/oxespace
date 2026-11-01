@@ -1,5 +1,6 @@
 import { Check, ChevronLeft, ChevronRight, Columns2, FolderGit2, Rows3, Send } from 'lucide-react'
 import { type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { GitHubWorktree } from '../../../shared/types/github'
 import type { DiffMode } from '../../store/git.store'
 import { RefPicker, type RefPickerBranch } from '../Changes/RefPicker'
@@ -57,6 +58,7 @@ export function ReviewToolbar({
   sortBy,
   totalFiles
 }: ReviewToolbarProps): ReactElement {
+  const { t } = useTranslation('code')
   return (
     <div className="review-toolbar review-toolbar-v2">
       {commentCount > 0 ? (
@@ -64,26 +66,26 @@ export function ReviewToolbar({
           type="button"
           className="review-send-comments"
           data-testid="review-send-comments"
-          title="Send the diff comments to the active agent"
+          title={t('review.sendTitle')}
           onClick={onSendComments}
         >
           <Send size={12} aria-hidden="true" />
-          <span>Enviar {commentCount} ao agente</span>
+          <span>{t('review.send', { count: commentCount })}</span>
         </button>
       ) : null}
       <RefPicker
-        label="Diff base branch"
+        label={t('review.base')}
         value={base}
         branches={withShortcuts(branches)}
         selected={`ref:${base}`}
         onPickRef={onBaseChange}
       />
       <RefPicker
-        label="Compare (side B)"
-        value={head ?? 'Work tree'}
+        label={t('changes.head')}
+        value={head ?? t('review.workTree')}
         icon={head ? undefined : <FolderGit2 size={14} aria-hidden="true" />}
         branches={branches}
-        worktrees={[{ path: rootPath, branch: 'Work tree', head: null, isMain: true, locked: false } as GitHubWorktree]}
+        worktrees={[{ path: rootPath, branch: t('review.workTree'), head: null, isMain: true, locked: false } as GitHubWorktree]}
         selected={head ? `ref:${head}` : `tree:${rootPath}`}
         onPickRef={onHeadChange}
         onPickWorktree={() => onHeadChange(null)}
@@ -97,9 +99,9 @@ export function ReviewToolbar({
         onClick={onToggleUncommitted}
         aria-pressed={includeUncommitted && !head}
         disabled={Boolean(head)}
-        title={head ? 'A ref has no uncommitted changes' : undefined}
+        title={head ? t('review.refClean') : undefined}
       >
-        Uncommitted
+        {t('changes.scope.uncommitted')}
       </button>
 
       <button
@@ -108,23 +110,23 @@ export function ReviewToolbar({
         onClick={onToggleHideReviewed}
         aria-pressed={hideReviewed}
       >
-        Hide reviewed
+        {t('review.hideReviewed')}
       </button>
 
       <div className="review-toolbar-sep" />
 
-      <span className="review-toolbar-label">View</span>
-      <div className="review-diff-mode-toggle" role="radiogroup" aria-label="Diff mode">
+      <span className="review-toolbar-label">{t('review.view')}</span>
+      <div className="review-diff-mode-toggle" role="radiogroup" aria-label={t('review.mode')}>
         <button
           type="button"
           role="radio"
           aria-checked={diffMode === 'unified'}
           className={`review-diff-mode-btn${diffMode === 'unified' ? ' active' : ''}`}
           onClick={() => onDiffModeChange('unified')}
-          title="Unified diff"
+          title={t('review.unifiedTitle')}
         >
           <Rows3 size={12} aria-hidden="true" />
-          Unified
+          {t('review.unified')}
         </button>
         <button
           type="button"
@@ -132,44 +134,44 @@ export function ReviewToolbar({
           aria-checked={diffMode === 'side-by-side'}
           className={`review-diff-mode-btn${diffMode === 'side-by-side' ? ' active' : ''}`}
           onClick={() => onDiffModeChange('side-by-side')}
-          title="Side-by-side diff"
+          title={t('review.splitTitle')}
         >
           <Columns2 size={12} aria-hidden="true" />
-          Split
+          {t('review.split')}
         </button>
       </div>
 
       <div className="review-toolbar-sep" />
 
-      <span className="review-toolbar-label">Sort</span>
+      <span className="review-toolbar-label">{t('review.sort')}</span>
       <select
         className="review-base-select"
         value={sortBy}
         onChange={(e) => onSortChange(e.target.value as 'last-edit' | 'name')}
-        aria-label="Sort order"
+        aria-label={t('review.sortOrder')}
       >
-        <option value="last-edit">Last edit</option>
-        <option value="name">Name</option>
+        <option value="last-edit">{t('review.lastEdit')}</option>
+        <option value="name">{t('review.name')}</option>
       </select>
 
       <div className="review-toolbar-sep" />
 
-      <span className="review-reviewed-counter" title="Reviewed / total files">
+      <span className="review-reviewed-counter" title={t('review.counter')}>
         <Check size={12} aria-hidden="true" />
         {reviewedCount}/{totalFiles}
       </span>
       {reviewedCount > 0 ? (
         <button type="button" className="review-clear-reviewed" onClick={onClearReviewed}>
-          Clear
+          {t('review.clear')}
         </button>
       ) : null}
 
       <div className="review-counter">
-        <button type="button" className="review-nav-btn" onClick={() => onNavigate(-1)} aria-label="Previous file (k)" disabled={currentIndex <= 0}>
+        <button type="button" className="review-nav-btn" onClick={() => onNavigate(-1)} aria-label={t('review.previous')} disabled={currentIndex <= 0}>
           <ChevronLeft size={12} aria-hidden="true" />
         </button>
         <span>{totalFiles > 0 ? `${currentIndex + 1}/${totalFiles}` : '0/0'}</span>
-        <button type="button" className="review-nav-btn" onClick={() => onNavigate(1)} aria-label="Next file (j)" disabled={currentIndex >= totalFiles - 1}>
+        <button type="button" className="review-nav-btn" onClick={() => onNavigate(1)} aria-label={t('review.next')} disabled={currentIndex >= totalFiles - 1}>
           <ChevronRight size={12} aria-hidden="true" />
         </button>
       </div>

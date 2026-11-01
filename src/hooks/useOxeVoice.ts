@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { i18n } from '../i18n'
 import { useVoiceStore } from '../store/voice.store'
 import { createAudioRecorder, type AudioRecorder } from '../lib/audio/recorder-worklet'
 import { concatFloat32, encodeWav } from '../lib/audio/wav-encode'
@@ -50,10 +51,10 @@ function isSupportedRuntime(): boolean {
 
 function toMicError(err: unknown): string {
   const name = err instanceof DOMException ? err.name : ''
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone permission denied.'
-  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return 'No microphone was detected.'
-  if (name === 'AbortError') return 'Microphone request was canceled. Try again.'
-  return humanizeError(err, 'Could not access the microphone.')
+  if (name === 'NotAllowedError' || name === 'SecurityError') return i18n.t('voiceHud.errors.denied')
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return i18n.t('voiceHud.errors.noMicrophone')
+  if (name === 'AbortError') return i18n.t('voiceHud.errors.canceled')
+  return humanizeError(err, i18n.t('voiceHud.errors.access'))
 }
 
 export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOxeVoiceResult {
@@ -150,7 +151,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
       if (text) onFinalTextRef.current(text)
     } catch (err) {
       if (session !== sessionRef.current) return
-      setError(humanizeError(err, 'Transcription failed.'))
+      setError(humanizeError(err, i18n.t('voiceHud.errors.transcription')))
       setStatus('error')
     } finally {
       pendingRef.current -= 1
@@ -161,7 +162,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
     const current = await window.oxe.voice.getModelStatus(modelSize)
     if (session !== sessionRef.current) return false
     if (!current.engineReady) {
-      setError('Voice engine unavailable in this build.')
+      setError(i18n.t('voiceHud.errors.engine'))
       setStatus('error')
       return false
     }
@@ -173,7 +174,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
       if (session !== sessionRef.current) return false
       setModelProgress(null)
       if (!after.ready) {
-        setError('Voice model could not be prepared.')
+        setError(i18n.t('voiceHud.errors.model'))
         setStatus('error')
         return false
       }
@@ -181,7 +182,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
     } catch (err) {
       if (session !== sessionRef.current) return false
       setModelProgress(null)
-      setError(humanizeError(err, 'Could not download the voice model.'))
+      setError(humanizeError(err, i18n.t('voiceHud.errors.download')))
       setStatus('error')
       return false
     }
@@ -189,7 +190,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
 
   const beginRecording = useCallback(async (mode: Mode): Promise<void> => {
     if (!enabled) {
-      setError('Start the terminal before using OXEVoice.')
+      setError(i18n.t('voiceHud.errors.terminal'))
       setStatus('error')
       return
     }
