@@ -134,7 +134,11 @@ class MainActivity : ComponentActivity() {
                 val watched = live.openThread(openThread)
                 DisposableEffect(openThread) { onDispose { live.closeThread(openThread) } }
                 BackHandler { threadId = null }
-                ThreadScreen(openThread, watched, live.streams.commands, presence, connected = status is DesktopStatus.Connected, onBack = { threadId = null })
+                ThreadScreen(
+                    openThread, watched, live.streams.commands, presence, connected = status is DesktopStatus.Connected,
+                    onOpenRequest = { requestKey = "$openThread/$it" },
+                    onBack = { threadId = null },
+                )
             }
             openPane != null -> {
                 val watched = live.openTerminal(openPane.id)
