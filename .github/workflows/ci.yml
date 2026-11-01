@@ -133,21 +133,27 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
 
     steps:
+      # Inputs and refs reach scripts only through env: an expression pasted into a script would run as code.
       - name: Resolve checkout ref
         id: ref
         shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BRANCH_INPUT: ${{ inputs.branch }}
+          DISPATCH_REF_NAME: ${{ github.ref_name }}
+          EVENT_REF: ${{ github.ref }}
         run: |
           $ErrorActionPreference = 'Stop'
           # Manual runs: GitHub "Use workflow from" is github.ref_name.
           # Optional inputs.branch overrides that when non-empty.
-          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $override = '${{ inputs.branch }}'.Trim()
-            $ref = if ($override) { $override } else { '${{ github.ref_name }}' }
+          if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+            $override = "$env:BRANCH_INPUT".Trim()
+            $ref = if ($override) { $override } else { $env:DISPATCH_REF_NAME }
             if ([string]::IsNullOrWhiteSpace($ref)) {
               throw 'workflow_dispatch could not resolve a branch (set Use workflow from, or branch input).'
             }
           } else {
-            $ref = '${{ github.ref }}'
+            $ref = $env:EVENT_REF
           }
           "ref=$ref" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Checkout ref: $ref"
@@ -160,13 +166,18 @@ jobs:
       - name: Plan build vs release
         id: plan
         shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUBLISH_INPUT: ${{ inputs.publish_release }}
+          TAG_INPUT: ${{ inputs.tag }}
+          PACKAGED_SMOKE_INPUT: ${{ inputs.packaged_smoke_only }}
         run: |
           $ErrorActionPreference = 'Stop'
           $version = node -p "require('./package.json').version"
           $sha = git rev-parse HEAD
-          $event = '${{ github.event_name }}'
-          $publishInput = '${{ inputs.publish_release }}'
-          $tagInput = '${{ inputs.tag }}'.Trim()
+          $event = $env:EVENT_NAME
+          $publishInput = "$env:PUBLISH_INPUT"
+          $tagInput = "$env:TAG_INPUT".Trim()
 
           $shouldRelease = $false
           $tag = $null
@@ -176,6 +187,9 @@ jobs:
             $tag = $env:GITHUB_REF_NAME
           } elseif ($event -eq 'workflow_dispatch' -and $publishInput -eq 'true') {
             $shouldRelease = $true
+            if ($tagInput -and $tagInput -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+              throw "Release tag '$tagInput' is not vMAJOR.MINOR.PATCH[-prerelease]."
+            }
             $tag = if ($tagInput) { $tagInput } else { "v$version" }
           }
 
@@ -218,7 +232,7 @@ jobs:
 
           "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           # Package and run the packaged-app E2E without any publishing step (the release job only reads should_release).
-          $packagedSmoke = $event -eq 'workflow_dispatch' -and '${{ inputs.packaged_smoke_only }}' -eq 'true' -and -not $shouldRelease
+          $packagedSmoke = $event -eq 'workflow_dispatch' -and "$env:PACKAGED_SMOKE_INPUT" -eq 'true' -and -not $shouldRelease
           "packaged_smoke=$($packagedSmoke.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
