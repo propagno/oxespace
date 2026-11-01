@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Mandacaru mark as a status-bar silhouette: white strokes, the system tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="44"
+    android:viewportHeight="44">
+    <group
+        android:scaleX="0.8"
+        android:scaleY="0.8"
+        android:translateX="4.4"
+        android:translateY="4.4">
+        <path
+            android:pathData="M22,39V8M22,27h-6a4,4 0,0 1,-4 -4v-7M22,21h6a4,4 0,0 0,4 -4v-6"
+            android:strokeWidth="4"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>
