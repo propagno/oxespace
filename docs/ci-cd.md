@@ -94,9 +94,45 @@ Pick one; both are reversible. Only the release owner (the user) does this.
 - **Withdraw the release:** `gh release edit vX.Y.Z --draft=true`. `/releases/latest` falls back to the previous
   stable, so installs still on it see nothing new. The tag stays and points at the same commit.
 
-Installs that already updated keep the bad version until the fix ships. If it can't open its database or start,
-tell those users to install the previous version's installer from the Releases page **and** restore the backup that
-the upgrade took (in the app's `db-backups/` folder). The upgrade rehearsal proves that this path works.
+Installs that already updated keep the bad version until the fix ships. If they can't wait for the fix (the app
+doesn't start, or a feature they depend on is broken), they can go back to the previous release.
+
+#### Going back to the previous release on one machine
+
+**The order matters.** The previous release does **not** warn on a database from a newer version: it leaves the
+file untouched, but it opens **empty** ("No workspaces yet"). A person who opens it before restoring thinks their
+data is gone, and anything they create before the restore is lost when they do it. So the restore comes **before**
+the first start of the old version:
+
+1. Quit OXESpace completely (also from the tray, if it's there).
+2. Install the previous version's installer from the Releases page over the current one (Windows: run the `.exe`;
+   Linux: install the previous `.deb`, or use the previous AppImage). **Don't open it yet.** Untick "Run OXESpace" at
+   the end of the installer.
+3. In the user data folder (Windows `%APPDATA%\OXESpace`, Linux `~/.config/OXESpace`), delete `oxespace.sqlite3`,
+   `oxespace.sqlite3-wal` and `oxespace.sqlite3-shm`, then copy the newest
+   `db-backups/oxespace-v<old schema>-*.sqlite3` there as `oxespace.sqlite3`. For 1.3.3 that's
+   `oxespace-v77-*.sqlite3`. The upgrade took this backup just before migrating.
+4. Open OXESpace: the previous release starts on the data it had before the update.
+
+Windows, in PowerShell, for a rollback to 1.3.3:
+
+```powershell
+Get-Process OXESpace -ErrorAction SilentlyContinue | Stop-Process -Force
+$data = "$env:APPDATA\OXESpace"
+Remove-Item "$data\oxespace.sqlite3", "$data\oxespace.sqlite3-wal", "$data\oxespace.sqlite3-shm" -ErrorAction SilentlyContinue
+$backup = Get-ChildItem "$data\db-backups" -Filter 'oxespace-v77-*.sqlite3' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+Copy-Item $backup.FullName "$data\oxespace.sqlite3"
+```
+
+What changed after the update (new workspaces, threads, settings) is not in the backup. When the fixed version
+ships, it upgrades the restored data again, with a new backup.
+
+**Tested:** the `Install over the last stable` workflow (`.github/workflows/install-over.yml`) does exactly these
+steps on a clean Windows runner. It installs 1.3.3, creates data, installs the candidate over it, checks the upgrade,
+reinstalls 1.3.3, checks that it leaves the upgraded database byte-identical, restores the backup, and checks that
+1.3.3 opens it with the workspace. First green run: 1.4.0-rc.0 over 1.3.3,
+[41318110576](https://github.com/propagno/oxespace/actions/runs/41318110576). That a "pause" in the manifest stops
+updates is tested in `tests/unit/update-feed-pause.test.ts`, against the electron-updater version we ship.
 
 ### 2. Fix forward (hours)
 
