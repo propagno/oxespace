@@ -222,7 +222,20 @@
     "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
     "redacted_other": "{{count}} valores secretos escondidos pelo seu computador.",
     "redacted_many": "{{count}} valores secretos escondidos pelo seu computador.",
-    "empty": "Ainda sem saída."
+    "empty": "Ainda sem saída.",
+    "paste": "Colar",
+    "key": {
+      "up": "Seta para cima",
+      "down": "Seta para baixo",
+      "left": "Seta para a esquerda",
+      "right": "Seta para a direita"
+    },
+    "textSize": "Tamanho do texto",
+    "size": {
+      "small": "Pequeno",
+      "medium": "Médio",
+      "large": "Grande"
+    }
   },
   "approval": {
     "prompt": {

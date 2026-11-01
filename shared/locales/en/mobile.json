@@ -210,7 +210,20 @@
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
     "redacted_other": "{{count}} secret values hidden by your computer.",
-    "empty": "No output yet."
+    "empty": "No output yet.",
+    "paste": "Paste",
+    "key": {
+      "up": "Up arrow",
+      "down": "Down arrow",
+      "left": "Left arrow",
+      "right": "Right arrow"
+    },
+    "textSize": "Text size",
+    "size": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    }
   },
   "approval": {
     "prompt": {

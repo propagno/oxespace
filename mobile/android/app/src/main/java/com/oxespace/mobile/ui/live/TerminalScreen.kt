@@ -1,5 +1,18 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.protocol.displaySafe
+import androidx.core.content.edit
+import android.content.Context
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
 import com.oxespace.mobile.ui.theme.OxeFonts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -84,6 +97,9 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     // The desktop's redactor holds output up to 250 ms, so a first snapshot can be empty while the pane runs:
     // say "loading" for a second before "no output yet".
     var settling by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    var size by remember { mutableStateOf(terminalTextSize(readTextSize(context))) }
+    var sizeMenu by remember { mutableStateOf(false) }
     LaunchedEffect(watched.loaded) {
         if (watched.loaded) {
             delay(EMPTY_GRACE_MS)
@@ -95,7 +111,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             TopAppBar(
                 title = {
                     Column {
-                        Text(pane.title, maxLines = 1, modifier = Modifier.semantics { heading() })
+                        Text(displaySafe(pane.title, 200), style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() })
                         Text(
                             stringResource(if (pane.phoneWrite) R.string.live_phone_write else R.string.live_read_only),
                             style = MaterialTheme.typography.labelMedium,
@@ -105,6 +121,21 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(ImageVector.vectorResource(R.drawable.ic_back), contentDescription = stringResource(R.string.live_back)) }
+                },
+                actions = {
+                    Box {
+                        val label = stringResource(R.string.terminal_text_size)
+                        TextButton(onClick = { sizeMenu = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = label }) { Text("Aa") }
+                        DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
+                            for (option in TerminalTextSize.entries) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(sizeLabel(option))) },
+                                    leadingIcon = { RadioButton(selected = option == size, onClick = null) },
+                                    onClick = { size = option; writeTextSize(context, option); sizeMenu = false },
+                                )
+                            }
+                        }
+                    }
                 },
             )
         },
@@ -125,7 +156,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 Text(
                     text,
                     fontFamily = OxeFonts.mono,
-                    fontSize = 13.sp,
+                    fontSize = size.sp.sp,
                     color = colors.textPrimary,
                     softWrap = false,
                     modifier = Modifier.verticalScroll(vertical).horizontalScroll(rememberScrollState()).padding(OxeSpace.space3),
@@ -178,12 +209,34 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
     }
     var text by rememberSaveable(paneId) { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     var message by remember { mutableStateOf<Int?>(null) }
     Column(
         Modifier.fillMaxWidth().background(Oxe.colors.surfaceChrome).navigationBarsPadding().imePadding().padding(OxeSpace.space3),
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
     ) {
         message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        val clipboard = LocalClipboard.current
+        KeyRow(
+            enabled = !busy,
+            onKey = { key ->
+                busy = true
+                scope.launch {
+                    when (val gated = presence.run(PresenceReason.TYPE) { commands.terminalWrite(RemoteTerminalWriteArgs(paneId, key.bytes)) }) {
+                        is Gated.Blocked -> message = presenceMessage(gated.reason)
+                        is Gated.Done -> message = commandMessage(gated.value)
+                    }
+                    busy = false
+                }
+            },
+            // Colar puts the clipboard in the field, so the person sees it before it goes.
+            onPaste = {
+                scope.launch {
+                    val pasted = clipboard.getClipEntry()?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+                    if (!pasted.isNullOrEmpty()) text += pasted
+                }
+            },
+        )
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
             OutlinedTextField(
                 value = text,
@@ -258,3 +311,46 @@ internal fun terminalPieces(text: String): List<String> = (text + ENTER).chunked
 /** What's left to type after [sent] pieces went through; empty when all did. Enter is the send button's, not the field's. */
 internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.drop(sent).joinToString("").removeSuffix(ENTER)
 
+/** Esc, Tab, ⇧Tab, Ctrl+C, the arrows and Colar: the keys a phone keyboard lacks (M11), 48 dp each, scrolling sideways. */
+@Composable
+private fun KeyRow(enabled: Boolean, onKey: (TerminalKey) -> Unit, onPaste: () -> Unit) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+        for (key in TerminalKey.entries) {
+            val spoken = keyName(key)?.let { stringResource(it) }
+            OutlinedButton(
+                onClick = { onKey(key) },
+                enabled = enabled,
+                contentPadding = PaddingValues(horizontal = OxeSpace.space3),
+                modifier = Modifier.heightIn(min = 48.dp).then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier),
+            ) { Text(key.label, fontFamily = OxeFonts.mono) }
+        }
+        OutlinedButton(onClick = onPaste, contentPadding = PaddingValues(horizontal = OxeSpace.space3), modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.terminal_paste))
+        }
+    }
+}
+
+private fun keyName(key: TerminalKey): Int? = when (key) {
+    TerminalKey.UP -> R.string.terminal_key_up
+    TerminalKey.DOWN -> R.string.terminal_key_down
+    TerminalKey.LEFT -> R.string.terminal_key_left
+    TerminalKey.RIGHT -> R.string.terminal_key_right
+    else -> null
+}
+
+private fun sizeLabel(size: TerminalTextSize): Int = when (size) {
+    TerminalTextSize.SMALL -> R.string.terminal_size_small
+    TerminalTextSize.MEDIUM -> R.string.terminal_size_medium
+    TerminalTextSize.LARGE -> R.string.terminal_size_large
+}
+
+/** The terminal's text size lives on the phone only; screenshots and a failed read get the default. */
+private fun readTextSize(context: Context): String? =
+    runCatching { context.getSharedPreferences(TERMINAL_PREFS, Context.MODE_PRIVATE).getString(TEXT_SIZE_KEY, null) }.getOrNull()
+
+private fun writeTextSize(context: Context, size: TerminalTextSize) {
+    runCatching { context.getSharedPreferences(TERMINAL_PREFS, Context.MODE_PRIVATE).edit { putString(TEXT_SIZE_KEY, size.name) } }
+}
+
+private const val TERMINAL_PREFS = "terminal"
+private const val TEXT_SIZE_KEY = "textSize"

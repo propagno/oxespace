@@ -171,10 +171,19 @@
     <string name="request_tool">Tool</string>
     <string name="request_where">Where</string>
     <string name="terminal_empty">No output yet.</string>
+    <string name="terminal_key_down">Down arrow</string>
+    <string name="terminal_key_left">Left arrow</string>
+    <string name="terminal_key_right">Right arrow</string>
+    <string name="terminal_key_up">Up arrow</string>
+    <string name="terminal_paste">Paste</string>
     <plurals name="terminal_redacted">
         <item quantity="one">%1$d secret value hidden by your computer.</item>
         <item quantity="other">%1$d secret values hidden by your computer.</item>
     </plurals>
+    <string name="terminal_size_large">Large</string>
+    <string name="terminal_size_medium">Medium</string>
+    <string name="terminal_size_small">Small</string>
+    <string name="terminal_text_size">Text size</string>
     <string name="terminal_input_not_shared">Typing from the phone is off for this terminal. On your computer, turn on “Allow typing from the phone” in the terminal’s ⋯ menu.</string>
     <string name="terminal_input_placeholder">Type in this terminal</string>
     <string name="terminal_input_send">Send</string>

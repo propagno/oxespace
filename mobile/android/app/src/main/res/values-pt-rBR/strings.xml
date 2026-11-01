@@ -174,11 +174,20 @@
     <string name="request_tool">Ferramenta</string>
     <string name="request_where">Onde</string>
     <string name="terminal_empty">Ainda sem saída.</string>
+    <string name="terminal_key_down">Seta para baixo</string>
+    <string name="terminal_key_left">Seta para a esquerda</string>
+    <string name="terminal_key_right">Seta para a direita</string>
+    <string name="terminal_key_up">Seta para cima</string>
+    <string name="terminal_paste">Colar</string>
     <plurals name="terminal_redacted">
         <item quantity="one">%1$d valor secreto escondido pelo seu computador.</item>
         <item quantity="other">%1$d valores secretos escondidos pelo seu computador.</item>
         <item quantity="many">%1$d valores secretos escondidos pelo seu computador.</item>
     </plurals>
+    <string name="terminal_size_large">Grande</string>
+    <string name="terminal_size_medium">Médio</string>
+    <string name="terminal_size_small">Pequeno</string>
+    <string name="terminal_text_size">Tamanho do texto</string>
     <string name="terminal_input_not_shared">A digitação pelo celular está desligada neste terminal. No computador, ligue “Permitir digitar pelo celular” no menu ⋯ do terminal.</string>
     <string name="terminal_input_placeholder">Digite neste terminal</string>
     <string name="terminal_input_send">Enviar</string>
