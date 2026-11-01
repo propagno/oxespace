@@ -4,7 +4,11 @@ import { CODE_TOOL_GROUP, MCP_TOOL_GROUPS, OPTIONAL_THREAD_TOOL_GROUPS, THREAD_T
 import { createOxeApi, type PreloadIpc } from '../electron/preload/api'
 import { FORBIDDEN_CAPABILITIES, MCP_COVERAGE } from '../shared/mcp-coverage'
 import { IPC_CHANNELS } from '../shared/types/ipc'
-import { CHARS_PER_TOKEN, CONFIGURABLE_MCP_TOOL_GROUPS, MCP_TOOL_DECISIONS, estimateTokens, MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES } from '../shared/types/mcp-tools'
+import { serverKey } from '../shared/types/mcp'
+import {
+  CHARS_PER_TOKEN, CONFIGURABLE_MCP_TOOL_GROUPS, MCP_TOOL_DECISIONS, MCP_TOOL_RULE_REFUSAL_CODES, estimateTokens, isMcpToolRuleRefusal,
+  MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES, type McpToolRule
+} from '../shared/types/mcp-tools'
 
 vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
@@ -40,6 +44,35 @@ describe('Settings › Tools contract (F10)', () => {
     expect(admin.ipc).toEqual(['mcpInternal.setToolRule'])
     expect(MCP_COVERAGE['settings.app'].ipc).toContain('mcpInternal.toolRules')
     expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => /tool_?rule|approval_rule|set_permission/i.test(name))).toEqual([])
+  })
+
+  it('names why a tool rule is refused with a typed code the window can test (B7.3 CCR)', () => {
+    expect(MCP_TOOL_RULE_REFUSAL_CODES).toEqual(['mcp.toolRule.confirmLevel', 'mcp.toolRule.locked', 'mcp.toolRule.invalidPolicy'])
+    for (const code of MCP_TOOL_RULE_REFUSAL_CODES) expect(isMcpToolRuleRefusal(new Error(code).message), code).toBe(true)
+    for (const other of ['Invalid MCP tool', 'mcp.quarantine.added', undefined, null]) expect(isMcpToolRuleRefusal(other)).toBe(false)
+  })
+
+  it('keys a configured server the same way on both sides (B7.3 CCR)', () => {
+    expect(serverKey('GitHub')).toBe('github')
+    expect(serverKey('  My Docs Server ')).toBe('my-docs-server')
+    expect(serverKey('db_main-2')).toBe('db_main-2')
+    expect(serverKey('***')).toBe('mcp-server')
+  })
+
+  it('offers the window only the decisions a row allows (B7.3 CCR)', async () => {
+    const handlers = new Map<string, (event: unknown, input: unknown) => unknown>()
+    vi.doMock('electron', () => ({ ipcMain: { handle: (channel: string, handler: (event: unknown, input: unknown) => unknown) => handlers.set(channel, handler) } }))
+    const { registerMcpToolsMock } = await import('../electron/main/e2e/mcp-tools-mock')
+    registerMcpToolsMock()
+    const rules = handlers.get(IPC_CHANNELS.mcpInternal.toolRules)!({}, { rootPath: 'C:/repo' }) as McpToolRule[]
+    const byTool = Object.fromEntries(rules.map(rule => [rule.tool, rule]))
+    expect(byTool.oxespace_remove_worktree).toMatchObject({ confirmLevel: true, allowedDecisions: ['ask', 'deny'] })
+    expect(byTool.create_issue).toMatchObject({ confirmLevel: false, allowedDecisions: ['allow', 'ask', 'deny'] })
+    expect(byTool.delete_repository).toMatchObject({ editable: false, allowedDecisions: [] })
+    const set = handlers.get(IPC_CHANNELS.mcpInternal.setToolRule)!
+    expect(() => set({}, { rootPath: 'C:/repo', server: 'oxespace-delegation', tool: 'oxespace_remove_worktree', decision: 'allow' })).toThrow('mcp.toolRule.confirmLevel')
+    expect(() => set({}, { rootPath: 'C:/repo', server: 'github', tool: 'delete_repository', decision: 'ask' })).toThrow('mcp.toolRule.locked')
+    vi.doUnmock('electron')
   })
 
   it('keeps choosing a mode with the person, and reading it to the window', () => {
