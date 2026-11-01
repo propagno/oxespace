@@ -81,6 +81,9 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     await app.evaluate(({dialog})=>{ const g = globalThis as unknown as {nativeAsks:number}; g.nativeAsks = 0; dialog.showMessageBox = (async () => { g.nativeAsks++; return {response:0,checkboxChecked:false} }) as typeof dialog.showMessageBox })
     const approval = page.getByTestId('approval-dialog')
     const answer = async <T,>(pending: Promise<T>, intent: 'allow' | 'deny'): Promise<T> => {
+      await expect(approval).toBeVisible()
+      // The window ignores answers for 400 ms after a request appears (ARM_MS, as e2e/approvals.spec.ts waits).
+      await page.waitForTimeout(500)
       await approval.locator(`[data-intent="${intent}"]`).click()
       await expect(approval).toHaveCount(0)
       return pending
