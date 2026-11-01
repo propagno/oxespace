@@ -38,6 +38,12 @@ export class ExecutionRegistry {
     }
     return execution
   }
+  /** B7.4 · How many live executions run in this folder or below it (the policy change request's note). */
+  liveWithin(root: string): number {
+    const folder = resolve(root)
+    const inside = (cwd: string) => { const path = resolve(cwd); return process.platform === 'win32' ? (path.toLowerCase() + '\\').startsWith(folder.toLowerCase().replace(/\\?$/, '\\')) : (path + '/').startsWith(folder.replace(/\/?$/, '/')) }
+    return [...this.executions.values()].filter(execution => inside(execution.cwd)).length
+  }
   forPane(paneId: string): AgentExecution | undefined { return [...this.executions.values()].find(e => e.paneId === paneId) }
   forOwner(owner: ExecutionOwner): AgentExecution | undefined { return [...this.executions.values()].find(e => this.key(e.owner) === this.key(owner)) }
   end(paneId: string): void { this.endOwner({ kind: 'pane', id: paneId }) }

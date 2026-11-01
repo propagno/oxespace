@@ -432,7 +432,10 @@ export const IPC_CHANNELS = {
     exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary'
   },
   policy: {
-    get: 'policy:get'
+    get: 'policy:get',
+    acceptChange: 'policy:accept-change',
+    reviewChange: 'policy:review-change',
+    onChanged: 'policy:changed'
   }
 } as const
 

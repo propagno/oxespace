@@ -5,8 +5,8 @@ import type { AppDatabase } from '../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../shared/types/mcp'
 import { mcpServerKeys } from './mcp-keys'
 import { mcpServerAllowed } from './policy'
-import { projectOfferedTools, projectToolModes } from './conversation/tool-groups'
-import { loadRepoConfigSync } from './repo-config/loader'
+import { projectOfferedTools } from './conversation/tool-groups'
+import { effectiveToolModes } from './policy/tool-config'
 
 /**
  * Materializes the workspace's enabled MCP servers into `<workspaceRoot>/.mcp.json`
@@ -131,7 +131,7 @@ export class McpConfigSync {
         internal: isInternal,
         // A tool group the project turned off in oxe.yaml is not offered here either (B7.2): the bridge lists and
         // answers only these tools. Nothing off leaves the entry as it was.
-        allowedTools: isInternal ? projectOfferedTools(projectToolModes(loadRepoConfigSync(workspaceRoot)?.thread)) : null
+        allowedTools: isInternal ? projectOfferedTools(effectiveToolModes(workspaceRoot)) : null
       })
       if (!entry) continue
       const finalKey = keys.get(row.id)

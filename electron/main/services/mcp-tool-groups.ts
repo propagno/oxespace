@@ -2,9 +2,9 @@ import type { AppDatabase } from '../db'
 import { CONFIGURABLE_MCP_TOOL_GROUPS, estimateTokens, MCP_TOOL_GROUP_IDS, type ConfigurableMcpToolGroup, type McpToolCost, type McpToolGroupInfo, type McpToolGroupMode, type McpToolGroupsReport } from '../../../shared/types/mcp-tools'
 import type { FileSystemService } from './file-system.service'
 import { MCP_TOOL_GROUPS } from './conversation/thread-mcp'
-import { projectToolModes } from './conversation/tool-groups'
 import { ThreadPermissionStore } from './conversation/thread-permissions'
-import { readRepoConfigState } from './repo-config/loader'
+import { acceptedConfig } from './policy'
+import { effectiveToolConfig, effectiveToolModes, parseModesProjection, toolConfigSubject } from './policy/tool-config'
 import { MainRefusal } from './main-refusal'
 import { McpConfigSync } from './mcp-sync.service'
 import { OXE_YAML_FILE } from './repo-config/parser'
@@ -15,9 +15,12 @@ const cost = (chars: number): McpToolCost => ({ chars, tokens: estimateTokens(ch
 /** Settings › Tools (F10): each group, its mode in the project and what it costs, measured like the CI budget (T8). */
 export async function toolGroupsReport(rootPath: string | null): Promise<McpToolGroupsReport> {
   const [{ TOOL_REGISTRY }, { toolDefinitionChars, toolNameChars }] = await Promise.all([import('../mcp-internal/tool-registry'), import('../mcp-internal/tool-cost')])
-  // A broken oxe.yaml is reported as such: the defaults apply meanwhile, and the page says the file needs fixing.
-  const config = rootPath ? await readRepoConfigState(rootPath) : { state: 'missing' as const, config: null }
-  const modes = projectToolModes(config.config?.thread)
+  // The accepted modes apply (B7.4): a file changed outside OXESpace, or broken, is reported, and the page says so.
+  const config = rootPath ? effectiveToolConfig(rootPath) : { modes: effectiveToolModes(null), file: 'missing' as const, change: null }
+  // Opening the page is a review point: a change whose request ended unanswered is asked again.
+  const subject = rootPath ? toolConfigSubject(rootPath) : null
+  if (subject) acceptedConfig()?.reviewPoint([subject])
+  const modes = config.modes
   const groups = MCP_TOOL_GROUP_IDS.map((id): McpToolGroupInfo => {
     const tools = [...MCP_TOOL_GROUPS[id]]
     const configurable = (CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(id)
@@ -33,7 +36,7 @@ export async function toolGroupsReport(rootPath: string | null): Promise<McpTool
   const core = groups.find(group => group.id === 'core')!.cost.claude.loaded.chars
   const offered = (all: boolean) => groups.filter(group => group.configurable && (all || group.mode !== 'off'))
     .reduce((sum, group) => sum + (group.mode === 'always' && !all ? group.cost.claude.loaded.chars : group.cost.claude.deferred.chars), 0)
-  return { rootPath, oxeYaml: config.state, groups, totals: { plainConversation: cost(core + offered(false)), everythingOnDemand: cost(core + offered(true)) } }
+  return { rootPath, oxeYaml: config.file, pendingChange: config.change, groups, totals: { plainConversation: cost(core + offered(false)), everythingOnDemand: cost(core + offered(true)) } }
 }
 
 /** The workspace id the file service accepts for a registered project root: a Code workspace or an OXESpace conversation project. */
@@ -64,8 +67,21 @@ export async function setToolGroupMode(db: AppDatabase, files: FileSystemService
     if (error?.code === 'ENOENT') return null
     throw error
   })
+  // B7.4: a change the person has not accepted is never written through (and recorded as theirs) by an unrelated click.
+  const gate = acceptedConfig()
+  const subject = toolConfigSubject(input.rootPath)
+  if (gate && subject) await gate.assertAccepted(subject, parseModesProjection(existing?.content ?? null))
   const content = withToolMode(existing?.content ?? null, input.group, input.mode)
-  await files.replaceFile({ ...target, content, expectedMtimeMs: existing?.mtimeMs ?? null })
+  // What lands is recorded before the rename and accepted after it, so the app's own write never asks.
+  const written = parseModesProjection(content)
+  const intent = gate && subject ? gate.markIntent(subject, written) : null
+  try {
+    await files.replaceFile({ ...target, content, expectedMtimeMs: existing?.mtimeMs ?? null })
+  } catch (error) {
+    if (gate && subject && intent) gate.clearIntent(subject, intent)
+    throw error
+  }
+  if (gate && subject && intent) gate.commitIntent(subject, intent, written)
   new ThreadPermissionStore(db).audit({ projectRoot: input.rootPath, action: 'configuration', actor: 'user', summary: `Set the ${input.group} tool group to ${input.mode}` })
   // Best effort: oxe.yaml is already saved, and the next sync of the workspace writes the same thing.
   try {

@@ -128,6 +128,86 @@ export interface MessageParams {
   'mcp.toolGroups.unsafeEdit': Record<string, never>
   /** A project file changed on disk after OXESpace read it (another editor, a git checkout); nothing was written. */
   'project.file.changedMeanwhile': { file: string }
+  /** B7.4 · A project policy file changed outside OXESpace (DESIGN #359). */
+  'approvals.title.policyChange': Record<string, never>
+  /** B7.4 · Your own policy file (<userData>/policy.json) changed outside OXESpace (BACKEND draft). */
+  'approvals.title.policyChangeUser': Record<string, never>
+  /** B7.4 · The organization's policy file changed, in a folder people on this computer can write to (BACKEND draft). */
+  'approvals.title.policyChangeManaged': Record<string, never>
+  /** B7.4 · The file allows more than the accepted rules. */
+  'approvals.summary.policyChange.widened': { file: string }
+  /** B7.4 · The file was deleted. */
+  'approvals.summary.policyChange.deleted': { file: string }
+  /** B7.4 · The file has an error; Deny only. */
+  'approvals.summary.policyChange.invalid': { file: string }
+  /** B7.4 · The file is over the size limit; Deny only. */
+  'approvals.summary.policyChange.tooLarge': { file: string; max: string }
+  /** B7.4 · A worktree's own file allows more than the project's accepted rules. */
+  'approvals.summary.policyChange.worktree': { worktree: string; file: string }
+  /** B7.4 · A mixed change that splits exactly: its stricter rules already apply (DESIGN #361). */
+  'approvals.summary.policyChange.partial': { file: string }
+  /** B7.4 · Accept the file's new rules. */
+  'approvals.option.allowPolicy': Record<string, never>
+  /** B7.4 · The label of the agentText block of a policyChange request. */
+  'approvals.textLabel.policyChange': Record<string, never>
+  /** B7.4 · Diff line, wider. `rule` is the app's reading of the rule (kind + pattern), sanitized. */
+  'approvals.note.policy.denyRemoved': { rule: string }
+  /** B7.4 · Diff line, wider. */
+  'approvals.note.policy.allowAdded': { rule: string }
+  /** B7.4 · Diff line, wider. `group` is a configurable group id; `from`/`to` are mode ids (off, on-demand, always). */
+  'approvals.note.policy.groupRaised': { group: string; from: string; to: string }
+  /** B7.4 · Diff line, wider: an edited pattern cannot be proven stricter. */
+  'approvals.note.policy.ruleEdited': { from: string; to: string }
+  /** B7.4 · Diff line, stricter, already in force (the pure narrowing of a partial change). */
+  'approvals.note.policy.denyAdded.applied': { rule: string }
+  /** B7.4 · Diff line, stricter, waiting with the rest. */
+  'approvals.note.policy.denyAdded.waiting': { rule: string }
+  /** B7.4 · Diff line, stricter, already in force. */
+  'approvals.note.policy.allowRemoved.applied': { rule: string }
+  /** B7.4 · Diff line, stricter, waiting with the rest. */
+  'approvals.note.policy.allowRemoved.waiting': { rule: string }
+  /** B7.4 · Diff line, stricter; inside a mixed change it waits with the rest. */
+  'approvals.note.policy.groupLowered': { group: string; from: string; to: string }
+  /** B7.4 · Diff line, wider: only the order of the rules changed, and a later rule decides (BACKEND draft). */
+  'approvals.note.policy.reordered': { count: number }
+  /** B7.4 · More diff lines than are listed. */
+  'approvals.note.policy.more': { count: number }
+  /** B7.4 · A mixed change that does not split exactly: nothing applies early (DESIGN #361). */
+  'approvals.note.policy.notSplit': Record<string, never>
+  /** B7.4 · What Deny does. */
+  'approvals.note.policy.stillAccepted': Record<string, never>
+  /** B7.4 · What Allow does (BACKEND draft). */
+  'approvals.note.policy.allowEffect': Record<string, never>
+  /** B7.4 · In place of the text block when the file was deleted. */
+  'approvals.note.policy.noText': Record<string, never>
+  /** B7.4 · The parser's short reason for an invalid file. */
+  'approvals.note.policy.problem': { problem: string }
+  /** B7.4 · OXESpace tools this change would let agents use again, from the app's registry (BACKEND draft). */
+  'approvals.note.policy.usable': { tools: string[] }
+  /** B7.4 · Git provenance from the app's own check (BACKEND draft). */
+  'approvals.note.policy.committed': Record<string, never>
+  /** B7.4 · Git provenance from the app's own check (BACKEND draft). */
+  'approvals.note.policy.uncommitted': Record<string, never>
+  /** B7.4 · Agent sessions of the project running when the change was found (BACKEND draft). */
+  'approvals.note.policy.liveSessions': { count: number }
+  /** B7.4 · The managed policy folder is writable by people on this computer (BACKEND draft). */
+  'approvals.note.policy.managedNotProtected': Record<string, never>
+  /** B7.4 · Notice: a change that only tightens applied at once (DESIGN #359 §4). */
+  'policy.narrowed': { file: string }
+  /** B7.4 · After Deny. */
+  'policy.result.kept': Record<string, never>
+  /** B7.4 · After Allow. */
+  'policy.result.applied': Record<string, never>
+  /** B7.4 · An app write to a gated file refused while a change is pending (or the file is not the accepted version). */
+  'policy.change.pending': Record<string, never>
+  /** B7.4 · Accept refused: the accepted version or the file changed since the change was shown (BACKEND draft). */
+  'policy.change.baseChanged': Record<string, never>
+  /** B7.4 · Accept or review refused: no such change waits (BACKEND draft). */
+  'policy.change.notPending': Record<string, never>
+  /** B7.4 · Accept refused: an invalid or too large file cannot be applied (BACKEND draft). */
+  'policy.change.notApplicable': Record<string, never>
+  /** B7.4 · Incident: a gated policy file changed outside OXESpace and was asked about. */
+  'incident.policy.changedOutside': Record<string, never>
   'github.cli.missing': Record<string, never>
   'git.base.unresolved': { base: string }
   'oxe.status.unreadable': Record<string, never>
@@ -396,6 +476,46 @@ export const MESSAGE_CODES = [
   'mcp.toolGroups.inlineThread',
   'mcp.toolGroups.unsafeEdit',
   'project.file.changedMeanwhile',
+  'approvals.title.policyChange',
+  'approvals.title.policyChangeUser',
+  'approvals.title.policyChangeManaged',
+  'approvals.summary.policyChange.widened',
+  'approvals.summary.policyChange.deleted',
+  'approvals.summary.policyChange.invalid',
+  'approvals.summary.policyChange.tooLarge',
+  'approvals.summary.policyChange.worktree',
+  'approvals.summary.policyChange.partial',
+  'approvals.option.allowPolicy',
+  'approvals.textLabel.policyChange',
+  'approvals.note.policy.denyRemoved',
+  'approvals.note.policy.allowAdded',
+  'approvals.note.policy.groupRaised',
+  'approvals.note.policy.ruleEdited',
+  'approvals.note.policy.denyAdded.applied',
+  'approvals.note.policy.denyAdded.waiting',
+  'approvals.note.policy.allowRemoved.applied',
+  'approvals.note.policy.allowRemoved.waiting',
+  'approvals.note.policy.groupLowered',
+  'approvals.note.policy.reordered',
+  'approvals.note.policy.more',
+  'approvals.note.policy.notSplit',
+  'approvals.note.policy.stillAccepted',
+  'approvals.note.policy.allowEffect',
+  'approvals.note.policy.noText',
+  'approvals.note.policy.problem',
+  'approvals.note.policy.usable',
+  'approvals.note.policy.committed',
+  'approvals.note.policy.uncommitted',
+  'approvals.note.policy.liveSessions',
+  'approvals.note.policy.managedNotProtected',
+  'policy.narrowed',
+  'policy.result.kept',
+  'policy.result.applied',
+  'policy.change.pending',
+  'policy.change.baseChanged',
+  'policy.change.notPending',
+  'policy.change.notApplicable',
+  'incident.policy.changedOutside',
   'github.cli.missing',
   'git.base.unresolved',
   'oxe.status.unreadable',

@@ -276,7 +276,10 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, () => null)
   ipcMain.handle(IPC_CHANNELS.diagnostics.buildIssueReport, () => ({ title: '[Bug] ', diagnosticLines: 2, body: ['## What happened', '', '## Environment', '', '- OXESpace: ' + packageVersion, '- System: E2E mock', ''].join('\n') }))
   ipcMain.handle(IPC_CHANNELS.diagnostics.recordFirstAnswer, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.policy.get, () => ({ sources: [], problems: [], locations: [{ layer: 'user', path: 'policy.json' }] }))
+  ipcMain.handle(IPC_CHANNELS.policy.get, () => ({ sources: [], problems: [], locations: [{ layer: 'user', path: 'policy.json' }], changes: [] }))
+  // B7.4: nothing is pending in the mock, so an answer finds no change (the window shows the C3 refusal).
+  ipcMain.handle(IPC_CHANNELS.policy.acceptChange, () => { throw new Error('policy.change.notPending') })
+  ipcMain.handle(IPC_CHANNELS.policy.reviewChange, () => { throw new Error('policy.change.notPending') })
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(IPC_CHANNELS.terminal.onData, { paneId: input.paneId, data: 'PS> ' })

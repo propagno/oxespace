@@ -59,6 +59,7 @@ export interface ApprovalCenterDeps {
 }
 
 interface Entry {
+  /** Replaced by `reissue`, with the next generation. */
   request: ApprovalRequest
   settle(outcome: ApprovalOutcome): void
   timers: ReturnType<typeof setTimeout>[]
@@ -82,27 +83,14 @@ export class ApprovalCenter {
 
   private now(): number { return this.deps.now?.() ?? Date.now() }
 
-  /** Raises a request and resolves with the person's answer, or a deny (expired, cancelled, refused). Never rejects. */
-  ask(draft: ApprovalDraft, signal?: AbortSignal): Promise<ApprovalOutcome> {
+  /**
+   * Raises a request and resolves with the person's answer, or a deny (expired, cancelled, refused). Never rejects.
+   * `onAsked` gets the request once it waits for an answer (a door that may `reissue` it keeps its id).
+   */
+  ask(draft: ApprovalDraft, signal?: AbortSignal, onAsked?: (request: ApprovalRequest) => void): Promise<ApprovalOutcome> {
     const now = this.now()
-    const { text, ackRequired, ...given } = draft
-    // R2: bidi controls or invisible characters make the shown text differ from what runs; the text stays verbatim.
-    const hidden = hasHiddenCharacters(text)
-    const shown = hidden
-      ? { ...given, risk: APPROVAL_RISKS[Math.max(APPROVAL_RISKS.indexOf(given.risk), APPROVAL_RISKS.indexOf('high'))], appNotes: [...given.appNotes, mainMessage('approvals.note.hiddenCharacters', {})] }
-      : given
-    const agentText = boundAgentText(text)
-    const options = shown.options
-      .filter(option => !agentText.truncated || option.intent === 'deny')
-      .filter(option => shown.risk === 'low' || option.intent !== 'allow-session')
-    const request: ApprovalRequest = {
-      // An agent's or a server's request must be acknowledged by the window, or it falls back to the native dialog
-      // (deny-only when critical): a missing panel is the same case as no window. Only the app's own prompts may wait.
-      ...shown, schemaVersion: APPROVAL_SCHEMA_VERSION, id: randomUUID(), generation: 1, agentText, options,
-      ackRequired: ackRequired ?? shown.requester.kind !== 'app',
-      ...approvalPacing(shown.risk), createdAt: now, expiresAt: now + (this.deps.timeoutMs ?? APPROVAL_TIMEOUT_MS)
-    }
-    if (agentTextAdmission(agentText.length, request.risk) === 'refuse') return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.tooLong', { max: APPROVAL_AGENT_TEXT_MAX })))
+    const request = this.build(draft, now, randomUUID(), 1)
+    if (agentTextAdmission(request.agentText.length, request.risk) === 'refuse') return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.tooLong', { max: APPROVAL_AGENT_TEXT_MAX })))
     const max = this.deps.queueMax ?? APPROVAL_QUEUE_MAX
     if (this.pending.size >= max) return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.queueFull', { max })))
     const problems = approvalRequestProblems(request)
@@ -113,9 +101,52 @@ export class ApprovalCenter {
       const entry: Entry = { request, settle, timers: [], reported: false }
       this.pending.set(request.id, entry)
       entry.timers.push(setTimeout(() => this.finish(entry, request.defaultOptionId, 'timeout'), request.expiresAt - now))
-      signal?.addEventListener('abort', () => this.finish(entry, request.defaultOptionId, 'cancelled'), { once: true })
+      signal?.addEventListener('abort', () => this.finish(entry, entry.request.defaultOptionId, 'cancelled'), { once: true })
+      try { onAsked?.(request) } catch { /* the door's bookkeeping never stops the request */ }
       this.present(entry)
     })
+  }
+
+  /**
+   * B7.4 · The same request with new content (its source changed while it waited): same id, the next generation, a new
+   * expiry, and it must be shown again before an allow counts (an answer to the old generation is `staleGeneration`).
+   * Requests never stack. Returns the new generation, or null when it no longer waits in the window (answered, asked
+   * natively) or the new content breaks the rules; the door then raises a new request.
+   */
+  reissue(id: string, draft: ApprovalDraft): ApprovalRequest | null {
+    const entry = this.pending.get(id)
+    if (!entry || entry.reported || entry.native) return null
+    const now = this.now()
+    const request = this.build(draft, now, id, entry.request.generation + 1)
+    if (agentTextAdmission(request.agentText.length, request.risk) === 'refuse' || approvalRequestProblems(request).length) return null
+    for (const timer of entry.timers) clearTimeout(timer)
+    entry.timers = []
+    entry.request = request
+    entry.shownAt = undefined
+    entry.displayedAt = undefined
+    entry.timers.push(setTimeout(() => this.finish(entry, request.defaultOptionId, 'timeout'), request.expiresAt - now))
+    this.present(entry)
+    return request
+  }
+
+  private build(draft: ApprovalDraft, now: number, id: string, generation: number): ApprovalRequest {
+    const { text, ackRequired, ...given } = draft
+    // R2: bidi controls or invisible characters make the shown text differ from what runs; the text stays verbatim.
+    const hidden = hasHiddenCharacters(text)
+    const shown = hidden
+      ? { ...given, risk: APPROVAL_RISKS[Math.max(APPROVAL_RISKS.indexOf(given.risk), APPROVAL_RISKS.indexOf('high'))], appNotes: [...given.appNotes, mainMessage('approvals.note.hiddenCharacters', {})] }
+      : given
+    const agentText = boundAgentText(text)
+    const options = shown.options
+      .filter(option => !agentText.truncated || option.intent === 'deny')
+      .filter(option => shown.risk === 'low' || option.intent !== 'allow-session')
+    return {
+      // An agent's or a server's request must be acknowledged by the window, or it falls back to the native dialog
+      // (deny-only when critical): a missing panel is the same case as no window. Only the app's own prompts may wait.
+      ...shown, schemaVersion: APPROVAL_SCHEMA_VERSION, id, generation, agentText, options,
+      ackRequired: ackRequired ?? shown.requester.kind !== 'app',
+      ...approvalPacing(shown.risk), createdAt: now, expiresAt: now + (this.deps.timeoutMs ?? APPROVAL_TIMEOUT_MS)
+    }
   }
 
   list(): ApprovalRequest[] {

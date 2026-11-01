@@ -62,6 +62,12 @@ export interface McpToolGroupsReport {
    * `mcp.toolGroups.invalidYaml`). Always `missing` when `rootPath` is `null`.
    */
   oxeYaml: 'missing' | 'valid' | 'invalid'
+  /**
+   * B7.4 · The project's `oxe.yaml` changed outside OXESpace and its tool modes are not accepted: `groups` show the
+   * accepted modes, which apply meanwhile, and `setToolGroupMode` refuses with `policy.change.pending`. `null` when the
+   * file is the accepted version. Answered with `policy.acceptChange` / `policy.reviewChange`.
+   */
+  pendingChange?: import('../policy').PolicyChangeStatus | null
   groups: McpToolGroupInfo[]
   totals: {
     /** What a conversation that asks for nothing extra sends (Claude). */
@@ -96,7 +102,7 @@ export const MCP_TOOL_DECISIONS = ['allow', 'ask', 'deny'] as const
 export type McpToolDecision = typeof MCP_TOOL_DECISIONS[number]
 
 /** Why `setToolRule` refused: the error's message, a message code of `shared/messages.ts`. */
-export const MCP_TOOL_RULE_REFUSAL_CODES = ['mcp.toolRule.confirmLevel', 'mcp.toolRule.locked', 'mcp.toolRule.invalidPolicy'] as const satisfies readonly MessageCode[]
+export const MCP_TOOL_RULE_REFUSAL_CODES = ['mcp.toolRule.confirmLevel', 'mcp.toolRule.locked', 'mcp.toolRule.invalidPolicy', 'policy.change.pending', 'project.file.changedMeanwhile'] as const satisfies readonly MessageCode[]
 export type McpToolRuleRefusalCode = typeof MCP_TOOL_RULE_REFUSAL_CODES[number]
 
 export const isMcpToolRuleRefusal = (message: unknown): message is McpToolRuleRefusalCode =>
@@ -130,7 +136,7 @@ export interface McpToolRule {
 
 /** Why `toolGroups` or `setToolGroupMode` refused: the error's message, a message code of `shared/messages.ts`. */
 export const MCP_TOOL_GROUPS_REFUSAL_CODES = ['mcp.toolGroups.unknownProject', 'mcp.toolGroups.invalidYaml', 'mcp.toolGroups.notMapping',
-  'mcp.toolGroups.inlineThread', 'mcp.toolGroups.unsafeEdit', 'project.file.changedMeanwhile'] as const satisfies readonly MessageCode[]
+  'mcp.toolGroups.inlineThread', 'mcp.toolGroups.unsafeEdit', 'project.file.changedMeanwhile', 'policy.change.pending'] as const satisfies readonly MessageCode[]
 export type McpToolGroupsRefusalCode = typeof MCP_TOOL_GROUPS_REFUSAL_CODES[number]
 
 export const isMcpToolGroupsRefusal = (message: unknown): message is McpToolGroupsRefusalCode =>

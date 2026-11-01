@@ -89,7 +89,7 @@ export interface DiagnosticsMetrics {
   mcpServers: { total: number; healthy: number; quarantined: number; failing: number }
 }
 
-export const DIAGNOSTICS_AREAS = ['app', 'window', 'ipc', 'agent', 'mcp', 'database', 'oxequery', 'updater', 'interaction'] as const
+export const DIAGNOSTICS_AREAS = ['app', 'window', 'ipc', 'agent', 'mcp', 'database', 'oxequery', 'updater', 'interaction', 'policy'] as const
 export type DiagnosticsArea = typeof DIAGNOSTICS_AREAS[number]
 
 /** Each kind of incident, with the area it belongs to. Its words are the C3 code's. */
@@ -113,7 +113,8 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.window.externalRateLimited': 'window',
   'incident.window.externalOpenFailed': 'window',
   'incident.window.openDenied': 'window',
-  'incident.window.navigationDenied': 'window'
+  'incident.window.navigationDenied': 'window',
+  'incident.policy.changedOutside': 'policy'
 } as const satisfies Record<string, DiagnosticsArea>
 export type DiagnosticsIncidentCode = keyof typeof DIAGNOSTICS_INCIDENT_CODES
 

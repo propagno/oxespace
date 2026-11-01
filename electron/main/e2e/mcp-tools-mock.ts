@@ -58,7 +58,7 @@ export function registerMcpToolsMock(): void {
     const core = groups.find(group => group.id === 'core')!
     const deferred = groups.filter(group => group.configurable && group.mode === 'on-demand').reduce((sum, group) => sum + group.cost.claude.deferred.chars, 0)
     const everything = groups.filter(group => group.configurable).reduce((sum, group) => sum + group.cost.claude.deferred.chars, 0)
-    return { rootPath, oxeYaml: rootPath && modes.has(rootPath) ? 'valid' : 'missing', groups, totals: { plainConversation: cost(core.cost.claude.loaded.chars + deferred), everythingOnDemand: cost(core.cost.claude.loaded.chars + everything) } }
+    return { rootPath, oxeYaml: rootPath && modes.has(rootPath) ? 'valid' : 'missing', pendingChange: null, groups, totals: { plainConversation: cost(core.cost.claude.loaded.chars + deferred), everythingOnDemand: cost(core.cost.claude.loaded.chars + everything) } }
   }
   ipcMain.handle(IPC_CHANNELS.mcpInternal.toolGroups, (_event, input?: { rootPath?: unknown }) => {
     if (input?.rootPath !== undefined && (typeof input.rootPath !== 'string' || !input.rootPath)) throw new Error('Invalid project')
