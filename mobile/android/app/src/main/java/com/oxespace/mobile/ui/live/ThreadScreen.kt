@@ -73,7 +73,7 @@ import kotlinx.coroutines.launch
 /** One conversation, live: messages, reasoning, tools, plans, requests and turn ends, newest at the bottom. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ThreadScreen(threadId: String, watched: Watched<ThreadTimeline>, commands: CommandApi, presence: PresenceGate, onBack: () -> Unit) {
+fun ThreadScreen(threadId: String, watched: Watched<ThreadTimeline>, commands: CommandApi, presence: PresenceGate, connected: Boolean, onBack: () -> Unit) {
     val tick by watched.changes.collectAsStateWithLifecycle()
     val timeline = watched.store
     val header = timeline.header
@@ -99,7 +99,7 @@ fun ThreadScreen(threadId: String, watched: Watched<ThreadTimeline>, commands: C
                 },
             )
         },
-        bottomBar = { Composer(threadId, running = header?.status == "running", canSteer = header?.canSteer == true, commands = commands, presence = presence) },
+        bottomBar = { Composer(threadId, running = header?.status == "running", canSteer = header?.canSteer == true, connected = connected, commands = commands, presence = presence) },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
@@ -217,13 +217,50 @@ private fun Collapsible(title: String, text: String, color: Color) {
  * drop can't make it arrive twice; after a refusal the next try is a new message. The text stays until it's sent.
  */
 @Composable
-private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, commands: CommandApi, presence: PresenceGate) {
+private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, connected: Boolean, commands: CommandApi, presence: PresenceGate) {
     val scope = rememberCoroutineScope()
     var text by rememberSaveable(threadId) { mutableStateOf("") }
     var clientId by rememberSaveable(threadId) { mutableStateOf(UUID.randomUUID().toString()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
+    /**
+     * Sent without an answer (or while offline): exactly what went, kept with its clientId so it can go again when the
+     * session is back. Editing the field drops it: the edit is a new message.
+     */
+    var unsentText by rememberSaveable(threadId) { mutableStateOf<String?>(null) }
+    var unsentSteer by rememberSaveable(threadId) { mutableStateOf(false) }
+    val unsent = unsentText?.let { Outgoing(it, unsentSteer) }
     val steer = running && canSteer
+
+    /** [ask] false for the resend after a reconnection: inside the window it goes, outside it waits for a tap on Send. */
+    suspend fun send(outgoing: Outgoing, ask: Boolean = true) {
+        busy = true
+        val gated = presence.run(PresenceReason.SEND, ask) {
+            if (outgoing.steer) {
+                commands.steer(RemoteThreadSteerArgs(threadId, outgoing.text, clientId))
+            } else {
+                commands.send(RemoteThreadSendArgs(threadId, outgoing.text, clientId))
+            }
+        }
+        when (gated) {
+            // Nothing left the phone: the text, its clientId and whether it still waits to go stay as they were.
+            is Gated.Blocked -> message = presenceMessage(gated.reason)
+            is Gated.Done -> {
+                val result = gated.value
+                message = commandMessage(result)
+                val pending = result == CommandResult.NoAnswer || result == CommandResult.Offline
+                unsentText = if (pending) outgoing.text else null
+                unsentSteer = outgoing.steer
+                if (result is CommandResult.Done) text = ""
+                clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
+            }
+        }
+        busy = false
+    }
+
+    LaunchedEffect(connected) {
+        if (connected && !busy) resendOf(unsent, text)?.let { send(it, ask = false) }
+    }
     Column(
         Modifier.fillMaxWidth().background(Oxe.colors.surfaceChrome).navigationBarsPadding().imePadding().padding(OxeSpace.space3),
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
@@ -231,7 +268,15 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, comm
         message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         OutlinedTextField(
             value = text,
-            onValueChange = { text = it.take(RemoteLimits.MAX_TEXT_LENGTH); message = null },
+            onValueChange = { typed ->
+                text = typed.take(RemoteLimits.MAX_TEXT_LENGTH)
+                message = null
+                // An edit of an unsent message is a new message: it never goes by itself, and it gets its own clientId.
+                if (unsentText != null && text != unsentText) {
+                    unsentText = null
+                    clientId = UUID.randomUUID().toString()
+                }
+            },
             placeholder = { Text(stringResource(R.string.composer_placeholder)) },
             maxLines = 5,
             modifier = Modifier.fillMaxWidth(),
@@ -252,25 +297,7 @@ private fun Composer(threadId: String, running: Boolean, canSteer: Boolean, comm
             }
             Spacer(Modifier.weight(1f))
             Button(
-                onClick = {
-                    busy = true
-                    scope.launch {
-                        val gated = presence.run(PresenceReason.SEND) {
-                            if (steer) commands.steer(RemoteThreadSteerArgs(threadId, text, clientId)) else commands.send(RemoteThreadSendArgs(threadId, text, clientId))
-                        }
-                        when (gated) {
-                            // Nothing left the phone: the text and its clientId stay as they were.
-                            is Gated.Blocked -> message = presenceMessage(gated.reason)
-                            is Gated.Done -> {
-                                val result = gated.value
-                                message = commandMessage(result)
-                                if (result is CommandResult.Done) text = ""
-                                clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
-                            }
-                        }
-                        busy = false
-                    }
-                },
+                onClick = { scope.launch { send(outgoingFor(unsent, text, steer)) } },
                 enabled = !busy && text.isNotBlank(),
                 modifier = Modifier.heightIn(min = 48.dp),
             ) { Text(stringResource(if (steer) R.string.composer_steer else R.string.composer_send)) }

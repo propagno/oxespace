@@ -104,6 +104,10 @@
         "nameHidden": "A section name cannot contain control or invisible characters.",
         "nameDuplicate": "There is already a section named \"{{name}}\" in this workspace.",
         "unknownWorkspace": "This workspace no longer exists."
+      },
+      "agent": {
+        "scriptUnsupported": "Choose the agent's own executable in Agent Settings: OxeChat does not start agents through .cmd, .ps1 or .bat scripts.",
+        "nativeMissing": "The installed Codex is missing its native executable (codex.exe). Reinstall Codex, or choose codex.exe in Agent Settings."
       }
     },
     "app": {
