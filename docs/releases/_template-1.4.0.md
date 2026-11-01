@@ -74,8 +74,11 @@ section stays out until then. -->
 <!-- S5 · guide: docs/guide/en/05-agent-tools.md -->
 - **Every OXESpace feature an agent may use is reachable over MCP**, and what is only yours (approvals, accounts,
   secrets, policy) never is.
-- **Tool groups on demand.** Building on 1.3.3's per-project groups, each group can be off, on demand or always on per project in `oxe.yaml`, and
-  **Settings › Tools** shows them. Long tool results are cut, with the full text kept in a file.
+- **Tool groups on demand.** Building on 1.3.3's per-project groups, each group can be off, on demand or always on
+  per project in `oxe.yaml`; a group that is off is never offered to an agent. Long tool results are cut, with the
+  full text kept in a file.
+<!-- add when F10 (#210) merges: "Settings › Tools shows each group, its mode and its token cost." and when B24 (#358)
+merges: "A group that is off is refused on every call, even if an agent edits its MCP configuration." -->
 - **Fewer tokens at the start of a Code agent.** An agent OXESpace starts in a terminal begins with about 9,000
   characters of tool definitions instead of 64,600, and is told when OXESpace's code search beats grep.
   <!-- pending #336: keep this bullet only if #336 merges; the measured numbers are 64,574 → 8,965 chars. -->
