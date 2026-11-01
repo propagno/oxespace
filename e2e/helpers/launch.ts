@@ -24,7 +24,13 @@ export async function freezeClock(page: Page): Promise<void> {
 
 /** Launches the built app against a temporary database (requires `npm run build` first). */
 /** `env` adds variables for one spec (e.g. OXESPACE_E2E_AGENT_STATE=1), on top of the defaults below. */
-export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; env?: Record<string, string> } = {}): Promise<LaunchedApp> {
+/**
+ * `realClock` skips freezeClock. Playwright's fake clock replaces `performance` with a stub whose getEntriesByName
+ * always returns []; Monaco's input-latency probe reads `getEntriesByName(name)[0].duration` after a keystroke and
+ * throws a pageerror whenever its timing lets it record (F28). A spec that types into the editor and asserts no
+ * pageerror needs the real clock.
+ */
+export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; env?: Record<string, string>; realClock?: boolean } = {}): Promise<LaunchedApp> {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-visual-'))
   const workspaceRoot = join(root, 'demo-repo')
   mkdirSync(workspaceRoot, { recursive: true })
@@ -58,7 +64,7 @@ export async function launchApp(options: { appearance?: Appearance; locale?: str
   // The stack's first frames are what tells a fixture gap from a real renderer bug.
   page.on('pageerror', e => consoleErrors.push(`pageerror: ${e.message.slice(0, 300)}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}`))
   await page.waitForLoadState('load')
-  await freezeClock(page)
+  if (!options.realClock) await freezeClock(page)
 
   if (options.appearance || options.density) await setAppearance(page, options.appearance ?? 'light', options.density)
   return { app, page, root, workspaceRoot, consoleErrors }
