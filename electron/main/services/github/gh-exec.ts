@@ -24,6 +24,8 @@ import {
   readName,
   sanitizeError
 } from './parsers'
+import { ghEnv, prepareGit, type ConfigReader, type PreparedGit } from '../../utils/safe-git'
+import { preparePersonGit, type PersonGit } from '../../utils/safe-git-person'
 
 export interface SpawnResult {
   stdout: string
@@ -79,7 +81,8 @@ function defaultSpawnAsync(command: string, args: string[], options: SpawnAsyncO
       cwd: options.cwd,
       shell: options.shell ?? false,
       windowsHide: options.windowsHide ?? true,
-      env: options.env ? { ...process.env, ...options.env } : process.env
+      // GhExec hands over the whole environment (safe-git's or gh's), never main's own.
+      env: options.env ?? process.env
     }
     const child = spawn(command, args, spawnOpts)
     let stdout = ''
@@ -261,14 +264,43 @@ export class GhExec {
   }
 
   async tryGit(args: string[], cwd: string): Promise<string> {
-    const result = await this.spawn('git', args, cwd, undefined, 12_000)
+    const result = await this.git(args, cwd, undefined, 12_000)
     return result.status === 0 ? result.stdout ?? '' : ''
   }
 
   async runGit(args: string[], cwd: string, input?: string): Promise<string> {
-    const result = await this.spawn('git', args, cwd, input, 30_000)
+    return this.checked(await this.git(args, cwd, input, 30_000))
+  }
+
+  /** Git the person started that may reach the network (fetch, pull, push, a checkout); see utils/safe-git-person.ts. Throws like runGit. */
+  async runPersonGit(args: string[], cwd: string, person: PersonGit, timeout = 120_000): Promise<string> {
+    let prepared: PreparedGit
+    try { prepared = await preparePersonGit(cwd, args, person, { readConfig: this.configReader }) }
+    catch (error) { throw new Error(sanitizeError(error instanceof Error ? error.message : String(error)), { cause: error }) }
+    return this.checked(await this.spawnPrepared(prepared, cwd, undefined, timeout))
+  }
+
+  /** Local git through utils/safe-git.ts: no transport, no hooks, nothing the repository's config names. */
+  async git(args: string[], cwd: string, input?: string, timeout = 15_000): Promise<SpawnResult> {
+    let prepared: PreparedGit
+    try { prepared = await prepareGit(cwd, args, { readConfig: this.configReader }) }
+    catch (error) { return { stdout: '', stderr: error instanceof Error ? error.message : String(error), status: null, error: error instanceof Error ? error : new Error(String(error)) } }
+    return this.spawnPrepared(prepared, cwd, input, timeout)
+  }
+
+  private checked(result: SpawnResult): string {
     if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Could not run git.'))
     return result.stdout ?? ''
+  }
+
+  private spawnPrepared(prepared: PreparedGit, cwd: string, input: string | undefined, timeout: number): Promise<SpawnResult> {
+    return this.spawnCommand(prepared.command, prepared.args, { cwd, input, shell: false, timeout, windowsHide: true, env: prepared.env })
+  }
+
+  /** The config read safe-git does first, through the same spawner, so a test's fake sees it too. */
+  private readonly configReader: ConfigReader = async (command, args, cwd, env) => {
+    const result = await this.spawnCommand(command, args, { cwd, shell: false, timeout: 10_000, windowsHide: true, env })
+    return { code: result.error ? null : result.status, stdout: result.stdout ?? '' }
   }
 
   async runGh(args: string[], cwd: string): Promise<string> {
@@ -279,14 +311,16 @@ export class GhExec {
     return result.stdout ?? ''
   }
 
+  /** gh and its helpers (where.exe). gh runs git itself, so it gets safe-git's gh environment; git goes through git(). */
   spawn(command: string, args: string[], cwd: string, input?: string, timeout = 15_000, env?: NodeJS.ProcessEnv): Promise<SpawnResult> {
+    if (/(^|[\\/])git(\.exe)?$/i.test(command)) throw new Error('GhExec.spawn does not run git; use git() or runPersonGit()')
     return this.spawnCommand(command, args, {
       cwd,
       input,
       shell: isCommandScript(command),
       timeout,
       windowsHide: true,
-      env
+      env: { ...ghEnv(), ...env }
     })
   }
 

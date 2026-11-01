@@ -1,8 +1,8 @@
-import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
 import type { AgentProvider } from '../../../shared/types/agent'
+import { execGitSync } from '../utils/safe-git'
 import type {
   AddIntegrationMemberInput,
   AttachIntegrationSessionInput,
@@ -359,19 +359,9 @@ function cleanNullable(value: string | null | undefined): string | null {
 
 function readGitBranch(rootPath: string): string | null {
   if (!rootPath || !existsSync(rootPath)) return null
-  const result = spawnSync('git', ['branch', '--show-current'], {
-    cwd: rootPath,
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 1500
-  })
-  const branch = result.status === 0 ? result.stdout.trim() : ''
+  const run = (args: string[]): string | null => { try { return execGitSync(rootPath, args, { timeout: 1500 }).trim() } catch { return null } }
+  const branch = run(['branch', '--show-current']) ?? ''
   if (branch) return branch
-  const detached = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
-    cwd: rootPath,
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 1500
-  })
-  return detached.status === 0 && detached.stdout.trim() ? `detached:${detached.stdout.trim()}` : null
+  const detached = run(['rev-parse', '--short', 'HEAD'])
+  return detached ? `detached:${detached}` : null
 }

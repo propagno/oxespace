@@ -53,14 +53,24 @@ const GIT_CHANGE = domainTool('oxespace_git_change', 'Change the Git state of yo
     run: (args, scope, ctx) => github(ctx).commit({ ...workspaceInput(scope), message: text(args, 'message', 5000) }) },
   create_branch: { level: 'write', description: 'Create a branch at HEAD without switching to it.', properties: { name: { type: 'string', maxLength: 200 } }, required: ['name'],
     run: (args, scope, ctx) => github(ctx).createBranch({ ...workspaceInput(scope), name: refName(args, 'name')!, checkout: false }) },
-  fetch: { level: 'write', description: 'Fetch from the remotes.', run: (_a, scope, ctx) => github(ctx).fetch(workspaceInput(scope)) },
-  pull: { level: 'write', description: 'Pull, fast-forward only.', run: (_a, scope, ctx) => github(ctx).pullFfOnly(workspaceInput(scope)) },
+  // Fetch and pull leave this machine, so a person approves them; only then does git get its transports
+  // (electron/main/utils/safe-git-person.ts).
+  fetch: {
+    level: 'confirm', description: 'Fetch from the remotes.',
+    confirm: (_a, scope) => ({ summary: `fetch the remotes of ${scope.name}`, text: `git fetch --all --prune\nin ${scope.rootPath}` }),
+    run: (_a, scope, ctx) => github(ctx).fetch(workspaceInput(scope), { reason: 'mcp-approved:fetch' })
+  },
+  pull: {
+    level: 'confirm', description: 'Pull, fast-forward only.',
+    confirm: (_a, scope) => ({ summary: `pull ${scope.name}, fast-forward only`, text: `git pull --ff-only\nin ${scope.rootPath}` }),
+    run: (_a, scope, ctx) => github(ctx).pullFfOnly(workspaceInput(scope), { reason: 'mcp-approved:pull' })
+  },
   create_checkpoint: { level: 'write', description: 'Save a named checkpoint of the work tree.', properties: { description: { type: 'string', maxLength: 2000 } }, required: ['name'],
     run: (args, scope, ctx) => github(ctx).createCheckpoint(parsed(() => parseGitHubCreateCheckpointInput({ ...workspaceInput(scope), name: text(args, 'name', 200), description: args.description }))) },
   checkout: {
     level: 'confirm', description: 'Switch the work tree to another branch. Every terminal and Thread in this folder sees the switch.', required: ['name'],
     confirm: (args, scope) => ({ summary: `switch ${scope.name} to branch ${refName(args, 'name')}`, text: `git checkout ${refName(args, 'name')}\nin ${scope.rootPath}`, notes: [mainMessage('approvals.note.git.branchShared', {})] }),
-    run: (args, scope, ctx) => github(ctx).checkoutBranch({ rootPath: scope.rootPath, name: refName(args, 'name')! })
+    run: (args, scope, ctx) => github(ctx).checkoutBranch({ rootPath: scope.rootPath, name: refName(args, 'name')! }, { reason: 'mcp-approved:checkout' })
   },
   push: {
     level: 'confirm', description: 'Push the current branch to its upstream.',
@@ -69,7 +79,7 @@ const GIT_CHANGE = domainTool('oxespace_git_change', 'Change the Git state of yo
       const what = status ? `${status.branch ?? 'HEAD'} → ${status.upstream ?? 'its upstream'} (${status.ahead} commit${status.ahead === 1 ? '' : 's'} ahead)` : 'the current branch'
       return { summary: `push ${status?.branch ?? 'the current branch'}`, text: `git push\n${what}\nin ${scope.rootPath}` }
     },
-    run: (_a, scope, ctx) => github(ctx).push(workspaceInput(scope))
+    run: (_a, scope, ctx) => github(ctx).push(workspaceInput(scope), { reason: 'mcp-approved:push' })
   },
   restore_checkpoint: {
     level: 'confirm', description: 'Restore the work tree to a checkpoint; current changes are replaced.', properties: { checkpointId: { type: 'string', maxLength: 200 } }, required: ['checkpointId'],

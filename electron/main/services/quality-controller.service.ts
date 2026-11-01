@@ -1,9 +1,7 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import path from 'node:path'
 import type { FileSystemService } from './file-system.service'
+import { execGit } from '../utils/safe-git'
 
-const execFileAsync = promisify(execFile)
 const MAX_FILE_BYTES = 512 * 1024
 const MAX_SYMBOLS = 24
 
@@ -179,7 +177,7 @@ async function collectChangedFiles(root: string, baseRef?: string): Promise<stri
     : [['diff', '--name-only', '--diff-filter=ACMR', '--'], ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '--'], ['ls-files', '--others', '--exclude-standard']]
   const files = new Set<string>()
   for (const args of commands) {
-    const { stdout } = await execFileAsync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 })
+    const { stdout } = await execGit(root, args, { maxBuffer: 4 * 1024 * 1024 })
     for (const file of stdout.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) files.add(normalizePath(file))
   }
   return [...files].sort()
@@ -191,7 +189,7 @@ async function collectTouchedLines(root: string, baseRef?: string): Promise<Map<
     : [['-c', 'core.quotepath=false', 'diff', '--no-prefix', '--unified=0', '--diff-filter=ACMR', '--'], ['-c', 'core.quotepath=false', 'diff', '--cached', '--no-prefix', '--unified=0', '--diff-filter=ACMR', '--']]
   const touched = new Map<string, Set<number>>()
   for (const args of commands) {
-    const { stdout } = await execFileAsync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
+    const { stdout } = await execGit(root, args, { maxBuffer: 16 * 1024 * 1024 })
     let file: string | undefined
     for (const line of stdout.split(/\r?\n/)) {
       if (line.startsWith('+++ ')) {
@@ -214,7 +212,7 @@ async function collectTouchedLines(root: string, baseRef?: string): Promise<Map<
 async function collectExactReferences(fileSystem: FileSystemService, workspaceId: string, root: string, symbols: string[], changed: Set<string>): Promise<Map<string, string[]>> {
   const references = new Map<string, string[]>()
   if (symbols.length === 0) return references
-  const { stdout } = await execFileAsync('git', ['ls-files'], { cwd: root, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 })
+  const { stdout } = await execGit(root, ['ls-files'], { maxBuffer: 8 * 1024 * 1024 })
   const tracked = stdout.split(/\r?\n/).map(normalizePath).filter(Boolean).slice(0, 10_000)
   for (const symbol of symbols) references.set(symbol, [])
   for (const file of tracked) {

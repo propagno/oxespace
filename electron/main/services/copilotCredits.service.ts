@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { ghEnv } from '../utils/safe-git'
 import type { CopilotCredits, CopilotQuotaBucket } from '../../../shared/types/copilot'
 import { EMPTY_COPILOT_CREDITS } from '../../../shared/types/copilot'
 
@@ -32,7 +33,8 @@ function spawnGh(args: string[], timeoutMs: number): Promise<SpawnResult> {
       child = spawn('gh', args, {
         shell: process.platform === 'win32',
         windowsHide: true,
-        env: process.env
+        // gh runs git itself: no GIT_* of main's, no hooks, no fsmonitor (utils/safe-git.ts).
+        env: ghEnv()
       })
     } catch (error) {
       resolve({ stdout: '', stderr: '', code: null, error: error instanceof Error ? error : new Error(String(error)) })

@@ -393,7 +393,8 @@ export interface GitHubConnectRepositoryInput extends GitHubWorkspaceInput {
 export interface GitHubWorktreeApi {
   listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]>
   listWorktrees(input: GitHubWorkspaceInput): Promise<GitHubWorktree[]>
-  createWorktree(input: GitHubCreateWorktreeInput): Promise<GitHubMessageResult>
+  /** `person` names who started it (electron/main/utils/safe-git-person.ts); without one a fetchBase fetch cannot reach the network. */
+  createWorktree(input: GitHubCreateWorktreeInput, person?: { reason: `${string}:${string}` }): Promise<GitHubMessageResult>
   removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
   /**
    * Part of the contract because every caller that creates a branch needs it:

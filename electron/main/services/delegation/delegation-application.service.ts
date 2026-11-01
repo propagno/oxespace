@@ -1,6 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { resolve } from 'node:path'
 import type { ConversationThread } from '../../../../shared/types/thread'
 import type { AppDatabase } from '../../db'
@@ -18,8 +16,9 @@ import { DelegationGitProvisioner } from './delegation-git-provisioner'
 import { KnowledgeTransferService, type DelegationEnrichment } from './knowledge-transfer.service'
 import { captureDelegationSessions } from './delegation-session-context'
 import type { ThreadDelegationHost } from './thread-delegation-host'
+import { execGit } from '../../utils/safe-git'
+import { execPersonGit } from '../../utils/safe-git-person'
 
-const exec = promisify(execFile)
 const terminalStates = new Set<DelegationState>(['cancelled', 'approved'])
 export interface DelegationDependencies {
   workspace: WorkspaceService; git: GitHubWorktreeApi; executions: ExecutionRegistry
@@ -54,7 +53,7 @@ export class DelegationApplicationService {
   constructor(private db: AppDatabase, private deps: DelegationDependencies) {
     this.repository = new DelegationRepository(db)
     this.gitPlanner = new DelegationGitPlanner(deps.git, (cwd, args) => this.git(cwd, args))
-    this.gitProvisioner = new DelegationGitProvisioner(deps.git, this.repository, (cwd, args) => this.git(cwd, args))
+    this.gitProvisioner = new DelegationGitProvisioner(deps.git, this.repository, (cwd, args) => this.git(cwd, args), (task, remote) => this.fetchForPerson(task, remote))
     this.coordinator = new TaskCoordinator(db, deps.workspace, deps.executions)
     this.repository.settleRunningUnknown('OXESpace restarted before the operation result was confirmed.')
     // A fresh application has no surviving managed PTYs. Never replay work on boot.
@@ -130,7 +129,8 @@ export class DelegationApplicationService {
         'Start an independent persistent OxeChat conversation', 'Persist handoff, operation journal and native session binding'
       ] }
   }
-  async create(origin: AgentExecution, input: DelegationInput): Promise<DelegationTask> {
+  /** `fromPerson`: the delegation dialog (createFromSurface), whose "Fetch remote" may reach the network. */
+  async create(origin: AgentExecution, input: DelegationInput, fromPerson = false): Promise<DelegationTask> {
     origin = this.deps.executions.authenticate(origin.id, origin.token, origin.workspaceId)
     for (const field of ['key','agentProfileId','objective','handoff','acceptance'] as const) {
       if (typeof input[field] !== 'string' || !input[field].trim() || input[field].length > (field === 'handoff' ? 16000 : 2000)) throw new Error(`Invalid ${field}`)
@@ -225,6 +225,7 @@ export class DelegationApplicationService {
       this.save(task); this.event(task, 'failed', task.error); throw error
     }
     this.event(task, 'created', 'Delegation queued')
+    if (fromPerson && task.checkout?.fetchBase) this.personFetches.add(task.id)
     this.schedule(task.id)
     return task
   }
@@ -243,7 +244,7 @@ export class DelegationApplicationService {
       }
     } else if (!workspace.panes.some(pane => pane.id === owner.id)) throw new Error('Origin terminal belongs to another workspace')
     if (!execution || execution.workspaceId !== workspaceId) throw new Error('Start the origin agent before delegating')
-    return this.create(execution, input)
+    return this.create(execution, input, true)
   }
   private schedule(id: string): void {
     if (this.pending.has(id) || this.closing) return
@@ -273,8 +274,17 @@ export class DelegationApplicationService {
     const execution = this.deps.executions.forPane(task.paneId)
     if (execution && execution.id === task.destinationExecutionId) this.deps.stop(task.paneId)
   }
+  /**
+   * Tasks the person created with "Fetch remote", this launch: an agent's delegate_task never fetches (its fetchBase
+   * fails with FETCH_NEEDS_PERSON), and after a restart the person asks again.
+   */
+  private readonly personFetches = new Set<string>()
+  private async fetchForPerson(task: DelegationTask, remote: string): Promise<void> {
+    if (!this.personFetches.has(task.id)) throw new Error('FETCH_NEEDS_PERSON: OXESpace fetches only when a person asks; fetch from the Git panel, then delegate without fetchBase')
+    await execPersonGit(task.cwd, ['fetch', '--', remote], { reason: 'delegation-dialog:fetch-base' }, { timeout: 120_000 })
+  }
   private async git(cwd: string, args: string[]): Promise<string> {
-    return (await exec('git', args, { cwd, windowsHide: true, timeout: 15000, maxBuffer: 128 * 1024 })).stdout.trim()
+    return (await execGit(cwd, args, { timeout: 15000, maxBuffer: 128 * 1024 })).stdout.trim()
   }
   private async provision(id: string): Promise<void> {
     try {
