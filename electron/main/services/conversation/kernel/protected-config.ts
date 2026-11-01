@@ -12,12 +12,13 @@
 import { baseName, evaluateShellCommand, splitShellCommand, tokenize } from '../shell-command-rules'
 import { mainMessage, type MainMessage } from '../../../../../shared/messages'
 
-export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks'
+export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks' | 'policy'
 
 export const PROTECTED_CONFIG_LABEL: Record<ProtectedConfigKind, string> = {
   instructions: 'agent instructions',
   mcp: 'MCP server settings',
-  hooks: 'agent hooks'
+  hooks: 'agent hooks',
+  policy: 'the project\'s agent policy and tool groups'
 }
 
 /** File names that are protected at any depth, lower-cased. Add a name here and it is protected everywhere. */
@@ -29,7 +30,9 @@ export const PROTECTED_CONFIG_NAMES: Readonly<Record<string, ProtectedConfigKind
   '.cursorrules': 'instructions',
   '.windsurfrules': 'instructions',
   'copilot-instructions.md': 'instructions',
-  '.mcp.json': 'mcp'
+  '.mcp.json': 'mcp',
+  // The tool groups a conversation is offered (B7.3).
+  'oxe.yaml': 'policy'
 }
 
 /**
@@ -46,7 +49,9 @@ export const PROTECTED_CONFIG_PLACES: ReadonlyArray<{ kind: ProtectedConfigKind;
   { kind: 'mcp', pattern: /(^|\/)\.(cursor|vscode)\/mcp\.json$/, names: ['.cursor', '.vscode', 'mcp.json'] },
   { kind: 'mcp', pattern: /(^|\/)\.(codex\/config\.toml|gemini\/settings\.json)$/, names: ['.codex', '.gemini', 'config.toml', 'settings.json'] },
   { kind: 'instructions', pattern: /(^|\/)\.cursor\/rules\//, names: ['.cursor', 'rules'] },
-  { kind: 'instructions', pattern: /(^|\/)\.github\/copilot-instructions\.md$/, names: ['.github', 'copilot-instructions.md'] }
+  { kind: 'instructions', pattern: /(^|\/)\.github\/copilot-instructions\.md$/, names: ['.github', 'copilot-instructions.md'] },
+  // The project's policy: the MCP tools the person blocked in Settings › Tools (B7.3), which an agent must not lift.
+  { kind: 'policy', pattern: /(^|\/)\.oxespace\/policy\.json$/, names: ['.oxespace', 'policy.json'] }
 ]
 
 /** Every name a protected file or folder is spelled with, for reading 8.3 short names back. */
@@ -166,8 +171,8 @@ export function commandMentionsProtected(command: string): { path: string; kind:
  * A command the built-in read-only list alone approves, whatever rules are saved (`cat AGENTS.md`): reading a
  * protected file changes nothing, so naming one in such a command is not a reason to guard it.
  */
-export function isPlainSafeRead(command: string): boolean {
-  if (commandWritesProtected(command) || commandRewritesTracked(command)) return false
+export function isPlainSafeRead(command: string, context: CopyContext = {}): boolean {
+  if (commandWritesProtected(command) || commandRewritesTracked(command, context)) return false
   const verdict = evaluateShellCommand(command, { allow: [], deny: [], useDefaults: true })
   return verdict.decision === 'allow' && verdict.viaDefaults === true
 }
@@ -176,9 +181,9 @@ export function isPlainSafeRead(command: string): boolean {
  * B16 · Whether a command can change a protected file: it writes one, names one outside a plain safe read, or rewrites
  * tracked files without naming them. The policy guards it, and no card offers "for the session" for it.
  */
-export function commandTouchesProtected(command: string): boolean {
-  if (commandWritesProtected(command) || commandRewritesTracked(command)) return true
-  return commandMentionsProtected(command) !== null && !isPlainSafeRead(command)
+export function commandTouchesProtected(command: string, context: CopyContext = {}): boolean {
+  if (commandWritesProtected(command) || commandRewritesTracked(command, context)) return true
+  return commandMentionsProtected(command) !== null && !isPlainSafeRead(command, context)
 }
 
 /** Git subcommands that rewrite tracked files without naming each one. */
@@ -193,9 +198,121 @@ function commandTexts(command: string, depth = 0): string[] {
   return [command, ...quoted.flatMap(text => commandTexts(text, depth + 1))]
 }
 
+/**
+ * What a copy or move check may know about the project: its root, to read an absolute destination, and whether a
+ * source is a folder (the caller looks; this module never touches the file system).
+ */
+export interface CopyContext {
+  root?: string
+  /** Whether `path`, absolute, is an existing folder. */
+  isDirectory?: (path: string) => boolean
+}
+
+/** A path the shell resolves to the folder it runs in, or one we cannot read without running it (`$PWD`, `%CD%`). */
+const CURRENT_FOLDER = /^(\$|%)/
+const ABSOLUTE = /^([a-z]:)?[\\/]/i
+
+/**
+ * Whether a copy destination is the project's root, or a folder that holds a protected place (`.claude`, `.git`,
+ * `.git/hooks`, `.codex`, `.cursor`, `.oxespace`…, as `PROTECTED_CONFIG_PLACES` lists them), so a recursive copy into
+ * it can overwrite a protected file without naming it. An ordinary subfolder (`build/`, `dist`) is not: a name that is
+ * protected at any depth (`AGENTS.md`) landing there is B7.4's file watch. A destination above the folder (`..`) is
+ * always counted, since a `cd` before it may have made it the root; without the root, so is an absolute one.
+ */
+function copyTargetIsProtected(operand: string, root?: string): boolean {
+  const value = operand.replace(/^["']|["']$/g, '')
+  if (!value || value.startsWith('~')) return false
+  if (CURRENT_FOLDER.test(value)) return true
+  if (!ABSOLUTE.test(value) && segments(value)[0] === '..') return true
+  let rel: string[]
+  if (root) {
+    const base = segments(root)
+    const full = ABSOLUTE.test(value) ? segments(value) : segments(`${root}/${value}`)
+    if (full.length < base.length || base.some((part, index) => full[index] !== part)) return false
+    rel = full.slice(base.length)
+  } else {
+    if (ABSOLUTE.test(value)) return true
+    rel = segments(value)
+  }
+  if (!rel.length) return true
+  // A protected place, spelled from the root, under the destination: `<dest>/x`, `<dest>/<name>` or `<dest>/<name>/x`
+  // for each known name. Anchored, so `build/` does not count for the `.husky/` a copy could create inside it.
+  const base = rel.join('/')
+  const probes = [`${base}/x`, ...KNOWN_NAMES.flatMap(name => [`${base}/${name}`, `${base}/${name}/x`])]
+  return probes.some(probe => ROOT_PLACES.some(place => place.test(probe)))
+}
+
+/** `PROTECTED_CONFIG_PLACES` matched from the project's root only (each pattern starts with `(^|\/)`). */
+const ROOT_PLACES = PROTECTED_CONFIG_PLACES.map(place => new RegExp(place.pattern.source.replace(/^\(\^\|\\\/\)/, '^')))
+
+/** Arguments that are not options: `-x` and `--x` (POSIX), `/X` (Windows tools) and `-Name` (PowerShell) are left out. */
+const operands = (tokens: string[], windowsOptions: boolean): string[] =>
+  tokens.slice(1).filter(token => !(token.startsWith('-') || (windowsOptions && /^\/[A-Za-z]/.test(token))))
+const GLOB = /[*?]/
+
+/**
+ * Whether a move source is a folder: written as one (`dist/`, `dist\\`, `.`, `..`), or one in the project
+ * when the caller can look (`context.isDirectory`, relative to the root).
+ */
+function isFolder(operand: string, context: CopyContext): boolean {
+  const value = operand.replace(/^["']|["']$/g, '')
+  if (/[\\/]$/.test(value) || /^\.{1,2}$/.test(value)) return true
+  if (!context.root || !context.isDirectory) return false
+  const absolute = ABSOLUTE.test(value) ? value : `${context.root.replace(/[\\/]+$/, '')}/${value}`
+  try { return context.isDirectory(absolute) } catch { return false }
+}
+
+/**
+ * A copy or sync that can write many files without naming them (recursive, a glob, or a tool that copies a whole
+ * folder) into the project's root or a folder holding a protected place: `rsync -a ./tmp/ ./`, `cp -r src/ ./`,
+ * `robocopy src .`, `xcopy /e src .`, `Copy-Item -Recurse src\* .`. The destination is read leniently (every operand
+ * after the first, for cp and rsync, in case an option's value comes last), so a misread one asks rather than
+ * allows. A plain copy of named files is not here: `commandWritesProtected` reads its names. A move of a glob or a
+ * folder (`mv tmp/* .`, `Move-Item dist\ .`) counts the same; moving a named file (`mv a.txt .`) does not.
+ */
+function copierIn(tokens: string[], head: string, context: CopyContext = {}): string | null {
+  const { root } = context
+  const flags = tokens.slice(1).filter(token => token.startsWith('-'))
+  let label: string | null = null
+  let destinations: string[] = []
+  if (head === 'cp' || head === 'rsync') {
+    const args = operands(tokens, false)
+    const recursive = flags.some(flag => /^-[A-Za-z]*[rRa][A-Za-z]*$/.test(flag) || /^--(recursive|archive)$/.test(flag) || /^-rec/i.test(flag))
+    if (recursive) label = `${head} ${head === 'rsync' ? '-a' : '-r'}`
+    else if (head === 'cp' && args.slice(0, -1).some(arg => GLOB.test(arg))) label = 'cp *'
+    destinations = args.slice(1)
+  } else if (head === 'robocopy' || head === 'xcopy') {
+    // Both copy every file of a folder (and its subfolders with /S or /E); xcopy's one-operand form copies into here.
+    const args = operands(tokens, true)
+    label = head
+    destinations = [args[1] ?? (head === 'xcopy' ? '.' : '')]
+  } else if (['copy-item', 'cpi', 'copy'].includes(head)) {
+    const recursive = flags.some(flag => /^-r(e(c(u(r(s(e)?)?)?)?)?)?$/i.test(flag))
+    // -Destination (any prefix of it) names the destination; otherwise it is the second operand, or here.
+    const named = tokens.findIndex((token, index) => index > 0 && /^-d(e(s(t(i(n(a(t(i(o(n)?)?)?)?)?)?)?)?)?)?$/i.test(token))
+    const valueOf = new Set([named + 1, ...tokens.flatMap((token, index) => /^-(path|literalpath|filter|include|exclude)$/i.test(token) ? [index + 1] : [])])
+    const args = tokens.filter((token, index) => index > 0 && !token.startsWith('-') && !valueOf.has(index))
+    const sources = [...args, ...tokens.filter((_, index) => /^-(path|literalpath)$/i.test(tokens[index - 1] ?? ''))]
+    if (recursive || sources.some(arg => GLOB.test(arg))) label = recursive ? 'Copy-Item -Recurse' : 'Copy-Item *'
+    destinations = named > 0 ? [tokens[named + 1] ?? ''] : [args[sources.length > args.length ? 0 : 1] ?? '.']
+  } else if (['mv', 'move-item', 'move', 'mi'].includes(head)) {
+    // PowerShell's -Destination names the destination; otherwise the last operand is (POSIX mv takes several sources).
+    const named = tokens.findIndex((token, index) => index > 0 && /^-d(e(s(t(i(n(a(t(i(o(n)?)?)?)?)?)?)?)?)?)?$/i.test(token))
+    const args = tokens.filter((token, index) => index > 0 && !token.startsWith('-') && index !== named + 1)
+    const target = named > 0 ? tokens[named + 1] ?? '' : args[args.length - 1] ?? ''
+    const sources = named > 0 ? args : args.slice(0, -1)
+    if (sources.some(source => GLOB.test(source) || isFolder(source, context))) label = head === 'mv' ? 'mv' : 'Move-Item'
+    destinations = [target]
+  }
+  if (!label) return null
+  return destinations.some(arg => copyTargetIsProtected(arg, root)) ? label : null
+}
+
 /** What rewrites tracked files in one tokenized sub-command, or null. */
-function rewriterIn(tokens: string[]): string | null {
+function rewriterIn(tokens: string[], context: CopyContext = {}): string | null {
   const head = baseName(tokens[0] ?? '').toLowerCase()
+  const copier = copierIn(tokens, head, context)
+  if (copier) return copier
   if (head === 'git') {
     let index = 1
     while (index < tokens.length && tokens[index].startsWith('-')) index += GIT_VALUE_OPTIONS.has(tokens[index]) ? 2 : 1
@@ -217,15 +334,16 @@ function rewriterIn(tokens: string[]): string | null {
 /**
  * B16 · A command that rewrites tracked files without naming them: git checkout, switch, restore, apply, merge, rebase,
  * reset, clean, am, cherry-pick, revert, pull, stash pop and stash apply, and archive extraction (tar x, unzip, 7z x,
- * Expand-Archive), alone or inside a nested shell. Any project with a git hooks folder or an instructions file has
- * a protected file it could rewrite, so these are never approved by a saved rule. git commit, push, add, status,
- * diff, log, fetch and branch are not here.
+ * Expand-Archive), and a recursive copy, sync or folder move into the project's root or a protected place (`copierIn`), alone or
+ * inside a nested shell. Any project with a git hooks folder or an instructions file has a protected file it could
+ * rewrite, so these are never approved by a saved rule. git commit, push, add, status, diff, log, fetch and branch
+ * are not here. `context` gives the project folder, to read an absolute destination, and a folder check for sources.
  */
-export function commandRewritesTracked(command: string): string | null {
+export function commandRewritesTracked(command: string, context: CopyContext = {}): string | null {
   for (const text of commandTexts(command)) {
     for (const sub of splitShellCommand(text) ?? text.split(/&&|\|\||[;|&\n]/)) {
       const tokens = tokenize(sub.trim())
-      const found = rewriterIn(tokens) ?? (/(^|[\s;])expand-archive(\s|$)/i.test(sub) ? 'Expand-Archive' : null)
+      const found = rewriterIn(tokens, context) ?? (/(^|[\s;])expand-archive(\s|$)/i.test(sub) ? 'Expand-Archive' : null)
       if (found) return found
     }
   }
