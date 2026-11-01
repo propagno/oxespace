@@ -72,7 +72,7 @@ export function ThreadWorktreeFinishDialog({ thread, action, onOpenInCode, onClo
     footer={<>
       <Button disabled={busy} onClick={onClose}>{t('common.cancel')}</Button>
       {onOpenInCode && owned && <Button disabled={busy} onClick={() => { void onOpenInCode(owned.path).then(onClose, cause => setError(humanizeError(cause, t('sidebar.openInCodeFailed')))) }}>{t('worktreeFinish.openInCode')}</Button>}
-      <Button disabled={busy} loading={busy} variant="primary" onClick={() => void finish('keep')}>{t(`worktreeFinish.${action}AndKeep`)}</Button>
+      <Button loading={busy} variant="primary" onClick={() => void finish('keep')}>{t(`worktreeFinish.${action}AndKeep`)}</Button>
       {inspection && <Button variant="danger" disabled={busy} onClick={() => setConfirmingDiscard(true)}>{t('worktreeFinish.discard')}</Button>}
     </>}>
     <ul className="thread-worktree-finish-list">

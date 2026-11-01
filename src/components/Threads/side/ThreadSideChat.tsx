@@ -2,6 +2,8 @@ import { X } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { messageKey, messageValues } from '../../../../shared/messages'
+import { THREAD_MESSAGE_MAX_CHARS } from '../../../../shared/threadLimits'
+import { formatNumber } from '../../../utils/formatTime'
 import { Badge, Button, ErrorState, IconButton, TextArea } from '../../../ui'
 import { shortcutLabel } from '../../../keyboard/keybindings'
 import { formatThreadCost } from '../threadCost'
@@ -19,6 +21,16 @@ export function sideChatCostLabel(cost: SideChatCost, t: (key: string, values?: 
   return parts.join(' · ')
 }
 
+/** What was typed in each conversation's side chat and not sent yet; it survives closing the drawer, not the app. */
+const drafts = new Map<string, string>()
+
+/** Why main would refuse this question (the same rule: no NUL, at most THREAD_MESSAGE_MAX_CHARS), or null. */
+export function sideQuestionProblem(text: string): 'nul' | 'tooLong' | null {
+  if (text.includes('\0')) return 'nul'
+  if (text.length > THREAD_MESSAGE_MAX_CHARS) return 'tooLong'
+  return null
+}
+
 /**
  * The side chat drawer (B1.2, Ctrl+.): questions about this conversation, answered by a read-only copy of its session.
  * Nothing asked here reaches the conversation; the copy is thrown away when the drawer closes. Its cost is always in
@@ -29,7 +41,13 @@ export function ThreadSideChat({ threadId, onClose }: { threadId: string; onClos
   const { t: tMain, i18n } = useTranslation('main')
   const tm = tMain as unknown as (key: string, values: Record<string, string>) => string
   const { state, send } = useSideChat(threadId)
-  const [draft, setDraft] = useState('')
+  const [draft, setDraftState] = useState(() => drafts.get(threadId) ?? '')
+  const setDraft = (value: string): void => {
+    if (value) drafts.set(threadId, value)
+    else drafts.delete(threadId)
+    setDraftState(value)
+  }
+  const problem = sideQuestionProblem(draft)
   const input = useRef<HTMLTextAreaElement>(null)
   const log = useRef<HTMLOListElement>(null)
   const ready = state.phase === 'open' && !state.busy
@@ -38,7 +56,7 @@ export function ThreadSideChat({ threadId, onClose }: { threadId: string; onClos
   useEffect(() => { log.current?.lastElementChild?.scrollIntoView?.({ block: 'nearest' }) }, [state.entries])
 
   const submit = (): void => {
-    if (!ready || !draft.trim()) return
+    if (!ready || !draft.trim() || problem) return
     void send(draft)
     setDraft('')
   }
@@ -72,10 +90,11 @@ export function ThreadSideChat({ threadId, onClose }: { threadId: string; onClos
     {state.busy && <p className={styles.status} role="status">{state.activity ? t('side.working', { activity: state.activity }) : t('side.thinking')}</p>}
     {state.error !== null && <ErrorState compact title={state.error === SIDE_SEND_FAILED ? t('side.sendFailed') : t('side.turnFailed')}
       detail={state.error === SIDE_SEND_FAILED || !state.error ? undefined : state.error} />}
+    {problem && <ErrorState compact title={problem === 'nul' ? t('side.nul') : t('composer.tooLong', { length: formatNumber(draft.length), limit: formatNumber(THREAD_MESSAGE_MAX_CHARS) })} />}
     <form className={styles.composer} onSubmit={event => { event.preventDefault(); submit() }}>
       <TextArea ref={input} className={styles.input} rows={3} value={draft} disabled={state.phase !== 'open'} aria-label={t('side.ask')} placeholder={t('side.placeholder')}
         onChange={event => setDraft(event.target.value)} onKeyDown={onKeyDown} data-testid="thread-side-chat-input" />
-      <Button type="submit" variant="primary" size="sm" disabled={!ready || !draft.trim()} loading={state.busy}>{t('side.send')}</Button>
+      <Button type="submit" variant="primary" size="sm" disabled={!ready || !draft.trim() || problem !== null} loading={state.busy}>{t('side.send')}</Button>
     </form>
   </aside>
 }

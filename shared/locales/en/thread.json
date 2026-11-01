@@ -1591,6 +1591,7 @@
     "ask": "Ask the side chat",
     "placeholder": "Ask about this conversation…",
     "send": "Ask",
+    "nul": "The question has a null character, which cannot be sent. Remove it and try again.",
     "close": "Close side chat ({{shortcut}})",
     "openMenu": "Side chat",
     "closeMenu": "Close side chat"
