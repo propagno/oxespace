@@ -53,7 +53,10 @@ export const PROTECTED_CONFIG_PLACES: ReadonlyArray<{ kind: ProtectedConfigKind;
   // Git's own configuration: global (XDG), the repository's, a worktree's, and the system file of any Git install
   // (/etc/gitconfig, C:/Program Files/Git/etc/gitconfig, a per-user install's etc/gitconfig). The repository's
   // .gitattributes is NOT here: it is an ordinary tracked file agents edit, and the drivers it names live in config.
-  { kind: 'git', pattern: /(^|\/)\.config\/git\/(config|attributes|ignore)$/, names: ['.config', 'git', 'config', 'attributes', 'ignore'] },
+  // Any config-like folder holding git/config: ~/.config, and $XDG_CONFIG_HOME or wherever it points.
+  { kind: 'git', pattern: /(^|\/)[^/]*config[^/]*\/git\/(config|attributes|ignore)$/, names: ['.config', 'git', 'config', 'attributes', 'ignore'] },
+  { kind: 'git', pattern: /(^|\/)\.git\/modules\/.+\/config$/, names: ['.git', 'modules', 'config'] },
+  { kind: 'git', pattern: /(^|\/)programdata\/git\/config$/, names: ['programdata', 'git', 'config'] },
   { kind: 'git', pattern: /(^|\/)\.git\/config(\.worktree)?$/, names: ['.git', 'config', 'config.worktree'] },
   { kind: 'git', pattern: /(^|\/)\.git\/worktrees\/[^/]+\/config\.worktree$/, names: ['.git', 'worktrees', 'config.worktree'] },
   { kind: 'git', pattern: /(^|\/)\.git\/info\/attributes$/, names: ['.git', 'info', 'attributes'] },
@@ -245,61 +248,131 @@ export function commandRewritesTracked(command: string): string | null {
   return null
 }
 
-/** `git config` options that write; its other action options read. */
-const GIT_CONFIG_WRITES = new Set(['--add', '--unset', '--unset-all', '--replace-all', '--rename-section', '--remove-section', '--edit', '-e'])
-const GIT_CONFIG_READS = new Set(['--get', '--get-all', '--get-regexp', '--get-urlmatch', '--get-color', '--get-colorbool', '--list', '-l', '--blob'])
+/** Every long option of `git config`, old and 2.46+ forms: git accepts any unambiguous prefix of one (`--unset-a`). */
+const GIT_CONFIG_LONG = [
+  '--global', '--system', '--local', '--worktree', '--file', '--blob', '--get', '--get-all', '--get-regexp', '--get-urlmatch',
+  '--replace-all', '--add', '--unset', '--unset-all', '--rename-section', '--remove-section', '--list', '--edit', '--get-color',
+  '--get-colorbool', '--type', '--bool', '--int', '--bool-or-int', '--bool-or-str', '--path', '--expiry-date', '--null', '--name-only',
+  '--includes', '--show-origin', '--show-scope', '--default', '--fixed-value', '--comment', '--value', '--all', '--url', '--regexp'
+]
+/** `git config` options that write; the reads below do not. */
+const GIT_CONFIG_WRITES = new Set(['--add', '--unset', '--unset-all', '--replace-all', '--rename-section', '--remove-section', '--edit'])
+const GIT_CONFIG_READS = new Set(['--get', '--get-all', '--get-regexp', '--get-urlmatch', '--get-color', '--get-colorbool', '--list', '--blob'])
 /** `git config` options that take the next token as their value. */
-const GIT_CONFIG_VALUE_OPTIONS = new Set(['--blob', '--type', '-t', '--default', '--comment', '--value'])
+const GIT_CONFIG_VALUE_OPTIONS = new Set(['--file', '--blob', '--type', '--default', '--comment', '--value', '--url'])
+const GIT_CONFIG_SCOPES: Readonly<Record<string, string>> = { '--global': '~/.gitconfig', '--system': 'etc/gitconfig', '--worktree': '.git/config.worktree', '--local': '.git/config' }
 /** The subcommands of git 2.46+ (`git config set`, `git config list`). */
 const GIT_CONFIG_WRITE_SUBS = new Set(['set', 'unset', 'rename-section', 'remove-section', 'edit'])
 const GIT_CONFIG_READ_SUBS = new Set(['get', 'list', 'get-color', 'get-colorbool'])
+/** A --file value the shell computes or that points into a .git folder: it may well be the repository's config. */
+const COMPUTED_FILE = /[$`]|git\s+rev-parse|(^|[\\/])\.git[\\/]/i
 
-/** The file one tokenized `git config` writes, or null when it reads, writes an ordinary file or is not `git config`. */
-function gitConfigTarget(tokens: string[]): string | null {
-  if (baseName(tokens[0] ?? '').toLowerCase() !== 'git') return null
-  let index = 1
-  while (index < tokens.length && tokens[index].startsWith('-')) index += GIT_VALUE_OPTIONS.has(tokens[index]) ? 2 : 1
-  if ((tokens[index] ?? '').toLowerCase() !== 'config') return null
+/** The long options a spelling stands for: itself, or every option it is a prefix of (git refuses an ambiguous one). */
+function longOptions(option: string): string[] {
+  if (GIT_CONFIG_LONG.includes(option)) return [option]
+  return option.startsWith('--') && !option.startsWith('--no-') && option.length > 2 ? GIT_CONFIG_LONG.filter(long => long.startsWith(option)) : []
+}
+
+/** The file the arguments after `git config` write, or null when they read or write an ordinary file. */
+function gitConfigArgsTarget(tokens: string[], start: number): string | null {
   let file: string | null = null
   let scope = '.git/config'
   let writes = false
   let reads = false
   const positional: string[] = []
-  for (let at = index + 1; at < tokens.length; at++) {
+  for (let at = start; at < tokens.length; at++) {
     const token = tokens[at]
     const equals = token.startsWith('--') ? token.indexOf('=') : -1
-    const option = equals > 0 ? token.slice(0, equals) : token
+    const spelled = equals > 0 ? token.slice(0, equals) : token
     const inline = equals > 0 ? token.slice(equals + 1) : undefined
-    if (option === '--global') scope = '~/.gitconfig'
-    else if (option === '--system') scope = 'etc/gitconfig'
-    else if (option === '--worktree') scope = '.git/config.worktree'
-    else if (option === '--local') scope = '.git/config'
-    else if (option === '--file' || option === '-f') { file = inline ?? tokens[at + 1] ?? ''; if (inline === undefined) at++ }
-    else if (GIT_CONFIG_WRITES.has(option)) writes = true
-    else if (GIT_CONFIG_READS.has(option) || GIT_CONFIG_VALUE_OPTIONS.has(option)) {
-      if (GIT_CONFIG_READS.has(option)) reads = true
-      if (GIT_CONFIG_VALUE_OPTIONS.has(option) && inline === undefined) at++
-    } else if (!token.startsWith('-')) positional.push(token)
+    if (/^-[a-zA-Z]+$/.test(token)) {
+      // Short options, alone or clustered: -e edits, -l lists, -f and -t take a value.
+      if (token.includes('e')) writes = true
+      if (token.includes('l')) reads = true
+      if (token.endsWith('f')) { file = tokens[at + 1] ?? ''; at++ } else if (token.endsWith('t')) at++
+      continue
+    }
+    if (!token.startsWith('--')) { positional.push(token); continue }
+    const options = longOptions(spelled)
+    // An ambiguous spelling that could be a write is counted as one: git would refuse it, so nothing is lost by asking.
+    if (options.some(option => GIT_CONFIG_WRITES.has(option))) writes = true
+    if (options.length !== 1) continue
+    const [option] = options
+    if (GIT_CONFIG_SCOPES[option]) scope = GIT_CONFIG_SCOPES[option]
+    else if (GIT_CONFIG_READS.has(option)) reads = true
+    if (option === '--file') file = inline ?? tokens[at + 1] ?? ''
+    if (GIT_CONFIG_VALUE_OPTIONS.has(option) && inline === undefined) at++
   }
   const sub = (positional[0] ?? '').toLowerCase()
   if (GIT_CONFIG_WRITE_SUBS.has(sub)) writes = true
   // Without an action or a read subcommand, `git config name value` sets a value and `git config name` reads one.
   else if (!GIT_CONFIG_READ_SUBS.has(sub) && !writes && !reads && positional.length >= 2) writes = true
   if (!writes) return null
-  if (file !== null) return protectedConfigKind(file) ? file : null
+  if (file !== null) return protectedConfigKind(file) || COMPUTED_FILE.test(file) ? file : null
   return scope
 }
 
+/** A command name with the backticks and parentheses of a substitution around it dropped (`` `which git` ``, `$(which git)`). */
+const commandName = (token: string): string => baseName(token.replace(/^[`(]+|[`)]+$/g, ''))
+/** A command name the shell computes: a variable or a substitution (`$GIT`, `${GIT}`, `$(…)`, `` `…` ``). */
+const computedName = (token: string): boolean => /^\$|[`]|\$\(/.test(token)
+/** `-c alias.<name>=…` whose alias runs `git config` or a shell command (`!…`): the next git call writes config with it. */
+const CONFIG_ALIAS = /^alias\.[^=]+=\s*(config\b|!)/i
+
 /**
- * B16 · A `git config` that writes git's configuration: global, system, the repository's, a worktree's, or a protected
- * file named with --file, alone or inside a nested shell. Setting a value, --add, --unset, --replace-all,
- * --rename-section, --remove-section and --edit write; --get, --list and the other reads do not. `git -c name=value`
- * lasts one command and is left alone.
+ * What one tokenized sub-command writes of git's configuration, or null. The git command is found anywhere in it, so
+ * a prefix (`X=1`, env, sudo, command, timeout, nohup, nice, xargs, exec, cmd /c), `git-config`, a substitution or a
+ * variable standing for git does not hide it.
+ *
+ * Left alone on purpose: `git remote add/set-url`, `git branch --set-upstream-to`, `git submodule` and `git worktree
+ * add` write .git/config too, but only URLs, refs and paths that git does not run as commands (the ext:: transport is
+ * off by default), and agents run them all day. `git -c name=value` lasts one command, except a config-writing alias.
+ */
+function gitConfigWriteIn(tokens: string[]): string | null {
+  for (let at = 0; at < tokens.length; at++) {
+    const name = commandName(tokens[at])
+    if (name === 'git-config') { const target = gitConfigArgsTarget(tokens, at + 1); if (target) return target; continue }
+    if (name === 'git-lfs' && tokens[at + 1]?.toLowerCase() === 'install') return lfsInstallTarget(tokens, at + 2)
+    if (name === 'gh' && tokens[at + 1]?.toLowerCase() === 'auth' && tokens[at + 2]?.toLowerCase() === 'setup-git') return '~/.gitconfig'
+    if (name !== 'git' && !computedName(tokens[at])) continue
+    let index = at + 1
+    while (index < tokens.length && tokens[index].startsWith('-')) {
+      if (tokens[index] === '-c' && CONFIG_ALIAS.test(tokens[index + 1] ?? '')) return '.git/config'
+      index += GIT_VALUE_OPTIONS.has(tokens[index]) ? 2 : 1
+    }
+    const sub = (tokens[index] ?? '').toLowerCase()
+    const next = (tokens[index + 1] ?? '').toLowerCase()
+    if (sub === 'config') { const target = gitConfigArgsTarget(tokens, index + 1); if (target) return target }
+    // `git maintenance register|start` adds the repository to the global config; `gh auth setup-git` and
+    // `git lfs install` set credential helpers and filter drivers there (or in the scope they are given).
+    else if (sub === 'maintenance' && (next === 'register' || next === 'start')) return '~/.gitconfig'
+    else if (sub === 'lfs' && next === 'install') return lfsInstallTarget(tokens, index + 2)
+  }
+  return null
+}
+
+/** The file `git lfs install` writes its filter driver to: the global config unless a scope is given. */
+function lfsInstallTarget(tokens: string[], start: number): string {
+  const flags = tokens.slice(start).map(token => token.toLowerCase())
+  if (flags.includes('--local')) return '.git/config'
+  if (flags.includes('--worktree')) return '.git/config.worktree'
+  if (flags.includes('--system')) return 'etc/gitconfig'
+  const file = flags.findIndex(token => token === '--file' || token.startsWith('--file='))
+  if (file >= 0) return flags[file].includes('=') ? tokens[start + file].slice(tokens[start + file].indexOf('=') + 1) : tokens[start + file + 1] ?? '~/.gitconfig'
+  return '~/.gitconfig'
+}
+
+/**
+ * B16 · A command that writes git's configuration: `git config` in any scope (global, system, the repository's, a
+ * worktree's) or with --file naming a protected or computed file, alone, behind a prefix or inside a nested shell;
+ * setting a value, --add, --unset, --replace-all, --rename-section, --remove-section and --edit, abbreviated or not.
+ * Also `git -c alias.x=config …`, `git maintenance register|start`, `git lfs install` and `gh auth setup-git`.
+ * --get, --list and the other reads are not writes.
  */
 export function commandWritesGitConfig(command: string): { path: string; kind: 'git' } | null {
   for (const text of commandTexts(command)) {
     for (const sub of splitShellCommand(text) ?? text.split(/&&|\|\||[;|&\n]/)) {
-      const path = gitConfigTarget(tokenize(sub.trim()))
+      const path = gitConfigWriteIn(tokenize(sub.trim()))
       if (path) return { path, kind: 'git' }
     }
   }

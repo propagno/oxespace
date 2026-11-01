@@ -280,6 +280,8 @@ describe('Windows spellings of a protected file (B16)', () => {
  * core.fsmonitor, aliases, filter drivers), so an agent that writes it plants a command for the next git call.
  */
 describe('git configuration (B16)', () => {
+  const run = (command: string) => evaluatePermission({ kind: 'approval', toolName: 'Bash', command }, '/repo', [rule('command', 'git'), rule('command', 'gh')], posix)
+
   it.each([
     ['.gitconfig', 'GITCON~1'], ['/home/me/.gitconfig', '/home/me/GITCON~1'], ['C:\\Users\\me\\.gitconfig', 'C:\\Users\\me\\GITCON~1'],
     ['.config/git/config', '.config/git/CONFIG~1'], ['/home/me/.config/git/attributes', '/home/me/CONFIG~1/git/attributes'], ['.config/git/ignore', '.config/git/IGNORE~1'],
@@ -319,6 +321,67 @@ describe('git configuration (B16)', () => {
     'git config user.name', 'git config get user.name', 'git config list', 'git config --show-origin --get user.email', 'git config -f build.cfg a b',
     'git -c core.pager=cat log', 'git status', 'git log --oneline'
   ])('leaves %j alone: a read, an ordinary file or a one-command setting', command => {
+    expect(commandWritesGitConfig(command), command).toBeNull()
+  })
+
+  // #388 security review H1: a prefix, a wrapper or a computed name before git does not hide the write.
+  it.each([
+    'X=1 git config core.fsmonitor x', 'GIT_DIR=.git X=2 git config core.fsmonitor x', 'env git config core.fsmonitor x', 'env -i PATH=/bin git config core.fsmonitor x',
+    'sudo git config --system core.pager x', 'sudo -u me git config core.fsmonitor x', 'command git config core.fsmonitor x', 'timeout 5 git config core.fsmonitor x',
+    'nohup git config core.fsmonitor x', 'nice -n 10 git config core.fsmonitor x', 'echo core.fsmonitor | xargs git config core.fsmonitor x', 'xargs -n1 git config core.fsmonitor x',
+    'cmd /c git config core.fsmonitor x', 'cmd /c "git config core.fsmonitor x"', 'exec git config core.fsmonitor x', 'git-config core.fsmonitor x',
+    '/usr/lib/git-core/git-config core.fsmonitor x', '"C:\\Program Files\\Git\\cmd\\git.exe" config core.fsmonitor x', '`which git` config core.fsmonitor x',
+    '$(which git) config core.fsmonitor x', '$GIT config core.fsmonitor x', '${GIT} config core.fsmonitor x', 'G=git; $G config core.fsmonitor x'
+  ])('H1 · finds the git config write in %j', command => {
+    expect(commandWritesGitConfig(command), command).toMatchObject({ kind: 'git' })
+  })
+
+  // H2: git accepts any unambiguous prefix of a long option.
+  it.each([
+    ['git config --unset-a core.x', '.git/config'], ['git config --unset-al core.x', '.git/config'], ['git config --uns core.x', '.git/config'],
+    ['git config --remove-sec filter.lfs', '.git/config'], ['git config --rename-s a b', '.git/config'], ['git config --replace-a a b', '.git/config'],
+    ['git config --ad alias.x y', '.git/config'], ['git config --edi', '.git/config'], ['git config --glob --edi', '~/.gitconfig'],
+    ['git config --glo core.sshCommand x', '~/.gitconfig'], ['git config --sys core.pager x', 'etc/gitconfig'], ['git config --wor core.x y', '.git/config.worktree'],
+    ['git config --fil ~/.gitconfig a b', '~/.gitconfig'], ['git config --fil=.git/config a b', '.git/config'], ['git config --re a b', '.git/config'],
+    ['git config -e', '.git/config'], ['git config --global -e', '~/.gitconfig']
+  ])('H2 · reads %j as a write (%s)', (command, path) => {
+    expect(commandWritesGitConfig(command), command).toEqual({ path, kind: 'git' })
+  })
+
+  it('H2 · every write option, at every unambiguous prefix, is a write', () => {
+    for (const option of ['--add', '--unset', '--unset-all', '--replace-all', '--rename-section', '--remove-section', '--edit']) {
+      for (let length = 3; length <= option.length; length++) {
+        const command = `git config ${option.slice(0, length)} a b`
+        expect(commandWritesGitConfig(command), command).toMatchObject({ kind: 'git' })
+      }
+    }
+    for (const read of ['--get-a', '--get-r', '--get-u', '--li', '--show-o', '--get-colorb']) {
+      expect(commandWritesGitConfig(`git config ${read} a`), read).toBeNull()
+    }
+  })
+
+  // M: computed --file values, more places, aliases that write config, and other commands that write git config.
+  it.each([
+    ['git config -f "$(git rev-parse --git-dir)/config" core.fsmonitor x'], ['git config -f `git rev-parse --git-dir`/config core.fsmonitor x'],
+    ['git config -f $GIT_DIR/config core.fsmonitor x'], ['git config --file=$GIT_DIR/config a b'], ['git config -f ../.git/x a b'],
+    ['git config -f $XDG_CONFIG_HOME/git/config core.pager x'], ['git -c alias.x=config x core.fsmonitor evil'], ['git -c "alias.y=!sh -c evil" y'],
+    ['git maintenance register'], ['git maintenance start'], ['git lfs install'], ['git lfs install --local'], ['git-lfs install'], ['gh auth setup-git']
+  ])('M · guards %j', command => {
+    expect(commandWritesGitConfig(command), command).toMatchObject({ kind: 'git' })
+    expect(run(command), command).toMatchObject({ decision: 'ask', guarded: true })
+  })
+
+  it.each(['$XDG_CONFIG_HOME/git/config', '/home/me/xdg-config/git/config', '.git/modules/sub/config', '.git/modules/a/modules/b/config', 'C:\\ProgramData\\Git\\config', 'c:/programdata/git/config'])(
+    'M · reads %j as git configuration', path => {
+      expect(protectedConfigKind(path), path).toBe('git')
+    })
+
+  // L: these write .git/config, but only URLs, refs and paths git does not run.
+  it.each([
+    'git remote add origin https://x.invalid/r.git', 'git remote set-url origin https://x.invalid/r.git', 'git branch --set-upstream-to=origin/main',
+    'git submodule update --init', 'git worktree add ../wt feat', 'git -c core.pager=cat log', 'git -c alias.st=status st', 'git maintenance run', 'git lfs pull',
+    'gh auth status', 'git config -f build.cfg a b', '$GIT config --get user.name', 'env git config --list'
+  ])('L · leaves %j alone', command => {
     expect(commandWritesGitConfig(command), command).toBeNull()
   })
 
