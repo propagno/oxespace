@@ -34,7 +34,7 @@ const RULE_MARK = '\u0000rule\u0000'
 export function appNoteParts(note: MainMessage | { code: string; params: Record<string, unknown> }, kind: ApprovalRequest['kind']): Array<{ text: string } | { rule: string }> {
   const rule = (note.params as Record<string, unknown> | undefined)?.rule
   if (typeof rule !== 'string' || (kind === 'oxequery' && !isMainMessage(note))) return [{ text: formatAppNote(note, kind) }]
-  const marked = formatMainMessage({ ...note, params: { ...note.params, rule: RULE_MARK } } as MainMessage)
+  const marked = formatMainMessage({ ...note, params: { ...note.params, rule: RULE_MARK } } as unknown as MainMessage)
   return marked.split(RULE_MARK).flatMap((text, index) => index === 0 ? (text ? [{ text }] : []) : [{ rule }, ...(text ? [{ text }] : [])])
 }
 
