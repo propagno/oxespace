@@ -72,6 +72,48 @@ agent's prose and the steps are what a conversation is made of, and they should 
 - **Stale signal:** past the desktop's threshold the second line reads like the desktop's ("Sem sinal do provedor há
   …"), in `intent-warning-fg`.
 
+## 3a. Patterns taken from Orca's phone app (MIT, analysed 2026-11-01)
+
+The four patterns below are behaviour from Orca's phone app, drawn in Mandacaru. We take the patterns, not the code:
+Orca's app is React Native, ours is Kotlin and Compose.
+
+- **Turn bar.**
+  - **While the turn runs,** the bar sits under the person's prompt: "Trabalhando há 42 s" (it counts once a second,
+    and only while running), plus the live row's current step.
+  - **When the turn ends,** it settles in place to "Trabalhou por 3 min 4 s · 7 passos". The bar is a button
+    (`expanded` state) that opens that turn's steps. Collapsed is the default for finished turns, so a long
+    conversation stays short.
+  - **pt/en strings:** "Trabalhando há {{time}}" / "Working for {{time}}"; "Trabalhou por {{time}} · {{count}} passos" /
+    "Worked for {{time}} · {{count}} steps".
+- **Grouped steps with an inline diff.**
+  - Consecutive tool steps fold into one row: "Leu 3 arquivos · executou 2 comandos" / "Read 3 files · ran 2 commands".
+    It expands to the individual rows of §2.
+  - The step that is running pulses with its own label ("Executando npm test -- auth", `oxe-pulse`).
+  - An edit step expands to its diff: + and − lines in Plex Mono on `intent-success-bg` / `intent-danger-bg`. It is
+    capped at 240 lines, with "Abrir no computador" past that.
+- **The message queue.**
+  - What the person sends while the agent works is queued, as on the desktop. On the phone the queue is visible right
+    above the composer: "2 mensagens na fila · enviadas quando o turno terminar". Each queued message can be edited and
+    deleted.
+  - When the desktop pauses the queue (the turn was interrupted), the line reads the desktop's "Fila pausada" copy,
+    with **Retomar envio**.
+- **A question with options.**
+  - When the agent asks a question, its options show as a single-choice list (`selectableGroup`, `Role.RadioButton`)
+    of full-width rows, plus "Outra resposta…" for free text, then **Responder**. None of it looks like a form field.
+  - It opens from the request bar, as any request does.
+
+**Not taken from Orca:**
+- **Relay pairing:** it goes through the cloud, and S4 promises no cloud.
+- **Its grey-and-blue skin:** Mandacaru is the brand.
+- **Its permission card:** it makes the provider's first option (usually "Yes") the primary button. Ours keeps Negar
+  primary. We do take its context labels on the request screen: **Motivo**, **Caminho bloqueado**, **Regra**, shown
+  when the provider reports them.
+
+**Later (1.4.x / 1.5):**
+- 1.4.x: the terminal key row (Esc, Tab, ⇧Tab, Ctrl+C, arrows, Colar) and the terminal text size.
+- 1.5: `/` commands and `@` files in the composer; a chat-or-terminal view per pane; a "Continuar" card and account
+  usage on the home screen; Quick Commands tied to OxeCode's Scripts.
+
 ## 4. The pending request: a fixed bar above the composer
 
 - **Where:** docked at the bottom, **directly above the composer**, and it never scrolls away. It is above the
