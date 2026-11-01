@@ -6,7 +6,7 @@ import { threadApprovalRisk } from './threadApprovalRisk'
 import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
 import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
-import { cx, ErrorState, Select } from '../../ui'
+import { cx, ErrorState, FieldError, Select } from '../../ui'
 import { i18n } from '../../i18n'
 import styles from './ThreadRequestCard.module.css'
 import { humanizeError } from '../../utils/humanizeError'
@@ -126,16 +126,18 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     </fieldset>)}</div> : null}
     {elicitation.map(field => {
       const value = form[field.name], problem = showProblems ? validateElicitationField(field, value) : null
+      const errorId = `${request.id}-${field.name}-error`
+      const invalid = problem ? { 'aria-invalid': true, 'aria-describedby': errorId } : {}
       const set = (next: ElicitationValue) => setForm(current => ({ ...current, [field.name]: next }))
       const chosen = Array.isArray(value) ? value : []
       // A group of checkboxes cannot sit inside a label: each option is its own label.
       const Wrapper = field.kind === 'multi' ? 'fieldset' : 'label'
       return <Wrapper key={field.name} className={cx('thread-request-field', styles.field)}><span>{field.title}{field.required ? ' *' : ''}</span>{field.description && <small>{field.description}</small>}
         {field.kind === 'boolean' ? <input type="checkbox" checked={value === true} onChange={event => set(event.target.checked)} />
-          : field.kind === 'single' ? <Select value={String(value ?? '')} onChange={event => set(event.target.value)}><option value="">{t('request.select')}</option>{field.options!.map(option => <option key={option.value} value={option.value}>{option.label ?? option.value}</option>)}</Select>
+          : field.kind === 'single' ? <Select value={String(value ?? '')} {...invalid} onChange={event => set(event.target.value)}><option value="">{t('request.select')}</option>{field.options!.map(option => <option key={option.value} value={option.value}>{option.label ?? option.value}</option>)}</Select>
           : field.kind === 'multi' ? <span role="group" aria-label={field.title}>{field.options!.map(option => <label key={option.value}><input type="checkbox" checked={chosen.includes(option.value)} onChange={event => set(event.target.checked ? [...chosen, option.value] : chosen.filter(item => item !== option.value))} />{option.label ?? option.value}</label>)}</span>
-          : <input type={field.kind === 'number' ? 'number' : field.format === 'email' ? 'email' : 'text'} step={field.integer ? 1 : 'any'} min={field.minimum} max={field.maximum} maxLength={field.maxLength} value={String(value ?? '')} onChange={event => set(event.target.value)} />}
-        {problem && <small role="alert">{problem}</small>}
+          : <input type={field.kind === 'number' ? 'number' : field.format === 'email' ? 'email' : 'text'} step={field.integer ? 1 : 'any'} min={field.minimum} max={field.maximum} maxLength={field.maxLength} value={String(value ?? '')} {...invalid} onChange={event => set(event.target.value)} />}
+        {problem && <FieldError id={errorId}>{problem}</FieldError>}
       </Wrapper>
     })}
     {request.requestedPermissions && <pre>{JSON.stringify(request.requestedPermissions, null, 2)}</pre>}

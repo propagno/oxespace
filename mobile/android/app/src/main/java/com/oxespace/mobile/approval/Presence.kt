@@ -28,6 +28,9 @@ enum class Presence {
 fun interface PresenceCheck {
     /** [ask] false only checks the window and never shows a prompt the person didn't ask for. */
     suspend fun confirm(reason: PresenceReason, ask: Boolean): Presence
+
+    /** Whether the window is open now, without asking: lets a screen start unlocked instead of flashing a lock. */
+    fun windowOpen(): Boolean = false
 }
 
 /** Sending, steering or typing into a terminal, once the person is confirmed; or why nothing went out. */
@@ -40,6 +43,8 @@ sealed interface Gated<out T> {
 class PresenceGate(private val check: PresenceCheck) {
     /** Asks without acting: a terminal the phone can type into asks when it opens. */
     suspend fun confirm(reason: PresenceReason): Presence = check.confirm(reason, ask = true)
+
+    fun windowOpen(): Boolean = check.windowOpen()
 
     suspend fun <T> run(reason: PresenceReason, ask: Boolean = true, action: suspend () -> T): Gated<T> {
         val presence = check.confirm(reason, ask)
@@ -61,6 +66,8 @@ class KeystorePresence(private val context: Context) : PresenceCheck {
         if (!systemPrompt(context, title, null, context.getString(R.string.presence_window))) return Presence.NOT_CONFIRMED
         return if (usable() == true) Presence.CONFIRMED else Presence.NOT_CONFIRMED
     }
+
+    override fun windowOpen(): Boolean = usable() == true
 
     /** True inside the window, false outside it, null when the key can't be made (no screen lock). */
     private fun usable(): Boolean? {
