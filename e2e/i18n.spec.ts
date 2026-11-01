@@ -7,8 +7,8 @@ test('opens in Brazilian Portuguese on a Portuguese system and switches to Engli
   try {
     await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR')
     const views = page.getByRole('navigation', { name: 'Visão do aplicativo' })
-    await expect(views.getByRole('button', { name: 'Code', exact: true })).toBeVisible()
-    await expect(views.getByRole('button', { name: 'Thread', exact: true })).toHaveAttribute('title', /^Thread: conversas com um agente \(.+\)$/)
+    await expect(views.getByRole('button', { name: 'OxeCode', exact: true })).toHaveAttribute('title', /^OxeCode: terminais e agentes nos seus workspaces \(.+\)$/)
+    await expect(views.getByRole('button', { name: 'OxeChat', exact: true })).toHaveAttribute('title', /^OxeChat: conversas com um agente \(.+\)$/)
 
     await page.getByRole('button', { name: 'Abrir configurações', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Configurações', exact: true })).toBeVisible()

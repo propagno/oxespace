@@ -23,6 +23,7 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       # Prefer GitHub's native "Use workflow from" branch. Only set this when you
@@ -47,16 +48,60 @@ on:
         type: boolean
 
 concurrency:
-  # Never cancel an in-flight tag release path; PR/main builds may cancel.
+  # Only a pull request's run gives way to its next push. A run on main (or a tag) that started always finishes:
+  # with a long runner queue, cancelling it on every merge meant main went untested for hours. Runs still waiting
+  # in the group coalesce, so a burst of merges queues one run, not one per merge.
   group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
+  # What a pull request touched, so the expensive jobs only run when they can tell something.
+  # A docs-only PR (docs/**, *.md, .claude/**) runs nothing but this job, which still gives it
+  # a passing check. The OxeQuery live matrices (5 runners) only run when OxeQuery code, its
+  # tests, what they import (OxePod containers, approvals, policy, the C3 messages), the
+  # migrations, the dependencies or this file changed. Pushes to main, tags and
+  # dispatches always run everything: main and a release are never gated by a diff.
+  changes:
+    name: Changed paths
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+      oxequery: ${{ steps.classify.outputs.oxequery }}
+    steps:
+      - name: Classify the changed files
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "oxequery=true" >> "$GITHUB_OUTPUT"
+            echo "not a pull request: everything runs"; exit 0
+          fi
+          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          echo "$files" | sed 's/^/  /'
+          code=false; oxequery=false
+          if echo "$files" | grep -Eqv '^(docs/|\.claude/|.*\.md$)'; then code=true; fi
+          if echo "$files" | grep -Eq '^(electron/main/services/(oxequery|oxepod|agent-actions|approvals)/|electron/main/workers/[^/]*oxequery|electron/main/db/|electron/main/runtime/|electron/main/(policy|agent-text)|electron/main/services/diagnostics/incident-sink|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText|policy|approval-rules|reserved-names|hidden-characters|messages)\.ts$|shared/types/(oxepod|approvals)\.ts$|shared/locales/[^/]+/main\.json$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|package\.json$|package-lock\.json$|\.github/workflows/ci\.yml$)'; then oxequery=true; fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"
+          echo "code=$code oxequery=$oxequery"
+
   build:
     name: Typecheck, test and build (${{ matrix.label }})
+    needs: [changes]
+    # A draft PR runs nothing; marking it ready for review starts the run. A docs-only PR skips the build.
+    if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     permissions:
@@ -246,6 +291,17 @@ jobs:
           # resources on Windows when Vitest runs files concurrently.
           npm run test:coverage
 
+      # The summary of this run, before the OxeQuery gate below writes its own over it: the source of the
+      # renderer's coverage floor and of what each PR moves it by. It is kept when the tests fail too.
+      - name: Upload coverage summary
+        if: success() || failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-summary-${{ matrix.label }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: coverage/coverage-summary.json
+
       - name: Build renderer and main process
         shell: pwsh
         run: |
@@ -255,6 +311,16 @@ jobs:
           # Installed apps have no node_modules above them; tests inside the checkout do. 1.0.0 shipped an
           # OxeQuery worker that imported a devDependency and could not load on any installed build.
           node scripts/check-bundle-imports.mjs
+
+      # The main process ships minified; its source maps never ship. Keep them with the run, so a stack from a
+      # problem report of this build can be read: node scripts/symbolicate-stack.mjs --maps <artifact folder>.
+      - name: Upload main-process source maps
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: main-sourcemaps-${{ matrix.label }}
+          if-no-files-found: error
+          retention-days: 90
+          path: out/main/**/*.map
 
       # E2E launches Electron, so it must run only after the Electron-native
       # binary has been installed and verified. node-pty supplies a
@@ -376,6 +442,8 @@ jobs:
           # Installer size in every run log, so a dependency that bloats the package shows up in review.
           Get-ChildItem dist -File | Where-Object { $_.Extension -in '.exe', '.deb', '.AppImage' } |
             ForEach-Object { '[installer-size] {0} {1:N1} MB' -f $_.Name, ($_.Length / 1MB) }
+          # The source maps are private: none may reach the packaged app.
+          node -e "const asar = require('@electron/asar'); const fs = require('node:fs'); const dirs = fs.readdirSync('dist').filter(name => name.endsWith('-unpacked')); if (!dirs.length) throw new Error('no unpacked app in dist'); for (const dir of dirs) { const maps = asar.listPackage('dist/' + dir + '/resources/app.asar', {}).filter(file => /^[\\/]out[\\/].*\.map$/.test(file)); if (maps.length) throw new Error(dir + ' ships source maps: ' + maps.slice(0, 5).join(', ')); console.log('[sourcemaps] ' + dir + ': none in app.asar') }"
 
       - name: E2E packaged Linux build
         if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Linux'
@@ -512,6 +580,10 @@ jobs:
   # gate: a database client that was only ever tested against mocks must not ship.
   oxequery-live:
     name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
+    needs: [changes]
+    # A draft PR runs nothing; a PR that did not touch OxeQuery, its tests, the migrations or the
+    # dependencies skips the live matrix. Main, tags and dispatches always run it.
+    if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.oxequery == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
@@ -556,6 +628,9 @@ jobs:
   # engine matrix above already covers Podman against the default versions.
   oxequery-live-versions:
     name: OxeQuery live tests (PostgreSQL ${{ matrix.pg }}, MongoDB ${{ matrix.mongo }})
+    needs: [changes]
+    # Same gate as oxequery-live.
+    if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.oxequery == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:

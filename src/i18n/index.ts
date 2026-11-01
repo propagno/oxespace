@@ -1,3 +1,4 @@
+import { use } from 'react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { LANGUAGES, languageFor, type Language, type LanguagePreference } from '../../shared/i18n'
@@ -37,6 +38,26 @@ export async function loadNamespace(namespace: LazyNamespace): Promise<void> {
   lazyLoaded.add(namespace)
   const language = currentLanguage()
   await Promise.all([addLazy(namespace, language), ...(language === 'en' ? [] : [addLazy(namespace, 'en')])])
+}
+
+/** A promise React's `use` reads synchronously: it is already settled, so the render never suspends for it. */
+const settled = (): Promise<void> => Object.assign(Promise.resolve(), { status: 'fulfilled', value: undefined })
+const pending = new Map<string, Promise<void>>()
+
+/**
+ * Makes the first render of a lazy view wait, in the nearest Suspense, for its catalog in the language on screen.
+ * `use` runs on every render, never behind a condition: React replays a component that suspended, and if the replay
+ * skips the `use` the attempt called (the catalog arrived meanwhile), the hooks after it no longer line up and React
+ * throws (#467, reported as #520 after it recovers).
+ */
+export function useNamespace(namespace: LazyNamespace): void {
+  const key = `${currentLanguage()}:${namespace}`
+  let promise = pending.get(key)
+  if (!promise) {
+    promise = i18n.hasResourceBundle(currentLanguage(), namespace) ? settled() : loadNamespace(namespace)
+    pending.set(key, promise)
+  }
+  use(promise)
 }
 
 /** The operating system's locale as the main process sees it (app.getLocale()). */

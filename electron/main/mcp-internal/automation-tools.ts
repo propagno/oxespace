@@ -32,7 +32,8 @@ const toolsEnable: ToolEntry = {
 
 /** Discovery is read-only and authenticated independently of optional memory. */
 export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
-  return [toolsEnable, ...['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_memory_diagnostics'].map((name): ToolEntry => ({
+  // Discovery first, in the order agents and tests know; the group switch B7.2 adds comes last.
+  return [...['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_memory_diagnostics'].map((name): ToolEntry => ({
     descriptor: { name, description: name === 'oxespace_capabilities'
       ? 'Discover registered OXESpace tools and execution requirements. Availability is not authorization.'
       : name === 'oxespace_execution_context'
@@ -100,5 +101,5 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
         launchCwd: execution.cwd, currentShellCwd: 'unknown', agentProfileId: pane?.agentProfileId ?? null,
         originPaneId: pane?.originPaneId ?? null, git })
     }
-  }))]
+  })), toolsEnable]
 }

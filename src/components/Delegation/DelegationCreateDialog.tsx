@@ -4,7 +4,7 @@ import type { DelegationBranchIntent, DelegationPreflight, DelegationTask } from
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { ConversationThread } from '../../../shared/types/thread'
 import './DelegationCreateDialog.css'
-import { Button, Checkbox, Dialog, Select, TextArea, TextField } from '../../ui'
+import { Button, Checkbox, Dialog, Notice, Select, TextArea, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDate } from '../../utils/formatTime'
 
@@ -108,7 +108,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
         <label>Agent<Select value={profileId} disabled={loading} onChange={event => setProfileId(event.target.value)}>{profiles.map(profile => <option key={profile.agentProfileId} value={profile.agentProfileId}>{profile.name}</option>)}</Select></label>
         <label>Destination<Select value={targetId} disabled={loading} onChange={event => { setTargetId(event.target.value); if (event.target.value.startsWith('thread:')) setSurface('thread') }}><option value={workspaceId}>This project · new worktree</option>{destinations.filter(target => target.workspaceId !== workspaceId).map(target => <option key={target.workspaceId} value={target.workspaceId}>{target.name}</option>)}</Select></label>
         <label>Mode<Select value={mode} onChange={event => setMode(event.target.value as typeof mode)}><option value="isolated-change">Implement changes</option><option value="analysis">Analysis only</option></Select></label>
-        <label>Open destination in<Select value={surface} onChange={event => setSurface(event.target.value as typeof surface)}><option value="thread">Thread conversation</option>{!targetId.startsWith('thread:') && <option value="terminal">Code terminal</option>}</Select></label>
+        <label>Open destination in<Select value={surface} onChange={event => setSurface(event.target.value as typeof surface)}><option value="thread">OxeChat conversation</option>{!targetId.startsWith('thread:') && <option value="terminal">OxeCode terminal</option>}</Select></label>
       </div>
       <div className="delegation-columns">
         <section className="delegation-panel" aria-labelledby="delegation-task-heading">
@@ -151,7 +151,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
           </section>}
         </section>
       </div>
-      {error && <p role="alert" className="delegation-preview-error">{error}</p>}
+      {error && <Notice intent="danger" className="delegation-preview-error">{error}</Notice>}
     </div>
   </Dialog>
 }

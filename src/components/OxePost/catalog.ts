@@ -1,5 +1,4 @@
-import { use } from 'react'
-import { currentLanguage, i18n, loadNamespace } from '../../i18n'
+import { i18n, loadNamespace, useNamespace } from '../../i18n'
 
 /** OxePost's text outside components (store, palette, toasts), in the language on screen when it is called. */
 export const tpost = i18n.getFixedT(null, 'post')
@@ -13,5 +12,5 @@ export function loadPostCatalog(): Promise<void> {
 
 /** The view and the sidebar call this first, so the first render waits (in App's Suspense) for the catalog. */
 export function usePostCatalog(): void {
-  if (!i18n.hasResourceBundle(currentLanguage(), 'post')) use(loadPostCatalog())
+  useNamespace('post')
 }

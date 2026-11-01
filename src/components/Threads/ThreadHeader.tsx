@@ -1,4 +1,4 @@
-import { Folder, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X } from 'lucide-react'
+import { Folder, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X, MessagesSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Menu, type MenuEntry } from '../../ui'
 import type { ConversationThread } from '../../../shared/types/thread'
@@ -20,7 +20,7 @@ const THREAD_PANEL = {
 } as Record<WorkbenchPanelId, ThreadPanel>
 
 /** Title, project and branch, and the conversation's panel, view and pin controls. */
-export function ThreadHeader({ thread, workspace, branch, pending, running, activePanel, onTogglePanel, onCommand, onExport, onImport, onDelegate, onPin, onCloseCell }: {
+export function ThreadHeader({ thread, workspace, branch, pending, running, activePanel, onTogglePanel, onCommand, onExport, onImport, onDelegate, sideChatOpen = false, onSideChat, onPin, onCloseCell }: {
   thread?: ConversationThread
   workspace?: Workspace
   branch?: string
@@ -32,6 +32,9 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
   onExport?: () => void
   onImport?: () => void
   onDelegate: () => void
+  /** The side chat drawer (B1.2): open, and its toggle. */
+  sideChatOpen?: boolean
+  onSideChat?: () => void
   onPin: () => void
   onCloseCell?: () => void
 }) {
@@ -43,13 +46,16 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
   const observed = thread?.observedLocation
   const moved = Boolean(observed?.sameRepository && observed.checkoutRoot)
   const outside = observed && !observed.sameRepository ? observed.cwd : null
-  return <header className="thread-heading"><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? t('header.movedTitle', { checkout: thread!.observedLocation!.checkoutRoot, root: thread!.rootPath }) : outside ? t('header.outsideTitle', { root: thread!.rootPath, cwd: outside }) : thread?.rootPath ?? workspace?.rootPath}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? t('header.yourProjects')}</strong>{branch && <span className="thread-heading-branch"><GitBranch size={11} aria-hidden="true" />{branch}</span>}{moved && <span className="thread-heading-worktree">{t('header.worktree')}</span>}</span><h1>{thread?.title ?? t('header.projectConversations')}</h1>
+  // The conversation was started in a worktree of its own: its branch is shown even before Git answers.
+  const owned = thread?.ownedWorktree
+  return <header className="thread-heading"><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? t('header.movedTitle', { checkout: thread!.observedLocation!.checkoutRoot, root: thread!.rootPath }) : outside ? t('header.outsideTitle', { root: thread!.rootPath, cwd: outside }) : thread?.rootPath ?? workspace?.rootPath}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? t('header.yourProjects')}</strong>{(branch ?? owned?.branch) && <span className="thread-heading-branch"><GitBranch size={11} aria-hidden="true" />{branch ?? owned?.branch}</span>}{(moved || owned) && <span className="thread-heading-worktree" title={owned ? t('header.ownedTitle', { branch: owned.branch, root: owned.projectRoot }) : undefined}>{t('header.worktree')}</span>}</span><h1>{thread?.title ?? t('header.projectConversations')}</h1>
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
     <div className="thread-heading-actions">
     {thread && THREAD_BAR_PANELS.map(id => <WorkbenchPanelToggle key={id} className="thread-review-trigger thread-panel-toggle" item={{ id, label: threadPanelLabel(id), title: threadPanelTitle(id), active: activePanel === THREAD_PANEL[id], onToggle: () => onTogglePanel(THREAD_PANEL[id]) }} />)}
     <Menu label={t('header.moreActions')} align="end" items={[
       ...(thread ? [
         { label: t('header.delegate'), icon: <Waypoints size={14} aria-hidden="true" />, disabled: pending || running, onSelect: onDelegate },
+        ...(onSideChat ? [{ label: t(sideChatOpen ? 'side.closeMenu' : 'side.openMenu'), shortcut: shortcutLabel('thread.sideChat'), icon: <MessagesSquare size={14} aria-hidden="true" />, onSelect: onSideChat }] : []),
         { label: thread.pinned ? t('header.unpin') : t('header.pin'), icon: <Pin size={14} aria-hidden="true" />, disabled: pending, onSelect: onPin }
       ] : []),
       { label: t('header.mcp'), icon: <Plug size={14} aria-hidden="true" />, onSelect: () => useUIStore.getState().openMcpPanel() },

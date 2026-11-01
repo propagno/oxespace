@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  height: 24px;
+  height: var(--statusbar-height);
   padding: 0 var(--space-2);
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-chrome);
@@ -23,6 +23,8 @@
 .strong { min-width: 0; color: var(--text-secondary); }
 .path { overflow: hidden; max-width: 46ch; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .connected { color: var(--intent-success-fg); }
+/* No network: says so where every view looks last, and stays until the connection is back. */
+.offline { color: var(--intent-warning-fg); font-family: var(--font-ui); }
 
 /* Shells kept alive for workspaces that are not open: normal, but worth noticing. */
 .action {

@@ -104,7 +104,7 @@
     "deleteTitle": "Delete “{{name}}”?",
     "deleteDescription": "Its saved password, keys and certificates are removed too. The database itself is not touched.",
     "emptyTitle": "No connections yet",
-    "emptyText": "Press Connect on a database container, or add one by hand.",
+    "emptyText": "Add one, or use Connect in OxeQuery on a database container in OxePod.",
     "section": {
       "matches_one": "Matches ({{count}})",
       "matches_other": "Matches ({{count}})",
@@ -358,6 +358,7 @@
       "table": "Table"
     },
     "copiedDocuments": "documents",
+    "copiedDocumentsDone": "Documents copied",
     "copyJson": "Copy JSON",
     "newDocument": "New document",
     "changeMany": "Change many…",
@@ -558,6 +559,8 @@
     "statementTitle": "Statement {{number}}",
     "copiedText": "text",
     "copiedResults": "results",
+    "copiedTextDone": "Text copied",
+    "copiedResultsDone": "Results copied",
     "explain": "Explain",
     "analyze": "Analyze",
     "format": "Format",
@@ -592,7 +595,18 @@
       "production": "This is a production connection.",
       "typedHint": "This statement changes data on a production connection.",
       "typeName": "Type {{name}} to continue",
-      "check": "Check these before it runs."
+      "check": "Check these before it runs.",
+      "flagged_one": "{{count}} statement needs a second look",
+      "flagged_other": "{{count}} statements need a second look",
+      "line": "Line {{line}}",
+      "statementAt": "Statement on line {{line}}",
+      "willRun_one": "What will run ({{formatted}} statement)",
+      "willRun_other": "What will run ({{formatted}} statements)",
+      "willRunLabel": "The exact text that will run",
+      "operation": "Operation",
+      "filter": "Filter",
+      "update": "Update",
+      "documents": "Documents"
     },
     "results": "Results",
     "running": "Running…",
@@ -672,6 +686,7 @@
     "title": "Query failed",
     "copy": "Copy error",
     "copied": "error message",
+    "copiedDone": "Error message copied",
     "technical": "Technical detail",
     "position": "position {{position}}",
     "hint": "Hint: {{hint}}",
@@ -1139,6 +1154,7 @@
     "failed": "The definition could not be read",
     "loading": "Reading the catalog…",
     "copied": "definition",
+    "copiedDone": "Definition copied",
     "openInTab": "Open in a new tab"
   },
   "columns": {

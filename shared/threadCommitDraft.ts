@@ -33,7 +33,7 @@ export function threadCommitDraft(snapshot: Pick<ThreadSnapshot, 'events' | 'tur
     '## Summary', '', ...(bullets.length ? bullets : ['- ' + subject]), '',
     '## Files changed', '', ...(fileList.length ? fileList.slice(0, 50).map(file => `- \`${file}\``) : ['- (none recorded)']),
     ...(fileList.length > 50 ? [`- …and ${fileList.length - 50} more`] : []), '',
-    '_Drafted from an OXESpace Thread conversation._'
+    '_Drafted from an OxeChat conversation in OXESpace._'
   ].join('\n')
   return { message, prTitle: subject, prBody }
 }

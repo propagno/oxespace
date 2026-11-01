@@ -1,14 +1,25 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { ErrorState } from '../../ui'
+import { i18n } from '../../i18n'
+import { Button, ErrorState } from '../../ui'
+import type { RendererErrorBoundary } from '../../lib/rendererErrors'
+import { reportBoundaryError } from '../../lib/rendererErrorsBoot'
 
 interface ErrorBoundaryProps {
   children: ReactNode
+  /** Which boundary this is, for the incident journal; stable across languages, unlike `label`. */
+  id: RendererErrorBoundary
+  /** The component the journal names, when it is better known than the first one in React's stack (a view's name). */
+  component?: string
   /** Short label for the fallback copy and logs (e.g. "the terminal"). */
   label?: string
+  /** Runs before Try again renders the children again: a lazy part retries its chunk (lazyFrom's retry). */
+  onReset?: () => void
   /** Custom fallback; defaults to an error state with Try again. */
   fallback?: ReactNode
   /** One line instead of a card, for small panels. */
   compact?: boolean
+  /** The whole window: the app's root boundary, with a way to reload. */
+  page?: boolean
 }
 
 interface ErrorBoundaryState {
@@ -29,16 +40,21 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error(`[OXESpace] ErrorBoundary caught (${this.props.label ?? 'component'})`, error, info.componentStack)
+    void reportBoundaryError(error, this.props.id, this.props.component, info.componentStack)
   }
 
-  private readonly reset = (): void => this.setState({ error: null })
+  private readonly reset = (): void => { this.props.onReset?.(); this.setState({ error: null }) }
 
   render(): ReactNode {
     if (!this.state.error) return this.props.children
     if (this.props.fallback !== undefined) return this.props.fallback
+    if (this.props.page) return <div className="error-boundary-fallback error-boundary-page">
+      <ErrorState brand title={i18n.t('ui.crash.title')} message={i18n.t('ui.crash.message')} detail={this.state.error.message} onRetry={this.reset}
+        actions={<Button onClick={() => window.location.reload()}>{i18n.t('ui.crash.reload')}</Button>} />
+    </div>
     return <div className="error-boundary-fallback">
-      <ErrorState compact={this.props.compact} title={`Something went wrong while showing ${this.props.label ?? 'this part of the app'}.`}
-        message="The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu."
+      <ErrorState brand compact={this.props.compact} title={this.props.label ? i18n.t('ui.boundary.title', { what: this.props.label }) : i18n.t('ui.boundary.titlePart')}
+        message={i18n.t('ui.boundary.message')}
         detail={this.state.error.message} onRetry={this.reset} />
     </div>
   }

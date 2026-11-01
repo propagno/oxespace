@@ -13,6 +13,7 @@ import type { useOxeVoice } from '../../hooks/useOxeVoice'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import { withShortcut } from '../../keyboard/keybindings'
 import './ThreadComposerChrome.css'
+import { displayThreadTitle } from './threadTitle'
 import { formatNumber } from '../../utils/formatTime'
 
 type Voice = ReturnType<typeof useOxeVoice>
@@ -63,7 +64,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
     {mentions.popup}
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><button type="button" aria-label={t('composer.remove', { name: attachment.name })} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
-    <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot?.thread.title ?? t('composer.conversation') })} {...commands.inputProps} placeholder={!snapshot ? t('composer.placeholderNone') : snapshot.thread.connection?.suspendedAt ? t('composer.placeholderSuspended') : t('composer.placeholder')} value={draft} disabled={blocked}
+    <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={!snapshot ? t('composer.placeholderNone') : snapshot.thread.connection?.suspendedAt ? t('composer.placeholderSuspended') : t('composer.placeholder')} value={draft} disabled={blocked}
       onChange={e => { onCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { onCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
       onPaste={event => { const files = [...event.clipboardData.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}
       onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend() } else if (e.key === 'Escape' && running && !pending) { e.preventDefault(); e.stopPropagation(); onInterrupt() } }} />
@@ -80,7 +81,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
       <button type="button" className="thread-voice" aria-label={t('composer.voice')} title={withShortcut(t('composer.voice'), 'voice.toggle')} disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><AudioLines size={15} /></button>
       {running && <button type="button" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
-      <button type="submit" className="thread-send" aria-label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle') : t('composer.sendTitle')} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
+      <button type="submit" className="thread-send oxe-press" aria-label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle') : t('composer.sendTitle')} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
     {tooLong && <ErrorState compact title={t('composer.tooLong', { length: formatNumber(draft.length), limit: formatNumber(THREAD_MESSAGE_MAX_CHARS) })} />}
   </form>
 }

@@ -1,8 +1,9 @@
 import { ExternalLink, GitBranch, KeyRound, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
-import { ToolPanel, Button, EmptyState } from '../../ui'
+import { ToolPanel, Button, EmptyState, Notice } from '../../ui'
 import type { LinearIssue, LinearIssueScope } from '../../../shared/types/linear'
 import { useLinearStore } from '../../store/linear.store'
+import { openExternalLink } from '../../lib/externalLinks'
 
 interface LinearPanelProps {
   workspaceId: string | null
@@ -178,7 +179,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
                    
                     variant="ghost" size="sm" square
                     aria-label={`Open ${issue.identifier} in Linear`}
-                    onClick={() => window.open(issue.url, '_blank', 'noopener')}
+                    onClick={() => void openExternalLink(issue.url, { source: 'linear' })}
                   >
                     <ExternalLink size={12} aria-hidden="true" />
                   </Button>
@@ -189,7 +190,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
         </>
       )}
 
-      {state.error ? <div className="linear-error" role="alert">{state.error}</div> : null}
+      {state.error ? <Notice intent="danger" className="linear-error">{state.error}</Notice> : null}
       {state.notice ? (
         <div className="linear-notice" role="status" onClick={() => state.clearNotice()}>
           {state.notice}

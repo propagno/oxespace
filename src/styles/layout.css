@@ -308,7 +308,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.25;
+  /* One line as tall as the minimum target (WCAG 2.5.8), so the name stays centred in a 24 px button. */
+  line-height: var(--target-min);
+  min-block-size: var(--target-min);
   min-width: 0;
   transition: color var(--transition-base);
   /* A real button so the keyboard reaches the row; it must look like the text it replaced. */
@@ -402,15 +404,9 @@
   height: 8px;
 }
 
-@keyframes ws-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(18, 199, 154, 0.6); }
-  70% { box-shadow: 0 0 0 4px rgba(18, 199, 154, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(18, 199, 154, 0); }
-}
-
 .ws-group-dot.activity-thinking,
 .ws-group-dot.activity-running {
-  animation: ws-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-opacity: 0.4; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .ws-group-dot.activity-placeholder {
@@ -419,8 +415,9 @@
 }
 
 /* Collapsed-rail status pip — recolor the existing absolute dot by tone. */
-.sidebar-rail-pip.activity-thinking { background: var(--dot-green); animation: ws-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
+.sidebar-rail-pip.activity-thinking { background: var(--dot-green); --pulse-opacity: 0.4; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
 .sidebar-rail-pip.activity-awaiting { background: var(--brand); }
+.sidebar-rail-pip.activity-needs-decision { background: var(--intent-warning-bg); border: 2px solid var(--intent-warning-solid); box-sizing: border-box; }
 .sidebar-rail-pip.activity-starting { background: var(--dot-yellow); }
 .sidebar-rail-pip.activity-error { background: var(--dot-red); }
 
@@ -793,7 +790,8 @@
   border-color: var(--intent-success-border);
   background: var(--intent-success-bg);
   color: var(--dot-green);
-  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-scale: 0.85;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 /* Awaiting: solid brand-accent ring so it reads as "your turn", distinct from
@@ -808,7 +806,8 @@
   border-color: var(--intent-warning-border);
   background: var(--intent-warning-bg);
   color: var(--dot-yellow);
-  animation: oxe-activity-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-scale: 0.85;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .pane-row-state-mark.activity-exited {
@@ -911,13 +910,6 @@
   flex-shrink: 0;
 }
 
-/* Working: 3 bouncing dots */
-
-@keyframes session-bounce {
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
-  40%           { transform: translateY(-4px); opacity: 1; }
-}
-
 /* Dormant: z²Z */
 
 /* Starting dot */
@@ -927,7 +919,8 @@
   height: 5px;
   border-radius: 50%;
   background: var(--dot-yellow, var(--intent-warning-solid));
-  animation: dot-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-opacity: 0.3;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 /* Error dot */
@@ -993,7 +986,8 @@
 
 .pane-status-dot.starting {
   background: var(--dot-yellow);
-  animation: dot-pulse var(--duration-pulse) var(--ease-in-out) infinite;
+  --pulse-opacity: 0.3;
+  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .pane-status-dot.error {
@@ -1004,10 +998,6 @@
   background: color-mix(in srgb, var(--text-primary) 20%, transparent);
 }
 
-@keyframes dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
 
 
 /* ─── Footer ────────────────────────────────────────────────────────────── */
@@ -1145,13 +1135,6 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
-}
-
-.sidebar-integration-row-empty {
-  padding: 4px 8px;
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  font-style: italic;
 }
 
 .sidebar-integration-row-member {
@@ -1489,8 +1472,12 @@
   cursor: pointer;
 }
 .workspace-topbar-action:hover { color: var(--tx-primary); background: var(--nav-hover); }
+/* MCP servers in quarantine: a count in the alert colour, read out by the button's own name. */
+.workspace-topbar-action { position: relative; }
+/* The MCP button's quarantine count, drawn like the activity bell's: on the button's corner, never hidden. */
+.workspace-topbar-alert { position: absolute; top: -5px; right: -5px; min-width: 14px; height: 14px; padding: 0 3px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--intent-danger-solid); color: var(--text-on-solid); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: 1; pointer-events: none; }
 .workspace-topbar-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (max-width: 900px) { .workspace-topbar-action span { display: none; } }
+@media (max-width: 900px) { .workspace-topbar-action span:not(.workspace-topbar-alert) { display: none; } }
 
 .workspace-toolbar-button {
   display: inline-flex;

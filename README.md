@@ -6,10 +6,10 @@
   <p><strong>A desktop workspace for working with coding agents — terminals, native Claude&nbsp;Code and Codex conversations, review, connectors and memory in one window.</strong></p>
 
   <p>
-    <a href="https://github.com/propagno/oxespace/releases/latest"><img src="https://img.shields.io/github/v/release/propagno/oxespace?color=00d6c9&label=release&style=flat-square" alt="Latest release" /></a>
+    <a href="https://github.com/propagno/oxespace/releases/latest"><img src="https://img.shields.io/github/v/release/propagno/oxespace?color=1f6b4a&label=release&style=flat-square" alt="Latest release" /></a>
     <a href="https://github.com/propagno/oxespace/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/propagno/oxespace/ci.yml?branch=main&label=CI&style=flat-square" alt="CI" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/propagno/oxespace?color=1e3d31&style=flat-square" alt="MIT license" /></a>
-    <img src="https://img.shields.io/badge/platforms-Windows%20x64%20%C2%B7%20Linux%20x64-5297ff?style=flat-square" alt="Windows x64 and Linux x64" />
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/propagno/oxespace?color=1f6b4a&style=flat-square" alt="MIT license" /></a>
+    <img src="https://img.shields.io/badge/platforms-Windows%20x64%20%C2%B7%20Linux%20x64-e8a33d?style=flat-square" alt="Windows x64 and Linux x64" />
   </p>
 
   <p>
@@ -31,7 +31,7 @@ It runs entirely on your machine. Your repositories stay where they are, the age
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/thread-dark.png" />
-    <img src="docs/assets/screenshots/thread-light.png" alt="Thread mode: a finished Codex task with its plan, the files it edited and the pull request checks" width="900" />
+    <img src="docs/assets/screenshots/thread-light.png" alt="OxeChat: a finished Codex task with its plan, the files it edited and the pull request checks" width="900" />
   </picture>
 </p>
 
@@ -39,21 +39,21 @@ It runs entirely on your machine. Your repositories stay where they are, the age
 
 ### Three modes
 
-| | **Code** | **Thread** | **OxeQuery** |
+| | **OxeCode** | **OxeChat** | **OxeQuery** |
 |---|---|---|---|
 | What it is | A grid of real terminals (PTY) per workspace | A native conversation with Claude Code or Codex | Containers, PostgreSQL and MongoDB in one place |
 | Best for | Running any CLI, shells, dev servers, several agents side by side | Asking, planning and reviewing with approvals, questions, attachments and history | Seeing your Docker or Podman containers and querying and editing data safely |
 | Agents | Claude Code, Codex, Copilot CLI, Cursor, Grok and any command you configure | Claude Code and Codex, using your own subscription sign-in | Optional MCP tools for agents, off by default and approved by you per statement |
 
-Switch between them from the rail on the left; running terminals are preserved while you are in Thread. OxeQuery is the newest mode and has had less real-world use than Code and Thread. See [OxeQuery](docs/OXEQUERY.md) for what it does and its current limits.
+Switch between them from the rail on the left; running terminals are preserved while you are in OxeChat. OxeQuery is the newest mode and has had less real-world use than OxeCode and OxeChat. See [OxeQuery](docs/OXEQUERY.md) for what it does and its current limits.
 
-### Thread mode
+### OxeChat
 
 - **Reads like a conversation, not a log.** Three transcript views — **Summary**, **Normal** and **Verbose** (`Ctrl+O`) — control how much of the agent's work is shown. Normal folds actions into one line such as *"Ran 4 commands, edited 2 files"*.
 - **Review without leaving.** *Edited N files* cards open the **Changes** panel, offer **Undo** for the turn (via checkpoints) and send review comments back to the agent.
 - **A prompt box that does the work.** `@` mentions project files, `+` attaches images or opens connectors, one control sets access and approvals, and a usage ring shows your plan allowance.
 - **Questions and approvals are first-class.** Agent questions, command and tool approvals, plan approvals and background tasks have their own cards. Only a short read-only list (`ls`, `git status`, `grep` and the like, inside the project) and rules you saved are answered for you; the list can be turned off in Rules. Anything that writes, reads outside the project or uses the network asks. See the [approval review](docs/validation/thread-command-approval-security-review.md).
-- **Pull request status in the thread.** The branch's PR, its checks and a ready-made *Fix failing checks* prompt, plus auto-merge, through `gh`.
+- **Pull request status in the conversation.** The branch's PR, its checks and a ready-made *Fix failing checks* prompt, plus auto-merge, through `gh`.
 - **Terminal, Changes and Browser** are one click away (`Ctrl` + backtick, `Ctrl+Shift+D`, `Ctrl+Shift+B`); files, search, scripts and background activity live in the `⋯` menu.
 
 ### Review and Git
@@ -65,7 +65,7 @@ Switch between them from the rail on the left; running terminals are preserved w
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/code-review-dark.png" />
-    <img src="docs/assets/screenshots/code-review-light.png" alt="Code mode: two terminals with git log and the test run, next to the Changes panel with a line comment" width="900" />
+    <img src="docs/assets/screenshots/code-review-light.png" alt="OxeCode: two terminals with git log and the test run, next to the Changes panel with a line comment" width="900" />
   </picture>
 </p>
 
@@ -74,7 +74,7 @@ Switch between them from the rail on the left; running terminals are preserved w
 A catalog of ready-to-add servers with brand tiles — **GitHub, Notion, Linear, Azure DevOps, Supabase, PostgreSQL, MongoDB, Playwright, Slack, Figma, Sentry, Stripe** and more.
 
 - One click on `+` adds, trusts and starts a connector; remote ones open the browser sign-in for you.
-- Servers you enable are attached to your Thread conversations and exported to the CLIs you use in Code mode.
+- Servers you enable are attached to your OxeChat conversations and exported to the CLIs you use in OxeCode.
 - Secrets are handed to servers through the environment, not the command line.
 - Only servers you have explicitly trusted are ever exported.
 
@@ -137,12 +137,12 @@ sha256sum -c --ignore-missing SHA256SUMS.txt
 
 | You need | For | Check |
 |---|---|---|
-| An agent CLI you can sign in to — **Claude Code** and/or **Codex** | Thread and the agent panes | Run it once in a terminal, or sign in from OXESpace |
+| An agent CLI you can sign in to — **Claude Code** and/or **Codex** | OxeChat and the agent panes | Run it once in a terminal, or sign in from OXESpace |
 | **[GitHub CLI](https://cli.github.com/)** | GitHub hub, pull-request status, releases | `gh auth login` |
 | **Node.js 22+** | Running most MCP servers (`npx`) | `node --version` |
 | `uv` (optional) | A few Python-based connectors | `uvx --version` |
 
-Open OXESpace, add a project folder, and start in **Code** or **Thread**. The account panel in Thread shows which providers are connected.
+Open OXESpace, add a project folder, and start in **OxeCode** or **OxeChat**. The account panel in OxeChat shows which providers are connected.
 
 ## Your data and your network
 
@@ -182,7 +182,7 @@ Linux needs the toolchain and Electron runtime libraries listed in the [developm
 |---|---|
 | [Platform specification](docs/PLATFORM_SPEC.md) | Supported platforms, capabilities, limits, data locations |
 | [Architecture](docs/ARCHITECTURE.md) | Processes, subsystems and boundaries |
-| [Thread](docs/thread-view.md) | The conversation surface, commands and accounts |
+| [OxeChat](docs/thread-view.md) | The conversation surface, commands and accounts |
 | [Security model](docs/SECURITY_MODEL.md) | Trust boundaries and release controls |
 | [Release pipeline](docs/RELEASE_PIPELINE.md) | How a version becomes a GitHub Release |
 | [Development guide](docs/DEVELOPMENT_GUIDE.md) | Setup, tests and conventions |

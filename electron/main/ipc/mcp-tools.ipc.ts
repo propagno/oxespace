@@ -22,7 +22,12 @@ export function registerMcpToolsIpc(db: AppDatabase, files: FileSystemService): 
   ipcMain.handle(IPC_CHANNELS.mcpInternal.toolGroups, async (event, value: unknown) => {
     requireAppFrame(event, 'Tool groups')
     const input = value === undefined || value === null ? {} : fieldsOf(value, ['rootPath'])
-    return (await service()).toolGroupsReport(input.rootPath === undefined ? null : rootPathOf(input.rootPath))
+    const groups = await service()
+    if (input.rootPath === undefined) return groups.toolGroupsReport(null)
+    // Only a project OXESpace knows: the window never makes main read oxe.yaml from an arbitrary folder.
+    const rootPath = rootPathOf(input.rootPath)
+    groups.requireRegisteredProject(db, rootPath)
+    return groups.toolGroupsReport(rootPath)
   })
   ipcMain.handle(IPC_CHANNELS.mcpInternal.setToolGroupMode, async (event, value: unknown) => {
     requireAppFrame(event, 'Tool groups')

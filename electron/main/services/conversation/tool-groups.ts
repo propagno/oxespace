@@ -51,6 +51,17 @@ export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { 
 }
 
 /**
+ * The OXESpace tools the workspace's `.mcp.json` offers (any agent started there, whatever its role): every group but
+ * those the project turned off. `null` when none is off, so the entry stays as it was and offers every tool.
+ */
+export function projectOfferedTools(modes: ProjectToolModes): string[] | null {
+  if (!CONFIGURABLE_MCP_TOOL_GROUPS.some(group => modes[group].mode === 'off')) return null
+  const groups = (Object.keys(MCP_TOOL_GROUPS) as (keyof typeof MCP_TOOL_GROUPS)[])
+    .filter(group => !(CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(group) || modes[group as ConfigurableMcpToolGroup].mode !== 'off')
+  return [...new Set(groups.flatMap(group => MCP_TOOL_GROUPS[group]))]
+}
+
+/**
  * Whether the provider loads MCP definitions only when it needs them, so every group that is not off can be offered
  * at no fixed cost (measured in T8, docs/validation/tool-groups-cost-1.4.md).
  * - Codex (0.155.1) sends no MCP definitions up front, and does not reload its tool list mid-session, so a group must

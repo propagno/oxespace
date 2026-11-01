@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 import { load } from 'js-yaml'
 import type { ConfigurableMcpToolGroup, McpToolGroupMode } from '../../../../shared/types/mcp-tools'
+import { MainRefusal } from '../main-refusal'
 import { parseOxeYaml } from './parser'
 
 const indentOf = (line: string) => line.length - line.trimStart().length
@@ -18,12 +19,16 @@ function currentModes(thread: unknown): Record<string, string> {
  * Sets one group's mode in an oxe.yaml text, as the map form of `thread.tools`, and keeps everything else as written:
  * only the `tools` block under `thread` is rewritten (a list becomes the same groups as `always`). The result is parsed
  * again and refused unless nothing but `thread.tools` changed, so a layout this cannot edit safely is never written.
+ * Every refusal is a `MainRefusal` with an `mcp.toolGroups.*` code (C3).
  */
 export function withToolMode(text: string | null, group: ConfigurableMcpToolGroup, mode: McpToolGroupMode): string {
-  const source = text ?? ''
+  // A byte order mark would hide `thread:` from the line scan below; it is kept as written.
+  const bom = text?.startsWith('\uFEFF') ? '\uFEFF' : ''
+  const source = (text ?? '').slice(bom.length)
   const eol = source.includes('\r\n') ? '\r\n' : '\n'
-  const before = source.trim() ? load(source) : {}
-  if (before !== null && before !== undefined && (typeof before !== 'object' || Array.isArray(before))) throw new Error('oxe.yaml is not a mapping; edit it by hand')
+  let before: unknown
+  try { before = source.trim() ? load(source) : {} } catch { throw new MainRefusal('mcp.toolGroups.invalidYaml', {}) }
+  if (before !== null && before !== undefined && (typeof before !== 'object' || Array.isArray(before))) throw new MainRefusal('mcp.toolGroups.notMapping', {})
   const root = (before ?? {}) as Record<string, unknown>
   const modes = { ...currentModes(root.thread), [group]: mode }
   const lines = source ? source.split(/\r?\n/) : []
@@ -34,7 +39,7 @@ export function withToolMode(text: string | null, group: ConfigurableMcpToolGrou
   if (threadAt < 0) {
     next = [...lines, 'thread:', '  tools:', ...Object.entries(modes).map(([name, value]) => `    ${name}: ${value}`)]
   } else {
-    if (!/^thread\s*:\s*(#.*)?$/.test(lines[threadAt])) throw new Error('thread in oxe.yaml is written inline; edit it by hand')
+    if (!/^thread\s*:\s*(#.*)?$/.test(lines[threadAt])) throw new MainRefusal('mcp.toolGroups.inlineThread', {})
     let end = threadAt + 1
     while (end < lines.length && (!meaningful(lines[end]) || indentOf(lines[end]) > 0)) end += 1
     while (end > threadAt + 1 && !meaningful(lines[end - 1])) end -= 1
@@ -52,10 +57,10 @@ export function withToolMode(text: string | null, group: ConfigurableMcpToolGrou
       next = [...lines.slice(0, toolsAt), ...block, ...lines.slice(toolsEnd)]
     }
   }
-  const written = `${next.join(eol)}${eol}`
+  const written = `${bom}${next.join(eol)}${eol}`
 
   let after: Record<string, unknown>
-  try { after = load(written) as Record<string, unknown> } catch { throw new Error('oxe.yaml could not be updated safely; edit thread.tools by hand') }
+  try { after = load(written) as Record<string, unknown> } catch { throw new MainRefusal('mcp.toolGroups.unsafeEdit', {}) }
   const strip = (value: Record<string, unknown>) => {
     const { thread, ...rest } = value
     const { tools: _tools, ...threadRest } = (thread && typeof thread === 'object' ? thread : {}) as Record<string, unknown>
@@ -64,7 +69,7 @@ export function withToolMode(text: string | null, group: ConfigurableMcpToolGrou
   const was = strip(root), now = strip(after)
   const threadUnchanged = isDeepStrictEqual(was.thread, now.thread) || (Object.keys(was.thread).length === 0 && Object.keys(now.thread).length === 0)
   if (!isDeepStrictEqual(was.rest, now.rest) || !threadUnchanged || !isDeepStrictEqual(currentModes(after.thread), modes) || parseOxeYaml(written)?.thread?.toolModes?.[group] !== mode) {
-    throw new Error('oxe.yaml could not be updated safely; edit thread.tools by hand')
+    throw new MainRefusal('mcp.toolGroups.unsafeEdit', {})
   }
   return written
 }

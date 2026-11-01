@@ -1,4 +1,5 @@
-import { Activity, ArrowUpCircle, Bell, Bot, Bug, Keyboard, Mic, Palette, Settings2, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Mic, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { OPEN_ABOUT_EVENT } from '../components/About/AboutHost'
 import { OPEN_REPORT_PROBLEM_EVENT } from '../components/Diagnostics/ReportProblemHost'
 import { OPEN_SHORTCUT_GUIDE_EVENT } from '../components/Keyboard/ShortcutGuideHost'
 import { useUIStore, type SettingsPageId } from '../store/ui.store'
@@ -14,6 +15,7 @@ const PAGES: Array<{ page: SettingsPageId; label: string; icon: LucideIcon; keyw
   { page: 'notifications', label: 'Notifications', icon: Bell, keywords: ['alerts', 'sounds'] },
   { page: 'updates', label: 'Updates', icon: ArrowUpCircle, keywords: ['version', 'download'] },
   { page: 'policy', label: 'Policy', icon: ShieldCheck, keywords: ['rules', 'block', 'deny'] },
+  { page: 'devices', label: 'Devices', icon: Smartphone, keywords: ['phone', 'mobile', 'android', 'pair', 'remote'] },
   { page: 'diagnostics', label: 'Diagnostics', icon: Activity, keywords: ['health', 'logs', 'troubleshooting'] }
 ]
 
@@ -28,5 +30,8 @@ registerCommands('settings', [
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_SHORTCUT_GUIDE_EVENT))) } },
   // Builds a GitHub issue to read and edit; nothing is sent unless the person opens or copies it.
   { id: 'help.report-problem', label: 'Report a problem', icon: Bug, category: 'Help', keywords: ['bug', 'issue', 'feedback', 'github', 'diagnostics', 'support'],
-    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) } }
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) } },
+  // The version, channel and build of this copy, its license and links; the details copy into a support message.
+  { id: 'help.about', label: 'About OXESpace', icon: Info, category: 'Help', keywords: ['version', 'build', 'license', 'electron', 'release'],
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_ABOUT_EVENT))) } }
 ])

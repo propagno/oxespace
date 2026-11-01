@@ -33,9 +33,22 @@ describe('writing a tool group mode to oxe.yaml (F10)', () => {
     expect(withToolMode('scripts:\r\n  setup: make\r\n', 'data', 'off')).toBe('scripts:\r\n  setup: make\r\nthread:\r\n  tools:\r\n    data: off\r\n')
   })
 
-  it('refuses layouts it cannot edit safely, rather than rewriting them', () => {
-    expect(() => withToolMode('thread: { brief: true }\n', 'data', 'off')).toThrow('inline')
-    expect(() => withToolMode('- a\n- b\n', 'data', 'off')).toThrow('not a mapping')
-    expect(() => withToolMode('thread:\n  tools: &anchor [data]\nother: *anchor\n', 'data', 'off')).toThrow('safely')
+  it('refuses layouts it cannot edit safely with a C3 code, rather than rewriting them', () => {
+    const refusal = (text: string) => { try { withToolMode(text, 'data', 'off'); return null } catch (error) { return error } }
+    expect(refusal('thread: { brief: true }\n')).toMatchObject({ code: 'mcp.toolGroups.inlineThread', message: 'mcp.toolGroups.inlineThread' })
+    expect(refusal('- a\n- b\n')).toMatchObject({ code: 'mcp.toolGroups.notMapping' })
+    expect(refusal('thread:\n  tools: &anchor [data]\nother: *anchor\n')).toMatchObject({ code: 'mcp.toolGroups.unsafeEdit' })
+    // More groups in a 1.3 list than the parser reads: the result cannot be verified, so nothing is written.
+    expect(refusal(`thread:\n  tools: [${Array.from({ length: 20 }, (_, i) => `g${i}`).join(', ')}]\n`)).toMatchObject({ code: 'mcp.toolGroups.unsafeEdit' })
+  })
+
+  it('refuses a file that is not valid YAML with a code, never js-yaml\'s own text', () => {
+    for (const text of ['thread:\n  tools: [data\n', 'a: b: c\n', 'thread: "unterminated\n']) {
+      expect(() => withToolMode(text, 'data', 'off'), JSON.stringify(text)).toThrow(/^mcp\.toolGroups\.invalidYaml$/)
+    }
+  })
+
+  it('keeps a byte order mark and still finds the thread block', () => {
+    expect(withToolMode('﻿thread:\n  brief: false\n', 'data', 'off')).toBe('﻿thread:\n  brief: false\n  tools:\n    data: off\n')
   })
 })

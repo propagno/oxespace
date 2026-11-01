@@ -7,14 +7,15 @@ import { useWorkspaceStore } from '../../src/store/workspace.store'
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals() })
 const workspace = { id: 'ws', name: 'demo', rootPath: '/repo', themeId: 'midnight', uiDensity: 'comfortable', layoutPreset: 4, defaultShellProfileId: 'sh', panes: [] } as unknown as Workspace
-function setup(onSave = vi.fn(async () => {})) {
+async function setup(onSave = vi.fn(async () => {})) {
   const onClose = vi.fn()
   render(<SettingsCenter workspaces={[workspace]} initialWorkspaceId="ws" shellProfiles={[]} onSave={onSave} onClose={onClose}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
+  await screen.findByRole('radio', { name: /Compact/ }, { timeout: 10_000 }) // the pages are a lazy chunk
   return { onSave, onClose }
 }
 test('scope navigation protects drafts and supports discard without saving', async () => {
-  const { onSave } = setup()
+  const { onSave } = await setup()
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   fireEvent.click(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')!)
   expect(screen.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible()
@@ -26,7 +27,7 @@ test('scope navigation protects drafts and supports discard without saving', asy
   expect(onSave).not.toHaveBeenCalled()
 })
 test('failed save does not leave the workspace or dismiss the guard', async () => {
-  const { onClose } = setup(vi.fn(async () => { throw new Error('Save failed') }))
+  const { onClose } = await setup(vi.fn(async () => { throw new Error('Save failed') }))
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Back to work' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save and continue' }))
@@ -36,27 +37,27 @@ test('failed save does not leave the workspace or dismiss the guard', async () =
 })
 
 test('saving workspace appearance confirms that settings were persisted', async () => {
-  const { onSave } = setup()
+  const { onSave } = await setup()
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Save workspace settings' }))
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws', uiDensity: 'compact' })))
   expect(await screen.findByRole('status')).toHaveTextContent('Workspace settings saved')
 })
 
-test('explicit initial page overrides the last visited workspace destination', () => {
+test('explicit initial page overrides the last visited workspace destination', async () => {
   localStorage.setItem('oxe.settings.destination', JSON.stringify({scope:'workspace',workspaceId:'ws',page:'delegation'}))
   render(<SettingsCenter initialPage="providers" workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
   expect(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')).toHaveAttribute('aria-pressed', 'true')
-  expect(screen.getByRole('heading', { name: 'Agents' })).toBeVisible()
+  expect(await screen.findByRole('heading', { name: 'Agents' })).toBeVisible()
   expect(screen.queryByRole('button', {name:/^Agents CLI discovery/})).toBeNull()
 })
 
-test('Agents is a page of application settings, not only a first-run shortcut', () => {
+test('Agents is a page of application settings, not only a first-run shortcut', async () => {
   render(<SettingsCenter initialPage="general" workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
   fireEvent.click(within(screen.getByRole('navigation', { name: 'Settings categories' })).getByRole('button', { name: /^Agents/ }))
-  expect(screen.getByRole('heading', { name: 'Agents' })).toBeVisible()
+  expect(await screen.findByRole('heading', { name: 'Agents' })).toBeVisible()
   expect(screen.getByTestId('btn-new-custom-agent')).toBeVisible()
 })
 

@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm'
 import { Check, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
+import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
+import { parseExternalUrl } from '../../lib/externalLinks'
 import './ThreadMarkdown.css'
 
 function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
@@ -19,7 +21,7 @@ function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
       const code = event.currentTarget.closest('.thread-code-block')?.querySelector('code')?.textContent ?? ''
       try { await navigator.clipboard.writeText(code); setCopied(true); setError(false) }
       catch { setError(true); setCopied(false) }
-    }}>{copied ? <Check size={12} /> : <Copy size={12} />}{copied ? t('markdown.copied') : t('markdown.copy')}</button></div>
+    }}>{copied ? <Check size={12} className="oxe-confirm" /> : <Copy size={12} />}{copied ? t('markdown.copied') : t('markdown.copy')}</button></div>
     <pre {...props}>{children}</pre>
     {error && <ErrorState compact title={t('markdown.copyFailed')} />}
   </div>
@@ -31,8 +33,8 @@ export function ThreadMarkdown({ text }: { text: string }) {
   return <div className="thread-markdown"><Markdown remarkPlugins={[remarkGfm]} components={{
     table: ({ children }) => <div className="thread-table-scroll" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
     pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
-    a: ({ href, children }) => href && /^https?:\/\//i.test(href)
-      ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={event => { event.preventDefault(); window.open(href, '_blank', 'noopener,noreferrer') }}>{children}</a>
+    a: ({ href, children }) => href && parseExternalUrl(href)
+      ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
       : <span className="thread-markdown-reference" title={href}>{children}</span>,
     img: ({ alt }) => <span className="thread-markdown-reference">{alt ? t('markdown.imageAlt', { alt }) : t('markdown.image')}</span>
   }}>{text}</Markdown></div>
