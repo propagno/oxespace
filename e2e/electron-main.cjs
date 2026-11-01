@@ -1,6 +1,10 @@
 const { pathToFileURL } = require('node:url')
 const { dirname, join } = require('node:path')
-const { app } = require('electron')
+const { app, dialog } = require('electron')
+const { installNativeDialogStubs } = require('./helpers/native-dialogs.cjs')
+
+// No native dialog on the runner's screen, before main can open one (opt in: OXESPACE_E2E_NATIVE_DIALOGS=1).
+installNativeDialogStubs(dialog, process.env)
 
 // The interface follows the system language; specs assert English text, so they pin it unless a spec asks otherwise.
 process.env.OXESPACE_LOCALE ||= 'en-US'

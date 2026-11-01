@@ -115,6 +115,9 @@ merges: "A group that is off is refused on every call, even if an agent edits it
 <!-- add when F34/F35 merge: "OXEVoice was removed. OXESpace no longer records speech; your operating system's
 dictation still types into any field, and the downloaded voice model is deleted on the first start." and "Team moved
 off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+T." -->
+<!-- add when B13 (#374) merges: "**Closing a pane ends what it started.** Jobs sent to the background with `nohup` or
+`disown`, and apps launched from the pane (`gedit &`, `notepad x`), now close with it. To keep something running,
+start it outside OXESpace or as a system service." -->
 
 ## Security
 
@@ -129,3 +132,7 @@ off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+
 
 - The limits listed in [1.3.0](1.3.0.md) still apply unless a section above says otherwise.
 <!-- fill from the guide pages' "Known limits" at the cut. -->
+<!-- add when B13 (#374) merges: "**On Windows, a graphical program used as a pane's command shows as exited right
+away.** Run it from the pane's shell instead. Shells, Claude Code and Codex are not affected." -->
+<!-- add when B13 (#374) merges: "**On Linux and macOS, a real daemon (a process that detaches twice) keeps running
+after its pane closes.**" -->
