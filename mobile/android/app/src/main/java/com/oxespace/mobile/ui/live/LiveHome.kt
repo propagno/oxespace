@@ -103,8 +103,9 @@ fun LiveHome(
                     Column {
                         Text(desktopName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
                         if (banner != null) {
+                            // The one offline message: what happened, then that actions wait.
                             Text(
-                                banner,
+                                banner + " " + stringResource(R.string.agents_offline_actions),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Oxe.colors.intentWarningFg,
                                 maxLines = 2,

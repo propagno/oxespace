@@ -30,7 +30,20 @@ describe('Android sources generated from the contracts', () => {
 
   it('take the agent state words from common.json only (glossary §5)', () => {
     expect(() => phoneCatalog((_l: string, ns: string) => (ns === 'mobile' ? { agents: { state: { idle: 'x' } } } : { agents: { state: {} } }), 'en')).toThrow(/agents\.state/)
+    expect(() => phoneCatalog((_l: string, ns: string) => (ns === 'mobile' ? { desktopTitle: {} } : ns === 'common' ? { agents: { state: {} } } : { messages: {} }), 'en')).toThrow(/desktopTitle/)
     expect((catalog('pt-BR') as { agents: { state: Record<string, string> } }).agents.state.idle).toBe('Ocioso')
+    // The request titles main builds come from main.json, for the phone to render a titleCode.
+    expect((catalog('pt-BR') as { desktopTitle: { agents: { request: Record<string, string> } } }).desktopTitle.agents.request.approval).toBe('Quer executar uma ação')
+  })
+
+  it('map every request title code main can send to a phone resource (RequestTitles.kt)', () => {
+    const kotlin = readFileSync(join(root, 'mobile/android/app/src/main/java/com/oxespace/mobile/agents/RequestTitles.kt'), 'utf8')
+    const main = readCatalog('en', 'main').messages
+    const codes = [
+      ...Object.keys(main.agents.request).map(k => `agents.request.${k}`),
+      ...Object.keys(main.approvals.title).map(k => `approvals.title.${k}`),
+    ]
+    for (const code of codes) expect(kotlin, code).toContain(`"${code}" ->`)
   })
 
   it('match the committed string resources (run npm run android:generate after editing mobile.json)', () => {

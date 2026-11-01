@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.res.stringResource
+import com.oxespace.mobile.R
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import com.android.resources.NightMode
@@ -77,7 +79,7 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
             shot("live-${tab.name.lowercase()}") { LiveHome("Studio", null, Samples.live(), commands, {}, { _, _ -> }, {}, {}, {}, initialTab = tab) }
         }
         shot("live-empty") { LiveHome("Studio", null, Samples.live(empty = true), commands, {}, { _, _ -> }, {}, {}, {}) }
-        shot("live-reconnecting") { LiveHome("Studio", "Connection to Studio lost. Reconnecting…", Samples.live(), commands, {}, { _, _ -> }, {}, {}, {}) }
+        shot("live-reconnecting") { LiveHome("Studio", stringResource(R.string.home_status_reconnecting, "Studio"), Samples.live(), commands, {}, { _, _ -> }, {}, {}, {}) }
     }
 
     @Test

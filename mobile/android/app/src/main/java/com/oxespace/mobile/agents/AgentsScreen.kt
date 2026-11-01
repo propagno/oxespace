@@ -169,8 +169,8 @@ fun AgentsScreen(
             }
         }
         message?.let { Notice(stringResource(it), Oxe.colors.textSecondary) }
-        if (!connected) Notice(stringResource(R.string.agents_offline_actions), Oxe.colors.intentWarningFg)
-        if (state.unavailable.isNotEmpty()) WarningNotice(stringResource(R.string.agents_partial))
+        // Offline, the header says it once ("… Reconectando… As ações estão pausadas."); a partial notice would only add noise.
+        if (connected && state.unavailable.isNotEmpty()) WarningNotice(stringResource(R.string.agents_partial))
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = { refreshing = true; onRefresh() },
@@ -214,7 +214,7 @@ private fun AgentRow(row: RemoteAgentRow, enabled: Boolean, onOpen: () -> Unit, 
     // Spec §5.8: "Fix the login redirect, needs you for 3 minutes, oxespace, Claude, Wants to run an action, and 1 more".
     val spoken = listOfNotNull(
         title,
-        spokenSince(stateWord, row.since),
+        spokenSince(stateWord, row.since, waiting = state == RemoteAgentState.NEEDS_YOU),
         workspace,
         provider,
         tasks,
@@ -277,9 +277,12 @@ private fun AgentRow(row: RemoteAgentRow, enabled: Boolean, onOpen: () -> Unit, 
     }
 }
 
-/** "needs you for 3 minutes" / "precisa de você há 3 minutos": the state and how long it has held, in words. */
+/**
+ * The state and its time, in words: a wait is a duration ("needs you for 3 minutes" / "precisa de você há 3 minutos"),
+ * any other state is a moment ("failed 2 minutes ago" / "falhou há 2 minutos").
+ */
 @Composable
-private fun spokenSince(stateWord: String, since: Long): String {
+private fun spokenSince(stateWord: String, since: Long, waiting: Boolean): String {
     val minutes = ((LocalClock.current() - since) / 60_000).coerceAtLeast(0).toInt()
     val duration = when {
         minutes < 1 -> return stateWord
@@ -287,7 +290,7 @@ private fun spokenSince(stateWord: String, since: Long): String {
         minutes < 24 * 60 -> (minutes / 60).let { pluralStringResource(R.plurals.agents_duration_hours, it, it) }
         else -> (minutes / (24 * 60)).let { pluralStringResource(R.plurals.agents_duration_days, it, it) }
     }
-    return stringResource(R.string.agents_spoken_since, stateWord.lowercase(), duration)
+    return stringResource(if (waiting) R.string.agents_spoken_since else R.string.agents_spoken_ago, stateWord.lowercase(), duration)
 }
 
 /** A work run or a delegation: what the phone knows of it, read-only; the details stay on the computer. */

@@ -274,7 +274,7 @@
     "empty": "No agents running on {{desktop}}",
     "emptyFilter": "Nothing here right now.",
     "loading": "Loading agents…",
-    "offlineActions": "Not connected: actions are paused.",
+    "offlineActions": "Actions are paused.",
     "moreRequests_one": "+{{count}} more",
     "moreRequests_other": "+{{count}} more",
     "emptyBody": "Agents you start on your computer show up here.",
@@ -284,7 +284,8 @@
     "spoken": {
       "since": "{{state}} for {{duration}}",
       "more_one": "and {{count}} more",
-      "more_other": "and {{count}} more"
+      "more_other": "and {{count}} more",
+      "ago": "{{state}} {{duration}} ago"
     },
     "duration": {
       "minutes_one": "{{count}} minute",

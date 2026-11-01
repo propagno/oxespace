@@ -280,7 +280,7 @@
     "empty": "Nenhum agente rodando em {{desktop}}",
     "emptyFilter": "Nada aqui agora.",
     "loading": "Carregando agentes…",
-    "offlineActions": "Sem conexão: as ações estão pausadas.",
+    "offlineActions": "As ações estão pausadas.",
     "moreRequests_one": "+{{count}} outro",
     "moreRequests_other": "+{{count}} outros",
     "emptyBody": "Os agentes que você iniciar no computador aparecem aqui.",
@@ -290,7 +290,8 @@
     "spoken": {
       "since": "{{state}} há {{duration}}",
       "more_one": "e mais {{count}}",
-      "more_other": "e mais {{count}}"
+      "more_other": "e mais {{count}}",
+      "ago": "{{state}} há {{duration}}"
     },
     "duration": {
       "minutes_one": "{{count}} minuto",

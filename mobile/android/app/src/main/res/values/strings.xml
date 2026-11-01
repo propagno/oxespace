@@ -39,9 +39,10 @@
         <item quantity="one">+%1$d more</item>
         <item quantity="other">+%1$d more</item>
     </plurals>
-    <string name="agents_offline_actions">Not connected: actions are paused.</string>
+    <string name="agents_offline_actions">Actions are paused.</string>
     <string name="agents_partial">Some agents couldn\'t be read right now. The rest is up to date.</string>
     <string name="agents_show_all">Show all</string>
+    <string name="agents_spoken_ago">%1$s %2$s ago</string>
     <plurals name="agents_spoken_more">
         <item quantity="one">and %1$d more</item>
         <item quantity="other">and %1$d more</item>
@@ -73,6 +74,15 @@
     <string name="composer_send">Send</string>
     <string name="composer_steer">Steer</string>
     <string name="composer_stop">Stop</string>
+    <string name="desktop_title_agents_request_approval">Wants to run an action</string>
+    <string name="desktop_title_agents_request_elicitation">Needs information from you</string>
+    <string name="desktop_title_agents_request_permissions">Asks for more access</string>
+    <string name="desktop_title_agents_request_question">Has a question for you</string>
+    <string name="desktop_title_agents_request_tool">Wants to use a tool</string>
+    <string name="desktop_title_approvals_title_agent">Request from an agent</string>
+    <string name="desktop_title_approvals_title_crash">OXESpace hit an unexpected error</string>
+    <string name="desktop_title_approvals_title_oxequery">OxeQuery · request from an agent</string>
+    <string name="desktop_title_approvals_title_preview_automation">Agent browser action</string>
     <string name="home_address_hint">The computer\'s address on your Wi-Fi, for example 192.168.0.12. OXESpace shows it in Settings › Devices.</string>
     <string name="home_address_invalid">Use the computer\'s address on your local network, like 192.168.0.12.</string>
     <string name="home_address_title">Computer\'s address</string>

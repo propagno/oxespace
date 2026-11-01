@@ -39,9 +39,10 @@
         <item quantity="one">+%1$d outro</item>
         <item quantity="other">+%1$d outros</item>
     </plurals>
-    <string name="agents_offline_actions">Sem conexão: as ações estão pausadas.</string>
+    <string name="agents_offline_actions">As ações estão pausadas.</string>
     <string name="agents_partial">Não foi possível ler alguns agentes agora. O resto está atualizado.</string>
     <string name="agents_show_all">Mostrar todos</string>
+    <string name="agents_spoken_ago">%1$s há %2$s</string>
     <plurals name="agents_spoken_more">
         <item quantity="one">e mais %1$d</item>
         <item quantity="other">e mais %1$d</item>
@@ -73,6 +74,15 @@
     <string name="composer_send">Enviar</string>
     <string name="composer_steer">Orientar</string>
     <string name="composer_stop">Parar</string>
+    <string name="desktop_title_agents_request_approval">Quer executar uma ação</string>
+    <string name="desktop_title_agents_request_elicitation">Precisa de informações suas</string>
+    <string name="desktop_title_agents_request_permissions">Pede mais acesso</string>
+    <string name="desktop_title_agents_request_question">Tem uma pergunta para você</string>
+    <string name="desktop_title_agents_request_tool">Quer usar uma ferramenta</string>
+    <string name="desktop_title_approvals_title_agent">Pedido de um agente</string>
+    <string name="desktop_title_approvals_title_crash">O OXESpace encontrou um erro inesperado</string>
+    <string name="desktop_title_approvals_title_oxequery">OxeQuery · pedido de um agente</string>
+    <string name="desktop_title_approvals_title_preview_automation">Ação do agente no navegador</string>
     <string name="home_address_hint">O endereço do computador na sua Wi-Fi, por exemplo 192.168.0.12. O OXESpace mostra em Configurações › Dispositivos.</string>
     <string name="home_address_invalid">Use o endereço do computador na sua rede local, como 192.168.0.12.</string>
     <string name="home_address_title">Endereço do computador</string>
