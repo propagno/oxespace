@@ -1,6 +1,6 @@
 import { CONFIGURABLE_MCP_TOOL_GROUPS, MCP_TOOL_GROUP_MODES, type ConfigurableMcpToolGroup, type McpToolGroupMode } from '../../../../shared/types/mcp-tools'
 import type { RepoConfig } from '../../../../shared/types/repo-config'
-import { MCP_TOOL_GROUPS, type ThreadToolRoles } from './thread-mcp'
+import { CODE_ON_DEMAND_TOOLS, CODE_START_TOOLS, MCP_TOOL_GROUPS, type ThreadToolRoles } from './thread-mcp'
 
 /** Each configurable group's mode in a project, and whether the project set it. */
 export type ProjectToolModes = Record<ConfigurableMcpToolGroup, { mode: McpToolGroupMode; source: 'default' | 'project' }>
@@ -25,8 +25,8 @@ export const TOOLS_ENABLE = 'oxespace_tools_enable'
 export interface SessionToolPlan {
   /** The tools the session is offered when it starts. */
   tools: string[]
-  /** Groups the session may turn on with oxespace_tools_enable, with their tools. */
-  enableable: Partial<Record<ConfigurableMcpToolGroup, string[]>>
+  /** Groups the session may turn on with oxespace_tools_enable, with their tools; `code` only in a Code terminal. */
+  enableable: Partial<Record<ConfigurableMcpToolGroup | 'code', string[]>>
 }
 
 /**
@@ -38,14 +38,17 @@ export interface SessionToolPlan {
  * oxespace_tools_enable. `off` is never offered.
  */
 export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { code?: boolean }, modes: ProjectToolModes): SessionToolPlan {
-  const groups: (keyof typeof MCP_TOOL_GROUPS)[] = ['core', ...(roles.code ? ['code' as const] : []), ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : [])]
+  const groups: (keyof typeof MCP_TOOL_GROUPS)[] = ['core', ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : [])]
   const enableable: SessionToolPlan['enableable'] = {}
+  // A Code terminal starts with its panes, terminal, scripts and jobs; its other tools follow tool search or wait (T8).
+  const code: string[] = roles.code ? [...CODE_START_TOOLS, ...(toolSearch ? CODE_ON_DEMAND_TOOLS : [])] : []
+  if (roles.code && !toolSearch) enableable.code = [...CODE_ON_DEMAND_TOOLS]
   for (const group of CONFIGURABLE_MCP_TOOL_GROUPS) {
     const { mode } = modes[group]
     if (mode === 'always' || (mode === 'on-demand' && toolSearch)) groups.push(group)
     else if (mode === 'on-demand') enableable[group] = [...MCP_TOOL_GROUPS[group]]
   }
-  const tools = [...new Set(groups.flatMap(group => MCP_TOOL_GROUPS[group]))]
+  const tools = [...new Set([...MCP_TOOL_GROUPS.core, ...code, ...groups.slice(1).flatMap(group => MCP_TOOL_GROUPS[group])])]
   // Offered only when there is something to turn on, so a conversation that has nothing to enable pays nothing for it.
   return { tools: Object.keys(enableable).length ? [...tools, TOOLS_ENABLE] : tools, enableable }
 }

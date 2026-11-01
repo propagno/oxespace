@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { FileSystemService } from '../../electron/main/services/file-system.service'
 import { ThreadPermissionStore } from '../../electron/main/services/conversation/thread-permissions'
-import { MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
+import { CODE_START_TOOLS, MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
+import { projectMcpJsonPlan, projectToolModes } from '../../electron/main/services/conversation/tool-groups'
 import { McpConfigSync } from '../../electron/main/services/mcp-sync.service'
 import { setToolGroupMode, toolGroupsReport } from '../../electron/main/services/mcp-tool-groups'
 import { estimateTokens } from '../../shared/types/mcp-tools'
@@ -153,20 +154,23 @@ describe('the workspace .mcp.json offers a Code terminal\'s plan, not every tool
     const args = internalArgs(root)
     expect(args[0]).toBe('/bin/oxespace-mcp.cjs')
     const allowed = allowedOf(args)!
-    expect(allowed).toEqual(expect.arrayContaining([...MCP_TOOL_GROUPS.core, ...MCP_TOOL_GROUPS.code, 'oxespace_tools_enable']))
+    expect(allowed).toEqual([...MCP_TOOL_GROUPS.core, ...CODE_START_TOOLS, 'oxespace_tools_enable'])
     for (const group of ['orchestration', 'data', 'docs', 'app'] as const) for (const tool of MCP_TOOL_GROUPS[group]) expect(allowed, tool).not.toContain(tool)
-    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'data', 'docs', 'orchestration'])
+    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'code', 'data', 'docs', 'orchestration'])
   })
 
-  it('costs what an agent started in a Code terminal costs, not every definition (T8)', async () => {
+  it('starts an agent in a Code terminal, or one reading .mcp.json, within the 9,000-char budget, instructions included (T8)', async () => {
     const report = await toolGroupsReport(null)
-    // core + code: the plan an agent OXESpace starts in a Code terminal already gets (B2.2). T8's 9,000 characters are
-    // the plain conversation's budget (core alone), checked above.
-    const offered = loadedChars(report, ['core', 'code'])
+    const [{ TOOL_REGISTRY }, { toolDefinitionChars }] = await Promise.all([import('../../electron/main/mcp-internal/tool-registry'), import('../../electron/main/mcp-internal/tool-cost')])
+    // The bridge's initialize instructions are sent once per session too, so they count against the same budget.
+    const instructions = /const INSTRUCTIONS = '([^'\n]*)'/.exec(readFileSync(join('resources', 'mcp-bridge', 'oxespace-mcp.cjs'), 'utf8'))?.[1] ?? ''
+    expect(instructions.length).toBeGreaterThan(0)
+    expect(instructions.length).toBeLessThanOrEqual(600)
+    const start = toolDefinitionChars(TOOL_REGISTRY, projectMcpJsonPlan(projectToolModes(undefined)).tools) + instructions.length
     const everything = report.groups.reduce((sum, group) => sum + group.cost.claude.loaded.chars, 0)
-    console.log(`[T8] .mcp.json tool text: before ${everything} chars (every group), after ${offered} chars (core + code)`)
+    console.log(`[T8] Code agent / .mcp.json start: ${start} chars (tools + ${instructions.length} of instructions); every group: ${everything}; core + every Code tool was 16310`)
     expect(loadedChars(report, ['core'])).toBeLessThanOrEqual(9000)
-    expect(offered * 3).toBeLessThan(everything)
+    expect(start).toBeLessThanOrEqual(9000)
   })
 
   it('never offers a group the project turned off, and offers an always group from the start', () => {
@@ -177,7 +181,7 @@ describe('the workspace .mcp.json offers a Code terminal\'s plan, not every tool
     const args = internalArgs(root)
     for (const tool of MCP_TOOL_GROUPS.data) expect(allowedOf(args), tool).not.toContain(tool)
     expect(allowedOf(args)).toEqual(expect.arrayContaining([...MCP_TOOL_GROUPS.docs]))
-    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'orchestration'])
+    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'code', 'orchestration'])
   })
 
   it('rewrites the plan when Settings › Tools changes a mode, replacing the flags it wrote before', async () => {

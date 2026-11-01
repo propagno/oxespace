@@ -22,8 +22,8 @@ const TOOL_GROUP_PURPOSES = {
 const toolsEnable: ToolEntry = {
   descriptor: {
     name: 'oxespace_tools_enable',
-    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs or app. Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
-    inputSchema: { type: 'object', properties: { group: { type: 'string', enum: ['orchestration', 'data', 'docs', 'app'] } }, required: ['group'], additionalProperties: false },
+    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
+    inputSchema: { type: 'object', properties: { group: { type: 'string', enum: [...TOOL_GROUP_NAMES, 'code'] } }, required: ['group'], additionalProperties: false },
     // True: it changes nothing outside the session; each tool it lists keeps its own level and approval.
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   },
@@ -36,8 +36,8 @@ const toolsEnable: ToolEntry = {
     })
     const group = args && typeof args === 'object' && !Array.isArray(args) && Object.keys(args).length === 1 ? (args as { group?: unknown }).group : undefined
     if (typeof group !== 'string') return reply({ status: 'error', error: { code: 'INVALID_ARGUMENTS', message: 'Pass { "group": "<name>" }.', retryable: false } }, true)
-    if (!(TOOL_GROUP_NAMES as readonly string[]).includes(group)) {
-      return reply({ status: 'error', error: { code: 'GROUP_UNAVAILABLE', message: `Unknown group "${group.slice(0, 40)}". Groups: ${TOOL_GROUP_NAMES.join(', ')}.`, retryable: false } }, true)
+    if (![...TOOL_GROUP_NAMES, 'code'].includes(group)) {
+      return reply({ status: 'error', error: { code: 'GROUP_UNAVAILABLE', message: `Unknown group "${group.slice(0, 40)}". Groups: ${[...TOOL_GROUP_NAMES, 'code'].join(', ')}.`, retryable: false } }, true)
     }
     return reply({ status: 'ok', data: { enabled: [], note: 'Nothing to turn on here: this caller already lists every OXESpace tool it can use.' } })
   }
