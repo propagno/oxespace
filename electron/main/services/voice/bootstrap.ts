@@ -1,13 +1,13 @@
 /**
  * OxeVoice 1.5 · builds the voice runtime (registry + consent store). Loaded lazily with `await import()` on the
- * first voice:* call, so the voice service stays out of the static main entry. Does not import `electron`: every
- * path and the platform are injected.
+ * first voice:* call, so the voice service stays out of the static main entry. Does not import `electron` and has
+ * no fs of its own: consent persists through consent-file.ts; every path and the platform are injected.
  */
 import { spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { createVoiceConsentStore } from './consent'
 import type { VoiceConsentStore } from './consent'
+import { createVoiceConsentFile } from './consent-file'
 import { createVoiceRegistry } from './registry'
 import type { VoiceRegistry } from './registry'
 import type { VoiceEngine } from './types'
@@ -27,21 +27,8 @@ export interface VoiceRuntime {
 
 export function createVoiceRuntime(options: CreateVoiceRuntimeOptions): VoiceRuntime {
   const { platform, resourcesPath, userDataPath, env } = options
-  const consentFile = join(userDataPath, 'voice-consent.json')
 
-  const consent = createVoiceConsentStore({
-    read: () => {
-      try {
-        return readFileSync(consentFile, 'utf8')
-      } catch {
-        return null // a read error means no consent
-      }
-    },
-    write: data => {
-      mkdirSync(dirname(consentFile), { recursive: true })
-      writeFileSync(consentFile, data, 'utf8')
-    }
-  })
+  const consent = createVoiceConsentStore(createVoiceConsentFile(userDataPath))
 
   const engines: VoiceEngine[] = []
   if (platform === 'win32') {
