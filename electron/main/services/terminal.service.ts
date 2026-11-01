@@ -1,13 +1,13 @@
 import { defaultSplitShellProfileId } from './shell-profile.defaults'
 import { recordRuntime } from './runtime-diagnostics'
-import type { IPty, IPtyForkOptions } from 'node-pty'
+import type { IPty, IPtyForkOptions, IWindowsPtyForkOptions } from 'node-pty'
 import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
-import { killProcess } from '../utils/process-cleanup'
+import { terminatePty } from '../utils/process-tree'
 import { getRtkService, type RtkService } from './rtk.service'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
@@ -22,7 +22,7 @@ import { recordIncident } from './diagnostics/incident-sink'
 const resolvedExecutableCache = new Map<string, string>()
 
 interface PtyModule {
-  spawn(file: string, args: string[], options: IPtyForkOptions): IPty
+  spawn(file: string, args: string[], options: IPtyForkOptions | IWindowsPtyForkOptions): IPty
 }
 
 interface TerminalManagerOptions {
@@ -337,7 +337,10 @@ export class TerminalManager {
         cwd,
         cols,
         rows,
-        env: finalEnv
+        env: finalEnv,
+        // Windows: the ConPTY that node-pty ships. Its kill never forks a helper; the system ConPTY's kill does
+        // child_process.fork(), which needs RunAsNode and would start a second OXESpace once that fuse is off.
+        ...(this.platform === 'win32' ? { useConptyDll: true } : {})
       })
     } catch (error) {
       recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
@@ -606,7 +609,8 @@ export class TerminalManager {
     session.outputBatcher.flush()
     session.inputQueue.dispose()
     session.outputBatcher.dispose()
-    killProcess(session.pty)
+    // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
+    void terminatePty(session.pty)
     this.sessions.delete(input.paneId)
     this.notifyLaunchExit(input.paneId)
     this.observer?.exit(input.paneId)

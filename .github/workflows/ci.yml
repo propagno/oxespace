@@ -346,6 +346,15 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm run test:electron -- tests/integration/upgrade-rehearsal.native.test.ts
 
+      # BE-M-08 under the Electron runtime, on both OSes: closing a terminal (pane close, quit, restart) or an agent
+      # conversation ends its whole process tree, including a detached grandchild that ignores SIGTERM.
+      - name: Process tree cleanup (native)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run test:electron -- tests/integration/process-tree.native.test.ts
+
       # OxeQuery carries its own floor: unit, component and integration tests together cover at least 60%.
       - name: OxeQuery coverage gate
         shell: bash

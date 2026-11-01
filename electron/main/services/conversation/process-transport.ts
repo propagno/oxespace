@@ -1,10 +1,11 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { delimiter, dirname, extname, join } from 'node:path'
 import type { ConversationTransport } from './codex-conversation'
 import { recordRuntime, type RuntimeDetail } from '../runtime-diagnostics'
 import { recordIncident } from '../diagnostics/incident-sink'
+import { killProcessTree } from '../../utils/process-tree'
 
 /** Thread subscription processes share a native account, never an API env key. */
 export function subscriptionEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
@@ -119,16 +120,7 @@ export class AgentProcessTransport implements ConversationTransport {
     if (!pid || this.child.exitCode !== null) { this.end(); return }
     recordRuntime('process-stop', { ...this.diagnosticContext, pid })
     this.child.stdin.end()
-    if (process.platform === 'win32') {
-      await new Promise<void>(resolve => execFile('taskkill.exe', ['/pid', String(pid), '/T', '/F'],
-        { windowsHide: true, timeout: 3000 }, () => resolve()))
-    } else {
-      try { process.kill(-pid, 'SIGTERM') } catch { /* already exited */ }
-      await new Promise<void>(resolve => {
-        const timer = setTimeout(() => { try { process.kill(-pid, 'SIGKILL') } catch { /* exited */ } resolve() }, 500)
-        this.child.once('close', () => { clearTimeout(timer); resolve() })
-      })
-    }
+    await killProcessTree(pid)
     this.end()
   }
 
