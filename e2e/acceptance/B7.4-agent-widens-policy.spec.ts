@@ -373,6 +373,63 @@ test('B7.4 (11): a widening nobody answers expires denied and keeps the accepted
   }
 })
 
+/**
+ * (12) First sight (HML FINDING H on #372; scenario from BACKEND, #372 dcbe3ea2): HEAD commits a deny; before OXESpace
+ * has ever read the project, a plain shell writes {allow *}. When the project opens, the committed deny is in force, one
+ * critical first-sight request names it, nothing changes however often the policy is read, and after Deny it still holds.
+ */
+test('B7.4 (12): a committed deny overwritten before the first read stays in force until the person answers', async () => {
+  test.setTimeout(180_000)
+  const profile = realProfile('b74fs', { OXESPACE_LOCALE: 'en-US' })
+  const { repo, root } = profile
+  const git = (...args: string[]) => execFileSync('git', ['-c', 'user.email=acc@example.invalid', '-c', 'user.name=acc', ...args], { cwd: repo })
+  mkdirSync(join(repo, '.oxespace'), { recursive: true })
+  writeFileSync(join(repo, '.oxespace', 'policy.json'), ACCEPTED_POLICY)
+  git('add', '.'); git('commit', '-q', '-m', 'committed deny')
+  // The outside write, before OXESpace has ever read this project (as an agent CLI would).
+  writeFileSync(join(repo, '.oxespace', 'policy.json'), WIDE_POLICY)
+
+  const { app, page } = await launchReal(profile)
+  try {
+    await holdNativeDialogs(app)
+    await openRepo(page, repo)
+    const id = await oxe(page, o => o.workspace.list().then(list => list[0].id))
+    await oxe(page, (o, r: string) => o.mcpInternal.toolGroups({ rootPath: r }), repo)
+    const rules = () => oxe(page, (o, w: string) => o.policy.get(w).then(v => JSON.stringify((v as { sources: Array<{ rules: unknown }> }).sources.map(s => s.rules))), id)
+    expect.soft(await rules(), 'the committed deny is in force').toContain('oxespace_db_execute')
+    await expect.soft.poll(() => oxe(page, o => o.approvals.list().then(l => l.filter(r => r.kind === 'policyChange').length)), { timeout: 10_000, message: 'exactly one first-sight request' }).toBe(1)
+    const request = (await oxe(page, o => o.approvals.list())).find(r => r.kind === 'policyChange')
+    if (request) {
+      await oxe(page, (o, r: Req) => o.approvals.ack({ id: r.id, generation: r.generation, visible: true, focused: true }), request)
+      expect.soft(request.risk, 'critical').toBe('critical')
+      expect.soft(request.title.code, 'first-sight title').toBe('approvals.title.policyFirstSight')
+      expect.soft(request.summary.code, 'first-sight summary').toBe('approvals.summary.policyFirstSightLost')
+      expect.soft(((request as unknown as { appNotes: Array<{ code: string }> }).appNotes ?? []).map(n => n.code), 'it names the committed deny').toContain('approvals.note.policy.committedDeny')
+    }
+    // Nothing changes until the answer, however often it is read.
+    for (let read = 0; read < 4; read++) {
+      await page.waitForTimeout(1_500)
+      const now = await rules()
+      expect.soft(now, `read ${read}: the deny holds`).toContain('oxespace_db_execute')
+      expect.soft(now, `read ${read}: allow * is not in force`).not.toContain('"resource":"*"')
+    }
+    expect.soft((await oxe(page, o => o.approvals.list())).filter(r => r.kind === 'policyChange').length, 'still exactly one request after the reads').toBe(1)
+    const incidents = (await oxe(page, o => o.diagnostics.incidents())).filter(i => i.code === 'incident.policy.changedOutside')
+    expect.soft(incidents.length, 'one incident').toBeGreaterThan(0)
+    if (request) {
+      const answer = await oxe(page, (o, r: Req) => o.approvals.respond({ id: r.id, generation: r.generation, optionId: r.defaultOptionId }), request)
+      expect.soft(answer.ok, 'Deny is accepted').toBe(true)
+      await page.waitForTimeout(1_000)
+      expect.soft(await rules(), 'after Deny the deny still holds').toContain('oxespace_db_execute')
+      expect.soft(await rules(), 'after Deny allow * is not in force').not.toContain('"resource":"*"')
+    }
+    expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).accNative), 'no native dialog').toBe(0)
+  } finally {
+    await quitReal(app)
+    try { rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }) } catch { /* left in the temp folder */ }
+  }
+})
+
 /** Native dialogs never show: message boxes are held unanswered (a person who has not clicked) and counted. */
 async function holdNativeDialogs(app: ElectronApplication): Promise<void> {
   await app.evaluate(({ dialog }) => {
