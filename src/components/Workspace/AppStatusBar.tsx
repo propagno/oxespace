@@ -4,7 +4,7 @@ import type { Workspace } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useAgentStore } from '../../store/agent.store'
 // Usage reads the provider's quota after first paint.
-const UsageStatus = lazy(() => import('./UsageStatus').then(module => ({ default: module.UsageStatus })))
+import { UsageStatus } from './UsageStatus'
 import { useConnectivity } from '../../hooks/useConnectivity'
 import { cx } from '../../ui'
 import styles from './AppStatusBar.module.css'
