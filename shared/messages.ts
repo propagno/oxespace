@@ -49,6 +49,16 @@ export interface MessageParams {
   'thread.invalidInput': Record<string, never>
   /** No conversation has this id (deleted, or never existed). */
   'thread.notFound': Record<string, never>
+  /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
+  'activity.invalid': Record<string, never>
+  'activity.tooMany': { max: number }
+  'activity.titleTooLong': { max: number }
+  'activity.detailTooLong': { max: number }
+  'activity.hiddenCharacters': Record<string, never>
+  /** A time more than a minute ahead of the computer's clock. */
+  'activity.future': Record<string, never>
+  /** An entry's text looks like a password, token or key; the whole call is refused, nothing is stored. */
+  'activity.secret': Record<string, never>
   /** F13 · Refusals of a sections save (THREAD_SECTIONS_REFUSALS); a refused save stores nothing. */
   'thread.sections.invalid': Record<string, never>
   'thread.sections.tooMany': { sections: number; assignments: number }
@@ -65,6 +75,7 @@ export interface MessageParams {
   'incident.ipc.validationRejected': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
+  'incident.mcp.toolGroupOff': Record<string, never>
   'incident.database.busy': Record<string, never>
   'incident.oxequery.timeout': Record<string, never>
   /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
@@ -331,6 +342,13 @@ export const MESSAGE_CODES = [
   'thread.side.invalidInput',
   'thread.invalidInput',
   'thread.notFound',
+  'activity.invalid',
+  'activity.tooMany',
+  'activity.titleTooLong',
+  'activity.detailTooLong',
+  'activity.hiddenCharacters',
+  'activity.future',
+  'activity.secret',
   'thread.sections.invalid',
   'thread.sections.tooMany',
   'thread.sections.nameEmpty',
@@ -344,6 +362,7 @@ export const MESSAGE_CODES = [
   'incident.ipc.validationRejected',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
+  'incident.mcp.toolGroupOff',
   'incident.database.busy',
   'incident.oxequery.timeout',
   'incident.oxequery.restartDeferred',
