@@ -9,7 +9,8 @@ import { CODE_TOOL_GROUP, MCP_TOOL_GROUPS } from '../../electron/main/services/c
 
 function dbWith(rows: Array<{ name: string; workspace_id: string | null; config: unknown }>, rootPath?: string): AppDatabase {
   return { prepare: () => ({
-    all: () => rows.map(row => ({ name: row.name, workspace_id: row.workspace_id, config_json: JSON.stringify(row.config) })),
+    // Each row has an id and a creation time, as mcp-keys.ts (B7.3) keys the servers by them.
+    all: () => rows.map((row, index) => ({ id: `s${index}`, name: row.name, workspace_id: row.workspace_id, created_at: index, config_json: JSON.stringify(row.config) })),
     get: () => rootPath ? { root_path: rootPath } : undefined
   }) } as unknown as AppDatabase
 }

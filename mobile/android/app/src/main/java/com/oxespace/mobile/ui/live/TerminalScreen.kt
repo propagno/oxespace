@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
@@ -91,7 +92,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             TopAppBar(
                 title = {
                     Column {
-                        Text(pane.title, maxLines = 1)
+                        Text(pane.title, maxLines = 1, modifier = Modifier.semantics { heading() })
                         Text(
                             stringResource(if (pane.phoneWrite) R.string.live_phone_write else R.string.live_read_only),
                             style = MaterialTheme.typography.labelMedium,
@@ -166,8 +167,8 @@ private fun colored(output: String, colors: OxeColors): AnnotatedString = buildA
 private fun TerminalInput(paneId: String, commands: CommandApi, presence: PresenceGate) {
     val scope = rememberCoroutineScope()
     // Opening a terminal the phone can type into asks right away (MB-M-01); inside the window nothing is shown.
-    var unlocked by remember(paneId) { mutableStateOf<Presence?>(null) }
-    LaunchedEffect(paneId) { unlocked = presence.confirm(PresenceReason.TYPE) }
+    var unlocked by remember(paneId) { mutableStateOf(if (presence.windowOpen()) Presence.CONFIRMED else null) }
+    LaunchedEffect(paneId) { if (unlocked != Presence.CONFIRMED) unlocked = presence.confirm(PresenceReason.TYPE) }
     if (unlocked != Presence.CONFIRMED) {
         LockedInput(unlocked) { scope.launch { unlocked = presence.confirm(PresenceReason.TYPE) } }
         return
