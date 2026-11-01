@@ -50,6 +50,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.ipc.validationRejected': [],
   'incident.agent.startFailed': [],
   'incident.mcp.quarantined': [],
+  'incident.mcp.toolGroupOff': [],
   'incident.database.busy': [],
   'incident.oxequery.timeout': [],
   'incident.oxequery.restartDeferred': [],

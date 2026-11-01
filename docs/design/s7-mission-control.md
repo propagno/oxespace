@@ -96,8 +96,10 @@ once read (today `threadLive` counts `failed` only while unread). The badge coun
 (`PaneAgentState.seen`, main). Conversations keep `unreadIds` in renderer localStorage (main and the phone can't see
 it), and delegations and work runs have nothing. F30 `lastSeenAt` is one global time for the bell, not per agent.
 
-S7.1 adds a **main-side `seenAt` per agent key** (`{kind, id}` → epoch ms), persisted in an existing key-value or
-settings store so "Finished" survives a restart (same promise as F30). Conversation `unreadIds` move to it; the
+S7.1 adds a **main-side `seenAt` per agent key** (`{kind, id}` → epoch ms), persisted in a new **`agent_seen`
+table** so "Finished" survives a restart (same promise as F30). It keeps only the newest mark per agent, at most 2000
+rows (the oldest go first), and a row is deleted with its source (pane, conversation, delegation or work run).
+Conversation `unreadIds` move to it; the
 renderer and the phone read and mark it over IPC / the `agent.markSeen` remote command (§11.5). Opening a row, or
 "Mark as seen", sets it. Owner: BACKEND.
 
@@ -265,13 +267,25 @@ drawer over the central (docked: replaces the list with a back button; full view
 
 A request nobody sees costs the agent time (#330). Each needs-you row already shows how long it has waited (§5.2).
 
-- After **2 min** waiting **while the OXESpace window is not focused**, the app sends **one** desktop notification
-  per request: title "{{agent}} precisa de você há 2 min" / "{{agent}} has needed you for 2 min", body = the request's
+- After **2 min** (the setting below) waiting **while the OXESpace window is not focused**, the app sends **one**
+  desktop notification per request: title "{{agent}} precisa de você há {{minutes}} min" / "{{agent}} has needed you
+  for {{minutes}} min" (`{{minutes}}` = the setting's value), body = the request's
   main-built title. Clicking it focuses the window and opens the same B10 approval modal (Respond). It never answers.
 - One notification per request, not per minute; requests that arrive together within 10 s are batched ("3 agentes
   precisam de você").
-- The 2 min is a setting (Configurações › Notificações: "Avisar quando um agente espera por mim": desligado, 1, 2, 5
-  min); default 2 min. Uses the existing desktop-notification path and its system permission.
+- The 2 min is a setting in **Settings › Notifications**, a select under the existing "Notify when an agent needs you"
+  switch and independent of it (Off covers turning it off); default 2 min. Uses the existing desktop-notification
+  path and its system permission. Copy (`settings:notifications.needsYouDelay.*`; options spelled out so a screen
+  reader says "minutes"):
+
+  | Key | en | pt-BR |
+  |---|---|---|
+  | `label` | Remind me when an agent is waiting | Lembrar quando um agente estiver esperando |
+  | `options.off` | Off | Desligado |
+  | `options.1` | After 1 minute | Depois de 1 minuto |
+  | `options.2` | After 2 minutes | Depois de 2 minutos |
+  | `options.5` | After 5 minutes | Depois de 5 minutos |
+  | `hint` | One desktop alert per request when an agent has waited this long for your answer while OXESpace isn't in front. It never answers for you. | Um alerta na área de trabalho por pedido quando um agente espera sua resposta esse tempo com o OXESpace em segundo plano. O alerta nunca responde por você. |
 - The phone push for the same timer comes with S7.4 once the `agents` subscription exists (§8).
 
 ## 6. Entry points (and F35)
@@ -393,7 +407,7 @@ never user-facing.
 ## 13. Acceptance hooks (for HOMOLOGATION)
 
 Test ids: `agents-panel`, `agents-summary`, `agents-filter`, `agent-row` with `data-agent-kind`
-(`pane|thread|delegation|work`) and `data-agent-state` (§3 values), `agent-action-respond|open|stop|resume|seen`,
+(`pane|conversation|delegation|work`, the S7.1 contract's names) and `data-agent-state` (§3 values), `agent-action-respond|open|stop|resume|seen`,
 `agents-reorder-pill`, `agents-ended-recently`. Phone: `agents_tab`, `agent_row`, same state names.
 Scenarios beyond S7.2/S7.3/S7.4 rows: rows don't reorder under the pointer; an ended agent never vanishes without the
 "Ended" step; Respond always opens the B10 modal (no inline allow); pt-BR has no English except product names;
