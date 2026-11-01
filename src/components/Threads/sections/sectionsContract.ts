@@ -1,10 +1,9 @@
 /**
- * F13 · Sections in the conversation list: the approved contract, renderer side.
- *
- * TODO(CCR F13): `ThreadSection`, `ThreadSectionsApi`, the `sectionId` / `parentThreadId` summary fields and the
- * `thread.section.*` codes move to shared/types/thread.ts, shared/types/ipc.ts (preload) and shared/messages.ts when
- * the contract PR lands. Then delete this file's types, import those, and drop the localStorage mock in sectionsMock.ts.
+ * F13 · Sections in the conversation list, as the list works with them: one change at a time, over the main
+ * process's whole-state channel (shared/types/thread-sections.ts; the adapter is sectionsApi.ts).
  */
+import { hasHiddenCharacters } from '../../../../shared/hidden-characters'
+import { THREAD_SECTIONS_LIMITS } from '../../../../shared/types/thread-sections'
 import type { ConversationThread } from '../../../../shared/types/thread'
 
 export interface ThreadSection {
@@ -14,18 +13,15 @@ export interface ThreadSection {
   /** Position inside the project, from 0. */
   order: number
   collapsed: boolean
-  createdAt: number
 }
 
-/** A conversation as the list sees it once the contract lands. */
+/** A conversation as the list sees it. */
 export type SectionedThread = ConversationThread & {
-  /** null or absent: no section. A child reports its parent's section. */
-  sectionId?: string | null
-  /** TODO(CCR F13): field name of nested conversations (B1.3); children follow their parent's section. */
+  /** TODO(B1.3): field name of nested conversations; children follow their parent's section. */
   parentThreadId?: string | null
 }
 
-/** The methods the contract adds to `window.oxe.thread`. */
+/** The changes the list makes, one at a time (sectionsApi.ts saves each as main's whole state). */
 export interface ThreadSectionsApi {
   listSections(projectId: string): Promise<ThreadSection[]>
   createSection(input: { projectId: string; name: string }): Promise<ThreadSection>
@@ -36,17 +32,17 @@ export interface ThreadSectionsApi {
   reorderSections(input: { projectId: string; ids: string[] }): Promise<ThreadSection[]>
   setSectionCollapsed(input: { id: string; collapsed: boolean }): Promise<ThreadSection>
   moveToSection(input: { threadId: string; sectionId: string | null }): Promise<void>
-  /** `thread:sections-changed`. Returns the unsubscribe function. */
+  /** After a change saved from this window. Returns the unsubscribe function. */
   onSectionsChanged(listener: (event: { projectId: string }) => void): () => void
 }
 
 /** Longest section name, in characters, after trimming. Same limit as the main process. */
-export const SECTION_NAME_MAX = 60
+export const SECTION_NAME_MAX = THREAD_SECTIONS_LIMITS.name
 
 export type SectionErrorCode = 'thread.section.invalidName' | 'thread.section.duplicateName' | 'thread.section.notFound' | 'thread.section.childFollowsParent'
 export const SECTION_ERROR_CODES: readonly SectionErrorCode[] = ['thread.section.invalidName', 'thread.section.duplicateName', 'thread.section.notFound', 'thread.section.childFollowsParent']
 
-/** A C3 code with its parameters, thrown by the mock the way the main process rejects. */
+/** A section failure with its parameters, for the list to word. */
 export class SectionError extends Error {
   constructor(readonly code: SectionErrorCode, readonly params: { max?: number } = {}) {
     super(code)
@@ -54,14 +50,13 @@ export class SectionError extends Error {
   }
 }
 
-// Control characters, and the bidirectional and format controls that make a name read in another order than it is
-// stored (U+200E/F, U+202A–202E, U+2066–2069). TODO: use shared/hidden-characters.ts once #238 brings it to main.
-const CONTROL = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/
+// Control characters; the bidirectional, format and other hidden characters are the shared check main uses.
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/
 
-/** The name to store, or null when it breaks the rules (empty, longer than SECTION_NAME_MAX, control characters). */
+/** The name to store, or null when it breaks the rules (empty, longer than SECTION_NAME_MAX, hidden characters). */
 export function normalizeSectionName(name: string): string | null {
   const trimmed = name.trim()
-  if (!trimmed || [...trimmed].length > SECTION_NAME_MAX || CONTROL.test(trimmed)) return null
+  if (!trimmed || [...trimmed].length > SECTION_NAME_MAX || CONTROL.test(trimmed) || hasHiddenCharacters(trimmed)) return null
   return trimmed
 }
 

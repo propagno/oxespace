@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
 import type { AppDatabase } from '../db/index'
 import { killProcess } from '../utils/process-cleanup'
+import { killProcessTree } from '../utils/process-tree'
 import type {
   BackgroundJob,
   BackgroundJobOutputChunk,
@@ -201,11 +202,10 @@ export class BackgroundManager {
   stop(jobId: string): void {
     const runtime = this.jobs.get(jobId)
     if (!runtime || !runtime.process) return
-    try {
-      killProcess(runtime.process)
-    } catch {
-      // ignore — process may already be dead
-    }
+    // A job runs through a shell (`npm run dev`): end what it started too, then the shell itself (BE-M-08).
+    // Only a live child: a pid that already exited may belong to someone else by now.
+    const child = runtime.process
+    if (child.exitCode === null && child.signalCode === null) void killProcessTree(child.pid).finally(() => killProcess(child))
     this.transitionJob(jobId, 'killed', null)
   }
 

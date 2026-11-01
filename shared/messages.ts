@@ -18,6 +18,12 @@ export interface MessageParams {
   'mcp.quarantine.removed': { tools: string[] }
   /** MCP quarantine: the server's command, arguments, environment or URL no longer match what was trusted. */
   'mcp.quarantine.configChanged': Record<string, never>
+  /** B7.3: an OXESpace tool of the confirm level asks the person every time; it cannot be set to run without asking. */
+  'mcp.toolRule.confirmLevel': { tool: string }
+  /** B7.3: the tool's rule comes from the user's or the organization's policy, which a project cannot change. */
+  'mcp.toolRule.locked': { tool: string }
+  /** B7.3: the project's `.oxespace/policy.json` is not a valid policy; it is left as it is until fixed by hand. */
+  'mcp.toolRule.invalidPolicy': Record<string, never>
   /** A pending request was answered, cancelled or expired before this answer arrived. */
   'thread.request.notPending': Record<string, never>
   /** The conversation restarted since the request was listed; the answer belongs to an older generation. */
@@ -32,15 +38,23 @@ export interface MessageParams {
   'thread.protectedConfig.instructions': { path: string }
   'thread.protectedConfig.mcp': { path: string }
   'thread.protectedConfig.hooks': { path: string }
+  /** B7.3: the project's `.oxespace/policy.json` (the MCP tools the person blocked) or `oxe.yaml` (the tool groups offered). */
+  'thread.protectedConfig.policy': { path: string }
   'thread.protectedConfig.warning': Record<string, never>
   /** B16: `command` rewrites tracked files without naming them (git checkout, tar x…), so it needs the person each time. */
   'thread.protectedConfig.rewritesTracked': { command: string }
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** B12: the IPC sender guard refused a call from a sender other than the app window's main frame. */
+  'ipc.sender.refused': Record<string, never>
   /** The provider cannot fork its session into a side chat (B1.2). */
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
+  'thread.agent.scriptUnsupported': Record<string, never>
+  /** B13: a `codex.cmd` npm install whose native `codex.exe` is missing (it is never run through the app as Node). */
+  'thread.agent.nativeMissing': Record<string, never>
   /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
   'activity.invalid': Record<string, never>
   'activity.tooMany': { max: number }
@@ -60,11 +74,24 @@ export interface MessageParams {
   /** `name` is the second section's name, trimmed, as the person typed it. */
   'thread.sections.nameDuplicate': { name: string }
   'thread.sections.unknownWorkspace': Record<string, never>
+  /** B17 · Why a pane's recorded agent session was not resumed on its first start (PaneAgentResume `notResumed`). */
+  'agents.resume.sessionMissing': Record<string, never>
+  'agents.resume.otherAgent': Record<string, never>
+  'agents.resume.launchOverride': Record<string, never>
+  'agents.resume.blocked': Record<string, never>
+  'agents.resume.disabled': Record<string, never>
+  /** The person restarted the pane without its session (terminal.restart with `resume: false`). */
+  'agents.resume.startedFresh': Record<string, never>
+  /** The resumed agent exited at once: its session would not load, so the pane started fresh and forgot it. */
+  'agents.resume.failedToLoad': Record<string, never>
+  /** B17 · Terminal details: the pane runs Claude Code or Codex, but no session was reported yet. */
+  'agents.session.notFound': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
   'incident.ipc.handlerFailed': Record<string, never>
   'incident.ipc.validationRejected': Record<string, never>
+  'incident.ipc.senderRefused': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
   'incident.mcp.toolGroupOff': Record<string, never>
@@ -317,6 +344,9 @@ export const MESSAGE_CODES = [
   'mcp.quarantine.added',
   'mcp.quarantine.removed',
   'mcp.quarantine.configChanged',
+  'mcp.toolRule.confirmLevel',
+  'mcp.toolRule.locked',
+  'mcp.toolRule.invalidPolicy',
   'thread.request.notPending',
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
@@ -325,11 +355,15 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.instructions',
   'thread.protectedConfig.mcp',
   'thread.protectedConfig.hooks',
+  'thread.protectedConfig.policy',
   'thread.protectedConfig.warning',
   'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
+  'ipc.sender.refused',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.agent.scriptUnsupported',
+  'thread.agent.nativeMissing',
   'activity.invalid',
   'activity.tooMany',
   'activity.titleTooLong',
@@ -344,10 +378,19 @@ export const MESSAGE_CODES = [
   'thread.sections.nameHidden',
   'thread.sections.nameDuplicate',
   'thread.sections.unknownWorkspace',
+  'agents.resume.sessionMissing',
+  'agents.resume.otherAgent',
+  'agents.resume.launchOverride',
+  'agents.resume.blocked',
+  'agents.resume.disabled',
+  'agents.resume.startedFresh',
+  'agents.resume.failedToLoad',
+  'agents.session.notFound',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
+  'incident.ipc.senderRefused',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
   'incident.mcp.toolGroupOff',

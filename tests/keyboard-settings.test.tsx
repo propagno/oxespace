@@ -5,6 +5,7 @@ import { KeyboardSettings } from '../src/components/Settings/KeyboardSettings'
 import { ShortcutGuide } from '../src/components/Keyboard/ShortcutGuide'
 import { formatChord } from '../src/keyboard/chords'
 import { bindingsForView, chordsFor, type KeybindingId } from '../src/keyboard/keybindings'
+import { bindingLabel } from '../src/keyboard/labels'
 import { useSettingsStore } from '../src/store/settings.store'
 import { useUIStore } from '../src/store/ui.store'
 
@@ -57,7 +58,7 @@ describe('shortcut guide', () => {
     const expected = bindingsForView('thread').flatMap(group => group.bindings)
     expect(within(guide).getAllByRole('listitem')).toHaveLength(expected.length)
     for (const binding of expected) {
-      const item = within(guide).getByText(binding.label).closest('li')!
+      const item = within(guide).getByText(bindingLabel(binding)).closest('li')!
       for (const chord of chordsFor(binding.id as KeybindingId)) expect(within(item).getByLabelText(formatChord(chord))).toBeInTheDocument()
     }
     // Code-only shortcuts stay out of the Thread guide.

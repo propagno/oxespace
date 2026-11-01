@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Screenshots of every screen in every state, light and dark, en and pt-BR (src/test/snapshots).
+    alias(libs.plugins.paparazzi)
 }
 
 android {
@@ -12,9 +14,31 @@ android {
         applicationId = "com.oxespace.mobile"
         minSdk = 28
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.4.0"
+        // The release workflow passes the tag's version; local builds stay at the default.
+        versionName = providers.environmentVariable("ANDROID_VERSION_NAME").getOrElse("1.4.0")
+        versionCode = versionCodeOf(versionName!!)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Instrumented tests run on debug; the release workflow passes -Poxespace.testBuildType=minified to run the
+    // release smoke test against the build R8 shrank.
+    testBuildType = providers.gradleProperty("oxespace.testBuildType").getOrElse("debug")
+
+    // The release workflow builds unsigned and signs with apksigner in its own job (RELEASING.md). A local signed build
+    // is possible with all four variables set; with any of them missing the release APK is simply unsigned.
+    val keystore = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+    val storePass = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+    val alias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+    val keyPass = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+    if (keystore != null && storePass != null && alias != null && keyPass != null) {
+        signingConfigs.create("release") {
+            storeFile = file(keystore)
+            storePassword = storePass
+            keyAlias = alias
+            keyPassword = keyPass
+            enableV2Signing = true
+            enableV3Signing = true
+        }
     }
 
     buildTypes {
@@ -22,6 +46,16 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
+        }
+        // The release build exactly as R8 shrinks it, signed with the debug key so the smoke test can be installed
+        // beside it. Never published: the release workflow checks it before attaching the real APK.
+        create("minified") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            proguardFile("minified-rules.pro")
+            testProguardFiles("test-proguard-rules.pro")
         }
     }
 
@@ -74,4 +108,10 @@ dependencies {
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.okhttp.tls)
+}
+
+/** 1.4.0 → 10400, 1.12.3 → 11203: always grows with the version, as Android requires for updates. */
+fun versionCodeOf(name: String): Int {
+    val (major, minor, patch) = name.substringBefore('-').split('.').map { it.toInt() } + listOf(0, 0)
+    return major * 10_000 + minor * 100 + patch
 }
