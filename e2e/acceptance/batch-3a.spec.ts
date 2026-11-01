@@ -75,12 +75,15 @@ async function sessionState(app: ElectronApplication, root: string, extra: Recor
   }, { root, extra })
 }
 
-for (const size of [{ name: 'narrow', width: 900, height: 700 }, { name: 'wide', width: 1680, height: 1000 }]) {
+// 'wide' asks for 1680 px, which a 1024x768 runner screen clamps; 'wide-zoom' keeps the window the screen allows and
+// zooms the page to 60 %, so the layout gets well over 1120 CSS px of width (the column rule) on any runner.
+for (const size of [{ name: 'narrow', width: 900, height: 700, zoom: 1 }, { name: 'wide', width: 1680, height: 1000, zoom: 1 }, { name: 'wide-zoom', width: 1680, height: 1000, zoom: 0.6 }]) {
   test(`#227 conversation details, ${size.name} window: opens, closes, keeps focus, and reads odd data honestly`, async () => {
     test.setTimeout(180_000)
     const { app, page, workspaceRoot, consoleErrors } = await launchApp({ locale: 'en-US' })
     try {
       await resizeWindow(app, size.width, size.height)
+      if (size.zoom !== 1) await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), size.zoom)
       await installThreadFixtures(app, workspaceRoot)
       await openDemoWorkspace(page, workspaceRoot)
       await registerThreadProject(app, page, workspaceRoot)
@@ -117,6 +120,12 @@ for (const size of [{ name: 'narrow', width: 900, height: 700 }, { name: 'wide',
         await expect.soft(toggle, 'focus goes back to the header button').toBeFocused()
         console.log('F14-FOCUS-AFTER-ESC', await page.evaluate(() => { const e = document.activeElement as HTMLElement | null; return e ? `${e.tagName} ${e.getAttribute('aria-label') ?? ''} ${e.className}`.slice(0, 120) : 'none' }))
       } else {
+        const metrics = await page.evaluate(() => ({ innerWidth: window.innerWidth, innerHeight: window.innerHeight, screen: `${screen.width}x${screen.height}`, dpr: window.devicePixelRatio,
+          workbench: (document.querySelector('.thread-workbench') as HTMLElement | null)?.clientWidth ?? null }))
+        const bounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds())
+        const headerHidden = await page.locator('.thread-heading').evaluate(h => !!h.closest('[aria-hidden="true"],[inert]'))
+        console.log('F14-WIDE', JSON.stringify({ case: size.name, metrics, bounds, headerHidden }))
+        if ((metrics.workbench ?? 0) >= 1120) expect.soft(headerHidden, `with ${metrics.workbench} px of workbench the panel is a column, the header stays usable`).toBe(false)
         await expect.soft(page.locator('.thread-timeline'), 'the conversation stays beside the panel').toBeVisible()
         console.log('F14-HEADER-OPEN', JSON.stringify(await headingButtons()), 'focused:', await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName))
         await toggle.click({ timeout: 5_000 }).catch(async () => { await page.locator('.thread-review-host').getByRole('button', { name: 'Close workbench panel' }).click() })
