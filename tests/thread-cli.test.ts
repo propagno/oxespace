@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm, symlink, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve as resolvePath } from 'node:path'
 import { conversationCommand, interactiveConversationCommand } from '../electron/main/services/conversation/process-transport'
@@ -63,6 +63,39 @@ describe('native conversation command resolution (B13: never the app binary as N
     await writeFile(join(platformRoot, 'package.json'), JSON.stringify({ name: '@openai/codex-win32-x64', version: '0.0.0' }))
     const preferred = await touch(join(platformRoot, 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe'))
     expect(conversationCommand(shim, args, {}, 'win32', 'x64').executable).toBe(preferred)
+  })
+
+  it('never takes a codex.exe planted in a parent node_modules (as C:\\node_modules by another user) (T7, M-2)', async () => {
+    const outer = await tempFolder()
+    const planted = await touch(join(outer, 'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe'))
+    await writeFile(join(outer, 'node_modules', '@openai', 'codex-win32-x64', 'package.json'), JSON.stringify({ name: '@openai/codex-win32-x64', version: '9.9.9' }))
+    const install = join(outer, 'npm-global')
+    const { shim, root } = await npmCodex(install)
+    // Vendor-only layout (older Codex, or installed with --no-optional): the planted package is the only platform package.
+    const vendored = await touch(join(root, 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe'))
+    expect(conversationCommand(shim, args, {}, 'win32', 'x64').executable).toBe(vendored)
+    expect(conversationCommand(shim, args, {}, 'win32', 'x64').executable).not.toBe(planted)
+    // With nothing of its own, the shim is refused rather than handed the planted binary.
+    await rm(vendored)
+    expect(refusalCode(() => conversationCommand(shim, args, {}, 'win32', 'x64'))).toBe('thread.agent.nativeMissing')
+  })
+
+  it('a candidate that links out of the install folder is refused (M-2)', async () => {
+    const outside = await tempFolder()
+    await touch(join(outside, 'x86_64-pc-windows-msvc', 'bin', 'codex.exe'))
+    const folder = await tempFolder()
+    const { shim, root } = await npmCodex(folder)
+    const link = join(root, 'vendor')
+    await symlink(outside, link, process.platform === 'win32' ? 'junction' : 'dir')
+    // The link goes first, on its own, so the folder cleanup never walks through it.
+    try { expect(refusalCode(() => conversationCommand(shim, args, {}, 'win32', 'x64'))).toBe('thread.agent.nativeMissing') } finally { await unlink(link) }
+  })
+
+  it('drops ELECTRON_RUN_AS_NODE under any casing (L-2)', async () => {
+    const folder = await tempFolder()
+    const exe = await touch(join(folder, 'claude.exe'))
+    const result = conversationCommand(exe, args, { ELECTRON_RUN_AS_NODE: '1', electron_run_as_node: '1', Electron_Run_As_Node: '1', KEEP: 'yes' }, 'win32', 'x64')
+    expect(result.env).toEqual({ KEEP: 'yes' })
   })
 
   it('refuses with C3 codes: a shim without its native binary, and any other script', async () => {

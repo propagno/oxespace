@@ -181,8 +181,10 @@ export function registerPackagedFuses({ platform, label }: PackagedFusesOptions)
       const exited = new Promise<number | null>(resolve => child.once('exit', code => resolve(code)))
       const code = await Promise.race([exited, new Promise<'running'>(resolve => setTimeout(() => resolve('running'), 8000))])
       killTree(child.pid)
-      expect(output, 'Node ran inside the packaged binary').not.toContain(marker)
       console.log('[b13-t2]', JSON.stringify({ after8s: code }))
+      expect(output, 'Node ran inside the packaged binary').not.toContain(marker)
+      // Positive control: the binary did not just crash or exit; it started the app and ignored the variable.
+      expect(code, 'the packaged app is still running 8 s after a start with ELECTRON_RUN_AS_NODE').toBe('running')
     })
 
     test('T3: closing a terminal starts no second OXESpace and ends its whole tree', async () => {

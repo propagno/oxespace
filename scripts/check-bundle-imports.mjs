@@ -7,6 +7,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { join, relative } from 'node:path'
+import { runAsNodeProblems } from './run-as-node-patterns.mjs'
 
 const root = process.cwd()
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
@@ -40,16 +41,11 @@ for (const file of files(outMain)) {
   }
 }
 
-// B13: the packaged app runs with the RunAsNode fuse off, so nothing in main may run the app binary as Node. Setting
-// ELECTRON_RUN_AS_NODE (as a key or an assignment; deleting it is fine) or child_process.fork (which Electron does with
-// process.execPath plus that variable) would start a second OXESpace instead. utilityProcess is the way to a Node child.
+// B13: the packaged app runs with the RunAsNode fuse off, so nothing in main may run the app binary as Node
+// (scripts/run-as-node-patterns.mjs says what that looks like).
 const runAsNode = []
-const forkImport = /import\s*\{[^}]*\bfork\b[^}]*\}\s*from\s*["'](?:node:)?child_process["']/
-const forkCall = /(?:require\(\s*["'](?:node:)?child_process["']\s*\)|\bchild_process)\s*\.\s*fork\s*\(/
 for (const file of files(outMain)) {
-  const source = readFileSync(file, 'utf8')
-  if (/ELECTRON_RUN_AS_NODE["'`]?\s*(?::|=(?!=))/.test(source)) runAsNode.push(`${relative(root, file)}: sets ELECTRON_RUN_AS_NODE`)
-  if (forkImport.test(source) || forkCall.test(source)) runAsNode.push(`${relative(root, file)}: uses child_process.fork`)
+  for (const problem of runAsNodeProblems(readFileSync(file, 'utf8'))) runAsNode.push(`${relative(root, file)}: ${problem}`)
 }
 if (runAsNode.length) {
   console.error('Main bundles would run the app binary as Node, which the RunAsNode fuse forbids:\n' + runAsNode.map(line => `  - ${line}`).join('\n'))

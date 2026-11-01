@@ -81,6 +81,18 @@ describe('TerminalManager', () => {
       } finally { manager.stopAll(); db.close() }
     }
   })
+  test('shells never inherit ELECTRON_RUN_AS_NODE, under any casing (B13)', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'linux', env: { PATH: '/bin', ELECTRON_RUN_AS_NODE: '1', electron_run_as_node: '1', KEEP: 'yes' } })
+    try {
+      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'my-agent', disableRtk: true })
+      const env = (pty.spawn.mock.calls[0][2] as { env: Record<string, string> }).env
+      expect(Object.keys(env).filter(key => key.toUpperCase() === 'ELECTRON_RUN_AS_NODE')).toEqual([])
+      expect(env.KEEP).toBe('yes')
+    } finally { manager.stopAll(); db.close() }
+  })
   test('records an agent that cannot start as an incident, with only its name hashed (B8.3)', async () => {
     const { connectIncidentJournal, incidentSubject } = await import('../../electron/main/services/diagnostics/incident-sink')
     const recorded: Array<[string, string | undefined]> = []

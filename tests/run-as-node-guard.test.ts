@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
+// @ts-expect-error plain .mjs shared with scripts/check-bundle-imports.mjs
+import { runAsNodeProblems } from '../scripts/run-as-node-patterns.mjs'
 
 /*
  * B13 (BE-M-02): the packaged app ships with the RunAsNode fuse off, so no runtime code may run the app binary as
@@ -34,18 +36,41 @@ describe('no runtime code runs the app binary as Node (RunAsNode fuse off)', () 
     expect(files.some(file => file.path === 'electron/main/services/conversation/process-transport.ts')).toBe(true)
   })
 
-  it('never sets ELECTRON_RUN_AS_NODE (deleting it from a child env is fine)', () => {
-    const setters = files.filter(file => /ELECTRON_RUN_AS_NODE['"`]?\s*(?::|=(?!=))/.test(code(file.text))).map(file => file.path)
-    expect(setters).toEqual([])
+  it('never sets ELECTRON_RUN_AS_NODE nor uses child_process.fork (the same rules as the bundle check)', () => {
+    const problems = files.flatMap(file => runAsNodeProblems(code(file.text)).map(problem => `${file.path}: ${problem}`))
+    expect(problems).toEqual([])
   })
 
-  it('never uses child_process.fork, which Electron runs as process.execPath plus ELECTRON_RUN_AS_NODE', () => {
-    const forks = files.filter(file => {
-      const text = code(file.text)
-      return /import\s*\{[^}]*\bfork\b[^}]*\}\s*from\s*['"](?:node:)?child_process['"]/.test(text) ||
-        /(?:child_process|require\(\s*['"](?:node:)?child_process['"]\s*\))\s*\.\s*fork\s*\(/.test(text)
-    }).map(file => file.path)
-    expect(forks).toEqual([])
+  it('the rules catch every form of setting the variable and of fork, and nothing that only reads or deletes', () => {
+    const caught = [
+      "env.ELECTRON_RUN_AS_NODE = '1'",
+      "env['ELECTRON_RUN_AS_NODE'] = '1'",
+      'env["ELECTRON_RUN_AS_NODE"]="1"',
+      "spawn(x, [], { env: { ...env, ELECTRON_RUN_AS_NODE: '1' } })",
+      "spawn(x, [], { env: { 'ELECTRON_RUN_AS_NODE': '1' } })",
+      "import { fork } from 'node:child_process'",
+      "import { spawn, fork as f } from 'child_process'",
+      'import{fork as e}from"node:child_process"',
+      "import * as cp from 'node:child_process'\ncp.fork('x.js')",
+      'import*as e from"node:child_process";e.fork("x.js")',
+      "import cp from 'child_process'\ncp.fork('x.js')",
+      "import cp, { spawn } from 'child_process'\ncp.fork('x.js')",
+      "const cp = await import('node:child_process')\ncp.fork('x.js')",
+      "const { fork } = await import('child_process')",
+      "const { spawn, fork } = require('child_process')",
+      "require('child_process').fork('x.js')",
+      "(await import('node:child_process')).fork('x.js')",
+      'child_process.fork("x.js")'
+    ]
+    for (const text of caught) expect(runAsNodeProblems(text), text).not.toEqual([])
+    const fine = [
+      'delete env.ELECTRON_RUN_AS_NODE',
+      "if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE') delete env[key]",
+      "import { spawn } from 'node:child_process'\nsession.fork(input)",
+      "import * as cp from 'node:child_process'\ncp.spawn('x')\nthread.fork(id)",
+      "window.oxe.session.fork({ id })"
+    ]
+    for (const text of fine) expect(runAsNodeProblems(text), text).toEqual([])
   })
 
   it('spawns process.execPath only where an Electron guard stops it first', () => {
@@ -68,12 +93,12 @@ describe('no runtime code runs the app binary as Node (RunAsNode fuse off)', () 
     expect(Object.fromEntries(block.map(line => line.trim().split(/:\s*/)))).toEqual({
       runAsNode: 'false',
       enableNodeOptionsEnvironmentVariable: 'false',
-      enableNodeCliInspectArguments: 'true',
+      enableNodeCliInspectArguments: 'false',
       enableEmbeddedAsarIntegrityValidation: 'true',
       onlyLoadAppFromAsar: 'true'
     })
     const checker = readFileSync(join(root, 'scripts', 'check-fuses.mjs'), 'utf8')
-    for (const expected of ['RunAsNode: false', 'EnableNodeOptionsEnvironmentVariable: false', 'EnableNodeCliInspectArguments: true',
+    for (const expected of ['RunAsNode: false', 'EnableNodeOptionsEnvironmentVariable: false', 'EnableNodeCliInspectArguments: false',
       'EnableEmbeddedAsarIntegrityValidation: true', 'OnlyLoadAppFromAsar: true']) expect(checker).toContain(expected)
   })
 })

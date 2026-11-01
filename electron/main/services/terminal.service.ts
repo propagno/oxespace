@@ -324,6 +324,9 @@ export class TerminalManager {
       finalEnv = { ...finalEnv, RTK_DISABLED: '1' }
     }
 
+    // An app started with ELECTRON_RUN_AS_NODE must not hand it to its shells: any Electron CLI run there (code) breaks.
+    for (const key of Object.keys(finalEnv)) if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE') delete finalEnv[key]
+
     // Spawn at the view's real geometry. Starting at 80x24 and resizing after
     // the fact makes the app reflow once, which reads as a flash on open.
     const cols = clampDimension(input.cols, 80)
