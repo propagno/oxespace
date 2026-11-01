@@ -6,7 +6,7 @@ import { toast } from '../ui'
 import type { ContributedCommand } from '../utils/commandRegistry'
 import { humanizeError } from '../utils/humanizeError'
 import { navigableThreads } from '../utils/threadNavigation'
-import { tCommand } from './commandText'
+import { commandText, tCommand } from './commandText'
 import { useCommandSource } from './useCommandSource'
 
 /** Agent accounts are checked inside a project; without one there is nothing to show yet. */
@@ -28,7 +28,7 @@ export interface ThreadCommandContext {
   openAccounts: () => void
 }
 
-const CATEGORY = 'OxeChat'
+const CATEGORY = 'OxeChat' as const
 
 /** Opens the project's latest conversation, or a new one when it has none. */
 function switchProject(ctx: ThreadCommandContext, projectId: string): void {
@@ -64,26 +64,26 @@ export function buildThreadCommands(ctx: ThreadCommandContext): ContributedComma
   const running = Boolean(snapshot?.turns?.some(turn => turn.status === 'running'))
   const finished = Boolean(snapshot?.turns?.some(turn => turn.status !== 'running'))
   const inThread = (run: () => void) => () => { ctx.showThread(); run() }
-  const slash = (id: string, label: string, text: string, icon: ContributedCommand['icon'], keywords: string[] = []): ContributedCommand => ({
-    id: `thread.${id}`, label, icon, category: CATEGORY, keywords: [text, ...keywords], detail: text, disabled: !snapshot,
+  const slash = (id: string, text: string, icon: ContributedCommand['icon'], keywords: string[] = []): ContributedCommand => ({
+    id: `thread.${id}`, ...commandText(CATEGORY, `thread.${id}`, { keywords: [text, ...keywords] }), icon, detail: text, disabled: !snapshot,
     // After the view switch, so the active conversation is mounted and listening.
     run: inThread(() => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(THREAD_RUN_COMMAND_EVENT, { detail: { text } }))))
   })
   return [
-    { id: 'thread.new', label: i18n.t('keys.bindings.thread.new'), icon: MessageSquarePlus, category: CATEGORY, keywords: ['thread', 'chat', 'oxechat', 'start'], shortcut: 'thread.new', run: inThread(ctx.newThread) },
-    { id: 'thread.add-project', label: tCommand('thread.addProject'), icon: FolderPlus, category: CATEGORY, keywords: ['folder', 'repository'], run: inThread(ctx.addProject) },
+    { id: 'thread.new', ...commandText(CATEGORY, 'thread.new', { keywords: ['thread', 'chat', 'oxechat', 'start'] }), icon: MessageSquarePlus, shortcut: 'thread.new', run: inThread(ctx.newThread) },
+    { id: 'thread.add-project', ...commandText(CATEGORY, 'thread.add-project', { keywords: ['folder', 'repository'] }), icon: FolderPlus, run: inThread(ctx.addProject) },
     ...ctx.projects.filter(project => !project.hidden).map(project => ({
-      id: `thread.project.${project.projectId}`, label: tCommand('thread.switchProject', { project: project.displayName }), detail: project.identityLabel, icon: FolderInput,
-      category: CATEGORY, keywords: ['project', 'change', project.displayName], run: inThread(() => switchProject(ctx, project.projectId))
+      id: `thread.project.${project.projectId}`, ...commandText(CATEGORY, 'thread.project', { values: { project: project.displayName }, keywords: ['project', 'change', project.displayName] }),
+      detail: project.identityLabel, icon: FolderInput, run: inThread(() => switchProject(ctx, project.projectId))
     })),
-    slash('resume', tCommand('thread.resume'), '/resume', History, ['sessions', 'continue', 'history']),
-    slash('rename', tCommand('thread.rename'), '/rename', PencilLine, ['title', 'name']),
-    slash('spending', tCommand('thread.spending'), '/spending', CircleDollarSign, ['cost', 'usage', 'tokens', 'money']),
-    slash('events', tCommand('thread.events'), '/events', ScrollText, ['log', 'debug']),
-    slash('rules', tCommand('thread.rules'), '/rules', ListChecks, ['permissions', 'allow', 'deny']),
-    { id: 'thread.undo-last-turn', label: tCommand('thread.undo'), icon: Undo2, category: CATEGORY, keywords: ['revert', 'restore', 'checkpoint', 'rewind'],
+    slash('resume', '/resume', History, ['sessions', 'continue', 'history']),
+    slash('rename', '/rename', PencilLine, ['title', 'name']),
+    slash('spending', '/spending', CircleDollarSign, ['cost', 'usage', 'tokens', 'money']),
+    slash('events', '/events', ScrollText, ['log', 'debug']),
+    slash('rules', '/rules', ListChecks, ['permissions', 'allow', 'deny']),
+    { id: 'thread.undo-last-turn', ...commandText(CATEGORY, 'thread.undo-last-turn', { keywords: ['revert', 'restore', 'checkpoint', 'rewind'] }), icon: Undo2,
       disabled: !snapshot || running || !finished, run: inThread(() => { if (snapshot) void undoLastTurn(snapshot) }) },
-    { id: 'thread.accounts', label: tCommand('thread.accounts'), icon: UserRound, category: CATEGORY, keywords: ['login', 'logout', 'claude', 'codex', 'account'],
+    { id: 'thread.accounts', ...commandText(CATEGORY, 'thread.accounts', { keywords: ['login', 'logout', 'claude', 'codex', 'account'] }), icon: UserRound,
       // Accounts are checked inside a project.
       disabled: ctx.projects.length === 0, run: inThread(ctx.openAccounts) }
   ]

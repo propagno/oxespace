@@ -1,4 +1,5 @@
 import { Database, DatabaseZap, FileDown, FileUp, Play, Plus, Search, Settings, ShieldCheck, Table2, TextCursorInput } from 'lucide-react'
+import { commandText } from '../../commands/commandText'
 import { i18n } from '../../i18n'
 import { registerCommands, type ContributedCommand } from '../../utils/commandRegistry'
 import { requestOxeQueryAction, type OxeQueryAction } from './oxequery-bridge'
@@ -23,11 +24,9 @@ const ENTRIES: Array<{ action: Exclude<OxeQueryAction, 'connect'>; icon: typeof 
 ]
 
 export function oxeQueryCommands(): ContributedCommand[] {
-  const category = 'OxeQuery'
   return ENTRIES.map(({ action, icon, keywords, detail }) => ({
-    id: `oxequery.${action}`, category, icon, run: () => requestOxeQueryAction(action),
-    label: i18n.t(`oxequeryCommands.${action}.label`), ...(detail ? { detail: i18n.t(`oxequeryCommands.${action}.detail` as 'oxequeryCommands.open.detail') } : {}),
-    ...(keywords ? { keywords } : {})
+    id: `oxequery.${action}`, icon, run: () => requestOxeQueryAction(action),
+    ...commandText('OxeQuery', `oxequery.${action}`, { keywords }), ...(detail ? { detail: i18n.t(`oxequeryCommands.${action}.detail` as 'oxequeryCommands.open.detail') } : {})
   }))
 }
 
