@@ -491,8 +491,8 @@ data class RemotePendingRequest(
     val paths: List<String>? = null,
     /**
      * The desktop's risk for this request, in the same four words the desktop's approval modal shows (CCR #364). Main
-     * fills it from riskFromShell / riskFromSql / the tool's declaration. A phone that reads an unknown value shows the
-     * word itself with Deny leading, so a later level needs no protocol bump.
+     * fills it from riskFromShell / riskFromSql / the tool's declaration. A phone that reads an unknown value treats it
+     * as `critical` (Deny leading), as REMOTE_UNKNOWN_VALUES says (#354), so a later level needs no protocol bump.
      */
     val risk: String? = null,
     val warnings: List<String>? = null,
