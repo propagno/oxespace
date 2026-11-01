@@ -31,6 +31,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { installThreadFixtures, registerThreadProject, setThreadState } from './helpers/thread-fixtures'
+import { PERF_ADVISORY, perfAdvisoryApplies } from './helpers/perfAdvisory'
 
 const LAUNCHES = Number(process.env.OXESPACE_PERF_LAUNCHES ?? 5)
 const BLANK_GOAL_MS = 100
@@ -395,14 +396,9 @@ function gateChecks(round: Results): Check[] {
 // CI runs this spec both in the E2E step (CI=true) and in the performance gate step (OXESPACE_PERF_GATE=1).
 const CONFIRM = (process.env.CI === 'true' || process.env.OXESPACE_PERF_GATE === '1') && process.env.OXESPACE_PERF_CONFIRM !== '0'
 
-/**
- * F7.3: the one temporary exception. OxeChat (Thread) cold first content regressed from ~330 ms to ~377 ms after
- * bb76b6e9 (bisect in progress). Until the fix, that single check is advisory on pull requests (a warning annotation
- * with the number) and stays blocking on push to main; every other check blocks everywhere and no baseline moves.
- * It expires before the RC: past `expires` the gate fails until the fix lands and this is removed.
- */
-const ADVISORY = { item: 'F7.3', label: 'OxeChat (Thread) cold: first content', expires: '2026-11-07' } as const
-const advisoryHere = (check: Check): boolean => process.env.GITHUB_EVENT_NAME === 'pull_request' && check.label.startsWith(ADVISORY.label)
+// F7.3: the one temporary exception, advisory on every run that is not for main or a tag (e2e/helpers/perfAdvisory.ts).
+const ADVISORY = PERF_ADVISORY
+const advisoryHere = (check: Check): boolean => perfAdvisoryApplies(check.label)
 
 async function measureRound(): Promise<void> {
   for (let i = 0; i < LAUNCHES; i++) {
@@ -437,7 +433,7 @@ test('perceived performance: first feedback, first content and blank time per su
     const shown = again ? `${check.label} (round 1 ${check.value.toFixed(0)}, round 2 ${again.value.toFixed(0)})` : check.label
     if (failed && advisoryHere(check)) {
       // GitHub annotation: visible on the PR, never a failure there; push to main still fails.
-      console.log(`::warning title=F7.3 OxeChat cold first content (advisory on PRs until ${ADVISORY.expires})::${shown}: ${Math.max(check.value, again?.value ?? -Infinity).toFixed(0)} ms, limit ${check.limit.toFixed(0)} ms`)
+      console.log(`::warning title=F7.3 OxeChat cold first content (advisory off main until ${ADVISORY.expires})::${shown}: ${Math.max(check.value, again?.value ?? -Infinity).toFixed(0)} ms, limit ${check.limit.toFixed(0)} ms`)
       continue
     }
     expect.soft(failed ? Math.max(check.value, again?.value ?? -Infinity) : Math.min(check.value, check.limit), shown).toBeLessThanOrEqual(check.limit)

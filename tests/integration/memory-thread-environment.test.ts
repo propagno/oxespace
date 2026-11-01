@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { NODE_EXECUTABLE } from '../helpers/node-child'
 import { expect, test, vi } from 'vitest'
 import path from 'node:path'
 import { AgentProcessTransport } from '../../electron/main/services/conversation/process-transport'
@@ -19,7 +20,7 @@ test.skipIf(Boolean(process.versions.electron))('Thread forwards only the fresh 
   }) + '\\n'); if (!process.env.OXESPACE_MEMORY_RUN) require(${JSON.stringify(wrapper)});`
   try {
     async function probe(native: boolean, external = false) {
-      const transport = new AgentProcessTransport(process.execPath, ['-e', script], process.cwd(), {
+      const transport = new AgentProcessTransport(NODE_EXECUTABLE, ['-e', script], process.cwd(), {
         ...(native ? { OXESPACE_MEMORY_RUN: 'fresh-project-config-canary' } : {}),
         ...(external ? { AI_MEMORY_CAPTURE_OWNER: 'oxespace.thread' } : {}),
         OXESPACE_MEMORY_RUN_ID: 'synthetic-run', OXESPACE_WORKSPACE_ID: 'synthetic-workspace',
