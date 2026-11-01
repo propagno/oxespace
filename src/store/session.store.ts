@@ -61,3 +61,7 @@ const NO_ITEMS: never[] = []
 export function selectSessions(workspaceId: string, provider: AgentProvider): (state: SessionStoreState) => SessionSummary[] {
   return (state) => state.byKey[key(workspaceId, provider)] ?? NO_ITEMS
 }
+
+// bisect only (F7.3): which fields change during a cold switch
+useSessionStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
+  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['Session.' + key] = (w.__stores['Session.' + key] ?? 0) + 1 })

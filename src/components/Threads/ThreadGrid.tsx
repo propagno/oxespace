@@ -13,6 +13,7 @@ function projectView(thread: ConversationThread | undefined, name: string | unde
 }
 
 export function ThreadGrid({ onNewThread, onAccounts, onDelegations }: { onNewThread?: () => void; onAccounts?: () => void; onDelegations?: () => void }) {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['ThreadGrid'] = ((w.__renders ??= {})['ThreadGrid'] ?? 0) + 1 }
   const { t } = useTranslation('thread')
   const selectedId = useThreadStore(state => state.selectedId)
   const secondaryId = useThreadStore(state => state.secondaryId)

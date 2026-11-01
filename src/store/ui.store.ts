@@ -160,3 +160,7 @@ export const useUIStore = create<UIState>((set) => ({
     return { isSidebarCollapsed }
   })
 }))
+
+// bisect only (F7.3): which fields change during a cold switch
+useUIStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
+  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['UI.' + key] = (w.__stores['UI.' + key] ?? 0) + 1 })

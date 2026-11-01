@@ -284,7 +284,14 @@ async function readBoot(app: ElectronApplication, page: Page): Promise<Record<st
 
 /** Runs one probe; with `shots`, screenshots the window meanwhile and keeps the one inside the longest blank. */
 async function measure(page: Page, surface: Surface, phase: 'cold' | 'warm', shots: boolean): Promise<Sample> {
+  await page.evaluate(() => { (window as unknown as { __renders?: Record<string, number> }).__renders = {}; (window as unknown as { __stores?: Record<string, number> }).__stores = {} })
   await surface.arm(page)
+  if (!shots && phase === 'cold') {
+    const sample = await page.evaluate(probeInPage, surface.probe)
+    console.log(`[RENDERS] ${surface.name} cold: content ${sample.content?.toFixed(0)} ms ${JSON.stringify(await page.evaluate(() => (window as unknown as { __renders?: Record<string, number> }).__renders))}`)
+    console.log(`[STORES] ${surface.name} cold: ${JSON.stringify(await page.evaluate(() => (window as unknown as { __stores?: Record<string, number> }).__stores))}`)
+    return sample
+  }
   if (!shots) return page.evaluate(probeInPage, surface.probe)
   let done = false
   const taken: Array<{ at: number; image: Buffer }> = []

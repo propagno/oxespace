@@ -162,3 +162,7 @@ export function useResolvedTerminalPrefs(workspaceId: string): TerminalPrefs {
     useShallow((s) => ({ ...s.global, ...(s.overrides[workspaceId] ?? {}) }))
   )
 }
+
+// bisect only (F7.3): which fields change during a cold switch
+useTerminalPrefsStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
+  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['TerminalPrefs.' + key] = (w.__stores['TerminalPrefs.' + key] ?? 0) + 1 })

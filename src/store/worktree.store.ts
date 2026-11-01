@@ -86,3 +86,7 @@ const NO_ITEMS: never[] = []
 export function selectWorktrees(rootPath: string): (state: WorktreeStoreState) => GitHubWorktree[] {
   return (state) => state.byRoot[rootPath] ?? NO_ITEMS
 }
+
+// bisect only (F7.3): which fields change during a cold switch
+useWorktreeStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
+  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['Worktree.' + key] = (w.__stores['Worktree.' + key] ?? 0) + 1 })

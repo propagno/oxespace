@@ -51,3 +51,7 @@ export const useAccountStore = create<AccountState>((set, get) => ({
   }
 }))
 export function selectAccount(context: AgentAccountContext) { return (state: AccountState) => state.snapshots[state.scopes[key(context)]] }
+
+// bisect only (F7.3): which fields change during a cold switch
+useAccountStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
+  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['Account.' + key] = (w.__stores['Account.' + key] ?? 0) + 1 })

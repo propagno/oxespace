@@ -54,6 +54,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   onInterrupt: () => void
   onCaret: (caret: number) => void
 }) {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['ThreadComposerForm'] = ((w.__renders ??= {})['ThreadComposerForm'] ?? 0) + 1 }
   const { t } = useTranslation('thread')
   const api = window.oxe?.thread
   const blocked = !snapshot || pending || Boolean(snapshot.thread.cliActive)

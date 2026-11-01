@@ -318,3 +318,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     return cmd
   }
 }))
+
+// bisect only (F7.3): which fields change during a cold switch
+useTerminalStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
+  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['Terminal.' + key] = (w.__stores['Terminal.' + key] ?? 0) + 1 })

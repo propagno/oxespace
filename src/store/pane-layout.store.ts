@@ -91,3 +91,7 @@ export const usePaneLayoutStore = create<PaneLayoutState>()(
     }
   )
 )
+
+// bisect only (F7.3): which fields change during a cold switch
+usePaneLayoutStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
+  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['PaneLayout.' + key] = (w.__stores['PaneLayout.' + key] ?? 0) + 1 })

@@ -53,3 +53,7 @@ export const useDiffCommentsStore = create<DiffCommentsState>()(
     { name: 'oxe-diff-comments-v1' }
   )
 )
+
+// bisect only (F7.3): which fields change during a cold switch
+useDiffCommentsStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
+  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['DiffComments.' + key] = (w.__stores['DiffComments.' + key] ?? 0) + 1 })
