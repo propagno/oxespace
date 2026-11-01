@@ -365,7 +365,6 @@
     "uncheckedDetail": "Check which agent CLIs are installed on this machine."
   },
   "approvals": {
-    "summaryTarget": "{{summary}} · {{target}}",
     "facts": "Risk: {{risk}}. Asked by {{requester}}.",
     "factsEnvironment": "Risk: {{risk}}. Environment: {{environment}}. Asked by {{requester}}.",
     "factsProduction": "Risk: {{risk}}. Production environment: {{environment}}. Asked by {{requester}}.",
@@ -401,7 +400,8 @@
       "app": "OXESpace",
       "verified": "identified by OXESpace",
       "unknown": "Unknown agent",
-      "unidentified": "not identified"
+      "unidentified": "not identified",
+      "where": "Where"
     },
     "appNotes": "OXESpace notes",
     "hiddenCharacters": "The agent's text contains invisible or direction-changing characters. Each one is shown as a marker such as ⟨U+202E⟩ instead of taking effect. Read the text with them in mind before you approve.",
@@ -417,7 +417,7 @@
     "expires": "If you do not answer by {{time}}, the request is denied.",
     "hold": {
       "waiting": "Critical risk: Allow is available in {{seconds}} s. Read the request first.",
-      "ready": "Allow is available. Enter does not approve at critical risk; use Space or click.",
+      "ready": "Allow is available. At critical risk Enter does nothing; use Space or click.",
       "readyEnter": "Allow is available.",
       "paused": "Critical risk: Allow waits until this window is in front. The count starts again when you come back."
     },

@@ -372,7 +372,6 @@
     "uncheckedDetail": "Verifique quais CLIs de agentes estão instaladas nesta máquina."
   },
   "approvals": {
-    "summaryTarget": "{{summary}} · {{target}}",
     "facts": "Risco: {{risk}}. Pedido por {{requester}}.",
     "factsEnvironment": "Risco: {{risk}}. Ambiente: {{environment}}. Pedido por {{requester}}.",
     "factsProduction": "Risco: {{risk}}. Ambiente de produção: {{environment}}. Pedido por {{requester}}.",
@@ -408,7 +407,8 @@
       "app": "OXESpace",
       "verified": "identificado pelo OXESpace",
       "unknown": "Agente desconhecido",
-      "unidentified": "não identificado"
+      "unidentified": "não identificado",
+      "where": "Onde"
     },
     "appNotes": "Avisos do OXESpace",
     "hiddenCharacters": "O texto do agente contém caracteres invisíveis ou que mudam a direção do texto. Cada um aparece como um marcador, por exemplo ⟨U+202E⟩, em vez de ter efeito. Leia o texto considerando isso antes de aprovar.",
@@ -424,7 +424,7 @@
     "expires": "Se você não responder até {{time}}, o pedido será negado.",
     "hold": {
       "waiting": "Risco crítico: Permitir fica disponível em {{seconds}} s. Leia o pedido antes.",
-      "ready": "Permitir está disponível. Com risco crítico, Enter não aprova; use Espaço ou clique.",
+      "ready": "Permitir está disponível. Com risco crítico, Enter não faz nada; use Espaço ou clique.",
       "readyEnter": "Permitir está disponível.",
       "paused": "Risco crítico: Permitir espera até esta janela estar em primeiro plano. A contagem recomeça quando você voltar."
     },

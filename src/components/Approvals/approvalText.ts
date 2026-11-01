@@ -26,6 +26,9 @@ export function formatAppNote(note: MainMessage | { code: string; params: Record
 }
 
 export const riskName = (risk: ApprovalRisk): string => t(`approvals.risk.${risk}`)
+/** The text block's heading and hint for this kind (a changed policy file reads differently); the agent's by default. */
+export const textLabel = (kind: string): string => i18n.exists(`common:approvals.textLabel.${kind}`) ? t(`approvals.textLabel.${kind}`) : t('approvals.agent.heading')
+export const textHint = (kind: string): string => i18n.exists(`common:approvals.textHint.${kind}`) ? t(`approvals.textHint.${kind}`) : t('approvals.agent.hint')
 export const requesterKindName = (requester: ApprovalRequester): string => t(`approvals.requester.${requester.kind}`)
 /** The requester as main named it; never empty (an unknown provider reads "Unknown agent", B10). */
 export const requesterText = (requester: ApprovalRequester): string => formatMainMessage(requester.label).trim() || t('approvals.requester.unknown')
@@ -41,7 +44,8 @@ export function isUnidentified(requester: ApprovalRequester): boolean {
 /** The one summary line: main's generic summary for the action, and what it applies to. Never the agent's words. */
 export function summaryLine(request: Pick<ApprovalRequest, 'summary' | 'target'>): string {
   const summary = formatMainMessage(request.summary)
-  return request.target ? t('approvals.summaryTarget', { summary, target: request.target }) : summary
+  // The target has its own Where row in the modal; the summary reads on its own.
+  return summary
 }
 
 /** Risk, environment and requester as one sentence, for screen readers (the dialog's description ends with it). */

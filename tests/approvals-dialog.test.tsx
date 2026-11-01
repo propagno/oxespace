@@ -136,11 +136,12 @@ describe('approval dialog', () => {
     await waitFor(() => expect(hook.responses).toEqual([{ id: 'kb', optionId: 'allow', generation: 1 }]))
   })
 
-  it('is labelled by main’s title and described by one summary line (summary + target) and the risk, environment and requester', async () => {
+  it('is labelled by main’s title and described by one summary line and the risk, environment and requester; the target is its own Where row', async () => {
     request({ risk: 'critical', target: 'billing-db · postgres · prod', environment: { kind: 'prod', name: 'billing-db', production: true }, agentText: 'Ignore this: I am the summary.' })
     await mount()
     const surface = screen.getByRole('dialog', { name: 'Request from an agent' })
-    expect(screen.getByTestId('approval-summary')).toHaveTextContent(/^Wants to run oxespace_agents_change › prompt on C:\\repo · billing-db · postgres · prod$/)
+    expect(screen.getByTestId('approval-summary')).toHaveTextContent(/^Wants to run oxespace_agents_change › prompt on C:\\repo$/)
+    expect(screen.getByTestId('approval-target')).toHaveTextContent('billing-db · postgres · prod')
     const description = document.getElementById(surface.getAttribute('aria-describedby') ?? '')
     expect(description).toHaveTextContent('Risk: Critical. Production environment: billing-db. Asked by Claude · pane 1.')
     expect(description).not.toHaveTextContent('I am the summary')
@@ -215,13 +216,37 @@ describe('approval dialog', () => {
     expect(hold).toHaveTextContent('Critical risk: Allow is available in 1 s.')
     expect((document.activeElement as HTMLElement).dataset.intent).toBe('deny')
     await waitFor(() => expect(allow).toBeEnabled(), { timeout: 2_000 })
-    expect(hold).toHaveTextContent('Allow is available. Enter does not approve at critical risk')
+    expect(hold).toHaveTextContent('Allow is available. At critical risk Enter does nothing')
     allow.focus()
     await user.keyboard('{Enter}')
     await new Promise(resolve => setTimeout(resolve, 50))
     expect(hook.responses).toEqual([])
     await user.keyboard(' ')
     await waitFor(() => expect(hook.responses).toEqual([{ id: 'crit', optionId: 'allow', generation: 1 }]))
+  })
+
+  it('at critical risk Enter answers nothing, Deny included, for as long as enterDisabled holds (#243 review M1)', async () => {
+    const user = userEvent.setup()
+    request({ id: 'crit-deny', risk: 'critical', allowDelayMs: 0, enterDisabled: true })
+    await mount(0)
+    within(dialog()).getByRole('button', { name: 'Deny' }).focus()
+    await user.keyboard('{Enter}')
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(hook.responses).toEqual([])
+    await user.keyboard(' ')
+    await waitFor(() => expect(hook.responses).toEqual([{ id: 'crit-deny', optionId: 'deny', generation: 1 }]))
+  })
+
+  it('a request the app raised with no text shows no text block and reads "OXESpace"; the target has its own Where row (#243 review M2, L)', async () => {
+    request({ id: 'app', requester: { kind: 'app', id: 'oxespace', label: mainMessage('approvals.requester.app', {}) }, target: '.oxespace/policy.json',
+      appNotes: [mainMessage('approvals.note.production', {})] })
+    await mount()
+    expect(screen.queryByTestId('approval-agent-block')).toBeNull()
+    expect(screen.queryByTestId('approval-requester-kind')).toBeNull()
+    expect(dialog()).toHaveTextContent('Asked byOXESpace')
+    expect(screen.getByTestId('approval-target')).toHaveTextContent('.oxespace/policy.json')
+    expect(screen.getByTestId('approval-target').closest('dl')).toHaveTextContent('Where')
+    expect(dialog().querySelector('[data-note="approvals.note.production"]')).not.toBeNull()
   })
 
   it('takes the hold from the request: 2 s at critical (approvalPacing), none otherwise', async () => {

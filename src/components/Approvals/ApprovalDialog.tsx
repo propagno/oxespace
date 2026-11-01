@@ -7,7 +7,7 @@ import { Badge, Button, Dialog, Notice, type Intent } from '../../ui'
 import { noticeFor, refKey, useApprovalsStore, type ApprovalNotice } from './approvals.store'
 import { acknowledge } from './approvalsBoot'
 import { denyOption, effectiveRisk, holdsAllow, visibleOptions } from './approvalsRules'
-import { approvalT as t, factsSentence, formatAppNote, formatCount, formatMainMessage, formatTime, isUnidentified, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
+import { approvalT as t, textHint, textLabel, factsSentence, formatAppNote, formatCount, formatMainMessage, formatTime, isUnidentified, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
 import { hasHiddenChars, revealHidden } from './hiddenChars'
 import { useAllowHold } from './useAllowHold'
 import { attentive, useWindowAttention } from './useWindowAttention'
@@ -117,8 +117,8 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
     if (!ACTIVATION_KEYS.has(event.key)) return
     // A held key repeats: its repeats never answer, whatever has focus by then.
     if (event.repeat) { event.preventDefault(); return }
-    // With enterDisabled (critical) Enter never approves; Space or a click does, once the hold is over.
-    if (event.key === 'Enter' && option.intent !== 'deny' && request.enterDisabled) { event.preventDefault(); return }
+    // With enterDisabled (critical) Enter answers nothing, Deny included (B10, #350): Space or a click does.
+    if (event.key === 'Enter' && request.enterDisabled) { event.preventDefault(); return }
     pressed.current = option.id
   }
   const onOptionClick = (optionId: string) => (event: MouseEvent<HTMLButtonElement>): void => {
@@ -153,6 +153,9 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
     ? [...request.appNotes, mainMessage('approvals.note.textCut', { max: APPROVAL_AGENT_TEXT_MAX })]
     : request.appNotes
   const unidentified = isUnidentified(request.requester)
+  const fromApp = request.requester.kind === 'app'
+  // A request the app raised itself (a crash, a changed file) with no text has no text block to read (M2).
+  const showText = !(fromApp && request.agentText.text.length === 0)
   const pieces = request.agentText.text ? revealHidden(request.agentText.text) : []
 
   return <Dialog title={formatMainMessage(request.title)} size="lg" onClose={deny} closeLabel={t('approvals.closeDeny')} testId="approval-dialog" onEscapeKeyDown={onEscape}
@@ -189,22 +192,25 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
     <dl className={styles.requester}>
       <dt>{t('approvals.requester.label')}</dt>
       {/* An unknown requester is never called identified (R7). */}
-      <dd><strong>{requesterText(request.requester)}</strong> <span className={styles.muted} data-testid="approval-requester-kind">{requesterKindName(request.requester)} · {t(unidentified ? 'approvals.requester.unidentified' : 'approvals.requester.verified')}</span></dd>
+      {fromApp
+        ? <dd><strong>{t('approvals.requester.app')}</strong></dd>
+        : <dd><strong>{requesterText(request.requester)}</strong> <span className={styles.muted} data-testid="approval-requester-kind">{requesterKindName(request.requester)} · {t(unidentified ? 'approvals.requester.unidentified' : 'approvals.requester.verified')}</span></dd>}
+      {request.target && <><dt>{t('approvals.requester.where')}</dt><dd><code data-testid="approval-target">{request.target}</code></dd></>}
     </dl>
     {shownNotice && <Notice intent={shownNotice.intent} title={shownNotice.title}>{shownNotice.body || null}</Notice>}
     {(notes.length > 0 || hiddenUnflagged) && <section className={styles.appNotes} aria-labelledby={notesHeading} data-testid="approval-app-notes">
       <h3 id={notesHeading} className={styles.sectionTitle}>{t('approvals.appNotes')}</h3>
       <ul>
         {hiddenUnflagged && <li data-testid="approval-hidden-note">{t('approvals.hiddenCharacters')}</li>}
-        {notes.map((note, index) => <li key={index}>{formatAppNote(note, request.kind)}</li>)}
+        {notes.map((note, index) => <li key={index} data-note={note.code}>{formatAppNote(note, request.kind)}</li>)}
       </ul>
     </section>}
-    <section className={styles.agent} aria-labelledby={agentHeading} data-testid="approval-agent-block">
+    {showText && <section className={styles.agent} aria-labelledby={agentHeading} data-testid="approval-agent-block">
       <header className={styles.agentHeader}>
-        <h3 id={agentHeading} className={styles.sectionTitle}>{t('approvals.agent.heading')}</h3>
+        <h3 id={agentHeading} className={styles.sectionTitle}>{textLabel(request.kind)}</h3>
         <span className={styles.muted}>{t('approvals.agent.length', { length: formatCount(request.agentText.length) })}</span>
       </header>
-      <p className={styles.agentHint}>{t('approvals.agent.hint')}</p>
+      <p className={styles.agentHint}>{textHint(request.kind)}</p>
       {pieces.length
         // Plain text in text nodes: never HTML, never markdown, never links. pre-wrap keeps the agent's spacing. Each
         // invisible or bidi character is replaced by a visible marker and never reaches the page (R2): nothing is
@@ -213,7 +219,7 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
           ? piece.text
           : <span key={index} className={styles.hiddenChar} data-hidden-char={piece.code}>⟨{piece.code}⟩</span>)}</pre>
         : <p className={styles.muted}>{t('approvals.agent.empty')}</p>}
-    </section>
+    </section>}
     {hasAllow && held && <p className={styles.hold} role="status" data-testid="approval-hold">
       {holdLeft > 0
         ? looking ? t('approvals.hold.waiting', { seconds: Math.ceil(holdLeft / 1000) }) : t('approvals.hold.paused')
