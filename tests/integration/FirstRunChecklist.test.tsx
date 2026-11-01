@@ -5,6 +5,7 @@ import type { AgentReadiness } from '../../shared/types/agent'
 import { FirstRunChecklist } from '../../src/components/Onboarding/FirstRunChecklist'
 import { useAgentStore } from '../../src/store/agent.store'
 import { useNavigationPrefs } from '../../src/store/navigation-prefs.store'
+import { stubOpenExternal } from '../helpers/openExternal'
 import { useUIStore } from '../../src/store/ui.store'
 
 const entry = (provider: AgentReadiness['provider'], status: AgentReadiness['status'], details?: string): AgentReadiness => ({ provider, command: provider, status, details })
@@ -28,7 +29,7 @@ describe('FirstRunChecklist', () => {
   test('checks this machine once when it was never checked, and reports a ready CLI', async () => {
     const { discover } = setup({ discovered: [entry('claude', 'ready'), entry('codex', 'missing')] })
     expect(await screen.findByText('Claude Code is ready')).toBeInTheDocument()
-    expect(screen.getByText('Code and Thread can use it.')).toBeInTheDocument()
+    expect(screen.getByText('OxeCode and OxeChat can use it.')).toBeInTheDocument()
     expect(discover).toHaveBeenCalledTimes(1)
     expect(discover).toHaveBeenCalledWith(false)
     // Nothing to fix, so no check button, but settings stay one click away.
@@ -44,14 +45,14 @@ describe('FirstRunChecklist', () => {
   })
 
   test('says no CLI was found, links to the install guides and offers to check again', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const open = stubOpenExternal()
     const user = userEvent.setup()
     const { discover } = setup({ discovered: [entry('claude', 'missing'), entry('codex', 'missing')] })
     expect(await screen.findByText('No agent CLI found')).toBeInTheDocument()
     expect(screen.getByText(/make sure the command is on your PATH/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Install Claude Code' }))
-    expect(open).toHaveBeenCalledWith(expect.stringContaining('anthropic.com'), '_blank', 'noopener,noreferrer')
+    await waitFor(() => expect(open).toHaveBeenCalledWith(expect.stringContaining('anthropic.com')))
     expect(screen.getByRole('button', { name: 'Install Codex CLI' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Check again' }))
@@ -61,7 +62,7 @@ describe('FirstRunChecklist', () => {
   test('explains that Thread needs Claude Code or Codex when only another CLI is ready', async () => {
     setup({ discovered: [entry('copilot', 'ready'), entry('claude', 'missing')] })
     expect(await screen.findByText('Copilot CLI is ready')).toBeInTheDocument()
-    expect(screen.getByText('Code can run it. Thread needs Claude Code or Codex.')).toBeInTheDocument()
+    expect(screen.getByText('OxeCode can run it. OxeChat needs Claude Code or Codex.')).toBeInTheDocument()
   })
 
   test('stays on "not checked yet" with a Check now button when detection returns nothing', async () => {
@@ -101,8 +102,8 @@ describe('FirstRunChecklist', () => {
   test('opens a Thread project or a Code workspace from the third step', async () => {
     const user = userEvent.setup()
     const { onNewWorkspace, onAddProject } = setup({ discovered: [entry('claude', 'ready')] })
-    await user.click(await screen.findByRole('button', { name: 'Add a Thread project' }))
-    await user.click(screen.getByRole('button', { name: 'New Code workspace' }))
+    await user.click(await screen.findByRole('button', { name: 'Add an OxeChat project' }))
+    await user.click(screen.getByRole('button', { name: 'New OxeCode workspace' }))
     expect(onAddProject).toHaveBeenCalledTimes(1)
     expect(onNewWorkspace).toHaveBeenCalledTimes(1)
   })
@@ -125,6 +126,6 @@ describe('FirstRunChecklist', () => {
     setup({ discovered: [entry('claude', 'ready')] })
     useNavigationPrefs.setState(state => ({ firstRun: { ...state.firstRun, done: ['agents', 'folder'], firstAnswerMs: 125_000 } }))
     expect(await screen.findByText(/First answer 2m 05s after you started/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'New Code workspace' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New OxeCode workspace' })).not.toBeInTheDocument()
   })
 })

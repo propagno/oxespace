@@ -45,6 +45,18 @@ describe('WorkspaceSplitGrid', () => {
     expect(slotB).toHaveStyle({ left: 'calc(50% + 5px)', width: 'calc(50% - 15px)' })
   })
 
+  // Space and Shift+F10 are checked in e2e/drag-alternatives.spec.ts: jsdom keeps Radix state between menus in one file.
+  test.each([['Enter', { key: 'Enter' }]])('a divider is a named separator with its position, and %s opens its menu (WCAG 2.5.7)', async (_name, key) => {
+    const tree: PaneNode = { kind: 'split', direction: 'horizontal', sizes: [50, 50], children: [{ kind: 'leaf', paneId: 'pane-a' }, { kind: 'leaf', paneId: 'pane-b' }] }
+    const onResize = vi.fn()
+    render(<WorkspaceSplitGrid workspace={createWorkspace()} tree={tree} maximizedPaneId={null} onToggleMaximize={() => undefined} onResize={onResize} onMovePane={() => undefined} />)
+    const divider = screen.getByRole('separator', { name: 'Divider between columns' })
+    expect(divider).toHaveAttribute('aria-valuenow', '50')
+    fireEvent.keyDown(divider, key)
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Move the divider right' }))
+    expect(onResize).toHaveBeenCalledWith([], 0, 5)
+  })
+
   test('performs a drag-to-split drop: grip down → move over target → up calls onMovePane', () => {
     const tree: PaneNode = {
       kind: 'split',

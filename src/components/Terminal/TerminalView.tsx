@@ -2,8 +2,9 @@ import { FitAddon } from '@xterm/addon-fit'
 import { useColorMode } from '../../design/useColorMode'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
-import { WebglAddon } from '@xterm/addon-webgl'
-import { WebLinksAddon } from '@xterm/addon-web-links'
+import type { WebglAddon } from '@xterm/addon-webgl'
+import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
+import { createTerminalLinksAddon } from './terminalLinks'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
@@ -16,42 +17,17 @@ import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
-import { isTerminalReservedChord } from '../../keyboard/keybindings'
+import { terminalKeyRoute } from '../../keyboard/terminalFocus'
+import { TabFocusBadge } from './TabFocusBadge'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
 
-let activeWebglContexts = 0
-let webgl2Supported: boolean | null = null
 // Browsers cap WebGL contexts per tab (Chrome: 16). When exceeded, the oldest
 // context is lost, unexpectedly breaking older terminals. Shared with the MRU
 // trim in App.tsx, which budgets mounted panes against the same limit.
-
-/**
- * Preflight: can we actually get a WebGL2 context? @xterm/addon-webgl needs one,
- * and on GPU-less hosts (corporate VMs, RDP, some VPN/remote desktops) its
- * failure surfaces asynchronously and crashes the pane. Only load the addon when
- * a real context is obtainable; otherwise stay on xterm's DOM renderer.
- */
-function supportsWebgl2(): boolean {
-  if (webgl2Supported !== null) return webgl2Supported
-  try {
-    const canvas = document.createElement('canvas')
-    const gl = canvas.getContext('webgl2')
-    if (!gl) {
-      webgl2Supported = false
-      return false
-    }
-    // Release the probe context so we don't hold a GPU slot.
-    gl.getExtension('WEBGL_lose_context')?.loseContext()
-    webgl2Supported = true
-    return true
-  } catch {
-    webgl2Supported = false
-    return false
-  }
-}
+let activeWebglContexts = 0
 
 // readAgentPreview only needs the most recent agent line. Cap how far back it
 // scans so it stays O(1) regardless of scrollback depth — without this it walks
@@ -238,7 +214,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
 
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(unicodeAddon)
-    terminal.loadAddon(new WebLinksAddon())
+    terminal.loadAddon(createTerminalLinksAddon())
     terminal.loadAddon(searchAddon)
     searchAddonRef.current = searchAddon
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
@@ -274,9 +250,19 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     if (webglAddon) return
     if (activeWebglContexts >= MAX_WEBGL_CONTEXTS) {
       console.warn(`[OXESpace] WebGL context limit reached (${MAX_WEBGL_CONTEXTS}), using DOM renderer`)
+    } else if (supportsWebgl2() && !loadedWebglAddon()) {
+      // The pane may be gone or hidden by the time the addon arrives; loadWebgl then does nothing or waits.
+      loadWebglAddon()
+        .then(() => {
+          if (disposed || isHidden() || webglAddon) return
+          loadWebgl()
+          try { terminal.refresh(0, terminal.rows - 1) } catch { /* disposed */ }
+        })
+        .catch((err: unknown) => { console.warn('[OXESpace] WebGL renderer did not load, using DOM renderer', err) })
     } else if (supportsWebgl2()) {
       try {
-        const addon = new WebglAddon()
+        const WebglAddonClass = loadedWebglAddon()!
+        const addon = new WebglAddonClass()
         addon.onContextLoss(() => {
           try { addon.dispose() } catch { /* already torn down */ }
           if (webglAddon === addon) {
@@ -485,10 +471,11 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       const key = event.key.toLowerCase()
 
       // xterm cancels every key it understands, so app shortcuts would reach the
-      // shell. Only the reserved ones (palette, settings, sidebar) leave the
-      // terminal; Ctrl+R, Ctrl+J and the rest still go to the PTY. The Thread
-      // native CLI owns its whole keymap.
-      if (isTerminalReservedChord(event) && !hostRef.current?.closest('.thread-native-cli')) return false
+      // shell. Only the reserved ones (palette, settings, sidebar, F6, the Tab
+      // focus toggle) leave the terminal, and Tab itself when this pane's Tab
+      // moves focus; Ctrl+R, Ctrl+J and the rest still go to the PTY. The Thread
+      // native CLI owns its keymap except the ways out (src/keyboard/terminalFocus.ts).
+      if (terminalKeyRoute(event, paneId, Boolean(hostRef.current?.closest('.thread-native-cli'))) !== 'shell') return false
 
       // Ctrl/Cmd+F opens the in-terminal search overlay instead of reaching
       // the PTY. (Shift/Alt variants pass through for TUIs that bind them.)
@@ -945,12 +932,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
         ref={hostRef}
         className={`terminal-view${isDragOver ? ' terminal-drop-active' : ''}`}
         data-testid="terminal-view"
+        data-terminal-pane={paneId}
         data-translucent={translucent ? 'true' : undefined}
         style={translucent ? { ['--term-bg-mix' as never]: `${Math.round(prefs.backgroundOpacity * 100)}%` } : undefined}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       />
+      <TabFocusBadge paneId={paneId} />
       {searchOpen ? (
         <div className="terminal-search" role="search" data-testid="terminal-search">
           <input

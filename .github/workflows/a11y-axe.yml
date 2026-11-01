@@ -1,6 +1,6 @@
 name: Accessibility scan (axe)
 
-# Runs the extended axe scan of the app surfaces (both themes, Settings in both scopes) and
+# Runs the extended axe scan (WCAG 2.2 AA, on Linux and Windows) of the app surfaces (both themes, Settings in both scopes) and
 # prints every critical or serious finding. Never publishes anything.
 # - On every pull request to main it is a gate: OXE_A11Y_STRICT=1 fails the run on any critical
 #   or serious finding (moderate and minor ones stay in the uploaded report).
@@ -12,8 +12,25 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-    # Only what can change what the scan sees.
-    paths-ignore: ["docs/**", "**/*.md", "electron/main/**/*.test.ts", "tests/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Only what can change what the scan sees: not docs, not tests, not the Android app or the
+    # phone protocol, not the other workflows.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".claude/**"
+      - "electron/main/**/*.test.ts"
+      - "tests/**"
+      - "mobile/**"
+      - "scripts/android/**"
+      - "shared/remote/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/android.yml"
+      - ".github/workflows/memory-compatibility.yml"
+      - ".github/workflows/provider-contract.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/visual-baselines.yml"
+      - ".github/workflows/visual-regression.yml"
   # A manual run needs the file on the default branch; a change to this file on a release
   # branch runs it there, which is how a candidate gets scanned before the file is merged.
   push:
@@ -30,9 +47,20 @@ permissions:
 
 jobs:
   axe:
-    name: axe scan (ubuntu)
-    runs-on: ubuntu-22.04
+    # A draft PR runs nothing; marking it ready for review starts the run.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    # WCAG 2.2 AA on both desktop platforms: fonts, scrollbars and native controls differ, and so can what axe sees.
+    name: axe scan (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: ubuntu
+          - os: windows-2022
+            label: windows
     env:
       OXE_A11Y_REPORT: ${{ github.workspace }}/a11y-report.jsonl
       OXE_A11Y_STRICT: "1"
@@ -48,6 +76,7 @@ jobs:
           cache: npm
 
       - name: Linux system dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -66,10 +95,13 @@ jobs:
           npm run verify:native
 
       - name: Scan
-        run: bash scripts/run-with-xvfb.sh npm run test:a11y
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then bash scripts/run-with-xvfb.sh npm run test:a11y; else npm run test:a11y; fi
 
       - name: Critical and serious findings
         if: always()
+        shell: bash
         run: |
           # The spec only writes the report when it finds something (the first run proved the path works).
           test -f "$OXE_A11Y_REPORT" || { echo "no report written: the scan found no violations at all"; exit 0; }
@@ -83,7 +115,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: a11y-report
+          name: a11y-report-${{ matrix.label }}
           if-no-files-found: ignore
           retention-days: 14
           path: a11y-report.jsonl

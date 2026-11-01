@@ -6,6 +6,7 @@
 import type { AppDatabase } from '../../db'
 import type { ThreadProvider, ThreadSnapshot, ThreadTurnUsage, ThreadUsageBucket, ThreadUsageSummary } from '../../../../shared/types/thread'
 import type { TurnCost } from './thread-cost'
+import { readThreadTitle } from './thread-title'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const MAX_DAYS = 366
@@ -72,7 +73,7 @@ export class ThreadUsageLedger {
       ...(options.scope === 'thread' ? { turns: this.turns(options.threadId ?? '', since) } : {}),
       byDay: byDay.map(row => bucket(row, 'unknown')),
       byModel: byModel.map(row => bucket(row, 'unknown')),
-      byThread: byThread.map(row => ({ ...bucket(row, 'unknown'), label: row.label || 'Deleted conversation' }))
+      byThread: byThread.map(row => ({ ...bucket(row, 'unknown'), label: row.label === null ? 'Deleted conversation' : readThreadTitle(row.label) }))
     }
   }
 

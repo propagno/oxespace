@@ -8,16 +8,24 @@ on:
     paths:
       - "mobile/android/**"
       - "shared/remote/**"
-      - "shared/locales/**"
+      - "shared/locales/*/mobile.json"
       - "src/design/tokens/**"
+      - "scripts/android/**"
+      - "shared/approval-rules.ts"
+      - "shared/reserved-names.ts"
       - ".github/workflows/android.yml"
   pull_request:
     branches: [main]
+    # Only the locale catalogs the app is generated from (shared/locales/<lang>/mobile.json), not every
+    # desktop string; and the generator itself, which the push list above also gets.
     paths:
       - "mobile/android/**"
       - "shared/remote/**"
-      - "shared/locales/**"
+      - "shared/locales/*/mobile.json"
       - "src/design/tokens/**"
+      - "scripts/android/**"
+      - "shared/approval-rules.ts"
+      - "shared/reserved-names.ts"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 
@@ -43,6 +51,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+
+      # The runner's SDK may lack the platform the app compiles against, and older cmdline-tools can't read the
+      # repository that publishes it, so both are installed here instead of trusting the image.
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: "16111833" # cmdline-tools 23.0
+          log-accepted-android-sdk-licenses: false
+          packages: platform-tools platforms;android-37.0
 
       # Checks the wrapper jar against Gradle's published checksums and caches dependencies.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
