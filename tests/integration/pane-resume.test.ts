@@ -427,7 +427,9 @@ function createFakePty() {
   let dataHandler: ((data: string) => void) | null = null
   let exitHandler: ((event: { exitCode: number }) => void) | null = null
   return {
-    pid: 1,
+    // No pid: stopping a pane ends its real process tree (terminatePty), and on Linux pid 1 meant kill(-1, SIGTERM),
+    // every process the user owns, which took the CI runner down. A fake PTY has no process to end.
+    pid: 0,
     write: vi.fn(),
     resize: vi.fn(),
     kill: vi.fn(),

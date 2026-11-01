@@ -7,6 +7,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { join, relative } from 'node:path'
+import { runAsNodeProblems } from './run-as-node-patterns.mjs'
 
 const root = process.cwd()
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
@@ -38,6 +39,18 @@ for (const file of files(outMain)) {
     if (builtins.has(specifier) || builtins.has(name) || shipped.has(name)) continue
     problems.push(`${relative(root, file)}: static import of "${specifier}", which is not in package.json dependencies or optionalDependencies`)
   }
+}
+
+// B13: the packaged app runs with the RunAsNode fuse off, so nothing in main may run the app binary as Node
+// (scripts/run-as-node-patterns.mjs says what that looks like).
+const runAsNode = []
+for (const file of files(outMain)) {
+  for (const problem of runAsNodeProblems(readFileSync(file, 'utf8'))) runAsNode.push(`${relative(root, file)}: ${problem}`)
+}
+if (runAsNode.length) {
+  console.error('Main bundles would run the app binary as Node, which the RunAsNode fuse forbids:\n' + runAsNode.map(line => `  - ${line}`).join('\n'))
+  console.error('Spawn a native executable, or use utilityProcess.fork.')
+  process.exit(1)
 }
 
 // Every bundle imports at least electron or a node builtin; finding none means the pattern no longer matches the output.
