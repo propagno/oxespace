@@ -97,7 +97,8 @@ export class PreviewAutomation {
    */
   private async previewBack(workspaceId: string, owner?: ExecutionOwner, timeoutMs = PREVIEW_BACK_MS): Promise<void> {
     const until = Date.now() + timeoutMs
-    while (!browserPreviewService.activeFor(workspaceId, owner) && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+    // A cancelled execution stops waiting at once (#243 security review L3); verify() then refuses it.
+    while (!browserPreviewService.activeFor(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
   }
   /**
    * The same wait before any action starts, but only while the preview has access and is merely covered: the agent's
@@ -106,7 +107,7 @@ export class PreviewAutomation {
    */
   private async uncovered(workspaceId: string, owner?: ExecutionOwner): Promise<void> {
     const until = Date.now() + PREVIEW_BACK_MS
-    while (!browserPreviewService.activeFor(workspaceId, owner) && browserPreviewService.coveredWithAccess(workspaceId, owner) && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+    while (!browserPreviewService.activeFor(workspaceId, owner) && browserPreviewService.coveredWithAccess(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
   }
   async assertAccess(workspaceId: string, verify: () => void, owner?: ExecutionOwner): Promise<void> { verify(); await this.target(workspaceId, owner); verify() }
   private async target(workspaceId: string, owner?: ExecutionOwner): Promise<{ guest: WebContents; window: BrowserWindow; external: boolean; tabId: string }> {

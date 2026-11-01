@@ -235,17 +235,23 @@ export class BrowserPreviewService {
    * The owner's preview has agent access but is not reported visible right now: something covers it for a moment, such
    * as the approval modal that just closed (#243). Not a grant: actions still need activeFor.
    */
-  coveredWithAccess(workspaceId: string, owner?: ExecutionOwner): boolean {
+  /** The owner's tabs the agent may use: one owner, workspace and thread, access on, not destroyed (the one access rule). */
+  private agentTabs(workspaceId: string, owner?: ExecutionOwner): { ownerKey: string; tabs: BrowserTab[] } {
     const ownerKey = owner?.kind === 'thread' ? `thread:${owner.id}` : workspaceId
-    return [...this.tabs.values()].some(tab => tab.ownerKey === ownerKey && tab.workspaceId === workspaceId && tab.threadId === (owner?.kind === 'thread' ? owner.id : undefined) && !tab.visible && tab.agentAccess && !tab.view.webContents.isDestroyed())
+    return { ownerKey, tabs: [...this.tabs.values()].filter(tab => tab.ownerKey === ownerKey && tab.workspaceId === workspaceId && tab.threadId === (owner?.kind === 'thread' ? owner.id : undefined) && tab.agentAccess && !tab.view.webContents.isDestroyed()) }
+  }
+  coveredWithAccess(workspaceId: string, owner?: ExecutionOwner): boolean {
+    // Only the owner's active tab: a background tab is never visible and is not "covered" (#243 security review L2).
+    return this.agentTabs(workspaceId, owner).tabs.some(tab => !tab.visible && this.tabSessions.get(this.ownerKey(tab.window, tab.ownerKey))?.activeTabId === tab.tabId)
   }
   activeFor(workspaceId: string, owner?: ExecutionOwner): {guest:WebContents;window:BrowserWindow;external:boolean;tabId:string;sessionId:string} | null {
-    const ownerKey = owner?.kind === 'thread' ? `thread:${owner.id}` : workspaceId
-    const matches = [...this.tabs.values()].filter(tab => tab.ownerKey === ownerKey && tab.workspaceId === workspaceId && tab.threadId === (owner?.kind === 'thread' ? owner.id : undefined) && tab.visible && tab.agentAccess && !tab.view.webContents.isDestroyed())
+    const { ownerKey, tabs } = this.agentTabs(workspaceId, owner)
+    const matches = tabs.filter(tab => tab.visible)
     if (matches.length !== 1) return null
     const tab = matches[0]
     return {guest:tab.view.webContents,window:tab.window,external:tab.allowExternal,tabId:tab.tabId,sessionId:this.sessionId(ownerKey)}
   }
+
   handleDesignMessage(sender: WebContents, type: 'grab'|'cancel', payload?: DesignGrabPayload): void {
     const tab = [...this.tabs.values()].find(item => item.view.webContents === sender)
     if (!tab || !tab.visible) return
