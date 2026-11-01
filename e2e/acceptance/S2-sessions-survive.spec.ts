@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { launchReal, quitReal, realProfile } from './real-app'
 
 /**
@@ -8,25 +9,40 @@ import { launchReal, quitReal, realProfile } from './real-app'
  * Roadmap acceptance: close with 6 agent panes, started both ways, and reopen → each pane is back on its own session
  * or says why not; a split past the capacity closes without error.
  *
- * REAL app, no paid run. `claude` and `codex` on PATH are stand-ins: each records its arguments, reports a
- * SessionStart to the app's real hook server with the pane's own execution credentials (as the real CLIs' hooks do),
- * and stays alive. The app records the sessions itself (pane_agent_sessions); nothing is seeded.
+ * REAL app, no paid run. `claude` and `codex` on PATH are stand-ins that behave as the real CLIs do where B17 looks:
+ * - Claude uses the id main hands it (`--session-id`), else a new UUID, and keeps the transcript at
+ *   <CLAUDE_CONFIG_DIR>/projects/<encoded cwd>/<id>.jsonl;
+ * - Codex keeps a rollout at <CODEX_HOME>/sessions/YYYY/MM/DD/rollout-<time>-<id>.jsonl;
+ * - each records its arguments, reports a SessionStart to the app's real hook server with the pane's own execution
+ *   credentials (as the real CLIs' hooks do), and stays alive.
+ * The app records the sessions itself (pane_agent_sessions, read from the profile's own database); nothing is seeded.
  * "Both ways": 3 panes started by OXESpace (wizard agents), 3 started by the person typing the command in a shell.
  * Before reopening, one transcript is deleted: that pane must say why it started fresh.
+ * What each pane did is read twice: from main (terminal.status(paneId).agentResume, B17) and on screen (F32).
  */
 const STANDIN = String.raw`
 const fs = require('fs'), path = require('path'), crypto = require('crypto')
 const [agent, log] = [process.env.ACC_AGENT, process.env.ACC_LOG]
 const args = process.argv.slice(2)
-const i = agent === 'claude' ? args.indexOf('--resume') : args.indexOf('resume')
-const id = i >= 0 ? args[i + 1] : crypto.randomUUID()
-fs.appendFileSync(log, JSON.stringify({ agent, pane: process.env.OXESPACE_EXECUTION_ID, args, id }) + '\n')
-const dir = agent === 'claude' ? path.join(process.env.CLAUDE_CONFIG_DIR, 'projects', process.cwd().replace(/[^A-Za-z0-9]/g, '-')) : path.join(process.env.CODEX_HOME, 'sessions')
-fs.mkdirSync(dir, { recursive: true })
-if (i < 0) fs.writeFileSync(path.join(dir, id + '.jsonl'), JSON.stringify({ type: 'session_meta', sessionId: id, cwd: process.cwd() }) + '\n')
+const flag = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined }
+const resumed = agent === 'claude' ? flag('--resume') : flag('resume')
+const id = resumed || (agent === 'claude' && flag('--session-id')) || crypto.randomUUID()
+fs.appendFileSync(log, JSON.stringify({ agent, args, id, resumed: Boolean(resumed) }) + '\n')
+if (!resumed) {
+  if (agent === 'claude') {
+    const dir = path.join(process.env.CLAUDE_CONFIG_DIR, 'projects', process.cwd().replace(/[^a-zA-Z0-9]/g, '-'))
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, id + '.jsonl'), JSON.stringify({ type: 'summary', sessionId: id, cwd: process.cwd() }) + '\n')
+  } else {
+    const d = new Date(), p = n => String(n).padStart(2, '0')
+    const dir = path.join(process.env.CODEX_HOME, 'sessions', String(d.getFullYear()), p(d.getMonth() + 1), p(d.getDate()))
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'rollout-' + d.toISOString().replace(/[:.]/g, '-') + '-' + id + '.jsonl'), JSON.stringify({ type: 'session_meta', payload: { id, cwd: process.cwd() } }) + '\n')
+  }
+}
 fetch('http://127.0.0.1:' + process.env.OXESPACE_AGENT_HOOK_PORT + '/hook', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ executionId: process.env.OXESPACE_EXECUTION_ID, token: process.env.OXESPACE_EXECUTION_TOKEN, workspaceId: process.env.OXESPACE_WORKSPACE_ID,
-    agent: agent === 'claude' ? 'claude-code' : 'codex', payload: { hook_event_name: 'SessionStart', source: i >= 0 ? 'resume' : 'startup', session_id: id, cwd: process.cwd() } }) }).catch(() => undefined)
+    agent: agent === 'claude' ? 'claude-code' : 'codex', payload: { hook_event_name: 'SessionStart', source: resumed ? 'resume' : 'startup', session_id: id, cwd: process.cwd() } }) }).catch(() => undefined)
 setInterval(() => undefined, 1e9)
 `
 
@@ -40,16 +56,34 @@ function standins(root: string) {
   }
   return { bin, log }
 }
-const launches = (log: string) => existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l) as { agent: string; pane: string; args: string[]; id: string }) : []
+type Launch = { agent: string; args: string[]; id: string; resumed: boolean }
+const launches = (log: string): Launch[] => existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l) as Launch) : []
 const paneIds = (page: Page) => page.evaluate(() => (window as unknown as { oxe: { workspace: { list: () => Promise<Array<{ panes: Array<{ id: string }> }>> } } }).oxe.workspace.list().then(l => l[0]?.panes.map(p => p.id) ?? []))
 const panes = (page: Page) => page.locator('[data-testid="pane-container"]')
+type Resume = { outcome: 'resumed' | 'notResumed' | 'nothingRecorded'; agent?: string; sessionId?: string; message?: { code: string } }
+const agentResume = (page: Page, paneId: string) => page.evaluate(id => (window as unknown as { oxe: { terminal: { status: (id: string) => Promise<{ agentResume?: Resume } | null> } } }).oxe.terminal.status(id).then(s => s?.agentResume ?? null), paneId)
+/** The sessions main recorded per pane, read from the profile's own database (read-only, the app may be running). */
+function recorded(db: string): Map<string, { agent: string; sessionId: string }> {
+  const handle = new DatabaseSync(db, { readOnly: true })
+  try {
+    const rows = handle.prepare('SELECT pane_id, agent, session_id FROM pane_agent_sessions').all() as Array<{ pane_id: string; agent: string; session_id: string }>
+    return new Map(rows.map(r => [r.pane_id, { agent: r.agent, sessionId: r.session_id }]))
+  } finally { handle.close() }
+}
+/** Two arguments next to each other, anywhere in the command line. */
+const hasPair = (args: string[], a: string, b: string) => args.some((x, i) => x === a && args[i + 1] === b)
 
 test('S2: six agent panes, started both ways, come back on their own sessions or say why', async () => {
   test.setTimeout(300_000)
   const base = realProfile('s2', { OXESPACE_LOCALE: 'pt-BR' })
   const { bin, log } = standins(base.root)
-  const profile = { ...base, env: { ...base.env, PATH: `${bin}${delimiter}${base.env.PATH ?? ''}`, ACC_LOG: log } }
+  const pathKey = Object.keys(base.env).find(k => k.toUpperCase() === 'PATH') ?? 'PATH'
+  const env: Record<string, string> = { ...base.env, ACC_LOG: log }
+  for (const k of Object.keys(env)) if (k.toUpperCase() === 'PATH') delete env[k]
+  env[pathKey] = `${bin}${delimiter}${base.env[pathKey] ?? ''}`
+  const profile = { ...base, env }
   let { app, page } = await launchReal(profile)
+  let ids: string[]
   try {
     await page.getByTestId('btn-new-workspace').first().click()
     await page.getByTestId('wizard-dir-input').fill(profile.repo)
@@ -62,47 +96,57 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
     }
     await page.getByTestId('wizard-launch-btn').click()
     await expect(panes(page)).toHaveCount(6, { timeout: 20_000 })
-    await page.waitForTimeout(5_000)
+    await expect.poll(() => launches(log).length, { timeout: 20_000, message: 'the three wizard agents started' }).toBe(3)
+    ids = await paneIds(page)
+    await expect.poll(() => recorded(base.db).size, { timeout: 10_000, message: 'main recorded the three wizard sessions' }).toBe(3)
     // Started by the person: type the command in the three plain shells.
-    const started = new Set(launches(log).map(l => l.pane))
-    const ids = await paneIds(page)
-    const plain = ids.map((id, i) => ({ id, i })).filter(p => !started.has(p.id))
+    const wizard = recorded(base.db)
+    const plain = ids.map((id, i) => ({ id, i })).filter(p => !wizard.has(p.id))
     expect(plain.length, 'three panes are plain shells').toBe(3)
     for (const [k, p] of plain.entries()) {
       await panes(page).nth(p.i).locator('.xterm').click()
       await page.keyboard.type(k === 2 ? 'codex' : 'claude'); await page.keyboard.press('Enter')
     }
     await expect.poll(() => launches(log).length, { timeout: 20_000 }).toBe(6)
+    await expect.poll(() => recorded(base.db).size, { timeout: 10_000, message: 'main recorded all six sessions (the typed ones from their hooks)' }).toBe(6)
   } finally { await quitReal(app) }
 
+  const sessions = recorded(base.db)
   const first = launches(log)
-  const sessions = new Map(first.map(l => [l.pane, l]))
+  for (const [pane, s] of sessions) expect(first.some(l => l.id === s.sessionId), `pane ${pane}: the recorded session is the one its CLI used`).toBe(true)
   // One session's transcript is gone when the app comes back (deleted on disk).
-  const gone = first[1]
-  const transcript = gone.agent === 'claude'
-    ? join(base.env.CLAUDE_CONFIG_DIR, 'projects', profile.repo.replace(/[^A-Za-z0-9]/g, '-'), `${gone.id}.jsonl`)
-    : join(base.env.CODEX_HOME, 'sessions', `${gone.id}.jsonl`)
-  rmSync(transcript, { force: true })
+  const [gonePane, gone] = [...sessions][1]
+  if (gone.agent === 'claude') rmSync(join(base.env.CLAUDE_CONFIG_DIR, 'projects', profile.repo.replace(/[^a-zA-Z0-9]/g, '-'), `${gone.sessionId}.jsonl`))
+  else {
+    const all = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? all(join(dir, e.name)) : [join(dir, e.name)])
+    for (const file of all(join(base.env.CODEX_HOME, 'sessions')).filter(f => f.endsWith(`${gone.sessionId}.jsonl`))) rmSync(file)
+  }
   writeFileSync(log, '')
 
   ;({ app, page } = await launchReal(profile))
   try {
     const offer = page.getByRole('button', { name: /Retomar|Resume/ }).first()
     if (await offer.isVisible({ timeout: 5_000 }).catch(() => false)) await offer.click()
-    await expect.poll(() => launches(log).length, { timeout: 30_000 }).toBeGreaterThanOrEqual(5)
+    await expect(panes(page)).toHaveCount(6, { timeout: 20_000 })
+    await expect.poll(() => launches(log).filter(l => l.resumed).length, { timeout: 30_000, message: 'five CLIs were started on their earlier session' }).toBe(5)
     const second = launches(log)
     for (const [pane, before] of sessions) {
-      const again = second.find(l => l.pane === pane || l.id === before.id)
-      if (before === gone) {
-        expect(again?.args.includes(before.id) ?? false, 'the deleted session is not resumed').toBe(false)
+      const want = before.agent === 'claude' ? ['--resume', before.sessionId] : ['resume', before.sessionId]
+      const status = await agentResume(page, pane)
+      if (pane === gonePane) {
+        expect.soft(second.some(l => l.args.includes(before.sessionId)), `${before.agent} pane: the deleted session is not resumed`).toBe(false)
+        expect.soft(status?.outcome, `${before.agent} pane whose transcript is gone: main says it did not resume`).toBe('notResumed')
+        expect.soft(status?.message?.code, '… and why').toBe('agents.resume.sessionMissing')
         continue
       }
-      const want = before.agent === 'claude' ? ['--resume', before.id] : ['resume', before.id]
-      expect(again?.args.slice(0, 2), `${before.agent} pane is back on its own session`).toEqual(want)
+      expect.soft(second.some(l => hasPair(l.args, want[0], want[1])), `${before.agent} pane is back on its own session (${want.join(' ')})`).toBe(true)
+      expect.soft(status, `${before.agent} pane: main reports the resume`).toMatchObject({ outcome: 'resumed', sessionId: before.sessionId })
     }
+    expect.soft(second.filter(l => l.args.includes('--resume') || l.args.includes('resume')).length, 'no pane resumes another pane\'s session twice').toBe(5)
+    // F32: the panes say it on screen.
     const headers = await panes(page).allInnerTexts()
-    expect(headers.filter(h => /retomad|retomou/i.test(h)).length, 'five panes say they resumed').toBe(5)
-    expect(headers.some(h => /não (foi possível|encontr)|apagad/i.test(h)), 'the sixth says why it is new').toBe(true)
+    expect.soft(headers.filter(h => /retomad|retomou/i.test(h)).length, 'five panes say they resumed').toBe(5)
+    expect.soft(headers.some(h => /não (foi possível|encontr)|apagad|não retom/i.test(h)), 'the sixth says why it is new').toBe(true)
   } finally { await quitReal(app) }
 })
 
