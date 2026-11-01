@@ -125,6 +125,42 @@ Same pipeline: **build → release** (no manual Run workflow). Tag must match `p
 | Push / PR to `main` | build only |
 | Run workflow with **publish_release = false** | build only on the selected branch |
 | Run workflow with **packaged_smoke_only = true** | build + installers + installed-app smoke, nothing published |
+| Dispatched by the merge train | build on the PR branch it updated, or on `main` after it merged (see below) |
+
+---
+
+## Merge train
+
+Nobody merges to `main` by hand. Label a ready PR **`na-fila`** and the **Merge train** workflow
+(`.github/workflows/merge-train.yml`, logic in `scripts/merge-train.mjs`) takes it from there, one PR at a
+time, oldest labelling first. Each run moves the PR at the head of the queue one step:
+
+| PR state | What the train does |
+|----------|---------------------|
+| Draft, conflicting, changes requested, or from a fork | Removes the label and says why |
+| Behind `main` | Updates the branch (merges `main` into it), then dispatches CI on the new head |
+| CI on the current head not started or still running | Waits; a later run continues |
+| A check on the current head failed | Removes the label, naming the job, its link and the first failing step |
+| Green on the current head and 0 commits behind `main` | Merges with a merge commit, pinned to the tested SHA, then serves the next PR |
+| Waited more than 60 minutes for CI on one head | Removes the label (`MERGE_TRAIN_TIMEOUT_MINUTES` variable or the dispatch input changes the limit) |
+
+The train keeps one `merge-train:` comment per PR and edits it. A check counts when branch protection
+requires it, or, while protection requires none, every check run on the head except skipped ones.
+
+**GITHUB_TOKEN.** The train uses the workflow's built-in token, and what that token does starts no
+other workflow: a branch update fires no `pull_request` run and a merge fires no `push` run on `main`. So the
+train dispatches `ci.yml` itself, on the updated branch (with `a11y-axe.yml`, `memory-compatibility.yml` or
+`android.yml` when they had run on the PR) and on `main` after each merge. The same token may not push a
+change to `.github/workflows`: when GitHub refuses a merge (or a branch update) for that, the PR leaves the
+queue with that cause and the coordinator merges it.
+
+**Trust boundary.** Only a label added by someone with write, maintain or admin access counts; the train
+checks the labeler's role and otherwise removes the label. It counts only GitHub Actions check runs and this
+repository's own `push`, `pull_request` and `workflow_dispatch` runs on the head, and it only trusts its own
+`github-actions[bot]` comment, whose state marker it validates. Still, the CI it dispatches runs the PR
+branch's own scripts, so a PR could make its CI pass by changing them. The real gate is branch protection
+on `main` (required reviews and required checks, with no bypass for Actions): the train never merges what
+protection would refuse, and it follows protection's required checks as soon as there are any.
 
 ---
 
