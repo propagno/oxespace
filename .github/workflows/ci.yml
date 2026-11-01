@@ -65,10 +65,13 @@ permissions:
 jobs:
   # What a pull request touched, so the expensive jobs only run when they can tell something.
   # A docs-only PR (docs/**, *.md, .claude/**) runs nothing but this job, which still gives it
-  # a passing check. The OxeQuery live matrices (5 runners) only run when OxeQuery code, its
-  # tests, what they import (OxePod containers, approvals, policy, the C3 messages), the
-  # migrations, the dependencies or this file changed. Pushes to main, tags and
-  # dispatches always run everything: main and a release are never gated by a diff.
+  # a passing check. The OxeQuery live matrices (5 runners) only run on a PR that touches
+  # OxeQuery's own code: its main-process service and worker, the OxePod container runtime the
+  # live tests drive, its shared types and query-text parsers, its tests and scripts, and this
+  # file. Shared code it merely imports (C3 messages, locales, policy, approvals, migrations,
+  # dependencies) changes too often to start 5 database jobs each time; its contract and unit
+  # tests run on every code PR, and main, tags and dispatches always run everything, so a
+  # regression there is still caught on main, never in a release.
   changes:
     name: Changed paths
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
@@ -126,7 +129,7 @@ jobs:
           echo "$files" | sed 's/^/  /'
           code=false; oxequery=false
           if echo "$files" | grep -Eqv '^(docs/|\.claude/|.*\.md$)'; then code=true; fi
-          if echo "$files" | grep -Eq '^(electron/main/services/(oxequery|oxepod|agent-actions|approvals)/|electron/main/workers/[^/]*oxequery|electron/main/db/|electron/main/runtime/|electron/main/(policy|agent-text)|electron/main/services/diagnostics/incident-sink|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText|policy|approval-rules|reserved-names|hidden-characters|messages)\.ts$|shared/types/(oxepod|approvals)\.ts$|shared/locales/[^/]+/main\.json$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|package\.json$|package-lock\.json$|\.github/workflows/ci\.yml$)'; then oxequery=true; fi
+          if echo "$files" | grep -Eq '^(electron/main/services/(oxequery|oxepod)/|electron/main/workers/[^/]*oxequery|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText)\.ts$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|\.github/workflows/ci\.yml$)'; then oxequery=true; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"
           echo "code=$code oxequery=$oxequery"
 
@@ -824,8 +827,8 @@ jobs:
   oxequery-live:
     name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
     needs: [changes, quick]
-    # A draft PR runs nothing; a PR that did not touch OxeQuery, its tests, the migrations or the
-    # dependencies skips the live matrix, and so does a PR whose quick checks failed. Main, tags and
+    # A draft PR runs nothing; a PR that did not touch OxeQuery's own paths (see the changes job)
+    # skips the live matrix, and so does a PR whose quick checks failed. Main, tags and
     # dispatches always run it, whatever quick says.
     if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
     runs-on: ubuntu-24.04
