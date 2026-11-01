@@ -1,6 +1,6 @@
 import { win32 } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
-import { descendantsFromPs, killProcessTree, terminatePty, type ProcessTreeDeps } from '../electron/main/utils/process-tree'
+import { descendantsFromPs, killProcessTree, planPosixKill, terminatePty, type ProcessTreeDeps } from '../electron/main/utils/process-tree'
 
 /** A fake process table: `alive` holds pids and `-pgid` groups; signals remove them per the rules given. */
 function fakeOs(platform: NodeJS.Platform, alive: Set<number>, ps = '', ignoresTerm = new Set<number>()) {
@@ -29,29 +29,30 @@ describe('process tree cleanup (BE-M-08)', () => {
   test('POSIX: SIGTERM to the group and every descendant, then SIGKILL to what ignored it', async () => {
     // 100 leads the group; 102 runs in a job group of its own and ignores SIGTERM.
     const alive = new Set([100, -100, 101, 102])
-    const os = fakeOs('linux', alive, '100 1\n101 100\n102 101\n', new Set([102]))
+    const os = fakeOs('linux', alive, '100 1 100\n101 100 100\n102 101 102\n', new Set([102]))
     await killProcessTree(100, os.deps)
     expect(alive.size).toBe(0)
     expect(os.calls).toContainEqual([-100, 'SIGTERM'])
     expect(os.calls).toContainEqual([102, 'SIGTERM'])
     expect(os.calls).toContainEqual([102, 'SIGKILL'])
-    expect(os.runs).toEqual([['/bin/ps', ['-A', '-o', 'pid=,ppid=']]])
+    expect(os.runs).toEqual([['/bin/ps', ['-A', '-o', 'pid=,ppid=,pgid=']]])
   })
 
   test('POSIX: settles early when everything left on SIGTERM, without SIGKILL', async () => {
     const alive = new Set([300, -300, 301])
-    const os = fakeOs('darwin', alive, '300 1\n301 300\n')
+    const os = fakeOs('darwin', alive, '300 1 300\n301 300 300\n')
     const started = Date.now()
     await killProcessTree(300, os.deps)
     expect(Date.now() - started).toBeLessThan(110)
     expect(os.calls.some(([, signal]) => signal === 'SIGKILL')).toBe(false)
   })
 
-  test('POSIX: a failing ps still kills the group', async () => {
+  test('POSIX: a failing ps still ends the root, but never signals a group it could not verify', async () => {
     const alive = new Set([400, -400])
     const os = fakeOs('linux', alive, '')
     await killProcessTree(400, os.deps)
-    expect(alive.size).toBe(0)
+    expect(alive.has(400)).toBe(false)
+    expect(os.calls.some(([pid]) => pid < 0)).toBe(false)
   })
 
   test('Windows: one taskkill /T /F on the root, by its absolute System32 path', async () => {
@@ -101,7 +102,7 @@ describe('process tree cleanup (BE-M-08)', () => {
   test('POSIX PTY: the tree (its ps snapshot included) goes before the PTY is released', async () => {
     const alive = new Set([900, -900, 901])
     const order: string[] = []
-    const os = fakeOs('linux', alive, '900 1\n901 900\n')
+    const os = fakeOs('linux', alive, '900 1 900\n901 900 900\n')
     const run = os.deps.run!
     os.deps.run = async (file, args, timeout) => { order.push('ps'); return run(file, args, timeout) }
     const pty = { pid: 900, kill: vi.fn(() => { order.push('pty.kill') }) }
@@ -110,5 +111,98 @@ describe('process tree cleanup (BE-M-08)', () => {
     await done
     expect(order).toEqual(['ps', 'pty.kill'])
     expect(alive.size).toBe(0)
+  })
+})
+
+/*
+ * A CI runner as `ps -A -o pid=,ppid=,pgid=` sees it, with this test process as the vitest worker (900). A fake PTY
+ * with pid 1 (tests/integration/pane-resume.test.ts) once reached the real kill on Linux: kill(-1, SIGTERM) signals
+ * every process the user owns, and every orphan is a ps descendant of init, so the runner lost its Runner.Worker.
+ */
+const RUNNER_PS = [
+  '   1    0    1', // init
+  ' 500    1  500', // Runner.Listener
+  ' 600  500  600', // Runner.Worker
+  ' 700  600  700', // the step's shell
+  ' 800  700  700', // npm / vitest main
+  ' 900  800  700', // this vitest worker
+  '1000    1 1000', // an unrelated daemon, reparented to init
+  '1100  900 1100', // a PTY this process started (setsid)
+  '1101 1100 1100', //   its shell's child
+  '1102 1101 1102', //   a job in a group of its own
+  '1200  900  700', // a child of ours that stayed in our group
+  '1300  900 1300', // a detached child of ours (the conversation transport's agent)
+  '1301 1300 1300'  //   its child
+].join('\n')
+const SELF = { pid: 900, ppid: 800 }
+const ANCESTRY = [1, 500, 600, 700, 800, 900]
+
+function recordingKill() {
+  const calls: Array<[number, NodeJS.Signals | 0]> = []
+  const deps: Partial<ProcessTreeDeps> = {
+    platform: 'linux', self: SELF, graceMs: 30,
+    run: async () => RUNNER_PS,
+    // Everything "exists" and ignores signals, so every signal the plan allows is sent, SIGKILL included.
+    kill: (pid, signal) => { calls.push([pid, signal]) }
+  }
+  return { deps, calls }
+}
+
+describe('process tree cleanup never reaches beyond the tree it was asked to end', () => {
+  test('pid 0, 1, negative, non-integer, this process and its ancestors: nothing is signalled, ps is not even read', async () => {
+    for (const pid of [0, 1, -1, -700, 1.5, Number.NaN, ...ANCESTRY]) {
+      const { deps, calls } = recordingKill()
+      await killProcessTree(pid, deps)
+      expect(calls, String(pid)).toEqual([])
+    }
+  })
+
+  test('a PTY with pid 1 is released without a single signal', async () => {
+    const { deps, calls } = recordingKill()
+    const pty = { pid: 1, kill: vi.fn() }
+    await terminatePty(pty, deps)
+    expect(calls).toEqual([])
+    expect(pty.kill).toHaveBeenCalledTimes(1)
+  })
+
+  test('the plan refuses init, every ancestor and this process, whatever ps says', () => {
+    for (const root of [0, 1, -1, ...ANCESTRY]) expect(planPosixKill(RUNNER_PS, root, SELF), String(root)).toBeNull()
+    // The parent is refused even without a snapshot.
+    expect(planPosixKill('', SELF.ppid, SELF)).toBeNull()
+  })
+
+  test('a tree this process started: its group and verified descendants only', async () => {
+    expect(planPosixKill(RUNNER_PS, 1100, SELF)).toEqual({ root: 1100, group: true, pids: [1101, 1102] })
+    const { deps, calls } = recordingKill()
+    await killProcessTree(1100, deps)
+    const signalled = new Set(calls.map(([pid]) => pid))
+    expect([...signalled].sort((a, b) => a - b)).toEqual([-1100, 1100, 1101, 1102])
+    expect(calls).toContainEqual([1102, 'SIGKILL'])
+  })
+
+  test('a child left in our own group is signalled by pid, never by group', () => {
+    expect(planPosixKill(RUNNER_PS, 1200, SELF)).toEqual({ root: 1200, group: false, pids: [] })
+  })
+
+  test('a group that holds a process of our ancestry is never signalled as a group', () => {
+    const ps = `${RUNNER_PS}\n1400  900 1400\n1401 1400 1401`.replace(' 900  800  700', ' 900  800 1400')
+    expect(planPosixKill(ps, 1400, SELF)).toEqual({ root: 1400, group: false, pids: [1401] })
+  })
+
+  test('a root missing from the snapshot (already gone) is signalled alone, without group or descendants', () => {
+    expect(planPosixKill(RUNNER_PS, 4242, SELF)).toEqual({ root: 4242, group: false, pids: [] })
+  })
+
+  test('across every root, no signal ever reaches init, an ancestor, an unrelated process, or a group not verified', async () => {
+    for (const root of [1, 500, 600, 700, 800, 900, 1000, 1100, 1101, 1200, 1300, 4242]) {
+      const { deps, calls } = recordingKill()
+      await killProcessTree(root, deps)
+      for (const [pid] of calls) {
+        expect(Math.abs(pid), `root ${root}`).toBeGreaterThanOrEqual(2)
+        expect(ANCESTRY, `root ${root} signalled ${pid}`).not.toContain(Math.abs(pid))
+        if (root !== 1000) expect(Math.abs(pid), `root ${root}`).not.toBe(1000)
+        if (pid < 0) expect([-1000, -1100, -1300], `root ${root}`).toContain(pid)
+      }
+    }
   })
 })
