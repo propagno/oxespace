@@ -112,7 +112,7 @@
       "unknown": "Não confirmado"
     },
     "readOnly": "Só leitura",
-    "phoneWrite": "Celular pode digitar",
+    "phoneWrite": "Você pode digitar daqui",
     "age": {
       "now": "agora",
       "minutes": "há {{minutes}} min",
@@ -222,7 +222,25 @@
     "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
     "redacted_other": "{{count}} valores secretos escondidos pelo seu computador.",
     "redacted_many": "{{count}} valores secretos escondidos pelo seu computador.",
-    "empty": "Ainda sem saída."
+    "empty": "Ainda sem saída.",
+    "paste": "Colar",
+    "key": {
+      "up": "Seta para cima",
+      "down": "Seta para baixo",
+      "left": "Seta para a esquerda",
+      "right": "Seta para a direita"
+    },
+    "textSize": "Tamanho do texto",
+    "size": {
+      "small": "Pequeno",
+      "medium": "Médio",
+      "large": "Grande"
+    },
+    "pasteLines_one": "Este texto tem {{count}} linha. Enviar?",
+    "pasteLines_other": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
+    "pasteLines_many": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
+    "hiddenShown": "Caracteres ocultos foram mostrados no campo. Confira e envie de novo.",
+    "cancel": "Cancelar"
   },
   "approval": {
     "prompt": {

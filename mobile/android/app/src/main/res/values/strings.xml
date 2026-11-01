@@ -71,7 +71,7 @@
         <item quantity="one">Needs you (%1$d)</item>
         <item quantity="other">Needs you (%1$d)</item>
     </plurals>
-    <string name="live_phone_write">Phone can type</string>
+    <string name="live_phone_write">You can type here</string>
     <string name="live_read_only">Read-only</string>
     <plurals name="live_requests_badge">
         <item quantity="one">%1$d request waiting</item>
@@ -170,11 +170,26 @@
     <string name="request_title">Request</string>
     <string name="request_tool">Tool</string>
     <string name="request_where">Where</string>
+    <string name="terminal_cancel">Cancel</string>
     <string name="terminal_empty">No output yet.</string>
+    <string name="terminal_hidden_shown">Hidden characters are now shown in the field. Check it and send again.</string>
+    <string name="terminal_key_down">Down arrow</string>
+    <string name="terminal_key_left">Left arrow</string>
+    <string name="terminal_key_right">Right arrow</string>
+    <string name="terminal_key_up">Up arrow</string>
+    <string name="terminal_paste">Paste</string>
+    <plurals name="terminal_paste_lines">
+        <item quantity="one">This text has %1$d line. Send it?</item>
+        <item quantity="other">This text has %1$d lines, and each runs as typed. Send them all?</item>
+    </plurals>
     <plurals name="terminal_redacted">
         <item quantity="one">%1$d secret value hidden by your computer.</item>
         <item quantity="other">%1$d secret values hidden by your computer.</item>
     </plurals>
+    <string name="terminal_size_large">Large</string>
+    <string name="terminal_size_medium">Medium</string>
+    <string name="terminal_size_small">Small</string>
+    <string name="terminal_text_size">Text size</string>
     <string name="terminal_input_not_shared">Typing from the phone is off for this terminal. On your computer, turn on “Allow typing from the phone” in the terminal’s ⋯ menu.</string>
     <string name="terminal_input_placeholder">Type in this terminal</string>
     <string name="terminal_input_send">Send</string>

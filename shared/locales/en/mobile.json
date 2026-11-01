@@ -109,7 +109,7 @@
       "unknown": "Not confirmed"
     },
     "readOnly": "Read-only",
-    "phoneWrite": "Phone can type",
+    "phoneWrite": "You can type here",
     "age": {
       "now": "just now",
       "minutes": "{{minutes}} min ago",
@@ -210,7 +210,24 @@
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
     "redacted_other": "{{count}} secret values hidden by your computer.",
-    "empty": "No output yet."
+    "empty": "No output yet.",
+    "paste": "Paste",
+    "key": {
+      "up": "Up arrow",
+      "down": "Down arrow",
+      "left": "Left arrow",
+      "right": "Right arrow"
+    },
+    "textSize": "Text size",
+    "size": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    },
+    "pasteLines_one": "This text has {{count}} line. Send it?",
+    "pasteLines_other": "This text has {{count}} lines, and each runs as typed. Send them all?",
+    "hiddenShown": "Hidden characters are now shown in the field. Check it and send again.",
+    "cancel": "Cancel"
   },
   "approval": {
     "prompt": {
