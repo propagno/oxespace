@@ -26,6 +26,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.protectedConfig.instructions': ['path'],
   'thread.protectedConfig.mcp': ['path'],
   'thread.protectedConfig.hooks': ['path'],
+  'thread.protectedConfig.git': ['path'],
   'thread.protectedConfig.warning': [],
   'thread.protectedConfig.rewritesTracked': ['command'],
   'app.connectivity.offline': [],
