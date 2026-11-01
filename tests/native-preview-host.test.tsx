@@ -38,4 +38,24 @@ describe('the native preview reports its visibility without animation frames', (
     await act(async () => { dialog.remove(); await Promise.resolve(); vi.advanceTimersByTime(150) })
     expect(lastVisible()).toBe(true)
   })
+
+  it('a report main refused is sent again, not deduplicated forever; the rect is clamped to the viewport', async () => {
+    let refuse = true
+    bounds.mockImplementation(async () => { if (refuse) throw new Error('Invalid browser bounds') })
+    vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockReturnValue({ x: 10, y: 20, width: 5_000, height: 5_000, top: 20, left: 10, right: 5_010, bottom: 5_020, toJSON: () => ({}) } as DOMRect)
+    render(<NativePreviewHost mount={{ ownerKey: 'ws', tabId: 't1', url: 'http://localhost:1/', workspaceId: 'ws', allowExternal: false, agentAccess: true } as never} active zoom={1} />)
+    await act(async () => { await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { vi.advanceTimersByTime(150); await Promise.resolve() })
+    const first = bounds.mock.calls.length
+    expect(first).toBeGreaterThan(0)
+    const sent = (bounds.mock.calls.at(-1) as unknown as [{ x: number; y: number; width: number; height: number }])[0]
+    expect(sent.x + sent.width).toBeLessThanOrEqual(window.innerWidth)
+    expect(sent.y + sent.height).toBeLessThanOrEqual(window.innerHeight)
+    // Refused: the same report goes again on the next measure.
+    refuse = false
+    await act(async () => { await Promise.resolve(); vi.advanceTimersByTime(150); await Promise.resolve() })
+    expect(bounds.mock.calls.length).toBeGreaterThan(first)
+    expect(lastVisible()).toBe(true)
+  })
 })
+
