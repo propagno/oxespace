@@ -209,11 +209,27 @@ val REMOTE_RESERVED_NAME_FRAGMENTS: Set<String> = setOf(
     "OxePost",
 )
 
-/** Generic words refused only as the whole name ("System", "Sistema"); "filesystem" stays allowed. */
+/**
+ * Generic words the phone refuses as the whole name ("Chat", "Sistema"); "filesystem" stays allowed. The desktop also refuses the
+ * first words ("Sistema", "App") at the start of a longer name (#247); the phone checks them as whole names only.
+ */
 val REMOTE_RESERVED_NAMES: Set<String> = setOf(
     "Thread",
     "Code",
     "Chat",
+    "System",
+    "Sistema",
+    "Administrator",
+    "Administrador",
+    "Admin",
+    "Aplicação",
+    "Aplicativo",
+    "Application",
+    "App",
+    "root",
+    "sudo",
+    "Security",
+    "Segurança",
 )
 
 /** Every frame; the JSON `type` field picks the class. */

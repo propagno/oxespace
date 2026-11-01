@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createHash, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto'
-import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, reservedNameIn } from '../shared/approval-rules'
+import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORDS, reservedNameIn } from '../shared/approval-rules'
 import {
   isCertificateFingerprint,
   isDerSignature,
@@ -152,7 +152,7 @@ describe('C5 pairing', () => {
     expect(REMOTE_PAIRING_ERROR_CODES).toEqual(['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid', 'reserved-name'])
     // The phone pre-checks a device name against the same lists the desktop folds and compares (shared/approval-rules.ts).
     expect(REMOTE_RESERVED_NAME_FRAGMENTS).toEqual(RESERVED_APP_NAMES)
-    expect(REMOTE_RESERVED_NAMES).toEqual(RESERVED_EXACT_NAMES)
+    expect(REMOTE_RESERVED_NAMES).toEqual([...RESERVED_EXACT_NAMES, ...RESERVED_FIRST_WORDS])
     for (const name of [...REMOTE_RESERVED_NAME_FRAGMENTS, ...REMOTE_RESERVED_NAMES]) expect(reservedNameIn(name), name).toBe(name)
     expect(REMOTE_WS_PATH).toBe('/v1/ws')
     expect(REMOTE_LIMITS.pairingAttemptsPerWindow).toBe(5)

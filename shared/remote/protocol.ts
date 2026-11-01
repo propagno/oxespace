@@ -1,7 +1,7 @@
 // The one import: the reserved-name lists the phone gets through the Kotlin generator (B10, shared/approval-rules.ts).
 // It stays above the header so the header remains the leading comment of REMOTE_PROTOCOL_VERSION, which the generator
 // copies as the Kotlin file's preamble.
-import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES } from '../approval-rules'
+import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORDS } from '../approval-rules'
 
 /**
  * C5 · Remote protocol between the desktop gateway (B9, off by default, LAN only, TLS only) and the Android companion.
@@ -298,8 +298,9 @@ export type RemotePairingErrorCode = typeof REMOTE_PAIRING_ERROR_CODES[number]
  * look-alike letters and digits, so a name that passes the phone's plain check may still be refused.
  */
 export const REMOTE_RESERVED_NAME_FRAGMENTS: readonly string[] = [...RESERVED_APP_NAMES]
-/** Generic words refused only as the whole name ("System", "Sistema"); "filesystem" stays allowed. */
-export const REMOTE_RESERVED_NAMES: readonly string[] = [...RESERVED_EXACT_NAMES]
+/** Generic words the phone refuses as the whole name ("Chat", "Sistema"); "filesystem" stays allowed. The desktop also refuses the
+ * first words ("Sistema", "App") at the start of a longer name (#247); the phone checks them as whole names only. */
+export const REMOTE_RESERVED_NAMES: readonly string[] = [...RESERVED_EXACT_NAMES, ...RESERVED_FIRST_WORDS]
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/
 /** Base64url without padding of exactly `bytes` bytes. */
