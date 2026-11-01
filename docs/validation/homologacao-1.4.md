@@ -52,7 +52,7 @@ conferido diz **falta**. Escopo do usuário em modo de economia: S1, S2, S4 e o 
 | S0 | S0.4 aceite antes do código | **Homologado** | `acceptance.yml` (#373) usado de verdade em 3 execuções para o #374 |
 | S3, S6 | (fora do foco do modo de economia) | **Falta** | itens já homologados estão nas seções abaixo; o relatório por item vem quando o coordenador pedir |
 
-### G4: instalação limpa e atualização a partir da 1.3.3 (aberto)
+### G4: instalação limpa e atualização a partir da 1.3.3 (Windows verde; Linux falta)
 
 - **Atualização do banco 1.3.3 → main: verde no CI.** `tests/integration/upgrade-rehearsal.native.test.ts` cria o banco
   com o próprio código da tag `v1.3.3` (versão 77), preenche dados, abre com o código atual (versão 88, 11 migrações),
@@ -63,10 +63,21 @@ conferido diz **falta**. Escopo do usuário em modo de economia: S1, S2, S4 e o 
   declaradas, sem renumerar).
 - **Primeira execução do binário empacotado:** o smoke empacotado (G3, SRE) abre o instalador construído com perfil
   novo (cartão de primeira execução, versão do banco estável).
-- **Falta (plano):** um job manual no CI Windows que (1) instala o instalador da release `v1.3.3` em silêncio numa VM
-  limpa, (2) abre uma vez e cria dados, (3) instala por cima o instalador da main, (4) abre e confere versão 88, dados,
-  backup e atalhos, e (5) desinstala. O mesmo para o `.deb`/AppImage no Linux. Roda só na VM do runner, nunca nos dados
-  do usuário. Pedido ao coordenador.
+- **Instalador por cima da 1.3.3, depois desinstalar (Windows): verde** no CI, run 41318110576 (job do SRE #398,
+  checagens da homologação #397 `e2e/release/upgrade-over-1.3.3.spec.ts`, VM limpa windows-2022, nunca dados do usuário):
+  - `seed`: o `OXESpace-1.3.3-x64.exe` da release (SHA256SUMS conferido) instalado com `/S`; a 1.3.3 cria um workspace
+    pelo próprio assistente; banco v77;
+  - `verify-upgrade`: instalador da candidata 1.4.0-rc.0 com `/S` por cima; versão 1.4.0-rc.0, atalhos da Área de
+    Trabalho e do Menu Iniciar, o workspace da 1.3.3 abre, 0 diálogos nativos, banco v88, `integrity_check` ok, backup
+    `oxespace-v77-….sqlite3` verificado com o workspace;
+  - `verify-uninstall`: programa e os dois atalhos removidos; banco e backups do usuário mantidos.
+- **Volta para a 1.3.3 (G8, mesmo run): verde.** Reinstalar a 1.3.3 por cima: ela não toca no banco v88 (SHA-256 igual
+  antes e depois); restaurar o backup v77 mais novo pelo runbook: a 1.3.3 abre v77, íntegro, com o workspace e 0 diálogos.
+- **Achado para o runbook (G8, médio):** com o banco v88 a 1.3.3 **não avisa nada**: abre normal e vazia ("No workspaces
+  yet"), sem erro nem saída. Quem volta pelo instalador acha que perdeu tudo, e o que criar antes de restaurar se perde.
+  O runbook precisa mandar restaurar o backup **antes de abrir** a 1.3.3. A 1.3.3 não muda mais, então o aviso fica no
+  runbook e nas notas de release.
+- **Falta:** o mesmo para `.deb`/AppImage no Linux.
 
 ### G5: fluxos críticos ponta a ponta (aberto)
 
