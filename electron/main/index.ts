@@ -275,11 +275,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   // not inflate the main entry or block startup parsing.
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
-    { registerLinearIpc }, { registerIntegrationIpc },
+    { registerLinearIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
     { GitHubService }, { GitService }, { CodeGraphService }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
-    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
+    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
   ])
   const gitService = registerGitIpc()
@@ -311,7 +311,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     log.warn('Automations unavailable', error)
   }
   const linearService = registerLinearIpc(db, gitHubService)
-  registerIntegrationIpc(db)
+  registerIntegrationIpc(db); registerRemoteIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {

@@ -74,8 +74,11 @@ section stays out until then. -->
 <!-- S5 · guide: docs/guide/en/05-agent-tools.md -->
 - **Every OXESpace feature an agent may use is reachable over MCP**, and what is only yours (approvals, accounts,
   secrets, policy) never is.
-- **Tool groups on demand.** Building on 1.3.3's per-project groups, each group can be off, on demand or always on per project in `oxe.yaml`, and
-  **Settings › Tools** shows them. Long tool results are cut, with the full text kept in a file.
+- **Tool groups on demand.** Building on 1.3.3's per-project groups, each group can be off, on demand or always on
+  per project in `oxe.yaml`; a group that is off is never offered to an agent. Long tool results are cut, with the
+  full text kept in a file.
+<!-- add when F10 (#210) merges: "Settings › Tools shows each group, its mode and its token cost." and when B24 (#358)
+merges: "A group that is off is refused on every call, even if an agent edits its MCP configuration." -->
 - **Fewer tokens at the start of a Code agent.** An agent OXESpace starts in a terminal begins with about 9,000
   characters of tool definitions instead of 64,600, and is told when OXESpace's code search beats grep.
   <!-- pending #336: keep this bullet only if #336 merges; the measured numbers are 64,574 → 8,965 chars. -->
@@ -112,6 +115,9 @@ section stays out until then. -->
 <!-- add when F34/F35 merge: "OXEVoice was removed. OXESpace no longer records speech; your operating system's
 dictation still types into any field, and the downloaded voice model is deleted on the first start." and "Team moved
 off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+T." -->
+<!-- add when B13 (#374) merges: "**Closing a pane ends what it started.** Jobs sent to the background with `nohup` or
+`disown`, and apps launched from the pane (`gedit &`, `notepad x`), now close with it. To keep something running,
+start it outside OXESpace or as a system service." -->
 
 ## Security
 
@@ -126,3 +132,7 @@ off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+
 
 - The limits listed in [1.3.0](1.3.0.md) still apply unless a section above says otherwise.
 <!-- fill from the guide pages' "Known limits" at the cut. -->
+<!-- add when B13 (#374) merges: "**On Windows, a graphical program used as a pane's command shows as exited right
+away.** Run it from the pane's shell instead. Shells, Claude Code and Codex are not affected." -->
+<!-- add when B13 (#374) merges: "**On Linux and macOS, a real daemon (a process that detaches twice) keeps running
+after its pane closes.**" -->

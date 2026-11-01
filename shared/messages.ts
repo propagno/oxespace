@@ -79,6 +79,7 @@ export interface MessageParams {
   'incident.ipc.validationRejected': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
+  'incident.mcp.toolGroupOff': Record<string, never>
   'incident.database.busy': Record<string, never>
   'incident.oxequery.timeout': Record<string, never>
   /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
@@ -369,6 +370,7 @@ export const MESSAGE_CODES = [
   'incident.ipc.validationRejected',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
+  'incident.mcp.toolGroupOff',
   'incident.database.busy',
   'incident.oxequery.timeout',
   'incident.oxequery.restartDeferred',
