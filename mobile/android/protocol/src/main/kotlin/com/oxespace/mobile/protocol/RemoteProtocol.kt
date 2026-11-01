@@ -16,6 +16,12 @@ import kotlinx.serialization.json.JsonObject
  * added. The Android app's `RemoteProtocol.kt` is generated from this file (a test there keeps it current), so
  * everything here stays plain data. A JSON Schema of it is optional.
  *
+ * Unknown values (coordinator ruling, S7.1): adding a value to `REMOTE_AGENT_STATES`, `REMOTE_AGENT_KINDS` or
+ * `REMOTE_APPROVAL_RISKS` does NOT bump the version. Fields of these sets travel as plain strings, so a frame always
+ * decodes, and the phone reads each one through its rule in `REMOTE_UNKNOWN_VALUES`: an unknown state reads as
+ * `unknown`, a row of an unknown kind is dropped, an unknown risk reads as `critical` (the strongest badge). The
+ * generated enums carry the rule as `read(wire)`.
+ *
  * What the phone can never do is listed in `REMOTE_FORBIDDEN`: approvals of OxeQuery and of MCP `confirm`, sign-in and
  * tokens, secrets, MCP trust, policy edits and `host.exec` stay with the person, at the desktop. A test keeps every
  * command and subscription clear of them.
@@ -64,6 +70,10 @@ object RemoteTextLimits {
     const val THREAD_PAGE: Int = 50
     /** Characters of a delegation's objective. */
     const val OBJECTIVE: Int = 500
+    /** Rows per page of an `agents` snapshot. */
+    const val AGENTS_PAGE: Int = 200
+    /** Characters of an agent row's title, workspace name and request title. */
+    const val AGENT_TITLE: Int = 200
 }
 
 @Serializable
@@ -84,7 +94,10 @@ enum class RemoteFrameType(val wire: String) {
     }
 }
 
-/** What the phone can watch. Terminal output is read-only slices of the pane's ring buffer, by sequence. */
+/**
+ * What the phone can watch. Terminal output is read-only slices of the pane's ring buffer, by sequence. `agents` (S7.1)
+ * is every agent already mapped to the desktop's seven states.
+ */
 @Serializable
 enum class RemoteSubscription(val wire: String) {
     @SerialName("workspaces") WORKSPACES("workspaces"),
@@ -94,6 +107,7 @@ enum class RemoteSubscription(val wire: String) {
     @SerialName("terminal") TERMINAL("terminal"),
     @SerialName("jobs") JOBS("jobs"),
     @SerialName("delegations") DELEGATIONS("delegations"),
+    @SerialName("agents") AGENTS("agents"),
     ;
 
     companion object {
@@ -104,8 +118,9 @@ enum class RemoteSubscription(val wire: String) {
 /**
  * What the phone can do. `thread.respondRequest` answers a Thread request by id and generation (B1.1) after biometric
  * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop;
- * `thread.history` reads older items of a conversation. Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
- * and is recorded in the desktop's audit with the device id.
+ * `thread.history` reads older items of a conversation; `agent.markSeen` (S7.1) only clears an agent's "finished", as
+ * opening it on the desktop does. Every command counts toward `REMOTE_LIMITS.commandsPerMinute` and is recorded in the
+ * desktop's audit with the device id.
  */
 @Serializable
 enum class RemoteCommand(val wire: String) {
@@ -115,6 +130,7 @@ enum class RemoteCommand(val wire: String) {
     @SerialName("thread.respondRequest") THREAD_RESPOND_REQUEST("thread.respondRequest"),
     @SerialName("terminal.write") TERMINAL_WRITE("terminal.write"),
     @SerialName("thread.history") THREAD_HISTORY("thread.history"),
+    @SerialName("agent.markSeen") AGENT_MARK_SEEN("agent.markSeen"),
     ;
 
     companion object {
@@ -159,6 +175,60 @@ enum class RemotePairingErrorCode(val wire: String) {
 
     companion object {
         fun fromWire(wire: String): RemotePairingErrorCode? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/** The seven states, in their order of precedence and of sorting. */
+@Serializable
+enum class RemoteAgentState(val wire: String) {
+    @SerialName("needs-you") NEEDS_YOU("needs-you"),
+    @SerialName("failed") FAILED("failed"),
+    @SerialName("working") WORKING("working"),
+    @SerialName("finished") FINISHED("finished"),
+    @SerialName("idle") IDLE("idle"),
+    @SerialName("stopped") STOPPED("stopped"),
+    @SerialName("unknown") UNKNOWN("unknown"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemoteAgentState? = entries.firstOrNull { it.wire == wire }
+
+        /** A value this app does not know reads as UNKNOWN. */
+        fun read(wire: String): RemoteAgentState = fromWire(wire) ?: UNKNOWN
+    }
+}
+
+/** What a row is; also the sources that answer separately. */
+@Serializable
+enum class RemoteAgentKind(val wire: String) {
+    @SerialName("pane") PANE("pane"),
+    @SerialName("conversation") CONVERSATION("conversation"),
+    @SerialName("delegation") DELEGATION("delegation"),
+    @SerialName("work") WORK("work"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemoteAgentKind? = entries.firstOrNull { it.wire == wire }
+
+        /** Null for a value this app does not know: skip the row that carries it. */
+        fun read(wire: String): RemoteAgentKind? = fromWire(wire)
+    }
+}
+
+/** The desktop's four risk levels (B10), as words; the phone picks the badge style from the glossary. */
+@Serializable
+enum class RemoteApprovalRisk(val wire: String) {
+    @SerialName("low") LOW("low"),
+    @SerialName("medium") MEDIUM("medium"),
+    @SerialName("high") HIGH("high"),
+    @SerialName("critical") CRITICAL("critical"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemoteApprovalRisk? = entries.firstOrNull { it.wire == wire }
+
+        /** A value this app does not know reads as CRITICAL. */
+        fun read(wire: String): RemoteApprovalRisk = fromWire(wire) ?: CRITICAL
     }
 }
 
@@ -555,6 +625,78 @@ data class RemoteDelegationsData(
     val delegations: List<RemoteDelegation>,
 )
 
+@Serializable
+data class RemoteAgentRow(
+    /** Stable and opaque: `<kind>:<source id>`. */
+    val id: String,
+    val kind: String,
+    val state: String,
+    /** When it entered this state (epoch ms); for needs-you, when it started waiting. */
+    val since: Long,
+    /**
+     * The row's name (pane name, conversation title, delegation objective, run title). It is free text, so before it is
+     * sent the gateway's cleaner removes secrets and paths under the person's roots, hidden and control characters go,
+     * and it is cut to `REMOTE_TEXT_LIMITS.agentTitle`. Ids never stand in for it.
+     */
+    val title: String,
+    /** `claude`, `codex`, …: sent only when it matches `^[a-z0-9._-]{1,64}$`; absent otherwise or when the source has none. */
+    val provider: String? = null,
+    /** For grouping: the workspace's name (never its root path), cleaned and cut like `title`. */
+    val workspaceName: String,
+    /** The row of the agent that started this one (a delegation, a work run). */
+    val parentId: String? = null,
+    /** Conversation rows: Open, Stop and Respond. */
+    val threadId: String? = null,
+    /** Pane rows: Open the terminal. */
+    val paneId: String? = null,
+    /** Needs-you rows: the first request waiting. */
+    val request: Request? = null,
+    /** Agent Work runs: "3 of 5 tasks". */
+    val tasks: Tasks? = null,
+    /** The desktop allows Stop (`thread.interrupt`) from the phone now; v1: running conversations only. */
+    val canInterrupt: Boolean? = null,
+) {
+    @Serializable
+    data class Request(
+        /** The conversation of the request; absent for a desktop approval outside one. */
+        val threadId: String? = null,
+        val requestId: String,
+        /** Built by the desktop from a parameterless title code, never the agent's own text; cleaned and cut like `title`. */
+        val title: String,
+        val risk: String? = null,
+        /** False: "Answer on the computer", no Respond on the phone. */
+        val answerable: Boolean,
+        /** Other requests waiting behind it. */
+        val more: Long,
+    )
+
+    @Serializable
+    data class Tasks(
+        val done: Long,
+        val total: Long,
+    )
+}
+
+/**
+ * Snapshot: every agent, in pages bounded by rows and bytes (see above). `unavailable` names the sources that failed
+ * this time (the phone shows the partial notice). `nudgeAfterMs` is the desktop's needs-you timer setting, absent when
+ * it is off: the phone sends its one reminder from a row's `since`. Both ride on the page marked `last` only.
+ */
+@Serializable
+data class RemoteAgentsSnapshot(
+    val agents: List<RemoteAgentRow>,
+    val unavailable: List<String>? = null,
+    val nudgeAfterMs: Long? = null,
+)
+
+/** Event: what changed. `unavailable`, when present, replaces the list the phone holds. Never `nudgeAfterMs` (see above). */
+@Serializable
+data class RemoteAgentsEvent(
+    val upsert: List<RemoteAgentRow>? = null,
+    val removed: List<String>? = null,
+    val unavailable: List<String>? = null,
+)
+
 /**
  * `clientId` is made by the phone once per message and repeated on a resend after reconnecting; the desktop applies a
  * given clientId once within `REMOTE_LIMITS.clientIdDedupeMs`, so nothing is sent twice. `text` ≤ `maxTextLength`.
@@ -614,6 +756,19 @@ data class RemoteTerminalWriteArgs(
 data class RemoteThreadHistoryArgs(
     val threadId: String,
     val beforeSeq: Long,
+)
+
+/**
+ * The phone opened the row or chose "Mark as seen": the same marker as on the desktop, nothing else changes. Not
+ * person-only: it never answers, stops or starts anything. Exactly these fields; `agentId` follows the gateway's id rule
+ * (`^[A-Za-z0-9._:-]{1,200}$`) and must be a row's `id`, else `malformed`; an unknown one is `not-found`. The audit
+ * records the `agentId`. `observedSince` is the `since` of the row the phone showed: a row that finished again after
+ * it stays Finished.
+ */
+@Serializable
+data class RemoteAgentMarkSeenArgs(
+    val agentId: String,
+    val observedSince: Long? = null,
 )
 
 /**

@@ -649,7 +649,8 @@
         "pendingRequests": "See requests waiting for you",
         "terminal": "Watch terminal output (read only)",
         "jobs": "See background jobs",
-        "delegations": "See delegations"
+        "delegations": "See delegations",
+        "agents": "See agents and what each one is doing"
       },
       "commands": {
         "threadSend": "Send a message to a conversation",
@@ -657,7 +658,8 @@
         "threadInterrupt": "Stop a running turn",
         "threadRespondRequest": "Accept or decline a conversation request, after confirming on the phone with fingerprint or face",
         "terminalWrite": "Type in a terminal you allowed here",
-        "threadHistory": "Read older messages"
+        "threadHistory": "Read older messages",
+        "agentMarkSeen": "Mark an agent as seen"
       },
       "forbidden": {
         "oxequeryApprove": "Approve OxeQuery changes",

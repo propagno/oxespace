@@ -41,6 +41,16 @@ export interface MessageParams {
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
+  'activity.invalid': Record<string, never>
+  'activity.tooMany': { max: number }
+  'activity.titleTooLong': { max: number }
+  'activity.detailTooLong': { max: number }
+  'activity.hiddenCharacters': Record<string, never>
+  /** A time more than a minute ahead of the computer's clock. */
+  'activity.future': Record<string, never>
+  /** An entry's text looks like a password, token or key; the whole call is refused, nothing is stored. */
+  'activity.secret': Record<string, never>
   /** F13 · Refusals of a sections save (THREAD_SECTIONS_REFUSALS); a refused save stores nothing. */
   'thread.sections.invalid': Record<string, never>
   'thread.sections.tooMany': { sections: number; assignments: number }
@@ -297,6 +307,20 @@ export interface MessageParams {
   'notify.refused.rateLimit': { perMinute: number }
   /** A pane name an agent chose contains a name only the app uses. */
   'agents.name.reserved': { name: string }
+  /** S7.1 · Refusals of a mark-seen (AGENTS_REFUSALS); a refused call stores nothing. */
+  'agents.refused.invalid': Record<string, never>
+  'agents.refused.notFound': Record<string, never>
+  /** S7.1 · One source of the agents read model could not be read; the others keep updating (§5.3). */
+  'agents.unavailable.pane': Record<string, never>
+  'agents.unavailable.conversation': Record<string, never>
+  'agents.unavailable.delegation': Record<string, never>
+  'agents.unavailable.work': Record<string, never>
+  /** S7.1 · The main-built title of a conversation request on an agent row, by `ThreadRequest.kind` (never the agent's text). */
+  'agents.request.approval': Record<string, never>
+  'agents.request.question': Record<string, never>
+  'agents.request.permissions': Record<string, never>
+  'agents.request.elicitation': Record<string, never>
+  'agents.request.tool': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -319,6 +343,13 @@ export const MESSAGE_CODES = [
   'app.connectivity.offline',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'activity.invalid',
+  'activity.tooMany',
+  'activity.titleTooLong',
+  'activity.detailTooLong',
+  'activity.hiddenCharacters',
+  'activity.future',
+  'activity.secret',
   'thread.sections.invalid',
   'thread.sections.tooMany',
   'thread.sections.nameEmpty',
@@ -505,7 +536,18 @@ export const MESSAGE_CODES = [
   'notify.prefix.unknownConversation',
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
-  'agents.name.reserved'
+  'agents.name.reserved',
+  'agents.refused.invalid',
+  'agents.refused.notFound',
+  'agents.unavailable.pane',
+  'agents.unavailable.conversation',
+  'agents.unavailable.delegation',
+  'agents.unavailable.work',
+  'agents.request.approval',
+  'agents.request.question',
+  'agents.request.permissions',
+  'agents.request.elicitation',
+  'agents.request.tool'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

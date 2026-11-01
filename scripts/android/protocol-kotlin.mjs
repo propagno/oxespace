@@ -120,6 +120,8 @@ function kotlinType(node, context, nested) {
     if (name === 'Record' && args[0]?.kind === ts.SyntaxKind.StringKeyword) {
       return args[1].kind === ts.SyntaxKind.UnknownKeyword ? 'JsonObject' : `Map<String, ${kotlinType(args[1], context, nested)}>`
     }
+    // A set with an unknown-value rule travels as a String, so a value a newer desktop adds never fails the frame.
+    if (args.length === 0 && context.lenient.has(name)) return 'String'
     if (args.length === 0 && (context.enums.has(name) || context.types.has(name))) return name
   }
   if (ts.isTypeLiteralNode(node) && nested) return nested(node, false)
@@ -149,6 +151,14 @@ function dataClass(name, members, tag, context, indent, supertype) {
   return `${annotations}\n${indent}data class ${name}(\n${lines.join('\n')}\n${indent})${supertype}${body}\n`
 }
 
+/** The `read(wire)` of a set with an unknown-value rule (`REMOTE_UNKNOWN_VALUES`): how the phone decodes its string field. */
+function readFunction(alias, rule) {
+  if (rule === undefined) return []
+  if (rule === 'null') return ['', '        /** A value this app does not know reads as none. */', `        fun read(wire: String?): ${alias}? = wire?.let { fromWire(it) }`]
+  if (rule === 'drop-row') return ['', '        /** Null for a value this app does not know: skip the row that carries it. */', `        fun read(wire: String): ${alias}? = fromWire(wire)`]
+  return ['', `        /** A value this app does not know reads as ${constantName(rule)}. */`, `        fun read(wire: String): ${alias} = fromWire(wire) ?: ${constantName(rule)}`]
+}
+
 /**
  * @param {string} source text of shared/remote/protocol.ts
  * @param {Record<string, unknown>} values the same module, imported
@@ -163,7 +173,13 @@ export function protocolKotlin(text, values) {
   const typeMap = declaration => declaration.members.length > 0 && declaration.members.every(member => member.name && ts.isStringLiteral(member.name))
   const dataInterfaces = interfaces.filter(declaration => !frameTag(declaration) && !declaration.typeParameters?.length && !typeMap(declaration))
   const types = new Set([...dataInterfaces.map(declaration => declaration.name.text), ...unions.keys()])
-  const context = { source, enums, types, where: 'protocol.ts' }
+  // `REMOTE_UNKNOWN_VALUES`: enum alias → how the phone reads a value it does not know.
+  const lenient = new Map(Object.entries(values.REMOTE_UNKNOWN_VALUES ?? {}))
+  for (const [alias, rule] of lenient) {
+    if (!enums.has(alias)) throw new Error(`[android] REMOTE_UNKNOWN_VALUES names ${alias}, which is no list alias`)
+    if (rule !== 'null' && rule !== 'drop-row' && !values[enums.get(alias)].includes(rule)) throw new Error(`[android] REMOTE_UNKNOWN_VALUES.${alias} is ${rule}, not a value of ${enums.get(alias)}`)
+  }
+  const context = { source, enums, types, lenient, where: 'protocol.ts' }
   const out = [HEADER, '', 'package com.oxespace.mobile.protocol', '']
   out.push('import kotlinx.serialization.SerialName', 'import kotlinx.serialization.Serializable', 'import kotlinx.serialization.json.JsonElement', 'import kotlinx.serialization.json.JsonObject', '')
 
@@ -174,7 +190,7 @@ export function protocolKotlin(text, values) {
   // Objects of numbers (REMOTE_LIMITS, REMOTE_TEXT_LIMITS…) become Kotlin objects: REMOTE_LIMITS → RemoteLimits.
   for (const [name, { statement, declaration }] of consts) {
     const value = values[name]
-    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+    if (!value || typeof value !== 'object' || Array.isArray(value) || name === 'REMOTE_UNKNOWN_VALUES') continue
     const literal = declaration.initializer?.expression ?? declaration.initializer
     if (!literal || !ts.isObjectLiteralExpression(literal)) continue
     out.push(`${kdoc(statement, source, '')}object ${objectName(name)} {`)
@@ -189,7 +205,7 @@ export function protocolKotlin(text, values) {
   for (const [alias, listName] of enums) {
     const { statement } = consts.get(listName)
     const entries = values[listName].map(wire => `    @SerialName("${wire}") ${constantName(wire)}("${wire}"),`)
-    out.push(`${kdoc(statement, source, '')}@Serializable\nenum class ${alias}(val wire: String) {`, ...entries, '    ;', '', '    companion object {', `        fun fromWire(wire: String): ${alias}? = entries.firstOrNull { it.wire == wire }`, '    }', '}', '')
+    out.push(`${kdoc(statement, source, '')}@Serializable\nenum class ${alias}(val wire: String) {`, ...entries, '    ;', '', '    companion object {', `        fun fromWire(wire: String): ${alias}? = entries.firstOrNull { it.wire == wire }`, ...readFunction(alias, lenient.get(alias)), '    }', '}', '')
   }
 
   for (const [name, { statement }] of consts) {

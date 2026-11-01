@@ -28,6 +28,8 @@ import { registerOxePodMock } from './oxepod-mock'
 import { registerMcpToolsMock } from './mcp-tools-mock'
 import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
+import { registerActivityMock } from './activity-mock'
+import { registerAgentsMock } from './agents-mock'
 import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
 import { installMcpFixture } from './mcp-fixture'
@@ -56,11 +58,14 @@ export function registerE2eMockIpcHandlers(): void {
   registerMcpToolsMock()
   registerDiagnosticsMock()
   registerRemoteMock()
+  registerActivityMock()
   registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
   registerOpenExternalMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
   registerApprovalsMock()
+  // S7.1: the agents read model; its fixture and timers are read only in an unpackaged build (see agents-mock.ts).
+  registerAgentsMock(process.env, app.isPackaged)
   // F26: the real close guard is not installed here, so app.close() never waits; specs ask through this double.
   registerCloseGuardMock(app.isPackaged, (channel, request) => {
     const windows = BrowserWindow.getAllWindows().filter(window => !window.isDestroyed())

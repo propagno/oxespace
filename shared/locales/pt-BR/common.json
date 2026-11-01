@@ -435,5 +435,18 @@
       "open": "Abrir",
       "cancel": "Cancelar"
     }
+  },
+  "agents": {
+    "state": {
+      "needsYou": "Precisa de você",
+      "failed": "Falhou",
+      "working": "Trabalhando",
+      "finished": "Terminou",
+      "idle": "Ocioso",
+      "stopped": "Interrompido",
+      "unknown": "Não confirmado",
+      "starting": "Iniciando",
+      "exited": "Encerrado"
+    }
   }
 }
