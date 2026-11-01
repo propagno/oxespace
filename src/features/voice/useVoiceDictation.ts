@@ -32,9 +32,14 @@ export function useVoiceDictation(api: VoiceRendererApi, onInsert: (text: string
   const stoppingRef = useRef(false)
   const mountedRef = useRef(false)
   const insertRef = useRef(onInsert)
-  insertRef.current = onInsert
   const genericRef = useRef(t('voice.error.generic'))
-  genericRef.current = t('voice.error.generic')
+  const genericText = t('voice.error.generic')
+
+  // Sync the latest callback/text into refs after commit (not during render); declared before the subscription effect so it runs first.
+  useEffect(() => {
+    insertRef.current = onInsert
+    genericRef.current = genericText
+  }, [onInsert, genericText])
 
   const engine = engines && engines.length > 0 ? engines[0] : null
   const needsConsent = !!engine && engine.consentRequired && !engine.consented
