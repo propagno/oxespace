@@ -345,16 +345,15 @@ describe('window and app binding', () => {
     expect(window.close).toHaveBeenCalledTimes(1)
   })
 
-  it('refuses an answer from a sub-frame, another window or a non-app sender', () => {
+  // A sub-frame or a sender that is not the app's never reaches the handler: the central sender guard (B12) refuses it.
+  it('refuses an answer from another window', () => {
     const window = fakeWindow()
     const other = fakeWindow()
     binding.installCloseGuard(window as never)
     window.emit('close', preventable())
     const input = { requestId: requestIdOf(window), answer: 'proceed' }
     const handler = electron.handlers.get('app:close-answer')!
-    expect(() => handler({ sender: window.webContents, senderFrame: {} }, input)).toThrow(/main frame/)
     expect(() => handler({ sender: other.webContents, senderFrame: other.webContents.mainFrame }, input)).toThrow(/main window/)
-    expect(() => handler({ sender: { id: 9 }, senderFrame: null }, input)).toThrow(/main frame/)
     expect(window.close).not.toHaveBeenCalled()
   })
 
