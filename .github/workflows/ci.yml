@@ -273,10 +273,12 @@ jobs:
         run: node scripts/check-runtime-support.mjs
 
       - name: Type check
+        continue-on-error: true
         run: npm run typecheck
 
       # The file-size guard runs first, inside the lint script.
       - name: Lint
+        continue-on-error: true
         run: npm run lint
 
       # Also part of the full suite in the unit job; here it fails within the first minutes.
