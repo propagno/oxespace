@@ -43,6 +43,7 @@ function relativeTime(timestamp: number): string {
 export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode }: {
   onCreate: (projectId: string, rootPath?: string) => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
 }) {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['ThreadSidebar'] = ((w.__renders ??= {})['ThreadSidebar'] ?? 0) + 1 }
   const { t } = useTranslation('thread')
   // Only these fields: the store also changes for drafts, snapshots and scroll positions, which the list never shows.
   const { threads, projects, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore(useShallow(state => ({

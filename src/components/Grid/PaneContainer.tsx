@@ -56,6 +56,7 @@ function statusClass(status: WorkspacePane['status']): string {
 }
 
 export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, onActivate, onArrange, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['PaneContainer'] = ((w.__renders ??= {})['PaneContainer'] ?? 0) + 1 }
   const terminalState = useTerminalStore((s) => s.panes[pane.id] ?? EMPTY_TERMINAL_STATE)
   const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
   const shellProfileName = useMemo(() => {

@@ -79,6 +79,7 @@ const AppMenuBar = lazy(() => import('./components/Navigation/AppMenuBar').then(
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
 
 export function App(): ReactElement {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['App'] = ((w.__renders ??= {})['App'] ?? 0) + 1 }
   const appVersion = window.oxe?.app?.version ?? 'dev'
   const [applicationView, setApplicationView] = useState<AppView>('code')
   const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)

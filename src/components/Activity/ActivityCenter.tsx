@@ -27,6 +27,7 @@ const KIND: Record<ActivityKind, { icon: LucideIcon; className?: string; label: 
  * from the activity store. A click goes to the conversation, pane or page; it never approves anything.
  */
 export function ActivityCenter({ onSelectView }: { onSelectView: (view: ActivityView) => void }): ReactElement {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['ActivityCenter'] = ((w.__renders ??= {})['ActivityCenter'] ?? 0) + 1 }
   const items = useActivityStore(state => state.items)
   const markRead = useActivityStore(state => state.markRead)
   const markAllRead = useActivityStore(state => state.markAllRead)
