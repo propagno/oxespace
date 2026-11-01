@@ -266,10 +266,11 @@ test('#374: first prompt of a pane started while hidden', async () => {
     }
     timings.hiddenFirstPromptMs = hidden
     timings.attachedViews = await page.locator('[data-testid="pane-container"] .xterm').count()
-    // BACKEND's question: without an attached terminal to answer DA1, is the first prompt ~3 s late? Under 2 s passes.
+    // Without an attached terminal to answer DA1, the bundled ConPTY waited ~3.3 s more than main (6.3 s vs 2.7-3.2 s on
+    // windows-2022). Main's own cold PowerShell start is ~3 s there, so the bar is main's plus a margin: under 4.5 s.
     for (const [i, ms] of hidden.entries()) {
       expect.soft(ms, `hidden pane ${i + 1}: a prompt arrives`).toBeGreaterThan(0)
-      expect.soft(ms, `hidden pane ${i + 1}: first prompt within 2 s`).toBeLessThan(2_000)
+      expect.soft(ms, `hidden pane ${i + 1}: first prompt as soon as main's (under 4.5 s)`).toBeLessThan(4_500)
     }
   } finally {
     await quitReal(app)
