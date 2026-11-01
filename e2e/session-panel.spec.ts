@@ -153,7 +153,15 @@ test('Conversation details shows the session, compacts, and reorders its section
 
     // The order is kept when the panel opens again. Investigating #227 CI (Linux and Windows): the toggle was not found
     // here; say what the header holds before the click, which stays a pointer click.
-    console.log(`[DIAG] headings=${await page.locator('.thread-heading').count()} views=${await page.locator('.thread-view').count()} buttons=${JSON.stringify(await page.locator('.thread-heading button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? button.textContent?.trim())))} focus=${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 160))}`)
+    console.log(`[DIAG] ${JSON.stringify(await page.evaluate(() => {
+      const button = [...document.querySelectorAll('.thread-heading button')].find(node => node.getAttribute('aria-label') === 'Conversation details')
+      const hidden = button?.closest('[aria-hidden="true"]'), inert = button?.closest('[inert]')
+      return {
+        found: Boolean(button), hiddenBy: hidden ? `${hidden.tagName}.${hidden.className}`.slice(0, 120) : null, inertBy: inert ? `${inert.tagName}.${inert.className}`.slice(0, 120) : null,
+        openMenus: document.querySelectorAll('[role="menu"]').length, dialogs: [...document.querySelectorAll('[role="dialog"]')].map(node => node.getAttribute('aria-label') ?? node.className.slice(0, 60)),
+        focus: document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName
+      }
+    }))}`)
     await page.locator('.thread-heading').getByRole('button', { name: 'Conversation details' }).click()
     await expect(panel).toHaveCount(0)
     await openPanel(page)
