@@ -1,0 +1,168 @@
+name: Acceptance (on demand)
+
+# S0.4 · Runs ONE acceptance spec (e2e/acceptance, written before its item lands) against any version of the app, on CI
+# instead of the team's machine. Manual dispatch only: never on push or pull_request, so a spec that is red on purpose
+# never blocks a merge or the merge train.
+#
+# The app comes from `product_ref` (main or a PR head). The spec comes from `spec_ref`, and only e2e/acceptance/** and
+# playwright.acceptance.config.ts are copied from it: nothing from spec_ref runs at install or build time.
+#
+# Safety: read-only token, no secrets, nothing published but the run's own test results. Inputs reach the shell only
+# through env and are format-checked first. The acceptance config scrubs a live OXESpace app's env (#337) and the
+# e2e entry stubs native dialogs (#351) when product_ref has it; the specs stub them too.
+
+on:
+  workflow_dispatch:
+    inputs:
+      product_ref:
+        description: "App under test: a branch, tag or commit SHA"
+        required: true
+        default: main
+      spec_ref:
+        description: "Branch, tag or SHA that holds the acceptance spec"
+        required: true
+      spec:
+        description: "The spec file, e.g. e2e/acceptance/S2-sessions-survive.spec.ts"
+        required: true
+      grep:
+        description: "Optional test title filter (-g)"
+        required: false
+        default: ""
+      os:
+        description: "Runner"
+        type: choice
+        options: [windows-2022, ubuntu-24.04]
+        default: windows-2022
+
+permissions:
+  contents: read
+
+concurrency:
+  group: acceptance-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    name: ${{ inputs.spec }} on ${{ inputs.product_ref }} (${{ inputs.os }})
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 45
+    env:
+      PRODUCT_REF: ${{ inputs.product_ref }}
+      SPEC_REF: ${{ inputs.spec_ref }}
+      SPEC: ${{ inputs.spec }}
+      GREP: ${{ inputs.grep }}
+    steps:
+      - name: Check inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref='^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$'
+          for name in PRODUCT_REF SPEC_REF; do
+            value="${!name}"
+            if [[ ! "$value" =~ $ref || "$value" == *..* || "$value" == */ || "$value" == *.lock ]]; then
+              echo "::error::$name must be a branch, tag or SHA (letters, digits, . _ / -)"; exit 1
+            fi
+          done
+          spec='^e2e/acceptance/[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.spec\.ts$'
+          if [[ ! "$SPEC" =~ $spec || "$SPEC" == *..* ]]; then
+            echo "::error::spec must be a file directly under e2e/acceptance/ ending in .spec.ts"; exit 1
+          fi
+          grep_ok='^[A-Za-z0-9 ._()\\:-]{1,80}$'
+          if [[ -n "$GREP" && ! "$GREP" =~ $grep_ok ]]; then
+            echo "::error::grep may use letters, digits, spaces and . _ ( ) \\ : - (80 at most)"; exit 1
+          fi
+
+      - name: Check out the app under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          ref: ${{ inputs.product_ref }}
+          persist-credentials: false
+
+      - name: Check out the spec (not run, only copied)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          ref: ${{ inputs.spec_ref }}
+          path: .acceptance-spec-src
+          persist-credentials: false
+          sparse-checkout: |
+            e2e/acceptance
+            playwright.acceptance.config.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Overlay ONLY e2e/acceptance/** and playwright.acceptance.config.ts
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=.acceptance-spec-src
+          test -f "$src/$SPEC" || { echo "::error::$SPEC is not in spec_ref"; exit 1; }
+          test -f "$src/playwright.acceptance.config.ts" || { echo "::error::spec_ref has no playwright.acceptance.config.ts"; exit 1; }
+          # No links: a symlink in spec_ref could point the copy outside these paths.
+          if find "$src/e2e/acceptance" "$src/playwright.acceptance.config.ts" -type l | grep -q .; then echo "::error::spec_ref holds symlinks"; exit 1; fi
+          rm -rf e2e/acceptance
+          mkdir -p e2e/acceptance
+          cp -R "$src/e2e/acceptance/." e2e/acceptance/
+          cp "$src/playwright.acceptance.config.ts" playwright.acceptance.config.ts
+          rm -rf "$src"
+          git status --short
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
+
+      - name: Build the app under test
+        run: npm run build
+
+      - name: Prepare native modules for Electron
+        run: npm run fix:native
+
+      - name: No live OXESpace env reaches the run
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The same names playwright.acceptance.config.ts and e2e/helpers/live-app-env.ts (#337) scrub.
+          if env | cut -d= -f1 | grep -E '^(OXESPACE_(MCP_|EXECUTION_|AGENT_HOOK_|WORKSPACE_ID$|MEMORY_RUN(_ID)?$|PANE_BRIDGE$)|AI_MEMORY_)'; then
+            echo "::error::live OXESpace variables are set on the runner"; exit 1
+          fi
+
+      - name: Run the spec (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(-c playwright.acceptance.config.ts "$SPEC" --trace retain-on-failure)
+          if [[ -n "$GREP" ]]; then args+=(-g "$GREP"); fi
+          npx playwright test "${args[@]}"
+
+      - name: Run the spec (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(-c playwright.acceptance.config.ts "$SPEC" --trace retain-on-failure)
+          if [[ -n "$GREP" ]]; then args+=(-g "$GREP"); fi
+          bash scripts/run-with-xvfb.sh npx playwright test "${args[@]}"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: acceptance-${{ github.run_id }}-${{ inputs.os }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/
