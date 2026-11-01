@@ -117,9 +117,15 @@ A pane name an agent chooses, and the agent-supplied parts of a notification, ma
 
 The first-word and prefix rules also read the first two words joined, so "Sys tem", "Ad min panel" and "OX E" are refused ("Ox ente" joins to the allowed "oxente"; "Box er" to "boxer"). Some names are refused although a person could mean something harmless ("Security Reviewer", "Root Cause Analyst", "Admin Panel", "Adminer", "Administrativo", "Gnome lover", "Fedora fan", "GitHub Copilot"); that overblock is accepted.
 
-Provider names (Claude, Anthropic, Codex, OpenAI) are allowed: the requester the person sees comes from the authenticated provider, never from the name. Each rule is checked on both folds before the next rule, so the most specific name is reported.
+Provider names (Claude, Anthropic, Codex, OpenAI) are allowed: the requester the person sees comes from the authenticated provider, never from the name. Each rule is checked on every fold before the next rule, so the most specific name is reported.
 
 Words are split on anything that is not a letter; a run of three or more single letters, whatever separates them ("W i n d o w s", "W.i.n.d.o.w.s", "W_i_n_d_o_w_s"), is joined into one word first, while two ("A B testing") are left alone. A pane name is refused with `agents.name.reserved` (MCP code `reserved-name`), a notification with `notify.refused.reservedName`.
+
+Words are also read a second way, with every invisible character (format characters such as zero-width spaces, soft hyphens, bidi controls and joiners; default-ignorables such as variation selectors, the Hangul fillers and the Mongolian vowel separator; a combining mark NFKC could not compose) taken as a space instead of deleted, and a name is refused when either reading matches: "Win​dows" is one word, "Windows​Security" two. Look-alikes include dotless ı, the Latin small capitals (ᴡ, ʀ, ꜱ, ɢ, …) and the Greek and Cyrillic capitals that look Latin, mapped before lower case (Greek Η is H while its η reads as n).
+
+In a notification's title and body (`reservedNameIn(text, 'notice')`: `NotifyGate`, and the agent error in a turn notice), System, Sistema, Administrator, Administrador, Admin, root, sudo, Security and Segurança (`RESERVED_NOTICE_WORDS`) are refused as a whole word anywhere, or two adjacent words joined ("Important: System notice", "Notificação do Sistema", "Claude Security"). Pane and tab names keep the first-word rule, so "My System" stays a valid name. The App family and "Update" stay first-word only in notices too: "the app crashed" and "Update ready" are ordinary notice text, and "System Update" is caught by System.
+
+**Closed findings (security review of #247, round 1):** an invisible character between two words merged them, so "Windows​Security", "System​Update", a soft hyphen, a bidi override or a Hangul filler between the words got past every word rule (H1); dotless ı, small capitals and Greek Η/Ω were not mapped (M1); a notice only needed one lead word before "System" (M2). The two readings, the larger table and the notice scope close them; `tests/approval-rules.test.ts` keeps every measured bypass.
 
 **Closed findings (homologation, #184 and #247):** "Administração" got through #247's first version (only whole first words were matched); the admin prefix closes it.
 

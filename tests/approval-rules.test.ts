@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, foldWords, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, OXE_PREFIX_ALLOWED_WORDS, RESERVED_FIRST_WORD_PREFIXES, RESERVED_FIRST_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, riskFromShell, riskFromSql, SPELLED_WORD_MIN } from '../shared/approval-rules'
+import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, foldWords, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, OXE_PREFIX_ALLOWED_WORDS, RESERVED_FIRST_WORD_PREFIXES, RESERVED_FIRST_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, riskFromShell, riskFromSql, SPELLED_WORD_MIN, withoutReservedName } from '../shared/approval-rules'
 import { mainMessage } from '../shared/messages'
 import { APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_SCHEMA_VERSION, type ApprovalRequest } from '../shared/types/approvals'
 import { guardSql } from '../electron/main/services/oxequery/sql-guard'
@@ -274,5 +274,81 @@ describe('reserved names: homologation probe (#184)', () => {
     ['Adminer', 'Admin'], ['Administrativo', 'Admin'], ['Gnome lover', 'GNOME'], ['Fedora fan', 'Fedora'], ['GitHub Copilot', 'GitHub']
   ])('accepted overblock: refuses %j as %s', (value, name) => {
     expect(reservedNameIn(value)).toBe(name)
+  })
+})
+
+/** The SECURITY review of #247 (round 1): every bypass it measured, with the verdict it must have now. */
+describe('reserved names: security review of #247', () => {
+  // H1: an invisible character between two words used to merge them, so the word rules never saw the word.
+  it.each([
+    ['Windows​Security', 'Windows'], ['Microsoft​Defender', 'Microsoft'], ['Apple​ID', 'Apple'],
+    ['System​Update', 'System'], ['Security​scanner', 'Security'], ['root​access', 'root'],
+    ['Windows­Security', 'Windows'], // soft hyphen
+    ['Windows‮Security', 'Windows'], // right-to-left override
+    ['Windows⁠Update', 'Windows'], // word joiner
+    ['Windows‍Security', 'Windows'], ['Windows‌Security', 'Windows'], ['Windows﻿Security', 'Windows'],
+    ['Windows️Security', 'Windows'], ['Windows︀Security', 'Windows'], // variation selectors
+    ['Windows͏Security', 'Windows'], // combining grapheme joiner
+    ['Windows̶Security', 'Windows'], // a combining mark NFKC cannot compose onto the letter
+    ['Windows\u{E0020}Security', 'Windows'], // tag space
+    ['WindowsㅤSecurity', 'Windows'], ['WindowsᅟSecurity', 'Windows'], ['WindowsᅠSecurity', 'Windows'], ['WindowsﾠSecurity', 'Windows'], // Hangul fillers
+    ['Windows᠎Security', 'Windows'], // Mongolian vowel separator
+    ['SystemㅤAdministrator', 'System'], ['sudo⁠password', 'sudo'], ['Admin‍panel', 'Admin'], ['GNOME­Keyring', 'GNOME'],
+    // A Hangul filler is a letter to Unicode; inside a word it is dropped like the other invisibles.
+    ['Winㅤdows', 'Windows'], ['OXEㅤSpace', 'OXESpace'], ['Sysᅟtem', 'System']
+  ])('H1: refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  // M1: look-alikes NFKC keeps.
+  it.each([
+    ['Admın', 'Admin'], ['Gıthub', 'GitHub'], ['ᴡindows', 'Windows'], ['ʀoot', 'root'], ['ꜱystem', 'System'], ['ɢoogle', 'Google'],
+    ['ᴏxespace', 'OXESpace'], ['Thʀead', 'Thread'], ['ᴍɪᴄʀᴏꜱᴏꜰᴛ', 'Microsoft'], ['ᴀᴅᴍɪɴ', 'Admin'], ['ʟɪɴᴜx', 'Linux'], ['ᴜʙᴜɴᴛᴜ', 'Ubuntu'],
+    ['ɡoogle', 'Google'], ['Lınux', 'Linux'],
+    // Greek and Cyrillic capitals that look Latin, including Η (H, while its lower case η reads as n) and Ω.
+    ['ΩXESpace', 'OXESpace'], ['GitΗub', 'GitHub'], ['ΑΡΡLE', 'Apple'], ['ΚDE', 'KDE'], ['ЅYSTEM', 'System'], ['GNOМЕ', 'GNOME'], ['ԜINDOWS', 'Windows']
+  ])('M1: refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  // M2: in a notification's title or body the system's words count anywhere; in a pane or tab name only first.
+  it.each([
+    ['The System', 'System'], ['Important: System notice', 'System'], ['OS System', 'System'], ['Please verify: Security', 'Security'],
+    ['Aviso: Sistema', 'Sistema'], ['Notificação do Sistema', 'Sistema'], ['Claude Security', 'Security'], ['Update System', 'System'],
+    ['Contact your Administrator', 'Administrator'], ['Fale com o administrador', 'Administrador'], ['Needs root', 'root'], ['Enter your sudo password', 'sudo'],
+    ['Alerta de Segurança', 'Segurança'], ['Ask the admin', 'Admin'], ['Your Sys tem', 'System'], ['Please​System​update', 'System']
+  ])('M2: refuses %j in a notice as %s, and allows it as a name', (value, name) => {
+    expect(reservedNameIn(value, 'notice')).toBe(name)
+    expect(reservedNameIn(value)).toBeNull()
+  })
+
+  it.each([
+    'Systematic', 'Clauden', 'Systemd', 'Systematic review done', 'Systemd unit restarted', 'Systems Engineer', 'Tests passed',
+    // The App family and "Update" stay first-word only, so ordinary notice text passes.
+    'The app crashed', 'Update ready', 'Build finished for the application', 'Securities report', 'Rootless build done', 'Admiral'
+  ])('allows %j as a name and in a notice', value => {
+    expect(reservedNameIn(value)).toBeNull()
+    expect(reservedNameIn(value, 'notice')).toBeNull()
+  })
+
+  it.each([
+    // Invisibles that only touch one word, or leave the words as they were, are not reserved.
+    'My​System', 'Code​reviewer', 'Rootless​builder', 'Systematic­', 'ㅤReviewer', 'Testes​do sistema'
+  ])('H1: still allows %j as a name', value => {
+    expect(reservedNameIn(value)).toBeNull()
+  })
+
+  it('folds words with invisibles deleted by default and as a space on request', () => {
+    expect(foldWords('Windows​Security')).toEqual(['wlndowssecurlty'])
+    expect(foldWords('Windows​Security', false, true)).toEqual(['wlndows', 'securlty'])
+    expect(foldWords('WindowsㅤSecurity', false, true)).toEqual(['wlndows', 'securlty'])
+    // Accents are split off after the spacing, so an accented letter is never a separator.
+    expect(foldWords('Systém', false, true)).toEqual(['system'])
+    expect(foldName('WindowsㅤSecurity')).toBe(foldName('WindowsSecurity'))
+  })
+
+  it('withoutReservedName takes the notice scope', () => {
+    expect(withoutReservedName('The System', 'x')).toBe('The System')
+    expect(withoutReservedName('The System', 'x', 'notice')).toBe('x')
   })
 })
