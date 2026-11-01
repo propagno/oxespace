@@ -137,7 +137,7 @@ they appear only nested under the agent that started them, when it is known.
 ┌──────────────────────────────────────────────────────────────┐
 │ [◉]  Fix pairing timeout                         [Respond]  ⋯ │  line 1: title (1 line, ellipsis)
 │ ⓒ    OxeChat · Claude · Frontend · 6 min · US$ 0.42           │  line 2: mode · provider · team role · time · cost
-│      └ "Run npm test in mobile/?" · medium risk               │  line 3 (needs-you only): first request summary
+│      └ Wants to run an action · Medium · +1 more              │  line 3 (needs-you only): first request's title
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,12 +147,13 @@ they appear only nested under the agent that started them, when it is known.
   Never a path, never an id.
 - Meta line: mode label (OxeCode/OxeChat/Delegation/Work), provider, team role badge when the agent is a connected
   team member, time in state ("6 min" = since `since`; for needs-you it is the wait time), cost.
-- Cost (conversations only in v1): the conversation's reported total (`ThreadCostReport.totalUsd`, its whole life) →
-  "US$ 0.42"; tokens only → "18k tokens"; nothing → omitted (no "—" noise). Estimated values carry "≈" and a tooltip
+- Cost (conversations only in v1): `row.cost`, the conversation's total over its whole life → "US$ 0.42";
+  `cost.estimated` (from token counts) → "≈ US$ 0.42"; no `cost` → omitted (no "—" noise). Estimated values carry "≈" and a tooltip
   "Estimated from tokens". **Pane rows show no cost** (no source). The header sums the reported totals of the agents
   listed and says "reported"; there is no "today" in v1 (`turn-cost` has no timestamp).
-- Line 3 appears only for `needs-you`: the first pending request's main-built title and risk `Badge`
-  (low=neutral, medium=warning, high/critical=danger); "+2 more" when several.
+- Line 3 appears only for `needs-you`: `pendingRequest.title`, the main-built C3 title (never the agent's text; the
+  command itself is read in the modal), then the risk `Badge` with its word (Low/Medium/High/Critical; low=neutral,
+  medium=warning, high=danger, critical=solid danger), then "+N more" when `more > 0`. No `risk` → no badge.
 - Heights: comfortable **56 px** (2 lines) / **76 px** (3 lines); compact density **44 / 60 px**. Nested rows indent
   **16 px** per level with a 1 px `--border-subtle` guide.
 - Targets: primary button `size="sm"` (≥ 24 px), overflow `IconButton` 24 px; the whole row is one focusable item.
@@ -166,10 +167,9 @@ they appear only nested under the agent that started them, when it is known.
   top. Leaving the list or pressing the pill applies the order. Same rule as Linear's inbox/GitHub's "new items".
 - A state change reaches the row in ≤ 1 s (S7.1 acceptance). That needs a **push** from main: S7.1 emits events driven
   by the agent-state service, the thread orchestrator, delegation and work changes, never polling. Each row carries
-  the sequence it came from (`stateChangeSeq` for panes, a per-source counter otherwise) so a late event never
-  overwrites a newer one. The dot cross-fades on `--duration-fast` (120 ms); nothing else animates.
-- Each source answers separately: the read model returns `sources: {pane, thread, delegation, work}` each `ok` or a
-  C3 code. One failing source shows the §5.7 partial `Notice`; the others keep updating.
+  a revision (`rev`, owned by the read model) so a late event never overwrites a newer one. The dot cross-fades on `--duration-fast` (120 ms); nothing else animates.
+- Each source answers separately: the read model returns `sources: {pane, conversation, delegation, work}` each `ok`
+  or a C3 code. One failing source shows the §5.7 partial `Notice`; the others keep updating.
 - After a restart: restored panes show "Not confirmed" until a hook or the screen reports; "Ended recently" starts
   empty (it lives in memory); "Finished" survives (§3.4).
 - **Nothing disappears without feedback.** An agent that ends (pane closed, conversation archived, delegation done and
@@ -436,3 +436,33 @@ light/dark; forced colors; 960×640 and 4K.
   otherwise). Playwright's fake clock is not used: it broke the workbench before (F28). The silent source is an e2e
   double of the S7.1 read model that never reports for one agent (`OXESPACE_E2E_AGENTS` fixture, in
   `electron/main/e2e/agents-mock.ts`); the unfocused window is `BrowserWindow.blur()`.
+
+## 15. S7.2 against the runtime (#356)
+
+Checked against `shared/types/ipc/agents.ts` and `shared/agents/agentState.ts` on #356 (81f38456). What each piece
+of the screen reads, and the decisions so FRONTEND starts S7.2 without open questions:
+
+| Screen | Reads | Decision |
+|---|---|---|
+| Load | subscribe `onChanged` → `overview()` → `applyAgentsChange` | Skeleton until `overview()` resolves; a `seq` gap re-reads silently (no flash, keep the list) |
+| State, dot, label | `row.state` → `AGENT_STATE_LABEL_KEYS` | **Pane rows on the desktop:** `paneToneState(tone, {seen, estimated})` from the same tone as the sidebar, not `row.state` (§3.2 estimated panes). The estimated style comes from its `estimated` |
+| Time in state | `row.since`; needs-you: `pendingRequest.since` | "6 min", refreshed once a minute (never per second); < 1 min → "agora" / "now" |
+| Title | `row.title` (already cut to 200) | one line, ellipsis, full title in the row's accessible name |
+| Meta: mode | `row.kind` delegation/work → "Delegação"/"Delegation", "Trabalho dos agentes"/"Agent Work"; else `row.mode` → OxeCode/OxeChat | |
+| Meta: provider | `row.provider` → `AgentProviderIcon` + name | absent → generic agent icon, no name |
+| Meta: team role | **not in the contract** | **Left out of S7.2.** The badge comes with S7.5 (Team setup), when BACKEND adds the role to the row. No join in the renderer (one owner per fact) |
+| Meta: cost | `row.cost` | §5.2 as amended: "US$ x" / "≈ US$ x" (tooltip "Estimated from tokens" / "Estimado pelos tokens"). No token-count form |
+| Meta: tasks | `row.tasks` | "3 de 5 tarefas" / "3 of 5 tasks" |
+| Meta: waiting for its lead | `row.waitingForLead` | "Aguardando quem delegou" / "Waiting for its lead", in place of the time |
+| Worktree | `row.worktree` | not on the row in v1 (it is in the review drawer, S7.3) |
+| Nesting | `row.parentKey` | nested under the parent; a parent not listed → the row is top level |
+| Line 3 | `row.pendingRequest` | §5.2 as amended. Respond opens `via: 'approval'` in the B10 modal by `id`, `via: 'thread'` in the conversation at `threadId` |
+| Finished vs idle | `row.seen` (already in `row.state`) | Open and Mark as seen call `markSeen({key, observedSince: row.since})`. A refusal (`agents.refused.*`) is an inline row error, as "Action failed" in §5.7 |
+| Ended | `removed` keys | keep the last copy of the row, show "Encerrado" / "Ended" 5 s, then "Ended recently" (§5.3) |
+| Partial notice | `sources.<kind>.ok === false` → its `message` | one `Notice` per failing source, text = the C3 message + " O resto está atualizado." / " The rest is up to date." (`agents.partial.rest`, a renderer key) |
+| Header summary | counts of `row.state`; sum of `row.cost.usd` | "2 precisam de você · 4 trabalhando · US$ 3,10 informados"; ≈ when any summed cost is estimated |
+| Needs-you notification | main (`agents.nudge.single` / `.batch`) → click → `onActivate` | the window opens Respond for `requestId`, else selects the row. FRONTEND adds only the Settings control (§5.10 copy) via `nudgeSetting` / `setNudgeSetting` |
+| Limits | `AGENTS_LIMITS.rows` (500) | past it main leaves out old idle/stopped/unknown rows; no "show more" in v1 |
+
+Not in S7.2: Resume (needs a resumable flag) and Review (needs changed files) are S7.3 and wait for those fields in
+the contract. Their buttons aren't shown until then, rather than shown disabled.
