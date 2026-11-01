@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown
 const handlers = new Map<string, Handler>()
-const windows = new Set<unknown>()
 vi.mock('electron', () => ({
-  ipcMain: { handle: (channel: string, handler: Handler) => { handlers.set(channel, handler) } },
-  BrowserWindow: { fromWebContents: (contents: unknown) => (windows.has(contents) ? {} : null) }
+  ipcMain: { handle: (channel: string, handler: Handler) => { handlers.set(channel, handler) } }
 }))
 
 import { createOxeApi, type PreloadIpc } from '../electron/preload/api'
@@ -17,7 +15,7 @@ import { IPC_CHANNELS } from '../shared/types/ipc'
 import { ACTIVITY_REFUSALS, type ActivityEntry } from '../shared/types/activity'
 import type { AppDatabase } from '../electron/main/db'
 
-beforeEach(() => { handlers.clear(); windows.clear() })
+beforeEach(() => { handlers.clear() })
 
 const NOW = 1_800_000_000_000
 const entry = (id: string, at: number, title = id): ActivityEntry => ({ source: 'thread', id, kind: 'finished', target: { type: 'thread', threadId: id }, title, at })
@@ -53,23 +51,8 @@ describe('activity contract (F30)', () => {
 describe('activity IPC (main)', () => {
   const db = { prepare: vi.fn(() => { throw new Error('the database must not be reached') }), transaction: vi.fn() } as unknown as AppDatabase
 
-  it('answers only the application main frame, before loading the store', async () => {
-    registerActivityIpc({ db })
-    const iframe = { sender: { mainFrame: 'main' }, senderFrame: 'child' }
-    const stranger = { sender: { mainFrame: 'main' }, senderFrame: 'main' }
-    windows.add(iframe.sender)
-    for (const event of [iframe, stranger]) {
-      await expect(async () => handlers.get(IPC_CHANNELS.activity.recent)!(event)).rejects.toThrow('main frame')
-      await expect(async () => handlers.get(IPC_CHANNELS.activity.record)!(event, [entry('t1', NOW)])).rejects.toThrow('main frame')
-      await expect(async () => handlers.get(IPC_CHANNELS.activity.seen)!(event, NOW)).rejects.toThrow('main frame')
-      await expect(async () => handlers.get(IPC_CHANNELS.activity.resolve)!(event, { source: 'thread', id: 't1', kind: 'finished' })).rejects.toThrow('main frame')
-    }
-    expect(db.prepare).not.toHaveBeenCalled()
-    expect(db.transaction).not.toHaveBeenCalled()
-  })
-
   it('refuses nonsense with its code before touching the database', async () => {
-    registerActivityIpc({ db, sender: () => {} })
+    registerActivityIpc({ db })
     await expect(handlers.get(IPC_CHANNELS.activity.record)!({}, 'not a list')).resolves.toEqual({ ok: false, refusal: 'invalid', message: { code: 'activity.invalid', params: {} } })
     await expect(handlers.get(IPC_CHANNELS.activity.seen)!({}, Date.now() + 120_000)).resolves.toMatchObject({ ok: false, refusal: 'future' })
     await expect(handlers.get(IPC_CHANNELS.activity.resolve)!({}, { source: 'thread', id: 't1' })).resolves.toMatchObject({ ok: false, refusal: 'invalid' })

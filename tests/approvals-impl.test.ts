@@ -1,16 +1,17 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 
-const handlers = new Map<string, (event: unknown, value?: unknown) => unknown>()
-vi.mock('electron', () => ({
-  ipcMain: { handle: (channel: string, handler: (event: unknown, value?: unknown) => unknown) => { handlers.set(channel, handler) } },
-  BrowserWindow: { fromWebContents: (sender: { app?: boolean }) => (sender.app ? {} : null) }
-}))
+const { handlers, ipcMain } = vi.hoisted(() => {
+  const handlers = new Map<string, (event: unknown, value?: unknown) => unknown>()
+  return { handlers, ipcMain: { handle: (channel: string, handler: (event: unknown, value?: unknown) => unknown) => { handlers.set(channel, handler) } } }
+})
+vi.mock('electron', () => ({ ipcMain, app: { on: vi.fn() } }))
 
 const { NotifyGate } = await import('../electron/main/services/approvals/notify-gate')
 const { noticeTitle } = await import('../electron/main/services/approvals/drafts')
 const { paneInfo, providerName, requesterFor, setRequesterLookup, ownerFromLabel } = await import('../electron/main/services/approvals/requester')
 const { registerApprovalsIpc } = await import('../electron/main/ipc/approvals.ipc')
+const { installIpcSenderGuard, trustAppWindow, IPC_SENDER_REFUSED } = await import('../electron/main/ipc/ipc-sender-guard')
 const { englishText } = await import('../electron/main/agent-text')
 const { mainMessage } = await import('../shared/messages')
 const { NOTIFY_PER_MINUTE } = await import('../shared/types/approvals')
@@ -76,20 +77,25 @@ describe('the requester the person sees (B10)', () => {
 
 describe('the window side of approvals (B10)', () => {
   const center = { list: vi.fn(() => []), history: vi.fn(() => []), respond: vi.fn(() => ({ ok: true })), ack: vi.fn(() => ({ ok: true })), unavailable: vi.fn(() => ({ ok: true })) }
+  // The sender check is the central guard's (B12), installed on ipcMain before anything registers, as index.ts does.
+  installIpcSenderGuard(ipcMain, null)
   registerApprovalsIpc(center as never)
-  const mainFrame = {}
-  const fromApp = { sender: { app: true, mainFrame }, senderFrame: mainFrame }
-  const fromSubframe = { sender: { app: true, mainFrame }, senderFrame: {} }
-  const fromWebview = { sender: { app: false, mainFrame }, senderFrame: mainFrame }
+  const appWindow = { mainFrame: {} }
+  trustAppWindow({ webContents: appWindow as never })
+  const guest = { mainFrame: {} }
+  const fromApp = { sender: appWindow, senderFrame: appWindow.mainFrame }
+  const fromSubframe = { sender: appWindow, senderFrame: {} }
+  const fromWebview = { sender: guest, senderFrame: guest.mainFrame }
 
   it('registers every window → main channel', () => {
     for (const channel of ['list', 'respond', 'ack', 'unavailable', 'history'] as const) expect(handlers.has(IPC_CHANNELS.approvals[channel]), channel).toBe(true)
   })
 
-  it('refuses a subframe or a webview before the center sees the call', () => {
+  it('refuses a subframe or a guest with ipc.sender.refused before the center sees the call', () => {
     for (const event of [fromSubframe, fromWebview]) {
-      for (const channel of ['respond', 'ack', 'unavailable', 'list'] as const) {
-        expect(() => handlers.get(IPC_CHANNELS.approvals[channel])!(event, { id: 'r1', generation: 1, optionId: 'allow-once' }), channel).toThrow(/main frame/)
+      for (const channel of ['respond', 'ack', 'unavailable', 'list', 'history'] as const) {
+        expect(() => handlers.get(IPC_CHANNELS.approvals[channel])!(event, { id: 'r1', generation: 1, optionId: 'allow-once' }), channel)
+          .toThrow(expect.objectContaining({ code: IPC_SENDER_REFUSED, message: IPC_SENDER_REFUSED }))
       }
     }
     expect(center.respond).not.toHaveBeenCalled()
