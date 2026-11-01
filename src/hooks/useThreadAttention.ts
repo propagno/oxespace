@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { i18n } from '../i18n'
 import type { ConversationThread, ThreadPendingRequestSummary, ThreadStatus } from '../../shared/types/thread'
 import { useActivityStore, type ActivityKind } from '../store/activity.store'
 import { useSettingsStore } from '../store/settings.store'
@@ -109,7 +110,7 @@ async function seedPending(read: () => Promise<ThreadPendingRequestSummary[]>, t
       source: 'thread', id: threadId, kind: 'needs-you',
       target: threadTarget({ id: threadId, workspaceId: first.workspaceId }),
       title: titles.get(threadId) ?? displayThreadTitle(first.threadTitle),
-      detail: requests.length > 1 ? `${requests.length} requests are waiting for your decision.` : first.title,
+      detail: requests.length > 1 ? i18n.t('notify.requestsWaiting', { ns: 'thread', count: requests.length }) : first.title,
       at: Math.max(...requests.map(request => request.createdAt))
     })
   }

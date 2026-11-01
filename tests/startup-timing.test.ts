@@ -7,7 +7,6 @@ import { createFakeIpcMain } from './helpers/fake-ipc-main'
 const ipc = createFakeIpcMain()
 const recorded: Array<{ event: string; detail: Record<string, unknown> }> = []
 vi.mock('electron', () => ({ ipcMain: ipc }))
-vi.mock('../electron/main/ipc/ipc-guards', () => ({ requireAppFrame: () => undefined }))
 vi.mock('../electron/main/services/runtime-diagnostics', () => ({
   recordRuntime: (event: string, detail: Record<string, unknown>) => recorded.push({ event, detail })
 }))
