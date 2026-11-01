@@ -22,6 +22,10 @@ describe('agent notifications (B10)', () => {
     const gate = new NotifyGate(() => 0)
     expect(gate.check('e1', 'OXESpace: security update', '')).toEqual({ code: 'notify.refused.reservedName', params: { name: 'OXESpace' } })
     expect(gate.check('e1', 'Done', 'Approved by ＯｘｅＣｈａｔ')).toEqual({ code: 'notify.refused.reservedName', params: { name: 'OxeChat' } })
+    // The system's words count anywhere in a notice, not only first (security review of #247, M2).
+    expect(gate.check('e1', 'Important: System notice', '')).toEqual({ code: 'notify.refused.reservedName', params: { name: 'System' } })
+    expect(gate.check('e1', 'Done', 'Please verify: Security')).toEqual({ code: 'notify.refused.reservedName', params: { name: 'Security' } })
+    expect(gate.check('e1', 'Windows​Security', '')).toEqual({ code: 'notify.refused.reservedName', params: { name: 'Windows' } })
     for (let index = 0; index < NOTIFY_PER_MINUTE; index++) expect(gate.check('e1', 'Build done', '')).toBeNull()
   })
 
