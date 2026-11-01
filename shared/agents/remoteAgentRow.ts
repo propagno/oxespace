@@ -3,7 +3,8 @@
  * from a desktop row, paging rows and events into frames, the subscription cursor, and the `agent.markSeen` args.
  * Gateway only: the renderer imports `agentsOverview.ts`, never this module, so the remote protocol stays out of it.
  *
- * Privacy (§8): no path, no session id, no cost, no seen time, no revision. Free text (titles, workspace names, request
+ * Privacy (§8): no path, no session id, no cost, no seen time. The row's `rev` goes along (#347): it orders the phone's
+ * upserts. Free text (titles, workspace names, request
  * titles) goes through the gateway's cleaner first, the same one the `threads` and `delegations` topics use, which
  * removes secrets and paths under the person's roots; then hidden and control characters go and the text is cut.
  */
@@ -66,6 +67,7 @@ export function toRemoteAgentRow(row: AgentOverviewRow, context: RemoteAgentCont
     id: row.key,
     kind: row.kind,
     state: row.state,
+    rev: row.rev,
     since: row.since,
     title: shown(context, row.title),
     workspaceName: shown(context, context.workspaceName)
