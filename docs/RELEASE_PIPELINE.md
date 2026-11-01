@@ -153,10 +153,27 @@ they had run on the PR) and on `main` after each merge. `[skip ci]` never touche
 only applies while that merge commit is the PR's head: a person's next push runs CI as usual. A run that
 ended `action_required` or with every job skipped never stands for CI on a head.
 
+**Behind only by docs.** A green car is not updated again when every commit `main` gained since the car's
+merge base (GitHub's compare, each commit's own files plus the net diff, renames' old paths included) only
+adds or edits docs-only paths: `docs/**`, `.claude/**` or `*.md`, outside `src/`, `electron/`, `shared/`,
+`tests/` and `e2e/`, and not a doc that a test or a CI gate reads. Those read docs are listed once in
+`scripts/merge-train.mjs` (`TEST_READ_DOCS`: `README.md`, `SECURITY.md`, `THIRD_PARTY_NOTICES.md` and every
+Markdown file under `docs/` except `docs/plans/` and `docs/audits/`, because `tests/unit/docs-links.test.ts` checks their links),
+and a unit test greps `tests/` and `e2e/` for doc paths and fails when a read one is missing. A removal or a
+rename, more than 20 commits, or a list GitHub cuts short always means an update. The merge still pins the
+CI-tested head, so `main` gets exactly the tested tree plus those docs.
+
 **Superseded runs.** Right after an update, the train cancels the runs that only hold runner slots: runs of
-its dispatchable workflows, from this repository, on that PR's branch, still queued or running, on a head
-that is no longer the PR's, and not tied to another PR. It never cancels a run on the current head, on
-`main`, of another PR, or of any other workflow. The same token may not push a
+its dispatchable workflows, from this repository, on that PR's branch, still queued or running, on exactly
+the head the train replaced, not tied to another PR, and started either by the PR (`pull_request`) or by the
+train's own dispatch. It never cancels a run on the current head or a later push, on `main`, of another PR, a
+person's manual dispatch (Full check, Packaged smoke, publish), a push or tag run, or any other workflow.
+
+When a head has no runs at all (an author's own `[skip ci]`), the train dispatches all four workflows (`ci.yml`,
+`a11y-axe.yml`, `memory-compatibility.yml`, `android.yml`), and an `Android` run on the head gates the merge
+like CI, axe and memory compatibility. The update itself is check-then-act (read the head, then merge `main`
+into the branch by name); a push in that window only gets `main` merged on top of it, which changes the head
+and sends it through CI again, so this is accepted while batches are of size 1. The same token may not push a
 change to `.github/workflows`: when GitHub refuses a merge (or a branch update) for that, the PR leaves the
 queue with that cause and the coordinator merges it.
 

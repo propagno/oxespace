@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { load } from 'js-yaml'
 import { describe, expect, it } from 'vitest'
@@ -11,6 +11,9 @@ import {
   PREFIX,
   TRAIN_JOB_NAME,
   createGitHubApi,
+  docsOnlyCommits,
+  isDocsOnlyPath,
+  isTestReadDoc,
   orderQueue,
   parseTrainState,
   renderComment,
@@ -57,7 +60,7 @@ const ciRun = (over: Partial<Run> = {}): Run => ({
   ...over,
 })
 const check = (name: string, over: Partial<Check> = {}): Check => ({ name, headSha: HEAD, status: 'completed', conclusion: 'success', ...over })
-type BranchRun = { id: number; path: string; event: string; status: string; headSha: string; headBranch: string; headRepo: string | null; pullRequests: number[] }
+type BranchRun = { id: number; path: string; event: string; status: string; headSha: string; headBranch: string; headRepo: string | null; triggeringActor: string | null; pullRequests: number[] }
 const branchRun = (over: Partial<BranchRun> = {}): BranchRun => ({
   id: 1,
   path: '.github/workflows/ci.yml',
@@ -66,6 +69,7 @@ const branchRun = (over: Partial<BranchRun> = {}): BranchRun => ({
   headSha: OLD,
   headBranch: 'feat/x',
   headRepo: 'o/r',
+  triggeringActor: 'github-actions[bot]',
   pullRequests: [],
   ...over,
 })
@@ -213,7 +217,7 @@ describe('merge train step', () => {
     const early = step(input({ runs: [], checks: [], trainState: { head: HEAD, since: iso(NOW - 1000), labeledAt } }))
     expect(early.type).toBe('wait')
     const late = step(input({ runs: [], checks: [], trainState: { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt } }))
-    expect(late).toMatchObject({ type: 'dispatch', dispatch: ['ci.yml'], state: { dispatchedFor: HEAD } })
+    expect(late).toMatchObject({ type: 'dispatch', dispatch: ['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'], state: { dispatchedFor: HEAD } })
     const again = step(input({ runs: [], checks: [], trainState: late.state }))
     expect(again.type).toBe('wait')
   })
@@ -313,6 +317,9 @@ function fakeApi(prs: Array<{ number: number; labeledAt: string | null; pr?: Rec
     },
     async dispatchWorkflow(file: string, ref: string) {
       writes.push(['dispatch', file, ref])
+    },
+    async docsOnlySince(_sha: string): Promise<boolean> {
+      return false
     },
     branchRuns: [] as BranchRun[],
     async listBranchRuns(_ref: string): Promise<BranchRun[]> {
@@ -487,7 +494,8 @@ describe('security (review of #318)', () => {
     const body = renderComment('waiting: x.', { head: HEAD, since: iso(NOW - 1000), labeledAt, dispatch: ['../../actions/runs/1/approve?', 'ci.yml', 'release.yml'] })
     expect(parseTrainState(body, NOW)?.dispatch).toEqual(['ci.yml'])
     const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt, dispatch: ['../../x?', 'release.yml'] }
-    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml'])
+    // Nothing allowed is left, so the fallback dispatches the fixed four (#375 L4), never the forged entries.
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'])
     const urls: string[] = []
     const fetchImpl = async (url: string) => {
       urls.push(url)
@@ -618,7 +626,7 @@ describe('security (review of #318)', () => {
 })
 
 describe('superseded runs (homologation follow-up b)', () => {
-  const at = { number: 7, headRef: 'feat/x', headSha: HEAD, repo: 'o/r', base: 'main' }
+  const at = { number: 7, headRef: 'feat/x', headSha: HEAD, replacedHead: OLD, repo: 'o/r', base: 'main' }
 
   it("cancels the same PR's queued or running runs on an old head", () => {
     const runs = [
@@ -652,6 +660,222 @@ describe('superseded runs (homologation follow-up b)', () => {
     expect(selectStaleRuns([branchRun()], { ...at, headSha: undefined })).toEqual([])
     expect(selectStaleRuns(undefined, at)).toEqual([])
   })
+
+  it('#375 L1: only runs on the replaced head, started by the PR or the train, are cancelled', () => {
+    const third = 'e'.repeat(40)
+    const runs = [
+      branchRun({ id: 1 }),
+      branchRun({ id: 2, event: 'pull_request', triggeringActor: 'author', pullRequests: [7] }),
+      // A push that landed after the train read the new head: someone's newer head, not superseded.
+      branchRun({ id: 3, headSha: third, event: 'pull_request', pullRequests: [7] }),
+      // A maintainer's manual dispatch (Full check, Packaged smoke, publish) on the old head.
+      branchRun({ id: 4, triggeringActor: 'maintainer' }),
+      branchRun({ id: 5, triggeringActor: null }),
+      // A push or tag run whose head_branch happens to equal the PR branch.
+      branchRun({ id: 6, event: 'push' }),
+      branchRun({ id: 7, event: 'release' }),
+      // The train's own dispatch on the new head.
+      branchRun({ id: 8, headSha: HEAD }),
+    ]
+    expect(selectStaleRuns(runs, at)).toEqual([1, 2])
+    expect(selectStaleRuns(runs, { ...at, replacedHead: undefined })).toEqual([])
+    expect(selectStaleRuns(runs, { ...at, replacedHead: HEAD })).toEqual([])
+  })
+})
+
+describe('docs-only main changes (coordinator rule)', () => {
+  const edit = (filename: string, extra: Record<string, unknown> = {}) => ({ filename, status: 'modified', ...extra })
+
+  it('skips the update when main is ahead only by docs', () => {
+    expect(docsOnlyCommits([{ files: [edit('docs/plans/x.md'), edit('.claude/roadmap-1.4/data.py'), edit('mobile/README.md', { status: 'added' })] }])).toBe(true)
+    expect(step(input({ behindBy: 2, docsOnlyBehind: true }))).toMatchObject({ type: 'merge', expectedHead: HEAD })
+    expect(step(input({ behindBy: 2, docsOnlyBehind: true })).message).toMatch(/only by docs/)
+    expect(step(input({ behindBy: 2, docsOnlyBehind: false })).type).toBe('update')
+    expect(step(input({ behindBy: 2 })).type).toBe('update')
+  })
+
+  it('one src file, or any code root, re-updates', () => {
+    expect(docsOnlyCommits([{ files: [edit('docs/plans/x.md')] }, { files: [edit('src/App.tsx')] }])).toBe(false)
+    for (const path of ['src/README.md', 'electron/main/x.md', 'shared/a.md', 'tests/notes.md', 'e2e/a.md', 'package.json', 'scripts/x.mjs'])
+      expect(isDocsOnlyPath(path)).toBe(false)
+  })
+
+  it('a doc a test reads re-updates', () => {
+    for (const path of ['README.md', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'docs/PRIVACY.md', 'docs/security/threat-model-owasp-agentic-1.4.md', 'docs/validation/mcp-coverage-1.4.md']) {
+      expect(isDocsOnlyPath(path)).toBe(false)
+      expect(docsOnlyCommits([{ files: [edit(path)] }])).toBe(false)
+    }
+    // docs-links skips the dated records, so those stay docs-only.
+    expect(isDocsOnlyPath('docs/plans/thread/plan.md')).toBe(true)
+    expect(isDocsOnlyPath('docs/audits/2026-10.md')).toBe(true)
+  })
+
+  it('a rename from src to docs, or any removal, re-updates', () => {
+    expect(docsOnlyCommits([{ files: [edit('docs/plans/moved.md', { status: 'renamed', previous_filename: 'src/moved.md' })] }])).toBe(false)
+    expect(docsOnlyCommits([{ files: [edit('docs/plans/b.md', { status: 'renamed', previous_filename: 'docs/plans/a.md' })] }])).toBe(false)
+    expect(docsOnlyCommits([{ files: [edit('docs/assets/logo.png', { status: 'removed' })] }])).toBe(false)
+  })
+
+  it('an empty or cut-short compare re-updates; a commit with no files is fine when the rest is docs', () => {
+    expect(docsOnlyCommits([])).toBe(false)
+    expect(docsOnlyCommits(undefined)).toBe(false)
+    expect(docsOnlyCommits([{ files: [edit('docs/plans/x.md')], truncated: true }])).toBe(false)
+    expect(docsOnlyCommits([{ files: undefined }])).toBe(false)
+    expect(docsOnlyCommits([{ files: [] }, { files: [edit('docs/plans/x.md')] }])).toBe(true)
+    expect(isDocsOnlyPath('../docs/x.md')).toBe(false)
+    expect(isDocsOnlyPath('/docs/x.md')).toBe(false)
+  })
+
+  it('the adapter reads main since the merge base, every commit and the net diff, and fails closed', async () => {
+    const respond = (data: unknown) => ({ ok: true, status: 200, json: async () => data, text: async () => '', headers: { get: () => '' } })
+    const make = (compare: Record<string, unknown>, commitFiles: Record<string, unknown[] | undefined>) => {
+      const urls: string[] = []
+      const api = createGitHubApi({
+        token: 't',
+        repo: 'o/r',
+        fetchImpl: async (url: string) => {
+          urls.push(url)
+          if (url.includes('/compare/')) return respond(compare)
+          return respond({ files: commitFiles[url.split('/').pop()!] })
+        },
+      })
+      return { api, urls }
+    }
+    const docs = [edit('docs/plans/x.md')]
+    const ok = make({ total_commits: 2, commits: [{ sha: 'c1' }, { sha: 'c2' }], files: docs }, { c1: docs, c2: [] })
+    expect(await ok.api.docsOnlySince(HEAD)).toBe(true)
+    expect(ok.urls[0]).toBe(`https://api.github.com/repos/o/r/compare/${HEAD}...main`)
+    // A merge commit that lists no files but whose net diff touches src.
+    expect(await make({ total_commits: 1, commits: [{ sha: 'm' }], files: [edit('src/a.ts')] }, { m: [] }).api.docsOnlySince(HEAD)).toBe(false)
+    expect(await make({ total_commits: 3, commits: [{ sha: 'c1' }], files: docs }, { c1: docs }).api.docsOnlySince(HEAD)).toBe(false)
+    expect(await make({ total_commits: 0, commits: [], files: [] }, {}).api.docsOnlySince(HEAD)).toBe(false)
+    expect(await make({ total_commits: 1, commits: [{ sha: 'c1' }] }, { c1: docs }).api.docsOnlySince(HEAD)).toBe(false)
+  })
+
+  it('runTrain merges a docs-behind car without updating it, and re-checks right before the merge', async () => {
+    const api = fakeApi([{ number: 30, labeledAt: '2026-10-31T09:00:00Z', behindBy: 3 }])
+    let calls = 0
+    api.docsOnlySince = async () => ++calls === 1
+    const actions = await runTrain(api, { now: NOW, sleep: noSleep, repo: 'o/r', headPolls: 1 })
+    // The re-check found a code commit: no merge, the car is updated instead.
+    expect(api.writes.some(([w]) => w === 'merge')).toBe(false)
+    expect(actions.map((a: { type: string }) => a.type)).toEqual(['merge', 'update'])
+    const green = fakeApi([{ number: 31, labeledAt: '2026-10-31T09:00:00Z', behindBy: 3 }])
+    green.docsOnlySince = async () => true
+    await runTrain(green, { now: NOW, sleep: noSleep, repo: 'o/r' })
+    expect(green.writes).toContainEqual(['merge', 31, HEAD])
+    expect(green.writes.some(([w]) => w === 'updateBranch')).toBe(false)
+  })
+
+  it('every doc path a test reads is in the one list (greps tests/ and e2e/)', () => {
+    // Paths the scan finds that are fixtures in a temp folder or path strings, not reads of this repository.
+    const notReads = new Set(['.claude', '.claude/settings.local.json'])
+    // Folders a test lists, and the rule that covers what it reads there.
+    const folderReads: Record<string, string> = { docs: 'docs/x/any.md', 'docs/plans': 'skipped by docs-links', 'docs/audits': 'skipped by docs-links' }
+    const hits = scanDocReads(['tests', 'e2e'])
+    expect(hits.length).toBeGreaterThan(3)
+    for (const hit of hits) {
+      if (notReads.has(hit.path)) continue
+      if (hit.dir) {
+        expect(folderReads, `${hit.path} is listed by ${hit.where}`).toHaveProperty([hit.path])
+        if (!folderReads[hit.path].startsWith('skipped')) expect(isDocsOnlyPath(folderReads[hit.path])).toBe(false)
+        continue
+      }
+      expect(isTestReadDoc(hit.path), `${hit.path} is read by ${hit.where}`).toBe(true)
+    }
+  })
+})
+
+/** Doc paths (docs/**, .claude/**, *.md) that exist in this repository and appear in the given folders' code. */
+function scanDocReads(folders: string[]): Array<{ path: string; dir: boolean; where: string }> {
+  const files: string[] = []
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = `${dir}/${entry.name}`
+      if (entry.isDirectory()) {
+        if (!['node_modules', 'screenshots', 'test-results'].some((skip) => entry.name.startsWith(skip))) walk(path)
+      } else if (/\.(m?[jt]sx?|cjs)$/.test(entry.name) && !path.endsWith('merge-train.test.ts')) files.push(path)
+    }
+  }
+  for (const folder of folders) if (existsSync(folder)) walk(folder)
+  // The repository's own spelling of a path, or null (Windows and macOS file systems ignore case).
+  const actual = (path: string): string | null => {
+    let at = '.'
+    const parts: string[] = []
+    for (const part of path.replace(/\/$/, '').split('/')) {
+      const name = existsSync(at) && statSync(at).isDirectory() ? readdirSync(at).find((n) => n.toLowerCase() === part.toLowerCase()) : undefined
+      if (!name) return null
+      parts.push(name)
+      at = `${at}/${name}`
+    }
+    return parts.join('/')
+  }
+  const found = new Map<string, Set<string>>()
+  const add = (raw: string, where: string) => {
+    const path = actual(raw.replace(/^\.\//, ''))
+    if (!path) return
+    if (!found.has(path)) found.set(path, new Set())
+    found.get(path)!.add(where)
+  }
+  const literal = /['"`](\.\/)?((?:docs|\.claude)\/[^'"`*\s$]+|[A-Za-z0-9_.-]+\.md)['"`]/g
+  const call = /\(\s*[^()'"`]*?,\s*((?:['"`][^'"`]+['"`]\s*,\s*)*['"`][^'"`]+['"`])\s*\)/g
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8')
+    for (const m of text.matchAll(literal)) add(m[2], file)
+    for (const m of text.matchAll(call)) {
+      const parts = [...m[1].matchAll(/['"`]([^'"`]+)['"`]/g)].map((x) => x[1])
+      const at = parts.findIndex((p) => p === 'docs' || p === '.claude')
+      if (at >= 0) add(parts.slice(at).join('/'), file)
+    }
+  }
+  return [...found].map(([path, where]) => ({ path, dir: statSync(path).isDirectory(), where: [...where].join(', ') }))
+}
+
+describe('#375 security fixes', () => {
+  const respond = (data: unknown, status = 200) => ({ ok: status < 300, status, json: async () => data, text: async () => '', headers: { get: () => '' } })
+
+  it('L3: never updates a closed PR, a fork branch, or the base branch', async () => {
+    for (const pull of [
+      { state: 'closed', head: { sha: HEAD, ref: 'feat/x', repo: { full_name: 'o/r' } } },
+      { state: 'open', head: { sha: HEAD, ref: 'release/x', repo: { full_name: 'fork/r' } } },
+      { state: 'open', head: { sha: HEAD, ref: 'release/x', repo: null } },
+      { state: 'open', head: { sha: HEAD, ref: 'main', repo: { full_name: 'o/r' } } },
+    ]) {
+      const methods: string[] = []
+      const api = createGitHubApi({
+        token: 't',
+        repo: 'o/r',
+        fetchImpl: async (_url: string, init: { method: string }) => {
+          methods.push(init.method)
+          return respond(pull)
+        },
+      })
+      await expect(api.updateBranch(7, HEAD)).rejects.toMatchObject({ status: 403 })
+      expect(methods).toEqual(['GET'])
+    }
+  })
+
+  it('L4: with no runs at all on the head and no update of its own, the train dispatches all four workflows', () => {
+    const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt: pr().labeledAt }
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'])
+  })
+
+  it('L4: an Android run on the head is a gate like the others', () => {
+    const runs = [ciRun(), ciRun({ name: 'Android', path: '.github/workflows/android.yml', status: 'in_progress', conclusion: null })]
+    expect(step(input({ runs })).message).toMatch(/Android still running/)
+    expect(step(input({ runs: [ciRun(), ciRun({ name: 'Android', conclusion: 'failure' })], checks: greenChecks() })).type).toBe('unlabel')
+  })
+
+  it('L5: a 409 that is not a merge conflict says what GitHub answered', async () => {
+    const api = fakeApi([{ number: 22, labeledAt: '2026-10-31T09:00:00Z', pr: { headSha: OLD }, behindBy: 1 }])
+    api.updateBranch = async () => {
+      throw Object.assign(new Error('POST /repos/o/r/merges: 409 Protected branch update failed'), { status: 409 })
+    }
+    await runTrain(api, { now: NOW, sleep: noSleep, repo: 'o/r' })
+    const body = api.comments.get(22)![0].body
+    expect(body).not.toMatch(/conflicts with main/)
+    expect(body).toMatch(/GitHub answered 409 to the branch update: .*Protected branch update failed/)
+  })
 })
 
 describe('bot pushes and their unapproved runs (homologation follow-up a)', () => {
@@ -670,7 +894,7 @@ describe('bot pushes and their unapproved runs (homologation follow-up a)', () =
     const respond = (data: unknown, status = 200) => ({ ok: status < 300, status, json: async () => data, text: async () => 'conflict', headers: { get: () => '' } })
     const fetchImpl = async (url: string, init: { method: string; body?: string }) => {
       calls.push([init.method, url, init.body ? JSON.parse(init.body) : undefined])
-      if (init.method === 'GET') return respond({ head: { sha: head, ref: 'feat/x' } })
+      if (init.method === 'GET') return respond({ state: 'open', head: { sha: head, ref: 'feat/x', repo: { full_name: 'o/r' } } })
       return respond({ sha: 'd'.repeat(40) }, 201)
     }
     const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
