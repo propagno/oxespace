@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, resizeWindow } from '../helpers/launch'
 import { launchReal, quitReal, realProfile } from './real-app'
 
 /**
@@ -30,62 +30,76 @@ function queue(now: number) {
   ]
 }
 const pending = (page: Page) => page.evaluate(() => (window as unknown as { oxe: { approvals: { list: () => Promise<Array<{ id: string }>> } } }).oxe.approvals.list().then(l => l.map(r => r.id)))
-const modal = (page: Page) => page.getByRole('dialog').filter({ has: page.locator('pre') }).last()
+// The approval window. It stands over the whole app (a modal), so a spec reaches the rest only once it is answered.
+const modal = (page: Page) => page.getByTestId('approval-dialog')
+/** The window ignores answers for 400 ms after a request appears (#243's ARM_MS); wait past it before answering. */
+const ARMED = 600
 
 test('F18/#243: queue in order, critical pacing, a cut text only denies, history, no native dialog', async () => {
   test.setTimeout(120_000)
-  process.env.OXESPACE_E2E_APPROVALS = JSON.stringify(queue(Date.now() + 3_000))
-  const { app, page, workspaceRoot } = await launchApp({ locale: 'en-US' })
+  // Shown as soon as the window loads, before anything else takes the keyboard: the person sees it first.
+  process.env.OXESPACE_E2E_APPROVALS = JSON.stringify(queue(Date.now()))
+  const { app, page } = await launchApp({ locale: 'en-US' })
   try {
     await app.evaluate(({ dialog }) => {
       const g = globalThis as Record<string, unknown>; g.nativeAsked = 0
       dialog.showMessageBox = (async () => { g.nativeAsked = (g.nativeAsked as number) + 1; return { response: 0, checkboxChecked: false } }) as typeof dialog.showMessageBox
     })
     await resizeWindow(app, 1280, 860)
-    await openDemoWorkspace(page, workspaceRoot)
     await expect(modal(page)).toBeVisible({ timeout: 15_000 })
 
     // Queue: oldest first, with its place shown.
     await expect.soft(modal(page).getByText(/\b1\s*(of|de)\s*3\b/), 'the queue position is shown').toBeVisible()
     await expect.soft(modal(page).locator('pre').first()).toContainText('DROP TABLE orders;')
-    // Critical: Deny has the focus, Allow waits 2 s and says so, Enter does nothing.
+    // Critical: Deny (the default) has the focus, Allow waits 2 s and says so, Enter does nothing, on any button.
     const allowButton = modal(page).getByRole('button', { name: /Allow/ })
-    await expect.soft(modal(page).getByRole('button', { name: /^Deny$/ })).toBeFocused()
+    const denyButton = modal(page).getByRole('button', { name: /^Deny$/ })
+    await expect.soft(denyButton, 'the default (Deny) has the focus').toBeFocused()
     await expect.soft(allowButton, 'allow is not available at once at critical risk').toBeDisabled()
-    await expect.soft(modal(page).getByText(/\b[12]\s*s\b|second/i).first(), 'the wait is shown').toBeVisible()
+    await expect.soft(modal(page).getByTestId('approval-hold'), 'the wait is shown').toBeVisible()
+    await page.waitForTimeout(ARMED)
+    await denyButton.focus()
     await page.keyboard.press('Enter')
     await page.waitForTimeout(300)
-    expect.soft(await pending(page), 'Enter answered nothing').toContain('f18-critical')
-    await page.waitForTimeout(2_200)
-    await expect.soft(allowButton, 'allow is available after 2 s').toBeEnabled()
-    await modal(page).getByRole('button', { name: /^Deny$/ }).click()
+    expect.soft(await pending(page), 'Enter on Deny answered nothing at critical').toContain('f18-critical')
+    await expect.soft(allowButton, 'allow is available after 2 s').toBeEnabled({ timeout: 4_000 })
+    await allowButton.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
+    expect.soft(await pending(page), 'Enter on Allow answered nothing at critical').toContain('f18-critical')
+    await denyButton.click()
 
     // Next in the queue.
     await expect.soft(modal(page).getByText(/\b2\s*(of|de)\s*3\b/)).toBeVisible({ timeout: 5_000 })
-    await modal(page).getByRole('button', { name: /^Deny$/ }).click()
+    await page.waitForTimeout(ARMED)
+    await denyButton.click()
 
     // A cut text: said so, and only Deny is offered.
     await expect.soft(modal(page).getByText(/cut|truncat|shortened|first 100/i).first(), 'the cut is announced').toBeVisible({ timeout: 5_000 })
-    expect.soft(await modal(page).getByRole('button', { name: /Allow/ }).count(), 'a cut text can only be denied').toBe(0)
-    await modal(page).getByRole('button', { name: /^Deny$/ }).click()
+    expect.soft(await allowButton.count(), 'a cut text can only be denied').toBe(0)
+    await page.waitForTimeout(ARMED)
+    await denyButton.click()
     await expect(modal(page)).toHaveCount(0, { timeout: 5_000 })
+    expect.soft(await pending(page), 'nothing left').toEqual([])
 
-    // History of this session's decisions, in the app.
+    // History of this session's decisions, in the app, from the command palette.
     await page.keyboard.press('Control+k')
-    await page.keyboard.type('approval history')
-    await page.getByRole('option', { name: /approval/i }).first().click()
-    const history = page.getByRole('dialog', { name: /history/i }).or(page.getByRole('region', { name: /approval/i })).first()
+    await page.keyboard.insertText('Approval history')
+    await page.locator('[cmdk-item]', { hasText: /approval history/i }).first().click()
+    const history = page.getByTestId('approval-history')
     await expect.soft(history, 'the history opens').toBeVisible({ timeout: 5_000 })
-    await expect.soft(history.getByText(/Denied/i), 'three decisions listed').toHaveCount(3)
+    await expect.soft(history.getByTestId('approval-history-row'), 'three decisions listed').toHaveCount(3)
+    await expect.soft(history.getByText(/Denied/i), 'all three denied').toHaveCount(3)
     expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).nativeAsked), 'no native dialog').toBe(0)
   } finally { delete process.env.OXESPACE_E2E_APPROVALS; await app.close() }
 })
 
 const ASKS = String.raw`
-const [count, prefix, out] = process.argv.slice(2)
+const [count, prefix, out, startAfter] = process.argv.slice(2)
 const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.OXESPACE_MCP_TOKEN, 'X-OXE-Workspace-Id': process.env.OXESPACE_WORKSPACE_ID,
   'X-OXE-Execution-Id': process.env.OXESPACE_EXECUTION_ID, 'X-OXE-Execution-Token': process.env.OXESPACE_EXECUTION_TOKEN }
 ;(async () => {
+  await new Promise(resolve => setTimeout(resolve, Number(startAfter || 0)))
   const results = []
   for (let i = 0; i < Number(count); i++) {
     const body = { jsonrpc: '2.0', id: i, method: 'tools/call', params: { name: 'oxespace_skills_change', arguments: { action: 'create', name: 'acc-' + prefix + '-' + i, description: 'acceptance', body: 'never approved' } } }
@@ -117,15 +131,22 @@ test('F18/#243 real app: past 50 a request is refused and logged; a closed pane 
     await page.getByTestId('wizard-launch-btn').click()
     const panes = page.locator('[data-testid="pane-container"]')
     await expect(panes).toHaveCount(2, { timeout: 20_000 })
-    const run = async (index: number, count: number, prefix: string) => {
-      const out = join(profile.root, `${prefix}.json`)
+    // The approval modal stands over the whole app once the first request arrives, so both panes start their script
+    // before any request: the second pane waits 10 s, then asks after the first pane's 25 are on screen.
+    const start = async (index: number, count: number, prefix: string, startAfter: number) => {
       await panes.nth(index).locator('.xterm').click()
-      await page.keyboard.type(`node "${script}" ${count} ${prefix} "${out}"`); await page.keyboard.press('Enter')
-      await expect.poll(() => existsSync(out), { timeout: 30_000 }).toBe(true)
+      await page.keyboard.type(`node "${script}" ${count} ${prefix} "${join(profile.root, `${prefix}.json`)}" ${startAfter}`); await page.keyboard.press('Enter')
+    }
+    const results = async (prefix: string) => {
+      const out = join(profile.root, `${prefix}.json`)
+      await expect.poll(() => existsSync(out), { timeout: 45_000 }).toBe(true)
       return JSON.parse(readFileSync(out, 'utf8')) as string[]
     }
-    const a = await run(0, 25, 'a')
-    const b = await run(1, 26, 'b')
+    const secondPaneId = await panes.nth(1).getAttribute('data-pane-id')
+    await start(1, 26, 'b', 10_000)
+    await start(0, 25, 'a', 0)
+    const a = await results('a')
+    const b = await results('b')
     test.info().annotations.push({ type: 'answers', description: JSON.stringify({ a0: a[0], b25: b[25] }).slice(0, 500) })
     // Fired concurrently, so which of the 51 arrives last is not fixed: exactly one is refused, the other 50 wait.
     const all = [...a, ...b]
@@ -138,11 +159,12 @@ test('F18/#243 real app: past 50 a request is refused and logged; a closed pane 
     const history = () => page.evaluate(() => (window as unknown as { oxe: { approvals: { history: () => Promise<Array<{ by: string; reason?: { code: string } }>> } } }).oxe.approvals.history())
     expect.soft((await history()).filter(h => h.by === 'refused' && /queueFull/.test(h.reason?.code ?? '')).length, 'the refusal is logged').toBe(1)
 
-    // The second pane goes away: its 25 requests are withdrawn, the first pane's stay.
-    await panes.nth(1).getByRole('button', { name: /More pane actions|Mais ações do painel/ }).click()
-    await page.getByRole('menuitem', { name: /^Close|^Fechar/ }).first().click()
-    const confirm = page.getByRole('dialog').getByRole('button', { name: /^Close|^Fechar|^End|^Encerrar/ })
-    if (await confirm.isVisible({ timeout: 1_000 }).catch(() => false)) await confirm.click()
+    // While the modal is up the pane's own menu is out of reach (the modal takes the pointer), so the second pane is
+    // closed the way its menu does it: the app's own closePane. Its 25 requests are withdrawn, the first pane's stay.
+    expect.soft(await panes.nth(1).getByRole('button', { name: /More pane actions|Mais ações do painel/ }).click({ timeout: 2_000 }).then(() => 'reached', () => 'blocked'),
+      'the modal keeps the rest of the app out of reach').toBe('blocked')
+    expect(secondPaneId).toBeTruthy()
+    await page.evaluate(`window.oxe.workspace.closePane(${JSON.stringify(secondPaneId)})`)
     await expect.configure({ soft: true }).poll(async () => (await pending(page)).length, { timeout: 10_000, message: 'the closed pane\'s requests are withdrawn' }).toBe(25)
     expect.soft((await history()).filter(h => h.by === 'cancelled').length, 'each withdrawn request is logged as cancelled').toBe(25)
     expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).nativeAsked), 'no native dialog while the window is open').toBe(0)
