@@ -20,6 +20,13 @@ class DecisionLayoutTest {
     }
 
     @Test
+    fun aDecisionThePhoneDoesNotKnowIsNeverDrawnUnderAnotherLabel() {
+        // A later "acceptAlways" must not show as an outlined "Cancel" that sends an allow.
+        assertEquals(listOf("decline" to true, "cancel" to false), decisionLayout(listOf("acceptAlways", "decline", "cancel"), "red"))
+        assertEquals(emptyList<Pair<String, Boolean>>(), decisionLayout(listOf("acceptForSession"), "green"))
+    }
+
+    @Test
     fun aDecisionThatWasNotOfferedNeverAppears() {
         assertEquals(listOf("decline" to true), decisionLayout(listOf("decline"), "red"))
         assertEquals(listOf("decline" to false), decisionLayout(listOf("decline"), "green"))
