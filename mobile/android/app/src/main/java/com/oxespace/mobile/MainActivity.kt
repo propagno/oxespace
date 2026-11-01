@@ -46,6 +46,8 @@ class MainActivity : ComponentActivity() {
 
     /** Debug builds only: a pairing link handed over adb, scanned like a camera frame ([PairLinkForHomologation]). */
     private var pairLink by mutableStateOf<String?>(null)
+    /** When pull to refresh last asked to reconnect, so repeated pulls offline keep the backoff. */
+    private var lastPullRetry = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -174,7 +176,17 @@ class MainActivity : ComponentActivity() {
                 onOpenPane = { paneId = it },
                 onEnterAddress = { askingAddress = true },
                 onUnpair = session::unpair,
-                onRefresh = { if (status is DesktopStatus.Connected) live.refreshAgents() else session.retry() },
+                onRefresh = {
+                    // Online: a fresh agents snapshot. Offline: one reconnect attempt per RETRY_PULL_MS at most, so
+                    // pulling again and again never skips the session's backoff (SECURITY #347).
+                    val now = System.currentTimeMillis()
+                    if (status is DesktopStatus.Connected) {
+                        live.refreshAgents()
+                    } else if (now - lastPullRetry >= RETRY_PULL_MS) {
+                        lastPullRetry = now
+                        session.retry()
+                    }
+                },
             )
         }
         if (askingAddress) AddressDialog(initial = desktop.manualHost.orEmpty(), onSave = session::setManualHost, onDismiss = { askingAddress = false })
@@ -205,5 +217,9 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         session.onHidden()
         super.onStop()
+    }
+
+    private companion object {
+        const val RETRY_PULL_MS = 30_000L
     }
 }

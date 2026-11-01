@@ -31,11 +31,14 @@ data class AgentsState(
 class AgentsStore : StreamListener {
     private val mutable = MutableStateFlow(AgentsState())
     val state: StateFlow<AgentsState> = mutable.asStateFlow()
+    /** The last `rev` of rows removed since the last snapshot, so a replayed older upsert can't bring one back. */
+    private val removedRevs = mutableMapOf<String, Long>()
 
     override fun onSnapshot(pages: List<JsonElement>) {
         val decoded = pages.mapNotNull { decodeOrNull(RemoteAgentsSnapshot.serializer(), it) }
         // `unavailable` and `nudgeAfterMs` ride on the page marked last only.
         val last = decoded.lastOrNull()
+        removedRevs.clear()
         mutable.value = AgentsState(
             rows = decoded.flatMap { it.agents }.filter(::known).associateBy { it.id }.values.toList(),
             unavailable = last?.unavailable.orEmpty(),
@@ -48,10 +51,11 @@ class AgentsStore : StreamListener {
         val change = decodeOrNull(RemoteAgentsEvent.serializer(), data) ?: return
         val now = mutable.value
         val byId = now.rows.associateBy { it.id }.toMutableMap()
-        change.removed?.forEach { byId.remove(it) }
+        change.removed?.forEach { id -> byId.remove(id)?.let { removedRevs[id] = it.rev } }
         change.upsert?.forEach { row ->
-            val held = byId[row.id]
-            if (held != null && row.rev <= held.rev) return@forEach
+            val newest = byId[row.id]?.rev ?: removedRevs[row.id]
+            if (newest != null && row.rev <= newest) return@forEach
+            removedRevs.remove(row.id)
             if (known(row)) byId[row.id] = row else byId.remove(row.id)
         }
         mutable.value = now.copy(rows = byId.values.toList(), unavailable = change.unavailable ?: now.unavailable)

@@ -207,7 +207,7 @@ private fun AgentRow(row: RemoteAgentRow, enabled: Boolean, onOpen: () -> Unit, 
     val title = displaySafe(row.title, TITLE_MAX)
     val stateWord = stringResource(state.label)
     val workspace = displaySafe(row.workspaceName, TITLE_MAX)
-    val provider = row.provider?.let(::providerName)
+    val provider = row.provider?.let { providerName(displaySafe(it, PROVIDER_MAX)) }
     val tasks = row.tasks?.let { stringResource(R.string.agents_tasks, it.done.toInt(), it.total.toInt()) }
     val requestTitle = request?.let { requestTitleText(it) }
     val more = request?.more?.toInt()?.takeIf { it > 0 }
@@ -309,7 +309,7 @@ private fun RowSheet(row: RemoteAgentRow, onDismiss: () -> Unit) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space2), verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
             Text(displaySafe(row.title, TITLE_MAX), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             Text(
-                listOfNotNull(stringResource(state.label), ageLabel(row.since), displaySafe(row.workspaceName, TITLE_MAX), row.provider?.let(::providerName)).joinToString(" · "),
+                listOfNotNull(stringResource(state.label), ageLabel(row.since), displaySafe(row.workspaceName, TITLE_MAX), row.provider?.let { providerName(displaySafe(it, PROVIDER_MAX)) }).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Oxe.colors.textSecondary,
             )
@@ -412,4 +412,5 @@ private val AgentFilter.label: Int get() = when (this) {
 
 private const val TITLE_MAX = 200
 private const val PARAM_MAX = 80
+private const val PROVIDER_MAX = 40
 private const val REFRESH_MAX_MS = 5_000L

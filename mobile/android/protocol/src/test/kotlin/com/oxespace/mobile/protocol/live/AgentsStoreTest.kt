@@ -83,6 +83,20 @@ class AgentsStoreTest {
     }
 
     @Test
+    fun aReplayedOlderUpsertNeverBringsBackARemovedRow() {
+        val store = AgentsStore()
+        store.onSnapshot(listOf(json("""{"agents":[${row("conversation:a", rev = 5)}]}""")))
+        store.onEvent(json("""{"removed":["conversation:a"]}"""))
+        // A resume replays an upsert the desktop sent before removing it.
+        store.onEvent(json("""{"upsert":[${row("conversation:a", state = "finished", rev = 4)}]}"""))
+        store.onEvent(json("""{"upsert":[${row("conversation:a", state = "finished", rev = 5)}]}"""))
+        assertEquals(emptyList<String>(), store.state.value.rows.map { it.id })
+        // The same agent coming back for real carries a higher rev.
+        store.onEvent(json("""{"upsert":[${row("conversation:a", state = "working", rev = 6)}]}"""))
+        assertEquals("working", store.state.value.rows.single().state)
+    }
+
+    @Test
     fun aFreshSnapshotReplacesEverythingIncludingATurnedOffNudge() {
         val store = AgentsStore()
         store.onSnapshot(listOf(json("""{"agents":[${row("conversation:a")}],"nudgeAfterMs":60000}""")))
