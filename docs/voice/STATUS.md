@@ -34,18 +34,35 @@ Branch `feat/voice-native-1.5`, from `origin/main` `fdf38a2c`. Built with **oxe-
 
 10 attempts · 49 `claude -p` turns · US$ 4.34. Planned budget was ~32 turns; the 2× ceiling (~64) was not reached. Of these, 13 turns / US$ 0.75 went to a broken verify command written by the planner, now prevented by `plan lint --dry-verify`.
 
-## PAUSED (2026-11-01)
+## F1 rework (2026-11-01): partial, at the 26-turn cap
 
-Paused by the coordinator over the user's quota. No new `claude -p` until the 1.4.0 RC. F1 is committed and verified; nothing is lost.
+- **Base:** re-merged `origin/main` d8e073e8, which includes #261 (`requireAppFrame` removed; global sender guard). Planner commit `4468ac32` holds the frozen acceptance tests for the CRs.
+- **Executed tasks:**
+  - T8: namespace `voice` + DESIGN copy v2 + `noLanguage` action (`a58e1faf`).
+  - T11: IPC under the global guard + lazy `loadVoice`/bootstrap (`4271960c`).
+  - T10: zero-warning lint (`6d701029`).
+  - T9: Settings › Voice revocable consent section (`234ce79a`).
+- **Verify:** 33/34. Only A8 (UAT) is pending.
+- **CRs resolved by evidence** (frozen tests with `resolves` went green): CR-01, CR-02, CR-03, CR-05, CR-06, CR-07.
+- **Independent checks:**
+  - eslint 0 problems.
+  - `thread.json` is identical to `origin/main`.
+  - **typecheck FAILS:** the `voice` namespace is missing from the i18next types (CR-08), and `ws` is missing from node_modules after the merge (environment: needs `npm ci`).
+- **Executor:** 26/26 turns, US$ 2.40.
+  - 3 turns went to a stale "Como verificar" in the SPEC (planner error).
+  - The suspect ruler stopped that task at the 2nd identical failure.
+- **Bundle:** the main entry does not import the new voice service yet (wiring is a post-B21 CCR), so the voice code adds 0 bytes today. The `verify:bundle` proof belongs to the CCR PR's CI, when `loadVoice` replaces the legacy registration at `index.ts:24/377`.
 
-When it resumes, it starts with the open change requests (`oxe-cc runtime feedback list`). Each one is closed only by a frozen acceptance test that declares `resolves: [CR-NN]`:
-
-| CR | Class | Criteria / tasks | Summary |
-|---|---|---|---|
-| CR-01 | spec_gap (A7 → v2) | A7 / T6 | DESIGN copy fixes (consent.body, error.generic, unavailable.*) |
-| CR-02 | defect | A2 / T3 | Consent revocable in a real place: Settings › Voz › "Serviço de fala da Microsoft" toggle + "Desligado. O ditado volta a pedir permissão." |
-| CR-03 | constraint | — | `react-hooks/refs`: no ref writes during render (2 warnings) |
-| CR-04 | new_scope (F2) | — | `Mod+Shift+Y` hold-to-dictate in `thread.composer` (approved by DESIGN), `shortcutLabel`, polite start/stop announcement, no pulse under reduced motion |
+| CR | Status |
+|---|---|
+| CR-01 copy v2 | resolved |
+| CR-02 Settings › Voice revocable | resolved |
+| CR-03 lint | resolved |
+| CR-04 shortcut Mod+Shift+Y | F2 |
+| CR-05 global guard | resolved |
+| CR-06 lazy main | resolved |
+| CR-07 voice namespace | resolved |
+| CR-08 i18next types for `voice` | **open** (≈2–3 turns) |
 
 ## Open items
 
