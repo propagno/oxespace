@@ -249,17 +249,24 @@ describe('approval dialog', () => {
     expect(dialog().querySelector('[data-note="approvals.note.production"]')).not.toBeNull()
   })
 
-  it('shows a note's rule as plain code text, never as markup or a link (#372 SECURITY, B7.4)', async () => {
-    i18n.addResource('en', 'main', 'messages.approvals.note.testRule', 'The rule {{rule}} would allow more.')
-    const rule = '<img src=x onerror=alert(1)> **bold** [link](https://example.com)'
-    request({ appNotes: [{ code: 'approvals.note.testRule', params: { rule } } as never] })
-    await mount()
-    const note = dialog().querySelector('[data-note="approvals.note.testRule"]')!
-    const code = note.querySelector('[data-note-rule]')!
-    expect(code.tagName).toBe('CODE')
-    expect(code.textContent).toBe(rule)
-    expect(note).toHaveTextContent(`The rule ${rule} would allow more.`)
-    expect(note.querySelector('img, a, strong, b')).toBeNull()
+  it('shows the rule of a note as plain code text, never as markup or a link (#372 SECURITY, B7.4)', async () => {
+    // B7.4's policy notes are not in this branch yet: a known note code stands in, its string carrying {{rule}}.
+    const key = 'messages.approvals.note.production'
+    const original = i18n.getResource('en', 'main', key) as string
+    i18n.addResource('en', 'main', key, 'The rule {{rule}} would allow more.')
+    try {
+      const rule = '<img src=x onerror=alert(1)> **bold** [link](https://example.com)'
+      request({ appNotes: [{ code: 'approvals.note.production', params: { rule } } as never] })
+      await mount()
+      const note = dialog().querySelector('[data-note="approvals.note.production"]')!
+      const code = note.querySelector('[data-note-rule]')!
+      expect(code.tagName).toBe('CODE')
+      expect(code.textContent).toBe(rule)
+      expect(note).toHaveTextContent(`The rule ${rule} would allow more.`)
+      expect(note.querySelector('img, a, strong, b')).toBeNull()
+    } finally {
+      i18n.addResource('en', 'main', key, original)
+    }
   })
 
   it('takes the hold from the request: 2 s at critical (approvalPacing), none otherwise', async () => {
