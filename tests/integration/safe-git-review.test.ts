@@ -6,7 +6,7 @@
  * leaves none. Condition (b): the person's GLOBAL credential helper never refuses a person call.
  */
 import { execFile, execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -242,6 +242,49 @@ describe("M2: gh's own git", () => {
     const root = fullRepo()
     plain(root, 'config', 'core.sshCommand', evilRun)
     await expect(new GhExec({ spawnCommand: fakeGh }).runGh(['pr', 'list'], root)).rejects.toBeInstanceOf(PersonGitRefused)
+  })
+})
+
+describe('the config read cache', () => {
+  test('a rewrite with the same size and the mtime set back is read again on the next call, and its driver emptied', async () => {
+    const root = fullRepo('cached')
+    writeFileSync(join(root, '.gitattributes'), '*.txt filter=agent\n')
+    writeFileSync(join(root, 'c.txt'), 'abc\n')
+    plain(root, 'add', 'c.txt', '.gitattributes')
+    plain(root, 'commit', '-q', '-m', 'c')
+    const config = join(root, '.git', 'config')
+    // A placeholder as long as the driver the agent will write, so the rewrite keeps the size.
+    const driver = `[filter "agent"]\n\tclean = ${evil}\n`
+    appendFileSync(config, `[pad]\n\tx = ${'x'.repeat(driver.length - '[pad]\n\tx = \n'.length)}\n`)
+    // A whole-second mtime, so setting it back after the rewrite gives exactly the same value.
+    const mtime = new Date(Math.floor(Date.now() / 1000) * 1000 - 60_000)
+    utimesSync(config, mtime, mtime)
+    let reads = 0
+    const counting: ConfigReader = (...args) => { reads++; return execConfigReader(...args) }
+
+    await runGit(root, ['status', '--porcelain'], { readConfig: counting })
+    await runGit(root, ['status', '--porcelain'], { readConfig: counting })
+    expect(reads, 'an unchanged config is read once').toBe(1)
+
+    const before = statSync(config)
+    const text = readFileSync(config, 'utf8')
+    const rewritten = text.replace(/\[pad\]\n\tx = x+\n/, driver)
+    expect(rewritten.length).toBe(text.length)
+    writeFileSync(config, rewritten)
+    utimesSync(config, mtime, mtime)
+    expect(statSync(config).mtimeMs).toBe(before.mtimeMs)
+    expect(statSync(config).size).toBe(before.size)
+
+    writeFileSync(join(root, 'c.txt'), 'xyz\n')
+    utimesSync(join(root, 'c.txt'), new Date(Date.now() + 9000), new Date(Date.now() + 9000))
+    plainTry(root, 'status', '--porcelain')
+    expect(ran(), 'plain git runs the rewritten driver').toBe(true)
+
+    reset()
+    utimesSync(join(root, 'c.txt'), new Date(Date.now() + 20000), new Date(Date.now() + 20000))
+    await runGit(root, ['status', '--porcelain'], { readConfig: counting })
+    expect(reads, 'the rewrite is seen: ctime moved').toBe(2)
+    expect(ran()).toBe(false)
   })
 })
 

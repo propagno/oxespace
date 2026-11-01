@@ -18,7 +18,7 @@ export function gitDirsOf(cwd: string): GitDirs | null {
     if (isFile !== null) {
       let gitDir = dotGit
       if (isFile) {
-        let pointer: RegExpExecArray | null = null
+        let pointer: RegExpExecArray | null
         try { pointer = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(dotGit, 'utf8')) } catch { return null }
         if (!pointer) return null
         gitDir = isAbsolute(pointer[1]) ? pointer[1] : resolvePath(dir, pointer[1])
@@ -42,8 +42,15 @@ export function commonGitDir(cwd: string): string {
   return gitDirsOf(cwd)?.commonDir ?? resolvePath(cwd)
 }
 
+/**
+ * Size, inode and both times in nanoseconds: a rewrite inside one mtime tick, or with the mtime set back (`utimes`),
+ * still moves ctime (or the inode, for a write-and-rename), so a stale read never outlives the next call.
+ */
 const stamp = (path: string): string => {
-  try { const info = statSync(path); return `${info.size}:${info.mtimeMs}:${info.ctimeMs}` } catch { return '-' }
+  try {
+    const info = statSync(path, { bigint: true })
+    return `${info.size}:${info.ino}:${info.mtimeNs}:${info.ctimeNs}`
+  } catch { return '-' }
 }
 
 /**
