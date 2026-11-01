@@ -61,6 +61,7 @@ export function Sidebar({
   integrationGroups = [],
   workspaces,
 }: SidebarProps): ReactElement {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['Sidebar'] = ((w.__renders ??= {})['Sidebar'] ?? 0) + 1 }
   const { t } = useTranslation('code')
   const [searchQuery, setSearchQuery] = useState('')
   const width = useNavigationPrefs(s => s.width)

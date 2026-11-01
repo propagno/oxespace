@@ -93,6 +93,7 @@ function AppMcpPanel({ conversation, ...props }: { workspaceId: string | null; c
 }
 
 export function App(): ReactElement {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['App'] = ((w.__renders ??= {})['App'] ?? 0) + 1 }
   const { t } = useTranslation()
   const appVersion = window.oxe?.app?.version ?? 'dev'
   const [applicationView, setApplicationView] = useState<AppView>('code')
