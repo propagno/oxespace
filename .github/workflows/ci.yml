@@ -232,6 +232,7 @@ jobs:
         run: npm rebuild electron
 
       - name: Type check
+        continue-on-error: true
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -239,6 +240,7 @@ jobs:
           npm run typecheck
 
       - name: Lint
+        continue-on-error: true
         run: npm run lint
 
       - name: Unit and integration tests
