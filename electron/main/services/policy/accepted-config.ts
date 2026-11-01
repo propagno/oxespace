@@ -283,16 +283,31 @@ function backLinked(root: string, common: string): boolean {
 
 /** The environment git runs with from main: the person's, without GIT_* (a repository's own settings are the agent's). */
 export function gitEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return Object.fromEntries(Object.entries(source).filter(([name]) => !/^GIT_/i.test(name)))
+  return {
+    ...Object.fromEntries(Object.entries(source).filter(([name]) => !/^GIT_/i.test(name))),
+    // A promisor (partial clone) repo would fetch a missing object, which runs the transport the repo configures
+    // (core.sshCommand, an ext:: URL): never from here (SECURITY S4-1). No prompt, and no system-wide config either.
+    GIT_NO_LAZY_FETCH: '1',
+    GIT_TERMINAL_PROMPT: '0',
+    GIT_CONFIG_NOSYSTEM: '1'
+  }
 }
 
 /**
- * git's arguments to read a committed blob without running anything the repository configures: no pager, no fsmonitor,
+ * The options every main-process git read starts with: no pager, no fsmonitor, and no transport at all (for git older
+ * than 2.45, which ignores GIT_NO_LAZY_FETCH). `-c` beats the repository's own config, and each protocol is named, since
+ * a repo's `protocol.<name>.allow` would win over the general one.
+ */
+export const SAFE_GIT_OPTIONS: readonly string[] = ['--no-pager', '-c', 'core.fsmonitor=', '-c', 'protocol.allow=never',
+  ...['ext', 'file', 'ssh', 'git', 'http', 'https'].flatMap(name => ['-c', `protocol.${name}.allow=never`])]
+
+/**
+ * git's arguments to read a committed blob without running anything the repository configures: the safe options,
  * `cat-file blob` (no textconv, no filters), and the path relative to the subject's own folder (`HEAD:./<rel>`), so a
  * nested project root reads its own file.
  */
 export function committedBlobArgs(root: string, rel: string, ref = 'HEAD'): string[] {
-  return ['--no-pager', '-c', 'core.fsmonitor=', '-C', root, 'cat-file', 'blob', `${ref}:./${rel}`]
+  return [...SAFE_GIT_OPTIONS, '-C', root, 'cat-file', 'blob', `${ref}:./${rel}`]
 }
 
 /** The text of `rel` committed at HEAD under `root`, or null (no repository, no HEAD, not committed, or any failure). */
@@ -351,7 +366,7 @@ export class AcceptedConfig {
   private readonly running = new Set<Promise<unknown>>()
   /** When each (subject, file) was last asked or re-issued. */
   private readonly lastAsked = new Map<string, number>()
-  /** Subjects told once, in this run, that their first-sight review waits. */
+  /** Projects (subject keys) told once, in this run, that a first-sight review waits. */
   private readonly firstSightNoticed = new Set<string>()
   /** A first-seen subject's references (HEAD, the primary), read once per run. */
   private readonly referenceCache = new Map<string, AnyProjection[]>()
@@ -442,11 +457,7 @@ export class AcceptedConfig {
       // or Settings read, so an upgrade never raises one request per registered project at once.
       if (!entry.rejected && !entry.deferred) this.schedule(entry)
       else if (entry.rejected) this.closeOpen(subject.id)
-      // Once per subject: the person is told that only the restrictions apply while the first-sight review waits.
-      if (entry.firstSight && !this.firstSightNoticed.has(subject.id)) {
-        this.firstSightNoticed.add(subject.id)
-        this.deps.notify?.(subject, { code: 'policy.firstSight.enforced', params: {} })
-      }
+      if (!entry.deferred) this.noticeFirstSight(entry)
     }
     return base.projection as T
   }
@@ -505,8 +516,15 @@ export class AcceptedConfig {
   reviewPoint(subjects: Subject[]): void {
     for (const subject of subjects) {
       const entry = this.pending.get(subject.id)
-      if (entry?.deferred && !entry.rejected && !this.open.has(subject.id)) { entry.deferred = false; this.schedule(entry) }
+      if (entry?.deferred && !entry.rejected && !this.open.has(subject.id)) { entry.deferred = false; this.schedule(entry); this.noticeFirstSight(entry) }
     }
+  }
+
+  /** Once per project and run, when its first-sight review is asked (never for a parked one): only restrictions apply. */
+  private noticeFirstSight(entry: Pending): void {
+    if (!entry.firstSight || entry.rejected || this.firstSightNoticed.has(entry.subject.key)) return
+    this.firstSightNoticed.add(entry.subject.key)
+    this.deps.notify?.(entry.subject, { code: 'policy.firstSight.enforced', params: {} })
   }
 
   /** "Review again" from Settings: asks about this exact change even if the person kept it out before. */

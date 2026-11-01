@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { PolicyRule } from '../../shared/policy'
 import { APPROVAL_AGENT_TEXT_MAX, APPROVAL_KINDS_REMOTE_FORBIDDEN, APPROVAL_TIMEOUT_MS, remoteMayAnswer } from '../../shared/types/approvals'
 import { REMOTE_FORBIDDEN } from '../../shared/remote/protocol'
-import { allowWithinDefaults, canMatchPrefix, changeRisk, classify, narrowingPart, noteLines, onlyNarrows, requestDraft, ruleKey, ruleParam } from '../../electron/main/services/policy/policy-change'
+import { canMatchPrefix, changeRisk, classify, narrowingPart, noteLines, onlyNarrows, requestDraft, ruleKey, ruleParam } from '../../electron/main/services/policy/policy-change'
 import { canonicalJson, defaultModes, projectionHash, type AnyProjection, type ModesValue, type Subject } from '../../electron/main/services/policy/accepted-config'
 import { approvalTimeoutMs, APPROVAL_TIMEOUT_FLOOR_MS } from '../../electron/main/services/approvals/timeout'
 import { ApprovalCenter, APPROVAL_REISSUE_HOLD_MS } from '../../electron/main/services/approvals/approval-center'
@@ -92,7 +92,6 @@ describe('no change applies without an answer but a pure narrowing (HML write-be
     expect(classify(project, { state: 'absent' }, rules(allow('mcp:github', 'integration.use'))).applies).toBe(false)
     expect(classify(user, { state: 'absent' }, rules(allow('mcp__x'))).applies).toBe(false)
     expect(canMatchPrefix('mcp:*', 'env:')).toBe(false)
-    expect(allowWithinDefaults(allow('db:*', 'integration.use'))).toBe(true)
   })
 
   it('an oxe.yaml group moving up asks, at first sight too', () => {

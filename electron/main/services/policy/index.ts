@@ -35,8 +35,8 @@ export function setAcceptedConfig(next: AcceptedConfig | null): void {
 export function acceptedConfig(): AcceptedConfig | null { return accepted }
 
 /** Whether policy lets agents use an MCP server, by its configured name, in a project. */
-export function mcpServerAllowed(name: string, projectRoot?: string | null, policy: PolicyStore | null = policyStore()): boolean {
-  return !policy || policy.decide('integration.use', `mcp:${name}`, projectRoot).allowed
+export function mcpServerAllowed(name: string, projectRoot?: string | null, policy: PolicyStore | null = policyStore(), options: { defer?: boolean } = {}): boolean {
+  return !policy || policy.decide('integration.use', `mcp:${name}`, projectRoot, options).allowed
 }
 
 /**

@@ -39,7 +39,8 @@ export function toolConfigSubject(root: string): Subject | null {
 const cache = new Map<string, { key: string; version: number; modes: ProjectToolModes; file: EffectiveToolConfig['file'] }>()
 
 /** The accepted tool modes of a project; a `stat` and a map lookup when nothing changed. */
-export function effectiveToolConfig(root: string): EffectiveToolConfig {
+/** `defer`: a sweep of every project (the boot sync): the floor applies, and a change found waits for that project's review point. */
+export function effectiveToolConfig(root: string, options: { defer?: boolean } = {}): EffectiveToolConfig {
   const path = join(root, OXE_YAML_FILE)
   const gate = acceptedConfig()
   const subject = gate?.subject('oxe.yaml', 'project', root, path)
@@ -62,13 +63,13 @@ export function effectiveToolConfig(root: string): EffectiveToolConfig {
     current = text === null ? { state: 'invalid' } : parseModesProjection(text)
   }
   if (statKey !== 'missing') file = current.state === 'invalid' ? 'invalid' : 'valid'
-  const effective = gate && subject ? gate.resolve(subject, current) : current
+  const effective = gate && subject ? gate.resolve(subject, current, options) : current
   const modes = effective.state === 'value' ? effective.value : projectToolModes(undefined)
   cache.set(path, { key: statKey, version: gate?.version ?? 0, modes, file })
   return { modes, file, change: status() }
 }
 
 /** `effectiveToolConfig(root).modes`, or the defaults without a project. */
-export function effectiveToolModes(root: string | null | undefined): ProjectToolModes {
-  return root ? effectiveToolConfig(root).modes : projectToolModes(undefined)
+export function effectiveToolModes(root: string | null | undefined, options: { defer?: boolean } = {}): ProjectToolModes {
+  return root ? effectiveToolConfig(root, options).modes : projectToolModes(undefined)
 }

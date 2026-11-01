@@ -81,7 +81,8 @@ export class McpConfigSync {
   syncAll(): void {
     const workspaces = this.db.prepare('SELECT id, root_path FROM workspaces').all() as WorkspaceRootRow[]
     for (const ws of workspaces) {
-      if (ws.root_path && existsSync(ws.root_path)) this.writeMcpJson(ws.root_path)
+      // A sweep of every project (B7.4): what a project's policy changed waits for its own launch or Settings read.
+      if (ws.root_path && existsSync(ws.root_path)) this.writeMcpJson(ws.root_path, undefined, { defer: true })
     }
   }
 
@@ -94,7 +95,7 @@ export class McpConfigSync {
     else this.syncWorkspace(workspaceId)
   }
 
-  private writeMcpJson(workspaceRoot: string, explicitWorkspaceId?: string): string | null {
+  private writeMcpJson(workspaceRoot: string, explicitWorkspaceId?: string, policyRead: { defer?: boolean } = {}): string | null {
     const mcpPath = join(workspaceRoot, MCP_FILE)
     const snapshotPath = join(workspaceRoot, SNAPSHOT_DIR, SNAPSHOT_FILE)
 
@@ -124,14 +125,14 @@ export class McpConfigSync {
     let internalServerKey: string | null = null
     for (const row of rows) {
       // A server the policy blocks is never handed to an agent.
-      if (!mcpServerAllowed(row.name, workspaceRoot)) continue
+      if (!mcpServerAllowed(row.name, workspaceRoot, undefined, policyRead)) continue
       const isInternal = row.name === 'oxespace' && row.workspace_id === null
       const entry = serializeConfig(row.config_json, {
         injectWorkspaceId: isInternal && workspaceId ? workspaceId : null,
         internal: isInternal,
         // A tool group the project turned off in oxe.yaml is not offered here either (B7.2): the bridge lists and
         // answers only these tools. Nothing off leaves the entry as it was.
-        allowedTools: isInternal ? projectOfferedTools(effectiveToolModes(workspaceRoot)) : null
+        allowedTools: isInternal ? projectOfferedTools(effectiveToolModes(workspaceRoot, policyRead)) : null
       })
       if (!entry) continue
       const finalKey = keys.get(row.id)
@@ -156,7 +157,7 @@ export class McpConfigSync {
       mcpServers[key] = value
     }
     // Entries someone added by hand stay, unless the policy blocks them by name.
-    for (const key of Object.keys(mcpServers)) if (!desiredEntries.has(key) && !mcpServerAllowed(key, workspaceRoot)) delete mcpServers[key]
+    for (const key of Object.keys(mcpServers)) if (!desiredEntries.has(key) && !mcpServerAllowed(key, workspaceRoot, undefined, policyRead)) delete mcpServers[key]
 
     const nextDoc = { ...(existing as object), mcpServers }
     writeFileSync(mcpPath, JSON.stringify(nextDoc, null, 2) + '\n', 'utf8')

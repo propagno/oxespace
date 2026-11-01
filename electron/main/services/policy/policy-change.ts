@@ -12,11 +12,10 @@
  *   rest against that. One that does not split applies nothing early.
  * - `oxe.yaml`: a change where every group moves down (to `off`, or `always` → `on-demand`) applies; any move up asks,
  *   and then the lowered groups wait with it.
- * - First sight of a project file (no accepted version, nothing inherited from its primary checkout), against the app's
- *   defaults: oxe.yaml always applies (on demand groups can already be turned on by the agent), and a policy applies when
- *   its allows are only for things allowed by default. An allow that can match `env:` (a secret reaching agents) or
- *   `net:` asks. The user and managed layers come after the project's, so an allow there can lift the project's deny:
- *   for them only the strict rule applies.
+ * - First sight (no accepted version): nothing grants without the person. Only the floor applies (R1: denies, groups at
+ *   most on demand), built from the file and its references, which only add restrictions (R2: the committed version, a
+ *   worktree's primary); see accepted-config.ts `firstSightFloorOf`. Everything else is classified against that floor
+ *   like any other change, so an allow, an `always` group or a dropped committed restriction asks.
  */
 import { execFile } from 'node:child_process'
 import { relative } from 'node:path'
@@ -29,7 +28,7 @@ import type { ApprovalDraft } from '../approvals/approval-center'
 import { DENY } from '../approvals/drafts'
 import { APP_REQUESTER } from '../approvals/requester'
 import type { AnyProjection, ChangeContext, ChangeVerdict, ModesValue, PolicyProjection, PolicyValue, Subject } from './accepted-config'
-import { committedBlobArgs, defaultModes, fileLabel, gitEnvironment, projectionHash } from './accepted-config'
+import { committedBlobArgs, defaultModes, fileLabel, gitEnvironment, projectionHash, SAFE_GIT_OPTIONS } from './accepted-config'
 import { MAX_POLICY_BYTES, parsePolicyProjection } from './projections'
 import { parseModesProjection } from './tool-config'
 
@@ -108,11 +107,6 @@ export function canMatchPrefix(pattern: string, prefix: string): boolean {
   return literal.startsWith(prefix) || prefix.startsWith(literal)
 }
 
-/** An allow that cannot go beyond the app's defaults when nothing earlier denies: no secret (`env:`), no network (`net:`). */
-export function allowWithinDefaults(rule: PolicyRule): boolean {
-  if (rule.effect !== 'allow' || rule.action !== 'integration.use') return true
-  return !canMatchPrefix(rule.resource, 'env:') && !canMatchPrefix(rule.resource, 'net:')
-}
 
 /**
  * The pure narrowing inside a mixed policy change: accepted + inserted denies − deleted allows, with the keys of what it
@@ -273,7 +267,7 @@ async function committed(subject: Subject, next: AnyProjection): Promise<boolean
     return projectionHash(subject.file, parse(stdout)) === projectionHash(subject.file, next)
   } catch {
     // Not committed (or no HEAD): when git runs here at all, the file is not the committed version.
-    try { await run('git', ['--no-pager', '-c', 'core.fsmonitor=', '-C', subject.root, 'rev-parse', '--git-dir'], options); return next.state === 'absent' ? null : false } catch { return null }
+    try { await run('git', [...SAFE_GIT_OPTIONS, '-C', subject.root, 'rev-parse', '--git-dir'], options); return next.state === 'absent' ? null : false } catch { return null }
   }
 }
 
@@ -287,7 +281,7 @@ async function sameAsRemoteBranch(subject: Subject, next: AnyProjection): Promis
   const run = promisify(execFile)
   const options = { timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1, windowsHide: true, env: gitEnvironment() }
   try {
-    const { stdout: branch } = await run('git', ['--no-pager', '-c', 'core.fsmonitor=', '-C', subject.root, 'symbolic-ref', '--quiet', '--short', 'HEAD'], options)
+    const { stdout: branch } = await run('git', [...SAFE_GIT_OPTIONS, '-C', subject.root, 'symbolic-ref', '--quiet', '--short', 'HEAD'], options)
     const name = branch.trim()
     if (!name) return null
     const { stdout } = await run('git', committedBlobArgs(subject.root, rel, `refs/remotes/origin/${name}`), options)

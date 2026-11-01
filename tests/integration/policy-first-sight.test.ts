@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { ApprovalCenter } from '../../electron/main/services/approvals/approval-center'
 import { setAcceptedConfig, setPolicyStore } from '../../electron/main/services/policy'
-import { AcceptedConfig, committedBlobArgs, firstSightFloorOf, gitEnvironment, type AnyProjection } from '../../electron/main/services/policy/accepted-config'
+import { AcceptedConfig, committedBlobArgs, firstSightFloorOf, gitEnvironment, SAFE_GIT_OPTIONS, type AnyProjection } from '../../electron/main/services/policy/accepted-config'
+import { McpConfigSync } from '../../electron/main/services/mcp-sync.service'
 import { classify } from '../../electron/main/services/policy/policy-change'
 import { PolicyStore } from '../../electron/main/services/policy/policy-store'
 import { effectiveToolConfig, toolConfigSubject } from '../../electron/main/services/policy/tool-config'
@@ -193,7 +194,7 @@ describe('B7.4 first sight: no file grants, references only restrict', () => {
     write(join(root, POLICY), policyText(allow('*')))
     const h = harness()
     expect(h.denied(root, 'Bash')).toBe(true)
-    expect(committedBlobArgs(root, '.oxespace/policy.json')).toEqual(['--no-pager', '-c', 'core.fsmonitor=', '-C', root, 'cat-file', 'blob', 'HEAD:./.oxespace/policy.json'])
+    expect(committedBlobArgs(root, '.oxespace/policy.json')).toEqual([...SAFE_GIT_OPTIONS, '-C', root, 'cat-file', 'blob', 'HEAD:./.oxespace/policy.json'])
   })
 
   it('8. a worktree: inherits a primary row; with none, the primary\'s file and HEAD restrict it; a committed allow * on its branch asks', async () => {
@@ -258,23 +259,32 @@ describe('B7.4 first sight: no file grants, references only restrict', () => {
     expect(toolConfigSubject(root)).not.toBeNull()
   })
 
-  it('13. the HEAD read runs nothing the repository configures (textconv, fsmonitor) and without GIT_*', async () => {
-    const top = temp('oxe-fs-hard-')
+  it('13. the HEAD read never lazy-fetches in a partial clone, so a repo-configured transport (core.sshCommand) never runs', async () => {
+    const top = temp('oxe-fs-promisor-')
     git(top, 'init', '-q')
-    const marker = join(top, 'MARKER')
-    const command = `node -e "require('fs').writeFileSync(${JSON.stringify(marker)}, 'x')"`
-    git(top, 'config', 'core.fsmonitor', command)
-    git(top, 'config', 'diff.x.textconv', command)
-    write(join(top, '.gitattributes'), '*.json diff=x\n')
-    write(join(top, POLICY), policyText(deny('Bash')))
-    git(top, '-c', 'core.fsmonitor=', 'add', '.'); git(top, '-c', 'core.fsmonitor=', 'commit', '-q', '-m', 'c')
+    const marker = join(temp('oxe-fs-marker-'), 'MARKER').replace(/\\/g, '/')
+    const script = join(temp('oxe-fs-script-'), 'transport.js').replace(/\\/g, '/')
+    writeFileSync(script, `require('fs').appendFileSync(${JSON.stringify(marker)}, 'x'); process.exit(1)\n`)
+    // A promisor repo whose HEAD names a blob it does not have: reading it would fetch from "origin" over ssh.
+    for (const [name, value] of [['core.repositoryformatversion', '1'], ['extensions.partialClone', 'origin'], ['remote.origin.promisor', 'true'],
+      ['remote.origin.url', 'ssh://example.invalid/repo'], ['core.sshCommand', `node "${script}"`], ['protocol.ssh.allow', 'always']]) git(top, 'config', name, value)
+    const run = (args: string[], input?: string) => execFileSync('git', ['-C', top, ...args], { input, encoding: 'utf8', env: gitEnvironment(), stdio: ['pipe', 'pipe', 'ignore'] }).trim()
+    const blob = run(['hash-object', '--stdin'], policyText(deny('Bash')))
+    const folder = run(['mktree', '--missing'], `100644 blob ${blob}\tpolicy.json\n`)
+    const tree = run(['mktree', '--missing'], `040000 tree ${folder}\t.oxespace\n`)
+    const commit = run(['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', 'commit-tree', tree, '-m', 'missing blob'])
+    run(['update-ref', 'HEAD', commit])
+    // The repro is live: a plain read of that blob runs the configured transport.
+    try { execFileSync('git', ['-C', top, 'cat-file', 'blob', 'HEAD:./.oxespace/policy.json'], { stdio: 'ignore', timeout: 20_000 }) } catch { /* the fetch fails */ }
+    expect(existsSync(marker)).toBe(true)
     rmSync(marker, { force: true })
     write(join(top, POLICY), policyText(allow('*')))
     const h = harness()
-    expect(h.denied(top, 'Bash')).toBe(true)
+    expect(h.denied(top, 'Bash')).toBe(false)
     await h.settle()
     expect(existsSync(marker)).toBe(false)
-    expect(Object.keys(gitEnvironment({ GIT_DIR: '/x', GIT_CONFIG_PARAMETERS: "'core.pager=evil'", PATH: '/bin' }))).toEqual(['PATH'])
+    expect(gitEnvironment({ GIT_DIR: '/x', PATH: '/bin' })).toEqual({ PATH: '/bin', GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1' })
+    expect(SAFE_GIT_OPTIONS).toEqual(expect.arrayContaining(['protocol.allow=never', 'protocol.ext.allow=never', 'protocol.ssh.allow=never', 'protocol.file.allow=never']))
   })
 })
 
@@ -284,7 +294,7 @@ describe('14. guard: first sight never accepts anything that grants', () => {
     const random = () => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return seed / 2 ** 31 }
     const resources = ['Bash', 'mcp__a', 'mcp__a__*', '*', 'env:*', 'net:x']
     const anyRule = (): PolicyRule => ({ effect: random() < 0.5 ? 'deny' : 'allow', action: random() < 0.7 ? 'tool.use' : 'integration.use', resource: resources[Math.floor(random() * resources.length)] })
-    const projection = (): AnyProjection => random() < 0.15 ? { state: 'absent' } : { state: 'value', value: { rules: Array.from({ length: Math.floor(random() * 5) }, anyRule) } }
+    const projection = (): AnyProjection => random() < 0.1 ? { state: 'invalid' } : random() < 0.15 ? { state: 'absent' } : { state: 'value', value: { rules: Array.from({ length: Math.floor(random() * 5) }, anyRule) } }
     for (let round = 0; round < 2_000; round++) {
       const current = projection()
       const others = Array.from({ length: Math.floor(random() * 3) }, projection)
@@ -313,5 +323,89 @@ describe('14. guard: first sight never accepts anything that grants', () => {
     expect((floor as { value: Record<string, { mode: string }> }).value.data.mode).toBe('off')
     expect((floor as { value: Record<string, { mode: string }> }).value.docs.mode).toBe('on-demand')
     expect(missing).toEqual(['off\0data'])
+  })
+})
+
+describe('B7.4 first sight: SECURITY round 4', () => {
+  const insertWorkspace = (db: AppDatabase, id: string, root: string) =>
+    db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES (?, ?, ?, '1x1', 'builtin-claude')").run(id, id, root)
+
+  it('S4-2: the boot sync of every workspace (syncAll) applies the floor and parks; each project asks at its own review point', async () => {
+    const wide = temp('oxe-fs-sync-wide-')
+    write(join(wide, POLICY), policyText(deny('mcp__oxespace__oxespace_db_execute'), allow('mcp:GitHub', 'integration.use')))
+    write(join(wide, 'oxe.yaml'), 'thread:\n  tools:\n    docs: always\n')
+    const other = temp('oxe-fs-sync-other-')
+    write(join(other, POLICY), policyText(allow('mcp__x')))
+    const h = harness()
+    insertWorkspace(h.db, 'A', wide)
+    insertWorkspace(h.db, 'B', other)
+    h.db.prepare("INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, created_at, updated_at) VALUES ('g', NULL, 'GitHub', 'stdio', '{\"transport\":\"stdio\",\"command\":\"gh\"}', 1, 1, 0, 0)").run()
+    h.db.prepare("INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, created_at, updated_at) VALUES ('o', NULL, 'oxespace', 'stdio', '{\"transport\":\"stdio\",\"command\":\"node\",\"args\":[\"bridge.cjs\"]}', 1, 1, 0, 0)").run()
+    new McpConfigSync(h.db).syncAll()
+    await h.settle()
+    expect(h.requests()).toHaveLength(0)
+    expect(h.denied(wide, 'mcp__oxespace__oxespace_db_execute')).toBe(true)
+    expect(effectiveToolConfig(wide).modes.docs.mode).toBe('on-demand')
+    h.gate.reviewPoint([...h.store.subjects(wide), toolConfigSubject(wide)!])
+    await h.settle()
+    expect(h.requests()).toHaveLength(2)
+    // The first-sight notice: once for the project, when its review is asked, not for each file or the parked sweep.
+    expect(h.notices.filter(code => code === 'policy.firstSight.enforced')).toHaveLength(1)
+  })
+
+  it('S4-4: relink reads the new folder before it returns', async () => {
+    const primary = temp('oxe-fs-relink-')
+    git(primary, 'init', '-q')
+    write(join(primary, 'README.md'), 'x\n')
+    git(primary, 'add', '.'); git(primary, 'commit', '-q', '-m', 'root')
+    const moved = join(temp('oxe-fs-relink-moved-'), 'checkout')
+    git(primary, 'worktree', 'add', '-q', '-b', 'moved', moved, 'HEAD')
+    write(join(moved, POLICY), policyText(deny('Bash')))
+    const h = harness()
+    const service = new ThreadProjectService(h.db)
+    const { projectId } = await service.add(primary)
+    const before = (h.db.prepare('SELECT COUNT(*) AS n FROM accepted_project_config').get() as { n: number }).n
+    await service.relink(projectId, moved)
+    expect((h.db.prepare('SELECT COUNT(*) AS n FROM accepted_project_config').get() as { n: number }).n).toBeGreaterThan(before)
+    write(join(moved, POLICY), policyText(allow('*')))
+    expect(h.denied(moved, 'Bash')).toBe(true)
+  })
+
+  it('S4-4: workspace.create reads the project before it returns (the IPC handler, by its source)', () => {
+    const source = readFileSync(join('electron', 'main', 'ipc', 'workspace.ipc.ts'), 'utf8')
+    const handler = source.slice(source.indexOf('IPC_CHANNELS.workspace.create,'), source.indexOf('IPC_CHANNELS.workspace.setActive'))
+    expect(handler).toMatch(/const created = workspaceService\.create\(parsed\)\s+[^]*firstPolicyRead\(created\.rootPath\)\s+return created/)
+  })
+
+  it('S4-4: resolve() never returns, nor records, anything that grants at first sight (policy and oxe.yaml, invalid included)', { timeout: 60_000 }, async () => {
+    let seed = 11
+    const random = () => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return seed / 2 ** 31 }
+    const resources = ['Bash', 'mcp__a', '*', 'env:*']
+    const anyRule = (): PolicyRule => ({ effect: random() < 0.5 ? 'deny' : 'allow', action: random() < 0.7 ? 'tool.use' : 'integration.use', resource: resources[Math.floor(random() * resources.length)] })
+    const mode = () => (['off', 'on-demand', 'always'] as const)[Math.floor(random() * 3)]
+    for (let round = 0; round < 40; round++) {
+      const h = harness()
+      const roll = random()
+      const policy: AnyProjection = roll < 0.1 ? { state: 'invalid' } : roll < 0.2 ? { state: 'absent' } : { state: 'value', value: { rules: Array.from({ length: 1 + Math.floor(random() * 4) }, anyRule) } }
+      const shown = h.gate.resolve(h.gate.subject('policy', 'user', null, join(h.userData, 'policy.json')), policy)
+      const rules = shown.state === 'value' ? (shown.value as { rules: PolicyRule[] }).rules : []
+      expect(rules.every(rule => rule.effect === 'deny')).toBe(true)
+      const modes = { orchestration: { mode: mode(), source: 'project' }, data: { mode: mode(), source: 'project' }, docs: { mode: mode(), source: 'project' }, app: { mode: mode(), source: 'project' } }
+      const root = temp('oxe-fs-fuzz-')
+      const yaml: AnyProjection = random() < 0.1 ? { state: 'invalid' } : { state: 'value', value: modes as never }
+      const subject = h.gate.subject('oxe.yaml', 'project', root, join(root, 'oxe.yaml'))
+      const seen = h.gate.resolve(subject, yaml)
+      if (seen.state === 'value') for (const entry of Object.values(seen.value as Record<string, { mode: string }>)) expect(entry.mode).not.toBe('always')
+      await h.settle()
+      for (const row of h.db.prepare('SELECT projection_json FROM accepted_project_config').all() as { projection_json: string }[]) {
+        const accepted = JSON.parse(row.projection_json) as AnyProjection
+        if (accepted.state !== 'value') continue
+        const value = accepted.value as { rules?: PolicyRule[] } & Record<string, { mode?: string }>
+        if (value.rules) expect(value.rules.every(rule => rule.effect === 'deny')).toBe(true)
+        else for (const entry of Object.values(value)) expect(entry.mode).not.toBe('always')
+      }
+      setAcceptedConfig(null); setPolicyStore(null)
+      h.db.close(); databases.splice(databases.indexOf(h.db), 1)
+    }
   })
 })
