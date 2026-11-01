@@ -57,12 +57,16 @@ class Watched<Store : StreamListener>(val store: Store) : StreamListener {
 class LiveRepository(val streams: LiveStreams = LiveStreams()) {
     val workspaces = workspacesStore().also { streams.follow(RemoteSubscription.WORKSPACES, listener = it) }
     val threads = ThreadsStore().also { streams.follow(RemoteSubscription.THREADS, listener = it) }
-    val agents = AgentsStore().also { streams.follow(RemoteSubscription.AGENTS, listener = it) }
+    val agents = AgentsStore()
+    private val agentsStream = streams.follow(RemoteSubscription.AGENTS, listener = agents)
     val pendingRequests = pendingRequestsStore().also { streams.follow(RemoteSubscription.PENDING_REQUESTS, listener = it) }
     val jobs = jobsStore().also { streams.follow(RemoteSubscription.JOBS, listener = it) }
     val delegations = delegationsStore().also { streams.follow(RemoteSubscription.DELEGATIONS, listener = it) }
 
     private val open = mutableMapOf<String, Pair<Followed, Watched<*>>>()
+
+    /** Pull to refresh on Agents: the desktop sends the whole list again. */
+    fun refreshAgents() = streams.refresh(agentsStream)
 
     /** Follows one conversation while its screen is open; the same one twice shares the stream. */
     fun openThread(threadId: String): Watched<ThreadTimeline> = openOne("thread:$threadId") {

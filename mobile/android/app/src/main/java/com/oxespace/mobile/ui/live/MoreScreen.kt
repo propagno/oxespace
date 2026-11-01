@@ -59,7 +59,7 @@ fun MoreScreen(desktopName: String, connection: String, onEnterAddress: () -> Un
             TextButton(
                 onClick = { context.startActivity(Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", context.packageName, null))) },
                 modifier = Modifier.heightIn(min = 48.dp),
-            ) { Text(stringResource(R.string.more_language)) }
+            ) { Text(stringResource(R.string.more_choose_language)) }
             HorizontalDivider(color = Oxe.colors.borderSubtle)
         }
         Text(stringResource(R.string.more_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary)

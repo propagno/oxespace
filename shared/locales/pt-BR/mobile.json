@@ -267,21 +267,39 @@
       "respond": "Responder",
       "open": "Abrir",
       "stop": "Parar",
-      "confirmStop": "Confirmar parada",
-      "cancel": "Continuar"
+      "confirmStop": "Parar turno",
+      "cancel": "Deixar rodando"
     },
     "stopTitle": "Parar este turno?",
     "stopBody": "O agente em “{{title}}” para o que está fazendo agora. A conversa continua.",
     "stopped": "Turno interrompido",
     "stopFailed": "Não foi possível parar. Tente de novo.",
     "answerOnComputer": "Responda no computador",
-    "moreRequests": "+{{more}} outros",
     "tasks": "{{done}} de {{total}} tarefas",
-    "partial": "Alguns agentes não aparecem: o computador não conseguiu lê-los desta vez.",
-    "empty": "Nenhum agente rodando em {{desktop}}.",
+    "partial": "Não foi possível ler alguns agentes agora. O resto está atualizado.",
+    "empty": "Nenhum agente rodando em {{desktop}}",
     "emptyFilter": "Nada aqui agora.",
     "loading": "Carregando agentes…",
-    "offlineActions": "Sem conexão: as ações estão pausadas."
+    "offlineActions": "Sem conexão: as ações estão pausadas.",
+    "moreRequests_one": "+{{count}} outro",
+    "moreRequests_other": "+{{count}} outros",
+    "emptyBody": "Os agentes que você iniciar no computador aparecem aqui.",
+    "showAll": "Mostrar todos",
+    "detailsOnComputer": "Os detalhes estão no computador.",
+    "close": "Fechar",
+    "spoken": {
+      "since": "{{state}} há {{duration}}",
+      "more_one": "e mais {{count}}",
+      "more_other": "e mais {{count}}"
+    },
+    "duration": {
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas",
+      "days_one": "{{count}} dia",
+      "days_other": "{{count}} dias"
+    }
   },
   "more": {
     "title": "Mais",
@@ -289,6 +307,7 @@
     "connection": "Conexão",
     "language": "Idioma do app",
     "languageHint": "Escolha um idioma só para o OXESpace, nas configurações do sistema.",
-    "version": "Versão {{version}}"
+    "version": "Versão {{version}}",
+    "chooseLanguage": "Escolher idioma"
   }
 }

@@ -64,6 +64,15 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
         if (connected && name != null) send(RemoteUnsubscribeFrame(id = newId(), subscription = name))
     }
 
+    /** The person asked to refresh: drop the cursor and subscribe again, so the desktop sends a fresh snapshot. */
+    fun refresh(stream: Followed) {
+        if (stream !in followed) return
+        stream.name?.let { send(RemoteUnsubscribeFrame(id = newId(), subscription = it)) }
+        stream.cursor = null
+        stream.fruitlessResumes = 0
+        if (connected) subscribe(stream) else stream.forget()
+    }
+
     /** The session is authenticated: (re)subscribe every followed stream from where it stopped. */
     fun onConnected() {
         connected = true

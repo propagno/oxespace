@@ -6,13 +6,28 @@
     <string name="action_offline">Sem conexão com o computador. Nada foi enviado.</string>
     <string name="action_rate_limited">Ações demais em um minuto. Tente de novo daqui a pouco.</string>
     <string name="action_refused">O computador não aceitou.</string>
-    <string name="agents_action_cancel">Continuar</string>
-    <string name="agents_action_confirm_stop">Confirmar parada</string>
+    <string name="agents_action_cancel">Deixar rodando</string>
+    <string name="agents_action_confirm_stop">Parar turno</string>
     <string name="agents_action_open">Abrir</string>
     <string name="agents_action_respond">Responder</string>
     <string name="agents_action_stop">Parar</string>
     <string name="agents_answer_on_computer">Responda no computador</string>
-    <string name="agents_empty">Nenhum agente rodando em %1$s.</string>
+    <string name="agents_close">Fechar</string>
+    <string name="agents_details_on_computer">Os detalhes estão no computador.</string>
+    <plurals name="agents_duration_days">
+        <item quantity="one">%1$d dia</item>
+        <item quantity="other">%1$d dias</item>
+    </plurals>
+    <plurals name="agents_duration_hours">
+        <item quantity="one">%1$d hora</item>
+        <item quantity="other">%1$d horas</item>
+    </plurals>
+    <plurals name="agents_duration_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
+    <string name="agents_empty">Nenhum agente rodando em %1$s</string>
+    <string name="agents_empty_body">Os agentes que você iniciar no computador aparecem aqui.</string>
     <string name="agents_empty_filter">Nada aqui agora.</string>
     <string name="agents_filter_all">Todos</string>
     <string name="agents_filter_conversations">Conversas</string>
@@ -20,9 +35,18 @@
     <string name="agents_filter_tasks">Tarefas</string>
     <string name="agents_filter_terminals">Terminais</string>
     <string name="agents_loading">Carregando agentes…</string>
-    <string name="agents_more_requests">+%1$s outros</string>
+    <plurals name="agents_more_requests">
+        <item quantity="one">+%1$d outro</item>
+        <item quantity="other">+%1$d outros</item>
+    </plurals>
     <string name="agents_offline_actions">Sem conexão: as ações estão pausadas.</string>
-    <string name="agents_partial">Alguns agentes não aparecem: o computador não conseguiu lê-los desta vez.</string>
+    <string name="agents_partial">Não foi possível ler alguns agentes agora. O resto está atualizado.</string>
+    <string name="agents_show_all">Mostrar todos</string>
+    <plurals name="agents_spoken_more">
+        <item quantity="one">e mais %1$d</item>
+        <item quantity="other">e mais %1$d</item>
+    </plurals>
+    <string name="agents_spoken_since">%1$s há %2$s</string>
     <string name="agents_state_exited">Encerrado</string>
     <string name="agents_state_failed">Falhou</string>
     <string name="agents_state_finished">Terminou</string>
@@ -125,6 +149,7 @@
     <string name="live_tabs_tasks">Tarefas</string>
     <string name="live_tabs_terminals">Terminais</string>
     <string name="live_tabs_threads">Conversas</string>
+    <string name="more_choose_language">Escolher idioma</string>
     <string name="more_connection">Conexão</string>
     <string name="more_desktop">Computador</string>
     <string name="more_language">Idioma do app</string>

@@ -70,6 +70,22 @@ class SubscriptionHubTest {
     }
 
     @Test
+    fun aRefreshAsksForAFreshSnapshotWithoutTheCursor() {
+        val recorder = Recorder()
+        val stream = hub.follow(RemoteSubscription.AGENTS, listener = recorder)
+        hub.onConnected()
+        ack("s1")
+        snapshot("s1", 1, "A", cursor = "e:1")
+        event("s1", 2, "B", cursor = "e:2")
+        hub.refresh(stream)
+        assertEquals(RemoteUnsubscribeFrame(id = "id-2", subscription = "s1"), sent[sent.size - 2])
+        assertEquals(null, lastSubscribe().cursor)
+        ack("s2")
+        snapshot("s2", 1, "fresh", cursor = "e:9")
+        assertEquals(listOf("snapshot:A", "event:B", "snapshot:fresh"), recorder.log)
+    }
+
+    @Test
     fun aGapMakesItAskAgainFromTheLastPointApplied() {
         val recorder = Recorder()
         hub.follow(RemoteSubscription.THREAD, "t-1", recorder)

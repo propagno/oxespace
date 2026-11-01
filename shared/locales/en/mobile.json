@@ -261,7 +261,7 @@
       "respond": "Respond",
       "open": "Open",
       "stop": "Stop",
-      "confirmStop": "Confirm stop",
+      "confirmStop": "Stop turn",
       "cancel": "Keep running"
     },
     "stopTitle": "Stop this turn?",
@@ -269,13 +269,31 @@
     "stopped": "Turn stopped",
     "stopFailed": "Couldn't stop it. Try again.",
     "answerOnComputer": "Answer on the computer",
-    "moreRequests": "+{{more}} more",
     "tasks": "{{done}} of {{total}} tasks",
-    "partial": "Some agents aren't listed: the computer couldn't read them this time.",
-    "empty": "No agents running on {{desktop}}.",
+    "partial": "Some agents couldn't be read right now. The rest is up to date.",
+    "empty": "No agents running on {{desktop}}",
     "emptyFilter": "Nothing here right now.",
     "loading": "Loading agents…",
-    "offlineActions": "Not connected: actions are paused."
+    "offlineActions": "Not connected: actions are paused.",
+    "moreRequests_one": "+{{count}} more",
+    "moreRequests_other": "+{{count}} more",
+    "emptyBody": "Agents you start on your computer show up here.",
+    "showAll": "Show all",
+    "detailsOnComputer": "Details are on your computer.",
+    "close": "Close",
+    "spoken": {
+      "since": "{{state}} for {{duration}}",
+      "more_one": "and {{count}} more",
+      "more_other": "and {{count}} more"
+    },
+    "duration": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    }
   },
   "more": {
     "title": "More",
@@ -283,6 +301,7 @@
     "connection": "Connection",
     "language": "App language",
     "languageHint": "Choose a language for OXESpace only, in the system settings.",
-    "version": "Version {{version}}"
+    "version": "Version {{version}}",
+    "chooseLanguage": "Choose language"
   }
 }

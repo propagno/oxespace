@@ -29,6 +29,9 @@ class LiveStreams(
 
     fun unfollow(stream: Followed) = synchronized(lock) { hub.unfollow(stream) }
 
+    /** A fresh snapshot of [stream] (pull to refresh). */
+    fun refresh(stream: Followed) = synchronized(lock) { hub.refresh(stream) }
+
     /** A session is ready: frames go out through [send] and every stream (re)subscribes. */
     fun attach(send: (RemoteFrame) -> Unit) = synchronized(lock) {
         transport = send

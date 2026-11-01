@@ -174,6 +174,7 @@ class MainActivity : ComponentActivity() {
                 onOpenPane = { paneId = it },
                 onEnterAddress = { askingAddress = true },
                 onUnpair = session::unpair,
+                onRefresh = { if (status is DesktopStatus.Connected) live.refreshAgents() else session.retry() },
             )
         }
         if (askingAddress) AddressDialog(initial = desktop.manualHost.orEmpty(), onSave = session::setManualHost, onDismiss = { askingAddress = false })

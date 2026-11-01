@@ -88,6 +88,8 @@ fun LiveHome(
     onOpenPane: (String) -> Unit,
     onEnterAddress: () -> Unit,
     onUnpair: () -> Unit,
+    /** Pull to refresh on Agents: a fresh list when connected, a reconnection attempt when not. */
+    onRefresh: () -> Unit = {},
     initialTab: LiveTab = LiveTab.AGENTS,
 ) {
     var tab by rememberSaveable { mutableStateOf(initialTab) }
@@ -161,6 +163,7 @@ fun LiveHome(
                 onOpenThread = onOpenThread,
                 onOpenPane = onOpenPane,
                 onOpenRequest = onOpenRequest,
+                onRefresh = onRefresh,
                 modifier = content,
             )
             LiveTab.REQUESTS -> ListOrEmpty(requests, stringResource(R.string.live_empty_requests), content) { RequestRow(it) { onOpenRequest(it.threadId, it.requestId) } }

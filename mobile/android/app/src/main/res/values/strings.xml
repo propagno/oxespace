@@ -7,12 +7,27 @@
     <string name="action_rate_limited">Too many actions in a minute. Try again shortly.</string>
     <string name="action_refused">Your computer didn\'t accept it.</string>
     <string name="agents_action_cancel">Keep running</string>
-    <string name="agents_action_confirm_stop">Confirm stop</string>
+    <string name="agents_action_confirm_stop">Stop turn</string>
     <string name="agents_action_open">Open</string>
     <string name="agents_action_respond">Respond</string>
     <string name="agents_action_stop">Stop</string>
     <string name="agents_answer_on_computer">Answer on the computer</string>
-    <string name="agents_empty">No agents running on %1$s.</string>
+    <string name="agents_close">Close</string>
+    <string name="agents_details_on_computer">Details are on your computer.</string>
+    <plurals name="agents_duration_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="agents_duration_hours">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
+    <plurals name="agents_duration_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <string name="agents_empty">No agents running on %1$s</string>
+    <string name="agents_empty_body">Agents you start on your computer show up here.</string>
     <string name="agents_empty_filter">Nothing here right now.</string>
     <string name="agents_filter_all">All</string>
     <string name="agents_filter_conversations">Conversations</string>
@@ -20,9 +35,18 @@
     <string name="agents_filter_tasks">Tasks</string>
     <string name="agents_filter_terminals">Terminals</string>
     <string name="agents_loading">Loading agents…</string>
-    <string name="agents_more_requests">+%1$s more</string>
+    <plurals name="agents_more_requests">
+        <item quantity="one">+%1$d more</item>
+        <item quantity="other">+%1$d more</item>
+    </plurals>
     <string name="agents_offline_actions">Not connected: actions are paused.</string>
-    <string name="agents_partial">Some agents aren\'t listed: the computer couldn\'t read them this time.</string>
+    <string name="agents_partial">Some agents couldn\'t be read right now. The rest is up to date.</string>
+    <string name="agents_show_all">Show all</string>
+    <plurals name="agents_spoken_more">
+        <item quantity="one">and %1$d more</item>
+        <item quantity="other">and %1$d more</item>
+    </plurals>
+    <string name="agents_spoken_since">%1$s for %2$s</string>
     <string name="agents_state_exited">Exited</string>
     <string name="agents_state_failed">Failed</string>
     <string name="agents_state_finished">Finished</string>
@@ -122,6 +146,7 @@
     <string name="live_tabs_tasks">Tasks</string>
     <string name="live_tabs_terminals">Terminals</string>
     <string name="live_tabs_threads">Conversations</string>
+    <string name="more_choose_language">Choose language</string>
     <string name="more_connection">Connection</string>
     <string name="more_desktop">Computer</string>
     <string name="more_language">App language</string>
