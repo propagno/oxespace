@@ -13,7 +13,7 @@ import org.junit.Test
 class AgentsAcceptanceTest {
     private fun row(id: String, kind: String, state: String, since: Long, request: RemoteAgentRow.Request? = null, canInterrupt: Boolean? = null) =
         RemoteAgentRow(
-            id = id, kind = kind, state = state, since = since, title = id, provider = "claude", workspaceName = "oxespace",
+            id = id, rev = 1, kind = kind, state = state, since = since, title = id, provider = "claude", workspaceName = "oxespace",
             threadId = if (kind == "conversation") id.substringAfter(':') else null,
             paneId = if (kind == "pane") id.substringAfter(':') else null,
             request = request, canInterrupt = canInterrupt,

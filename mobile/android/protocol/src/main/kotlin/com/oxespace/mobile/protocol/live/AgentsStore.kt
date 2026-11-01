@@ -24,7 +24,9 @@ data class AgentsState(
  * The `agents` stream: a snapshot (in pages, joined by the hub), then upserts and removals. The phone never maps a state
  * itself; it only applies the C5 unknown-value rules: a row of a kind it doesn't know is skipped, and an unknown state is
  * read as `unknown` where it is shown (`RemoteAgentState.read`). Only the snapshot carries `nudgeAfterMs`; a change of
- * that setting arrives as a fresh snapshot.
+ * that setting arrives as a fresh snapshot. Each row carries `rev`, bumped on any change: an upsert applies only when
+ * its `rev` is higher than the row held, so a late or repeated event never brings a row back to an older state. A
+ * removal always applies; a snapshot replaces everything.
  */
 class AgentsStore : StreamListener {
     private val mutable = MutableStateFlow(AgentsState())
@@ -47,7 +49,11 @@ class AgentsStore : StreamListener {
         val now = mutable.value
         val byId = now.rows.associateBy { it.id }.toMutableMap()
         change.removed?.forEach { byId.remove(it) }
-        change.upsert?.forEach { row -> if (known(row)) byId[row.id] = row else byId.remove(row.id) }
+        change.upsert?.forEach { row ->
+            val held = byId[row.id]
+            if (held != null && row.rev <= held.rev) return@forEach
+            if (known(row)) byId[row.id] = row else byId.remove(row.id)
+        }
         mutable.value = now.copy(rows = byId.values.toList(), unavailable = change.unavailable ?: now.unavailable)
     }
 
