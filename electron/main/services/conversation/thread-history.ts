@@ -4,6 +4,7 @@ import type { ThreadDebugPage, ThreadDebugRow, ConversationThread, ThreadArtifac
 import { parseThreadPatch } from '../../../../shared/threadPatch'
 import { compileDebugFilter, summarizeThreadEvent } from '../../../../shared/threadDebug'
 import { canTransitionThreadOperation, createThreadEventEnvelope, deriveThreadDelivery } from './thread-event-envelope'
+import { MainRefusal } from '../main-refusal'
 import { parseThreadRow, readThreadTitle } from './thread-title'
 
 const DELIVERY_LIMIT = 250
@@ -40,7 +41,7 @@ export class ThreadHistory {
 
   read(id: string): ThreadSnapshot {
     const row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
-    if (!row) throw Error('Thread not found')
+    if (!row) throw new MainRefusal('thread.notFound', {})
     if (!row.history_version) this.write({ thread: JSON.parse(row.data_json), events: JSON.parse(row.events_json) })
     return { thread: parseThreadRow<ConversationThread>(row.data_json),
       events: (this.db.prepare('SELECT data_json FROM conversation_events WHERE thread_id = ? ORDER BY seq').all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)),
@@ -53,14 +54,14 @@ export class ThreadHistory {
    */
   readThread(id: string): ConversationThread | undefined {
     const row = this.db.prepare('SELECT data_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number } | undefined
-    if (!row) throw Error('Thread not found')
+    if (!row) throw new MainRefusal('thread.notFound', {})
     return row.history_version ? parseThreadRow<ConversationThread>(row.data_json) : undefined
   }
 
   /** Bounded projection for the renderer. Main-process operations keep using read(). */
   readWindow(id: string, limit = 250): ThreadSnapshot {
     let row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
-    if (!row) throw Error('Thread not found')
+    if (!row) throw new MainRefusal('thread.notFound', {})
     if (!row.history_version) {
       this.write({ thread: JSON.parse(row.data_json), events: JSON.parse(row.events_json) })
       row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as typeof row
@@ -87,7 +88,7 @@ export class ThreadHistory {
    */
   readSince(id: string, cursor: ThreadSyncCursor): ThreadDelta {
     const row = this.db.prepare('SELECT data_json, history_version, epoch, revision FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number; epoch: string | null; revision: number } | undefined
-    if (!row) throw Error('Thread not found')
+    if (!row) throw new MainRefusal('thread.notFound', {})
     if (!row.history_version || !row.epoch) return { ok: false, reset: 'unknown' }
     if (row.epoch !== cursor.epoch) return { ok: false, reset: 'epoch' }
     if (cursor.revision > row.revision) return { ok: false, reset: 'unknown' }
@@ -210,7 +211,7 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
   page(threadId: string, before?: number, limit = 200): ThreadHistoryPage {
     if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw Error('Invalid history page size')
     const exists = this.db.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(threadId) as { data_json: string } | undefined
-    if (!exists) throw Error('Thread not found')
+    if (!exists) throw new MainRefusal('thread.notFound', {})
     const liveCount = (this.db.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(threadId) as { count: number }).count
     const native = this.db.prepare('SELECT COUNT(*) AS count, MIN(seq) AS first FROM conversation_native_history WHERE thread_id = ?').get(threadId) as { count: number; first: number | null }
     const total = liveCount + native.count
@@ -299,7 +300,7 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
   updateThreadMetadata(thread: ConversationThread): void {
     const result = this.db.prepare("UPDATE conversation_threads SET data_json = ?, events_json = '[]', history_version = 1 WHERE id = ?")
       .run(JSON.stringify(thread), thread.id)
-    if (!result.changes) throw Error('Thread not found')
+    if (!result.changes) throw new MainRefusal('thread.notFound', {})
   }
 
   persistFrom(snapshot: ThreadSnapshot, eventsFrom: number, operationId?: string): void {
