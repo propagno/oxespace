@@ -79,7 +79,15 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0,checkboxChecked:false})})
     expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toContain('declined')
     await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1,checkboxChecked:false})})
-    expect((await run({action:'fill',selector:'#name',text:'Example',expectedUrl:url})).error).toBeUndefined()
+    const filled = await run({action:'fill',selector:'#name',text:'Example',expectedUrl:url})
+    // DIAG (#243, red on CI only): what covers the preview when main refuses the fill. Logged; the assertion is unchanged.
+    if (filled.error) console.log('DOC-PREVIEW-DIAG', JSON.stringify(await page.evaluate(async () => ({
+      dialogs: [...document.querySelectorAll('[role="dialog"]')].map(d => ({ testid: d.getAttribute('data-testid'), label: d.getAttribute('aria-label'), w: d.getBoundingClientRect().width, text: (d.textContent ?? '').slice(0, 120) })),
+      pending: await (window as unknown as { oxe: { approvals: { list: () => Promise<Array<{ id: string; kind: string }>> } } }).oxe.approvals.list().then(l => l.map(r => r.kind), e => String(e)),
+      previews: [...document.querySelectorAll('[data-testid="browser-preview-native"]')].map(e => { const r = e.getBoundingClientRect(); return { w: r.width, h: r.height, visible: (e as HTMLElement).checkVisibility() } }),
+      focus: document.hasFocus(), visibility: document.visibilityState
+    }))))
+    expect(filled.error).toBeUndefined()
     expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toBeUndefined()
     await expect.poll(async()=>JSON.stringify(await run({action:'inspect'}))).toContain('Saved Example')
     await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('#name').value='Blocked'"),url)
