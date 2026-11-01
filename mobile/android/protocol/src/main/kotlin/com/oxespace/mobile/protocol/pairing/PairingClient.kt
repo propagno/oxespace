@@ -45,7 +45,7 @@ class PairingClient(
         // Rechecked here so no caller can reach a public address by building a PairingQr by hand.
         if (!hostAllowed(qr.host)) return PairOutcome.Protocol
         val url = HttpUrl.Builder().scheme("https").host(literalHost(qr.host) ?: return PairOutcome.Protocol).port(qr.port).addPathSegment(REMOTE_PAIRING_PATH.removePrefix("/")).build()
-        val body = json.encodeToString(RemotePairRequest.serializer(), RemotePairRequest(qr.code, displayName(deviceName), publicKey))
+        val body = json.encodeToString(RemotePairRequest.serializer(), RemotePairRequest(qr.code, pairingDeviceName(deviceName), publicKey))
         val request = okhttp3.Request.Builder().url(url).post(body.toRequestBody(mediaType)).build()
         return try {
             clientFor(qr.fingerprint).newCall(request).execute().use { response ->
@@ -71,10 +71,6 @@ class PairingClient(
             PairOutcome.Unreachable
         }
     }
-
-    /** The gateway refuses control characters, blank names and names over the limit, so the phone never sends them. */
-    private fun displayName(name: String): String =
-        name.filterNot { it.isISOControl() }.trim().take(RemoteLimits.MAX_DEVICE_NAME_LENGTH).trim().ifEmpty { "Android" }
 
     /** The host as OkHttp expects it, from a literal only: never a name lookup. */
     private fun literalHost(host: String): String? =

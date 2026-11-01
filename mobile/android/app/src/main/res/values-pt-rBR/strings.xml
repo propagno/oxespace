@@ -110,6 +110,7 @@
     <string name="pairing_failed_locked">Tentativas de pareamento demais. Espere 2 minutos e tente de novo.</string>
     <string name="pairing_failed_protocol">O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador.</string>
     <string name="pairing_failed_refused_on_desktop">O pareamento foi recusado no computador.</string>
+    <string name="pairing_failed_reserved_name">O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo.</string>
     <string name="pairing_failed_too_many_devices">Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.</string>
     <string name="pairing_failed_unreachable">Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.</string>
     <string name="pairing_failed_wrong_certificate">Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.</string>

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES } from '../shared/approval-rules'
 import * as protocol from '../shared/remote/protocol'
 // @ts-expect-error plain ESM script without types
 import { constantName, PROTOCOL_KOTLIN_PATH, protocolKotlin } from '../scripts/android/protocol-kotlin.mjs'
@@ -21,6 +22,13 @@ const catalog = (language: string): Record<string, unknown> => JSON.parse(readFi
 describe('Android sources generated from the contracts', () => {
   it('match the committed Kotlin of the C5 protocol (run npm run android:generate after a contract change)', () => {
     expect(committed(PROTOCOL_KOTLIN_PATH)).toBe(protocolKotlin(protocolSource, protocol))
+  })
+
+  it('carries the reserved device names to Kotlin from their one source, and the refusal code', () => {
+    const kotlin: string = protocolKotlin(protocolSource, protocol)
+    expect(kotlin).toContain(`val REMOTE_RESERVED_NAME_FRAGMENTS: Set<String> = setOf(\n${[...RESERVED_APP_NAMES].map(name => `    "${name}",`).join('\n')}\n)`)
+    expect(kotlin).toContain(`val REMOTE_RESERVED_NAMES: Set<String> = setOf(\n${[...RESERVED_EXACT_NAMES].map(name => `    "${name}",`).join('\n')}\n)`)
+    expect(kotlin).toContain('@SerialName("reserved-name") RESERVED_NAME("reserved-name")')
   })
 
   it('match the committed Kotlin tokens (run npm run android:generate after editing a token)', () => {
