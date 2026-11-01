@@ -5,18 +5,19 @@ import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
-import { delimiter, extname, join } from 'node:path'
+import { basename, delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { killProcess } from '../utils/process-cleanup'
 import { getRtkService, type RtkService } from './rtk.service'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
-import type { PaneResumeRecord } from './agent-state/pane-sessions'
+import { resumeCommand, type PaneResumeRecord, type PaneSessionSource } from './agent-state/pane-sessions'
+import { mainMessage } from '../../../shared/messages'
 import { claudeSessionToAssign, failedToLoadStatus, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
-import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
@@ -49,6 +50,8 @@ interface TerminalManagerOptions {
   resumeSession?: (paneId: string, wanted: boolean, again?: boolean) => PaneResumeRecord | null
   /** Forgets the pane's recorded session (a restart with `resume: false`). */
   clearSession?: (paneId: string) => void
+  /** The pane's current agent session and where it came from (Terminal details, S2). */
+  currentSession?: (paneId: string) => { agent: 'claude' | 'codex'; sessionId: string; source: PaneSessionSource } | null
   /** Records the session id main gave a Claude Code it started (`--session-id`), as the hooks would. */
   assignSession?: (paneId: string, agent: 'claude', sessionId: string) => void
   /** Where the providers keep their sessions; the user's own folders by default. For tests. */
@@ -147,6 +150,7 @@ export class TerminalManager {
   private readonly resumeSession?: TerminalManagerOptions['resumeSession']
   private readonly assignSession?: TerminalManagerOptions['assignSession']
   private readonly clearSession?: TerminalManagerOptions['clearSession']
+  private readonly currentSession?: TerminalManagerOptions['currentSession']
   private readonly nativeSessionRoots?: NativeSessionRoots
   /** B17 · What each pane's first start in this run did with its agent's session, for terminal.status. */
   private readonly agentResumes = new Map<string, PaneAgentResume>()
@@ -178,6 +182,7 @@ export class TerminalManager {
     this.resumeSession = options.resumeSession
     this.assignSession = options.assignSession
     this.clearSession = options.clearSession
+    this.currentSession = options.currentSession
     this.nativeSessionRoots = options.nativeSessionRoots
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
@@ -589,8 +594,24 @@ export class TerminalManager {
     const session = this.sessions.get(paneId)
     const resumed = this.agentResumes.get(paneId)
     const agentResume = resumed ? { agentResume: resumed } : {}
-    if (!session) return { running: false, seq: 0, altScreen: false, ...agentResume }
-    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt, ...agentResume }
+    const agentSession = this.agentSessionOf(paneId, session?.executable, resumed)
+    if (!session) return { running: false, seq: 0, altScreen: false, ...agentResume, ...agentSession }
+    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt, ...agentResume, ...agentSession }
+  }
+
+  /**
+   * Terminal details' "Agent session" (S2): the native session the pane is in, how OXESpace learned it, and the command
+   * that reopens it; `notFound` with a reason when the pane runs Claude Code or Codex and none was reported yet.
+   */
+  private agentSessionOf(paneId: string, executable: string | undefined, resumed: PaneAgentResume | undefined): { agentSession?: PaneAgentSession } {
+    const current = this.currentSession?.(paneId) ?? null
+    if (current) {
+      // The session this run resumed was started by main, like one it named with --session-id.
+      const source = resumed?.outcome === 'resumed' && resumed.sessionId === current.sessionId ? 'launch' : current.source
+      return { agentSession: { agent: current.agent, sessionId: current.sessionId, source, resumeCommand: resumeCommand(current.agent, current.sessionId) } }
+    }
+    const provider = executable ? basename(executable).replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase() : ''
+    return provider === 'claude' || provider === 'codex' ? { agentSession: { source: 'notFound', message: mainMessage('agents.session.notFound', {}) } } : {}
   }
 
   /**

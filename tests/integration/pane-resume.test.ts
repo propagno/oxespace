@@ -48,8 +48,9 @@ function run(db: AppDatabase) {
   const terminals = new TerminalManager(db, {
     pty, platform: 'linux', nativeSessionRoots: roots,
     resumeSession: (paneId, wanted, again) => sessions.take(paneId, wanted, again),
-    assignSession: (paneId, agent, sessionId) => sessions.record(paneId, agent, sessionId),
-    clearSession: paneId => sessions.clear(paneId)
+    assignSession: (paneId, agent, sessionId) => sessions.record(paneId, agent, sessionId, 'launch'),
+    clearSession: paneId => sessions.clear(paneId),
+    currentSession: paneId => sessions.current(paneId)
   })
   return { sessions, pty, terminals }
 }
@@ -187,6 +188,57 @@ describe('what the window reads per pane (terminal.status agentResume)', () => {
       await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, disableRtk: true, resumeAgent: true })
       expect(terminals.status(ws.panes[0].id).agentResume).toEqual({ outcome: 'nothingRecorded' })
     } finally { terminals.stopAll(); db.close() }
+  })
+})
+
+describe('Terminal details: the agent session a pane is in (terminal.status agentSession, S2)', () => {
+  test('a Claude Code main started shows its own id, source launch, and the command that reopens it', async () => {
+    const db = openInMemoryDatabase()
+    const pane = workspace(db).panes[0]
+    const { terminals, pty } = run(db)
+    try {
+      await terminals.start({ workspaceId: pane.workspaceId, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      const assigned = pty.spawn.mock.calls.at(-1)![1][1]
+      expect(terminals.status(pane.id).agentSession).toEqual({ agent: 'claude', sessionId: assigned, source: 'launch', resumeCommand: `claude --resume ${assigned}` })
+    } finally { terminals.stopAll() }
+  })
+
+  test('a session main resumed after a restart reads as launch; one only remembered from before reads as recorded', async () => {
+    const db = openInMemoryDatabase()
+    const [left, right] = workspace(db, '1x2').panes
+    new PaneAgentSessions(db).record(left.id, 'claude', A)
+    new PaneAgentSessions(db).record(right.id, 'codex', B)
+    claudeTranscript(A)
+    const { terminals } = run(db)
+    try {
+      await terminals.start({ workspaceId: left.workspaceId, paneId: left.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      expect(terminals.status(left.id).agentSession).toMatchObject({ sessionId: A, source: 'launch', resumeCommand: `claude --resume ${A}` })
+      // Not started in this run: still the session recorded for the pane.
+      expect(terminals.status(right.id).agentSession).toEqual({ agent: 'codex', sessionId: B, source: 'recorded', resumeCommand: `codex resume ${B} --no-alt-screen` })
+    } finally { terminals.stopAll() }
+  })
+
+  test('a session reported by the agent\'s hook reads as hook', async () => {
+    const db = openInMemoryDatabase()
+    const pane = workspace(db).panes[0]
+    const { terminals, sessions } = run(db)
+    try {
+      await terminals.start({ workspaceId: pane.workspaceId, paneId: pane.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      sessions.record(pane.id, 'codex', B)
+      expect(terminals.status(pane.id).agentSession).toMatchObject({ agent: 'codex', sessionId: B, source: 'hook' })
+    } finally { terminals.stopAll() }
+  })
+
+  test('an agent pane with nothing reported says so with a C3 reason; a plain shell says nothing', async () => {
+    const db = openInMemoryDatabase()
+    const [agent, shell] = workspace(db, '1x2').panes
+    const { terminals } = run(db)
+    try {
+      await terminals.start({ workspaceId: agent.workspaceId, paneId: agent.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      expect(terminals.status(agent.id).agentSession).toEqual({ source: 'notFound', message: { code: 'agents.session.notFound', params: {} } })
+      // A pane with no agent running and no session recorded: nothing to show.
+      expect(terminals.status(shell.id).agentSession).toBeUndefined()
+    } finally { terminals.stopAll() }
   })
 })
 

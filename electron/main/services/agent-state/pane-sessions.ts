@@ -20,21 +20,40 @@ export function resumeArgs(agent: ResumableAgent, sessionId: string): string[] {
  * restore"). A pane is resumed at most once per app run: a later restart of the
  * pane is the person's choice and starts fresh.
  */
+/** The command that reopens a session from a terminal, for Terminal details' "Copy resume command" (ids are UUIDs). */
+export function resumeCommand(agent: ResumableAgent, sessionId: string): string {
+  return [agent, ...resumeArgs(agent, sessionId)].join(' ')
+}
+
+export type PaneSessionSource = 'launch' | 'hook' | 'recorded'
+
 export class PaneAgentSessions {
   private readonly resumedThisRun = new Set<string>()
+  /** How each pane's session was learned in this app run; a row from an earlier run reads as `recorded`. */
+  private readonly sources = new Map<string, Exclude<PaneSessionSource, 'recorded'>>()
 
   constructor(private readonly db: AppDatabase, private readonly now: () => number = Date.now) {}
 
-  record(paneId: string, agent: ResumableAgent, sessionId: string): void {
+  record(paneId: string, agent: ResumableAgent, sessionId: string, source: Exclude<PaneSessionSource, 'recorded'> = 'hook'): void {
     if (!SESSION_ID.test(sessionId)) return
     try {
       this.db.prepare(`INSERT INTO pane_agent_sessions (pane_id, agent, session_id, updated_at) VALUES (?, ?, ?, ?)
         ON CONFLICT(pane_id) DO UPDATE SET agent = excluded.agent, session_id = excluded.session_id, updated_at = excluded.updated_at`).run(paneId, agent, sessionId, this.now())
+      this.sources.set(paneId, source)
     } catch { /* a pane that is not in the database (a Thread or container shell) has nothing to resume */ }
   }
 
   clear(paneId: string): void {
+    this.sources.delete(paneId)
     try { this.db.prepare('DELETE FROM pane_agent_sessions WHERE pane_id = ?').run(paneId) } catch { /* best effort */ }
+  }
+
+  /** The session the pane is in now and where it came from, for Terminal details; null when none is recorded. */
+  current(paneId: string): { agent: ResumableAgent; sessionId: string; source: PaneSessionSource } | null {
+    let row: { agent: ResumableAgent; session_id: string } | undefined
+    try { row = this.db.prepare('SELECT agent, session_id FROM pane_agent_sessions WHERE pane_id = ?').get(paneId) as typeof row } catch { return null }
+    if (!row || (row.agent !== 'claude' && row.agent !== 'codex') || !SESSION_ID.test(row.session_id)) return null
+    return { agent: row.agent, sessionId: row.session_id, source: this.sources.get(paneId) ?? 'recorded' }
   }
 
   /**

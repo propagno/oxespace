@@ -353,6 +353,9 @@
         "disabled": "Retomar sessões de agente está desligado nas Configurações.",
         "startedFresh": "Este painel foi reiniciado com uma sessão nova; a anterior não volta mais.",
         "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova."
+      },
+      "session": {
+        "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta, ou quando os ganchos do agente estiverem instalados."
       }
     },
     "incident": {
