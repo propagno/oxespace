@@ -32,7 +32,21 @@ export async function launchReal(profile: RealProfile): Promise<{ app: ElectronA
   return { app, page }
 }
 
-export const quitReal = (app: ElectronApplication): Promise<unknown> => app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
+/**
+ * Quits the app and releases Playwright's handle within ~12 s: app.exit, then close (bounded), then the process tree.
+ * Exiting alone left the handle open: on CI the worker then waited out its teardown limit after a passing test.
+ */
+export async function quitReal(app: ElectronApplication): Promise<void> {
+  const proc = app.process()
+  await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
+  await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 10_000))])
+  if (proc.exitCode === null && proc.pid) {
+    try {
+      if (process.platform === 'win32') execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' })
+      else process.kill(proc.pid, 'SIGKILL')
+    } catch { /* already gone */ }
+  }
+}
 
 /** Opens the repo as a one-pane workspace through the wizard, as a person would. */
 export async function openRepo(page: Page, repo: string): Promise<void> {
