@@ -1,6 +1,7 @@
 import { app, net } from 'electron'
 import log from 'electron-log/main.js'
 import { hostname, release, userInfo } from 'node:os'
+import { APP_VERSION } from '../app-info'
 import { dirname, join } from 'node:path'
 import { mainMessage } from '../../../../shared/messages'
 import type { AppConnectivity } from '../../../../shared/types/app'
@@ -58,7 +59,7 @@ export class DiagnosticsRuntime {
   /** The one summary: the window's "Ask for an analysis" and `oxespace_diagnostics` both return this text. */
   async analysisSummary(): Promise<string> {
     const [incidents, metrics] = await Promise.all([this.incidents(), this.metrics()])
-    return buildAnalysisSummary({ incidents, metrics, version: app.getVersion(), platform: process.platform, arch: process.arch, now: Date.now() })
+    return buildAnalysisSummary({ incidents, metrics, version: APP_VERSION, platform: process.platform, arch: process.arch, now: Date.now() })
   }
 
   async bundle(): Promise<Bundle> {
@@ -96,7 +97,7 @@ function connectivity(): AppConnectivity {
 /** Versions only, as About shows them: no path, account or machine name. */
 function about(): Record<string, unknown> {
   return {
-    name: 'OXESpace', version: app.getVersion(), packaged: app.isPackaged,
+    name: 'OXESpace', version: APP_VERSION, packaged: app.isPackaged,
     versions: { electron: process.versions.electron ?? null, chrome: process.versions.chrome ?? null, node: process.versions.node, v8: process.versions.v8 },
     platform: process.platform, arch: process.arch, osRelease: safe(() => release(), null)
   }
