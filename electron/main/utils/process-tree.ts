@@ -125,18 +125,15 @@ export function killProcessTree(pid: number | undefined | null, overrides: Parti
 interface KillablePty { readonly pid: number; kill(): void }
 
 /**
- * Ends a PTY and its tree. On Windows the tree goes first (taskkill needs the shell alive to find its children) and
- * the PTY's own kill follows, releasing the pseudo console; elsewhere both go at once.
+ * Ends a PTY and its tree. The tree goes first and the PTY's own kill follows, releasing the pseudo console: the
+ * children are found from a live root (taskkill's walk on Windows, the `ps` snapshot elsewhere). Releasing first
+ * SIGHUPs the shell before the snapshot, its detached children are reparented to init, and they are missed.
  */
 export function terminatePty(pty: KillablePty | null | undefined, overrides: Partial<ProcessTreeDeps> = {}): Promise<void> {
   if (!pty) return Promise.resolve()
   const release = (): void => { try { pty.kill() } catch { /* already gone */ } }
-  const platform = overrides.platform ?? defaultDeps.platform
   let pid: number | undefined
   try { pid = pty.pid } catch { pid = undefined }
   if (!pid || !Number.isInteger(pid) || pid <= 0) { release(); return Promise.resolve() }
-  const tree = killProcessTree(pid, overrides)
-  if (platform === 'win32') return tree.finally(release)
-  release()
-  return tree
+  return killProcessTree(pid, overrides).finally(release)
 }
