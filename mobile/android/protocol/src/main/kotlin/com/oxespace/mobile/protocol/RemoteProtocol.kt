@@ -211,11 +211,9 @@ val REMOTE_RESERVED_NAME_FRAGMENTS: Set<String> = setOf(
 
 /** Generic words refused only as the whole name ("System", "Sistema"); "filesystem" stays allowed. */
 val REMOTE_RESERVED_NAMES: Set<String> = setOf(
-    "System",
-    "Sistema",
-    "App",
-    "Aplicativo",
-    "Application",
+    "Thread",
+    "Code",
+    "Chat",
 )
 
 /** Every frame; the JSON `type` field picks the class. */
