@@ -64,6 +64,7 @@ import com.oxespace.mobile.protocol.RemoteWorkspace
 import com.oxespace.mobile.R
 import com.oxespace.mobile.ui.UnpairDialog
 import com.oxespace.mobile.session.LiveRepository
+import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 
@@ -167,7 +168,11 @@ fun LiveHome(
         val content = Modifier.fillMaxSize().padding(padding)
         when (tab) {
             LiveTab.THREADS -> ListOrEmpty(threads, stringResource(R.string.live_empty_threads, desktopName), content) { ThreadRow(it, workspaces, onOpenThread) }
-            LiveTab.REQUESTS -> ListOrEmpty(requests, stringResource(R.string.live_empty_requests), content) { RequestRow(it) { onOpenRequest(it) } }
+            LiveTab.REQUESTS -> {
+                // SECURITY #236: each row shows the request's command, the same thing the request screen keeps out of Recents.
+                SecureScreen()
+                ListOrEmpty(requests, stringResource(R.string.live_empty_requests), content) { RequestRow(it) { onOpenRequest(it) } }
+            }
             LiveTab.TERMINALS -> ListOrEmpty(workspaces.filter { it.panes.isNotEmpty() }, stringResource(R.string.live_empty_terminals), content) { WorkspacePanes(it, onOpenTerminal) }
             LiveTab.TASKS -> Tasks(jobs, delegations, content)
         }

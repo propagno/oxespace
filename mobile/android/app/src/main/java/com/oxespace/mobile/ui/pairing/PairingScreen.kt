@@ -90,6 +90,8 @@ private fun Title(text: String) {
 
 @Composable
 private fun Scanning(badCode: PairingState.BadCode?, camera: @Composable (Modifier) -> Unit) {
+    // The camera preview shows the desktop's pairing QR, a one-time secret: not for a screen recording either.
+    SecureScreen()
     Title(stringResource(R.string.pairing_title))
     Text(stringResource(R.string.pairing_instructions), style = MaterialTheme.typography.bodyLarge)
     val frame = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(OxeRadius.lg))
