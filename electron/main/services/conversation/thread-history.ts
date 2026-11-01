@@ -4,6 +4,7 @@ import type { ThreadDebugPage, ThreadDebugRow, ConversationThread, ThreadArtifac
 import { parseThreadPatch } from '../../../../shared/threadPatch'
 import { compileDebugFilter, summarizeThreadEvent } from '../../../../shared/threadDebug'
 import { canTransitionThreadOperation, createThreadEventEnvelope, deriveThreadDelivery } from './thread-event-envelope'
+import { parseThreadRow, readThreadTitle } from './thread-title'
 
 const DELIVERY_LIMIT = 250
 /** A client further behind than this rereads the window instead of paging deltas. */
@@ -41,7 +42,7 @@ export class ThreadHistory {
     const row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
     if (!row) throw Error('Thread not found')
     if (!row.history_version) this.write({ thread: JSON.parse(row.data_json), events: JSON.parse(row.events_json) })
-    return { thread: JSON.parse(row.data_json),
+    return { thread: parseThreadRow<ConversationThread>(row.data_json),
       events: (this.db.prepare('SELECT data_json FROM conversation_events WHERE thread_id = ? ORDER BY seq').all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)),
       turns: (this.db.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')").all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)) }
   }
@@ -53,7 +54,7 @@ export class ThreadHistory {
   readThread(id: string): ConversationThread | undefined {
     const row = this.db.prepare('SELECT data_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number } | undefined
     if (!row) throw Error('Thread not found')
-    return row.history_version ? JSON.parse(row.data_json) as ConversationThread : undefined
+    return row.history_version ? parseThreadRow<ConversationThread>(row.data_json) : undefined
   }
 
   /** Bounded projection for the renderer. Main-process operations keep using read(). */
@@ -65,7 +66,7 @@ export class ThreadHistory {
       row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as typeof row
     }
     const page = this.page(id, undefined, limit)
-    const thread: ConversationThread = JSON.parse(row!.data_json)
+    const thread = parseThreadRow<ConversationThread>(row!.data_json)
     const turns = this.turns(id)
     const live = (this.db.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(id) as { count: number }).count
     return {
@@ -121,7 +122,7 @@ export class ThreadHistory {
       ORDER BY e.thread_id, e.seq LIMIT ?`).all(limit) as { thread_id: string; workspace_id: string; thread_title: string | null; data_json: string }[]
     return rows.map(row => {
       const request = (JSON.parse(row.data_json) as Extract<ThreadEvent, { type: 'request' }>).request
-      return { threadId: row.thread_id, workspaceId: row.workspace_id, threadTitle: row.thread_title ?? '', requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation }
+      return { threadId: row.thread_id, workspaceId: row.workspace_id, threadTitle: readThreadTitle(row.thread_title), requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation }
     })
   }
 

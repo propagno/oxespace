@@ -7,8 +7,13 @@
  * setPaneRootPath would leave every service test green while the pane silently
  * kept its old cwd.
  */
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createFakeIpcMain, type FakeIpcMain } from '../helpers/fake-ipc-main'
+import { removeTempDir } from '../helpers/removeTempDir'
+import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
 import type { AppDatabase } from '../../electron/main/db'
 import type { WorkspaceService } from '../../electron/main/services/workspace.service'
 import type { SemanticService } from '../../electron/main/services/semantic.service'
@@ -41,6 +46,7 @@ function setup(): {
     closePane: record('workspace.closePane', { id: 'ws-1' }),
     setPaneRootPath: record('workspace.setPaneRootPath', { id: 'pane-1' }),
     createPane: record('workspace.createPane', { id: 'pane-new' }),
+    create: record('workspace.create', { id: 'ws-new' }),
     setActive: vi.fn(() => {
       calls.push('workspace.setActive')
       return { id: 'ws-1', rootPath: 'C:/repo' }
@@ -136,6 +142,32 @@ describe('workspace IPC adapter', () => {
     await expect(ipcMain.invoke('workspace:delete', 42)).rejects.toThrow()
 
     expect(ctx.calls).toEqual([])
+  })
+
+  describe('workspace root (B11)', () => {
+    let scratch: string
+    beforeEach(() => { scratch = mkdtempSync(join(tmpdir(), 'oxe-ws-root-')) })
+    afterEach(() => removeTempDir(scratch))
+
+    test.each([
+      ['a folder that does not exist', () => join(scratch, 'missing', 'folder'), 'notFound'],
+      ['a file', () => { const file = join(scratch, 'notes.txt'); writeFileSync(file, 'x'); return file }, 'notDirectory'],
+      ['a relative path', () => join('relative', 'folder'), 'notAbsolute']
+    ] as const)('refuses %s with a code, before the service writes anything', async (_label, makePath, refusal) => {
+      const rootPath = makePath()
+      const result = await ipcMain.invoke('workspace:create', { rootPath, layoutPreset: 4 })
+
+      expect(result).toEqual({ ok: false, refusal, message: { code: `workspace.root.${refusal}`, params: { path: rootPath } } })
+      expect(isWorkspaceCreateRefusal(result)).toBe(true)
+      expect(ctx.workspaceService.create).not.toHaveBeenCalled()
+    })
+
+    test('creates the workspace on an existing folder', async () => {
+      const result = await ipcMain.invoke('workspace:create', { rootPath: scratch, layoutPreset: 4 })
+
+      expect(result).toEqual({ id: 'ws-new' })
+      expect(ctx.workspaceService.create).toHaveBeenCalledWith(expect.objectContaining({ rootPath: scratch, layoutPreset: 4 }))
+    })
   })
 
   test('reorder rejects a non-string id instead of persisting a partial list', async () => {

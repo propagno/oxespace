@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { VoiceModelSize, VoiceTranscribeOptions } from '../../../shared/types/voice'
-import { VoiceService } from '../services/voice.service'
+import type { VoiceService } from '../services/voice.service'
 import { parseBytes, parseOneOf, requireAppFrame } from './ipc-guards'
 
 const MODEL_SIZES: readonly VoiceModelSize[] = ['tiny', 'base', 'small']
@@ -27,7 +27,9 @@ function parseTranscribeOptions(value: unknown): VoiceTranscribeOptions | undefi
  *   - `voice:ensure-model`      — download the model on first use.
  *   - `voice:on-model-progress` — push channel broadcasting download progress.
  */
-function createVoiceService(): VoiceService {
+/** The whisper runner loads on the first voice request: most launches never dictate, and the main entry stays lean. */
+async function createVoiceService(): Promise<VoiceService> {
+  const { VoiceService } = await import('../services/voice.service')
   return new VoiceService({
     emitProgress: (event) => {
       for (const win of BrowserWindow.getAllWindows()) {
@@ -37,21 +39,25 @@ function createVoiceService(): VoiceService {
   })
 }
 
-export function registerVoiceIpc(service = createVoiceService()): VoiceService {
+export function registerVoiceIpc(load: () => Promise<VoiceService> = createVoiceService): void {
+  let service: Promise<VoiceService> | null = null
+  const voice = (): Promise<VoiceService> => (service ??= load().catch(error => { service = null; throw error }))
 
-  ipcMain.handle(IPC_CHANNELS.voice.transcribe, (event, wav: unknown, options?: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.voice.transcribe, async (event, wav: unknown, options?: unknown) => {
     requireAppFrame(event, 'Voice input')
     // Push-to-talk audio is 16 kHz mono PCM: 32 MB is over 15 minutes, far past any dictation.
-    return service.transcribe(parseBytes(wav, 32 * 1024 * 1024, 'Audio'), parseTranscribeOptions(options))
+    const bytes = parseBytes(wav, 32 * 1024 * 1024, 'Audio')
+    const parsed = parseTranscribeOptions(options)
+    return (await voice()).transcribe(bytes, parsed)
   })
-  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, (event, size?: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, async (event, size?: unknown) => {
     requireAppFrame(event, 'Voice input')
-    return service.getModelStatus(size === undefined ? 'base' : parseOneOf(size, MODEL_SIZES, 'Model size'))
+    const modelSize = size === undefined ? 'base' : parseOneOf(size, MODEL_SIZES, 'Model size')
+    return (await voice()).getModelStatus(modelSize)
   })
-  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, (event, size?: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, async (event, size?: unknown) => {
     requireAppFrame(event, 'Voice input')
-    return service.ensureModel(size === undefined ? 'base' : parseOneOf(size, MODEL_SIZES, 'Model size'))
+    const modelSize = size === undefined ? 'base' : parseOneOf(size, MODEL_SIZES, 'Model size')
+    return (await voice()).ensureModel(modelSize)
   })
-
-  return service
 }

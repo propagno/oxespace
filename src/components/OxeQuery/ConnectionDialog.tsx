@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { ErrorState, Notice } from '../../ui/Display'
 import { formatMs } from './catalog'
 import { EXAMPLE } from './examples'
-import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
@@ -12,7 +12,7 @@ import { useOxeQueryStore, type ConnectionDraft } from './oxequery.store'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
-import { FieldError, Select, SegmentedControl, Switch } from '../../ui/Field'
+import { FieldError, Select, SegmentedControl, SwatchPicker, Switch } from '../../ui/Field'
 import { splitHostInput } from '../../../shared/oxequeryHost'
 
 /** Markup the translated sentences may use. */
@@ -247,7 +247,7 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
     <form id="oq-connection-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
       {!editing && <section className="oq-engines" role="radiogroup" aria-label={t('newDatabase.engine')}>
         {ENGINES.map(({ id, name: label, Icon }) => <button key={id} type="button" role="radio" aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
-          <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span></button>)}
+          <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span>{engine === id && <Check size={14} className="oq-engine-check" aria-hidden="true" />}</button>)}
       </section>}
 
       <div className="oq-connect-by"><span>{t('form.connectBy')}</span>
@@ -263,9 +263,9 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
         <label className="oq-form-wide">{t('server.column.name')}<input value={name} onChange={event => setName(event.target.value)} placeholder={derivedName.trim() && derivedName !== '127.0.0.1' ? derivedName : t(`form.namePlaceholder.${engine}`)} autoFocus={!draft} /></label>
         <label>{t('form.group')}<input list="oq-groups" value={group} onChange={event => setGroup(event.target.value)} placeholder={t('form.noGroup')} maxLength={60} /></label>
         <datalist id="oq-groups">{groups.map(item => <option key={item} value={item} />)}</datalist>
-        <div className="oq-form-pair"><div role="radiogroup" aria-label={t('form.color')} className="oq-swatches">
-          <button type="button" role="radio" aria-checked={color === ''} aria-label={t('form.noColor')} data-color="none" onClick={() => setColor('')} />
-          {CONNECTION_COLORS.map(item => <button key={item} type="button" role="radio" aria-checked={color === item} aria-label={t(`form.colors.${item}`)} data-color={item} onClick={() => setColor(item)} />)}</div>
+        <div className="oq-form-pair"><SwatchPicker<ConnectionColor | ''> label={t('form.color')} value={color} onChange={setColor}
+          // The same colours as .oq-color-dot: CONNECTION_COLORS in order are --avatar-1 to --avatar-6.
+          options={[{ value: '', label: t('form.noColor') }, ...CONNECTION_COLORS.map((item, index) => ({ value: item, label: t(`form.colors.${item}`), color: `var(--avatar-${index + 1})` }))]} />
           <label className="oq-check"><input type="checkbox" checked={favorite} onChange={event => setFavorite(event.target.checked)} />{t('form.favorite')}</label></div>
         {mode === 'host' && <>
         <label>{srv ? t('form.seedHost') : t('form.host')}<input value={host} onChange={event => setHost(event.target.value)} onBlur={() => {
@@ -286,10 +286,9 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
       </div>
 
       <section className="oq-safety" aria-label={t('form.safety')}>
-        <div role="radiogroup" aria-label={t('form.environment')} className="oq-segment">
-          {ENVIRONMENTS.map(item => <button key={item} type="button" role="radio" aria-checked={environment === item} data-selected={environment === item} data-environment={item}
-            onClick={() => { setEnvironment(item); if (item === 'prod' && agentAccess === 'write') setAgentAccess('read') }}>{t(`environment.${item}`)}</button>)}
-        </div>
+        <SegmentedControl label={t('form.environment')} className="oq-environment" value={environment}
+          options={ENVIRONMENTS.map(item => ({ value: item, label: t(`environment.${item}`), tone: item === 'prod' ? 'danger' as const : undefined }))}
+          onChange={item => { setEnvironment(item); if (item === 'prod' && agentAccess === 'write') setAgentAccess('read') }} />
         <Switch checked={readOnly} onChange={setReadOnly} label={t('form.readOnly')} description={t('form.readOnlyHint')} />
         {environment === 'prod' && !readOnly && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> {t('form.prodWrites')}</p>}
       </section>

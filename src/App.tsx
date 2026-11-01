@@ -2,12 +2,13 @@ import { Activity, Palette, Plus } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
 import './commands/settings.commands'
 import { useCodeCommands } from './commands/code.commands'
-import { useThreadCommands } from './commands/thread.commands'
-import { DataHosts, DataSidebar, isDataView, useModeActions } from './components/Navigation/ModeViews'
-import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
+import { sayAddProjectFirst, useThreadCommands } from './commands/thread.commands'
+import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions } from './components/Navigation/ModeViews'
+import { SettingsCenter } from './components/Settings/SettingsHost'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
-import { Button, cx, toast, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
+import { Button, cx, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
+import { reportSplitRefused } from './components/Grid/splitRefusal'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
@@ -23,11 +24,10 @@ import { humanizeError } from './utils/humanizeError'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
-const SettingsCenter = lazy(() => import('./components/Settings/SettingsCenter').then((m) => ({ default: m.SettingsCenter })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
 const TeamDialog = lazy(() => import('./components/Teams/TeamDialog').then(m => ({ default: m.TeamDialog })))
-const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
-const ThreadSidebar = lazy(() => import('./components/Threads/ThreadSidebar').then(m => ({ default: m.ThreadSidebar })))
+const FirstRunChecklist = lazy(() => import('./components/Onboarding/FirstRunChecklist').then(m => ({ default: m.FirstRunChecklist })))
+import { FirstRunChecklistFallback } from './components/Onboarding/FirstRunChecklistFallback'
 const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
 const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
 const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.AddThreadProjectDialog })))
@@ -582,13 +582,9 @@ export function App(): ReactElement {
     else openWebPreview(activeWorkspaceId)
   }
 
-  const splitWorkspacePane = useCallback((
-    workspaceId: string,
-    paneId: string,
-    direction: 'vertical' | 'horizontal'
-  ): void => {
+  const splitWorkspacePane = useCallback((workspaceId: string, paneId: string, direction: 'vertical' | 'horizontal'): void => {
     if (!useUIStore.getState().splitLayoutEnabled) {
-      void splitPane(paneId, direction)
+      void splitPane(paneId, direction).catch(reportSplitRefused)
       return
     }
 
@@ -658,7 +654,7 @@ export function App(): ReactElement {
   // The Team belongs to a project: the selected workspace in Code, the selected project in Thread.
   const teamTarget = applicationView === 'thread' ? (threadProject ? { kind: 'thread' as const, id: threadProject.projectId } : null)
     : applicationView === 'code' ? (activeWorkspace ? { kind: 'code' as const, id: activeWorkspace.id } : null) : null
-  const teamDisabledReason = isDataView(applicationView) ? 'Team is available in Code and Thread' : applicationView === 'thread' ? 'Select a Thread project to open its team' : 'Open a workspace to open its team'
+  const teamDisabledReason = isDataView(applicationView) ? 'Team is available in OxeCode and OxeChat' : applicationView === 'thread' ? 'Select an OxeChat project to open its team' : 'Open a workspace to open its team'
   const openTeam = (): void => { if (teamTarget) setTeamScope(teamTarget) }
 
   // Code's side panels: buttons in the workspace bar for Changes and Browser, the rest in the Panels menu (also on the rail).
@@ -773,7 +769,7 @@ export function App(): ReactElement {
   useThreadShortcuts(applicationView === 'thread', newThread)
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
-  const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else toast({ title: 'Add a project first', description: 'Provider accounts are checked inside a Thread project.' }) }
+  const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
   useThreadCommands({ snapshot: threadSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
     addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts })
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
@@ -814,7 +810,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label="OXESpace workbench">
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
-        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by Code and Thread' : teamDisabledReason} onClick={openTeam}>Team</Button><ActivityCenter onSelectView={selectMode} /><UpdateBanner /><AppUpdateIndicator /></div>
+        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by OxeCode and OxeChat' : teamDisabledReason} onClick={openTeam}>Team</Button><ActivityCenter onSelectView={selectMode} /><UpdateBanner /><AppUpdateIndicator /></div>
       </header>
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 'var(--layer-toast)', padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
@@ -829,12 +825,12 @@ export function App(): ReactElement {
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
       {isDataView(applicationView) ? <DataSidebar view={applicationView} />
-      : applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
+      : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
         const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
         else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })
         setApplicationView('code')
-      }} /></Suspense> : <Sidebar
+      }} /></ThreadSidebarBoundary> : <Sidebar
         onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
@@ -865,7 +861,7 @@ export function App(): ReactElement {
         ) : activeWorkspace || applicationView !== 'code' ? (
           <>
             <DataHosts view={applicationView} />
-            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary label="the conversations"><Suspense fallback={<LoadingState brand />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
+            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary id="conversations" label="the conversations" onReset={ThreadGrid.retry}><Suspense fallback={<LoadingState brand />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra
@@ -918,10 +914,10 @@ export function App(): ReactElement {
             <Button variant="primary" size="lg" icon={<Plus size={14} aria-hidden="true" />} onClick={openNewWorkspaceFromUI}>New workspace</Button>
             <div className="empty-state-alt" role="group" aria-label="Other ways to start">
               <span>Or start somewhere else</span>
-              <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
+              <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open OxeChat</Button>
               <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button><Button variant="ghost" size="sm" onClick={() => selectMode('pods')}>Open OxePod</Button><Button variant="ghost" size="sm" onClick={() => selectMode('post')}>Open OxePost</Button>
             </div>
-            <FirstRunChecklist onNewWorkspace={openNewWorkspaceFromUI} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} />
+            <Suspense fallback={<FirstRunChecklistFallback />}><FirstRunChecklist onNewWorkspace={openNewWorkspaceFromUI} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} /></Suspense>
           </div>
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}
@@ -935,7 +931,7 @@ export function App(): ReactElement {
           }} />}
         </Suspense>
       </section>
-      <ErrorBoundary label="this window">
+      <ErrorBoundary id="window" label="this window">
       <Suspense fallback={null}>
       {isNewWorkspaceOpen ? (
         <NewWorkspaceModal
@@ -1009,7 +1005,7 @@ export function App(): ReactElement {
         />
       ) : null}
       {isSettingsOpen || isWorkspaceSettingsOpen ? (
-        <SettingsCenter
+        <Suspense fallback={null}><SettingsCenter
           initialPage={useUIStore.getState().settingsInitialPage}
           initialWorkspaceId={isWorkspaceSettingsOpen && applicationView === 'code' ? activeWorkspace?.id : undefined}
           allowWorkspaceScope={applicationView === 'code'}
@@ -1070,7 +1066,7 @@ export function App(): ReactElement {
             }
           }}
           onClose={() => { if (isSettingsOpen) toggleSettings(); closeWorkspaceSettings() }}
-        />
+        /></Suspense>
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}
       {isSemanticActivityOpen ? (

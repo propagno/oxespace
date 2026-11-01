@@ -7,6 +7,7 @@ import { ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { splitStatements } from '../../../shared/sqlText'
+import { commandOf, guardSql, isMutating, refuseSql, type MockSqlRefusal } from './oxequery-mock-guard'
 import { maintenanceStatement, planStructure } from '../services/oxequery/ddl-builder'
 import type { OxeQueryConnection, OxeQueryErrorInfo, SqlResult } from '../../../shared/types/oxequery'
 import { mockContainers } from './oxepod-mock'
@@ -19,6 +20,7 @@ export function registerOxeQueryMock(): void {
   const workspaces = new Map<string, unknown>()
   let tx: { state: 'none' | 'open' | 'failed'; statements: number; since?: number } = { state: 'none', statements: 0 }
   const fail = (code: OxeQueryErrorInfo['code'], message: string, reasons?: string[]) => ({ ok: false as const, error: { code, message, ...(reasons ? { reasons } : {}) } })
+  const refuse = (refusal: MockSqlRefusal) => ({ ok: false as const, error: { ...refusal } })
   const ok = <T,>(value: T) => ({ ok: true as const, value })
   const connection = (id: unknown): OxeQueryConnection | undefined => connections.find(item => item.id === id)
   const trusted = new Set<string>()
@@ -148,21 +150,22 @@ export function registerOxeQueryMock(): void {
       case 'sql.browse': return ok(users)
       // 1,200 rows read page by page, as a long SELECT is in the editor.
       case 'sql.more': return ok(bigPage(Number(String(input.pageId).split(':')[1]), Number(input.maxRows ?? 500), true))
+      // The real classifier decides what asks for a confirmation, so e2e sees what production sees (oxequery-mock-guard.ts).
       case 'sql.run': {
         const target = connection(input.connectionId)
         const sql = String(input.sql ?? '')
-        const mutating = /^\s*(insert|update|delete|drop|truncate|create|alter)/i.test(sql)
-        if (target?.readOnly && mutating) return fail('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.')
-        if (target?.environment === 'prod' && mutating && String(input.confirmName ?? '').trim() !== target.name) return fail('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.')
-        if (/^\s*delete\s+from\s+\w+\s*;?\s*$/i.test(sql) && input.confirmed !== true) return fail('confirm', 'This statement is destructive and needs confirmation.', ['DELETE without a WHERE clause affects every row'])
+        const refused = refuseSql(target, sql, input)
+        if (refused) return refuse(refused)
         if (/^\s*selec\s/i.test(sql)) return fail('query', 'syntax error at or near "SELEC"')
-        if (mutating) return ok({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 2, command: 'DELETE', affectedRows: 3 })
+        if (isMutating(guardSql(sql))) return ok({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 2, command: commandOf(sql), affectedRows: 3 })
         if (/\bfrom\s+docs\b/i.test(sql)) return ok(docs)
         if (/\bfrom\s+big\b/i.test(sql)) return ok(bigPage(0, Number(input.maxRows ?? 500), input.paged === true))
         return ok(users)
       }
       case 'sql.script': {
         const sql = String(input.sql ?? '')
+        const refused = refuseSql(connection(input.connectionId), sql, input)
+        if (refused) return refuse(refused)
         const spans = splitStatements(sql)
         return ok({ statements: spans.map((span, index) => ({ index, start: span.start, end: span.end, sql: span.text.slice(0, 200), result: users })) })
       }
@@ -175,7 +178,7 @@ export function registerOxeQueryMock(): void {
       case 'workspace.load': return ok({ state: workspaces.get(String(input.connectionId)) ?? null })
       case 'workspace.save': workspaces.set(String(input.connectionId), input.state); return ok({ ok: true })
       case 'sql.cancel': return ok({ cancelled: false })
-      case 'sql.check': return ok({ kind: 'read', reasons: [], statements: 1 })
+      case 'sql.check': return ok(guardSql(String(input.sql ?? '')))
       // Safe production: the same answer the real service gives (see oxequery-guard.ts), without policy files.
       case 'safety.get': {
         const target = connection(input.connectionId)
