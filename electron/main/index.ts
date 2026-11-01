@@ -221,7 +221,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const terminalManager: TerminalManager = new TerminalManager(db, {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     observer: agentState,
-    resumeSession: (paneId, wanted) => paneAgentSessions.take(paneId, wanted),
+    resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'), clearSession: paneId => paneAgentSessions.clear(paneId), currentSession: paneId => paneAgentSessions.current(paneId),
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
@@ -275,11 +275,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   // not inflate the main entry or block startup parsing.
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
-    { registerLinearIpc }, { registerIntegrationIpc },
+    { registerLinearIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
     { GitHubService }, { GitService }, { CodeGraphService }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
-    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
+    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
   ])
   const gitService = registerGitIpc()
@@ -311,7 +311,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     log.warn('Automations unavailable', error)
   }
   const linearService = registerLinearIpc(db, gitHubService)
-  registerIntegrationIpc(db)
+  registerIntegrationIpc(db); registerRemoteIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
@@ -376,7 +376,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
-  app.once('before-quit', registerAppInfoIpc())
+  app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()

@@ -161,7 +161,3 @@ Dono de `src/**`, `shared/locales/**`, `e2e/visual/**`, `docs/design/**` e `mobi
 
 ### F10 (extensão) · Aprovação por ferramenta
 - Em cada grupo e servidor MCP, cada ferramenta com permitir / pedir aprovação / bloquear (B7.3).
-
-
-### Pendências conhecidas (F7 / F27)
-- **Monaco `inputLatency` no Linux da CI.** Em `e2e/close-guard.spec.ts`, ao digitar no editor, o Monaco às vezes lança `Cannot read properties of undefined (reading 'duration')` no `onKeyUp`: o `addMeasure` de `vs/base/browser/performance.js` lê `performance.getEntriesByName(nome)[0].duration` logo depois de medir, e a entrada não está lá. Nenhum código nosso limpa ou observa a timeline (só o próprio Monaco chama `clearMarks`/`clearMeasures`; as marcas do F7 são `oxe:preload:*`), e não reproduz no Windows. Visto uma vez no job Linux do #251. Se voltar: filtrar no spec só esse erro (mensagem com `reading 'duration'` **e** quadro do `inputLatency` do Monaco), com comentário apontando a causa upstream; nunca ignorar `pageerror` em bloco. Acompanhar no Monaco (microsoft/vscode) e remover o filtro quando corrigido.
