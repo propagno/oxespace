@@ -2,7 +2,6 @@ import { cpSync, existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
-import { monacoInputLatencyGuard } from './scripts/monaco-input-latency-guard.mjs'
 
 /**
  * Folder under resources/whisper holding this host's whisper.cpp build. The
@@ -210,8 +209,6 @@ export default defineConfig({
     root: '.',
     plugins: [
       react(),
-      // Monaco's keystroke-latency sampler throws when its timing entry is gone (close-guard pageerror).
-      monacoInputLatencyGuard(),
       {
         name: 'inject-prod-csp',
         apply: 'build',
