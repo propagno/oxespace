@@ -100,6 +100,7 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.ipc.validationRejected': 'ipc',
   'incident.agent.startFailed': 'agent',
   'incident.mcp.quarantined': 'mcp',
+  'incident.mcp.toolGroupOff': 'mcp',
   'incident.database.busy': 'database',
   'incident.oxequery.timeout': 'oxequery',
   'incident.oxequery.restartDeferred': 'oxequery',
