@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { execFileSync, spawn } from 'node:child_process'
+import { createServer } from 'node:http'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -13,6 +14,9 @@ import { basename, join } from 'node:path'
  *   including a detached grandchild that ignores SIGTERM (node-pty's bundled ConPTY on Windows never forks).
  * - T4: the internal MCP bridge the app wrote to `.mcp.json` runs on the system `node`, never on the app binary, and
  *   answers initialize, tools/list and a read tool, launched exactly as written from inside an app terminal.
+ * - T5: the status hooks the app writes into Claude's settings.json and Codex's hooks.json, run exactly as written
+ *   (exec form, PowerShell string or sh string) on the system node, reach the app as pane status.
+ * - T8 (Windows): the shipped updater, pointed at a feed on the loopback, sees a newer version and downloads nothing.
  * T1 (reading the fuses) is the `Read packaged fuses` CI step (scripts/check-fuses.mjs).
  */
 export interface PackagedFusesOptions { platform: NodeJS.Platform; label: string }
@@ -64,6 +68,41 @@ child.stdout.on('data', chunk => {
 })
 child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'b13-packaged', version: '1' } } }) + '\n')
 `
+
+/**
+ * Runs OXESpace's UserPromptSubmit handler from each agent config EXACTLY as written: Claude's exec form (command +
+ * args, no shell) or the command string through the shell the agent uses for it (PowerShell for Codex on Windows,
+ * sh elsewhere). Records how each ran and what it answered; the app side is checked through agentHooks.onStatus.
+ */
+const HOOK_DRIVER = String.raw`
+const { spawn } = require('node:child_process')
+const { readFileSync, writeFileSync } = require('node:fs')
+const [claudeSettings, codexHooks, cwd, out] = process.argv.slice(2)
+const ours = path => {
+  const doc = JSON.parse(readFileSync(path, 'utf8'))
+  for (const entry of (doc.hooks && doc.hooks.UserPromptSubmit) || []) {
+    for (const hook of entry.hooks || []) if (JSON.stringify(hook).includes('oxespace-status-hook.cjs')) return hook
+  }
+  return null
+}
+const run = (agent, hook) => new Promise(resolve => {
+  if (!hook) return resolve({ agent, missing: true })
+  const form = Array.isArray(hook.args) ? 'exec' : process.platform === 'win32' ? 'powershell' : 'sh'
+  const child = form === 'exec' ? spawn(hook.command, hook.args, { windowsHide: true })
+    : form === 'powershell' ? spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', hook.command], { windowsHide: true })
+    : spawn('/bin/sh', ['-c', hook.command])
+  let stdout = ''
+  child.stdout.on('data', chunk => { stdout += chunk })
+  child.on('error', error => resolve({ agent, form, error: error.code || String(error) }))
+  child.on('close', code => resolve({ agent, form, command: hook.command, code, stdout: stdout.trim() }))
+  child.stdin.end(JSON.stringify({ hook_event_name: 'UserPromptSubmit', session_id: 'b13-' + agent, cwd }))
+})
+Promise.all([run('claude-code', ours(claudeSettings)), run('codex', ours(codexHooks))])
+  .then(results => writeFileSync(out, JSON.stringify(results)))
+`
+
+/** A newer release than any real one, so the comparison cannot depend on the version being built. */
+const SMOKE_UPDATE_VERSION = '99.0.0'
 
 function scratch(name: string): string {
   const root = join(tmpdir(), `oxe-b13-${name}-${Date.now()}`)
@@ -221,6 +260,85 @@ export function registerPackagedFuses({ platform, label }: PackagedFusesOptions)
         expect(result.answers.toolCount).toBeGreaterThan(0)
       } finally {
         await app.close()
+      }
+    })
+
+    test('T5: the status hooks the app writes run as written on the system node and reach the app', async () => {
+      test.setTimeout(120_000)
+      const root = scratch('hooks')
+      const workspace = join(root, 'workspace')
+      const claudeDir = join(root, 'claude'), codexDir = join(root, 'codex')
+      // The agents' config homes point into the scratch folder: nothing of the runner's own config is touched.
+      const { app, page } = await launch(root, { OXESPACE_DISABLE_SINGLE_INSTANCE: '1', CLAUDE_CONFIG_DIR: claudeDir, CODEX_HOME: codexDir })
+      try {
+        const paneId = await openTerminal(page, workspace)
+        await page.evaluate(() => {
+          const seen: unknown[] = []
+          ;(window as unknown as { __b13Hooks: unknown[] }).__b13Hooks = seen
+          window.oxe.agentHooks.onStatus(event => { seen.push(event) })
+        })
+        const installed = await page.evaluate(async () => [await window.oxe.agentHooks.install('claude-code'), await window.oxe.agentHooks.install('codex')])
+        expect(installed.map(status => status.state), JSON.stringify(installed)).toEqual(['installed', 'installed'])
+        const claudeSettings = join(claudeDir, 'settings.json'), codexHooks = join(codexDir, 'hooks.json')
+        for (const file of [claudeSettings, codexHooks]) {
+          const written = readFileSync(file, 'utf8')
+          expect(written, `${file} names the system node`).toMatch(/"node"|node /)
+          expect(written).not.toContain('ELECTRON_RUN_AS_NODE')
+          expect(written.toLowerCase()).not.toContain(basename(process.env.OXESPACE_PACKAGED_EXECUTABLE!).toLowerCase())
+        }
+
+        const driver = join(root, 'hook-driver.cjs'), out = join(root, 'hooks.json')
+        writeFileSync(driver, HOOK_DRIVER)
+        // From inside an app terminal: its env carries the execution credentials and the hook port, as an agent's does.
+        await typeInto(page, paneId, `node ${quote(driver)} ${quote(claudeSettings)} ${quote(codexHooks)} ${quote(workspace)} ${quote(out)}`)
+        await expect.poll(() => existsSync(out), { timeout: 45_000 }).toBe(true)
+        const ran = JSON.parse(readFileSync(out, 'utf8')) as Array<{ agent: string; form: string; code: number; stdout: string }>
+        console.log('[b13-t5]', JSON.stringify(ran.map(({ agent, form, code, stdout }) => ({ agent, form, code, stdout }))))
+        expect(ran.map(({ agent, form, code, stdout }) => ({ agent, form, code, stdout }))).toEqual([
+          { agent: 'claude-code', form: platform === 'win32' ? 'exec' : 'sh', code: 0, stdout: '{}' },
+          { agent: 'codex', form: platform === 'win32' ? 'powershell' : 'sh', code: 0, stdout: '{}' }
+        ])
+        await expect.poll(async () => page.evaluate(id => ((window as unknown as { __b13Hooks: Array<{ paneId: string; agent: string; state: string }> }).__b13Hooks)
+          .filter(event => event.paneId === id && event.state === 'working').map(event => event.agent).sort(), paneId), { timeout: 15_000 })
+          .toEqual(['claude-code', 'codex'])
+      } finally {
+        await app.close()
+      }
+    })
+
+    test('T8: the shipped updater reads a loopback feed, sees a newer version and downloads nothing', async () => {
+      test.setTimeout(120_000)
+      // The Linux unpacked tree is neither an AppImage nor apt-managed, so its updater only reads the GitHub API
+      // (updaterSupportsThisInstall); electron-updater itself runs in the NSIS build, which is what ships.
+      test.skip(platform !== 'win32', 'electron-updater runs only in the Windows (NSIS) build of the packaged smoke')
+      const root = scratch('updater')
+      const requests: string[] = []
+      const feed = `version: ${SMOKE_UPDATE_VERSION}\nfiles:\n  - url: OXESpace-Setup-${SMOKE_UPDATE_VERSION}.exe\n    sha512: ${'A'.repeat(86)}==\n    size: 1\npath: OXESpace-Setup-${SMOKE_UPDATE_VERSION}.exe\nsha512: ${'A'.repeat(86)}==\nreleaseDate: '2099-01-01T00:00:00.000Z'\n`
+      const server = createServer((request, response) => {
+        requests.push(`${request.method} ${request.url}`)
+        if (/^\/(latest|beta)\.yml(\?|$)/.test(request.url ?? '')) { response.setHeader('Content-Type', 'text/yaml'); response.end(feed); return }
+        response.statusCode = 404
+        response.end()
+      })
+      await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+      const address = server.address()
+      const feedUrl = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}/`
+      const { app, page } = await launch(root, { OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_UPDATE_FEED_URL: feedUrl })
+      try {
+        const state = await page.evaluate(() => window.oxe.app.checkForUpdates())
+        await expect.poll(async () => (await page.evaluate(() => window.oxe.app.getUpdateState())).status, { timeout: 30_000 }).toBe('available')
+        const final = await page.evaluate(() => window.oxe.app.getUpdateState())
+        console.log('[b13-t8]', JSON.stringify({ first: state.status, final: { status: final.status, availableVersion: final.availableVersion, error: final.error }, requests }))
+        expect(final).toMatchObject({ status: 'available', availableVersion: SMOKE_UPDATE_VERSION, error: null })
+        // Read-only feed: only the channel file was asked for, never the installer, and the app is still up.
+        expect(requests.length).toBeGreaterThan(0)
+        expect(requests.every(line => /^GET \/(latest|beta)\.yml/.test(line)), requests.join(', ')).toBe(true)
+        await page.waitForTimeout(3000)
+        expect(requests.some(line => line.includes('.exe'))).toBe(false)
+        expect(await page.evaluate(() => window.oxe.app.getUpdateState().then(value => value.status))).toBe('available')
+      } finally {
+        await app.close()
+        await new Promise<void>(resolve => server.close(() => resolve()))
       }
     })
   })
