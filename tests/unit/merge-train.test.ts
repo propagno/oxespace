@@ -15,6 +15,8 @@ import {
   parseTrainState,
   renderComment,
   runTrain,
+  SKIP_CI_NOTE,
+  selectStaleRuns,
   step,
   upsertComment,
   // @ts-expect-error -- a plain ES module script without type declarations
@@ -55,6 +57,18 @@ const ciRun = (over: Partial<Run> = {}): Run => ({
   ...over,
 })
 const check = (name: string, over: Partial<Check> = {}): Check => ({ name, headSha: HEAD, status: 'completed', conclusion: 'success', ...over })
+type BranchRun = { id: number; path: string; event: string; status: string; headSha: string; headBranch: string; headRepo: string | null; pullRequests: number[] }
+const branchRun = (over: Partial<BranchRun> = {}): BranchRun => ({
+  id: 1,
+  path: '.github/workflows/ci.yml',
+  event: 'workflow_dispatch',
+  status: 'in_progress',
+  headSha: OLD,
+  headBranch: 'feat/x',
+  headRepo: 'o/r',
+  pullRequests: [],
+  ...over,
+})
 const greenChecks = () => [check('Changed paths'), check('Typecheck, test and build (Linux)'), check('OxeQuery live tests', { conclusion: 'skipped' })]
 
 const input = (over: Record<string, unknown> = {}) => ({
@@ -300,6 +314,13 @@ function fakeApi(prs: Array<{ number: number; labeledAt: string | null; pr?: Rec
     async dispatchWorkflow(file: string, ref: string) {
       writes.push(['dispatch', file, ref])
     },
+    branchRuns: [] as BranchRun[],
+    async listBranchRuns(_ref: string): Promise<BranchRun[]> {
+      return api.branchRuns
+    },
+    async cancelRun(id: number) {
+      writes.push(['cancel', id])
+    },
   }
   return api
 }
@@ -347,9 +368,35 @@ describe('running the train against a fake API', () => {
     api.afterUpdate = () => {
       prs[0].pr = { headSha: HEAD }
     }
-    await runTrain(api, { now: NOW, sleep: noSleep })
+    api.branchRuns = [
+      branchRun({ id: 1, headSha: OLD }),
+      branchRun({ id: 2, headSha: HEAD }),
+      branchRun({ id: 3, headSha: OLD, pullRequests: [99] }),
+    ]
+    await runTrain(api, { now: NOW, sleep: noSleep, repo: 'o/r' })
     expect(api.writes).toContainEqual(['dispatch', 'ci.yml', 'feat/x'])
     expect(parseTrainState(api.comments.get(3)![0].body, NOW)).toMatchObject({ head: HEAD, dispatchedFor: HEAD })
+    // Only the PR's own run on its superseded head is cancelled, after the dispatch on the new head.
+    expect(api.writes.filter(([w]) => w === 'cancel')).toEqual([['cancel', 1]])
+    const order = api.writes.map(([w]) => w)
+    expect(order.indexOf('dispatch')).toBeLessThan(order.indexOf('cancel'))
+  })
+
+  it('cancels nothing when the head did not move, or without the repository name', async () => {
+    const prs = [{ number: 3, labeledAt: '2026-10-31T09:00:00Z', pr: { headSha: OLD } as Record<string, unknown>, behindBy: 1 }]
+    const still = fakeApi(prs)
+    still.branchRuns = [branchRun({ id: 1, headSha: 'c'.repeat(40) })]
+    await runTrain(still, { now: NOW, sleep: noSleep, repo: 'o/r', headPolls: 2 })
+    expect(still.writes.some(([w]) => w === 'cancel')).toBe(false)
+    const moved = [{ number: 3, labeledAt: '2026-10-31T09:00:00Z', pr: { headSha: OLD } as Record<string, unknown>, behindBy: 1 }]
+    const unnamed = fakeApi(moved)
+    unnamed.afterUpdate = () => {
+      moved[0].pr = { headSha: HEAD }
+    }
+    unnamed.branchRuns = [branchRun({ id: 1, headSha: OLD })]
+    await runTrain(unnamed, { now: NOW, sleep: noSleep })
+    expect(unnamed.writes).toContainEqual(['dispatch', 'ci.yml', 'feat/x'])
+    expect(unnamed.writes.some(([w]) => w === 'cancel')).toBe(false)
   })
 
   it('keeps one comment per PR, edits it, and never touches a person’s comment', async () => {
@@ -567,6 +614,103 @@ describe('security (review of #318)', () => {
       api.collaboratorRole = async () => role
       expect((await runTrain(api, { now: NOW, sleep: noSleep }))[0].type).toBe('merge')
     }
+  })
+})
+
+describe('superseded runs (homologation follow-up b)', () => {
+  const at = { number: 7, headRef: 'feat/x', headSha: HEAD, repo: 'o/r', base: 'main' }
+
+  it("cancels the same PR's queued or running runs on an old head", () => {
+    const runs = [
+      branchRun({ id: 1, status: 'in_progress' }),
+      branchRun({ id: 2, status: 'queued', event: 'pull_request', pullRequests: [7] }),
+      branchRun({ id: 3, status: 'waiting', path: '.github/workflows/a11y-axe.yml' }),
+    ]
+    expect(selectStaleRuns(runs, at)).toEqual([1, 2, 3])
+  })
+
+  it('keeps the current head, another PR, main, completed runs, forks and non-train workflows', () => {
+    const runs = [
+      branchRun({ id: 10, headSha: HEAD }),
+      branchRun({ id: 11, pullRequests: [8] }),
+      branchRun({ id: 12, pullRequests: [7, 8] }),
+      branchRun({ id: 13, headBranch: 'main' }),
+      branchRun({ id: 14, headBranch: 'feat/other' }),
+      branchRun({ id: 15, status: 'completed' }),
+      branchRun({ id: 16, headRepo: 'fork/r' }),
+      branchRun({ id: 17, path: '.github/workflows/merge-train.yml' }),
+      branchRun({ id: 18, path: '.github/workflows/release.yml' }),
+      branchRun({ id: 19, headSha: 'not-a-sha' }),
+    ]
+    expect(selectStaleRuns(runs, at)).toEqual([])
+  })
+
+  it("never selects anything on the base branch or without the PR's head and repository", () => {
+    const runs = [branchRun({ id: 1, headBranch: 'main' })]
+    expect(selectStaleRuns(runs, { ...at, headRef: 'main' })).toEqual([])
+    expect(selectStaleRuns([branchRun()], { ...at, repo: null })).toEqual([])
+    expect(selectStaleRuns([branchRun()], { ...at, headSha: undefined })).toEqual([])
+    expect(selectStaleRuns(undefined, at)).toEqual([])
+  })
+})
+
+describe('bot pushes and their unapproved runs (homologation follow-up a)', () => {
+  it('ignores an action_required or fully skipped CI run on the head', () => {
+    const real = ciRun({ createdAt: '2026-10-31T11:10:00Z' })
+    const unapproved = ciRun({ conclusion: 'action_required', createdAt: '2026-10-31T11:20:00Z' })
+    const skipped = ciRun({ conclusion: 'skipped', createdAt: '2026-10-31T11:30:00Z' })
+    expect(step(input({ runs: [real, unapproved, skipped] })).type).toBe('merge')
+    // On its own, an unapproved run is no CI at all: the train waits (and dispatches after the grace).
+    expect(step(input({ runs: [unapproved], checks: [] })).message).toMatch(/has not started/)
+  })
+
+  it('updates the branch with a [skip ci] merge of main, pinned to the head it decided on', async () => {
+    const calls: Array<[string, string, unknown]> = []
+    let head = HEAD
+    const respond = (data: unknown, status = 200) => ({ ok: status < 300, status, json: async () => data, text: async () => 'conflict', headers: { get: () => '' } })
+    const fetchImpl = async (url: string, init: { method: string; body?: string }) => {
+      calls.push([init.method, url, init.body ? JSON.parse(init.body) : undefined])
+      if (init.method === 'GET') return respond({ head: { sha: head, ref: 'feat/x' } })
+      return respond({ sha: 'd'.repeat(40) }, 201)
+    }
+    const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
+    await api.updateBranch(7, HEAD)
+    expect(calls.at(-1)).toEqual([
+      'POST',
+      'https://api.github.com/repos/o/r/merges',
+      { base: 'feat/x', head: 'main', commit_message: `Merge branch 'main' into feat/x\n\n${SKIP_CI_NOTE}` },
+    ])
+    expect(SKIP_CI_NOTE).toContain('[skip ci]')
+    head = OLD
+    const before = calls.length
+    await expect(api.updateBranch(7, HEAD)).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/expected head sha/i) })
+    expect(calls.slice(before).map(([m]) => m)).toEqual(['GET'])
+  })
+
+  it('a branch update that conflicts leaves the queue saying so', async () => {
+    const api = fakeApi([{ number: 21, labeledAt: '2026-10-31T09:00:00Z', pr: { headSha: OLD }, behindBy: 1 }])
+    api.updateBranch = async () => {
+      throw Object.assign(new Error('POST /repos/o/r/merges: 409 Merge conflict'), { status: 409 })
+    }
+    const actions = await runTrain(api, { now: NOW, sleep: noSleep, repo: 'o/r' })
+    expect(actions.map((a: { type: string }) => a.type)).toEqual(['update', 'unlabel', 'idle'])
+    expect(api.comments.get(21)![0].body).toMatch(/it conflicts with main/)
+  })
+
+  it('cancels a run through the API, and a run that already finished is fine', async () => {
+    const urls: string[] = []
+    let status = 202
+    const fetchImpl = async (url: string) => {
+      urls.push(url)
+      return { ok: status < 300, status, json: async () => ({}), text: async () => '', headers: { get: () => '' } }
+    }
+    const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
+    await api.cancelRun(41)
+    expect(urls).toEqual(['https://api.github.com/repos/o/r/actions/runs/41/cancel'])
+    status = 409
+    await expect(api.cancelRun(42)).resolves.toBeUndefined()
+    status = 403
+    await expect(api.cancelRun(43)).rejects.toMatchObject({ status: 403 })
   })
 })
 

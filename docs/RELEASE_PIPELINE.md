@@ -134,7 +134,7 @@ time, oldest labelling first. Each run moves the PR at the head of the queue one
 | PR state | What the train does |
 |----------|---------------------|
 | Draft, conflicting, changes requested, or from a fork | Removes the label and says why |
-| Behind `main` | Updates the branch (merges `main` into it), then dispatches CI on the new head |
+| Behind `main` | Updates the branch (merges `main` into it, with `[skip ci]` in that merge commit), dispatches CI on the new head, then cancels that PR's runs still queued or running on its superseded heads |
 | CI on the current head not started or still running | Waits; a later run continues |
 | A check on the current head failed | Removes the label, naming the job, its link and the first failing step |
 | Green on the current head and 0 commits behind `main` | Merges with a merge commit, pinned to the tested SHA, then serves the next PR |
@@ -144,9 +144,19 @@ The train keeps one `merge-train:` comment per PR and edits it. A check counts w
 requires it, or, while protection requires none, every check run on the head except skipped ones.
 
 **GITHUB_TOKEN.** The train uses the workflow's built-in token, and what that token does starts no
-other workflow: a branch update fires no `pull_request` run and a merge fires no `push` run on `main`. So the
-train dispatches `ci.yml` itself, on the updated branch (with `a11y-axe.yml`, `memory-compatibility.yml` or
-`android.yml` when they had run on the PR) and on `main` after each merge. The same token may not push a
+usable workflow run: a merge fires no `push` run on `main`, and a branch update's `pull_request` runs only
+wait for an approval nobody gives (they end `action_required` with no jobs, because the approval gate comes
+before any job's `if:`). So the train makes its branch update a merge commit whose message carries
+`[skip ci]`, which keeps GitHub from creating those `push`/`pull_request` runs at all, and it dispatches
+`ci.yml` itself, on the updated branch (with `a11y-axe.yml`, `memory-compatibility.yml` or `android.yml` when
+they had run on the PR) and on `main` after each merge. `[skip ci]` never touches a dispatched run, and it
+only applies while that merge commit is the PR's head: a person's next push runs CI as usual. A run that
+ended `action_required` or with every job skipped never stands for CI on a head.
+
+**Superseded runs.** Right after an update, the train cancels the runs that only hold runner slots: runs of
+its dispatchable workflows, from this repository, on that PR's branch, still queued or running, on a head
+that is no longer the PR's, and not tied to another PR. It never cancels a run on the current head, on
+`main`, of another PR, or of any other workflow. The same token may not push a
 change to `.github/workflows`: when GitHub refuses a merge (or a branch update) for that, the PR leaves the
 queue with that cause and the coordinator merges it.
 

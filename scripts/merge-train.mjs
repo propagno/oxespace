@@ -4,8 +4,10 @@
 // Every run drives the OLDEST labelled PR one step (see `step`): unlabel it with the cause, update its
 // branch with main, wait, or merge it. A merge moves on to the next PR in the same run.
 //
-// GITHUB_TOKEN caveat: what this token does (update a branch, merge) does not start other workflows, so the
-// train dispatches the PR's CI on the updated branch and `ci.yml` on main after each merge itself.
+// GITHUB_TOKEN caveat: what this token does (update a branch, merge) starts no usable run of other workflows
+// (a branch update's pull_request runs would only wait for approval), so the train merges main into a branch
+// with `[skip ci]`, dispatches the PR's CI on the updated branch and `ci.yml` on main after each merge itself,
+// and cancels the PR's runs left on its superseded heads.
 //
 // The decision is a pure function (`step`), and the GitHub calls sit behind a small `api` object, so the
 // unit tests (tests/unit/merge-train.test.ts) drive both with a fake API.
@@ -30,6 +32,33 @@ export const DEFAULT_TIMEOUT_MINUTES = 60
 /** How long a head may sit with no CI run at all before the train dispatches one itself. */
 export const DISPATCH_GRACE_MS = 3 * 60_000
 const IGNORED_CONCLUSIONS = new Set(['skipped', 'neutral'])
+/** Run conclusions of runs that tested nothing: waiting for an approval that never came, or every job skipped. */
+const UNTESTED_RUN_CONCLUSIONS = new Set(['action_required', 'skipped'])
+/** Run states that still hold (or wait for) a runner. */
+const ACTIVE_RUN_STATUSES = new Set(['queued', 'in_progress', 'waiting', 'pending', 'requested'])
+export const SKIP_CI_NOTE = '[skip ci] The merge train dispatches CI on this head itself.'
+
+/**
+ * The runs to cancel after the train moved a PR's branch to `headSha`: only runs of the train's dispatchable
+ * workflows, from this repository, on this PR's branch (never the base), still queued or running, on a head
+ * that is no longer the PR's, and not tied to another PR. Returns their ids.
+ */
+export function selectStaleRuns(runs, { number, headRef, headSha, repo, base = 'main' }) {
+  if (!repo || !headRef || !isSha(headSha) || headRef === base) return []
+  return (runs ?? [])
+    .filter(
+      (run) =>
+        ACTIVE_RUN_STATUSES.has(run.status) &&
+        run.headRepo === repo &&
+        run.headBranch === headRef &&
+        run.headBranch !== base &&
+        isSha(run.headSha) &&
+        run.headSha !== headSha &&
+        DISPATCHABLE_WORKFLOWS.includes(String(run.path ?? '').split('/').pop()) &&
+        (run.pullRequests ?? []).every((n) => n === number),
+    )
+    .map((run) => run.id)
+}
 /** The login GitHub gives comments made with a workflow's GITHUB_TOKEN, and the GitHub Actions app id. */
 export const TRAIN_LOGIN = 'github-actions[bot]'
 export const ACTIONS_APP_ID = 15368
@@ -202,7 +231,10 @@ export function step(input) {
   }
 
   const head = pr.headSha
-  const runs = latestByName((input.runs ?? []).filter((r) => r.headSha === head && WATCHED_WORKFLOWS.includes(r.name)))
+  // A run that tested nothing (an unapproved bot run, or one with every job skipped) never stands for CI on the head.
+  const runs = latestByName(
+    (input.runs ?? []).filter((r) => r.headSha === head && WATCHED_WORKFLOWS.includes(r.name) && !UNTESTED_RUN_CONCLUSIONS.has(r.conclusion)),
+  )
   if (!runs.some((r) => r.name === CI_WORKFLOW)) {
     // Nothing started CI on this head (a GITHUB_TOKEN update starts no workflow, and the dispatch right after it
     // may have missed): after a short grace, so a push's own run can show up first, the train dispatches it once.
@@ -266,6 +298,7 @@ export async function upsertComment(api, number, body) {
 /** A GitHub refusal in a few words; a workflow file is the usual one, since GITHUB_TOKEN may not push those. */
 function refusal(error) {
   const text = String(error?.message ?? error)
+  if (error?.status === 409 && /\/merges/.test(text)) return 'it conflicts with main'
   if (/workflow/i.test(text) && /permission/i.test(text)) return 'it changes a file in .github/workflows, which the train token may not push'
   return cleanName(text)
 }
@@ -316,6 +349,8 @@ export async function runTrain(
     log = () => {},
     sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     headPolls = 10,
+    repo = null,
+    base = 'main',
   } = {},
 ) {
   const queue = orderQueue(await api.listQueue())
@@ -366,6 +401,16 @@ export async function runTrain(
         if (fresh?.headSha && fresh.headSha !== action.expectedHead) {
           for (const file of action.dispatch) await api.dispatchWorkflow(file, input.pr.headRef)
           state = { ...state, head: fresh.headSha, dispatchedFor: fresh.headSha }
+          // Runs still testing this PR's superseded heads only hold runner slots now.
+          const stale = selectStaleRuns(await api.listBranchRuns(input.pr.headRef), {
+            number: entry.number,
+            headRef: input.pr.headRef,
+            headSha: fresh.headSha,
+            repo,
+            base,
+          })
+          for (const id of stale) await api.cancelRun(id)
+          if (stale.length) log(`#${entry.number}: cancelled ${stale.length} run(s) of superseded heads`)
           break
         }
         await sleep(3000)
@@ -561,7 +606,42 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
       }
     },
     async updateBranch(number, expectedHeadSha) {
-      await request('PUT', `${r}/pulls/${number}/update-branch`, { expected_head_sha: expectedHeadSha })
+      // Merges main into the branch like "Update branch" does, but with `[skip ci]` in the merge commit: GitHub then
+      // creates no pull_request runs for the bot's push (they would only wait for approval and end action_required),
+      // and the CI the train dispatches on that head is the one that counts. The skip only covers push and
+      // pull_request runs, and only while this commit is the head: a person's next push runs CI as usual.
+      const pr = (await request('GET', `${r}/pulls/${number}`)).data
+      if (pr.head.sha !== expectedHeadSha) {
+        const error = new Error('expected head sha no longer matches the branch')
+        error.status = 422
+        throw error
+      }
+      await request('POST', `${r}/merges`, {
+        base: pr.head.ref,
+        head: base,
+        commit_message: `Merge branch '${base}' into ${pr.head.ref}\n\n${SKIP_CI_NOTE}`,
+      })
+    },
+    async listBranchRuns(ref) {
+      const { data } = await request('GET', `${r}/actions/runs?branch=${encodeURIComponent(ref)}&per_page=100`)
+      return data.workflow_runs.map((run) => ({
+        id: run.id,
+        path: run.path,
+        event: run.event,
+        status: run.status,
+        headSha: run.head_sha,
+        headBranch: run.head_branch,
+        headRepo: run.head_repository?.full_name ?? null,
+        pullRequests: (run.pull_requests ?? []).map((p) => p.number),
+      }))
+    },
+    async cancelRun(id) {
+      try {
+        await request('POST', `${r}/actions/runs/${Number(id)}/cancel`)
+      } catch (error) {
+        // 409: the run finished in the meantime.
+        if (error.status !== 409) throw error
+      }
     },
     async merge(number, sha) {
       // `sha` makes GitHub refuse the merge if the head moved since the green run.
@@ -580,7 +660,7 @@ async function main() {
   if (!token || !repo) throw new Error('GITHUB_TOKEN and GITHUB_REPOSITORY are required')
   const minutes = Number(process.env.MERGE_TRAIN_TIMEOUT_MINUTES)
   const timeoutMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_TIMEOUT_MINUTES
-  const actions = await runTrain(createGitHubApi({ token, repo }), { timeoutMinutes, log: (line) => console.log(line) })
+  const actions = await runTrain(createGitHubApi({ token, repo }), { timeoutMinutes, repo, log: (line) => console.log(line) })
   const summary = process.env.GITHUB_STEP_SUMMARY
   if (summary) {
     const lines = actions.map((a) => `- ${a.number ? `#${a.number} ` : ''}**${a.type}**: ${a.message}`)
