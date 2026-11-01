@@ -357,6 +357,18 @@
     "agents": {
       "name": {
         "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      },
+      "resume": {
+        "sessionMissing": "The agent's previous session is no longer on disk for this folder, so a new one started.",
+        "otherAgent": "This pane now starts a different agent, so its previous session was not resumed.",
+        "launchOverride": "This start had its own arguments or prompt, so the previous session was not resumed.",
+        "blocked": "Your organization's policy does not allow this agent here, so its session was not resumed.",
+        "disabled": "Resuming agent sessions is turned off in Settings.",
+        "startedFresh": "This pane was restarted with a new session; the previous one will not come back.",
+        "failedToLoad": "The agent could not load its previous session and closed, so this pane started a new one."
+      },
+      "session": {
+        "notFound": "This agent hasn't reported its session yet. It shows after the agent's first reply, or sooner with the status hooks on (Settings › Notifications)."
       }
     },
     "incident": {
