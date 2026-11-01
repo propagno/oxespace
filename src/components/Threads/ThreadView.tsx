@@ -61,6 +61,7 @@ import './ThreadView.css'
 import { formatClock, formatNumber } from '../../utils/formatTime'
 
 export function ThreadView({ workspace, threadId, active = true, onActivate, onCloseCell, onNewThread, onAccounts, onDelegations }: { workspace?: Workspace; threadId?: string | null; active?: boolean; onActivate?: () => void; onCloseCell?: () => void; onNewThread?: () => void; onAccounts?: () => void; onDelegations?: () => void }) {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['ThreadView'] = ((w.__renders ??= {})['ThreadView'] ?? 0) + 1 }
   const { t } = useTranslation('thread')
   const storeSelectedId = useThreadStore(state => state.selectedId)
   const snapshot = useThreadStore(state => threadId ? state.selectedId === threadId ? state.snapshot : state.snapshotCache[threadId] ?? null : state.snapshot)

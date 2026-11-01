@@ -31,6 +31,7 @@ interface TerminalPaneProps {
 }
 
 export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }: TerminalPaneProps): ReactElement {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['TerminalPane'] = ((w.__renders ??= {})['TerminalPane'] ?? 0) + 1 }
   // Subscribe only to this pane. Calling useTerminalStore() without a selector
   // made every TerminalPane rerender whenever any other terminal produced
   // output (up to 10 updates/s per pane).

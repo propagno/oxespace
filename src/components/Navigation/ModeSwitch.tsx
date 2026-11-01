@@ -16,6 +16,7 @@ const MODES: Array<{ mode: NavigationMode; label: string }> = [
 
 /** The application's four views, as one segmented control in the middle of the title bar; Ctrl+1…4 switch between them. */
 export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect: (mode: NavigationMode) => void }) {
+  { const w = window as unknown as { __renders?: Record<string, number> }; (w.__renders ??= {})['ModeSwitch'] = ((w.__renders ??= {})['ModeSwitch'] ?? 0) + 1 }
   const { t } = useTranslation()
   const attention = useAttentionSummary()
   const go = (next: NavigationMode) => () => { if (next !== mode) onSelect(next) }

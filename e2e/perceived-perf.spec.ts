@@ -193,7 +193,7 @@ function probeInPage(probe: Probe): Promise<Sample> {
   })
 }
 
-type View = 'Code' | 'Thread' | 'OxeQuery' | 'OxePod' | 'OxePost'
+type View = 'OxeCode' | 'OxeChat' | 'OxeQuery' | 'OxePod' | 'OxePost'
 interface Surface { name: string; probe: Probe; /** Untimed setup, then tags the control to click. */ arm: (page: Page) => Promise<void>; /** Untimed teardown. */ leave?: (page: Page) => Promise<void> }
 
 const MODE_PROBE = { dialog: false, settleMs: 300, timeoutMs: 10_000 }
@@ -203,7 +203,7 @@ const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surfac
   name,
   probe: { dialog: true, sidebar: false, settleMs: 300, timeoutMs: 10_000, content: ['.settings-center-content :is(h2, h3)', '.settings-center-content :is(button, input, select, textarea, [role="switch"])'] },
   arm: async p => {
-    await modeButton(p, 'Code').click()
+    await modeButton(p, 'OxeCode').click()
     await p.evaluate(target => localStorage.setItem('oxe.settings.destination', JSON.stringify({ scope: 'application', page: target })), page)
     await p.getByRole('button', { name: 'Open settings' }).first().evaluate(el => el.setAttribute('data-perf-trigger', ''))
   },
@@ -214,11 +214,11 @@ const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surfac
 })
 
 const SURFACES: Surface[] = [
-  { name: 'OxeChat (Thread)', arm: armMode('Thread'), probe: { ...MODE_PROBE, sidebar: true, text: 'How should sessions be stored?', content: ['.thread-host .thread-timeline', 'aside.thread-navigation'] } },
+  { name: 'OxeChat (Thread)', arm: armMode('OxeChat'), probe: { ...MODE_PROBE, sidebar: true, text: 'How should sessions be stored?', content: ['.thread-host .thread-timeline', 'aside.thread-navigation'] } },
   { name: 'OxeQuery', arm: armMode('OxeQuery'), probe: { ...MODE_PROBE, sidebar: true, content: ['.oq-host .oq-view', 'aside.oq-sidebar .oq-sidebar-content header'] } },
   { name: 'OxePod', arm: armMode('OxePod'), probe: { ...MODE_PROBE, sidebar: true, content: ['.pod-host [aria-label="OxePod"]', 'aside.thread-navigation [data-pod-filter]'] } },
   { name: 'OxePost', arm: armMode('OxePost'), probe: { ...MODE_PROBE, sidebar: true, content: ['.post-host [aria-label="OxePost"]', 'aside.thread-navigation [data-post-filter]'] } },
-  { name: 'OxeCode (Code)', arm: armMode('Code'), probe: { ...MODE_PROBE, sidebar: false, content: ['.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-pane"]'] } },
+  { name: 'OxeCode (Code)', arm: armMode('OxeCode'), probe: { ...MODE_PROBE, sidebar: false, content: ['.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-pane"]'] } },
   settingsSurface('Settings · Agents', 'providers'),
   settingsSurface('Settings · Appearance', 'appearance')
 ]
@@ -280,7 +280,13 @@ async function readBoot(app: ElectronApplication, page: Page): Promise<Record<st
 
 /** Runs one probe; with `shots`, screenshots the window meanwhile and keeps the one inside the longest blank. */
 async function measure(page: Page, surface: Surface, phase: 'cold' | 'warm', shots: boolean): Promise<Sample> {
+  await page.evaluate(() => { (window as unknown as { __renders?: Record<string, number> }).__renders = {} })
   await surface.arm(page)
+  if (!shots && phase === 'cold') {
+    const sample = await page.evaluate(probeInPage, surface.probe)
+    console.log(`[RENDERS] ${surface.name} cold: content ${sample.content?.toFixed(0)} ms ${JSON.stringify(await page.evaluate(() => (window as unknown as { __renders?: Record<string, number> }).__renders))}`)
+    return sample
+  }
   if (!shots) return page.evaluate(probeInPage, surface.probe)
   let done = false
   const taken: Array<{ at: number; image: Buffer }> = []
