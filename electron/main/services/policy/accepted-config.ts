@@ -30,7 +30,8 @@ import { recordIncident } from '../diagnostics/incident-sink'
 import { canonicalPath, gitCommonDir } from '../git-common-dir'
 import { MainRefusal } from '../main-refusal'
 import { trustKey } from '../repo-config/trust'
-import { parsePolicyProjection } from './projections'
+import { MAX_POLICY_BYTES, parsePolicyProjection } from './projections'
+import { parseModesProjection } from './tool-config'
 
 /** `invalid` may say why (`tooLarge`, the parser's `problem`); neither is part of its hash. */
 export type Projection<T> = { state: 'absent' } | { state: 'invalid'; tooLarge?: boolean; problem?: string } | { state: 'value'; value: T }
@@ -69,6 +70,10 @@ export interface ChangeContext {
   /** The baseline is the primary checkout's accepted version (this worktree has none of its own). */
   inheritedFrom: string | null
   liveSessions: number
+  /** First sight: OXESpace reads this file for the first time. */
+  firstSight: boolean
+  /** First sight: restrictions a reference holds and the file does not. */
+  missing: string[]
 }
 
 interface Pending {
@@ -79,8 +84,8 @@ interface Pending {
   newJson: string
   /** No accepted row and nothing inherited: the baseline is the app's defaults. */
   firstSight: boolean
-  /** A worktree whose primary checkout cannot be resolved: the strict rule, with no first-sight leniency (review M4). */
-  strict: boolean
+  /** First sight: restrictions a reference (HEAD, the primary) holds and the file does not (see firstSightFloor). */
+  missing: string[]
   inheritedFrom: string | null
   rejected: boolean
   /** A request ended without the person (expired, cancelled, refused): asked again at the next review point only. */
@@ -276,6 +281,64 @@ function backLinked(root: string, common: string): boolean {
   }
 }
 
+/** The environment git runs with from main: the person's, without GIT_* (a repository's own settings are the agent's). */
+export function gitEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(source).filter(([name]) => !/^GIT_/i.test(name)))
+}
+
+/**
+ * git's arguments to read a committed blob without running anything the repository configures: no pager, no fsmonitor,
+ * `cat-file blob` (no textconv, no filters), and the path relative to the subject's own folder (`HEAD:./<rel>`), so a
+ * nested project root reads its own file.
+ */
+export function committedBlobArgs(root: string, rel: string, ref = 'HEAD'): string[] {
+  return ['--no-pager', '-c', 'core.fsmonitor=', '-C', root, 'cat-file', 'blob', `${ref}:./${rel}`]
+}
+
+/** The text of `rel` committed at HEAD under `root`, or null (no repository, no HEAD, not committed, or any failure). */
+export function committedText(root: string, rel: string): string | null {
+  try {
+    return execFileSync('git', committedBlobArgs(root, rel), { encoding: 'utf8', timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1, windowsHide: true, env: gitEnvironment(), stdio: ['ignore', 'pipe', 'ignore'] })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * R1 + R2: the restrictive part of a first-seen file and its references (HEAD, the primary). Policy: the union of the
+ * denies (order does not matter in a deny-only list). oxe.yaml: each group at the lowest of its modes, never above on
+ * demand. `missing` keys the restrictions a reference holds and the file does not (`deny\0action\0resource`, `off\0group`).
+ */
+export function firstSightFloorOf(file: PolicyChangeFile, current: AnyProjection, others: AnyProjection[]): { floor: AnyProjection; missing: string[] } {
+  const references = [current, ...others]
+  if (file === 'policy') {
+    const denies = new Map<string, PolicyRule>()
+    const own = new Set<string>()
+    references.forEach((reference, index) => {
+      if (reference.state !== 'value') return
+      for (const rule of (reference.value as PolicyValue).rules) {
+        if (rule.effect !== 'deny') continue
+        const key = ruleKey(rule)
+        if (index === 0) own.add(key)
+        if (!denies.has(key)) denies.set(key, rule)
+      }
+    })
+    const organization = current.state === 'value' ? (current.value as PolicyValue).organization : undefined
+    const floor: AnyProjection = denies.size ? { state: 'value', value: { rules: [...denies.values()], ...(organization ? { organization } : {}) } } : { state: 'absent' }
+    return { floor, missing: [...denies.keys()].filter(key => !own.has(key)) }
+  }
+  const modes = defaultModes()
+  const missing: string[] = []
+  for (const group of CONFIGURABLE_MCP_TOOL_GROUPS) {
+    references.forEach((reference, index) => {
+      const entry = reference.state === 'value' ? (reference.value as ModesValue)[group] : undefined
+      if (entry && RANK[entry.mode] < RANK[modes[group].mode]) modes[group] = entry
+      if (index > 0 && entry?.mode === 'off' && !(current.state === 'value' && (current.value as ModesValue)[group]?.mode === 'off')) missing.push(`off\0${group}`)
+    })
+  }
+  return { floor: { state: 'value', value: modes }, missing: [...new Set(missing)] }
+}
+
 export class AcceptedConfig {
   /** Moves whenever an accepted version changes, so readers' caches are dropped. */
   version = 0
@@ -288,8 +351,10 @@ export class AcceptedConfig {
   private readonly running = new Set<Promise<unknown>>()
   /** When each (subject, file) was last asked or re-issued. */
   private readonly lastAsked = new Map<string, number>()
-  /** HEAD's committed denies per subject, read once per run (first sight only). */
-  private readonly committedDenies = new Map<string, PolicyRule[]>()
+  /** Subjects told once, in this run, that their first-sight review waits. */
+  private readonly firstSightNoticed = new Set<string>()
+  /** A first-seen subject's references (HEAD, the primary), read once per run. */
+  private readonly referenceCache = new Map<string, AnyProjection[]>()
   /** The managed probe's answer per stat key of the managed file, or the check still running. */
   private readonly managedProbes = new Map<string, boolean | Promise<boolean>>()
 
@@ -333,7 +398,7 @@ export class AcceptedConfig {
    * The projection that applies for what is on disk now: the current one when it is the accepted version (or the app's
    * own write landing), else the accepted one, while the change is compared and, if it widens, asked.
    */
-  resolve<T extends AnyProjection>(subject: Subject, current: T): T {
+  resolve<T extends AnyProjection>(subject: Subject, current: T, options: { defer?: boolean } = {}): T {
     const hash = projectionHash(subject.file, current)
     let row = this.row(subject.id)
     if (row?.intent) {
@@ -343,19 +408,20 @@ export class AcceptedConfig {
       row = this.row(subject.id)
     }
     let base = this.baseline(subject, row)
-    // First sight: the part of the file that only narrows the defaults (its denies; each group at most on demand) is
-    // the accepted version at once, synchronously, so a change written right after it can never drop it (HML H, review
-    // H1). Only the rest, if any, is compared and asked.
-    let firstSeen: { shownBaseJson: string; applied: string[]; strict: boolean } | null = null
+    // First sight (R1, R2): only the restrictive part of what is seen applies without the person (denies; each group
+    // at most on demand, or off), taken from every reference there is: the file, the version committed at HEAD and, for
+    // a worktree whose primary has no accepted version yet, the primary's file and HEAD. A reference can only add
+    // restrictions, never grant. It is recorded at once, synchronously; anything else in the file is asked.
+    let firstSeen: { missing: string[] } | null = null
     if (!row && base.firstSight) {
-      const part = this.withCommittedDenies(subject, firstSightInterim(subject.file, current))
-      const partHash = projectionHash(subject.file, part)
-      if (partHash !== base.hash) {
-        firstSeen = { shownBaseJson: base.json, strict: base.strict, applied: part.state === 'value' && subject.file === 'policy' ? (part.value as PolicyValue).rules.map(ruleKey) : [] }
-        this.store(subject.id, { hash: partHash, json: JSON.stringify(part), intent: null, rejected: null, via: 'baseline-default' })
+      const { floor, missing } = this.firstSightFloor(subject, current)
+      const floorHash = projectionHash(subject.file, floor)
+      if (floorHash !== base.hash) {
+        this.store(subject.id, { hash: floorHash, json: JSON.stringify(floor), intent: null, rejected: null, via: 'baseline-default' })
         row = this.row(subject.id)
-        base = this.baseline(subject, row)
+        base = { ...this.baseline(subject, row), firstSight: true }
       }
+      firstSeen = { missing }
     }
     // A worktree keeps its primary's version as its own from the first read, so editing or deleting its .git file
     // later cannot reset it to the defaults or point it at another project (review M4).
@@ -368,38 +434,59 @@ export class AcceptedConfig {
     if (!entry || entry.newHash !== hash || entry.baseHash !== base.hash) {
       if (entry?.timer) clearTimeout(entry.timer)
       // A rewrite while a request waits keeps that request open: the next check re-issues it with the new content.
-      entry = { subject, baseHash: base.hash, baseJson: base.json, newHash: hash, newJson: JSON.stringify(current), firstSight: base.firstSight || firstSeen !== null, strict: firstSeen?.strict ?? base.strict,
-        inheritedFrom: base.inheritedFrom, rejected: row?.rejected === hash, deferred: false, forced: false, applied: firstSeen?.applied ?? [], notSplit: false,
-        ...(firstSeen ? { shownBaseJson: firstSeen.shownBaseJson } : {}) }
+      entry = { subject, baseHash: base.hash, baseJson: base.json, newHash: hash, newJson: JSON.stringify(current), firstSight: base.firstSight || firstSeen !== null,
+        inheritedFrom: base.inheritedFrom, rejected: row?.rejected === hash, deferred: !!options.defer, forced: false, applied: [], notSplit: false,
+        missing: firstSeen?.missing ?? entry?.missing ?? [] }
       this.pending.set(subject.id, entry)
-      if (!entry.rejected) this.schedule(entry)
-      else this.closeOpen(subject.id)
+      // The all-roots sweep of a tools/call outside a live execution parks the request until that project's own launch
+      // or Settings read, so an upgrade never raises one request per registered project at once.
+      if (!entry.rejected && !entry.deferred) this.schedule(entry)
+      else if (entry.rejected) this.closeOpen(subject.id)
+      // Once per subject: the person is told that only the restrictions apply while the first-sight review waits.
+      if (entry.firstSight && !this.firstSightNoticed.has(subject.id)) {
+        this.firstSightNoticed.add(subject.id)
+        this.deps.notify?.(subject, { code: 'policy.firstSight.enforced', params: {} })
+      }
     }
-    return (base.firstSight ? firstSightInterim(subject.file, current) : base.projection) as T
+    return base.projection as T
   }
 
   /**
-   * The denies of the version committed at git HEAD, added to a first-seen policy's denies (HML: a file rewritten before
-   * the first read must not drop the committed denies). Only denies: the list stays stricter than both. Read once per
-   * subject and run, with git (argv, no shell); none without a repository, a HEAD, or the file in it.
+   * R1 + R2: the restrictive part of every reference of a first-seen subject. Policy: the union of the denies (order does
+   * not matter in a deny-only list). oxe.yaml: each group at the lowest of its modes, and never above on demand.
+   * `missing` keys the restrictions a reference holds and the file does not (`deny\0action\0resource`, `off\0group`).
    */
-  private withCommittedDenies(subject: Subject, part: AnyProjection): AnyProjection {
-    if (subject.file !== 'policy' || subject.layer !== 'project' || !subject.root) return part
-    let denies = this.committedDenies.get(subject.id)
-    if (!denies) {
-      denies = []
-      try {
-        const path = relative(subject.root, subject.path).split(sep).join('/')
-        const text = execFileSync('git', ['-C', subject.root, 'show', `HEAD:${path}`], { encoding: 'utf8', timeout: 3_000, maxBuffer: 1024 * 1024, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] })
-        const committed = parsePolicyProjection(text, 'project', subject.path).projection
-        if (committed.state === 'value') denies = committed.value.rules.filter(rule => rule.effect === 'deny')
-      } catch { /* no repository, no HEAD, or not committed */ }
-      this.committedDenies.set(subject.id, denies)
+  private firstSightFloor(subject: Subject, current: AnyProjection): { floor: AnyProjection; missing: string[] } {
+    return firstSightFloorOf(subject.file, current, this.references(subject))
+  }
+
+  /** The references of a first-seen subject besides its file, read once per run; none for an unresolved worktree. */
+  private references(subject: Subject): AnyProjection[] {
+    if (subject.layer !== 'project' || !subject.root) return []
+    const cached = this.referenceCache.get(subject.id)
+    if (cached) return cached
+    const found: AnyProjection[] = []
+    const primary = this.primary(subject)
+    if (primary !== 'unknown') {
+      const rel = relative(subject.root, subject.path).split(sep).join('/')
+      const head = committedText(subject.root, rel)
+      if (head !== null) found.push(this.parseReference(subject, head))
+      // A worktree whose primary has no accepted version yet: the primary's file and HEAD restrict it too.
+      if (primary && !this.row(`${primary.key}\0${subject.file}`)) {
+        const file = join(primary.root, rel)
+        let text: string | null = null
+        try { if (statSync(file).size <= MAX_POLICY_BYTES) text = readFileSync(file, 'utf8') } catch { /* no file there */ }
+        if (text !== null) found.push(this.parseReference(subject, text))
+        const primaryHead = committedText(primary.root, rel)
+        if (primaryHead !== null) found.push(this.parseReference(subject, primaryHead))
+      }
     }
-    if (!denies.length) return part
-    const own = part.state === 'value' ? (part.value as PolicyValue) : { rules: [] as PolicyRule[] }
-    const seen = new Set(own.rules.map(ruleKey))
-    return { state: 'value', value: { ...own, rules: [...own.rules, ...denies.filter(rule => !seen.has(ruleKey(rule)))] } }
+    this.referenceCache.set(subject.id, found)
+    return found
+  }
+
+  private parseReference(subject: Subject, text: string): AnyProjection {
+    return subject.file === 'policy' ? parsePolicyProjection(text, 'project', subject.path).projection : parseModesProjection(text)
   }
 
   /** The changes of these subjects that are not accepted, for Settings. */
@@ -409,7 +496,7 @@ export class AcceptedConfig {
       const entry = this.pending.get(subject.id)
       if (!entry) continue
       result.push({ layer: subject.layer, file: subject.file, path: entry.subject.path, state: entry.rejected ? 'rejected' : 'pending',
-        baseHash: entry.baseHash, newHash: entry.newHash, ...(entry.verdict ? { widen: entry.verdict.widen, tighten: entry.verdict.tighten } : {}) })
+        baseHash: entry.baseHash, newHash: entry.newHash, ...(entry.firstSight ? { firstSight: true } : {}), ...(entry.verdict ? { widen: entry.verdict.widen, tighten: entry.verdict.tighten } : {}) })
     }
     return result
   }
@@ -532,17 +619,17 @@ export class AcceptedConfig {
     return this.primaries.get(subject.key) ?? null
   }
 
-  private baseline(subject: Subject, row: Row | undefined): { hash: string; json: string; projection: AnyProjection; firstSight: boolean; strict: boolean; inheritedFrom: string | null } {
+  private baseline(subject: Subject, row: Row | undefined): { hash: string; json: string; projection: AnyProjection; firstSight: boolean; inheritedFrom: string | null } {
     if (row) {
       const primary = row.via === 'inherited' ? this.primary(subject) : null
-      return { hash: row.hash, json: row.json, projection: JSON.parse(row.json) as AnyProjection, firstSight: false, strict: false, inheritedFrom: primary && primary !== 'unknown' ? primary.root : null }
+      return { hash: row.hash, json: row.json, projection: JSON.parse(row.json) as AnyProjection, firstSight: false, inheritedFrom: primary && primary !== 'unknown' ? primary.root : null }
     }
     const primary = this.primary(subject)
     const known = primary && primary !== 'unknown' ? primary : null
     const inherited = known ? this.row(`${known.key}\0${subject.file}`) : undefined
-    if (inherited && known) return { hash: inherited.hash, json: inherited.json, projection: JSON.parse(inherited.json) as AnyProjection, firstSight: false, strict: false, inheritedFrom: known.root }
+    if (inherited && known) return { hash: inherited.hash, json: inherited.json, projection: JSON.parse(inherited.json) as AnyProjection, firstSight: false, inheritedFrom: known.root }
     const projection = defaultProjection(subject.file)
-    return { hash: projectionHash(subject.file, projection), json: JSON.stringify(projection), projection, firstSight: true, strict: primary === 'unknown', inheritedFrom: null }
+    return { hash: projectionHash(subject.file, projection), json: JSON.stringify(projection), projection, firstSight: true, inheritedFrom: null }
   }
 
   private baselineRow(subject: Subject): Row {
@@ -675,7 +762,7 @@ export class AcceptedConfig {
   private context(entry: Pending): ChangeContext {
     return {
       shownBase: JSON.parse(entry.shownBaseJson ?? entry.baseJson) as AnyProjection, applied: entry.applied, notSplit: entry.notSplit,
-      inheritedFrom: entry.inheritedFrom, liveSessions: entry.subject.root ? this.deps.liveSessions?.(entry.subject.root) ?? 0 : 0
+      inheritedFrom: entry.inheritedFrom, firstSight: entry.firstSight, missing: entry.missing, liveSessions: entry.subject.root ? this.deps.liveSessions?.(entry.subject.root) ?? 0 : 0
     }
   }
 

@@ -238,7 +238,8 @@
         "crash": "O OXESpace encontrou um erro inesperado",
         "policyChange": "As regras do projeto mudaram fora do OXESpace",
         "policyChangeUser": "Suas regras mudaram fora do OXESpace",
-        "policyChangeManaged": "As regras da organização mudaram neste computador"
+        "policyChangeManaged": "As regras da organização mudaram neste computador",
+        "policyFirstSight": "Revise as regras deste projeto antes de valerem"
       },
       "summary": {
         "mcpConfirm": "Quer executar {{tool}} › {{action}} em {{target}}",
@@ -263,7 +264,9 @@
           "tooLarge": "{{file}} passa de {{max}}, então não pode ser aplicado. As regras aceitas continuam valendo.",
           "worktree": "A worktree {{worktree}} tem o próprio {{file}}, que permite mais do que as regras que você aceitou para este projeto. Até você decidir, as regras aceitas valem lá também.",
           "partial": "{{file}} mudou fora do OXESpace. As regras mais rígidas já valem; as que permitem mais esperam por você."
-        }
+        },
+        "policyFirstSight": "É a primeira vez que o OXESpace lê estas regras, e elas permitem mais do que o padrão do OXESpace. Até você decidir, só vale o que elas negam.",
+        "policyFirstSightLost": "É a primeira vez que o OXESpace lê estas regras, e o arquivo no disco tirou restrições que a versão commitada tem. Até você decidir, valem as restrições commitadas."
       },
       "requester": {
         "pane": "{{agent}} · painel {{pane}}",
@@ -366,7 +369,10 @@
           "usableMore": "Os agentes passariam a poder usar: {{tools}} e mais {{more}}",
           "liveSessions_one": "{{count}} sessão de agente deste projeto estava rodando quando a mudança foi detectada.",
           "liveSessions_many": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
-          "liveSessions_other": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada."
+          "liveSessions_other": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "committedDeny": "− Continua negado: {{rule}}. O arquivo no disco tirou esta regra, mas a versão commitada a mantém, então ela continua valendo.",
+          "committedOff": "↓ As ferramentas de {{group}} continuam desligadas. O arquivo no disco as religou, mas a versão commitada as mantém desligadas.",
+          "matchesBranch": "Igual a `origin/{{branch}}`."
         }
       },
       "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
@@ -494,6 +500,9 @@
         "baseChanged": "As regras mudaram de novo desde que isto apareceu. O pedido volta com a versão atual.",
         "notPending": "Esta alteração nas regras não está mais esperando sua resposta.",
         "notApplicable": "Este arquivo não pode ser aplicado como está. Corrija o arquivo ou mantenha as regras aceitas."
+      },
+      "firstSight": {
+        "enforced": "Esperando sua revisão: só valem as regras que negam, e os grupos de ferramentas ficam no máximo sob demanda."
       }
     }
   }

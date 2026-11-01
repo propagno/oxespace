@@ -186,6 +186,20 @@ export interface MessageParams {
   'approvals.note.policy.usable': { tools: string[] }
   /** B7.4 · The first OXESpace tools this change would let agents use again, and how many more (DESIGN #372). */
   'approvals.note.policy.usableMore': { tools: string[]; more: number }
+  /** B7.4 · First sight: a deny the committed version keeps and the file dropped; it stays in force. */
+  'approvals.note.policy.committedDeny': { rule: string }
+  /** B7.4 · First sight: a group the committed version keeps off and the file turned back on; it stays off. */
+  'approvals.note.policy.committedOff': { group: string }
+  /** B7.4 · A hint only: the file is the same as the remote-tracking copy of its branch (never changes the verdict). */
+  'approvals.note.policy.matchesBranch': { branch: string }
+  /** B7.4 · OXESpace reads this project's rules for the first time. */
+  'approvals.title.policyFirstSight': Record<string, never>
+  /** B7.4 · First sight: the rules allow more than the defaults; only their denies apply meanwhile. */
+  'approvals.summary.policyFirstSight': Record<string, never>
+  /** B7.4 · First sight: the file dropped restrictions the committed version has; those apply meanwhile. */
+  'approvals.summary.policyFirstSightLost': Record<string, never>
+  /** B7.4 · Status while a first-sight review waits (Settings › Policy and Tools). */
+  'policy.firstSight.enforced': Record<string, never>
   /** B7.4 · Git provenance from the app's own check (BACKEND draft). */
   'approvals.note.policy.committed': Record<string, never>
   /** B7.4 · Git provenance from the app's own check (BACKEND draft). */
@@ -507,6 +521,13 @@ export const MESSAGE_CODES = [
   'approvals.note.policy.problem',
   'approvals.note.policy.usable',
   'approvals.note.policy.usableMore',
+  'approvals.note.policy.committedDeny',
+  'approvals.note.policy.committedOff',
+  'approvals.note.policy.matchesBranch',
+  'approvals.title.policyFirstSight',
+  'approvals.summary.policyFirstSight',
+  'approvals.summary.policyFirstSightLost',
+  'policy.firstSight.enforced',
   'approvals.note.policy.committed',
   'approvals.note.policy.uncommitted',
   'approvals.note.policy.liveSessions',

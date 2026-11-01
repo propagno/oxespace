@@ -238,7 +238,8 @@
         "crash": "OXESpace hit an unexpected error",
         "policyChange": "The project's rules changed outside OXESpace",
         "policyChangeUser": "Your rules changed outside OXESpace",
-        "policyChangeManaged": "The organization's rules changed on this computer"
+        "policyChangeManaged": "The organization's rules changed on this computer",
+        "policyFirstSight": "Review this project's rules before they apply"
       },
       "summary": {
         "mcpConfirm": "Wants to run {{tool}} › {{action}} on {{target}}",
@@ -263,7 +264,9 @@
           "tooLarge": "{{file}} is larger than {{max}}, so it can't be applied. The accepted rules stay in force.",
           "worktree": "The worktree {{worktree}} has its own {{file}}, which allows more than the rules you accepted for this project. Until you decide, the accepted rules apply there too.",
           "partial": "{{file}} changed outside OXESpace. Its stricter rules already apply; the ones that allow more wait for you."
-        }
+        },
+        "policyFirstSight": "This is the first time OXESpace reads these rules, and they allow more than OXESpace does by default. Until you decide, only what they deny applies.",
+        "policyFirstSightLost": "This is the first time OXESpace reads these rules, and the file on disk dropped restrictions the committed version has. Until you decide, the committed restrictions apply."
       },
       "requester": {
         "pane": "{{agent}} · pane {{pane}}",
@@ -364,7 +367,10 @@
           "reordered_other": "~ The order of {{count}} rules changed, and the last rule that matches decides",
           "usableMore": "Agents could then use: {{tools}} and {{more}} more",
           "liveSessions_one": "{{count}} agent session of this project was running when the change was detected.",
-          "liveSessions_other": "{{count}} agent sessions of this project were running when the change was detected."
+          "liveSessions_other": "{{count}} agent sessions of this project were running when the change was detected.",
+          "committedDeny": "− Still denied: {{rule}}. The file on disk dropped it, but the committed version keeps it, so it stays in force.",
+          "committedOff": "↓ {{group}} tools stay off. The file on disk turned them back on, but the committed version keeps them off.",
+          "matchesBranch": "Same as `origin/{{branch}}`."
         }
       },
       "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
@@ -492,6 +498,9 @@
         "baseChanged": "The rules changed again since this was shown. The request comes back with the current version.",
         "notPending": "This change to the rules is no longer waiting for an answer.",
         "notApplicable": "This file can't be applied as it is. Fix the file, or keep the accepted rules."
+      },
+      "firstSight": {
+        "enforced": "Waiting for your review: only the rules that deny apply, and tool groups are at most on demand."
       }
     }
   }

@@ -8,6 +8,7 @@ import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../services/workspac
 import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseUpdateWorkspaceWorktreeStateInput, parseWorkspaceCreateInput } from './validation'
 import type { SemanticService } from '../services/semantic.service'
 import { acceptedConfig } from '../services/policy'
+import { firstPolicyRead } from '../services/policy/first-read'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -43,7 +44,10 @@ export function registerWorkspaceIpc(
     const root = rootPath === undefined ? undefined : checkWorkspaceRoot(rootPath)
     if (root && !root.ok) return root
     const parsed = parseWorkspaceCreateInput(rootPath === undefined ? input : { ...(input as object), rootPath })
-    return workspaceService.create(parsed)
+    const created = workspaceService.create(parsed)
+    // B7.4: the project's policy is read before any pane of it starts (the floor applies; what needs the person asks).
+    if (created?.rootPath) firstPolicyRead(created.rootPath)
+    return created
   })
   ipcMain.handle(IPC_CHANNELS.workspace.setActive, (_event, id: unknown) => {
     const workspaceId = parseId(id)

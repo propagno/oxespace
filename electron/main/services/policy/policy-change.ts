@@ -29,7 +29,7 @@ import type { ApprovalDraft } from '../approvals/approval-center'
 import { DENY } from '../approvals/drafts'
 import { APP_REQUESTER } from '../approvals/requester'
 import type { AnyProjection, ChangeContext, ChangeVerdict, ModesValue, PolicyProjection, PolicyValue, Subject } from './accepted-config'
-import { defaultModes, fileLabel, projectionHash } from './accepted-config'
+import { committedBlobArgs, defaultModes, fileLabel, gitEnvironment, projectionHash } from './accepted-config'
 import { MAX_POLICY_BYTES, parsePolicyProjection } from './projections'
 import { parseModesProjection } from './tool-config'
 
@@ -151,7 +151,13 @@ export function ruleParam(rule: PolicyRule): string {
  * wildcard allow, a removed deny or an edited rule, 2 any other wider line, 3 a stricter one. The most dangerous lines
  * always make the 8 listed.
  */
-export interface NoteLine { widens: boolean; severity: number; message: MainMessage }
+export interface NoteLine {
+  widens: boolean
+  severity: number
+  message: MainMessage
+  /** The rule a removed deny was (`ruleKey`), or the group a mode line is about: to name a restriction a reference holds. */
+  key?: string
+}
 
 /** An allow that can reach a secret or the network: always listed first, and critical. */
 export function reachesSecretOrNetwork(rule: PolicyRule): boolean {
@@ -171,7 +177,7 @@ export function noteLines(subject: Pick<Subject, 'file'>, shownBase: AnyProjecti
       const to = after[group]?.mode ?? 'on-demand'
       if (from === to) continue
       const widens = RANK[to] > RANK[from]
-      lines.push({ widens, severity: widens ? 2 : 3, message: mainMessage(widens ? 'approvals.note.policy.groupRaised' : 'approvals.note.policy.groupLowered', { group, from, to }) })
+      lines.push({ widens, severity: widens ? 2 : 3, key: from === 'off' ? `off\0${group}` : undefined, message: mainMessage(widens ? 'approvals.note.policy.groupRaised' : 'approvals.note.policy.groupLowered', { group, from, to }) })
     }
   } else if (next.state !== 'invalid') {
     const old = rulesOf(shownBase)
@@ -195,7 +201,7 @@ export function noteLines(subject: Pick<Subject, 'file'>, shownBase: AnyProjecti
         const param = { rule: ruleParam(rule) }
         const inForce = done.has(ruleKey(rule))
         if (op === 'add' && rule.effect === 'allow') lines.push({ widens: true, severity: allowSeverity(rule), message: mainMessage('approvals.note.policy.allowAdded', param) })
-        else if (op === 'remove' && rule.effect === 'deny') lines.push({ widens: true, severity: 1, message: mainMessage('approvals.note.policy.denyRemoved', param) })
+        else if (op === 'remove' && rule.effect === 'deny') lines.push({ widens: true, severity: 1, key: ruleKey(rule), message: mainMessage('approvals.note.policy.denyRemoved', param) })
         else if (op === 'add') lines.push({ widens: false, severity: 3, message: mainMessage(inForce ? 'approvals.note.policy.denyAdded.applied' : 'approvals.note.policy.denyAdded.waiting', param) })
         else lines.push({ widens: false, severity: 3, message: mainMessage(inForce ? 'approvals.note.policy.allowRemoved.applied' : 'approvals.note.policy.allowRemoved.waiting', param) })
       })
@@ -257,15 +263,38 @@ async function usableTools(base: AnyProjection, next: AnyProjection): Promise<st
 /** Whether the file's projection is the one committed at HEAD, from git (no shell), or nothing when git cannot tell. */
 async function committed(subject: Subject, next: AnyProjection): Promise<boolean | null> {
   if (subject.layer !== 'project' || !subject.root) return null
-  const path = relative(subject.root, subject.path).replace(/\\/g, '/')
+  const rel = relative(subject.root, subject.path).replace(/\\/g, '/')
   const parse = (text: string) => subject.file === 'policy' ? parsePolicyProjection(text, 'project', subject.path).projection : parseModesProjection(text)
   const run = promisify(execFile)
+  const options = { timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1, windowsHide: true, env: gitEnvironment() }
   try {
-    const { stdout } = await run('git', ['-C', subject.root, 'show', `HEAD:${path}`], { timeout: 3_000, maxBuffer: 4 * 1024 * 1024, windowsHide: true })
+    // cat-file blob from the subject's folder: no pager, fsmonitor, textconv or filters the repository configures.
+    const { stdout } = await run('git', committedBlobArgs(subject.root, rel), options)
     return projectionHash(subject.file, parse(stdout)) === projectionHash(subject.file, next)
   } catch {
     // Not committed (or no HEAD): when git runs here at all, the file is not the committed version.
-    try { await run('git', ['-C', subject.root, 'rev-parse', '--git-dir'], { timeout: 3_000, windowsHide: true }); return next.state === 'absent' ? null : false } catch { return null }
+    try { await run('git', ['--no-pager', '-c', 'core.fsmonitor=', '-C', subject.root, 'rev-parse', '--git-dir'], options); return next.state === 'absent' ? null : false } catch { return null }
+  }
+}
+
+/**
+ * B · A hint only: the file is the same as the remote-tracking copy of its branch (`origin/<branch>`). Those refs are
+ * local files and `origin` is set in a config an agent can write, so this never changes a verdict.
+ */
+async function sameAsRemoteBranch(subject: Subject, next: AnyProjection): Promise<string | null> {
+  if (subject.layer !== 'project' || !subject.root) return null
+  const rel = relative(subject.root, subject.path).replace(/\\/g, '/')
+  const run = promisify(execFile)
+  const options = { timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1, windowsHide: true, env: gitEnvironment() }
+  try {
+    const { stdout: branch } = await run('git', ['--no-pager', '-c', 'core.fsmonitor=', '-C', subject.root, 'symbolic-ref', '--quiet', '--short', 'HEAD'], options)
+    const name = branch.trim()
+    if (!name) return null
+    const { stdout } = await run('git', committedBlobArgs(subject.root, rel, `refs/remotes/origin/${name}`), options)
+    const remote = subject.file === 'policy' ? parsePolicyProjection(stdout, 'project', subject.path).projection : parseModesProjection(stdout)
+    return projectionHash(subject.file, remote) === projectionHash(subject.file, next) ? safeName(name) : null
+  } catch {
+    return null
   }
 }
 
@@ -301,11 +330,19 @@ export async function requestDraft(subject: Subject, base: AnyProjection, next: 
     : next.state === 'invalid' && next.tooLarge ? mainMessage('approvals.summary.policyChange.tooLarge', { file, max: sizeLabel(MAX_POLICY_BYTES) })
       : next.state === 'invalid' ? mainMessage('approvals.summary.policyChange.invalid', { file })
         : primary && subject.root ? mainMessage('approvals.summary.policyChange.worktree', { worktree: safeName(folderName(subject.root)), file })
+          : context.firstSight && subject.layer === 'project' ? mainMessage(context.missing.length ? 'approvals.summary.policyFirstSightLost' : 'approvals.summary.policyFirstSight', {})
           : context.applied.length ? mainMessage('approvals.summary.policyChange.partial', { file })
             : mainMessage('approvals.summary.policyChange.widened', { file })
   // DESIGN's order (#372): wider lines, what agents could then use, stricter lines, a reorder, the rest; then
   // provenance, live sessions, the managed note, and what each answer does.
-  const lines = noteLines(subject, context.shownBase, next, context.applied)
+  const missing = new Set(context.missing)
+  // A restriction a reference holds (HEAD, the primary) and the file does not is named as the committed one.
+  const lines = noteLines(subject, context.shownBase, next, context.applied).map(line => {
+    if (!line.key || !missing.has(line.key)) return line
+    if (line.message.code === 'approvals.note.policy.denyRemoved') return { ...line, message: mainMessage('approvals.note.policy.committedDeny', { rule: line.message.params.rule }) }
+    if (line.message.code === 'approvals.note.policy.groupRaised') return { ...line, message: mainMessage('approvals.note.policy.committedOff', { group: line.message.params.group }) }
+    return line
+  })
   const shown = lines.slice(0, MAX_NOTE_LINES)
   const isReorder = (line: NoteLine) => line.message.code === 'approvals.note.policy.reordered'
   const notes: MainMessage[] = shown.filter(line => line.widens && !isReorder(line)).map(line => line.message)
@@ -323,13 +360,16 @@ export async function requestDraft(subject: Subject, base: AnyProjection, next: 
   if (next.state === 'absent') notes.push(mainMessage('approvals.note.policy.noText', {}))
   const atHead = await committed(subject, next).catch(() => null)
   if (atHead !== null) notes.push(mainMessage(atHead ? 'approvals.note.policy.committed' : 'approvals.note.policy.uncommitted', {}))
+  const branch = context.firstSight ? await sameAsRemoteBranch(subject, next).catch(() => null) : null
+  if (branch) notes.push(mainMessage('approvals.note.policy.matchesBranch', { branch }))
   if (context.liveSessions > 0) notes.push(mainMessage('approvals.note.policy.liveSessions', { count: context.liveSessions }))
   if (subject.layer === 'managed') notes.push(mainMessage('approvals.note.policy.managedNotProtected', {}))
   notes.push(mainMessage('approvals.note.policy.stillAccepted', {}))
   // An invalid or too large file cannot be applied: Deny only (DESIGN #359).
   const allow = next.state !== 'invalid'
   if (allow) notes.push(mainMessage('approvals.note.policy.allowEffect', {}))
-  const title = subject.layer === 'user' ? 'approvals.title.policyChangeUser' : subject.layer === 'managed' ? 'approvals.title.policyChangeManaged' : 'approvals.title.policyChange'
+  const title = subject.layer === 'user' ? 'approvals.title.policyChangeUser' : subject.layer === 'managed' ? 'approvals.title.policyChangeManaged'
+    : context.firstSight ? 'approvals.title.policyFirstSight' : 'approvals.title.policyChange'
   return {
     kind: 'policyChange',
     // Who wrote the file cannot be known, so no agent is named: the request is the app's.

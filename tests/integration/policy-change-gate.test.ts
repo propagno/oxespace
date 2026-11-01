@@ -321,7 +321,8 @@ describe('B7.4 · SECURITY review of #372', () => {
     write(policyFile, policyText(rule('deny', 'Bash'), { effect: 'allow', action: 'integration.use', resource: 'env:GITHUB_TOKEN' }))
     expect(await read()).toContain('Bash')
     const [request] = requests()
-    expect(request.summary.code).toBe('approvals.summary.policyChange.partial')
+    // First sight (the reviewed design): only the denies apply, and the request says so.
+    expect(request.summary.code).toBe('approvals.summary.policyFirstSight')
     expect(request.risk).toBe('critical')
     await answer('deny')
     expect(await read()).toContain('Bash')

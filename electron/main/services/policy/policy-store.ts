@@ -48,10 +48,14 @@ export class PolicyStore {
   }
 
   /** Every layer for a project root (or none for app-wide checks), in evaluation order. */
-  load(projectRoot?: string | null): LoadedPolicy {
+  /**
+   * `defer` (the tools/call sweep of every registered root): the floor applies, and a change found is parked until that
+   * project's own launch or Settings read raises it (B7.4), never one request per project at once.
+   */
+  load(projectRoot?: string | null, options: { defer?: boolean } = {}): LoadedPolicy {
     const policy: LoadedPolicy = { sources: [], problems: [] }
     for (const { layer, path } of this.locations(projectRoot)) {
-      const result = this.read(layer, path, projectRoot ?? null)
+      const result = this.read(layer, path, projectRoot ?? null, options)
       if (result?.source) policy.sources.push(result.source)
       if (result?.problem) policy.problems.push(result.problem)
     }
@@ -73,8 +77,8 @@ export class PolicyStore {
   /** Drops what was read from a file, so a write in the same millisecond as the last read is never missed. */
   forget(path: string): void { this.cache.delete(path) }
 
-  decide(action: PolicyAction, resource: string, projectRoot?: string | null): PolicyDecision {
-    return evaluatePolicy(this.load(projectRoot), action, resource)
+  decide(action: PolicyAction, resource: string, projectRoot?: string | null, options: { defer?: boolean } = {}): PolicyDecision {
+    return evaluatePolicy(this.load(projectRoot, options), action, resource)
   }
 
   /** The gate keeps the managed check's answer per stat key; until it answers, the layer is gated. */
@@ -82,7 +86,7 @@ export class PolicyStore {
     return gate.managedProtected(path, key)
   }
 
-  private read(layer: PolicyLayer, path: string, projectRoot: string | null): ReadResult | null {
+  private read(layer: PolicyLayer, path: string, projectRoot: string | null, options: { defer?: boolean } = {}): ReadResult | null {
     let size = 0
     let key = 'absent'
     try {
@@ -104,7 +108,7 @@ export class PolicyStore {
     const gate = this.gate
     // The managed file has the last word: it stays ungated only where people on this computer cannot write it.
     if (gate && !(layer === 'managed' && key !== 'absent' && this.managedProtected(gate, path, key))) {
-      effective = gate.resolve(gate.subject('policy', layer, projectRoot, path), found.projection)
+      effective = gate.resolve(gate.subject('policy', layer, projectRoot, path), found.projection, options)
       if (effective !== found.projection) problem = `${path}: not the version you accepted${found.problem ? ` (${found.problem.slice(path.length + 2)})` : ''}; the accepted version applies`
     }
     const result: ReadResult | null = effective.state === 'value'

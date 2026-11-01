@@ -112,6 +112,8 @@ export interface PolicyChangeStatus {
   state: 'pending' | 'rejected'
   baseHash: string
   newHash: string
+  /** OXESpace reads this file for the first time: only its restrictions apply until the person reviews it (`policy.firstSight.enforced`). */
+  firstSight?: boolean
   /** Lines that widen and lines that tighten; absent until the change was compared. */
   widen?: number
   tighten?: number
