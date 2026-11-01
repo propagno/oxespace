@@ -53,11 +53,14 @@ function prefetchPanelChunks(): void {
     setTimeout(afterFirstPaint, 0)
   }
 }
-import { IntegrationsStatusChips } from './IntegrationsStatusChips'
+// The status chips poll GitHub and the MCP state after first paint; they are not part of it.
+const IntegrationsStatusChips = lazy(() => import('./IntegrationsStatusChips').then(module => ({ default: module.IntegrationsStatusChips })))
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import './CodeChrome.css'
 import { i18n } from '../../i18n'
 import { useTranslation } from 'react-i18next'
+import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
+import { quarantinedCount } from '../MCP/mcpQuarantine'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -169,6 +172,8 @@ function WorkspaceSurfaceComponent({
   // follow the active pane, and each header names what it is reading.
   const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] === true)
   const openConnections = useUIStore((s) => s.openMcpPanel)
+  const workspaceMcp = useMcpStore(useMemo(() => selectMcpServers(workspace.id), [workspace.id]))
+  const quarantinedMcp = quarantinedCount(workspaceMcp)
   // …including a worktree the pane's agent moved into, as reported by its hooks.
   const activeLocation = useTerminalStore((s) => (activePaneId ? s.panes[activePaneId]?.location : null) ?? null)
   const panelScope = useMemo(
@@ -457,7 +462,7 @@ function WorkspaceSurfaceComponent({
     })
   }
 
-  const grid = splitLayoutEnabled ? (
+  const grid = <ErrorBoundary id="workspace-grid" label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
     <WorkspaceSplitGrid
       workspace={workspace}
       tree={tree}
@@ -482,7 +487,7 @@ function WorkspaceSurfaceComponent({
       onSplitPane={onSplitPane}
       onActivatePane={onActivatePane}
     />
-  )
+  )}</ErrorBoundary>
 
   const folderName = workspace.rootPath ? workspace.rootPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() : null
   const showSubPath = Boolean(folderName && folderName.toLowerCase() !== workspace.name.toLowerCase())
@@ -495,13 +500,14 @@ function WorkspaceSurfaceComponent({
       {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} className="workspace-topbar-action" />)}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
         trigger={<button type="button" className="workspace-topbar-action" aria-label={tc('panels.more')} title={tc('panels.more')}><PanelsTopLeft size={14} aria-hidden="true" /><span>{tc('panels.menu')}</span></button>} />}
-      <button type="button" className="workspace-topbar-action" aria-label={tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections}>
+      <button type="button" className="workspace-topbar-action" aria-label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} data-testid="workspace-topbar-mcp">
         <PlugZap size={14} aria-hidden="true" /><span>MCP</span>
+        {quarantinedMcp > 0 ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid="workspace-topbar-mcp-quarantined">{quarantinedMcp > 9 ? '9+' : quarantinedMcp}</span> : null}
       </button>
       <button type="button" className="workspace-topbar-action" aria-label={tc('workspace.topbar.activity')} title={tc('tools.background.detail')} aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
         <Activity size={14} aria-hidden="true" /><span>{tc('workspace.topbar.activityShort')}</span>
       </button>
-      <IntegrationsStatusChips workspace={workspace} isActive={isActive} />
+      <Suspense fallback={null}><IntegrationsStatusChips workspace={workspace} isActive={isActive} /></Suspense>
     </header>
   )
 
@@ -593,7 +599,7 @@ function WorkspaceSurfaceComponent({
                   </nav>}
                   <div className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
                     {sidePanels.map(panel => <div key={panel.id} hidden={panel.id !== activeSideId}>
-                      <ErrorBoundary label={tc('workspace.panel.this')}><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
+                      <ErrorBoundary id="workspace-panel" label={tc('workspace.panel.this')}><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
                     </div>)}
                   </div>
                 </div>

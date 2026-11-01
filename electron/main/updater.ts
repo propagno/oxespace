@@ -3,6 +3,8 @@ import log from 'electron-log/main.js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
+import { recordIncident } from './services/diagnostics/incident-sink'
+import { bypassCloseGuard } from './window-close-guard'
 import type { AppUpdateChannel, AppUpdatePreferences, AppUpdateState, AppUpdateStatus } from '../../shared/types/updater'
 
 /**
@@ -120,6 +122,7 @@ let state: AppUpdateState = {
 }
 
 function setState(partial: Partial<AppUpdateState>): void {
+  if (partial.status === 'error') recordIncident('incident.updater.failed', state.status) // the step that failed, never the error text
   state = { ...state, ...partial, currentVersion: app.getVersion(), preferences }
   broadcast()
 }
@@ -223,11 +226,14 @@ export async function checkForAppUpdates(manual = false): Promise<AppUpdateState
 
 export function quitAndInstallUpdate(): boolean {
   if (!autoUpdaterRef || state.status !== 'downloaded') return false
+  // F26: the install quits without asking the window; autosaved drafts cover it.
+  const askAgain = bypassCloseGuard()
   try {
     // isSilent=false, isForceRunAfter=true — restart into the new version.
     autoUpdaterRef.quitAndInstall(false, true)
     return true
   } catch (err) {
+    askAgain()
     log.warn('[updater] quitAndInstall failed', err)
     setState({
       status: 'error',

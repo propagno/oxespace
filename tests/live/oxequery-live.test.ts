@@ -215,6 +215,63 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
     expect((await failure('sql.run', { connectionId: id, sql: 'UPDATE people SET name = $$x$$ WHERE id = 1' })).code).toBe('read-only')
   }, 120_000)
 
+  // #228 P1-13 / #237: the statements that reached the production confirmation without their worst reason. Through the
+  // service the window uses (sql.run / sql.script), each one is refused until the connection's name is typed, carries
+  // the guard's reason codes, and changes nothing before then. With the name, the gate opens: the row lock runs and the
+  // rows stay; the DO block asks the destructive confirmation, then runs and the rows are gone.
+  it('PostgreSQL: production asks for the typed name before the flagged statements, with the guard codes, and nothing changes until then', async () => {
+    const connection = (await call('connections.list', {})).find(item => item.engine === 'postgres')!
+    const id = connection.id, name = connection.name
+    await call('connections.save', { ...connection, readOnly: false, environment: 'prod', password: undefined })
+    const count = async (): Promise<number> => Number((await call('sql.run', { connectionId: id, sql: 'SELECT count(*)::int FROM users' })).rows[0][0])
+    const codesOf = (error: { codes?: { code: string }[] }): string[] => (error.codes ?? []).map(message => message.code)
+    // DDL changes production too, so the fixture itself types the name.
+    await call('sql.run', { connectionId: id, sql: 'CREATE TABLE users (id serial PRIMARY KEY, name text NOT NULL)', confirmName: name })
+    await call('sql.run', { connectionId: id, sql: "INSERT INTO users (name) VALUES ('ana'), ('bia'), ('caio')", confirmName: name })
+    expect(await count()).toBe(3)
+    try {
+      const flagged: Array<{ op: 'sql.run' | 'sql.script'; sql: string; codes: string[]; reason?: RegExp }> = [
+        { op: 'sql.run', sql: 'DO $$ BEGIN DELETE FROM users; END $$', codes: ['oxequery.sql.doBlock', 'oxequery.sql.destructiveInside'] },
+        // The server would refuse this for a non-superuser as well; the point is that the guard asks before the server sees it.
+        { op: 'sql.run', sql: "COPY users TO PROGRAM 'id'", codes: ['oxequery.sql.copyProgram'] },
+        { op: 'sql.run', sql: 'SELECT * FROM users FOR UPDATE', codes: ['oxequery.sql.rowLock'] },
+        { op: 'sql.run', sql: 'WITH d AS (DELETE FROM users RETURNING *) SELECT * FROM d', codes: [], reason: /WHERE/ },
+        { op: 'sql.script', sql: 'SELECT 1;\nDELETE FROM users', codes: [], reason: /WHERE/ }
+      ]
+      for (const { op, sql, codes, reason } of flagged) {
+        // No name, and a wrong name; a destructive confirmation already given does not stand in for the name.
+        for (const confirmName of [undefined, `${name}-x`]) {
+          const refused = await failure(op, { connectionId: id, sql, confirmed: true, ...(confirmName ? { confirmName } : {}) })
+          expect(refused.code, sql).toBe('confirm-name')
+          expect(codesOf(refused), sql).toEqual(codes)
+          if (reason) expect(refused.reasons?.[0], sql).toMatch(reason)
+        }
+        expect(await count(), sql).toBe(3)
+      }
+      // A statement the guard stopped never ran, so it is not in the history the server-side run would have written.
+      expect((await call('library.list', { connectionId: id })).history.some(entry => /PROGRAM|FOR UPDATE|DELETE FROM users/i.test(entry.sql))).toBe(false)
+
+      // With the name: the row lock runs and leaves the rows as they were.
+      const locked = await call('sql.run', { connectionId: id, sql: 'SELECT * FROM users FOR UPDATE', confirmName: name })
+      expect(locked.rowCount).toBe(3)
+      expect(await count()).toBe(3)
+      // The DO block still needs the destructive confirmation, with the same codes; then it runs and the rows are gone.
+      const destructive = await failure('sql.run', { connectionId: id, sql: 'DO $$ BEGIN DELETE FROM users; END $$', confirmName: name })
+      expect(destructive.code).toBe('confirm')
+      expect(codesOf(destructive)).toEqual(['oxequery.sql.doBlock', 'oxequery.sql.destructiveInside'])
+      expect(await count()).toBe(3)
+      const script = await failure('sql.script', { connectionId: id, sql: 'SELECT 1;\nDELETE FROM users', confirmName: name })
+      expect(script.code).toBe('confirm')
+      expect(await count()).toBe(3)
+      await call('sql.run', { connectionId: id, sql: 'DO $$ BEGIN DELETE FROM users; END $$', confirmName: name, confirmed: true })
+      expect(await count()).toBe(0)
+    } finally {
+      await call('sql.run', { connectionId: id, sql: 'DROP TABLE IF EXISTS users', confirmName: name, confirmed: true })
+      // Back to how the previous test left the connection (read-only, not production).
+      await call('connections.save', { ...connection, password: undefined })
+    }
+  }, 120_000)
+
   it('PostgreSQL: a wrong password is reported without leaking it', async () => {
     const created = await call('connections.save', { name: 'bad', engine: 'postgres', host: '127.0.0.1', port: (await call('connections.list', {}))[0].port, database: 'appdb', username: 'oxe', password: 'definitely-wrong-pw' })
     const tested = await call('connections.test', { id: created.id })

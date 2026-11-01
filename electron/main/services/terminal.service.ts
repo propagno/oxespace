@@ -17,6 +17,7 @@ import { resumeArgs } from './agent-state/pane-sessions'
 import { PtyModeTracker } from './pty-mode-tracker'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
+import { recordIncident } from './diagnostics/incident-sink'
 
 const resolvedExecutableCache = new Map<string, string>()
 
@@ -37,7 +38,7 @@ interface TerminalManagerOptions {
   onLaunchExit?: (paneId: string) => void
   executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
   /** MCP launch arguments for an agent CLI, and the variables those arguments refer to. */
-  agentMcpArgs?: (executable: string, args: string[], workspaceId: string) => { args: string[]; env?: Record<string, string> }
+  agentMcpArgs?: (executable: string, args: string[], workspaceId: string) => { args: string[]; env?: Record<string, string> } | Promise<{ args: string[]; env?: Record<string, string> }>
   isManagedPane?: (paneId: string) => boolean
   /** Main-process-registered container shells (`oxequery-shell:*`); the renderer never supplies the command. */
   oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
@@ -255,7 +256,7 @@ export class TerminalManager {
       else if (!agentParts && !input.initialPrompt) typedResume = [resume.agent, ...extra].join(' ')
     }
     let mcpEnv: Record<string, string> = {}
-    if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = this.agentMcpArgs(executable, args, input.workspaceId))
+    if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = await this.agentMcpArgs(executable, args, input.workspaceId))
 
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = launch.pane_root_path && existsSync(launch.pane_root_path)
@@ -342,6 +343,7 @@ export class TerminalManager {
       recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
       this.notifyLaunchExit(input.paneId)
       if (input.agentCommand || input.launch) {
+        recordIncident('incident.agent.startFailed', agentName || 'agent')
         throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`, { cause: error })
       }
       throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`, { cause: error })
@@ -689,6 +691,13 @@ export class TerminalManager {
     this.stop({ paneId })
     // Synthetic exit so the pane can explain itself rather than looking crashed.
     this.emitExit({ paneId, exitCode: null })
+  }
+
+  /** Live sessions and how many run an agent, for the diagnostics panel (B8.3). */
+  counts(): { running: number; agents: number } {
+    let agents = 0
+    for (const session of this.sessions.values()) if (session.agentCommand) agents++
+    return { running: this.sessions.size, agents }
   }
 
   /** Sessions running with no view attached — surfaced in the status bar. */

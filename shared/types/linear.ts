@@ -60,6 +60,8 @@ export interface LinearWorktreeFromIssueInput {
 }
 
 export interface LinearWorktreeFromIssueResult {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   ok: boolean
   message: string
   branch: string

@@ -6,3 +6,7 @@
 .splitter[data-orientation='horizontal'] { height: 1px; cursor: row-resize; }
 .splitter[data-orientation='horizontal']::after { inset: -3px 0; }
 .splitter:hover, .splitter:focus-visible, .splitter:active { background: var(--accent); box-shadow: 0 0 0 1px var(--accent); outline: none; }
+/* On a sidebar's right edge: a 4px grab strip over its border, visible under the pointer and on focus. */
+.splitter.edge { position: absolute; top: 0; bottom: 0; right: 0; width: 4px; background: transparent; z-index: var(--layer-sticky); }
+.splitter.edge::after { inset: 0; }
+.splitter.edge:hover, .splitter.edge:focus-visible, .splitter.edge:active { background: color-mix(in srgb, var(--accent) 35%, transparent); box-shadow: none; }

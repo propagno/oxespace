@@ -127,7 +127,7 @@ export class DelegationApplicationService {
     return { previewId, targetWorkspaceId: workspaceId, targetName: target.name, checkout, ready: this.enabled(project),
       reason: this.enabled(project) ? null : 'PROJECT_OPT_IN_REQUIRED', effects: [
         checkout.reuseExistingWorktree ? 'Reuse selected destination worktree' : 'Create isolated destination worktree',
-        'Start an independent persistent Thread', 'Persist handoff, operation journal and native session binding'
+        'Start an independent persistent OxeChat conversation', 'Persist handoff, operation journal and native session binding'
       ] }
   }
   async create(origin: AgentExecution, input: DelegationInput): Promise<DelegationTask> {
@@ -138,7 +138,7 @@ export class DelegationApplicationService {
     if (input.mode !== undefined && !['analysis','isolated-change'].includes(input.mode)) throw new Error('Invalid execution mode')
     if (input.schemaVersion !== undefined && input.schemaVersion !== 2) throw new Error('Invalid delegation schema version')
     if (input.surface !== undefined && !['thread','terminal'].includes(input.surface)) throw new Error('Invalid delegation surface')
-    if (input.schemaVersion === 2 && !input.surface) throw new Error('Choose Thread or Code terminal as the delegation destination')
+    if (input.schemaVersion === 2 && !input.surface) throw new Error('Choose OxeChat or an OxeCode terminal as the delegation destination')
     if (input.branchIntent !== undefined && (!input.branchIntent || typeof input.branchIntent !== 'object' || !['existing','create','generated'].includes(input.branchIntent.strategy))) throw new Error('Invalid branch intent')
     if (input.evidenceFiles !== undefined && (!Array.isArray(input.evidenceFiles) || input.evidenceFiles.length > 8 || input.evidenceFiles.some(path => typeof path !== 'string' || !path || path.length > 512))) throw new Error('Invalid evidence selection')
     if (input.sourceThreadIds !== undefined && (!Array.isArray(input.sourceThreadIds) || input.sourceThreadIds.length > 5 || new Set(input.sourceThreadIds).size !== input.sourceThreadIds.length || input.sourceThreadIds.some(id => typeof id !== 'string' || !/^[a-f\d-]{36}$/i.test(id)))) throw new Error('Select up to five distinct conversations')
@@ -146,7 +146,7 @@ export class DelegationApplicationService {
     if (input.targetWorkspaceId !== undefined && (typeof input.targetWorkspaceId !== 'string' || !input.targetWorkspaceId || input.targetWorkspaceId.length > 128)) throw new Error('Invalid target workspace')
     const originProject = await projectIdentity(origin.cwd)
     const targetId = input.targetWorkspaceId ?? origin.workspaceId
-    if (targetId.startsWith('thread:') && input.surface === 'terminal') throw Error('A Code terminal requires an explicit Code workspace destination')
+    if (targetId.startsWith('thread:') && input.surface === 'terminal') throw Error('An OxeCode terminal requires an explicit OxeCode workspace destination')
     const target = this.surfaceProject(targetId)
     if (!target) throw new Error('Target workspace not found')
     const cwd = targetId === origin.workspaceId ? origin.cwd : target.rootPath
@@ -340,7 +340,7 @@ export class DelegationApplicationService {
         this.repository.journal(id, 'provider-start', launchGeneration, 'succeeded', { threadId: result.threadId,
           provider: result.provider, nativeSessionId: result.nativeSessionId, canonicalRoot: t.path })
         this.coordinator.receipt(id, 'execution-registered')
-        this.event(t, 'starting', 'Thread started and bound to its native provider session.')
+        this.event(t, 'starting', 'OxeChat conversation started and bound to its native provider session.')
         return
       }
       await this.deps.launch(t)
@@ -509,7 +509,7 @@ export class DelegationApplicationService {
       this.save(t); this.schedule(id)
     } else if (action === 'resume') {
       if (!['failed','interrupted'].includes(t.state) || this.pending.has(id)) throw new Error('Task is not ready to resume')
-      if (!this.deps.threadHost || t.surface !== 'thread' || !t.nativeSession?.resumable) throw new Error('This task has no resumable native Thread session')
+      if (!this.deps.threadHost || t.surface !== 'thread' || !t.nativeSession?.resumable) throw new Error('This task has no resumable native OxeChat session')
       if (!this.enabled(t.project) || (t.originProjectId && !this.enabled(t.originProjectId))) throw new Error('Enable Agent delegation before resuming')
       this.coordinator.checkTask(t)
       const resumeGeneration = t.nativeSession.generation + 1

@@ -1,6 +1,6 @@
 import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Mic, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { RichText } from '../../i18n/RichText'
+import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
@@ -246,11 +246,11 @@ function ProvidersSettingsSection({
   const { t } = useTranslation('settings')
   const [showMissing, setShowMissing] = useState(false)
   const [usingId, setUsingId] = useState<string | null>(null)
-  // The last nightly contract check; one network read when the section opens, cached by the main process.
-  const [compatibility, setCompatibility] = useState<ProviderCompatibility | null>(null)
+  const [compatibility, setCompatibility] = useState<ProviderCompatibility | null>(null) // the nightly contract check, cached by main
   useEffect(() => {
     let active = true
     void window.oxe?.agent?.compatibility?.().then(value => { if (active) setCompatibility(value) }).catch(() => {})
+    void useAgentStore.getState().loadReadiness() // what main knows of each CLI (no probe): not whatever loaded at boot
     return () => { active = false }
   }, [])
   const lastHealthCheckAt = useAgentStore((s) => s.lastHealthCheckAt)
@@ -1309,7 +1309,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
                   {t('updates.restartInstall')}
                 </Button>
               ) : null}
-              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={14} aria-hidden="true" /> {t('updates.openReleases')}</a> : null}
+              {manualInstall && app.status === 'available' ? <ExternalAnchor className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" source="app"><Download size={14} aria-hidden="true" /> {t('updates.openReleases')}</ExternalAnchor> : null}
             </div>
             <p className="settings-update-hint">
               {t(manualInstall ? 'updates.hint.manual' : asksToDownload ? 'updates.hint.ask' : 'updates.hint.auto')}

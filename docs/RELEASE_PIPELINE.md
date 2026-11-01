@@ -11,8 +11,13 @@ release secrets or protected Environment configuration.
 
 | Job | When | What |
 |-----|------|------|
-| **build** (matrix: `windows-x64`, `linux-x64`) | Always | Dependency and build-tool audits → Electron support window → typecheck → lint → unit/integration tests → build → native verify → E2E and performance gate. If a release is planned, also builds the platform packages (NSIS installer; AppImage and `.deb`), runs the packaged-build smoke test, and produces the SBOM, checksums and uploads artifacts. The two legs never cancel each other. |
-| **release** | Only if `build` succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
+| **changes** | Always (not on a draft PR) | Classifies a PR's files (docs-only, OxeQuery) and resolves the one commit every later job checks out. |
+| **quick** (`linux-x64`) | Unless the PR is docs-only | Plans build vs release → dependency and build-tool audits → notices → Electron support window → typecheck → lint (file-size guard first) → migration-numbering guard → build with bundle budgets. The first red, in about 6 minutes. |
+| **unit** (matrix: `windows-x64`, `linux-x64`) | Same as quick, in parallel with it | Unit and integration tests with coverage (serial, as before); uploads `coverage-summary-<platform>`. |
+| **e2e** (matrix: `windows-x64`, `linux-x64` × shards 1–3) | On a PR, after quick passes; on main, tags and dispatches always | Each shard builds the app (bundle budgets) → native verify → its third of the E2E specs (`--shard=i/3`, weights `PWTEST_SHARD_WEIGHTS=15:7:6`). Shard 1 also runs the upgrade rehearsal and the OxeQuery coverage gate, shard 2 uploads `main-sourcemaps-<platform>` (when the run does not package) and checks the Windows notices, shard 3 runs the performance gate. Every shard keeps `e2e-blob-<platform>-<shard>`, and `e2e-traces-<os>-<shard>` on failure. |
+| **package** (matrix: `windows-x64`, `linux-x64`) | Only when a release or a packaged smoke was planned, after quick, unit and e2e pass | Builds the planned commit, packages it (NSIS installer; AppImage and `.deb`), runs the packaged-build smoke test, and for a release produces the SBOM, checksums and uploads artifacts. The two legs never cancel each other. |
+| **release** | Only if every job above succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
+| **CI result** | Every non-draft run, after everything | One check for the whole run: fails when a job failed or was cancelled, or when a job that had to run was skipped. Merges the E2E blob reports into `e2e-report` (one HTML report per platform). |
 
 ---
 
@@ -35,6 +40,13 @@ git push -u origin HEAD
 Before opening the PR, dispatch **CI and Release** on the release branch with
 **packaged_smoke_only = true**. It runs the full checks and the installed-app smoke without
 publishing. Regenerate visual baselines there if the UI changed.
+
+**Required before every release: repeat the real tool-cost measurement (T8).** What OXESpace's MCP tools cost
+depends on the agents' own behaviour, which changes between versions of Claude Code and Codex. With the versions the
+release ships against, repeat the runs in `docs/validation/tool-groups-cost-1.4.md` (plain conversation and every
+group on demand with Claude, plain and one group used with Codex), with the person's consent since they use their
+account. Record the versions and numbers there. If an agent now sends MCP definitions up front, or no longer defers
+them, fix the session plan in `electron/main/services/conversation/tool-groups.ts` before releasing.
 
 ### 2. Open the PR `release/X.Y.Z` → `main` and merge it when CI is green
 
@@ -114,6 +126,69 @@ Same pipeline: **build → release** (no manual Run workflow). Tag must match `p
 | Push / PR to `main` | build only |
 | Run workflow with **publish_release = false** | build only on the selected branch |
 | Run workflow with **packaged_smoke_only = true** | build + installers + installed-app smoke, nothing published |
+| Dispatched by the merge train | build on the PR branch it updated, or on `main` after it merged (see below) |
+
+---
+
+## Merge train
+
+Nobody merges to `main` by hand. Label a ready PR **`na-fila`** and the **Merge train** workflow
+(`.github/workflows/merge-train.yml`, logic in `scripts/merge-train.mjs`) takes it from there, one PR at a
+time, oldest labelling first. Each run moves the PR at the head of the queue one step:
+
+| PR state | What the train does |
+|----------|---------------------|
+| Draft, conflicting, changes requested, or from a fork | Removes the label and says why |
+| Behind `main` | Updates the branch (merges `main` into it, with `[skip ci]` in that merge commit), dispatches CI on the new head, then cancels that PR's runs still queued or running on its superseded heads |
+| CI on the current head not started or still running | Waits; a later run continues |
+| A check on the current head failed | Removes the label, naming the job, its link and the first failing step |
+| Green on the current head and 0 commits behind `main` | Merges with a merge commit, pinned to the tested SHA, then serves the next PR |
+| Waited more than 60 minutes for CI on one head | Removes the label (`MERGE_TRAIN_TIMEOUT_MINUTES` variable or the dispatch input changes the limit) |
+
+The train keeps one `merge-train:` comment per PR and edits it. A check counts when branch protection
+requires it, or, while protection requires none, every check run on the head except skipped ones.
+
+**GITHUB_TOKEN.** The train uses the workflow's built-in token, and what that token does starts no
+usable workflow run: a merge fires no `push` run on `main`, and a branch update's `pull_request` runs only
+wait for an approval nobody gives (they end `action_required` with no jobs, because the approval gate comes
+before any job's `if:`). So the train makes its branch update a merge commit whose message carries
+`[skip ci]`, which keeps GitHub from creating those `push`/`pull_request` runs at all, and it dispatches
+`ci.yml` itself, on the updated branch (with `a11y-axe.yml`, `memory-compatibility.yml` or `android.yml` when
+they had run on the PR) and on `main` after each merge. `[skip ci]` never touches a dispatched run, and it
+only applies while that merge commit is the PR's head: a person's next push runs CI as usual. A run that
+ended `action_required` or with every job skipped never stands for CI on a head.
+
+**Behind only by docs.** A green car is not updated again when every commit `main` gained since the car's
+merge base (GitHub's compare, each commit's own files plus the net diff, renames' old paths included) only
+adds or edits docs-only paths: `docs/**`, `.claude/**` or `*.md`, outside `src/`, `electron/`, `shared/`,
+`tests/` and `e2e/`, and not a doc that a test or a CI gate reads. Those read docs are listed once in
+`scripts/merge-train.mjs` (`TEST_READ_DOCS`: `README.md`, `SECURITY.md`, `THIRD_PARTY_NOTICES.md` and every
+Markdown file under `docs/` except `docs/plans/` and `docs/audits/`, because `tests/unit/docs-links.test.ts` checks their links),
+and a unit test greps `tests/` and `e2e/` for doc paths and fails when a read one is missing. A removal or a
+rename, more than 20 commits, or a list GitHub cuts short always means an update. The merge still pins the
+CI-tested head, so `main` gets exactly the tested tree plus those docs.
+
+**Superseded runs.** Right after an update, the train cancels the runs that only hold runner slots: runs of
+its dispatchable workflows, from this repository, on that PR's branch, still queued or running, on exactly
+the head the train replaced, not tied to another PR, and started either by the PR (`pull_request`) or by the
+train's own dispatch. It never cancels a run on the current head or a later push, on `main`, of another PR, a
+person's manual dispatch (Full check, Packaged smoke, publish), a push or tag run, or any other workflow.
+
+When a head has no runs at all (an author's own `[skip ci]`), the train dispatches all four workflows (`ci.yml`,
+`a11y-axe.yml`, `memory-compatibility.yml`, `android.yml`), and an `Android` run on the head gates the merge
+like CI, axe and memory compatibility. The update itself is check-then-act (read the head, then merge `main`
+into the branch by name); a push in that window only gets `main` merged on top of it, which changes the head
+and sends it through CI again, so this is accepted while batches are of size 1. The same token may not push a
+change to `.github/workflows`: when GitHub refuses a merge (or a branch update) for that, the PR leaves the
+queue with that cause and the coordinator merges it.
+
+**Trust boundary.** Only a label added by someone with write, maintain or admin access counts; the train
+checks the labeler's role and otherwise removes the label. It counts only GitHub Actions check runs and this
+repository's own `push`, `pull_request` and `workflow_dispatch` runs on the head, and it only trusts its own
+`github-actions[bot]` comment, whose state marker it validates. Still, the CI it dispatches runs the PR
+branch's own scripts, so a PR could make its CI pass by changing them. The real gate is branch protection
+on `main` (required reviews and required checks, with no bypass for Actions): the train never merges what
+protection would refuse, and it follows protection's required checks as soon as there are any.
 
 ---
 

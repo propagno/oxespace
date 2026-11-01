@@ -69,6 +69,7 @@ const DEFAULT_CLI_STATUS: GitHubCliStatus = {
   user: null,
   host: null,
   message: 'GitHub CLI not found. Install it from https://cli.github.com/ and run gh auth login.',
+  messageCode: { code: 'github.cli.missing', params: {} },
   path: null
 }
 

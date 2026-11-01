@@ -88,7 +88,7 @@ export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.
  * next. Announced politely; a toast is enough for a quick confirmation that needs no next step.
  */
 export function SuccessState({ title, message, actions, compact = false }: { title: ReactNode; message?: ReactNode; actions?: ReactNode; compact?: boolean }): ReactElement {
-  return <div className={cx(styles.success, compact && styles.successCompact)} role="status">
+  return <div className={cx(styles.successState, compact && styles.successCompact)} role="status">
     <span className={styles.successIcon} aria-hidden="true"><CheckCircle2 size={compact ? 14 : 20} /></span>
     <p className={styles.successTitle}>{title}</p>
     {message && <p className={styles.successText}>{message}</p>}
@@ -133,12 +133,25 @@ export function Notice({ intent = 'info', title, children, actions, className }:
 }
 
 /** The shape of content on its way: lines of text, or one block. Announced once as loading, never read line by line. */
-export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading') }: { lines?: number; variant?: 'text' | 'block'; label?: string }): ReactElement {
-  return <div className={styles.skeleton} role="status" aria-label={label}>
+export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading'), decorative = false }: { lines?: number; variant?: 'text' | 'block'; label?: string; decorative?: boolean }): ReactElement {
+  // `decorative`: next to something that already announces the loading (a busy region, a status beside it).
+  return <div className={styles.skeleton} {...(decorative ? { 'aria-hidden': true as const } : { role: 'status' as const, 'aria-label': label })}>
     {variant === 'block'
       ? <span className={cx(styles.skeletonBar, styles.skeletonBlock)} aria-hidden="true" />
       : Array.from({ length: Math.max(1, lines) }, (_, index) => <span key={index} className={styles.skeletonBar} aria-hidden="true" />)}
   </div>
+}
+
+/**
+ * A view's sidebar on its way: the sidebar frame (its width comes from the app shell's grid, so nothing moves when the
+ * real one arrives), the header with the view's name and placeholder rows. The region is busy and says "Loading…"
+ * once, politely (the Skeleton's status); collapsed to the rail it shows a few short bars without the header.
+ */
+/** Busy (aria-busy) but silent: the view's work area announces the one loading, so a switch is not announced twice. */
+export function SidebarSkeleton({ label, title, collapsed = false }: { label: string; title: string; collapsed?: boolean }): ReactElement {
+  return <aside className={cx('thread-navigation', collapsed && 'thread-navigation-collapsed')} aria-label={label} aria-busy="true">
+    <div className={cx('nav-panel', styles.sidebarRows)}>{!collapsed && <div className="nav-panel-title"><strong>{title}</strong></div>}<Skeleton decorative lines={collapsed ? 3 : 5} /></div>
+  </aside>
 }
 
 /**

@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy, Send } from 'lucide-react'
-import { Badge, Button, EmptyState, ErrorState, OfflineState, Skeleton, Tabs, copyText, toast } from '../../ui'
+import { Badge, Button, EmptyState, ErrorState, OfflineState, Skeleton, Tabs, copyText } from '../../ui'
 import { useConnectivity } from '../../hooks/useConnectivity'
 import { useOxePostStore } from './oxepost.store'
 import { cookiesOf, formatBytes, formatMs, prettyBody, statusTone } from './post-model'
@@ -37,7 +37,7 @@ export function ResponsePanel(): ReactElement {
         <span>{formatBytes(response.size)}</span>
         {response.contentType && <span className={styles.muted}>{response.contentType.split(';')[0]}</span>}
         <span className={styles.spacer} />
-        <Button size="sm" variant="ghost" icon={<Copy size={13} aria-hidden="true" />} disabled={!body} onClick={() => void copyText(body).then(() => toast({ title: t('response.copied'), intent: 'success' }))}>{t('response.copy')}</Button>
+        <Button size="sm" variant="ghost" icon={<Copy size={13} aria-hidden="true" />} disabled={!body} onClick={() => void copyText(body, t('response.bodyWhat'), t('response.copied'))}>{t('response.copy')}</Button>
       </div>
       <Tabs<ResponseTab> label={t('response.sections')} value={tab} onChange={setTab} className={styles.tabs} tabs={[
         { value: 'body', label: t('tabs.body'), content: <div className={styles.pane}>
