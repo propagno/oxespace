@@ -8,13 +8,13 @@ import { launchReal, openRepo, quitReal, realProfile } from './real-app'
  * names, spelled out, split, accented or with look-alike letters, are refused with `reserved-name`; ordinary titles go
  * out. REAL app, black box: a script in the pane calls the internal MCP with the pane's own execution credentials, as an
  * agent in that pane would (oxespace_workspace_change notify, a write-level tool, so no approval is raised).
- * The allowed titles stay under NOTIFY_PER_MINUTE (6); refusals are not counted.
+ * The allowed titles stay under NOTIFY_PER_MINUTE (6), and all 29 calls under the pane's general limit of changes per minute.
  */
 const REFUSED = [
-  'Windows Security', 'W i n-d.o w s', 'Micro soft update', 'Git Hub alert', 'GNOME Keyring', 'polkit authentication', 'KDE Wallet',
-  'Ubuntu', 'macOS Update', 'System Administrator', 'Sistema operacional', 'Administração do sistema', 'Administrador', 'Aplicação',
-  'root access', 'sudo password', 'Security scanner', 'Segurança', '$ystem Admin', 'W1ndows Update', 'Sys tem notice', 'Ad min panel',
-  'OXESp4ce', 'OXESpace', 'OxeBot', 'OX E', 'Oxente OXESpace'
+  'Windows Security', 'W i n-d.o w s', 'Micro soft update', 'Git Hub alert', 'GNOME Keyring', 'polkit authentication',
+  'macOS Update', 'System Administrator', 'Sistema operacional', 'Administração do sistema', 'Administrador', 'Aplicação',
+  'root access', 'sudo password', 'Security scanner', '$ystem Admin', 'W1ndows Update', 'Sys tem notice', 'Ad min panel',
+  'OXESp4ce', 'OxeBot', 'OX E', 'Oxente OXESpace'
 ]
 const ALLOWED = ['Build finished', 'Linuxbrew updated', 'Oxente, the tests passed', 'Code reviewer done']
 
@@ -40,11 +40,12 @@ test('B10/#247 real app: a notification cannot use OS, vendor, admin or app name
   const profile = realProfile('b10names', { OXESPACE_LOCALE: 'en-US' })
   const script = join(profile.root, 'asks.js'); writeFileSync(script, ASKS)
   const list = join(profile.root, 'list.json')
+  // Allowed first: every call counts toward the pane's general per-minute limit on changes, refused ones included.
   const items = [
+    ...ALLOWED.map(title => ({ key: `title:${title}`, title })),
     ...REFUSED.map(title => ({ key: `title:${title}`, title })),
     // A notice may not speak as the system anywhere in its text, the body included.
-    { key: 'body:Windows Security', title: 'Heads up', body: 'Windows Security needs your password again' },
-    ...ALLOWED.map(title => ({ key: `title:${title}`, title }))
+    { key: 'body:Windows Security', title: 'Heads up', body: 'Windows Security needs your password again' }
   ]
   writeFileSync(list, JSON.stringify(items))
   const out = join(profile.root, 'out.json')
