@@ -1035,6 +1035,12 @@ jobs:
     name: Publish GitHub Release
     needs: [quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility]
     if: needs.quick.outputs.should_release == 'true'
+    # Publishing waits for a person: the `release` environment has the release owner as required reviewer, so a
+    # dispatch with publish_release=true (by anyone, or by an agent session using their token) builds and verifies
+    # everything, then stops here until it is approved on the run page (SRE-04, docs/ci-cd.md).
+    environment:
+      name: release
+      url: ${{ format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, needs.quick.outputs.tag) }}
     runs-on: windows-2022
     timeout-minutes: 30
     permissions:
