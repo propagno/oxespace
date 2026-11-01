@@ -1,6 +1,8 @@
 /**
- * OxeVoice 1.5 · IPC for native voice input. Every handler serves only the application main frame, validates its
- * input, and returns C3 refusals as data (`{ ok: false, message }`). Session events go only to the main window.
+ * OxeVoice 1.5 · IPC for native voice input. The global sender guard answers only the trusted app window, so the
+ * handlers register plainly. Each one validates its input and returns C3 refusals as data (`{ ok: false, message }`).
+ * Session events go only to the main window. The voice service loads lazily through `loadVoice`, on the first
+ * voice:* call, once.
  */
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import {
@@ -16,11 +18,15 @@ import {
 import type { VoiceConsentStore } from '../services/voice/consent'
 import { VoiceError } from '../services/voice/errors'
 import type { VoiceRegistry } from '../services/voice/registry'
-import { parseOneOf, parseRecord, parseToken, requireAppFrame } from './ipc-guards'
+import { parseOneOf, parseRecord, parseToken } from './ipc-guards'
 
-export interface RegisterVoiceIpcOptions {
+export interface LoadedVoice {
   registry: VoiceRegistry
   consent: VoiceConsentStore
+}
+
+export interface RegisterVoiceIpcOptions {
+  loadVoice: () => Promise<LoadedVoice>
   sendToMainWindow: (channel: string, event: VoiceSessionEvent) => void
   openSpeechSettings: () => Promise<void>
 }
@@ -52,39 +58,56 @@ async function asOutcome<T extends object>(run: () => Promise<T | void>): Promis
 }
 
 export function registerVoiceIpc(options: RegisterVoiceIpcOptions): () => void {
-  const { registry, consent, sendToMainWindow, openSpeechSettings } = options
+  const { loadVoice, sendToMainWindow, openSpeechSettings } = options
   const channels: string[] = []
-  const handle = (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void => {
-    channels.push(channel)
-    ipcMain.handle(channel, (event, ...args) => {
-      requireAppFrame(event, 'Voice')
-      return handler(event, ...args)
-    })
+
+  // Memoized: loadVoice runs once, on the first voice:* call. On error the promise is cleared so the next call retries.
+  let loading: Promise<LoadedVoice> | null = null
+  const getVoice = (): Promise<LoadedVoice> => {
+    if (!loading) {
+      loading = loadVoice().catch(error => {
+        loading = null
+        throw error
+      })
+    }
+    return loading
   }
 
-  handle(VOICE_CHANNELS.getEngines, (): Promise<VoiceEngineInfo[]> => registry.list())
+  const handle = (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void => {
+    channels.push(channel)
+    ipcMain.handle(channel, (event, ...args) => handler(event, ...args))
+  }
 
-  handle(VOICE_CHANNELS.start, (_event, raw) => {
+  handle(VOICE_CHANNELS.getEngines, async (): Promise<VoiceEngineInfo[]> => {
+    const { registry } = await getVoice()
+    return registry.list()
+  })
+
+  handle(VOICE_CHANNELS.start, async (_event, raw) => {
     const input = parseStartInput(raw)
+    const { registry } = await getVoice()
     return asOutcome<VoiceStartResult>(() =>
       registry.start(input, sessionEvent => sendToMainWindow(VOICE_CHANNELS.onEvent, sessionEvent))
     )
   })
 
-  handle(VOICE_CHANNELS.stop, (_event, raw) => {
+  handle(VOICE_CHANNELS.stop, async (_event, raw) => {
     const sessionId = parseToken(raw, 'sessionId')
+    const { registry } = await getVoice()
     return asOutcome(() => registry.stop(sessionId))
   })
 
-  handle(VOICE_CHANNELS.cancel, (_event, raw) => {
+  handle(VOICE_CHANNELS.cancel, async (_event, raw) => {
     const sessionId = parseToken(raw, 'sessionId')
+    const { registry } = await getVoice()
     return asOutcome(() => registry.cancel(sessionId))
   })
 
-  handle(VOICE_CHANNELS.setConsent, (_event, raw): Promise<VoiceEngineInfo[]> => {
+  handle(VOICE_CHANNELS.setConsent, async (_event, raw): Promise<VoiceEngineInfo[]> => {
     const record = parseRecord(raw, 'input')
     const engineId: VoiceEngineId = parseOneOf(record.engineId, VOICE_ENGINE_IDS, 'engineId')
     if (typeof record.granted !== 'boolean') throw new Error('granted must be a boolean')
+    const { registry, consent } = await getVoice()
     if (record.granted) consent.grant(engineId)
     else consent.revoke(engineId)
     return registry.list()
