@@ -23,10 +23,12 @@ import { launchReal, openRepo, quitReal, realProfile } from './real-app'
  *   9. with the data group off, the agent edits .mcp.json so the bridge offers every tool, and calls a data tool:
  *      refused at tools/call by the app, not only hidden by the bridge;
  *  10. a Settings click while an agent's change is pending is refused (policy.change.pending), and the agent's
- *      content is not recorded as accepted.
+ *      content is not recorded as accepted;
+ *  11. expiry: a widening nobody answers is denied by timeout and the accepted rules stay (OXESPACE_E2E_APPROVALS_TIMEOUT_MS).
  * Native dialogs are held (never answered) and counted, so nothing reaches the runner's screen.
- * Contract guesses owners may rename: kind 'policyChange', a policy-area incident code, the notice text.
- * Not covered yet: expiry (APPROVAL_TIMEOUT_MS is 5 min; added when the e2e hook that shortens it lands).
+ * Names from #372: kind policyChange, options deny (default) and allowPolicy, title approvals.title.policyChange, incident
+ * incident.policy.changedOutside, notice policy.narrowed on policy.onChanged, writer refusal policy.change.pending.
+ * #372 has no file watcher: each case reads the policy after the write, as Settings › Tools does when it opens.
  */
 type Req = { id: string; generation: number; kind: string; risk: string; defaultOptionId: string; options: Array<{ id: string; intent: string }>; title: { code: string }; summary: { code: string }; target?: string; [k: string]: unknown }
 type Oxe = {
@@ -154,14 +156,24 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
       expect(result.execution, 'the agent runs with the pane execution env').toBe(true)
       return result
     }
+    /**
+     * #372 has no file watcher: a change is compared at the next read of the policy (a launch, a tool call, Settings
+     * open). This is the read Settings › Tools makes when it opens: the policy view and the tool groups.
+     */
+    const readPolicy = async () => { await policyText(); await groupMode('data') }
     const newRequest = async (label: string, before: Set<string>) => {
       let request: Req | undefined
       await expect.soft.poll(async () => {
+        await readPolicy()
         request = (await pending()).find(r => !before.has(r.id))
         return request ? request.kind : 'none'
       }, { timeout: 10_000, message: `${label}: the person is asked (B10 policyChange)` }).toBe('policyChange')
+      // The window shows it at once, as the F18 modal would; without an ack it goes to the (held) native fallback after 3 s.
+      if (request) await oxe(page, (o, r: Req) => o.approvals.ack({ id: r.id, generation: r.generation, visible: true, focused: true }), request)
       return request
     }
+    await page.evaluate(`window.__accPolicyEvents = []; window.oxe.policy.onChanged?.(e => window.__accPolicyEvents.push(e))`)
+    const policyEvents = () => page.evaluate('window.__accPolicyEvents') as Promise<Array<{ file: string; message: { code: string } }>>
     const deny = async (label: string, request: Req) => {
       await oxe(page, (o, r: Req) => o.approvals.ack({ id: r.id, generation: r.generation, visible: true, focused: true }), request)
       const answer = await oxe(page, (o, r: Req) => o.approvals.respond({ id: r.id, generation: r.generation, optionId: r.defaultOptionId }), request)
@@ -177,15 +189,18 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
       if (request) {
         expect.soft(['high', 'critical'], `${label}: high risk`).toContain(request.risk)
         expect.soft(request.options.find(o => o.id === request.defaultOptionId)?.intent, `${label}: Deny is the default`).toBe('deny')
-        expect.soft(request.title.code, `${label}: title is a C3 code`).toMatch(/^[a-z]\w*(\.\w+)+$/)
-        if (changed) expect.soft(JSON.stringify({ ...request, agentText: undefined }), `${label}: the app's own text carries the diff of the rules`).toContain(changed)
+        expect.soft(request.title.code, `${label}: title is the C3 code`).toBe('approvals.title.policyChange')
+        if (changed) {
+          expect.soft(request.options.map(o => o.id), `${label}: the person can accept the new rules`).toContain('allowPolicy')
+          expect.soft(JSON.stringify({ ...request, agentText: undefined }), `${label}: the app's own text carries the diff of the rules`).toContain(changed)
+        }
         await deny(label, request)
         expect.soft(await stillInForce(), `${label}: after Deny the accepted rules stay in force`).toBe(true)
         const entry = (await oxe(page, o => o.approvals.history())).find(h => h.id === request.id)
         expect.soft(entry?.outcome, `${label}: the decision is in the history`).toBe('deny')
       }
-      const journal = (await incidents()).filter(i => i.lastAt >= since && /policy/i.test(`${i.code} ${i.area}`))
-      expect.soft(journal.length, `${label}: the outside change is in the incident journal with a C3 code`).toBeGreaterThan(0)
+      const journal = (await incidents()).filter(i => i.lastAt >= since && i.code === 'incident.policy.changedOutside')
+      expect.soft(journal.length, `${label}: the outside change is in the incident journal (incident.policy.changedOutside)`).toBeGreaterThan(0)
     }
 
     // (5) The app's own write: Settings › Tools turns docs off through withToolMode. It applies and never asks.
@@ -203,7 +218,9 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
     // (6) The same widened content again after Deny: no second request, the accepted rules still apply.
     const beforeRepeat = (await pending()).length
     await runAgent('write', payload('wide', WIDE_POLICY))
+    await readPolicy()
     await page.waitForTimeout(5_000)
+    await readPolicy()
     expect.soft((await pending()).length, '(6) the same content after Deny does not ask again').toBe(beforeRepeat)
     expect.soft(await policyText(), '(6) the accepted rules still apply').toContain('oxespace_db_execute')
 
@@ -238,8 +255,9 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
     // (4) A narrowing edit: one more deny rule. Applies at once, with a notice, and asks nothing.
     const beforeNarrow = (await pending()).length
     await runAgent('write', payload('narrow', NARROW_POLICY))
-    await expect.soft.poll(() => policyText(), { timeout: 5_000, message: '(4) the narrowing applies at once' }).toContain('oxespace_git_change')
+    await expect.soft.poll(() => policyText(), { timeout: 5_000, message: '(4) the narrowing applies at once (at the next read)' }).toContain('oxespace_git_change')
     expect.soft((await pending()).length, '(4) a narrowing asks nothing').toBe(beforeNarrow)
+    await expect.soft.poll(async () => (await policyEvents()).map(e => e.message.code), { timeout: 5_000, message: '(4) main tells the window: policy.narrowed on policy.onChanged' }).toContain('policy.narrowed')
     await expect.soft(page.getByRole('status').or(page.getByRole('alert')).filter({ hasText: /policy|política/i }).first(), '(4) the person is told the rules got stricter').toBeVisible({ timeout: 5_000 })
 
     // (8) A fresh worktree of the same repo with a wider committed policy.json, opened as a workspace.
@@ -300,6 +318,54 @@ test('B7.4 (9): an off group is refused at tools/call even after the agent rewri
     expect.soft(mcp.response ?? '', 'no data comes back').not.toMatch(/connections\W*:\s*\[/)
     const journal = (await oxe(page, o => o.diagnostics.incidents())).filter(i => i.lastAt >= since && i.code === 'incident.mcp.toolGroupOff')
     expect.soft(journal.length, 'the refused call is in the incident journal as incident.mcp.toolGroupOff').toBeGreaterThan(0)
+    expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).accNative), 'no native dialog').toBe(0)
+  } finally {
+    await quitReal(app)
+    try { rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }) } catch { /* left in the temp folder */ }
+  }
+})
+
+/**
+ * (11) Expiry: a widening nobody answers is denied when the request times out, and the accepted rules stay in force.
+ * OXESPACE_E2E_APPROVALS_TIMEOUT_MS (#372: unpackaged builds only, shorter only, ≥ 50 ms) brings the 5 min down to 4 s.
+ */
+test('B7.4 (11): a widening nobody answers expires denied and keeps the accepted rules', async () => {
+  test.setTimeout(180_000)
+  const profile = realProfile('b74e', { OXESPACE_LOCALE: 'en-US', OXESPACE_E2E_APPROVALS_TIMEOUT_MS: '4000' })
+  const { repo, root } = profile
+  mkdirSync(join(repo, '.oxespace'))
+  writeFileSync(join(repo, '.oxespace', 'policy.json'), ACCEPTED_POLICY)
+  execFileSync('git', ['add', '.'], { cwd: repo }); execFileSync('git', ['-c', 'user.email=acc@example.invalid', '-c', 'user.name=acc', 'commit', '-q', '-m', 'accepted'], { cwd: repo })
+  const agent = join(root, 'agent.js'); writeFileSync(agent, AGENT)
+  const wide = join(root, 'wide.txt'); writeFileSync(wide, WIDE_POLICY)
+  const done = join(root, 'done-exp.json')
+
+  const { app, page } = await launchReal(profile)
+  try {
+    await holdNativeDialogs(app)
+    await openRepo(page, repo)
+    const workspaceId = await oxe(page, o => o.workspace.list().then(l => l[0].id))
+    const policyText = () => oxe(page, (o, i: string) => o.policy.get(i).then(v => JSON.stringify(v)), workspaceId)
+    const terminal = page.locator('[data-testid="pane-container"] .xterm').first()
+    await terminal.waitFor({ timeout: 20_000 })
+    await terminal.click()
+    await page.keyboard.type(`node "${agent}" rename-edit "${wide}" "${done}" "-"`); await page.keyboard.press('Enter')
+    await expect.poll(() => existsSync(done), { timeout: 30_000, message: 'the agent widened policy.json' }).toBe(true)
+
+    let request: Req | undefined
+    await expect.poll(async () => {
+      await policyText() // the read that compares the file (#372 has no watcher)
+      request = (await oxe(page, o => o.approvals.list())).find(r => r.kind === 'policyChange')
+      return request?.kind ?? 'none'
+    }, { timeout: 10_000, message: 'the widening is asked' }).toBe('policyChange')
+    await oxe(page, (o, r: Req) => o.approvals.ack({ id: r!.id, generation: r!.generation, visible: true, focused: true }), request)
+    // Nobody answers.
+    await expect.poll(async () => (await oxe(page, o => o.approvals.list())).some(r => r.id === request!.id), { timeout: 15_000, message: 'the request expires' }).toBe(false)
+    const entry = (await oxe(page, o => o.approvals.history())).find(h => h.id === request!.id)
+    expect.soft(entry?.by, 'it ended by timeout').toBe('timeout')
+    expect.soft(entry?.outcome, '… as a deny').toBe('deny')
+    expect.soft(await policyText(), 'the accepted deny rule is still in force').toContain('oxespace_db_execute')
+    expect.soft(await policyText(), 'the agent\'s allow * is not').not.toContain('"resource":"*"')
     expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).accNative), 'no native dialog').toBe(0)
   } finally {
     await quitReal(app)
