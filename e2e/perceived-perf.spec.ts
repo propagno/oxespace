@@ -245,6 +245,8 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; repo: s
     env: { ...process.env, TZ: 'UTC', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3') }
   })
   const page = await app.firstWindow()
+  // Bisect only (F7.3): the idle preload off, before it gets the chance to run.
+  await page.evaluate(() => localStorage.setItem('oxe.preload', 'off')).catch(() => undefined)
   return { app, page, repo }
 }
 
