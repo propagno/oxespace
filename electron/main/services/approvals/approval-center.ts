@@ -185,9 +185,17 @@ export class ApprovalCenter {
     // Best effort: a failing flash or notification never stops the request from being asked.
     try { this.deps.attention?.() } catch { /* the request is in the window already */ }
     if (!entry.request.ackRequired) return
-    entry.timers.push(setTimeout(() => {
-      if (this.pending.get(entry.request.id) === entry && surface() === 'native') this.goNative(entry, entry.shownAt === undefined ? 'no-ack' : 'no-window')
-    }, this.deps.ackTimeoutMs ?? APPROVAL_ACK_TIMEOUT_MS))
+    const ackTimeoutMs = this.deps.ackTimeoutMs ?? APPROVAL_ACK_TIMEOUT_MS
+    // A timer can fire a little before the clock says the time is up (Windows' timer resolution): then the rule still
+    // reads 'wait', and a request checked only once would wait forever. Until the window acknowledges it, check again
+    // when the rest of the timeout has passed.
+    const check = (): void => {
+      if (this.pending.get(entry.request.id) !== entry) return
+      const now = surface()
+      if (now === 'native') return this.goNative(entry, entry.shownAt === undefined ? 'no-ack' : 'no-window')
+      if (now === 'wait') entry.timers.push(setTimeout(check, Math.max(1, ackTimeoutMs - (this.now() - entry.request.createdAt))))
+    }
+    entry.timers.push(setTimeout(check, ackTimeoutMs))
   }
 
   private goNative(entry: Entry, reason: NativeReason): void {

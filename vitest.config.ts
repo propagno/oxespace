@@ -1,5 +1,9 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { scrubLiveAppEnv } from './e2e/helpers/live-app-env'
+
+// Before any worker starts: a test that spawns the bridge or Electron must never reach the running app.
+scrubLiveAppEnv()
 
 export default defineConfig({
   plugins: [react()],
