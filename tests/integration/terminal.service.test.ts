@@ -69,6 +69,18 @@ describe('TerminalManager', () => {
       expect(pty.spawn).toHaveBeenCalledWith('codex', ['resume', id, '--no-alt-screen'], expect.anything())
     } finally { manager.stopAll(); db.close() }
   })
+  test('Windows terminals use the bundled ConPTY, whose kill never forks a helper (B13); others do not ask for it', async () => {
+    for (const [platform, expected] of [['win32', true], ['linux', undefined]] as const) {
+      const db = openInMemoryDatabase()
+      const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+      const pty = createFakePtyModule()
+      const manager = new TerminalManager(db, { pty, platform })
+      try {
+        await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex', disableRtk: true })
+        expect((pty.spawn.mock.calls[0][2] as { useConptyDll?: boolean }).useConptyDll).toBe(expected)
+      } finally { manager.stopAll(); db.close() }
+    }
+  })
   test('records an agent that cannot start as an incident, with only its name hashed (B8.3)', async () => {
     const { connectIncidentJournal, incidentSubject } = await import('../../electron/main/services/diagnostics/incident-sink')
     const recorded: Array<[string, string | undefined]> = []
