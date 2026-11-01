@@ -41,19 +41,13 @@ describe('thread sections contract (F13)', () => {
 })
 
 describe('thread sections IPC (main)', () => {
-  const refuseSender = vi.fn(() => { throw new Error('Thread requests require the application main frame') })
   const db = { prepare: vi.fn(() => { throw new Error('the database must not be reached') }) } as unknown as AppDatabase
 
-  it('answers only the application main frame, before touching the store', async () => {
-    registerThreadSectionsIpc({ db, sender: refuseSender })
-    await expect(async () => handlers.get(IPC_CHANNELS.thread.sections)!({}, 'thread:p1')).rejects.toThrow('main frame')
-    await expect(async () => handlers.get(IPC_CHANNELS.thread.saveSections)!({}, 'thread:p1', { sections: [], assignments: {} })).rejects.toThrow('main frame')
-    expect(refuseSender).toHaveBeenCalledTimes(2)
-    expect(db.prepare).not.toHaveBeenCalled()
-  })
+  // Only the app window's main frame reaches these handlers: the central sender guard (B12) refuses every other sender
+  // on every channel, these included (tests/unit/ipc-sender-guard.test.ts).
 
-  it('refuses a nonsensical workspace id with its code', async () => {
-    registerThreadSectionsIpc({ db, sender: () => {} })
+  it('refuses a nonsensical workspace id with its code, before touching the store', async () => {
+    registerThreadSectionsIpc({ db })
     await expect(async () => handlers.get(IPC_CHANNELS.thread.sections)!({}, 42)).rejects.toThrow('thread.sections.invalid')
     await expect(handlers.get(IPC_CHANNELS.thread.saveSections)!({}, '', { sections: [], assignments: {} }))
       .resolves.toEqual({ ok: false, refusal: 'invalid', message: { code: 'thread.sections.invalid', params: {} } })

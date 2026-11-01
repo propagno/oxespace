@@ -76,6 +76,26 @@ export function newestVersion(tags: string[]): string | null {
  * Exported with injectable platform/env so the matrix can be covered without
  * building four installers.
  */
+/**
+ * B13 (T8): a feed on this machine's loopback for the packaged smoke, so the shipped binary's updater can be proven
+ * against a newer version without the internet. Honoured only as plain http on 127.0.0.1, localhost or [::1], and it
+ * makes the updater read-only: while it is set nothing downloads and nothing installs (see applyPolicy), whatever the
+ * preferences say. So it can never be used to put another build on the machine; at most a process that already runs
+ * as the person can make the app *say* an update exists, which it could do by editing the app's files anyway.
+ */
+export function loopbackUpdateFeed(env: NodeJS.ProcessEnv = process.env): string | null {
+  const raw = env.OXESPACE_UPDATE_FEED_URL
+  if (!raw) return null
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'http:' || url.username || url.password) return null
+    if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) return null
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
 export function updaterSupportsThisInstall(
   platform: NodeJS.Platform = process.platform,
   env: NodeJS.ProcessEnv = process.env
@@ -142,8 +162,10 @@ export function getAppUpdateState(): AppUpdateState {
 function applyPolicy(): void {
   if (!autoUpdaterRef) return
   const policy = updatePolicy(preferences)
-  autoUpdaterRef.autoDownload = policy.autoDownload
-  autoUpdaterRef.autoInstallOnAppQuit = policy.autoInstall
+  // A loopback smoke feed only ever reads (loopbackUpdateFeed).
+  const readOnly = loopbackUpdateFeed() !== null
+  autoUpdaterRef.autoDownload = policy.autoDownload && !readOnly
+  autoUpdaterRef.autoInstallOnAppQuit = policy.autoInstall && !readOnly
   // The channel setter also turns on downgrades; turn them back off, so leaving beta waits for a newer stable.
   autoUpdaterRef.channel = preferences.channel === 'beta' ? 'beta' : 'latest'
   autoUpdaterRef.allowPrerelease = preferences.channel === 'beta'
@@ -160,7 +182,7 @@ export function setUpdatePreferences(value: unknown): AppUpdateState {
 
 /** Downloads an update that was found but not downloaded, because the mode asks first. */
 export async function downloadAppUpdate(): Promise<AppUpdateState> {
-  if (!autoUpdaterRef || state.status !== 'available') return getAppUpdateState()
+  if (!autoUpdaterRef || state.status !== 'available' || loopbackUpdateFeed() !== null) return getAppUpdateState()
   try { await autoUpdaterRef.downloadUpdate() } catch (err) { setState({ status: 'error', error: err instanceof Error ? err.message : String(err) }) }
   return getAppUpdateState()
 }
@@ -225,7 +247,7 @@ export async function checkForAppUpdates(manual = false): Promise<AppUpdateState
 }
 
 export function quitAndInstallUpdate(): boolean {
-  if (!autoUpdaterRef || state.status !== 'downloaded') return false
+  if (!autoUpdaterRef || state.status !== 'downloaded' || loopbackUpdateFeed() !== null) return false
   // F26: the install quits without asking the window; autosaved drafts cover it.
   const askAgain = bypassCloseGuard()
   try {
@@ -276,6 +298,8 @@ export function initAutoUpdater(): void {
       }
       autoUpdaterRef = autoUpdater
       autoUpdater.logger = log
+      const smokeFeed = loopbackUpdateFeed()
+      if (smokeFeed) autoUpdater.setFeedURL({ provider: 'generic', url: smokeFeed })
       applyPolicy()
 
       autoUpdater.on('error', (err) => {

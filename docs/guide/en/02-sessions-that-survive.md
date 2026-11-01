@@ -109,6 +109,8 @@ Nothing changes on the phone.
 ## Known limits
 
 - Resume covers Claude Code and Codex panes; other agents and plain shells start a new session.
-<!-- Check against B17 (#309) when it lands. -->
+- On Windows, a Claude Code pane whose shell was opened through a short `~1` path (for example `C:\Users\RUNNER~1\…`)
+  may not find its saved session when the project was added under the full path. The pane says the session was not
+  resumed and starts fresh; the saved conversation stays on disk.
 
 <!-- Screenshots: `docs/guide/assets/S2/<name>.en.<light|dark>.png`. -->
