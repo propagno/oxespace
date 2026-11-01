@@ -74,6 +74,10 @@ describe('session panel context numbers', () => {
   it('shows the cost folded from the turn-cost events', () => {
     const cost = addTurnCost(addTurnCost(undefined, { usd: 0.4, inputTokens: 10 }, 1), { usd: 0.35, inputTokens: 5 }, 2)
     renderPanel(snapshotWith({ contextReport: latestContextReport(claudeEvents()), costReport: cost }))
+    // Claude reports its cost: "Reported". A figure worked out from tokens (Codex) is "Estimated" (#227 review).
+    expect(screen.getByText('Reported cost so far: US$ 0.75 in 2 turns.')).toBeVisible()
+    cleanup()
+    renderPanel(snapshotWith({ contextReport: latestContextReport(claudeEvents()), costReport: { ...cost!, source: 'codex-token-usage' } }))
     expect(screen.getByText('Estimated cost so far: US$ 0.75 in 2 turns.')).toBeVisible()
   })
 

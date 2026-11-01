@@ -93,7 +93,7 @@ export function SessionContextSection({ snapshot, running, onCompact }: SessionS
     {!context.itemized && <p className={styles.note}>{t('sessionPanel.context.notItemized', { provider: thread.provider === 'claude' ? 'Claude Code' : 'Codex' })}</p>}
     {context.deferred > 0 && <p className={styles.note}>{t('sessionPanel.context.deferred', { tokens: compactTokens(context.deferred) })}</p>}
     {context.autoCompactAt !== undefined && <p className={styles.note}>{t('sessionPanel.context.autoCompact', { tokens: compactTokens(context.autoCompactAt) })}</p>}
-    {cost && cost.turns > 0 && <p className={styles.note}>{t('sessionPanel.context.cost', { cost: formatThreadCost(cost.totalUsd), count: cost.turns })}</p>}
+    {cost && cost.turns > 0 && <p className={styles.note}>{t(cost.source === 'codex-token-usage' ? 'sessionPanel.context.cost' : 'sessionPanel.context.costReported', { cost: formatThreadCost(cost.totalUsd), count: cost.turns })}</p>}
     <p className={styles.note}>{t('sessionPanel.context.capturedAt', { time: formatClock(context.capturedAt, { hour: '2-digit', minute: '2-digit' }) })}</p>
     {compactButton}
   </>
