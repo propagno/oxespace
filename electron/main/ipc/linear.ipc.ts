@@ -30,7 +30,7 @@ export function registerLinearIpc(
     service.getIssue(parseLinearIssueIdInput(input).issueId)
   )
   ipcMain.handle(IPC_CHANNELS.linear.createWorktreeFromIssue, (_event, input: unknown) =>
-    service.createWorktreeFromIssue(parseLinearWorktreeFromIssueInput(input))
+    service.createWorktreeFromIssue(parseLinearWorktreeFromIssueInput(input), { reason: 'linear:worktree-from-issue' })
   )
 
   return service

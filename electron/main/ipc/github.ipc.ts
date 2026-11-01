@@ -29,6 +29,7 @@ import {
   parseApproveRepoHookInput
 } from './validation'
 
+// The renderer's Git and Worktree panels are the person: their network calls name it (utils/safe-git-person.ts).
 export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(db)): GitHubService {
   ipcMain.handle(IPC_CHANNELS.github.getCliStatus, (_event, input: unknown) =>
     service.getCliStatus(parseGitHubWorkspaceInput(input))
@@ -37,10 +38,10 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
     service.getWorkspaceStatus(parseGitHubWorkspaceInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.github.fetch, (_event, input: unknown) =>
-    service.fetch(parseGitHubWorkspaceInput(input))
+    service.fetch(parseGitHubWorkspaceInput(input), { reason: 'git-panel:fetch' })
   )
   ipcMain.handle(IPC_CHANNELS.github.pullFfOnly, (_event, input: unknown) =>
-    service.pullFfOnly(parseGitHubWorkspaceInput(input))
+    service.pullFfOnly(parseGitHubWorkspaceInput(input), { reason: 'git-panel:pull' })
   )
   ipcMain.handle(IPC_CHANNELS.github.stageAll, (_event, input: unknown) =>
     service.stageAll(parseGitHubWorkspaceInput(input))
@@ -58,25 +59,25 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
     service.generateCommitMessage(parseGitHubWorkspaceInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.github.push, (_event, input: unknown) =>
-    service.push(parseGitHubWorkspaceInput(input))
+    service.push(parseGitHubWorkspaceInput(input), { reason: 'git-panel:push' })
   )
   ipcMain.handle(IPC_CHANNELS.github.commitAndPush, (_event, input: unknown) =>
-    service.commitAndPush(parseGitHubCommitInput(input))
+    service.commitAndPush(parseGitHubCommitInput(input), { reason: 'git-panel:push' })
   )
   ipcMain.handle(IPC_CHANNELS.github.listBranches, (_event, input: unknown) =>
     service.listBranches(parseGitHubWorkspaceInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.github.createBranch, (_event, input: unknown) =>
-    service.createBranch(parseGitHubCreateBranchInput(input))
+    service.createBranch(parseGitHubCreateBranchInput(input), { reason: 'git-panel:switch' })
   )
   ipcMain.handle(IPC_CHANNELS.github.checkoutBranch, (_event, input: unknown) =>
-    service.checkoutBranch(parseGitHubCheckoutBranchInput(input))
+    service.checkoutBranch(parseGitHubCheckoutBranchInput(input), { reason: 'git-panel:switch' })
   )
   ipcMain.handle(IPC_CHANNELS.github.listWorktrees, (_event, input: unknown) =>
     service.listWorktrees(parseGitHubWorkspaceInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.github.createWorktree, (_event, input: unknown) =>
-    service.createWorktree(parseGitHubCreateWorktreeInput(input))
+    service.createWorktree(parseGitHubCreateWorktreeInput(input), { reason: 'worktree-panel:fetch-base' })
   )
   // A worktree that conversations work in is not removed out from under them.
   const attachedThreads = (path: string): string | null => {

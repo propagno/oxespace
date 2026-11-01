@@ -142,6 +142,10 @@ export interface MessageParams {
   'project.file.changedMeanwhile': { file: string }
   'github.cli.missing': Record<string, never>
   'git.base.unresolved': { base: string }
+  'git.base.maybeStale': { branch: string }
+  'git.fetch.needsPerson': Record<string, never>
+  'git.person.refused': { keys: string[] }
+  'git.hooks.skipped': Record<string, never>
   'oxe.status.unreadable': Record<string, never>
   'oxe.dashboard.timeout': Record<string, never>
   'memory.disabled': Record<string, never>
@@ -419,6 +423,10 @@ export const MESSAGE_CODES = [
   'project.file.changedMeanwhile',
   'github.cli.missing',
   'git.base.unresolved',
+  'git.base.maybeStale',
+  'git.fetch.needsPerson',
+  'git.person.refused',
+  'git.hooks.skipped',
   'oxe.status.unreadable',
   'oxe.dashboard.timeout',
   'memory.disabled',

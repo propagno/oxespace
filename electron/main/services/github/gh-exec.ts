@@ -24,6 +24,8 @@ import {
   readName,
   sanitizeError
 } from './parsers'
+import { ghEnv, layeredEnv, neutralizeRepositoryCommands, prepareGit, readCommandKeys, verifyAfter, type ConfigReader, type PreparedGit } from '../../utils/safe-git'
+import { PersonGitRefused, preparePersonGit, refusedKeys, type PersonGit } from '../../utils/safe-git-person'
 
 export interface SpawnResult {
   stdout: string
@@ -79,7 +81,8 @@ function defaultSpawnAsync(command: string, args: string[], options: SpawnAsyncO
       cwd: options.cwd,
       shell: options.shell ?? false,
       windowsHide: options.windowsHide ?? true,
-      env: options.env ? { ...process.env, ...options.env } : process.env
+      // GhExec hands over the whole environment (safe-git's or gh's), never main's own.
+      env: options.env ?? process.env
     }
     const child = spawn(command, args, spawnOpts)
     let stdout = ''
@@ -261,32 +264,86 @@ export class GhExec {
   }
 
   async tryGit(args: string[], cwd: string): Promise<string> {
-    const result = await this.spawn('git', args, cwd, undefined, 12_000)
+    const result = await this.git(args, cwd, undefined, 12_000)
     return result.status === 0 ? result.stdout ?? '' : ''
   }
 
   async runGit(args: string[], cwd: string, input?: string): Promise<string> {
-    const result = await this.spawn('git', args, cwd, input, 30_000)
+    return this.checked(await this.git(args, cwd, input, 30_000))
+  }
+
+  /** Git the person started that may reach the network (fetch, pull, push, a checkout); see utils/safe-git-person.ts. Throws like runGit. */
+  async runPersonGit(args: string[], cwd: string, person: PersonGit, timeout = 120_000): Promise<string> {
+    let prepared: PreparedGit
+    try { prepared = await preparePersonGit(cwd, args, person, { readConfig: this.configReader }) }
+    catch (error) {
+      // The refusal keeps its two lines: the sentence and its C3 code.
+      if (error instanceof PersonGitRefused) throw error
+      throw new Error(sanitizeError(error instanceof Error ? error.message : String(error)), { cause: error })
+    }
+    const result = await this.spawnPrepared(prepared, cwd, undefined, timeout)
+    await verifyAfter(prepared, cwd, this.configReader)
+    return this.checked(result)
+  }
+
+  /** Local git through utils/safe-git.ts: no transport, no hooks, nothing the repository's config names. */
+  async git(args: string[], cwd: string, input?: string, timeout = 15_000): Promise<SpawnResult> {
+    let prepared: PreparedGit
+    try { prepared = await prepareGit(cwd, args, { readConfig: this.configReader }) }
+    catch (error) { return { stdout: '', stderr: error instanceof Error ? error.message : String(error), status: null, error: error instanceof Error ? error : new Error(String(error)) } }
+    const result = await this.spawnPrepared(prepared, cwd, input, timeout)
+    await verifyAfter(prepared, cwd, this.configReader)
+    return result
+  }
+
+  private checked(result: SpawnResult): string {
     if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Could not run git.'))
     return result.stdout ?? ''
   }
 
+  private spawnPrepared(prepared: PreparedGit, cwd: string, input: string | undefined, timeout: number): Promise<SpawnResult> {
+    return this.spawnCommand(prepared.command, prepared.args, { cwd, input, shell: false, timeout, windowsHide: true, env: prepared.env })
+  }
+
+  /** The config read safe-git does first, through the same spawner, so a test's fake sees it too. */
+  private readonly configReader: ConfigReader = async (command, args, cwd, env) => {
+    const result = await this.spawnCommand(command, args, { cwd, shell: false, timeout: 10_000, windowsHide: true, env })
+    return { code: result.error ? null : result.status, stdout: result.stdout ?? '' }
+  }
+
+  /**
+   * gh runs git itself (`gh pr create` runs `git status`), so first the repository's config is read: a key that would
+   * refuse a person's network git refuses gh too, and the drivers it set are emptied for gh's git through
+   * `GIT_CONFIG_*` (SECURITY #387 M2).
+   */
   async runGh(args: string[], cwd: string): Promise<string> {
     const status = await this.detectCli(cwd)
     if (!status.available || !status.authenticated) throw new Error(status.message ?? 'GitHub CLI unavailable.')
-    const result = await this.spawn(status.path ?? 'gh', args, cwd, undefined, 60_000)
+    const base = ghEnv()
+    const entries = await readCommandKeys(cwd, base, 'git', undefined, this.configReader)
+    const refused = refusedKeys(entries)
+    if (refused.length) throw new PersonGitRefused(refused, 'github-panel:gh')
+    const command = status.path ?? 'gh'
+    const result = await this.spawnCommand(command, args, {
+      cwd, shell: isCommandScript(command), timeout: 60_000, windowsHide: true, env: ghEnv(process.env, neutralizeRepositoryCommands(entries, cwd))
+    })
     if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Could not run gh.'))
     return result.stdout ?? ''
   }
 
+  /**
+   * gh and its helpers (where.exe), with safe-git's gh environment; `env` may not set `GIT_*`. Git goes through git()
+   * or runPersonGit(), never here.
+   */
   spawn(command: string, args: string[], cwd: string, input?: string, timeout = 15_000, env?: NodeJS.ProcessEnv): Promise<SpawnResult> {
+    if (/(^|[\\/])git(\.(exe|cmd|com|bat))?$/i.test(command.trim())) throw new Error('GhExec.spawn does not run git; use git() or runPersonGit()')
     return this.spawnCommand(command, args, {
       cwd,
       input,
       shell: isCommandScript(command),
       timeout,
       windowsHide: true,
-      env
+      env: layeredEnv(ghEnv(), env)
     })
   }
 
