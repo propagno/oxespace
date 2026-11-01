@@ -65,5 +65,8 @@ class SessionCore(context: Context) {
     /** The person chose Disconnect: no session until the app is opened again. */
     fun disconnect() = controller.stop()
 
-    fun unpair() = controller.unpair()
+    fun unpair() {
+        controller.unpair()
+        notifications.clearAlerts()
+    }
 }
