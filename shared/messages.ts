@@ -18,6 +18,12 @@ export interface MessageParams {
   'mcp.quarantine.removed': { tools: string[] }
   /** MCP quarantine: the server's command, arguments, environment or URL no longer match what was trusted. */
   'mcp.quarantine.configChanged': Record<string, never>
+  /** B7.3: an OXESpace tool of the confirm level asks the person every time; it cannot be set to run without asking. */
+  'mcp.toolRule.confirmLevel': { tool: string }
+  /** B7.3: the tool's rule comes from the user's or the organization's policy, which a project cannot change. */
+  'mcp.toolRule.locked': { tool: string }
+  /** B7.3: the project's `.oxespace/policy.json` is not a valid policy; it is left as it is until fixed by hand. */
+  'mcp.toolRule.invalidPolicy': Record<string, never>
   /** A pending request was answered, cancelled or expired before this answer arrived. */
   'thread.request.notPending': Record<string, never>
   /** The conversation restarted since the request was listed; the answer belongs to an older generation. */
@@ -32,6 +38,8 @@ export interface MessageParams {
   'thread.protectedConfig.instructions': { path: string }
   'thread.protectedConfig.mcp': { path: string }
   'thread.protectedConfig.hooks': { path: string }
+  /** B7.3: the project's `.oxespace/policy.json` (the MCP tools the person blocked) or `oxe.yaml` (the tool groups offered). */
+  'thread.protectedConfig.policy': { path: string }
   'thread.protectedConfig.warning': Record<string, never>
   /** B16: `command` rewrites tracked files without naming them (git checkout, tar x…), so it needs the person each time. */
   'thread.protectedConfig.rewritesTracked': { command: string }
@@ -333,6 +341,9 @@ export const MESSAGE_CODES = [
   'mcp.quarantine.added',
   'mcp.quarantine.removed',
   'mcp.quarantine.configChanged',
+  'mcp.toolRule.confirmLevel',
+  'mcp.toolRule.locked',
+  'mcp.toolRule.invalidPolicy',
   'thread.request.notPending',
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
@@ -341,6 +352,7 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.instructions',
   'thread.protectedConfig.mcp',
   'thread.protectedConfig.hooks',
+  'thread.protectedConfig.policy',
   'thread.protectedConfig.warning',
   'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',

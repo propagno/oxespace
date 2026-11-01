@@ -48,6 +48,12 @@ export interface McpServer {
   /** Null = global (cross-workspace). */
   workspaceId: string | null
   name: string
+  /**
+   * The server's key in a conversation and in `.mcp.json`, and the `server` of its tool rules (B7.3), so the window can
+   * group rules under its servers: `serverKey(name)`, with `-2`, `-3`… when two servers of the scope (the global ones
+   * with the workspace's) normalize alike, in creation order. Main fills it on every server it returns.
+   */
+  key?: string
   transport: McpTransport
   config: McpServerConfig
   enabled: boolean
@@ -63,6 +69,12 @@ export interface McpServer {
   createdAtMs: number
   updatedAtMs: number
 }
+
+/**
+ * The key a configured server gets from its name: in a conversation, in `.mcp.json`, in policy resources
+ * (`mcp__<key>__<tool>`) and in tool rules. One function for main and the window.
+ */
+export const serverKey = (name: string): string => name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'mcp-server'
 
 /** A test run to explain a failure: the tested server and the Node.js a Node-based server runs on. */
 export interface McpDiagnosis { server: McpServer; node: string | null }

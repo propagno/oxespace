@@ -4,6 +4,7 @@ import ptBR from '../shared/locales/pt-BR/main.json'
 import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
 import { ACTIVITY_REFUSALS } from '../shared/types/activity'
 import { APPROVAL_REFUSALS } from '../shared/types/approvals'
+import { MCP_TOOL_RULE_REFUSAL_CODES } from '../shared/types/mcp-tools'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
 import { THREAD_SECTIONS_REFUSALS } from '../shared/types/thread-sections'
 import { WORKSPACE_ROOT_REFUSALS } from '../shared/types/workspace'
@@ -17,6 +18,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.quarantine.added': ['tools'],
   'mcp.quarantine.removed': ['tools'],
   'mcp.quarantine.configChanged': [],
+  'mcp.toolRule.confirmLevel': ['tool'],
+  'mcp.toolRule.locked': ['tool'],
+  'mcp.toolRule.invalidPolicy': [],
   'thread.request.notPending': [],
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
@@ -25,6 +29,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.protectedConfig.instructions': ['path'],
   'thread.protectedConfig.mcp': ['path'],
   'thread.protectedConfig.hooks': ['path'],
+  'thread.protectedConfig.policy': ['path'],
   'thread.protectedConfig.warning': [],
   'thread.protectedConfig.rewritesTracked': ['command'],
   'app.connectivity.offline': [],
@@ -274,6 +279,10 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of an approval answer its own code', () => {
     for (const refusal of APPROVAL_REFUSALS) expect(isMessageCode(`approvals.refused.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of a tool rule a code (B7.3)', () => {
+    for (const refusal of MCP_TOOL_RULE_REFUSAL_CODES) expect(isMessageCode(refusal), refusal).toBe(true)
   })
 
   it('accepts a code with parameters and rejects anything else', () => {
