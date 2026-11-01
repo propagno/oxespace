@@ -21,7 +21,7 @@ function codeLive(): Record<string, LiveAttention> {
       // (it stays visible on its pane and row, and in the activity center).
       if (tone === 'needs-decision') entries[pane.id] = 'needs-you'
       else if (tone === 'error') entries[pane.id] = 'failed'
-      else if (tone === 'thinking') entries[pane.id] = 'working'
+      // bisect only (F7.3): a pane that is only working is not counted, to see the cost of its flips
     }
   }
   return entries
