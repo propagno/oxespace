@@ -34,6 +34,11 @@ export function prefetchView(view: AppView): void {
   void chunkOf(view).then(chunk => chunk?.load()).catch(() => undefined)
 }
 
+/** How long focus and the announcement wait for a slow view's content before moving anyway. */
+export const ARRIVE_CAP_MS = 5000
+/** The view's work area is still its skeleton (ViewSkeleton), not its content. */
+const stillLoading = (host: Element): boolean => host.querySelector('[data-view-skeleton]') !== null
+
 /** Focus goes to the new view's first region, and its name is said once. */
 function arrive(view: AppView): void {
   const host = document.querySelector<HTMLElement>(`[data-view="${view}"]`)
@@ -84,12 +89,24 @@ export function useViewSwitch(current: AppView, commit: (view: AppView) => void)
     void chunkOf(view).then(chunk => chunk?.load()).then(() => finish(view), () => finish(view))
   }, [current, finish])
 
-  // After the commit has painted: focus and announcement, for switches made here (not on start).
+  // After the commit has painted: focus and announcement, for switches made here (not on start). On the slow path the
+  // view committed with its skeleton: they wait for the content (the skeleton's status is the one announcement until
+  // then), at most ARRIVE_CAP_MS.
   useEffect(() => {
     if (arrived.current !== current) return
     arrived.current = null
-    const frame = requestAnimationFrame(() => arrive(current))
-    return () => cancelAnimationFrame(frame)
+    const view = current
+    let observer: MutationObserver | undefined
+    let cap: ReturnType<typeof setTimeout> | undefined
+    const done = (): void => { observer?.disconnect(); clearTimeout(cap); arrive(view) }
+    const frame = requestAnimationFrame(() => {
+      const host = document.querySelector(`[data-view="${view}"]`)
+      if (!host || !stillLoading(host)) { done(); return }
+      observer = new MutationObserver(() => { if (!stillLoading(host)) done() })
+      observer.observe(host, { childList: true, subtree: true })
+      cap = setTimeout(done, ARRIVE_CAP_MS)
+    })
+    return () => { cancelAnimationFrame(frame); observer?.disconnect(); clearTimeout(cap) }
   }, [current])
 
   useEffect(() => () => clearTimeout(timer.current), [])

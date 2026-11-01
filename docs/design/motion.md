@@ -71,9 +71,11 @@ the token export, so renaming one is a contract change.
 trunk stands still while the two arms sprout from it in turn, half a beat apart, and the sertão sun breathes with
 them. It is for waits longer than a moment:
 
-- a whole view loading (`<LoadingState brand />`: OxeQuery, OxePod, OxePost and the Thread view);
 - the boot splash (F2);
 - reconnecting (the offline state, F1).
+
+A view loading never shows it: a view switch keeps the current view, and past 300 ms the new view shows its own
+skeleton (`ViewSkeleton`; see "Switching views and loading").
 
 A control, a row or a small panel keeps the `Spinner`: the brand loader is a signature, not a busy indicator for
 every button.

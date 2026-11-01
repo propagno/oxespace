@@ -55,6 +55,8 @@ function patchThread(state: ThreadState, id: string, change: Partial<Conversatio
 function deltaEnabled(): boolean {
   try { return window.localStorage.getItem('oxe.thread.delta') !== 'off' } catch { return true }
 }
+/** How long a conversation switch keeps the current conversation up before showing the next one's skeleton. */
+export const CONVERSATION_SKELETON_AFTER_MS = 300
 let generation = 0, catalogGeneration = 0, projectGeneration = 0
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
@@ -92,7 +94,11 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   select: async (id, markRead = true) => {
     const version = ++generation
     const cached = id ? get().snapshotCache[id] ?? null : null
-    set(state => ({ selectedId: id, snapshot: cached, unreadIds: id && markRead ? state.unreadIds.filter(value => value !== id) : state.unreadIds, errors: Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'selection')),
+    // A conversation not in the cache: the row is selected at once, and the current conversation stays on screen
+    // until the next one has loaded; past 300 ms the view shows its skeleton (docs/design/motion.md, F7.2).
+    const keep = !cached && id !== null && get().snapshot !== null
+    if (keep) setTimeout(() => { if (version === generation && get().snapshot?.thread.id !== id) set({ snapshot: null }) }, CONVERSATION_SKELETON_AFTER_MS)
+    set(state => ({ selectedId: id, snapshot: keep ? state.snapshot : cached, unreadIds: id && markRead ? state.unreadIds.filter(value => value !== id) : state.unreadIds, errors: Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'selection')),
       ...(state.secondaryId === id ? { secondaryId: null, activeCell: 'primary' as const } : {}) }))
     if (!id) return
     try {

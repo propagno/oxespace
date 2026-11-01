@@ -6,6 +6,7 @@ import type { AppView } from '../../keyboard/keybindings'
 import { useUIStore } from '../../store/ui.store'
 import { scheduleIdle } from '../../lib/preloadSchedule'
 import { chunk, lazyFrom } from '../../lib/chunk'
+import styles from './ModeViews.module.css'
 
 /**
  * Thread, OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in
@@ -51,7 +52,7 @@ export function ViewSidebarSkeleton({ view }: { view: DataView | 'thread' }): Re
  */
 export function ViewSkeleton({ name }: { name: string }): ReactElement {
   const { t } = useTranslation()
-  return <div className="view-skeleton" role="status" aria-label={t('nav.loadingView', { name })} style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)', flex: 1, alignContent: 'start' }}>
+  return <div className={styles.viewSkeleton} role="status" aria-label={t('nav.loadingView', { name })} data-view-skeleton="">
     <Skeleton decorative variant="block" /><Skeleton decorative lines={4} /><Skeleton decorative lines={3} />
   </div>
 }

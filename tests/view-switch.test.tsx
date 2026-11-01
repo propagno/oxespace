@@ -14,16 +14,16 @@ vi.mock('../src/components/Navigation/ModeViews', () => ({
   }
 }))
 
-function Harness({ onCommit }: { onCommit: (view: AppView) => void }) {
+function Harness({ onCommit, skeleton = false }: { onCommit: (view: AppView) => void; skeleton?: boolean }) {
   const [view, setView] = useState<AppView>('code')
   const { pending, select } = useViewSwitch(view, next => { onCommit(next); setView(next) })
   return <>
     <ModeSwitch mode={view} pending={pending} onSelect={select} />
-    <div data-view={view} data-testid="current">{view}</div>
+    <div data-view={view} data-testid="current">{view}{skeleton && view === 'data' && <span data-view-skeleton="" />}</div>
   </>
 }
 
-beforeEach(() => { vi.useFakeTimers(); loaded = false })
+beforeEach(() => { vi.useFakeTimers(); loaded = false; document.querySelectorAll('[aria-live]').forEach(node => node.replaceChildren()) })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 const button = (name: string) => screen.getByRole('button', { name })
 
@@ -69,6 +69,19 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     expect(document.querySelector('[data-testid="focus-announcer"], [aria-live="polite"]')?.textContent ?? '').not.toContain('OxeQuery')
     await act(async () => { await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
     await act(async () => { vi.advanceTimersByTime(20) })
+    expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe('OxeQuery')
+    expect(screen.getByTestId('current')).toHaveFocus()
+  })
+
+  it('on the slow path, focus and the announcement wait for the content, not the skeleton (#363 review M1)', async () => {
+    const { rerender } = render(<Harness onCommit={() => undefined} skeleton />)
+    act(() => { button('OxeQuery').click() })
+    await act(async () => { vi.advanceTimersByTime(SKELETON_AFTER_MS + 50) })
+    expect(screen.getByTestId('current')).toHaveTextContent('data')
+    expect(document.querySelector('[aria-live="polite"]')?.textContent ?? '').not.toBe('OxeQuery')
+    expect(screen.getByTestId('current')).not.toHaveFocus()
+    rerender(<Harness onCommit={() => undefined} skeleton={false} />)
+    await act(async () => { await Promise.resolve(); vi.advanceTimersByTime(20) })
     expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe('OxeQuery')
     expect(screen.getByTestId('current')).toHaveFocus()
   })

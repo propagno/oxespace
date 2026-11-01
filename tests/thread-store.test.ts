@@ -15,6 +15,27 @@ describe('Thread navigation store', () => {
     expect(useThreadStore.getState().snapshot?.events).toEqual([older, ...fresh.events])
     expect(useThreadStore.getState().snapshot?.page).toEqual({ before: -1, hasMore: true, total: 3 })
   })
+  it('a switch to a conversation not in the cache keeps the current one up, and shows the skeleton only past 300 ms (F7.2)', async () => {
+    vi.useFakeTimers()
+    try {
+      const a = snapshot('conv-a'), b = snapshot('conv-b')
+      let deliver: (value: ThreadSnapshot) => void = () => undefined
+      Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { read: vi.fn(() => new Promise<ThreadSnapshot>(resolve => { deliver = resolve })) } } })
+      useThreadStore.setState({ selectedId: a.thread.id, snapshot: a, threads: [a.thread, b.thread] })
+      const opening = useThreadStore.getState().select(b.thread.id)
+      // The row is selected at once; the current conversation stays on screen.
+      expect(useThreadStore.getState().selectedId).toBe(b.thread.id)
+      expect(useThreadStore.getState().snapshot?.thread.id).toBe(a.thread.id)
+      vi.advanceTimersByTime(299)
+      expect(useThreadStore.getState().snapshot?.thread.id).toBe(a.thread.id)
+      vi.advanceTimersByTime(1)
+      expect(useThreadStore.getState().snapshot).toBeNull()
+      deliver(b)
+      await opening
+      expect(useThreadStore.getState().snapshot?.thread.id).toBe(b.thread.id)
+    } finally { vi.useRealTimers() }
+  })
+
   it('persists unread sessions and clears the marker when the conversation opens', async () => {
     Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { read: vi.fn(async () => snapshot('unread')) } } })
     useThreadStore.getState().markUnread('unread')

@@ -79,7 +79,9 @@ for (const variant of [{ name: 'normal speed', cpu: 1, motion: 'full' }, { name:
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
       const rec = await page.evaluate(() => (window as unknown as { __f72: Record }).__f72)
       const commit = commitAt(rec)
-      test.info().annotations.push({ type: 'timings', description: `selected at ${rec.frames.find(f => f.pressed)?.t.toFixed(0)} ms, commit at ${commit.toFixed(0)} ms, ${rec.frames.length} frames` })
+      // Content at: the new view up without its skeleton; past 300 ms React's fallback hold can push it to ~600 ms (#363 review L3).
+      const contentAt = rec.frames.find(f => f.newUp && !f.skeleton)?.t ?? Infinity
+      test.info().annotations.push({ type: 'timings', description: `selected at ${rec.frames.find(f => f.pressed)?.t.toFixed(0)} ms, commit at ${commit.toFixed(0)} ms, content at ${contentAt.toFixed(0)} ms, ${rec.frames.length} frames` })
 
       expect(commit, 'the new view commits').toBeLessThan(Infinity)
       // 1. Acknowledged by the control within 50 ms.
