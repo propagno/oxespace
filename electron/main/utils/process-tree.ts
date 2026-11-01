@@ -14,9 +14,18 @@ import { win32 } from 'node:path'
  *   SIGTERM goes to its group. An interactive shell puts each job in a group of its own, so the descendants found
  *   by `ps` are signalled one by one too. After a short grace, SIGKILL reaches whatever is left, including a process
  *   that ignores SIGTERM. A process that left the session and the tree (a daemon that double-forked) is out of reach.
+ *
+ * Safety on Linux/macOS (a fake PTY with pid 1 once took down a CI runner: `kill(-1)` signals every process the user
+ * owns, and every orphan is a ps descendant of init). Only what `planPosixKill` returns is ever signalled:
+ * - the root must be at least 2, not this process and not one of its ancestors (by `ps`, and its parent always);
+ * - the group `-root` only when `ps` shows the root leads its own group (pgid === pid) and that group is not ours;
+ * - descendants only as found by walking `ps` down from the root, never this process or an ancestor of it;
+ * - when `ps` fails, the root alone, without its group.
  */
 export interface ProcessTreeDeps {
   platform: NodeJS.Platform
+  /** This process: never signalled, nor its ancestors. Injected by tests. */
+  self: { pid: number; ppid: number }
   kill: (pid: number, signal: NodeJS.Signals | 0) => void
   /** Runs a command and hands back its stdout ('' on failure). */
   run: (file: string, args: string[], timeoutMs: number) => Promise<string>
@@ -32,6 +41,7 @@ const PS = '/bin/ps'
 
 const defaultDeps: ProcessTreeDeps = {
   platform: process.platform,
+  self: { pid: process.pid, ppid: process.ppid },
   kill: (pid, signal) => { process.kill(pid, signal) },
   run: (file, args, timeoutMs) => new Promise(resolve => {
     try {
@@ -43,35 +53,52 @@ const defaultDeps: ProcessTreeDeps = {
 
 const inFlight = new Map<number, Promise<void>>()
 /** Trees still inside their grace period: SIGKILLed synchronously if the app exits first. */
-const pending = new Map<number, { deps: ProcessTreeDeps; pids: number[] }>()
+const pending = new Map<number, { deps: ProcessTreeDeps; plan: PosixKillPlan }>()
 let exitHookInstalled = false
 
 function installExitHook(): void {
   if (exitHookInstalled) return
   exitHookInstalled = true
   process.once('exit', () => {
-    for (const [root, entry] of pending) signalAll(entry.deps, root, entry.pids, 'SIGKILL')
+    for (const entry of pending.values()) signalAll(entry.deps, entry.plan, 'SIGKILL')
   })
 }
 
+/** A pid that may be signalled at all: 0, 1 and -1 (or any group of them) mean "everyone" or init. */
+function signallable(pid: number): boolean {
+  return Number.isInteger(pid) && pid >= 2
+}
+
 function trySignal(deps: ProcessTreeDeps, pid: number, signal: NodeJS.Signals | 0): boolean {
+  // The last line of defence: whatever a plan says, never kill(0), kill(1), kill(-1) or kill(-0).
+  if (!signallable(Math.abs(pid))) return false
   try { deps.kill(pid, signal); return true } catch (error) { return (error as NodeJS.ErrnoException)?.code === 'EPERM' }
 }
 
-function signalAll(deps: ProcessTreeDeps, root: number, pids: number[], signal: NodeJS.Signals): void {
-  trySignal(deps, -root, signal)
-  for (const pid of [root, ...pids]) trySignal(deps, pid, signal)
+function signalAll(deps: ProcessTreeDeps, plan: PosixKillPlan, signal: NodeJS.Signals): void {
+  if (plan.group) trySignal(deps, -plan.root, signal)
+  for (const pid of [plan.root, ...plan.pids]) trySignal(deps, pid, signal)
 }
 
-/** Descendants of `root` from `ps -A -o pid=,ppid=` output, closest first. */
-export function descendantsFromPs(output: string, root: number): number[] {
-  const children = new Map<number, number[]>()
+interface PsRow { ppid: number; pgid: number | undefined }
+
+/** `ps -A -o pid=,ppid=,pgid=` (the pgid column optional) as pid → row. Unparsable lines are skipped. */
+function parsePs(output: string): Map<number, PsRow> {
+  const table = new Map<number, PsRow>()
   for (const line of output.split('\n')) {
-    const [pid, ppid] = line.trim().split(/\s+/).map(Number)
+    const [pid, ppid, pgid] = line.trim().split(/\s+/).map(Number)
     if (!Number.isInteger(pid) || !Number.isInteger(ppid) || pid <= 0) continue
-    const list = children.get(ppid) ?? []
+    table.set(pid, { ppid, pgid: Number.isInteger(pgid) && pgid > 0 ? pgid : undefined })
+  }
+  return table
+}
+
+function descendantsIn(table: Map<number, PsRow>, root: number): number[] {
+  const children = new Map<number, number[]>()
+  for (const [pid, row] of table) {
+    const list = children.get(row.ppid) ?? []
     list.push(pid)
-    children.set(ppid, list)
+    children.set(row.ppid, list)
   }
   const found: number[] = []
   const seen = new Set<number>([root])
@@ -87,21 +114,56 @@ export function descendantsFromPs(output: string, root: number): number[] {
   return found
 }
 
-function anyAlive(deps: ProcessTreeDeps, root: number, pids: number[]): boolean {
-  return trySignal(deps, -root, 0) || [root, ...pids].some(pid => trySignal(deps, pid, 0))
+/** Descendants of `root` from `ps -A -o pid=,ppid=[,pgid=]` output, closest first. */
+export function descendantsFromPs(output: string, root: number): number[] {
+  return descendantsIn(parsePs(output), root)
+}
+
+/** What a POSIX tree kill may signal: the root, its group only when verified, and verified descendants. */
+export interface PosixKillPlan { root: number; group: boolean; pids: number[] }
+
+/**
+ * The plan for killing `root`'s tree from a `ps` snapshot, or null when nothing may be signalled: the root is below 2,
+ * this process, or one of its ancestors. Pure, so the rules are tested with an injected `ps` output.
+ */
+export function planPosixKill(output: string, root: number, self: { pid: number; ppid: number }): PosixKillPlan | null {
+  if (!signallable(root) || root === self.pid || root === self.ppid) return null
+  const table = parsePs(output)
+  // No snapshot: nothing can be verified, so the root alone; never a group.
+  if (!table.size) return { root, group: false, pids: [] }
+  // This process and its whole ancestry (the test runner, the step shell, the CI runner, init) are untouchable.
+  const shielded = new Set<number>([0, 1, self.pid, self.ppid])
+  const walked = new Set<number>()
+  for (let pid = self.pid; table.has(pid) && !walked.has(pid);) {
+    walked.add(pid)
+    pid = table.get(pid)!.ppid
+    shielded.add(pid)
+  }
+  if (shielded.has(root)) return null
+  const row = table.get(root)
+  // Not in the snapshot: already gone, so there is no tree to walk.
+  if (!row) return { root, group: false, pids: [] }
+  // The group only when the root leads it and no shielded process belongs to it (our own group, say).
+  const group = row.pgid === root && ![...shielded].some(pid => table.get(pid)?.pgid === root)
+  const pids = descendantsIn(table, root).filter(pid => signallable(pid) && !shielded.has(pid))
+  return { root, group, pids }
+}
+
+function anyAlive(deps: ProcessTreeDeps, plan: PosixKillPlan): boolean {
+  return (plan.group && trySignal(deps, -plan.root, 0)) || [plan.root, ...plan.pids].some(pid => trySignal(deps, pid, 0))
 }
 
 async function killPosixTree(root: number, deps: ProcessTreeDeps): Promise<void> {
-  const pids = descendantsFromPs(await deps.run(PS, ['-A', '-o', 'pid=,ppid='], PS_TIMEOUT_MS), root)
-    .filter(pid => pid !== process.pid)
-  pending.set(root, { deps, pids })
+  const plan = planPosixKill(await deps.run(PS, ['-A', '-o', 'pid=,ppid=,pgid='], PS_TIMEOUT_MS), root, deps.self)
+  if (!plan) return
+  pending.set(root, { deps, plan })
   installExitHook()
-  signalAll(deps, root, pids, 'SIGTERM')
+  signalAll(deps, plan, 'SIGTERM')
   const deadline = Date.now() + deps.graceMs
   await new Promise<void>(resolve => {
     const tick = (): void => {
-      if (!anyAlive(deps, root, pids)) { resolve(); return }
-      if (Date.now() >= deadline) { signalAll(deps, root, pids, 'SIGKILL'); resolve(); return }
+      if (!anyAlive(deps, plan)) { resolve(); return }
+      if (Date.now() >= deadline) { signalAll(deps, plan, 'SIGKILL'); resolve(); return }
       setTimeout(tick, POLL_MS).unref?.()
     }
     tick()
@@ -110,10 +172,11 @@ async function killPosixTree(root: number, deps: ProcessTreeDeps): Promise<void>
 }
 
 export function killProcessTree(pid: number | undefined | null, overrides: Partial<ProcessTreeDeps> = {}): Promise<void> {
-  if (!pid || !Number.isInteger(pid) || pid <= 0 || pid === process.pid) return Promise.resolve()
+  const deps = { ...defaultDeps, ...overrides }
+  // Below 2 is "every process" (-1 as a group, 0 our own group) or init; never a tree we were asked to end.
+  if (!pid || !signallable(pid) || pid === deps.self.pid || pid === process.pid) return Promise.resolve()
   const existing = inFlight.get(pid)
   if (existing) return existing
-  const deps = { ...defaultDeps, ...overrides }
   const work = (deps.platform === 'win32'
     ? deps.run(TASKKILL, ['/pid', String(pid), '/T', '/F'], TASKKILL_TIMEOUT_MS).then(() => undefined)
     : killPosixTree(pid, deps)
