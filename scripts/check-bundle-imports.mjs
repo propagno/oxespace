@@ -52,9 +52,7 @@ for (const file of files(outMain)) {
   if (forkImport.test(source) || forkCall.test(source)) runAsNode.push(`${relative(root, file)}: uses child_process.fork`)
 }
 if (runAsNode.length) {
-  console.error('Main bundles would run the app binary as Node, which the RunAsNode fuse forbids:
-' + runAsNode.map(line => `  - ${line}`).join('
-'))
+  console.error('Main bundles would run the app binary as Node, which the RunAsNode fuse forbids:\n' + runAsNode.map(line => `  - ${line}`).join('\n'))
   console.error('Spawn a native executable, or use utilityProcess.fork.')
   process.exit(1)
 }
