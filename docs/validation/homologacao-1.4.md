@@ -17,6 +17,65 @@ Registro da sessão de homologação (product manager + QA). Cada item do roadma
   confortável e escuro-pt-BR confortável).
 - Vereditos: **Homologado**, **Homologado com ressalvas** (o aceite foi cumprido e as ressalvas viram tarefa da
   sessão dona), **Reprovado** (o aceite não foi cumprido).
+- Desde 31/10 também: **app real** (sem dublês, perfil descartável, env do app vivo removida, diálogos nativos
+  segurados) pelos aceites de `e2e/acceptance/` (#314, #315, #340, #349, #350, #357), e no CI pelo
+  `acceptance.yml` (#373) quando a máquina está cheia. **Pré-homologado** = conferido no PR antes do merge.
+
+## Portão de lançamento 1.4.0 (G1, G4, G5)
+
+Estado em 01/11, contra `.claude/roadmap-1.4/team/release-gate.md`. Cada linha cita a evidência; o que não foi
+conferido diz **falta**. Escopo do usuário em modo de economia: S1, S2, S4 e o RC; S7.2, S7.3 e S7.5 vão para a 1.4.1.
+
+### G1: fatias homologadas (aberto)
+
+| Fatia | Item | Estado | Evidência / o que falta |
+|---|---|---|---|
+| S1 | B10 central de aprovações | Na main | fila cheia (50 + 1 recusado `queueFull`) conferida na main com o fallback nativo segurado; **falta** homologar o #238 inteiro com o modal (F18) |
+| S1 | F18 modal Mandacaru (#243) | Em revisão | aceite vermelho #350 (fila "1 de 50", crítico 2 s, texto cortado só nega, histórico); **falta** o PR |
+| S1 | B23 pedidos acabam com a execução (#352) | Pré-homologado | fechar o pane retira os 25 pedidos dele, `by: cancelled`; na fila do trem |
+| S1 | B24 grupo desligado recusado no `tools/call` (#358) | **Homologado** | caso 9 do #357: `isError` + `incident.mcp.toolGroupOff`, sem dados; mergeado pelo trem (b914e1fd) |
+| S1 | B7.4 política alterada fora do app (#372) | Pré-homologado | #357 casos 1–8, 10–13 no app real em 72f3bb33 (primeira vista, boot, expiração); falta só o toast do caso 4 (FE) |
+| S1 | B16 comandos em arquivo protegido (#269) | Homologado | ver seção do #208/#269 abaixo |
+| S1 | F26 fechar com trabalho não salvo (#278/#280) | Homologado com ressalvas | ressalva BACKEND: renderer travado não fecha a janela |
+| S1 | B12 guarda do IPC (#261) | **Falta** | aceite vermelho no #314 (B12-ipc-sender-guard) ainda não rodado contra o PR |
+| S1 | B13 árvore de processos (#374) | Pré-homologado | CI `acceptance.yml` em 98dc7222: PowerShell/cmd/Git Bash, split, `claude.exe`/`codex.exe` substitutos, fechar encerra a árvore; prompt de pane oculto igual à main (2,7–3,2 s) |
+| S1 | B6 | **Falta** | não conferido nesta sessão |
+| S2 | B17 retomada da sessão (#309) | Pré-homologado | S2 (#340): 6 panes (3 do assistente, 3 digitados), 5 voltam na própria sessão, 1 diz `sessionMissing`; 3º início sem deriva de id |
+| S2 | F32 marca de retomada (#311) | Pré-homologado com ressalva | marcas por pane e motivo no nome acessível; ressalva: "Detalhes" sem a linha "Sessão do agente" (FRONTEND) |
+| S2 | F19 split além dos presets (#240) | Homologado | ver seção do #240; fechar depois do split depende do #307 (na fila do trem) |
+| S2 | B2 | **Falta** | não conferido nesta sessão |
+| S4 | B9 gateway e pareamento (#180) | Na main | **falta** o passe do celular (M1–M6), bloqueado pela decisão 10 do usuário (memória para o AVD + desktop) |
+| S4 | B9.2 pareamento órfão expira | **Falta** | aceite vermelho no #314; precisa do gateway ligado no app real |
+| S4 | M1, M5–M11 | **Falta** | passe do celular (decisão 10) |
+| S5 | T8 texto das ferramentas (#316 → #336) | Homologado | 17 ferramentas, 7.672 caracteres; aceite T8 verde |
+| S0 | S0.2 trem de merge | **Homologado** | atualiza, dispara CI na cabeça exata, espera, sai com comentário `merge-train:` ao falhar, faz o merge (#358 em b914e1fd) e toma o próximo carro |
+| S0 | S0.4 aceite antes do código | **Homologado** | `acceptance.yml` (#373) usado de verdade em 3 execuções para o #374 |
+| S3, S6 | (fora do foco do modo de economia) | **Falta** | itens já homologados estão nas seções abaixo; o relatório por item vem quando o coordenador pedir |
+
+### G4: instalação limpa e atualização a partir da 1.3.3 (aberto)
+
+- **Atualização do banco 1.3.3 → main: verde no CI.** `tests/integration/upgrade-rehearsal.native.test.ts` cria o banco
+  com o próprio código da tag `v1.3.3` (versão 77), preenche dados, abre com o código atual (versão 88, 11 migrações),
+  confere que nada se perdeu e faz o caminho de volta: a 1.3.3 recusa o arquivo atualizado sem tocar nele e o backup
+  verificado restaura. 9 testes (1 pulado é a checagem de tag, exigida só no passo nativo) passam em Linux e Windows na
+  main 3ee618a3 (run 41308690240, "Unit and integration tests" e "Upgrade rehearsal" com `OXESPACE_REQUIRE_UPGRADE_TAG=1`).
+- **Migrações em ordem:** `tests/unit/migration-numbering.test.ts`, 5/5 em Linux e Windows na mesma run (as lacunas históricas ficam
+  declaradas, sem renumerar).
+- **Primeira execução do binário empacotado:** o smoke empacotado (G3, SRE) abre o instalador construído com perfil
+  novo (cartão de primeira execução, versão do banco estável).
+- **Falta (plano):** um job manual no CI Windows que (1) instala o instalador da release `v1.3.3` em silêncio numa VM
+  limpa, (2) abre uma vez e cria dados, (3) instala por cima o instalador da main, (4) abre e confere versão 88, dados,
+  backup e atalhos, e (5) desinstala. O mesmo para o `.deb`/AppImage no Linux. Roda só na VM do runner, nunca nos dados
+  do usuário. Pedido ao coordenador.
+
+### G5: fluxos críticos ponta a ponta (aberto)
+
+- **Desktop:** aprovações (fila, cancelamento pela origem, fallback nativo segurado), política alterada fora do app,
+  terminais e árvore de processos, retomada de sessões: conferidos no app real (linhas do G1).
+- **Celular pareado por Wi-Fi:** bloqueado pela decisão 10 do usuário. Com o AVD aberto (qemu ~3 GB mesmo com
+  `-memory 1536`) sobram 1,2–1,7 GB, abaixo dos 2 GB da regra do usuário para execuções pesadas. Opções: (a) liberar
+  1,5 GB só para esse passe, (b) fechar sessões ociosas na janela, (c) celular físico. O roteiro está pronto (QR por
+  arquivo, código conferido entre celular e desktop, troca por arquivos com MOBILE).
 
 ## Onda 1
 
