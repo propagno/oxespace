@@ -139,6 +139,25 @@
       },
       "certificate": {
         "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
+      },
+      "pairing": {
+        "failed": "$t(remotePairingFailure.{{reason}})",
+        "limit": "Este computador já tem {{max}} dispositivos pareados. Remova um antes de parear outro."
+      },
+      "gateway": {
+        "offline": "Ligue a conexão antes de parear um celular."
+      },
+      "device": {
+        "notFound": "Este dispositivo não está mais pareado.",
+        "invalidName": "Dê ao dispositivo um nome de 1 a {{max}} caracteres, sem quebras de linha.",
+        "reservedName": "Esse nome só o OXESpace pode usar. Escolha outro nome para o dispositivo."
+      },
+      "desktop": {
+        "invalidName": "Dê a este computador um nome de 1 a {{max}} caracteres, sem quebras de linha nem caracteres ocultos.",
+        "reservedName": "Esse nome poderia se passar pelo OXESpace ou pelo sistema no celular. Escolha outro nome para este computador."
+      },
+      "pane": {
+        "invalid": "Este terminal não está mais disponível."
       }
     },
     "linear": {
@@ -448,5 +467,13 @@
         "unreadable": "O OXESpace não consegue abrir a pasta {{path}}. Confira as permissões ou escolha outra pasta."
       }
     }
+  },
+  "remotePairingFailure": {
+    "invalid": "Um celular tentou parear com um código inválido. Mostre um novo código e escaneie de novo.",
+    "expired": "O código de pareamento ou a pergunta neste computador expirou. Mostre um novo código e tente de novo.",
+    "refused": "O pareamento foi recusado neste computador.",
+    "limit": "O celular não conseguiu parear: este computador já tem o número máximo de dispositivos.",
+    "peer-closed": "O celular desistiu do pareamento antes da sua resposta. Mostre um novo código para tentar de novo.",
+    "reserved-name": "O celular se deu um nome que só o OXESpace pode usar. Renomeie-o no celular e tente de novo."
   }
 }
