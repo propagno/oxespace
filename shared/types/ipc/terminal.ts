@@ -98,7 +98,23 @@ export interface TerminalStatusResult {
   startedAt?: number
   /** B17 · What the pane's first start in this app run did with its agent's native session; absent before that start. */
   agentResume?: PaneAgentResume
+  /**
+   * B17 · The agent session the pane is in now, for Terminal details (S2): the native id, where OXESpace learned it, and
+   * the command that reopens it, built in main. `notFound` (with a C3 reason) when the pane runs Claude Code or Codex
+   * but no session was reported yet. Absent for a plain shell with no agent session recorded.
+   */
+  agentSession?: PaneAgentSession
 }
+
+/**
+ * B17 · Where the pane's agent session came from:
+ * - `launch`: main started the provider on it (`--session-id`, or a resume);
+ * - `hook`: the agent's status hook reported it;
+ * - `recorded`: remembered from an earlier app run.
+ */
+export type PaneAgentSession =
+  | { agent: 'claude' | 'codex'; sessionId: string; source: 'launch' | 'hook' | 'recorded'; resumeCommand: string }
+  | { source: 'notFound'; message: MainMessage }
 
 /**
  * B17 · The native session (Claude Code, Codex) a pane's first start after the app opened went back to:

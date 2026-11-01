@@ -29,6 +29,7 @@ import { registerOxePodMock } from './oxepod-mock'
 import { registerMcpToolsMock } from './mcp-tools-mock'
 import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
+import { registerActivityMock } from './activity-mock'
 import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
 import { registerAgentHooksMock } from './agent-hooks-mock'
@@ -59,6 +60,7 @@ export function registerE2eMockIpcHandlers(): void {
   registerMcpToolsMock()
   registerDiagnosticsMock()
   registerRemoteMock()
+  registerActivityMock()
   registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
   registerOpenExternalMock()
   registerAgentHooksMock()
