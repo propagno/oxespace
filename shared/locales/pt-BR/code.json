@@ -1934,6 +1934,12 @@
   "agentResume": {
     "details": {
       "label": "Sessão do agente",
+      "source": "Obtida de",
+      "sources": {
+        "launch": "O OXESpace iniciou o agente nela",
+        "hook": "Informada pelo hook de status do agente",
+        "recorded": "Lembrada de uma execução anterior"
+      },
       "state": "Retomada",
       "resumed": "Retomada quando o painel iniciou",
       "startedFresh": "Iniciada do zero, como você escolheu",

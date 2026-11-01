@@ -1863,6 +1863,12 @@
   "agentResume": {
     "details": {
       "label": "Agent session",
+      "source": "Learned from",
+      "sources": {
+        "launch": "OXESpace started the agent on it",
+        "hook": "Reported by the agent’s status hook",
+        "recorded": "Remembered from an earlier run"
+      },
       "state": "Resume",
       "resumed": "Resumed when the pane started",
       "startedFresh": "Started fresh, as you chose",

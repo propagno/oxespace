@@ -382,7 +382,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
       {detailsOpen && <Dialog className="desktop-details-dialog" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
         {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
-        {resume?.outcome === 'resumed' || resume?.outcome === 'notResumed' ? <AgentSessionDetails outcome={resume} /> : <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>}
+        {sessionDetails?.agentSession && <AgentSessionDetails session={sessionDetails.agentSession} resume={sessionDetails.agentResume} />}
+        {(!sessionDetails?.agentSession || sessionDetails.agentSession.source === 'notFound') && <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>}
         <DetailList rows={detailRows([
           [tc('panels.terminal'), display.title],
           [tc('paneMenu.status'), tc(`paneMenu.state.${terminalState.status}`)],

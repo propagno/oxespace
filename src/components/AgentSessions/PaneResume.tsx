@@ -1,7 +1,7 @@
 import { History, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
 import type { AgentLifecycleState } from '../../../shared/types/agent-state'
-import type { PaneAgentResume } from '../../../shared/types/ipc/terminal'
+import type { PaneAgentResume, PaneAgentSession } from '../../../shared/types/ipc/terminal'
 import { i18n } from '../../i18n'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { useAgentResumeStore, type ResumeAgent } from '../../store/agent-resume.store'
@@ -140,25 +140,26 @@ export function EnableResumeMenuItem({ agent, onDone }: { agent: ResumeAgent; on
   </Button>
 }
 
-/** The command that opens the same native session outside OXESpace. */
-export const resumeCommand = (agent: ResumeAgent, sessionId: string): string => agent === 'codex' ? `codex resume ${sessionId}` : `claude --resume ${sessionId}`
-
 /**
- * "Agent session" in the pane's Details (F32): the native Claude Code or Codex session main resumed or recorded for
- * the pane, and what became of it, with "Copy resume command". Nothing when main recorded none (the identity note says
- * how to find it then).
+ * "Agent session" in the pane's Details (F32 on B17): the native Claude Code or Codex session the pane is in, where
+ * OXESpace learned it, what became of the earlier one at start, and "Copy resume command" with main's own command.
+ * Without a session (`notFound`) it says why.
  */
-export function AgentSessionDetails({ outcome }: { outcome: PaneAgentResume | undefined }): ReactElement | null {
-  if (!outcome || outcome.outcome === 'nothingRecorded') return null
-  const agent = AGENT[outcome.agent]
-  const state = outcome.outcome === 'resumed'
-    ? tc('agentResume.details.resumed')
-    : startedFresh(outcome) ? tc('agentResume.details.startedFresh') : tc('agentResume.details.notResumed', { reason: formatMainMessage(outcome.message) })
+export function AgentSessionDetails({ session, resume }: { session: PaneAgentSession; resume?: PaneAgentResume }): ReactElement {
+  if (session.source === 'notFound') {
+    return <dl className="detail-list pane-agent-session" data-testid="pane-agent-session">
+      <div><dt>{tc('agentResume.details.label')}</dt><dd>{formatMainMessage(session.message)}</dd></div>
+    </dl>
+  }
+  const state = !resume || resume.outcome === 'nothingRecorded' ? null
+    : resume.outcome === 'resumed' ? tc('agentResume.details.resumed')
+      : startedFresh(resume) ? tc('agentResume.details.startedFresh') : tc('agentResume.details.notResumed', { reason: formatMainMessage(resume.message) })
   return <div className="pane-agent-session" data-testid="pane-agent-session">
     <dl className="detail-list">
-      <div><dt>{tc('agentResume.details.label')}</dt><dd><code data-testid="pane-agent-session-id">{outcome.sessionId}</code> <span>({agent})</span></dd></div>
-      <div><dt>{tc('agentResume.details.state')}</dt><dd>{state}</dd></div>
+      <div><dt>{tc('agentResume.details.label')}</dt><dd><code data-testid="pane-agent-session-id">{session.sessionId}</code> ({AGENT[session.agent]})</dd></div>
+      <div><dt>{tc('agentResume.details.source')}</dt><dd>{tc(`agentResume.details.sources.${session.source}`)}</dd></div>
+      {state && <div><dt>{tc('agentResume.details.state')}</dt><dd>{state}</dd></div>}
     </dl>
-    <Button size="sm" onClick={() => void copyText(resumeCommand(outcome.agent, outcome.sessionId), tc('agentResume.details.command'))}>{tc('agentResume.details.copy')}</Button>
+    <Button size="sm" onClick={() => void copyText(session.resumeCommand, tc('agentResume.details.command'))}>{tc('agentResume.details.copy')}</Button>
   </div>
 }
