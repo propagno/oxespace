@@ -1292,6 +1292,9 @@
     "restartToDelete": "Reinicie o aplicativo atualizado para excluir conversas."
   },
   "sections": {
+    "notKept_one": "Não foi possível manter {{count}} seção. O resto da lista está como antes.",
+    "notKept_many": "Não foi possível manter {{count}} seções. O resto da lista está como antes.",
+    "notKept_other": "Não foi possível manter {{count}} seções. O resto da lista está como antes.",
     "newSection": "Nova seção…",
     "newTitle": "Nova seção",
     "newDescription": "Agrupe as conversas deste projeto sob um nome. Elas ficam onde estão até você movê-las.",
