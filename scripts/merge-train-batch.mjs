@@ -770,11 +770,23 @@ async function driveBatch(api, ref, ctx) {
 
   if (verdict.state === 'missing' || verdict.state === 'pending') {
     if (age > timeoutMinutes * 60_000) {
-      for (const car of manifest.cars) {
-        await comment(api, car.number, `left the queue: batch ${manifest.id} waited more than ${timeoutMinutes} minutes for CI. Label it again to retry.`)
-        await api.removeLabel(car.number)
+      await api.deleteRef(ref)
+      if (manifest.cars.length > 1) {
+        // A slow batch is nobody's fault: every car stays in the queue, labelled, and they are tested one at a time.
+        note('fallback', `batch ${manifest.id} waited more than ${timeoutMinutes} minutes for CI; testing its cars one at a time`)
+        for (const car of manifest.cars) await comment(api, car.number, `waiting: batch ${manifest.id} waited more than ${timeoutMinutes} minutes for CI, so its PRs are tested one at a time.`)
+        await startFallback(api, { cars: manifest.cars.map((c) => c.number), known: manifest.known, mainSha, id, note, now, timeoutMinutes, log })
+        return
       }
-      return abort('timed out')
+      // A car that timed out on its own leaves the queue, like v1's per-car timeout; the cars after it go on alone.
+      const [car] = manifest.cars
+      await comment(api, car.number, `left the queue: waited more than ${timeoutMinutes} minutes for CI on ${short(tip)} (batch ${manifest.id}). Label it again to retry.`)
+      await api.removeLabel(car.number)
+      note('unlabel', `timed out on its own in ${manifest.id}`, car.number)
+      if (manifest.mode === 'fallback' && manifest.rest.length) {
+        await startFallback(api, { cars: manifest.rest, known: manifest.known, mainSha, id, note, now, timeoutMinutes, log })
+      }
+      return
     }
     if (verdict.state === 'missing' && age >= BATCH_DISPATCH_GRACE_MS) {
       for (const gate of gates.filter((g) => verdict.missing.includes(g.name))) await api.dispatchWorkflow(gate.file, ref)
@@ -898,7 +910,7 @@ async function startFallback(api, { cars, known, mainSha, id, note, now, timeout
     const started = await startBatch(api, { cars: [info], baseSha: mainSha, id, mode: 'fallback', rest, known, prefix: BATCH_PREFIX, log })
     if (started.stopped) return note('abort', `fallback stopped at #${number}: ${started.stopped}`)
     if (!red.has(started.tree)) {
-      await comment(api, number, `waiting: its batch failed, so it is tested alone on main; CI runs on ${short(started.tip)}.`)
+      await comment(api, number, `waiting: its batch did not pass as a whole, so it is tested alone on main (linear mode); CI runs on ${short(started.tip)}.`)
       return
     }
     // Its tree on main is a red tree already tested: it is the car that turns the green prefix red. No new run.

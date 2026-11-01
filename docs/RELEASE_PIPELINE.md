@@ -235,8 +235,9 @@ unchanged. `2` or `3` makes the train test up to that many consecutive cars toge
 
    With three cars, that is the batch plus at most two runs.
 8. **State (R7).** The state is the one live batch ref. More than one live ref aborts them all. Scratch refs
-   from a run that died are removed. A batch that waits more than the timeout for CI takes its cars out of the
-   queue.
+   from a run that died are removed. A batch that waits more than the timeout for CI goes linear: every car stays in
+   the queue, labelled, and they are tested one at a time. Only a car that times out on its own (alone, or in
+   linear mode) leaves the queue, as in v1.
 
 **Rollout, with the ARCHITECT's gates.**
 1. **Shadow:** `MERGE_TRAIN_BATCH=1` with `MERGE_TRAIN_BATCH_SHADOW=1`. The train builds and tests the batch it

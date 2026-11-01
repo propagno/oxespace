@@ -659,15 +659,42 @@ describe('R7: state from the live refs', () => {
     expect([...gh.refs.keys()].filter((k) => k.startsWith('merge-train/'))).toEqual([])
   })
 
-  it('a batch whose CI waits past the limit leaves the queue, ref and all', async () => {
+  it('a batch that times out goes linear with every car kept; only a car that times out alone leaves', async () => {
     const gh = fakeGitHub()
     gh.pr(1)
+    gh.pr(2)
+    gh.pr(3)
+    await train(gh, 10)
+    gh.tick(61 * 60_000)
+    const slow = await train(gh, 11)
+    expect(slow[0]).toMatchObject({ type: 'fallback' })
+    expect(slow[0].message).toMatch(/one at a time/)
+    expect(kinds(gh.writes, 'unlabel')).toEqual([])
+    for (const n of [1, 2, 3]) expect(gh.prs.get(n).labels.has('na-fila')).toBe(true)
+    let manifest = parseManifest(gh.commits.get(gh.refs.get(gh.batchRef()!)!)!.message)!
+    expect(manifest).toMatchObject({ mode: 'fallback', rest: [2, 3] })
+    expect(manifest.cars.map((c: Any) => c.number)).toEqual([1])
+    // Car 1 now times out on its own: it alone leaves, and car 2 is tested alone next.
+    gh.tick(61 * 60_000)
+    const alone = await train(gh, 12)
+    expect(alone[0]).toMatchObject({ type: 'unlabel', number: 1 })
+    expect(kinds(gh.writes, 'unlabel').map(([, n]) => n)).toEqual([1])
+    expect(gh.comments.get(1)!.at(-1)!.body).toMatch(/^merge-train: left the queue: waited more than 60 minutes for CI/)
+    expect(gh.prs.get(2).labels.has('na-fila')).toBe(true)
+    manifest = parseManifest(gh.commits.get(gh.refs.get(gh.batchRef()!)!)!.message)!
+    expect(manifest).toMatchObject({ mode: 'fallback', rest: [3] })
+    expect(manifest.cars.map((c: Any) => c.number)).toEqual([2])
+  })
+
+  it('a solo car that times out leaves like v1', async () => {
+    const gh = fakeGitHub()
+    gh.pr(1, ['package.json'])
     gh.pr(2)
     await train(gh, 10)
     gh.tick(61 * 60_000)
     const actions = await train(gh, 11)
-    expect(actions[0].message).toMatch(/timed out/)
-    expect(kinds(gh.writes, 'unlabel').map(([, n]) => n)).toEqual([1, 2])
+    expect(actions[0]).toMatchObject({ type: 'unlabel', number: 1 })
+    expect(kinds(gh.writes, 'unlabel').map(([, n]) => n)).toEqual([1])
     expect(gh.batchRef()).toBeUndefined()
   })
 
