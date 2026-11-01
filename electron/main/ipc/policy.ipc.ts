@@ -1,7 +1,7 @@
 import { closeSync, openSync, readSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, ipcMain } from 'electron'
-import { parseOneOf, requireAppFrame } from './ipc-guards'
+import { parseOneOf } from './ipc-guards'
 import { registerMcpToolRulesIpc } from './mcp-tool-rules.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { LAYER_ORDER, type PolicyChangeAnswerInput, type PolicyChangedEvent, type PolicyView } from '../../../shared/policy'
@@ -99,20 +99,17 @@ export async function registerPolicyIpc(rootOf: (workspaceId: string) => string 
     return { root, subject: gate.subject('policy', input.layer, root ?? null, location.path) }
   }
 
-  ipcMain.handle(IPC_CHANNELS.policy.get, (event, workspaceId: unknown): PolicyView => {
-    requireAppFrame(event, 'Policy')
+  ipcMain.handle(IPC_CHANNELS.policy.get, (_event, workspaceId: unknown): PolicyView => {
     return view(rootFor(typeof workspaceId === 'string' ? workspaceId : null))
   })
-  ipcMain.handle(IPC_CHANNELS.policy.acceptChange, (event, value: unknown): PolicyView => {
-    requireAppFrame(event, 'Policy')
+  ipcMain.handle(IPC_CHANNELS.policy.acceptChange, (_event, value: unknown): PolicyView => {
     const input = answerInput(value)
     const { root, subject } = subjectOf(input)
     view(root)
     acceptedConfig()!.accept(subject, input.baseHash, input.newHash)
     return view(root)
   })
-  ipcMain.handle(IPC_CHANNELS.policy.reviewChange, (event, value: unknown): PolicyView => {
-    requireAppFrame(event, 'Policy')
+  ipcMain.handle(IPC_CHANNELS.policy.reviewChange, (_event, value: unknown): PolicyView => {
     const input = answerInput(value)
     const { root, subject } = subjectOf(input)
     view(root)

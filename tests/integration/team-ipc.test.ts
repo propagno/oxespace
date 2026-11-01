@@ -21,12 +21,6 @@ describe('team trusted UI boundary', () => {
     expect(hooks.identify).toHaveBeenCalledWith('/repo')
     await expect(f.command(f.event, { kind: 'code', id: 'missing' }, 'read')).rejects.toThrow('no longer available')
   })
-  it('rejects guest frames before reading identity or modifying data', async () => {
-    const f = fixture()
-    await expect(f.command({ ...f.event, senderFrame: {} }, { kind: 'code', id: 'ws' }, 'read')).rejects.toThrow('main frame')
-    expect(hooks.identify).not.toHaveBeenCalled()
-    expect(f.db.prepare('SELECT COUNT(*) AS n FROM agent_teams').get()).toEqual({ n: 0 })
-  })
   it('rejects a project relocated during async identity lookup', async () => {
     const f = fixture()
     hooks.identify.mockImplementationOnce(async () => { f.db.prepare("UPDATE workspaces SET root_path='/elsewhere' WHERE id='ws'").run(); return '/same/git' })

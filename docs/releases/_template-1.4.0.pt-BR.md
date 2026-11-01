@@ -52,6 +52,9 @@ sozinha).
   versão futura.
 - **A equipe saiu da barra de título.** Abra em **Ferramentas › Equipe do projeto…**, na paleta de comandos ou com
   `Ctrl+Shift+T`.
+<!-- entra quando o B13 (#374) for mesclado: "**Fechar um painel encerra o que ele iniciou.** Trabalhos mandados para
+o segundo plano com `nohup` ou `disown`, e apps abertos pelo painel (`gedit &`, `notepad x`), agora fecham junto. Para
+manter algo rodando, inicie fora do OXESpace ou como um serviço do sistema." -->
 - **…**
 
 ## Segurança
@@ -60,4 +63,13 @@ sozinha).
 
 ## Limites conhecidos
 
+- **Voltar para a 1.3.3 exige restaurar o backup automático antes de abrir a 1.3.3.** A 1.4.0 atualiza seus dados na
+  primeira vez que abre, depois de salvar uma cópia verificada. A 1.3.3 não consegue ler os dados atualizados: mostra
+  "No workspaces yet", sem aviso, embora nada se perca. Para voltar: feche o OXESpace, instale a 1.3.3 pela página de
+  Releases e, **antes de abri-la**, coloque o `oxespace-v77-…sqlite3` mais recente da pasta `db-backups` no lugar de
+  `oxespace.sqlite3`. A pasta é `%APPDATA%\OXESpace` no Windows e `~/.config/oxespace` no Linux. Depois abra a 1.3.3.
 - …
+<!-- entra quando o B13 (#374) for mesclado: "**No Windows, um programa gráfico usado como comando de um painel aparece
+como encerrado logo de início.** Rode-o pelo shell do painel. Shells, Claude Code e Codex não são afetados." -->
+<!-- entra quando o B13 (#374) for mesclado: "**No Linux e no macOS, um daemon de verdade (um processo que se separa
+duas vezes) continua rodando depois que o painel fecha.**" -->

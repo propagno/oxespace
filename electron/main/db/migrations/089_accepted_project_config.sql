@@ -16,4 +16,4 @@ CREATE TABLE IF NOT EXISTS accepted_project_config (
   PRIMARY KEY (subject, file)
 );
 
-PRAGMA user_version = 88;
+PRAGMA user_version = 89;

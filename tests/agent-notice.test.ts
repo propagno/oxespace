@@ -34,6 +34,7 @@ describe('turn notices built around agent text', () => {
 
   it('leave text without a reserved name alone', () => {
     expect(withoutReservedName('filesystem watcher', 'x')).toBe('filesystem watcher')
-    expect(withoutReservedName('Sistema de testes', 'x')).toBe('Sistema de testes')
+    // "Sistema" is reserved as a first word (#247), so a harmless Portuguese name puts it later.
+    expect(withoutReservedName('Testes do sistema', 'x')).toBe('Testes do sistema')
   })
 })
