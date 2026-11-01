@@ -43,7 +43,7 @@ test('S7.1: one overview of a pane, a conversation, a delegation and a work run,
   const hook = join(profile.root, 'hook.js'); writeFileSync(hook, HOOK)
   const sent = join(profile.root, 'sent.txt')
   let { app, page } = await launchReal(profile)
-  let workspaceId = '', paneId = '', threadId = ''
+  let workspaceId: string, paneId: string, threadId: string
   try {
     await openRepo(page, profile.repo)
     ;({ workspaceId, paneId } = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list: () => Promise<Array<{ id: string; panes: Array<{ id: string }> }>> } } }).oxe.workspace.list().then(l => ({ workspaceId: l[0].id, paneId: l[0].panes[0].id }))))
