@@ -70,7 +70,17 @@ async function openInstalled() {
   await page.getByTestId('btn-new-workspace').first().waitFor({ timeout: 60_000 })
   return { app, page }
 }
-const close = (app: Awaited<ReturnType<typeof openInstalled>>['app']) => app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
+/**
+ * Quits the installed app and releases Playwright's handle within 15 s: app.exit, then close, then the process tree.
+ * A handle left open made the worker wait 5 min at teardown (run 41315768133) after every check had passed.
+ */
+async function close(app: Awaited<ReturnType<typeof electron.launch>>): Promise<void> {
+  const proc = app.process()
+  await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
+  await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 10_000))])
+  if (proc.exitCode === null && proc.pid) { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }) } catch { /* already gone */ } }
+  await new Promise(resolve => setTimeout(resolve, 1_000))
+}
 
 test('G4 install over 1.3.3: seed', async () => {
   test.skip(STEP !== 'seed')
@@ -166,8 +176,7 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
     result.screen = page ? (await page.locator('body').innerText().catch(() => '')).slice(0, 600) : null
     if (page) await page.screenshot({ path: join(STATE, 'verify-refuse.png') }).catch(() => undefined)
   } catch (e) { result.launchError = String(e).slice(0, 300) } finally {
-    if (app) await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
-    await new Promise(r => setTimeout(r, 2_000))
+    if (app) await close(app)
   }
   result.shaAfter = sha256(seeded.db)
   result.dbVersionAfter = version(seeded.db)
