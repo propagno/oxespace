@@ -168,9 +168,10 @@ class MainActivity : ComponentActivity() {
                 desktopName = name,
                 banner = banner,
                 live = live,
+                commands = live.streams.commands,
                 onOpenThread = { threadId = it },
-                onOpenRequest = { requestKey = "${it.threadId}/${it.requestId}" },
-                onOpenTerminal = { paneId = it.id },
+                onOpenRequest = { thread, request -> requestKey = "$thread/$request" },
+                onOpenPane = { paneId = it },
                 onEnterAddress = { askingAddress = true },
                 onUnpair = session::unpair,
             )

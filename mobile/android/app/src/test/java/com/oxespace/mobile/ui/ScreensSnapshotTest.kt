@@ -74,10 +74,10 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
     @Test
     fun live() {
         for (tab in LiveTab.entries) {
-            shot("live-${tab.name.lowercase()}") { LiveHome("Studio", null, Samples.live(), {}, {}, {}, {}, {}, initialTab = tab) }
+            shot("live-${tab.name.lowercase()}") { LiveHome("Studio", null, Samples.live(), commands, {}, { _, _ -> }, {}, {}, {}, initialTab = tab) }
         }
-        shot("live-empty") { LiveHome("Studio", null, Samples.live(empty = true), {}, {}, {}, {}, {}) }
-        shot("live-reconnecting") { LiveHome("Studio", "Connection to Studio lost. Reconnecting…", Samples.live(), {}, {}, {}, {}, {}) }
+        shot("live-empty") { LiveHome("Studio", null, Samples.live(empty = true), commands, {}, { _, _ -> }, {}, {}, {}) }
+        shot("live-reconnecting") { LiveHome("Studio", "Connection to Studio lost. Reconnecting…", Samples.live(), commands, {}, { _, _ -> }, {}, {}, {}) }
     }
 
     @Test

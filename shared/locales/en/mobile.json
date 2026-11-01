@@ -242,5 +242,47 @@
       "offNetwork": "Waiting for Wi-Fi to reach {{desktop}}",
       "stopped": "Can't stay connected to {{desktop}}. Open the app."
     }
+  },
+  "agents": {
+    "title": "Agents",
+    "tabs": {
+      "agents": "Agents",
+      "requests": "Requests",
+      "more": "More"
+    },
+    "filter": {
+      "all": "All",
+      "needsYou": "Need you",
+      "conversations": "Conversations",
+      "terminals": "Terminals",
+      "tasks": "Tasks"
+    },
+    "action": {
+      "respond": "Respond",
+      "open": "Open",
+      "stop": "Stop",
+      "confirmStop": "Confirm stop",
+      "cancel": "Keep running"
+    },
+    "stopTitle": "Stop this turn?",
+    "stopBody": "The agent in “{{title}}” stops what it is doing now. The conversation stays.",
+    "stopped": "Turn stopped",
+    "stopFailed": "Couldn't stop it. Try again.",
+    "answerOnComputer": "Answer on the computer",
+    "moreRequests": "+{{more}} more",
+    "tasks": "{{done}} of {{total}} tasks",
+    "partial": "Some agents aren't listed: the computer couldn't read them this time.",
+    "empty": "No agents running on {{desktop}}.",
+    "emptyFilter": "Nothing here right now.",
+    "loading": "Loading agents…",
+    "offlineActions": "Not connected: actions are paused."
+  },
+  "more": {
+    "title": "More",
+    "desktop": "Computer",
+    "connection": "Connection",
+    "language": "App language",
+    "languageHint": "Choose a language for OXESpace only, in the system settings.",
+    "version": "Version {{version}}"
   }
 }

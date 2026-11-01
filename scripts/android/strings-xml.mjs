@@ -53,6 +53,20 @@ function render(text, order, key, plural) {
 }
 
 /**
+ * The phone's catalog: `mobile.json`, plus the agent state words, which only `common.json` defines (glossary §5: one
+ * namespace, `agents.state.*`, and no other catalog may define them). They become `agents_state_*` resources.
+ * @param {(language: string, namespace: string) => Record<string, any>} read
+ * @param {string} language
+ */
+export function phoneCatalog(read, language) {
+  const mobile = read(language, 'mobile')
+  if (mobile.agents?.state) throw new Error(`mobile:${language} defines agents.state; it comes from common.json (glossary §5)`)
+  const state = read(language, 'common').agents?.state
+  if (!state) throw new Error(`common:${language} has no agents.state`)
+  return { ...mobile, agents: { ...(mobile.agents ?? {}), state } }
+}
+
+/**
  * @param {Record<string, unknown>} english the en catalog
  * @param {Record<string, unknown>} catalog the catalog to render (English itself for values/)
  * @param {string} language

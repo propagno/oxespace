@@ -60,16 +60,21 @@ import com.oxespace.mobile.protocol.RemotePendingRequest
 import com.oxespace.mobile.protocol.RemoteThreadSummary
 import com.oxespace.mobile.protocol.RemoteWorkspace
 import com.oxespace.mobile.R
-import com.oxespace.mobile.ui.UnpairDialog
 import com.oxespace.mobile.session.LiveRepository
+import com.oxespace.mobile.agents.AgentsScreen
+import com.oxespace.mobile.protocol.live.CommandApi
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 
 private val Row = 56.dp
 
-enum class LiveTab { THREADS, REQUESTS, TERMINALS, TASKS }
+/** The bottom navigation (spec §8): Agents · Requests (badge) · More. */
+enum class LiveTab { AGENTS, REQUESTS, MORE }
 
-/** The connected home: conversations, requests waiting, terminals and background work on the paired desktop. */
+/**
+ * The connected home: every agent on the paired desktop (S7.4), the requests waiting for the person, and More (the
+ * computer and its connection, the app's language, the version, unpair).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveHome(
@@ -77,22 +82,17 @@ fun LiveHome(
     /** Why the live data may be stale (reconnecting, unreachable, off the LAN), or null when connected. */
     banner: String?,
     live: LiveRepository,
+    commands: CommandApi,
     onOpenThread: (String) -> Unit,
-    onOpenRequest: (RemotePendingRequest) -> Unit,
-    onOpenTerminal: (RemotePane) -> Unit,
+    onOpenRequest: (threadId: String, requestId: String) -> Unit,
+    onOpenPane: (String) -> Unit,
     onEnterAddress: () -> Unit,
     onUnpair: () -> Unit,
-    initialTab: LiveTab = LiveTab.THREADS,
+    initialTab: LiveTab = LiveTab.AGENTS,
 ) {
     var tab by rememberSaveable { mutableStateOf(initialTab) }
-    val threads by live.threads.threads.collectAsStateWithLifecycle()
     val requests by live.pendingRequests.items.collectAsStateWithLifecycle()
-    val workspaces by live.workspaces.items.collectAsStateWithLifecycle()
-    val jobs by live.jobs.items.collectAsStateWithLifecycle()
-    val delegations by live.delegations.items.collectAsStateWithLifecycle()
-    var menu by rememberSaveable { mutableStateOf(false) }
-    var confirmingUnpair by rememberSaveable { mutableStateOf(false) }
-    if (confirmingUnpair) UnpairDialog(desktopName, onConfirm = { confirmingUnpair = false; onUnpair() }, onDismiss = { confirmingUnpair = false })
+    val agents by live.agents.state.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -108,17 +108,6 @@ fun LiveHome(
                                 maxLines = 2,
                                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                             )
-                        }
-                    }
-                },
-                actions = {
-                    Box {
-                        IconButton(onClick = { menu = true }) {
-                            Icon(ImageVector.vectorResource(R.drawable.ic_more), contentDescription = stringResource(R.string.live_menu))
-                        }
-                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.home_enter_address)) }, onClick = { menu = false; onEnterAddress() })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.home_unpair)) }, onClick = { menu = false; confirmingUnpair = true })
                         }
                     }
                 },
@@ -164,26 +153,38 @@ fun LiveHome(
     ) { padding ->
         val content = Modifier.fillMaxSize().padding(padding)
         when (tab) {
-            LiveTab.THREADS -> ListOrEmpty(threads, stringResource(R.string.live_empty_threads, desktopName), content) { ThreadRow(it, workspaces, onOpenThread) }
-            LiveTab.REQUESTS -> ListOrEmpty(requests, stringResource(R.string.live_empty_requests), content) { RequestRow(it) { onOpenRequest(it) } }
-            LiveTab.TERMINALS -> ListOrEmpty(workspaces.filter { it.panes.isNotEmpty() }, stringResource(R.string.live_empty_terminals), content) { WorkspacePanes(it, onOpenTerminal) }
-            LiveTab.TASKS -> Tasks(jobs, delegations, content)
+            LiveTab.AGENTS -> AgentsScreen(
+                desktopName = desktopName,
+                state = agents,
+                connected = banner == null,
+                commands = commands,
+                onOpenThread = onOpenThread,
+                onOpenPane = onOpenPane,
+                onOpenRequest = onOpenRequest,
+                modifier = content,
+            )
+            LiveTab.REQUESTS -> ListOrEmpty(requests, stringResource(R.string.live_empty_requests), content) { RequestRow(it) { onOpenRequest(it.threadId, it.requestId) } }
+            LiveTab.MORE -> MoreScreen(
+                desktopName = desktopName,
+                connection = banner ?: stringResource(R.string.home_status_connected, desktopName),
+                onEnterAddress = onEnterAddress,
+                onUnpair = onUnpair,
+                modifier = content,
+            )
         }
     }
 }
 
 private val LiveTab.label get() = when (this) {
-    LiveTab.THREADS -> R.string.live_tabs_threads
-    LiveTab.REQUESTS -> R.string.live_tabs_requests
-    LiveTab.TERMINALS -> R.string.live_tabs_terminals
-    LiveTab.TASKS -> R.string.live_tabs_tasks
+    LiveTab.AGENTS -> R.string.agents_tabs_agents
+    LiveTab.REQUESTS -> R.string.agents_tabs_requests
+    LiveTab.MORE -> R.string.agents_tabs_more
 }
 
 private val LiveTab.icon get() = when (this) {
-    LiveTab.THREADS -> R.drawable.ic_threads
+    LiveTab.AGENTS -> R.drawable.ic_threads
     LiveTab.REQUESTS -> R.drawable.ic_requests
-    LiveTab.TERMINALS -> R.drawable.ic_terminal
-    LiveTab.TASKS -> R.drawable.ic_tasks
+    LiveTab.MORE -> R.drawable.ic_more
 }
 
 @Composable
@@ -203,28 +204,6 @@ private fun <T> ListOrEmpty(items: List<T>, empty: String, modifier: Modifier, r
 }
 
 @Composable
-private fun ThreadRow(thread: RemoteThreadSummary, workspaces: List<RemoteWorkspace>, onOpen: (String) -> Unit) {
-    val workspace = workspaces.firstOrNull { it.id == thread.workspaceId }?.name
-    Column(
-        Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button) { onOpen(thread.id) }.padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
-        verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
-    ) {
-        Text(thread.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-            Text(threadStatusLabel(thread.status), style = MaterialTheme.typography.labelMedium, color = threadStatusColor(thread.status))
-            if (thread.pendingRequests > 0) {
-                Text(
-                    pluralStringResource(R.plurals.live_pending_count, thread.pendingRequests.toInt(), thread.pendingRequests.toInt()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Oxe.colors.intentWarningFg,
-                )
-            }
-            if (workspace != null) Text(workspace, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-@Composable
 private fun RequestRow(request: RemotePendingRequest, onOpen: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button, onClick = onOpen).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
@@ -235,62 +214,4 @@ private fun RequestRow(request: RemotePendingRequest, onOpen: () -> Unit) {
         request.command?.let { Text(it, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
         Text("${request.threadTitle} · ${ageLabel(request.createdAt)}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
     }
-}
-
-@Composable
-private fun WorkspacePanes(workspace: RemoteWorkspace, onOpen: (RemotePane) -> Unit) {
-    Column {
-        Text(
-            workspace.name,
-            style = MaterialTheme.typography.labelLarge,
-            color = Oxe.colors.textSecondary,
-            modifier = Modifier.padding(start = OxeSpace.space4, top = OxeSpace.space3, end = OxeSpace.space4),
-        )
-        for (pane in workspace.panes) {
-            Column(
-                Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button) { onOpen(pane) }.padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
-                verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
-            ) {
-                Text(pane.title, style = MaterialTheme.typography.titleMedium)
-                val agent = pane.agent
-                val detail = when {
-                    agent != null -> stringResource(R.string.live_pane_agent, providerName(agent), agentStateLabel(pane.agentState ?: "unknown"))
-                    pane.phoneWrite -> stringResource(R.string.live_phone_write)
-                    else -> stringResource(R.string.live_read_only)
-                }
-                Text(detail, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Tasks(jobs: List<RemoteJob>, delegations: List<RemoteDelegation>, modifier: Modifier) {
-    if (jobs.isEmpty() && delegations.isEmpty()) {
-        Box(modifier.padding(OxeSpace.space6)) { Text(stringResource(R.string.live_empty_tasks), style = MaterialTheme.typography.bodyLarge, color = Oxe.colors.textSecondary) }
-        return
-    }
-    LazyColumn(modifier, contentPadding = PaddingValues(vertical = OxeSpace.space2)) {
-        if (jobs.isNotEmpty()) item { Section(stringResource(R.string.live_jobs)) }
-        items(jobs) { job ->
-            Column(Modifier.fillMaxWidth().heightIn(min = Row).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3)) {
-                Text(job.label, style = MaterialTheme.typography.titleMedium)
-                val code = job.exitCode
-                val status = jobStatusLabel(job.status) + if (code != null && job.status != "running") " · " + stringResource(R.string.live_exit_code, code.toString()) else ""
-                Text(status, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
-            }
-        }
-        if (delegations.isNotEmpty()) item { Section(stringResource(R.string.live_delegations)) }
-        items(delegations) { delegation ->
-            Column(Modifier.fillMaxWidth().heightIn(min = Row).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3)) {
-                Text(delegation.objective, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Text(listOfNotNull(delegation.state, delegation.branch, delegation.error).joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Section(title: String) {
-    Text(title, style = MaterialTheme.typography.labelLarge, color = Oxe.colors.textSecondary, modifier = Modifier.padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space2))
 }

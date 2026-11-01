@@ -40,7 +40,7 @@ class AccessibilitySnapshotTest {
 
     @Test
     fun liveHome() = paparazzi.snapshot {
-        OxeTheme { CompositionLocalProvider(LocalClock provides Samples.clock) { LiveHome("Studio", null, Samples.live(), {}, {}, {}, {}, {}) } }
+        OxeTheme { CompositionLocalProvider(LocalClock provides Samples.clock) { LiveHome("Studio", null, Samples.live(), commands, {}, { _, _ -> }, {}, {}, {}) } }
     }
 
     @Test

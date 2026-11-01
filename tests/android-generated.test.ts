@@ -5,7 +5,7 @@ import * as protocol from '../shared/remote/protocol'
 // @ts-expect-error plain ESM script without types
 import { constantName, PROTOCOL_KOTLIN_PATH, protocolKotlin } from '../scripts/android/protocol-kotlin.mjs'
 // @ts-expect-error plain ESM script without types
-import { resourceName, STRINGS_XML_PATHS, stringsXml } from '../scripts/android/strings-xml.mjs'
+import { phoneCatalog, resourceName, STRINGS_XML_PATHS, stringsXml } from '../scripts/android/strings-xml.mjs'
 // @ts-expect-error plain ESM script without types
 import { camelName, kotlinColor, THEME_KOTLIN_PATH, themeKotlin } from '../scripts/android/theme-kotlin.mjs'
 import { IDENTITY } from '../src/design/tokens/palette'
@@ -16,7 +16,8 @@ const root = join(__dirname, '..')
 const protocolSource = readFileSync(join(root, 'shared', 'remote', 'protocol.ts'), 'utf8')
 const tokens = { colorRoles, IDENTITY, SPACE, RADIUS, TEXT, WEIGHT, LEADING, MOTION, REDUCED_MOTION }
 const committed = (path: string): string => readFileSync(join(root, path), 'utf8').replace(/\r\n/g, '\n')
-const catalog = (language: string): Record<string, unknown> => JSON.parse(readFileSync(join(root, 'shared', 'locales', language, 'mobile.json'), 'utf8'))
+const readCatalog = (language: string, namespace: string) => JSON.parse(readFileSync(join(root, 'shared', 'locales', language, `${namespace}.json`), 'utf8'))
+const catalog = (language: string): Record<string, unknown> => phoneCatalog(readCatalog, language)
 
 describe('Android sources generated from the contracts', () => {
   it('match the committed Kotlin of the C5 protocol (run npm run android:generate after a contract change)', () => {
@@ -25,6 +26,11 @@ describe('Android sources generated from the contracts', () => {
 
   it('match the committed Kotlin tokens (run npm run android:generate after editing a token)', () => {
     expect(committed(THEME_KOTLIN_PATH)).toBe(themeKotlin(tokens))
+  })
+
+  it('take the agent state words from common.json only (glossary §5)', () => {
+    expect(() => phoneCatalog((_l: string, ns: string) => (ns === 'mobile' ? { agents: { state: { idle: 'x' } } } : { agents: { state: {} } }), 'en')).toThrow(/agents\.state/)
+    expect((catalog('pt-BR') as { agents: { state: Record<string, string> } }).agents.state.idle).toBe('Ocioso')
   })
 
   it('match the committed string resources (run npm run android:generate after editing mobile.json)', () => {

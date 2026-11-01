@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Writes the Android app's generated sources from the desktop's contracts: the C5 protocol, the C4 design tokens and
- * the `mobile` translation catalogs. Run after any of them changes: npm run android:generate.
+ * the `mobile` translation catalogs (plus `agents.state` from `common`). Run after any of them changes: npm run android:generate.
  * `tests/android-generated.test.ts` fails when a committed file is out of date.
  */
 import { build } from 'esbuild'
@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { tmpdir } from 'node:os'
 import { PROTOCOL_KOTLIN_PATH, protocolKotlin } from './protocol-kotlin.mjs'
-import { STRINGS_XML_PATHS, stringsXml } from './strings-xml.mjs'
+import { phoneCatalog, STRINGS_XML_PATHS, stringsXml } from './strings-xml.mjs'
 import { THEME_KOTLIN_PATH, themeKotlin } from './theme-kotlin.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -38,5 +38,6 @@ const tokens = await load('tokens', [
 ].join('\n'))
 write(THEME_KOTLIN_PATH, themeKotlin(tokens))
 
-const catalog = language => JSON.parse(readFileSync(join(root, 'shared/locales', language, 'mobile.json'), 'utf8'))
+const readCatalog = (language, namespace) => JSON.parse(readFileSync(join(root, 'shared/locales', language, `${namespace}.json`), 'utf8'))
+const catalog = language => phoneCatalog(readCatalog, language)
 for (const [language, path] of Object.entries(STRINGS_XML_PATHS)) write(path, stringsXml(catalog('en'), catalog(language), language))

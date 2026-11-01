@@ -28,6 +28,7 @@ object Samples {
             pendingRequests.onSnapshot(listOf(json("""{"requests":[]}""")))
             jobs.onSnapshot(listOf(json("""{"jobs":[]}""")))
             delegations.onSnapshot(listOf(json("""{"delegations":[]}""")))
+            agents.onSnapshot(listOf(json("""{"agents":[]}""")))
             return@apply
         }
         workspaces.onSnapshot(listOf(json("""{"workspaces":[{"id":"w-1","name":"oxespace","active":true,"panes":[
@@ -42,8 +43,22 @@ object Samples {
         jobs.onSnapshot(listOf(json("""{"jobs":[
             {"id":"j-1","workspaceId":"w-1","label":"Dev server","status":"running","exitCode":null,"startedAt":1,"finishedAt":null},
             {"id":"j-2","workspaceId":"w-1","label":"Unit tests","status":"failed","exitCode":1,"startedAt":1,"finishedAt":2}]}""")))
+        agents.onSnapshot(listOf(json(agentsJson)))
         delegations.onSnapshot(listOf(json("""{"delegations":[{"id":"d-1","workspaceId":"w-1","objective":"Review the pairing contract and list gaps","state":"running","branch":"review/pairing","updatedAt":3}]}""")))
     }
+
+    /** One row per state the person can meet, as the desktop sends them (S7.1): already mapped, no paths. */
+    private val agentsJson = """{"agents":[
+        {"id":"conversation:t-1","rev":3,"kind":"conversation","state":"needs-you","since":1,"title":"Fix the login redirect","provider":"claude","workspaceName":"oxespace","threadId":"t-1",
+         "request":{"threadId":"t-1","requestId":"r-1","title":"Asks to run a command","risk":"critical","answerable":true,"more":1}},
+        {"id":"pane:p-1","rev":1,"kind":"pane","state":"needs-you","since":60001,"title":"Claude","provider":"claude","workspaceName":"oxespace","paneId":"p-1",
+         "request":{"requestId":"a-1","title":"Asks to change a file","risk":"high","answerable":false,"more":0}},
+        {"id":"work:w-1","rev":2,"kind":"work","state":"failed","since":60001,"title":"Migrate the build to Vite 7","workspaceName":"site","tasks":{"done":3,"total":5}},
+        {"id":"conversation:t-4","rev":5,"kind":"conversation","state":"working","since":120001,"title":"Add tests for the gateway","provider":"codex","workspaceName":"oxespace","threadId":"t-4","canInterrupt":true},
+        {"id":"delegation:d-1","rev":1,"kind":"delegation","state":"finished","since":1,"title":"Review the pairing contract and list gaps","provider":"claude","workspaceName":"oxespace","parentId":"conversation:t-1"},
+        {"id":"conversation:t-2","rev":1,"kind":"conversation","state":"idle","since":1,"title":"Plan the 1.5 release notes","provider":"claude","workspaceName":"oxespace","threadId":"t-2"},
+        {"id":"pane:p-3","rev":1,"kind":"pane","state":"unknown","since":1,"title":"zsh","workspaceName":"site","paneId":"p-3"}],
+        "unavailable":["delegation"]}"""
 
     private fun requestJson(risky: Boolean) = if (risky) {
         """{"threadId":"t-1","workspaceId":"w-1","threadTitle":"Fix the login redirect","requestId":"r-1","generation":3,"kind":"approval",
