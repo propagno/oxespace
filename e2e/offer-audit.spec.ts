@@ -71,7 +71,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
     await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: /Current workspace/ })).toHaveAttribute('aria-pressed', 'true')
   }),
   'toggle-sidebar': async page => { await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
-  'tool-team': dialog('Team'),
+  'tool-team': dialog('Project team'),
   'tool-integration': both(view('code'), testId('workspace-integration-panel')),
   'tool-github': both(view('code'), testId('workspace-github-panel')),
   'tool-worktrees': both(view('code'), testId('workspace-worktree-panel')),

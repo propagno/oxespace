@@ -6,7 +6,6 @@ import { sayAddProjectFirst, useThreadCommands } from './commands/thread.command
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions } from './components/Navigation/ModeViews'
 import { SettingsCenter } from './components/Settings/SettingsHost'
 import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
-import { TeamButton } from './components/Teams/TeamButton'
 import { DelegationNotice } from './components/Delegation/DelegationNotice'
 import { useTranslation } from 'react-i18next'
 import type { ToolId } from './components/Workspace/toolCatalog'
@@ -73,6 +72,7 @@ import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { matchesHotkey } from './keyboard/chords'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
+import { projectTeam } from './app/projectTeam'
 import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 
@@ -654,10 +654,7 @@ export function App(): ReactElement {
   const threadProjects = useThreadStore(state => state.projects)
   const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
 
-  // The Team belongs to a project: the selected workspace in Code, the selected project in Thread.
-  const teamTarget = applicationView === 'thread' ? (threadProject ? { kind: 'thread' as const, id: threadProject.projectId } : null)
-    : applicationView === 'code' ? (activeWorkspace ? { kind: 'code' as const, id: activeWorkspace.id } : null) : null
-  const openTeam = (): void => { if (teamTarget) setTeamScope(teamTarget) }
+  const team = projectTeam(applicationView, activeWorkspace?.id, threadProject?.projectId, setTeamScope)
 
   // Code's side panels: buttons in the workspace bar for Changes and Browser, the rest in the Panels menu (also on the rail).
   const codePanelItems: WorkbenchPanelItem[] = activeWorkspace ? [
@@ -673,11 +670,11 @@ export function App(): ReactElement {
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
     'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel, skills: openSkillsBrowser, semantic: () => setSemanticActivityOpen(true),
-    editor: toggleEditor, review: toggleReviewPanel, team: openTeam, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
+    editor: toggleEditor, review: toggleReviewPanel, team: team.open, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
   // Palette and menu commands live in src/commands/*.commands.ts.
-  useCodeCommands({ applicationView, activeWorkspace, activePane, hasTeamTarget: teamTarget !== null, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
+  useCodeCommands({ applicationView, activeWorkspace, activePane, hasTeamTarget: team.target !== null, teamUnavailable: team.unavailable, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
     openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
     splitActivePane, toggleActivePaneMaximize, toggleActivePaneVoice, openDesignSystem: () => setDesignSystemOpen(true) })
   const commandActions = useContributedCommands()
@@ -689,6 +686,7 @@ export function App(): ReactElement {
     store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
   }
   useKeybindings({
+    'team.open': team.openOrSay,
     'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': toggleSidebar,
     'voice.toggle': toggleActivePaneVoice, 'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
     'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),
@@ -812,7 +810,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
-        <div className={titleBar.trailing}><TeamButton view={applicationView} enabled={Boolean(teamTarget)} onOpen={openTeam} /><ActivityCenter onSelectView={selectMode} /><UpdateBanner /><AppUpdateIndicator /></div>
+        <div className={titleBar.trailing}><ActivityCenter onSelectView={selectMode} /><UpdateBanner /><AppUpdateIndicator /></div>
       </header>
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} />}
@@ -820,7 +818,7 @@ export function App(): ReactElement {
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
       {isDataView(applicationView) ? <DataSidebar view={applicationView} />
-      : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
+      : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenTeam={projectId => setTeamScope({ kind: 'thread', id: projectId })} onOpenInCode={async rootPath => {
         const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
         else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })

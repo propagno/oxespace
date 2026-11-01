@@ -18,6 +18,8 @@ export interface CodeCommandContext {
   activePane: WorkspacePane | null | undefined
   /** Team needs a project: the workspace in Code, the project in Thread. */
   hasTeamTarget: boolean
+  /** Why Team can't open here; the palette shows it as the command's description. */
+  teamUnavailable?: string
   toolHandlers: Partial<Record<ToolId, () => void>>
   /** Which Code panels are open, so a command run from Thread or OxeQuery opens a panel instead of closing it. */
   openTools?: Partial<Record<ToolId, boolean>>
@@ -62,7 +64,7 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
     ...TOOL_CATALOG.map(tool => ({
       id: `tool-${tool.id}`,
       label: tool.label,
-      detail: tool.detail,
+      detail: tool.id === 'team' && !ctx.hasTeamTarget && ctx.teamUnavailable ? ctx.teamUnavailable : tool.detail,
       icon: tool.icon,
       category: tool.group,
       keywords: tool.keywords,

@@ -1,9 +1,14 @@
 import { i18n } from '../../i18n'
+import { toast } from '../../ui/Toast'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { shortcutLabel, type AppView } from '../../keyboard/keybindings'
 
 export type AppMenuNode =
-  | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; onSelect(): void }
+  /**
+   * `unavailable`: the item can't run here and says why. Unlike `disabled` it stays reachable by keyboard and screen
+   * readers (aria-disabled), shows the reason as a second line, and selecting it says the reason again as a toast.
+   */
+  | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; unavailable?: string; onSelect(): void }
   | { kind: 'radio'; id: string; label: string; shortcut?: string; checked: boolean; onSelect(): void }
   | { kind: 'separator'; id: string }
   | { kind: 'submenu'; id: string; label: string; disabled?: boolean; children: AppMenuNode[] }
@@ -28,7 +33,7 @@ const VIEWS: Array<[AppView, string]> = [['code', 'OxeCode'], ['thread', 'OxeCha
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
   'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
-  'tool-mcp', 'tool-skills', 'open-usage', 'open-linear', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.updates'] as const
+  'tool-mcp', 'tool-skills', 'tool-team', 'open-usage', 'open-linear', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.updates'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -43,6 +48,14 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     const action = byId.get(id)
     if (!action) return null
     return { kind: 'item', id, label: label ?? action.title, shortcut, disabled: action.disabled, onSelect: action.run }
+  }
+  /** An action whose palette description says why it can't run: reachable, with that reason (Team). */
+  const explained = (id: MenuActionId, label: string, shortcut?: string): AppMenuNode | null => {
+    const action = byId.get(id)
+    if (!action) return null
+    if (!action.disabled || !action.subtitle) return { kind: 'item', id, label, shortcut, disabled: action.disabled, onSelect: action.run }
+    const reason = action.subtitle
+    return { kind: 'item', id, label, shortcut, unavailable: reason, onSelect: () => { toast({ title: label.replace(/…$/, ''), description: reason, intent: 'info' }) } }
   }
   const group = (prefix: string, strip: RegExp): AppMenuNode[] => ctx.actions
     .filter(action => action.id.startsWith(prefix))
@@ -104,6 +117,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'tools', label: t('menu.tools'), items: compact([
         fromAction('tool-mcp', t('menu.mcpServers')),
         fromAction('tool-skills', t('menu.skills')),
+        explained('tool-team', `${t('tools.team.label', { ns: 'code' })}…`, shortcutLabel('team.open')),
         fromAction('open-usage', t('menu.usage')),
         fromAction('open-linear', t('menu.linear'))
       ])

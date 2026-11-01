@@ -126,6 +126,9 @@
       "activity": {
         "open": "Abrir a central de atividade"
       },
+      "team": {
+        "open": "Abrir a equipe do projeto"
+      },
       "voice": {
         "toggle": "Ligar ou desligar a entrada por voz"
       },
@@ -401,14 +404,12 @@
   },
   "team": {
     "button": {
-      "label": "Equipe",
-      "title": "Papéis e mensagens do projeto, compartilhados pelo OxeCode e pelo OxeChat",
       "needsWorkspace": "Abra um workspace para abrir a equipe dele",
       "needsProject": "Selecione um projeto do OxeChat para abrir a equipe dele",
       "otherViews": "A equipe está disponível no OxeCode e no OxeChat"
     },
     "roles": {
-      "coordinator": "Coordenador / integrador",
+      "coordinator": "Coordenadora",
       "project-manager": "Gerente de projeto",
       "product-manager": "Gerente de produto",
       "developer": "Desenvolvedor",

@@ -122,6 +122,9 @@
       "activity": {
         "open": "Open activity center"
       },
+      "team": {
+        "open": "Open project team"
+      },
       "voice": {
         "toggle": "Toggle voice input"
       },
@@ -394,14 +397,12 @@
   },
   "team": {
     "button": {
-      "label": "Team",
-      "title": "Project roles and messages shared by OxeCode and OxeChat",
       "needsWorkspace": "Open a workspace to open its team",
       "needsProject": "Select an OxeChat project to open its team",
       "otherViews": "Team is available in OxeCode and OxeChat"
     },
     "roles": {
-      "coordinator": "Coordinator / integrator",
+      "coordinator": "Coordinator",
       "project-manager": "Project manager",
       "product-manager": "Product manager",
       "developer": "Developer",

@@ -27,7 +27,7 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
     catch (e) { setError(String(e)); if (api) { try { setTeam(await api.read(scope)) } catch { /* Preserve the original error. */ } } }
     finally { setBusy(false) }
   }
-  return <Dialog className="team-dialog" size="lg" title={t('team.button.label')} description={t('team.description')} onClose={onClose}>
+  return <Dialog className="team-dialog" size="lg" title={t('tools.team.label', { ns: 'code' })} description={t('team.description')} onClose={onClose}>
     <div className="team-dialog-body">
       {error && <Notice intent="danger">{error}</Notice>}
       {!team && !error && <LoadingState label={t('team.loading')} />}

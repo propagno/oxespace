@@ -49,6 +49,7 @@ export const KEYBINDINGS = [
   { id: 'settings.open', chords: ['Mod+,'], scope: 'global', reservedInTerminal: true },
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', reservedInTerminal: true },
   { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', reservedInTerminal: true },
+  { id: 'team.open', chords: ['Mod+Shift+T'], scope: 'global', reservedInTerminal: true },
   { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', when: context => context.view === 'code' || context.view === 'thread' },
   // The four views, in the order of the switch in the title bar.
   { id: 'view.code', chords: ['Mod+1'], scope: 'global', reservedInTerminal: true },
