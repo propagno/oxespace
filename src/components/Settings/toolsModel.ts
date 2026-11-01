@@ -20,13 +20,16 @@ export function claudeFixedCost(group: McpToolGroupInfo): McpToolCost | null {
 
 /** One tool's rule: the one the contract returned, or the default (ask, editable in the project). */
 export function ruleFor(rules: readonly McpToolRule[], server: string, tool: string): McpToolRule {
-  return rules.find(rule => rule.server === server && rule.tool === tool)
-    ?? { server, tool, decision: 'ask', source: 'default', editable: true, scope: null }
+  const found = rules.find(rule => rule.server === server && rule.tool === tool)
+  if (found) return found
+  // B7.3: an OXESpace tool of the confirm level asks every time, so its default row never offers `allow`.
+  const confirmLevel = server === OXESPACE_SERVER && CONFIRM_LEVEL_TOOLS.has(tool)
+  return { server, tool, decision: 'ask', source: 'default', editable: true, allowedDecisions: confirmLevel ? ['ask', 'deny'] : ['allow', 'ask', 'deny'], confirmLevel, scope: null }
 }
 
-/** Decisions the page offers for one tool. */
+/** Decisions the page offers for one tool: the ones the contract allows for it (B7.3), the current one included. */
 export function decisionsFor(rule: McpToolRule): McpToolDecision[] {
-  return rule.server === OXESPACE_SERVER && CONFIRM_LEVEL_TOOLS.has(rule.tool) && rule.decision !== 'allow' ? ['ask', 'deny'] : ['allow', 'ask', 'deny']
+  return rule.allowedDecisions.includes(rule.decision) ? rule.allowedDecisions : [...rule.allowedDecisions, rule.decision]
 }
 
 /** Rules for other MCP servers' tools, by server then tool. */

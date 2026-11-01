@@ -42,7 +42,7 @@ const POLICY: PolicyView = {
 }
 
 function mount(options: { rules?: McpToolRule[]; dataMode?: McpToolGroupMode; noRules?: boolean } = {}) {
-  let rules = options.rules ?? [{ server: 'github', tool: 'delete_repository', decision: 'deny', source: 'user', editable: false, scope: 'everywhere' }]
+  let rules = options.rules ?? [{ server: 'github', tool: 'delete_repository', decision: 'deny', source: 'user', editable: false, allowedDecisions: [], confirmLevel: false, scope: 'everywhere' }]
   const api = {
     toolGroups: vi.fn(async () => report(options.dataMode)),
     setToolGroupMode: vi.fn(async (input: { group: string; mode: McpToolGroupMode }) => report(input.group === 'data' ? input.mode : options.dataMode)),
@@ -50,7 +50,7 @@ function mount(options: { rules?: McpToolRule[]; dataMode?: McpToolGroupMode; no
       toolRules: vi.fn(async () => rules),
       setToolRule: vi.fn(async (input: { server: string; tool: string; decision: McpToolRule['decision'] }) => {
         rules = rules.filter(rule => !(rule.server === input.server && rule.tool === input.tool))
-        if (input.decision !== 'ask') rules = [...rules, { server: input.server, tool: input.tool, decision: input.decision, source: 'project', editable: true, scope: input.decision === 'deny' ? 'everywhere' : 'oxechat' }]
+        if (input.decision !== 'ask') rules = [...rules, { server: input.server, tool: input.tool, decision: input.decision, source: 'project', editable: true, allowedDecisions: ['allow', 'ask', 'deny'], confirmLevel: false, scope: input.decision === 'deny' ? 'everywhere' : 'oxechat' }]
         return rules
       })
     })
