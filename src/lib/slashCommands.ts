@@ -1,87 +1,40 @@
 import type { SlashCommandDefinition } from '../../shared/types/slash'
+import { i18n } from '../i18n'
+
+type SlashKey = 'clear' | 'new' | 'restart' | 'fork' | 'stop' | 'agent' | 'rename' | 'bg' | 'worktree' | 'mcp' | 'integration' | 'help'
+const tSlash = (key: string): string => (i18n.t as unknown as (key: string, options: object) => string)(`slash.${key}`, { ns: 'code' })
+
+/**
+ * A built-in slash command. The label is the command itself; the hint, description and argument placeholder are read
+ * in the interface language each time they are used. A hint that is a shortcut (Ctrl+L) stays as written.
+ */
+function slash(id: SlashKey, options: { shortcut?: string; requiresArgument?: boolean; argument?: 'catalog' | 'as-is'; example?: string; destructive?: boolean } = {}): SlashCommandDefinition {
+  const { shortcut, requiresArgument, argument, example, destructive } = options
+  // Getters, not values: spreading would read them once, in the language of the first render.
+  return {
+    id,
+    label: `/${id}`,
+    requiresArgument,
+    destructive,
+    get hint() { return shortcut ?? tSlash(`${id}.hint`) },
+    get description() { return tSlash(`${id}.description`) },
+    get argumentPlaceholder() { return argument === 'as-is' ? example : argument ? tSlash(`${id}.argument`) : undefined }
+  }
+}
 
 export const SLASH_COMMANDS: SlashCommandDefinition[] = [
-  {
-    id: 'clear',
-    label: '/clear',
-    hint: 'Ctrl+L',
-    description: 'Clear the terminal screen (keeps the session).'
-  },
-  {
-    id: 'new',
-    label: '/new',
-    hint: 'Reset',
-    description: 'Restart the terminal with a clean session (no resume).',
-    destructive: true
-  },
-  {
-    id: 'restart',
-    label: '/restart',
-    hint: 'Ctrl+R',
-    description: 'Restart the terminal keeping the current agent.'
-  },
-  {
-    id: 'fork',
-    label: '/fork',
-    hint: 'Duplicate',
-    description: 'Create a new pane in the workspace with the same agent.'
-  },
-  {
-    id: 'stop',
-    label: '/stop',
-    hint: 'Stop',
-    description: 'Stop the process running in this pane.'
-  },
-  {
-    id: 'agent',
-    label: '/agent',
-    hint: 'Switch agent',
-    description: 'Set the AI agent used in this pane.',
-    requiresArgument: true,
-    argumentPlaceholder: 'agent name'
-  },
-  {
-    id: 'rename',
-    label: '/rename',
-    hint: 'Rename',
-    description: 'Rename the pane.',
-    requiresArgument: true,
-    argumentPlaceholder: 'new name'
-  },
-  {
-    id: 'bg',
-    label: '/bg',
-    hint: 'Background',
-    description: 'Run a command in the background (build, test, watch) without holding the pane.',
-    requiresArgument: true,
-    argumentPlaceholder: 'npm run build'
-  },
-  {
-    id: 'worktree',
-    label: '/worktree',
-    hint: 'Worktrees',
-    description: 'Open the git worktree picker for this pane.'
-  },
-  {
-    id: 'mcp',
-    label: '/mcp',
-    hint: 'MCP servers',
-    description: 'Manage Model Context Protocol servers (Anthropic).'
-  },
-  {
-    id: 'integration',
-    label: '/integration',
-    hint: 'Cross-repo',
-    description: 'Inject sibling-repos context, list members, or send a handoff. Use without args to paste the full context; `members` to list; `handoff <role> <message>` to relay.',
-    requiresArgument: false,
-    argumentPlaceholder: 'members | handoff <role> <message>'
-  },
-  {
-    id: 'help',
-    label: '/help',
-    hint: 'Help',
-    description: 'Show the list of available commands.'
-  }
+  slash('clear', { shortcut: 'Ctrl+L' }),
+  slash('new', { destructive: true }),
+  slash('restart', { shortcut: 'Ctrl+R' }),
+  slash('fork'),
+  slash('stop'),
+  slash('agent', { requiresArgument: true, argument: 'catalog' }),
+  slash('rename', { requiresArgument: true, argument: 'catalog' }),
+  slash('bg', { requiresArgument: true, argument: 'as-is', example: 'npm run build' }),
+  slash('worktree'),
+  slash('mcp'),
+  slash('integration', { requiresArgument: false, argument: 'catalog' }),
+  slash('help')
 ]
 
 import type { SkillDefinition } from '../../shared/types/skill'
@@ -108,10 +61,10 @@ function skillToCommand(skill: SkillDefinition): SlashCommandDefinition {
   return {
     id: skill.name,
     label: `/${skill.name}`,
-    hint: skill.source === 'workspace' ? 'Skill (workspace)' : 'Skill',
-    description: skill.description || '(no description)',
+    hint: skill.source === 'workspace' ? tSlash('skill.workspaceHint') : tSlash('skill.hint'),
+    description: skill.description || tSlash('skill.noDescription'),
     requiresArgument: skill.body.includes('{{argument}}'),
-    argumentPlaceholder: 'optional argument',
+    argumentPlaceholder: tSlash('skill.argument'),
     skillName: skill.name
   }
 }

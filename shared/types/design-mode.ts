@@ -40,6 +40,13 @@ export const DESIGN_MODE_CHANNELS = {
   cancel: 'oxe:design-cancel'
 } as const
 
+/**
+ * B12, E2E only: with this in the guest's `additionalArguments`, the design-guest preload exposes `window.__oxeGuestProbe`
+ * (a raw `ipcRenderer.invoke` / `send`) so e2e/ipc-sender-guard.spec.ts can call channels from a real guest. The main
+ * process passes it only off a packaged build with OXESPACE_E2E_GUEST_PROBE=1 (`guestProbeWebPreferences`).
+ */
+export const GUEST_PROBE_ARGUMENT = '--oxe-e2e-guest-probe'
+
 /** Deterministic prompt block handed to the agent. */
 export function formatDesignGrab(payload: DesignGrabPayload, note: string): string {
   const lines: string[] = []

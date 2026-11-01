@@ -109,7 +109,8 @@ export function slugify(name: string): string {
   return slug || 'request'
 }
 
-export const emptyRequest = (): PostRequest => ({ name: 'New request', method: 'GET', url: '', headers: [], auth: { type: 'none' }, body: '' })
+/** A blank request. Its name is interface text, so the window passes it in the language on screen. */
+export const emptyRequest = (name: string): PostRequest => ({ name, method: 'GET', url: '', headers: [], auth: { type: 'none' }, body: '' })
 
 export function headerValue(headers: PostHeader[], name: string): string | undefined {
   const wanted = name.toLowerCase()
