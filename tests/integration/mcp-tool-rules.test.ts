@@ -175,7 +175,7 @@ describe('Per-tool rules (B7.3)', () => {
     writeFileSync(join(userData, 'managed.json'), managed)
     new ThreadPermissionStore(deps.db).add({ projectRoot: null, kind: 'tool', pattern: 'linear/create_issue', decision: 'allow' })
     const rules = await toolRules(deps, root)
-    expect(find(rules, 'github', 'delete_repository')).toEqual({ server: 'github', tool: 'delete_repository', decision: 'deny', source: 'user', editable: false, allowedDecisions: [], confirmLevel: false, scope: 'everywhere' })
+    expect(find(rules, 'github', 'delete_repository')).toEqual({ server: 'github', tool: 'delete_repository', decision: 'deny', source: 'user', editable: false, allowedDecisions: [], confirmLevel: false, scope: 'oxechat' })
     expect(find(rules, 'linear', 'create_issue')).toMatchObject({ decision: 'allow', source: 'user', editable: false })
     for (const decision of ['ask', 'allow', 'deny'] as const) {
       await expect(setToolRule(deps, { rootPath: root, server: 'github', tool: 'delete_repository', decision })).rejects.toThrow('mcp.toolRule.locked')
@@ -321,7 +321,7 @@ describe('Per-tool rules, review fixes (B7.3)', () => {
     // Both servers are attached (their own -c entries); only the second has a tool turned off.
     expect(codex.filter(argument => argument.includes('disabled_tools'))).toEqual(['mcp_servers.my-server-2.disabled_tools=["run"]'])
     const after = await toolRules({ ...deps, servers }, root)
-    expect(find(after, 'my-server-2', 'run')).toMatchObject({ decision: 'deny', source: 'project', scope: 'everywhere' })
+    expect(find(after, 'my-server-2', 'run')).toMatchObject({ decision: 'deny', source: 'project', scope: 'oxechat' })
     expect(find(after, 'my-server', 'run')).toMatchObject({ decision: 'ask' })
   })
 
@@ -333,13 +333,33 @@ describe('Per-tool rules, review fixes (B7.3)', () => {
     expect(existsSync(join(root, '.oxespace'))).toBe(false)
     const after = await setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'deny' })
     expect(readPolicy().rules).toEqual([{ effect: 'deny', action: 'tool.use', resource: 'mcp__github__create_issue' }])
-    expect(find(after, 'github', 'create_issue')).toMatchObject({ decision: 'deny', source: 'project', editable: true, scope: 'everywhere' })
+    expect(find(after, 'github', 'create_issue')).toMatchObject({ decision: 'deny', source: 'project', editable: true, scope: 'oxechat' })
     expect(audit()).toEqual([['configuration', 'Blocked the MCP tool github/create_issue in .oxespace/policy.json']])
     expect(policyDeniedToolNames(root)).toContain('mcp__github__create_issue')
     // And back, through the same file.
     await setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'ask' })
     expect(readPolicy().rules).toEqual([])
     expect(existsSync(policyFile)).toBe(true)
+  })
+
+  it('shows a server-wide deny as the file to change, not a tool row, and leaves no allow behind it (review L1)', async () => {
+    const { root, db, deps, policyFile, projectRules } = project()
+    insertAt(db, 'g', 'GitHub', 1, 'create_issue')
+    mkdirSync(join(root, '.oxespace'))
+    writeFileSync(policyFile, JSON.stringify({ rules: [{ effect: 'deny', action: 'tool.use', resource: 'mcp__github' }] }))
+    const rules = await toolRules(deps, root)
+    expect(find(rules, 'github', 'create_issue')).toMatchObject({ decision: 'deny', editable: false, allowedDecisions: [], scope: 'oxechat' })
+    await expect(setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'allow' })).rejects.toMatchObject({ code: 'mcp.toolRule.locked' })
+    expect(projectRules()).toEqual([])
+  })
+
+  it('refuses a policy.json over the store limit, which would not apply at all (review L3)', async () => {
+    const { root, deps, policyFile } = project()
+    mkdirSync(join(root, '.oxespace'))
+    const large = JSON.stringify({ organization: 'Acme', rules: [], note: 'x'.repeat(300 * 1024) })
+    writeFileSync(policyFile, large)
+    await expect(setToolRule(deps, { rootPath: root, server: 'github', tool: 'create_issue', decision: 'deny' })).rejects.toMatchObject({ code: 'mcp.toolRule.invalidPolicy' })
+    expect(readFileSync(policyFile, 'utf8')).toBe(large)
   })
 
   it('replaces policy.json atomically and refuses, writing nothing, when the file changed after it was read', async () => {

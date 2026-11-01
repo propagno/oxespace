@@ -18,7 +18,7 @@ import { ThreadPermissionStore } from './conversation/thread-permissions'
 import { mcpServerKeys } from './mcp-keys'
 import { parseGuard } from './mcp-pin'
 import { policyStore } from './policy'
-import type { PolicyStore } from './policy/policy-store'
+import { POLICY_MAX_BYTES, type PolicyStore } from './policy/policy-store'
 
 /** The key OXESpace's own tools have in a conversation, and in the policy resources that name them. */
 export const OXESPACE_MCP_SERVER = 'oxespace-delegation'
@@ -115,8 +115,11 @@ function decidingRule(server: string, tool: string, loaded: LoadedPolicy, permis
   const verdict = evaluatePolicy(loaded, 'tool.use', toolResource(server, tool))
   if (!verdict.allowed) {
     const source = verdict.layer ?? 'project'
-    // A wildcard is the file's to change, not one tool's row.
-    return { server, tool, decision: 'deny', source, editable: source === 'project' && !verdict.rule?.resource.includes('*'), scope: 'everywhere' }
+    // A wildcard or a whole server's rule is the file's to change, not one tool's row: editable only for exactly this tool's rule.
+    const own = verdict.rule?.resource.trim().toLowerCase() === toolResource(server, tool).toLowerCase()
+    // The deny holds at tools/call only for OXESpace's own tools; another server's holds in OxeChat (Code terminals follow their CLI).
+    const scope = server === OXESPACE_MCP_SERVER || server === 'oxespace' ? 'everywhere' : 'oxechat'
+    return { server, tool, decision: 'deny', source, editable: source === 'project' && own, scope }
   }
   const matching = permissions.filter(rule => rule.kind === 'tool' && toolRuleMatches(rule.pattern, server, tool))
   const deciding = matching.find(rule => rule.decision === 'deny') ?? matching.find(rule => rule.decision === 'allow')
@@ -183,7 +186,8 @@ export async function setToolRule(deps: ToolRulesDeps, input: { rootPath: string
   const existing = read?.content ?? null
   let document: { rules: unknown[] } & Record<string, unknown> = { rules: [] }
   if (existing !== null) {
-    if ('problem' in parsePolicy(existing, 'project', path)) throw new ToolRuleRefusal('mcp.toolRule.invalidPolicy', {})
+    // Over the store's limit the layer would not apply at all (B7.3 review L3): refused like an invalid file.
+    if (Buffer.byteLength(existing, 'utf8') > POLICY_MAX_BYTES || 'problem' in parsePolicy(existing, 'project', path)) throw new ToolRuleRefusal('mcp.toolRule.invalidPolicy', {})
     document = JSON.parse(existing) as typeof document
   }
   policy.forget(path)
@@ -203,7 +207,7 @@ export async function setToolRule(deps: ToolRulesDeps, input: { rootPath: string
   if (JSON.stringify(rules) !== JSON.stringify(document.rules) && (existing !== null || rules.length)) {
     const eol = existing?.includes('\r\n') ? '\r\n' : '\n'
     const content = JSON.stringify({ ...document, rules }, null, 2).replace(/\n/g, eol) + eol
-    if ('problem' in parsePolicy(content, 'project', path)) throw new ToolRuleRefusal('mcp.toolRule.invalidPolicy', {})
+    if (Buffer.byteLength(content, 'utf8') > POLICY_MAX_BYTES || 'problem' in parsePolicy(content, 'project', path)) throw new ToolRuleRefusal('mcp.toolRule.invalidPolicy', {})
     if (existing === null) await deps.files.createDirectory({ workspaceId, rootPath, relativePath: '.oxespace' })
     // Replaced atomically, and only if nobody changed the file since it was read (the same check as oxe.yaml's writer).
     await deps.files.replaceFile({ ...target, content, expectedMtimeMs: read?.mtimeMs ?? null })

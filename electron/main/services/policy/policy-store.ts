@@ -9,7 +9,9 @@ export function managedPolicyPath(platform: NodeJS.Platform = process.platform, 
   return '/etc/oxespace/policy.json'
 }
 
-const MAX_BYTES = 256 * 1024
+/** The largest policy file read; a larger one is a problem and its layer does not apply. Writers refuse to go past it. */
+export const POLICY_MAX_BYTES = 256 * 1024
+const MAX_BYTES = POLICY_MAX_BYTES
 
 /**
  * Reads the policy files: the project's `.oxespace/policy.json`, the user's `<userData>/policy.json` and the
