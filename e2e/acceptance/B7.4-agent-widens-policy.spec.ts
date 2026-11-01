@@ -128,6 +128,7 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
   const { app, page } = await launchReal(profile)
   try {
     await holdNativeDialogs(app)
+    await ackEveryRequest(page)
     await openRepo(page, repo)
     const workspaceId = await oxe(page, o => o.workspace.list().then(l => l[0].id))
     const terminal = page.locator('[data-testid="pane-container"] .xterm').first()
@@ -297,6 +298,7 @@ test('B7.4 (9): an off group is refused at tools/call even after the agent rewri
   const { app, page } = await launchReal(profile)
   try {
     await holdNativeDialogs(app)
+    await ackEveryRequest(page)
     await openRepo(page, repo)
     const terminal = page.locator('[data-testid="pane-container"] .xterm').first()
     await terminal.waitFor({ timeout: 20_000 })
@@ -343,6 +345,7 @@ test('B7.4 (11): a widening nobody answers expires denied and keeps the accepted
   const { app, page } = await launchReal(profile)
   try {
     await holdNativeDialogs(app)
+    await ackEveryRequest(page)
     await openRepo(page, repo)
     const workspaceId = await oxe(page, o => o.workspace.list().then(l => l[0].id))
     const policyText = () => oxe(page, (o, i: string) => o.policy.get(i).then(v => JSON.stringify(v)), workspaceId)
@@ -392,6 +395,7 @@ test('B7.4 (12): a committed deny overwritten before the first read stays in for
   const { app, page } = await launchReal(profile)
   try {
     await holdNativeDialogs(app)
+    await ackEveryRequest(page)
     await openRepo(page, repo)
     const id = await oxe(page, o => o.workspace.list().then(list => list[0].id))
     await oxe(page, (o, r: string) => o.mcpInternal.toolGroups({ rootPath: r }), repo)
@@ -437,4 +441,13 @@ async function holdNativeDialogs(app: ElectronApplication): Promise<void> {
     dialog.showMessageBox = (() => { g.accNative = (g.accNative as number) + 1; return new Promise(() => undefined) }) as typeof dialog.showMessageBox
     dialog.showMessageBoxSync = (() => { g.accNative = (g.accNative as number) + 1; return 0 }) as typeof dialog.showMessageBoxSync
   })
+}
+
+/**
+ * The window acknowledges every request as it is announced, as the F18 modal does (main has no modal yet). Without it a
+ * request nobody looked for falls to the native fallback after 3 s; with it, the native counter only counts requests
+ * that never reached the window.
+ */
+async function ackEveryRequest(page: Page): Promise<void> {
+  await page.evaluate(`window.oxe.approvals.onRequested(r => { void window.oxe.approvals.ack({ id: r.id, generation: r.generation, visible: true, focused: true }) })`)
 }
