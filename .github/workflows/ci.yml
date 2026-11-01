@@ -12,9 +12,10 @@ run-name: >-
 #   1) changes — what a PR touched, and the one commit every job checks out
 #   2) quick (Linux) — plan, audits, typecheck, lint, migration numbering, build and bundle budgets
 #      unit (Windows, Linux) — the unit and integration suite with coverage, in parallel with quick
-#   3) e2e (Windows, Linux) — after quick on a PR (always on main, tags, dispatches): native, upgrade, E2E, perf
+#   3) e2e (Windows, Linux, 3 shards each) — after quick on a PR (always on main, tags, dispatches)
 #   4) package (Windows, Linux) — only when the plan packages (tag, publish or packaged-smoke dispatch)
 #   5) release — only after all of the above succeed; draft → verify → publish → confirm live
+#   6) ci-result — one check for the whole run; merges the E2E shard reports
 #
 # Triggers:
 #   - push/PR to main → checks only
@@ -162,13 +163,19 @@ jobs:
       - name: Plan build vs release
         id: plan
         shell: pwsh
+        # Branch names and inputs reach the script only as variables, never pasted into it (#326).
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PUBLISH_RELEASE: ${{ inputs.publish_release }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_PACKAGED_SMOKE_ONLY: ${{ inputs.packaged_smoke_only }}
         run: |
           $ErrorActionPreference = 'Stop'
           $version = node -p "require('./package.json').version"
           $sha = git rev-parse HEAD
-          $event = '${{ github.event_name }}'
-          $publishInput = '${{ inputs.publish_release }}'
-          $tagInput = '${{ inputs.tag }}'.Trim()
+          $event = $env:EVENT_NAME
+          $publishInput = $env:INPUT_PUBLISH_RELEASE
+          $tagInput = "$env:INPUT_TAG".Trim()
 
           $shouldRelease = $false
           $tag = $null
@@ -220,7 +227,7 @@ jobs:
 
           "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           # Package and run the packaged-app E2E without any publishing step (the release job only reads should_release).
-          $packagedSmoke = $event -eq 'workflow_dispatch' -and '${{ inputs.packaged_smoke_only }}' -eq 'true' -and -not $shouldRelease
+          $packagedSmoke = $event -eq 'workflow_dispatch' -and $env:INPUT_PACKAGED_SMOKE_ONLY -eq 'true' -and -not $shouldRelease
           "packaged_smoke=$($packagedSmoke.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -280,7 +287,7 @@ jobs:
           node scripts/check-bundle-imports.mjs
 
   # Stage 1, in parallel with quick: the unit and integration suite on both platforms, unchanged (serial, with
-  # coverage). It is about 14 minutes on Linux and 23 on Windows, which is why it is not inside quick, and why
+  # coverage). It takes 8 to 14 minutes on Linux and 18 to 23 on Windows, which is why it is not inside quick, and why
   # e2e does not wait for it: on the old single job it sat in front of every E2E run.
   unit:
     name: Unit and integration tests (${{ matrix.label }})
@@ -357,24 +364,37 @@ jobs:
           retention-days: 30
           path: coverage/coverage-summary.json
 
-  # Stage 2: what needs a built app and the Electron runtime, on both platforms. On a pull request it waits for
-  # quick to pass. On main, tags and dispatches it always runs, even when quick failed, so main keeps every signal.
+  # Stage 2: what needs a built app and the Electron runtime, on both platforms, in 3 shards each. On a pull
+  # request it waits for quick to pass. On main, tags and dispatches it always runs, even when quick failed, so
+  # main keeps every signal.
+  #
+  # Each shard builds the app itself (about 1 minute) instead of downloading one build from quick: quick builds
+  # on Linux, and the Windows bundle differs from it, so a shared artifact would change what Windows tests.
+  # Playwright splits the specs in file order by test count. The weights below (PWTEST_SHARD_WEIGHTS, read by
+  # Playwright 1.64) were fitted on the per-file times of a green run on 2026-11-01, together with the fixed
+  # work each shard carries: shard 1 also runs the upgrade rehearsal and the OxeQuery coverage gate (about 2
+  # minutes), shard 3 the performance gate and the bench (about 3). Equal weights put about 10 minutes on the
+  # last Windows shard; 6:6:5 gives about 7, 7 and 7. Check the balance again when specs move.
   e2e:
-    name: E2E and native tests (${{ matrix.label }})
+    name: E2E and native tests (${{ matrix.label }}, ${{ matrix.shard }}/3)
     needs: [changes, quick]
     if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 75
+    timeout-minutes: 45
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
+        label: [windows-x64, linux-x64]
+        shard: [1, 2, 3]
         include:
-          - os: windows-2022
-            label: windows-x64
-          - os: ubuntu-22.04
-            label: linux-x64
+          - label: windows-x64
+            os: windows-2022
+            os_name: windows
+          - label: linux-x64
+            os: ubuntu-22.04
+            os_name: linux
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
         with:
@@ -405,7 +425,7 @@ jobs:
       # quick checks the notices on Linux; npm installs some optional packages per platform, so Windows checks
       # its own tree too (seconds).
       - name: Check third-party notices and bundled licenses (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && matrix.shard == 2
         run: npm run notices:check
 
       - name: Electron version
@@ -434,9 +454,10 @@ jobs:
 
       # The main process ships minified; its source maps never ship. Keep them with the run, so a stack from a
       # problem report of this build can be read: node scripts/symbolicate-stack.mjs --maps <artifact folder>.
-      # When this run packages, the package job uploads them instead, from the build that is shipped.
+      # One shard per platform uploads them. When this run packages, the package job uploads them instead,
+      # from the build that is shipped.
       - name: Upload main-process source maps
-        if: needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true'
+        if: matrix.shard == 2 && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: main-sourcemaps-${{ matrix.label }}
@@ -460,6 +481,7 @@ jobs:
       # with data, upgraded by this build under the Electron runtime, and taken back: the old release must refuse
       # the upgraded file untouched and open the verified backup. OXESPACE_UPGRADE_FROM picks another release.
       - name: Upgrade rehearsal (previous stable database, forward and back)
+        if: matrix.shard == 1
         shell: pwsh
         env:
           OXESPACE_REQUIRE_UPGRADE_TAG: "1"
@@ -470,43 +492,56 @@ jobs:
 
       # OxeQuery carries its own floor: unit, component and integration tests together cover at least 60%.
       - name: OxeQuery coverage gate
+        if: matrix.shard == 1
         shell: bash
         run: npm run test:coverage:oxequery
 
       - name: E2E smoke (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          E2E_SHARD: ${{ matrix.shard }}/3
+          PWTEST_SHARD_WEIGHTS: "6:6:5"
+          # Every shard keeps a blob report; the CI result job merges them into one HTML report per platform.
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          npm run test:e2e -- --trace retain-on-failure
-
-      - name: Upload E2E traces (Windows failures)
-        if: failure() && runner.os == 'Windows'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: e2e-traces-windows
-          if-no-files-found: ignore
-          retention-days: 7
-          path: test-results/**/trace.zip
+          npm run test:e2e -- "--shard=$env:E2E_SHARD" --reporter=list,blob --trace retain-on-failure
 
       # Electron needs a display; the wrapper owns a private Xvfb lifecycle so
       # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
       - name: E2E smoke (Linux)
         if: runner.os == 'Linux'
-        run: bash scripts/run-with-xvfb.sh npm run test:e2e -- --trace retain-on-failure
+        env:
+          E2E_SHARD: ${{ matrix.shard }}/3
+          PWTEST_SHARD_WEIGHTS: "6:6:5"
+          # Every shard keeps a blob report; the CI result job merges them into one HTML report per platform.
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
+        run: bash scripts/run-with-xvfb.sh npm run test:e2e -- "--shard=$E2E_SHARD" --reporter=list,blob --trace retain-on-failure
 
-      - name: Upload E2E traces (Linux failures)
-        if: failure() && runner.os == 'Linux'
+      - name: Upload E2E traces (failures)
+        if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-traces-linux
+          name: e2e-traces-${{ matrix.os_name }}-${{ matrix.shard }}
           if-no-files-found: ignore
           retention-days: 7
           path: test-results/**/trace.zip
 
+      - name: Upload E2E blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-blob-${{ matrix.label }}-${{ matrix.shard }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: blob-report
+
       - name: E2E performance gate (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.shard == 3
         env:
           OXESPACE_PERF_GATE: "1"
         run: bash scripts/run-with-xvfb.sh npm run bench:ui
@@ -517,7 +552,7 @@ jobs:
       # budgets from the container. Both legs are hard gates, so a budget miss
       # is a finding on one platform even when the other still fits.
       - name: E2E performance gate (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && matrix.shard == 3
         shell: pwsh
         env:
           OXESPACE_PERF_GATE: "1"
@@ -531,7 +566,7 @@ jobs:
       # baseline thresholds. The full runtime-fluidity harness lives in
       # e2e/perf-benchmark.spec.ts for local/manual runs.
       - name: Performance benchmark (informational)
-        if: needs.quick.outputs.should_release != 'true'
+        if: matrix.shard == 3 && needs.quick.outputs.should_release != 'true'
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
 
@@ -908,6 +943,88 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/memory-compatibility.yml
+
+  # One check that says whether the whole run passed, for the merge train and for any future required check.
+  # A job that failed or was cancelled fails it. So does a job that should have run and was skipped: on main,
+  # tags and dispatches every check job must succeed; on a code PR quick, unit and e2e must, and the OxeQuery
+  # live jobs too when the PR touched OxeQuery. A docs-only PR passes with only `changes`. It also merges the
+  # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
+  ci-result:
+    name: CI result
+    needs: [changes, quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility, release]
+    if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        if: needs.e2e.result != 'skipped'
+        continue-on-error: true
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          sparse-checkout: package-lock.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download the E2E blob reports
+        if: needs.e2e.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: e2e-blob-*
+          path: blobs
+
+      - name: Merge the E2E reports per platform
+        if: needs.e2e.result != 'skipped'
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")
+          for label in windows-x64 linux-x64; do
+            mkdir -p "merged/$label"
+            find blobs -path "blobs/e2e-blob-$label-*" -name '*.zip' -exec cp {} "merged/$label/" \;
+            if [ -z "$(ls -A "merged/$label")" ]; then echo "no blob reports for $label"; continue; fi
+            PLAYWRIGHT_HTML_OUTPUT_DIR="e2e-report/$label" npx --yes "playwright@$version" merge-reports --reporter html "merged/$label"
+          done
+
+      - name: Upload the merged E2E report
+        if: needs.e2e.result != 'skipped'
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report
+          if-no-files-found: ignore
+          retention-days: 7
+          path: e2e-report
+
+      - name: Decide the run's result
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          node - <<'EOF'
+          const needs = JSON.parse(process.env.NEEDS)
+          const pr = process.env.EVENT_NAME === 'pull_request'
+          const code = needs.changes.outputs?.code === 'true'
+          const oxequery = needs.changes.outputs?.oxequery === 'true'
+          const problems = []
+          for (const [job, { result }] of Object.entries(needs)) {
+            console.log(`${job}: ${result}`)
+            if (result === 'failure' || result === 'cancelled') problems.push(`${job} ${result}`)
+          }
+          const required = ['changes']
+          if (!pr) required.push('quick', 'unit', 'e2e', 'oxequery-live', 'oxequery-live-versions', 'memory-compatibility')
+          else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
+          for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
+          if (problems.length) {
+            console.log(`::error title=CI failed::${[...new Set(problems)].join('; ')}`)
+            process.exit(1)
+          }
+          console.log('every job that had to run passed')
+          EOF
 
   release:
     name: Publish GitHub Release
