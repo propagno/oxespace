@@ -158,7 +158,7 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
           fetch-depth: 0
@@ -309,7 +309,7 @@ jobs:
           - os: ubuntu-22.04
             label: linux-x64
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
           fetch-depth: 0
@@ -401,7 +401,7 @@ jobs:
             os: ubuntu-22.04
             os_name: linux
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
           # The upgrade rehearsal reads the previous stable release's migrations from its tag.
@@ -601,7 +601,7 @@ jobs:
             builder_flag: "--linux"
             slim_platform: linux
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.quick.outputs.sha }}
           fetch-depth: 0
@@ -841,7 +841,7 @@ jobs:
         # The same suite against each container engine a person may have.
         engine: [docker, podman]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
 
@@ -892,7 +892,7 @@ jobs:
           - { pg: "14-alpine", mongo: "6.0" }
           - { pg: "17-alpine", mongo: "8.0" }
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
 
@@ -963,7 +963,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.e2e.result != 'skipped'
         continue-on-error: true
         with:
@@ -1044,7 +1044,7 @@ jobs:
       attestations: write
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Need a writable checkout so we can create the release tag when
           # publishing from a branch that does not yet have vX.Y.Z.
