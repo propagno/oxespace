@@ -825,7 +825,7 @@
   "pane": {
     "boundary": "este painel",
     "splitRefused": {
-      "title": "Não dá para dividir este painel aqui",
+      "title": "Não é possível dividir este painel aqui",
       "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente.",
       "tooNarrow": "Cada metade ficaria com menos de {{width}} px de largura. Feche outro painel ou aumente a janela.",
       "tooShort": "Cada metade ficaria com menos de {{height}} px de altura. Feche outro painel ou aumente a janela."
