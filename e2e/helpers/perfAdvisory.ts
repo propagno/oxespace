@@ -12,7 +12,7 @@ export function blockingRef(ref: string | undefined): boolean {
   return ref === 'refs/heads/main' || ref.startsWith('refs/tags/')
 }
 
-/** Whether a failed check with this label only warns on this run. */
-export function perfAdvisoryApplies(label: string, ref: string | undefined = process.env.GITHUB_REF): boolean {
-  return label.startsWith(PERF_ADVISORY.label) && !blockingRef(ref)
+/** Whether a failed check with this label only warns on this run. `env` is the run's environment (process.env by default). */
+export function perfAdvisoryApplies(label: string, env: { GITHUB_REF?: string } = process.env): boolean {
+  return label.startsWith(PERF_ADVISORY.label) && !blockingRef(env.GITHUB_REF)
 }
