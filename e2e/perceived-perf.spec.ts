@@ -412,6 +412,8 @@ async function measureRound(): Promise<void> {
 }
 
 test('perceived performance: first feedback, first content and blank time per surface', async () => {
+  // A packaged_smoke_only dispatch proves the packaged binary; PR and main runs keep this gate (ci.yml).
+  test.skip(process.env.OXESPACE_PACKAGED_SMOKE === 'true', 'packaged smoke dispatch: perf budgets are gated on PR and main runs')
   test.setTimeout((CONFIRM ? 36 : 20) * 60_000)
   await measureRound()
   if (CAPTURE) {

@@ -360,9 +360,14 @@ jobs:
         shell: bash
         run: npm run test:coverage:oxequery
 
+      # A packaged_smoke_only dispatch proves the packaged binary; the renderer perf budgets are proven by every PR and
+      # main run and must not stand between a dispatch and packaging. The plan step derives packaged_smoke from the
+      # dispatch input; only that output is read here, in if: and env, never interpolated into a script.
       - name: E2E smoke (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          OXESPACE_PACKAGED_SMOKE: ${{ steps.plan.outputs.packaged_smoke }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
@@ -381,6 +386,8 @@ jobs:
       # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
       - name: E2E smoke (Linux)
         if: runner.os == 'Linux'
+        env:
+          OXESPACE_PACKAGED_SMOKE: ${{ steps.plan.outputs.packaged_smoke }}
         run: bash scripts/run-with-xvfb.sh npm run test:e2e -- --trace retain-on-failure
 
       - name: Upload E2E traces (Linux failures)
@@ -393,7 +400,7 @@ jobs:
           path: test-results/**/trace.zip
 
       - name: E2E performance gate (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && steps.plan.outputs.packaged_smoke != 'true'
         env:
           OXESPACE_PERF_GATE: "1"
         run: bash scripts/run-with-xvfb.sh npm run bench:ui
@@ -404,7 +411,7 @@ jobs:
       # budgets from the container. Both legs are hard gates, so a budget miss
       # is a finding on one platform even when the other still fits.
       - name: E2E performance gate (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.plan.outputs.packaged_smoke != 'true'
         shell: pwsh
         env:
           OXESPACE_PERF_GATE: "1"
@@ -418,7 +425,7 @@ jobs:
       # baseline thresholds. The full runtime-fluidity harness lives in
       # e2e/perf-benchmark.spec.ts for local/manual runs.
       - name: Performance benchmark (informational)
-        if: steps.plan.outputs.should_release != 'true'
+        if: steps.plan.outputs.should_release != 'true' && steps.plan.outputs.packaged_smoke != 'true'
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
 
