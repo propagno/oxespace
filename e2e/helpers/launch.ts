@@ -17,19 +17,43 @@ export type Appearance = 'light' | 'dark' | 'system'
 /** The instant every visual test pretends it is, so relative times render identically. */
 export const FIXED_NOW = Date.UTC(2026, 9, 14, 12, 0, 0)
 
-/** Freezes Date in the renderer. Call again after a reload. */
+/** The user-timing methods Playwright's fake clock stubs out; they are put back so the timeline stays real (F28). */
+const USER_TIMING = ['mark', 'measure', 'getEntries', 'getEntriesByName', 'getEntriesByType', 'clearMarks', 'clearMeasures'] as const
+
+/** Keeps the page's real user-timing methods, before the fake clock replaces `performance`. */
+function captureUserTiming(names: readonly string[]): void {
+  const holder = window as unknown as { __oxeUserTiming?: Record<string, unknown> }
+  if (holder.__oxeUserTiming) return
+  const real = performance as unknown as Record<string, (...args: unknown[]) => unknown>
+  holder.__oxeUserTiming = Object.fromEntries(names.filter(name => typeof real[name] === 'function').map(name => [name, real[name].bind(performance)]))
+}
+
+/** Puts the real user-timing methods back on the fake `performance`: Date, now() and timers stay frozen. */
+function restoreUserTiming(): void {
+  const real = (window as unknown as { __oxeUserTiming?: Record<string, unknown> }).__oxeUserTiming
+  if (!real) return
+  for (const [name, method] of Object.entries(real)) {
+    try { Object.defineProperty(performance, name, { configurable: true, writable: true, value: method }) } catch { /* left as the clock made it */ }
+  }
+}
+
+/**
+ * Freezes Date in the renderer (and performance.now and timers, the way Playwright's clock does). Its fake
+ * `performance` also stubs the user timing: marks and measures are dropped and getEntriesByName returns [], so Monaco's
+ * input-latency probe threw "reading 'duration'" page errors on every few keystrokes (F28). The real user-timing
+ * methods are kept before the clock installs and put back after, on this page and on every reload.
+ */
 export async function freezeClock(page: Page): Promise<void> {
+  await page.addInitScript(captureUserTiming, USER_TIMING)
+  await page.evaluate(captureUserTiming, USER_TIMING)
   await page.clock.setFixedTime(new Date(FIXED_NOW))
+  await page.evaluate(restoreUserTiming)
+  await page.addInitScript(restoreUserTiming)
 }
 
 /** Launches the built app against a temporary database (requires `npm run build` first). */
 /** `env` adds variables for one spec (e.g. OXESPACE_E2E_AGENT_STATE=1), on top of the defaults below. */
-/**
- * `realClock` skips freezeClock. Playwright's fake clock replaces `performance` with a stub whose getEntriesByName
- * always returns []; Monaco's input-latency probe reads `getEntriesByName(name)[0].duration` after a keystroke and
- * throws a pageerror whenever its timing lets it record (F28). A spec that types into the editor and asserts no
- * pageerror needs the real clock.
- */
+/** `realClock` skips freezeClock, for a spec that needs time to move. */
 export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; env?: Record<string, string>; realClock?: boolean } = {}): Promise<LaunchedApp> {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-visual-'))
   const workspaceRoot = join(root, 'demo-repo')
