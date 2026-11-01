@@ -15,6 +15,7 @@ import { PtyRingBuffer } from './pty-ring-buffer'
 import { agentFromCommand } from './agent-state/agents'
 import { resumeArgs } from './agent-state/pane-sessions'
 import { PtyModeTracker } from './pty-mode-tracker'
+import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
@@ -80,6 +81,13 @@ interface TerminalSession {
   modes: PtyModeTracker
   /** True while a terminal view is rendering this session. */
   attached: boolean
+  /**
+   * True only between a view's attach() and its detach(). `attached` starts true so the first prompt is not held
+   * back, but a pane started with no view never attaches; then main answers DA1 itself (see pty-da1.ts).
+   */
+  viewAttached: boolean
+  da1: Da1Filter
+  da1Timer: ReturnType<typeof setTimeout> | null
   lastActivityAt: number
   /** Last size the view reported; used for the alt-screen redraw nudge. */
   cols: number
@@ -376,6 +384,9 @@ export class TerminalManager {
       // A view always attaches right after starting; assuming attached here
       // avoids dropping the first prompt into the ring only.
       attached: true,
+      viewAttached: false,
+      da1: new Da1Filter(),
+      da1Timer: null,
       lastActivityAt: Date.now(),
       cols,
       rows,
@@ -388,13 +399,15 @@ export class TerminalManager {
     if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : input.agentCommand ?? executable)
     ptyProcess.onData((data) => {
-      this.sessions.get(input.paneId)?.outputBatcher.push(data)
+      const session = this.sessions.get(input.paneId)
+      if (session) this.receive(session, data)
       this.observer?.output(input.paneId, data)
     })
     ptyProcess.onExit(({ exitCode }) => {
       recordRuntime('process-exit', { pane: input.paneId, pid: ptyProcess.pid, exitCode })
       const session = this.sessions.get(input.paneId)
       if (session?.pty !== ptyProcess) return // A late exit cannot remove a restarted process.
+      if (session) this.releaseDa1(session)
       session?.outputBatcher.flush()
       if (session) this.rememberExit(session, exitCode)
       this.sessions.delete(input.paneId)
@@ -464,6 +477,34 @@ export class TerminalManager {
   }
 
   /**
+   * PTY output on its way to the batcher. A DA1 query that no view will answer is answered here and removed from the
+   * stream. Main runs this and attach()/detach() on one thread, so the choice is made once per query and holds:
+   * - no view at that moment: the query never reaches the ring or the IPC stream, so a view attaching while main's
+   *   reply is still queued (or any later replay) cannot answer it a second time;
+   * - a view attached: the query goes to it live and its xterm answers; main sends nothing. detach() flushes the
+   *   batcher first, so the view still gets it; a view torn down before parsing it leaves ConPTY to time out, never
+   *   two replies.
+   */
+  private receive(session: TerminalSession, chunk: string): void {
+    const { data, answered } = session.da1.filter(chunk, !session.viewAttached)
+    for (let i = 0; i < answered; i++) void session.inputQueue.enqueue(DA1_REPLY)
+    if (data) session.outputBatcher.push(data)
+    if (session.da1Timer) { clearTimeout(session.da1Timer); session.da1Timer = null }
+    if (session.da1.holding) {
+      session.da1Timer = setTimeout(() => {
+        session.da1Timer = null
+        if (this.sessions.get(session.paneId) === session) session.outputBatcher.push(session.da1.release())
+      }, DA1_CARRY_MS)
+    }
+  }
+
+  private releaseDa1(session: TerminalSession): void {
+    if (session.da1Timer) { clearTimeout(session.da1Timer); session.da1Timer = null }
+    const held = session.da1.release()
+    if (held) session.outputBatcher.push(held)
+  }
+
+  /**
    * Route batched output. Everything is retained; only an attached view gets
    * the bytes over IPC. Previously every chunk was broadcast to every window
    * and dropped in the preload when nobody was listening.
@@ -472,7 +513,9 @@ export class TerminalManager {
     const session = this.sessions.get(event.paneId)
     if (!session) return
 
-    session.ring.push(event.data)
+    // A replayed DA1 would be answered again by the re-mounted view and typed into the shell as `?1;2c`. Whoever was
+    // going to answer it has (main or the live view), so the ring keeps none. receive() never splits a query.
+    session.ring.push(stripDa1(event.data))
     session.modes.consume(event.data)
     session.lastActivityAt = Date.now()
 
@@ -517,6 +560,7 @@ export class TerminalManager {
     session.outputBatcher.flush()
     const slice = session.ring.since(input.sinceSeq ?? 0)
     session.attached = true
+    session.viewAttached = true
 
     // On the alternate screen the retained bytes cannot be trusted: if the
     // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
@@ -538,6 +582,7 @@ export class TerminalManager {
     if (!session) return
     session.outputBatcher.flush()
     session.attached = false
+    session.viewAttached = false
   }
 
   /**
@@ -612,6 +657,7 @@ export class TerminalManager {
     recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })
     // Flush before disposing: the batcher discards `pending`, so an exiting
     // process used to lose its last words (often the error that killed it).
+    this.releaseDa1(session)
     session.outputBatcher.flush()
     session.inputQueue.dispose()
     session.outputBatcher.dispose()
