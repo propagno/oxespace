@@ -108,9 +108,7 @@ with Esc, Tab, Ctrl+C and arrows for the terminal." -->
 ## OXESpace your way
 
 <!-- S6 · guide: docs/guide/en/06-your-way.md -->
-- **Portuguese and English** across the app, switched in Settings without a restart.
-  <!-- "across the app" holds only with F6 (#197); until it merges, say "in the main screens" at the cut. -->
-- **A keyboard you can live in**: a command palette for everything (`Ctrl+K`), a shortcut guide and
+- **Portuguese and English** across the app, switched in Settings without a restart.- **A keyboard you can live in**: a command palette for everything (`Ctrl+K`), a shortcut guide and
   **Settings › Keyboard**, F6 to move between regions, and a mode where Tab leaves the terminal.
 - **Accessibility**: WCAG 2.2 AA checks on Windows and Linux, forced colours, 24 px targets, and keyboard paths for
   every list.
