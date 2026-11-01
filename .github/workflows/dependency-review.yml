@@ -42,4 +42,11 @@ jobs:
 
       - name: Report while advisory
         if: steps.review.outcome == 'failure'
-        run: echo "::warning title=Dependency review (advisory)::The review failed and does not block yet. Either the Dependency graph is off (decisions.md #13) or this PR adds a high/critical advisory: read the step above."
+        # The text goes through env and a block scalar: in a plain YAML scalar, " #13" starts a comment and cut the
+        # command in half (bash: unexpected EOF while looking for matching quote).
+        env:
+          MESSAGE: >-
+            The review failed and does not block yet. Either the Dependency graph is off (decisions.md, item 13) or
+            this PR adds a high/critical advisory: read the step above.
+        run: |
+          echo "::warning title=Dependency review (advisory)::${MESSAGE}"
