@@ -66,18 +66,9 @@
     }
   },
   "live": {
-    "tabs": {
-      "threads": "Conversations",
-      "requests": "Requests",
-      "terminals": "Terminals",
-      "tasks": "Tasks"
-    },
     "requestsBadge_one": "{{count}} request waiting",
     "requestsBadge_other": "{{count}} requests waiting",
-    "emptyThreads": "No conversations on {{desktop}} yet.",
     "emptyRequests": "Nothing waiting for you.",
-    "emptyTerminals": "No open terminals.",
-    "emptyTasks": "No background jobs or delegations.",
     "loading": "Loading…",
     "status": {
       "idle": "Idle",
@@ -86,12 +77,8 @@
       "interrupted": "Stopped",
       "failed": "Failed"
     },
-    "pendingCount_one": "Needs you ({{count}})",
-    "pendingCount_other": "Needs you ({{count}})",
     "back": "Back",
     "menu": "More options",
-    "jobs": "Background jobs",
-    "delegations": "Delegations",
     "job": {
       "pending": "Starting",
       "running": "Running",
@@ -99,8 +86,6 @@
       "failed": "Failed",
       "killed": "Stopped"
     },
-    "exitCode": "exit code {{code}}",
-    "paneAgent": "{{agent}} · {{state}}",
     "agentState": {
       "working": "Working",
       "blocked": "Needs you",
@@ -244,7 +229,6 @@
     }
   },
   "agents": {
-    "title": "Agents",
     "tabs": {
       "agents": "Agents",
       "requests": "Requests",
@@ -259,7 +243,6 @@
     },
     "action": {
       "respond": "Respond",
-      "open": "Open",
       "stop": "Stop",
       "confirmStop": "Stop turn",
       "cancel": "Keep running"
@@ -297,7 +280,6 @@
     }
   },
   "more": {
-    "title": "More",
     "desktop": "Computer",
     "connection": "Connection",
     "language": "App language",

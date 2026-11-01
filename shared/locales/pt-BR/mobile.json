@@ -67,19 +67,10 @@
     }
   },
   "live": {
-    "tabs": {
-      "threads": "Conversas",
-      "requests": "Pedidos",
-      "terminals": "Terminais",
-      "tasks": "Tarefas"
-    },
     "requestsBadge_one": "{{count}} pedido esperando",
     "requestsBadge_other": "{{count}} pedidos esperando",
     "requestsBadge_many": "{{count}} pedidos esperando",
-    "emptyThreads": "Ainda não há conversas em {{desktop}}.",
     "emptyRequests": "Nada esperando por você.",
-    "emptyTerminals": "Nenhum terminal aberto.",
-    "emptyTasks": "Nenhuma tarefa em segundo plano nem delegação.",
     "loading": "Carregando…",
     "status": {
       "idle": "Ocioso",
@@ -88,13 +79,8 @@
       "interrupted": "Interrompido",
       "failed": "Falhou"
     },
-    "pendingCount_one": "Precisa de você ({{count}})",
-    "pendingCount_other": "Precisa de você ({{count}})",
-    "pendingCount_many": "Precisa de você ({{count}})",
     "back": "Voltar",
     "menu": "Mais opções",
-    "jobs": "Tarefas em segundo plano",
-    "delegations": "Delegações",
     "job": {
       "pending": "Iniciando",
       "running": "Rodando",
@@ -102,8 +88,6 @@
       "failed": "Falhou",
       "killed": "Parada"
     },
-    "exitCode": "código de saída {{code}}",
-    "paneAgent": "{{agent}} · {{state}}",
     "agentState": {
       "working": "Trabalhando",
       "blocked": "Precisa de você",
@@ -250,7 +234,6 @@
     }
   },
   "agents": {
-    "title": "Agentes",
     "tabs": {
       "agents": "Agentes",
       "requests": "Pedidos",
@@ -265,7 +248,6 @@
     },
     "action": {
       "respond": "Responder",
-      "open": "Abrir",
       "stop": "Parar",
       "confirmStop": "Parar turno",
       "cancel": "Deixar rodando"
@@ -308,7 +290,6 @@
     "moreRequests_many": "+{{count}} outros"
   },
   "more": {
-    "title": "Mais",
     "desktop": "Computador",
     "connection": "Conexão",
     "language": "Idioma do app",

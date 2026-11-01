@@ -59,11 +59,18 @@ function render(text, order, key, plural) {
  * @param {(language: string, namespace: string) => Record<string, any>} read
  * @param {string} language
  */
+const PHONE_STATES = ['needsYou', 'failed', 'working', 'finished', 'idle', 'stopped', 'unknown']
+
 export function phoneCatalog(read, language) {
   const mobile = read(language, 'mobile')
   if (mobile.agents?.state) throw new Error(`mobile:${language} defines agents.state; it comes from common.json (glossary §5)`)
-  const state = read(language, 'common').agents?.state
-  if (!state) throw new Error(`common:${language} has no agents.state`)
+  const all = read(language, 'common').agents?.state
+  if (!all) throw new Error(`common:${language} has no agents.state`)
+  // The seven S7 states only: "starting" and "exited" are desktop terminal words the phone never shows.
+  const state = Object.fromEntries(PHONE_STATES.map(key => {
+    if (!(key in all)) throw new Error(`common:${language} has no agents.state.${key}`)
+    return [key, all[key]]
+  }))
   return { ...mobile, agents: { ...(mobile.agents ?? {}), state } }
 }
 

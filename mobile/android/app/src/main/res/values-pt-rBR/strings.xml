@@ -8,7 +8,6 @@
     <string name="action_refused">O computador não aceitou.</string>
     <string name="agents_action_cancel">Deixar rodando</string>
     <string name="agents_action_confirm_stop">Parar turno</string>
-    <string name="agents_action_open">Abrir</string>
     <string name="agents_action_respond">Responder</string>
     <string name="agents_action_stop">Parar</string>
     <string name="agents_answer_on_computer">Responda no computador</string>
@@ -53,12 +52,10 @@
         <item quantity="many">e mais %1$d</item>
     </plurals>
     <string name="agents_spoken_since">%1$s há %2$s</string>
-    <string name="agents_state_exited">Encerrado</string>
     <string name="agents_state_failed">Falhou</string>
     <string name="agents_state_finished">Terminou</string>
     <string name="agents_state_idle">Ocioso</string>
     <string name="agents_state_needs_you">Precisa de você</string>
-    <string name="agents_state_starting">Iniciando</string>
     <string name="agents_state_stopped">Interrompido</string>
     <string name="agents_state_unknown">Não confirmado</string>
     <string name="agents_state_working">Trabalhando</string>
@@ -70,7 +67,6 @@
     <string name="agents_tabs_more">Mais</string>
     <string name="agents_tabs_requests">Pedidos</string>
     <string name="agents_tasks">%1$s de %2$s tarefas</string>
-    <string name="agents_title">Agentes</string>
     <string name="approval_prompt_accept">Permitir este pedido uma vez</string>
     <string name="approval_prompt_answer">Enviar estas respostas</string>
     <string name="approval_prompt_cancel">Cancelar este pedido</string>
@@ -119,26 +115,14 @@
     <string name="live_agent_state_unknown">Não confirmado</string>
     <string name="live_agent_state_working">Trabalhando</string>
     <string name="live_back">Voltar</string>
-    <string name="live_delegations">Delegações</string>
     <string name="live_empty_requests">Nada esperando por você.</string>
-    <string name="live_empty_tasks">Nenhuma tarefa em segundo plano nem delegação.</string>
-    <string name="live_empty_terminals">Nenhum terminal aberto.</string>
-    <string name="live_empty_threads">Ainda não há conversas em %1$s.</string>
-    <string name="live_exit_code">código de saída %1$s</string>
     <string name="live_job_exited">Terminou</string>
     <string name="live_job_failed">Falhou</string>
     <string name="live_job_killed">Parada</string>
     <string name="live_job_pending">Iniciando</string>
     <string name="live_job_running">Rodando</string>
-    <string name="live_jobs">Tarefas em segundo plano</string>
     <string name="live_loading">Carregando…</string>
     <string name="live_menu">Mais opções</string>
-    <string name="live_pane_agent">%1$s · %2$s</string>
-    <plurals name="live_pending_count">
-        <item quantity="one">Precisa de você (%1$d)</item>
-        <item quantity="other">Precisa de você (%1$d)</item>
-        <item quantity="many">Precisa de você (%1$d)</item>
-    </plurals>
     <string name="live_phone_write">Celular pode digitar</string>
     <string name="live_read_only">Só leitura</string>
     <plurals name="live_requests_badge">
@@ -151,16 +135,11 @@
     <string name="live_status_idle">Ocioso</string>
     <string name="live_status_interrupted">Interrompido</string>
     <string name="live_status_running">Trabalhando</string>
-    <string name="live_tabs_requests">Pedidos</string>
-    <string name="live_tabs_tasks">Tarefas</string>
-    <string name="live_tabs_terminals">Terminais</string>
-    <string name="live_tabs_threads">Conversas</string>
     <string name="more_choose_language">Escolher idioma</string>
     <string name="more_connection">Conexão</string>
     <string name="more_desktop">Computador</string>
     <string name="more_language">Idioma do app</string>
     <string name="more_language_hint">Escolha um idioma só para o OXESpace, nas configurações do sistema.</string>
-    <string name="more_title">Mais</string>
     <string name="more_version">Versão %1$s</string>
     <string name="notify_channel_done">Concluído</string>
     <string name="notify_channel_failed">Falhou</string>

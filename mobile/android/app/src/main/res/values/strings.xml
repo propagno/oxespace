@@ -8,7 +8,6 @@
     <string name="action_refused">Your computer didn\'t accept it.</string>
     <string name="agents_action_cancel">Keep running</string>
     <string name="agents_action_confirm_stop">Stop turn</string>
-    <string name="agents_action_open">Open</string>
     <string name="agents_action_respond">Respond</string>
     <string name="agents_action_stop">Stop</string>
     <string name="agents_answer_on_computer">Answer on the computer</string>
@@ -48,12 +47,10 @@
         <item quantity="other">and %1$d more</item>
     </plurals>
     <string name="agents_spoken_since">%1$s for %2$s</string>
-    <string name="agents_state_exited">Exited</string>
     <string name="agents_state_failed">Failed</string>
     <string name="agents_state_finished">Finished</string>
     <string name="agents_state_idle">Idle</string>
     <string name="agents_state_needs_you">Needs you</string>
-    <string name="agents_state_starting">Starting</string>
     <string name="agents_state_stopped">Stopped</string>
     <string name="agents_state_unknown">Not confirmed</string>
     <string name="agents_state_working">Working</string>
@@ -65,7 +62,6 @@
     <string name="agents_tabs_more">More</string>
     <string name="agents_tabs_requests">Requests</string>
     <string name="agents_tasks">%1$s of %2$s tasks</string>
-    <string name="agents_title">Agents</string>
     <string name="approval_prompt_accept">Allow this request once</string>
     <string name="approval_prompt_answer">Send these answers</string>
     <string name="approval_prompt_cancel">Cancel this request</string>
@@ -113,25 +109,14 @@
     <string name="live_agent_state_unknown">Not confirmed</string>
     <string name="live_agent_state_working">Working</string>
     <string name="live_back">Back</string>
-    <string name="live_delegations">Delegations</string>
     <string name="live_empty_requests">Nothing waiting for you.</string>
-    <string name="live_empty_tasks">No background jobs or delegations.</string>
-    <string name="live_empty_terminals">No open terminals.</string>
-    <string name="live_empty_threads">No conversations on %1$s yet.</string>
-    <string name="live_exit_code">exit code %1$s</string>
     <string name="live_job_exited">Finished</string>
     <string name="live_job_failed">Failed</string>
     <string name="live_job_killed">Stopped</string>
     <string name="live_job_pending">Starting</string>
     <string name="live_job_running">Running</string>
-    <string name="live_jobs">Background jobs</string>
     <string name="live_loading">Loading…</string>
     <string name="live_menu">More options</string>
-    <string name="live_pane_agent">%1$s · %2$s</string>
-    <plurals name="live_pending_count">
-        <item quantity="one">Needs you (%1$d)</item>
-        <item quantity="other">Needs you (%1$d)</item>
-    </plurals>
     <string name="live_phone_write">Phone can type</string>
     <string name="live_read_only">Read-only</string>
     <plurals name="live_requests_badge">
@@ -143,16 +128,11 @@
     <string name="live_status_idle">Idle</string>
     <string name="live_status_interrupted">Stopped</string>
     <string name="live_status_running">Working</string>
-    <string name="live_tabs_requests">Requests</string>
-    <string name="live_tabs_tasks">Tasks</string>
-    <string name="live_tabs_terminals">Terminals</string>
-    <string name="live_tabs_threads">Conversations</string>
     <string name="more_choose_language">Choose language</string>
     <string name="more_connection">Connection</string>
     <string name="more_desktop">Computer</string>
     <string name="more_language">App language</string>
     <string name="more_language_hint">Choose a language for OXESpace only, in the system settings.</string>
-    <string name="more_title">More</string>
     <string name="more_version">Version %1$s</string>
     <string name="notify_channel_done">Finished</string>
     <string name="notify_channel_failed">Failed</string>
