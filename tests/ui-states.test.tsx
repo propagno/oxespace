@@ -17,6 +17,12 @@ describe('state primitives', () => {
     expect(retry).toHaveBeenCalledOnce()
   })
 
+  it('ErrorState can say how to fix it under the message, with a heading when it replaces a whole view', () => {
+    render(<ErrorState heading={2} title="Docker is not running" message="Cannot reach the Docker daemon."><p>Start Docker Desktop.</p></ErrorState>)
+    expect(screen.getByRole('heading', { level: 2, name: 'Docker is not running' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Start Docker Desktop.')
+  })
+
   it('Skeleton is announced once as loading and its bars are hidden from assistive technology', () => {
     render(<Skeleton lines={4} label="Loading branches" />)
     const status = screen.getByRole('status', { name: 'Loading branches' })
