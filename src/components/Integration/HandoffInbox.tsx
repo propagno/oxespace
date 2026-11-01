@@ -1,9 +1,11 @@
 import { Archive, CheckCircle2, Send } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { IntegrationGroup, IntegrationHandoff } from '../../../shared/types/integration'
 import { useIntegrationStore } from '../../store/integration.store'
 import { Button, EmptyState, Notice, Select, TextField, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { formatRelative } from '../../utils/formatTime'
 
 // One empty list for every group without handoffs: a fresh [] per read makes zustand 5 re-render forever.
 const NO_HANDOFFS: IntegrationHandoff[] = []
@@ -28,6 +30,7 @@ interface HandoffInboxProps {
  * and flips the row to 'saved' so it stops competing for attention.
  */
 export function HandoffInbox({ group, currentMemberId, onSelectMember }: HandoffInboxProps): ReactElement {
+  const { t } = useTranslation('code')
   const handoffs = useIntegrationStore((s) => s.handoffs[group.id] ?? NO_HANDOFFS)
   const loadHandoffs = useIntegrationStore((s) => s.loadHandoffs)
   const updateHandoff = useIntegrationStore((s) => s.updateHandoff)
@@ -79,7 +82,7 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
     setError(null)
     const target = memberById.get(handoff.toMemberId)
     if (!target?.paneId) {
-      setError(`Bind a pane to "${target?.role ?? 'recipient'}" before applying — the handoff has nowhere to go yet.`)
+      setError(t('integration.handoff.bindFirst', { role: target?.role ?? t('integration.handoff.recipientFallback') }))
       return
     }
     setApplyingId(handoff.id)
@@ -112,11 +115,11 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
     setError(null)
     setNotice(null)
     if (!currentMemberId) {
-      setError('Select the member that is sending this handoff before continuing.')
+      setError(t('integration.handoff.selectSender'))
       return
     }
     if (!targetMemberId || !content.trim()) {
-      setError('Choose a recipient and describe the work they need to continue.')
+      setError(t('integration.handoff.chooseRecipient'))
       return
     }
     const target = memberById.get(targetMemberId)
@@ -126,15 +129,15 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
         groupId: group.id,
         fromMemberId: currentMemberId,
         toMemberId: targetMemberId,
-        title: title.trim() || `Handoff for ${target?.role.toUpperCase() ?? 'member'}`,
+        title: title.trim() || t('integration.handoff.defaultTitle', { role: target?.role.toUpperCase() ?? t('integration.handoff.memberFallback') }),
         content: content.trim(),
         status: 'sent'
       })
       setTitle('')
       setContent('')
       setNotice(target?.paneId
-        ? `Handoff sent to ${target.alias}. It is ready to apply in the linked agent terminal.`
-        : `Handoff recorded for ${target?.alias ?? 'the recipient'}. Link an agent terminal before applying it.`)
+        ? t('integration.handoff.sent', { member: target.alias })
+        : t('integration.handoff.recorded', { member: target?.alias ?? t('integration.handoff.theRecipient') }))
     } catch (err) {
       setError(humanizeError(err))
     } finally {
@@ -159,7 +162,7 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
         />
         {error ? <Notice intent="danger">{error}</Notice> : null}
         {notice ? <div className="integration-notice" role="status">{notice}</div> : null}
-        <EmptyState compact title="No handoffs yet. Send a focused request to keep this delivery moving." />
+        <EmptyState compact title={t('integration.handoff.empty')} />
       </div>
     )
   }
@@ -201,7 +204,7 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
           onClick={() => setShowHistory((value) => !value)}
         >
           <Archive size={12} aria-hidden="true" />
-          {showHistory ? `Hide applied (${history.length})` : `Show applied (${history.length})`}
+          {showHistory ? t('integration.handoff.hideApplied', { count: history.length }) : t('integration.handoff.showApplied', { count: history.length })}
         </Button>
       ) : null}
       {showHistory ? (
@@ -239,37 +242,38 @@ interface HandoffComposerProps {
 }
 
 function HandoffComposer({ content, currentMemberId, isSending, onContentChange, onSend, onTargetChange, onTitleChange, recipients, targetMemberId, title }: HandoffComposerProps): ReactElement {
+  const { t } = useTranslation('code')
   const hasRecipients = recipients.length > 0
   return (
     <section className="integration-handoff-composer" aria-labelledby="handoff-composer-title">
       <div className="integration-handoff-composer-header">
         <div>
-          <strong id="handoff-composer-title">Send a handoff</strong>
-          <span>Give the next agent the decision, context and action they need.</span>
+          <strong id="handoff-composer-title">{t('integration.handoff.composerTitle')}</strong>
+          <span>{t('integration.handoff.composerHint')}</span>
         </div>
       </div>
-      {!currentMemberId ? <p className="integration-handoff-composer-hint">Select your workspace member above before sending a handoff.</p> : null}
-      {!hasRecipients ? <p className="integration-handoff-composer-hint">Add another workspace member before sending a handoff.</p> : null}
+      {!currentMemberId ? <p className="integration-handoff-composer-hint">{t('integration.handoff.selectMember')}</p> : null}
+      {!hasRecipients ? <p className="integration-handoff-composer-hint">{t('integration.handoff.addMember')}</p> : null}
       <div className="integration-handoff-composer-fields">
         <label className="integration-field">
-          <span>Recipient</span>
+          <span>{t('integration.handoff.recipient')}</span>
           <Select value={targetMemberId} onChange={(event) => onTargetChange(event.currentTarget.value)} disabled={!currentMemberId || !hasRecipients || isSending}>
-            {recipients.map((member) => <option key={member.id} value={member.id}>{member.role.toUpperCase()} · {member.alias}{member.paneId ? '' : ' — no agent linked'}</option>)}
+            {recipients.map((member) => <option key={member.id} value={member.id}>{member.role.toUpperCase()} · {member.alias}{member.paneId ? '' : ` — ${t('integration.handoff.noAgent')}`}</option>)}
           </Select>
         </label>
         <label className="integration-field">
-          <span>Subject</span>
-          <TextField value={title} onChange={(event) => onTitleChange(event.currentTarget.value)} placeholder="e.g. Validate the checkout contract" disabled={!currentMemberId || !hasRecipients || isSending} />
+          <span>{t('integration.handoff.subject')}</span>
+          <TextField value={title} onChange={(event) => onTitleChange(event.currentTarget.value)} placeholder={t('integration.handoff.subjectPlaceholder')} disabled={!currentMemberId || !hasRecipients || isSending} />
         </label>
       </div>
       <label className="integration-field">
-        <span>What should happen next?</span>
-        <TextArea value={content} onChange={(event) => onContentChange(event.currentTarget.value)} placeholder="Include the decision, relevant context and the next action." rows={3} disabled={!currentMemberId || !hasRecipients || isSending} />
+        <span>{t('integration.handoff.next')}</span>
+        <TextArea value={content} onChange={(event) => onContentChange(event.currentTarget.value)} placeholder={t('integration.handoff.nextPlaceholder')} rows={3} disabled={!currentMemberId || !hasRecipients || isSending} />
       </label>
       <div className="integration-handoff-composer-actions">
         <Button variant="primary" size="sm" onClick={onSend} disabled={!currentMemberId || !hasRecipients || !targetMemberId || !content.trim() || isSending}>
           <Send size={12} aria-hidden="true" />
-          {isSending ? 'Sending handoff…' : 'Send handoff'}
+          {isSending ? t('integration.handoff.sending') : t('integration.handoff.send')}
         </Button>
       </div>
     </section>
@@ -288,20 +292,21 @@ interface HandoffRowProps {
 }
 
 function HandoffRow({ handoff, fromMember, toMember, isCurrentRecipient, isApplying, isHistory, onApply, onFocusMember }: HandoffRowProps): ReactElement {
-  const fromLabel = fromMember ? `${fromMember.role}/${fromMember.alias}` : 'unknown'
-  const toLabel = toMember ? `${toMember.role}/${toMember.alias}` : 'unknown'
+  const { t } = useTranslation('code')
+  const fromLabel = fromMember ? `${fromMember.role}/${fromMember.alias}` : t('integration.handoff.unknown')
+  const toLabel = toMember ? `${toMember.role}/${toMember.alias}` : t('integration.handoff.unknown')
   const canApply = !isHistory && handoff.status === 'sent' && Boolean(toMember?.paneId)
   return (
     <article
       className={`integration-handoff-row status-${handoff.status}${isCurrentRecipient ? ' for-you' : ''}`}
-      aria-label={`Handoff from ${fromLabel} to ${toLabel}`}
+      aria-label={t('integration.handoff.label', { from: fromLabel, to: toLabel })}
     >
       <header className="integration-handoff-header">
         <button
           type="button"
           className="integration-handoff-pill"
           onClick={() => fromMember && onFocusMember(fromMember.id)}
-          title={`Focus ${fromLabel}`}
+          title={t('integration.handoff.focus', { member: fromLabel })}
         >
           {fromLabel}
         </button>
@@ -310,38 +315,30 @@ function HandoffRow({ handoff, fromMember, toMember, isCurrentRecipient, isApply
           type="button"
           className="integration-handoff-pill"
           onClick={() => toMember && onFocusMember(toMember.id)}
-          title={`Focus ${toLabel}`}
+          title={t('integration.handoff.focus', { member: toLabel })}
         >
           {toLabel}
         </button>
-        <span className="integration-handoff-status">{handoff.status}</span>
+        <span className="integration-handoff-status">{t(`integration.handoff.status.${handoff.status}`)}</span>
         <time className="integration-handoff-time">{formatRelative(handoff.createdAt)}</time>
       </header>
       {handoff.title ? <strong className="integration-handoff-title">{handoff.title}</strong> : null}
       <pre className="integration-handoff-body">{handoff.content}</pre>
       <footer className="integration-handoff-actions">
         {isHistory ? (
-          <Button variant="ghost" size="sm" onClick={onApply} title="Mark as active again so it shows on top">
+          <Button variant="ghost" size="sm" onClick={onApply} title={t('integration.handoff.reopenTitle')}>
             <Send size={12} aria-hidden="true" />
-            Re-open
+            {t('integration.handoff.reopen')}
           </Button>
         ) : canApply ? (
           <Button variant="primary" size="sm" disabled={isApplying} onClick={onApply}>
             <CheckCircle2 size={12} aria-hidden="true" />
-            {isApplying ? 'Applying…' : 'Apply to agent'}
+            {isApplying ? t('integration.handoff.applying') : t('integration.handoff.apply')}
           </Button>
         ) : !isHistory && handoff.status === 'sent' && !toMember?.paneId ? (
-          <span className="integration-handoff-hint">Bind a pane to {toLabel} to apply.</span>
+          <span className="integration-handoff-hint">{t('integration.handoff.bindToApply', { member: toLabel })}</span>
         ) : null}
       </footer>
     </article>
   )
-}
-
-function formatRelative(createdAtMs: number): string {
-  const diff = Date.now() - createdAtMs
-  if (diff < 60_000) return 'just now'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
-  return `${Math.floor(diff / 86_400_000)}d ago`
 }

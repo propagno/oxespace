@@ -68,7 +68,9 @@ import { registerBrowserPreviewIpc } from './services/browser-preview.service'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 import { redactLogMessage } from './services/log-redaction'
+import { installIpcSenderGuard, trustAppWindow } from './ipc/ipc-sender-guard'
 
+installIpcSenderGuard() // B12: before any channel exists (markAppReady registers one ahead of registerIpcHandlers)
 log.initialize()
 log.transports.file.maxSize = 512 * 1024
 log.hooks.push(redactLogMessage)
@@ -221,7 +223,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const terminalManager: TerminalManager = new TerminalManager(db, {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     observer: agentState,
-    resumeSession: (paneId, wanted) => paneAgentSessions.take(paneId, wanted),
+    resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'), clearSession: paneId => paneAgentSessions.clear(paneId), currentSession: paneId => paneAgentSessions.current(paneId),
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
@@ -275,11 +277,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   // not inflate the main entry or block startup parsing.
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
-    { registerLinearIpc }, { registerIntegrationIpc },
+    { registerLinearIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
     { GitHubService }, { GitService }, { CodeGraphService }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
-    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
+    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
   ])
   const gitService = registerGitIpc()
@@ -311,7 +313,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     log.warn('Automations unavailable', error)
   }
   const linearService = registerLinearIpc(db, gitHubService)
-  registerIntegrationIpc(db)
+  registerIntegrationIpc(db); registerRemoteIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
@@ -376,7 +378,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
-  app.once('before-quit', registerAppInfoIpc())
+  app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()
@@ -749,7 +751,7 @@ function createMainWindow(): BrowserWindow {
     ? { titleBarStyle: 'hiddenInset' }
     : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: initialWindowColors().symbols, height: 36 } }
 
-  const mainWindow = new BrowserWindow({
+  const mainWindow = trustAppWindow(new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 960,
@@ -767,14 +769,13 @@ function createMainWindow(): BrowserWindow {
       // remains compatible with Chromium's renderer sandbox. Native PTY/SQLite
       // stay exclusively in the main process behind validated IPC handlers.
       sandbox: true,
-      // Design Mode (#3) needs a <webview> — an iframe cannot be scripted cross-origin, so element
-      // picking is impossible there. Every attach is vetted by the will-attach-webview handler below.
-      webviewTag: true,
+      // No <webview> (B12): the Browser preview and Design Mode run in a main-process WebContentsView.
+      webviewTag: false, // the will-attach-webview handler below stays as a backstop
       zoomFactor: savedUiScale(),
       // A sandboxed preload cannot ask app.getLocale(), so the default interface language travels as an argument.
       additionalArguments: [`--oxe-locale=${systemLocale()}`]
     }
-  })
+  }))
 
   if (process.platform !== 'darwin') mainWindow.setMenuBarVisibility(false)
 
@@ -802,9 +803,8 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
-  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe: its guest carries the same restrictions explicitly, in
-  // its own in-memory partition, which also keeps preview cookies and storage out of the app's session.
-
+  // The <webview> guest carries the old sandboxed iframe's restrictions explicitly (they are not defaults), in its
+  // own in-memory partition. It is not trusted by the IPC sender guard: no channel answers it.
   // A guest must not be able to spawn windows; external links go to the OS browser.
   mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
     securePreviewGuest(guestWebContents)

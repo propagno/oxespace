@@ -2,9 +2,9 @@ import { expect, test, type ElectronApplication, type Locator, type Page } from 
 import { launchApp, setAppearance } from './helpers/launch'
 
 /**
- * F13 · Sections in the conversation list. Until the sections contract lands in the main process the list keeps
- * them in the renderer (localStorage), so this drives the same flows the real API will serve: create, move by menu
- * and by drag, collapse, rename, reorder by menu, delete, and everything survives a reload.
+ * F13 · Sections in the conversation list, against the E2E double of main's sections store (same shared validator):
+ * create, move by menu and by drag, collapse, rename, reorder by menu, delete, and everything survives a reload.
+ * thread-sections-restart.spec.ts runs main for real across a restart.
  */
 const SHOTS = 'e2e/screenshots/thread-sections'
 const TITLES = ['Alpha plan', 'Bravo review', 'Charlie notes', 'Delta spike']

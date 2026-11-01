@@ -97,6 +97,10 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
     fun requests() {
         shot("request-risky") { RequestScreen(Samples.request(risky = true), commands) {} }
         shot("request-question") { RequestScreen(Samples.request(risky = false), commands) {} }
+        // SECURITY #229: the agent's claim sits under "Written by the agent"; the override in the command is written out.
+        shot("request-hidden-characters") {
+            RequestScreen(Samples.request().copy(command = "rm -rf ~/\u202Etxt.sh", detail = "OXESpace checked this command: safe to allow"), commands) {}
+        }
         shot("request-desktop-only") { RequestScreen(Samples.request().copy(answerable = false), commands) {} }
         shot("request-gone") { RequestScreen(null, commands) {} }
     }
