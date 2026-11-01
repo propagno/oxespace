@@ -20,6 +20,8 @@ import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
 const resolvedExecutableCache = new Map<string, string>()
+/** What the system ConPTY wrote first: clear, reset attributes, home. The bundled one writes none of it (B13). */
+export const CONPTY_START_SCREEN = '\x1b[2J\x1b[m\x1b[H'
 
 interface PtyModule {
   spawn(file: string, args: string[], options: IPtyForkOptions | IWindowsPtyForkOptions): IPty
@@ -380,6 +382,10 @@ export class TerminalManager {
       activityNotifiedAt: 0
     })
 
+    // The bundled ConPTY (useConptyDll) never clears the screen on start, unlike the system one (ESC[2J ESC[m ESC[H),
+    // yet positions absolutely from row 1. The view may already hold a line ("Idle"), so the first screen landed one row
+    // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
+    if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : input.agentCommand ?? executable)
     ptyProcess.onData((data) => {
       this.sessions.get(input.paneId)?.outputBatcher.push(data)
