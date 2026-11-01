@@ -126,3 +126,5 @@ off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+
 
 - The limits listed in [1.3.0](1.3.0.md) still apply unless a section above says otherwise.
 <!-- fill from the guide pages' "Known limits" at the cut. -->
+<!-- add when B13 (#374) merges: "**On Windows, a graphical program used as a pane's command shows as exited right
+away.** Run it from the pane's shell instead. Shells, Claude Code and Codex are not affected." -->
