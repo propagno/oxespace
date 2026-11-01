@@ -104,7 +104,7 @@ test('Conversation details shows the session, compacts, and reorders its section
     for (const [name, tokens] of [['Messages', '36k'], ['Tools', '12k'], ['MCP', '9k'], ['System', '4k'], ['Skills', '2k'], ['Free', '103k'], ['Reserved for compaction', '33k']]) {
       await expect(breakdown.getByRole('row', { name: new RegExp(`^${name} ${tokens} `) })).toBeVisible()
     }
-    await expect(panel.getByText('Estimated cost so far: US$ 0.75 in 2 turns.')).toBeVisible()
+    await expect(panel.getByText('Reported cost so far: US$ 0.75 in 2 turns.')).toBeVisible()
 
     // Environment, tools and MCP, outputs and background work.
     const environment = panel.getByRole('region', { name: 'Environment' })
