@@ -17,7 +17,6 @@ import { app, ipcMain, powerMonitor, type BrowserWindow, type IpcMainInvokeEvent
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import { CloseGuard, parseCloseAnswerInput } from './services/close-guard'
 import { recordIncident } from './services/diagnostics/incident-sink'
-import { requireAppFrame } from './ipc/ipc-guards'
 
 let guard: CloseGuard | null = null
 let target: BrowserWindow | null = null
@@ -87,7 +86,6 @@ function createGuard(): CloseGuard {
   gateBeforeQuit(app, () => created.intercept('quit'), () => created.failOpen())
   try { powerMonitor.on('shutdown', () => { created.bypass() }) } catch { /* not available before ready, or on this OS */ }
   ipcMain.handle(IPC_CHANNELS.app.closeAnswer, (event: IpcMainInvokeEvent, input: unknown) => {
-    requireAppFrame(event, 'Close answer')
     if (!target || target.isDestroyed() || event.sender !== target.webContents) throw new Error('Close answer requires the main window')
     created.answer(parseCloseAnswerInput(input))
   })
