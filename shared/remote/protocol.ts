@@ -475,8 +475,12 @@ export interface RemotePendingRequest {
   toolName?: string
   /** Files it would write, relative to the project root. */
   paths?: string[]
-  /** The desktop's risk colour and notes for this request. */
-  risk?: 'green' | 'orange' | 'red'
+  /**
+   * The desktop's risk for this request, in the same four words the desktop's approval modal shows (CCR #364). Main
+   * fills it from riskFromShell / riskFromSql / the tool's declaration. A phone that reads an unknown value treats it
+   * as `critical` (Deny leading), as REMOTE_UNKNOWN_VALUES says (#354), so a later level needs no protocol bump.
+   */
+  risk?: 'low' | 'medium' | 'high' | 'critical'
   warnings?: string[]
   /** Values the redactor replaced in `command` and `warnings`. */
   redacted?: number
@@ -493,6 +497,13 @@ export interface RemotePendingRequest {
   expiresAt?: number
 }
 export interface RemotePendingRequestsData { requests: RemotePendingRequest[] }
+
+/**
+ * The four risk words of the desktop's approval modal (`APPROVAL_RISKS`), the one list the phone's risk fields use
+ * (pending requests here, agent rows in S7.1). A test keeps it equal to the desktop's list and to the field above.
+ */
+export const REMOTE_APPROVAL_RISKS = ['low', 'medium', 'high', 'critical'] as const
+export type RemoteApprovalRisk = typeof REMOTE_APPROVAL_RISKS[number]
 
 // ---- terminal: read-only (target = pane id) -----------------------------------------------------------------------
 /** Snapshot: what the ring keeps, in pages of `terminalChunk`. Event: what came after. ANSI escapes as is. */
