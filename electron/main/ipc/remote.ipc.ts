@@ -6,10 +6,9 @@ import type { RemoteChange } from '../../../shared/types/remote'
 import type { RemoteAgentStateHost, RemoteTerminalHost, RemoteThreadHost } from '../services/remote/desktop'
 import type { RemoteGateway } from '../services/remote/gateway'
 import { parseNoInput } from '../services/remote/inputs'
-import { requireAppFrame } from './ipc-guards'
 
 /**
- * Settings › Devices (B9). Every channel is the person's own action, accepted only from the app's main frame; none is
+ * Settings › Devices (B9). Every channel is the person's own action, accepted only from the app's main frame (the IPC sender guard); none is
  * an MCP tool. The gateway module loads on the first call, so a person who never opens Settings › Devices never loads
  * it, and it starts off on every launch. `hosts` are what phones may watch and do (M4, M5); the gateway gets only
  * the narrow view of them in `services/remote/desktop`.
@@ -24,8 +23,7 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
   const load = () => gateway ??= Promise.all([import('../services/remote/gateway'), import('../services/remote/desktop'), hosts?.threads]).then(([{ RemoteGateway }, { createRemoteDesktop }, threads]) =>
     new RemoteGateway({ db, storage: safeStorage, broadcast, pairingFailed, ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState }) } : {}) }))
   const handle = (channel: string, run: (gateway: RemoteGateway, input: unknown) => unknown) => {
-    ipcMain.handle(channel, async (event: IpcMainInvokeEvent, input: unknown) => {
-      requireAppFrame(event, 'Remote devices')
+    ipcMain.handle(channel, async (_event: IpcMainInvokeEvent, input: unknown) => {
       return run(await load(), input)
     })
   }

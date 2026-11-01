@@ -12,7 +12,12 @@
       "connected": "Conectado a {{desktop}}",
       "unreachable": "Não deu para falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com o acesso pelo celular ligado.",
       "incompatible": "{{desktop}} usa outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
-      "notAccepted": "{{desktop}} não aceita mais este celular. Despareie e pareie de novo."
+      "notAccepted": "{{desktop}} não aceita mais este celular. Despareie e pareie de novo.",
+      "reconnecting": "A conexão com {{desktop}} caiu. Reconectando…",
+      "offNetwork": "Este celular não está na Wi-Fi. {{desktop}} só é alcançável na mesma rede Wi-Fi; reconecta quando você voltar.",
+      "retryIn_one": "Tentando de novo em {{count}} segundo.",
+      "retryIn_many": "Tentando de novo em {{count}} segundos.",
+      "retryIn_other": "Tentando de novo em {{count}} segundos."
     },
     "revoked": "{{desktop}} removeu este celular. Pareie de novo para reconectar.",
     "retry": "Tentar de novo",
@@ -211,5 +216,23 @@
     "noScreenLock": "Defina um bloqueio de tela neste celular para enviar por ele. Nada foi enviado.",
     "confirm": "Confirmar que sou eu",
     "locked": "Confirme que é você antes de digitar neste terminal."
+  },
+  "notify": {
+    "channel": {
+      "session": "Conexão com o computador",
+      "needsYou": "Precisa de você",
+      "done": "Concluído",
+      "failed": "Falhou"
+    },
+    "needsYou": "Precisa de você: {{title}}",
+    "done": "Concluído: {{title}}",
+    "failed": "Falhou: {{title}}",
+    "disconnect": "Desconectar",
+    "session": {
+      "connected": "Conectado a {{desktop}}",
+      "reconnecting": "Reconectando a {{desktop}}…",
+      "offNetwork": "Esperando a Wi-Fi para falar com {{desktop}}",
+      "stopped": "Não deu para manter a conexão com {{desktop}}. Abra o app."
+    }
   }
 }

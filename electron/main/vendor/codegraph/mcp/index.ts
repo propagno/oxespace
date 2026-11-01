@@ -163,6 +163,9 @@ function resolveDaemonRoot(explicitPath: string | null): string | null {
  * launcher proxies through the single winner.
  */
 function spawnDetachedDaemon(root: string): void {
+  // OXESpace (B13): inside Electron, process.execPath is the app, which the RunAsNode fuse keeps from running as
+  // Node. Throwing makes the caller fall back to direct mode, as for any daemon that cannot start.
+  if (process.versions.electron) throw new Error('the CodeGraph daemon does not run inside Electron');
   const scriptPath = process.argv[1];
   if (!scriptPath) {
     // No resolvable CLI entry point to re-invoke — let the caller fall back to

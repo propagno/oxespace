@@ -30,6 +30,12 @@
     <string name="home_status_connecting">Connecting to %1$s…</string>
     <string name="home_status_incompatible">%1$s uses a different version of OXESpace. Update the app or OXESpace on your computer.</string>
     <string name="home_status_not_accepted">%1$s no longer accepts this phone. Unpair, then pair again.</string>
+    <string name="home_status_off_network">This phone isn\'t on Wi-Fi. %1$s can only be reached on the same Wi-Fi network; it reconnects when you\'re back.</string>
+    <string name="home_status_reconnecting">Connection to %1$s lost. Reconnecting…</string>
+    <plurals name="home_status_retry_in">
+        <item quantity="one">Trying again in %1$d second.</item>
+        <item quantity="other">Trying again in %1$d seconds.</item>
+    </plurals>
     <string name="home_status_unreachable">Can\'t reach %1$s. Check that it\'s on, on the same Wi-Fi, and that access from the phone is turned on.</string>
     <string name="home_title">Your desktop, in your pocket</string>
     <string name="home_unknown_desktop">your computer</string>
@@ -74,6 +80,18 @@
     <string name="live_tabs_tasks">Tasks</string>
     <string name="live_tabs_terminals">Terminals</string>
     <string name="live_tabs_threads">Conversations</string>
+    <string name="notify_channel_done">Finished</string>
+    <string name="notify_channel_failed">Failed</string>
+    <string name="notify_channel_needs_you">Needs you</string>
+    <string name="notify_channel_session">Connection to your computer</string>
+    <string name="notify_disconnect">Disconnect</string>
+    <string name="notify_done">Finished: %1$s</string>
+    <string name="notify_failed">Failed: %1$s</string>
+    <string name="notify_needs_you">Needs you: %1$s</string>
+    <string name="notify_session_connected">Connected to %1$s</string>
+    <string name="notify_session_off_network">Waiting for Wi-Fi to reach %1$s</string>
+    <string name="notify_session_reconnecting">Reconnecting to %1$s…</string>
+    <string name="notify_session_stopped">Can\'t stay connected to %1$s. Open the app.</string>
     <string name="pairing_allow_camera">Allow camera</string>
     <string name="pairing_bad_code_malformed">This code can\'t be read. Show a new one on your computer and try again.</string>
     <string name="pairing_bad_code_not_pairing">That isn\'t an OXESpace pairing code. Point the camera at the code in Settings › Devices.</string>
