@@ -37,6 +37,16 @@ test('dividers and the file tree work without dragging', async () => {
     await expect(sidebarMenu).toHaveCount(0)
     await expect(sidebar).toHaveAttribute('aria-valuenow', '280')
     await expect(sidebar).toBeFocused()
+    // The keyboard opens it like the grid dividers below: Space and Shift+F10 (a contextmenu event on Linux).
+    for (const key of ['Space', 'Shift+F10']) {
+      await sidebar.focus()
+      await page.keyboard.press(key)
+      await expect(sidebarMenu).toBeVisible()
+      await expect(sidebarMenu.getByRole('menuitem').first()).toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(sidebarMenu).toHaveCount(0)
+      await expect(sidebar).toBeFocused()
+    }
 
     // A divider of the pane grid moves with its menu.
     const divider = page.getByTestId('split-resize-handle').first()
@@ -48,6 +58,9 @@ test('dividers and the file tree work without dragging', async () => {
     await dividerMenu.getByRole('menuitem').last().click()
     await expect.poll(() => divider.evaluate(element => (element as HTMLElement).style.left + (element as HTMLElement).style.top)).not.toBe(left)
     await page.keyboard.press('Escape')
+    // Closed for good before the keyboard round, so its focus hand-back cannot meet the next menu.
+    await expect(dividerMenu).toHaveCount(0)
+    await expect(divider).toBeFocused()
     // The same menu from the keyboard: Space and Shift+F10, like the other dividers; Escape gives focus back.
     // (On Linux, Chromium turns Shift+F10 into a contextmenu event; the divider opens its menu from that too.)
     for (const key of ['Space', 'Shift+F10']) {
@@ -55,6 +68,8 @@ test('dividers and the file tree work without dragging', async () => {
       await expect(divider).toBeFocused()
       await page.keyboard.press(key)
       await expect(dividerMenu).toBeVisible()
+      // A menu a keyboard user can walk: its first item holds the focus, also after the earlier menu's focus hand-back.
+      await expect(dividerMenu.getByRole('menuitem').first()).toBeFocused()
       await page.keyboard.press('Escape')
       await expect(dividerMenu).toHaveCount(0)
     }

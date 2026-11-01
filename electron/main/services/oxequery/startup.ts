@@ -19,7 +19,7 @@ export interface OxeQueryHandle {
  */
 export async function startOxeQuery(db: AppDatabase, pod: () => Promise<OxePodSeam>): Promise<OxeQueryHandle> {
   try {
-    const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { createSecretCipher }, pickers, { nativeApprovalPrompter }] = await Promise.all([
+    const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { createSecretCipher }, pickers, { appApprovalPrompter }] = await Promise.all([
       import('./service'), import('./worker-client'), import('../../ipc/oxequery.ipc'), import('./secret-cipher'), import('./file-picker'), import('../agent-actions/approval-prompter')
     ])
     const oxeQuery = new OxeQueryService({
@@ -27,7 +27,7 @@ export async function startOxeQuery(db: AppDatabase, pod: () => Promise<OxePodSe
       cipher: createSecretCipher(safeStorage),
       worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js'), undefined, detail => log.error('OxeQuery worker failed', detail)),
       pickFile: pickers.pickCredentialFile, pickSavePath: pickers.pickExportPath, pickImportPath: pickers.pickImportPath,
-      approvalPrompter: nativeApprovalPrompter
+      approvalPrompter: appApprovalPrompter
     })
     registerOxeQueryIpc(oxeQuery)
     app.once('before-quit', () => { void oxeQuery.dispose() })

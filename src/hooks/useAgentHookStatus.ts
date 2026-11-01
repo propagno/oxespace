@@ -22,9 +22,9 @@ export function useAgentHookStatus(): void {
     })
     // Lifecycle state read in the main process from hooks and the screen; it outranks the hook-only and timing guesses.
     const unsubscribeState = window.oxe?.agentState?.onChanged?.((event) => {
-      useTerminalStore.getState().setAgentState(event.paneId, 'cleared' in event ? null : event.state)
+      useTerminalStore.getState().setAgentState(event.paneId, 'cleared' in event ? null : event.state, 'cleared' in event ? null : event.source)
     })
-    void window.oxe?.agentState?.list?.().then(states => { for (const state of states ?? []) useTerminalStore.getState().setAgentState(state.paneId, state.state) }).catch(() => undefined)
+    void window.oxe?.agentState?.list?.().then(states => { for (const state of states ?? []) useTerminalStore.getState().setAgentState(state.paneId, state.state, state.source) }).catch(() => undefined)
     // A pane an agent opened or closed through OXESpace's MCP tools.
     const unsubscribeWorkspace = window.oxe?.workspace?.onChanged?.((workspace) => useWorkspaceStore.getState().applyWorkspace(workspace))
     return () => { unsubscribe?.(); unsubscribeLocation?.(); unsubscribeState?.(); unsubscribeWorkspace?.() }

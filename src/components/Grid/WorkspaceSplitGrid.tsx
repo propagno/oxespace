@@ -222,7 +222,7 @@ export function WorkspaceSplitGrid({
             data-compact-active={pane.id === (activePaneId ?? rects[0]?.paneId) ? 'true' : undefined}
             style={style}
           >
-            <ErrorBoundary compact label={i18n.t('pane.boundary', { ns: 'code' })}>
+            <ErrorBoundary id="pane" compact label={i18n.t('pane.boundary', { ns: 'code' })}>
               <PaneContainer
                 pane={pane}
                 workspace={workspace}
@@ -308,9 +308,10 @@ export function WorkspaceSplitGrid({
               <AnchoredMenu open={dividerMenu === handleKey(h)} onOpenChange={open => setDividerMenu(open ? handleKey(h) : null)} side={horizontal ? 'right' : 'bottom'}
                 label={i18n.t(horizontal ? 'ui.divider.columns' : 'ui.divider.rows')}
                 returnFocus={() => document.querySelector<HTMLElement>(`[data-divider="${handleKey(h)}"]`)}
+                // A choice closes the menu and focus goes back to the divider, whose arrow keys keep resizing.
                 items={[
-                  { label: i18n.t(horizontal ? 'ui.divider.left' : 'ui.divider.up'), onSelect: () => onResize(h.path, h.index, -5), keepOpen: true },
-                  { label: i18n.t(horizontal ? 'ui.divider.right' : 'ui.divider.down'), onSelect: () => onResize(h.path, h.index, 5), keepOpen: true }
+                  { label: i18n.t(horizontal ? 'ui.divider.left' : 'ui.divider.up'), onSelect: () => onResize(h.path, h.index, -5) },
+                  { label: i18n.t(horizontal ? 'ui.divider.right' : 'ui.divider.down'), onSelect: () => onResize(h.path, h.index, 5) }
                 ]} />
             </div>
           )

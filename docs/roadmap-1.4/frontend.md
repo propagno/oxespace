@@ -161,4 +161,3 @@ Dono de `src/**`, `shared/locales/**`, `e2e/visual/**`, `docs/design/**` e `mobi
 
 ### F10 (extensão) · Aprovação por ferramenta
 - Em cada grupo e servidor MCP, cada ferramenta com permitir / pedir aprovação / bloquear (B7.3).
-

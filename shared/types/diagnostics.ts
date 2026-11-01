@@ -100,11 +100,21 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.ipc.validationRejected': 'ipc',
   'incident.agent.startFailed': 'agent',
   'incident.mcp.quarantined': 'mcp',
+  'incident.mcp.toolGroupOff': 'mcp',
   'incident.database.busy': 'database',
   'incident.oxequery.timeout': 'oxequery',
+  'incident.oxequery.restartDeferred': 'oxequery',
   'incident.updater.failed': 'updater',
   'incident.interaction.overBudget': 'interaction',
-  'incident.app.journalReset': 'app'
+  'incident.app.journalReset': 'app',
+  'incident.app.closeUnanswered': 'app',
+  'incident.app.closeRendererGone': 'app',
+  'incident.app.closeGuardFailed': 'app',
+  'incident.window.externalRefused': 'window',
+  'incident.window.externalRateLimited': 'window',
+  'incident.window.externalOpenFailed': 'window',
+  'incident.window.openDenied': 'window',
+  'incident.window.navigationDenied': 'window'
 } as const satisfies Record<string, DiagnosticsArea>
 export type DiagnosticsIncidentCode = keyof typeof DIAGNOSTICS_INCIDENT_CODES
 

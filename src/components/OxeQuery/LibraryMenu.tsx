@@ -44,7 +44,7 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
       const created = await oq('library.save', { connectionId: connection.id, name, sql: currentSql })
       setSaved(current => [...current.filter(item => item.id !== created.id), created].sort((a, b) => a.name.localeCompare(b.name)))
       setName(''); setError('')
-      toast({ title: t('library.saved'), description: created.name, intent: 'success', duration: 2500 })
+      toast({ title: t('library.saved'), description: created.name, intent: 'success' })
     } catch (cause) { setError(errorMessage(cause)) }
   }
   const remove = async (id: string): Promise<void> => {
