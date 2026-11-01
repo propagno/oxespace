@@ -1,9 +1,10 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { RendererRecoveryPolicy } from './renderer-recovery'
+import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
@@ -14,6 +15,7 @@ import { pathToFileURL } from 'node:url'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
+import { registerMcpToolsIpc } from './ipc/mcp-tools.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
@@ -90,13 +92,10 @@ process.on('uncaughtException', (error) => {
   // The app keeps running, but its state is no longer known: say so once, and offer a clean restart.
   if (unexpectedErrorShown || !app.isReady() || !app.isPackaged) return
   unexpectedErrorShown = true
-  const window = BrowserWindow.getAllWindows()[0]
-  const options: Electron.MessageBoxOptions = {
-    type: 'error', title: tMain('crash.unexpected.title'), message: tMain('crash.unexpected.message'), detail: tMain('crash.unexpected.detail'),
-    buttons: [tMain('crash.unexpected.restart'), tMain('crash.unexpected.keepWorking')], defaultId: 0, cancelId: 1, noLink: true }
-  void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options) // icon, or none
-    .then(shown => window ? dialog.showMessageBox(window, shown) : dialog.showMessageBox(shown))
-    .then(({ response }) => { if (response === 0) { app.relaunch(); app.quit() } }).catch(() => {})
+  // B10: the app's modal when a window acknowledges it within 3 s; the system dialog otherwise (the window may be what broke).
+  void Promise.all([import('./services/approvals'), import('./services/approvals/drafts')])
+    .then(([{ approvalCenter }, { crashDraft }]) => approvalCenter.ask(crashDraft()))
+    .then(outcome => { if (outcome.intent === 'allow') { app.relaunch(); app.quit() } }).catch(() => {})
 })
 process.on('unhandledRejection', (reason) => {
   log.error('[main] unhandledRejection', reason)
@@ -276,11 +275,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   // not inflate the main entry or block startup parsing.
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
-    { registerLinearIpc }, { registerIntegrationIpc },
+    { registerLinearIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
     { GitHubService }, { GitService }, { CodeGraphService }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
-    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
+    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
   ])
   const gitService = registerGitIpc()
@@ -312,7 +311,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     log.warn('Automations unavailable', error)
   }
   const linearService = registerLinearIpc(db, gitHubService)
-  registerIntegrationIpc(db)
+  registerIntegrationIpc(db); registerRemoteIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
@@ -377,12 +376,13 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
-  app.once('before-quit', registerAppInfoIpc())
+  app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()
   const oxeService = registerOxeIpc()
   const fileSystemService = registerFileSystemIpc(db)
+  registerMcpToolsIpc(db, fileSystemService)
   // Internal oxespace MCP server — auto-starts on app boot, registers a
   // global row in mcp_servers, syncs to every workspace's .mcp.json. The
   // bridge script lives under <userData>/bin/ and is spawned by each
@@ -439,6 +439,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   app.on('before-quit', () => teamDelivery.stop())
   registerTeamIpc(db, teamAccess)
 
+  // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
+  const approvals = await import('./services/approvals/wiring')
+  approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
     delegation: delegationService, executions, team: teamAccess,
@@ -453,7 +456,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     app: {
       github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
       terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService,
-      notify: (title, body) => { if (!Notification.isSupported()) return false; new Notification({ title, body, silent: false }).show(); return true },
+      notify: approvals.showAgentNotice,
       agents: {
         state: agentState, terminal: terminalManager, profiles: () => delegationAgents.list(), resolve: id => launcher.resolve(id),
         mcpArgs: provider => agentMcpArguments(provider, join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs')),
@@ -799,10 +802,8 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
-  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe, so its guest has
-  // to carry the same restrictions explicitly — they are not defaults. The guest
-  // runs in its own in-memory partition, which also keeps preview cookies and
-  // storage out of the app's session.
+  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe: its guest carries the same restrictions explicitly, in
+  // its own in-memory partition, which also keeps preview cookies and storage out of the app's session.
 
   // A guest must not be able to spawn windows; external links go to the OS browser.
   mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
@@ -828,6 +829,7 @@ function createMainWindow(): BrowserWindow {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
   })
+  installCloseGuard(mainWindow) // F26: ask the window before it closes or the app quits
 
   // Relax frame-blocking headers only for loopback development servers. Remote
   // sites retain their X-Frame-Options/frame-ancestors policy even when the user

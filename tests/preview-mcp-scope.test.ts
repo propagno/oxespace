@@ -84,7 +84,7 @@ describe('Web Preview URL level (B15)', () => {
     const broker = approvals()
     ctx.agentActions = broker.actions
     await open(ctx, 'https://evil.example/login')
-    expect(broker.asked[0]?.reasons[0]).toMatch(/not on localhost/)
+    expect(broker.asked[0]?.notes).toContainEqual(expect.objectContaining({ code: 'approvals.note.preview.notLocal' }))
     broker.answer('deny')
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(reply(await open(ctx, 'https://evil.example/login')).code).toBe('denied')
@@ -100,12 +100,26 @@ describe('Web Preview URL level (B15)', () => {
     expect(emitPreview).toHaveBeenCalledTimes(4)
   })
 
-  test.each(['http://localhost.evil.com', 'http://127.0.0.1@evil.com', 'http://[::ffff:7f00:1]', 'http://2130706433', 'http://0177.0.0.1', 'http://LOCALHOST:5173'])('%s is treated as external', async url => {
+  test.each(['http://localhost.evil.com', 'http://[::ffff:7f00:1]', 'http://2130706433', 'http://0177.0.0.1', 'http://LOCALHOST:5173'])('%s is treated as external', async url => {
     const { ctx, emitPreview } = context({ kind: 'thread', id: 'thread-a' }, 'thread:project-a', false)
     const broker = approvals()
     ctx.agentActions = broker.actions
     expect(reply(await open(ctx, url)).code).toBe('approval-pending')
     expect(broker.asked).toHaveLength(1)
+    expect(emitPreview).not.toHaveBeenCalled()
+  })
+
+  test.each(['http://localhost@evil.example/', 'http://user:pass@localhost:3000', 'http://127.0.0.1@evil.com'])('%s carries credentials: refused, never shown in an approval', async url => {
+    const { ctx, emitPreview } = context({ kind: 'thread', id: 'thread-a' }, 'thread:project-a', false)
+    const broker = approvals()
+    ctx.agentActions = broker.actions
+    const result = await open(ctx, url)
+    expect(result.isError).toBe(true)
+    // The reply never echoes the URL, so neither the user name nor the password reaches the agent's transcript again.
+    expect(JSON.stringify(result)).not.toContain(url)
+    expect(JSON.stringify(result)).not.toContain('@')
+    expect(JSON.stringify(result)).not.toContain('user:pass')
+    expect(broker.asked).toHaveLength(0)
     expect(emitPreview).not.toHaveBeenCalled()
   })
 
