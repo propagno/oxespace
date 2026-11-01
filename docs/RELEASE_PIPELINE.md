@@ -210,8 +210,11 @@ unchanged. `2` or `3` makes the train test up to that many consecutive cars toge
    merges API). A conflict at car *i* ends the batch at cars 1..*i*-1, and car *i* waits. A tip commit with the
    same tree carries the manifest (base, cars, heads).
 3. **Test.** It dispatches every gate the batch's paths need, from one table that a test keeps equal to the
-   workflow files: `ci.yml` always (it runs memory compatibility too), and axe, Android and Provider contract
-   when their path filters match. Green means all of them passed on the tip, latest attempt. A run counts only
+   workflow files: `ci.yml` always (it runs memory compatibility too), and axe and Android when their path
+   filters match. Provider contract is in the table but never dispatched: its report job publishes
+   `compatibility.json` and edits an issue, so a car that touches the probes is not batched, and v1 counts its
+   own pull request's check. That workflow publishes only on its nightly schedule or a manual run on main. The
+   train dispatches only what v1's allowlist (`DISPATCHABLE_WORKFLOWS`) holds. Green means all of them passed on the tip, latest attempt. A run counts only
    when the train started it: a `workflow_dispatch` by `github-actions[bot]` on that ref and commit, titled
    exactly `Full check · <ref>` for `ci.yml`, or the workflow's name for the others. A person's dispatch, a
    branch override, a publish or a packaged smoke never counts. A dispatched `ci.yml` builds the commit the
@@ -222,8 +225,9 @@ unchanged. `2` or `3` makes the train test up to that many consecutive cars toge
    point at it; a ref moved in between stops the batch. The manifest's choice of cars is also a claim: the
    train plans again on the live queue (labeller roles, migrations, generators, gate cars, queue order) and
    requires exactly those cars, and for a fallback that its car is the head of the queue and its rest an
-   ordered part of it. A batch's age comes from the train run that built it, and the timeout is only looked at
-   after these checks.
+   ordered part of it. A batch's age runs from the later of the train run that built it (named in the
+   manifest) and its tip commit's date, so naming an old run cannot time a fresh batch out; a tip dated in the
+   future aborts the batch. The timeout is only looked at after these checks.
 5. **Merge (R6).** Car by car, with the pull request merge API pinned to the tested head. Before each merge it
    checks again that the car is open, still labelled, not a draft, has no changes requested and is still on
    the tested head, and that main is still where the last merge left it. After each merge it checks that main's
@@ -259,6 +263,11 @@ unchanged. `2` or `3` makes the train test up to that many consecutive cars toge
    **Accepted (L7):** a writer can abort the batch in flight by creating a second batch ref, and a red or
    cancelled train-dispatched main run pauses batching. Both need write access, and both fail safe (nothing
    merges).
+
+   **Accepted (L1 residual):** the `merge-train` status is not proof of the train: any workflow of a writer that
+   runs with `statuses: write` posts as `github-actions[bot]` too, so it could post `success` and lift a
+   stop-the-line pause early. A red completed main CI run still pauses the train, and the status is never a
+   required check.
 
 **Rollout, with the ARCHITECT's gates.**
 1. **Shadow:** `MERGE_TRAIN_BATCH=1` with `MERGE_TRAIN_BATCH_SHADOW=1`. The train builds and tests the batch it

@@ -90,6 +90,9 @@ export const WORKFLOW_GATES = [
   {
     file: 'provider-contract.yml',
     name: 'Provider contract',
+    // N1: never dispatched by the train (its report job publishes and runs with a write token). A car that
+    // needs it is not batched: v1 takes it, and its own pull request's check is the one that counts.
+    viaPullRequest: true,
     paths: ['scripts/probe-providers.cjs', 'scripts/probe-claude-protocol.cjs', 'scripts/provider-contract-report.mjs', '.github/workflows/provider-contract.yml'],
   },
   {
@@ -112,6 +115,15 @@ export const WORKFLOW_GATES = [
 
 /** The gates a set of changed paths needs: [{ file, name }], dispatched and awaited on the batch tip. */
 export function requiredGates(paths) {
+  return matchedGates(paths)
+    .filter((gate) => !gate.viaPullRequest)
+    .map(({ file, name }) => ({ file, name }))
+}
+
+/** The pull-request-only gates (never dispatched) a set of paths needs: such a car is not batchable. */
+export const pullRequestOnlyGates = (paths) => matchedGates(paths).filter((gate) => gate.viaPullRequest)
+
+function matchedGates(paths) {
   const files = [...new Set(paths)]
   return WORKFLOW_GATES.filter((gate) => {
     if (gate.coveredBy) return false
@@ -119,7 +131,7 @@ export function requiredGates(paths) {
     if (gate.paths) return files.some((path) => matchesAny(path, gate.paths))
     if (gate.pathsIgnore) return files.some((path) => !matchesAny(path, gate.pathsIgnore))
     return true
-  }).map(({ file, name }) => ({ file, name }))
+  })
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -190,6 +202,8 @@ export function classifyCar({ headRef, files, complete, migration }) {
   if (!complete) return { batchable: false, reason: 'its file list could not be read in full' }
   const paths = files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean))
   if (paths.some((p) => matchesAny(p, WORKFLOW_GLOBS))) return { batchable: false, reason: 'it changes a workflow file' }
+  const prOnly = pullRequestOnlyGates(paths)
+  if (prOnly.length) return { batchable: false, reason: `it needs ${prOnly.map((g) => g.name).join(', ')}, which only its own pull request runs` }
   if (migration?.kind === 'renumber') {
     return {
       batchable: false,
@@ -479,7 +493,6 @@ export function createBatchApi(v1) {
   const { request, paginate, repo, base } = v1.raw
   const r = `/repos/${repo}`
   const enc = (name) => name.split('/').map(encodeURIComponent).join('/')
-  const gateFiles = new Set(WORKFLOW_GATES.map((g) => g.file))
   const run = (data) => ({
     id: data.id,
     // The run's own `name` is its title; the workflow is known by its file.
@@ -569,11 +582,6 @@ export function createBatchApi(v1) {
       const { data } = await request('GET', `${r}/commits/${sha}/statuses?per_page=100`)
       const own = (data ?? []).filter((s) => s.context === 'merge-train' && s.creator?.login === TRAIN_LOGIN)
       return own[0]?.state ?? null
-    },
-    async dispatchWorkflow(file, ref) {
-      // The gate table's workflows (provider-contract.yml too); anything else goes through v1's allowlist.
-      if (!gateFiles.has(file)) return v1.dispatchWorkflow(file, ref)
-      await request('POST', `${r}/actions/workflows/${encodeURIComponent(file)}/dispatches`, { ref })
     },
     async getRun(id) {
       return run((await request('GET', `${r}/actions/runs/${Number(id)}`)).data)
@@ -706,6 +714,20 @@ export async function replanMatches(api, manifest, queue, opts) {
   }
   if (infos.some((info, i) => info.head !== manifest.cars[i].head)) return { problem: 'a car is no longer on the head the batch was built on' }
   return { infos }
+}
+
+/** How far a tip commit may be dated ahead of the train's clock before it counts as a forgery. */
+export const CLOCK_SKEW_MS = 60_000
+
+/**
+ * L8: a batch's age in ms, from the later of the train run that built it and its tip commit's date; null when no
+ * train run built it, or the tip is dated in the future (beyond the clock skew).
+ */
+export function batchAge({ builtAt, tipDate, now }) {
+  if (builtAt === null || builtAt === undefined) return null
+  const tipAt = Date.parse(tipDate ?? '')
+  if (Number.isFinite(tipAt) && tipAt > now + CLOCK_SKEW_MS) return null
+  return now - Math.max(builtAt, Number.isFinite(tipAt) ? tipAt : builtAt)
 }
 
 /** L8: when the train run named in the manifest's id started, or null when that is not a train run of this repository. */
@@ -911,10 +933,10 @@ async function driveBatch(api, ref, ctx) {
   const jobs = {}
   for (const run of runs.filter((x) => x.status === 'completed' && x.conclusion !== 'success')) jobs[run.id] = await api.runJobs(run.id)
   const verdict = evaluateBatchCI({ gates, runs, jobs })
-  // L8: the batch's age comes from the train run that built it (its id is in the manifest), not a commit date.
-  const builtAt = await batchStartedAt(api, manifest)
-  if (builtAt === null) return abort('the train run that built this batch could not be found')
-  const age = now - builtAt
+  // L8: the batch is as old as the later of the train run named in its manifest and its tip commit, so naming an
+  // old run cannot make a fresh batch time out at once; a tip dated in the future is a forgery.
+  const age = batchAge({ builtAt: await batchStartedAt(api, manifest), tipDate: tipCommit.date, now })
+  if (age === null) return abort('the batch start could not be established (no train run built it, or its tip is dated in the future)')
 
   if (verdict.state === 'missing' || verdict.state === 'pending') {
     if (age > timeoutMinutes * 60_000) {
@@ -1097,7 +1119,8 @@ export async function runShadow(api, opts = {}) {
     // The same path list as the real mode (renames' old paths included).
     const verdict = evaluateBatchCI({ gates: requiredGates(carPaths(cars)), runs, jobs })
     const builtAt = await batchStartedAt(api, manifest)
-    const age = builtAt === null ? Number.POSITIVE_INFINITY : now - builtAt
+    const known = batchAge({ builtAt, tipDate: tipCommit.date, now })
+    const age = known === null ? Number.POSITIVE_INFINITY : known
     if (verdict.state === 'green' || verdict.state === 'red' || age > 24 * 3_600_000) {
       // L6: a shadow verdict counts toward the rollout metrics only after the same R1 check as a real batch.
       const carCommits = []
