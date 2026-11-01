@@ -36,4 +36,4 @@ export const useThreadViewModeStore = create<ThreadViewModeState>((set, get) => 
 
 // bisect only (F7.3): which fields change during a cold switch
 useThreadViewModeStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
-  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['ThreadViewMode.' + key] = (w.__stores['ThreadViewMode.' + key] ?? 0) + 1 })
+  for (const key of Object.keys(next)) if ((next as unknown as Record<string, unknown>)[key] !== (prev as unknown as Record<string, unknown>)[key]) w.__stores['ThreadViewMode.' + key] = (w.__stores['ThreadViewMode.' + key] ?? 0) + 1 })

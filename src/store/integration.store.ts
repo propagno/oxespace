@@ -229,4 +229,4 @@ export function selectIntegrationsForWorkspace(workspaceId: string): (state: Int
 
 // bisect only (F7.3): which fields change during a cold switch
 useIntegrationStore.subscribe((next, prev) => { const w = window as unknown as { __stores?: Record<string, number> }; w.__stores ??= {}
-  for (const key of Object.keys(next)) if ((next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key]) w.__stores['Integration.' + key] = (w.__stores['Integration.' + key] ?? 0) + 1 })
+  for (const key of Object.keys(next)) if ((next as unknown as Record<string, unknown>)[key] !== (prev as unknown as Record<string, unknown>)[key]) w.__stores['Integration.' + key] = (w.__stores['Integration.' + key] ?? 0) + 1 })
