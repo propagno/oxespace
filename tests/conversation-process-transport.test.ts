@@ -58,7 +58,8 @@ it('closing a conversation whose agent already died by a signal signals nothing 
   vi.mocked(execFile).mockClear()
   const kill = vi.spyOn(process, 'kill')
   try {
-    const transport = new AgentProcessTransport(process.execPath, ['agent.js'], process.cwd())
+    // Any existing file will do: spawn is mocked. Not process.execPath, which OxeChat refuses under Electron (B13).
+    const transport = new AgentProcessTransport(resolve('package.json'), ['agent.js'], process.cwd())
     child.emit('spawn')
     // The OOM killer or a kill -9: no exit code, a signal instead.
     Object.defineProperty(child, 'signalCode', { value: 'SIGKILL' })
