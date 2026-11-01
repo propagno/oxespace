@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { OxeVoiceStatus } from '../../hooks/useOxeVoice'
 
 export function VoiceHud({ status, error, level, modelProgress, onDismiss, containerSelector = '.terminal-pane', focusSelector = '.xterm-helper-textarea' }: {
   status: OxeVoiceStatus; error: string | null; level: number; modelProgress: number | null; onDismiss: () => void; containerSelector?: string; focusSelector?: string
 }) {
+  const { t } = useTranslation()
   const element = useRef<HTMLDivElement>(null)
   const visible = Boolean(error || ['requesting', 'downloading', 'listening', 'transcribing'].includes(status))
   useEffect(() => {
@@ -26,9 +28,9 @@ export function VoiceHud({ status, error, level, modelProgress, onDismiss, conta
     {status === 'listening' && !error ? <span className="oxe-voice-meter" aria-hidden="true">
       {[0, 1, 2, 3, 4].map(i => <span key={i} className="oxe-voice-bar" style={{ transform: `scaleY(${Math.max(0.18, Math.min(1, level * (1.4 - Math.abs(i - 2) * .25)))})` }} />)}
     </span> : <span className={`oxe-voice-pulse${status === 'transcribing' ? ' spin' : ''}`} aria-hidden="true" />}
-    <span>{error ?? (status === 'requesting' ? 'Acessando microfone…' : status === 'downloading'
-      ? `Downloading voice model… ${Math.round((modelProgress ?? 0) * 100)}%` : status === 'transcribing' ? 'Transcribing…' : 'Listening… release to insert')}</span>
-    <button type="button" className="oxe-voice-dismiss" aria-label="Close voice input" title="Close voice input (Esc)" onMouseDown={event => event.preventDefault()} onClick={() => {
+    <span>{error ?? (status === 'requesting' ? t('voiceHud.requesting') : status === 'downloading'
+      ? t('voiceHud.downloading', { percent: Math.round((modelProgress ?? 0) * 100) }) : status === 'transcribing' ? t('voiceHud.transcribing') : t('voiceHud.listening'))}</span>
+    <button type="button" className="oxe-voice-dismiss" aria-label={t('voiceHud.close')} title={t('voiceHud.closeTitle')} onMouseDown={event => event.preventDefault()} onClick={() => {
       const pane = element.current?.closest(containerSelector)
       onDismiss()
       pane?.querySelector<HTMLElement>(focusSelector)?.focus()
