@@ -7,6 +7,10 @@ name: Acceptance (on demand)
 # The app comes from `product_ref` (main or a PR head). The spec comes from `spec_ref`, and only e2e/acceptance/** and
 # playwright.acceptance.config.ts are copied from it: nothing from spec_ref runs at install or build time.
 #
+# product_ref runs code as fully as spec_ref: its install, build and e2e entry all run here. So both must be a branch
+# or tag of THIS repository, checked to exist (never refs/..., a pull request head, a fork or a bare SHA), and no npm
+# cache is saved or restored, so nothing from a run can reach the cache main's builds use.
+#
 # Safety: read-only token, no secrets, nothing published but the run's own test results. Inputs reach the shell only
 # through env and are format-checked first. The acceptance config scrubs a live OXESpace app's env (#337) and the
 # e2e entry stubs native dialogs (#351) when product_ref has it; the specs stub them too.
@@ -15,11 +19,11 @@ on:
   workflow_dispatch:
     inputs:
       product_ref:
-        description: "App under test: a branch, tag or commit SHA"
+        description: "App under test: a branch or tag of this repository"
         required: true
         default: main
       spec_ref:
-        description: "Branch, tag or SHA that holds the acceptance spec"
+        description: "Branch or tag of this repository that holds the acceptance spec"
         required: true
       spec:
         description: "The spec file, e.g. e2e/acceptance/S2-sessions-survive.spec.ts"
@@ -59,8 +63,8 @@ jobs:
           ref='^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$'
           for name in PRODUCT_REF SPEC_REF; do
             value="${!name}"
-            if [[ ! "$value" =~ $ref || "$value" == *..* || "$value" == */ || "$value" == *.lock ]]; then
-              echo "::error::$name must be a branch, tag or SHA (letters, digits, . _ / -)"; exit 1
+            if [[ ! "$value" =~ $ref || "$value" == *..* || "$value" == */ || "$value" == *.lock || "$value" == refs/* ]]; then
+              echo "::error::$name must be a branch or tag name of this repository (letters, digits, . _ / -; not refs/...)"; exit 1
             fi
           done
           spec='^e2e/acceptance/[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.spec\.ts$'
@@ -68,9 +72,23 @@ jobs:
             echo "::error::spec must be a file directly under e2e/acceptance/ ending in .spec.ts"; exit 1
           fi
           grep_ok='^[A-Za-z0-9 ._()\\:-]{1,80}$'
-          if [[ -n "$GREP" && ! "$GREP" =~ $grep_ok ]]; then
-            echo "::error::grep may use letters, digits, spaces and . _ ( ) \\ : - (80 at most)"; exit 1
+          if [[ -n "$GREP" && ( ! "$GREP" =~ $grep_ok || "$GREP" == -* ) ]]; then
+            echo "::error::grep may use letters, digits, spaces and . _ ( ) \\ : - (80 at most), and may not start with -"; exit 1
           fi
+
+      - name: Both refs are branches or tags of this repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for name in PRODUCT_REF SPEC_REF; do
+            value="${!name}"
+            if gh api "repos/$REPO/git/ref/heads/$value" --silent 2>/dev/null; then echo "$name: branch $value"; continue; fi
+            if gh api "repos/$REPO/git/ref/tags/$value" --silent 2>/dev/null; then echo "$name: tag $value"; continue; fi
+            echo "::error::$name is not a branch or tag of $REPO (pull request heads, forks and bare SHAs are refused)"; exit 1
+          done
 
       - name: Check out the app under test
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
@@ -109,7 +127,8 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
-          cache: npm
+          # No npm cache, saved or restored: a run's dependencies must never reach the cache main's builds use.
+          package-manager-cache: false
 
       - name: Linux system dependencies
         if: runner.os == 'Linux'
@@ -136,7 +155,8 @@ jobs:
         run: |
           set -euo pipefail
           # The same names playwright.acceptance.config.ts and e2e/helpers/live-app-env.ts (#337) scrub.
-          if env | cut -d= -f1 | grep -E '^(OXESPACE_(MCP_|EXECUTION_|AGENT_HOOK_|WORKSPACE_ID$|MEMORY_RUN(_ID)?$|PANE_BRIDGE$)|AI_MEMORY_)'; then
+          # Exactly #337's LIVE_APP_ENV, case-insensitive like its /i.
+          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_(MCP_|EXECUTION_|AGENT_HOOK_|WORKSPACE_ID$|MEMORY_RUN(_ID)?$|PANE_BRIDGE$)|AI_MEMORY_)'; then
             echo "::error::live OXESpace variables are set on the runner"; exit 1
           fi
 
@@ -146,7 +166,7 @@ jobs:
         run: |
           set -euo pipefail
           args=(-c playwright.acceptance.config.ts "$SPEC" --trace retain-on-failure)
-          if [[ -n "$GREP" ]]; then args+=(-g "$GREP"); fi
+          if [[ -n "$GREP" ]]; then args+=("--grep=$GREP"); fi
           npx playwright test "${args[@]}"
 
       - name: Run the spec (Linux)
@@ -155,7 +175,7 @@ jobs:
         run: |
           set -euo pipefail
           args=(-c playwright.acceptance.config.ts "$SPEC" --trace retain-on-failure)
-          if [[ -n "$GREP" ]]; then args+=(-g "$GREP"); fi
+          if [[ -n "$GREP" ]]; then args+=("--grep=$GREP"); fi
           bash scripts/run-with-xvfb.sh npx playwright test "${args[@]}"
 
       - name: Upload test results
