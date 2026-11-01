@@ -2,6 +2,7 @@ import { createHash, generateKeyPairSync, sign, type KeyObject } from 'node:cryp
 import net from 'node:net'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { RemoteGateway, type RemoteGatewayDeps } from '../../electron/main/services/remote/gateway'
+import type { MainMessage } from '../../shared/messages'
 import { readPairingUri, refreshSigningInput, type RemotePairingQr } from '../../shared/remote/protocol'
 import type { RemoteChange, RemotePairingPrompt } from '../../shared/types/remote'
 import { request, type HttpResult, type Target } from './remote-client'
@@ -55,6 +56,8 @@ export function signRefresh(phone: Phone, fp: string, deviceId: string, nonce: s
 export class Harness {
   readonly db: AppDatabase
   readonly changes: RemoteChange[] = []
+  /** What `remote:pairing-failed` carried to the window, in order. */
+  readonly pairingFailures: MainMessage[] = []
   gateway: RemoteGateway
   clock = Date.now()
   port = 0
@@ -70,6 +73,7 @@ export class Harness {
       db: this.db, storage: fakeSafeStorage(), now: () => this.clock, interfaces: () => LOOPBACK, isAllowedAddress: address => address === '127.0.0.1',
       promptTimeoutMs: 5_000, platform: 'win32',
       broadcast: change => { this.changes.push(change); for (const listener of [...this.listeners]) listener(change) },
+      pairingFailed: message => { this.pairingFailures.push(message) },
       ...this.overrides, ...overrides
     })
   }

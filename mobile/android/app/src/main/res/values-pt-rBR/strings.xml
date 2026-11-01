@@ -12,7 +12,7 @@
     <string name="approval_prompt_decline">Recusar este pedido</string>
     <string name="composer_placeholder">Mensagem para o agente</string>
     <string name="composer_send">Enviar</string>
-    <string name="composer_steer">Direcionar</string>
+    <string name="composer_steer">Orientar</string>
     <string name="composer_stop">Parar</string>
     <string name="home_address_hint">O endereço do computador na sua Wi-Fi, por exemplo 192.168.0.12. O OXESpace mostra em Configurações › Dispositivos.</string>
     <string name="home_address_invalid">Use o endereço do computador na sua rede local, como 192.168.0.12.</string>
@@ -20,6 +20,7 @@
     <string name="home_body">Pareie este celular com o OXESpace no seu computador, na mesma Wi-Fi, para acompanhar e responder suas sessões.</string>
     <string name="home_cancel">Cancelar</string>
     <string name="home_enter_address">Informar o endereço do computador</string>
+    <string name="home_open_wifi">Abrir configurações de Wi-Fi</string>
     <string name="home_pair">Parear com o computador</string>
     <string name="home_paired_body">Este celular acompanha e responde suas sessões em %1$s enquanto os dois estiverem na mesma rede.</string>
     <string name="home_paired_title">Pareado com %1$s</string>
@@ -37,15 +38,21 @@
         <item quantity="many">Tentando de novo em %1$d segundos.</item>
         <item quantity="other">Tentando de novo em %1$d segundos.</item>
     </plurals>
-    <string name="home_status_unreachable">Não deu para falar com %1$s. Confira se ele está ligado, na mesma Wi-Fi, e com o acesso pelo celular ligado.</string>
+    <string name="home_status_unreachable">Não deu para falar com %1$s. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.</string>
     <string name="home_title">Seu computador no bolso</string>
     <string name="home_unknown_desktop">seu computador</string>
     <string name="home_unpair">Desparear</string>
-    <string name="live_agent_state_blocked">esperando</string>
-    <string name="live_agent_state_done">concluiu</string>
-    <string name="live_agent_state_idle">parado</string>
-    <string name="live_agent_state_unknown">desconhecido</string>
-    <string name="live_agent_state_working">trabalhando</string>
+    <string name="home_unpair_confirm_body">Este celular esquece %1$s e a chave usada com ele. Para voltar, pareie de novo pelo QR em Configurações › Dispositivos no computador.</string>
+    <string name="home_unpair_confirm_title">Desparear de %1$s?</string>
+    <string name="live_age_days">há %1$s d</string>
+    <string name="live_age_hours">há %1$s h</string>
+    <string name="live_age_minutes">há %1$s min</string>
+    <string name="live_age_now">agora</string>
+    <string name="live_agent_state_blocked">Precisa de você</string>
+    <string name="live_agent_state_done">Terminou</string>
+    <string name="live_agent_state_idle">Ocioso</string>
+    <string name="live_agent_state_unknown">Não confirmado</string>
+    <string name="live_agent_state_working">Trabalhando</string>
     <string name="live_back">Voltar</string>
     <string name="live_delegations">Delegações</string>
     <string name="live_empty_requests">Nada esperando por você.</string>
@@ -63,9 +70,9 @@
     <string name="live_menu">Mais opções</string>
     <string name="live_pane_agent">%1$s · %2$s</string>
     <plurals name="live_pending_count">
-        <item quantity="one">%1$d esperando</item>
-        <item quantity="other">%1$d esperando</item>
-        <item quantity="many">%1$d esperando</item>
+        <item quantity="one">Precisa de você (%1$d)</item>
+        <item quantity="other">Precisa de você (%1$d)</item>
+        <item quantity="many">Precisa de você (%1$d)</item>
     </plurals>
     <string name="live_phone_write">Celular pode digitar</string>
     <string name="live_read_only">Só leitura</string>
@@ -74,10 +81,10 @@
         <item quantity="other">%1$d pedidos esperando</item>
         <item quantity="many">%1$d pedidos esperando</item>
     </plurals>
-    <string name="live_status_approval">Esperando você</string>
+    <string name="live_status_approval">Precisa de você</string>
     <string name="live_status_failed">Falhou</string>
-    <string name="live_status_idle">Parada</string>
-    <string name="live_status_interrupted">Interrompida</string>
+    <string name="live_status_idle">Ocioso</string>
+    <string name="live_status_interrupted">Interrompido</string>
     <string name="live_status_running">Trabalhando</string>
     <string name="live_tabs_requests">Pedidos</string>
     <string name="live_tabs_tasks">Tarefas</string>
@@ -110,6 +117,7 @@
     <string name="pairing_failed_locked">Tentativas de pareamento demais. Espere 2 minutos e tente de novo.</string>
     <string name="pairing_failed_protocol">O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador.</string>
     <string name="pairing_failed_refused_on_desktop">O pareamento foi recusado no computador.</string>
+    <string name="pairing_failed_reserved_name">O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo.</string>
     <string name="pairing_failed_too_many_devices">Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.</string>
     <string name="pairing_failed_unreachable">Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.</string>
     <string name="pairing_failed_wrong_certificate">Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.</string>
@@ -132,12 +140,14 @@
     <string name="request_answered">Respondido.</string>
     <string name="request_command">Comando</string>
     <string name="request_cwd">Pasta</string>
-    <string name="request_decision_accept">Aprovar</string>
+    <string name="request_decision_accept">Permitir uma vez</string>
     <string name="request_decision_cancel">Cancelar pedido</string>
-    <string name="request_decision_decline">Recusar</string>
+    <string name="request_decision_decline">Negar</string>
     <string name="request_decline_reason">Motivo, dito ao agente (opcional)</string>
     <string name="request_desktop_only">Só o seu computador pode responder este. Abra o OXESpace lá.</string>
-    <string name="request_from">De %1$s</string>
+    <string name="request_desktop_only_title">Responda no computador</string>
+    <string name="request_from">Da conversa “%1$s”</string>
+    <string name="request_from_agent">Escrito pelo agente</string>
     <string name="request_gone">Este pedido não está mais esperando.</string>
     <string name="request_not_confirmed">Não enviado: a confirmação neste celular foi cancelada.</string>
     <string name="request_paths">Arquivos que ele alteraria</string>
@@ -150,6 +160,7 @@
     <string name="request_risk_green">Só lê</string>
     <string name="request_risk_orange">Altera algo</string>
     <string name="request_risk_red">Apaga, eleva acesso ou publica</string>
+    <string name="request_risk_spoken">Risco: %1$s</string>
     <string name="request_send_answers">Enviar respostas</string>
     <string name="request_title">Pedido</string>
     <string name="request_tool">Ferramenta</string>
@@ -179,8 +190,9 @@
     <string name="thread_request">Pedido: %1$s</string>
     <string name="thread_request_state_cancelled">cancelado</string>
     <string name="thread_request_state_expired">expirou</string>
-    <string name="thread_request_state_pending">esperando você</string>
+    <string name="thread_request_state_pending">Precisa de você</string>
     <string name="thread_request_state_resolved">respondido</string>
+    <string name="thread_respond">Responder</string>
     <string name="thread_show_output">Mostrar saída</string>
     <string name="thread_tool_completed">Concluído</string>
     <string name="thread_tool_failed">Falhou</string>

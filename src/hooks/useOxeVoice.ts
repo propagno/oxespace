@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { i18n } from '../i18n'
 import { useVoiceStore } from '../store/voice.store'
-import { createAudioRecorder, type AudioRecorder } from '../lib/audio/recorder-worklet'
-import { concatFloat32, encodeWav } from '../lib/audio/wav-encode'
-import { createVad } from '../lib/audio/vad'
+import type { AudioRecorder, createAudioRecorder } from '../lib/audio/recorder-worklet'
+import type { concatFloat32, encodeWav } from '../lib/audio/wav-encode'
+import type { createVad } from '../lib/audio/vad'
 import { humanizeError } from '../utils/humanizeError'
 
 export type OxeVoiceStatus =
@@ -38,6 +38,22 @@ interface UseOxeVoiceResult {
   toggle: () => void
   /** Close the HUD and discard capture/results still in flight. */
   dismiss: () => void
+}
+
+interface AudioModules {
+  createAudioRecorder: typeof createAudioRecorder
+  concatFloat32: typeof concatFloat32
+  encodeWav: typeof encodeWav
+  createVad: typeof createVad
+}
+let audioModules: Promise<AudioModules> | null = null
+/** Capture, voice detection and WAV encoding, loaded when recording first starts, not with the panes at boot. */
+function loadAudio(): Promise<AudioModules> {
+  audioModules ??= Promise.all([import('../lib/audio/recorder-worklet'), import('../lib/audio/wav-encode'), import('../lib/audio/vad')])
+    .then(([recorder, wav, vad]) => ({ createAudioRecorder: recorder.createAudioRecorder, concatFloat32: wav.concatFloat32, encodeWav: wav.encodeWav, createVad: vad.createVad }))
+  // A failed load (a chunk the window could not fetch) is tried again on the next start.
+  audioModules.catch(() => { audioModules = null })
+  return audioModules
 }
 
 function isSupportedRuntime(): boolean {
@@ -83,6 +99,8 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
   const chunksRef = useRef<Float32Array[]>([])
   const modeRef = useRef<Mode | null>(null)
   const vadRef = useRef<ReturnType<typeof createVad> | null>(null)
+  // Set once recording has started; transcribing and finishing only happen after that.
+  const audioRef = useRef<AudioModules | null>(null)
   const levelRef = useRef(0)
   const rafRef = useRef<number | null>(null)
   const pendingRef = useRef(0)
@@ -141,7 +159,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
   const transcribeBuffer = useCallback(async (samples: Float32Array): Promise<void> => {
     if (samples.length < 1600) return // <0.1s — ignore stray taps
     const session = sessionRef.current
-    const wav = encodeWav(samples)
+    const wav = audioRef.current!.encodeWav(samples)
     pendingRef.current += 1
     try {
       // Language is pinned to pt-BR in the main service; modelSize is the only knob.
@@ -206,14 +224,16 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
     try {
       const ready = await ensureReady(session)
       if (!ready) return
+      const audio = audioRef.current ??= await loadAudio()
+      if (session !== sessionRef.current) return
       stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })
       if (session !== sessionRef.current) { for (const track of stream.getTracks()) track.stop(); return }
 
       chunksRef.current = []
       modeRef.current = mode
-      vadRef.current = mode === 'toggle' ? createVad() : null
+      vadRef.current = mode === 'toggle' ? audio.createVad() : null
 
-      const recorder = await createAudioRecorder(stream, {
+      const recorder = await audio.createAudioRecorder(stream, {
         onLevel: (l) => { if (session === sessionRef.current) levelRef.current = l },
         onChunk: (chunk) => {
           if (session !== sessionRef.current) return
@@ -222,7 +242,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
           if (vad) {
             const chunkMs = (chunk.length / 16000) * 1000
             if (vad.process(chunk, chunkMs) === 'segment') {
-              const segment = concatFloat32(chunksRef.current)
+              const segment = audio.concatFloat32(chunksRef.current)
               chunksRef.current = []
               void transcribeBuffer(segment)
             }
@@ -248,7 +268,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
     const session = sessionRef.current
     recorderRef.current = null
     stopLevelPump()
-    const remaining = concatFloat32(chunksRef.current)
+    const remaining = audioRef.current!.concatFloat32(chunksRef.current)
     chunksRef.current = []
     vadRef.current = null
     modeRef.current = null
