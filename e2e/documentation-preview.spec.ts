@@ -79,6 +79,13 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0,checkboxChecked:false})})
     expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toContain('declined')
     await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1,checkboxChecked:false})})
+    // Investigating #243 CI: what the window shows after the declined confirmation (dialogs, the preview panel).
+    console.log(`[DIAG] ${JSON.stringify(await page.evaluate(() => ({
+      dialogs: [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].map(node => `${node.getAttribute('data-testid') ?? ''}:${node.getAttribute('aria-label') ?? node.textContent?.trim().slice(0, 60)}`),
+      panels: [...document.querySelectorAll('.web-preview-panel')].map(node => { const rect = node.getBoundingClientRect(); return { owner: (node as HTMLElement).dataset.browserOwner, automation: (node as HTMLElement).dataset.agentAutomation, width: Math.round(rect.width), height: Math.round(rect.height) } }),
+      inert: document.querySelectorAll('[inert]').length,
+      approvals: document.querySelectorAll('[data-testid^="approval"]').length
+    })))}`)
     expect((await run({action:'fill',selector:'#name',text:'Example',expectedUrl:url})).error).toBeUndefined()
     expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toBeUndefined()
     await expect.poll(async()=>JSON.stringify(await run({action:'inspect'}))).toContain('Saved Example')
