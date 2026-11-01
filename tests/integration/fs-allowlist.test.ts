@@ -222,6 +222,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads three policy files at fixed places (the project's .oxespace/policy.json, <userData>/policy.json and the
   // machine-wide managed file), 256 KiB at most, JSON only; it never writes, and no caller supplies a path.
   'electron/main/services/policy/policy-store.ts',
+  // OxeVoice 1.5 consent: one small JSON file at a fixed name (<userData>/voice-consent.json), 4 KB at most, written
+  // atomically (tmp + rename); it holds only which engine was allowed, when, and under which text version. The path
+  // comes from app.getPath('userData'), never from IPC. Bootstrap and registry stay without fs (CR-12, TECH LEAD).
+  'electron/main/services/voice/consent-file.ts',
   // OXEVoice engine: downloads the Whisper model to <userData>/models and
   // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
   // appropriate here rather than the workspace-scoped FileSystemService.
