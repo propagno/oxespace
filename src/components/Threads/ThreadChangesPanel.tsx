@@ -12,6 +12,7 @@ import { threadCommitDraft } from '../../../shared/threadCommitDraft'
 import { EmptyState, LoadingState, Menu } from '../../ui'
 import { threadWorkingRoot } from './threadChanges'
 import { ThreadTurnReview } from './ThreadTurnReview'
+import { ThreadSessionPanel } from './ThreadSessionPanel'
 
 const GitControlPanel = lazy(() => import('../GitHub/GitControlPanel').then(module => ({ default: module.GitControlPanel })))
 const ChangesPanel = lazy(() => import('../Changes/ChangesPanel').then(module => ({ default: module.ChangesPanel })))
@@ -22,9 +23,9 @@ const BackgroundJobsPanel = lazy(() => import('../Background/BackgroundJobsPanel
 const WebPreviewPanel = lazy(() => import('../WebPreview/WebPreviewPanel').then(module => ({ default: module.WebPreviewPanel })))
 const ThreadProjectTerminal = lazy(() => import('./ThreadProjectTerminal').then(module => ({ default: module.ThreadProjectTerminal })))
 /** Thread panels named as everywhere else (src/components/Workbench/panelCatalog.ts). */
-const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { changes: 'changes', git: 'git', files: 'files', search: 'search', scripts: 'scripts', background: 'background', preview: 'browser', terminal: 'terminal' }
+const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { session: 'session', changes: 'changes', git: 'git', files: 'files', search: 'search', scripts: 'scripts', background: 'background', preview: 'browser', terminal: 'terminal' }
 
-export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSendToConversation, maximized = false, onToggleMaximized }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; onClose(): void; onSendToConversation?(prompt: string): void; maximized?: boolean; onToggleMaximized?(): void }) {
+export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSendToConversation, onCompact, maximized = false, onToggleMaximized }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; onClose(): void; onSendToConversation?(prompt: string): void; /** Runs /compact in the conversation; without it the session panel offers no Compact. */ onCompact?(): void; maximized?: boolean; onToggleMaximized?(): void }) {
   const { t } = useTranslation('thread')
   const subagents = snapshot.events.filter(event => event.type === 'subagent')
   const id = snapshot.thread.id
@@ -43,7 +44,8 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSend
       trigger={<button type="button" aria-label={t('workbench.select', { panel: threadPanelLabel(PANEL_ID[panel]) })}><ListTree size={14} />{threadPanelLabel(PANEL_ID[panel])}<ChevronDown size={12} /></button>} /></div>
       {onToggleMaximized && <button type="button" aria-label={maximized ? t('workbench.restore') : t('workbench.maximize')} aria-pressed={maximized} title={maximized ? t('workbench.restoreTitle') : t('workbench.maximizeTitle')} onClick={onToggleMaximized}>{maximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>}
       <button type="button" aria-label={t('workbench.close')} title={t('common.close')} onClick={onClose}><X size={14} /></button></header>
-    {panel === 'changes' && turnId ? <div className="thread-review-body thread-tool-surface"><ThreadTurnReview key={turnId} snapshot={snapshot} turnId={turnId} onShowAll={() => useThreadWorkbenchStore.getState().setView(id, { panel: 'changes', turnId: undefined })} onComment={text => onSendToConversation?.(text)} /></div>
+    {panel === 'session' ? <div className="thread-review-body thread-tool-surface"><ThreadSessionPanel snapshot={snapshot} workspace={workspace} running={snapshot.thread.status === 'running' || snapshot.thread.status === 'approval'} onOpenPanel={setPanel} onCompact={onCompact} /></div>
+      : panel === 'changes' && turnId ? <div className="thread-review-body thread-tool-surface"><ThreadTurnReview key={turnId} snapshot={snapshot} turnId={turnId} onShowAll={() => useThreadWorkbenchStore.getState().setView(id, { panel: 'changes', turnId: undefined })} onComment={text => onSendToConversation?.(text)} /></div>
       : panel === 'changes' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingChanges')} />}><ChangesPanel workspaceId={snapshot.thread.workspaceId} rootPath={root} onSendComments={onSendToConversation ? text => { onSendToConversation(text); return true } : undefined} /></Suspense></div>
       : panel === 'git' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingGit')} />}><GitControlPanel workspaceId={snapshot.thread.workspaceId} rootPath={root} onOpenFile={openSearchFile} draft={() => threadCommitDraft(snapshot)} /></Suspense></div>
       : panel === 'files' ? <div className="thread-review-body thread-tool-surface">{scopedWorkspace ? <Suspense fallback={<LoadingState label={t('workbench.loadingFiles')} />}><EditorPane workspaceId={snapshot.thread.workspaceId} rootPath={root} /></Suspense> : unavailable}</div>
