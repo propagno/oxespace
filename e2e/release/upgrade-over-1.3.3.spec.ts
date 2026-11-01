@@ -1,7 +1,7 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -30,17 +30,27 @@ import { DatabaseSync } from 'node:sqlite'
  *
  * Inputs (env): OXESPACE_UPGRADE_STEP, OXESPACE_UPGRADE_STATE, OXESPACE_EXPECT_VERSION (main's package version; 1.3.3 for verify-rollback),
  * OXESPACE_EXPECT_DB_VERSION (default 88); optional OXESPACE_INSTALL_DIR, OXESPACE_USER_DATA.
+ * Linux (SRE's matrix, every step under xvfb-run): OXESPACE_INSTALL_KIND = nsis | deb | appimage (default nsis on
+ * Windows, deb elsewhere) and OXESPACE_EXECUTABLE (deb: /opt/OXESpace/oxespace; appimage: the AppImage, run with
+ * APPIMAGE_EXTRACT_AND_RUN=1 and --no-sandbox, since an extracted AppImage has no setuid chrome-sandbox). The shortcut
+ * checks become, for deb: /usr/share/applications/oxespace.desktop, and chrome-sandbox owned by root with mode 4755
+ * (the v0.7.0 bug); after `apt-get remove`, /opt/OXESpace and the .desktop entry are gone. AppImage has no install,
+ * shortcut or uninstall step.
  */
 const STEP = process.env.OXESPACE_UPGRADE_STEP ?? ''
 const STATE = process.env.OXESPACE_UPGRADE_STATE ?? ''
+const KIND = (process.env.OXESPACE_INSTALL_KIND ?? (process.platform === 'win32' ? 'nsis' : 'deb')) as 'nsis' | 'deb' | 'appimage'
 const LOCAL = process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local')
 const ROAMING = process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming')
-const INSTALL_DIR = process.env.OXESPACE_INSTALL_DIR ?? join(LOCAL, 'Programs', 'OXESpace')
-const EXE = join(INSTALL_DIR, 'OXESpace.exe')
-const SHORTCUTS = [
-  join(homedir(), 'Desktop', 'OXESpace.lnk'),
-  join(ROAMING, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'OXESpace.lnk')
-]
+const CONFIG = process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config')
+const INSTALL_DIR = process.env.OXESPACE_INSTALL_DIR ?? (KIND === 'nsis' ? join(LOCAL, 'Programs', 'OXESpace') : '/opt/OXESpace')
+const EXE = process.env.OXESPACE_EXECUTABLE ?? (KIND === 'nsis' ? join(INSTALL_DIR, 'OXESpace.exe') : join(INSTALL_DIR, 'oxespace'))
+/** What the installer puts where a person finds the app (Desktop and Start Menu; the deb's .desktop entry). */
+const SHORTCUTS = KIND === 'nsis'
+  ? [join(homedir(), 'Desktop', 'OXESpace.lnk'), join(ROAMING, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'OXESpace.lnk')]
+  : KIND === 'deb' ? ['/usr/share/applications/oxespace.desktop'] : []
+const LAUNCH_ARGS = KIND === 'appimage' ? ['--no-sandbox'] : []
+const LAUNCH_ENV: Record<string, string> = KIND === 'appimage' ? { APPIMAGE_EXTRACT_AND_RUN: '1' } : {}
 const EXPECT_DB = Number(process.env.OXESPACE_EXPECT_DB_VERSION ?? '88')
 
 test.skip(STEP === '' || process.env.GITHUB_ACTIONS !== 'true', 'runs only inside the release upgrade job on a CI runner')
@@ -48,8 +58,16 @@ test.skip(STEP === '' || process.env.GITHUB_ACTIONS !== 'true', 'runs only insid
 /** The installed app's userData, as Electron names it (product name, then package name). */
 function userData(): string {
   if (process.env.OXESPACE_USER_DATA) return process.env.OXESPACE_USER_DATA
-  for (const name of ['OXESpace', 'oxespace']) if (existsSync(join(ROAMING, name, 'oxespace.sqlite3'))) return join(ROAMING, name)
-  return join(ROAMING, 'OXESpace')
+  const base = process.platform === 'win32' ? ROAMING : CONFIG
+  for (const name of ['OXESpace', 'oxespace']) if (existsSync(join(base, name, 'oxespace.sqlite3'))) return join(base, name)
+  return join(base, 'OXESpace')
+}
+/** deb only: the setuid sandbox helper Chromium needs (missing setuid broke v0.7.0 on Linux). */
+function chromeSandbox(): { path: string; uid: number; mode: string } | null {
+  const path = join(INSTALL_DIR, 'chrome-sandbox')
+  if (!existsSync(path)) return null
+  const st = statSync(path)
+  return { path, uid: st.uid, mode: (st.mode & 0o7777).toString(8) }
 }
 const dbPath = () => join(userData(), 'oxespace.sqlite3')
 const read = <T>(file: string, fn: (db: DatabaseSync) => T): T => { const db = new DatabaseSync(file, { readOnly: true }); try { return fn(db) } finally { db.close() } }
@@ -59,7 +77,7 @@ const stateFile = () => join(STATE, 'seed.json')
 
 /** Opens the installed app on its own userData (no test database), with native dialogs counted and held. */
 async function openInstalled() {
-  const app = await electron.launch({ executablePath: EXE, args: [], env: { ...process.env as Record<string, string>, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' } })
+  const app = await electron.launch({ executablePath: EXE, args: LAUNCH_ARGS, env: { ...process.env as Record<string, string>, ...LAUNCH_ENV, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' } })
   await app.evaluate(({ dialog }) => {
     const g = globalThis as Record<string, unknown>; g.upNative = 0
     dialog.showMessageBox = (() => { g.upNative = (g.upNative as number) + 1; return new Promise(() => undefined) }) as typeof dialog.showMessageBox
@@ -116,6 +134,12 @@ test('G4 install over 1.3.3: verify the upgrade', async () => {
   const result: Record<string, unknown> = {}
   expect(existsSync(EXE), 'the new build is installed in the same folder').toBe(true)
   for (const lnk of SHORTCUTS) expect.soft(existsSync(lnk), `shortcut ${lnk}`).toBe(true)
+  if (KIND === 'deb') {
+    const sandbox = chromeSandbox()
+    result.chromeSandbox = sandbox
+    expect.soft(sandbox?.uid, 'chrome-sandbox is owned by root').toBe(0)
+    expect.soft(sandbox?.mode, 'chrome-sandbox is setuid (4755)').toBe('4755')
+  }
   const { app, page } = await openInstalled()
   try {
     result.version = await app.evaluate(({ app }) => app.getVersion())
@@ -158,7 +182,7 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
   // have shown its dialog before the stub is in place; the bytes are the check either way.
   let app: Awaited<ReturnType<typeof electron.launch>> | null = null
   try {
-    app = await electron.launch({ executablePath: EXE, args: [], env: { ...process.env as Record<string, string>, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' }, timeout: 60_000 })
+    app = await electron.launch({ executablePath: EXE, args: LAUNCH_ARGS, env: { ...process.env as Record<string, string>, ...LAUNCH_ENV, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' }, timeout: 60_000 })
     const exited = new Promise<number | null>(resolve => app!.process().once('exit', code => resolve(code)))
     await app.evaluate(({ dialog }) => {
       const g = globalThis as Record<string, unknown>; g.upSeen = []
@@ -216,10 +240,12 @@ test('G8 rollback: 1.3.3 opens the restored v77 backup', async () => {
 })
 
 test('G4 install over 1.3.3: verify the uninstall', async () => {
-  test.skip(STEP !== 'verify-uninstall')
+  test.skip(STEP !== 'verify-uninstall' || KIND === 'appimage', 'an AppImage has no uninstall')
   const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { userData: string; db: string }
   const result = {
-    installDirGone: !existsSync(EXE),
+    kind: KIND,
+    // Windows: the program (the uninstaller may leave an empty folder); deb: the whole /opt/OXESpace.
+    installDirGone: !existsSync(KIND === 'nsis' ? EXE : INSTALL_DIR),
     shortcutsGone: SHORTCUTS.map(l => !existsSync(l)),
     dataKept: existsSync(seeded.db),
     backupsKept: existsSync(join(seeded.userData, 'db-backups'))
