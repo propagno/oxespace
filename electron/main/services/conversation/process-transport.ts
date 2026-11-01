@@ -131,7 +131,9 @@ export class AgentProcessTransport implements ConversationTransport {
 
   async close(): Promise<void> {
     const pid = this.child.pid
-    if (!pid || this.child.exitCode !== null) { this.end(); return }
+    // Only a live child: one that exited or died by a signal long ago may have handed its pid to someone else.
+    // `closed` alone is not proof of death (a stdin error ends the transport while the agent may still run).
+    if (!pid || this.child.exitCode !== null || this.child.signalCode !== null) { this.end(); return }
     recordRuntime('process-stop', { ...this.diagnosticContext, pid })
     this.child.stdin.end()
     await killProcessTree(pid)

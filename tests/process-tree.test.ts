@@ -1,3 +1,4 @@
+import { win32 } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import { descendantsFromPs, killProcessTree, terminatePty, type ProcessTreeDeps } from '../electron/main/utils/process-tree'
 
@@ -8,7 +9,7 @@ function fakeOs(platform: NodeJS.Platform, alive: Set<number>, ps = '', ignoresT
   const deps: Partial<ProcessTreeDeps> = {
     platform,
     graceMs: 120,
-    run: async (file, args) => { runs.push([file, args]); return file === 'ps' ? ps : '' },
+    run: async (file, args) => { runs.push([file, args]); return file === '/bin/ps' ? ps : '' },
     kill: (pid, signal) => {
       calls.push([pid, signal])
       if (!alive.has(pid)) throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' })
@@ -34,7 +35,7 @@ describe('process tree cleanup (BE-M-08)', () => {
     expect(os.calls).toContainEqual([-100, 'SIGTERM'])
     expect(os.calls).toContainEqual([102, 'SIGTERM'])
     expect(os.calls).toContainEqual([102, 'SIGKILL'])
-    expect(os.runs).toEqual([['ps', ['-A', '-o', 'pid=,ppid=']]])
+    expect(os.runs).toEqual([['/bin/ps', ['-A', '-o', 'pid=,ppid=']]])
   })
 
   test('POSIX: settles early when everything left on SIGTERM, without SIGKILL', async () => {
@@ -53,10 +54,11 @@ describe('process tree cleanup (BE-M-08)', () => {
     expect(alive.size).toBe(0)
   })
 
-  test('Windows: one taskkill /T /F on the root', async () => {
+  test('Windows: one taskkill /T /F on the root, by its absolute System32 path', async () => {
     const os = fakeOs('win32', new Set())
     await killProcessTree(500, os.deps)
-    expect(os.runs).toEqual([['taskkill.exe', ['/pid', '500', '/T', '/F']]])
+    const taskkill = win32.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'taskkill.exe')
+    expect(os.runs).toEqual([[taskkill, ['/pid', '500', '/T', '/F']]])
     expect(os.calls).toEqual([])
   })
 
@@ -93,7 +95,7 @@ describe('process tree cleanup (BE-M-08)', () => {
     const done = terminatePty(pty, deps)
     expect(pty.kill).not.toHaveBeenCalled()
     await done
-    expect(order).toEqual(['taskkill.exe', 'pty.kill'])
+    expect(order).toEqual([expect.stringMatching(/[\\/]System32[\\/]taskkill\.exe$/i), 'pty.kill'])
   })
 
   test('POSIX PTY: released at once, the tree follows', async () => {

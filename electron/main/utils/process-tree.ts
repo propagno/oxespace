@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { win32 } from 'node:path'
 
 /**
  * Ends a process and everything it started (BE-M-08). Best-effort, idempotent, never throws and never blocks:
@@ -25,6 +26,9 @@ export interface ProcessTreeDeps {
 const POLL_MS = 50
 const TASKKILL_TIMEOUT_MS = 3000
 const PS_TIMEOUT_MS = 1500
+// By absolute path: a bare name is looked up in the current directory first on Windows, then along PATH.
+const TASKKILL = win32.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'taskkill.exe')
+const PS = '/bin/ps'
 
 const defaultDeps: ProcessTreeDeps = {
   platform: process.platform,
@@ -88,7 +92,7 @@ function anyAlive(deps: ProcessTreeDeps, root: number, pids: number[]): boolean 
 }
 
 async function killPosixTree(root: number, deps: ProcessTreeDeps): Promise<void> {
-  const pids = descendantsFromPs(await deps.run('ps', ['-A', '-o', 'pid=,ppid='], PS_TIMEOUT_MS), root)
+  const pids = descendantsFromPs(await deps.run(PS, ['-A', '-o', 'pid=,ppid='], PS_TIMEOUT_MS), root)
     .filter(pid => pid !== process.pid)
   pending.set(root, { deps, pids })
   installExitHook()
@@ -111,7 +115,7 @@ export function killProcessTree(pid: number | undefined | null, overrides: Parti
   if (existing) return existing
   const deps = { ...defaultDeps, ...overrides }
   const work = (deps.platform === 'win32'
-    ? deps.run('taskkill.exe', ['/pid', String(pid), '/T', '/F'], TASKKILL_TIMEOUT_MS).then(() => undefined)
+    ? deps.run(TASKKILL, ['/pid', String(pid), '/T', '/F'], TASKKILL_TIMEOUT_MS).then(() => undefined)
     : killPosixTree(pid, deps)
   ).catch(() => undefined).finally(() => inFlight.delete(pid))
   inFlight.set(pid, work)
