@@ -9,14 +9,16 @@ class DecisionLayoutTest {
 
     @Test
     fun denyLeadsOnRequestsThatChangeOrDeleteSomething() {
-        for (risk in listOf("orange", "red", null, "unknown-new-level")) {
+        for (risk in listOf("medium", "high", "critical", "orange", "red", null, "unknown-new-level")) {
             assertEquals(risk.toString(), listOf("decline" to true, "accept" to false, "cancel" to false), decisionLayout(offered, risk))
         }
     }
 
     @Test
     fun allowLeadsOnlyOnARequestThatOnlyReads() {
-        assertEquals(listOf("accept" to true, "decline" to false, "cancel" to false), decisionLayout(offered, "green"))
+        for (risk in listOf("low", "green")) {
+            assertEquals(risk, listOf("accept" to true, "decline" to false, "cancel" to false), decisionLayout(offered, risk))
+        }
     }
 
     @Test

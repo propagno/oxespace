@@ -179,9 +179,16 @@
     "warnings": "Vale olhar de novo",
     "tool": "Ferramenta",
     "risk": {
-      "green": "Só lê",
-      "orange": "Altera algo",
-      "red": "Apaga, eleva acesso ou publica"
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "critical": "Crítico"
+    },
+    "riskMeaning": {
+      "low": "Só lê",
+      "medium": "Muda algo",
+      "high": "Apaga, eleva acesso ou publica",
+      "critical": "Não tem volta ou afeta produção"
     },
     "decision": {
       "accept": "Permitir uma vez",
@@ -201,7 +208,7 @@
       "rateLimited": "Ações demais em um minuto. Tente de novo daqui a pouco.",
       "other": "O computador não aceitou a resposta."
     },
-    "riskSpoken": "Risco: {{risk}}",
+    "riskBadge": "Risco: {{risk}}",
     "fromAgent": "Escrito pelo agente",
     "desktopOnlyTitle": "Responda no computador"
   },
