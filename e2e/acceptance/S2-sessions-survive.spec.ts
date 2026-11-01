@@ -130,7 +130,10 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
     const offer = page.getByRole('button', { name: /Retomar|Resume/ }).first()
     if (await offer.isVisible({ timeout: 5_000 }).catch(() => false)) await offer.click()
     await expect(panes(page)).toHaveCount(6, { timeout: 20_000 })
-    await expect.poll(() => launches(log).filter(l => l.resumed).length, { timeout: 30_000, message: 'five CLIs were started on their earlier session' }).toBe(5)
+    await expect.soft.poll(() => launches(log).filter(l => l.resumed).length, { timeout: 30_000, message: 'five CLIs were started on their earlier session' }).toBe(5)
+    // What each pane did, for a failure that is not obvious (CI): main's outcome, and every CLI start since reopening.
+    for (const [pane, before] of sessions) console.log('S2-PANE', JSON.stringify({ pane: pane.slice(0, 8), agent: before.agent, recorded: before.sessionId.slice(0, 8), gone: pane === gonePane, resume: await agentResume(page, pane) }))
+    for (const l of launches(log)) console.log('S2-LAUNCH', JSON.stringify({ agent: l.agent, resumed: l.resumed, id: l.id.slice(0, 8), args: l.args.filter(a => a.length < 60) }))
     const second = launches(log)
     for (const [pane, before] of sessions) {
       const want = before.agent === 'claude' ? ['--resume', before.sessionId] : ['resume', before.sessionId]
