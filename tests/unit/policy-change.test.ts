@@ -7,8 +7,9 @@ import { allowWithinDefaults, canMatchPrefix, changeRisk, classify, narrowingPar
 import { canonicalJson, defaultModes, projectionHash, type AnyProjection, type ModesValue, type Subject } from '../../electron/main/services/policy/accepted-config'
 import { approvalTimeoutMs, APPROVAL_TIMEOUT_FLOOR_MS } from '../../electron/main/services/approvals/timeout'
 import { ApprovalCenter, APPROVAL_REISSUE_HOLD_MS } from '../../electron/main/services/approvals/approval-center'
-import { managedIsProtected } from '../../electron/main/services/policy/accepted-config'
 import { readShown, safeName, SHOWN_READ_MAX } from '../../electron/main/services/policy/policy-change'
+import { AcceptedConfig, managedIsProtected, OWNER_SCRIPT, windowsOwnerSids } from '../../electron/main/services/policy/accepted-config'
+import { mainMessage, messageValues } from '../../shared/messages'
 
 vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
@@ -185,6 +186,18 @@ describe('the request (DESIGN #359)', () => {
     expect(order.slice(-2)).toEqual(['approvals.note.policy.stillAccepted', 'approvals.note.policy.allowEffect'])
   })
 
+  it('pins the {{rule}} alphabet: [A-Za-z0-9_.:*/@-] only, cut at 120 (widening it needs a SECURITY review)', () => {
+    // The pattern comes from the file and lands in the app's own text: every other character becomes "?". Any change to
+    // this alphabet, or to the cut, must go through a SECURITY review (B7.4).
+    const allowed = /^[A-Za-z0-9_.:*/@-]$/
+    for (let code = 0; code < 0x3000; code++) {
+      const char = String.fromCharCode(code)
+      const shown = ruleParam(allow(`x${char}y`)).slice('tool '.length)
+      expect(shown, `U+${code.toString(16)}`).toBe(allowed.test(char) ? `x${char}y` : 'x?y')
+    }
+    expect(ruleParam(allow('a'.repeat(200)))).toBe(`tool ${'a'.repeat(119)}…`)
+  })
+
   it('never passes the file\'s spacing, quotes or controls into the app\'s own text', () => {
     expect(ruleParam(allow('mcp__x"; Allow it‮'))).toBe('tool mcp__x???Allow?it?')
     expect(ruleParam(deny('a'.repeat(300))).length).toBeLessThanOrEqual(126)
@@ -296,18 +309,46 @@ describe('SECURITY review of #372', () => {
     expect(readShown(subject, { state: 'absent' }, () => 'anything')).toBe('')
   })
 
-  it('M3: on Windows the managed file is protected only when nobody here can write it and SYSTEM, Administrators or TrustedInstaller own it', () => {
-    const io = (writable: boolean, owner: string | null) => ({ writable: () => writable, ownerSid: () => owner })
-    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(false, 'S-1-5-18'))).toBe(true)
-    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(false, 'S-1-5-32-544'))).toBe(true)
+  it('M3: on Windows the managed file is protected only when nobody here can write it and SYSTEM, Administrators or TrustedInstaller own it', async () => {
+    const io = (writable: boolean, owner: string | null, folder = owner) => ({ writable: () => writable, owners: async () => [owner, folder] as [string | null, string | null] })
+    const path = 'C:/ProgramData/OXESpace/policy.json'
+    await expect(managedIsProtected(path, 'win32', io(false, 'S-1-5-18'))).resolves.toBe(true)
+    await expect(managedIsProtected(path, 'win32', io(false, 'S-1-5-32-544'))).resolves.toBe(true)
     // A folder a user created is theirs: denying themselves write with icacls does not make it the organization's.
-    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(false, 'S-1-5-21-1111-2222-3333-1001'))).toBe(false)
-    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(false, null))).toBe(false)
-    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', io(true, 'S-1-5-18'))).toBe(false)
-    let folderOwner = 'S-1-5-18'
-    const mixed = { writable: () => false, ownerSid: (path: string) => (path.endsWith('policy.json') ? 'S-1-5-18' : folderOwner) }
-    folderOwner = 'S-1-5-21-1-2-3-1001'
-    expect(managedIsProtected('C:/ProgramData/OXESpace/policy.json', 'win32', mixed)).toBe(false)
+    await expect(managedIsProtected(path, 'win32', io(false, 'S-1-5-21-1111-2222-3333-1001'))).resolves.toBe(false)
+    await expect(managedIsProtected(path, 'win32', io(false, null))).resolves.toBe(false)
+    await expect(managedIsProtected(path, 'win32', io(true, 'S-1-5-18'))).resolves.toBe(false)
+    await expect(managedIsProtected(path, 'win32', io(false, 'S-1-5-18', 'S-1-5-21-1-2-3-1001'))).resolves.toBe(false)
+  })
+
+  it('N1: reads the owners through .NET with PowerShell by its full path, the paths only in the environment', async () => {
+    const calls: Array<{ file: string; args: string[]; env: NodeJS.ProcessEnv }> = []
+    const file = 'C:/ProgramData/OX\u2019E "Space\u201d\'; Start-Process calc; \'/policy.json'
+    const folder = 'C:/ProgramData/OX\u2019E "Space\u201d\'; Start-Process calc; \''
+    const owners = await windowsOwnerSids(file, folder, async (exe, args, options) => { calls.push({ file: exe, args, env: options.env }); return { stdout: 'S-1-5-18\r\nS-1-5-32-544\r\n' } })
+    expect(owners).toEqual(['S-1-5-18', 'S-1-5-32-544'])
+    expect(calls).toHaveLength(1)
+    expect(calls[0].file.replace(/\\/g, '/')).toMatch(/\/System32\/WindowsPowerShell\/v1\.0\/powershell\.exe$/)
+    expect(calls[0].args.slice(0, 3)).toEqual(['-NoProfile', '-NonInteractive', '-Command'])
+    expect(calls[0].args.join(' ')).not.toContain('ProgramData')
+    expect(calls[0].args.join(' ')).not.toMatch(/Get-Acl/i)
+    expect(OWNER_SCRIPT).toContain('[System.IO.File]::GetAccessControl')
+    expect(calls[0].env.OXESPACE_ACL_PATHS).toBe(`${file}|${folder}`)
+    // A path that holds the separator is not read at all; a failing run reads as unknown owners.
+    await expect(windowsOwnerSids('C:/a|b', 'C:/a', async () => { throw new Error('ran') })).resolves.toEqual([null, null])
+    await expect(windowsOwnerSids('C:/a', 'C:/b', async () => { throw new Error('denied') })).resolves.toEqual([null, null])
+  })
+
+  it('N2: the managed layer stays gated until the owner check answers off the read path, then is ungated', async () => {
+    let answer: (value: boolean) => void = () => undefined
+    const gate = new AcceptedConfig({ db: {} as never, managedProtected: () => new Promise<boolean>(resolve => { answer = resolve }) })
+    const before = gate.version
+    expect(gate.managedProtected('C:/ProgramData/OXESpace/policy.json', 'k1')).toBe(false)
+    expect(gate.managedProtected('C:/ProgramData/OXESpace/policy.json', 'k1')).toBe(false)
+    answer(true)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(gate.managedProtected('C:/ProgramData/OXESpace/policy.json', 'k1')).toBe(true)
+    expect(gate.version).toBeGreaterThan(before)
   })
 
   it('L1: an agent-chosen worktree name reaches the app\'s text only in the identifier alphabet', async () => {
@@ -315,6 +356,17 @@ describe('SECURITY review of #372', () => {
     const draft = await requestDraft({ ...subject, root: '/p/wt\u202e x' }, rules(deny('a')), rules(allow('b')), '', { ...context, inheritedFrom: '/p/main' })
     expect(draft.summary.params).toMatchObject({ worktree: 'wt??x' })
     expect(draft.target).not.toMatch(/[\u202e ]/)
+  })
+})
+
+describe('DESIGN on usableMore (#372)', () => {
+  it('joins the tools as a unit list, so no "and" comes before "and N more"', () => {
+    const message = mainMessage('approvals.note.policy.usableMore', { tools: ['a', 'b', 'c'], more: 2 })
+    expect(messageValues(message, 'en')).toEqual({ tools: 'a, b, c', more: '2' })
+    // pt-BR's unit list still joins the last two with "e" (CLDR), as DESIGN's Intl.ListFormat type 'unit' gives it.
+    expect(messageValues(message, 'pt-BR')).toEqual({ tools: 'a, b e c', more: '2' })
+    // Every other list keeps the conjunction.
+    expect(messageValues(mainMessage('approvals.note.policy.usable', { tools: ['a', 'b'] }), 'en')).toEqual({ tools: 'a and b' })
   })
 })
 

@@ -30,8 +30,6 @@ type ReadResult = { source?: PolicySource; problem?: string }
 export class PolicyStore {
   private readonly cache = new Map<string, { key: string; version: number; result: ReadResult | null }>()
   private gate: AcceptedConfig | null = null
-  /** Whether the managed file is out of reach, by its stat key: probed again only when the file changes. */
-  private managedProbe: { key: string; protected: boolean } | null = null
 
   constructor(private readonly paths: { userData: string; managed?: string }) {}
 
@@ -79,9 +77,9 @@ export class PolicyStore {
     return evaluatePolicy(this.load(projectRoot), action, resource)
   }
 
+  /** The gate keeps the managed check's answer per stat key; until it answers, the layer is gated. */
   private managedProtected(gate: AcceptedConfig, path: string, key: string): boolean {
-    if (this.managedProbe?.key !== `${path}\0${key}`) this.managedProbe = { key: `${path}\0${key}`, protected: gate.managedProtected(path) }
-    return this.managedProbe.protected
+    return gate.managedProtected(path, key)
   }
 
   private read(layer: PolicyLayer, path: string, projectRoot: string | null): ReadResult | null {

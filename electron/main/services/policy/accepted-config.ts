@@ -16,9 +16,10 @@
  * watcher: a rule takes effect only when it is read, and every read checks.
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { execFileSync } from 'node:child_process'
-import { closeSync, openSync, statSync, unlinkSync } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import { execFile } from 'node:child_process'
+import { closeSync, openSync, readFileSync, statSync, unlinkSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
+import { promisify } from 'node:util'
 import type { AppDatabase } from '../../db'
 import type { MainMessage } from '../../../../shared/messages'
 import type { PolicyChangeFile, PolicyChangeStatus, PolicyLayer, PolicyRule } from '../../../../shared/policy'
@@ -108,8 +109,8 @@ export interface AcceptedConfigDeps {
   notify?: (subject: Subject, message: MainMessage) => void
   /** Reads a gated file's text for the request (bounded); null when it is gone. */
   readText?: (path: string, max: number) => string | null
-  /** Whether the managed file is out of the user's reach (only then it is not gated). */
-  managedProtected?: (path: string) => boolean
+  /** Whether the managed file is out of the user's reach (only then it is not gated). A promise is awaited off the read path. */
+  managedProtected?: (path: string) => boolean | Promise<boolean>
   /** Quiet period before a change is compared and asked (coalesces a file rewritten in a loop). */
   quietMs?: number
   /** At most one new request or re-issue per (subject, file) in this long. */
@@ -184,15 +185,34 @@ export const fileLabel = (subject: Pick<Subject, 'file' | 'layer' | 'path'>): st
 /** Owners a managed policy may have on Windows: SYSTEM, Administrators, TrustedInstaller (SIDs, so any display language works). */
 const TRUSTED_OWNER_SIDS = new Set(['S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'])
 
-/** The owner SID of a file or folder on Windows, from PowerShell's Get-Acl (argv, no shell); null when it cannot be read. */
-export function windowsOwnerSid(path: string): string | null {
+/** Windows PowerShell by its full path: never one found on PATH or in the project. */
+const powershell = (): string => join(process.env.SystemRoot ?? process.env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+
+/**
+ * Reads the owner SIDs of the paths in OXESPACE_ACL_PATHS (file|folder) through .NET, not Get-Acl, which would load a
+ * module from the user's own module path. The paths are never part of the command text (review N1).
+ */
+export const OWNER_SCRIPT = [
+  "$ErrorActionPreference = 'Stop'",
+  "$p = $env:OXESPACE_ACL_PATHS.Split('|')",
+  '$t = [System.Security.Principal.SecurityIdentifier]',
+  '[System.IO.File]::GetAccessControl($p[0]).GetOwner($t).Value',
+  '[System.IO.Directory]::GetAccessControl($p[1]).GetOwner($t).Value'
+].join('; ')
+
+export type RunFile = (file: string, args: string[], options: { env: NodeJS.ProcessEnv; timeout: number; windowsHide: boolean }) => Promise<{ stdout: string }>
+
+/** The owner SIDs of the managed file and its folder on Windows, in one process; null where they cannot be read. */
+export async function windowsOwnerSids(file: string, folder: string, run: RunFile = promisify(execFile) as unknown as RunFile): Promise<[string | null, string | null]> {
+  // `|` separates the two paths; Windows paths cannot hold it, so one that does is not read at all.
+  if (file.includes('|') || folder.includes('|')) return [null, null]
   try {
-    const literal = path.replace(/'/g, "''")
-    const out = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-      `(Get-Acl -LiteralPath '${literal}').GetOwner([System.Security.Principal.SecurityIdentifier]).Value`], { encoding: 'utf8', timeout: 5_000, windowsHide: true })
-    return out.trim() || null
+    const { stdout } = await run(powershell(), ['-NoProfile', '-NonInteractive', '-Command', OWNER_SCRIPT],
+      { env: { ...process.env, OXESPACE_ACL_PATHS: `${file}|${folder}` }, timeout: 5_000, windowsHide: true })
+    const [owner, folderOwner] = String(stdout).split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+    return [owner ?? null, folderOwner ?? null]
   } catch {
-    return null
+    return [null, null]
   }
 }
 
@@ -200,7 +220,7 @@ export function windowsOwnerSid(path: string): string | null {
 export interface ManagedProbeIo {
   /** Whether this user can open the file to write, or create a file beside it. */
   writable(path: string): boolean
-  ownerSid(path: string): string | null
+  owners(file: string, folder: string): Promise<[string | null, string | null]>
 }
 
 const denied = (error: unknown) => ['EPERM', 'EACCES'].includes((error as NodeJS.ErrnoException)?.code ?? '')
@@ -222,7 +242,7 @@ function probeWritable(path: string): boolean {
  * or create one in its folder, AND both are owned by SYSTEM, Administrators or TrustedInstaller (a folder a user created
  * is theirs, and its owner can take write back, review M3). Anything else, or any doubt, is not protected.
  */
-export function managedIsProtected(path: string, platform: NodeJS.Platform = process.platform, io: ManagedProbeIo = { writable: probeWritable, ownerSid: windowsOwnerSid }): boolean {
+export async function managedIsProtected(path: string, platform: NodeJS.Platform = process.platform, io: ManagedProbeIo = { writable: probeWritable, owners: windowsOwnerSids }): Promise<boolean> {
   try {
     if (platform !== 'win32') {
       const file = statSync(path)
@@ -230,7 +250,26 @@ export function managedIsProtected(path: string, platform: NodeJS.Platform = pro
       return file.uid === 0 && folder.uid === 0 && (file.mode & 0o022) === 0 && (folder.mode & 0o022) === 0
     }
     if (io.writable(path)) return false
-    return [path, dirname(path)].every(item => TRUSTED_OWNER_SIDS.has(io.ownerSid(item) ?? ''))
+    const owners = await io.owners(path, dirname(path))
+    return owners.every(owner => TRUSTED_OWNER_SIDS.has(owner ?? ''))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether a linked worktree is the one its repository knows (review N3): its .git file names a folder under
+ * `<common>/worktrees/`, and that folder's `gitdir` names this worktree's .git back. Both are the user's files, so this is
+ * defense in depth; anything else is an unknown primary (the strict rule).
+ */
+function backLinked(root: string, common: string): boolean {
+  try {
+    const dotGit = join(root, '.git')
+    const match = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))
+    if (!match) return false
+    const gitDir = resolve(root, match[1].trim())
+    if (canonicalPath(dirname(gitDir)) !== canonicalPath(join(common, 'worktrees'))) return false
+    return canonicalPath(resolve(gitDir, readFileSync(join(gitDir, 'gitdir'), 'utf8').trim())) === canonicalPath(dotGit)
   } catch {
     return false
   }
@@ -248,6 +287,8 @@ export class AcceptedConfig {
   private readonly running = new Set<Promise<unknown>>()
   /** When each (subject, file) was last asked or re-issued. */
   private readonly lastAsked = new Map<string, number>()
+  /** The managed probe's answer per stat key of the managed file, or the check still running. */
+  private readonly managedProbes = new Map<string, boolean | Promise<boolean>>()
 
   constructor(private readonly deps: AcceptedConfigDeps) {}
 
@@ -259,8 +300,30 @@ export class AcceptedConfig {
     return { id: `${key}\0${file}`, key, file, layer, root: layer === 'project' ? root : null, path }
   }
 
-  managedProtected(path: string): boolean {
-    return (this.deps.managedProtected ?? managedIsProtected)(path)
+  /**
+   * Whether the managed file (at this stat key) is out of the user's reach. The check runs off the main thread, once per
+   * change of the file, and the layer is gated until it answers (review N2); a protected answer then ungates it.
+   */
+  managedProtected(path: string, key = ''): boolean {
+    const id = `${path}\0${key}`
+    const known = this.managedProbes.get(id)
+    if (typeof known === 'boolean') return known
+    if (known) return false
+    for (const other of [...this.managedProbes.keys()]) if (other.startsWith(`${path}\0`)) this.managedProbes.delete(other)
+    const probe = (this.deps.managedProtected ?? (item => managedIsProtected(item)))(path)
+    if (typeof probe === 'boolean') { this.managedProbes.set(id, probe); return probe }
+    this.managedProbes.set(id, probe)
+    void probe.then(result => {
+      if (this.managedProbes.get(id) !== probe) return
+      this.managedProbes.set(id, result)
+      if (result) { this.drop('managed\0policy'); this.version++ }
+    }, () => { if (this.managedProbes.get(id) === probe) this.managedProbes.set(id, false) })
+    return false
+  }
+
+  /** A managed check still running: its layer's request waits for it, so an admin-owned file is not asked about. */
+  private managedChecking(): boolean {
+    return [...this.managedProbes.values()].some(value => typeof value !== 'boolean')
   }
 
   /**
@@ -280,12 +343,12 @@ export class AcceptedConfig {
     // First sight: the part of the file that only narrows the defaults (its denies; each group at most on demand) is
     // the accepted version at once, synchronously, so a change written right after it can never drop it (HML H, review
     // H1). Only the rest, if any, is compared and asked.
-    let firstSeen: { shownBaseJson: string; applied: string[] } | null = null
+    let firstSeen: { shownBaseJson: string; applied: string[]; strict: boolean } | null = null
     if (!row && base.firstSight) {
       const part = firstSightInterim(subject.file, current)
       const partHash = projectionHash(subject.file, part)
       if (partHash !== base.hash) {
-        firstSeen = { shownBaseJson: base.json, applied: part.state === 'value' && subject.file === 'policy' ? (part.value as PolicyValue).rules.map(ruleKey) : [] }
+        firstSeen = { shownBaseJson: base.json, strict: base.strict, applied: part.state === 'value' && subject.file === 'policy' ? (part.value as PolicyValue).rules.map(ruleKey) : [] }
         this.store(subject.id, { hash: partHash, json: JSON.stringify(part), intent: null, rejected: null, via: 'baseline-default' })
         row = this.row(subject.id)
         base = this.baseline(subject, row)
@@ -302,7 +365,7 @@ export class AcceptedConfig {
     if (!entry || entry.newHash !== hash || entry.baseHash !== base.hash) {
       if (entry?.timer) clearTimeout(entry.timer)
       // A rewrite while a request waits keeps that request open: the next check re-issues it with the new content.
-      entry = { subject, baseHash: base.hash, baseJson: base.json, newHash: hash, newJson: JSON.stringify(current), firstSight: base.firstSight || firstSeen !== null, strict: base.strict,
+      entry = { subject, baseHash: base.hash, baseJson: base.json, newHash: hash, newJson: JSON.stringify(current), firstSight: base.firstSight || firstSeen !== null, strict: firstSeen?.strict ?? base.strict,
         inheritedFrom: base.inheritedFrom, rejected: row?.rejected === hash, deferred: false, forced: false, applied: firstSeen?.applied ?? [], notSplit: false,
         ...(firstSeen ? { shownBaseJson: firstSeen.shownBaseJson } : {}) }
       this.pending.set(subject.id, entry)
@@ -434,7 +497,7 @@ export class AcceptedConfig {
       const common = gitCommonDir(subject.root)
       const root = common && basename(common) === '.git' ? dirname(common) : null
       const key = root ? this.projectKey(root) : null
-      let found: { key: string; root: string } | 'unknown' | null = root && key && key !== subject.key ? { key, root } : null
+      let found: { key: string; root: string } | 'unknown' | null = root && key && key !== subject.key ? (backLinked(subject.root, common!) ? { key, root } : 'unknown') : null
       // A .git file is a linked worktree; one that does not resolve to a repository is not a fresh project.
       if (!found && !common) { try { if (statSync(join(subject.root, '.git')).isFile()) found = 'unknown' } catch { /* no .git: not a worktree */ } }
       this.primaries.set(subject.key, found)
@@ -596,6 +659,7 @@ export class AcceptedConfig {
     if ((entry.rejected || entry.deferred) && !entry.forced) return
     const wait = (this.lastAsked.get(id) ?? -Infinity) + (this.deps.reissueMs ?? 3_000) - this.now()
     if (wait > 0 && !entry.forced) { this.schedule(entry, wait); return }
+    if (entry.subject.layer === 'managed' && this.managedChecking()) { this.schedule(entry); return }
     this.lastAsked.set(id, this.now())
     const next = JSON.parse(entry.newJson) as AnyProjection
     // Read once: the text shown must be the version an Allow records, or the request waits for the next read (review M2).

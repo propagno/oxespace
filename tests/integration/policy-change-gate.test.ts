@@ -441,3 +441,23 @@ describe('B7.4 · HML pre-homologation of #372', () => {
   })
 })
 
+describe('B7.4 · SECURITY re-review N3', () => {
+  it('a worktree whose back-link does not name it inherits nothing: the strict rule, from its own first sight', async () => {
+    const primary = temp('oxe-b74-n3-')
+    const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd, stdio: 'ignore' })
+    git(primary, 'init', '-q')
+    const first = await accepted({ root: primary })
+    git(primary, 'add', '.'); git(primary, 'commit', '-q', '-m', 'accepted')
+    const worktree = join(temp('oxe-b74-n3wt-'), 'other')
+    git(primary, 'worktree', 'add', '-q', '-b', 'other', worktree, 'HEAD')
+    // The repository's back-link now names some other folder.
+    writeFileSync(join(primary, '.git', 'worktrees', 'other', 'gitdir'), join(temp('oxe-b74-n3x-'), '.git') + '\n')
+    first.write(join(worktree, '.oxespace', 'policy.json'), policyText(rule('deny', DB_EXECUTE), rule('allow', 'mcp__x')))
+    expect(first.store.decide('tool.use', DB_EXECUTE, worktree).allowed).toBe(false)
+    await first.settle()
+    expect(first.db.prepare("SELECT COUNT(*) AS n FROM accepted_project_config WHERE accepted_via = 'inherited'").get()).toEqual({ n: 0 })
+    // Strict: the allow is not taken silently at first sight, as an unknown worktree is not a fresh project.
+    expect(first.requests()).toHaveLength(1)
+  })
+})
+
