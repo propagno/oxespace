@@ -37,8 +37,8 @@
 import { execFile, execFileSync, type ExecFileException } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { devNull } from 'node:os'
-import { resolve as resolvePath } from 'node:path'
-import { commonGitDir, configFingerprint } from './git-dir'
+import { dirname, isAbsolute, resolve as resolvePath } from 'node:path'
+import { __forgetGitDirsForTests, baseConfigFiles, commonGitDir, gitDirsOf, gitDirsOfSync, sameFiles, stamp, stampOf, type GitDirs } from './git-dir'
 
 /** Every transport git knows; each is denied by name. */
 export const GIT_TRANSPORTS = ['ext', 'file', 'ssh', 'git', 'http', 'https'] as const
@@ -259,74 +259,174 @@ export function needsConfigProbe(args: readonly string[]): boolean {
   return true
 }
 
-const probeArgs = (prefix: readonly string[]): string[] => [...prefix, 'config', '--null', '--show-scope', '--get-regexp', COMMAND_KEYS]
+/**
+ * The whole config with each entry's scope and the file it came from (`--show-origin`): git lists every file it read,
+ * nested and conditional includes too, so the cache stamps exactly those (SECURITY #387 re-check 3, F2).
+ */
+const probeArgs = (prefix: readonly string[]): string[] => [...prefix, 'config', '--null', '--show-scope', '--show-origin', '--list']
+
+/** Whether `args` is safe-git's config read (for a test's fake reader). */
+export const isConfigRead = (args: readonly string[]): boolean => {
+  const at = args.indexOf('config')
+  return at >= 0 && args[at + 1] === '--null' && args.includes('--show-scope')
+}
 
 /** Runs the config read; injectable so a caller with its own spawner (GhExec, tests) reads through it. */
 export type ConfigReader = (command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv) => Promise<{ code: number | null; stdout: string }>
 
 export const execConfigReader: ConfigReader = (command, args, cwd, env) => new Promise(resolve => {
-  execFile(command, args, { cwd, env, windowsHide: true, timeout: 10_000, maxBuffer: 1024 * 1024, encoding: 'utf8' }, (error, stdout) => {
+  execFile(command, args, { cwd, env, windowsHide: true, timeout: 10_000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' }, (error, stdout) => {
     resolve({ code: error ? (typeof error.code === 'number' ? error.code : null) : 0, stdout: String(stdout ?? '') })
   })
 })
 
-/** The command-bearing keys every config scope sets, in `cwd`. Exit 1 is "none". Throws when git cannot tell. */
-export async function readCommandKeys(cwd: string, env: NodeJS.ProcessEnv, git = 'git', prefix: readonly string[] = SAFE_GIT_OPTIONS, reader: ConfigReader = execConfigReader): Promise<ConfigEntry[]> {
-  const { code, stdout } = await reader(git, probeArgs(prefix), cwd, env)
-  if (code === 0) return parseConfigEntries(stdout)
-  if (code === 1) return []
+function execSyncReader(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): { code: number | null; stdout: string } {
+  try {
+    return { code: 0, stdout: execFileSync(command, args, { cwd, env, windowsHide: true, timeout: 10_000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }) }
+  } catch (error) {
+    const status = (error as { status?: number | null }).status
+    return { code: typeof status === 'number' ? status : null, stdout: '' }
+  }
+}
+
+/** One read of the config: the command-bearing keys, and what the cache needs to know which files to stamp. */
+export interface ConfigSnapshot {
+  entries: ConfigEntry[]
+  /** Every file a repository scope came from, as git printed it (`file:<path>`, maybe relative), and each include. */
+  origins: string[]
+  includes: Array<{ key: string; value: string; origin: string }>
+  refStorage?: string
+}
+
+const COMMAND_KEY = new RegExp(COMMAND_KEYS)
+
+/** `git config --null --show-scope --show-origin --list`: `scope NUL origin NUL key LF value NUL`, or no `LF value`. */
+export function parseConfigSnapshot(raw: string): ConfigSnapshot {
+  const parts = raw.split('\0')
+  const entries: ConfigEntry[] = [], origins = new Set<string>(), includes: ConfigSnapshot['includes'] = []
+  let refStorage: string | undefined
+  for (let index = 0; index + 2 < parts.length; index += 3) {
+    const scope = parts[index], origin = parts[index + 1], pair = parts[index + 2]
+    if (!scope || !pair) continue
+    const at = pair.indexOf('\n')
+    const key = at < 0 ? pair : pair.slice(0, at), value = at < 0 ? '' : pair.slice(at + 1)
+    if (key === 'extensions.refstorage') refStorage = value.trim().toLowerCase()
+    if (repositoryScope(scope)) {
+      origins.add(origin)
+      if (/^include(if\..+)?\.path$/.test(key)) includes.push({ key, value, origin })
+    }
+    if (COMMAND_KEY.test(key)) entries.push({ scope, key, value })
+  }
+  return { entries, origins: [...origins], includes, ...(refStorage ? { refStorage } : {}) }
+}
+
+function snapshotOf(code: number | null, stdout: string): ConfigSnapshot {
+  if (code === 0) return parseConfigSnapshot(stdout)
+  if (code === 1) return { entries: [], origins: [], includes: [] }
   throw new Error('Could not read the repository git config.')
 }
 
-function readCommandKeysSync(cwd: string, env: NodeJS.ProcessEnv, git: string): ConfigEntry[] {
-  try {
-    return parseConfigEntries(execFileSync(git, probeArgs(SAFE_GIT_OPTIONS), { cwd, env, windowsHide: true, timeout: 10_000, maxBuffer: 1024 * 1024, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
-  } catch (error) {
-    if ((error as { status?: number }).status === 1) return []
-    throw Object.assign(new Error('Could not read the repository git config.'), { cause: error })
-  }
+/** The config read, with origins. Exit 1 is "none". Throws when git cannot tell. */
+export async function readConfigSnapshot(cwd: string, env: NodeJS.ProcessEnv, git = 'git', prefix: readonly string[] = SAFE_GIT_OPTIONS, reader: ConfigReader = execConfigReader): Promise<ConfigSnapshot> {
+  const { code, stdout } = await reader(git, probeArgs(prefix), cwd, env)
+  return snapshotOf(code, stdout)
+}
+
+/** The command-bearing keys every config scope sets, in `cwd`. Exit 1 is "none". Throws when git cannot tell. */
+export async function readCommandKeys(cwd: string, env: NodeJS.ProcessEnv, git = 'git', prefix: readonly string[] = SAFE_GIT_OPTIONS, reader: ConfigReader = execConfigReader): Promise<ConfigEntry[]> {
+  return (await readConfigSnapshot(cwd, env, git, prefix, reader)).entries
 }
 
 // ---- read once per config change ---------------------------------------------------------------------------
 
 /**
- * The last read per checkout, valid while its config files (and what they include) keep their size and times
- * (git-dir.ts). Reading the config costs a git process; stat costs none, so a checkout is read again only when a
- * config file changed. One map per reader, so a caller's own spawner (GhExec, a test) keeps its own reads.
+ * The files to stamp for a read, from what git said it read, or null when the read must not be kept: a bare
+ * repository or a cwd inside a git dir (F3), an origin that is not a file or not found where it should be, an include
+ * whose target this cannot name (`%(prefix)`, `~user`), a condition other than `gitdir:`, `gitdir/i:` and `onbranch:`
+ * (`hasconfig:` depends on config the stamps do not cover), or `onbranch:` with reftable refs (HEAD is not a file).
+ * `gitdir:` depends on the git dir's path, which is in the stamped names; `onbranch:` on HEAD, which is stamped.
  */
-/** `fingerprint`: valid for a cache hit (empty forces a read); `taken`: the config files as they were before this read. */
-interface ConfigRead { fingerprint: string; taken: string; includes: string[]; entries: ConfigEntry[] }
+export function configFiles(dirs: GitDirs, snapshot: ConfigSnapshot): string[] | null {
+  if (!dirs.topLevel) return null
+  // Git prints a relative origin from the folder it changed to: the work tree's top.
+  const path = (origin: string): string | null => origin.startsWith('file:') ? resolvePath(dirs.topLevel!, origin.slice(5)) : null
+  const files = new Set(baseConfigFiles(dirs))
+  for (const origin of snapshot.origins) {
+    const file = path(origin)
+    if (!file || stamp(file) === '-') return null
+    files.add(file)
+  }
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? ''
+  for (const include of snapshot.includes) {
+    const condition = /^includeif\.(.+)\.path$/.exec(include.key)?.[1]
+    if (condition !== undefined) {
+      if (!/^(gitdir|gitdir\/i|onbranch):/.test(condition)) return null
+      if (condition.startsWith('onbranch:') && snapshot.refStorage && snapshot.refStorage !== 'files') return null
+    }
+    const from = path(include.origin)
+    const value = include.value.trim()
+    if (!from) return null
+    if (!value) continue
+    if (value.startsWith('~/') || value.startsWith('~\\')) { if (!home) return null; files.add(resolvePath(home, value.slice(2))); continue }
+    if (value.startsWith('~') || value.startsWith('%(')) return null
+    // An empty or missing include target is not in the origins; stamp it here, where git looks for it.
+    files.add(isAbsolute(value) ? resolvePath(value) : resolvePath(dirname(from), value))
+  }
+  return [...files].sort()
+}
+
+/**
+ * The last read per cwd, valid while the files git read for it keep their stamp (git-dir.ts). Reading costs a git
+ * process; stat costs none. `fingerprint`: valid for a cache hit (empty forces a read); `taken`: the stamp of
+ * `stamped` taken before this read, which the check after the command compares. One map per reader, so a caller's own
+ * spawner (GhExec, a test) keeps its own reads.
+ */
+interface ConfigRead { dirs: string; fingerprint: string; taken: string; stamped: string[]; files: string[]; entries: ConfigEntry[] }
+const dirsKey = (dirs: GitDirs | null): string => dirs ? `${dirs.gitDir}|${dirs.commonDir}|${dirs.topLevel ?? ''}` : ''
 const reads = new WeakMap<ConfigReader, Map<string, ConfigRead>>()
 const syncReads = new Map<string, ConfigRead>()
 const readKey = (cwd: string): string => { const path = resolvePath(cwd); return process.platform === 'win32' ? path.toLowerCase() : path }
-const includesOf = (entries: readonly ConfigEntry[]): string[] => entries.filter(entry => /^include(if\..+)?\.path$/i.test(entry.key)).map(entry => entry.value).sort()
 
-function remember(cache: Map<string, ConfigRead>, cwd: string, before: ConfigRead | undefined, fingerprint: string, entries: ConfigEntry[]): ConfigRead {
-  const includes = includesOf(entries)
-  // A new include list means the fingerprint taken before the read did not cover those files: read again next time.
-  const read = { taken: fingerprint, fingerprint: includes.join('\0') === (before?.includes ?? []).join('\0') ? fingerprint : '', includes, entries }
-  cache.set(readKey(cwd), read)
+interface ReadStep { key: string; dirs: GitDirs | null; stamped: string[]; taken: string; hit?: ConfigRead }
+
+function lookupRead(cache: Map<string, ConfigRead>, cwd: string, dirs: GitDirs | null): ReadStep {
+  const key = readKey(cwd)
+  const before = cache.get(key)
+  // The files the last read named, if it was of these same dirs; else the base set (a new set forces one more read).
+  const stamped = !dirs ? [] : before && before.dirs === dirsKey(dirs) ? before.files : baseConfigFiles(dirs)
+  // Stamped before the read: a change during it is seen on the next call (M1 stays one run).
+  const taken = stampOf(stamped)
+  return { key, dirs, stamped, taken, ...(dirs && before?.fingerprint && before.fingerprint === taken ? { hit: before } : {}) }
+}
+
+function remember(cache: Map<string, ConfigRead>, step: ReadStep, snapshot: ConfigSnapshot): ConfigRead {
+  const files = step.dirs ? configFiles(step.dirs, snapshot) : null
+  // Kept only when the files git read are the ones stamped before it read them; null: never kept (read every time).
+  const valid = files !== null && sameFiles(files, step.stamped)
+  const read = { dirs: dirsKey(step.dirs), fingerprint: valid ? step.taken : '', taken: step.taken, stamped: step.stamped, files: files ?? step.stamped, entries: snapshot.entries }
+  cache.set(step.key, read)
   return read
 }
+
+const runFor = (reader: ConfigReader, git: string, cwd: string, env: NodeJS.ProcessEnv) => (args: string[]) => reader(git, [...SAFE_GIT_OPTIONS, ...args], cwd, env)
 
 async function readCached(cwd: string, env: NodeJS.ProcessEnv, git: string, reader: ConfigReader): Promise<ConfigRead> {
   let cache = reads.get(reader)
   if (!cache) { cache = new Map(); reads.set(reader, cache) }
-  const before = cache.get(readKey(cwd))
-  const fingerprint = configFingerprint(cwd, before?.includes)
-  if (before && before.fingerprint && before.fingerprint === fingerprint) return before
-  return remember(cache, cwd, before, fingerprint, await readCommandKeys(cwd, env, git, SAFE_GIT_OPTIONS, reader))
+  const step = lookupRead(cache, cwd, await gitDirsOf(cwd, env, runFor(reader, git, cwd, env)))
+  if (step.hit) return step.hit
+  return remember(cache, step, await readConfigSnapshot(cwd, env, git, SAFE_GIT_OPTIONS, reader))
 }
 
 function readCachedSync(cwd: string, env: NodeJS.ProcessEnv, git: string): ConfigRead {
-  const before = syncReads.get(readKey(cwd))
-  const fingerprint = configFingerprint(cwd, before?.includes)
-  if (before && before.fingerprint && before.fingerprint === fingerprint) return before
-  return remember(syncReads, cwd, before, fingerprint, readCommandKeysSync(cwd, env, git))
+  const step = lookupRead(syncReads, cwd, gitDirsOfSync(cwd, env, args => execSyncReader(git, [...SAFE_GIT_OPTIONS, ...args], cwd, env)))
+  if (step.hit) return step.hit
+  const { code, stdout } = execSyncReader(git, probeArgs(SAFE_GIT_OPTIONS), cwd, env)
+  return remember(syncReads, step, snapshotOf(code, stdout))
 }
 
-/** Test-only: forget the config reads. */
-export function __forgetConfigReadsForTests(): void { syncReads.clear() }
+/** Test-only: forget the config reads and the git dirs found. */
+export function __forgetConfigReadsForTests(): void { syncReads.clear(); __forgetGitDirsForTests() }
 
 // ---- after the command: did the config change under it? ----------------------------------------------------
 
@@ -357,14 +457,14 @@ export function onRepositoryConfigChanged(listener: (change: { cwd: string; keys
  */
 export async function verifyAfter(prepared: PreparedGit, cwd: string, reader: ConfigReader = execConfigReader): Promise<string[]> {
   if (!prepared.probed) return []
-  if (configFingerprint(cwd, includesOf(prepared.probed)) === prepared.fingerprint) return []
+  if (prepared.stamped && stampOf(prepared.stamped) === prepared.fingerprint) return []
   try { return changedKeys(cwd, prepared.probed, (await readCached(cwd, prepared.env, prepared.command, reader)).entries) }
   catch { return [] }
 }
 
 function verifyAfterSync(prepared: PreparedGit, cwd: string): string[] {
   if (!prepared.probed) return []
-  if (configFingerprint(cwd, includesOf(prepared.probed)) === prepared.fingerprint) return []
+  if (prepared.stamped && stampOf(prepared.stamped) === prepared.fingerprint) return []
   try { return changedKeys(cwd, prepared.probed, readCachedSync(cwd, prepared.env, prepared.command).entries) }
   catch { return [] }
 }
@@ -391,8 +491,8 @@ export interface RunGitOptions {
 }
 
 /** `probed`: what the config read before the command saw, or null when the command skipped it. */
-/** `fingerprint`: the config files as they were when `probed` was read. */
-export interface PreparedGit { command: string; args: string[]; env: NodeJS.ProcessEnv; probed: ConfigEntry[] | null; fingerprint?: string }
+/** `fingerprint`: the stamp of `stamped` (the files git read) taken before `probed` was read. */
+export interface PreparedGit { command: string; args: string[]; env: NodeJS.ProcessEnv; probed: ConfigEntry[] | null; fingerprint?: string; stamped?: readonly string[] }
 
 const HOOKS_OFF = `core.hooksPath=${NO_HOOKS_PATH}`
 function prefixFor(options: RunGitOptions): readonly string[] {
@@ -418,7 +518,16 @@ export async function prepareGit(cwd: string, args: readonly string[], options: 
   const env = layeredEnv(safeGitEnv(process.env, { systemConfig: true }), options.env)
   const read = needsConfigProbe(args) ? await readCached(cwd, env, command, options.readConfig ?? execConfigReader) : null
   const probed = read?.entries ?? null
-  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed, fingerprint: read?.taken }
+  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed, ...afterCheck(read) }
+}
+
+/**
+ * What the check after the command compares: the stamp taken before the read, over the files it covered. When the read
+ * named files that were not stamped (a new include), there is nothing to compare and the check reads again.
+ */
+function afterCheck(read: ConfigRead | null): Pick<PreparedGit, 'fingerprint' | 'stamped'> {
+  if (!read) return {}
+  return { fingerprint: read.taken, ...(sameFiles(read.files, read.stamped) ? { stamped: read.stamped } : {}) }
 }
 
 /** `prepareGit` for the synchronous callers. */
@@ -427,7 +536,7 @@ export function prepareGitSync(cwd: string, args: readonly string[], options: Ru
   const env = layeredEnv(safeGitEnv(process.env, { systemConfig: true }), options.env)
   const read = needsConfigProbe(args) ? readCachedSync(cwd, env, command) : null
   const probed = read?.entries ?? null
-  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed, fingerprint: read?.taken }
+  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed, ...afterCheck(read) }
 }
 
 /** `configChanged`: repository command keys that appeared while the command ran; its output is then not trusted. */

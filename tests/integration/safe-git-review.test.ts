@@ -10,8 +10,9 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realp
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { __forgetSeenDriversForTests, execConfigReader, execGitSync, ghEnv, onRepositoryConfigChanged, runGit, type ConfigReader } from '../../electron/main/utils/safe-git'
+import { __forgetConfigReadsForTests, __forgetSeenDriversForTests, execConfigReader, execGitSync, ghEnv, isConfigRead, onRepositoryConfigChanged, runGit, type ConfigReader } from '../../electron/main/utils/safe-git'
 import { PersonGitRefused, runPersonGit } from '../../electron/main/utils/safe-git-person'
+import { commonGitDir } from '../../electron/main/utils/git-dir'
 import { GhExec, type SpawnAsyncOptions, type SpawnResult } from '../../electron/main/services/github/gh-exec'
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
@@ -24,6 +25,7 @@ const slash = (path: string) => path.replace(/\\/g, '/')
 let sandbox: string, marker: string, evil: string, evilRun: string, evilScript: string
 beforeEach(() => {
   __forgetSeenDriversForTests()
+  __forgetConfigReadsForTests()
   sandbox = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-safegit-387-')))
   marker = join(sandbox, 'MARKER')
   evilScript = join(sandbox, 'evil.sh')
@@ -175,7 +177,7 @@ describe("H3: a person push to a local path would run the target's hooks", () =>
 
 describe('M1: check, then act', () => {
   /** A config read that saw nothing: what an agent gets by adding the driver right after main's read. */
-  const blind: ConfigReader = async () => ({ code: 1, stdout: '' })
+  const blind: ConfigReader = async (...args) => (isConfigRead(args[1]) ? { code: 1, stdout: '' } : execConfigReader(...args))
 
   test('a driver added after the read runs in a repository never seen; one seen before is emptied anyway', async () => {
     const unseen = filteredRepo('unseen')
@@ -196,7 +198,7 @@ describe('M1: check, then act', () => {
     let calls = 0
     // The read sees nothing, and right after it the agent writes the config: what the stat afterwards catches.
     const late: ConfigReader = (...args) => {
-      if (calls++ > 0) return execConfigReader(...args)
+      if (!isConfigRead(args[1]) || calls++ > 0) return execConfigReader(...args)
       appendFileSync(join(root, '.git', 'config'), `[filter "fresh"]\n\tclean = ${evil}\n`)
       return blind(...args)
     }
@@ -260,7 +262,7 @@ describe('the config read cache', () => {
     const mtime = new Date(Math.floor(Date.now() / 1000) * 1000 - 60_000)
     utimesSync(config, mtime, mtime)
     let reads = 0
-    const counting: ConfigReader = (...args) => { reads++; return execConfigReader(...args) }
+    const counting: ConfigReader = (...args) => { if (isConfigRead(args[1])) reads++; return execConfigReader(...args) }
 
     await runGit(root, ['status', '--porcelain'], { readConfig: counting })
     await runGit(root, ['status', '--porcelain'], { readConfig: counting })
@@ -289,7 +291,7 @@ describe('the config read cache', () => {
 })
 
 describe('round 3: N1, N2 and the linked worktree', () => {
-  const blind: ConfigReader = async () => ({ code: 1, stdout: '' })
+  const blind: ConfigReader = async (...args) => (isConfigRead(args[1]) ? { code: 1, stdout: '' } : execConfigReader(...args))
 
   test("N1: gh's git may not push to a local path, whose hooks would run", async () => {
     const { clone } = bareAndClone()
@@ -311,7 +313,7 @@ describe('round 3: N1, N2 and the linked worktree', () => {
     const { clone } = bareAndClone()
     appendFileSync(join(clone, '.git', 'config'), `[filter "late"]\n\tclean = ${evil}\n`)
     let calls = 0
-    const late: ConfigReader = (...args) => (calls++ === 0 ? blind(...args) : execConfigReader(...args))
+    const late: ConfigReader = (...args) => (isConfigRead(args[1]) && calls++ === 0 ? blind(...args) : execConfigReader(...args))
     const changes: string[][] = []
     const stop = onRepositoryConfigChanged(change => changes.push(change.keys))
     try {
@@ -342,6 +344,138 @@ describe('round 3: N1, N2 and the linked worktree', () => {
     utimesSync(join(linked, 'c.txt'), new Date(Date.now() + 20000), new Date(Date.now() + 20000))
     await runGit(linked, ['status', '--porcelain'], { readConfig: blind })
     expect(ran(), 'seen in the main checkout, so emptied in the linked one even through a blind read').toBe(false)
+  })
+})
+
+describe('re-check 3: the cache stamps what git read, and git finds the dirs', () => {
+  // Git never looks above the sandbox, and HOME is an empty folder in it: no test touches a config outside the sandbox.
+  const saved: Record<string, string | undefined> = {}
+  let env: NodeJS.ProcessEnv
+  beforeEach(() => {
+    const home = join(sandbox, 'home')
+    mkdirSync(home)
+    for (const name of ['GIT_CEILING_DIRECTORIES', 'HOME', 'USERPROFILE', 'XDG_CONFIG_HOME']) saved[name] = process.env[name]
+    process.env.GIT_CEILING_DIRECTORIES = sandbox
+    process.env.HOME = home
+    process.env.USERPROFILE = home
+    delete process.env.XDG_CONFIG_HOME
+    env = { ...plainEnv, GIT_CEILING_DIRECTORIES: sandbox, HOME: home, USERPROFILE: home }
+    delete env.XDG_CONFIG_HOME
+  })
+  afterEach(() => {
+    for (const [name, value] of Object.entries(saved)) { if (value === undefined) delete process.env[name]; else process.env[name] = value }
+  })
+  const git = (cwd: string, ...args: string[]): string => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const gitTry = (cwd: string, ...args: string[]): void => { try { git(cwd, ...args) } catch { /* the vector's own failure is fine */ } }
+  let reads = 0
+  const counting: ConfigReader = (...args) => { if (isConfigRead(args[1])) reads++; return execConfigReader(...args) }
+  beforeEach(() => { reads = 0 })
+
+  /** A repository whose `.txt` files go through filter `x`, which its config does not define (yet). */
+  function attributed(name: string): string {
+    const root = join(sandbox, name)
+    mkdirSync(root, { recursive: true })
+    git(root, 'init', '-q', '-b', 'main')
+    writeFileSync(join(root, '.gitattributes'), '*.txt filter=x\n')
+    writeFileSync(join(root, 'c.txt'), 'abc\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-q', '-m', 'c')
+    return root
+  }
+  /** A same-size change with a later mtime: git must hash c.txt again, through the clean filter. */
+  let shift = 9000
+  const touch = (root: string) => { writeFileSync(join(root, 'c.txt'), 'xyz\n'); shift += 9000; utimesSync(join(root, 'c.txt'), new Date(Date.now() + shift), new Date(Date.now() + shift)) }
+  const driver = () => `[filter "x"]\n\tclean = ${evil}\n\tsmudge = ${evil}\n`
+
+  test('F1: an includeIf "onbranch:" that a checkout turns on is read again (HEAD is stamped)', async () => {
+    const root = attributed('onbranch')
+    appendFileSync(join(root, '.git', 'config'), '[includeIf "onbranch:evil"]\n\tpath = evil.cfg\n')
+    writeFileSync(join(root, '.git', 'evil.cfg'), driver())
+    for (let call = 0; call < 3; call++) await runGit(root, ['status', '--porcelain'], { readConfig: counting })
+    // The first read names evil.cfg, not stamped before it, so the second reads again; then it holds while on main.
+    expect(reads, 'on main the include is off, and the read holds').toBe(2)
+
+    git(root, 'checkout', '-q', '-b', 'evil')
+    reset()
+    touch(root)
+    gitTry(root, 'status', '--porcelain')
+    expect(ran(), 'on branch evil plain git runs the included driver').toBe(true)
+
+    reset()
+    touch(root)
+    await runGit(root, ['status', '--porcelain'], { readConfig: counting })
+    expect(reads, 'the checkout moved HEAD: read again').toBe(3)
+    expect(ran()).toBe(false)
+  })
+
+  test('F2: a nested include is stamped where git looks for it, even before it exists', async () => {
+    const root = attributed('nested')
+    mkdirSync(join(root, '.git', 'sub'))
+    appendFileSync(join(root, '.git', 'config'), '[include]\n\tpath = sub/a.cfg\n')
+    // Relative to sub/a.cfg, so .git/sub/b.cfg; .git/b.cfg is the wrong place.
+    writeFileSync(join(root, '.git', 'sub', 'a.cfg'), '[include]\n\tpath = b.cfg\n')
+    for (let call = 0; call < 3; call++) await runGit(root, ['status', '--porcelain'], { readConfig: counting })
+    // The first read finds sub/a.cfg and b.cfg, not stamped before it, so the second reads again; then it holds.
+    expect(reads).toBe(2)
+
+    writeFileSync(join(root, '.git', 'sub', 'b.cfg'), driver())
+    touch(root)
+    gitTry(root, 'status', '--porcelain')
+    expect(ran(), 'plain git runs the driver from the nested include').toBe(true)
+
+    reset()
+    touch(root)
+    await runGit(root, ['status', '--porcelain'], { readConfig: counting })
+    expect(reads).toBe(3)
+    expect(ran()).toBe(false)
+    // And a rewrite of the nested file once it exists is seen too.
+    reset()
+    appendFileSync(join(root, '.git', 'sub', 'b.cfg'), `[filter "y"]\n\tclean = ${evil}\n`)
+    writeFileSync(join(root, '.gitattributes'), '*.txt filter=y\n')
+    touch(root)
+    await runGit(root, ['status', '--porcelain'], { readConfig: counting })
+    expect(reads).toBe(4)
+    expect(ran()).toBe(false)
+  })
+
+  /** A bare repository at `path` holding c.txt, whose `info/attributes` sends `.txt` through filter `x`. */
+  function bare(path: string): string {
+    const source = attributed(`source-${Math.random().toString(36).slice(2)}`)
+    git(sandbox, 'clone', '-q', '--bare', source, path)
+    writeFileSync(join(path, 'info', 'attributes'), '*.txt filter=x\n')
+    return path
+  }
+  /** `cat-file --filters` runs the smudge filter, in a bare repository too. */
+  const smudge = ['cat-file', '--filters', 'HEAD:c.txt']
+
+  async function bareVector(repo: string) {
+    gitTry(repo, ...smudge)
+    expect(ran(), 'no driver yet').toBe(false)
+    await runGit(repo, smudge, { readConfig: counting })
+    await runGit(repo, smudge, { readConfig: counting })
+    expect(reads, 'a bare repository is never kept: read on every call').toBe(2)
+
+    appendFileSync(join(repo, 'config'), driver())
+    gitTry(repo, ...smudge)
+    expect(ran(), 'plain git runs the bare repository\'s smudge driver').toBe(true)
+    reset()
+    const result = await runGit(repo, smudge, { readConfig: counting })
+    expect(result.ok, result.stderr).toBe(true)
+    expect(reads).toBe(3)
+    expect(ran()).toBe(false)
+    expect(slash(commonGitDir(repo)).toLowerCase(), 'git found the bare repository itself').toBe(slash(repo).toLowerCase())
+  }
+
+  test('F3: a bare repository is its own git dir and is read on every call', async () => {
+    await bareVector(bare(join(sandbox, 'bare.git')))
+  })
+
+  test('F3: a bare repository inside another checkout never takes that checkout\'s config', async () => {
+    const outer = join(sandbox, 'outer')
+    mkdirSync(outer)
+    git(outer, 'init', '-q', '-b', 'main')
+    // The walk up by hand found outer/.git from outer/inner.git and stamped its config instead.
+    await bareVector(bare(join(outer, 'inner.git')))
   })
 })
 
