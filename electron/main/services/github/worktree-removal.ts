@@ -124,7 +124,7 @@ export async function removeWorktreeSafely(
   // 4 — dirty check
   if (!input.force && !target.prunable) {
     const links = await findSharedLinks(target.path, sharedDirs)
-    const status = await deps.gh.spawn('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], target.path, undefined, 20_000)
+    const status = await deps.gh.git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], target.path, undefined, 20_000)
     if (status.status === 0 && !status.error) {
       const blocking = (status.stdout ?? '')
         .split('\0')

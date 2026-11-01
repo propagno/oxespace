@@ -123,6 +123,8 @@ with Esc, Tab, Ctrl+C and arrows for the terminal." -->
 
 - **Containers moved from OxeQuery to OxePod.**
 - **Mode names**: Code is now OxeCode and Thread is now OxeChat.
+- **Git actions started from OXESpace skip the repository's hooks.** Push, switching branches and creating worktrees
+  run without them; use the terminal when a flow depends on hooks.
 <!-- add when F34/F35 merge: "OXEVoice was removed. OXESpace no longer records speech; your operating system's
 dictation still types into any field, and the downloaded voice model is deleted on the first start." and "Team moved
 off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+T." -->

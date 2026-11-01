@@ -47,6 +47,8 @@ sozinha).
 
 ## O que mudou de lugar ou saiu
 
+- **Ações de Git feitas pelo OXESpace não executam os hooks do repositório.** Push, troca de branch e criação de
+  worktree rodam sem eles; use o terminal quando um fluxo depende dos hooks.
 - **O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu sistema continua digitando em
   qualquer campo, e o modelo de voz baixado é apagado no primeiro início. A voz nativa está prevista para uma
   versão futura.

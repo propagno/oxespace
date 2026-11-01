@@ -154,8 +154,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'git.change': {
     label: 'Stage, commit, branch, fetch, pull, push, checkpoints',
     tools: {
-      ...each('oxespace_git_change', 'write', ['stage', 'stage_all', 'unstage', 'commit', 'create_branch', 'fetch', 'pull', 'create_checkpoint']),
-      ...each('oxespace_git_change', 'confirm', ['checkout', 'push', 'restore_checkpoint', 'delete_checkpoint'])
+      ...each('oxespace_git_change', 'write', ['stage', 'stage_all', 'unstage', 'commit', 'create_branch', 'create_checkpoint']),
+      ...each('oxespace_git_change', 'confirm', ['fetch', 'pull', 'checkout', 'push', 'restore_checkpoint', 'delete_checkpoint'])
     },
     ipc: ['github.fetch', 'github.pullFfOnly', 'github.stageAll', 'github.stageFile', 'github.unstageFile', 'github.commit', 'github.push', 'github.commitAndPush',
       'github.createBranch', 'github.checkoutBranch', 'github.createCheckpoint', 'github.restoreCheckpoint', 'github.deleteCheckpoint']

@@ -8,7 +8,9 @@ export class DelegationGitProvisioner {
   constructor(
     private readonly gitApi: GitHubWorktreeApi,
     private readonly repository: DelegationRepository,
-    private readonly git: (cwd: string, args: string[]) => Promise<string>
+    private readonly git: (cwd: string, args: string[]) => Promise<string>,
+    /** The network fetch of fetchBase; only a person-created task reaches the network (utils/safe-git-person.ts). */
+    private readonly fetchRemote: (task: DelegationTask, remote: string) => Promise<void> = async () => { throw new Error('FETCH_NEEDS_PERSON: OXESpace fetches only when a person asks') }
   ) {}
 
   async apply(task: DelegationTask, assertActive: () => void = () => {}): Promise<void> {
@@ -38,7 +40,7 @@ export class DelegationGitProvisioner {
           const remotes = (await this.git(task.cwd, ['remote'])).split(/\r?\n/)
           const remote = task.branchIntent?.remote ?? remotes.find(name => checkout.baseRef.startsWith(`${name}/`))
           if (!remote || !remotes.includes(remote)) throw new Error('FETCH_REMOTE_REQUIRED: choose a configured remote base')
-          await this.git(task.cwd, ['fetch', '--', remote])
+          await this.fetchRemote(task, remote)
           const refreshed = await this.git(task.cwd, ['rev-parse', '--verify', `${checkout.baseRef}^{commit}`])
           assertActive()
           checkout.baseSha = refreshed
