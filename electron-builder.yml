@@ -31,6 +31,22 @@ files:
 # entries are repeated rather than inherited from a top-level list), so the
 # build never depends on how electron-builder merges platform overrides.
 asar: true
+# Electron fuses (B13, BE-M-02), flipped by electron-builder in the packaged binary only; the dev electron binary that
+# tests and scripts run with ELECTRON_RUN_AS_NODE is never touched. scripts/check-fuses.mjs reads them back in CI.
+# - runAsNode off: the app binary cannot be reused as a Node interpreter. Nothing at runtime needs it: OxeChat runs
+#   Codex's native codex.exe, ConPTY's kill no longer forks (useConptyDll), CodeGraph never spawns process.execPath.
+# - enableNodeOptionsEnvironmentVariable off: NODE_OPTIONS cannot inject --require or --inspect into the app.
+# - enableNodeCliInspectArguments stays ON in 1.4: Playwright's _electron.launch attaches with --inspect, and every
+#   packaged spec (smoke, maturity flows, memory, fuses) depends on it. Moving them to --remote-debugging-port plus
+#   connectOverCDP is a follow-up; until then a local process can still attach a debugger by passing --inspect.
+# - enableEmbeddedAsarIntegrityValidation + onlyLoadAppFromAsar: the app runs only from app.asar, and on Windows the
+#   asar's header hash embedded in the exe is checked (Electron does not validate asar integrity on Linux yet).
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: true
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
 asarUnpack:
   - node_modules/better-sqlite3/**/*
   - node_modules/node-pty/**/*

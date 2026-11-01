@@ -30,6 +30,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'app.connectivity.offline': [],
   'thread.side.unavailable': [],
   'thread.side.noSession': [],
+  'thread.agent.scriptUnsupported': [],
+  'thread.agent.nativeMissing': [],
   'activity.invalid': [],
   'activity.tooMany': ['max'],
   'activity.titleTooLong': ['max'],

@@ -445,6 +445,25 @@ jobs:
           # The source maps are private: none may reach the packaged app.
           node -e "const asar = require('@electron/asar'); const fs = require('node:fs'); const dirs = fs.readdirSync('dist').filter(name => name.endsWith('-unpacked')); if (!dirs.length) throw new Error('no unpacked app in dist'); for (const dir of dirs) { const maps = asar.listPackage('dist/' + dir + '/resources/app.asar', {}).filter(file => /^[\\/]out[\\/].*\.map$/.test(file)); if (maps.length) throw new Error(dir + ' ships source maps: ' + maps.slice(0, 5).join(', ')); console.log('[sourcemaps] ' + dir + ': none in app.asar') }"
 
+      # B13 (BE-M-02): the fuses electron-builder flipped, read back from the binary that ships. Fails when any differs
+      # from electronFuses in electron-builder.yml (RunAsNode and NODE_OPTIONS off, asar integrity and asar-only on).
+      - name: Read packaged fuses (${{ matrix.label }})
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($IsWindows) {
+            $executable = Get-ChildItem dist/win-unpacked -Filter 'OXESpace*.exe' -File | Select-Object -First 1
+          } else {
+            $executable = Get-ChildItem dist/linux-unpacked -File | Where-Object {
+              $_.Name -like 'oxespace*' -and ($_.UnixFileMode -band [System.IO.UnixFileMode]::UserExecute)
+            } | Select-Object -First 1
+          }
+          if (-not $executable) { throw 'No packaged OXESpace executable found to read the fuses of.' }
+          npx --no-install @electron/fuses read --app $executable.FullName
+          node scripts/check-fuses.mjs --app $executable.FullName
+
       - name: E2E packaged Linux build
         if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Linux'
         shell: bash

@@ -1,10 +1,11 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { delimiter, dirname, extname, join } from 'node:path'
+import { delimiter, dirname, extname, join, resolve as resolvePath } from 'node:path'
 import type { ConversationTransport } from './codex-conversation'
 import { recordRuntime, type RuntimeDetail } from '../runtime-diagnostics'
 import { recordIncident } from '../diagnostics/incident-sink'
+import { MainRefusal } from '../main-refusal'
 
 /** Thread subscription processes share a native account, never an API env key. */
 export function subscriptionEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
@@ -19,42 +20,55 @@ export function subscriptionEnvironment(source: NodeJS.ProcessEnv = process.env)
     ].includes(key.toUpperCase())))
 }
 
-/** Resolve without shell interpolation; npm Windows shims use their JS entry. */
+/**
+ * Resolve without shell interpolation. An npm Windows shim of Codex (`codex.cmd`) resolves to the native `codex.exe`
+ * its package ships, never to `process.execPath` with ELECTRON_RUN_AS_NODE: the packaged app has the RunAsNode fuse
+ * off (B13), and the shim itself spawns a child without windowsHide. No result carries ELECTRON_RUN_AS_NODE.
+ */
 export function conversationCommand(command: string, args: string[], env: NodeJS.ProcessEnv = process.env,
-  platform = process.platform): { executable: string; args: string[]; env: NodeJS.ProcessEnv } {
+  platform = process.platform, arch = process.arch,
+  appExecutable: string | undefined = process.versions.electron ? process.execPath : undefined): { executable: string; args: string[]; env: NodeJS.ProcessEnv } {
   if (!command || /[\r\n\0]/.test(command)) throw new Error('Invalid agent executable')
   command = command.replace(/^"(.*)"$/, '$1')
   const paths = command.includes('/') || command.includes('\\') ? [command] :
     (env.PATH ?? env.Path ?? '').split(delimiter).flatMap(path =>
       platform === 'win32' && !extname(command) ? [join(path, command + '.exe'), join(path, command + '.cmd'), join(path, command)] : [join(path, command)])
-  const executable = paths.find(path => existsSync(path))
-  if (!executable) throw new Error('Agent executable was not found')
-  if (platform === 'win32' && ['.cmd', '.ps1', '.bat'].includes(extname(executable).toLowerCase())) {
-    const entry = join(dirname(executable), 'node_modules', '@openai', 'codex', 'bin', 'codex.js')
-    if (!existsSync(entry) || !/^codex\.(cmd|ps1|bat)$/i.test(executable.split(/[\\/]/).at(-1) ?? '')) {
-      throw new Error('Configure a native agent executable; arbitrary shell scripts are not supported for OxeChat')
-    }
-    return { executable: process.execPath, args: [entry, ...args], env: { ...env, ELECTRON_RUN_AS_NODE: '1' } }
+  const found = paths.find(path => existsSync(path))
+  if (!found) throw new Error('Agent executable was not found')
+  // The app's own binary is not an agent: run as one it would need RunAsNode, which the packaged app has off.
+  if (appExecutable && samePath(found, appExecutable, platform)) throw new MainRefusal('thread.agent.scriptUnsupported', {})
+  const childEnv = { ...env }
+  delete childEnv.ELECTRON_RUN_AS_NODE
+  if (platform !== 'win32' || !['.cmd', '.ps1', '.bat'].includes(extname(found).toLowerCase())) return { executable: found, args, env: childEnv }
+  const entry = join(dirname(found), 'node_modules', '@openai', 'codex', 'bin', 'codex.js')
+  if (!existsSync(entry) || !/^codex\.(cmd|ps1|bat)$/i.test(found.split(/[\\/]/).at(-1) ?? '')) {
+    throw new MainRefusal('thread.agent.scriptUnsupported', {})
   }
-  return { executable, args, env }
+  return { executable: nativeCodexExecutable(entry, arch), args, env: childEnv }
 }
 
-/** Launch Codex directly: its npm shim spawns a child without windowsHide. */
-export function interactiveConversationCommand(command: string, args: string[], env: NodeJS.ProcessEnv = process.env,
-  platform = process.platform): ReturnType<typeof conversationCommand> {
-  const resolved = conversationCommand(command, args, env, platform)
-  if (platform !== 'win32' || resolved.executable !== process.execPath || !/[/\\]@openai[/\\]codex[/\\]bin[/\\]codex\.js$/i.test(resolved.args[0] ?? '')) return resolved
-  const entry = resolved.args[0]
+function samePath(a: string, b: string, platform: NodeJS.Platform): boolean {
+  const norm = (path: string): string => { const full = resolvePath(path); return platform === 'win32' ? full.toLowerCase() : full }
+  return norm(a) === norm(b)
+}
+
+/** The `codex.exe` an npm install of `@openai/codex` ships next to `bin/codex.js`, from its platform package or its own vendor folder. */
+function nativeCodexExecutable(entry: string, arch: string): string {
   const packageRoot = dirname(dirname(entry))
-  const target = process.arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'x86_64-pc-windows-msvc'
-  const platformPackage = process.arch === 'arm64' ? '@openai/codex-win32-arm64' : '@openai/codex-win32-x64'
-  let vendor = join(packageRoot, 'vendor')
-  try { vendor = join(dirname(createRequire(entry).resolve(`${platformPackage}/package.json`)), 'vendor') } catch { /* older bundled npm package */ }
-  const executable = [join(vendor, target, 'bin', 'codex.exe'), join(vendor, target, 'codex', 'codex.exe')].find(existsSync)
-  if (!executable) throw Error('The installed Codex native executable is unavailable. Reinstall Codex or configure codex.exe in Agent Settings.')
-  const nativeEnv = { ...env }
-  delete nativeEnv.ELECTRON_RUN_AS_NODE
-  return { executable, args, env: nativeEnv }
+  const target = arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'x86_64-pc-windows-msvc'
+  const platformPackage = arch === 'arm64' ? '@openai/codex-win32-arm64' : '@openai/codex-win32-x64'
+  const vendors = [join(packageRoot, 'vendor')]
+  try { vendors.unshift(join(dirname(createRequire(entry).resolve(`${platformPackage}/package.json`)), 'vendor')) } catch { /* older bundled npm package */ }
+  const executable = vendors.flatMap(vendor => [join(vendor, target, 'bin', 'codex.exe'), join(vendor, target, 'codex', 'codex.exe')]).find(existsSync)
+  if (!executable) throw new MainRefusal('thread.agent.nativeMissing', {})
+  return executable
+}
+
+/** Kept for callers that launch a conversation interactively: the same resolution, which is already native. */
+export function interactiveConversationCommand(command: string, args: string[], env: NodeJS.ProcessEnv = process.env,
+  platform = process.platform, arch = process.arch,
+  appExecutable: string | undefined = process.versions.electron ? process.execPath : undefined): ReturnType<typeof conversationCommand> {
+  return conversationCommand(command, args, env, platform, arch, appExecutable)
 }
 
 /** The CLI's bare name: the only part of a command that failed to start which the incident journal hashes. */
