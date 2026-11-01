@@ -34,7 +34,7 @@ test('sections live in the main process: a local copy moves there once, and the 
   const dbPath = join(root, 'db.sqlite3')
 
   let app = await launchReal(dbPath)
-  let second = ''
+  let second!: string
   try {
     const page = await app.firstWindow()
     await resizeWindow(app, 1280, 800)
