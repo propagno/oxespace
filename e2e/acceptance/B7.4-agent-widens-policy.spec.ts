@@ -434,6 +434,51 @@ test('B7.4 (12): a committed deny overwritten before the first read stays in for
   }
 })
 
+/**
+ * (13) Boot: the first-sight request of (12) is left unanswered and the app restarts. At boot the deny still holds, the
+ * request comes back once (deferred, no burst), and nothing reaches the native dialog.
+ */
+test('B7.4 (13): an unanswered first-sight request survives a restart, once, with the deny in force', async () => {
+  test.setTimeout(180_000)
+  const profile = realProfile('b74boot', { OXESPACE_LOCALE: 'en-US' })
+  const { repo, root } = profile
+  const git = (...args: string[]) => execFileSync('git', ['-c', 'user.email=acc@example.invalid', '-c', 'user.name=acc', ...args], { cwd: repo })
+  mkdirSync(join(repo, '.oxespace'), { recursive: true })
+  writeFileSync(join(repo, '.oxespace', 'policy.json'), ACCEPTED_POLICY)
+  git('add', '.'); git('commit', '-q', '-m', 'committed deny')
+  writeFileSync(join(repo, '.oxespace', 'policy.json'), WIDE_POLICY)
+  const firstSight = (page: Page) => oxe(page, o => o.approvals.list().then(l => l.filter(r => r.kind === 'policyChange').length))
+  const rules = (page: Page, id: string) => oxe(page, (o, w: string) => o.policy.get(w).then(v => JSON.stringify((v as { sources: Array<{ rules: unknown }> }).sources.map(s => s.rules))), id)
+
+  let { app, page } = await launchReal(profile)
+  let id: string
+  try {
+    await holdNativeDialogs(app)
+    await ackEveryRequest(page)
+    await openRepo(page, repo)
+    id = await oxe(page, o => o.workspace.list().then(list => list[0].id))
+    await expect.poll(() => firstSight(page), { timeout: 10_000, message: 'the first-sight request is asked' }).toBe(1)
+    expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).accNative), 'no native dialog before the restart').toBe(0)
+  } finally { await quitReal(app) }
+
+  ;({ app, page } = await launchReal(profile))
+  try {
+    await holdNativeDialogs(app)
+    await ackEveryRequest(page)
+    await page.waitForTimeout(3_000)
+    expect.soft(await rules(page, id), 'at boot the committed deny holds').toContain('oxespace_db_execute')
+    expect.soft(await rules(page, id), 'at boot allow * is not in force').not.toContain('"resource":"*"')
+    await oxe(page, (o, r: string) => o.mcpInternal.toolGroups({ rootPath: r }), repo)
+    await expect.soft.poll(() => firstSight(page), { timeout: 10_000, message: 'the unanswered request comes back' }).toBe(1)
+    await page.waitForTimeout(2_000)
+    expect.soft(await firstSight(page), 'once, not a burst').toBe(1)
+    expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).accNative), 'no native dialog at boot').toBe(0)
+  } finally {
+    await quitReal(app)
+    try { rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }) } catch { /* left in the temp folder */ }
+  }
+})
+
 /** Native dialogs never show: message boxes are held unanswered (a person who has not clicked) and counted. */
 async function holdNativeDialogs(app: ElectronApplication): Promise<void> {
   await app.evaluate(({ dialog }) => {
