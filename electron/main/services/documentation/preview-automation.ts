@@ -99,6 +99,15 @@ export class PreviewAutomation {
     const until = Date.now() + timeoutMs
     while (!browserPreviewService.activeFor(workspaceId, owner) && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
   }
+  /**
+   * The same wait before any action starts, but only while the preview has access and is merely covered: the agent's
+   * next action right after a modal closed (#243 CI: a fill sent as the deny modal closed was refused). With access
+   * off, or no preview, it refuses at once as before.
+   */
+  private async uncovered(workspaceId: string, owner?: ExecutionOwner): Promise<void> {
+    const until = Date.now() + PREVIEW_BACK_MS
+    while (!browserPreviewService.activeFor(workspaceId, owner) && browserPreviewService.coveredWithAccess(workspaceId, owner) && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+  }
   async assertAccess(workspaceId: string, verify: () => void, owner?: ExecutionOwner): Promise<void> { verify(); await this.target(workspaceId, owner); verify() }
   private async target(workspaceId: string, owner?: ExecutionOwner): Promise<{ guest: WebContents; window: BrowserWindow; external: boolean; tabId: string }> {
     const native = browserPreviewService.activeFor(workspaceId, owner)
@@ -121,6 +130,7 @@ export class PreviewAutomation {
   }
   private async exclusive<T>(workspaceId: string, verify: () => void, fn: (guest: WebContents, window: BrowserWindow, external: boolean, tabId: string) => Promise<T>, owner?: ExecutionOwner): Promise<T> {
     verify()
+    await this.uncovered(workspaceId, owner)
     const target = await this.target(workspaceId, owner)
     if (this.locks.has(target.guest.id)) throw new Error('Preview is busy; retry after the current operation')
     this.locks.add(target.guest.id)

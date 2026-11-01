@@ -231,6 +231,14 @@ export class BrowserPreviewService {
     tab.window.contentView.removeChildView(tab.view)
     tab.view.webContents.close()
   }
+  /**
+   * The owner's preview has agent access but is not reported visible right now: something covers it for a moment, such
+   * as the approval modal that just closed (#243). Not a grant: actions still need activeFor.
+   */
+  coveredWithAccess(workspaceId: string, owner?: ExecutionOwner): boolean {
+    const ownerKey = owner?.kind === 'thread' ? `thread:${owner.id}` : workspaceId
+    return [...this.tabs.values()].some(tab => tab.ownerKey === ownerKey && tab.workspaceId === workspaceId && tab.threadId === (owner?.kind === 'thread' ? owner.id : undefined) && !tab.visible && tab.agentAccess && !tab.view.webContents.isDestroyed())
+  }
   activeFor(workspaceId: string, owner?: ExecutionOwner): {guest:WebContents;window:BrowserWindow;external:boolean;tabId:string;sessionId:string} | null {
     const ownerKey = owner?.kind === 'thread' ? `thread:${owner.id}` : workspaceId
     const matches = [...this.tabs.values()].filter(tab => tab.ownerKey === ownerKey && tab.workspaceId === workspaceId && tab.threadId === (owner?.kind === 'thread' ? owner.id : undefined) && tab.visible && tab.agentAccess && !tab.view.webContents.isDestroyed())
