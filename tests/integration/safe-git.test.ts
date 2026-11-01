@@ -29,7 +29,8 @@ beforeEach(() => {
   sandbox = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-safegit-')))
   marker = join(sandbox, 'MARKER')
   const script = join(sandbox, 'evil.sh')
-  writeFileSync(script, `#!/bin/sh\necho "ran $0 $*" >> '${slash(marker)}'\nexit 1\n`)
+  // Executable: gpg.program runs it as a program, not through sh (Linux checks the mode).
+  writeFileSync(script, `#!/bin/sh\necho "ran $0 $*" >> '${slash(marker)}'\nexit 1\n`, { mode: 0o755 })
   evil = `sh '${slash(script)}'`
 })
 

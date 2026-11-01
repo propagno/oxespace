@@ -37,8 +37,8 @@
 import { execFile, execFileSync, type ExecFileException } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { devNull } from 'node:os'
-import { readFileSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve as resolvePath } from 'node:path'
+import { resolve as resolvePath } from 'node:path'
+import { commonGitDir, configFingerprint } from './git-dir'
 
 /** Every transport git knows; each is denied by name. */
 export const GIT_TRANSPORTS = ['ext', 'file', 'ssh', 'git', 'http', 'https'] as const
@@ -152,7 +152,7 @@ export function ghEnv(base: NodeJS.ProcessEnv = process.env, extra: readonly Con
 // ---- what the repository's own config names ---------------------------------------------------------------
 
 /** Keys whose value git runs as a command, in the scopes they were read from. */
-export const COMMAND_KEYS = String.raw`^(filter\..+\.(clean|smudge|process)|diff\..+\.(command|textconv)|merge\..+\.driver|gpg\..*program|gpg\.ssh\.defaultkeycommand|core\.(sshcommand|gitproxy|askpass|alternaterefscommand|editor)|sequence\.editor|credential\..*helper|remote\..+\.(uploadpack|receivepack)|submodule\..+\.update|lfs\.(extension\..+\.(clean|smudge)|customtransfer\..+\.path|standalonetransferagent))$`
+export const COMMAND_KEYS = String.raw`^(filter\..+\.(clean|smudge|process)|diff\..+\.(command|textconv)|merge\..+\.driver|gpg\..*program|gpg\.ssh\.defaultkeycommand|core\.(sshcommand|gitproxy|askpass|alternaterefscommand|editor)|sequence\.editor|credential\..*helper|remote\..+\.(uploadpack|receivepack)|submodule\..+\.update|lfs\.(extension\..+\.(clean|smudge)|customtransfer\..+\.path|standalonetransferagent)|include\.path|includeif\..+\.path)$`
 
 export interface ConfigEntry { scope: string; key: string; value: string }
 
@@ -185,34 +185,7 @@ const SIGNING_DEFAULTS: Record<string, string> = { 'gpg.program': 'gpg', 'gpg.op
 
 /** Driver names seen per repository this launch (M1): `filter:<name>`, `diff:<name>`, `merge:<name>`. */
 const seenDrivers = new Map<string, Set<string>>()
-/**
- * The repository's common git dir, found on disk with no process: a linked worktree shares its main checkout's config,
- * so the drivers seen in one are emptied in all of them. Falls back to the folder itself.
- */
-export function commonGitDir(cwd: string): string {
-  let dir = resolvePath(cwd)
-  for (let depth = 0; depth < 64; depth++) {
-    const dotGit = join(dir, '.git')
-    try {
-      const info = statSync(dotGit)
-      let gitDir = dotGit
-      if (info.isFile()) {
-        const pointer = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(dotGit, 'utf8'))
-        if (!pointer) return dir
-        gitDir = isAbsolute(pointer[1]) ? pointer[1] : resolvePath(dir, pointer[1])
-      }
-      try {
-        const common = readFileSync(join(gitDir, 'commondir'), 'utf8').trim()
-        if (common) return resolvePath(gitDir, common)
-      } catch { /* a main checkout: its git dir is the common one */ }
-      return resolvePath(gitDir)
-    } catch { /* no .git here */ }
-    const parent = dirname(dir)
-    if (parent === dir) break
-    dir = parent
-  }
-  return resolvePath(cwd)
-}
+/** Linked worktrees share their main checkout's config, so the names seen in one are emptied in all (git-dir.ts). */
 const repoKey = (cwd: string): string => { const path = commonGitDir(cwd); return process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path }
 
 function driverPairs(kind: string, name: string): ConfigPair[] {
@@ -314,13 +287,54 @@ function readCommandKeysSync(cwd: string, env: NodeJS.ProcessEnv, git: string): 
   }
 }
 
+// ---- read once per config change ---------------------------------------------------------------------------
+
+/**
+ * The last read per checkout, valid while its config files (and what they include) keep their size and times
+ * (git-dir.ts). Reading the config costs a git process; stat costs none, so a checkout is read again only when a
+ * config file changed. One map per reader, so a caller's own spawner (GhExec, a test) keeps its own reads.
+ */
+/** `fingerprint`: valid for a cache hit (empty forces a read); `taken`: the config files as they were before this read. */
+interface ConfigRead { fingerprint: string; taken: string; includes: string[]; entries: ConfigEntry[] }
+const reads = new WeakMap<ConfigReader, Map<string, ConfigRead>>()
+const syncReads = new Map<string, ConfigRead>()
+const readKey = (cwd: string): string => { const path = resolvePath(cwd); return process.platform === 'win32' ? path.toLowerCase() : path }
+const includesOf = (entries: readonly ConfigEntry[]): string[] => entries.filter(entry => /^include(if\..+)?\.path$/i.test(entry.key)).map(entry => entry.value).sort()
+
+function remember(cache: Map<string, ConfigRead>, cwd: string, before: ConfigRead | undefined, fingerprint: string, entries: ConfigEntry[]): ConfigRead {
+  const includes = includesOf(entries)
+  // A new include list means the fingerprint taken before the read did not cover those files: read again next time.
+  const read = { taken: fingerprint, fingerprint: includes.join('\0') === (before?.includes ?? []).join('\0') ? fingerprint : '', includes, entries }
+  cache.set(readKey(cwd), read)
+  return read
+}
+
+async function readCached(cwd: string, env: NodeJS.ProcessEnv, git: string, reader: ConfigReader): Promise<ConfigRead> {
+  let cache = reads.get(reader)
+  if (!cache) { cache = new Map(); reads.set(reader, cache) }
+  const before = cache.get(readKey(cwd))
+  const fingerprint = configFingerprint(cwd, before?.includes)
+  if (before && before.fingerprint && before.fingerprint === fingerprint) return before
+  return remember(cache, cwd, before, fingerprint, await readCommandKeys(cwd, env, git, SAFE_GIT_OPTIONS, reader))
+}
+
+function readCachedSync(cwd: string, env: NodeJS.ProcessEnv, git: string): ConfigRead {
+  const before = syncReads.get(readKey(cwd))
+  const fingerprint = configFingerprint(cwd, before?.includes)
+  if (before && before.fingerprint && before.fingerprint === fingerprint) return before
+  return remember(syncReads, cwd, before, fingerprint, readCommandKeysSync(cwd, env, git))
+}
+
+/** Test-only: forget the config reads. */
+export function __forgetConfigReadsForTests(): void { syncReads.clear() }
+
 // ---- after the command: did the config change under it? ----------------------------------------------------
 
-const fingerprint = (entries: readonly ConfigEntry[]): Set<string> => new Set(entries.filter(entry => repositoryScope(entry.scope)).map(entry => `${entry.key}\n${entry.value}`))
+const fingerprintOf = (entries: readonly ConfigEntry[]): Set<string> => new Set(entries.filter(entry => repositoryScope(entry.scope)).map(entry => `${entry.key}\n${entry.value}`))
 
 /** Repository command keys present after a command and not before it. Remembers their drivers for the next call. */
 function changedKeys(cwd: string, before: readonly ConfigEntry[], after: readonly ConfigEntry[]): string[] {
-  const known = fingerprint(before)
+  const known = fingerprintOf(before)
   const added = after.filter(entry => repositoryScope(entry.scope) && !known.has(`${entry.key}\n${entry.value}`))
   if (!added.length) return []
   neutralizeRepositoryCommands(added, cwd)
@@ -337,16 +351,21 @@ export function onRepositoryConfigChanged(listener: (change: { cwd: string; keys
   return () => { events.off('config-changed', listener) }
 }
 
-/** The config read after a command that read it first; the keys it gained, or none. */
+/**
+ * After a command that read the config first: if a config file changed meanwhile (stat, no process), read it again
+ * and return the keys it gained.
+ */
 export async function verifyAfter(prepared: PreparedGit, cwd: string, reader: ConfigReader = execConfigReader): Promise<string[]> {
   if (!prepared.probed) return []
-  try { return changedKeys(cwd, prepared.probed, await readCommandKeys(cwd, prepared.env, prepared.command, SAFE_GIT_OPTIONS, reader)) }
+  if (configFingerprint(cwd, includesOf(prepared.probed)) === prepared.fingerprint) return []
+  try { return changedKeys(cwd, prepared.probed, (await readCached(cwd, prepared.env, prepared.command, reader)).entries) }
   catch { return [] }
 }
 
 function verifyAfterSync(prepared: PreparedGit, cwd: string): string[] {
   if (!prepared.probed) return []
-  try { return changedKeys(cwd, prepared.probed, readCommandKeysSync(cwd, prepared.env, prepared.command)) }
+  if (configFingerprint(cwd, includesOf(prepared.probed)) === prepared.fingerprint) return []
+  try { return changedKeys(cwd, prepared.probed, readCachedSync(cwd, prepared.env, prepared.command).entries) }
   catch { return [] }
 }
 
@@ -372,7 +391,8 @@ export interface RunGitOptions {
 }
 
 /** `probed`: what the config read before the command saw, or null when the command skipped it. */
-export interface PreparedGit { command: string; args: string[]; env: NodeJS.ProcessEnv; probed: ConfigEntry[] | null }
+/** `fingerprint`: the config files as they were when `probed` was read. */
+export interface PreparedGit { command: string; args: string[]; env: NodeJS.ProcessEnv; probed: ConfigEntry[] | null; fingerprint?: string }
 
 const HOOKS_OFF = `core.hooksPath=${NO_HOOKS_PATH}`
 function prefixFor(options: RunGitOptions): readonly string[] {
@@ -396,16 +416,18 @@ export function layeredEnv(base: NodeJS.ProcessEnv, extra: NodeJS.ProcessEnv | u
 export async function prepareGit(cwd: string, args: readonly string[], options: RunGitOptions = {}): Promise<PreparedGit> {
   const command = options.git ?? 'git'
   const env = layeredEnv(safeGitEnv(process.env, { systemConfig: true }), options.env)
-  const probed = needsConfigProbe(args) ? await readCommandKeys(cwd, env, command, SAFE_GIT_OPTIONS, options.readConfig) : null
-  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed }
+  const read = needsConfigProbe(args) ? await readCached(cwd, env, command, options.readConfig ?? execConfigReader) : null
+  const probed = read?.entries ?? null
+  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed, fingerprint: read?.taken }
 }
 
 /** `prepareGit` for the synchronous callers. */
 export function prepareGitSync(cwd: string, args: readonly string[], options: RunGitOptions = {}): PreparedGit {
   const command = options.git ?? 'git'
   const env = layeredEnv(safeGitEnv(process.env, { systemConfig: true }), options.env)
-  const probed = needsConfigProbe(args) ? readCommandKeysSync(cwd, env, command) : null
-  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed }
+  const read = needsConfigProbe(args) ? readCachedSync(cwd, env, command) : null
+  const probed = read?.entries ?? null
+  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed, fingerprint: read?.taken }
 }
 
 /** `configChanged`: repository command keys that appeared while the command ran; its output is then not trusted. */

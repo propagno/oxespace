@@ -13,6 +13,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // cannot reach the filesystem at all.
   'electron/main/services/github/gh-exec.ts',
   'electron/main/services/integration.service.ts',
+  // safe-git's view of a repository without starting git: reads the `.git` pointer file and `commondir` to find the
+  // git dirs, and stats the config files (and what they include) to know when the config must be read again.
+  // Never reads or writes work-tree files.
+  'electron/main/utils/git-dir.ts',
   'electron/main/services/mcp-sync.service.ts',
   // Reads the user-level MCP config files of Claude Desktop, Cursor and Windsurf at their fixed locations
   // (512 KiB at most, JSON only); the renderer never supplies a path.

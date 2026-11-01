@@ -194,7 +194,12 @@ describe('M1: check, then act', () => {
   test('the config is read again after the command, and a key that appeared is flagged', async () => {
     const root = filteredRepo('repo')
     let calls = 0
-    const late: ConfigReader = (...args) => (calls++ === 0 ? blind(...args) : execConfigReader(...args))
+    // The read sees nothing, and right after it the agent writes the config: what the stat afterwards catches.
+    const late: ConfigReader = (...args) => {
+      if (calls++ > 0) return execConfigReader(...args)
+      appendFileSync(join(root, '.git', 'config'), `[filter "fresh"]\n\tclean = ${evil}\n`)
+      return blind(...args)
+    }
     const changes: string[][] = []
     const stop = onRepositoryConfigChanged(change => changes.push(change.keys))
     try {
