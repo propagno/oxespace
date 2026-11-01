@@ -98,13 +98,17 @@ describe('process tree cleanup (BE-M-08)', () => {
     expect(order).toEqual([expect.stringMatching(/[\\/]System32[\\/]taskkill\.exe$/i), 'pty.kill'])
   })
 
-  test('POSIX PTY: released at once, the tree follows', async () => {
-    const alive = new Set([900, -900])
-    const os = fakeOs('linux', alive, '900 1\n')
-    const pty = { pid: 900, kill: vi.fn() }
+  test('POSIX PTY: the tree (its ps snapshot included) goes before the PTY is released', async () => {
+    const alive = new Set([900, -900, 901])
+    const order: string[] = []
+    const os = fakeOs('linux', alive, '900 1\n901 900\n')
+    const run = os.deps.run!
+    os.deps.run = async (file, args, timeout) => { order.push('ps'); return run(file, args, timeout) }
+    const pty = { pid: 900, kill: vi.fn(() => { order.push('pty.kill') }) }
     const done = terminatePty(pty, os.deps)
-    expect(pty.kill).toHaveBeenCalledTimes(1)
+    expect(pty.kill).not.toHaveBeenCalled()
     await done
+    expect(order).toEqual(['ps', 'pty.kill'])
     expect(alive.size).toBe(0)
   })
 })
