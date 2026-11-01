@@ -108,7 +108,8 @@ the first start of the old version:
 2. Install the previous version's installer from the Releases page over the current one (Windows: run the `.exe`;
    Linux: install the previous `.deb`, or use the previous AppImage). **Don't open it yet.** Untick "Run OXESpace" at
    the end of the installer.
-3. In the user data folder (Windows `%APPDATA%\OXESpace`, Linux `~/.config/OXESpace`), delete `oxespace.sqlite3`,
+3. In the user data folder (Windows `%APPDATA%\OXESpace`; Linux `~/.config/oxespace`, lowercase, for both the
+   `.deb` and the AppImage; measured on the CI runners), delete `oxespace.sqlite3`,
    `oxespace.sqlite3-wal` and `oxespace.sqlite3-shm`, then copy the newest
    `db-backups/oxespace-v<old schema>-*.sqlite3` there as `oxespace.sqlite3`. For 1.3.3 that's
    `oxespace-v77-*.sqlite3`. The upgrade took this backup just before migrating.
