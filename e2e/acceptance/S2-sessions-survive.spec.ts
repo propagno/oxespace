@@ -159,6 +159,23 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
       }
     }
     await expect.soft(page.getByText(/a sessão anterior não foi retomada|earlier session was not resumed/i).first(), 'a notice names the pane that did not resume').toBeVisible({ timeout: 5_000 })
+    // Terminal details: besides the PTY id (all 1.3.3 shows), an "Agent session" row with the native id that was
+    // resumed, or, for the pane that started fresh, its new id and why the earlier one was not resumed.
+    for (const [pane, before] of sessions) {
+      await panes(page).nth(order.indexOf(pane)).getByRole('button', { name: 'Mais ações do painel' }).click()
+      await page.getByRole('menuitem', { name: /^Detalhes/ }).click()
+      const details = page.getByRole('dialog')
+      await expect(details).toBeVisible()
+      await expect.soft(details, `${before.agent} pane details have an "Agent session" row`).toContainText(/Sessão do agente|Agent session/)
+      if (pane === gonePane) {
+        await expect.soft(details, '… the fresh pane says why the earlier session was not resumed').toContainText(/não está mais no disco|no longer on disk/i)
+        await expect.soft(details, '… and does not offer the deleted id as its session').not.toContainText(new RegExp(`(Sessão do agente|Agent session)\\W*${before.sessionId}`))
+      } else {
+        await expect.soft(details, `… with the native id used for the resume (${before.sessionId})`).toContainText(new RegExp(`(Sessão do agente|Agent session)[\\s\\S]{0,120}${before.sessionId}`))
+      }
+      await page.keyboard.press('Escape')
+      await expect(details).toBeHidden()
+    }
   } finally { await quitReal(app) }
 
   // A third start: no id drifts. All six come back, the fresh one now on the session it started last time.
