@@ -110,7 +110,7 @@ describe('design lint', () => {
       expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(513)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
-      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(11)
+      expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(8)
     })
     it('CSS modules time motion with the --duration tokens; fixed timings do not grow', () => {
       const modules = files(join(ROOT, 'src'), path => path.endsWith('.module.css'))
