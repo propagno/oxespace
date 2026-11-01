@@ -104,7 +104,8 @@ export function offGroupBlocking(tool: string, roots: readonly string[], modesOf
   const configurable = groups.filter((group): group is ConfigurableMcpToolGroup => (CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(group))
   for (const root of roots) {
     let modes: ProjectToolModes
-    try { modes = modesOf(root) } catch { continue }
+    // Fails closed: a root whose modes cannot be read (the gate's database busy, full or closed) counts as every group off.
+    try { modes = modesOf(root) } catch { if (configurable.length) return configurable[0]; continue }
     if (configurable.length && configurable.every(group => modes[group].mode === 'off')) return configurable[0]
   }
   return undefined

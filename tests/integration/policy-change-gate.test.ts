@@ -290,6 +290,32 @@ describe('B7.4 · the app\'s own writes', () => {
     expect(effectiveToolConfig(root)).toMatchObject({ modes: { data: { mode: 'off' }, docs: { mode: 'off' } }, change: { state: 'rejected' } })
   })
 
+  it('the tools/call refusal of an off group reads the accepted modes: a widening waits for the person (#357 case 9)', async () => {
+    const { root, write, settle, requests, center } = await accepted({ yaml: 'thread:\n  tools:\n    data: "off"\n' })
+    const { toolCallBlocked } = await import('../../electron/main/mcp-internal/tool-policy')
+    const { MCP_TOOL_GROUPS } = await import('../../electron/main/services/conversation/thread-mcp')
+    const tool = MCP_TOOL_GROUPS.data[0]
+    const caller = {
+      executionId: 'e1', executionToken: 't', workspaceId: 'w1',
+      executions: { authenticate: () => ({ cwd: root, workspaceId: 'w1' }) },
+      workspaceServ: { get: () => ({ rootPath: root }), list: () => [{ rootPath: root }] }
+    } as unknown as Parameters<typeof toolCallBlocked>[1]
+    expect(toolCallBlocked(tool, caller, null)).toContain('turned off')
+    // An agent turns the group on in the file: still refused while the change waits for the person.
+    write(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: always\n')
+    expect(toolCallBlocked(tool, caller, null)).toContain('turned off')
+    await settle()
+    expect(requests()).toHaveLength(1)
+    expect(toolCallBlocked(tool, caller, null)).toContain('turned off')
+    // The person accepts it: the next call runs.
+    const shown = requests()[0]
+    center.ack({ id: shown.id, generation: shown.generation, visible: true, focused: true })
+    await new Promise(resolve => setTimeout(resolve, shown.allowDelayMs + 20))
+    expect(center.respond({ id: shown.id, generation: shown.generation, optionId: 'allowPolicy' })).toMatchObject({ ok: true })
+    await settle()
+    expect(toolCallBlocked(tool, caller, null)).toBeUndefined()
+  })
+
   it('a pending change blocks every app write to the project\'s gated files, and nothing is recorded as accepted', async () => {
     const { db, files, root, write, settle, requests, policyFile } = await accepted({ yaml: 'thread:\n  tools:\n    data: "off"\n' })
     write(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: on-demand\n    docs: always\n')
