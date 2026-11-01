@@ -62,10 +62,18 @@ interface ApprovalsActions {
 const initial: ApprovalsState = { queue: [], history: [], busy: null, notice: null, settled: null, historyOpen: false }
 
 /** One entry per request id, its newest generation; handed-off ones left out. */
+/**
+ * Requests main resolved before this window held them, by id: the highest generation resolved. A resolution can come
+ * while `sync` is still reading main's list (the native fallback answering a request the window had not shown yet), and
+ * the list it then returns would bring back a request that is already settled: its dialog would stay up for good.
+ */
+const resolvedBeforeSeen = new Map<string, number>()
+const alreadyResolved = (request: ApprovalRequest): boolean => (resolvedBeforeSeen.get(request.id) ?? -1) >= request.generation
+
 function keep(queue: ApprovalRequest[]): ApprovalRequest[] {
   const newest = new Map<string, ApprovalRequest>()
   for (const request of queue) {
-    if (isHandedOff(request)) continue
+    if (isHandedOff(request) || alreadyResolved(request)) continue
     const known = newest.get(request.id)
     if (!known || request.generation >= known.generation) newest.set(request.id, request)
   }
@@ -104,8 +112,10 @@ export const useApprovalsStore = create<ApprovalsState & ApprovalsActions>()((se
   resolved(resolution) {
     const { queue, history, busy } = get()
     const request = queue.find(item => item.id === resolution.id)
-    // Nothing here, or a resolution for an older generation: the newer one stays open (R8).
-    if (!request || request.generation > resolution.generation) return
+    // Not held yet: remembered, so a list read in flight cannot bring it back.
+    if (!request) { resolvedBeforeSeen.set(resolution.id, Math.max(resolvedBeforeSeen.get(resolution.id) ?? -1, resolution.generation)); return }
+    // A resolution for an older generation: the newer one stays open (R8).
+    if (request.generation > resolution.generation) return
     const onScreen = queue[0]?.id === resolution.id
     set({
       queue: queue.filter(item => item.id !== resolution.id),
@@ -144,5 +154,5 @@ export const useApprovalsStore = create<ApprovalsState & ApprovalsActions>()((se
   setHistoryOpen(open) { set({ historyOpen: open }) },
   dismissNotice() { set({ notice: null }) },
   takeSettled() { const settled = get().settled; if (settled) set({ settled: null }); return settled },
-  reset() { set({ ...initial }) }
+  reset() { resolvedBeforeSeen.clear(); set({ ...initial }) }
 }))
