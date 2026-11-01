@@ -707,7 +707,7 @@
     },
     "groups": {
       "core": {
-        "name": "Core",
+        "name": "Core tools",
         "description": "Code, search and memory lookups, in every conversation."
       },
       "orchestration": {
@@ -724,14 +724,14 @@
       },
       "app": {
         "name": "App",
-        "description": "Git, GitHub, Threads, skills, automations, Linear, MCP servers, search and usage. Pushes, pull requests and releases are approved by you."
+        "description": "Git, GitHub, conversations, skills, automations, Linear, MCP servers, search and usage. Pushes, pull requests and releases are approved by you."
       },
       "team": {
         "name": "Team",
         "description": "Messages and status between members of an agent team."
       },
       "worker": {
-        "name": "Worker",
+        "name": "Delegated task",
         "description": "A conversation that runs a delegated task or an Agent Work task: context, updates, checkpoints and the result."
       },
       "code": {
@@ -752,10 +752,8 @@
       "off": "Not offered in this project, and a session cannot turn it on."
     },
     "modeLabel": "How {{group}} is offered in this project",
-    "modeSaved": "{{group}} is now {{mode}} in this project.",
+    "modeSaved": "{{group}} in this project: {{mode}}.",
     "modeFailed": "Could not change the group",
-    "turnOn": "Turn on in this project",
-    "turnOnLabel": "Turn {{group}} on in this project, on demand",
     "source": {
       "default": "App default",
       "project": "oxe.yaml",
@@ -798,7 +796,7 @@
       }
     },
     "policy": {
-      "title": "Organization policy",
+      "title": "User and organization policy",
       "intro": "Rules about tools and MCP servers from your user and managed policy files. Read only: they are changed in the files (Application › Policy shows where).",
       "empty": "No user or organization rule about tools or MCP servers.",
       "loadFailed": "Could not read the policy",

@@ -728,20 +728,20 @@
     "sections": {
       "project": "Grupos que este projeto escolhe",
       "role": "Grupos que seguem o papel",
-      "roleIntro": "Estes vêm com o que a conversa ou o terminal é: membro de um time, uma tarefa delegada ou um agente num terminal OxeCode. Não podem ser mudados aqui."
+      "roleIntro": "Estes vêm com o que a conversa ou o terminal é: membro da Equipe do projeto, uma tarefa delegada ou um agente num terminal OxeCode. Não podem ser mudados aqui."
     },
     "groups": {
       "core": {
-        "name": "Núcleo",
+        "name": "Essenciais",
         "description": "Consultas de código, busca e memória, em toda conversa."
       },
       "orchestration": {
         "name": "Orquestração",
-        "description": "Iniciar outros agentes e conversas, delegar tarefas e acompanhar o Agent Work."
+        "description": "Iniciar outros agentes e conversas, delegar tarefas e acompanhar o Trabalho dos agentes."
       },
       "data": {
         "name": "Dados",
-        "description": "Bancos de dados e containers; toda leitura e mudança de dados é aprovada por você no OxeQuery."
+        "description": "Bancos de dados e contêineres; toda leitura e mudança de dados é aprovada por você no OxeQuery."
       },
       "docs": {
         "name": "Documentação",
@@ -749,15 +749,15 @@
       },
       "app": {
         "name": "App",
-        "description": "Git, GitHub, Threads, skills, automações, Linear, servidores MCP, busca e uso. Pushes, pull requests e releases são aprovados por você."
+        "description": "Git, GitHub, conversas, skills, automações, Linear, servidores MCP, busca e uso. Pushes, pull requests e releases são aprovados por você."
       },
       "team": {
-        "name": "Time",
-        "description": "Mensagens e status entre os membros de um time de agentes."
+        "name": "Equipe",
+        "description": "Mensagens e status entre os membros da Equipe do projeto."
       },
       "worker": {
-        "name": "Executor",
-        "description": "Uma conversa que executa uma tarefa delegada ou do Agent Work: contexto, atualizações, checkpoints e o resultado."
+        "name": "Tarefa delegada",
+        "description": "Uma conversa que executa uma tarefa delegada ou do Trabalho dos agentes: contexto, atualizações, checkpoints e o resultado."
       },
       "code": {
         "name": "Terminal OxeCode",
@@ -778,10 +778,8 @@
       "off": "Não é oferecido neste projeto, e uma sessão não pode ligá-lo."
     },
     "modeLabel": "Como {{group}} é oferecido neste projeto",
-    "modeSaved": "{{group}} agora está {{mode}} neste projeto.",
+    "modeSaved": "Modo de {{group}} neste projeto: {{mode}}.",
     "modeFailed": "Não foi possível mudar o grupo",
-    "turnOn": "Ligar neste projeto",
-    "turnOnLabel": "Ligar {{group}} neste projeto, sob demanda",
     "source": {
       "default": "Padrão do app",
       "project": "oxe.yaml",
@@ -825,7 +823,7 @@
       }
     },
     "policy": {
-      "title": "Política da organização",
+      "title": "Política de usuário e da organização",
       "intro": "Regras sobre ferramentas e servidores MCP dos seus arquivos de política de usuário e gerenciada. Somente leitura: são mudadas nos arquivos (Aplicativo › Política mostra onde).",
       "empty": "Nenhuma regra de usuário ou da organização sobre ferramentas ou servidores MCP.",
       "loadFailed": "Não foi possível ler a política",

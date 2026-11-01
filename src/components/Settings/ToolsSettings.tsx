@@ -64,9 +64,7 @@ function GroupPanel({ group, rules, busy, onMode, onRule }: {
     {group.configurable && <div className={styles.mode}>
       <SegmentedControl label={t('tools.modeLabel', { group: name })} value={group.mode}
         options={MCP_TOOL_GROUP_MODES.map(mode => ({ value: mode, label: modeName(t, mode) }))}
-        onChange={mode => onMode(group.id as ConfigurableMcpToolGroup, mode)} />
-      {off && <Button variant="primary" size="sm" disabled={busy} onClick={() => onMode(group.id as ConfigurableMcpToolGroup, 'on-demand')}
-        aria-label={t('tools.turnOnLabel', { group: name })}>{t('tools.turnOn')}</Button>}
+        onChange={mode => onMode(group.id as ConfigurableMcpToolGroup, mode)} disabled={busy} />
       <p className={styles.hint}>{t(`tools.modeHints.${group.mode}`)}</p>
     </div>}
     {rules && <details className={styles.rules}>

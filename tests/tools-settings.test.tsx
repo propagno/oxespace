@@ -79,12 +79,12 @@ describe('Settings › Tools', () => {
     expect(within(orchestration).getByText('≈ 13 tokens · 31 characters')).toBeVisible()
     expect(within(orchestration).getByText('≈ 417 tokens · 1,000 characters')).toBeVisible()
     expect(within(orchestration).getByText('From the start; ≈ 417 tokens · 1,000 characters once used')).toBeVisible()
-    const core = await panel('Core')
+    const core = await panel('Core tools')
     expect(within(core).getAllByText('≈ 834 tokens · 2,000 characters')).toHaveLength(2)
     expect(within(core).queryByRole('radiogroup')).toBeNull()
     expect(screen.getByRole('radiogroup', { name: 'How Data is offered in this project' })).toBeVisible()
     expect(screen.getByText('≈ 5,144 tokens · 12,345 characters')).toBeVisible()
-    for (const name of ['Team', 'Worker', 'OxeCode terminal']) {
+    for (const name of ['Team', 'Delegated task', 'OxeCode terminal']) {
       const role = await panel(name)
       expect(within(role).getByText('By role')).toBeVisible()
       expect(within(role).queryByRole('radiogroup')).toBeNull()
@@ -100,9 +100,10 @@ describe('Settings › Tools', () => {
   it('turns a group on in the project through the contract and shows the new mode', async () => {
     const { api } = mount()
     const data = await panel('Data')
-    fireEvent.click(within(data).getByRole('button', { name: 'Turn Data on in this project, on demand' }))
+    // One control for the change: the segmented control (no separate "Turn on" button, #210 review L1).
+    fireEvent.click(within(data).getByRole('radio', { name: 'On demand' }))
     await waitFor(() => expect(api.setToolGroupMode).toHaveBeenCalledWith({ rootPath: ROOT, group: 'data', mode: 'on-demand' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Data is now On demand in this project.')
+    expect(await screen.findByRole('status')).toHaveTextContent('Data in this project: On demand.')
     expect(within(data).getByRole('radio', { name: 'On demand' })).toHaveAttribute('aria-checked', 'true')
     expect(within(data).queryByRole('button', { name: /Turn Data on/ })).toBeNull()
     fireEvent.click(within(data).getByRole('radio', { name: 'Always on' }))
@@ -152,7 +153,7 @@ describe('Settings › Tools', () => {
 
   it('shows the organization policy about tools read only, without project rules', async () => {
     mount()
-    const policy = await panel('Organization policy')
+    const policy = await panel('User and organization policy')
     expect(await within(policy).findByText('mcp:github')).toBeVisible()
     expect(within(policy).getByText('Blocks')).toBeVisible()
     expect(within(policy).getByText('Managed by your organization · Acme')).toBeVisible()
@@ -173,7 +174,9 @@ describe('Settings › Tools', () => {
     await act(async () => { await changeLanguage('pt-BR') })
     mount()
     const data = await panel('Dados')
-    expect(within(data).getByRole('button', { name: 'Ligar Dados neste projeto, sob demanda' })).toBeVisible()
+    expect(within(data).queryByRole('button', { name: /Ligar/ })).toBeNull()
+    expect(await panel('Essenciais')).toBeVisible()
+    expect(await panel('Tarefa delegada')).toBeVisible()
     expect(within(data).getAllByText('Não oferecido')).toHaveLength(3)
     expect(screen.getByTestId('tools-codex-note')).toHaveTextContent('Todo grupo que não está desligado fica disponível desde o início')
     expect(within(await panel('Orquestração')).getByText('≈ 13 tokens · 31 caracteres')).toBeVisible()
