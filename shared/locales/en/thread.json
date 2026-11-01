@@ -1263,6 +1263,8 @@
     "restartToDelete": "Restart the updated application to delete conversations."
   },
   "sections": {
+    "notKept_one": "Could not keep {{count}} section. The rest of the list is as before.",
+    "notKept_other": "Could not keep {{count}} sections. The rest of the list is as before.",
     "newSection": "New section…",
     "newTitle": "New section",
     "newDescription": "Group this project’s conversations under a name. Conversations stay where they are until you move them.",
@@ -1570,6 +1572,17 @@
     "nativeActivity": "Native background activity",
     "providerActivity": "Provider activity · {{count}} running",
     "noNativeTasks": "No native tasks have been reported in this conversation."
+  },
+  "notify": {
+    "untitled": "Conversation",
+    "approval": "{{name}} — needs approval",
+    "approvalBody": "The agent is waiting for your decision to continue.",
+    "failed": "{{name}} — failed",
+    "failedBody": "The turn ended with an error. Open the conversation to see why.",
+    "finished": "{{name}} — finished",
+    "finishedBody": "The agent completed the turn.",
+    "requestsWaiting_one": "{{count}} request is waiting for your decision.",
+    "requestsWaiting_other": "{{count}} requests are waiting for your decision."
   },
   "side": {
     "title": "Side chat",
