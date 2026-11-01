@@ -21,9 +21,9 @@ on:
         description: Codex version to probe (npm dist-tag or version)
         default: latest
 
+# The probes only read; the report job below asks for what it writes.
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: provider-contract
@@ -39,8 +39,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Install the provider CLIs
@@ -58,7 +58,7 @@ jobs:
       - name: Probe the Claude control protocol
         continue-on-error: true
         run: node scripts/probe-claude-protocol.cjs
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: provider-report-${{ matrix.os }}
@@ -74,11 +74,11 @@ jobs:
       contents: write
       issues: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: reports
           pattern: provider-report-*
@@ -89,7 +89,7 @@ jobs:
           PROBE_OS: ubuntu-latest,windows-latest
         run: |
           if node scripts/provider-contract-report.mjs reports compatibility.json issue.md; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: compatibility
           path: compatibility.json

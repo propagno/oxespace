@@ -98,6 +98,7 @@ export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.window.rendererGone': 'window',
   'incident.ipc.handlerFailed': 'ipc',
   'incident.ipc.validationRejected': 'ipc',
+  'incident.ipc.senderRefused': 'ipc',
   'incident.agent.startFailed': 'agent',
   'incident.mcp.quarantined': 'mcp',
   'incident.mcp.toolGroupOff': 'mcp',
