@@ -223,7 +223,11 @@
       "small": "Small",
       "medium": "Medium",
       "large": "Large"
-    }
+    },
+    "pasteLines_one": "This text has {{count}} line. Send it?",
+    "pasteLines_other": "This text has {{count}} lines, and each runs as typed. Send them all?",
+    "hiddenShown": "Hidden characters are now shown in the field. Check it and send again.",
+    "cancel": "Cancel"
   },
   "approval": {
     "prompt": {

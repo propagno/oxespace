@@ -235,7 +235,12 @@
       "small": "Pequeno",
       "medium": "Médio",
       "large": "Grande"
-    }
+    },
+    "pasteLines_one": "Este texto tem {{count}} linha. Enviar?",
+    "pasteLines_other": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
+    "pasteLines_many": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
+    "hiddenShown": "Caracteres ocultos foram mostrados no campo. Confira e envie de novo.",
+    "cancel": "Cancelar"
   },
   "approval": {
     "prompt": {

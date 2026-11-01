@@ -170,12 +170,18 @@
     <string name="request_title">Request</string>
     <string name="request_tool">Tool</string>
     <string name="request_where">Where</string>
+    <string name="terminal_cancel">Cancel</string>
     <string name="terminal_empty">No output yet.</string>
+    <string name="terminal_hidden_shown">Hidden characters are now shown in the field. Check it and send again.</string>
     <string name="terminal_key_down">Down arrow</string>
     <string name="terminal_key_left">Left arrow</string>
     <string name="terminal_key_right">Right arrow</string>
     <string name="terminal_key_up">Up arrow</string>
     <string name="terminal_paste">Paste</string>
+    <plurals name="terminal_paste_lines">
+        <item quantity="one">This text has %1$d line. Send it?</item>
+        <item quantity="other">This text has %1$d lines, and each runs as typed. Send them all?</item>
+    </plurals>
     <plurals name="terminal_redacted">
         <item quantity="one">%1$d secret value hidden by your computer.</item>
         <item quantity="other">%1$d secret values hidden by your computer.</item>

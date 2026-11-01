@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.live
 
+import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -218,6 +219,43 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
     var busy by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var message by remember { mutableStateOf<Int?>(null) }
+    var askLines by remember { mutableStateOf(0) }
+
+    fun sendLine() {
+        busy = true
+        scope.launch {
+            val pieces = terminalPieces(text)
+            var sent = 0
+            val gated = presence.run(PresenceReason.TYPE) {
+                var result: CommandResult = CommandResult.Done(null)
+                for (piece in pieces) {
+                    result = commands.terminalWrite(RemoteTerminalWriteArgs(paneId, piece))
+                    if (result !is CommandResult.Done) break
+                    sent++
+                }
+                result
+            }
+            when (gated) {
+                // The window closed meanwhile and the person didn't open it again: the text stays.
+                is Gated.Blocked -> message = presenceMessage(gated.reason)
+                is Gated.Done -> {
+                    message = commandMessage(gated.value)
+                    // What went through is in the terminal already: only the rest stays, so sending again can't repeat it.
+                    text = unsentText(pieces, sent)
+                }
+            }
+            busy = false
+        }
+    }
+
+    if (askLines > 0) {
+        AlertDialog(
+            onDismissRequest = { askLines = 0 },
+            text = { Text(pluralStringResource(R.plurals.terminal_paste_lines, askLines, askLines)) },
+            confirmButton = { TextButton(onClick = { askLines = 0; sendLine() }) { Text(stringResource(R.string.terminal_input_send)) } },
+            dismissButton = { TextButton(onClick = { askLines = 0 }) { Text(stringResource(R.string.terminal_cancel)) } },
+        )
+    }
     Column(
         Modifier.fillMaxWidth().background(Oxe.colors.surfaceChrome).navigationBarsPadding().imePadding().padding(OxeSpace.space3),
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
@@ -255,29 +293,12 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
             )
             Button(
                 onClick = {
-                    busy = true
-                    scope.launch {
-                        val pieces = terminalPieces(text)
-                        var sent = 0
-                        val gated = presence.run(PresenceReason.TYPE) {
-                            var result: CommandResult = CommandResult.Done(null)
-                            for (piece in pieces) {
-                                result = commands.terminalWrite(RemoteTerminalWriteArgs(paneId, piece))
-                                if (result !is CommandResult.Done) break
-                                sent++
-                            }
-                            result
-                        }
-                        when (gated) {
-                            // The window closed meanwhile and the person didn't open it again: the text stays.
-                            is Gated.Blocked -> message = presenceMessage(gated.reason)
-                            is Gated.Done -> {
-                                message = commandMessage(gated.value)
-                                // What went through is in the terminal already: only the rest stays, so sending again can't repeat it.
-                                text = unsentText(pieces, sent)
-                            }
-                        }
-                        busy = false
+                    // SECURITY #386: hidden characters are shown, not sent; several lines ask first. This covers Colar and
+                    // the keyboard's own paste alike.
+                    when (val check = lineCheck(text)) {
+                        is LineCheck.Hidden -> { text = check.shown; message = R.string.terminal_hidden_shown }
+                        is LineCheck.Lines -> askLines = check.count
+                        LineCheck.Clear -> sendLine()
                     }
                 },
                 enabled = !busy && text.isNotEmpty(),
