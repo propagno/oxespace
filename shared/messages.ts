@@ -60,6 +60,18 @@ export interface MessageParams {
   /** `name` is the second section's name, trimmed, as the person typed it. */
   'thread.sections.nameDuplicate': { name: string }
   'thread.sections.unknownWorkspace': Record<string, never>
+  /** B17 · Why a pane's recorded agent session was not resumed on its first start (PaneAgentResume `notResumed`). */
+  'agents.resume.sessionMissing': Record<string, never>
+  'agents.resume.otherAgent': Record<string, never>
+  'agents.resume.launchOverride': Record<string, never>
+  'agents.resume.blocked': Record<string, never>
+  'agents.resume.disabled': Record<string, never>
+  /** The person restarted the pane without its session (terminal.restart with `resume: false`). */
+  'agents.resume.startedFresh': Record<string, never>
+  /** The resumed agent exited at once: its session would not load, so the pane started fresh and forgot it. */
+  'agents.resume.failedToLoad': Record<string, never>
+  /** B17 · Terminal details: the pane runs Claude Code or Codex, but no session was reported yet. */
+  'agents.session.notFound': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
@@ -67,6 +79,7 @@ export interface MessageParams {
   'incident.ipc.validationRejected': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
+  'incident.mcp.toolGroupOff': Record<string, never>
   'incident.database.busy': Record<string, never>
   'incident.oxequery.timeout': Record<string, never>
   /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
@@ -343,12 +356,21 @@ export const MESSAGE_CODES = [
   'thread.sections.nameHidden',
   'thread.sections.nameDuplicate',
   'thread.sections.unknownWorkspace',
+  'agents.resume.sessionMissing',
+  'agents.resume.otherAgent',
+  'agents.resume.launchOverride',
+  'agents.resume.blocked',
+  'agents.resume.disabled',
+  'agents.resume.startedFresh',
+  'agents.resume.failedToLoad',
+  'agents.session.notFound',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
+  'incident.mcp.toolGroupOff',
   'incident.database.busy',
   'incident.oxequery.timeout',
   'incident.oxequery.restartDeferred',

@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -60,7 +61,9 @@ fun HomeScreen(
                 is DesktopStatus.Unpaired -> Unpaired(status, onPair)
                 is DesktopStatus.Connecting -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, connecting = true)
                 is DesktopStatus.Connected -> Paired(status.desktop, status.desktopName, onRetry, onManualHost, onUnpair, connecting = false)
-                is DesktopStatus.Unreachable -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_unreachable)
+                is DesktopStatus.Reconnecting -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, connecting = true, connectingText = R.string.home_status_reconnecting)
+                is DesktopStatus.Unreachable -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_unreachable, retryInMs = status.retryInMs)
+                is DesktopStatus.OffNetwork -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_off_network, canRetry = false)
                 is DesktopStatus.Incompatible -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_incompatible)
                 is DesktopStatus.NotAccepted -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_not_accepted)
             }
@@ -91,14 +94,17 @@ private fun Paired(
     onManualHost: (String) -> Boolean,
     onUnpair: () -> Unit,
     connecting: Boolean = false,
+    connectingText: Int = R.string.home_status_connecting,
     problem: Int? = null,
+    retryInMs: Long? = null,
+    canRetry: Boolean = true,
 ) {
     val name = liveName ?: desktop.desktopName ?: stringResource(R.string.home_unknown_desktop)
     var askingAddress by rememberSaveable { mutableStateOf(false) }
     Text(stringResource(R.string.home_paired_title, name), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
     val line = when {
         problem != null -> stringResource(problem, name)
-        connecting -> stringResource(R.string.home_status_connecting, name)
+        connecting -> stringResource(connectingText, name)
         else -> stringResource(R.string.home_status_connected, name)
     }
     Text(
@@ -109,7 +115,11 @@ private fun Paired(
     )
     if (connecting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
     if (problem == null && !connecting) Text(stringResource(R.string.home_paired_body, name), style = MaterialTheme.typography.bodyLarge)
-    if (problem != null) {
+    retryInMs?.let {
+        val seconds = ((it + 999) / 1_000).toInt()
+        Text(pluralStringResource(R.plurals.home_status_retry_in, seconds, seconds), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary)
+    }
+    if (problem != null && canRetry) {
         Button(onClick = onRetry, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) { Text(stringResource(R.string.home_retry)) }
         OutlinedButton(onClick = { askingAddress = true }, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) {
             Text(stringResource(R.string.home_enter_address))
@@ -157,7 +167,7 @@ fun AddressDialog(initial: String, onSave: (String) -> Boolean, onDismiss: () ->
 private fun HomeScreenPreview() {
     OxeTheme {
         HomeScreen(
-            status = DesktopStatus.Unreachable(PairedDesktop("d", "192.168.0.12", 7443, "a".repeat(64), "Studio", "k")),
+            status = DesktopStatus.Unreachable(PairedDesktop("d", "192.168.0.12", 7443, "a".repeat(64), "Studio", "k"), retryInMs = 8_000),
             onPair = {}, onRetry = {}, onManualHost = { true }, onUnpair = {},
         )
     }
