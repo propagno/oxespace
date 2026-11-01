@@ -33,6 +33,8 @@ export class BrowserPreviewService {
   private tabs = new Map<string, BrowserTab>()
   private sessions = new Map<string, string>()
   private tabSessions = new Map<string, BrowserPreviewSessionState>()
+  /** The agent access main lets each owner have (T43); a tab follows its owner. */
+  private agentGrants = new Map<string, boolean>()
   private key(window: BrowserWindow, ownerKey: string, tabId: string): string { return `${window.id}:${ownerKey}:${tabId}` }
   private ownerKey(window: BrowserWindow, ownerKey: string): string { return `${window.id}:${ownerKey}` }
   private find(window: BrowserWindow, ownerKey: string, tabId: string): BrowserTab {
@@ -118,7 +120,7 @@ export class BrowserPreviewService {
     if (!tab) {
       const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,...guestProbeWebPreferences()}})
       view.setBackgroundColor('#07080e')
-      tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:input.agentAccess === true,visible:false,lease:randomUUID()}
+      tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,visible:false,lease:randomUUID()}
       this.tabs.set(key,tab)
       window.contentView.addChildView(view)
       view.setVisible(false)
@@ -145,7 +147,7 @@ export class BrowserPreviewService {
       view.webContents.once('destroyed', () => { if (this.tabs.get(key) === current) this.tabs.delete(key) })
     }
     tab.allowExternal = input.allowExternal === true
-    tab.agentAccess = input.agentAccess === true
+    this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,false)
     const lease = randomUUID()
     tab.lease = lease
     if (tab.view.webContents.getURL() !== url || meta.error) {
@@ -186,10 +188,42 @@ export class BrowserPreviewService {
     if (!state) return []
     return this.snapshot(window,state).tabs.map(tab => ({id:tab.id,active:tab.id === state.activeTabId,url:tab.url ?? '',title:tab.title,loading:tab.loading}))
   }
-  setAccess(window: BrowserWindow, input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean}): void {
-    const tab = this.find(window,input.ownerKey,input.tabId)
-    tab.agentAccess = input.agentAccess === true
-    tab.allowExternal = input.allowExternal === true
+  /**
+   * T43 · Main decides agent access, per preview owner (a Code workspace or a conversation, in one window). Turning it
+   * off always applies. Turning it on applies only with `grant`, which the window sends once, when the person confirms
+   * the consent dialog; the window's re-sends on every tab change carry no grant, so they can keep access or lower it
+   * but never give back what main revoked. Returns what applies.
+   */
+  setAccess(window: BrowserWindow, input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean}): {agentAccess:boolean} {
+    if (!input || typeof input.ownerKey !== 'string' || typeof input.tabId !== 'string') throw new Error('Invalid browser access')
+    const tab = this.tabs.get(this.key(window,input.ownerKey,input.tabId))
+    if (!tab && input.grant !== true) this.find(window,input.ownerKey,input.tabId)
+    if (tab) tab.allowExternal = input.allowExternal === true
+    return {agentAccess:this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,input.grant === true)}
+  }
+  /** Whether main lets agents drive this owner's preview in this window (T43). */
+  hasAgentAccess(window: BrowserWindow, ownerKey: string): boolean { return this.agentGrants.get(this.ownerKey(window,ownerKey)) === true }
+  /** Main takes agent access away (an approval that blocks the window, a policy): it holds until the person grants it again. */
+  revokeAgentAccess(match: {workspaceId?: string; ownerKey?: string} = {}): number {
+    let revoked = 0
+    for (const tab of this.tabs.values()) {
+      if (match.workspaceId !== undefined && tab.workspaceId !== match.workspaceId) continue
+      if (match.ownerKey !== undefined && tab.ownerKey !== match.ownerKey) continue
+      const key = this.ownerKey(tab.window,tab.ownerKey)
+      if (!this.agentGrants.get(key) && !tab.agentAccess) continue
+      this.agentGrants.set(key,false)
+      tab.agentAccess = false
+      revoked += 1
+      this.emit(tab,{type:'access',agentAccess:false})
+    }
+    return revoked
+  }
+  private applyAgentAccess(window: BrowserWindow, ownerKey: string, requested: boolean, grant: boolean): boolean {
+    const key = this.ownerKey(window,ownerKey)
+    const next = requested && (grant || this.agentGrants.get(key) === true)
+    this.agentGrants.set(key,next)
+    for (const tab of this.tabs.values()) if (tab.window === window && tab.ownerKey === ownerKey) tab.agentAccess = next
+    return next
   }
   designMode(window: BrowserWindow, input: {ownerKey:string;tabId:string;enabled:boolean}): void {
     const tab = this.find(window,input.ownerKey,input.tabId)
