@@ -41,6 +41,10 @@ export interface MessageParams {
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
+  'thread.agent.scriptUnsupported': Record<string, never>
+  /** B13: a `codex.cmd` npm install whose native `codex.exe` is missing (it is never run through the app as Node). */
+  'thread.agent.nativeMissing': Record<string, never>
   /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
   'activity.invalid': Record<string, never>
   'activity.tooMany': { max: number }
@@ -342,6 +346,8 @@ export const MESSAGE_CODES = [
   'app.connectivity.offline',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.agent.scriptUnsupported',
+  'thread.agent.nativeMissing',
   'activity.invalid',
   'activity.tooMany',
   'activity.titleTooLong',
