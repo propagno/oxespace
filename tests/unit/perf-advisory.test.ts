@@ -4,19 +4,17 @@ import { PERF_ADVISORY, blockingRef, perfAdvisoryApplies } from '../../e2e/helpe
 const oxeChat = `${PERF_ADVISORY.label} against the 335 ms baseline`
 
 describe('the F7.3 perf advisory (e2e/perceived-perf.spec.ts)', () => {
-  it('warns on any run that is not for main or a tag: a pull request, and the merge train dispatching a PR branch', () => {
+  it('warns on every CI run but a tag: a pull request, the merge train dispatching a PR branch, and main (SRE-01)', () => {
     expect(perfAdvisoryApplies(oxeChat, { GITHUB_REF: 'refs/pull/358/merge' })).toBe(true)
     expect(perfAdvisoryApplies(oxeChat, { GITHUB_REF: 'refs/heads/feat/f6-i18n-complete' })).toBe(true)
     expect(perfAdvisoryApplies(oxeChat, { GITHUB_REF: 'refs/heads/perf/bisect-main-preload-off' })).toBe(true)
+    expect(perfAdvisoryApplies(oxeChat, { GITHUB_REF: 'refs/heads/main' })).toBe(true)
   })
 
-  it('blocks on main, on release tags and outside CI', () => {
-    expect(perfAdvisoryApplies(oxeChat, { GITHUB_REF: 'refs/heads/main' })).toBe(false)
+  it('blocks on release tags and outside CI', () => {
     expect(perfAdvisoryApplies(oxeChat, { GITHUB_REF: 'refs/tags/v1.4.0' })).toBe(false)
     expect(perfAdvisoryApplies(oxeChat, {})).toBe(false)
     expect(blockingRef('')).toBe(true)
-    // A branch merely named like main is not main.
-    expect(perfAdvisoryApplies(oxeChat, { GITHUB_REF: 'refs/heads/main-fix' })).toBe(true)
   })
 
   it('covers only OxeChat cold first content; every other check blocks everywhere', () => {
