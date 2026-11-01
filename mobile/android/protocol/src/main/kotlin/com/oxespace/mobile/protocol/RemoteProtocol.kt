@@ -669,6 +669,20 @@ data class RemoteAgentRow(
         val requestId: String,
         /** Built by the desktop from a parameterless title code, never the agent's own text; cleaned and cut like `title`. */
         val title: String,
+        /**
+         * The parameterless message code behind `title`: one of `agents.request.<approval|question|permissions|elicitation|tool>`
+         * or `approvals.title.<agent|oxequery|previewAutomation|crash>`. The phone renders it from its own catalog, in the
+         * phone's language (the generated `RequestTitleStrings`), and falls back to `title` when the code is missing or
+         * one it does not know. Absent when the desktop's title used another code or parameters the allowlist does not
+         * name for it (`REMOTE_REQUEST_TITLE_PARAMS` in shared/agents/remoteAgentRow.ts).
+         */
+        val titleCode: String? = null,
+        /**
+         * The values for `titleCode`'s placeholders, exactly the keys the allowlist names for it, each cleaned like
+         * `title` and cut to 80 characters. Absent when the code takes none (every code today). A value that comes out
+         * empty, or any other key, drops `titleCode` and `titleParams` both, leaving `title`.
+         */
+        val titleParams: Map<String, String>? = null,
         val risk: String? = null,
         /** False: "Answer on the computer", no Respond on the phone. */
         val answerable: Boolean,
