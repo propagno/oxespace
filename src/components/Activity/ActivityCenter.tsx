@@ -1,5 +1,6 @@
 import { Bell } from 'lucide-react'
 import { Suspense, useEffect, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { OPEN_ACTIVITY_CENTER_EVENT } from '../../commands/activity.commands'
 import { useKeybindings, withShortcut } from '../../keyboard/keybindings'
 import { unreadActivityCount, useActivityStore } from '../../store/activity.store'
@@ -18,6 +19,7 @@ const preloadPanel = (): void => { void PANEL.load().catch(() => undefined) }
  * own the first time the bell is pointed at, focused or opened.
  */
 export function ActivityCenter({ onSelectView }: { onSelectView: (view: ActivityView) => void }): ReactElement {
+  const { t } = useTranslation()
   const items = useActivityStore(state => state.items)
   const [open, setOpen] = useState(false)
   const unread = unreadActivityCount(items)
@@ -30,14 +32,15 @@ export function ActivityCenter({ onSelectView }: { onSelectView: (view: Activity
     return () => window.removeEventListener(OPEN_ACTIVITY_CENTER_EVENT, show)
   }, [])
 
-  const label = unread ? `Activity, ${unread} unread` : 'Activity'
-  return <Popover open={open} onOpenChange={setOpen} align="end" label="Activity" className={styles.panel}
-    trigger={<Button variant="ghost" size="sm" square className={styles.trigger} aria-label={label} title={withShortcut('Activity', 'activity.open')} data-testid="activity-bell" icon={<Bell size={14} aria-hidden="true" />}
+  const title = t('activity.title')
+  const label = unread ? t('activity.unread', { count: unread }) : title
+  return <Popover open={open} onOpenChange={setOpen} align="end" label={title} className={styles.panel}
+    trigger={<Button variant="ghost" size="sm" square className={styles.trigger} aria-label={label} title={withShortcut(title, 'activity.open')} data-testid="activity-bell" icon={<Bell size={14} aria-hidden="true" />}
       onPointerEnter={preloadPanel} onFocus={preloadPanel}>
       {unread > 0 && <span className={cx(styles.count, waiting && styles.urgent)} aria-hidden="true" data-testid="activity-count">{unread > 9 ? '9+' : unread}</span>}
     </Button>}>
     {/* A panel that could not load says so here, with Try again; the window stays. */}
-    <ErrorBoundary id="title-bar" component="ActivityPanel" compact label="Activity" onReset={ActivityPanel.retry}>
+    <ErrorBoundary id="title-bar" component="ActivityPanel" compact label={title} onReset={ActivityPanel.retry}>
       <Suspense fallback={<LoadingState />}><ActivityPanel onClose={() => setOpen(false)} onSelectView={onSelectView} /></Suspense>
     </ErrorBoundary>
   </Popover>

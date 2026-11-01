@@ -1,11 +1,13 @@
 import { Check, ChevronDown, ChevronRight, MessageSquarePlus, Trash2 } from 'lucide-react'
 import { Fragment, useMemo, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { GitDiffFile, GitDiffHunk, GitDiffLine } from '../../../shared/types/git'
 import { commentAnchor, type DiffComment, type DiffSide } from '../../../shared/types/diff-comments'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { i18n } from '../../i18n'
 import { toast } from '../../ui/Toast'
 import type { DiffMode } from '../../store/git.store'
+import { formatRelative } from '../../utils/formatTime'
 
 interface DiffCardProps {
   file: GitDiffFile
@@ -17,13 +19,9 @@ interface DiffCardProps {
   onSelect: () => void
 }
 
+/** The file's last edit (`mtime` in seconds), in the interface language. */
 function relativeTime(mtime: number | null): string {
-  if (mtime === null) return ''
-  const diffSec = Math.floor((Date.now() / 1000) - mtime)
-  if (diffSec < 60) return 'just now'
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`
-  return `${Math.floor(diffSec / 86400)}d ago`
+  return mtime === null ? '' : formatRelative(mtime * 1000)
 }
 
 /** Anchor side/line for a diff line: added/context → new side, removed → old. */
@@ -34,6 +32,7 @@ function lineAnchor(line: GitDiffLine): { side: DiffSide; lineNo: number } | nul
 }
 
 export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onToggleReviewed, workspaceId }: DiffCardProps): ReactElement {
+  const { t } = useTranslation('code')
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -45,7 +44,7 @@ export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onT
         <button
           type="button"
           className="review-card-collapse-btn"
-          aria-label={collapsed ? 'Expand diff' : 'Collapse diff'}
+          aria-label={collapsed ? t('review.expand') : t('review.collapse')}
           aria-expanded={!collapsed}
           onClick={(e) => { e.stopPropagation(); setCollapsed((c) => !c) }}
         >
@@ -57,10 +56,10 @@ export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onT
             type="checkbox"
             checked={isReviewed}
             onChange={onToggleReviewed}
-            aria-label={`Mark ${file.path} as reviewed`}
+            aria-label={t('review.markFile', { path: file.path })}
           />
           {isReviewed ? <Check size={12} aria-hidden="true" /> : null}
-          <span className="review-card-reviewed-text">{isReviewed ? 'Reviewed' : 'Mark reviewed'}</span>
+          <span className="review-card-reviewed-text">{isReviewed ? t('review.reviewed') : t('review.markReviewed')}</span>
         </label>
 
         <span className="review-card-path" title={file.path}>{file.path}</span>
@@ -148,6 +147,7 @@ interface CommentRowsProps {
 
 /** Rendered under a diff line: existing comment rows + the inline editor. */
 function CommentRows({ anchor, colSpan, comments, isEditing, onCancelEdit, onRemove, onSave }: CommentRowsProps): ReactElement | null {
+  const { t } = useTranslation('code')
   const [draft, setDraft] = useState('')
   if (comments.length === 0 && !isEditing) return null
   return (
@@ -160,7 +160,7 @@ function CommentRows({ anchor, colSpan, comments, isEditing, onCancelEdit, onRem
             <button
               type="button"
               className="diff-comment-delete"
-              aria-label={i18n.t('reviewComments.delete', { ns: 'code' })}
+              aria-label={t('review.deleteComment')}
               onClick={(e) => { e.stopPropagation(); onRemove(c.id) }}
             >
               <Trash2 size={12} aria-hidden="true" />
@@ -174,10 +174,10 @@ function CommentRows({ anchor, colSpan, comments, isEditing, onCancelEdit, onRem
             <textarea
               autoFocus
               className="diff-comment-input"
-              placeholder="Comment for the agent… (Ctrl+Enter saves)"
+              placeholder={t('review.commentPlaceholder')}
               value={draft}
               rows={2}
-              aria-label={`Comment on ${anchor}`}
+              aria-label={t('review.commentOn', { anchor })}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => setDraft(e.currentTarget.value)}
               onKeyDown={(e) => {
@@ -187,10 +187,10 @@ function CommentRows({ anchor, colSpan, comments, isEditing, onCancelEdit, onRem
             />
             <div className="diff-comment-actions">
               <button type="button" className="diff-comment-save" onClick={(e) => { e.stopPropagation(); onSave(draft); setDraft('') }}>
-                Add
+                {t('review.add')}
               </button>
               <button type="button" className="diff-comment-cancel" onClick={(e) => { e.stopPropagation(); setDraft(''); onCancelEdit() }}>
-                Cancel
+                {t('ui.cancel', { ns: 'common' })}
               </button>
             </div>
           </td>
@@ -202,9 +202,10 @@ function CommentRows({ anchor, colSpan, comments, isEditing, onCancelEdit, onRem
 
 function UnifiedDiff({ hunks, label, filePath, workspaceId }: DiffViewProps): ReactElement {
   const { byAnchor, editing, setEditing, saveComment, removeComment } = useFileComments(workspaceId, filePath)
+  const { t } = useTranslation('code')
 
   return (
-    <table className="review-diff-table" aria-label={`Diff for ${label}`}>
+    <table className="review-diff-table" aria-label={t('review.diffFor', { file: label })}>
       <tbody>
         {hunks.map((hunk, hi) => (
           <Fragment key={`hunk-${hi}`}>
@@ -229,8 +230,8 @@ function UnifiedDiff({ hunks, label, filePath, workspaceId }: DiffViewProps): Re
                           type="button"
                           className="diff-comment-add"
                           data-testid="diff-comment-add"
-                          aria-label={`Comment on line ${anchor.lineNo}`}
-                          title="Comentar esta linha"
+                          aria-label={t('changes.comments.inputLabel', { line: anchor.lineNo })}
+                          title={t('review.commentLine')}
                           onClick={(e) => { e.stopPropagation(); setEditing(key) }}
                         >
                           <MessageSquarePlus size={12} aria-hidden="true" />
@@ -303,9 +304,10 @@ function pairHunkLines(lines: GitDiffLine[]): PairedRow[] {
 function SideBySideDiff({ hunks, label, filePath, workspaceId }: DiffViewProps): ReactElement {
   const rows = useMemo(() => hunks.map((h) => ({ header: h.header, pairs: pairHunkLines(h.lines) })), [hunks])
   const { byAnchor, editing, setEditing, saveComment, removeComment } = useFileComments(workspaceId, filePath)
+  const { t } = useTranslation('code')
 
   return (
-    <table className="review-diff-table review-diff-table--split" aria-label={`Side-by-side diff for ${label}`}>
+    <table className="review-diff-table review-diff-table--split" aria-label={t('review.splitFor', { file: label })}>
       <tbody>
         {rows.map((hunk, hi) => (
           <Fragment key={`sbs-${hi}`}>
@@ -338,8 +340,8 @@ function SideBySideDiff({ hunks, label, filePath, workspaceId }: DiffViewProps):
                           type="button"
                           className="diff-comment-add"
                           data-testid="diff-comment-add"
-                          aria-label={`Comment on line ${anchor.lineNo}`}
-                          title="Comentar esta linha"
+                          aria-label={t('changes.comments.inputLabel', { line: anchor.lineNo })}
+                          title={t('review.commentLine')}
                           onClick={(e) => { e.stopPropagation(); setEditing(key) }}
                         >
                           <MessageSquarePlus size={12} aria-hidden="true" />

@@ -15,6 +15,22 @@ fun clientIdAfter(result: CommandResult, current: String, newId: () -> String): 
     CommandResult.NoAnswer, CommandResult.Offline -> current
 }
 
+/** A message sent without an answer, exactly as it went: its text and whether it steered a running turn. */
+data class Outgoing(val text: String, val steer: Boolean)
+
+/**
+ * What a send carries. While the field still holds exactly the unsent message, it goes again as it first went (same
+ * mode, and the caller keeps its clientId); otherwise it is what the field holds now, as a message or a steer.
+ */
+fun outgoingFor(unsent: Outgoing?, field: String, steerNow: Boolean): Outgoing =
+    unsent?.takeIf { it.text == field } ?: Outgoing(field, steerNow)
+
+/**
+ * The resend after a reconnection: only the unsent message, and only while the field still holds exactly its text. An
+ * edit is something the person hasn't sent, so it waits for a tap on Send.
+ */
+fun resendOf(unsent: Outgoing?, field: String): Outgoing? = unsent?.takeIf { it.text == field && it.text.isNotBlank() }
+
 /** Why nothing left the phone when the person didn't prove it's them. */
 fun presenceMessage(reason: Presence): Int = when (reason) {
     Presence.CONFIRMED -> throw IllegalArgumentException("confirmed presence blocks nothing")

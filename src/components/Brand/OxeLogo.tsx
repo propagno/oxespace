@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MARK_ARM_LEFT, MARK_ARM_RIGHT, MARK_ON_TILE, MARK_STROKE, MARK_SUN, MARK_TRUNK, MARK_VIEWBOX, TILE_RADIUS, TILE_SUN } from '../../design/brand'
 import styles from './OxeLogo.module.css'
 
@@ -17,6 +18,7 @@ interface OxeLogoProps {
  * variant="hero"     — tile + wordmark + tagline, for empty states
  */
 export function OxeLogo({ size = 28, variant = 'full' }: OxeLogoProps): ReactElement {
+  const { t } = useTranslation()
   if (variant === 'wordmark') {
     return <span className={styles.wordmark} aria-label="OXESpace">
       <OxeMark size={size} tile={false} />
@@ -27,7 +29,7 @@ export function OxeLogo({ size = 28, variant = 'full' }: OxeLogoProps): ReactEle
     return <span className={styles.hero} aria-label="OXESpace">
       <OxeMark size={size} tile />
       <span className={styles.word} style={{ fontSize: Math.round(size * 0.46) }}>oxespace</span>
-      <span className={styles.tagline}>Agents and terminals for your projects</span>
+      <span className={styles.tagline}>{t('brand.tagline')}</span>
     </span>
   }
   return <OxeMark size={size} tile={variant === 'full'} />

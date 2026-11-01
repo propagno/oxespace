@@ -8,7 +8,8 @@
  * - `hold` means an unsaved-work dialog is open: no deadline from then on, the next `proceed` or `cancel` decides.
  * - No first answer within `CLOSE_ANSWER_TIMEOUT_MS` (a hung, crashed or still loading window) goes ahead and
  *   journals `incident.app.closeUnanswered`. The renderer going away while asked goes ahead and journals
- *   `incident.app.closeRendererGone`.
+ *   `incident.app.closeRendererGone`. Both are forced: the window is destroyed, not asked to close, because a
+ *   `BrowserWindow.close()` waits on the page's `beforeunload`/`unload`, which a busy renderer never runs.
  * - A second close or quit while one is asked reuses it. A quit arriving while a close is asked upgrades it to a quit
  *   (no second request): `proceed` then quits.
  * - `bypass()` (OS shutdown, session end, an update install) stops asking for good, and lets a pending one go.
@@ -28,10 +29,13 @@ export type CloseOutcome = 'proceed' | 'cancel' | 'forced' | 'renderer-gone' | '
 export interface CloseGuardDeps {
   /** Sends the request to the window; false when there is no live window to ask (destroyed or crashed). */
   send(request: CloseRequest): boolean
-  /** Issues the window close again; the guard lets it pass. */
-  close(): void
-  /** Issues the app quit again; the guard lets it pass. */
-  quit(): void
+  /**
+   * Issues the window close again; the guard lets it pass. `forced` (no first answer in time, or the renderer gone)
+   * means the window cannot be trusted to take part: the binding destroys it instead of asking its page to unload.
+   */
+  close(forced: boolean): void
+  /** Issues the app quit again; the guard lets it pass. `forced` as for `close`: the window must not hold the quit. */
+  quit(forced: boolean): void
   incident(code: DiagnosticsIncidentCode): void
   /** Told of every decision, for the E2E record. */
   settled?(requestId: string, reason: CloseReason, outcome: CloseOutcome): void
@@ -184,8 +188,9 @@ export class CloseGuard {
     this.pending = null
     this.passing = true
     this.deps.settled?.(pending.requestId, pending.reason, outcome)
-    if (pending.reason === 'quit') this.deps.quit()
-    else this.deps.close()
+    const forced = outcome === 'forced' || outcome === 'renderer-gone'
+    if (pending.reason === 'quit') this.deps.quit(forced)
+    else this.deps.close(forced)
   }
 
   private clearTimer(pending: Pending): void {

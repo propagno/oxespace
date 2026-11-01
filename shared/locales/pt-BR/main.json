@@ -104,11 +104,20 @@
         "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
         "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
         "unknownWorkspace": "Este workspace não existe mais."
+      },
+      "agent": {
+        "scriptUnsupported": "Escolha o executável do próprio agente nas Configurações de agentes: o OxeChat não inicia agentes por scripts .cmd, .ps1 ou .bat.",
+        "nativeMissing": "Falta o executável nativo (codex.exe) no Codex instalado. Reinstale o Codex ou escolha o codex.exe nas Configurações de agentes."
       }
     },
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
+      }
+    },
+    "ipc": {
+      "sender": {
+        "refused": "Só a própria janela do app pode fazer este pedido."
       }
     },
     "activity": {
@@ -353,6 +362,18 @@
     "agents": {
       "name": {
         "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
+      },
+      "resume": {
+        "sessionMissing": "A sessão anterior do agente não está mais no disco para esta pasta, então uma nova foi iniciada.",
+        "otherAgent": "Este painel agora inicia outro agente, então a sessão anterior não foi retomada.",
+        "launchOverride": "Este início tinha argumentos ou prompt próprios, então a sessão anterior não foi retomada.",
+        "blocked": "A política da sua organização não permite este agente aqui, então a sessão não foi retomada.",
+        "disabled": "Retomar sessões de agente está desligado nas Configurações.",
+        "startedFresh": "Este painel foi reiniciado com uma sessão nova; a anterior não volta mais.",
+        "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova."
+      },
+      "session": {
+        "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta do agente, ou antes, com os hooks de status ligados (Configurações › Notificações)."
       }
     },
     "incident": {
@@ -367,13 +388,15 @@
       },
       "ipc": {
         "handlerFailed": "Um pedido da janela falhou em segundo plano.",
-        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado."
+        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado.",
+        "senderRefused": "Algo que não é a janela do app, como uma página em pré-visualização, enviou um pedido; o app recusou."
       },
       "agent": {
         "startFailed": "Um agente não conseguiu iniciar."
       },
       "mcp": {
-        "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar."
+        "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar.",
+        "toolGroupOff": "Um agente chamou uma ferramenta do OXESpace de um grupo desligado em Configurações › Ferramentas. A chamada foi recusada."
       },
       "database": {
         "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."
