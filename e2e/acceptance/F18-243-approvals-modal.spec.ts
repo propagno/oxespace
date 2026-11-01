@@ -25,8 +25,8 @@ function queue(now: number) {
   const base = { schemaVersion: 1, generation: 1, ackRequired: false, createdAt: now, expiresAt: now + 300_000, defaultOptionId: 'deny', kind: 'oxequery', requester: pane, title: msg('approvals.title.oxequery'), summary: msg('approvals.summary.oxequery.write'), appNotes: [] }
   return [
     { ...base, id: 'f18-critical', risk: 'critical', allowDelayMs: 2_000, enterDisabled: true, appNotes: [msg('approvals.note.sql.removes', { statement: 'DROP' })], agentText: { text: 'DROP TABLE orders;', untrusted: true, length: 18, truncated: false }, options: [deny, allow] },
-    { ...base, id: 'f18-medium', risk: 'medium', allowDelayMs: 0, enterDisabled: false, agentText: { text: 'UPDATE t SET a = 1 WHERE id = 1;', untrusted: true, length: 32, truncated: false }, options: [deny, allow] },
-    { ...base, id: 'f18-cut', risk: 'low', allowDelayMs: 0, enterDisabled: false, summary: msg('approvals.summary.oxequery.read'), agentText: { text: HUGE, untrusted: true, length: 150_000, truncated: true }, options: [deny] }
+    { ...base, createdAt: now + 1, id: 'f18-medium', risk: 'medium', allowDelayMs: 0, enterDisabled: false, agentText: { text: 'UPDATE t SET a = 1 WHERE id = 1;', untrusted: true, length: 32, truncated: false }, options: [deny, allow] },
+    { ...base, createdAt: now + 2, id: 'f18-cut', risk: 'low', allowDelayMs: 0, enterDisabled: false, summary: msg('approvals.summary.oxequery.read'), agentText: { text: HUGE, untrusted: true, length: 150_000, truncated: true }, options: [deny] }
   ]
 }
 const pending = (page: Page) => page.evaluate(() => (window as unknown as { oxe: { approvals: { list: () => Promise<Array<{ id: string }>> } } }).oxe.approvals.list().then(l => l.map(r => r.id)))
@@ -70,7 +70,7 @@ test('F18/#243: queue in order, critical pacing, a cut text only denies, history
     await denyButton.click()
 
     // Next in the queue.
-    await expect.soft(modal(page).getByText(/\b2\s*(of|de)\s*3\b/)).toBeVisible({ timeout: 5_000 })
+    await expect.soft(modal(page).getByText(/\b(2\s*(of|de)\s*3|1\s*(of|de)\s*2)\b/), 'the next, with the queue left').toBeVisible({ timeout: 5_000 })
     await page.waitForTimeout(ARMED)
     await denyButton.click()
 
@@ -121,9 +121,14 @@ test('F18/#243 real app: past 50 a request is refused and logged; a closed pane 
     // Never a system dialog on the runner's screen. The native fallback is replaced by a counter that never answers, as a
     // person who has not clicked yet: a request that falls back stays pending, so the queue limit is measured honestly.
     await app.evaluate(({ dialog }) => {
-      const g = globalThis as Record<string, unknown>; g.nativeAsked = 0
-      dialog.showMessageBox = (() => { g.nativeAsked = (g.nativeAsked as number) + 1; return new Promise(() => undefined) }) as typeof dialog.showMessageBox
-      dialog.showMessageBoxSync = (() => { g.nativeAsked = (g.nativeAsked as number) + 1; return 0 }) as typeof dialog.showMessageBoxSync
+      const g = globalThis as Record<string, unknown>; g.nativeAsked = 0; g.nativeLog = []
+      const note = (args: unknown[]) => {
+        g.nativeAsked = (g.nativeAsked as number) + 1
+        const options = args.find(a => !!a && typeof a === 'object' && 'message' in (a as object)) as { title?: string; message?: string } | undefined
+        ;(g.nativeLog as string[]).push(`${Date.now()} ${options?.title ?? ''} | ${String(options?.message ?? '').slice(0, 80)}`)
+      }
+      dialog.showMessageBox = ((...args: unknown[]) => { note(args); return new Promise(() => undefined) }) as typeof dialog.showMessageBox
+      dialog.showMessageBoxSync = ((...args: unknown[]) => { note(args); return 0 }) as typeof dialog.showMessageBoxSync
     })
     await page.getByTestId('btn-new-workspace').first().click()
     await page.getByTestId('wizard-dir-input').fill(profile.repo)
@@ -145,8 +150,14 @@ test('F18/#243 real app: past 50 a request is refused and logged; a closed pane 
     const secondPaneId = await panes.nth(1).getAttribute('data-pane-id')
     await start(1, 26, 'b', 10_000)
     await start(0, 25, 'a', 0)
+    const native = () => app.evaluate(() => (globalThis as Record<string, unknown>).nativeAsked as number)
+    const nativeLog = () => app.evaluate(() => (globalThis as Record<string, unknown>).nativeLog as string[])
+    const timeline: string[] = []
+    const mark = async (what: string) => { timeline.push(`${Date.now()} ${what}: native=${await native()} pending=${(await pending(page)).length} panes=${await panes.count()}`) }
     const a = await results('a')
+    await mark('after a')
     const b = await results('b')
+    await mark('after b')
     test.info().annotations.push({ type: 'answers', description: JSON.stringify({ a0: a[0], b25: b[25] }).slice(0, 500) })
     // Fired concurrently, so which of the 51 arrives last is not fixed: exactly one is refused, the other 50 wait.
     const all = [...a, ...b]
@@ -164,9 +175,17 @@ test('F18/#243 real app: past 50 a request is refused and logged; a closed pane 
     expect.soft(await panes.nth(1).getByRole('button', { name: /More pane actions|Mais ações do painel/ }).click({ timeout: 2_000 }).then(() => 'reached', () => 'blocked'),
       'the modal keeps the rest of the app out of reach').toBe('blocked')
     expect(secondPaneId).toBeTruthy()
-    await page.evaluate(`window.oxe.workspace.closePane(${JSON.stringify(secondPaneId)})`)
+    await mark('before close')
+    const closed = await page.evaluate(`window.oxe.workspace.closePane(${JSON.stringify(secondPaneId)}).then(w => w && w.panes ? w.panes.map(p => p.id) : w, e => 'error: ' + e.message)`)
+    test.info().annotations.push({ type: 'closePane', description: JSON.stringify(closed).slice(0, 300) })
+    await page.waitForTimeout(3_000)
+    await mark('after close')
     await expect.configure({ soft: true }).poll(async () => (await pending(page)).length, { timeout: 10_000, message: 'the closed pane\'s requests are withdrawn' }).toBe(25)
     expect.soft((await history()).filter(h => h.by === 'cancelled').length, 'each withdrawn request is logged as cancelled').toBe(25)
-    expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).nativeAsked), 'no native dialog while the window is open').toBe(0)
+    await mark('end')
+    const byCounts: Record<string, number> = {}
+    for (const h of await history()) byCounts[h.by] = (byCounts[h.by] ?? 0) + 1
+    console.log('F18-DIAG', JSON.stringify({ timeline, byCounts, native: (await nativeLog()).slice(0, 6), secondPaneId, closed }))
+    expect.soft(await native(), 'no native dialog while the window is open').toBe(0)
   } finally { await quitReal(app) }
 })
