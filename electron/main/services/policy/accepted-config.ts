@@ -133,7 +133,8 @@ export function canonicalJson(value: unknown): string {
  * list form and the map form are the same projection. Why a file is invalid is not part of it.
  */
 export function projectionHash(file: PolicyChangeFile, projection: AnyProjection): string {
-  let power: unknown = { state: projection.state }
+  // Too large is its own projection (HML L): a Deny of an invalid file does not hide a too large one, and back.
+  let power: unknown = projection.state === 'invalid' && projection.tooLarge ? { state: 'invalid', tooLarge: true } : { state: projection.state }
   if (projection.state === 'value' && file === 'policy') {
     power = { state: 'value', rules: (projection.value as PolicyValue).rules.map(rule => ({ ...rule, resource: rule.resource.toLowerCase() })) }
   } else if (projection.state === 'value') {
@@ -152,6 +153,9 @@ export function defaultProjection(file: PolicyChangeFile): AnyProjection {
 }
 
 const RANK: Record<McpToolGroupMode, number> = { off: 0, 'on-demand': 1, always: 2 }
+
+/** A rule as policy-change.ts keys it (resources without case). */
+const ruleKey = (rule: PolicyRule): string => `${rule.effect}\0${rule.action}\0${rule.resource.toLowerCase()}`
 
 /**
  * What applies while a first-seen file is compared with the defaults (milliseconds, until policy-change.ts loads): never
@@ -240,7 +244,7 @@ export class AcceptedConfig {
   private readonly pending = new Map<string, Pending>()
   private readonly open = new Map<string, OpenRequest>()
   private readonly keys = new Map<string, string>()
-  private readonly primaries = new Map<string, { key: string; root: string } | null>()
+  private readonly primaries = new Map<string, { key: string; root: string } | 'unknown' | null>()
   private readonly running = new Set<Promise<unknown>>()
   /** When each (subject, file) was last asked or re-issued. */
   private readonly lastAsked = new Map<string, number>()
@@ -272,7 +276,21 @@ export class AcceptedConfig {
       this.staleIntents.delete(subject.id)
       row = this.row(subject.id)
     }
-    const base = this.baseline(subject, row)
+    let base = this.baseline(subject, row)
+    // First sight: the part of the file that only narrows the defaults (its denies; each group at most on demand) is
+    // the accepted version at once, synchronously, so a change written right after it can never drop it (HML H, review
+    // H1). Only the rest, if any, is compared and asked.
+    let firstSeen: { shownBaseJson: string; applied: string[] } | null = null
+    if (!row && base.firstSight) {
+      const part = firstSightInterim(subject.file, current)
+      const partHash = projectionHash(subject.file, part)
+      if (partHash !== base.hash) {
+        firstSeen = { shownBaseJson: base.json, applied: part.state === 'value' && subject.file === 'policy' ? (part.value as PolicyValue).rules.map(ruleKey) : [] }
+        this.store(subject.id, { hash: partHash, json: JSON.stringify(part), intent: null, rejected: null, via: 'baseline-default' })
+        row = this.row(subject.id)
+        base = this.baseline(subject, row)
+      }
+    }
     // A worktree keeps its primary's version as its own from the first read, so editing or deleting its .git file
     // later cannot reset it to the defaults or point it at another project (review M4).
     if (!row && base.inheritedFrom) {
@@ -284,8 +302,9 @@ export class AcceptedConfig {
     if (!entry || entry.newHash !== hash || entry.baseHash !== base.hash) {
       if (entry?.timer) clearTimeout(entry.timer)
       // A rewrite while a request waits keeps that request open: the next check re-issues it with the new content.
-      entry = { subject, baseHash: base.hash, baseJson: base.json, newHash: hash, newJson: JSON.stringify(current), firstSight: base.firstSight, strict: base.strict,
-        inheritedFrom: base.inheritedFrom, rejected: row?.rejected === hash, deferred: false, forced: false, applied: [], notSplit: false }
+      entry = { subject, baseHash: base.hash, baseJson: base.json, newHash: hash, newJson: JSON.stringify(current), firstSight: base.firstSight || firstSeen !== null, strict: base.strict,
+        inheritedFrom: base.inheritedFrom, rejected: row?.rejected === hash, deferred: false, forced: false, applied: firstSeen?.applied ?? [], notSplit: false,
+        ...(firstSeen ? { shownBaseJson: firstSeen.shownBaseJson } : {}) }
       this.pending.set(subject.id, entry)
       if (!entry.rejected) this.schedule(entry)
       else this.closeOpen(subject.id)
@@ -346,9 +365,15 @@ export class AcceptedConfig {
    */
   async assertAccepted(subject: Subject, read: AnyProjection): Promise<void> {
     this.resolve(subject, read)
-    const entry = this.pending.get(subject.id)
-    if (entry?.timer) { clearTimeout(entry.timer); entry.timer = undefined; this.check(entry) }
-    await entry?.checking
+    // Every change of this project that would block the write is compared now and, if it waits, asked (or asked again),
+    // so a refusal always has a request to answer (HML M-1).
+    for (const entry of [...this.pending.values()].filter(item => item.subject.key === subject.key)) {
+      if (entry.subject.id !== subject.id && entry.rejected) continue
+      if (entry.rejected || entry.deferred) { entry.forced = true; entry.deferred = false }
+      if (entry.timer) { clearTimeout(entry.timer); entry.timer = undefined }
+      this.check(entry)
+      await entry.checking
+    }
     if (projectionHash(subject.file, read) !== this.baseline(subject, this.row(subject.id)).hash) throw new MainRefusal('policy.change.pending', {})
     for (const other of this.pending.values()) {
       if (other.subject.key === subject.key && other.subject.id !== subject.id && !other.rejected) throw new MainRefusal('policy.change.pending', {})
@@ -570,7 +595,7 @@ export class AcceptedConfig {
     if (!this.deps.ask || (open && open.newHash === entry.newHash && open.baseHash === entry.baseHash)) return
     if ((entry.rejected || entry.deferred) && !entry.forced) return
     const wait = (this.lastAsked.get(id) ?? -Infinity) + (this.deps.reissueMs ?? 3_000) - this.now()
-    if (wait > 0) { this.schedule(entry, wait); return }
+    if (wait > 0 && !entry.forced) { this.schedule(entry, wait); return }
     this.lastAsked.set(id, this.now())
     const next = JSON.parse(entry.newJson) as AnyProjection
     // Read once: the text shown must be the version an Allow records, or the request waits for the next read (review M2).

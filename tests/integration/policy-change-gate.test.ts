@@ -14,8 +14,10 @@ import { PolicyStore } from '../../electron/main/services/policy/policy-store'
 import { effectiveToolConfig, toolConfigSubject } from '../../electron/main/services/policy/tool-config'
 import type { ApprovalRequest } from '../../shared/types/approvals'
 import { removeTempDir } from '../helpers/removeTempDir'
+import { recordIncident } from '../../electron/main/services/diagnostics/incident-sink'
 
 vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
+vi.mock('../../electron/main/services/diagnostics/incident-sink', () => ({ recordIncident: vi.fn() }))
 
 const dirs: string[] = []
 const databases: AppDatabase[] = []
@@ -148,15 +150,12 @@ describe('B7.4 · an outside change to the project policy applies only once acce
     expect(requests()[0].summary.code).toBe('approvals.summary.policyChange.invalid')
     expect(requests()[0].options.map(option => option.id)).toEqual(['deny'])
     await answer('deny')
-    // Too large is invalid too (the same projection): kept out by that Deny, so it is shown in a project of its own.
-    write(policyFile, JSON.stringify({ rules: [], note: 'x'.repeat(300 * 1024) }))
+    // Too large is its own projection (HML L): asked after a Deny of a broken file, Deny only, with the incident.
+    write(policyFile, JSON.stringify({ rules: [], note: 'x'.repeat(3 * 1024 * 1024) }))
     expect(await read()).toContain(DB_EXECUTE)
-    expect(requests()).toHaveLength(0)
-    const fresh = await accepted()
-    fresh.write(fresh.policyFile, JSON.stringify({ rules: [], note: 'x'.repeat(300 * 1024) }))
-    expect(await fresh.read()).toContain(DB_EXECUTE)
-    expect(fresh.requests()[0].summary.code).toBe('approvals.summary.policyChange.tooLarge')
-    expect(fresh.requests()[0].options.map(option => option.id)).toEqual(['deny'])
+    expect(requests()[0].summary.code).toBe('approvals.summary.policyChange.tooLarge')
+    expect(requests()[0].options.map(option => option.id)).toEqual(['deny'])
+    expect(vi.mocked(recordIncident)).toHaveBeenCalledWith('incident.policy.changedOutside', expect.any(String))
   })
 
   it('a pure narrowing applies at once with a notice, and asks nothing', async () => {
@@ -382,6 +381,63 @@ describe('B7.4 · SECURITY review of #372', () => {
     await gate.idle()
     expect(asked).toHaveLength(1)
     expect(store.decide('tool.use', DB_EXECUTE, worktree).allowed).toBe(false)
+  })
+})
+
+describe('B7.4 · HML pre-homologation of #372', () => {
+  const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd, stdio: 'ignore' })
+
+  it('H + review H1: a first-seen committed deny is accepted at once, and an outside write right after it keeps it in force', async () => {
+    const repo = temp('oxe-b74-hml-')
+    git(repo, 'init', '-q')
+    mkdirSync(join(repo, '.oxespace'))
+    writeFileSync(join(repo, '.oxespace', 'policy.json'), policyText(rule('deny', DB_EXECUTE)))
+    git(repo, 'add', '.'); git(repo, 'commit', '-q', '-m', 'accepted')
+    const { store, write, policyFile, requests, settle, answer, db } = project({ root: repo })
+    // The first read (Settings' policy view reads exactly this): the deny is in force and nothing waits.
+    expect(store.load(repo).sources.map(source => source.rules)).toEqual([[rule('deny', DB_EXECUTE)]])
+    expect(store.changes(repo)).toEqual([])
+    expect(db.prepare("SELECT accepted_via FROM accepted_project_config WHERE file = 'policy'").get()).toEqual({ accepted_via: 'baseline-default' })
+    // The agent writes {allow *} at once, before any comparison could run.
+    write(policyFile, policyText(rule('allow', '*')))
+    expect(store.load(repo).sources.map(source => source.rules)).toEqual([[rule('deny', DB_EXECUTE)]])
+    await settle()
+    expect(requests()).toHaveLength(1)
+    expect(requests()[0]).toMatchObject({ kind: 'policyChange', risk: 'critical' })
+    await answer('deny')
+    expect(store.load(repo).sources.map(source => source.rules)).toEqual([[rule('deny', DB_EXECUTE)]])
+  })
+
+  it('M-1: a Settings write right after opening a project with a first-seen oxe.yaml and policy is not refused', async () => {
+    const { root, db, files, write, policyFile, requests, store } = project()
+    write(policyFile, policyText(rule('deny', DB_EXECUTE)))
+    write(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: "off"\n')
+    store.load(root)
+    effectiveToolConfig(root)
+    await setToolGroupMode(db, files, { rootPath: root, group: 'docs', mode: 'off' })
+    expect(effectiveToolConfig(root).modes).toMatchObject({ data: { mode: 'off' }, docs: { mode: 'off' } })
+    expect(requests()).toHaveLength(0)
+  })
+
+  it('M-1: when a write is refused with policy.change.pending, the request to answer exists already', async () => {
+    const { root, db, files, write, requests, answer, settle } = await accepted({ yaml: 'thread:\n  tools:\n    data: "off"\n' })
+    write(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: always\n')
+    // No read in between: the write itself is the first to see the change.
+    await expect(setToolGroupMode(db, files, { rootPath: root, group: 'app', mode: 'off' })).rejects.toThrow('policy.change.pending')
+    expect(requests()).toHaveLength(1)
+    await answer('deny')
+    // Kept out: a later click is refused again, and asked again, so the person still has something to answer.
+    await expect(setToolGroupMode(db, files, { rootPath: root, group: 'app', mode: 'off' })).rejects.toThrow('policy.change.pending')
+    await settle()
+    expect(requests()).toHaveLength(1)
+  })
+
+  it('M-2: the policy view\'s read alone raises the request', async () => {
+    const { root, write, policyFile, requests, settle, store } = await accepted()
+    write(policyFile, policyText(rule('allow', '*')))
+    expect(store.changes(root)).toMatchObject([{ state: 'pending' }])
+    await settle()
+    expect(requests()).toHaveLength(1)
   })
 })
 

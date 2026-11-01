@@ -221,7 +221,8 @@ export function classify(subject: Pick<Subject, 'file' | 'layer'>, base: AnyProj
   const old = rulesOf(base)
   const rules = rulesOf(next)
   if (onlyNarrows(old, rules)) return { applies: true, widen: 0, tighten }
-  if (firstSight && subject.layer === 'project' && old.length === 0 && rules.every(allowWithinDefaults)) return { applies: true, widen, tighten }
+  // The base at first sight is the file's own denies (recorded at once), so it holds denies only.
+  if (firstSight && subject.layer === 'project' && old.every(rule => rule.effect === 'deny') && rules.every(allowWithinDefaults)) return { applies: true, widen, tighten }
   return { applies: false, widen: Math.max(widen, 1), tighten }
 }
 

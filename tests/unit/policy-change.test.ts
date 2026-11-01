@@ -63,7 +63,9 @@ describe('narrowing is syntactic (B7.4, ARCHITECT change 4)', () => {
     expect(classify(project, rules(A), { state: 'absent' }, false).applies).toBe(false)
     expect(classify(project, rules(B), { state: 'absent' }, false).applies).toBe(true)
     expect(classify(project, rules(B), { state: 'invalid' }, false)).toMatchObject({ applies: false })
-    expect(projectionHash('policy', { state: 'invalid', problem: 'x', tooLarge: true })).toBe(projectionHash('policy', { state: 'invalid' }))
+    expect(projectionHash('policy', { state: 'invalid', problem: 'x' })).toBe(projectionHash('policy', { state: 'invalid' }))
+    // Too large is its own projection (HML L): a Deny of a broken file does not hide a too large one.
+    expect(projectionHash('policy', { state: 'invalid', tooLarge: true })).not.toBe(projectionHash('policy', { state: 'invalid' }))
   })
 
   it('oxe.yaml: moving down applies, any move up asks; the list and map forms are one projection', () => {
