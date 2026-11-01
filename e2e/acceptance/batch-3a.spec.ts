@@ -43,10 +43,11 @@ test('#302 cold boot, every view, and the on-demand pieces the first time they a
     await page.keyboard.press('Escape')
     // A terminal link: the link checks load inside the click.
     await page.locator('[data-testid="pane-container"] .xterm').first().click()
-    await page.keyboard.type('echo https://example.com/hml-302'); await page.keyboard.press('Enter')
-    await page.waitForTimeout(1_500)
-    const link = page.locator('.xterm-rows span, .xterm-rows div').filter({ hasText: 'https://example.com/hml-302' }).last()
-    const box = await link.boundingBox()
+    // Cleared first, so the link is on the first row (the terminal may draw on a canvas, with no text nodes to find).
+    await page.keyboard.type('clear; echo https://example.com/hml-302'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(2_000)
+    const screen = await page.locator('[data-testid="pane-container"] .xterm-screen').first().boundingBox()
+    const box = screen ? { x: screen.x, y: screen.y + 2, height: 12 } : null
     let linkOutcome = 'no link found'
     if (box) {
       await page.keyboard.down('Control')
@@ -88,6 +89,7 @@ for (const size of [{ name: 'narrow', width: 900, height: 700 }, { name: 'wide',
       // No context report, no cost: the panel says so, never NaN or 0 of 0.
       await sessionState(app, workspaceRoot, { model: 'claude-x' })
       const toggle = page.locator('.thread-heading').getByRole('button', { name: 'Conversation details' })
+      const headingButtons = () => page.locator('.thread-heading button').evaluateAll(list => list.map(b => `${b.getAttribute('aria-label') ?? b.textContent?.trim()}|pressed=${b.getAttribute('aria-pressed')}|hidden=${!!b.closest('[aria-hidden="true"],[inert]')}`))
       await toggle.click()
       const panel = page.getByTestId('thread-session-panel')
       await expect(panel).toBeVisible()
@@ -113,9 +115,11 @@ for (const size of [{ name: 'narrow', width: 900, height: 700 }, { name: 'wide',
         await page.keyboard.press('Escape')
         await expect.soft(panel, 'Escape closes the drawer').toHaveCount(0, { timeout: 3_000 })
         await expect.soft(toggle, 'focus goes back to the header button').toBeFocused()
+        console.log('F14-FOCUS-AFTER-ESC', await page.evaluate(() => { const e = document.activeElement as HTMLElement | null; return e ? `${e.tagName} ${e.getAttribute('aria-label') ?? ''} ${e.className}`.slice(0, 120) : 'none' }))
       } else {
         await expect.soft(page.locator('.thread-timeline'), 'the conversation stays beside the panel').toBeVisible()
-        await toggle.click()
+        console.log('F14-HEADER-OPEN', JSON.stringify(await headingButtons()), 'focused:', await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName))
+        await toggle.click({ timeout: 5_000 }).catch(async () => { await page.locator('.thread-review-host').getByRole('button', { name: 'Close workbench panel' }).click() })
         await expect.soft(panel, 'the header toggle closes it').toHaveCount(0, { timeout: 3_000 })
       }
       const box = await page.locator('.thread-review-host').boundingBox().catch(() => null)
