@@ -7,7 +7,7 @@ import { Badge, Button, Dialog, Notice, type Intent } from '../../ui'
 import { noticeFor, refKey, useApprovalsStore, type ApprovalNotice } from './approvals.store'
 import { acknowledge } from './approvalsBoot'
 import { denyOption, effectiveRisk, holdsAllow, visibleOptions } from './approvalsRules'
-import { approvalT as t, textHint, textLabel, factsSentence, formatAppNote, formatCount, formatMainMessage, formatTime, isUnidentified, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
+import { approvalT as t, appNoteParts, textHint, textLabel, factsSentence, formatCount, formatMainMessage, formatTime, isUnidentified, requesterKindName, requesterText, riskName, summaryLine } from './approvalText'
 import { hasHiddenChars, revealHidden } from './hiddenChars'
 import { useAllowHold } from './useAllowHold'
 import { attentive, useWindowAttention } from './useWindowAttention'
@@ -202,7 +202,10 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
       <h3 id={notesHeading} className={styles.sectionTitle}>{t('approvals.appNotes')}</h3>
       <ul>
         {hiddenUnflagged && <li data-testid="approval-hidden-note">{t('approvals.hiddenCharacters')}</li>}
-        {notes.map((note, index) => <li key={index} data-note={note.code}>{formatAppNote(note, request.kind)}</li>)}
+        {notes.map((note, index) => <li key={index} data-note={note.code}>{appNoteParts(note, request.kind).map((part, at) => 'rule' in part
+          // Text nodes only: a rule is never markdown, HTML or a link.
+          ? <code key={at} data-note-rule="">{part.rule}</code>
+          : <span key={at}>{part.text}</span>)}</li>)}
       </ul>
     </section>}
     {showText && <section className={styles.agent} aria-labelledby={agentHeading} data-testid="approval-agent-block">

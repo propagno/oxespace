@@ -25,6 +25,19 @@ export function formatAppNote(note: MainMessage | { code: string; params: Record
   return formatMainMessage(note)
 }
 
+/** Where a note's `rule` goes in its sentence: a marker no translation contains. */
+const RULE_MARK = '\u0000rule\u0000'
+/**
+ * An app note in pieces, for B7.4's policy notes: a `{{rule}}` param (sanitized by main) is its own piece, so the
+ * dialog shows it as plain code text, never as markdown or HTML (#372 SECURITY). Other notes are one text piece.
+ */
+export function appNoteParts(note: MainMessage | { code: string; params: Record<string, unknown> }, kind: ApprovalRequest['kind']): Array<{ text: string } | { rule: string }> {
+  const rule = (note.params as Record<string, unknown> | undefined)?.rule
+  if (typeof rule !== 'string' || (kind === 'oxequery' && !isMainMessage(note))) return [{ text: formatAppNote(note, kind) }]
+  const marked = formatMainMessage({ ...note, params: { ...note.params, rule: RULE_MARK } } as MainMessage)
+  return marked.split(RULE_MARK).flatMap((text, index) => index === 0 ? (text ? [{ text }] : []) : [{ rule }, ...(text ? [{ text }] : [])])
+}
+
 export const riskName = (risk: ApprovalRisk): string => t(`approvals.risk.${risk}`)
 /** The text block's heading and hint for this kind (a changed policy file reads differently); the agent's by default. */
 export const textLabel = (kind: string): string => i18n.exists(`common:approvals.textLabel.${kind}`) ? t(`approvals.textLabel.${kind}`) : t('approvals.agent.heading')

@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { approvalPacing } from '../shared/approval-rules'
 import { mainMessage } from '../shared/messages'
-import { changeLanguage } from '../src/i18n'
+import { changeLanguage, i18n } from '../src/i18n'
 import { resetApprovalsApi } from '../src/components/Approvals/approvalsApi'
 import { installApprovalsMock } from '../src/components/Approvals/approvalsMock'
 import { resetApprovalsBoot, OPEN_APPROVAL_HISTORY_EVENT } from '../src/components/Approvals/approvalsBoot'
@@ -247,6 +247,19 @@ describe('approval dialog', () => {
     expect(screen.getByTestId('approval-target')).toHaveTextContent('.oxespace/policy.json')
     expect(screen.getByTestId('approval-target').closest('dl')).toHaveTextContent('Where')
     expect(dialog().querySelector('[data-note="approvals.note.production"]')).not.toBeNull()
+  })
+
+  it('shows a note's rule as plain code text, never as markup or a link (#372 SECURITY, B7.4)', async () => {
+    i18n.addResource('en', 'main', 'messages.approvals.note.testRule', 'The rule {{rule}} would allow more.')
+    const rule = '<img src=x onerror=alert(1)> **bold** [link](https://example.com)'
+    request({ appNotes: [{ code: 'approvals.note.testRule', params: { rule } } as never] })
+    await mount()
+    const note = dialog().querySelector('[data-note="approvals.note.testRule"]')!
+    const code = note.querySelector('[data-note-rule]')!
+    expect(code.tagName).toBe('CODE')
+    expect(code.textContent).toBe(rule)
+    expect(note).toHaveTextContent(`The rule ${rule} would allow more.`)
+    expect(note.querySelector('img, a, strong, b')).toBeNull()
   })
 
   it('takes the hold from the request: 2 s at critical (approvalPacing), none otherwise', async () => {
