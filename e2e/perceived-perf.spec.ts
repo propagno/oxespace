@@ -431,7 +431,7 @@ test('perceived performance: first feedback, first content and blank time per su
     const shown = again ? `${check.label} (round 1 ${check.value.toFixed(0)}, round 2 ${again.value.toFixed(0)})` : check.label
     if (failed && advisoryHere(check)) {
       // GitHub annotation: visible on the PR, never a failure there; push to main still fails.
-      console.log(`::warning title=F7.3 OxeChat cold first content (advisory off main until ${ADVISORY.expires})::${shown}: ${Math.max(check.value, again?.value ?? -Infinity).toFixed(0)} ms, limit ${check.limit.toFixed(0)} ms`)
+      console.log(`::warning title=F7.3 OxeChat cold first content (advisory until ${ADVISORY.expires}, release tags excepted)::${shown}: ${Math.max(check.value, again?.value ?? -Infinity).toFixed(0)} ms, limit ${check.limit.toFixed(0)} ms`)
       continue
     }
     expect.soft(failed ? Math.max(check.value, again?.value ?? -Infinity) : Math.min(check.value, check.limit), shown).toBeLessThanOrEqual(check.limit)
