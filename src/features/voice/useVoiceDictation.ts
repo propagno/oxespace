@@ -19,7 +19,8 @@ function wordsFor(message: VoiceMessage, generic: string): string {
 
 /** State of push-to-talk dictation: engines, the active session, partial text, consent and errors. */
 export function useVoiceDictation(api: VoiceRendererApi, onInsert: (text: string) => void) {
-  const { t } = useTranslation('thread')
+  // The voice copy lives in its own lazy namespace (CR-07); `thread` no longer has these keys.
+  const { t } = useTranslation('voice')
   const [engines, setEngines] = useState<VoiceEngineInfo[] | null>(null)
   const [phase, setPhase] = useState<VoicePhase>('idle')
   const [partial, setPartial] = useState('')
@@ -32,8 +33,8 @@ export function useVoiceDictation(api: VoiceRendererApi, onInsert: (text: string
   const stoppingRef = useRef(false)
   const mountedRef = useRef(false)
   const insertRef = useRef(onInsert)
-  const genericRef = useRef(t('voice.error.generic'))
-  const genericText = t('voice.error.generic')
+  const genericText = t('error.generic')
+  const genericRef = useRef(genericText)
 
   // Sync the latest callback/text into refs after commit (not during render); declared before the subscription effect so it runs first.
   useEffect(() => {
