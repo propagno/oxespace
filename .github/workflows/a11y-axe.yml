@@ -13,8 +13,24 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
-    # Only what can change what the scan sees.
-    paths-ignore: ["docs/**", "**/*.md", "electron/main/**/*.test.ts", "tests/**"]
+    # Only what can change what the scan sees: not docs, not tests, not the Android app or the
+    # phone protocol, not the other workflows.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".claude/**"
+      - "electron/main/**/*.test.ts"
+      - "tests/**"
+      - "mobile/**"
+      - "scripts/android/**"
+      - "shared/remote/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/android.yml"
+      - ".github/workflows/memory-compatibility.yml"
+      - ".github/workflows/provider-contract.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/visual-baselines.yml"
+      - ".github/workflows/visual-regression.yml"
   # A manual run needs the file on the default branch; a change to this file on a release
   # branch runs it there, which is how a candidate gets scanned before the file is merged.
   push:

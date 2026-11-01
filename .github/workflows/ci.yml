@@ -8,13 +8,18 @@ run-name: >-
   || inputs.packaged_smoke_only && format('Packaged smoke · {0}', inputs.branch || github.ref_name)
   || format('Full check · {0}', inputs.branch || github.ref_name) }}
 
-# Unified pipeline:
-#   1) build  — typecheck, test, build, e2e (+ package when releasing)
-#   2) release — only after build succeeds; draft → verify → publish → confirm live
+# Unified pipeline, fastest signal first (see docs/RELEASE_PIPELINE.md#jobs):
+#   1) changes — what a PR touched, and the one commit every job checks out
+#   2) quick (Linux) — plan, audits, typecheck, lint, migration numbering, build and bundle budgets
+#      unit (Windows, Linux) — the unit and integration suite with coverage, in parallel with quick
+#   3) e2e (Windows, Linux, 3 shards each) — after quick on a PR (always on main, tags, dispatches)
+#   4) package (Windows, Linux) — only when the plan packages (tag, publish or packaged-smoke dispatch)
+#   5) release — only after all of the above succeed; draft → verify → publish → confirm live
+#   6) ci-result — one check for the whole run; merges the E2E shard reports
 #
 # Triggers:
-#   - push/PR to main → build only
-#   - push tag v*.*.* → build + release
+#   - push/PR to main → checks only
+#   - push tag v*.*.* → checks + package + release
 #   - workflow_dispatch → choose branch; optional publish_release
 
 on:
@@ -58,75 +63,122 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Typecheck, test and build (${{ matrix.label }})
-    # A draft PR runs nothing; marking it ready for review starts the run.
+  # What a pull request touched, so the expensive jobs only run when they can tell something.
+  # A docs-only PR (docs/**, *.md, .claude/**) runs nothing but this job, which still gives it
+  # a passing check. The OxeQuery live matrices (5 runners) only run on a PR that touches
+  # OxeQuery's own code: its main-process service and worker, the OxePod container runtime the
+  # live tests drive, its shared types and query-text parsers, its tests and scripts, and this
+  # file. Shared code it merely imports (C3 messages, locales, policy, approvals, migrations,
+  # dependencies) changes too often to start 5 database jobs each time; its contract and unit
+  # tests run on every code PR, and main, tags and dispatches always run everything, so a
+  # regression there is still caught on main, never in a release.
+  changes:
+    name: Changed paths
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: read
-    strategy:
-      # Never let a Linux failure cancel the Windows leg mid-release (or vice
-      # versa) — a half-cancelled matrix leaves the release job with one payload.
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-2022
-            label: windows-x64
-            builder_flag: "--win"
-            slim_platform: win32
-          - os: ubuntu-22.04
-            label: linux-x64
-            builder_flag: "--linux"
-            slim_platform: linux
-    # NOTE: with a matrix, a job output is whichever leg wrote it last. Every
-    # value below is derived purely from package.json + the git ref, so both legs
-    # compute identical values and the race is benign.
+      pull-requests: read
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+      oxequery: ${{ steps.classify.outputs.oxequery }}
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      # Resolved once, so every later job tests the same commit: checking out a branch name in each job
+      # would take whatever the branch pointed at when that job started.
+      - name: Resolve the commit every job checks out
+        id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            # Manual runs: GitHub "Use workflow from" is github.ref_name; a non-empty branch input overrides it.
+            ref="$(printf '%s' "$INPUT_BRANCH" | tr -d '[:space:]')"
+            [ -n "$ref" ] || ref="$REF_NAME"
+            if [ -z "$ref" ]; then
+              echo "workflow_dispatch could not resolve a branch (set Use workflow from, or branch input)." >&2; exit 1
+            fi
+            sha=$(gh api "repos/$REPO/commits/$ref" --jq .sha)
+          else
+            sha="$EVENT_SHA"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "checkout: $sha"
+
+      - name: Classify the changed files
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "oxequery=true" >> "$GITHUB_OUTPUT"
+            echo "not a pull request: everything runs"; exit 0
+          fi
+          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          echo "$files" | sed 's/^/  /'
+          code=false; oxequery=false
+          if echo "$files" | grep -Eqv '^(docs/|\.claude/|.*\.md$)'; then code=true; fi
+          if echo "$files" | grep -Eq '^(electron/main/services/(oxequery|oxepod)/|electron/main/workers/[^/]*oxequery|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText)\.ts$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|\.github/workflows/ci\.yml$)'; then oxequery=true; fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"
+          echo "code=$code oxequery=$oxequery"
+
+  # Stage 1, the fast signal (Linux only, about 6 minutes): plan, audits, typecheck, lint with the file-size
+  # guard, the migration-numbering guard, and the build with its bundle budgets. These checks do not depend on
+  # the OS (the bundle budgets run again on both platforms in e2e, where the build is repeated). When this job
+  # fails on a pull request, the e2e legs and the OxeQuery live matrices never take a runner.
+  quick:
+    name: Quick checks (linux-x64)
+    needs: [changes]
+    # A draft PR runs nothing; marking it ready for review starts the run. A docs-only PR skips it.
+    if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true') }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
     outputs:
       should_release: ${{ steps.plan.outputs.should_release }}
+      packaged_smoke: ${{ steps.plan.outputs.packaged_smoke }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
       prerelease: ${{ steps.plan.outputs.prerelease }}
+      channel: ${{ steps.plan.outputs.channel }}
       manifest: ${{ steps.plan.outputs.manifest }}
       manifest_linux: ${{ steps.plan.outputs.manifest_linux }}
       sha: ${{ steps.plan.outputs.sha }}
 
     steps:
-      - name: Resolve checkout ref
-        id: ref
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          # Manual runs: GitHub "Use workflow from" is github.ref_name.
-          # Optional inputs.branch overrides that when non-empty.
-          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $override = '${{ inputs.branch }}'.Trim()
-            $ref = if ($override) { $override } else { '${{ github.ref_name }}' }
-            if ([string]::IsNullOrWhiteSpace($ref)) {
-              throw 'workflow_dispatch could not resolve a branch (set Use workflow from, or branch input).'
-            }
-          } else {
-            $ref = '${{ github.ref }}'
-          }
-          "ref=$ref" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          Write-Host "Checkout ref: $ref"
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
         with:
-          ref: ${{ steps.ref.outputs.ref }}
+          ref: ${{ needs.changes.outputs.sha }}
           fetch-depth: 0
 
       - name: Plan build vs release
         id: plan
         shell: pwsh
+        # Branch names and inputs reach the script only as variables, never pasted into it (#326).
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PUBLISH_RELEASE: ${{ inputs.publish_release }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_PACKAGED_SMOKE_ONLY: ${{ inputs.packaged_smoke_only }}
         run: |
           $ErrorActionPreference = 'Stop'
           $version = node -p "require('./package.json').version"
           $sha = git rev-parse HEAD
-          $event = '${{ github.event_name }}'
-          $publishInput = '${{ inputs.publish_release }}'
-          $tagInput = '${{ inputs.tag }}'.Trim()
+          $event = $env:EVENT_NAME
+          $publishInput = $env:INPUT_PUBLISH_RELEASE
+          $tagInput = "$env:INPUT_TAG".Trim()
 
           $shouldRelease = $false
           $tag = $null
@@ -178,7 +230,7 @@ jobs:
 
           "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           # Package and run the packaged-app E2E without any publishing step (the release job only reads should_release).
-          $packagedSmoke = $event -eq 'workflow_dispatch' -and '${{ inputs.packaged_smoke_only }}' -eq 'true' -and -not $shouldRelease
+          $packagedSmoke = $event -eq 'workflow_dispatch' -and $env:INPUT_PACKAGED_SMOKE_ONLY -eq 'true' -and -not $shouldRelease
           "packaged_smoke=$($packagedSmoke.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -196,17 +248,6 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-
-      # Electron links against the GTK/NSS desktop stack, and Chromium cannot
-      # start headless without a display server — xvfb provides one for the E2E
-      # smoke. The Windows runner needs none of this.
-      - name: Linux system dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
-            libxshmfence1 libnotify4
 
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
@@ -228,18 +269,82 @@ jobs:
       - name: Verify Electron support window
         run: node scripts/check-runtime-support.mjs
 
-      - name: Install the pinned Electron runtime
-        run: npm rebuild electron
-
       - name: Type check
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run typecheck
+        run: npm run typecheck
 
+      # The file-size guard runs first, inside the lint script.
       - name: Lint
         run: npm run lint
+
+      # Also part of the full suite in the unit job; here it fails within the first minutes.
+      - name: Migration numbering guard
+        run: npx vitest run tests/unit/migration-numbering.test.ts
+
+      - name: Build renderer and main process (bundle budgets)
+        run: |
+          set -euo pipefail
+          npm run rebuild:native:node
+          npm run build
+          # Installed apps have no node_modules above them; tests inside the checkout do. 1.0.0 shipped an
+          # OxeQuery worker that imported a devDependency and could not load on any installed build.
+          node scripts/check-bundle-imports.mjs
+
+  # Stage 1, in parallel with quick: the unit and integration suite on both platforms, unchanged (serial, with
+  # coverage). It takes 8 to 14 minutes on Linux and 18 to 23 on Windows, which is why it is not inside quick, and why
+  # e2e does not wait for it: on the old single job it sat in front of every E2E run.
+  unit:
+    name: Unit and integration tests (${{ matrix.label }})
+    needs: [changes]
+    if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            label: windows-x64
+          - os: ubuntu-22.04
+            label: linux-x64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # @electron/get keeps the downloaded Electron zip here; npm rebuild electron and electron-builder read it.
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
 
       - name: Unit and integration tests
         shell: pwsh
@@ -251,19 +356,113 @@ jobs:
           # resources on Windows when Vitest runs files concurrently.
           npm run test:coverage
 
+      # The summary of this run: the source of the renderer's coverage floor and of what each PR moves it by.
+      # It is kept when the tests fail too.
+      - name: Upload coverage summary
+        if: success() || failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-summary-${{ matrix.label }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: coverage/coverage-summary.json
+
+  # Stage 2: what needs a built app and the Electron runtime, on both platforms, in 3 shards each. On a pull
+  # request it waits for quick to pass. On main, tags and dispatches it always runs, even when quick failed, so
+  # main keeps every signal.
+  #
+  # Each shard builds the app itself (about 1 minute) instead of downloading one build from quick: quick builds
+  # on Linux, and the Windows bundle differs from it, so a shared artifact would change what Windows tests.
+  # Playwright splits the specs in file order by test count. The weights below (PWTEST_SHARD_WEIGHTS, read by
+  # Playwright 1.64) were fitted on this workflow's first sharded run (41260525143, 136 tests), in the order
+  # Playwright split them, together with the fixed work each shard carries: shard 1 also runs the upgrade
+  # rehearsal and the OxeQuery coverage gate (about 2 minutes), shard 3 the performance gate and the bench
+  # (5 to 6). The heavy specs (offer-audit, oxequery, perceived-perf, redesign-audit-2/3) sit in the middle of
+  # the file order, so 6:6:5 left 12 minutes of E2E on Windows shard 2 against 4 on the others; 15:7:6 is
+  # about 9, 9 and 9 on Windows. Check the balance again when specs move.
+  e2e:
+    name: E2E and native tests (${{ matrix.label }}, ${{ matrix.shard }}/3)
+    needs: [changes, quick]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        label: [windows-x64, linux-x64]
+        shard: [1, 2, 3]
+        include:
+          - label: windows-x64
+            os: windows-2022
+            os_name: windows
+          - label: linux-x64
+            os: ubuntu-22.04
+            os_name: linux
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          # The upgrade rehearsal reads the previous stable release's migrations from its tag.
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Electron links against the GTK/NSS desktop stack, and Chromium cannot
+      # start headless without a display server — xvfb provides one for the E2E
+      # smoke. The Windows runner needs none of this.
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      # quick checks the notices on Linux; npm installs some optional packages per platform, so Windows checks
+      # its own tree too (seconds).
+      - name: Check third-party notices and bundled licenses (Windows)
+        if: runner.os == 'Windows' && matrix.shard == 2
+        run: npm run notices:check
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
+
+      # The bundle budgets run here again: the main entry differs by platform by a few hundred bytes.
       - name: Build renderer and main process
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
+          npm run rebuild:native:node
           npm run build
-          # Installed apps have no node_modules above them; tests inside the checkout do. 1.0.0 shipped an
-          # OxeQuery worker that imported a devDependency and could not load on any installed build.
           node scripts/check-bundle-imports.mjs
 
       # The main process ships minified; its source maps never ship. Keep them with the run, so a stack from a
       # problem report of this build can be read: node scripts/symbolicate-stack.mjs --maps <artifact folder>.
+      # One shard per platform uploads them. When this run packages, the package job uploads them instead,
+      # from the build that is shipped.
       - name: Upload main-process source maps
+        if: matrix.shard == 2 && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: main-sourcemaps-${{ matrix.label }}
@@ -287,6 +486,7 @@ jobs:
       # with data, upgraded by this build under the Electron runtime, and taken back: the old release must refuse
       # the upgraded file untouched and open the verified backup. OXESPACE_UPGRADE_FROM picks another release.
       - name: Upgrade rehearsal (previous stable database, forward and back)
+        if: matrix.shard == 1
         shell: pwsh
         env:
           OXESPACE_REQUIRE_UPGRADE_TAG: "1"
@@ -297,43 +497,56 @@ jobs:
 
       # OxeQuery carries its own floor: unit, component and integration tests together cover at least 60%.
       - name: OxeQuery coverage gate
+        if: matrix.shard == 1
         shell: bash
         run: npm run test:coverage:oxequery
 
       - name: E2E smoke (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          E2E_SHARD: ${{ matrix.shard }}/3
+          PWTEST_SHARD_WEIGHTS: "15:7:6"
+          # Every shard keeps a blob report; the CI result job merges them into one HTML report per platform.
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          npm run test:e2e -- --trace retain-on-failure
-
-      - name: Upload E2E traces (Windows failures)
-        if: failure() && runner.os == 'Windows'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: e2e-traces-windows
-          if-no-files-found: ignore
-          retention-days: 7
-          path: test-results/**/trace.zip
+          npm run test:e2e -- "--shard=$env:E2E_SHARD" --reporter=list,blob --trace retain-on-failure
 
       # Electron needs a display; the wrapper owns a private Xvfb lifecycle so
       # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
       - name: E2E smoke (Linux)
         if: runner.os == 'Linux'
-        run: bash scripts/run-with-xvfb.sh npm run test:e2e -- --trace retain-on-failure
+        env:
+          E2E_SHARD: ${{ matrix.shard }}/3
+          PWTEST_SHARD_WEIGHTS: "15:7:6"
+          # Every shard keeps a blob report; the CI result job merges them into one HTML report per platform.
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
+        run: bash scripts/run-with-xvfb.sh npm run test:e2e -- "--shard=$E2E_SHARD" --reporter=list,blob --trace retain-on-failure
 
-      - name: Upload E2E traces (Linux failures)
-        if: failure() && runner.os == 'Linux'
+      - name: Upload E2E traces (failures)
+        if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-traces-linux
+          name: e2e-traces-${{ matrix.os_name }}-${{ matrix.shard }}
           if-no-files-found: ignore
           retention-days: 7
           path: test-results/**/trace.zip
 
+      - name: Upload E2E blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-blob-${{ matrix.label }}-${{ matrix.shard }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: blob-report
+
       - name: E2E performance gate (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.shard == 3
         env:
           OXESPACE_PERF_GATE: "1"
         run: bash scripts/run-with-xvfb.sh npm run bench:ui
@@ -344,7 +557,7 @@ jobs:
       # budgets from the container. Both legs are hard gates, so a budget miss
       # is a finding on one platform even when the other still fits.
       - name: E2E performance gate (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && matrix.shard == 3
         shell: pwsh
         env:
           OXESPACE_PERF_GATE: "1"
@@ -358,15 +571,102 @@ jobs:
       # baseline thresholds. The full runtime-fluidity harness lives in
       # e2e/perf-benchmark.spec.ts for local/manual runs.
       - name: Performance benchmark (informational)
-        if: steps.plan.outputs.should_release != 'true'
+        if: matrix.shard == 3 && needs.quick.outputs.should_release != 'true'
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
+
+  # Stage 3: only when the plan step says this run packages (a v*.*.* tag, a dispatch with publish_release, or a
+  # dispatch with packaged_smoke_only), and only after every check above passed on this commit. It builds the
+  # commit quick planned, from scratch, and packages it; the release job publishes what it uploads.
+  package:
+    name: Package (${{ matrix.label }})
+    needs: [changes, quick, unit, e2e]
+    if: needs.quick.outputs.should_release == 'true' || needs.quick.outputs.packaged_smoke == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      # Never let a Linux failure cancel the Windows leg mid-release (or vice
+      # versa) — a half-cancelled matrix leaves the release job with one payload.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            label: windows-x64
+            builder_flag: "--win"
+            slim_platform: win32
+          - os: ubuntu-22.04
+            label: linux-x64
+            builder_flag: "--linux"
+            slim_platform: linux
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          ref: ${{ needs.quick.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
+
+      - name: Build renderer and main process
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run rebuild:native:node
+          npm run build
+          node scripts/check-bundle-imports.mjs
+
+      # The maps of the build that is packaged here, so a stack from this installer can be read.
+      - name: Upload main-process source maps
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: main-sourcemaps-${{ matrix.label }}
+          if-no-files-found: error
+          retention-days: 90
+          path: out/main/**/*.map
+
+      - name: Prepare and verify native modules for Electron
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run fix:native
+          npm run verify:native
 
       # @xenova/transformers imports sharp when the optional semantic index loads.
       # npm ci --ignore-scripts leaves the sharp native binary missing; rebuild it
       # (N-API, so the Node build also loads under Electron) before packaging.
       - name: Install sharp native bindings
-        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true')
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -374,7 +674,6 @@ jobs:
           npm rebuild sharp
 
       - name: Package installer (${{ matrix.label }})
-        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true')
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -387,7 +686,7 @@ jobs:
           # GitHub publish configuration does not infer the update channel from
           # prerelease versions. Set it explicitly so beta builds emit beta.yml
           # (and beta-linux.yml) instead of overwriting the stable latest feed.
-          npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --config.publish.channel=${{ steps.plan.outputs.channel }} --publish never
+          npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --config.publish.channel=${{ needs.quick.outputs.channel }} --publish never
           # Installer size in every run log, so a dependency that bloats the package shows up in review.
           Get-ChildItem dist -File | Where-Object { $_.Extension -in '.exe', '.deb', '.AppImage' } |
             ForEach-Object { '[installer-size] {0} {1:N1} MB' -f $_.Name, ($_.Length / 1MB) }
@@ -395,7 +694,7 @@ jobs:
           node -e "const asar = require('@electron/asar'); const fs = require('node:fs'); const dirs = fs.readdirSync('dist').filter(name => name.endsWith('-unpacked')); if (!dirs.length) throw new Error('no unpacked app in dist'); for (const dir of dirs) { const maps = asar.listPackage('dist/' + dir + '/resources/app.asar', {}).filter(file => /^[\\/]out[\\/].*\.map$/.test(file)); if (maps.length) throw new Error(dir + ' ships source maps: ' + maps.slice(0, 5).join(', ')); console.log('[sourcemaps] ' + dir + ': none in app.asar') }"
 
       - name: E2E packaged Linux build
-        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Linux'
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           # Run a copy outside the checkout, like /opt/OXESpace: inside it, Node resolves missing packages from
@@ -421,7 +720,7 @@ jobs:
       # 22.04, where the probe happens to be right. So assert on the package
       # instead, which is deterministic on any host.
       - name: Verify the .deb secures the chrome-sandbox helper
-        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
+        if: needs.quick.outputs.should_release == 'true' && runner.os == 'Linux'
         run: |
           set -euo pipefail
           deb=$(ls dist/*.deb)
@@ -446,7 +745,7 @@ jobs:
       # installer writes) so a broken asarUnpack or extraResource fails here
       # rather than on a user's machine.
       - name: E2E packaged Windows build
-        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Windows'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -465,21 +764,21 @@ jobs:
           npx playwright test --config playwright.tools.config.ts packaged-win.spec.ts
 
       - name: Generate production dependency SBOM
-        if: steps.plan.outputs.should_release == 'true'
+        if: needs.quick.outputs.should_release == 'true'
         shell: pwsh
         run: npm sbom --sbom-format spdx --omit dev | Out-File -FilePath dist/sbom.spdx.json -Encoding utf8
 
       - name: Generate and validate release artifacts
-        if: steps.plan.outputs.should_release == 'true'
+        if: needs.quick.outputs.should_release == 'true'
         shell: pwsh
         env:
-          RELEASE_TAG: ${{ steps.plan.outputs.tag }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
         run: |
           $ErrorActionPreference = 'Stop'
           node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
           node scripts/verify-release-artifacts.mjs `
             --dir dist `
-            --version "${{ steps.plan.outputs.version }}" `
+            --version "${{ needs.quick.outputs.version }}" `
             --tag "$env:RELEASE_TAG" `
             --platform ${{ runner.os == 'Windows' && 'win' || 'linux' }}
 
@@ -487,7 +786,7 @@ jobs:
       # per-leg SHA256SUMS/sbom are namespaced so the two downloads cannot
       # silently overwrite each other.
       - name: Namespace the per-platform aux files
-        if: steps.plan.outputs.should_release == 'true'
+        if: needs.quick.outputs.should_release == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -495,30 +794,30 @@ jobs:
           Move-Item dist/sbom.spdx.json "dist/sbom-${{ matrix.label }}.spdx.json" -Force
 
       - name: Upload immutable release payload (Windows)
-        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Windows'
+        if: needs.quick.outputs.should_release == 'true' && runner.os == 'Windows'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-${{ steps.plan.outputs.version }}-${{ matrix.label }}
+          name: release-${{ needs.quick.outputs.version }}-${{ matrix.label }}
           if-no-files-found: error
           retention-days: 30
           path: |
-            dist/OXESpace-${{ steps.plan.outputs.version }}-x64.exe
-            dist/OXESpace-${{ steps.plan.outputs.version }}-x64.exe.blockmap
+            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.exe
+            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.exe.blockmap
             dist/*.yml
             dist/sbom-${{ matrix.label }}.spdx.json
             dist/SHA256SUMS-${{ matrix.label }}.txt
 
       - name: Upload immutable release payload (Linux)
-        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
+        if: needs.quick.outputs.should_release == 'true' && runner.os == 'Linux'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-${{ steps.plan.outputs.version }}-${{ matrix.label }}
+          name: release-${{ needs.quick.outputs.version }}-${{ matrix.label }}
           if-no-files-found: error
           retention-days: 30
           # The .deb filename is glob-matched: electron-builder renders ${arch}
           # as the Debian arch (amd64), not the electron arch (x64).
           path: |
-            dist/OXESpace-${{ steps.plan.outputs.version }}-x64.AppImage
+            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage
             dist/*.deb
             dist/*.yml
             dist/sbom-${{ matrix.label }}.spdx.json
@@ -529,8 +828,11 @@ jobs:
   # gate: a database client that was only ever tested against mocks must not ship.
   oxequery-live:
     name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
-    # A draft PR runs nothing; marking it ready for review starts the run.
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    needs: [changes, quick]
+    # A draft PR runs nothing; a PR that did not touch OxeQuery's own paths (see the changes job)
+    # skips the live matrix, and so does a PR whose quick checks failed. Main, tags and
+    # dispatches always run it, whatever quick says.
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
@@ -540,6 +842,8 @@ jobs:
         engine: [docker, podman]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
 
       - name: Node.js 22
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -575,8 +879,9 @@ jobs:
   # engine matrix above already covers Podman against the default versions.
   oxequery-live-versions:
     name: OxeQuery live tests (PostgreSQL ${{ matrix.pg }}, MongoDB ${{ matrix.mongo }})
-    # A draft PR runs nothing; marking it ready for review starts the run.
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    needs: [changes, quick]
+    # Same gate as oxequery-live.
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
@@ -588,6 +893,8 @@ jobs:
           - { pg: "17-alpine", mongo: "8.0" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
 
       - name: Node.js 22
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -642,10 +949,92 @@ jobs:
       contents: read
     uses: ./.github/workflows/memory-compatibility.yml
 
+  # One check that says whether the whole run passed, for the merge train and for any future required check.
+  # A job that failed or was cancelled fails it. So does a job that should have run and was skipped: on main,
+  # tags and dispatches every check job must succeed; on a code PR quick, unit and e2e must, and the OxeQuery
+  # live jobs too when the PR touched OxeQuery. A docs-only PR passes with only `changes`. It also merges the
+  # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
+  ci-result:
+    name: CI result
+    needs: [changes, quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility, release]
+    if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        if: needs.e2e.result != 'skipped'
+        continue-on-error: true
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          sparse-checkout: package-lock.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download the E2E blob reports
+        if: needs.e2e.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: e2e-blob-*
+          path: blobs
+
+      - name: Merge the E2E reports per platform
+        if: needs.e2e.result != 'skipped'
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")
+          for label in windows-x64 linux-x64; do
+            mkdir -p "merged/$label"
+            find blobs -path "blobs/e2e-blob-$label-*" -name '*.zip' -exec cp {} "merged/$label/" \;
+            if [ -z "$(ls -A "merged/$label")" ]; then echo "no blob reports for $label"; continue; fi
+            PLAYWRIGHT_HTML_OUTPUT_DIR="e2e-report/$label" npx --yes "playwright@$version" merge-reports --reporter html "merged/$label"
+          done
+
+      - name: Upload the merged E2E report
+        if: needs.e2e.result != 'skipped'
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report
+          if-no-files-found: ignore
+          retention-days: 7
+          path: e2e-report
+
+      - name: Decide the run's result
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          node - <<'EOF'
+          const needs = JSON.parse(process.env.NEEDS)
+          const pr = process.env.EVENT_NAME === 'pull_request'
+          const code = needs.changes.outputs?.code === 'true'
+          const oxequery = needs.changes.outputs?.oxequery === 'true'
+          const problems = []
+          for (const [job, { result }] of Object.entries(needs)) {
+            console.log(`${job}: ${result}`)
+            if (result === 'failure' || result === 'cancelled') problems.push(`${job} ${result}`)
+          }
+          const required = ['changes']
+          if (!pr) required.push('quick', 'unit', 'e2e', 'oxequery-live', 'oxequery-live-versions', 'memory-compatibility')
+          else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
+          for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
+          if (problems.length) {
+            console.log(`::error title=CI failed::${[...new Set(problems)].join('; ')}`)
+            process.exit(1)
+          }
+          console.log('every job that had to run passed')
+          EOF
+
   release:
     name: Publish GitHub Release
-    needs: [build, oxequery-live, oxequery-live-versions, memory-compatibility]
-    if: needs.build.outputs.should_release == 'true'
+    needs: [quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility]
+    if: needs.quick.outputs.should_release == 'true'
     runs-on: windows-2022
     timeout-minutes: 30
     permissions:
@@ -659,15 +1048,15 @@ jobs:
         with:
           # Need a writable checkout so we can create the release tag when
           # publishing from a branch that does not yet have vX.Y.Z.
-          ref: ${{ needs.build.outputs.sha }}
+          ref: ${{ needs.quick.outputs.sha }}
           fetch-depth: 0
 
       - name: Ensure release tag points at the verified build
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.build.outputs.tag }}
-          BUILD_SHA: ${{ needs.build.outputs.sha }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
+          BUILD_SHA: ${{ needs.quick.outputs.sha }}
         run: |
           $ErrorActionPreference = 'Stop'
           # An annotated tag records a tagger, and a fresh runner has no git
@@ -699,17 +1088,17 @@ jobs:
           }
 
       # Both legs land in the same dist/ — their filenames are disjoint (the aux
-      # files were namespaced by the build job), so nothing is overwritten.
+      # files were namespaced by the package job), so nothing is overwritten.
       - name: Download verified Windows build artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release-${{ needs.build.outputs.version }}-windows-x64
+          name: release-${{ needs.quick.outputs.version }}-windows-x64
           path: dist
 
       - name: Download verified Linux build artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release-${{ needs.build.outputs.version }}-linux-x64
+          name: release-${{ needs.quick.outputs.version }}-linux-x64
           path: dist
 
       # One checksum file covering the whole release rather than one per OS, so
@@ -727,8 +1116,8 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
-            dist/OXESpace-${{ needs.build.outputs.version }}-x64.exe
-            dist/OXESpace-${{ needs.build.outputs.version }}-x64.AppImage
+            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.exe
+            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage
             dist/*.deb
             dist/SHA256SUMS.txt
 
@@ -736,12 +1125,12 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $version = '${{ needs.build.outputs.version }}'
-          $manifest = '${{ needs.build.outputs.manifest }}'
-          $manifestLinux = '${{ needs.build.outputs.manifest_linux }}'
+          $version = '${{ needs.quick.outputs.version }}'
+          $manifest = '${{ needs.quick.outputs.manifest }}'
+          $manifestLinux = '${{ needs.quick.outputs.manifest_linux }}'
           $deb = Get-ChildItem dist/*.deb | Select-Object -First 1
           if (-not $deb) { throw 'No .deb produced by the Linux build.' }
           $assets = @(
@@ -772,11 +1161,11 @@ jobs:
               'release', 'create', $env:RELEASE_TAG,
               '--draft',
               '--title', "OXESpace $env:RELEASE_TAG",
-              '--target', '${{ needs.build.outputs.sha }}'
+              '--target', '${{ needs.quick.outputs.sha }}'
             )
             if (Test-Path -LiteralPath $notesPath) { $createArgs += @('--notes-file', $notesPath) }
             else { $createArgs += '--generate-notes' }
-            if ('${{ needs.build.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
+            if ('${{ needs.quick.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
             $createArgs += $assets
             gh @createArgs
           }
@@ -785,7 +1174,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
         run: |
           $ErrorActionPreference = 'Stop'
           $downloadDir = Join-Path $env:RUNNER_TEMP 'release-download'
@@ -794,7 +1183,7 @@ jobs:
           foreach ($platform in @('win', 'linux')) {
             node scripts/verify-release-artifacts.mjs `
               --dir $downloadDir `
-              --version '${{ needs.build.outputs.version }}' `
+              --version '${{ needs.quick.outputs.version }}' `
               --tag $env:RELEASE_TAG `
               --platform $platform
             if ($LASTEXITCODE -ne 0) { throw "Release payload verification failed for $platform." }
@@ -804,11 +1193,11 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
         run: |
           $ErrorActionPreference = 'Stop'
           gh release edit $env:RELEASE_TAG --draft=false
-          if ('${{ needs.build.outputs.prerelease }}' -eq 'true') {
+          if ('${{ needs.quick.outputs.prerelease }}' -eq 'true') {
             gh release edit $env:RELEASE_TAG --prerelease
           }
 
@@ -816,7 +1205,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
         run: |
           $ErrorActionPreference = 'Stop'
           $json = gh release view $env:RELEASE_TAG --json isDraft,isPrerelease,tagName,url,assets
@@ -825,7 +1214,7 @@ jobs:
           if ($release.isDraft) {
             throw "Release $env:RELEASE_TAG is still draft after publish."
           }
-          $expectedPrerelease = '${{ needs.build.outputs.prerelease }}' -eq 'true'
+          $expectedPrerelease = '${{ needs.quick.outputs.prerelease }}' -eq 'true'
           if ([bool]$release.isPrerelease -ne $expectedPrerelease) {
             throw "Release prerelease flag mismatch for $env:RELEASE_TAG (got $($release.isPrerelease), expected $expectedPrerelease)."
           }
@@ -834,11 +1223,11 @@ jobs:
           }
           $assetNames = @($release.assets | ForEach-Object { $_.name })
           $required = @(
-            "OXESpace-${{ needs.build.outputs.version }}-x64.exe",
-            "OXESpace-${{ needs.build.outputs.version }}-x64.exe.blockmap",
-            '${{ needs.build.outputs.manifest }}',
-            "OXESpace-${{ needs.build.outputs.version }}-x64.AppImage",
-            '${{ needs.build.outputs.manifest_linux }}',
+            "OXESpace-${{ needs.quick.outputs.version }}-x64.exe",
+            "OXESpace-${{ needs.quick.outputs.version }}-x64.exe.blockmap",
+            '${{ needs.quick.outputs.manifest }}',
+            "OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage",
+            '${{ needs.quick.outputs.manifest_linux }}',
             'sbom-windows-x64.spdx.json',
             'sbom-linux-x64.spdx.json',
             'SHA256SUMS.txt'
