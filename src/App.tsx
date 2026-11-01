@@ -2,7 +2,7 @@ import { Activity, Palette } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
 import './commands/settings.commands'
 import { useCodeCommands } from './commands/code.commands'
-import { sayAddProjectFirst, useThreadCommands } from './commands/thread.commands'
+import { sayAddProjectFirst, useThreadCommands, type ThreadCommandContext } from './commands/thread.commands'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions } from './components/Navigation/ModeViews'
 import { SettingsCenter } from './components/Settings/SettingsHost'
 import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
@@ -80,6 +80,18 @@ import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZ
 const AppMenuBar = lazy(() => import('./components/Navigation/AppMenuBar').then(module => ({ default: module.AppMenuBar })))
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
 
+/** The palette's conversation commands follow the open conversation here, so its updates do not re-render App (F7.3). */
+function ThreadCommandsSource(props: Omit<ThreadCommandContext, 'snapshot'>): null {
+  useThreadCommands({ ...props, snapshot: useThreadStore(state => state.snapshot) })
+  return null
+}
+
+/** The MCP panel, with the open conversation's servers read here for the same reason. */
+function AppMcpPanel({ conversation, ...props }: { workspaceId: string | null; conversation: boolean; onClose: () => void }): ReactElement {
+  const servers = useThreadStore(state => conversation ? state.snapshot?.thread.mcpServers?.servers : undefined)
+  return <McpPanel {...props} conversationServers={servers} />
+}
+
 export function App(): ReactElement {
   const { t } = useTranslation()
   const appVersion = window.oxe?.app?.version ?? 'dev'
@@ -96,7 +108,10 @@ export function App(): ReactElement {
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
-  const threadSnapshot = useThreadStore(state => state.snapshot)
+  // Only the conversation fields App uses. The snapshot is replaced on every load, refresh and turn; held whole, it
+  // re-rendered the entire app with each, which made the first OxeChat switch slower (F7.3).
+  const thread = useThreadStore(useShallow(state => ({ id: state.snapshot?.thread.id, projectId: state.snapshot?.thread.projectId,
+    workspaceId: state.snapshot?.thread.workspaceId, rootPath: state.snapshot?.thread.rootPath, provider: state.snapshot?.thread.provider })))
   const threadSelection = useThreadStore(state => state.selectedId)
   const codeSidebarWidth = useNavigationPrefs(state => state.width)
   const [accountsOpen, setAccountsOpen] = useState(false)
@@ -652,7 +667,7 @@ export function App(): ReactElement {
   }
 
   const threadProjects = useThreadStore(state => state.projects)
-  const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
+  const threadProject = threadProjects.find(project => project.projectId === thread.projectId)
 
   // The Team belongs to a project: the selected workspace in Code, the selected project in Thread.
   const teamTarget = applicationView === 'thread' ? (threadProject ? { kind: 'thread' as const, id: threadProject.projectId } : null)
@@ -772,8 +787,8 @@ export function App(): ReactElement {
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
   const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
-  useThreadCommands({ snapshot: threadSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
-    addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts })
+  const threadCommands: Omit<ThreadCommandContext, 'snapshot'> = { projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
+    addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts }
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
       setDelegationTarget({ workspaceId: task.originWorkspaceId ?? task.workspaceId, taskId: task.id })
@@ -808,15 +823,16 @@ export function App(): ReactElement {
     <ThemeProvider themeId={applicationView !== 'code' ? undefined : activeWorkspace?.themeId} density={applicationView !== 'code' ? undefined : activeWorkspace?.uiDensity}>
       <TooltipProvider>
       <TitleTooltips />
+      <ThreadCommandsSource {...threadCommands} />
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
         <div className={titleBar.trailing}><TeamButton view={applicationView} enabled={Boolean(teamTarget)} onOpen={openTeam} /><ActivityCenter onSelectView={selectMode} /><UpdateBanner /><AppUpdateIndicator /></div>
       </header>
-      {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
+      {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && thread.id ? { kind: 'thread', id: thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} />}
-      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
+      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
       {isDataView(applicationView) ? <DataSidebar view={applicationView} />
@@ -906,9 +922,9 @@ export function App(): ReactElement {
           <NoWorkspaceStart onNewWorkspace={openNewWorkspaceFromUI} onSelectMode={selectMode} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} />
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}
-        {applicationView === 'thread' && <AppStatusBar docked workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={threadSnapshot?.thread.provider === 'claude' || threadSnapshot?.thread.provider === 'codex' ? threadSnapshot.thread.provider : null} />}
+        {applicationView === 'thread' && <AppStatusBar docked workspace={null} activePaneId={null} rootPath={thread.rootPath} usageProvider={thread.provider === 'claude' || thread.provider === 'codex' ? thread.provider : null} />}
         <Suspense fallback={null}>
-          {accountsOpen && (threadProject ?? threadProjects[0]) && <ProviderAccountsPanel workspaceId={threadSnapshot?.thread.workspaceId ?? `thread:${(threadProject ?? threadProjects[0]).projectId}`} onClose={() => setAccountsOpen(false)} />}
+          {accountsOpen && (threadProject ?? threadProjects[0]) && <ProviderAccountsPanel workspaceId={thread.workspaceId ?? `thread:${(threadProject ?? threadProjects[0]).projectId}`} onClose={() => setAccountsOpen(false)} />}
           {newThreadWorkspaceId !== undefined && <NewThreadDialog initialProjectId={newThreadWorkspaceId} initialRootPath={newThreadRootPath} onClose={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} />}
           {isThreadProjectOpen && <AddThreadProjectDialog onPickFolder={() => window.oxe.workspace.pickFolder()} onClose={() => setThreadProjectOpen(false)} onAdd={async rootPath => {
             await window.oxe.thread!.addProject(rootPath)
@@ -961,9 +977,9 @@ export function App(): ReactElement {
         </Suspense>
       ) : null}
       {isMcpPanelOpen ? (
-        <McpPanel
-          workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? null : activeWorkspace?.id ?? null}
-          conversationServers={applicationView === 'thread' ? threadSnapshot?.thread.mcpServers?.servers : undefined}
+        <AppMcpPanel
+          workspaceId={applicationView === 'thread' ? thread.workspaceId ?? null : activeWorkspace?.id ?? null}
+          conversation={applicationView === 'thread'}
           onClose={closeMcpPanel}
         />
       ) : null}
