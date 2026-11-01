@@ -10,7 +10,7 @@ import type { FileSystemService } from '../services/file-system.service'
 import type { ToolRulesDeps } from '../services/mcp-tool-rules'
 import { approvalCenter } from '../services/approvals'
 import { acceptedConfig, policyStore, setAcceptedConfig } from '../services/policy'
-import { AcceptedConfig, type Subject } from '../services/policy/accepted-config'
+import type { Subject } from '../services/policy/accepted-config'
 import { effectiveToolConfig, toolConfigSubject } from '../services/policy/tool-config'
 import { OXE_YAML_FILE } from '../services/repo-config/parser'
 
@@ -48,14 +48,16 @@ function answerInput(value: unknown): PolicyChangeAnswerInput {
  * or a phone command (`policy.edit`). Also wires the accepted versions (accepted-config.ts) to the database, the
  * approval center and the window, and Settings › Tools per tool (B7.3), which writes the project layer.
  */
-export function registerPolicyIpc(rootOf: (workspaceId: string) => string | undefined, deps?: {
+export async function registerPolicyIpc(rootOf: (workspaceId: string) => string | undefined, deps?: {
   db: AppDatabase
   files: FileSystemService
   servers?: ToolRulesDeps['servers']
   executions?: { liveWithin(root: string): number }
-}): void {
+}): Promise<void> {
   if (deps) {
     registerMcpToolRulesIpc(deps.db, deps.files, deps.servers)
+    // Loaded here, awaited before any window or agent starts: the main entry stays small, and the gate is in place as before.
+    const { AcceptedConfig } = await import('../services/policy/accepted-config')
     const gate = new AcceptedConfig({ db: deps.db })
     gate.connect({
       ask: (draft, signal, onAsked) => approvalCenter.ask(draft, signal, onAsked),
