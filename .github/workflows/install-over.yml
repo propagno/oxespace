@@ -1,0 +1,159 @@
+name: Install over the last stable
+
+# Release gate G4 (.claude/roadmap-1.4/team/release-gate.md, docs/ci-cd.md): what a user who has v1.3.3 gets from
+# the candidate's installer, on a clean Windows runner. The steps:
+#   1. install the public v1.3.3 installer silently and let it create a workspace (seed, database v77);
+#   2. build this commit's NSIS installer with the candidate version and install it over v1.3.3 silently;
+#   3. open it on the old data (verify-upgrade: version, shortcuts, the old workspace with no native dialog,
+#      database migrated with integrity ok, the pre-upgrade backup at v77);
+#   4. uninstall silently (verify-uninstall: program and shortcuts gone, user data kept).
+# The checks are HOMOLOGATION's e2e/release/upgrade-over-1.3.3.spec.ts; they run only on a CI runner, because they
+# use that machine's real %APPDATA%. Publishes nothing, uses no secret: v1.3.3 comes from the public release.
+# Linux (.deb, AppImage) follows with the same steps.
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_version:
+        description: Version stamped on the candidate installer (package.json on main may still say the last stable)
+        required: false
+        default: "1.4.0-rc.0"
+        type: string
+      from_tag:
+        description: Release installed first
+        required: false
+        default: "v1.3.3"
+        type: string
+  # The workflow and its checks validate themselves on the pull request that changes them.
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/install-over.yml"
+      - "e2e/release/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Install over ${{ inputs.from_tag || 'v1.3.3' }} (windows-x64)
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      FROM_TAG: ${{ inputs.from_tag || 'v1.3.3' }}
+      CANDIDATE_VERSION: ${{ inputs.candidate_version || '1.4.0-rc.0' }}
+      OXESPACE_UPGRADE_STATE: ${{ github.workspace }}\upgrade-state
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Install ${{ env.FROM_TAG }} silently
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          New-Item -ItemType Directory -Force -Path $env:OXESPACE_UPGRADE_STATE, "$env:RUNNER_TEMP\from" | Out-Null
+          $version = $env:FROM_TAG.TrimStart('v')
+          $installer = "OXESpace-$version-x64.exe"
+          gh release download $env:FROM_TAG --repo $env:GITHUB_REPOSITORY --pattern $installer --pattern SHA256SUMS.txt --dir "$env:RUNNER_TEMP\from"
+          # The published checksum, so the job installs exactly what users downloaded.
+          $expected = (Select-String -Path "$env:RUNNER_TEMP\from\SHA256SUMS.txt" -Pattern ([regex]::Escape($installer))).Line.Split(' ')[0]
+          $actual = (Get-FileHash "$env:RUNNER_TEMP\from\$installer" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw "Checksum mismatch for ${installer}: $actual, published $expected" }
+          $p = Start-Process "$env:RUNNER_TEMP\from\$installer" -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "$installer /S exited with $($p.ExitCode)" }
+          Write-Host "Installed $env:FROM_TAG in $env:LOCALAPPDATA\Programs\OXESpace"
+
+      - name: "Seed: the old release creates a workspace"
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: seed
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/AppData/Local/electron/Cache
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      # The same build as ci.yml's package job (Windows leg), with the candidate's version stamped first.
+      - name: Build the candidate installer (${{ env.CANDIDATE_VERSION }})
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm version $env:CANDIDATE_VERSION --no-git-tag-version --allow-same-version
+          $channel = if ($env:CANDIDATE_VERSION -match '-') { 'beta' } else { 'latest' }
+          npm rebuild electron
+          npm run rebuild:native:node
+          npm run build
+          npm run fix:native
+          npm run verify:native
+          npm rebuild sharp
+          node scripts/slim-pack-deps.mjs --platform=win32 --arch=x64
+          npx electron-builder --win --config.npmRebuild=false --config.publish.channel=$channel --publish never
+          $installer = "dist\OXESpace-$env:CANDIDATE_VERSION-x64.exe"
+          if (-not (Test-Path -LiteralPath $installer)) { throw "No installer at $installer" }
+          '[installer-size] {0} {1:N1} MB' -f $installer, ((Get-Item $installer).Length / 1MB)
+
+      - name: Install the candidate over ${{ env.FROM_TAG }} silently
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $p = Start-Process "dist\OXESpace-$env:CANDIDATE_VERSION-x64.exe" -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "candidate /S exited with $($p.ExitCode)" }
+
+      - name: "Verify the upgrade"
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: verify-upgrade
+          OXESPACE_EXPECT_VERSION: ${{ env.CANDIDATE_VERSION }}
+
+      - name: Uninstall silently
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $uninstaller = "$env:LOCALAPPDATA\Programs\OXESpace\Uninstall OXESpace.exe"
+          if (-not (Test-Path -LiteralPath $uninstaller)) { throw "No uninstaller at $uninstaller" }
+          $p = Start-Process $uninstaller -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "uninstaller /S exited with $($p.ExitCode)" }
+          # NSIS copies its uninstaller to %TEMP% and returns at once; wait for the folder to go.
+          for ($i = 0; $i -lt 60 -and (Test-Path -LiteralPath "$env:LOCALAPPDATA\Programs\OXESpace\OXESpace.exe"); $i++) { Start-Sleep -Seconds 2 }
+
+      - name: "Verify the uninstall"
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: verify-uninstall
+
+      - name: Keep the state and the reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-over-windows-x64
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            upgrade-state/
+            test-results/
+            playwright-report/
