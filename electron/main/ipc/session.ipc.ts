@@ -1,7 +1,7 @@
 import { app, ipcMain } from 'electron'
 import { join } from 'node:path'
 import type { SessionSearchInput } from '../../../shared/types/session-search'
-import { SessionSearchIndex, SessionSearchService } from '../services/session-search'
+import type { SessionSearchService } from '../services/session-search'
 import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { AgentProvider } from '../../../shared/types/agent'
@@ -48,11 +48,15 @@ export function registerSessionIpc(db: AppDatabase, service = new SessionService
   })
 
   // Opened on first use: most sessions never search, and the index is a cache
-  // that costs a file handle and a first scan.
-  let search: SessionSearchService | null = null
-  ipcMain.handle(IPC_CHANNELS.session.search, (_event, input: unknown) => {
-    search ??= new SessionSearchService(new SessionSearchIndex(join(app.getPath('userData'), 'session-search.sqlite3')))
-    return search.search(readSearchInput(input))
+  // that costs a file handle and a first scan. Its code loads then too, so the
+  // transcript parser and the match ladder stay out of the main entry.
+  let search: Promise<SessionSearchService> | null = null
+  ipcMain.handle(IPC_CHANNELS.session.search, async (_event, input: unknown) => {
+    const query = readSearchInput(input)
+    search ??= import('../services/session-search')
+      .then(({ SessionSearchIndex, SessionSearchService }) => new SessionSearchService(new SessionSearchIndex(join(app.getPath('userData'), 'session-search.sqlite3'))))
+      .catch(error => { search = null; throw error })
+    return (await search).search(query)
   })
 
   ipcMain.handle(IPC_CHANNELS.session.cleanup, (_event, input: unknown) => {

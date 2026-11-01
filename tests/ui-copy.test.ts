@@ -16,7 +16,8 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
   { file: 'src/components/Settings/AppearanceSettings.tsx', includes: 'Sertão', why: 'brand name of a color palette' },
   { file: 'src/utils/threadQuickReplies.ts', includes: '', why: 'bilingual regex that recognises replies in Portuguese' },
   { file: 'electron/main/services/voice.service.ts', includes: 'PT_BR_PROMPT', why: 'transcription prompt for Brazilian Portuguese speech' },
-  { file: 'electron/main/services/semantic-retrieval.ts', includes: 'EXHAUSTIVE_INTENT', why: 'multilingual intent regex' }
+  { file: 'electron/main/services/semantic-retrieval.ts', includes: 'EXHAUSTIVE_INTENT', why: 'multilingual intent regex' },
+  { file: 'electron/main/e2e/approvals-mock.ts', includes: '-- leitura apenas, seguro', why: 'adversarial agent text (B10): a Portuguese comment that claims the app checked a hidden DROP; never interface copy' }
 ]
 
 /**
@@ -57,7 +58,7 @@ const MIGRATED = [
   'src/utils/quotaThresholds.ts'
 ]
 /** Text that stays the same in every language: product and tool names, commands and sample values. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'OxePod', 'OxePost', 'cURL', 'OpenAPI 3', 'claude.ai',
+const UNTRANSLATED = new Set(['OxeCode', 'OxeChat', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'OxePod', 'OxePost', 'cURL', 'OpenAPI 3', 'claude.ai',
   'GitHub', 'MCP', 'RTK · Caveman · Semantic', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
   'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000',
   'stdio', 'command:', 'args:', 'env:', 'url:', 'headers:', 'filesystem', 'github', 'npx', '-y @modelcontextprotocol/server-filesystem /tmp',

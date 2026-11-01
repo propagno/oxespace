@@ -36,6 +36,7 @@
   --control-sm: 24px;
   --control-md: 28px;
   --control-lg: 32px;
+  --target-min: 24px;
   --layer-base: 0;
   --layer-raised: 1;
   --layer-sticky: 10;
@@ -44,6 +45,7 @@
   --layer-modal: 300;
   --layer-toast: 400;
   --layer-tooltip: 500;
+  --statusbar-height: 24px;
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;
@@ -329,6 +331,21 @@
   --control-sm: 28px;
   --control-md: 32px;
   --control-lg: 36px;
+}
+
+@media (prefers-contrast: more) {
+  :root, [data-mode='light'] {
+    --border-subtle: #bbc9bf;
+    --border-default: #bbc9bf;
+    --text-muted: #404742;
+    --text-disabled: #555d57;
+  }
+  :root[data-mode='dark'], [data-mode='dark'] {
+    --border-subtle: #3c4940;
+    --border-default: #3c4940;
+    --text-muted: #c4cdc7;
+    --text-disabled: #9ea7a1;
+  }
 }
 
 :root[data-motion='reduce'] {

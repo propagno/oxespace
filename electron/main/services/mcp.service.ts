@@ -1,8 +1,9 @@
 import { execFile, spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { shell } from 'electron'
+import { openExternalOrRecord } from '../utils/external-open'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import type { AppDatabase } from '../db/index'
+import type { MainMessage } from '../../../shared/messages'
 import type {
   CreateMcpServerInput,
   McpCallToolInput,
@@ -21,6 +22,7 @@ import { McpConfigSync } from './mcp-sync.service'
 import { inheritedEnvironment } from './policy'
 import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
 import { probeHttpServer } from './mcp-http-probe'
+import { recordIncident } from './diagnostics/incident-sink'
 import { checkConfig, parseGuard, summarizeGuard, trustState, configHash, type GuardState, type GuardVerdict } from './mcp-pin'
 
 interface McpServerRow {
@@ -58,7 +60,7 @@ interface RuntimeServer {
 }
 
 /** The outcome of the last test, kept for this run of the app only. */
-interface TestResult { health: McpHealthStatus; message: string | null; tools: McpToolDescriptor[]; at: number }
+interface TestResult { health: McpHealthStatus; message: string | null; messageCode?: MainMessage; tools: McpToolDescriptor[]; at: number }
 
 const STDERR_RING_SIZE = 10
 const STDERR_LINE_MAX = 240
@@ -71,7 +73,6 @@ const PROTOCOL_VERSION = '2025-06-18'
 const INIT_TIMEOUT_MS = 15_000
 /** Remote servers (mcp-remote) wait for a person to sign in; that takes minutes, not seconds. */
 const AUTH_INIT_TIMEOUT_MS = 5 * 60_000
-const SIGN_IN_FALLBACK_MS = 4_000
 const REQUEST_TIMEOUT_MS = 30_000
 const SLEEP_TIMEOUT_MS = 15 * 60 * 1000
 const WINDOWS_EXECUTABLE_EXTENSIONS = ['.cmd', '.exe', '.bat', '.ps1']
@@ -152,6 +153,14 @@ export class McpManager {
       )
       .all(workspaceId) as McpServerRow[]
     return rows.map((row) => this.hydrateServer(mapRow(row)))
+  }
+
+  /** For the diagnostics panel (B8.3): counts only, no names or commands. */
+  healthCounts(): { total: number; healthy: number; quarantined: number; failing: number } {
+    const servers = (this.db.prepare('SELECT * FROM mcp_servers').all() as McpServerRow[]).map(row => this.hydrateServer(mapRow(row)))
+    const quarantined = servers.filter(server => server.guard?.quarantine).length
+    return { total: servers.length, healthy: servers.filter(server => server.health === 'healthy').length, quarantined,
+      failing: servers.filter(server => server.health === 'unhealthy' && !server.guard?.quarantine).length }
   }
 
   get(id: string): McpServer | null {
@@ -245,12 +254,13 @@ export class McpManager {
   async test(id: string): Promise<McpServer> {
     const server = this.get(id)
     if (!server) throw new Error(`MCP server ${id} not found`)
-    const record = (health: McpHealthStatus, message: string | null, tools: McpToolDescriptor[] = []): McpServer => {
-      this.tested.set(id, { health, message, tools, at: Date.now() })
-      this.emitHealth({ serverId: id, status: health, message })
+    const record = (health: McpHealthStatus, message: string | null, tools: McpToolDescriptor[] = [], messageCode?: MainMessage): McpServer => {
+      this.tested.set(id, { health, message, messageCode, tools, at: Date.now() })
+      this.emitHealth({ serverId: id, status: health, message, ...(messageCode ? { messageCode } : {}) })
       return this.get(id)!
     }
-    if (!server.trusted) return record('unhealthy', server.guard?.quarantine ? quarantineMessage(server.guard.quarantine.reasons) : 'Not trusted yet. Review its command and trust it before testing.')
+    if (!server.trusted) return record('unhealthy', server.guard?.quarantine ? quarantineMessage(server.guard.quarantine.reasons) : 'Not trusted yet. Review its command and trust it before testing.', [],
+      server.guard?.quarantine ? { code: 'mcp.server.quarantined', params: {} } : { code: 'mcp.server.untrusted', params: {} })
     if (server.transport !== 'stdio') {
       this.emitHealth({ serverId: id, status: 'starting', message: null })
       try {
@@ -292,12 +302,15 @@ export class McpManager {
     })
   }
 
-  /** Reopens the browser sign-in page of a server that is waiting for authentication. */
+  /**
+   * Opens the browser sign-in page of a server that is waiting for authentication, at the person's click only. The
+   * URL came from the server's own output, so it passes the same rules as any link leaving the app (https here, no
+   * credentials, bounded), and a refusal is journalled without the URL.
+   */
   openSignIn(id: string): boolean {
     const url = this.runtimes.get(id)?.authUrl
     if (!url || !/^https:\/\//i.test(url)) return false
-    void shell.openExternal(url)
-    return true
+    return openExternalOrRecord(url)
   }
 
   stopAll(): void {
@@ -457,19 +470,16 @@ export class McpManager {
   }
 
   /**
-   * mcp-remote prints the authorization URL and normally opens it itself. When it
-   * does not (detached process, no default browser handler), open it from here so
-   * adding a connector is one click, and keep the URL for "Open sign-in page".
+   * mcp-remote prints the authorization URL and normally opens it itself. The app keeps that URL for "Open sign-in
+   * page" and never opens it on its own: it is text a server process wrote, and it only leaves the app when the person
+   * clicks (`openSignIn`), through the same rules as any other link.
    */
   private watchSignIn(runtime: RuntimeServer, line: string): void {
     if (/browser opened automatically/i.test(line)) { runtime.browserOpened = true; return }
     const url = extractSignInUrl(line)
     if (!url || runtime.authUrl === url) return
     runtime.authUrl = url
-    this.emitHealth({ serverId: runtime.server.id, status: 'starting', message: 'Waiting for you to sign in in the browser…' })
-    setTimeout(() => {
-      if (!runtime.browserOpened && this.runtimes.get(runtime.server.id) === runtime && !runtime.initialized) void shell.openExternal(url)
-    }, SIGN_IN_FALLBACK_MS)
+    this.emitHealth({ serverId: runtime.server.id, status: 'starting', message: 'Waiting for you to sign in in the browser…', messageCode: { code: 'mcp.signIn.waiting', params: {} } })
   }
 
   private resolveServerCwd(server: McpServer): string | undefined {
@@ -513,7 +523,8 @@ export class McpManager {
     this.syncFile(server.workspaceId)
     // eslint-disable-next-line no-console
     console.warn(`[mcp] quarantined "${server.name}": ${verdict.quarantine.reasons.join(' ')}`)
-    this.emitHealth({ serverId: server.id, status: 'unhealthy', message })
+    recordIncident('incident.mcp.quarantined', server.id)
+    this.emitHealth({ serverId: server.id, status: 'unhealthy', message, messageCode: { code: 'mcp.server.quarantined', params: {} } })
     throw new Error(message)
   }
 
@@ -539,7 +550,7 @@ export class McpManager {
       return { ...server, health: 'starting' }
     }
     const tested = this.tested.get(server.id)
-    const hydrated = tested ? { ...server, health: tested.health, healthMessage: tested.message, tools: tested.tools, testedAtMs: tested.at } : server
+    const hydrated = tested ? { ...server, health: tested.health, healthMessage: tested.message, ...(tested.messageCode ? { healthMessageCode: tested.messageCode } : {}), tools: tested.tools, testedAtMs: tested.at } : server
     // A quarantined server shows what it said, so the person can read it before trusting it again.
     const said = server.guard?.quarantine ? this.said.get(server.id) : undefined
     return said ? { ...hydrated, tools: said } : hydrated

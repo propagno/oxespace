@@ -77,7 +77,7 @@ describe('domain tools', () => {
   it('ask a person before a confirm action and show the exact text', async () => {
     const { tool, ctx, asked, audit } = harness('allow-once')
     expect(body(await tool.handler({ action: 'ship' }, ctx()))).toMatchObject({ ok: true })
-    expect(asked[0]).toMatchObject({ summary: 'pane:p1 wants to ship it', text: 'git push origin feat/x', target: '/repo/sub', risk: 'action' })
+    expect(asked[0]).toMatchObject({ summary: { code: 'approvals.summary.mcpConfirm', params: { tool: 'oxespace_demo', action: 'ship', target: '/repo/sub' } }, text: 'git push origin feat/x', target: '/repo/sub', risk: 'action', kind: 'mcp-confirm', level: 'medium' })
     expect(audit[0]).toMatchObject({ decision: 'approved', outcome: 'ok' })
   })
 
