@@ -1,7 +1,7 @@
 {
   "e2e/thread-view.spec.ts": 1115,
   "electron/main/services/conversation/thread-orchestrator.ts": 1282,
-  "electron/main/services/oxequery/oxequery-core.ts": 1163,
+  "electron/main/services/oxequery/oxequery-core.ts": 1159,
   "electron/main/services/semantic.service.ts": 1065,
   "src/App.tsx": 1120,
   "src/components/GitHub/GitHubPanel.tsx": 1800,

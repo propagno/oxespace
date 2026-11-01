@@ -36,6 +36,7 @@
   --control-sm: 24px;
   --control-md: 28px;
   --control-lg: 32px;
+  --target-min: 24px;
   --layer-base: 0;
   --layer-raised: 1;
   --layer-sticky: 10;
@@ -44,6 +45,7 @@
   --layer-modal: 300;
   --layer-toast: 400;
   --layer-tooltip: 500;
+  --statusbar-height: 24px;
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;

@@ -185,6 +185,10 @@ export interface ThreadRequestPolicy {
   warnings?: string[]
   /** Touches the files that steer agents (instructions, MCP settings, hooks): only a person approves it, whatever the access level. */
   guarded?: true
+  /** The reasons that have a C3 code (protected config), beside the English `reasons`; for the window's own language. */
+  reasonCodes?: import('../messages').MainMessage[]
+  /** The warnings that have a C3 code, beside the English `warnings`. */
+  warningCodes?: import('../messages').MainMessage[]
   suggestions?: ThreadPermissionSuggestion[]
 }
 /** The answer of the command analysis for one command line. */
@@ -597,13 +601,31 @@ export interface ThreadPendingResponseInput {
 }
 
 /** Why an answer was refused; each is also a message code (`thread.request.<reason>`, C3). */
-export const THREAD_PENDING_REFUSALS = ['notPending', 'staleGeneration', 'alreadyResponding', 'unanswered'] as const
+export const THREAD_PENDING_REFUSALS = ['notPending', 'staleGeneration', 'alreadyResponding', 'unanswered', 'guardedDecision'] as const
 export type ThreadPendingRefusal = typeof THREAD_PENDING_REFUSALS[number]
 
 /** The first answer for a generation wins; a repeated, late or stale one is refused, never applied twice. */
 export type ThreadPendingResponseResult =
   | { ok: true; threadId: string; requestId: string; resolution: ThreadRequestResolution }
   | { ok: false; refusal: ThreadPendingRefusal; message: import('../messages').MainMessage }
+
+/**
+ * A side chat (B1.2): an ephemeral read-only copy of a conversation's native session, to ask about it without changing it.
+ * It never writes to the main conversation, is not saved, and is thrown away when closed, when the main conversation
+ * closes, and when the app quits.
+ */
+export interface ThreadSideChat {
+  sideId: string
+  threadId: string
+  provider: ThreadProvider
+  readOnly: true
+}
+
+/** What a side chat sends to the window: the same events a conversation shows, usage included so its cost is visible. */
+export interface ThreadSideEvent { sideId: string; event: ThreadEvent }
+
+/** Opening refused: the provider cannot fork its session, or the conversation has no native session yet. */
+export type ThreadSideOpenResult = { ok: true; side: ThreadSideChat } | { ok: false; message: import('../messages').MainMessage }
 
 export interface ThreadApi {
   artifact?(id: string, artifactId: string): Promise<ThreadArtifact>
@@ -623,6 +645,11 @@ export interface ThreadApi {
   list(): Promise<ConversationThread[]>
   /** Requests still pending in every conversation that waits for approval. Read-only. */
   pendingRequestsAll?(): Promise<ThreadPendingRequestSummary[]>
+  /** Side chat (B1.2): open a read-only copy, send to it, close it. Nothing reaches the main conversation. */
+  sideOpen?(id: string): Promise<ThreadSideOpenResult>
+  sideSend?(sideId: string, text: string): Promise<void>
+  sideClose?(sideId: string): Promise<void>
+  onSideEvent?(listener: (event: ThreadSideEvent) => void): () => void
   /** Answers one of those requests by id and generation. Approvals stay with the person: never an MCP tool. */
   respondPending?(input: ThreadPendingResponseInput): Promise<ThreadPendingResponseResult>
   /**
@@ -645,6 +672,10 @@ export interface ThreadApi {
   undoTurnFile?(id: string, turnId: string, path: string): Promise<void>
   turnFileHunks?(id: string, turnId: string, path: string): Promise<ThreadFileHunk[]>
   undoTurnHunk?(id: string, turnId: string, path: string, hunkId: string): Promise<void>
+  /** F13: the sections of a conversation workspace (a conversation's `workspaceId`, e.g. `thread:<project id>`). */
+  sections?(workspaceId: string): Promise<import('./thread-sections').ThreadSections>
+  /** F13: replaces the whole state; returns what was stored, or a C3 refusal that stored nothing. */
+  saveSections?(workspaceId: string, state: import('./thread-sections').ThreadSections): Promise<import('./thread-sections').ThreadSectionsSaveResult>
   permissionRules?(id: string): Promise<ThreadPermissionRule[]>
   addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
   removePermissionRule?(id: string, ruleId: string): Promise<void>

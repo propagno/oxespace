@@ -54,6 +54,18 @@ export const THREAD_TOOL_GROUPS = {
 } as const satisfies Record<string, readonly string[]>
 
 export type ThreadToolGroup = keyof typeof THREAD_TOOL_GROUPS
+
+/**
+ * An agent in a Code terminal: panes, terminals, scripts, background jobs, worktrees, tasks, agents and integration.
+ * Always on there, never offered to an OxeChat conversation.
+ */
+export const CODE_TOOL_GROUP = ['oxespace_list_panes', 'oxespace_terminal', 'oxespace_list_scripts', 'oxespace_run_script',
+  'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_stop_background_job', 'oxespace_list_worktrees',
+  'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_tasks', 'oxespace_tasks_change', 'oxespace_agents',
+  'oxespace_agents_change', 'oxespace_integration', 'oxespace_memory_diagnostics'] as const
+
+/** Every group of OXESpace tools, the Code terminal's included (Settings › Tools lists these). */
+export const MCP_TOOL_GROUPS = { ...THREAD_TOOL_GROUPS, code: CODE_TOOL_GROUP } as const satisfies Record<string, readonly string[]>
 /** Groups a project can turn on in oxe.yaml; core is always on and roles are detected. */
 export const OPTIONAL_THREAD_TOOL_GROUPS: ThreadToolGroup[] = ['orchestration', 'data', 'docs', 'app']
 
@@ -103,7 +115,9 @@ export function threadToolRoles(db: RoleDatabase, threadId: string): ThreadToolR
  * context. A value the person set is kept.
  */
 export function toolSearchEnvironment(provider: 'claude' | 'codex', source: NodeJS.ProcessEnv = process.env): Record<string, string> {
-  return provider === 'claude' && source.ENABLE_TOOL_SEARCH === undefined ? { ENABLE_TOOL_SEARCH: 'auto:5' } : {}
+  // `true`, not `auto:N`: measured in T8, `auto:5` loaded every definition on a large context window (+21.7k tokens
+  // for a plain conversation), while `true` defers them and costs less than 1.3's core group did.
+  return provider === 'claude' && source.ENABLE_TOOL_SEARCH === undefined ? { ENABLE_TOOL_SEARCH: 'true' } : {}
 }
 
 /** The empty strict configuration Claude receives for a read-only conversation. */
@@ -166,7 +180,7 @@ function policyExclusions(deniedTools: readonly string[], tools: readonly string
 }
 
 export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
-  tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = []): string[] {
+  tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = [], enableable: Readonly<Record<string, readonly string[]>> = {}): string[] {
   if (provider === 'claude' && args.includes('--strict-mcp-config')) {
     // A read-only conversation keeps its strict surface (no user servers, which
     // may write), but gets the OXESpace bridge limited to read-only lookups.
@@ -178,7 +192,8 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
     return [...readOnly, ...exclusionArguments(provider, denied, [], deniedTools, lookups)]
   }
   const config = agentMcpArguments(provider, bridge)
-  const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
+  // Groups the session may turn on later with oxespace_tools_enable; the bridge owns that list (B7.2).
+  const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools), ...(Object.keys(enableable).length ? ['--enableable-groups', JSON.stringify(enableable)] : [])]
   if (provider === 'codex') {
     config[3] = `mcp_servers.oxespace-delegation.args=${JSON.stringify(bridgeArgs)}`
     return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])], deniedTools, tools), ...args]

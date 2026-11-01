@@ -44,7 +44,13 @@ jobs:
         with:
           node-version: '22'
       - name: Install the provider CLIs
-        run: npm install --global "@anthropic-ai/claude-code@${{ inputs.claude_version || 'latest' }}" "@openai/codex@${{ inputs.codex_version || 'latest' }}"
+        # Versions reach the shell as variables, never pasted into it. bash on every runner: Windows defaults to pwsh,
+        # where ${CLAUDE_VERSION} would be a PowerShell variable, not the environment one.
+        shell: bash
+        env:
+          CLAUDE_VERSION: ${{ inputs.claude_version || 'latest' }}
+          CODEX_VERSION: ${{ inputs.codex_version || 'latest' }}
+        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_VERSION}" "@openai/codex@${CODEX_VERSION}"
       - name: Probe the providers
         # The report is collected even when a check fails; the report job decides the outcome.
         continue-on-error: true

@@ -125,7 +125,7 @@ test('imports a cURL command as a request file, and a production environment ask
   const requests = join(workspaceRoot, '.oxespace', 'requests')
   try {
     await openDemoWorkspace(page, workspaceRoot)
-    await openView(page, 'OxePost')
+    await openView(page, 'post')
 
     await sidebar(page).getByRole('button', { name: 'Import cURL or OpenAPI' }).click()
     const dialog = page.getByRole('dialog', { name: 'Import requests' })

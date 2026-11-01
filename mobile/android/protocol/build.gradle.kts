@@ -1,5 +1,5 @@
-// The C5 remote protocol as plain JVM Kotlin: generated frames plus the checks every frame passes. No Android types,
-// so the fake gateway in the tests and the app share it.
+// The C5 remote protocol as plain JVM Kotlin: generated frames, the checks every frame passes, and the pinned TLS
+// client for pairing. No Android types, so the fake gateway in the tests and the app share it.
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
@@ -19,5 +19,9 @@ kotlin {
 
 dependencies {
     api(libs.kotlinx.serialization.json)
+    api(libs.okhttp)
+    api(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp.tls)
 }

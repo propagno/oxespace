@@ -1,0 +1,28 @@
+/* A pane-menu item drawn with <Button variant="ghost">. It looks like the menu's other items
+   (.pane-actions-popover-item, src/styles/features/pane.css). That file is in the oxe-legacy layer, and an unlayered
+   module wins over any layer, so these rules sit here, one class deeper than the primitive's. */
+:global(.pane-actions-popover) .item {
+  flex-shrink: 0;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: inherit;
+  line-height: inherit;
+  text-align: left;
+  white-space: normal;
+}
+:global(.pane-actions-popover) .item:hover:not(:disabled) {
+  background: var(--surface-canvas);
+  color: var(--tx-primary);
+}
+:global(.pane-actions-popover) .item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

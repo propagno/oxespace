@@ -53,7 +53,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     const argument = match[2]?.trim() ?? '', snapshot = host.read(id), thread = snapshot.thread
     const aliases: Record<string, string> = { delegation: 'delegations', approvals: 'permissions', 'allowed-tools': 'permissions', name: 'rename', clear: 'new', reset: 'new', cwd: 'pwd', plugin: 'plugins', config: 'settings', login: 'accounts', exit: 'quit' }
     name = aliases[name] ?? name
-    if (!hasDesktopCommand(thread.provider, name)) throw Error(`/${name} is not available in Thread yet. Use /help to see supported commands.`)
+    if (!hasDesktopCommand(thread.provider, name)) throw Error(`/${name} is not available in OxeChat yet. Use /help to see supported commands.`)
     if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'instructions', 'rules', 'spending', 'work', 'events', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
     if (name === 'delegations' && argument && !/^[a-z0-9-]{8,128}$/i.test(argument)) throw Error('Use /delegation <taskId> with an exact delegation ID.')
     if (name === 'resume' && argument) {
@@ -102,7 +102,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     if (name === 'status') {
       const operation = host.history.operations(id).at(-1)
       return { kind: 'panel', title: 'Conversation status', rows: [
-      { label: 'Thread ID', detail: thread.id }, { label: 'Project ID', detail: thread.projectId }, { label: 'Workspace ID', detail: thread.workspaceId },
+      { label: 'Conversation ID', detail: thread.id }, { label: 'Project ID', detail: thread.projectId }, { label: 'Workspace ID', detail: thread.workspaceId },
       { label: 'Provider', detail: thread.provider }, { label: 'Status', detail: thread.status }, { label: 'Model', detail: thread.model || 'Provider default' }, { label: 'Effort', detail: thread.reasoningEffort || 'Automatic' },
       { label: 'Access', detail: thread.access ?? 'read-only' }, { label: 'Network', detail: thread.networkAccess ? 'allowed' : 'blocked' }, { label: 'Approvals', detail: thread.approvalPolicy ?? 'on-request' }, { label: 'Mode', detail: thread.mode ?? 'default' }, { label: 'Hooks', detail: thread.hooksEnabled ? 'native hooks enabled' : 'disabled' },
       { label: 'Connection', detail: thread.connection?.state ?? 'closed' }, { label: 'Generation', detail: String(thread.generation ?? 1) },
@@ -121,7 +121,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     }
     if (name === 'capabilities') {
       const manifest = thread.capabilities ?? threadCapabilityManifest(thread.provider, host.adapterCapabilities(id))
-      return { kind: 'panel', title: 'Thread capabilities', rows: Object.entries(manifest.features).map(([label, value]) => ({ label, detail: value.implemented ? `${value.verified} · ${value.enabled ? 'enabled' : 'disabled'}` : value.reason ?? 'Unavailable' })) }
+      return { kind: 'panel', title: 'OxeChat capabilities', rows: Object.entries(manifest.features).map(([label, value]) => ({ label, detail: value.implemented ? `${value.verified} · ${value.enabled ? 'enabled' : 'disabled'}` : value.reason ?? 'Unavailable' })) }
     }
     if (name === 'copy' || name === 'export') return { kind: 'panel', title: name === 'copy' ? 'Copy response' : 'Export conversation', text: name === 'copy'
       ? snapshot.events.filter(event => event.type === 'message' && event.role === 'assistant').map(event => event.type === 'message' ? event.text : '').at(-1) ?? ''
@@ -188,7 +188,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       const result = await adapter.command(name, argument)
       if (name === 'fork' && result.threadId) {
         const fork = host.create({ workspaceId: thread.workspaceId, projectId: thread.projectId, rootPath: thread.rootPath, provider: thread.provider })
-        fork.thread = { ...fork.thread, nativeSessionId: result.threadId, model: thread.model, reasoningEffort: thread.reasoningEffort, access: thread.access, networkAccess: thread.networkAccess, approvalPolicy: thread.approvalPolicy, mode: thread.mode, hooksEnabled: thread.hooksEnabled, title: `${thread.title} · fork` }
+        fork.thread = { ...fork.thread, nativeSessionId: result.threadId, model: thread.model, reasoningEffort: thread.reasoningEffort, access: thread.access, networkAccess: thread.networkAccess, approvalPolicy: thread.approvalPolicy, mode: thread.mode, hooksEnabled: thread.hooksEnabled, title: thread.title ? `${thread.title} · fork` : '' }
         if (host.nativeCli) {
           const history = await host.nativeCli.read(fork.thread, result.threadId)
           fork.events = history.events
