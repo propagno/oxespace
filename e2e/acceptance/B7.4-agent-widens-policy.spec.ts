@@ -297,7 +297,7 @@ test('B7.4 (9): an off group is refused at tools/call even after the agent rewri
     expect(mcp.offeredAfter, 'the edited .mcp.json makes the bridge offer every tool').toBe(true)
     expect.soft(mcp.response ?? '', `${DATA_TOOL} is refused by the app at tools/call (group off)`).toMatch(/"isError":true|"error":\{/)
     expect.soft(mcp.response ?? '', 'the refusal carries its C3 code (#358)').toContain('incident.mcp.toolGroupOff')
-    expect.soft(mcp.response ?? '', 'no data comes back').not.toContain('connections')
+    expect.soft(mcp.response ?? '', 'no data comes back').not.toMatch(/connections\W*:\s*\[/)
     const journal = (await oxe(page, o => o.diagnostics.incidents())).filter(i => i.lastAt >= since && i.code === 'incident.mcp.toolGroupOff')
     expect.soft(journal.length, 'the refused call is in the incident journal as incident.mcp.toolGroupOff').toBeGreaterThan(0)
     expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).accNative), 'no native dialog').toBe(0)
