@@ -74,7 +74,7 @@ const branchRun = (over: Partial<BranchRun> = {}): BranchRun => ({
   pullRequests: [],
   ...over,
 })
-const greenChecks = () => [check('Changed paths'), check('Typecheck, test and build (Linux)'), check('OxeQuery live tests', { conclusion: 'skipped' })]
+const greenChecks = () => [check('CI result'), check('Changed paths'), check('Typecheck, test and build (Linux)'), check('OxeQuery live tests', { conclusion: 'skipped' })]
 
 const input = (over: Record<string, unknown> = {}) => ({
   pr: pr(),
@@ -179,9 +179,10 @@ describe('merge train step', () => {
     expect(step(input({ checks })).type).toBe('merge')
   })
 
-  it('only gates on the required checks when branch protection names them', () => {
+  it("adds branch protection's required checks to every check, never narrows them (decisions.md #11)", () => {
     const checks = [...greenChecks(), check('Optional', { conclusion: 'failure' })]
-    expect(step(input({ checks, requiredChecks: ['Changed paths'] })).type).toBe('merge')
+    // Before: naming required checks in protection made the train ignore a failing "Optional".
+    expect(step(input({ checks, requiredChecks: ['Changed paths'] })).type).toBe('unlabel')
     expect(step(input({ requiredChecks: ['Missing check'] })).message).toMatch(/Missing check/)
   })
 
@@ -338,7 +339,7 @@ const noSleep = async () => {}
 describe('running the train against a fake API', () => {
   it('merges the green PRs in label order and dispatches main CI after each', async () => {
     const api = fakeApi([
-      { number: 2, labeledAt: '2026-10-31T10:00:00Z', pr: { headSha: 'c'.repeat(40) }, runs: [ciRun({ headSha: 'c'.repeat(40) })], checks: [check('Build', { headSha: 'c'.repeat(40) })] },
+      { number: 2, labeledAt: '2026-10-31T10:00:00Z', pr: { headSha: 'c'.repeat(40) }, runs: [ciRun({ headSha: 'c'.repeat(40) })], checks: [check('Build', { headSha: 'c'.repeat(40) }), check('CI result', { headSha: 'c'.repeat(40) })] },
       { number: 1, labeledAt: '2026-10-31T09:00:00Z' },
     ])
     const actions = await runTrain(api, { now: NOW, sleep: noSleep })
@@ -461,7 +462,7 @@ describe('GitHub API adapter', () => {
       return { ok: true, status: 204, json: async () => null, text: async () => '', headers: { get: () => '' } }
     }
     const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
-    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: 'T2', labeledBy: 'maintainer' }])
+    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: 'T2', labeledBy: 'maintainer', fixMain: false, fixMainBy: null }])
     await api.merge(9, HEAD)
     expect(calls.at(-1)).toEqual(['PUT', 'https://api.github.com/repos/o/r/pulls/9/merge', { merge_method: 'merge', sha: HEAD }])
     await api.removeLabel(9)

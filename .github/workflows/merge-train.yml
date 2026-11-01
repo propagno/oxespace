@@ -86,4 +86,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MERGE_TRAIN_TIMEOUT_MINUTES: ${{ inputs.timeout_minutes || vars.MERGE_TRAIN_TIMEOUT_MINUTES || '60' }}
+          # Hold every car but a fix-main one while main has no green completed CI run (scripts/merge-train.mjs,
+          # mainHealth). Off unless the repository variable is "true": main can be red for a known, tracked reason.
+          MERGE_TRAIN_HOLD_WHEN_MAIN_RED: ${{ vars.MERGE_TRAIN_HOLD_WHEN_MAIN_RED || 'false' }}
         run: node scripts/merge-train.mjs
