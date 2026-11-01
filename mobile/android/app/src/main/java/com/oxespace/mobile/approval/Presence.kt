@@ -26,7 +26,8 @@ enum class Presence {
 
 /** Whether the person holding the phone proved it's them recently enough to send from it. */
 fun interface PresenceCheck {
-    suspend fun confirm(reason: PresenceReason): Presence
+    /** [ask] false only checks the window and never shows a prompt the person didn't ask for. */
+    suspend fun confirm(reason: PresenceReason, ask: Boolean): Presence
 }
 
 /** Sending, steering or typing into a terminal, once the person is confirmed; or why nothing went out. */
@@ -38,10 +39,10 @@ sealed interface Gated<out T> {
 /** Messages and terminal input leave the phone only through here (MB-M-01). Stopping a turn needs no confirmation. */
 class PresenceGate(private val check: PresenceCheck) {
     /** Asks without acting: a terminal the phone can type into asks when it opens. */
-    suspend fun confirm(reason: PresenceReason): Presence = check.confirm(reason)
+    suspend fun confirm(reason: PresenceReason): Presence = check.confirm(reason, ask = true)
 
-    suspend fun <T> run(reason: PresenceReason, action: suspend () -> T): Gated<T> {
-        val presence = check.confirm(reason)
+    suspend fun <T> run(reason: PresenceReason, ask: Boolean = true, action: suspend () -> T): Gated<T> {
+        val presence = check.confirm(reason, ask)
         return if (presence == Presence.CONFIRMED) Gated.Done(action()) else Gated.Blocked(presence)
     }
 }
@@ -53,8 +54,9 @@ class PresenceGate(private val check: PresenceCheck) {
  * is sent.
  */
 class KeystorePresence(private val context: Context) : PresenceCheck {
-    override suspend fun confirm(reason: PresenceReason): Presence {
+    override suspend fun confirm(reason: PresenceReason, ask: Boolean): Presence {
         if (usable() ?: return Presence.NO_SCREEN_LOCK) return Presence.CONFIRMED
+        if (!ask) return Presence.NOT_CONFIRMED
         val title = context.getString(if (reason == PresenceReason.SEND) R.string.presence_send else R.string.presence_type)
         if (!systemPrompt(context, title, null, context.getString(R.string.presence_window))) return Presence.NOT_CONFIRMED
         return if (usable() == true) Presence.CONFIRMED else Presence.NOT_CONFIRMED
