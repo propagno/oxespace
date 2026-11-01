@@ -289,7 +289,21 @@ async function profiled(page: Page, surface: Surface): Promise<Sample> {
   await cdp.send('Profiler.enable')
   await cdp.send('Profiler.setSamplingInterval', { interval: 200 })
   await cdp.send('Profiler.start')
+  // Long animation frames during the switch: style/layout time and the scripts behind each slow frame.
+  await page.evaluate(() => {
+    const w = window as unknown as { __loaf: Array<Record<string, unknown>> }
+    w.__loaf = []
+    try {
+      new PerformanceObserver(list => {
+        for (const entry of list.getEntries() as unknown as Array<{ duration: number; startTime: number; renderStart: number; styleAndLayoutStart: number; blockingDuration: number; scripts: Array<{ duration: number; invoker: string; sourceURL: string; sourceFunctionName: string; forcedStyleAndLayoutDuration: number }> }>) {
+          w.__loaf.push({ start: Math.round(entry.startTime), duration: Math.round(entry.duration), styleLayout: Math.round(entry.startTime + entry.duration - (entry.styleAndLayoutStart || entry.startTime + entry.duration)), render: Math.round(entry.startTime + entry.duration - (entry.renderStart || entry.startTime + entry.duration)),
+            scripts: entry.scripts.map(script => `${Math.round(script.duration)}ms ${script.invoker} ${(script.sourceURL || '').split('/').pop()}:${script.sourceFunctionName} forced=${Math.round(script.forcedStyleAndLayoutDuration)}`) })
+        }
+      }).observe({ type: 'long-animation-frame', buffered: false })
+    } catch (error) { w.__loaf.push({ unsupported: String(error) }) }
+  })
   const sample = await page.evaluate(probeInPage, surface.probe)
+  console.log(`[LOAF] ${surface.name}: ${JSON.stringify(await page.evaluate(() => (window as unknown as { __loaf: unknown[] }).__loaf))}`)
   const { profile } = await cdp.send('Profiler.stop') as { profile: { nodes: Array<{ id: number; callFrame: { functionName: string; url: string; lineNumber: number }; hitCount?: number }>; samples?: number[]; timeDeltas?: number[] } }
   const byNode = new Map<number, number>()
   ;(profile.samples ?? []).forEach((node, index) => byNode.set(node, (byNode.get(node) ?? 0) + ((profile.timeDeltas ?? [])[index] ?? 0)))
