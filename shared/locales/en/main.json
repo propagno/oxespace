@@ -45,6 +45,11 @@
         "removed": "It removed {{tools}}.",
         "configChanged": "Its command, arguments, environment or URL changed after you trusted it."
       },
+      "toolRule": {
+        "confirmLevel": "{{tool}} changes things you confirm each time, so it always asks before it runs.",
+        "locked": "The rule for {{tool}} comes from your policy or your organization’s, so this project cannot change it.",
+        "invalidPolicy": "This project’s .oxespace/policy.json is not a valid policy. Fix it by hand, then try again."
+      },
       "signIn": {
         "waiting": "Waiting for you to sign in in the browser…"
       },
@@ -94,6 +99,7 @@
         "mcp": "\"{{path}}\" holds MCP server settings. A change there steers every later session, so it needs your confirmation each time.",
         "hooks": "\"{{path}}\" holds agent hooks. A change there steers every later session, so it needs your confirmation each time.",
         "git": "\"{{path}}\" holds git configuration. Git can run commands named there, so it needs your confirmation each time.",
+        "policy": "\"{{path}}\" holds the project's agent policy and tool groups, including the tools you blocked. A change there steers every later session, so it needs your confirmation each time.",
         "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
       },

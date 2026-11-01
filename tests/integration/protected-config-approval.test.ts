@@ -63,6 +63,23 @@ describe('a change to agent instructions, MCP settings or hooks', () => {
     expect(policy.evaluate(root, command('git config --get user.name'))?.guarded).toBeUndefined()
   })
 
+  it('covers the project policy and oxe.yaml, so a conversation cannot lift a tool the person blocked (B7.3)', () => {
+    const { root, store, policy, edit } = setup()
+    // The widest rules a person can save for the folder and the file (`**` alone is refused by the store), plus Full access.
+    store.add({ projectRoot: root, kind: 'path', pattern: '.oxespace/**', decision: 'allow' })
+    store.add({ projectRoot: root, kind: 'path', pattern: '*.yaml', decision: 'allow' })
+    store.add({ projectRoot: root, kind: 'path', pattern: 'oxe.yaml', decision: 'allow' })
+    expect(policy.evaluate(root, edit('.oxespace/notes.json'))).toMatchObject({ decision: 'allow' })
+    for (const path of ['.oxespace/policy.json', join(root, '.oxespace', 'policy.json'), 'oxe.yaml', join(root, 'oxe.yaml')]) {
+      for (const access of [undefined, 'full-access'] as const) {
+        const verdict = policy.evaluate(root, edit(path), access)
+        expect(verdict, `${path} ${access}`).toMatchObject({ decision: 'ask', guarded: true })
+        // Nothing to remember: the card offers no "allow for this session" for it.
+        expect(verdict!.suggestions, path).toBeUndefined()
+      }
+    }
+  })
+
   it('is still declined by a deny rule the person saved', () => {
     const { root, store, policy, edit } = setup()
     store.add({ projectRoot: root, kind: 'path', pattern: 'AGENTS.md', decision: 'deny' })
