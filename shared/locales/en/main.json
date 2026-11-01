@@ -115,6 +115,11 @@
         "offline": "No network connection."
       }
     },
+    "ipc": {
+      "sender": {
+        "refused": "Only the app's own window can make this request."
+      }
+    },
     "activity": {
       "invalid": "This activity could not be saved. Reload the app and try again.",
       "tooMany": "At most {{max}} activity entries can be saved at once.",
@@ -383,7 +388,8 @@
       },
       "ipc": {
         "handlerFailed": "A request from the window failed in the background.",
-        "validationRejected": "The window sent a request the app refused as malformed."
+        "validationRejected": "The window sent a request the app refused as malformed.",
+        "senderRefused": "Something other than the app's window, such as a previewed page, sent a request; the app refused it."
       },
       "agent": {
         "startFailed": "An agent could not start."
