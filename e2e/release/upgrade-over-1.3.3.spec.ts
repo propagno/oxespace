@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -18,10 +19,16 @@ import { DatabaseSync } from 'node:sqlite'
  *                   Start Menu shortcuts point at it; it opens; the database is OXESPACE_EXPECT_DB_VERSION (88 today),
  *                   passes integrity_check and still holds the workspace; db-backups holds the verified v77 backup with
  *                   the same workspace; nothing reached a native dialog.
+ *   verify-refuse   (G8, rollback runbook) after v1.3.3's installer `/S` over the candidate, before anything is
+ *                   restored: 1.3.3 started on the upgraded database refuses it (a dialog, an error or an exit) and
+ *                   leaves oxespace.sqlite3 byte-identical (SHA-256 before = after). What it showed is recorded.
+ *   verify-rollback (G8) after the runbook's restore (quit; delete oxespace.sqlite3 and its -wal/-shm; copy the newest
+ *                   db-backups/oxespace-v77-*.sqlite3 to oxespace.sqlite3): 1.3.3 opens it; user_version 77,
+ *                   integrity_check ok, the seeded workspace there and open; no native dialog.
  *   verify-uninstall after `Uninstall OXESpace.exe /S`: the install folder and both shortcuts are gone; the person's data
  *                   (userData database and backups) is kept.
  *
- * Inputs (env): OXESPACE_UPGRADE_STEP, OXESPACE_UPGRADE_STATE, OXESPACE_EXPECT_VERSION (main's package version),
+ * Inputs (env): OXESPACE_UPGRADE_STEP, OXESPACE_UPGRADE_STATE, OXESPACE_EXPECT_VERSION (main's package version; 1.3.3 for verify-rollback),
  * OXESPACE_EXPECT_DB_VERSION (default 88); optional OXESPACE_INSTALL_DIR, OXESPACE_USER_DATA.
  */
 const STEP = process.env.OXESPACE_UPGRADE_STEP ?? ''
@@ -127,6 +134,76 @@ test('G4 install over 1.3.3: verify the upgrade', async () => {
   }
   writeFileSync(join(STATE, 'verify-upgrade.json'), JSON.stringify(result, null, 2))
   console.log('G4-UPGRADE', JSON.stringify(result))
+})
+
+const sha256 = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex')
+
+test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched', async () => {
+  test.skip(STEP !== 'verify-refuse')
+  test.setTimeout(180_000)
+  const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string }
+  const before = sha256(seeded.db)
+  const result: Record<string, unknown> = { dbVersionBefore: version(seeded.db), shaBefore: before }
+  // Whatever 1.3.3 does with a newer database: a dialog (recorded, held), an error, or an exit. The start may already
+  // have shown its dialog before the stub is in place; the bytes are the check either way.
+  let app: Awaited<ReturnType<typeof electron.launch>> | null = null
+  try {
+    app = await electron.launch({ executablePath: EXE, args: [], env: { ...process.env as Record<string, string>, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' }, timeout: 60_000 })
+    const exited = new Promise<number | null>(resolve => app!.process().once('exit', code => resolve(code)))
+    await app.evaluate(({ dialog }) => {
+      const g = globalThis as Record<string, unknown>; g.upSeen = []
+      const seen = (kind: string, a: unknown, b?: unknown) => { (g.upSeen as unknown[]).push({ kind, a: JSON.stringify(a).slice(0, 400), b: b === undefined ? undefined : JSON.stringify(b).slice(0, 400) }) }
+      dialog.showMessageBox = ((w: unknown, o?: unknown) => { seen('messageBox', o ?? w); return new Promise(() => undefined) }) as typeof dialog.showMessageBox
+      dialog.showMessageBoxSync = ((w: unknown, o?: unknown) => { seen('messageBoxSync', o ?? w); return 0 }) as typeof dialog.showMessageBoxSync
+      dialog.showErrorBox = ((title: string, content: string) => { seen('errorBox', title, content) }) as typeof dialog.showErrorBox
+    }).catch(e => { result.stubError = String(e).slice(0, 200) })
+    result.version = await app.evaluate(({ app }) => app.getVersion()).catch(() => null)
+    const settled = await Promise.race([exited.then(code => ({ exited: true, code })), new Promise<{ exited: false }>(r => setTimeout(() => r({ exited: false }), 20_000))])
+    result.exit = settled
+    result.dialogs = await app.evaluate(() => (globalThis as Record<string, unknown>).upSeen).catch(() => null)
+    result.windows = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(w => w.getTitle())).catch(() => null)
+    const page = app.windows()[0]
+    result.screen = page ? (await page.locator('body').innerText().catch(() => '')).slice(0, 600) : null
+    if (page) await page.screenshot({ path: join(STATE, 'verify-refuse.png') }).catch(() => undefined)
+  } catch (e) { result.launchError = String(e).slice(0, 300) } finally {
+    if (app) await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
+    await new Promise(r => setTimeout(r, 2_000))
+  }
+  result.shaAfter = sha256(seeded.db)
+  result.dbVersionAfter = version(seeded.db)
+  writeFileSync(join(STATE, 'verify-refuse.json'), JSON.stringify(result, null, 2))
+  console.log('G8-REFUSE', JSON.stringify(result))
+  expect(result.version ?? '1.3.3', 'the build started is 1.3.3').toBe('1.3.3')
+  expect(result.dbVersionBefore, 'the database was upgraded before this step').toBe(EXPECT_DB)
+  expect(result.shaAfter, '1.3.3 leaves the upgraded database byte-identical').toBe(before)
+  const refused = (Array.isArray(result.dialogs) && result.dialogs.length > 0) || (result.exit as { exited: boolean } | undefined)?.exited === true
+    || !!result.launchError || !/repo-seeded/.test(String(result.screen ?? ''))
+  expect.soft(refused, '1.3.3 refuses the newer database (dialog, error or exit), it does not open the workspace').toBe(true)
+})
+
+test('G8 rollback: 1.3.3 opens the restored v77 backup', async () => {
+  test.skip(STEP !== 'verify-rollback')
+  test.setTimeout(180_000)
+  const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string }
+  const result: Record<string, unknown> = { dbVersion: version(seeded.db) }
+  expect(result.dbVersion, 'the restored database is v77').toBe(77)
+  const { app, page } = await openInstalled()
+  try {
+    result.version = await app.evaluate(({ app }) => app.getVersion())
+    expect.soft(result.version, 'the rolled-back build').toBe(process.env.OXESPACE_EXPECT_VERSION ?? '1.3.3')
+    result.workspaces = await page.evaluate('window.oxe.workspace.list().then(l => l.map(w => w.rootPath))')
+    expect.soft(JSON.stringify(result.workspaces), 'the seeded workspace opens in 1.3.3 again').toContain('repo-seeded')
+    await page.waitForTimeout(3_000)
+    result.nativeDialogs = await app.evaluate(() => (globalThis as Record<string, unknown>).upNative)
+    expect.soft(result.nativeDialogs, 'no native dialog').toBe(0)
+  } finally { await close(app) }
+  result.dbVersionAfter = version(seeded.db)
+  result.integrity = read(seeded.db, db => (db.prepare('PRAGMA integrity_check').get() as { integrity_check: string }).integrity_check)
+  expect.soft(result.dbVersionAfter, '1.3.3 keeps it at v77').toBe(77)
+  expect.soft(result.integrity, 'integrity_check').toBe('ok')
+  expect.soft(workspaceRoots(seeded.db).some(r => r.toLowerCase().includes('repo-seeded')), 'the workspace row is there').toBe(true)
+  writeFileSync(join(STATE, 'verify-rollback.json'), JSON.stringify(result, null, 2))
+  console.log('G8-ROLLBACK', JSON.stringify(result))
 })
 
 test('G4 install over 1.3.3: verify the uninstall', async () => {
