@@ -11,7 +11,6 @@ import {
   PREFIX,
   TRAIN_JOB_NAME,
   createGitHubApi,
-
   docsOnlyCommits,
   isDocsOnlyPath,
   isTestReadDoc,
@@ -963,6 +962,6 @@ describe('merge-train workflow', () => {
 
   it('asks for only what it uses', () => {
     expect(workflow.permissions).toEqual({})
-    expect(workflow.jobs.train.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write' })
+    expect(workflow.jobs.train.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write', statuses: 'write' })
   })
 })

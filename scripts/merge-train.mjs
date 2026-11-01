@@ -588,6 +588,8 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
     return runs.filter((run) => run.head_repository?.full_name === repo && COUNTED_EVENTS.has(run.event) && testsItsOwnHead(run))
   }
   return {
+    /** The raw REST helpers, for the batch train (scripts/merge-train-batch.mjs). */
+    raw: { request, paginate, repo, base },
     async listQueue() {
       const issues = await paginate(`${r}/issues?state=open&labels=${encodeURIComponent(LABEL)}&per_page=100`)
       const entries = []
@@ -788,7 +790,23 @@ async function main() {
   if (!token || !repo) throw new Error('GITHUB_TOKEN and GITHUB_REPOSITORY are required')
   const minutes = Number(process.env.MERGE_TRAIN_TIMEOUT_MINUTES)
   const timeoutMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_TIMEOUT_MINUTES
-  const actions = await runTrain(createGitHubApi({ token, repo }), { timeoutMinutes, repo, log: (line) => console.log(line) })
+  const log = (line) => console.log(line)
+  const api = createGitHubApi({ token, repo })
+  // Batching (scripts/merge-train-batch.mjs) is off unless MERGE_TRAIN_BATCH is 2 or 3; 1 is v1 exactly.
+  const size = Number(process.env.MERGE_TRAIN_BATCH ?? '1')
+  const shadow = process.env.MERGE_TRAIN_BATCH_SHADOW === '1'
+  const run = { runId: process.env.GITHUB_RUN_ID ?? '0', runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? '1' }
+  let actions
+  if (size === 2 || size === 3) {
+    const batch = await import('./merge-train-batch.mjs')
+    actions = await batch.runBatchTrain(batch.createBatchApi(api), { size, timeoutMinutes, log, ...run })
+  } else {
+    actions = await runTrain(api, { timeoutMinutes, repo, log })
+    if (shadow) {
+      const batch = await import('./merge-train-batch.mjs')
+      await batch.runShadow(batch.createBatchApi(api), { timeoutMinutes, log, ...run })
+    }
+  }
   const summary = process.env.GITHUB_STEP_SUMMARY
   if (summary) {
     const lines = actions.map((a) => `- ${a.number ? `#${a.number} ` : ''}**${a.type}**: ${a.message}`)
