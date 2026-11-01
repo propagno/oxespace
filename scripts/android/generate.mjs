@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { tmpdir } from 'node:os'
 import { PROTOCOL_KOTLIN_PATH, protocolKotlin } from './protocol-kotlin.mjs'
 import { phoneCatalog, STRINGS_XML_PATHS, stringsXml } from './strings-xml.mjs'
+import { REQUEST_TITLES_KOTLIN_PATH, requestTitlesKotlin, withRequestTitles } from './request-titles.mjs'
 import { THEME_KOTLIN_PATH, themeKotlin } from './theme-kotlin.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -38,6 +39,9 @@ const tokens = await load('tokens', [
 ].join('\n'))
 write(THEME_KOTLIN_PATH, themeKotlin(tokens))
 
-const readCatalog = (language, namespace) => JSON.parse(readFileSync(join(root, 'shared/locales', language, `${namespace}.json`), 'utf8'))
-const catalog = language => phoneCatalog(readCatalog, language)
+const json = (language, name) => JSON.parse(readFileSync(join(root, 'shared/locales', language, `${name}.json`), 'utf8'))
+// The request titles come from main.json, for the codes the C5 allowlist names (request-titles.mjs).
+const { REMOTE_REQUEST_TITLE_PARAMS } = await load('titles', "export { REMOTE_REQUEST_TITLE_PARAMS } from './shared/agents/remoteAgentRow'")
+const catalog = language => withRequestTitles(phoneCatalog(json, language), json(language, 'main'), REMOTE_REQUEST_TITLE_PARAMS)
 for (const [language, path] of Object.entries(STRINGS_XML_PATHS)) write(path, stringsXml(catalog('en'), catalog(language), language))
+write(REQUEST_TITLES_KOTLIN_PATH, requestTitlesKotlin(json('en', 'main'), REMOTE_REQUEST_TITLE_PARAMS))

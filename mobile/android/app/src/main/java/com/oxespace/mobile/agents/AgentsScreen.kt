@@ -209,7 +209,7 @@ private fun AgentRow(row: RemoteAgentRow, enabled: Boolean, onOpen: () -> Unit, 
     val workspace = displaySafe(row.workspaceName, TITLE_MAX)
     val provider = row.provider?.let(::providerName)
     val tasks = row.tasks?.let { stringResource(R.string.agents_tasks, it.done.toInt(), it.total.toInt()) }
-    val requestTitle = request?.let { displaySafe(it.title, TITLE_MAX) }
+    val requestTitle = request?.let { requestTitleText(it) }
     val more = request?.more?.toInt()?.takeIf { it > 0 }
     // Spec §5.8: "Fix the login redirect, needs you for 3 minutes, oxespace, Claude, Wants to run an action, and 1 more".
     val spoken = listOfNotNull(
@@ -275,6 +275,13 @@ private fun AgentRow(row: RemoteAgentRow, enabled: Boolean, onOpen: () -> Unit, 
             ) { Text(stringResource(R.string.agents_action_stop)) }
         }
     }
+}
+
+/** The request's title in the phone's language when the desktop sent its code; else the desktop's words. */
+@Composable
+private fun requestTitleText(request: RemoteAgentRow.Request): String {
+    val (res, args) = requestTitleString(request) ?: return displaySafe(request.title, TITLE_MAX)
+    return displaySafe(stringResource(res, *args.map { displaySafe(it, PARAM_MAX) }.toTypedArray()), TITLE_MAX)
 }
 
 /**
@@ -404,4 +411,5 @@ private val AgentFilter.label: Int get() = when (this) {
 }
 
 private const val TITLE_MAX = 200
+private const val PARAM_MAX = 80
 private const val REFRESH_MAX_MS = 5_000L

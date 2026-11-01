@@ -20,7 +20,8 @@ import { createAgentsDouble, readAgentsFixture, registerAgentsMock, sampleAgents
 import { protocolKotlin } from '../scripts/android/protocol-kotlin.mjs'
 import { applyAgentsChange, normalizeMarkSeen, seenAtFor } from '../shared/agents/agentsOverview'
 import {
-  agentMarkSeenAuditDetail, agentsCursor, cutText, pageRemoteAgents, readAgentsCursor, readRemoteMarkSeen, REMOTE_AGENT_ID, splitRemoteAgentsEvent, toRemoteAgentRow,
+  agentMarkSeenAuditDetail, agentsCursor, cutText, pageRemoteAgents, readAgentsCursor, readRemoteMarkSeen, REMOTE_AGENT_ID, REMOTE_REQUEST_TITLE_PARAMS, REMOTE_TITLE_PARAM_MAX,
+  remoteRequestTitle, splitRemoteAgentsEvent, toRemoteAgentRow,
   type RemoteAgentContext
 } from '../shared/agents/remoteAgentRow'
 import { AGENT_KINDS, AGENT_STATES, parseAgentKey, type AgentKey } from '../shared/agents/agentState'
@@ -173,7 +174,7 @@ describe('the phone row (C5, §8)', () => {
     const remote = toRemoteAgentRow(desktop, context({ workspaceName: 'api', requestTitle: 'Asks to run a command', requestAnswerable: true }))
     expect(remote).toEqual({
       id: 'delegation:d1', kind: 'delegation', state: 'needs-you', rev: 9, since: NOW, title: 'd1', provider: 'claude', workspaceName: 'api', parentId: 'conversation:t1',
-      request: { requestId: 'a1', title: 'Asks to run a command', risk: 'critical', answerable: false, more: 2 }, tasks: { done: 1, total: 2 }
+      request: { requestId: 'a1', title: 'Asks to run a command', titleCode: 'approvals.title.agent', risk: 'critical', answerable: false, more: 2 }, tasks: { done: 1, total: 2 }
     } satisfies RemoteAgentRow)
     expect(JSON.stringify(remote)).not.toMatch(/secret|usd|lastSeenAt|worktree|session/i)
   })
@@ -514,5 +515,72 @@ describe('the e2e double (agents-mock)', () => {
     drive({ action: 'set', key: 'pane:p1', state: 'working' })
     expect(sent.at(-1)?.[0]).toBe(IPC_CHANNELS.agents.changed)
     expect(() => handlers.get(IPC_CHANNELS.agents.overview)!({ sender: { mainFrame: 'main' }, senderFrame: 'child' })).toThrow(/main frame/)
+  })
+})
+
+describe('request title codes on the phone (DESIGN H1 on #347)', () => {
+  const ROOTS = ['C:\\Users\\me\\client-x']
+  const clean = (text: string): string => ROOTS.reduce((value, root) => value.split(root).join('…'), redactSecrets(text))
+  const titled = (title: { code: string; params: Record<string, unknown> }) => row('conversation:t1', {
+    state: 'needs-you', pendingRequest: { via: 'thread', id: 'r1', threadId: 't1', title: title as never, since: NOW, more: 0 }
+  })
+  const request = (title: { code: string; params: Record<string, unknown> }) => toRemoteAgentRow(titled(title), { clean, workspaceName: 'w', requestTitle: 'Wants to run an action' }).request!
+
+  it('sends a parameterless allowed code, and keeps the title words as the fallback', () => {
+    expect(request({ code: 'agents.request.approval', params: {} })).toMatchObject({ titleCode: 'agents.request.approval', title: 'Wants to run an action' })
+    expect(request({ code: 'agents.request.approval', params: {} })).not.toHaveProperty('titleParams')
+  })
+
+  it('only ever sends a code of the allowlist, from the two title namespaces, with exactly its keys', () => {
+    expect(Object.keys(REMOTE_REQUEST_TITLE_PARAMS).sort()).toEqual([...AGENT_REQUEST_TITLE_CODE_LIST].sort())
+    for (const code of AGENT_REQUEST_TITLE_CODE_LIST) {
+      expect(code).toMatch(/^(agents\.request|approvals\.title)\.[A-Za-z]+$/)
+      const sent = request({ code, params: {} })
+      expect(sent.titleCode).toBe(code)
+      expect(REMOTE_REQUEST_TITLE_PARAMS[code]).toEqual([])
+    }
+  })
+
+  it('never sends a code when the title carried parameters the allowlist does not name, or another code', () => {
+    for (const title of [
+      { code: 'agents.request.tool', params: { text: 'agent text' } },
+      { code: 'approvals.summary.mcpConfirm', params: { tool: 't', action: 'a', target: 'x' } },
+      { code: 'approvals.title.made-up', params: {} },
+      { code: 'toString', params: {} }
+    ]) {
+      const sent = request(title)
+      expect(sent, title.code).not.toHaveProperty('titleCode')
+      expect(sent, title.code).not.toHaveProperty('titleParams')
+      expect(sent.title).toBe('Wants to run an action')
+    }
+  })
+
+  it('cleans each allowed parameter after stripping it, cuts it, and drops the code for an unknown, missing or empty one', () => {
+    const allow = { 'approvals.title.tool': ['tool'] }
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: { tool: 'grep' } }, clean, allow)).toEqual({ titleCode: 'approvals.title.tool', titleParams: { tool: 'grep' } })
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: { tool: ' grep\u202e\n ' } }, clean, allow)).toEqual({ titleCode: 'approvals.title.tool', titleParams: { tool: 'grep' } })
+    // An unknown key, a missing one, or an extra one drops the code.
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: { name: 'grep' } }, clean, allow)).toBeNull()
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: {} }, clean, allow)).toBeNull()
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: { tool: 'grep', path: 'x' } }, clean, allow)).toBeNull()
+    // A token or a path in a value is redacted, even split by a zero-width space.
+    const token = 'ghp_' + 'A'.repeat(18) + '\u200b' + 'A'.repeat(18)
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: { tool: `run ${token} in C:\\Users\\me\\client-x\\api` } }, clean, allow)).toEqual({ titleCode: 'approvals.title.tool', titleParams: { tool: 'run [redacted] in …\\api' } })
+    // An over-long value is cut to 80 characters.
+    const long = remoteRequestTitle({ code: 'approvals.title.tool', params: { tool: 'x'.repeat(300) } }, clean, allow)
+    expect([...long!.titleParams!.tool]).toHaveLength(REMOTE_TITLE_PARAM_MAX)
+    // A value that comes out empty drops the code, and so does one that is not text.
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: { tool: '\u200b\u202e  ' } }, clean, allow)).toBeNull()
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: { tool: { nested: true } } }, clean, allow)).toBeNull()
+    expect(remoteRequestTitle({ code: 'approvals.title.tool', params: { tool: 'x' } }, () => '', allow)).toBeNull()
+  })
+
+  it('matches every allowed code\'s placeholders in main.json, both languages', () => {
+    for (const [code, keys] of Object.entries(REMOTE_REQUEST_TITLE_PARAMS)) {
+      for (const catalog of [enMain, ptMain]) {
+        const text = String(lookup(catalog, `messages.${code}`))
+        expect([...text.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]).sort(), code).toEqual([...keys].sort())
+      }
+    }
   })
 })

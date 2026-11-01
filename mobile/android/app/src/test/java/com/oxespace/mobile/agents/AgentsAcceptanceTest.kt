@@ -90,6 +90,15 @@ class AgentsAcceptanceTest {
     }
 
     @Test
+    fun aRequestTitleRendersFromItsCodeAndFallsBackToTheDesktopWords() {
+        val coded = asking.copy(titleCode = "agents.request.approval")
+        assertEquals(com.oxespace.mobile.R.string.request_titles_agents_request_approval to emptyList<String>(), requestTitleString(coded))
+        // A code a newer desktop adds, or none at all: the phone shows `title`.
+        assertNull(requestTitleString(asking.copy(titleCode = "agents.request.somethingNew")))
+        assertNull(requestTitleString(asking))
+    }
+
+    @Test
     fun openingAFinishedRowMarksItSeenWithTheSinceThePhoneShowed() {
         assertEquals(RemoteAgentMarkSeenArgs("delegation:d-1", observedSince = 20), onActivate(rows.first { it.id == "delegation:d-1" }))
         // Only "finished" is cleared by seen; opening anything else tells the desktop nothing.

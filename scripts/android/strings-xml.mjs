@@ -53,10 +53,9 @@ function render(text, order, key, plural) {
 }
 
 /**
- * The phone's catalog: `mobile.json`, plus words other catalogs own, so each is defined once:
- * - the agent state words, which only `common.json` defines (glossary §5), as `agents_state_*`;
- * - the request titles main builds (`agents.request.*`, `approvals.title.*` in `main.json`), which the `agents` rows
- *   send as a `titleCode`, as `desktop_title_agents_request_*` and `desktop_title_approvals_title_*`.
+ * The phone's catalog: `mobile.json`, plus the agent state words, which only `common.json` defines (glossary §5: one
+ * namespace, `agents.state.*`, and no other catalog may define them). They become `agents_state_*` resources. The
+ * request titles come from `main.json` through `withRequestTitles` (request-titles.mjs).
  * @param {(language: string, namespace: string) => Record<string, any>} read
  * @param {string} language
  */
@@ -65,12 +64,7 @@ export function phoneCatalog(read, language) {
   if (mobile.agents?.state) throw new Error(`mobile:${language} defines agents.state; it comes from common.json (glossary §5)`)
   const state = read(language, 'common').agents?.state
   if (!state) throw new Error(`common:${language} has no agents.state`)
-  if (mobile.desktopTitle) throw new Error(`mobile:${language} defines desktopTitle; it comes from main.json`)
-  const main = read(language, 'main').messages ?? {}
-  const request = main.agents?.request
-  const approvals = main.approvals?.title
-  if (!request || !approvals) throw new Error(`main:${language} has no agents.request or approvals.title`)
-  return { ...mobile, agents: { ...(mobile.agents ?? {}), state }, desktopTitle: { agents: { request }, approvals: { title: approvals } } }
+  return { ...mobile, agents: { ...(mobile.agents ?? {}), state } }
 }
 
 /**

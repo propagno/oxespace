@@ -50,9 +50,9 @@ object Samples {
     /** One row per state the person can meet, as the desktop sends them (S7.1): already mapped, no paths. */
     private val agentsJson = """{"agents":[
         {"id":"conversation:t-1","rev":3,"kind":"conversation","state":"needs-you","since":1,"title":"Fix the login redirect","provider":"claude","workspaceName":"oxespace","threadId":"t-1",
-         "request":{"threadId":"t-1","requestId":"r-1","title":"Asks to run a command","risk":"critical","answerable":true,"more":1}},
+         "request":{"threadId":"t-1","requestId":"r-1","title":"Wants to run an action","titleCode":"agents.request.approval","risk":"critical","answerable":true,"more":1}},
         {"id":"pane:p-1","rev":1,"kind":"pane","state":"needs-you","since":60001,"title":"Claude","provider":"claude","workspaceName":"oxespace","paneId":"p-1",
-         "request":{"requestId":"a-1","title":"Asks to change a file","risk":"high","answerable":false,"more":0}},
+         "request":{"requestId":"a-1","title":"Request from an agent","titleCode":"approvals.title.agent","risk":"high","answerable":false,"more":0}},
         {"id":"work:w-1","rev":2,"kind":"work","state":"failed","since":60001,"title":"Migrate the build to Vite 7","workspaceName":"site","tasks":{"done":3,"total":5}},
         {"id":"conversation:t-4","rev":5,"kind":"conversation","state":"working","since":120001,"title":"Add tests for the gateway","provider":"codex","workspaceName":"oxespace","threadId":"t-4","canInterrupt":true},
         {"id":"delegation:d-1","rev":1,"kind":"delegation","state":"finished","since":1,"title":"Review the pairing contract and list gaps","provider":"claude","workspaceName":"oxespace","parentId":"conversation:t-1"},

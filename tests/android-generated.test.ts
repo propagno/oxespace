@@ -8,6 +8,9 @@ import { constantName, PROTOCOL_KOTLIN_PATH, protocolKotlin } from '../scripts/a
 import { phoneCatalog, resourceName, STRINGS_XML_PATHS, stringsXml } from '../scripts/android/strings-xml.mjs'
 // @ts-expect-error plain ESM script without types
 import { camelName, kotlinColor, THEME_KOTLIN_PATH, themeKotlin } from '../scripts/android/theme-kotlin.mjs'
+// @ts-expect-error plain ESM script without types
+import { REQUEST_TITLES_KOTLIN_PATH, requestTitlesKotlin, withRequestTitles } from '../scripts/android/request-titles.mjs'
+import { REMOTE_REQUEST_TITLE_PARAMS } from '../shared/agents/remoteAgentRow'
 import { IDENTITY } from '../src/design/tokens/palette'
 import { LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT, WEIGHT } from '../src/design/tokens/scales'
 import { colorRoles } from '../src/design/tokens/semantic'
@@ -16,8 +19,10 @@ const root = join(__dirname, '..')
 const protocolSource = readFileSync(join(root, 'shared', 'remote', 'protocol.ts'), 'utf8')
 const tokens = { colorRoles, IDENTITY, SPACE, RADIUS, TEXT, WEIGHT, LEADING, MOTION, REDUCED_MOTION }
 const committed = (path: string): string => readFileSync(join(root, path), 'utf8').replace(/\r\n/g, '\n')
-const readCatalog = (language: string, namespace: string) => JSON.parse(readFileSync(join(root, 'shared', 'locales', language, `${namespace}.json`), 'utf8'))
-const catalog = (language: string): Record<string, unknown> => phoneCatalog(readCatalog, language)
+const json = (language: string, name: string): Record<string, unknown> => JSON.parse(readFileSync(join(root, 'shared', 'locales', language, `${name}.json`), 'utf8'))
+// The phone's catalog: mobile.json plus the request titles of the C5 allowlist, from main.json (request-titles.mjs).
+const readCatalog = json
+const catalog = (language: string): Record<string, unknown> => withRequestTitles(phoneCatalog(readCatalog, language), json(language, 'main'), REMOTE_REQUEST_TITLE_PARAMS)
 
 describe('Android sources generated from the contracts', () => {
   it('match the committed Kotlin of the C5 protocol (run npm run android:generate after a contract change)', () => {
@@ -30,26 +35,35 @@ describe('Android sources generated from the contracts', () => {
 
   it('take the agent state words from common.json only (glossary §5)', () => {
     expect(() => phoneCatalog((_l: string, ns: string) => (ns === 'mobile' ? { agents: { state: { idle: 'x' } } } : { agents: { state: {} } }), 'en')).toThrow(/agents\.state/)
-    expect(() => phoneCatalog((_l: string, ns: string) => (ns === 'mobile' ? { desktopTitle: {} } : ns === 'common' ? { agents: { state: {} } } : { messages: {} }), 'en')).toThrow(/desktopTitle/)
     expect((catalog('pt-BR') as { agents: { state: Record<string, string> } }).agents.state.idle).toBe('Ocioso')
-    // The request titles main builds come from main.json, for the phone to render a titleCode.
-    expect((catalog('pt-BR') as { desktopTitle: { agents: { request: Record<string, string> } } }).desktopTitle.agents.request.approval).toBe('Quer executar uma ação')
-  })
-
-  it('map every request title code main can send to a phone resource (RequestTitles.kt)', () => {
-    const kotlin = readFileSync(join(root, 'mobile/android/app/src/main/java/com/oxespace/mobile/agents/RequestTitles.kt'), 'utf8')
-    const main = readCatalog('en', 'main').messages
-    const codes = [
-      ...Object.keys(main.agents.request).map(k => `agents.request.${k}`),
-      ...Object.keys(main.approvals.title).map(k => `approvals.title.${k}`),
-    ]
-    for (const code of codes) expect(kotlin, code).toContain(`"${code}" ->`)
   })
 
   it('match the committed string resources (run npm run android:generate after editing mobile.json)', () => {
     for (const [language, path] of Object.entries(STRINGS_XML_PATHS as Record<string, string>)) {
       expect(committed(path), language).toBe(stringsXml(catalog('en'), catalog(language), language))
     }
+  })
+
+  it('match the committed request titles map (run npm run android:generate after changing the allowlist or main.json)', () => {
+    expect(committed(REQUEST_TITLES_KOTLIN_PATH)).toBe(requestTitlesKotlin(json('en', 'main'), REMOTE_REQUEST_TITLE_PARAMS))
+  })
+
+  it('gives the phone every allowed request title from main.json, in both languages, with the allowlist placeholders', () => {
+    const kotlin: string = requestTitlesKotlin(json('en', 'main'), REMOTE_REQUEST_TITLE_PARAMS)
+    for (const code of Object.keys(REMOTE_REQUEST_TITLE_PARAMS)) {
+      expect(kotlin).toContain(`"${code}" to RequestTitleString(R.string.${resourceName(`requestTitles.${code}`)}, listOf())`)
+      for (const language of ['en', 'pt-BR']) {
+        const words = code.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown>)?.[part], (json(language, 'main') as { messages: unknown }).messages)
+        expect(catalog(language).requestTitles, `${language} ${code}`).toBeDefined()
+        expect(code.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown>)?.[part], catalog(language).requestTitles), `${language} ${code}`).toBe(words)
+      }
+    }
+    // A main.json text whose placeholders differ from the allowlist's keys fails the generation.
+    const main = { messages: { agents: { request: { tool: 'Wants {{tool}}' } } } }
+    expect(() => withRequestTitles({}, main, { 'agents.request.tool': [] })).toThrow(/uses \{\{tool\}\} but the allowlist names none/)
+    expect(() => withRequestTitles({}, main, { 'agents.request.tool': ['tool'] })).not.toThrow()
+    expect(() => withRequestTitles({}, main, { 'agents.request.question': [] })).toThrow(/has no words/)
+    expect(requestTitlesKotlin(main, { 'agents.request.tool': ['tool'] })).toContain('listOf("tool")')
   })
 
   it('carries every frame, command, subscription and error code to Kotlin', () => {

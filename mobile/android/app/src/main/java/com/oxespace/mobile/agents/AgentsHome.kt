@@ -66,4 +66,15 @@ fun tapTarget(row: RemoteAgentRow): AgentTapTarget =
 fun onActivate(row: RemoteAgentRow): RemoteAgentMarkSeenArgs? =
     if (stateOf(row) == RemoteAgentState.FINISHED) RemoteAgentMarkSeenArgs(agentId = row.id, observedSince = row.since) else null
 
+/**
+ * How to show a request's title in the phone's language (DESIGN H1): the string for its `titleCode` with the
+ * `titleParams` in order, or null when the code is unknown here or a param is missing; the caller then shows the
+ * `title` words the desktop sent.
+ */
+fun requestTitleString(request: RemoteAgentRow.Request): Pair<Int, List<String>>? {
+    val entry = request.titleCode?.let { RequestTitleStrings.byCode[it] } ?: return null
+    val args = entry.params.map { key -> request.titleParams?.get(key) ?: return null }
+    return entry.res to args
+}
+
 private fun answerable(row: RemoteAgentRow) = row.request?.takeIf { it.answerable && it.threadId != null }
