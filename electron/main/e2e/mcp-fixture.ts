@@ -66,7 +66,9 @@ export function quarantineFixtureServers(): McpServer[] {
         quarantine: {
           at: AT, added: [], removed: [], changed: [],
           reasons: ["The server's command, arguments, environment or URL no longer match what you trusted."],
-          codes: [mainMessage('mcp.quarantine.configChanged', {})]
+          codes: [mainMessage('mcp.quarantine.configChanged', {})],
+          // What was trusted: the target was dev, and a token flag (its value never kept) has since gone.
+          trusted: { transport: 'stdio', command: 'node', args: ['deploy-helper.js', '--target', 'dev', '--token', '[redacted]'], envKeys: ['DEPLOY_REGION'] }
         }
       }
     }),

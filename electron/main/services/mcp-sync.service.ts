@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../shared/types/mcp'
+import { mcpServerKeys } from './mcp-keys'
 import { mcpServerAllowed } from './policy'
 import { projectOfferedTools, projectToolModes } from './conversation/tool-groups'
 import { loadRepoConfigSync } from './repo-config/loader'
@@ -115,6 +116,8 @@ export class McpConfigSync {
            AND (workspace_id IS NULL OR workspace_id = ?)`
       )
       .all(workspaceId ?? null) as ManagedRow[]
+    // The same key the conversation and Settings › Tools give the server (mcp-keys.ts).
+    const keys = mcpServerKeys(this.db, workspaceId ? [workspaceId] : [])
 
     const desiredEntries = new Map<string, unknown>()
     const desiredNames: string[] = []
@@ -131,9 +134,8 @@ export class McpConfigSync {
         allowedTools: isInternal ? projectOfferedTools(projectToolModes(loadRepoConfigSync(workspaceRoot)?.thread)) : null
       })
       if (!entry) continue
-      const key = sanitizeKey(row.name)
-      // If two servers share a sanitized name we suffix to disambiguate.
-      const finalKey = ensureUniqueKey(key, desiredEntries)
+      const finalKey = keys.get(row.id)
+      if (!finalKey) continue
       desiredEntries.set(finalKey, entry)
       desiredNames.push(finalKey)
       if (isInternal) internalServerKey = finalKey
@@ -369,19 +371,6 @@ function ensureGitignored(workspaceRoot: string, entry: string): void {
   }
 }
 
-function sanitizeKey(name: string): string {
-  // Agent CLIs are tolerant of names but a slug avoids surprises with spaces /
-  // shell-special chars when the user references the server later.
-  const slug = name.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '')
-  return slug || 'mcp-server'
-}
-
-function ensureUniqueKey(base: string, taken: Map<string, unknown>): string {
-  if (!taken.has(base)) return base
-  let counter = 2
-  while (taken.has(`${base}-${counter}`)) counter += 1
-  return `${base}-${counter}`
-}
 
 function readJsonSafe(path: string): unknown {
   if (!existsSync(path)) return null

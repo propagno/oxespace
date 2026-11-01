@@ -86,6 +86,13 @@ class Notifications(private val context: Context) {
         }
     }
 
+    /** Unpairing: every alert about that desktop leaves the shade, since its titles belong to it. */
+    fun clearAlerts() {
+        context.getSystemService(NotificationManager::class.java).activeNotifications
+            .filter { it.id == ALERT_ID }
+            .forEach { manager.cancel(it.tag, ALERT_ID) }
+    }
+
     private fun open(target: AlertTarget?, key: String = "home"): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         when (target) {
