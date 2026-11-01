@@ -11,6 +11,7 @@ import { noticeLabel, useAgentNotifications } from '../../src/hooks/useAgentNoti
 import { PaneSessionRow } from '../../src/components/Sidebar/PaneSessionRow'
 import { ModeSwitch } from '../../src/components/Navigation/ModeSwitch'
 import { explainRows } from '../../src/components/Grid/StatusExplainDialog'
+import { changeLanguage } from '../../src/i18n'
 
 // The header's content and branch badge read terminals and Git; they are not what this file checks.
 vi.mock('../../src/components/Panes/PaneContent', () => ({ PaneContent: () => null }))
@@ -105,6 +106,23 @@ describe('the sidebar row and the pane header', () => {
     expect(await within(dialog).findByText('Waiting for a decision')).toBeInTheDocument()
     expect(within(dialog).getByText("Reported by the agent's hooks")).toBeInTheDocument()
     expect(within(dialog).getByText('Needs your decision')).toBeInTheDocument()
+  })
+
+  it('says the screen rule and the fallback in words; their ids stay in the technical details', async () => {
+    const explainOf = (matched: boolean, fallbackReason: string | null) => ({ state: { state: 'idle', since: 1, source: 'screen' }, hook: null, pendingIdle: false,
+      screen: { state: matched ? 'blocked' : 'idle', at: 1, matchedRule: matched ? { id: 'claude_permission_prompt' } : null, fallbackReason } }) as never
+    const display = { statusLabel: 'Idle', originLabel: 'Read from the screen' }
+    const details = (explain: never): string[] => explainRows(display, explain).map(row => row.detail)
+    expect(details(explainOf(false, 'default_known_agent_idle_fallback'))).toContain('Nothing on the screen matched a known state of this agent, so it is shown as idle.')
+    expect(details(explainOf(true, null))).toContain('The screen shows a known state of this agent: Waiting for a decision')
+    expect(details(explainOf(false, 'some_future_reason'))).toContain('Nothing on the screen matched a known state, so the status comes from other signals.')
+    for (const explain of [explainOf(false, 'default_known_agent_idle_fallback'), explainOf(true, null), explainOf(false, 'some_future_reason')]) {
+      expect(details(explain).join(' ')).not.toMatch(/default_known_agent_idle_fallback|claude_permission_prompt|some_future_reason/)
+    }
+    await changeLanguage('pt-BR')
+    try {
+      expect(details(explainOf(false, 'default_known_agent_idle_fallback'))).toContain('Nada na tela correspondeu a um estado conhecido deste agente, então ele aparece como ocioso.')
+    } finally { await changeLanguage('en') }
   })
 
   it('explains a pane main knows nothing about as an estimate', () => {

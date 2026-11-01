@@ -240,7 +240,8 @@
     "newRequest": { "label": "Nova requisição de API", "detail": "Salva em .oxespace/requests" },
     "filter": { "label": "Encontrar uma requisição de API" },
     "import": { "label": "Importar cURL ou OpenAPI", "detail": "Vira arquivos de requisição" },
-    "environments": { "label": "Ambientes de API", "detail": "Variáveis e segredos" }
+    "environments": { "label": "Ambientes de API", "detail": "Variáveis e segredos" },
+    "defaultName": "Nova requisição"
   },
   "podsCommands": {
     "open": {

@@ -113,6 +113,7 @@
     "loadingPreview": "Carregando a prévia…",
     "loadingEditor": "Carregando o editor…",
     "openFailed": "Não foi possível abrir o arquivo",
+    "saveFailed": "Não foi possível salvar {{name}}",
     "previewFailed": "Não foi possível mostrar a prévia",
     "readFailed": "Não foi possível ler o arquivo.",
     "unexpected": "O editor encontrou um erro inesperado.",
@@ -1946,6 +1947,11 @@
       "hook": "Último aviso do hook",
       "screen": "Regra da tela",
       "fallback": "Padrão da tela",
+      "screenMatched": "A tela mostra um estado conhecido deste agente: {{state}}",
+      "fallbacks": {
+        "default_known_agent_idle_fallback": "Nada na tela correspondeu a um estado conhecido deste agente, então ele aparece como ocioso.",
+        "other": "Nada na tela correspondeu a um estado conhecido, então o status vem de outros sinais."
+      },
       "pendingIdle": "Confirmando que parou",
       "none": "O OXESpace não tem um aviso do ciclo de vida deste painel, então o status é estimado pela atividade do terminal.",
       "unavailable": "A explicação do status não está disponível nesta versão.",

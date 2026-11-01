@@ -111,6 +111,7 @@
     "loadingPreview": "Loading preview…",
     "loadingEditor": "Loading the editor…",
     "openFailed": "Could not open the file",
+    "saveFailed": "Could not save {{name}}",
     "previewFailed": "Could not show the preview",
     "readFailed": "Could not read the file.",
     "unexpected": "The editor ran into an unexpected error.",
@@ -1875,6 +1876,11 @@
       "hook": "Last hook report",
       "screen": "Screen rule",
       "fallback": "Screen fallback",
+      "screenMatched": "The screen shows a known state of this agent: {{state}}",
+      "fallbacks": {
+        "default_known_agent_idle_fallback": "Nothing on the screen matched a known state of this agent, so it is shown as idle.",
+        "other": "Nothing on the screen matched a known state, so the status comes from other signals."
+      },
       "pendingIdle": "Confirming that it stopped",
       "none": "OXESpace has no lifecycle report for this pane, so its status is estimated from terminal activity.",
       "unavailable": "The status explanation is not available in this build.",
