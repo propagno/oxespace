@@ -18,7 +18,8 @@ on:
   workflow_run:
     workflows: ["CI and Release", "Accessibility scan (axe)", "Memory compatibility"]
     types: [completed]
-  # The safety net: a run the events above missed (a workflow_run of a dispatched run, a slow CI) is picked up here.
+  # The safety net: a run the events above missed (a slow CI, a wake-up dispatch that failed) is picked up here.
+  # A run the train dispatched wakes it through workflow_dispatch instead (ci.yml, job wake-merge-train).
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
@@ -27,6 +28,11 @@ on:
         description: Minutes a PR may wait for CI on its head before it leaves the queue
         required: false
         default: "60"
+        type: string
+      wait_for_run:
+        description: A run to wait for before the step (set by ci.yml's wake-up job, which is still part of that run)
+        required: false
+        default: ""
         type: string
 
 # One train: runs never overlap, and a run that started always finishes.
@@ -59,6 +65,23 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
+      # ci.yml's last job dispatches the train while that run is still in progress, and a car whose CI is still
+      # running only waits. So the step starts once the run that woke it has completed (5 minutes at most).
+      - name: Wait for the run that woke the train
+        if: ${{ inputs.wait_for_run != '' && inputs.wait_for_run != null }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ inputs.wait_for_run }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::wait_for_run must be a run id, got: $RUN_ID"; exit 1; }
+          for _ in $(seq 1 30); do
+            status=$(gh run view "$RUN_ID" --json status --jq .status || echo unknown)
+            if [ "$status" = completed ]; then echo "run $RUN_ID completed"; exit 0; fi
+            sleep 10
+          done
+          echo "::warning::run $RUN_ID had not completed after 5 minutes; driving the queue anyway"
       - name: Drive the queue one step
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
