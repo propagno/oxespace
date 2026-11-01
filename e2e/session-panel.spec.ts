@@ -151,11 +151,10 @@ test('Conversation details shows the session, compacts, and reorders its section
     await expect.poll(() => sectionTitles(page)).toEqual(dragged)
     await expect(environmentItem).not.toHaveAttribute('data-dragging')
 
-    // The order is kept when the panel opens again. Closed from the keyboard: with the panel open its drawer can cover
-    // the header's toggle for the pointer (#227 CI on Windows), and the toggle is the same control either way.
-    const toggle = page.locator('.thread-heading').getByRole('button', { name: 'Conversation details' })
-    await toggle.focus()
-    await page.keyboard.press('Enter')
+    // The order is kept when the panel opens again. Investigating #227 CI (Linux and Windows): the toggle was not found
+    // here; say what the header holds before the click, which stays a pointer click.
+    console.log(`[DIAG] headings=${await page.locator('.thread-heading').count()} views=${await page.locator('.thread-view').count()} buttons=${JSON.stringify(await page.locator('.thread-heading button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? button.textContent?.trim())))} focus=${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 160))}`)
+    await page.locator('.thread-heading').getByRole('button', { name: 'Conversation details' }).click()
     await expect(panel).toHaveCount(0)
     await openPanel(page)
     expect(await sectionTitles(page)).toEqual(dragged)
