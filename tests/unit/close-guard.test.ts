@@ -93,6 +93,9 @@ describe('close guard state machine (F26)', () => {
     vi.advanceTimersByTime(1)
     expect(deps.incident).toHaveBeenCalledWith('incident.app.closeUnanswered')
     expect(deps.close).toHaveBeenCalledTimes(1)
+    expect(deps.close).toHaveBeenCalledWith(true) // forced: the binding destroys the window
+    vi.advanceTimersByTime(60_000)
+    expect(deps.close).toHaveBeenCalledTimes(1) // exactly once
     // A late answer to the forced request does nothing.
     guard.answer({ requestId: 'req-1', answer: 'cancel' })
     expect(guard.intercept('close')).toBe(false)
@@ -105,6 +108,25 @@ describe('close guard state machine (F26)', () => {
     guard.rendererGone()
     expect(deps.incident).toHaveBeenCalledWith('incident.app.closeRendererGone')
     expect(deps.quit).toHaveBeenCalledTimes(1)
+    expect(deps.quit).toHaveBeenCalledWith(true)
+  })
+
+  it('only an unanswered or renderer-gone request is forced: proceed and bypass close the normal way', () => {
+    const proceeded = harness()
+    proceeded.guard.intercept('close')
+    proceeded.guard.answer({ requestId: 'req-1', answer: 'proceed' })
+    expect(proceeded.deps.close).toHaveBeenCalledWith(false)
+
+    const bypassed = harness()
+    bypassed.guard.intercept('quit')
+    bypassed.guard.bypass()
+    expect(bypassed.deps.quit).toHaveBeenCalledWith(false)
+
+    const timedOut = harness()
+    timedOut.guard.intercept('quit')
+    vi.advanceTimersByTime(CLOSE_ANSWER_TIMEOUT_MS)
+    expect(timedOut.deps.quit).toHaveBeenCalledTimes(1)
+    expect(timedOut.deps.quit).toHaveBeenCalledWith(true)
   })
 
   it('a renderer gone with nothing asked does nothing', () => {
