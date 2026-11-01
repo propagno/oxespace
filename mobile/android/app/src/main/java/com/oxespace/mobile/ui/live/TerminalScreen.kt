@@ -1,5 +1,9 @@
 package com.oxespace.mobile.ui.live
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.oxespace.mobile.protocol.displaySafe
 import androidx.core.content.edit
 import android.content.Context
@@ -125,7 +129,10 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 actions = {
                     Box {
                         val label = stringResource(R.string.terminal_text_size)
-                        TextButton(onClick = { sizeMenu = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = label }) { Text("Aa") }
+                        TextButton(
+                            onClick = { sizeMenu = true },
+                            modifier = Modifier.heightIn(min = 48.dp).clearAndSetSemantics { contentDescription = label; role = Role.Button; onClick { sizeMenu = true; true } },
+                        ) { Text("Aa") }
                         DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
                             for (option in TerminalTextSize.entries) {
                                 DropdownMenuItem(

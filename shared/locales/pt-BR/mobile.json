@@ -112,7 +112,7 @@
       "unknown": "Não confirmado"
     },
     "readOnly": "Só leitura",
-    "phoneWrite": "Celular pode digitar",
+    "phoneWrite": "Você pode digitar daqui",
     "age": {
       "now": "agora",
       "minutes": "há {{minutes}} min",

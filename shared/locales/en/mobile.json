@@ -109,7 +109,7 @@
       "unknown": "Not confirmed"
     },
     "readOnly": "Read-only",
-    "phoneWrite": "Phone can type",
+    "phoneWrite": "You can type here",
     "age": {
       "now": "just now",
       "minutes": "{{minutes}} min ago",
