@@ -206,7 +206,7 @@ export function noteLines(subject: Pick<Subject, 'file'>, shownBase: AnyProjecti
 }
 
 /** Whether a change applies at once (only tightens, or changes nothing that grants), with its counts. */
-export function classify(subject: Pick<Subject, 'file' | 'layer'>, base: AnyProjection, next: AnyProjection, firstSight: boolean): ChangeVerdict {
+export function classify(subject: Pick<Subject, 'file' | 'layer'>, base: AnyProjection, next: AnyProjection): ChangeVerdict {
   const lines = noteLines(subject, base, next)
   const wider = lines.filter(item => item.widens).length
   // Deleting a file with denies, or breaking it, widens even when no rule line says so.
@@ -214,15 +214,13 @@ export function classify(subject: Pick<Subject, 'file' | 'layer'>, base: AnyProj
   const widen = wider + (fileWidens ? 1 : 0)
   const tighten = lines.length - wider
   if (subject.file === 'oxe.yaml') {
-    // First sight: nothing oxe.yaml sets goes past the defaults, where every group is on demand and the agent can turn it on.
-    return { applies: firstSight || widen === 0, widen, tighten }
+    // Any group moving up is asked, at first sight too (HML: a write before the first read must not apply unasked).
+    return { applies: widen === 0, widen, tighten }
   }
   if (next.state === 'invalid') return { applies: false, widen, tighten }
   const old = rulesOf(base)
   const rules = rulesOf(next)
   if (onlyNarrows(old, rules)) return { applies: true, widen: 0, tighten }
-  // The base at first sight is the file's own denies (recorded at once), so it holds denies only.
-  if (firstSight && subject.layer === 'project' && old.every(rule => rule.effect === 'deny') && rules.every(allowWithinDefaults)) return { applies: true, widen, tighten }
   return { applies: false, widen: Math.max(widen, 1), tighten }
 }
 

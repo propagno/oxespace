@@ -61,20 +61,20 @@ describe('narrowing is syntactic (B7.4, ARCHITECT change 4)', () => {
   })
 
   it('classifies absent and invalid as changes, and a deleted file only applies when it held no deny', () => {
-    expect(classify(project, rules(A), { state: 'absent' }, false).applies).toBe(false)
-    expect(classify(project, rules(B), { state: 'absent' }, false).applies).toBe(true)
-    expect(classify(project, rules(B), { state: 'invalid' }, false)).toMatchObject({ applies: false })
+    expect(classify(project, rules(A), { state: 'absent' }).applies).toBe(false)
+    expect(classify(project, rules(B), { state: 'absent' }).applies).toBe(true)
+    expect(classify(project, rules(B), { state: 'invalid' })).toMatchObject({ applies: false })
     expect(projectionHash('policy', { state: 'invalid', problem: 'x' })).toBe(projectionHash('policy', { state: 'invalid' }))
     // Too large is its own projection (HML L): a Deny of a broken file does not hide a too large one.
     expect(projectionHash('policy', { state: 'invalid', tooLarge: true })).not.toBe(projectionHash('policy', { state: 'invalid' }))
   })
 
   it('oxe.yaml: moving down applies, any move up asks; the list and map forms are one projection', () => {
-    expect(classify(yaml, modes({ data: 'always' }), modes({ data: 'on-demand' }), false).applies).toBe(true)
-    expect(classify(yaml, modes({ data: 'on-demand' }), modes({ data: 'off' }), false).applies).toBe(true)
-    expect(classify(yaml, modes({ data: 'off' }), modes({ data: 'on-demand' }), false).applies).toBe(false)
-    expect(classify(yaml, modes({}), modes({ docs: 'always' }), false).applies).toBe(false)
-    expect(classify(yaml, modes({ data: 'off' }), { state: 'invalid' }, false).applies).toBe(false)
+    expect(classify(yaml, modes({ data: 'always' }), modes({ data: 'on-demand' })).applies).toBe(true)
+    expect(classify(yaml, modes({ data: 'on-demand' }), modes({ data: 'off' })).applies).toBe(true)
+    expect(classify(yaml, modes({ data: 'off' }), modes({ data: 'on-demand' })).applies).toBe(false)
+    expect(classify(yaml, modes({}), modes({ docs: 'always' })).applies).toBe(false)
+    expect(classify(yaml, modes({ data: 'off' }), { state: 'invalid' }).applies).toBe(false)
     const listForm = modes({ data: 'always' })
     const mapForm: AnyProjection = { state: 'value', value: { ...defaultModes(), data: { mode: 'always', source: 'project' } } }
     expect(projectionHash('oxe.yaml', listForm)).toBe(projectionHash('oxe.yaml', mapForm))
@@ -83,23 +83,21 @@ describe('narrowing is syntactic (B7.4, ARCHITECT change 4)', () => {
   })
 })
 
-describe('first sight against the defaults (ARCHITECT change 5)', () => {
-  it('a project policy with denies, or allows only for things allowed by default, applies', () => {
-    expect(classify(project, { state: 'absent' }, rules(deny('*')), true).applies).toBe(true)
-    expect(classify(project, { state: 'absent' }, rules(deny('mcp__x'), allow('mcp__x'), allow('claude', 'provider.use'), allow('mcp:github', 'integration.use')), true).applies).toBe(true)
-  })
-
-  it('an allow that can reach env: or net: asks, as does any allow in the user layer', () => {
-    for (const resource of ['env:GITHUB_TOKEN', 'env:*', '*', 'e*', 'net:example.com', 'n*']) {
-      expect(classify(project, { state: 'absent' }, rules(allow(resource, 'integration.use')), true).applies, resource).toBe(false)
+describe('no change applies without an answer but a pure narrowing (HML write-before-first-read)', () => {
+  it('a policy that only denies applies; any allow against the defaults asks, whatever it allows', () => {
+    expect(classify(project, { state: 'absent' }, rules(deny('*'))).applies).toBe(true)
+    for (const resource of ['*', 'mcp__x', 'claude', 'env:GITHUB_TOKEN', 'net:example.com']) {
+      expect(classify(project, { state: 'absent' }, rules(deny('mcp__a'), allow(resource))).applies, resource).toBe(false)
     }
-    expect(classify(user, { state: 'absent' }, rules(allow('mcp__x')), true).applies).toBe(false)
+    expect(classify(project, { state: 'absent' }, rules(allow('mcp:github', 'integration.use'))).applies).toBe(false)
+    expect(classify(user, { state: 'absent' }, rules(allow('mcp__x'))).applies).toBe(false)
     expect(canMatchPrefix('mcp:*', 'env:')).toBe(false)
     expect(allowWithinDefaults(allow('db:*', 'integration.use'))).toBe(true)
   })
 
-  it('a first oxe.yaml always applies', () => {
-    expect(classify(yaml, modes({}), modes({ data: 'always', app: 'always' }), true).applies).toBe(true)
+  it('an oxe.yaml group moving up asks, at first sight too', () => {
+    expect(classify(yaml, modes({}), modes({ data: 'always', app: 'always' })).applies).toBe(false)
+    expect(classify(yaml, modes({}), modes({ data: 'off' })).applies).toBe(true)
   })
 })
 
@@ -134,7 +132,7 @@ describe('mixed changes (DESIGN #361)', () => {
   it('oxe.yaml: lowered groups wait with a raised one, with no suffix', () => {
     const lines = noteLines(yaml, modes({ data: 'always' }), modes({ data: 'off', docs: 'always' }))
     expect(codes(lines)).toEqual(['approvals.note.policy.groupRaised', 'approvals.note.policy.groupLowered'])
-    expect(classify(yaml, modes({ data: 'always' }), modes({ data: 'off', docs: 'always' }), false).applies).toBe(false)
+    expect(classify(yaml, modes({ data: 'always' }), modes({ data: 'off', docs: 'always' })).applies).toBe(false)
   })
 })
 

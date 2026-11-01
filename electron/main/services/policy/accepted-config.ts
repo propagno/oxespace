@@ -16,9 +16,9 @@
  * watcher: a rule takes effect only when it is read, and every read checks.
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { closeSync, openSync, readFileSync, statSync, unlinkSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 import type { AppDatabase } from '../../db'
 import type { MainMessage } from '../../../../shared/messages'
@@ -30,6 +30,7 @@ import { recordIncident } from '../diagnostics/incident-sink'
 import { canonicalPath, gitCommonDir } from '../git-common-dir'
 import { MainRefusal } from '../main-refusal'
 import { trustKey } from '../repo-config/trust'
+import { parsePolicyProjection } from './projections'
 
 /** `invalid` may say why (`tooLarge`, the parser's `problem`); neither is part of its hash. */
 export type Projection<T> = { state: 'absent' } | { state: 'invalid'; tooLarge?: boolean; problem?: string } | { state: 'value'; value: T }
@@ -287,6 +288,8 @@ export class AcceptedConfig {
   private readonly running = new Set<Promise<unknown>>()
   /** When each (subject, file) was last asked or re-issued. */
   private readonly lastAsked = new Map<string, number>()
+  /** HEAD's committed denies per subject, read once per run (first sight only). */
+  private readonly committedDenies = new Map<string, PolicyRule[]>()
   /** The managed probe's answer per stat key of the managed file, or the check still running. */
   private readonly managedProbes = new Map<string, boolean | Promise<boolean>>()
 
@@ -345,7 +348,7 @@ export class AcceptedConfig {
     // H1). Only the rest, if any, is compared and asked.
     let firstSeen: { shownBaseJson: string; applied: string[]; strict: boolean } | null = null
     if (!row && base.firstSight) {
-      const part = firstSightInterim(subject.file, current)
+      const part = this.withCommittedDenies(subject, firstSightInterim(subject.file, current))
       const partHash = projectionHash(subject.file, part)
       if (partHash !== base.hash) {
         firstSeen = { shownBaseJson: base.json, strict: base.strict, applied: part.state === 'value' && subject.file === 'policy' ? (part.value as PolicyValue).rules.map(ruleKey) : [] }
@@ -373,6 +376,30 @@ export class AcceptedConfig {
       else this.closeOpen(subject.id)
     }
     return (base.firstSight ? firstSightInterim(subject.file, current) : base.projection) as T
+  }
+
+  /**
+   * The denies of the version committed at git HEAD, added to a first-seen policy's denies (HML: a file rewritten before
+   * the first read must not drop the committed denies). Only denies: the list stays stricter than both. Read once per
+   * subject and run, with git (argv, no shell); none without a repository, a HEAD, or the file in it.
+   */
+  private withCommittedDenies(subject: Subject, part: AnyProjection): AnyProjection {
+    if (subject.file !== 'policy' || subject.layer !== 'project' || !subject.root) return part
+    let denies = this.committedDenies.get(subject.id)
+    if (!denies) {
+      denies = []
+      try {
+        const path = relative(subject.root, subject.path).split(sep).join('/')
+        const text = execFileSync('git', ['-C', subject.root, 'show', `HEAD:${path}`], { encoding: 'utf8', timeout: 3_000, maxBuffer: 1024 * 1024, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] })
+        const committed = parsePolicyProjection(text, 'project', subject.path).projection
+        if (committed.state === 'value') denies = committed.value.rules.filter(rule => rule.effect === 'deny')
+      } catch { /* no repository, no HEAD, or not committed */ }
+      this.committedDenies.set(subject.id, denies)
+    }
+    if (!denies.length) return part
+    const own = part.state === 'value' ? (part.value as PolicyValue) : { rules: [] as PolicyRule[] }
+    const seen = new Set(own.rules.map(ruleKey))
+    return { state: 'value', value: { ...own, rules: [...own.rules, ...denies.filter(rule => !seen.has(ruleKey(rule)))] } }
   }
 
   /** The changes of these subjects that are not accepted, for Settings. */
@@ -612,7 +639,7 @@ export class AcceptedConfig {
       const base = JSON.parse(entry.baseJson) as AnyProjection
       const next = JSON.parse(entry.newJson) as AnyProjection
       if (!entry.verdict) {
-        entry.verdict = change.classify(entry.subject, base, next, entry.firstSight && !entry.strict)
+        entry.verdict = change.classify(entry.subject, base, next)
         if (entry.verdict.applies) {
           const pure = entry.verdict.tighten > 0 && !entry.firstSight
           if (this.compareAndSet(entry.subject, entry.baseHash, entry.newHash, entry.newJson, entry.firstSight ? 'baseline-default' : 'narrowed') && pure) {

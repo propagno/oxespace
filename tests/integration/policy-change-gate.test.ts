@@ -461,3 +461,57 @@ describe('B7.4 · SECURITY re-review N3', () => {
   })
 })
 
+describe('B7.4 · HML write before the first read (#372 @06cfa2c9)', () => {
+  const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd, stdio: 'ignore' })
+  /** A fresh repository with a committed {deny oxespace_db_execute}, written over with {allow *} before OXESpace reads it. */
+  function probe(options: Parameters<typeof project>[0] = {}) {
+    const repo = temp('oxe-b74-wbfr-')
+    git(repo, 'init', '-q')
+    mkdirSync(join(repo, '.oxespace'))
+    writeFileSync(join(repo, '.oxespace', 'policy.json'), policyText(rule('deny', DB_EXECUTE)))
+    git(repo, 'add', '.'); git(repo, 'commit', '-q', '-m', 'accepted')
+    const context = project({ ...options, root: repo })
+    context.write(context.policyFile, policyText(rule('allow', '*')))
+    return { ...context, repo }
+  }
+  const rulesOf = (store: PolicyStore, root: string) => store.load(root).sources.map(source => source.rules)
+
+  it('read 0 keeps the committed deny, and no later read or timer applies {allow *} without an answer', async () => {
+    const { store, repo, requests, settle, center } = probe()
+    expect(rulesOf(store, repo)).toEqual([[rule('deny', DB_EXECUTE)]])
+    expect(store.changes(repo)).toMatchObject([{ layer: 'project', file: 'policy', state: 'pending' }])
+    await settle()
+    expect(requests()).toHaveLength(1)
+    expect(requests()[0]).toMatchObject({ kind: 'policyChange', risk: 'critical' })
+    for (let read = 1; read <= 3; read++) {
+      await new Promise(resolve => setTimeout(resolve, 30))
+      expect(rulesOf(store, repo), `read ${read}`).toEqual([[rule('deny', DB_EXECUTE)]])
+      expect(store.changes(repo)).toMatchObject([{ state: 'pending' }])
+      await settle()
+    }
+    expect(requests()).toHaveLength(1)
+    expect(center.history()).toEqual([])
+  })
+
+  it('the same with a tool-groups read first', async () => {
+    const { store, repo, requests, settle } = probe()
+    effectiveToolConfig(repo)
+    expect(rulesOf(store, repo)).toEqual([[rule('deny', DB_EXECUTE)]])
+    await settle()
+    expect(requests()).toHaveLength(1)
+    expect(rulesOf(store, repo)).toEqual([[rule('deny', DB_EXECUTE)]])
+  })
+
+  it('an expired request leaves the committed deny in force and the change pending (spec case 11)', async () => {
+    const { store, repo, requests, settle, center } = probe({ timeoutMs: 60 })
+    expect(rulesOf(store, repo)).toEqual([[rule('deny', DB_EXECUTE)]])
+    await settle()
+    expect(requests()).toHaveLength(1)
+    await new Promise(resolve => setTimeout(resolve, 150))
+    await settle()
+    expect(center.history()).toMatchObject([{ kind: 'policyChange', by: 'timeout', outcome: 'deny' }])
+    expect(rulesOf(store, repo)).toEqual([[rule('deny', DB_EXECUTE)]])
+    expect(store.changes(repo)).toMatchObject([{ state: 'pending' }])
+  })
+})
+
