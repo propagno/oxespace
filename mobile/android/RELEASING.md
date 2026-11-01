@@ -29,7 +29,11 @@ environment:
    - **Deployment branches and tags:** "Selected branches and tags", with one rule: tags matching `v*`.
    - **Required reviewers:** yourself. Each release then waits for your OK before the key is used.
 
-   Register the secrets under that environment (Environment secrets), not as repository secrets:
+   Set these rules **before** adding any secret: the required reviewer is the gate that matters, since anyone who can
+   push could create a new `v*` tag. Optionally, also add a tag ruleset (Settings › Rules › Rulesets, target tags
+   `v*`) that limits who can create them.
+
+   Only then register the secrets under that environment (Environment secrets), not as repository secrets:
 
    | Secret | Value |
    |---|---|
