@@ -360,13 +360,13 @@ describe('SECURITY review of #372', () => {
 })
 
 describe('DESIGN on usableMore (#372)', () => {
-  it('joins the tools as a unit list, so no "and" comes before "and N more"', () => {
+  it('joins the tools with ", " before "and N more", and a complete list with the language\'s conjunction (option A)', () => {
     const message = mainMessage('approvals.note.policy.usableMore', { tools: ['a', 'b', 'c'], more: 2 })
     expect(messageValues(message, 'en')).toEqual({ tools: 'a, b, c', more: '2' })
-    // pt-BR's unit list still joins the last two with "e" (CLDR), as DESIGN's Intl.ListFormat type 'unit' gives it.
-    expect(messageValues(message, 'pt-BR')).toEqual({ tools: 'a, b e c', more: '2' })
-    // Every other list keeps the conjunction.
-    expect(messageValues(mainMessage('approvals.note.policy.usable', { tools: ['a', 'b'] }), 'en')).toEqual({ tools: 'a and b' })
+    expect(messageValues(message, 'pt-BR')).toEqual({ tools: 'a, b, c', more: '2' })
+    const complete = mainMessage('approvals.note.policy.usable', { tools: ['a', 'b', 'c'] })
+    expect(messageValues(complete, 'en')).toEqual({ tools: 'a, b, and c' })
+    expect(messageValues(complete, 'pt-BR')).toEqual({ tools: 'a, b e c' })
   })
 })
 

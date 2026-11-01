@@ -685,12 +685,13 @@ export function messageKey(code: MessageCode): `messages.${MessageCode}` {
   return `messages.${code}`
 }
 
-/** Codes whose list is followed by its own "and N more": joined as a unit list (DESIGN #372), never with a final "and". */
+/** Codes whose list is followed by its own "and N more": joined with ", " in every language (DESIGN #372, option A), never with a final "and". */
 const UNIT_LISTS: ReadonlySet<MessageCode> = new Set<MessageCode>(['approvals.note.policy.usableMore'])
 
 /** Interpolation values for the catalog: lists are joined the way the language writes them. */
 export function messageValues(message: MainMessage, language: string): Record<string, string> {
-  const list = new Intl.ListFormat(language, { style: 'long', type: UNIT_LISTS.has(message.code) ? 'unit' : 'conjunction' })
+  const list = new Intl.ListFormat(language, { style: 'long', type: 'conjunction' })
+  const join = (items: string[]) => UNIT_LISTS.has(message.code) ? items.join(', ') : list.format(items)
   return Object.fromEntries(Object.entries(message.params as Record<string, unknown>)
-    .map(([name, value]) => [name, Array.isArray(value) ? list.format(value.map(String)) : String(value)]))
+    .map(([name, value]) => [name, Array.isArray(value) ? join(value.map(String)) : String(value)]))
 }
