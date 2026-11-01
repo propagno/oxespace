@@ -24,14 +24,18 @@ android {
     // release smoke test against the build R8 shrank.
     testBuildType = providers.gradleProperty("oxespace.testBuildType").getOrElse("debug")
 
-    // Only on the release workflow, from repository secrets (RELEASING.md); the key is never in the repository.
+    // The release workflow builds unsigned and signs with apksigner in its own job (RELEASING.md). A local signed build
+    // is possible with all four variables set; with any of them missing the release APK is simply unsigned.
     val keystore = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
-    if (keystore != null) {
+    val storePass = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+    val alias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+    val keyPass = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+    if (keystore != null && storePass != null && alias != null && keyPass != null) {
         signingConfigs.create("release") {
             storeFile = file(keystore)
-            storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").get()
-            keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").get()
-            keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").get()
+            storePassword = storePass
+            keyAlias = alias
+            keyPassword = keyPass
             enableV2Signing = true
             enableV3Signing = true
         }
