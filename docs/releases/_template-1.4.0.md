@@ -160,5 +160,11 @@ away.** Run it from the pane's shell instead. Shells, Claude Code and Codex are 
 after its pane closes.**" -->
 <!-- add when #387 merges (B26 closes it in 1.4.1): "**A Git filter added to a repository's settings at the moment an
 action starts can run once** before OXESpace notices it." -->
+- **Going back to 1.3.3 needs the automatic backup.** 1.4.0 updates your data the first time it opens, after saving a
+  verified copy. 1.3.3 opened on the updated data shows an empty workspace; nothing is lost, but it can't read it. To go
+  back: close OXESpace, install 1.3.3 from the Releases page, and put the newest file from the `db-backups` folder in
+  place of `oxespace.sqlite3` (Windows: `%APPDATA%\oxespace`; Linux: `~/.config/oxespace`). Then open 1.3.3.
+  <!-- link the runbook when #390 merges: docs/ci-cd.md, "When a release goes wrong". Confirm the data file name and the
+  folders against electron/main/db/index.ts at the cut. -->
 - **The phone and the computer must be on the same local network**; there is no access over the internet, and the
   phone app is Android only.
