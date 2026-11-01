@@ -214,7 +214,7 @@ private fun AgentRow(row: RemoteAgentRow, enabled: Boolean, onOpen: () -> Unit, 
     // Spec §5.8: "Fix the login redirect, needs you for 3 minutes, oxespace, Claude, Wants to run an action, and 1 more".
     val spoken = listOfNotNull(
         title,
-        spokenSince(stateWord, row.since, waiting = state == RemoteAgentState.NEEDS_YOU),
+        spokenSince(stateWord, row.since, ongoing = state == RemoteAgentState.NEEDS_YOU || state == RemoteAgentState.WORKING),
         workspace,
         provider,
         tasks,
@@ -285,11 +285,11 @@ private fun requestTitleText(request: RemoteAgentRow.Request): String {
 }
 
 /**
- * The state and its time, in words: a wait is a duration ("needs you for 3 minutes" / "precisa de você há 3 minutos"),
- * any other state is a moment ("failed 2 minutes ago" / "falhou há 2 minutos").
+ * The state and its time, in words: a state still going on (needs you, working) is a duration ("needs you for 3
+ * minutes" / "precisa de você há 3 minutos"); any other state is a moment ("failed 2 minutes ago" / "falhou há 2 minutos").
  */
 @Composable
-private fun spokenSince(stateWord: String, since: Long, waiting: Boolean): String {
+private fun spokenSince(stateWord: String, since: Long, ongoing: Boolean): String {
     val minutes = ((LocalClock.current() - since) / 60_000).coerceAtLeast(0).toInt()
     val duration = when {
         minutes < 1 -> return stateWord
@@ -297,7 +297,7 @@ private fun spokenSince(stateWord: String, since: Long, waiting: Boolean): Strin
         minutes < 24 * 60 -> (minutes / 60).let { pluralStringResource(R.plurals.agents_duration_hours, it, it) }
         else -> (minutes / (24 * 60)).let { pluralStringResource(R.plurals.agents_duration_days, it, it) }
     }
-    return stringResource(if (waiting) R.string.agents_spoken_since else R.string.agents_spoken_ago, stateWord.lowercase(), duration)
+    return stringResource(if (ongoing) R.string.agents_spoken_since else R.string.agents_spoken_ago, stateWord.lowercase(), duration)
 }
 
 /** A work run or a delegation: what the phone knows of it, read-only; the details stay on the computer. */
