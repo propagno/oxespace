@@ -1,5 +1,6 @@
 /**
- * Files that steer an agent: its instructions, its MCP servers and its hooks.
+ * Files that steer an agent: its instructions, its MCP servers and its hooks, and git's configuration, which names
+ * commands git runs later (core.sshCommand, core.fsmonitor, aliases, filter drivers).
  *
  * Text an agent reads (a web page, an issue, a file in a cloned repository) can try to make it rewrite
  * these, so that the next session, or another agent, starts under someone else's orders: an injection
@@ -12,12 +13,13 @@
 import { baseName, evaluateShellCommand, splitShellCommand, tokenize } from '../shell-command-rules'
 import { mainMessage, type MainMessage } from '../../../../../shared/messages'
 
-export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks'
+export type ProtectedConfigKind = 'instructions' | 'mcp' | 'hooks' | 'git'
 
 export const PROTECTED_CONFIG_LABEL: Record<ProtectedConfigKind, string> = {
   instructions: 'agent instructions',
   mcp: 'MCP server settings',
-  hooks: 'agent hooks'
+  hooks: 'agent hooks',
+  git: 'git configuration'
 }
 
 /** File names that are protected at any depth, lower-cased. Add a name here and it is protected everywhere. */
@@ -29,7 +31,8 @@ export const PROTECTED_CONFIG_NAMES: Readonly<Record<string, ProtectedConfigKind
   '.cursorrules': 'instructions',
   '.windsurfrules': 'instructions',
   'copilot-instructions.md': 'instructions',
-  '.mcp.json': 'mcp'
+  '.mcp.json': 'mcp',
+  '.gitconfig': 'git'
 }
 
 /**
@@ -46,7 +49,15 @@ export const PROTECTED_CONFIG_PLACES: ReadonlyArray<{ kind: ProtectedConfigKind;
   { kind: 'mcp', pattern: /(^|\/)\.(cursor|vscode)\/mcp\.json$/, names: ['.cursor', '.vscode', 'mcp.json'] },
   { kind: 'mcp', pattern: /(^|\/)\.(codex\/config\.toml|gemini\/settings\.json)$/, names: ['.codex', '.gemini', 'config.toml', 'settings.json'] },
   { kind: 'instructions', pattern: /(^|\/)\.cursor\/rules\//, names: ['.cursor', 'rules'] },
-  { kind: 'instructions', pattern: /(^|\/)\.github\/copilot-instructions\.md$/, names: ['.github', 'copilot-instructions.md'] }
+  { kind: 'instructions', pattern: /(^|\/)\.github\/copilot-instructions\.md$/, names: ['.github', 'copilot-instructions.md'] },
+  // Git's own configuration: global (XDG), the repository's, a worktree's, and the system file of any Git install
+  // (/etc/gitconfig, C:/Program Files/Git/etc/gitconfig, a per-user install's etc/gitconfig). The repository's
+  // .gitattributes is NOT here: it is an ordinary tracked file agents edit, and the drivers it names live in config.
+  { kind: 'git', pattern: /(^|\/)\.config\/git\/(config|attributes|ignore)$/, names: ['.config', 'git', 'config', 'attributes', 'ignore'] },
+  { kind: 'git', pattern: /(^|\/)\.git\/config(\.worktree)?$/, names: ['.git', 'config', 'config.worktree'] },
+  { kind: 'git', pattern: /(^|\/)\.git\/worktrees\/[^/]+\/config\.worktree$/, names: ['.git', 'worktrees', 'config.worktree'] },
+  { kind: 'git', pattern: /(^|\/)\.git\/info\/attributes$/, names: ['.git', 'info', 'attributes'] },
+  { kind: 'git', pattern: /(^|\/)etc\/gitconfig$/, names: ['etc', 'gitconfig'] }
 ]
 
 /** Every name a protected file or folder is spelled with, for reading 8.3 short names back. */
@@ -123,6 +134,8 @@ const WRITERS = new Set([
 
 /** The first protected file that a writing command in this line names (the shell's own redirections already ask). */
 export function commandWritesProtected(command: string): { path: string; kind: ProtectedConfigKind } | null {
+  const gitConfig = commandWritesGitConfig(command)
+  if (gitConfig) return gitConfig
   for (const sub of splitShellCommand(command) ?? [command]) {
     const tokens = tokenize(sub)
     if (!tokens.length || !WRITERS.has(baseName(tokens[0]))) continue
@@ -232,8 +245,70 @@ export function commandRewritesTracked(command: string): string | null {
   return null
 }
 
+/** `git config` options that write; its other action options read. */
+const GIT_CONFIG_WRITES = new Set(['--add', '--unset', '--unset-all', '--replace-all', '--rename-section', '--remove-section', '--edit', '-e'])
+const GIT_CONFIG_READS = new Set(['--get', '--get-all', '--get-regexp', '--get-urlmatch', '--get-color', '--get-colorbool', '--list', '-l', '--blob'])
+/** `git config` options that take the next token as their value. */
+const GIT_CONFIG_VALUE_OPTIONS = new Set(['--blob', '--type', '-t', '--default', '--comment', '--value'])
+/** The subcommands of git 2.46+ (`git config set`, `git config list`). */
+const GIT_CONFIG_WRITE_SUBS = new Set(['set', 'unset', 'rename-section', 'remove-section', 'edit'])
+const GIT_CONFIG_READ_SUBS = new Set(['get', 'list', 'get-color', 'get-colorbool'])
+
+/** The file one tokenized `git config` writes, or null when it reads, writes an ordinary file or is not `git config`. */
+function gitConfigTarget(tokens: string[]): string | null {
+  if (baseName(tokens[0] ?? '').toLowerCase() !== 'git') return null
+  let index = 1
+  while (index < tokens.length && tokens[index].startsWith('-')) index += GIT_VALUE_OPTIONS.has(tokens[index]) ? 2 : 1
+  if ((tokens[index] ?? '').toLowerCase() !== 'config') return null
+  let file: string | null = null
+  let scope = '.git/config'
+  let writes = false
+  let reads = false
+  const positional: string[] = []
+  for (let at = index + 1; at < tokens.length; at++) {
+    const token = tokens[at]
+    const equals = token.startsWith('--') ? token.indexOf('=') : -1
+    const option = equals > 0 ? token.slice(0, equals) : token
+    const inline = equals > 0 ? token.slice(equals + 1) : undefined
+    if (option === '--global') scope = '~/.gitconfig'
+    else if (option === '--system') scope = 'etc/gitconfig'
+    else if (option === '--worktree') scope = '.git/config.worktree'
+    else if (option === '--local') scope = '.git/config'
+    else if (option === '--file' || option === '-f') { file = inline ?? tokens[at + 1] ?? ''; if (inline === undefined) at++ }
+    else if (GIT_CONFIG_WRITES.has(option)) writes = true
+    else if (GIT_CONFIG_READS.has(option) || GIT_CONFIG_VALUE_OPTIONS.has(option)) {
+      if (GIT_CONFIG_READS.has(option)) reads = true
+      if (GIT_CONFIG_VALUE_OPTIONS.has(option) && inline === undefined) at++
+    } else if (!token.startsWith('-')) positional.push(token)
+  }
+  const sub = (positional[0] ?? '').toLowerCase()
+  if (GIT_CONFIG_WRITE_SUBS.has(sub)) writes = true
+  // Without an action or a read subcommand, `git config name value` sets a value and `git config name` reads one.
+  else if (!GIT_CONFIG_READ_SUBS.has(sub) && !writes && !reads && positional.length >= 2) writes = true
+  if (!writes) return null
+  if (file !== null) return protectedConfigKind(file) ? file : null
+  return scope
+}
+
+/**
+ * B16 · A `git config` that writes git's configuration: global, system, the repository's, a worktree's, or a protected
+ * file named with --file, alone or inside a nested shell. Setting a value, --add, --unset, --replace-all,
+ * --rename-section, --remove-section and --edit write; --get, --list and the other reads do not. `git -c name=value`
+ * lasts one command and is left alone.
+ */
+export function commandWritesGitConfig(command: string): { path: string; kind: 'git' } | null {
+  for (const text of commandTexts(command)) {
+    for (const sub of splitShellCommand(text) ?? text.split(/&&|\|\||[;|&\n]/)) {
+      const path = gitConfigTarget(tokenize(sub.trim()))
+      if (path) return { path, kind: 'git' }
+    }
+  }
+  return null
+}
+
 /** English, for the audit trail and logs; the person sees `protectedConfigNote` in their language. */
 export function protectedConfigReason(path: string, kind: ProtectedConfigKind): string {
+  if (kind === 'git') return `"${path}" holds git configuration. Git can run commands named there, so it needs your confirmation each time.`
   return `"${path}" holds ${PROTECTED_CONFIG_LABEL[kind]}. A change there steers every later session, so it needs your confirmation each time.`
 }
 
