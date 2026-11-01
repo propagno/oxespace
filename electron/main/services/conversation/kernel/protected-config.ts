@@ -53,9 +53,13 @@ export const PROTECTED_CONFIG_PLACES: ReadonlyArray<{ kind: ProtectedConfigKind;
   // Git's own configuration: global (XDG), the repository's, a worktree's, and the system file of any Git install
   // (/etc/gitconfig, C:/Program Files/Git/etc/gitconfig, a per-user install's etc/gitconfig). The repository's
   // .gitattributes is NOT here: it is an ordinary tracked file agents edit, and the drivers it names live in config.
-  // Any config-like folder holding git/config: ~/.config, and $XDG_CONFIG_HOME or wherever it points.
-  { kind: 'git', pattern: /(^|\/)[^/]*config[^/]*\/git\/(config|attributes|ignore)$/, names: ['.config', 'git', 'config', 'attributes', 'ignore'] },
-  { kind: 'git', pattern: /(^|\/)\.git\/modules\/.+\/config$/, names: ['.git', 'modules', 'config'] },
+  // The XDG files: ~/.config/git/…, $XDG_CONFIG_HOME/git/… in its shell spellings, and a config/git/… folder right
+  // under a home (~, $HOME, %USERPROFILE%, /home/<user>, C:/Users/<user>, /root). A project's src/config/git/config is not.
+  // `$env` is PowerShell's `$env:NAME`, whose `:NAME` the Windows path reading drops as a stream name.
+  { kind: 'git', pattern: /(^|\/)(\.config|\$\{?xdg_config_home\}?|%xdg_config_home%|\$env)\/git\/(config|attributes|ignore)$/, names: ['.config', 'git', 'config', 'attributes', 'ignore'] },
+  { kind: 'git', pattern: /(^|\/)(~|\$\{?home\}?|%userprofile%|\$env|home\/[^/]+|users\/[^/]+|root)\/config\/git\/(config|attributes|ignore)$/, names: ['config', 'git', 'attributes', 'ignore'] },
+  // A submodule's git folder: its config, its worktree config and its attributes.
+  { kind: 'git', pattern: /(^|\/)\.git\/modules\/.+\/(config|config\.worktree|info\/attributes)$/, names: ['.git', 'modules', 'config', 'config.worktree', 'info', 'attributes'] },
   { kind: 'git', pattern: /(^|\/)programdata\/git\/config$/, names: ['programdata', 'git', 'config'] },
   { kind: 'git', pattern: /(^|\/)\.git\/config(\.worktree)?$/, names: ['.git', 'config', 'config.worktree'] },
   { kind: 'git', pattern: /(^|\/)\.git\/worktrees\/[^/]+\/config\.worktree$/, names: ['.git', 'worktrees', 'config.worktree'] },
@@ -137,7 +141,7 @@ const WRITERS = new Set([
 
 /** The first protected file that a writing command in this line names (the shell's own redirections already ask). */
 export function commandWritesProtected(command: string): { path: string; kind: ProtectedConfigKind } | null {
-  const gitConfig = commandWritesGitConfig(command)
+  const gitConfig = commandWritesGitConfig(command) ?? commandWritesComputedGitPath(command)
   if (gitConfig) return gitConfig
   for (const sub of splitShellCommand(command) ?? [command]) {
     const tokens = tokenize(sub)
@@ -265,7 +269,49 @@ const GIT_CONFIG_SCOPES: Readonly<Record<string, string>> = { '--global': '~/.gi
 const GIT_CONFIG_WRITE_SUBS = new Set(['set', 'unset', 'rename-section', 'remove-section', 'edit'])
 const GIT_CONFIG_READ_SUBS = new Set(['get', 'list', 'get-color', 'get-colorbool'])
 /** A --file value the shell computes or that points into a .git folder: it may well be the repository's config. */
-const COMPUTED_FILE = /[$`]|git\s+rev-parse|(^|[\\/])\.git[\\/]/i
+const COMPUTED_FILE = /[$`%]|git\s+rev-parse|(^|[\\/])\.git[\\/]/i
+/** The endings of git's configuration files, for a write target the shell computes (`$(git rev-parse --git-dir)/config`). */
+const GIT_CONFIG_SUFFIX = /(^|\/)(config|config\.worktree|info\/attributes|\.gitconfig|git\/ignore|git\/attributes)$/
+
+/** One path the shell computes ($, ${}, %VAR%, a backtick, $(…), git rev-parse) that ends like a git configuration file. */
+function isComputedGitPath(target: string): boolean {
+  const path = target.replace(/^["']+|["']+$/g, '').replace(/\\/g, '/').toLowerCase().replace(/[.\s]+$/, '')
+  return /[$`%]|git\s+rev-parse/.test(path) && GIT_CONFIG_SUFFIX.test(path)
+}
+
+/** A write target in command text: quoted, a `$(…)` or backtick substitution with what follows it, or a plain word. */
+const TARGET = /"[^"]*"|'[^']*'|\$\([^)]*\)[^\s;&|<>]*|`[^`]*`[^\s;&|<>]*|[^\s;&|<>]+/g
+const REDIRECT = /(?:\d|&)?>>?\|?\s*("[^"]*"|'[^']*'|\$\([^)]*\)[^\s;&|<>]*|`[^`]*`[^\s;&|<>]*|[^\s;&|<>]+)/g
+/** Commands whose arguments are files they write; for the copying ones only the destination is. */
+const TARGET_WRITERS = new Set(['tee', 'set-content', 'add-content', 'out-file', 'sc', 'ac', 'new-item', 'ni', 'truncate', 'touch', 'dd'])
+const COPIERS = new Set(['cp', 'mv', 'install', 'ln', 'copy-item', 'move-item', 'copy', 'move', 'cpi', 'mi'])
+
+/**
+ * B16 · A write whose target the shell computes and that ends like a git configuration file: a redirect (`>`, `>>`),
+ * tee, a cp or mv destination, Set-Content, Add-Content or Out-File (`echo x >> "$(git rev-parse --git-dir)/config"`).
+ */
+export function commandWritesComputedGitPath(command: string): { path: string; kind: 'git' } | null {
+  for (const text of commandTexts(command)) {
+    for (const match of text.matchAll(REDIRECT)) if (isComputedGitPath(match[1])) return { path: match[1].replace(/^["']|["']$/g, ''), kind: 'git' }
+    for (const sub of text.split(/&&|\|\||[;|\n]/)) {
+      const words = [...sub.matchAll(TARGET)].map(match => match[0])
+      let head = 0
+      while (head < words.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[head])) head++
+      const name = baseName((words[head] ?? '').replace(/^["']|["']$/g, ''))
+      const args = words.slice(head + 1)
+      let targets: string[] = []
+      if (TARGET_WRITERS.has(name)) targets = args.map(arg => arg.replace(/^(of|-path|-filepath|-literalpath)[=:]/i, ''))
+      else if (COPIERS.has(name)) {
+        const plain = args.filter(arg => !arg.startsWith('-'))
+        const named = args.flatMap((arg, at) => /^(-t|--target-directory|-destination)$/i.test(arg) ? [args[at + 1] ?? ''] : /^--target-directory=/i.test(arg) ? [arg.slice(arg.indexOf('=') + 1)] : [])
+        targets = [...plain.slice(-1), ...named]
+      }
+      const found = targets.find(isComputedGitPath)
+      if (found) return { path: found.replace(/^["']|["']$/g, ''), kind: 'git' }
+    }
+  }
+  return null
+}
 
 /** The long options a spelling stands for: itself, or every option it is a prefix of (git refuses an ambiguous one). */
 function longOptions(option: string): string[] {
@@ -315,9 +361,42 @@ function gitConfigArgsTarget(tokens: string[], start: number): string | null {
 /** A command name with the backticks and parentheses of a substitution around it dropped (`` `which git` ``, `$(which git)`). */
 const commandName = (token: string): string => baseName(token.replace(/^[`(]+|[`)]+$/g, ''))
 /** A command name the shell computes: a variable or a substitution (`$GIT`, `${GIT}`, `$(…)`, `` `…` ``). */
-const computedName = (token: string): boolean => /^\$|[`]|\$\(/.test(token)
+const computedName = (token: string): boolean => /^[$@]|[`]|\$\(/.test(token)
 /** `-c alias.<name>=…` whose alias runs `git config` or a shell command (`!…`): the next git call writes config with it. */
 const CONFIG_ALIAS = /^alias\.[^=]+=\s*(config\b|!)/i
+/** Words that run the command after them: `env`, `sudo`, `timeout 5`, `cmd /c`… */
+const WRAPPERS = new Set(['env', 'sudo', 'doas', 'command', 'builtin', 'timeout', 'nohup', 'nice', 'ionice', 'xargs', 'exec', 'time', 'stdbuf', 'cmd', 'call'])
+
+/** Where the command of a sub-command starts, past assignments (`X=1`) and wrappers with their options. */
+function commandStart(tokens: string[]): number {
+  let at = 0
+  while (at < tokens.length) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[at])) { at++; continue }
+    if (!WRAPPERS.has(commandName(tokens[at]))) break
+    at++
+    while (at < tokens.length && (/^[-/]/.test(tokens[at]) || /^\d/.test(tokens[at]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[at]))) at++
+  }
+  return at
+}
+
+/** PowerShell's `Start-Process git -ArgumentList "config …"` (or `'config','a','b'`, or the second positional): git's arguments. */
+function startProcessGitArgs(tokens: string[], at: number): string[] | null {
+  const rest = tokens.slice(at + 1)
+  let file: string | undefined
+  let list: string | undefined
+  const positional: string[] = []
+  for (let index = 0; index < rest.length; index++) {
+    const token = rest[index]
+    if (/^-(filepath|file|f|path)$/i.test(token)) file = rest[++index]
+    else if (/^-(arg|args|argumentlist|argu\w*)$/i.test(token)) list = rest[++index]
+    else if (token.startsWith('-')) continue
+    else positional.push(token)
+  }
+  file ??= positional.shift()
+  list ??= positional.shift()
+  if (!file || commandName(file) !== 'git' || !list) return null
+  return list.split(/[\s,]+/).map(arg => arg.replace(/^["']|["']$/g, '')).filter(Boolean)
+}
 
 /**
  * What one tokenized sub-command writes of git's configuration, or null. The git command is found anywhere in it, so
@@ -329,19 +408,33 @@ const CONFIG_ALIAS = /^alias\.[^=]+=\s*(config\b|!)/i
  * off by default), and agents run them all day. `git -c name=value` lasts one command, except a config-writing alias.
  */
 function gitConfigWriteIn(tokens: string[]): string | null {
+  const start = commandStart(tokens)
   for (let at = 0; at < tokens.length; at++) {
     const name = commandName(tokens[at])
     if (name === 'git-config') { const target = gitConfigArgsTarget(tokens, at + 1); if (target) return target; continue }
     if (name === 'git-lfs' && tokens[at + 1]?.toLowerCase() === 'install') return lfsInstallTarget(tokens, at + 2)
     if (name === 'gh' && tokens[at + 1]?.toLowerCase() === 'auth' && tokens[at + 2]?.toLowerCase() === 'setup-git') return '~/.gitconfig'
-    if (name !== 'git' && !computedName(tokens[at])) continue
+    if (name === 'start-process' || name === 'saps' || name === 'start') {
+      const args = startProcessGitArgs(tokens, at)
+      const target = args && gitConfigWriteIn(['git', ...args])
+      if (target) return target
+      continue
+    }
+    // A variable or substitution counts as git only where the command stands (`$GIT config`), not as an argument
+    // of another program (`npm $CMD config`).
+    const computed = at === start && computedName(tokens[at])
+    if (name !== 'git' && !computed) continue
     let index = at + 1
     while (index < tokens.length && tokens[index].startsWith('-')) {
       if (tokens[index] === '-c' && CONFIG_ALIAS.test(tokens[index + 1] ?? '')) return '.git/config'
-      index += GIT_VALUE_OPTIONS.has(tokens[index]) ? 2 : 1
+      // `--config-env=alias.x=VAR` takes the alias from the environment: what it runs cannot be read here.
+      if (/^--config-env=alias\./i.test(tokens[index]) || (tokens[index] === '--config-env' && /^alias\./i.test(tokens[index + 1] ?? ''))) return '.git/config'
+      index += GIT_VALUE_OPTIONS.has(tokens[index]) || tokens[index] === '--config-env' ? 2 : 1
     }
     const sub = (tokens[index] ?? '').toLowerCase()
     const next = (tokens[index + 1] ?? '').toLowerCase()
+    // A subcommand the shell computes (`git $(…) …`, `git $SUB`, `& git.exe @args`) may be config.
+    if (name === 'git' && sub && computedName(sub)) return '.git/config'
     if (sub === 'config') { const target = gitConfigArgsTarget(tokens, index + 1); if (target) return target }
     // `git maintenance register|start` adds the repository to the global config; `gh auth setup-git` and
     // `git lfs install` set credential helpers and filter drivers there (or in the scope they are given).

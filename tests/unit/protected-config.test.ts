@@ -371,7 +371,9 @@ describe('git configuration (B16)', () => {
     expect(run(command), command).toMatchObject({ decision: 'ask', guarded: true })
   })
 
-  it.each(['$XDG_CONFIG_HOME/git/config', '/home/me/xdg-config/git/config', '.git/modules/sub/config', '.git/modules/a/modules/b/config', 'C:\\ProgramData\\Git\\config', 'c:/programdata/git/config'])(
+  it.each(['$XDG_CONFIG_HOME/git/config', '${XDG_CONFIG_HOME}/git/ignore', '%XDG_CONFIG_HOME%\\git\\attributes', '$env:XDG_CONFIG_HOME\\git\\config',
+    '/home/me/config/git/config', '~/config/git/ignore', 'C:\\Users\\me\\config\\git\\attributes', '$HOME/config/git/config',
+    '.git/modules/sub/config.worktree', '.git/modules/sub/info/attributes', '.git/modules/sub/config', '.git/modules/a/modules/b/config', 'C:\\ProgramData\\Git\\config', 'c:/programdata/git/config'])(
     'M · reads %j as git configuration', path => {
       expect(protectedConfigKind(path), path).toBe('git')
     })
@@ -383,6 +385,44 @@ describe('git configuration (B16)', () => {
     'gh auth status', 'git config -f build.cfg a b', '$GIT config --get user.name', 'env git config --list'
   ])('L · leaves %j alone', command => {
     expect(commandWritesGitConfig(command), command).toBeNull()
+  })
+
+  // #388 re-check. M1/M2: a write target the shell computes that ends like a git configuration file.
+  it.each([
+    'echo x >> "$(git rev-parse --git-dir)/config"', 'echo x > $(git rev-parse --git-dir)/config', 'echo x > `git rev-parse --git-dir`/config',
+    'printf x > $GIT_DIR/config', 'echo x > ${GIT_DIR}/config.worktree', 'echo x > %GIT_DIR%\\info\\attributes', 'echo x 2>> $D/info/attributes',
+    'echo x | tee -a "$(git rev-parse --git-common-dir)/config"', 'echo x | tee $GIT_DIR/config', 'cp /tmp/evil $(git rev-parse --git-dir)/config',
+    'mv evil ${XDG_CONFIG_HOME}/git/ignore', 'mv evil "$(git rev-parse --git-dir)/info/attributes"', 'echo x > ${XDG_CONFIG_HOME}/git/config', 'echo x > ${XDG_CONFIG_HOME}/git/ignore',
+    'Set-Content -Path "$env:GIT_DIR\\config" -Value x', '"x" | Out-File $env:XDG_CONFIG_HOME\\git\\attributes', 'Add-Content -Path:"$d/config" x',
+    'Copy-Item evil -Destination "$env:USERPROFILE\\.gitconfig"', 'echo x > $HOME/.gitconfig'
+  ])('M1 · guards the computed write target in %j', command => {
+    expect(commandWritesProtected(command), command).toMatchObject({ kind: 'git' })
+    expect(run(command), command).toMatchObject({ decision: 'ask', guarded: true })
+  })
+
+  // M3, L3, L4: PowerShell's Start-Process and call operator, a computed subcommand, an alias from the environment.
+  it.each([
+    'Start-Process git -ArgumentList "config core.fsmonitor x"', "Start-Process -FilePath git.exe -ArgumentList 'config','--global','core.sshCommand','x'",
+    'saps git "config core.fsmonitor x"', 'Start-Process git -Args "config --unset-a core.x"', "& 'git.exe' @args", '& git @gitArgs',
+    'git $(echo config) core.fsmonitor x', 'git `echo config` a b', 'git $SUB core.x y', 'git -C sub $SUB a b',
+    'git --config-env=alias.x=EVIL x', 'git --config-env alias.x=EVIL x'
+  ])('M3/L3/L4 · guards %j', command => {
+    expect(commandWritesGitConfig(command), command).toMatchObject({ kind: 'git' })
+    expect(run(command), command).toMatchObject({ decision: 'ask', guarded: true })
+  })
+
+  // L2, L5 and computed targets that are not git configuration stay clean.
+  it.each([
+    'npm $CMD config set x y', 'docker $ARGS config a b', 'echo $x config a b', 'echo x > $OUT/notes.txt', 'echo x > "$(pwd)/build.log"',
+    'cp $(git rev-parse --show-toplevel)/README.md /tmp/x', 'cat "$(git rev-parse --git-dir)/config"', 'Start-Process npm -ArgumentList "config set x y"',
+    'Start-Process git -ArgumentList "config --get user.name"', 'git log 2>&1', 'git status > $OUT/status.txt', 'git --config-env=core.pager=PAGER log',
+    'tee $LOG/out.txt', 'cp src/config /tmp/config'
+  ])('L2 · leaves %j alone', command => {
+    expect(commandWritesProtected(command), command).toBeNull()
+  })
+
+  it.each(['src/config/git/config', 'app/config/git/attributes', 'packages/a/config/git/ignore', 'config/git/config'])('L5 · leaves the project file %j alone', path => {
+    expect(protectedConfigKind(path), path).toBeNull()
   })
 
   it('asks every time for a git config write, whatever a saved rule says, with no session answer', () => {
