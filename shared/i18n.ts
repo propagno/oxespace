@@ -14,7 +14,7 @@ export type LanguagePreference = 'system' | Language
  * its message codes (C3); `mobile` is the Android app's, turned into its string resources by
  * scripts/android/generate.mjs.
  */
-export const NAMESPACES = ['common', 'code', 'thread', 'oxequery', 'pods', 'post', 'settings', 'main', 'mobile'] as const
+export const NAMESPACES = ['common', 'code', 'thread', 'oxequery', 'pods', 'post', 'settings', 'main', 'mobile', 'voice'] as const
 export type Namespace = (typeof NAMESPACES)[number]
 
 /** Any Portuguese locale (pt, pt-BR, pt_PT…) opens in Brazilian Portuguese; everything else in English. */
