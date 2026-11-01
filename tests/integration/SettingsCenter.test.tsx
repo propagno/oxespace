@@ -11,7 +11,7 @@ async function setup(onSave = vi.fn(async () => {})) {
   const onClose = vi.fn()
   render(<SettingsCenter workspaces={[workspace]} initialWorkspaceId="ws" shellProfiles={[]} onSave={onSave} onClose={onClose}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
-  await screen.findByRole('radio', { name: /Compact/ }) // the pages are a lazy chunk
+  await screen.findByRole('radio', { name: /Compact/ }, { timeout: 10_000 }) // the pages are a lazy chunk
   return { onSave, onClose }
 }
 test('scope navigation protects drafts and supports discard without saving', async () => {
