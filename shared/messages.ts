@@ -38,6 +38,7 @@ export interface MessageParams {
   'thread.protectedConfig.instructions': { path: string }
   'thread.protectedConfig.mcp': { path: string }
   'thread.protectedConfig.hooks': { path: string }
+  'thread.protectedConfig.git': { path: string }
   /** B7.3: the project's `.oxespace/policy.json` (the MCP tools the person blocked) or `oxe.yaml` (the tool groups offered). */
   'thread.protectedConfig.policy': { path: string }
   'thread.protectedConfig.warning': Record<string, never>
@@ -373,6 +374,7 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.instructions',
   'thread.protectedConfig.mcp',
   'thread.protectedConfig.hooks',
+  'thread.protectedConfig.git',
   'thread.protectedConfig.policy',
   'thread.protectedConfig.warning',
   'thread.protectedConfig.rewritesTracked',
