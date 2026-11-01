@@ -177,13 +177,20 @@ describe('the pane details name its agent session', () => {
     ;(window as unknown as { oxe: unknown }).oxe = { clipboard: { writeText } }
     const user = userEvent.setup()
     const session = { agent: 'claude' as const, sessionId: '0199a1b2-c3d4', source: 'launch' as const, resumeCommand: 'claude --resume 0199a1b2-c3d4' }
+    // A long id is cut in the middle; the whole id is in the title.
+    const long = '0199a1b2-c3d4-7e5f-9a0b-1c2d3e4f5a6b'
+    const { unmount } = render(<AgentSessionDetails session={{ ...session, sessionId: long, resumeCommand: `claude --resume ${long}` }} />)
+    expect(screen.getByTestId('pane-agent-session-id')).toHaveTextContent('0199a1b2…3e4f5a6b')
+    expect(screen.getByTestId('pane-agent-session-id')).toHaveAttribute('title', long)
+    unmount()
     const { rerender } = render(<AgentSessionDetails session={session} resume={{ outcome: 'resumed', agent: 'claude', sessionId: '0199a1b2-c3d4' }} />)
     const row = screen.getByTestId('pane-agent-session')
     expect(row.textContent).toMatch(/Agent session.{0,120}0199a1b2-c3d4/)
-    expect(row).toHaveTextContent('OXESpace started the agent on it')
+    expect(row).toHaveTextContent('Set when OXESpace started the agent')
     expect(row).toHaveTextContent('Resumed when the pane started')
     await user.click(screen.getByRole('button', { name: 'Copy resume command' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('claude --resume 0199a1b2-c3d4'))
+    await waitFor(() => expect(useToasts.getState().items.map(item => item.title)).toContain('Resume command copied'))
     rerender(<AgentSessionDetails session={{ ...session, source: 'hook' }} resume={{ outcome: 'notResumed', agent: 'claude', sessionId: 'old', message: { code: 'agents.resume.sessionMissing', params: {} } }} />)
     expect(screen.getByTestId('pane-agent-session')).toHaveTextContent('Reported by the agent’s status hook')
     expect(screen.getByTestId('pane-agent-session')).toHaveTextContent(/Not resumed: .+/)

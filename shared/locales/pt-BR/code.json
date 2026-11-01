@@ -1934,18 +1934,19 @@
   "agentResume": {
     "details": {
       "label": "Sessão do agente",
-      "source": "Obtida de",
+      "source": "Origem",
       "sources": {
-        "launch": "O OXESpace iniciou o agente nela",
+        "launch": "Definida quando o OXESpace iniciou o agente",
         "hook": "Informada pelo hook de status do agente",
         "recorded": "Lembrada de uma execução anterior"
       },
-      "state": "Retomada",
+      "state": "Último início",
       "resumed": "Retomada quando o painel iniciou",
       "startedFresh": "Iniciada do zero, como você escolheu",
       "notResumed": "Não retomada: {{reason}}",
       "copy": "Copiar comando de retomada",
-      "command": "Comando de retomada"
+      "command": "Comando de retomada",
+      "copied": "Comando de retomada copiado"
     },
     "resumedChip": "Sessão retomada",
     "resumedTitle": "Retomou a sessão anterior do {{agent}}",

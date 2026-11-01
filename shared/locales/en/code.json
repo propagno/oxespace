@@ -1863,18 +1863,19 @@
   "agentResume": {
     "details": {
       "label": "Agent session",
-      "source": "Learned from",
+      "source": "Source",
       "sources": {
-        "launch": "OXESpace started the agent on it",
+        "launch": "Set when OXESpace started the agent",
         "hook": "Reported by the agent’s status hook",
         "recorded": "Remembered from an earlier run"
       },
-      "state": "Resume",
+      "state": "Last start",
       "resumed": "Resumed when the pane started",
       "startedFresh": "Started fresh, as you chose",
       "notResumed": "Not resumed: {{reason}}",
       "copy": "Copy resume command",
-      "command": "Resume command"
+      "command": "Resume command",
+      "copied": "Resume command copied"
     },
     "resumedChip": "Session resumed",
     "resumedTitle": "Resumed the earlier {{agent}} session",

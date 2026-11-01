@@ -140,6 +140,9 @@ export function EnableResumeMenuItem({ agent, onDone }: { agent: ResumeAgent; on
   </Button>
 }
 
+/** A long session id cut in the middle; the whole id is in the title and in what is copied. */
+export const middleCut = (id: string): string => id.length > 20 ? `${id.slice(0, 8)}…${id.slice(-8)}` : id
+
 /**
  * "Agent session" in the pane's Details (F32 on B17): the native Claude Code or Codex session the pane is in, where
  * OXESpace learned it, what became of the earlier one at start, and "Copy resume command" with main's own command.
@@ -156,10 +159,10 @@ export function AgentSessionDetails({ session, resume }: { session: PaneAgentSes
       : startedFresh(resume) ? tc('agentResume.details.startedFresh') : tc('agentResume.details.notResumed', { reason: formatMainMessage(resume.message) })
   return <div className="pane-agent-session" data-testid="pane-agent-session">
     <dl className="detail-list">
-      <div><dt>{tc('agentResume.details.label')}</dt><dd><code data-testid="pane-agent-session-id">{session.sessionId}</code> ({AGENT[session.agent]})</dd></div>
+      <div><dt>{tc('agentResume.details.label')}</dt><dd><code data-testid="pane-agent-session-id" title={session.sessionId}>{middleCut(session.sessionId)}</code> ({AGENT[session.agent]})</dd></div>
       <div><dt>{tc('agentResume.details.source')}</dt><dd>{tc(`agentResume.details.sources.${session.source}`)}</dd></div>
       {state && <div><dt>{tc('agentResume.details.state')}</dt><dd>{state}</dd></div>}
     </dl>
-    <Button size="sm" onClick={() => void copyText(session.resumeCommand, tc('agentResume.details.command'))}>{tc('agentResume.details.copy')}</Button>
+    <Button size="sm" onClick={() => void copyText(session.resumeCommand, tc('agentResume.details.command'), tc('agentResume.details.copied'))}>{tc('agentResume.details.copy')}</Button>
   </div>
 }
