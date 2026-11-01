@@ -61,3 +61,5 @@ sozinha).
 ## Limites conhecidos
 
 - …
+<!-- entra quando o B13 (#374) for mesclado: "**No Windows, um programa gráfico usado como comando de um painel aparece
+como encerrado logo de início.** Rode-o pelo shell do painel. Shells, Claude Code e Codex não são afetados." -->
