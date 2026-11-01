@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'code.voice_dictation'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -131,7 +131,12 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.local_input': {
     label: 'Clipboard and voice',
     excluded: 'The person\'s own input devices.',
-    ipc: ['clipboard.*', 'voice.*', 'browserPreview.captureClipboard']
+    ipc: ['clipboard.*', 'browserPreview.captureClipboard']
+  },
+  'code.voice_dictation': {
+    label: 'Voice dictation',
+    forbidden: 'An agent never listens to the person\'s microphone; voice is the person\'s own input.',
+    ipc: ['voice.*']
   },
 
   // ---- Web Preview --------------------------------------------------------------

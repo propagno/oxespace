@@ -1588,6 +1588,31 @@
     "openSupervisor": "Abrir a supervisora",
     "cancel": "Cancelar a execução"
   },
+  "voice": {
+    "hold": "Segure para ditar",
+    "listening": "Ouvindo…",
+    "openSettings": "Abrir as configurações de fala",
+    "privacy": {
+      "osCloud": "O áudio é enviado ao serviço de fala da Microsoft",
+      "onDevice": "O áudio fica neste dispositivo"
+    },
+    "consent": {
+      "title": "Usar o serviço de fala da Microsoft?",
+      "body": "O ditado envia o seu áudio ao serviço de fala da Microsoft para transformá-lo em texto. Nada é gravado até você segurar o botão.",
+      "allow": "Permitir",
+      "decline": "Agora não"
+    },
+    "error": {
+      "generic": "O ditado parou. Tente de novo."
+    },
+    "unavailable": {
+      "unsupportedOs": "O ditado não está disponível neste sistema",
+      "consentRequired": "Permita o serviço de fala para ditar",
+      "speechPrivacyOff": "O reconhecimento de fala online está desligado nas configurações do sistema",
+      "noLanguage": "Nenhum idioma de ditado está instalado",
+      "engineError": "O motor de fala não está funcionando agora"
+    }
+  },
   "workbench": {
     "label": "Bancada do OxeChat",
     "panels": "Painéis da bancada",

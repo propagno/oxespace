@@ -1,0 +1,105 @@
+.voice-dictation {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.voice-dictation__button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-inline-size: var(--control-md);
+  min-block-size: var(--control-md);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.voice-dictation__button:disabled { cursor: not-allowed; opacity: 0.6; }
+.voice-dictation__button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.voice-dictation__dot {
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+.voice-dictation__button[data-recording] {
+  border-color: var(--danger, #b3261e);
+  background: var(--danger, #b3261e);
+  color: var(--text-on-accent, #fff);
+}
+.voice-dictation__button[data-recording] .voice-dictation__dot { animation: voice-dictation-pulse 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .voice-dictation__button[data-recording] .voice-dictation__dot { animation: none; }
+}
+@keyframes voice-dictation-pulse { 50% { transform: scale(0.6); opacity: 0.7; } }
+
+.voice-dictation__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-primary);
+}
+.voice-dictation__listening { font-weight: var(--weight-semibold); }
+.voice-dictation__privacy { color: var(--text-secondary); }
+.voice-dictation__partial {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.voice-dictation__alert {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--danger, #b3261e);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.voice-dictation__dialog {
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-2));
+  inset-inline-start: 0;
+  z-index: var(--layer-popover, 20);
+  display: grid;
+  gap: var(--space-2);
+  inline-size: min(320px, 90vw);
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+.voice-dictation__dialog-title { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.voice-dictation__dialog-body { margin: 0; color: var(--text-secondary); line-height: var(--leading-snug); }
+.voice-dictation__dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+.voice-dictation__action {
+  min-block-size: var(--control-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.voice-dictation__action--primary { border-color: var(--accent); background: var(--accent); color: var(--text-on-accent, #fff); }
+.voice-dictation__action:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
