@@ -3,8 +3,12 @@ name: Provider contract
 # Every night, the Thread protocol probes run against the newest Claude Code and Codex CLIs, so a change on
 # their side shows up here instead of in a user's report. The probes send no prompt and spend no quota.
 # Only the nightly run and a manual run on main publish compatibility.json and touch the issue. A pull request
-# or a dispatch on any other branch (the merge train's included) runs code that is not merged yet, so it only
-# reports, and fails its check when the contract breaks.
+# or a dispatch on any other branch runs code that is not merged yet, so it only reports, and fails its check
+# when the contract breaks. The merge train never dispatches this workflow.
+#
+# Token scope: the jobs that run the repository's scripts (probe, report) hold a read-only token and store
+# none on disk. Only the publish job writes, and it runs no repository code: it pushes the report's
+# compatibility.json and posts issue.md, on the publish condition only.
 on:
   schedule:
     - cron: '17 6 * * *'
@@ -26,7 +30,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: provider-contract
@@ -37,12 +40,16 @@ jobs:
     name: Probe (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
@@ -51,7 +58,15 @@ jobs:
           CLAUDE_VERSION: ${{ inputs.claude_version || 'latest' }}
           CODEX_VERSION: ${{ inputs.codex_version || 'latest' }}
         shell: bash
-        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_VERSION}" "@openai/codex@${CODEX_VERSION}"
+        run: |
+          # Only a dist-tag or a plain version: never an npm alias, a git spec or a tarball URL.
+          for version in "$CLAUDE_VERSION" "$CODEX_VERSION"; do
+            if ! [[ "$version" =~ ^(latest|next|stable|[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+              echo "::error::Not a dist-tag or a version: $version"
+              exit 1
+            fi
+          done
+          npm install --global "@anthropic-ai/claude-code@${CLAUDE_VERSION}" "@openai/codex@${CODEX_VERSION}"
       - name: Probe the providers
         # The report is collected even when a check fails; the report job decides the outcome.
         continue-on-error: true
@@ -72,10 +87,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      issues: write
+      contents: read
+    outputs:
+      ok: ${{ steps.summary.outputs.ok }}
     steps:
-      # The report script runs before the publish step decides anything: it gets no stored token.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -96,36 +111,53 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: compatibility
-          path: compatibility.json
+          path: |
+            compatibility.json
+            issue.md
+          if-no-files-found: warn
+      - name: Fail the check without publishing
+        if: steps.summary.outputs.ok == 'false' && !(github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+        run: cat issue.md && exit 1
+
+  publish:
+    name: Publish
+    needs: report
+    # The nightly run and a manual run on main only.
+    if: always() && needs.report.result == 'success' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # No checkout: nothing from the repository runs here, only the report's two files.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: compatibility
+          path: report
       # The app reads this file (electron/main/services/provider-compatibility.ts) to badge the installed CLIs.
       # One commit on its own branch, replaced every night: no history, nothing in main.
       - name: Publish compatibility.json
-        if: (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir publish && cp compatibility.json publish/ && cd publish
+          mkdir publish && cp report/compatibility.json publish/ && cd publish
           git init -q -b provider-contract
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add compatibility.json
           git commit -q -m "Provider contract check $(date -u +%Y-%m-%d)"
-          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" provider-contract
-      - name: Fail the check without publishing
-        if: steps.summary.outputs.ok == 'false' && !(github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
-        run: cat issue.md && exit 1
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" provider-contract
       - name: Open or update the issue
-        if: steps.summary.outputs.ok == 'false' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
-        env:
-          GH_TOKEN: ${{ github.token }}
+        if: needs.report.outputs.ok == 'false'
         run: |
           gh label create provider-contract --color B60205 --description "Nightly provider CLI contract check" 2>/dev/null || true
           number=$(gh issue list --label provider-contract --state open --json number --jq '.[0].number')
-          if [ -n "$number" ]; then gh issue comment "$number" --body-file issue.md; else gh issue create --title "Provider contract check failing" --label provider-contract --body-file issue.md; fi
+          if [ -n "$number" ]; then gh issue comment "$number" --body-file report/issue.md; else gh issue create --title "Provider contract check failing" --label provider-contract --body-file report/issue.md; fi
           exit 1
       - name: Close the issue when the contract holds again
-        if: steps.summary.outputs.ok == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+        if: needs.report.outputs.ok == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          for number in $(gh issue list --label provider-contract --state open --json number --jq '.[].number'); do gh issue close "$number" --comment "The contract check passes again: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; done
+          for number in $(gh issue list --label provider-contract --state open --json number --jq '.[].number'); do gh issue close "$number" --comment "The contract check passes again: ${RUN_URL}"; done

@@ -10,6 +10,7 @@ import {
   SHADOW_PREFIX,
   classifyCar,
   classifyMigration,
+  createBatchApi,
   countedMainRuns,
   countedTipRuns,
   isDeterministicRed,
@@ -21,6 +22,8 @@ import {
   runShadow,
   // @ts-expect-error -- a plain ES module script without type declarations
 } from '../../scripts/merge-train-batch.mjs'
+// @ts-expect-error -- a plain ES module script without type declarations
+import { DISPATCHABLE_WORKFLOWS, WATCHED_WORKFLOWS, createGitHubApi, step } from '../../scripts/merge-train.mjs'
 import { type Any, NOW, fakeGitHub, forge, kinds, train } from '../helpers/merge-train-fake'
 
 describe('SECURITY review of #379', () => {
@@ -219,20 +222,83 @@ describe('SECURITY re-review of #379 (N1, L8 residual)', () => {
     expect(kinds(gh.writes, 'dispatch').some(([, file]) => file === 'provider-contract.yml')).toBe(false)
   })
 
-  it('N1: Provider contract publishes and edits the issue only on its schedule or a manual run on main, with pinned actions', () => {
+  it('N1/F3: only a publish job writes, it runs no repository code, and only on the schedule or a manual run on main', () => {
     const wf = load(readFileSync(join('.github', 'workflows', 'provider-contract.yml'), 'utf8')) as Any
     const publish = "(github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))"
-    const steps = wf.jobs.report.steps as Any[]
-    const named = (name: string) => steps.find((s) => s.name === name)
-    expect(named('Publish compatibility.json').if).toBe(publish)
-    expect(named('Open or update the issue').if).toBe(`steps.summary.outputs.ok == 'false' && ${publish}`)
-    expect(named('Close the issue when the contract holds again').if).toBe(`steps.summary.outputs.ok == 'true' && ${publish}`)
-    expect(named('Fail the check without publishing').if).toBe(`steps.summary.outputs.ok == 'false' && !${publish}`)
-    expect(steps[0].with['persist-credentials']).toBe(false)
+    expect(wf.permissions).toEqual({ contents: 'read' })
+    expect(wf.jobs.probe.permissions).toEqual({ contents: 'read' })
+    expect(wf.jobs.report.permissions).toEqual({ contents: 'read' })
+    expect(wf.jobs.publish.permissions).toEqual({ contents: 'write', issues: 'write' })
+    expect(wf.jobs.publish.if).toBe(`always() && needs.report.result == 'success' && ${publish}`)
+    expect(wf.jobs.publish.steps.some((s: Any) => String(s.uses ?? '').startsWith('actions/checkout'))).toBe(false)
+    expect(wf.jobs.publish.steps.some((s: Any) => /node |npm /.test(String(s.run ?? '')))).toBe(false)
+    const fail = wf.jobs.report.steps.find((s: Any) => s.name === 'Fail the check without publishing')
+    expect(fail.if).toBe(`steps.summary.outputs.ok == 'false' && !${publish}`)
+    for (const job of ['probe', 'report']) {
+      const checkout = wf.jobs[job].steps.find((s: Any) => String(s.uses ?? '').startsWith('actions/checkout'))
+      expect(checkout.with['persist-credentials']).toBe(false)
+    }
     for (const job of Object.values(wf.jobs) as Any[]) {
       for (const step of job.steps) if (step.uses) expect(step.uses).toMatch(/^actions\/[a-z-]+@[0-9a-f]{40}$/)
       for (const step of job.steps) if (step.run) expect(step.run).not.toContain('${{ inputs.')
     }
+  })
+
+  it('F3: the version inputs are a dist-tag or a version, never another npm spec', () => {
+    const wf = load(readFileSync(join('.github', 'workflows', 'provider-contract.yml'), 'utf8')) as Any
+    const install = wf.jobs.probe.steps.find((s: Any) => s.name === 'Install the provider CLIs')
+    const pattern = /\[\[ "\$version" =~ (\^.*\$) \]\]/.exec(install.run)![1]
+    const re = new RegExp(pattern)
+    for (const ok of ['latest', 'next', 'stable', '2.1.0', '1.0.0-beta.3']) expect(re.test(ok)).toBe(true)
+    for (const bad of ['npm:evil@1.0.0', 'https://x/y.tgz', 'github:a/b', '1.0', 'latest; rm -rf /', '']) expect(re.test(bad)).toBe(false)
+    expect(install.run.indexOf('=~')).toBeLessThan(install.run.indexOf('npm install'))
+  })
+
+  it('F4: the real batch adapter refuses to dispatch Provider contract, with no request', async () => {
+    const calls: string[] = []
+    const fetchImpl = async (url: string) => {
+      calls.push(url)
+      return { ok: true, status: 204, json: async () => null, text: async () => '', headers: { get: () => '' } }
+    }
+    const api = createBatchApi(createGitHubApi({ token: 't', repo: 'o/r', fetchImpl }))
+    await expect(api.dispatchWorkflow('provider-contract.yml', 'merge-train/batch-1-1')).rejects.toThrow(/not a train workflow/)
+    expect(calls).toEqual([])
+    await api.dispatchWorkflow('android.yml', 'merge-train/batch-1-1')
+    expect(calls).toEqual(['https://api.github.com/repos/o/r/actions/workflows/android.yml/dispatches'])
+  })
+
+  it('F2: v1 does not wait on Provider contract (only its own PR pushes and the nightly run run it)', () => {
+    expect(WATCHED_WORKFLOWS).not.toContain('Provider contract')
+    expect(DISPATCHABLE_WORKFLOWS).not.toContain('provider-contract.yml')
+    const head = 'a'.repeat(40)
+    const ci = { name: 'CI and Release', path: '.github/workflows/ci.yml', headSha: head, status: 'completed', conclusion: 'success', createdAt: '2026-11-01T11:00:00Z' }
+    const pr = { number: 9, state: 'open', draft: false, isFork: false, headSha: head, headRef: 'feat/probe', mergeable: true, mergeableState: 'clean', changesRequested: false, labeledAt: null, labeledBy: 'm', labelerAllowed: true }
+    const action = step({ pr, behindBy: 0, runs: [ci], checks: [{ name: 'Changed paths', headSha: head, status: 'completed', conclusion: 'success' }], requiredChecks: [], trainState: null, now: NOW, timeoutMinutes: 60 })
+    expect(action.type).toBe('merge')
+    const docs = readFileSync(join('docs', 'RELEASE_PIPELINE.md'), 'utf8')
+    expect(docs).toMatch(/does not run Provider contract again after it updates a branch/)
+  })
+
+  it('F1: a single car times out and leaves only when a train run exists on its tip', async () => {
+    const forged = fakeGitHub()
+    forged.pr(1)
+    forged.trainRun(5, NOW - 10 * 3_600_000)
+    await forge(forged, [1])
+    // The tip's committer date can be forged; with no train run on the tip, a timeout only aborts.
+    const tip = forged.refs.get(`${'merge-train/batch-'}5-1`)!
+    forged.commits.get(tip)!.date = new Date(NOW - 10 * 3_600_000).toISOString()
+    const aborted = await train(forged, 11)
+    expect(aborted[0]).toMatchObject({ type: 'abort' })
+    expect(aborted[0].message).toMatch(/no train run/)
+    expect(kinds(forged.writes, 'unlabel')).toEqual([])
+    // A real single-car batch whose train-dispatched CI hangs leaves after the timeout, aged from that run.
+    const real = fakeGitHub()
+    real.pr(1, ['package.json'])
+    await train(real, 10)
+    const ref = real.batchRef()!
+    real.ci(real.refs.get(ref)!, ref, { pending: true })
+    real.tick(61 * 60_000)
+    expect((await train(real, 11))[0]).toMatchObject({ type: 'unlabel', number: 1 })
   })
 
   it('L8: a batch is as old as the later of its train run and its tip; a tip dated in the future aborts', async () => {

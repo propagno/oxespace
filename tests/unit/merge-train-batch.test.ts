@@ -461,7 +461,9 @@ describe('R7: state from the live refs', () => {
     let manifest = parseManifest(gh.commits.get(gh.refs.get(gh.batchRef()!)!)!.message)!
     expect(manifest).toMatchObject({ mode: 'fallback', rest: [2, 3] })
     expect(manifest.cars.map((c: Any) => c.number)).toEqual([1])
-    // Car 1 now times out on its own: it alone leaves, and car 2 is tested alone next.
+    // Car 1 now times out on its own (its train-dispatched CI hangs): it alone leaves, and car 2 is tested alone next.
+    const lone = gh.batchRef()!
+    gh.ci(gh.refs.get(lone)!, lone, { pending: true })
     gh.tick(61 * 60_000)
     const alone = await train(gh, 12)
     expect(alone[0]).toMatchObject({ type: 'unlabel', number: 1 })
@@ -478,6 +480,8 @@ describe('R7: state from the live refs', () => {
     gh.pr(1, ['package.json'])
     gh.pr(2)
     await train(gh, 10)
+    const solo = gh.batchRef()!
+    gh.ci(gh.refs.get(solo)!, solo, { pending: true })
     gh.tick(61 * 60_000)
     const actions = await train(gh, 11)
     expect(actions[0]).toMatchObject({ type: 'unlabel', number: 1 })

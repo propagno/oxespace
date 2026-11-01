@@ -935,8 +935,12 @@ async function driveBatch(api, ref, ctx) {
   const verdict = evaluateBatchCI({ gates, runs, jobs })
   // L8: the batch is as old as the later of the train run named in its manifest and its tip commit, so naming an
   // old run cannot make a fresh batch time out at once; a tip dated in the future is a forgery.
-  const age = batchAge({ builtAt: await batchStartedAt(api, manifest), tipDate: tipCommit.date, now })
-  if (age === null) return abort('the batch start could not be established (no train run built it, or its tip is dated in the future)')
+  const built = batchAge({ builtAt: await batchStartedAt(api, manifest), tipDate: tipCommit.date, now })
+  if (built === null) return abort('the batch start could not be established (no train run built it, or its tip is dated in the future)')
+  // F1: once a train-dispatched run exists on the tip, the age comes from the earliest one (GitHub's own clock,
+  // which nobody can set); before that, from the batch's start above.
+  const runStarts = runs.map((x) => Date.parse(x.createdAt)).filter(Number.isFinite)
+  const age = runStarts.length ? now - Math.min(...runStarts) : built
 
   if (verdict.state === 'missing' || verdict.state === 'pending') {
     if (age > timeoutMinutes * 60_000) {
@@ -949,6 +953,12 @@ async function driveBatch(api, ref, ctx) {
         return
       }
       // A car that timed out on its own leaves the queue, like v1's per-car timeout; the cars after it go on alone.
+      // F1: only when a train run on the tip shows its CI really started and hung. With none, the age rests on a
+      // commit date anyone can set, so the batch is only aborted (and rebuilt), never a reason to unlabel.
+      if (!runs.length) {
+        note('abort', `${ref}: timed out with no train run on its tip; nobody leaves the queue`)
+        return
+      }
       const [car] = manifest.cars
       await comment(api, car.number, `left the queue: waited more than ${timeoutMinutes} minutes for CI on ${short(tip)} (batch ${manifest.id}). Label it again to retry.`)
       await api.removeLabel(car.number)

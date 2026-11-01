@@ -211,10 +211,13 @@ unchanged. `2` or `3` makes the train test up to that many consecutive cars toge
    same tree carries the manifest (base, cars, heads).
 3. **Test.** It dispatches every gate the batch's paths need, from one table that a test keeps equal to the
    workflow files: `ci.yml` always (it runs memory compatibility too), and axe and Android when their path
-   filters match. Provider contract is in the table but never dispatched: its report job publishes
-   `compatibility.json` and edits an issue, so a car that touches the probes is not batched, and v1 counts its
-   own pull request's check. That workflow publishes only on its nightly schedule or a manual run on main. The
-   train dispatches only what v1's allowlist (`DISPATCHABLE_WORKFLOWS`) holds. Green means all of them passed on the tip, latest attempt. A run counts only
+   filters match. Provider contract is in the table but the train never dispatches it, and a car that touches
+   the probes is not batched: v1 takes it. Provider contract runs on the author's own pushes to the PR and
+   nightly on main; the train does not run Provider contract again after it updates a branch, and v1 does not
+   wait for it (a check run of it on the head still counts, like any other). Only the nightly run and a manual
+   run on main publish `compatibility.json` or touch the issue, from a job that runs no repository code. The
+   train dispatches only what v1's allowlist (`DISPATCHABLE_WORKFLOWS`) holds. Green means all of them passed on
+   the tip, latest attempt. A run counts only
    when the train started it: a `workflow_dispatch` by `github-actions[bot]` on that ref and commit, titled
    exactly `Full check · <ref>` for `ci.yml`, or the workflow's name for the others. A person's dispatch, a
    branch override, a publish or a packaged smoke never counts. A dispatched `ci.yml` builds the commit the

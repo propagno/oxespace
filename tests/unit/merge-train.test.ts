@@ -11,7 +11,6 @@ import {
   PREFIX,
   TRAIN_JOB_NAME,
   createGitHubApi,
-
   docsOnlyCommits,
   isDocsOnlyPath,
   isTestReadDoc,
