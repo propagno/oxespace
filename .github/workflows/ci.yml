@@ -374,10 +374,12 @@ jobs:
   # Each shard builds the app itself (about 1 minute) instead of downloading one build from quick: quick builds
   # on Linux, and the Windows bundle differs from it, so a shared artifact would change what Windows tests.
   # Playwright splits the specs in file order by test count. The weights below (PWTEST_SHARD_WEIGHTS, read by
-  # Playwright 1.64) were fitted on the per-file times of a green run on 2026-11-01, together with the fixed
-  # work each shard carries: shard 1 also runs the upgrade rehearsal and the OxeQuery coverage gate (about 2
-  # minutes), shard 3 the performance gate and the bench (about 3). Equal weights put about 10 minutes on the
-  # last Windows shard; 6:6:5 gives about 7, 7 and 7. Check the balance again when specs move.
+  # Playwright 1.64) were fitted on this workflow's first sharded run (41260525143, 136 tests), in the order
+  # Playwright split them, together with the fixed work each shard carries: shard 1 also runs the upgrade
+  # rehearsal and the OxeQuery coverage gate (about 2 minutes), shard 3 the performance gate and the bench
+  # (5 to 6). The heavy specs (offer-audit, oxequery, perceived-perf, redesign-audit-2/3) sit in the middle of
+  # the file order, so 6:6:5 left 12 minutes of E2E on Windows shard 2 against 4 on the others; 15:7:6 is
+  # about 9, 9 and 9 on Windows. Check the balance again when specs move.
   e2e:
     name: E2E and native tests (${{ matrix.label }}, ${{ matrix.shard }}/3)
     needs: [changes, quick]
@@ -504,7 +506,7 @@ jobs:
         shell: pwsh
         env:
           E2E_SHARD: ${{ matrix.shard }}/3
-          PWTEST_SHARD_WEIGHTS: "6:6:5"
+          PWTEST_SHARD_WEIGHTS: "15:7:6"
           # Every shard keeps a blob report; the CI result job merges them into one HTML report per platform.
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
           PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
@@ -519,7 +521,7 @@ jobs:
         if: runner.os == 'Linux'
         env:
           E2E_SHARD: ${{ matrix.shard }}/3
-          PWTEST_SHARD_WEIGHTS: "6:6:5"
+          PWTEST_SHARD_WEIGHTS: "15:7:6"
           # Every shard keeps a blob report; the CI result job merges them into one HTML report per platform.
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
           PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
