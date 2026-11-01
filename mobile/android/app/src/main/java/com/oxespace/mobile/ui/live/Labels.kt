@@ -1,6 +1,7 @@
 package com.oxespace.mobile.ui.live
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import com.oxespace.mobile.R
@@ -66,6 +67,37 @@ fun completedLabel(status: String): String = when (status) {
     "interrupted" -> stringResource(R.string.thread_completed_interrupted)
     "failed" -> stringResource(R.string.thread_completed_failed)
     else -> stringResource(R.string.thread_completed_completed)
+}
+
+/** The risk in words, never by colour alone. */
+@Composable
+fun riskLabel(risk: String): String = when (risk) {
+    "green" -> stringResource(R.string.request_risk_green)
+    "orange" -> stringResource(R.string.request_risk_orange)
+    "red" -> stringResource(R.string.request_risk_red)
+    else -> risk
+}
+
+/** A provider's product name as the desktop shows it ("claude" → "Claude"); names aren't translated. */
+fun providerName(id: String): String = when (id.lowercase()) {
+    "claude" -> "Claude"
+    "codex" -> "Codex"
+    else -> id.replaceFirstChar { it.titlecase() }
+}
+
+/** The phone's clock for "how long ago"; screenshot tests fix it so their images don't change by the minute. */
+val LocalClock = staticCompositionLocalOf<() -> Long> { { System.currentTimeMillis() } }
+
+/** How long ago, short: "agora", "há 3 min", "há 2 h", "há 4 d". */
+@Composable
+fun ageLabel(atMs: Long): String {
+    val minutes = ((LocalClock.current() - atMs) / 60_000).coerceAtLeast(0)
+    return when {
+        minutes < 1 -> stringResource(R.string.live_age_now)
+        minutes < 60 -> stringResource(R.string.live_age_minutes, minutes.toInt())
+        minutes < 24 * 60 -> stringResource(R.string.live_age_hours, (minutes / 60).toInt())
+        else -> stringResource(R.string.live_age_days, (minutes / (24 * 60)).toInt())
+    }
 }
 
 /** The risk color the desktop's prompt uses for a command. */
