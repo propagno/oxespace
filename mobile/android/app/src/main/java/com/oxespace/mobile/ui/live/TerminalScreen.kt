@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.ui.theme.OxeFonts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -123,7 +124,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             } else {
                 Text(
                     text,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = OxeFonts.mono,
                     fontSize = 13.sp,
                     color = colors.textPrimary,
                     softWrap = false,
@@ -189,7 +190,7 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                 onValueChange = { text = it; message = null },
                 placeholder = { Text(stringResource(R.string.terminal_input_placeholder)) },
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = OxeFonts.mono),
                 modifier = Modifier.weight(1f),
             )
             Button(

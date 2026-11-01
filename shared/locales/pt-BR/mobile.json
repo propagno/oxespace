@@ -121,9 +121,6 @@
     }
   },
   "thread": {
-    "you": "Você",
-    "agent": "Agente",
-    "reasoning": "Pensando",
     "tool": {
       "running": "Rodando",
       "completed": "Concluído",
@@ -133,8 +130,6 @@
     "filesChanged_one": "{{count}} arquivo alterado",
     "filesChanged_other": "{{count}} arquivos alterados",
     "filesChanged_many": "{{count}} arquivos alterados",
-    "plan": "Plano",
-    "request": "Pedido: {{title}}",
     "requestState": {
       "pending": "Precisa de você",
       "resolved": "respondido",
@@ -150,10 +145,78 @@
     "unknownItems_one": "{{count}} item de um OXESpace mais novo não aparece.",
     "unknownItems_other": "{{count}} itens de um OXESpace mais novo não aparecem.",
     "unknownItems_many": "{{count}} itens de um OXESpace mais novo não aparecem.",
-    "showOutput": "Mostrar saída",
-    "hideOutput": "Esconder saída",
     "loadOlder": "Carregar anteriores",
-    "respond": "Responder"
+    "respond": "Responder",
+    "answerLabel": "Resposta do agente",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "marker": {
+      "pending": "Pedido esperando sua resposta ↓",
+      "resolved": "Respondido",
+      "cancelled": "O pedido foi retirado",
+      "expired": "O pedido expirou"
+    },
+    "analyzing": "Analisando o pedido",
+    "verb": {
+      "read": "Leu",
+      "run": "Executou",
+      "edit": "Editou",
+      "create": "Criou",
+      "search": "Buscou",
+      "other": "Usou"
+    },
+    "doing": {
+      "read": "Lendo {{target}}",
+      "run": "Executando {{target}}",
+      "edit": "Editando {{target}}",
+      "create": "Criando {{target}}",
+      "search": "Buscando {{target}}",
+      "other": "Usando {{target}}"
+    },
+    "group": {
+      "read_one": "leu {{count}} arquivo",
+      "read_other": "leu {{count}} arquivos",
+      "read_many": "leu {{count}} arquivos",
+      "run_one": "executou {{count}} comando",
+      "run_other": "executou {{count}} comandos",
+      "run_many": "executou {{count}} comandos",
+      "search_one": "fez {{count}} busca",
+      "search_other": "fez {{count}} buscas",
+      "search_many": "fez {{count}} buscas",
+      "other_one": "usou {{count}} ferramenta",
+      "other_other": "usou {{count}} ferramentas",
+      "other_many": "usou {{count}} ferramentas"
+    },
+    "steps_one": "{{count}} passo",
+    "steps_other": "{{count}} passos",
+    "steps_many": "{{count}} passos",
+    "turn": {
+      "completed": "Trabalhou · {{steps}}",
+      "interrupted": "Interrompido · {{steps}}",
+      "failed": "Falhou · {{steps}}",
+      "working": "Trabalhando · {{steps}}"
+    },
+    "planProgress": "Plano · {{done}} de {{total}}",
+    "loading": "Carregando a conversa",
+    "stopTurn": "Parar o turno",
+    "youSaid": "Você: {{text}}",
+    "state": {
+      "working": "Trabalhando",
+      "needsYou": "Precisa de você",
+      "failed": "Falhou",
+      "stopped": "Interrompido",
+      "idle": "Ocioso"
+    },
+    "moreRequests_one": "+{{count}} outro",
+    "moreRequests_other": "+{{count}} outros",
+    "moreRequests_many": "+{{count}} outros",
+    "answerOnComputer": "Responda no computador",
+    "stop": {
+      "title": "Parar este turno?",
+      "body": "O agente em “{{title}}” para o que está fazendo agora. A conversa continua.",
+      "confirm": "Parar turno",
+      "keep": "Deixar rodando"
+    }
   },
   "terminal": {
     "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
@@ -171,12 +234,8 @@
   },
   "request": {
     "title": "Pedido",
-    "from": "Da conversa “{{conversation}}”",
-    "command": "Comando",
-    "cwd": "Pasta",
     "paths": "Arquivos que ele alteraria",
     "reason": "Por quê",
-    "warnings": "Vale olhar de novo",
     "tool": "Ferramenta",
     "risk": {
       "low": "Baixo",
@@ -195,7 +254,7 @@
       "decline": "Negar",
       "cancel": "Cancelar pedido"
     },
-    "declineReason": "Motivo, dito ao agente (opcional)",
+    "declineReason": "Motivo para o agente (opcional)",
     "sendAnswers": "Enviar respostas",
     "desktopOnly": "Só o seu computador pode responder este. Abra o OXESpace lá.",
     "notConfirmed": "Não enviado: a confirmação neste celular foi cancelada.",
@@ -210,7 +269,18 @@
     },
     "riskBadge": "Risco: {{risk}}",
     "fromAgent": "Escrito pelo agente",
-    "desktopOnlyTitle": "Responda no computador"
+    "desktopOnlyTitle": "Responda no computador",
+    "by": "Pedido por",
+    "where": "Onde",
+    "notVerified": "O OXESpace não verificou este texto.",
+    "allowBiometric": "Permitir pede sua digital.",
+    "hold": "Risco crítico: Permitir fica disponível em 2 s.",
+    "projectFolder": "pasta do projeto",
+    "kind": {
+      "agent": "Pedido de um agente",
+      "question": "Pergunta do agente",
+      "permissions": "Pedido de permissão"
+    }
   },
   "action": {
     "offline": "Sem conexão com o computador. Nada foi enviado.",
@@ -221,8 +291,7 @@
   "composer": {
     "placeholder": "Mensagem para o agente",
     "send": "Enviar",
-    "steer": "Orientar",
-    "stop": "Parar"
+    "steer": "Orientar"
   },
   "terminalInput": {
     "placeholder": "Digite neste terminal",

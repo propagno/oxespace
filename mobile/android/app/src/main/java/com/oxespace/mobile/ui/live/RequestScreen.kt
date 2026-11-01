@@ -1,9 +1,24 @@
 package com.oxespace.mobile.ui.live
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import com.oxespace.mobile.ui.theme.OxeCodeStyle
+import kotlinx.coroutines.delay
+import com.oxespace.mobile.ui.theme.OxeFonts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -71,7 +86,15 @@ private val Target = 48.dp
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: () -> Unit) {
+fun RequestScreen(
+    request: RemotePendingRequest?,
+    commands: CommandApi,
+    /** The conversation's provider, for "Pedido por: Claude · …". */
+    provider: String? = null,
+    /** The workspace's name, shown for a request at the project root instead of ".". */
+    workspaceName: String? = null,
+    onBack: () -> Unit,
+) {
     SecureScreen()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -116,51 +139,79 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
             }
             // What the person needs first: whether they can answer here at all.
             if (!request.answerable) DesktopOnlyNotice()
-            Text(displaySafe(request.title, TITLE_MAX), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-            Text(stringResource(R.string.request_from, displaySafe(request.threadTitle, TITLE_MAX)), style = MaterialTheme.typography.labelLarge, color = Oxe.colors.textSecondary)
+            Text(requestTitle(request), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             request.risk?.let { RiskLine(it) }
-            request.toolName?.let { Field(stringResource(R.string.request_tool), displaySafe(it, TITLE_MAX), mono = false) }
+            // The facts, as label/value rows: nothing read-only looks like an input (M10 §6).
+            Facts(
+                listOfNotNull(
+                    Triple(stringResource(R.string.request_by), listOfNotNull(provider?.let { providerName(displaySafe(it, PROVIDER_MAX)) }, displaySafe(request.threadTitle, TITLE_MAX)).joinToString(" · "), false),
+                    request.cwd?.let { cwd ->
+                        // The project root reads as the project's name, never ".".
+                        if (cwd == "." || cwd.isBlank()) {
+                            Triple(stringResource(R.string.request_where), workspaceName?.let { displaySafe(it, TITLE_MAX) } ?: stringResource(R.string.request_project_folder), false)
+                        } else {
+                            Triple(stringResource(R.string.request_where), showHidden(cwd), true)
+                        }
+                    },
+                    request.toolName?.let { Triple(stringResource(R.string.request_tool), displaySafe(it, TITLE_MAX), false) },
+                ),
+            )
             // What would run is shown whole; hidden characters are written out, never dropped or obeyed.
-            request.command?.let { Field(stringResource(R.string.request_command), showHidden(it), mono = true) }
-            request.cwd?.let { Field(stringResource(R.string.request_cwd), showHidden(it), mono = true) }
-            request.paths?.takeIf { it.isNotEmpty() }?.let { Field(stringResource(R.string.request_paths), it.joinToString("\n") { p -> showHidden(p) }, mono = true) }
-            request.warnings?.takeIf { it.isNotEmpty() }?.let {
-                Field(stringResource(R.string.request_warnings), it.joinToString("\n") { w -> "• " + displaySafeBlock(w, RemoteTextLimits.DETAIL) }, mono = false)
+            request.command?.let { CodeBlock(showHidden(it)) }
+            request.paths?.takeIf { it.isNotEmpty() }?.let {
+                Text(stringResource(R.string.request_paths), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted)
+                CodeBlock(it.joinToString("\n") { p -> showHidden(p) })
             }
-            request.redacted?.takeIf { it > 0 }?.let {
-                Text(androidx.compose.ui.res.pluralStringResource(R.plurals.terminal_redacted, it.toInt(), it.toInt()), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted)
+            // The app's notes, in its own voice, above the agent's words.
+            val notes = request.warnings.orEmpty().map { displaySafeBlock(it, RemoteTextLimits.DETAIL) } +
+                listOfNotNull(request.redacted?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.terminal_redacted, it.toInt(), it.toInt()) })
+            if (notes.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+                    for (note in notes) Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                        Text("•", style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary)
+                        Text(note, style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary)
+                    }
+                }
             }
-            // The agent's own words come last, under their own label and on an outlined field, so none of them reads
-            // as the app's (or as the desktop's warnings above).
+            // The agent's own words come last, in a dashed box the app has not vouched for.
             val detail = request.detail?.let { displaySafeBlock(it, RemoteTextLimits.DETAIL) }?.takeIf { it.isNotEmpty() }
             val why = request.reason?.let { displaySafeBlock(it, RemoteTextLimits.DETAIL) }?.takeIf { it.isNotEmpty() }
-            if (detail != null || why != null) {
-                FromAgentLabel()
-                detail?.let { Field(null, it, mono = false, fromAgent = true) }
-                why?.let { Field(stringResource(R.string.request_reason), it, mono = false, fromAgent = true) }
-            }
+            // The request's own title is never the heading: it is the agent's, so it sits here.
+            val own = displaySafe(request.title, TITLE_MAX).takeIf { it.isNotBlank() }
+            if (own != null || detail != null || why != null) AgentWords(listOfNotNull(own, detail).joinToString("\n").ifEmpty { null }, why)
 
             if (!request.answerable) return@Column
 
             val questions = request.questions.orEmpty()
-            if (questions.isNotEmpty() && detail == null && why == null) FromAgentLabel()
             for (question in questions) {
                 Text(displaySafe(question.header ?: question.question, QUESTION_MAX), style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
                 if (question.header != null) Text(displaySafeBlock(question.question, QUESTION_MAX), style = MaterialTheme.typography.bodyMedium)
-                for (option in question.options.orEmpty()) {
-                    val picked = option.label in chosen[question.id].orEmpty()
-                    Column(
-                        Modifier.fillMaxWidth().heightIn(min = Target).toggleable(value = picked, role = Role.Checkbox) { on ->
+                val single = question.multiple != true
+                // Single choice: full-width radio rows in one group (§3a); several: checkboxes. None looks like a form field.
+                Column(Modifier.then(if (single) Modifier.selectableGroup() else Modifier), verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                    for (option in question.options.orEmpty()) {
+                        val picked = option.label in chosen[question.id].orEmpty()
+                        val pick = { on: Boolean ->
                             val now = chosen[question.id].orEmpty()
                             chosen[question.id] = when {
-                                question.multiple == true -> if (on) now + option.label else now - option.label
+                                !single -> if (on) now + option.label else now - option.label
                                 on -> setOf(option.label)
                                 else -> emptySet()
                             }
-                        },
-                    ) {
-                        androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            Checkbox(checked = picked, onCheckedChange = null)
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = Target)
+                                .background(if (picked) Oxe.colors.accentSoft else Oxe.colors.surfaceRaised, RoundedCornerShape(OxeRadius.lg))
+                                .border(1.dp, if (picked) Oxe.colors.accent else Oxe.colors.borderDefault, RoundedCornerShape(OxeRadius.lg))
+                                .then(
+                                    if (single) Modifier.selectable(selected = picked, role = Role.RadioButton) { pick(true) }
+                                    else Modifier.toggleable(value = picked, role = Role.Checkbox) { pick(it) },
+                                )
+                                .padding(OxeSpace.space3),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(OxeSpace.space3),
+                        ) {
+                            if (single) RadioButton(selected = picked, onClick = null) else Checkbox(checked = picked, onCheckedChange = null)
                             Column {
                                 Text(displaySafe(option.label, TITLE_MAX), style = MaterialTheme.typography.bodyLarge)
                                 option.description?.let { Text(displaySafe(it, QUESTION_MAX), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textSecondary) }
@@ -178,6 +229,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                 ) { Text(stringResource(R.string.request_send_answers)) }
             }
 
+            // The only box on the screen that looks editable.
             if ("decline" in request.decisions) {
                 OutlinedTextField(
                     value = reason,
@@ -186,6 +238,11 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+            // At critical risk Allow waits the desktop's hold before it can be pressed (APPROVAL_CRITICAL_ALLOW_DELAY_MS).
+            val critical = request.risk?.let { riskLevel(it) } == RiskLevel.CRITICAL
+            // Keyed on the generation and the level too: a request raised to critical takes the hold again.
+            var held by remember(request.requestId, request.generation, critical) { mutableStateOf(critical) }
+            LaunchedEffect(request.requestId, request.generation, critical) { if (critical) { delay(CRITICAL_HOLD_MS); held = false } }
             for ((decision, leads) in decisionLayout(request.decisions, request.risk)) {
                 val label = stringResource(
                     when (decision) {
@@ -194,25 +251,22 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                         else -> R.string.request_decision_cancel
                     },
                 )
+                val enabled = !busy && !(decision == "accept" && held)
+                // The lead is the accent's filled button; Deny is never danger red: it is the safe answer (§6).
                 if (leads) {
-                    Button(
-                        onClick = { answer(decision, null) },
-                        enabled = !busy,
-                        colors = if (decision == "decline") {
-                            ButtonDefaults.buttonColors(containerColor = Oxe.colors.intentDangerSolid, contentColor = Oxe.colors.textOnSolid)
-                        } else {
-                            ButtonDefaults.buttonColors()
-                        },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = Target),
-                    ) { Text(label) }
+                    Button(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
                 } else {
-                    OutlinedButton(
-                        onClick = { answer(decision, null) },
-                        enabled = !busy,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = if (decision == "decline") Oxe.colors.intentDangerFg else MaterialTheme.colorScheme.primary),
-                        modifier = Modifier.fillMaxWidth().heightIn(min = Target),
-                    ) { Text(label) }
+                    OutlinedButton(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
                 }
+            }
+            if ("accept" in request.decisions) {
+                Text(
+                    stringResource(if (held) R.string.request_hold else R.string.request_allow_biometric),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Oxe.colors.textMuted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -250,32 +304,64 @@ private fun DesktopOnlyNotice() {
 }
 
 
+/** Label/value rows (§6): the label muted, the value plain; a path in Plex Mono, cut in the middle. */
 @Composable
-private fun Field(label: String?, value: String, mono: Boolean, fromAgent: Boolean = false) {
-    // Read as one: "Command, rm -rf dist build".
-    Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
-        label?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary) }
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontFamily = if (mono) FontFamily.Monospace else null,
-            // The app's facts sit on a filled field; the agent's own words on an outlined one, never looking like the app's.
-            modifier = if (fromAgent) {
-                Modifier.fillMaxWidth().border(1.dp, Oxe.colors.borderDefault, RoundedCornerShape(OxeRadius.sm)).padding(OxeSpace.space2)
-            } else {
-                Modifier.fillMaxWidth().background(Oxe.colors.surfaceSunken, RoundedCornerShape(OxeRadius.sm)).padding(OxeSpace.space2)
-            },
-        )
+private fun Facts(rows: List<Triple<String, String, Boolean>>) {
+    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+        for ((label, value, mono) in rows) {
+            Row(Modifier.semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
+                Text(label, style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textMuted)
+                Text(
+                    value,
+                    style = if (mono) OxeCodeStyle else MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.MiddleEllipsis,
+                )
+            }
+        }
     }
 }
 
-/** "Escrito pelo agente": what follows is the agent's, not OXESpace's. */
+/** "Escrito pelo agente": a dashed box that opens with "O OXESpace não verificou este texto." (§6). */
 @Composable
-private fun FromAgentLabel() {
-    HorizontalDivider(color = Oxe.colors.borderSubtle)
-    Text(stringResource(R.string.request_from_agent), style = MaterialTheme.typography.labelSmall, color = Oxe.colors.textMuted)
+private fun AgentWords(detail: String?, why: String?) {
+    val dash = Oxe.colors.borderDefault
+    Text(stringResource(R.string.request_from_agent), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted, modifier = Modifier.semantics { heading() })
+    Column(
+        Modifier.fillMaxWidth()
+            .drawBehind {
+                val stroke = Stroke(width = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
+                drawRoundRect(dash, cornerRadius = CornerRadius(10.dp.toPx()), style = stroke)
+            }
+            .padding(horizontal = OxeSpace.space3, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
+    ) {
+        Text(stringResource(R.string.request_not_verified), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted)
+        detail?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        why?.let {
+            Text(stringResource(R.string.request_reason), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted)
+            Text(it, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
 }
+
+/**
+ * A pending request's title, from the phone's own catalog by its kind (TECH LEAD R1 v2, DESIGN option b): never the
+ * agent's text, which only shows inside "Escrito pelo agente". A kind this app doesn't know reads as an agent's request.
+ */
+internal fun requestTitleString(kind: String): Int = when (kind) {
+    "question", "elicitation" -> R.string.request_kind_question
+    "permissions" -> R.string.request_kind_permissions
+    else -> R.string.request_kind_agent
+}
+
+@Composable
+fun requestTitle(request: RemotePendingRequest): String =
+    stringResource(requestTitleString(request.kind))
 
 private val KNOWN_DECISIONS = setOf("accept", "decline", "cancel")
 private const val TITLE_MAX = 200
 private const val QUESTION_MAX = 500
+private const val PROVIDER_MAX = 40
+/** The desktop's hold on Allow at critical risk (shared/types/approvals APPROVAL_CRITICAL_ALLOW_DELAY_MS). */
+private const val CRITICAL_HOLD_MS = 2_000L

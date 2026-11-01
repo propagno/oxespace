@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.pairing
 
+import com.oxespace.mobile.ui.theme.OxeFonts
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -118,7 +119,7 @@ private fun Waiting(state: PairingState.Waiting) {
             val spoken = stringResource(R.string.pairing_verification_description, state.verification.toList().joinToString(" "))
             Text(
                 state.verification,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = OxeFonts.mono,
                 fontSize = 40.sp,
                 letterSpacing = 6.sp,
                 color = MaterialTheme.colorScheme.onSurface,
