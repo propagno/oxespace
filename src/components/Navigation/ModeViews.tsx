@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from '../common/ErrorBoundary'
-import { LoadingState, SidebarSkeleton } from '../../ui'
+import { Skeleton, SidebarSkeleton } from '../../ui'
 import type { AppView } from '../../keyboard/keybindings'
 import { useUIStore } from '../../store/ui.store'
 import { scheduleIdle } from '../../lib/preloadSchedule'
@@ -45,6 +45,17 @@ export function ViewSidebarSkeleton({ view }: { view: DataView | 'thread' }): Re
     : <SidebarSkeleton label={t('nav.viewSidebar', { name: NAMES[view] })} title={NAMES[view]} collapsed={collapsed} />
 }
 
+/**
+ * A view's work area on its way, shown only when its chunk takes longer than 300 ms (docs/design/motion.md): the
+ * shape of its content, never the brand loader, which is for boot. Announced once as loading the view.
+ */
+export function ViewSkeleton({ name }: { name: string }): ReactElement {
+  const { t } = useTranslation()
+  return <div className="view-skeleton" role="status" aria-label={t('nav.loadingView', { name })} style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)', flex: 1, alignContent: 'start' }}>
+    <Skeleton decorative variant="block" /><Skeleton decorative lines={4} /><Skeleton decorative lines={3} />
+  </div>
+}
+
 const SIDEBARS = { data: OxeQuerySidebar, pods: OxePodSidebar, post: OxePostSidebar }
 const VIEWS = { data: OxeQueryView, pods: OxePodView, post: OxePostView }
 
@@ -77,8 +88,8 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
   const initial = useRef<AppView | null>(view)
   useEffect(() => { if (view === initial.current) return; initial.current = null; void import('../../lib/idlePreload').then(m => m.rememberView(view)).catch(() => undefined) }, [view])
   return <>{ORDER.filter(item => opened.includes(item) || item === view).map(item =>
-    <div key={item} className={HOSTS[item]} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
-      <ErrorBoundary id="mode-view" component={NAMES[item]} label={NAMES[item]} onReset={VIEWS[item].retry}><Suspense fallback={<LoadingState brand label={t('nav.loadingView', { name: NAMES[item] })} />}>
+    <div key={item} className={HOSTS[item]} data-view={item} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
+      <ErrorBoundary id="mode-view" component={NAMES[item]} label={NAMES[item]} onReset={VIEWS[item].retry}><Suspense fallback={<ViewSkeleton name={NAMES[item]} />}>
         {item === 'data' ? <OxeQueryView active={view === 'data'} /> : item === 'pods' ? <OxePodView active={view === 'pods'} /> : <OxePostView active={view === 'post'} />}
       </Suspense></ErrorBoundary>
     </div>)}</>
