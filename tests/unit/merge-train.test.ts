@@ -965,4 +965,24 @@ describe('merge-train workflow', () => {
     expect(workflow.permissions).toEqual({})
     expect(workflow.jobs.train.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write' })
   })
+
+  it('is woken by the end of a CI run it dispatched, and waits for that run to complete first', () => {
+    const ci = load(readFileSync(join('.github', 'workflows', 'ci.yml'), 'utf8')) as {
+      jobs: Record<string, { needs: string[]; if: string; permissions: Record<string, string>; steps: Array<{ run?: string }> }>
+    }
+    const wake = ci.jobs['wake-merge-train']
+    expect(wake.needs).toEqual(['ci-result'])
+    expect(wake.permissions).toEqual({ actions: 'write' })
+    // Green or red, only the train's own dispatches: the bot, and no override that changes the run's title.
+    for (const part of ['always()', "github.triggering_actor == 'github-actions[bot]'", '!inputs.publish_release', '!inputs.packaged_smoke_only'])
+      expect(wake.if).toContain(part)
+    expect(wake.steps.some((s) => s.run?.includes('gh workflow run merge-train.yml') && s.run.includes('wait_for_run='))).toBe(true)
+
+    const dispatch = workflow.on.workflow_dispatch as { inputs: Record<string, unknown> }
+    expect(Object.keys(dispatch.inputs)).toContain('wait_for_run')
+    const steps = workflow.jobs.train.steps as Array<{ name?: string; run?: string }>
+    const waitAt = steps.findIndex((s) => s.name === 'Wait for the run that woke the train')
+    expect(waitAt).toBeGreaterThan(-1)
+    expect(waitAt).toBeLessThan(steps.findIndex((s) => s.run === 'node scripts/merge-train.mjs'))
+  })
 })
