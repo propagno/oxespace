@@ -91,7 +91,8 @@ describe('the main window opens nothing by itself', () => {
 })
 
 describe('app:open-external', () => {
-  registerAppInfoIpc()
+  // The activity store loads on its first call, so this database is never reached here.
+  registerAppInfoIpc({} as import('../../electron/main/db').AppDatabase)
   const invoke = (event: unknown, url: unknown) => handlers.get(IPC_CHANNELS.app.openExternal)!(event, url)
 
   it('is the channel the preload calls', () => {

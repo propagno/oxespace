@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
 import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
+import { ACTIVITY_REFUSALS } from '../shared/types/activity'
 import { APPROVAL_REFUSALS } from '../shared/types/approvals'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
 import { THREAD_SECTIONS_REFUSALS } from '../shared/types/thread-sections'
@@ -30,6 +31,13 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'ipc.sender.refused': [],
   'thread.side.unavailable': [],
   'thread.side.noSession': [],
+  'activity.invalid': [],
+  'activity.tooMany': ['max'],
+  'activity.titleTooLong': ['max'],
+  'activity.detailTooLong': ['max'],
+  'activity.hiddenCharacters': [],
+  'activity.future': [],
+  'activity.secret': [],
   'thread.sections.invalid': [],
   'thread.sections.tooMany': ['assignments', 'sections'],
   'thread.sections.nameEmpty': [],
@@ -44,6 +52,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'incident.ipc.senderRefused': [],
   'incident.agent.startFailed': [],
   'incident.mcp.quarantined': [],
+  'incident.mcp.toolGroupOff': [],
   'incident.database.busy': [],
   'incident.oxequery.timeout': [],
   'incident.oxequery.restartDeferred': [],
@@ -73,6 +82,12 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.signIn.waiting': [],
   'mcp.server.quarantined': [],
   'mcp.server.untrusted': [],
+  'mcp.toolGroups.unknownProject': [],
+  'mcp.toolGroups.invalidYaml': [],
+  'mcp.toolGroups.notMapping': [],
+  'mcp.toolGroups.inlineThread': [],
+  'mcp.toolGroups.unsafeEdit': [],
+  'project.file.changedMeanwhile': ['file'],
   'github.cli.missing': [],
   'git.base.unresolved': ['base'],
   'oxe.status.unreadable': [],
@@ -235,6 +250,10 @@ describe('C3 message codes', () => {
 
   it('gives every refusal of a pending answer its own code', () => {
     for (const refusal of THREAD_PENDING_REFUSALS) expect(isMessageCode(`thread.request.${refusal}`), refusal).toBe(true)
+  })
+
+  it('gives every refusal of an activity call its own code', () => {
+    for (const refusal of ACTIVITY_REFUSALS) expect(isMessageCode(`activity.${refusal}`), refusal).toBe(true)
   })
 
   it('gives every refusal of a sections save its own code', () => {
