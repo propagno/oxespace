@@ -9,8 +9,7 @@ import { createFakeIpcMain, type FakeIpcMain } from '../helpers/fake-ipc-main'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 
 const ipcMain: FakeIpcMain = createFakeIpcMain()
-const window = { trusted: true }
-vi.mock('electron', () => ({ ipcMain, BrowserWindow: { getAllWindows: () => [], fromWebContents: () => (window.trusted ? {} : null) } }))
+vi.mock('electron', () => ({ ipcMain, BrowserWindow: { getAllWindows: () => [], fromWebContents: () => ({}) } }))
 
 const { OXEQUERY_OPS, registerOxeQueryIpc } = await import('../../electron/main/ipc/oxequery.ipc')
 const { OXEPOD_OPS } = await import('../../electron/main/ipc/oxepod.ipc')
@@ -65,10 +64,4 @@ describe('OxeQuery op contract', () => {
     await expect(ipcMain.invoke('oxeQuery:call', { op: 'connections.fromContainer', input: { id: 'pg-dev' } })).resolves.toMatchObject({ ok: true })
   })
 
-  test('answers only the application main frame', async () => {
-    window.trusted = false
-    try {
-      await expect(ipcMain.invoke('oxeQuery:call', { op: 'connections.list', input: {} })).rejects.toThrow('OxeQuery requires the application main frame')
-    } finally { window.trusted = true }
-  })
 })

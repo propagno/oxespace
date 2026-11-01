@@ -1076,6 +1076,34 @@ jobs:
           console.log('every job that had to run passed')
           EOF
 
+  # The merge train's wake-up. A run the train dispatched (with GITHUB_TOKEN) fires no workflow_run when it
+  # finishes, so without this the train only learns of the result at its next cron, 10 minutes or more later.
+  # GitHub does let GITHUB_TOKEN start a workflow_dispatch, so the run's last job dispatches the train itself,
+  # green or red (a red car must leave the queue too). Only for the train's own dispatches: the bot as the
+  # triggering actor and a run titled exactly "Full check · <its branch>" (no branch override, no publish, no
+  # packaged smoke), the rule scripts/merge-train.mjs `testsItsOwnHead` uses. The train waits for this run to
+  # complete before it reads the results (wait_for_run), since this job is still part of it. The cron stays.
+  wake-merge-train:
+    name: Wake the merge train
+    needs: [ci-result]
+    if: >-
+      ${{ always() && github.event_name == 'workflow_dispatch' && github.triggering_actor == 'github-actions[bot]'
+      && !inputs.publish_release && !inputs.packaged_smoke_only && (inputs.branch == '' || inputs.branch == github.ref_name) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch the merge train
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        # Never fails the run: if the dispatch is refused, the train's cron still picks the result up.
+        run: |
+          gh workflow run merge-train.yml --ref "${{ github.event.repository.default_branch }}" -f wait_for_run="$RUN_ID" \
+            || echo "::warning title=Merge train not woken::the dispatch failed; the train's cron will pick this run up"
+
   release:
     name: Publish GitHub Release
     needs: [quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility]

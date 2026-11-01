@@ -119,6 +119,11 @@
         "offline": "Sem conexão de rede."
       }
     },
+    "ipc": {
+      "sender": {
+        "refused": "Só a própria janela do app pode fazer este pedido."
+      }
+    },
     "activity": {
       "invalid": "Não foi possível salvar esta atividade. Recarregue o app e tente de novo.",
       "tooMany": "No máximo {{max}} entradas de atividade podem ser salvas de uma vez.",
@@ -387,7 +392,8 @@
       },
       "ipc": {
         "handlerFailed": "Um pedido da janela falhou em segundo plano.",
-        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado."
+        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado.",
+        "senderRefused": "Algo que não é a janela do app, como uma página em pré-visualização, enviou um pedido; o app recusou."
       },
       "agent": {
         "startFailed": "Um agente não conseguiu iniciar."
