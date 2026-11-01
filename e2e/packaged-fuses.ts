@@ -1,9 +1,9 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { execFileSync, spawn } from 'node:child_process'
 import { createServer } from 'node:http'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, delimiter, join } from 'node:path'
 
 /**
  * B13 (BE-M-02, BE-M-08) against the REAL packaged binary, whose fuses electron-builder flipped. CI only: the
@@ -12,8 +12,9 @@ import { basename, join } from 'node:path'
  * - T2: the binary refuses to run as Node with ELECTRON_RUN_AS_NODE (RunAsNode off).
  * - T3: closing a terminal starts no second OXESpace, restores and focuses nothing, and ends the whole tree,
  *   including a detached grandchild that ignores SIGTERM (node-pty's bundled ConPTY on Windows never forks).
- * - T4: the internal MCP bridge the app wrote to `.mcp.json` runs on the system `node`, never on the app binary, and
- *   answers initialize, tools/list and a read tool, launched exactly as written from inside an app terminal.
+ * - T4: the internal MCP bridge the app hands Claude Code when it starts it in a Code agent pane (`--mcp-config`,
+ *   agent-launch.service codeAgentMcpLaunch) runs on the system `node`, never on the app binary, and answers
+ *   initialize, tools/list and a read tool, started exactly as written by a stand-in `claude` (no real agent runs).
  * - T5: the status hooks the app writes into Claude's settings.json and Codex's hooks.json, run exactly as written
  *   (exec form, PowerShell string or sh string) on the system node, reach the app as pane status.
  * - T8 (Windows): the shipped updater, pointed at a feed on the loopback, sees a newer version and downloads nothing.
@@ -32,16 +33,32 @@ if (depth < 2) spawn(process.execPath, [__filename, pidFile, String(depth + 1)],
 setInterval(() => {}, 1000)
 `
 
-/** Runs the oxespace entry of `.mcp.json` exactly as written, with the terminal's env, and records what it answered. */
-const BRIDGE_DRIVER = String.raw`
+/**
+ * A stand-in `claude` CLI (no real agent runs): the app starts it in a Code agent pane with the launch arguments it
+ * gives Claude Code (agent-launch.service codeAgentMcpLaunch). It reads the OXESpace server from its `--mcp-config`,
+ * starts it exactly as written with its own env, as Claude Code does, and records the argv and what the bridge answered.
+ */
+const FAKE_CLAUDE = String.raw`
 const { spawn } = require('node:child_process')
-const { readFileSync, writeFileSync } = require('node:fs')
-const [workspace, out] = process.argv.slice(2)
-const entry = JSON.parse(readFileSync(workspace + '/.mcp.json', 'utf8')).mcpServers.oxespace
-const result = { command: entry.command, answers: {} }
+const { writeFileSync } = require('node:fs')
+const out = process.env.B13_FAKE_CLAUDE_OUT
+const argv = process.argv.slice(2)
+const result = { argv, env: { ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE ?? null }, answers: {} }
+const save = () => writeFileSync(out, JSON.stringify(result))
+const at = argv.indexOf('--mcp-config')
+let servers = {}
+try { servers = JSON.parse(argv[at + 1]).mcpServers || {} } catch (error) { result.configError = String(error) }
+const name = Object.keys(servers).find(key => (servers[key].args || []).some(arg => /oxespace-mcp\.cjs$/.test(arg)))
+const entry = name ? servers[name] : null
+result.server = name ?? null
+result.command = entry ? entry.command : null
+result.args = entry ? entry.args : null
+if (!entry) { save(); setInterval(() => {}, 1000) } else {
 const child = spawn(entry.command, entry.args || [], { env: { ...process.env, ...(entry.env || {}) }, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true })
 let buffer = ''
-const finish = () => { writeFileSync(out, JSON.stringify(result)); try { child.kill() } catch {} process.exit(0) }
+// Stays up like an agent would, so the pane does not end before the test reads the result; closing the app ends it.
+let done = false
+const finish = () => { if (done) return; done = true; save(); try { child.kill() } catch {} setInterval(() => {}, 1000) }
 setTimeout(() => { result.timedOut = true; finish() }, 20000)
 child.on('error', error => { result.spawnError = error.code || String(error); finish() })
 child.stdout.on('data', chunk => {
@@ -67,6 +84,7 @@ child.stdout.on('data', chunk => {
   }
 })
 child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'b13-packaged', version: '1' } } }) + '\n')
+}
 `
 
 /**
@@ -152,6 +170,60 @@ async function openTerminal(page: Page, workspace: string): Promise<string> {
   return paneId!
 }
 
+/**
+ * Puts the stand-in `claude` first on PATH (a `claude.cmd` on Windows, as npm installs it; an executable script
+ * elsewhere) and returns the env to launch the app with. The runner has no real Claude Code, and the stand-in shadows one anyway.
+ */
+function fakeClaudeEnvironment(root: string, out: string): Record<string, string> {
+  const bin = join(root, 'bin')
+  mkdirSync(bin, { recursive: true })
+  const script = join(bin, 'fake-claude.cjs')
+  writeFileSync(script, FAKE_CLAUDE)
+  if (process.platform === 'win32') writeFileSync(join(bin, 'claude.cmd'), '@node "%~dp0fake-claude.cjs" %*\r\n')
+  else {
+    writeFileSync(join(bin, 'claude'), `#!/bin/sh\nexec node ${JSON.stringify(script)} "$@"\n`)
+    chmodSync(join(bin, 'claude'), 0o755)
+  }
+  const pathKey = Object.keys(process.env).find(key => key.toUpperCase() === 'PATH') ?? 'PATH'
+  return { [pathKey]: `${bin}${delimiter}${process.env[pathKey] ?? ''}`, B13_FAKE_CLAUDE_OUT: out }
+}
+
+/** A new workspace whose one pane is the Claude agent, as a person picks it in the wizard. */
+async function openClaudePane(page: Page, workspace: string): Promise<void> {
+  await page.getByTestId('btn-new-workspace').click()
+  await page.getByTestId('wizard-dir-input').fill(workspace)
+  await page.getByTestId('wizard-layout-card-1').click()
+  await page.getByTestId('agent-inc-builtin-agent-claude').click()
+  await expect(page.getByTestId('agent-count-builtin-agent-claude')).toHaveText('1')
+  await page.getByTestId('wizard-launch-btn').click()
+}
+
+/** Whether text names the packaged executable, raw or JSON-escaped; Windows paths compare without case. */
+function mentionsExecutable(text: string): boolean {
+  const executable = process.env.OXESPACE_PACKAGED_EXECUTABLE!
+  const forms = [executable, JSON.stringify(executable).slice(1, -1)]
+  return process.platform === 'win32'
+    ? forms.some(form => text.toLowerCase().includes(form.toLowerCase()))
+    : forms.some(form => text.includes(form))
+}
+
+interface WrittenHook { command: string; args?: string[] }
+
+/** Every hook, of every event, that runs OXESpace's status hook script. */
+function statusHooks(written: string): WrittenHook[] {
+  const doc = JSON.parse(written) as { hooks?: Record<string, Array<{ hooks?: WrittenHook[] }>> }
+  return Object.values(doc.hooks ?? {}).flat().flatMap(entry => entry.hooks ?? [])
+    .filter(hook => JSON.stringify(hook).includes('oxespace-status-hook.cjs'))
+}
+
+/** The program a hook runs: the exec form's command, or the first word of a shell / PowerShell string (`& ` dropped). */
+function hookProgram(hook: WrittenHook): string {
+  if (Array.isArray(hook.args)) return hook.command
+  const line = hook.command.trim().replace(/^&\s+/, '')
+  const quoted = /^(['"])(.*?)\1/.exec(line)
+  return quoted ? quoted[2] : line.split(/\s+/)[0]
+}
+
 const typeInto = (page: Page, paneId: string, line: string) =>
   page.evaluate(({ paneId, data }) => window.oxe.terminal.write({ paneId, data }), { paneId, data: line + '\r' })
 
@@ -235,30 +307,25 @@ export function registerPackagedFuses({ platform, label }: PackagedFusesOptions)
       }
     })
 
-    test('T4: the MCP bridge the app wrote runs on the system node and answers', async () => {
+    test('T4: the MCP bridge the app hands an agent runs on the system node and answers', async () => {
       test.setTimeout(120_000)
       const root = scratch('bridge')
       const workspace = join(root, 'workspace')
-      const executablePath = process.env.OXESPACE_PACKAGED_EXECUTABLE!
-      const { app, page } = await launch(root, { OXESPACE_DISABLE_SINGLE_INSTANCE: '1' })
+      const out = join(root, 'bridge.json')
+      // Claude's config home points into the scratch folder: whatever the app sets up for Claude stays there.
+      const { app, page } = await launch(root, { OXESPACE_DISABLE_SINGLE_INSTANCE: '1', CLAUDE_CONFIG_DIR: join(root, 'claude'), ...fakeClaudeEnvironment(root, out) })
       try {
-        const paneId = await openTerminal(page, workspace)
-        const mcpJson = join(workspace, '.mcp.json')
-        await expect.poll(() => existsSync(mcpJson) && 'oxespace' in (JSON.parse(readFileSync(mcpJson, 'utf8')).mcpServers ?? {}), { timeout: 20_000 }).toBe(true)
-        const written = readFileSync(mcpJson, 'utf8')
-        const entry = JSON.parse(written).mcpServers.oxespace as { command: string; args: string[] }
-        expect(entry.command, 'the bridge runs on the system node').toBe('node')
-        expect(written).not.toContain('ELECTRON_RUN_AS_NODE')
-        expect(written.toLowerCase()).not.toContain(basename(executablePath).toLowerCase())
-
-        const driver = join(root, 'bridge-driver.cjs'), out = join(root, 'bridge.json')
-        writeFileSync(driver, BRIDGE_DRIVER)
-        // From inside an app terminal, as an agent there would: its env carries the MCP port and token.
-        await typeInto(page, paneId, `node ${quote(driver)} ${quote(workspace)} ${quote(out)}`)
-        await expect.poll(() => existsSync(out), { timeout: 45_000 }).toBe(true)
-        const result = JSON.parse(readFileSync(out, 'utf8'))
-        console.log('[b13-t4]', JSON.stringify(result))
-        expect(result).toMatchObject({ command: 'node', answers: { initialize: true, hasCapabilities: true, capabilities: true } })
+        await openClaudePane(page, workspace)
+        await expect.poll(() => existsSync(out), { timeout: 60_000 }).toBe(true)
+        const result = JSON.parse(readFileSync(out, 'utf8')) as { argv: string[]; env: Record<string, string | null>; server: string | null; command: string | null; args: string[] | null; answers: Record<string, unknown> }
+        console.log('[b13-t4]', JSON.stringify({ ...result, argv: result.argv.map(arg => arg.length > 200 ? `${arg.slice(0, 200)}…` : arg) }))
+        expect(result.server, 'the agent was handed the OXESpace bridge in --mcp-config').toBeTruthy()
+        expect(result.command, 'the bridge runs on the system node').toBe('node')
+        const launched = JSON.stringify(result.argv)
+        expect(launched).not.toContain('ELECTRON_RUN_AS_NODE')
+        expect(result.env.ELECTRON_RUN_AS_NODE, 'the agent env does not turn the app binary into node').toBeNull()
+        expect(mentionsExecutable(launched), 'the agent launch never names the app binary').toBe(false)
+        expect(result).toMatchObject({ answers: { initialize: true, hasCapabilities: true, capabilities: true } })
         expect(result.answers.toolCount).toBeGreaterThan(0)
       } finally {
         await app.close()
@@ -282,11 +349,17 @@ export function registerPackagedFuses({ platform, label }: PackagedFusesOptions)
         const installed = await page.evaluate(async () => [await window.oxe.agentHooks.install('claude-code'), await window.oxe.agentHooks.install('codex')])
         expect(installed.map(status => status.state), JSON.stringify(installed)).toEqual(['installed', 'installed'])
         const claudeSettings = join(claudeDir, 'settings.json'), codexHooks = join(codexDir, 'hooks.json')
+        // The scripts live under the app's userData (…/oxespace/agent-hooks/oxespace-status-hook.cjs), so "oxespace" in
+        // a command proves nothing: what matters is the program each command runs, and that it is never the app binary.
         for (const file of [claudeSettings, codexHooks]) {
-          const written = readFileSync(file, 'utf8')
-          expect(written, `${file} names the system node`).toMatch(/"node"|node /)
-          expect(written).not.toContain('ELECTRON_RUN_AS_NODE')
-          expect(written.toLowerCase()).not.toContain(basename(process.env.OXESPACE_PACKAGED_EXECUTABLE!).toLowerCase())
+          const hooks = statusHooks(readFileSync(file, 'utf8'))
+          expect(hooks.length, `${file} carries the OXESpace status hooks`).toBeGreaterThan(0)
+          for (const hook of hooks) {
+            const text = [hook.command, ...(hook.args ?? [])].join(' ')
+            expect(basename(hookProgram(hook)), `${file}: ${text} runs on the system node`).toMatch(/^node(\.exe)?$/i)
+            expect(text, `${file}: ${text}`).not.toContain('ELECTRON_RUN_AS_NODE')
+            expect(mentionsExecutable(text), `${file}: ${text} names the app binary`).toBe(false)
+          }
         }
 
         const driver = join(root, 'hook-driver.cjs'), out = join(root, 'hooks.json')
