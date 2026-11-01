@@ -75,7 +75,7 @@ test('F18/#243: queue in order, critical pacing, a cut text only denies, history
     await denyButton.click()
 
     // A cut text: said so, and only Deny is offered.
-    await expect.soft(modal(page).getByText(/cut|truncat|shortened|first 100/i).first(), 'the cut is announced').toBeVisible({ timeout: 5_000 })
+    await expect.soft(modal(page).getByText(/cut|truncat|shortened|first 100|only part of it/i).first(), 'the cut is announced').toBeVisible({ timeout: 5_000 })
     expect.soft(await allowButton.count(), 'a cut text can only be denied').toBe(0)
     await page.waitForTimeout(ARMED)
     await denyButton.click()
