@@ -104,11 +104,20 @@
         "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
         "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
         "unknownWorkspace": "Este workspace não existe mais."
+      },
+      "agent": {
+        "scriptUnsupported": "Escolha o executável do próprio agente nas Configurações de agentes: o OxeChat não inicia agentes por scripts .cmd, .ps1 ou .bat.",
+        "nativeMissing": "Falta o executável nativo (codex.exe) no Codex instalado. Reinstale o Codex ou escolha o codex.exe nas Configurações de agentes."
       }
     },
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
+      }
+    },
+    "ipc": {
+      "sender": {
+        "refused": "Só a própria janela do app pode fazer este pedido."
       }
     },
     "activity": {
@@ -379,7 +388,8 @@
       },
       "ipc": {
         "handlerFailed": "Um pedido da janela falhou em segundo plano.",
-        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado."
+        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado.",
+        "senderRefused": "Algo que não é a janela do app, como uma página em pré-visualização, enviou um pedido; o app recusou."
       },
       "agent": {
         "startFailed": "Um agente não conseguiu iniciar."

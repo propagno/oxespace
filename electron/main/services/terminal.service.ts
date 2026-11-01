@@ -1,13 +1,13 @@
 import { defaultSplitShellProfileId } from './shell-profile.defaults'
 import { recordRuntime } from './runtime-diagnostics'
-import type { IPty, IPtyForkOptions } from 'node-pty'
+import type { IPty, IPtyForkOptions, IWindowsPtyForkOptions } from 'node-pty'
 import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { basename, delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
-import { killProcess } from '../utils/process-cleanup'
+import { terminatePty } from '../utils/process-tree'
 import { getRtkService, type RtkService } from './rtk.service'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
@@ -17,14 +17,17 @@ import { mainMessage } from '../../../shared/messages'
 import { claudeSessionToAssign, failedToLoadStatus, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
+import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
 const resolvedExecutableCache = new Map<string, string>()
+/** What the system ConPTY wrote first: clear, reset attributes, home. The bundled one writes none of it (B13). */
+export const CONPTY_START_SCREEN = '\x1b[2J\x1b[m\x1b[H'
 
 interface PtyModule {
-  spawn(file: string, args: string[], options: IPtyForkOptions): IPty
+  spawn(file: string, args: string[], options: IPtyForkOptions | IWindowsPtyForkOptions): IPty
 }
 
 interface TerminalManagerOptions {
@@ -94,6 +97,13 @@ interface TerminalSession {
   modes: PtyModeTracker
   /** True while a terminal view is rendering this session. */
   attached: boolean
+  /**
+   * True only between a view's attach() and its detach(). `attached` starts true so the first prompt is not held
+   * back, but a pane started with no view never attaches; then main answers DA1 itself (see pty-da1.ts).
+   */
+  viewAttached: boolean
+  da1: Da1Filter
+  da1Timer: ReturnType<typeof setTimeout> | null
   lastActivityAt: number
   /** Last size the view reported; used for the alt-screen redraw nudge. */
   cols: number
@@ -365,6 +375,9 @@ export class TerminalManager {
       finalEnv = { ...finalEnv, RTK_DISABLED: '1' }
     }
 
+    // An app started with ELECTRON_RUN_AS_NODE must not hand it to its shells: any Electron CLI run there (code) breaks.
+    for (const key of Object.keys(finalEnv)) if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE') delete finalEnv[key]
+
     // Spawn at the view's real geometry. Starting at 80x24 and resizing after
     // the fact makes the app reflow once, which reads as a flash on open.
     const cols = clampDimension(input.cols, 80)
@@ -378,7 +391,10 @@ export class TerminalManager {
         cwd,
         cols,
         rows,
-        env: finalEnv
+        env: finalEnv,
+        // Windows: the ConPTY that node-pty ships. Its kill never forks a helper; the system ConPTY's kill does
+        // child_process.fork(), which needs RunAsNode and would start a second OXESpace once that fuse is off.
+        ...(this.platform === 'win32' ? { useConptyDll: true } : {})
       })
     } catch (error) {
       recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
@@ -415,21 +431,30 @@ export class TerminalManager {
       // A view always attaches right after starting; assuming attached here
       // avoids dropping the first prompt into the ring only.
       attached: true,
+      viewAttached: false,
+      da1: new Da1Filter(),
+      da1Timer: null,
       lastActivityAt: Date.now(),
       cols,
       rows,
       activityNotifiedAt: 0
     })
 
+    // The bundled ConPTY (useConptyDll) never clears the screen on start, unlike the system one (ESC[2J ESC[m ESC[H),
+    // yet positions absolutely from row 1. The view may already hold a line ("Idle"), so the first screen landed one row
+    // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
+    if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : agentCommand ?? executable)
     ptyProcess.onData((data) => {
-      this.sessions.get(input.paneId)?.outputBatcher.push(data)
+      const session = this.sessions.get(input.paneId)
+      if (session) this.receive(session, data)
       this.observer?.output(input.paneId, data)
     })
     ptyProcess.onExit(({ exitCode }) => {
       recordRuntime('process-exit', { pane: input.paneId, pid: ptyProcess.pid, exitCode })
       const session = this.sessions.get(input.paneId)
       if (session?.pty !== ptyProcess) return // A late exit cannot remove a restarted process.
+      if (session) this.releaseDa1(session)
       session?.outputBatcher.flush()
       if (session) this.rememberExit(session, exitCode)
       // A resume that ends at once could not load its session; forget it so it cannot loop resume → exit → resume.
@@ -504,6 +529,34 @@ export class TerminalManager {
   }
 
   /**
+   * PTY output on its way to the batcher. A DA1 query that no view will answer is answered here and removed from the
+   * stream. Main runs this and attach()/detach() on one thread, so the choice is made once per query and holds:
+   * - no view at that moment: the query never reaches the ring or the IPC stream, so a view attaching while main's
+   *   reply is still queued (or any later replay) cannot answer it a second time;
+   * - a view attached: the query goes to it live and its xterm answers; main sends nothing. detach() flushes the
+   *   batcher first, so the view still gets it; a view torn down before parsing it leaves ConPTY to time out, never
+   *   two replies.
+   */
+  private receive(session: TerminalSession, chunk: string): void {
+    const { data, answered } = session.da1.filter(chunk, !session.viewAttached)
+    for (let i = 0; i < answered; i++) void session.inputQueue.enqueue(DA1_REPLY)
+    if (data) session.outputBatcher.push(data)
+    if (session.da1Timer) { clearTimeout(session.da1Timer); session.da1Timer = null }
+    if (session.da1.holding) {
+      session.da1Timer = setTimeout(() => {
+        session.da1Timer = null
+        if (this.sessions.get(session.paneId) === session) session.outputBatcher.push(session.da1.release())
+      }, DA1_CARRY_MS)
+    }
+  }
+
+  private releaseDa1(session: TerminalSession): void {
+    if (session.da1Timer) { clearTimeout(session.da1Timer); session.da1Timer = null }
+    const held = session.da1.release()
+    if (held) session.outputBatcher.push(held)
+  }
+
+  /**
    * Route batched output. Everything is retained; only an attached view gets
    * the bytes over IPC. Previously every chunk was broadcast to every window
    * and dropped in the preload when nobody was listening.
@@ -512,7 +565,9 @@ export class TerminalManager {
     const session = this.sessions.get(event.paneId)
     if (!session) return
 
-    session.ring.push(event.data)
+    // A replayed DA1 would be answered again by the re-mounted view and typed into the shell as `?1;2c`. Whoever was
+    // going to answer it has (main or the live view), so the ring keeps none. receive() never splits a query.
+    session.ring.push(stripDa1(event.data))
     session.modes.consume(event.data)
     session.lastActivityAt = Date.now()
 
@@ -557,6 +612,7 @@ export class TerminalManager {
     session.outputBatcher.flush()
     const slice = session.ring.since(input.sinceSeq ?? 0)
     session.attached = true
+    session.viewAttached = true
 
     // On the alternate screen the retained bytes cannot be trusted: if the
     // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
@@ -578,6 +634,7 @@ export class TerminalManager {
     if (!session) return
     session.outputBatcher.flush()
     session.attached = false
+    session.viewAttached = false
   }
 
   /**
@@ -670,10 +727,12 @@ export class TerminalManager {
     recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })
     // Flush before disposing: the batcher discards `pending`, so an exiting
     // process used to lose its last words (often the error that killed it).
+    this.releaseDa1(session)
     session.outputBatcher.flush()
     session.inputQueue.dispose()
     session.outputBatcher.dispose()
-    killProcess(session.pty)
+    // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
+    void terminatePty(session.pty)
     this.sessions.delete(input.paneId)
     this.notifyLaunchExit(input.paneId)
     this.observer?.exit(input.paneId)

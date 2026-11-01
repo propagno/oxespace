@@ -37,10 +37,16 @@ export interface MessageParams {
   'thread.protectedConfig.rewritesTracked': { command: string }
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** B12: the IPC sender guard refused a call from a sender other than the app window's main frame. */
+  'ipc.sender.refused': Record<string, never>
   /** The provider cannot fork its session into a side chat (B1.2). */
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
+  'thread.agent.scriptUnsupported': Record<string, never>
+  /** B13: a `codex.cmd` npm install whose native `codex.exe` is missing (it is never run through the app as Node). */
+  'thread.agent.nativeMissing': Record<string, never>
   /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
   'activity.invalid': Record<string, never>
   'activity.tooMany': { max: number }
@@ -77,6 +83,7 @@ export interface MessageParams {
   'incident.window.rendererGone': Record<string, never>
   'incident.ipc.handlerFailed': Record<string, never>
   'incident.ipc.validationRejected': Record<string, never>
+  'incident.ipc.senderRefused': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
   'incident.mcp.toolGroupOff': Record<string, never>
@@ -340,8 +347,11 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.warning',
   'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
+  'ipc.sender.refused',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.agent.scriptUnsupported',
+  'thread.agent.nativeMissing',
   'activity.invalid',
   'activity.tooMany',
   'activity.titleTooLong',
@@ -368,6 +378,7 @@ export const MESSAGE_CODES = [
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
+  'incident.ipc.senderRefused',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
   'incident.mcp.toolGroupOff',
