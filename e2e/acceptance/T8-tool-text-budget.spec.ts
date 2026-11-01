@@ -33,9 +33,9 @@ function bridge(command: string, args: string[], env: Record<string, string>) {
 test('T8: an ordinary session carries at most 9,000 characters of tools', async () => {
   test.setTimeout(180_000)
   const profile = realProfile('t8', { OXESPACE_LOCALE: 'en-US' })
-  let { app, page } = await launchReal(profile)
-  try { await openRepo(page, profile.repo) } finally { await quitReal(app) }
-  ;({ app, page } = await launchReal(profile))
+  const first = await launchReal(profile)
+  try { await openRepo(first.page, profile.repo) } finally { await quitReal(first.app) }
+  const { app } = await launchReal(profile)
   let client: ReturnType<typeof bridge> | null = null
   try {
     const mcpJson = join(profile.repo, '.mcp.json')

@@ -22,8 +22,8 @@ test('S3: sections, nesting, coordinator and "since last time" come back after a
   test.setTimeout(240_000)
   const profile = realProfile('s3', { OXESPACE_LOCALE: 'en-US' })
   let { app, page } = await launchReal(profile)
-  let ids: string[] = []
-  let projectId = ''
+  const ids: string[] = []
+  let projectId: string
   try {
     ;({ projectId } = await page.evaluate(root => (window as unknown as { oxe: Api }).oxe.thread.addProject(root), profile.repo))
     for (let i = 0; i < 4; i++) ids.push(await page.evaluate(i => (window as unknown as { oxe: Api }).oxe.thread.create({ projectId: i.projectId, rootPath: i.root, provider: 'claude' }).then(s => s.thread.id), { projectId, root: profile.repo }))
