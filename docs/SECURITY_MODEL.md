@@ -118,6 +118,34 @@ Every request an agent raises for the person (confirm-level MCP actions, OxeQuer
 
 The native dialog is a fallback only: no app window exists, the window reported `approvals.unavailable` for that one request, or a request that needs a handshake (`crash`) was not acknowledged within `APPROVAL_ACK_TIMEOUT_MS`. The renderer-gone notice stays native because the renderer that would draw the modal is gone.
 
+### Reserved names (`reservedNameIn`, `shared/reserved-names.ts`, re-exported by `shared/approval-rules.ts`)
+
+A pane name an agent chooses, and the agent-supplied parts of a notification, may not pass for the app, the operating system or a vendor. Both folds apply to every rule: symbols dropped ("System!") and symbols read as the letters they imitate ("$ystem", "W1ndows"), after NFKC, case, accents, invisible characters and look-alike letters.
+
+| Names | Refused when |
+|---|---|
+| OXESpace, OxeChat, OxeCode, OxeQuery, OxePod, OxePost | contained anywhere in the whole-name fold ("OXESpace: security update", "O.X.E Space") |
+| Windows, Microsoft, Ubuntu, Linux, macOS, Apple, Google, GitHub, Debian, Fedora, GNOME, KDE, polkit | a whole word of the name, or two adjacent words joined ("Windows Security", "GNOME Keyring", "Win dows", "Git Hub"); "Linuxbrew", "Applesauce", "Gnomes", "kdenlive" and "Win dow manager" are allowed |
+| System, Sistema, Administrator, Administrador, Admin, Aplicação, Aplicativo, Application, App, root, sudo, Security, Segurança | the first word, or the whole name ("System Administrator", "root access", "Security scanner", and so also "Sistema de testes" and "App builder"); "my system", "filesystem", "Rootless builder", "pseudo", "my security notes" and "Securities" are allowed |
+| Admin…, Oxe… (prefixes, folded) | a first word that starts with one ("Administração", "Admins", "OxeBot", "OXE", "Oxentebot"); "Admiral", "Admit", "Ox" and "Boxer" are allowed, and the real words Oxente, Oxen and Oxeye are allowed exactly as the first word, whatever follows ("Oxente bot") |
+| Thread, Code, Chat (the app's tab names) | the whole name only; "Code reviewer" and "Chatbot" are allowed |
+
+The first-word and prefix rules also read the first two words joined, so "Sys tem", "Ad min panel" and "OX E" are refused ("Ox ente" joins to the allowed "oxente"; "Box er" to "boxer"). Some names are refused although a person could mean something harmless ("Security Reviewer", "Root Cause Analyst", "Admin Panel", "Adminer", "Administrativo", "Gnome lover", "Fedora fan", "GitHub Copilot"); that overblock is accepted.
+
+Provider names (Claude, Anthropic, Codex, OpenAI) are allowed: the requester the person sees comes from the authenticated provider, never from the name. Each rule is checked on every fold before the next rule, so the most specific name is reported.
+
+Words are split on anything that is not a letter; a run of three or more single letters, whatever separates them ("W i n d o w s", "W.i.n.d.o.w.s", "W_i_n_d_o_w_s"), is joined into one word first, while two ("A B testing") are left alone. A pane name is refused with `agents.name.reserved` (MCP code `reserved-name`), a notification with `notify.refused.reservedName`.
+
+Words are also read a second way, with every invisible character (format characters such as zero-width spaces, soft hyphens, bidi controls and joiners; default-ignorables such as variation selectors, the Hangul fillers and the Mongolian vowel separator; a combining mark NFKC could not compose) taken as a space instead of deleted, and a name is refused when either reading matches: "Win​dows" is one word, "Windows​Security" two. Look-alikes include dotless ı, the Latin small capitals (ᴡ, ʀ, ꜱ, ɢ, …) and the Greek and Cyrillic capitals that look Latin, mapped before lower case (Greek Η is H while its η reads as n).
+
+In a notification's title and body (`reservedNameIn(text, 'notice')`: `NotifyGate`, and the agent error in a turn notice), System, Sistema, Administrator, Administrador, Admin, root, sudo, Security and Segurança (`RESERVED_NOTICE_WORDS`) are refused as a whole word anywhere, or two adjacent words joined ("Important: System notice", "Notificação do Sistema", "Claude Security"). Pane and tab names keep the first-word rule, so "My System" stays a valid name. The App family and "Update" stay first-word only in notices too: "the app crashed" and "Update ready" are ordinary notice text, and "System Update" is caught by System.
+
+**Closed findings (security review of #247, round 1):** an invisible character between two words merged them, so "Windows​Security", "System​Update", a soft hyphen, a bidi override or a Hangul filler between the words got past every word rule (H1); dotless ı, small capitals and Greek Η/Ω were not mapped (M1); a notice only needed one lead word before "System" (M2). The two readings, the larger table and the notice scope close them; `tests/approval-rules.test.ts` keeps every measured bypass.
+
+**Closed findings (homologation, #184 and #247):** "Administração" got through #247's first version (only whole first words were matched); the admin prefix closes it.
+
+**Closed finding (homologation, #184):** a black-box probe of #235's `reservedNameIn` with 38 names caught every imitation of the product names, but let through "System Administrator", "Sistema operacional", "Administrador", "Aplicação", "Windows", "Windows Security", "Microsoft", "Ubuntu" and "Thread": the generic words were matched only as the whole name and there were no OS or vendor names. The rule above closes it; `tests/approval-rules.test.ts` keeps each of those names, and the probe's categories, with its verdict.
+
 ## Accepted risks
 
 Risks known and accepted for a release, each with what limits it and when it is looked at again.
