@@ -17,14 +17,17 @@
     <plurals name="agents_duration_days">
         <item quantity="one">%1$d dia</item>
         <item quantity="other">%1$d dias</item>
+        <item quantity="many">%1$d dias</item>
     </plurals>
     <plurals name="agents_duration_hours">
         <item quantity="one">%1$d hora</item>
         <item quantity="other">%1$d horas</item>
+        <item quantity="many">%1$d horas</item>
     </plurals>
     <plurals name="agents_duration_minutes">
         <item quantity="one">%1$d minuto</item>
         <item quantity="other">%1$d minutos</item>
+        <item quantity="many">%1$d minutos</item>
     </plurals>
     <string name="agents_empty">Nenhum agente rodando em %1$s</string>
     <string name="agents_empty_body">Os agentes que você iniciar no computador aparecem aqui.</string>
@@ -38,6 +41,7 @@
     <plurals name="agents_more_requests">
         <item quantity="one">+%1$d outro</item>
         <item quantity="other">+%1$d outros</item>
+        <item quantity="many">+%1$d outros</item>
     </plurals>
     <string name="agents_offline_actions">As ações estão pausadas.</string>
     <string name="agents_partial">Não foi possível ler alguns agentes agora. O resto está atualizado.</string>
@@ -46,6 +50,7 @@
     <plurals name="agents_spoken_more">
         <item quantity="one">e mais %1$d</item>
         <item quantity="other">e mais %1$d</item>
+        <item quantity="many">e mais %1$d</item>
     </plurals>
     <string name="agents_spoken_since">%1$s há %2$s</string>
     <string name="agents_state_exited">Encerrado</string>
