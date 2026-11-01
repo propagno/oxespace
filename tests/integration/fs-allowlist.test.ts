@@ -99,6 +99,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // B17: whether a pane's recorded agent session is still on disk before it is resumed. Stats
   // <claude>/projects/<encoded cwd>/<id>.jsonl and lists the dated folders of <codex>/sessions for a rollout named
   // after the id. The id is a UUID the hooks or main recorded; never a path from the renderer. No contents, no writes.
+  // For Claude it also realpaths the pane root and lists <claude>/projects once; a project folder holding the id is
+  // decoded through the folder names on the way down to it (bounded), and accepted only if it resolves to the root.
   'electron/main/services/agent-state/native-session-files.ts',
   // Shell parsing: existence probes for the bash grammar and the tree-sitter runtime wasm at
   // fixed app-asset locations. Never a path from the renderer or the agent, never contents.
