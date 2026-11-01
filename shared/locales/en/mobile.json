@@ -118,9 +118,6 @@
     }
   },
   "thread": {
-    "you": "You",
-    "agent": "Agent",
-    "reasoning": "Thinking",
     "tool": {
       "running": "Running",
       "completed": "Done",
@@ -129,8 +126,6 @@
     },
     "filesChanged_one": "{{count}} file changed",
     "filesChanged_other": "{{count}} files changed",
-    "plan": "Plan",
-    "request": "Request: {{title}}",
     "requestState": {
       "pending": "Needs you",
       "resolved": "answered",
@@ -145,10 +140,72 @@
     "truncated": "Shortened on the phone; the full text is on the computer.",
     "unknownItems_one": "{{count}} item from a newer OXESpace isn't shown.",
     "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
-    "showOutput": "Show output",
-    "hideOutput": "Hide output",
     "loadOlder": "Load earlier",
-    "respond": "Respond"
+    "respond": "Respond",
+    "answerLabel": "Agent's answer",
+    "copy": "Copy",
+    "copied": "Copied",
+    "marker": {
+      "pending": "Request waiting for your answer ↓",
+      "resolved": "Answered",
+      "cancelled": "The request was withdrawn",
+      "expired": "The request expired"
+    },
+    "analyzing": "Analysing the request",
+    "verb": {
+      "read": "Read",
+      "run": "Ran",
+      "edit": "Edited",
+      "create": "Created",
+      "search": "Searched",
+      "other": "Used"
+    },
+    "doing": {
+      "read": "Reading {{target}}",
+      "run": "Running {{target}}",
+      "edit": "Editing {{target}}",
+      "create": "Creating {{target}}",
+      "search": "Searching {{target}}",
+      "other": "Using {{target}}"
+    },
+    "group": {
+      "read_one": "read {{count}} file",
+      "read_other": "read {{count}} files",
+      "run_one": "ran {{count}} command",
+      "run_other": "ran {{count}} commands",
+      "search_one": "made {{count}} search",
+      "search_other": "made {{count}} searches",
+      "other_one": "used {{count}} tool",
+      "other_other": "used {{count}} tools"
+    },
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "turn": {
+      "completed": "Worked · {{steps}}",
+      "interrupted": "Stopped · {{steps}}",
+      "failed": "Failed · {{steps}}",
+      "working": "Working · {{steps}}"
+    },
+    "planProgress": "Plan · {{done}} of {{total}}",
+    "loading": "Loading the conversation",
+    "stopTurn": "Stop the turn",
+    "youSaid": "You: {{text}}",
+    "state": {
+      "working": "Working",
+      "needsYou": "Needs you",
+      "failed": "Failed",
+      "stopped": "Stopped",
+      "idle": "Idle"
+    },
+    "moreRequests_one": "+{{count}} more",
+    "moreRequests_other": "+{{count}} more",
+    "answerOnComputer": "Answer on the computer",
+    "stop": {
+      "title": "Stop this turn?",
+      "body": "The agent in “{{title}}” stops what it is doing now. The conversation stays.",
+      "confirm": "Stop turn",
+      "keep": "Keep running"
+    }
   },
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
@@ -165,12 +222,8 @@
   },
   "request": {
     "title": "Request",
-    "from": "From the conversation “{{conversation}}”",
-    "command": "Command",
-    "cwd": "Folder",
     "paths": "Files it would change",
     "reason": "Why",
-    "warnings": "Worth a second look",
     "tool": "Tool",
     "risk": {
       "low": "Low",
@@ -189,7 +242,7 @@
       "decline": "Deny",
       "cancel": "Cancel request"
     },
-    "declineReason": "Reason, told to the agent (optional)",
+    "declineReason": "Reason for the agent (optional)",
     "sendAnswers": "Send answers",
     "desktopOnly": "Only your computer can answer this one. Open OXESpace there.",
     "notConfirmed": "Not sent: the confirmation on this phone was cancelled.",
@@ -204,7 +257,18 @@
     },
     "riskBadge": "Risk: {{risk}}",
     "fromAgent": "Written by the agent",
-    "desktopOnlyTitle": "Answer on the computer"
+    "desktopOnlyTitle": "Answer on the computer",
+    "by": "Requested by",
+    "where": "Where",
+    "notVerified": "OXESpace hasn't checked this text.",
+    "allowBiometric": "Allowing asks for your fingerprint.",
+    "hold": "Critical risk: Allow becomes available in 2 s.",
+    "projectFolder": "project folder",
+    "kind": {
+      "agent": "Request from an agent",
+      "question": "The agent's question",
+      "permissions": "Permission request"
+    }
   },
   "action": {
     "offline": "Not connected to your computer. Nothing was sent.",
@@ -215,8 +279,7 @@
   "composer": {
     "placeholder": "Message the agent",
     "send": "Send",
-    "steer": "Steer",
-    "stop": "Stop"
+    "steer": "Steer"
   },
   "terminalInput": {
     "placeholder": "Type in this terminal",

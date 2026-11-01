@@ -79,6 +79,36 @@ object Samples {
             {"seq":6,"item":{"type":"request","id":"q-1","requestId":"r-1","kind":"approval","title":"Delete the build output","state":"pending"}}]}""")))
     }
 
+    /** M10: a working turn with folded reads, a running command, and an earlier finished turn behind its bar. */
+    fun working() = Watched(ThreadTimeline()).apply {
+        onSnapshot(listOf(json("""{"thread":$header,"hasMore":false,"items":[
+            {"seq":1,"item":{"type":"message","id":"u0","role":"user","text":"Why does the login redirect loop?"}},
+            {"seq":2,"item":{"type":"tool","id":"a1","name":"Read","state":"completed","detail":"src/auth/middleware.ts"}},
+            {"seq":3,"item":{"type":"message","id":"a2","role":"assistant","text":"The middleware reads the **old cookie** after a refresh, so `isExpired` is always true."}},
+            {"seq":4,"item":{"type":"completed","id":"c0","status":"completed"}},
+            {"seq":5,"item":{"type":"message","id":"u1","role":"user","text":"Fix it and add a test."}},
+            {"seq":6,"item":{"type":"tool","id":"b1","name":"Read","state":"completed","detail":"src/auth/session.ts"}},
+            {"seq":7,"item":{"type":"tool","id":"b2","name":"Grep","state":"completed","detail":"isExpired src/"}},
+            {"seq":8,"item":{"type":"tool","id":"b3","name":"Edit","state":"completed","detail":"src/auth/session.ts","filesChanged":1}},
+            {"seq":9,"item":{"type":"tool","id":"b4","name":"Bash","state":"running","detail":"npm test -- auth"}}]}""")))
+    }
+
+    /** M10: a finished turn: collapsed steps, and the final answer as the one card, with a code block. */
+    fun finished() = Watched(ThreadTimeline()).apply {
+        val idle = header.replace("\"status\":\"running\"", "\"status\":\"idle\"").replace("\"pendingRequests\":1", "\"pendingRequests\":0")
+        onSnapshot(listOf(json("""{"thread":$idle,"hasMore":false,"items":[
+            {"seq":1,"item":{"type":"message","id":"u1","role":"user","text":"Fix the login redirect and add a test."}},
+            {"seq":2,"item":{"type":"tool","id":"b1","name":"Read","state":"completed","detail":"src/auth/session.ts"}},
+            {"seq":3,"item":{"type":"tool","id":"b2","name":"Edit","state":"completed","detail":"src/auth/session.ts"}},
+            {"seq":4,"item":{"type":"tool","id":"b3","name":"Bash","state":"completed","detail":"npm test -- auth","output":"Tests: 12 passed"}},
+            {"seq":5,"item":{"type":"message","id":"a9","role":"assistant","text":"The expiry check compared **seconds** with **milliseconds**. I fixed `isExpired` and added a regression test:
+
+```
+npm test -- auth   # 12 passed
+```"}},
+            {"seq":6,"item":{"type":"completed","id":"c1","status":"completed"}}]}""")))
+    }
+
     /** Every risk wire value the phone may meet: the four levels, the older shell colours and a level added later. */
     val riskWires = listOf("low", "medium", "high", "critical", "green", "orange", "red", "catastrophic")
 

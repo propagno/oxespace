@@ -83,8 +83,10 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
 
     @Test
     fun conversation() {
-        shot("thread") { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true) {} }
-        shot("thread-loading") { ThreadScreen("t-1", Samples.timeline(loaded = false), commands, Samples.presence, connected = true) {} }
+        shot("thread") { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true, pending = listOf(Samples.request())) {} }
+        shot("thread-working") { ThreadScreen("t-1", Samples.working(), commands, Samples.presence, connected = true) {} }
+        shot("thread-finished") { ThreadScreen("t-1", Samples.finished(), commands, Samples.presence, connected = true) {} }
+        shot("thread-loading") { ThreadScreen("t-1", Samples.timeline(loaded = false), commands, Samples.presence, connected = true, knownTitle = "Fix the login redirect", skeletonAfterMs = 0) {} }
     }
 
     @Test

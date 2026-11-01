@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.ui.theme.OxeFonts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -232,9 +233,9 @@ private fun RequestRow(request: RemotePendingRequest, onOpen: () -> Unit) {
         Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button, onClick = onOpen).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
     ) {
-        Text(displaySafe(request.title, 200), style = MaterialTheme.typography.titleMedium)
+        Text(requestTitle(request), style = MaterialTheme.typography.titleMedium)
         request.risk?.let { RiskLine(it) }
-        request.command?.let { Text(showHidden(it), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+        request.command?.let { Text(showHidden(it), fontFamily = OxeFonts.mono, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
         Text("${displaySafe(request.threadTitle, 200)} · ${ageLabel(request.createdAt)}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
     }
 }
