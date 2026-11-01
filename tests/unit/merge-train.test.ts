@@ -783,7 +783,8 @@ describe('docs-only main changes (coordinator rule)', () => {
       }
       expect(isTestReadDoc(hit.path), `${hit.path} is read by ${hit.where}`).toBe(true)
     }
-  })
+    // It reads every test file; on a loaded machine that can pass the default 5 s.
+  }, 30_000)
 })
 
 /** Doc paths (docs/**, .claude/**, *.md) that exist in this repository and appear in the given folders' code. */
@@ -799,7 +800,12 @@ function scanDocReads(folders: string[]): Array<{ path: string; dir: boolean; wh
   }
   for (const folder of folders) if (existsSync(folder)) walk(folder)
   // The repository's own spelling of a path, or null (Windows and macOS file systems ignore case).
+  const spelled = new Map<string, string | null>()
   const actual = (path: string): string | null => {
+    if (!spelled.has(path)) spelled.set(path, spell(path))
+    return spelled.get(path)!
+  }
+  const spell = (path: string): string | null => {
     let at = '.'
     const parts: string[] = []
     for (const part of path.replace(/\/$/, '').split('/')) {
@@ -818,7 +824,8 @@ function scanDocReads(folders: string[]): Array<{ path: string; dir: boolean; wh
     found.get(path)!.add(where)
   }
   const literal = /['"`](\.\/)?((?:docs|\.claude)\/[^'"`*\s$]+|[A-Za-z0-9_.-]+\.md)['"`]/g
-  const call = /\(\s*[^()'"`]*?,\s*((?:['"`][^'"`]+['"`]\s*,\s*)*['"`][^'"`]+['"`])\s*\)/g
+  // join(...)/resolve(...) with string segments; [^()]* keeps the match linear (no nested quantifiers).
+  const call = /\b(?:join|resolve)\(([^()]*)\)/g
   for (const file of files) {
     const text = readFileSync(file, 'utf8')
     for (const m of text.matchAll(literal)) add(m[2], file)
