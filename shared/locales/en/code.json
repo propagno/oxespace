@@ -1872,7 +1872,7 @@
       "state": "Last start",
       "resumed": "Resumed when the pane started",
       "startedFresh": "Started fresh, as you chose",
-      "savedNotResumed": "A saved session existed but was not resumed: {{reason}}",
+      "savedNotResumed": "Saved session not resumed: {{reason}}",
       "copy": "Copy resume command",
       "command": "Resume command",
       "copied": "Resume command copied"
