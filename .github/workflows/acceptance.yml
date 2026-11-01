@@ -66,6 +66,10 @@ jobs:
             if [[ ! "$value" =~ $ref || "$value" == *..* || "$value" == */ || "$value" == *.lock || "$value" == refs/* ]]; then
               echo "::error::$name must be a branch or tag name of this repository (letters, digits, . _ / -; not refs/...)"; exit 1
             fi
+            # checkout reads a full hex name as a commit, so a branch named like one could fetch any commit.
+            if [[ "$value" =~ ^[0-9a-fA-F]{40}([0-9a-fA-F]{24})?$ ]]; then
+              echo "::error::$name looks like a commit SHA; use a branch or tag name"; exit 1
+            fi
           done
           spec='^e2e/acceptance/[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.spec\.ts$'
           if [[ ! "$SPEC" =~ $spec || "$SPEC" == *..* ]]; then
@@ -76,30 +80,43 @@ jobs:
             echo "::error::grep may use letters, digits, spaces and . _ ( ) \\ : - (80 at most), and may not start with -"; exit 1
           fi
 
-      - name: Both refs are branches or tags of this repository
+      - name: Both refs are branches or tags of this repository (pinned to the commit found)
+        id: refs
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          sha='^[0-9a-f]{40}$'
           for name in PRODUCT_REF SPEC_REF; do
             value="${!name}"
-            if gh api "repos/$REPO/git/ref/heads/$value" --silent 2>/dev/null; then echo "$name: branch $value"; continue; fi
-            if gh api "repos/$REPO/git/ref/tags/$value" --silent 2>/dev/null; then echo "$name: tag $value"; continue; fi
-            echo "::error::$name is not a branch or tag of $REPO (pull request heads, forks and bare SHAs are refused)"; exit 1
+            commit=''
+            if commit=$(gh api "repos/$REPO/git/ref/heads/$value" -q '.object.sha' 2>/dev/null); then echo "$name: branch $value"
+            elif tagged=$(gh api "repos/$REPO/git/ref/tags/$value" -q '.object.type + " " + .object.sha' 2>/dev/null); then
+              echo "$name: tag $value"
+              commit="${tagged#* }"
+              # An annotated tag points at a tag object: peel it to its commit.
+              if [[ "${tagged%% *}" == tag ]]; then commit=$(gh api "repos/$REPO/git/tags/$commit" -q '.object.sha'); fi
+            else
+              echo "::error::$name is not a branch or tag of $REPO (pull request heads, forks and bare SHAs are refused)"; exit 1
+            fi
+            if [[ ! "$commit" =~ $sha ]]; then echo "::error::$name did not resolve to a commit"; exit 1; fi
+            # Checkout uses this commit, never the name: a branch that moves after this check changes nothing.
+            echo "$(tr 'A-Z' 'a-z' <<< "$name")=$commit" >> "$GITHUB_OUTPUT"
+            echo "$name -> $commit"
           done
 
       - name: Check out the app under test
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
         with:
-          ref: ${{ inputs.product_ref }}
+          ref: ${{ steps.refs.outputs.product_ref }}
           persist-credentials: false
 
       - name: Check out the spec (not run, only copied)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
         with:
-          ref: ${{ inputs.spec_ref }}
+          ref: ${{ steps.refs.outputs.spec_ref }}
           path: .acceptance-spec-src
           persist-credentials: false
           sparse-checkout: |
