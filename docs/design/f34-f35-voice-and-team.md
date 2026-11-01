@@ -132,6 +132,39 @@ agent's row in the S7 central. Cost M.
 - Team opens from the palette, Tools menu and `Mod+Shift+T` in OxeCode and OxeChat; each disabled case says why.
 - en and pt-BR strings from #197; keyboard and screen-reader names match the visible label.
 
+### F35 build notes (for FRONTEND, 2026-10-31)
+
+Checked on main d71a8c4f. The spec above stands; this pins the details so the PR needs no new decisions.
+
+- **Base:** stack F35 on #197 (still open). It owns the translated `team.button.*` strings and the `TeamButton`
+  component F35 deletes. If #197 merges first, rebase onto main.
+- **Shortcut:** `Mod+Shift+T` is free in `src/keyboard/keybindings.ts`. Add `team.open`, `scope: 'global'`,
+  `reservedInTerminal: true`. It is listed by the keyboard guide and shown on the menu item.
+- **One label everywhere:** the existing tool (`toolCatalog` `team`, `code.json` `tools.team.label`) changes from
+  "Equipe" / "Team" to **"Equipe do projeto" / "Project team"**. Its `detail` stays ("Papéis do projeto e caixas de
+  entrada dos agentes"). Palette, Tools menu, S7 ⋯ and the OxeChat project ⋯ all read this one key, with "…" added
+  by the menus.
+- **Keywords** (both languages, so either finds it): `team`, `equipe`, `time`, `roles`, `papéis`, `coordinator`,
+  `coordenadora`, `members`, `membros`, `inbox`, `caixa de entrada`.
+- **Disabled reasons**, reusing #197's keys; only the tooltip prefix is new:
+
+| Where Team can't open | Key (#197) | pt-BR | en |
+|---|---|---|---|
+| OxeCode with no workspace | `team.button.needsWorkspace` | Abra um workspace para abrir a equipe dele | Open a workspace to open its team |
+| OxeChat with no project selected | `team.button.needsProject` | Selecione um projeto do OxeChat para abrir a equipe dele | Select an OxeChat project to open its team |
+| OxeQuery, OxePod, OxePost | `team.button.otherViews` | A equipe está disponível no OxeCode e no OxeChat | Team is available in OxeCode and OxeChat |
+
+  - **Menu and palette:** the item is disabled, with the reason as its description (palette) or tooltip (menu).
+  - **Shortcut:** `toast` (info) with the same reason, title "Equipe do projeto" / "Project team".
+
+- **Remove:** `TeamButton` from the title bar and `App.tsx`'s `teamDisabledReason`/title-bar markup; keep
+  `openTeam` and `teamTarget` (the new entries call them). Delete `TeamButton.tsx` if nothing else uses it.
+- **OxeChat project ⋯** (the project row's menu in `ThreadSidebar`): add "Equipe do projeto…" opening the Team
+  scoped to that project. It is never disabled there, because the row is the project.
+- **Tests:** a unit test that the title bar has no Team control in each of the 5 views. A keybinding catalog test
+  covers `team.open`. An e2e opens Team via palette, menu and shortcut in OxeCode and OxeChat, and checks the toast
+  in OxeQuery. Visual baselines change in the batch, not in this PR.
+
 ## Glossary entries these items fix
 
 Added to `docs/design/glossary.md` (in progress): Team → **Equipe** (pt-BR), "Project team" → "Equipe do projeto";
