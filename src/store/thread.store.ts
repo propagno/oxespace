@@ -97,7 +97,10 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     // A conversation not in the cache: the row is selected at once, and the current conversation stays on screen
     // until the next one has loaded; past 300 ms the view shows its skeleton (docs/design/motion.md, F7.2).
     const keep = !cached && id !== null && get().snapshot !== null
-    if (keep) setTimeout(() => { if (version === generation && get().snapshot?.thread.id !== id) set({ snapshot: null }) }, CONVERSATION_SKELETON_AFTER_MS)
+    // Only the conversation this switch kept is taken down: one that arrived another way (adopt, a newer select)
+    // stays (#363 CI: a timer from an earlier switch cleared a conversation shown since).
+    const keptId = keep ? get().snapshot?.thread.id : undefined
+    if (keep) setTimeout(() => { if (version === generation && get().selectedId === id && get().snapshot?.thread.id === keptId) set({ snapshot: null }) }, CONVERSATION_SKELETON_AFTER_MS)
     set(state => ({ selectedId: id, snapshot: keep ? state.snapshot : cached, unreadIds: id && markRead ? state.unreadIds.filter(value => value !== id) : state.unreadIds, errors: Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'selection')),
       ...(state.secondaryId === id ? { secondaryId: null, activeCell: 'primary' as const } : {}) }))
     if (!id) return

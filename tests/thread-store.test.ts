@@ -35,6 +35,19 @@ describe('Thread navigation store', () => {
       expect(useThreadStore.getState().snapshot?.thread.id).toBe(b.thread.id)
     } finally { vi.useRealTimers() }
   })
+  it('the skeleton timer takes down only the conversation the switch kept, never one shown since (#363 CI)', async () => {
+    vi.useFakeTimers()
+    try {
+      const a = snapshot('conv-a'), b = snapshot('conv-b'), c = snapshot('conv-c')
+      Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { read: vi.fn(() => new Promise<ThreadSnapshot>(() => undefined)) } } })
+      useThreadStore.setState({ selectedId: a.thread.id, snapshot: a, threads: [a.thread, b.thread, c.thread] })
+      void useThreadStore.getState().select(b.thread.id)
+      // Another conversation reaches the screen some other way before the 300 ms pass (an adopt, a reload).
+      useThreadStore.setState({ snapshot: c })
+      vi.advanceTimersByTime(300)
+      expect(useThreadStore.getState().snapshot?.thread.id).toBe(c.thread.id)
+    } finally { vi.useRealTimers() }
+  })
 
   it('persists unread sessions and clears the marker when the conversation opens', async () => {
     Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { read: vi.fn(async () => snapshot('unread')) } } })
