@@ -56,22 +56,3 @@
   align-items: center;
   gap: var(--space-2);
 }
-
-.voice-dictation__dialog {
-  position: absolute;
-  inset-block-end: calc(100% + var(--space-2));
-  inset-inline-start: 0;
-  z-index: var(--layer-popover, 20);
-  display: grid;
-  gap: var(--space-2);
-  inline-size: min(320px, 90vw);
-  padding: var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-}
-.voice-dictation__dialog-title { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); }
-.voice-dictation__dialog-body { margin: 0; color: var(--text-secondary); line-height: var(--leading-snug); }
-.voice-dictation__dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }

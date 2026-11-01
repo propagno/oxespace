@@ -1,9 +1,9 @@
 import type { KeyboardEvent } from 'react'
-import { useEffect, useId } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VoiceRendererApi, VoiceUnavailableReason } from '../../../shared/types/ipc/voice'
 import { loadNamespace } from '../../i18n'
-import { Button, ErrorState, IconButton } from '../../ui'
+import { Button, ConfirmDialog, ErrorState, IconButton } from '../../ui'
 import { useVoiceDictation } from './useVoiceDictation'
 import './voice.css'
 
@@ -22,18 +22,11 @@ const SETTINGS_REASONS: ReadonlySet<VoiceUnavailableReason> = new Set(['os-speec
 export function VoiceDictationControl({ api, onInsert }: { api: VoiceRendererApi; onInsert(text: string): void }) {
   const { t } = useTranslation('voice')
   const voice = useVoiceDictation(api, onInsert)
-  const titleId = useId()
+  const root = useRef<HTMLDivElement>(null)
   const { engine, phase, askingConsent } = voice
 
   // Lazy view: its catalog loads with it, never at boot.
   useEffect(() => { void loadNamespace('voice') }, [])
-
-  useEffect(() => {
-    if (!askingConsent) return
-    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') voice.decline() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [askingConsent, voice])
 
   if (!engine) return null
 
@@ -56,7 +49,7 @@ export function VoiceDictationControl({ api, onInsert }: { api: VoiceRendererApi
   }
 
   return (
-    <div className="voice-dictation">
+    <div className="voice-dictation" ref={root}>
       <IconButton
         variant="secondary"
         className="voice-dictation__button"
@@ -84,7 +77,7 @@ export function VoiceDictationControl({ api, onInsert }: { api: VoiceRendererApi
         <span className="voice-dictation__privacy" data-testid="voice-privacy">{privacy}</span>
       )}
 
-      {reasonAction && (
+      {reasonAction && !voice.error && (
         <div className="voice-dictation__reason">
           <span>{reasonText}</span>
           <Button size="sm" onClick={voice.openSpeechSettings}>{t('openSettings')}</Button>
@@ -102,14 +95,15 @@ export function VoiceDictationControl({ api, onInsert }: { api: VoiceRendererApi
       )}
 
       {askingConsent && (
-        <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="voice-dictation__dialog">
-          <h2 id={titleId} className="voice-dictation__dialog-title">{t('consent.title')}</h2>
-          <p className="voice-dictation__dialog-body">{t('consent.body', { place: t('consentPlace') })}</p>
-          <div className="voice-dictation__dialog-actions">
-            <Button onClick={voice.decline}>{t('consent.decline')}</Button>
-            <Button variant="primary" onClick={() => { void voice.allow() }}>{t('consent.allow')}</Button>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={t('consent.title')}
+          description={t('consent.body', { place: t('consentPlace') })}
+          confirmLabel={t('consent.allow')}
+          cancelLabel={t('consent.decline')}
+          onConfirm={() => { void voice.allow() }}
+          onCancel={voice.decline}
+          returnFocusTo={() => root.current?.querySelector<HTMLElement>('.voice-dictation__button') ?? null}
+        />
       )}
     </div>
   )
