@@ -24,6 +24,8 @@ const STANDIN = String.raw`
 const fs = require('fs'), path = require('path'), crypto = require('crypto')
 const [agent, log] = [process.env.ACC_AGENT, process.env.ACC_LOG]
 const args = process.argv.slice(2)
+// The app probes the CLIs (--version, --help, mcp …): answer and exit, as the real ones do; that is not a session.
+if (['--version', '-v', '--help', '-h', 'mcp', 'doctor', 'login', 'logout', 'auth'].includes(args[0])) { console.log('9.9.9 (stand-in)'); process.exit(0) }
 const flag = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined }
 const resumed = agent === 'claude' ? flag('--resume') : flag('resume')
 const id = resumed || (agent === 'claude' && flag('--session-id')) || crypto.randomUUID()
@@ -143,10 +145,34 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
       expect.soft(status, `${before.agent} pane: main reports the resume`).toMatchObject({ outcome: 'resumed', sessionId: before.sessionId })
     }
     expect.soft(second.filter(l => l.args.includes('--resume') || l.args.includes('resume')).length, 'no pane resumes another pane\'s session twice').toBe(5)
-    // F32: the panes say it on screen.
-    const headers = await panes(page).allInnerTexts()
-    expect.soft(headers.filter(h => /retomad|retomou/i.test(h)).length, 'five panes say they resumed').toBe(5)
-    expect.soft(headers.some(h => /não (foi possível|encontr)|apagad|não retom/i.test(h)), 'the sixth says why it is new').toBe(true)
+    // F32: each pane says it on screen, in its own header; the one that started fresh says why (name and tooltip).
+    const order = await paneIds(page)
+    for (const [pane, before] of sessions) {
+      const marker = panes(page).nth(order.indexOf(pane)).getByTestId('pane-resume-marker')
+      if (pane === gonePane) {
+        await expect.soft(marker, `${before.agent} pane whose transcript is gone shows "not resumed"`).toHaveAttribute('data-outcome', 'notResumed')
+        await expect.soft(marker, '… and why, in its accessible name').toHaveAccessibleName(/não está mais no disco|no longer on disk/i)
+        await expect.soft(marker, '… and in its tooltip').toHaveAttribute('title', /não está mais no disco|no longer on disk/i)
+      } else {
+        await expect.soft(marker, `${before.agent} pane shows "resumed"`).toHaveAttribute('data-outcome', 'resumed')
+        await expect.soft(marker, '… with its own session in the tooltip').toHaveAttribute('title', new RegExp(before.sessionId))
+      }
+    }
+    await expect.soft(page.getByText(/a sessão anterior não foi retomada|earlier session was not resumed/i).first(), 'a notice names the pane that did not resume').toBeVisible({ timeout: 5_000 })
+  } finally { await quitReal(app) }
+
+  // A third start: no id drifts. All six come back, the fresh one now on the session it started last time.
+  const third = recorded(base.db)
+  expect.soft(third.get(gonePane)?.sessionId, 'the pane that started fresh recorded its new session').not.toBe(gone.sessionId)
+  writeFileSync(log, '')
+  ;({ app, page } = await launchReal(profile))
+  try {
+    await expect(panes(page)).toHaveCount(6, { timeout: 20_000 })
+    await expect.poll(() => launches(log).filter(l => l.resumed).length, { timeout: 30_000, message: 'all six CLIs resume on the third start' }).toBe(6)
+    for (const [pane, s] of third) {
+      expect.soft(await agentResume(page, pane), `${s.agent} pane resumes the same session again`).toMatchObject({ outcome: 'resumed', sessionId: s.sessionId })
+      if (pane !== gonePane) expect.soft(s.sessionId, `${s.agent} pane kept its first session id`).toBe(sessions.get(pane)?.sessionId)
+    }
   } finally { await quitReal(app) }
 })
 
@@ -169,10 +195,10 @@ test('S2: a split past the capacity closes cleanly', async () => {
     for (let n = count; n > 0; n--) {
       await panes(page).last().getByRole('button', { name: 'Mais ações do painel' }).click()
       const close = page.getByRole('menuitem', { name: /^Fechar/ }).first()
-      await close.focus(); await page.keyboard.press('Enter')
+      await close.click()
       const confirm = page.getByRole('dialog').getByRole('button', { name: /^Fechar|Encerrar/ })
       if (await confirm.isVisible({ timeout: 1_000 }).catch(() => false)) await confirm.click()
-      await expect(panes(page), `closing at ${n} panes removes one`).toHaveCount(n - 1, { timeout: 5_000 })
+      await expect(panes(page), `closing at ${n} panes removes one ${(out.join('').match(/UNIQUE constraint[^\n]*/) ?? [''])[0]}`).toHaveCount(n - 1, { timeout: 5_000 })
     }
     expect(out.join('').match(/UNIQUE constraint[^\n]*/g) ?? [], 'no database error in main').toEqual([])
   } finally { await quitReal(app) }
