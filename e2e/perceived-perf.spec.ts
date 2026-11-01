@@ -302,7 +302,23 @@ async function profiled(page: Page, surface: Surface): Promise<Sample> {
       }).observe({ type: 'long-animation-frame', buffered: false })
     } catch (error) { w.__loaf.push({ unsupported: String(error) }) }
   })
+  // Chromium's trace of the switch: which native events take the time (F7.3).
+  const events: Array<{ name: string; cat: string; ph: string; dur?: number; tdur?: number }> = []
+  cdp.on('Tracing.dataCollected', ({ value }: { value: typeof events }) => { events.push(...value) })
+  const traced = new Promise<void>(resolve => cdp.once('Tracing.tracingComplete', () => resolve()))
+  await cdp.send('Tracing.start', { categories: 'devtools.timeline,v8,v8.execute,blink,ipc,toplevel,disabled-by-default-devtools.timeline', transferMode: 'ReportEvents' })
   const sample = await page.evaluate(probeInPage, surface.probe)
+  await cdp.send('Tracing.end')
+  await traced
+  const byName = new Map<string, { ms: number; count: number }>()
+  for (const event of events) {
+    if (event.ph !== 'X' || !event.dur) continue
+    const key = `${event.cat.split(',')[0]}/${event.name}`
+    const entry = byName.get(key) ?? { ms: 0, count: 0 }
+    entry.ms += event.dur / 1000; entry.count += 1
+    byName.set(key, entry)
+  }
+  console.log(`[TRACE-EVENTS] ${surface.name}: ${[...byName].sort((a, b) => b[1].ms - a[1].ms).slice(0, 25).map(([name, { ms, count }]) => `${ms.toFixed(1)}ms x${count} ${name}`).join(' | ')}`)
   console.log(`[LOAF] ${surface.name}: ${JSON.stringify(await page.evaluate(() => (window as unknown as { __loaf: unknown[] }).__loaf))}`)
   const { profile } = await cdp.send('Profiler.stop') as { profile: { nodes: Array<{ id: number; callFrame: { functionName: string; url: string; lineNumber: number }; hitCount?: number }>; samples?: number[]; timeDeltas?: number[] } }
   const byNode = new Map<number, number>()
