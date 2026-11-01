@@ -31,7 +31,7 @@ test('Settings › Tools: groups and costs, turning a group on in the project, a
     const tools = modal.getByTestId('tools-settings')
 
     // Every group, each with its cost per provider as text, and the Codex note.
-    for (const name of ['Core', 'Orchestration', 'Data', 'Documentation', 'App', 'Team', 'Worker', 'OxeCode terminal']) {
+    for (const name of ['Core tools', 'Orchestration', 'Data', 'Documentation', 'App', 'Team', 'Delegated task', 'OxeCode terminal']) {
       const group = tools.getByRole('region', { name, exact: true })
       await expect(group).toBeVisible()
       await expect(group.getByRole('definition').first()).toContainText(/tokens · [\d,]+ characters|Not offered/)
@@ -40,14 +40,14 @@ test('Settings › Tools: groups and costs, turning a group on in the project, a
     await expect(tools.getByRole('region', { name: 'Team', exact: true }).getByRole('radiogroup')).toHaveCount(0)
     await modal.screenshot({ path: info.outputPath('tools-groups.png') })
 
-    // Turn Data off, then on again with the shortcut, and see it reflected after reading the project again.
+    // Turn Data off, then on again with its segmented control (one control per group, #210 review), and see it reflected.
     const data = tools.getByRole('region', { name: 'Data', exact: true })
     await data.getByRole('radio', { name: 'Off' }).click()
-    await expect(tools.getByRole('status')).toHaveText('Data is now Off in this project.')
+    await expect(tools.getByRole('status')).toHaveText('Data in this project: Off.')
     // The three cost values of a group that is off.
     await expect(data.locator('dd').filter({ hasText: /^Not offered$/ })).toHaveCount(3)
-    await data.getByRole('button', { name: 'Turn Data on in this project, on demand' }).click()
-    await expect(tools.getByRole('status')).toHaveText('Data is now On demand in this project.')
+    await data.getByRole('radio', { name: 'On demand' }).click()
+    await expect(tools.getByRole('status')).toHaveText('Data in this project: On demand.')
     await expect(data.getByRole('radio', { name: 'On demand' })).toHaveAttribute('aria-checked', 'true')
     await expect(data.getByText('oxe.yaml', { exact: true })).toBeVisible()
     await tools.getByRole('button', { name: 'Reload' }).click()
@@ -69,7 +69,7 @@ test('Settings › Tools: groups and costs, turning a group on in the project, a
     // The user-level rule of another server is shown and cannot be changed here; the policy is read only.
     const others = tools.getByRole('region', { name: 'Other MCP servers', exact: true })
     await expect(others.getByRole('combobox', { name: 'Rule for delete_repository' })).toBeDisabled()
-    await expect(tools.getByRole('region', { name: 'Organization policy', exact: true }).getByRole('combobox')).toHaveCount(0)
+    await expect(tools.getByRole('region', { name: 'User and organization policy', exact: true }).getByRole('combobox')).toHaveCount(0)
     await modal.screenshot({ path: info.outputPath('tools-rules.png') })
   } finally {
     await app.close()
