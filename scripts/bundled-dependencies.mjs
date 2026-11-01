@@ -131,6 +131,23 @@ const VENDORED = [
   }
 ]
 
+/**
+ * Runtime dependencies that the main process loads from node_modules instead of bundling, listed for their license
+ * because they are security-relevant or reviewed one by one. Version and license text come from the installed package.
+ */
+const SHIPPED = [
+  { name: 'ws', use: 'WebSocket framing of the remote gateway (B9 · Settings › Devices); loaded only when the gateway is used.' }
+]
+
+function shippedPackages() {
+  return SHIPPED.map(item => {
+    const path = join(root, 'node_modules', item.name, 'package.json')
+    if (!existsSync(path)) return { ...item, missing: true }
+    const info = readJson(path)
+    return { ...item, version: info.version, license: normalizeLicense(info), repository: repositoryOf(info), directory: join(path, '..') }
+  })
+}
+
 function vendorProblems() {
   const folders = existsSync(VENDOR_ROOT) ? readdirSync(VENDOR_ROOT, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name) : []
   return [
@@ -154,6 +171,15 @@ export function render(packages) {
     if (item.repository) lines.push(`- Source: ${item.repository}`)
     const text = licenseText(item.directory)
     if (text) lines.push('', '```text', text, '```')
+    lines.push('')
+  }
+  lines.push('# Shipped packages', '', 'OXESpace ships these packages as separate files and loads them at run time.', '')
+  for (const item of shippedPackages()) {
+    lines.push(`## ${item.name} ${item.version ?? '(not installed)'}`, '', `- License: ${item.license ?? 'UNKNOWN'}`)
+    if (item.repository) lines.push(`- Source: ${item.repository}`)
+    lines.push(`- Used for: ${item.use}`)
+    const text = item.directory ? licenseText(item.directory) : ''
+    if (text) lines.push('', '```text', text.replace(/\r\n/g, '\n'), '```')
     lines.push('')
   }
   lines.push('# Vendored source', '', 'OXESpace includes the source of these projects, copied and modified in its repository.', '')
@@ -180,7 +206,11 @@ function main() {
   }
 
   if (command === 'check') {
-    const vendor = vendorProblems()
+    const vendor = [
+      ...vendorProblems(),
+      ...shippedPackages().filter(item => item.missing).map(item => `${item.name} is listed in SHIPPED but not installed`),
+      ...shippedPackages().filter(item => !item.missing && !allowed(item.license)).map(item => `${item.name} has license "${item.license}", which is not allowed`)
+    ]
     if (vendor.length) { for (const problem of vendor) console.error(`[notices] ${problem}`); process.exit(1) }
     const blocked = packages.filter(item => !allowed(item.license))
     if (blocked.length) {

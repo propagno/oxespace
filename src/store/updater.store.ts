@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '../i18n'
 import type { AppUpdatePreferences, AppUpdateState, RtkUpdateState } from '../../shared/types/updater'
 import { humanizeError } from '../utils/humanizeError'
 
@@ -53,7 +54,7 @@ export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
         app: {
           ...APP_DEFAULT,
           status: 'disabled',
-          error: 'Updates only run in installed builds',
+          error: i18n.t('updates.devBuild'),
           lastCheckedAt: Date.now()
         }
       })

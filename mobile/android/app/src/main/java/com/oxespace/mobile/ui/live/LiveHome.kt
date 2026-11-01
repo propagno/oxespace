@@ -37,7 +37,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +65,8 @@ enum class LiveTab { THREADS, REQUESTS, TERMINALS, TASKS }
 @Composable
 fun LiveHome(
     desktopName: String,
+    /** Why the live data may be stale (reconnecting, unreachable, off the LAN), or null when connected. */
+    banner: String?,
     live: LiveRepository,
     onOpenThread: (String) -> Unit,
     onOpenRequest: (RemotePendingRequest) -> Unit,
@@ -81,7 +85,20 @@ fun LiveHome(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(desktopName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    Column {
+                        Text(desktopName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (banner != null) {
+                            Text(
+                                banner,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Oxe.colors.intentWarningFg,
+                                maxLines = 2,
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                            )
+                        }
+                    }
+                },
                 actions = {
                     Box {
                         IconButton(onClick = { menu = true }) {

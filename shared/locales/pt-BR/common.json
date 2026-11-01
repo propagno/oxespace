@@ -240,7 +240,8 @@
     "newRequest": { "label": "Nova requisição de API", "detail": "Salva em .oxespace/requests" },
     "filter": { "label": "Encontrar uma requisição de API" },
     "import": { "label": "Importar cURL ou OpenAPI", "detail": "Vira arquivos de requisição" },
-    "environments": { "label": "Ambientes de API", "detail": "Variáveis e segredos" }
+    "environments": { "label": "Ambientes de API", "detail": "Variáveis e segredos" },
+    "defaultName": "Nova requisição"
   },
   "podsCommands": {
     "open": {
@@ -370,6 +371,323 @@
     "noneDetail": "O OXESpace roda os agentes como CLIs locais. Instale o Claude Code ou o Codex, confira se o comando está no PATH e verifique de novo.",
     "unchecked": "CLIs de agentes ainda não verificadas",
     "uncheckedDetail": "Verifique quais CLIs de agentes estão instaladas nesta máquina."
+  },
+  "app": {
+    "workbench": "Área de trabalho do OXESpace",
+    "loadingWorkspaces": "Carregando workspaces",
+    "boundary": {
+      "conversations": "as conversas",
+      "window": "esta janela"
+    },
+    "start": {
+      "prompt": "Selecione uma pasta para começar seu primeiro workspace de terminais com agentes.",
+      "newWorkspace": "Novo workspace",
+      "otherWays": "Outras formas de começar",
+      "elsewhere": "Ou comece por outro lugar",
+      "open": {
+        "thread": "Abrir o OxeChat",
+        "data": "Abrir o OxeQuery",
+        "pods": "Abrir o OxePod",
+        "post": "Abrir o OxePost"
+      }
+    },
+    "notice": {
+      "unsavedEditor": "O workspace tem alterações não salvas no editor. Salve ou feche o arquivo antes de fechar o workspace.",
+      "splitFailed": "Falha ao dividir o painel",
+      "noTerminal": "Nenhum terminal visível para executar o comando.",
+      "needsTerminal": "Abra primeiro um workspace com um painel de terminal.",
+      "agentFailed": "Falha ao iniciar o agente no painel"
+    }
+  },
+  "team": {
+    "button": {
+      "label": "Equipe",
+      "title": "Papéis e mensagens do projeto, compartilhados pelo OxeCode e pelo OxeChat",
+      "needsWorkspace": "Abra um workspace para abrir a equipe dele",
+      "needsProject": "Selecione um projeto do OxeChat para abrir a equipe dele",
+      "otherViews": "A equipe está disponível no OxeCode e no OxeChat"
+    },
+    "roles": {
+      "coordinator": "Coordenador / integrador",
+      "project-manager": "Gerente de projeto",
+      "product-manager": "Gerente de produto",
+      "developer": "Desenvolvedor",
+      "reviewer": "Revisor"
+    },
+    "unavailable": "A equipe não está disponível neste ambiente.",
+    "description": "Papéis persistentes deste projeto, compartilhados pelo OxeCode e pelo OxeChat.",
+    "loading": "Carregando a equipe…",
+    "note": "Os membros são salvos independentemente das sessões. Criar um papel não inicia um agente. A entrega automática envia as mensagens da caixa de entrada para uma conversa do OxeChat conectada e ociosa. Ela pausa após falha, interrupção ou reinício; as sessões do OxeCode leem a caixa de entrada pelo MCP.",
+    "members": "Membros da equipe",
+    "connection": {
+      "idle": "Sessão conectada · ociosa, uma mensagem a reinicia",
+      "connected": "Sessão conectada",
+      "disconnected": "Sessão desconectada · reconecte para autorizar o MCP",
+      "none": "Nenhuma sessão conectada"
+    },
+    "messagesFor": "Mensagens: {{name}}",
+    "messages": "Mensagens",
+    "connectTitle": "Permite que a sessão ativa leia e envie as mensagens deste membro pelo MCP",
+    "connect": "Conectar a sessão atual",
+    "pauseDelivery": "Pausar a entrega automática",
+    "enableDelivery": "Ativar a entrega automática",
+    "disconnect": "Desconectar",
+    "makeCoordinator": "Tornar coordenador",
+    "archive": "Arquivar",
+    "empty": "Nenhum membro ainda. Adicione um coordenador ou outro papel do projeto.",
+    "name": "Nome do membro",
+    "namePlaceholder": "ex.: Desenvolvedor de autenticação",
+    "role": "Papel",
+    "oneCoordinator": "Uma equipe tem um coordenador. Use Tornar coordenador em um membro para passar o papel.",
+    "saving": "Salvando…",
+    "add": "Adicionar membro",
+    "you": "Você",
+    "archivedMember": "Membro arquivado",
+    "messagesWith": "Mensagens com {{name}}",
+    "messagesTitle": "Mensagens · {{name}}",
+    "inboxNote": "As mensagens ficam na caixa de entrada até serem confirmadas. A entrega automática, quando ativada, envia as mensagens para a conversa do OxeChat conectada quando ela fica ociosa. Uma entrega incerta nunca é repetida automaticamente.",
+    "loadEarlier": "Carregar mensagens anteriores",
+    "delivery": {
+      "received": "Recebimento confirmado pelo agente",
+      "submitted": "Enviada à sessão · recebimento não confirmado",
+      "unknown": "Entrega incerta · verifique a sessão antes de enviar de novo",
+      "dispatching": "Enviando à sessão…",
+      "saved": "Salva · recebimento não confirmado"
+    },
+    "noMessages": "Nenhuma mensagem ainda.",
+    "limit": "Mostrando até 500 mensagens. As mensagens mais antigas continuam salvas.",
+    "messageTo": "Mensagem para {{name}}",
+    "send": "Enviar para a caixa de entrada"
+  },
+  "firstRun": {
+    "optional": "(opcional)",
+    "doneMark": "(concluído)",
+    "connect": "Conectar",
+    "checkNow": "Verificar agora",
+    "checkAgain": "Verificar de novo",
+    "checking": "Verificando…",
+    "agentSettings": "Configurações de agentes",
+    "title": "Antes de começar",
+    "progress": "{{done}} de {{total}} concluídos",
+    "hide": "Ocultar este guia",
+    "agents": "CLIs de agentes",
+    "signIn": "Entrar",
+    "signInHint": "O Claude Code e o Codex usam a sua própria assinatura. O OXESpace verifica o login assim que uma pasta é aberta; você também pode entrar por um terminal com o próprio agente.",
+    "skip": "Pular por enquanto",
+    "folder": "Primeira pasta e primeira resposta",
+    "firstAnswer": "Primeira resposta {{duration}} depois que você começou. Isso fica neste computador.",
+    "folderHint": "Abra uma pasta e pergunte algo a um agente: em uma conversa do OxeChat ou em um terminal de workspace do OxeCode.",
+    "addProject": "Adicionar um projeto do OxeChat",
+    "newWorkspace": "Novo workspace do OxeCode",
+    "githubBefore": "Pull requests e issues precisam do GitHub CLI com login feito",
+    "githubAfter": "O OXESpace verifica isso assim que um projeto é aberto.",
+    "copy": "Copiar comando",
+    "markDone": "Marcar como concluído"
+  },
+  "usage": {
+    "resetUnknown": "Horário de renovação desconhecido",
+    "resetting": "Renovando",
+    "resetsIn": "Renova em {{time}}",
+    "session": "Sessão atual",
+    "week": "Semana atual",
+    "used": "{{percent}}% usado",
+    "source": {
+      "oauth": "Conta do Claude",
+      "local": "Última sessão local do Codex",
+      "account": "Cota da conta inteira"
+    },
+    "checked": "verificado às {{time}}",
+    "lastKnown": "Última leitura conhecida",
+    "subscription": "Assinatura",
+    "stale": "Não foi possível atualizar. Mostrando a última leitura conhecida.",
+    "notDetected": "Não detectado nesta máquina.",
+    "noQuota": "Nenhuma cota informada.",
+    "ghMissing": "gh CLI não detectado.",
+    "noAllowance": "Nenhum limite informado.",
+    "unlimited": "Ilimitado neste plano.",
+    "credits": "Créditos de IA",
+    "resets": "Renova em {{date}}",
+    "remaining": "{{remaining}} / {{total}} restantes",
+    "title": "Uso e limites",
+    "reading": "Lendo as cotas dos provedores…",
+    "description": "Limites da assinatura informados por cada provedor. As porcentagens mostram o quanto foi usado, não o que resta.",
+    "footnote": "A cota da assinatura é diferente do uso de tokens e de contexto de uma conversa.",
+    "timeZone": "Os horários de renovação usam o seu fuso horário local",
+    "refresh": "Atualizar"
+  },
+  "activity": {
+    "title": "Atividade",
+    "unread_one": "Atividade, {{count}} não lida",
+    "unread_other": "Atividade, {{count}} não lidas",
+    "markAll": "Marcar tudo como lido",
+    "empty": "Nada ainda",
+    "emptyHint": "Turnos concluídos, pedidos que precisam de você e atualizações aparecem aqui.",
+    "group": {
+      "needs-you": "Precisa de você",
+      "finished": "Concluídos",
+      "updates": "Atualizações"
+    },
+    "kind": {
+      "needs-you": "Precisa de você",
+      "failed": "Falhou",
+      "finished": "Concluído",
+      "quota": "Cota",
+      "update": "Atualização"
+    },
+    "itemLabel": "{{kind}}: {{title}}",
+    "itemLabelUnread": "{{kind}}: {{title}} (não lido)",
+    "unread_many": "Atividade, {{count}} não lidas"
+  },
+  "updates": {
+    "app": {
+      "ready": "Atualização do OXESpace pronta",
+      "available": "Atualização {{version}} do OXESpace disponível",
+      "title": "Atualização do OXESpace",
+      "manual": "Há uma versão mais nova disponível. Instalações de desenvolvimento e por pacote Linux são atualizadas manualmente.",
+      "downloaded": "Baixada e pronta para instalar.",
+      "downloading": "Baixando… {{percent}}%",
+      "background": "Baixando em segundo plano.",
+      "releases": "Abrir as versões",
+      "install": "Reiniciar e instalar"
+    },
+    "rtk": {
+      "title": "Atualização do RTK",
+      "updatingLabel": "RTK atualizando",
+      "availableLabel": "Atualização {{version}} do RTK disponível",
+      "updating": "RTK {{version}} atualizando",
+      "available": "RTK {{version}} disponível",
+      "installed": "Instalado: {{version}} · auxiliar que economiza tokens.",
+      "unknown": "desconhecida (legado)",
+      "updatingButton": "Atualizando…",
+      "update": "Atualizar o RTK"
+    },
+    "activity": {
+      "available": "OXESpace {{version}} está disponível",
+      "availableDetail": "Abra a atualização para baixá-la.",
+      "ready": "OXESpace {{version}} está pronto",
+      "readyDetail": "Reinicie para instalar a atualização."
+    },
+    "devBuild": "As atualizações só funcionam em versões instaladas"
+  },
+  "voiceHud": {
+    "requesting": "Acessando o microfone…",
+    "downloading": "Baixando o modelo de voz… {{percent}}%",
+    "transcribing": "Transcrevendo…",
+    "listening": "Ouvindo… solte para inserir",
+    "close": "Fechar a entrada de voz",
+    "closeTitle": "Fechar a entrada de voz (Esc)",
+    "errors": {
+      "denied": "Permissão do microfone negada.",
+      "noMicrophone": "Nenhum microfone foi detectado.",
+      "canceled": "O pedido do microfone foi cancelado. Tente de novo.",
+      "access": "Não foi possível acessar o microfone.",
+      "transcription": "A transcrição falhou.",
+      "engine": "Mecanismo de voz indisponível nesta versão.",
+      "model": "Não foi possível preparar o modelo de voz.",
+      "download": "Não foi possível baixar o modelo de voz.",
+      "terminal": "Inicie o terminal antes de usar o OXEVoice."
+    }
+  },
+  "brand": {
+    "tagline": "Agentes e terminais para os seus projetos"
+  },
+  "commands": {
+    "category": {
+      "general": "Geral",
+      "workspace": "Workspace",
+      "project": "Projeto",
+      "development": "Desenvolvimento",
+      "agents": "IA e agentes",
+      "system": "Sistema",
+      "view": "Exibir",
+      "appearance": "Aparência",
+      "layout": "Layout",
+      "terminal": "Terminal",
+      "settings": "Configurações",
+      "help": "Ajuda"
+    },
+    "settingsPage": "Configurações: {{page}}",
+    "reportProblem": "Relatar um problema",
+    "about": "Sobre o OXESpace",
+    "aboutKeywords": "sobre versão versao compilação licença",
+    "activity": {
+      "markAllRead": "Atividade: marcar tudo como lido"
+    },
+    "code": {
+      "newWorkspaceDetail": "Abrir o assistente de novo workspace",
+      "workspaceSettingsDetail": "Layout, densidade e shell",
+      "linearDetail": "Issues, quadros e worktree a partir de uma issue",
+      "balanceDetail": "Restaurar tamanhos iguais em cada divisão",
+      "splitLayoutDetail": "Painéis redimensionáveis recursivos (ligado por padrão)",
+      "usageDetail": "Cotas e renovações do Claude, Codex e Copilot",
+      "designSystem": "Design System: abrir o visualizador",
+      "designSystemDetail": "Tokens e componentes no claro e no escuro",
+      "appearance": "Aparência: {{mode}}",
+      "appearanceMode": {
+        "system": "Seguir o sistema",
+        "light": "Claro",
+        "dark": "Escuro"
+      },
+      "appearanceDetail": "Vale para o aplicativo inteiro",
+      "density": "Densidade: {{density}}",
+      "densityDetail": "Densidade do workspace",
+      "layout_one": "Layout: {{count}} painel",
+      "layout_other": "Layout: {{count}} painéis",
+      "layoutDetail": "Predefinição de layout do workspace",
+      "voiceDetail": "Fale no terminal ativo, no editor ou no rascunho do OxeChat",
+      "stopTerminal": "Parar terminal",
+      "layout_many": "Layout: {{count}} painéis"
+    },
+    "thread": {
+      "addProject": "Adicionar projeto do OxeChat…",
+      "switchProject": "Mudar para o projeto {{project}}",
+      "resume": "Retomar uma sessão",
+      "rename": "Renomear conversa",
+      "spending": "Gastos da conversa",
+      "events": "Eventos da conversa",
+      "rules": "Regras de aprovação",
+      "undo": "Desfazer as alterações de arquivo do último turno",
+      "accounts": "Contas dos provedores"
+    },
+    "menu": {
+      "title": "Buscar",
+      "description": "Buscar arquivos e executar comandos",
+      "placeholder": "Buscar arquivos e comandos…",
+      "recent": "Recentes",
+      "workspaces": "Workspaces",
+      "agents": "Agentes",
+      "files": "Arquivos",
+      "semantic": "Semântica · e5-base",
+      "searching": "Buscando no conteúdo…",
+      "contents": "No conteúdo dos arquivos · {{count}}",
+      "empty": "Nenhum resultado",
+      "terminal": "Terminal",
+      "terminalAt": "Terminal {{index}}"
+    }
+  },
+  "activityDot": {
+    "thinking": "O agente está pensando",
+    "needs-decision": "Precisa da sua decisão",
+    "awaiting": "Aguardando a sua resposta",
+    "idle": "Ocioso",
+    "error": "Precisa de atenção",
+    "starting": "Iniciando",
+    "exited": "Encerrado"
+  },
+  "failures": {
+    "unexpected": {
+      "agent": "Erro inesperado do agente",
+      "git": "Erro inesperado do git",
+      "integration": "Erro inesperado da integração",
+      "mcp": "A ação do servidor MCP não foi concluída.",
+      "github": "Erro inesperado do GitHub",
+      "workspace": "Erro inesperado do workspace"
+    },
+    "workspace": {
+      "switch": "Falha ao trocar de workspace",
+      "panelState": "Não foi possível salvar o estado do painel",
+      "reorder": "Falha ao reordenar os workspaces"
+    }
   },
   "about": {
     "title": "Sobre o OXESpace",
