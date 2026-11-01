@@ -2,13 +2,20 @@
 
 The signed APK is attached to each GitHub release by `.github/workflows/android-release.yml`. It runs when the
 desktop's "CI and Release" pipeline publishes a release, or by hand (Actions › Android release › Run workflow, with
-the tag). It's not on the Play Store.
+**Use workflow from** set to the `vX.Y.Z` tag; from a branch it stops at once). It's not on the Play Store.
+
+It has two jobs, so the key is never near build or test code:
+- **Build and smoke test:** no secrets, read-only. It checks out the tag by its full name and checks that HEAD is that
+  tag, then builds the release APK unsigned, runs lint and the unit tests, and runs the minified smoke test.
+- **Sign, attest and attach:** runs in the `android-release` environment, which holds the signing secrets. In a single
+  step it writes the key, signs the APK from the first job with `apksigner`, and deletes the key. Then it verifies,
+  attests and attaches.
 
 ## One-time setup (maintainer)
 
 The signing key stays out of the repository. Create it once, keep a backup somewhere safe (losing it means phones
-can't update the app; they would have to uninstall and pair again), and register four repository secrets
-(Settings › Secrets and variables › Actions):
+can't update the app; they would have to uninstall and pair again), and register four secrets in a protected
+environment:
 
 1. Create the key, on your machine (JDK `keytool`):
 
@@ -18,7 +25,15 @@ can't update the app; they would have to uninstall and pair again), and register
      -dname "CN=OXESpace, O=OXESpace"
    ```
 
-2. Register the secrets:
+2. Create the environment: Settings › Environments › New environment, named `android-release`. Then set:
+   - **Deployment branches and tags:** "Selected branches and tags", with one rule: tags matching `v*`.
+   - **Required reviewers:** yourself. Each release then waits for your OK before the key is used.
+
+   Set these rules **before** adding any secret: the required reviewer is the gate that matters, since anyone who can
+   push could create a new `v*` tag. Optionally, also add a tag ruleset (Settings › Rules › Rulesets, target tags
+   `v*`) that limits who can create them.
+
+   Only then register the secrets under that environment (Environment secrets), not as repository secrets:
 
    | Secret | Value |
    |---|---|
@@ -34,7 +49,8 @@ can't update the app; they would have to uninstall and pair again), and register
    keytool -list -v -keystore oxespace-release.jks -alias oxespace | grep "SHA256:"
    ```
 
-Without the secrets the workflow stops at its first step and names the ones missing; nothing is built or published.
+Without the secrets, the signing job stops at its first step and names the ones missing; nothing is published. If
+older repository secrets with these names exist, delete them once the environment holds them.
 
 Also check, once:
 - Settings › Actions › General › Workflow permissions lets a job ask for write access (the default "Read repository
