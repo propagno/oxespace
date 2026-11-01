@@ -21,7 +21,7 @@ const outcomeOf = (app: ElectronApplication, requestId: string): Promise<string 
 test('closing asks only when something is unsaved, and each answer does what it says', async () => {
   test.setTimeout(150_000)
   // Real clock: this spec types into Monaco and asserts no pageerror, which the fake clock breaks (see launchApp).
-  const { app, page, workspaceRoot, consoleErrors } = await launchApp({ realClock: true })
+  const { app, page, workspaceRoot, consoleErrors } = await launchApp()
   try {
     await resizeWindow(app, 1280, 800)
     writeFileSync(join(workspaceRoot, 'notes.txt'), '# notes\n')
