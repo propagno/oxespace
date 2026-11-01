@@ -36,6 +36,7 @@ class DisplayTextTest {
         assertEquals("rm -rf ~/⟨U+202E⟩txt.sh", showHidden("rm -rf ~/\u202Etxt.sh"))
         assertEquals("a⟨U+200B⟩b⟨U+0007⟩c", showHidden("a\u200Bb\u0007c"))
         assertEquals("git add .\nnpm\ttest", showHidden("git add .\nnpm\ttest"))
+        assertEquals("npm test⟨U+2028⟩rm -rf ~", showHidden("npm test\u2028rm -rf ~"))
         assertEquals("tag⟨U+E0041⟩", showHidden("tag\uDB40\uDC41"))
     }
 }

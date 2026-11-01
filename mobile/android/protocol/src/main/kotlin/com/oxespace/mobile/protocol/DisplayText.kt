@@ -42,4 +42,6 @@ fun showHidden(text: String): String = buildString {
 
 private fun keptWhitespace(codePoint: Int) = codePoint == '\n'.code || codePoint == '\t'.code
 
-private fun hidden(codePoint: Int) = Character.isISOControl(codePoint) || Character.getType(codePoint) == Character.FORMAT.toInt()
+/** Control, format (bidi, zero-width, tags) and the line and paragraph separators, which break a line that is one. */
+private fun hidden(codePoint: Int) =
+    Character.isISOControl(codePoint) || Character.getType(codePoint) == Character.FORMAT.toInt() || codePoint == 0x2028 || codePoint == 0x2029
