@@ -4,6 +4,9 @@ import { evaluatePolicy, type LoadedPolicy, type PolicyAction, type PolicyChange
 import type { AcceptedConfig, PolicyProjection, Subject } from './accepted-config'
 import { MAX_POLICY_BYTES, parsePolicyProjection, tooLarge } from './projections'
 
+/** The largest policy file read (B7.3 writers refuse to go past it); a larger one is `invalid`, a change like any other. */
+export { MAX_POLICY_BYTES as POLICY_MAX_BYTES } from './projections'
+
 /** Where an administrator installs the managed policy, which every other layer gives way to. */
 export function managedPolicyPath(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): string {
   if (platform === 'win32') return join(env.ProgramData ?? env.PROGRAMDATA ?? 'C:\\ProgramData', 'OXESpace', 'policy.json')
