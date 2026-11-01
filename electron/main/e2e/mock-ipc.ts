@@ -34,6 +34,8 @@ import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
+import { registerApprovalsIpc } from '../ipc/approvals.ipc'
+import { approvalCenter } from '../services/approvals'
 import { registerCloseGuardMock } from './close-guard-mock'
 import { installE2eAgentStateHook } from './agent-state-hook'
 import { loadManifests } from '../services/agent-state/manifest'
@@ -64,7 +66,10 @@ export function registerE2eMockIpcHandlers(): void {
   registerOpenExternalMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
-  registerApprovalsMock()
+  // The preview spec drives the real PreviewAutomation, which asks the real approval center: the window must answer
+  // that center (B10), not the double, or its modal can neither ack nor answer and main asks natively too (#243).
+  if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) registerApprovalsIpc(approvalCenter)
+  else registerApprovalsMock()
   // F26: the real close guard is not installed here, so app.close() never waits; specs ask through this double.
   registerCloseGuardMock(app.isPackaged, (channel, request) => {
     const windows = BrowserWindow.getAllWindows().filter(window => !window.isDestroyed())

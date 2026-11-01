@@ -140,6 +140,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
       const { PreviewAutomation } = await import('./services/documentation/preview-automation')
       ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()
+      // The spec revokes agent access from main while an approval modal blocks the window, as it does in the product.
+      ;(globalThis as typeof globalThis & { previewService: unknown }).previewService = (await import('./services/browser-preview.service')).browserPreviewService
     }
     // Dynamic so the ~475 lines of E2E doubles land in their own chunk instead
     // of the main entry bundle. A normal launch never resolves this import.

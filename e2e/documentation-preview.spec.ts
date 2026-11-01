@@ -75,11 +75,18 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     expect(saved.bytes).toBeGreaterThan(100)
     expect(existsSync(saved.path)).toBe(true)
     expect((await run({action:'inspect'},'foreign-workspace')).error).toBeTruthy()
-    // Native confirmation is controlled only inside the isolated test process.
-    await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0,checkboxChecked:false})})
-    expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toContain('declined')
-    await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1,checkboxChecked:false})})
-    const filled = await run({action:'fill',selector:'#name',text:'Example',expectedUrl:url})
+    // B10 (#243): an agent's preview action is asked in the window's approval modal, answered there as the person would.
+    // The system dialog must never open for it: the window acknowledges every request, so main's no-ack fallback stays
+    // quiet. Any native ask is counted (and denied) so a silent 3 s fallback fails the test below.
+    await app.evaluate(({dialog})=>{ const g = globalThis as unknown as {nativeAsks:number}; g.nativeAsks = 0; dialog.showMessageBox = (async () => { g.nativeAsks++; return {response:0,checkboxChecked:false} }) as typeof dialog.showMessageBox })
+    const approval = page.getByTestId('approval-dialog')
+    const answer = async <T,>(pending: Promise<T>, intent: 'allow' | 'deny'): Promise<T> => {
+      await approval.locator(`[data-intent="${intent}"]`).click()
+      await expect(approval).toHaveCount(0)
+      return pending
+    }
+    expect((await answer(run({action:'click',selector:'#save',expectedUrl:url}), 'deny')).error).toContain('declined')
+    const filled = await answer(run({action:'fill',selector:'#name',text:'Example',expectedUrl:url}), 'allow')
     // DIAG (#243, red on CI only): what covers the preview when main refuses the fill. Logged; the assertion is unchanged.
     if (filled.error) console.log('DOC-PREVIEW-DIAG', JSON.stringify(await page.evaluate(async () => ({
       dialogs: [...document.querySelectorAll('[role="dialog"]')].map(d => ({ testid: d.getAttribute('data-testid'), label: d.getAttribute('aria-label'), w: d.getBoundingClientRect().width, text: (d.textContent ?? '').slice(0, 120) })),
@@ -88,18 +95,24 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
       focus: document.hasFocus(), visibility: document.visibilityState
     }))))
     expect(filled.error).toBeUndefined()
-    expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toBeUndefined()
+    expect((await answer(run({action:'click',selector:'#save',expectedUrl:url}), 'allow')).error).toBeUndefined()
     await expect.poll(async()=>JSON.stringify(await run({action:'inspect'}))).toContain('Saved Example')
     await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('#name').value='Blocked'"),url)
-    await app.evaluate(({dialog}) => {dialog.showMessageBox=async()=>new Promise(resolve => { (globalThis as unknown as {approvePreview?:()=>void}).approvePreview=()=>resolve({response:1,checkboxChecked:false}) })})
+    // Access revoked while a click waits for approval. The modal blocks the window's UI, as it does in the product, so
+    // the revoke comes from main (another surface turning access off); allowing afterwards must not run the click.
+    type Tabs = { tabs: Map<string, { agentAccess: boolean }> }
+    const setAgentAccess = (enabled: boolean) => app.evaluate((_, enabled) => { for (const tab of (globalThis as unknown as { previewService: Tabs }).previewService.tabs.values()) tab.agentAccess = enabled }, enabled)
     const pendingClick = run({action:'click',selector:'#save',expectedUrl:url})
-    await expect.poll(() => app.evaluate(() => typeof (globalThis as unknown as {approvePreview?:()=>void}).approvePreview)).toBe('function')
+    await expect(approval).toBeVisible()
+    await setAgentAccess(false)
+    await expect.poll(async () => (await run({action:'tabs'})).error).toContain('enable Agent documentation access')
+    expect((await answer(pendingClick, 'allow')).error).toContain('enable Agent documentation access')
+    expect(await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('h1').textContent"),url)).toBe('Saved Example')
+    await setAgentAccess(true)
+    await expect.poll(async()=> (await run({action:'inspect'})).error).toBeUndefined()
+    // And from the window's own control, with no approval pending: unchecking turns access off, checking asks first.
     await page.getByLabel('Agent documentation access').uncheck()
     await expect.poll(async () => (await run({action:'tabs'})).error).toContain('enable Agent documentation access')
-    await app.evaluate(() => (globalThis as unknown as {approvePreview?:()=>void}).approvePreview?.())
-    expect((await pendingClick).error).toContain('enable Agent documentation access')
-    expect(await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('h1').textContent"),url)).toBe('Saved Example')
-    await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1,checkboxChecked:false})})
     await page.getByLabel('Agent documentation access').click(); await page.getByRole('button', { name: 'Allow access' }).click()
     await expect.poll(async()=> (await run({action:'inspect'})).error).toBeUndefined()
     // Font metrics differ across Windows/Linux runners. Sample the actual
@@ -131,7 +144,7 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     expect(JSON.stringify(diagnostics)).not.toContain('DO_NOT_EXPOSE')
     await expect.poll(async()=>JSON.stringify((await run({action:'network'})).result)).toContain('/asset?route=')
     expect(JSON.stringify((await run({action:'network'})).result)).not.toContain('DO_NOT_EXPOSE')
-    expect((await run({action:'scroll',selector:'#panel',deltaY:450,expectedUrl:url})).error).toBeUndefined()
+    expect((await answer(run({action:'scroll',selector:'#panel',deltaY:450,expectedUrl:url}), 'allow')).error).toBeUndefined()
     await expect.poll(async () => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript('document.scrollingElement.scrollTop'),url)).toBeGreaterThan(0)
     expect((await run({action:'newTab'})).error).toBeUndefined()
     await app.evaluate(({BrowserWindow},{workspaceId,url}) => BrowserWindow.getAllWindows()[0].webContents.send('mcp-internal:on-web-preview',{workspaceId,url,requestedAt:Date.now()}),{workspaceId,url})
@@ -145,7 +158,9 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     expect((await run({action:'selectTab',tabId:browserTabs.tabs[0].id})).error).toBeUndefined()
     await expect.poll(async () => JSON.stringify((await run({action:'inspect'})).result)).toContain('Saved Example')
     await expect(page.getByTestId('design-mode-toggle')).toBeEnabled()
-    expect((await run({action:'closeTab',tabId:browserTabs.tabs[0].id})).error).toBeUndefined()
+    expect((await answer(run({action:'closeTab',tabId:browserTabs.tabs[0].id}), 'allow')).error).toBeUndefined()
+    // TECH LEAD on #243: no native dialog opened for any of the requests above (the no-ack fallback never fired).
+    expect(await app.evaluate(() => (globalThis as unknown as {nativeAsks:number}).nativeAsks)).toBe(0)
     await expect(page.getByTestId('browser-preview-native')).toHaveCount(1)
     await expect.poll(async () => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().filter(contents => contents.getURL().startsWith(baseUrl)).length,url)).toBe(1)
     await expect.poll(async () => (await run({action:'status'})).result).toMatchObject({sessionId:status.sessionId,tabId:secondTab.tabId})
