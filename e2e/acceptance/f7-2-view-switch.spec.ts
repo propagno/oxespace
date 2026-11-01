@@ -34,6 +34,9 @@ async function arm(page: Page): Promise<void> {
         const old = oldView(), next = newView()
         const main = document.querySelector('main') ?? document.body
         const inMain = (sel: string) => [...main.querySelectorAll(sel)].some(visible)
+        // DIAG (#363 CI, skeleton before 300 ms): which skeleton, and where.
+        const sk = [...main.querySelectorAll('[data-skeleton]')].find(visible)
+        if (sk && t < 300) (rec as unknown as { early?: string[] }).early = [...((rec as unknown as { early?: string[] }).early ?? []), `${Math.round(t)}:${sk.closest('[data-view]')?.getAttribute('data-view') ?? 'none'}:${sk.closest('[data-testid]')?.getAttribute('data-testid') ?? ''}:${(sk.parentElement?.className ?? '').toString().slice(0, 60)}`].slice(0, 6)
         rec.frames.push({
           t, pressed: button.getAttribute('aria-pressed') === 'true', busy: button.getAttribute('aria-busy') === 'true',
           oldUp: visible(old), newUp: !!next, skeleton: inMain('[data-skeleton]'), brand: inMain('[data-brand-loader]'), spinner: inMain('[class*="spinner"]'),
@@ -79,6 +82,7 @@ for (const variant of [{ name: 'normal speed', cpu: 1, motion: 'full' }, { name:
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
       const rec = await page.evaluate(() => (window as unknown as { __f72: Record }).__f72)
       const commit = commitAt(rec)
+      console.log(`[F72-DIAG] ${variant.name}: commit ${commit.toFixed(0)} ms, selected ${rec.frames.find(f => f.pressed)?.t.toFixed(0)} ms, busy ${rec.frames.find(f => f.busy)?.t.toFixed(0)} ms, first frame ${rec.frames[0]?.t.toFixed(0)} ms, early skeletons ${JSON.stringify((rec as unknown as { early?: string[] }).early ?? [])}`)
       // Content at: the new view up without its skeleton; past 300 ms React's fallback hold can push it to ~600 ms (#363 review L3).
       const contentAt = rec.frames.find(f => f.newUp && !f.skeleton)?.t ?? Infinity
       test.info().annotations.push({ type: 'timings', description: `selected at ${rec.frames.find(f => f.pressed)?.t.toFixed(0)} ms, commit at ${commit.toFixed(0)} ms, content at ${contentAt.toFixed(0)} ms, ${rec.frames.length} frames` })

@@ -88,6 +88,8 @@ test('dividers and the file tree work without dragging', async () => {
     // Ctrl+2 opens the conversations mode, whatever it is called on screen.
     await page.keyboard.press('Control+2')
     const threadSidebar = page.getByRole('separator', { name: /sidebar width/i })
+    // F7.2: the current view stays until the conversations' chunk is in, so the divider appears at the commit.
+    await expect(threadSidebar).toBeVisible()
     await click(page, threadSidebar)
     await expect(page.getByRole('menu', { name: /: size options$/ })).toBeVisible()
     expect(consoleErrors.filter(line => line.startsWith('pageerror:'))).toEqual([])

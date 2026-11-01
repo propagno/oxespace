@@ -73,6 +73,16 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     expect(screen.getByTestId('current')).toHaveFocus()
   })
 
+  it('leaves focus in a dialog the switch opened, and still announces the view (oxepod e2e: Connect in OxeQuery)', async () => {
+    render(<><Harness onCommit={() => undefined} /><div role="dialog" aria-label="New connection"><input aria-label="Password" /></div></>)
+    act(() => { button('OxeQuery').click() })
+    act(() => { screen.getByLabelText('Password').focus() })
+    await act(async () => { await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { vi.advanceTimersByTime(20) })
+    expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe('OxeQuery')
+    expect(screen.getByLabelText('Password')).toHaveFocus()
+  })
+
   it('on the slow path, focus and the announcement wait for the content, not the skeleton (#363 review M1)', async () => {
     const { rerender } = render(<Harness onCommit={() => undefined} skeleton />)
     act(() => { button('OxeQuery').click() })
