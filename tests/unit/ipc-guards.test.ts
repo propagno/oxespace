@@ -1,10 +1,10 @@
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-vi.mock('electron', () => ({ BrowserWindow: { fromWebContents: vi.fn(() => ({})) } }))
-const { parseBytes, parseDirectory, parseOneOf, parseText, parseToken, requireAppFrame } = await import('../../electron/main/ipc/ipc-guards')
+// The sender (main window, main frame) is checked once for every channel: tests/unit/ipc-sender-guard.test.ts.
+const { parseBytes, parseDirectory, parseOneOf, parseText, parseToken } = await import('../../electron/main/ipc/ipc-guards')
 
 describe('IPC guards', () => {
   it('accepts only existing absolute directories as project roots', () => {
@@ -30,9 +30,4 @@ describe('IPC guards', () => {
     expect(() => parseText('a\0b', 'Title', 200)).toThrow('must be text')
   })
 
-  it('refuses requests from a subframe of the window', () => {
-    const mainFrame = {}
-    expect(() => requireAppFrame({ sender: { mainFrame }, senderFrame: mainFrame } as never)).not.toThrow()
-    expect(() => requireAppFrame({ sender: { mainFrame }, senderFrame: {} } as never, 'Voice input')).toThrow('Voice input requires the application main frame')
-  })
 })
