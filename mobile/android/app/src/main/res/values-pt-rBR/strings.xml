@@ -135,6 +135,15 @@
     <string name="request_title">Pedido</string>
     <string name="request_tool">Ferramenta</string>
     <string name="request_warnings">Vale olhar de novo</string>
+    <string name="request_titles_agents_request_approval">Quer executar uma ação</string>
+    <string name="request_titles_agents_request_elicitation">Precisa de informações suas</string>
+    <string name="request_titles_agents_request_permissions">Pede mais acesso</string>
+    <string name="request_titles_agents_request_question">Tem uma pergunta para você</string>
+    <string name="request_titles_agents_request_tool">Quer usar uma ferramenta</string>
+    <string name="request_titles_approvals_title_agent">Pedido de um agente</string>
+    <string name="request_titles_approvals_title_crash">O OXESpace encontrou um erro inesperado</string>
+    <string name="request_titles_approvals_title_oxequery">OxeQuery · pedido de um agente</string>
+    <string name="request_titles_approvals_title_preview_automation">Ação do agente no navegador</string>
     <string name="terminal_empty">Ainda sem saída.</string>
     <plurals name="terminal_redacted">
         <item quantity="one">%1$d valor secreto escondido pelo seu computador.</item>

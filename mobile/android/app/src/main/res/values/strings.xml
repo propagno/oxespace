@@ -133,6 +133,15 @@
     <string name="request_title">Request</string>
     <string name="request_tool">Tool</string>
     <string name="request_warnings">Worth a second look</string>
+    <string name="request_titles_agents_request_approval">Wants to run an action</string>
+    <string name="request_titles_agents_request_elicitation">Needs information from you</string>
+    <string name="request_titles_agents_request_permissions">Asks for more access</string>
+    <string name="request_titles_agents_request_question">Has a question for you</string>
+    <string name="request_titles_agents_request_tool">Wants to use a tool</string>
+    <string name="request_titles_approvals_title_agent">Request from an agent</string>
+    <string name="request_titles_approvals_title_crash">OXESpace hit an unexpected error</string>
+    <string name="request_titles_approvals_title_oxequery">OxeQuery · request from an agent</string>
+    <string name="request_titles_approvals_title_preview_automation">Agent browser action</string>
     <string name="terminal_empty">No output yet.</string>
     <plurals name="terminal_redacted">
         <item quantity="one">%1$d secret value hidden by your computer.</item>

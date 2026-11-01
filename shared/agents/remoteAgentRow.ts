@@ -10,7 +10,7 @@
  */
 import { HIDDEN_CHARACTERS } from '../hidden-characters'
 import { REMOTE_LIMITS, REMOTE_TEXT_LIMITS, type RemoteAgentMarkSeenArgs, type RemoteAgentRow, type RemoteAgentsEvent, type RemoteAgentsSnapshot } from '../remote/protocol'
-import type { AgentMarkSeenInput, AgentOverviewRow } from '../types/ipc/agents'
+import type { AgentMarkSeenInput, AgentOverviewRow, AgentRequestTitleCode } from '../types/ipc/agents'
 import { isEpochMs } from './agentsOverview'
 import { parseAgentKey, type AgentKey } from './agentState'
 
@@ -61,6 +61,54 @@ export interface RemoteAgentContext {
  */
 const shown = (context: RemoteAgentContext, text: string): string => cut(plainText(context.clean(plainText(text))), REMOTE_TEXT_LIMITS.agentTitle)
 
+// ---- request title codes (DESIGN H1 on #347) ----------------------------------------------------------------------
+
+/**
+ * The one allowlist of request title codes the phone may render from its own catalog, each with the EXACT placeholder
+ * keys it may carry. Every code today takes none. A code outside it, or a parameter key it does not name, sends no
+ * `titleCode` and no `titleParams`, only the `title` words (SECURITY L2: no agent text rides along as a parameter).
+ * `scripts/android/generate.mjs` copies these codes' words from main.json into the phone's catalog, and a test checks
+ * each one's placeholders against its keys.
+ */
+export const REMOTE_REQUEST_TITLE_PARAMS = {
+  'agents.request.approval': [],
+  'agents.request.question': [],
+  'agents.request.permissions': [],
+  'agents.request.elicitation': [],
+  'agents.request.tool': [],
+  'approvals.title.agent': [],
+  'approvals.title.oxequery': [],
+  'approvals.title.previewAutomation': [],
+  'approvals.title.crash': []
+} as const satisfies Record<AgentRequestTitleCode, readonly string[]>
+export type RemoteRequestTitleAllowlist = Readonly<Record<string, readonly string[]>>
+
+/** Characters of one title parameter value, after cleaning. */
+export const REMOTE_TITLE_PARAM_MAX = 80
+
+/**
+ * The phone's `titleCode` and `titleParams` for a desktop request title, or null (only `title` goes). The keys must be
+ * exactly the allowlist's for that code; each value is stripped of hidden and control characters, cleaned, then cut,
+ * the same order as the rest of the row; one that comes out empty drops the code.
+ */
+export function remoteRequestTitle(title: { code: string; params: Readonly<Record<string, unknown>> }, clean: (text: string) => string,
+  allowlist: RemoteRequestTitleAllowlist = REMOTE_REQUEST_TITLE_PARAMS): { titleCode: string; titleParams?: Record<string, string> } | null {
+  if (!Object.prototype.hasOwnProperty.call(allowlist, title.code)) return null
+  const allowed = allowlist[title.code]
+  const keys = Object.keys(title.params ?? {})
+  if (keys.length !== allowed.length || keys.some(key => !allowed.includes(key))) return null
+  if (!allowed.length) return { titleCode: title.code }
+  const params: Record<string, string> = {}
+  for (const key of allowed) {
+    const value = title.params[key]
+    if (typeof value !== 'string' && typeof value !== 'number') return null
+    const text = cut(plainText(clean(plainText(String(value)))), REMOTE_TITLE_PARAM_MAX)
+    if (!text) return null
+    params[key] = text
+  }
+  return { titleCode: title.code, titleParams: params }
+}
+
 /** The phone's row: the same state, mapped on the desktop. Only this function builds one. */
 export function toRemoteAgentRow(row: AgentOverviewRow, context: RemoteAgentContext): RemoteAgentRow {
   const remote: RemoteAgentRow = {
@@ -88,6 +136,8 @@ export function toRemoteAgentRow(row: AgentOverviewRow, context: RemoteAgentCont
     const threadId = request.threadId ?? (row.kind === 'conversation' ? row.id : undefined)
     if (threadId) remote.request.threadId = threadId
     if (request.risk) remote.request.risk = request.risk
+    const code = remoteRequestTitle(request.title, context.clean)
+    if (code) Object.assign(remote.request, code)
   }
   if (row.tasks) remote.tasks = { done: row.tasks.done, total: row.tasks.total }
   if (context.canInterrupt && row.kind === 'conversation' && row.state === 'working') remote.canInterrupt = true
