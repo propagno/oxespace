@@ -2,13 +2,11 @@ import type { ToolContext } from './tool-registry'
 import { policyBlockedMessage } from '../../../shared/policy'
 import { policyStore } from '../services/policy'
 import type { PolicyStore } from '../services/policy/policy-store'
-import { statSync } from 'node:fs'
-import { join } from 'node:path'
+import { resolve } from 'node:path'
 import { CONFIGURABLE_MCP_TOOL_GROUPS, type ConfigurableMcpToolGroup } from '../../../shared/types/mcp-tools'
 import { MCP_TOOL_GROUPS } from '../services/conversation/thread-mcp'
 import { projectToolModes, type ProjectToolModes } from '../services/conversation/tool-groups'
-import { loadRepoConfigSync } from '../services/repo-config/loader'
-import { OXE_YAML_FILE } from '../services/repo-config/parser'
+import { loadRepoConfigSync, repoConfigStamp } from '../services/repo-config/loader'
 import { recordIncident } from '../services/diagnostics/incident-sink'
 
 /**
@@ -54,7 +52,7 @@ function callerRoots(ctx: Pick<ToolContext, 'db' | 'workspaceServ' | 'executions
 export function toolCallBlocked(tool: string, ctx: Parameters<typeof callerRoots>[0], policy: PolicyStore | null = policyStore(),
   modesOf: (root: string) => ProjectToolModes = cachedToolModes): string | undefined {
   const roots = callerRoots(ctx)
-  const off = offGroupBlocking(tool, roots, modesOf)
+  const off = offGroupBlocking(tool, roots, modesOf, callerRoleGroups(ctx))
   if (off) {
     recordIncident('incident.mcp.toolGroupOff', `${off}:${tool}`)
     // The C3 code is the incident's, the one Settings › Diagnostics shows for it.
@@ -70,17 +68,37 @@ export function toolCallBlocked(tool: string, ctx: Parameters<typeof callerRoots
   return undefined
 }
 
-/** Groups every caller has whatever the project says: core, and the role groups OXESpace grants itself. */
-const ALWAYS_GROUPS = new Set(Object.keys(MCP_TOOL_GROUPS).filter(group => !(CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(group)))
+/** Groups every caller has whatever the project says. The role groups (team, worker) count only for their holders. */
+const UNCONDITIONAL_GROUPS = new Set(['core', 'code'])
 
 /**
- * The configurable group that keeps `tool` off for these roots, or nothing. A tool that also belongs to an always-on
- * group (core, the Code terminal's, team, worker, coordinator) is never blocked here; otherwise it is blocked when, in
+ * The role groups this caller really holds, from its authenticated execution: a conversation's Team membership or
+ * delegation/Work role, a pane's Team link. A caller without an execution holds none.
+ */
+function callerRoleGroups(ctx: Parameters<typeof callerRoots>[0]): Set<string> {
+  let execution: { owner?: { kind: 'pane' | 'thread'; id: string } } | undefined
+  try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { return new Set() }
+  const owner = execution?.owner
+  if (!owner || !ctx.db) return new Set()
+  const has = (sql: string): boolean => { try { return Boolean(ctx.db!.prepare(sql).get(owner.id)) } catch { return false } }
+  const roles = new Set<string>()
+  if (has(`SELECT 1 FROM agent_team_execution_links l JOIN agent_team_members m ON m.id=l.member_id
+    WHERE l.owner_kind='${owner.kind}' AND l.owner_id=? AND m.archived=0 LIMIT 1`)) roles.add('team')
+  if (owner.kind === 'thread' ? (has("SELECT 1 FROM delegations WHERE json_extract(payload, '$.destinationThreadId')=? LIMIT 1")
+    || has('SELECT 1 FROM work_tasks WHERE thread_id=? LIMIT 1') || has('SELECT 1 FROM work_runs WHERE supervisor_thread_id=? LIMIT 1'))
+    : has("SELECT 1 FROM delegations WHERE json_extract(payload, '$.paneId')=? LIMIT 1")) roles.add('worker')
+  return roles
+}
+
+/**
+ * The configurable group that keeps `tool` off for these roots, or nothing. A tool that also belongs to core or the
+ * Code terminal's group, or to a role group the caller holds, is never blocked here; otherwise it is blocked when, in
  * any of the roots, every configurable group it belongs to is `off`: the strictest project wins, as with policy.
  */
-export function offGroupBlocking(tool: string, roots: readonly string[], modesOf: (root: string) => ProjectToolModes): ConfigurableMcpToolGroup | undefined {
+export function offGroupBlocking(tool: string, roots: readonly string[], modesOf: (root: string) => ProjectToolModes,
+  roleGroups: ReadonlySet<string> = new Set()): ConfigurableMcpToolGroup | undefined {
   const groups = Object.entries(MCP_TOOL_GROUPS).filter(([, tools]) => (tools as readonly string[]).includes(tool)).map(([group]) => group)
-  if (!groups.length || groups.some(group => ALWAYS_GROUPS.has(group))) return undefined
+  if (!groups.length || groups.some(group => UNCONDITIONAL_GROUPS.has(group) || roleGroups.has(group))) return undefined
   const configurable = groups.filter((group): group is ConfigurableMcpToolGroup => (CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(group))
   for (const root of roots) {
     let modes: ProjectToolModes
@@ -97,14 +115,22 @@ export function offGroupBlocking(tool: string, roots: readonly string[], modesOf
  * root never read uses the defaults. B7.4 persists this and asks the person about any widening.
  */
 const modesCache = new Map<string, { stamp: string; modes: ProjectToolModes }>()
+/** One entry per folder however it is spelled (`C:\x`, `c:/x/`), so a second spelling has no fail-closed memory of its own. */
+const rootKey = (root: string): string => { const full = resolve(root); return process.platform === 'win32' ? full.toLowerCase() : full }
 function cachedToolModes(root: string): ProjectToolModes {
-  let stamp = 'missing'
-  try { const stat = statSync(join(root, OXE_YAML_FILE)); stamp = `${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}` } catch { /* no oxe.yaml */ }
-  const cached = modesCache.get(root)
+  const key = rootKey(root)
+  const stamp = repoConfigStamp(root)
+  const cached = modesCache.get(key)
   if (cached && cached.stamp === stamp) return cached.modes
   const config = stamp === 'missing' ? null : loadRepoConfigSync(root)
   // Missing, unreadable, invalid or too large: the last valid read stands (defaults if there never was one).
-  const modes = config ? projectToolModes(config.thread) : cached?.modes ?? projectToolModes(undefined)
-  modesCache.set(root, { stamp, modes })
+  let modes = config ? projectToolModes(config.thread) : cached?.modes ?? projectToolModes(undefined)
+  // A valid rewrite that just drops a group's value (or misspells it, `offf`) does not lift an `off` read earlier; a
+  // value the project states (`on-demand`, `always`) does, until B7.4 asks the person about such widenings.
+  if (config && cached) {
+    modes = Object.fromEntries(Object.entries(modes).map(([group, entry]) =>
+      [group, entry.source === 'default' && cached.modes[group as ConfigurableMcpToolGroup].mode === 'off' ? cached.modes[group as ConfigurableMcpToolGroup] : entry])) as ProjectToolModes
+  }
+  modesCache.set(key, { stamp, modes })
   return modes
 }
