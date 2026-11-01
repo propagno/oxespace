@@ -6,6 +6,7 @@ import { useActivityStore } from '../store/activity.store'
 import { deriveStatusTone, resolvePaneIdentity, type PaneDisplayTone } from '../utils/paneDisplay'
 import type { WorkspacePane } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
+import { agentErrorDetail, paneNoticeLabel } from '../utils/agentNotice'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -14,10 +15,11 @@ const tc = i18n.getFixedT(null, 'code')
  * launches (Claude, Codex...). The generic "Agent" only when none of them is known.
  */
 export function noticeLabel(pane: WorkspacePane, shellProfileName: string | null): string {
-  const named = (pane.displayName || pane.agentName)?.trim()
-  if (named) return named
+  // B10: a name an agent chose may not speak as the app; a reserved name gives way to the generic "Agent".
+  const fallback = tc('pane.notice.agent')
+  if ((pane.displayName || pane.agentName)?.trim()) return paneNoticeLabel(pane, fallback)
   const identity = resolvePaneIdentity({ pane, profile: null, shellProfileName })
-  return identity.key === 'shell' ? tc('pane.notice.agent') : identity.label
+  return identity.key === 'shell' ? fallback : identity.label
 }
 
 /**
@@ -87,7 +89,7 @@ export function useAgentNotifications(): void {
           const tone = deriveStatusTone(entry)
           const existing = tracks.get(pane.id)
           const label = noticeLabel(pane, shellProfiles.find(profile => profile.id === (pane.shellProfileId ?? ws.defaultShellProfileId))?.name ?? null)
-          const errorBody = (): string => tc('pane.notice.errorBody', { workspace: ws.name, error: entry.error ?? tc('pane.notice.errorFallback') })
+          const errorBody = (): string => tc('pane.notice.errorBody', { workspace: ws.name, error: agentErrorDetail(entry.error, tc('pane.notice.errorFallback')) })
           const target = { type: 'pane' as const, workspaceId: ws.id, paneId: pane.id }
           // Don't ping about the pane the user is actively looking at.
           const isViewing = windowFocused && activePaneId === pane.id

@@ -51,6 +51,13 @@
       "server": {
         "quarantined": "Quarantined: it changed after you trusted it. Review it and trust it again to use it.",
         "untrusted": "Not trusted yet. Review its command and trust it before testing."
+      },
+      "toolGroups": {
+        "unknownProject": "This folder is not a project OXESpace knows. Open it as a workspace or add it to OxeChat first.",
+        "invalidYaml": "This project’s oxe.yaml is not valid YAML. Fix it by hand, then try again.",
+        "notMapping": "This project’s oxe.yaml is not a list of settings. Fix it by hand, then try again.",
+        "inlineThread": "thread is written on one line in oxe.yaml. Set the tool groups under thread.tools by hand.",
+        "unsafeEdit": "oxe.yaml could not be changed without touching other settings. Set the tool groups under thread.tools by hand."
       }
     },
     "thread": {
@@ -60,10 +67,6 @@
         "alreadyResponding": "An answer to this request is already being sent.",
         "unanswered": "Answer every question before continuing.",
         "guardedDecision": "A change to agent instructions, MCP settings or hooks is approved once, never for the session. Answer it again."
-      },
-      "side": {
-        "unavailable": "This agent cannot open a side chat yet.",
-        "noSession": "Send a message first: a side chat copies the conversation so far."
       },
       "commands": {
         "configure": "Configure the provider in Agent Settings and use Refresh commands to try again.",
@@ -82,18 +85,40 @@
       "queue": {
         "deliveryUnconfirmed": "Delivery of this message could not be confirmed."
       },
+      "side": {
+        "unavailable": "This agent cannot open a side chat yet.",
+        "noSession": "Send a message first: a side chat copies the conversation so far."
+      },
       "protectedConfig": {
         "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",
         "mcp": "\"{{path}}\" holds MCP server settings. A change there steers every later session, so it needs your confirmation each time.",
         "hooks": "\"{{path}}\" holds agent hooks. A change there steers every later session, so it needs your confirmation each time.",
         "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
+      },
+      "sections": {
+        "invalid": "These sections could not be saved. Reload the list and try again.",
+        "tooMany": "A workspace has at most {{sections}} sections and {{assignments}} conversations placed in them.",
+        "nameEmpty": "Give the section a name.",
+        "nameTooLong": "A section name has at most {{max}} characters.",
+        "nameHidden": "A section name cannot contain control or invisible characters.",
+        "nameDuplicate": "There is already a section named \"{{name}}\" in this workspace.",
+        "unknownWorkspace": "This workspace no longer exists."
       }
     },
     "app": {
       "connectivity": {
         "offline": "No network connection."
       }
+    },
+    "activity": {
+      "invalid": "This activity could not be saved. Reload the app and try again.",
+      "tooMany": "At most {{max}} activity entries can be saved at once.",
+      "titleTooLong": "An activity title has at most {{max}} characters.",
+      "detailTooLong": "An activity detail has at most {{max}} characters.",
+      "hiddenCharacters": "Activity text cannot contain control or invisible characters.",
+      "future": "This activity is dated in the future. Check the computer's clock.",
+      "secret": "This activity was not saved because its text looks like a password, token or key."
     },
     "remote": {
       "port": {
@@ -229,7 +254,8 @@
         "mcpServer": "MCP server {{server}}",
         "app": "OXESpace",
         "unknownPane": "Unknown agent · pane {{pane}}",
-        "unknownConversation": "Unknown agent · conversation {{conversation}}"
+        "unknownConversation": "Unknown agent · conversation {{conversation}}",
+        "preview": "Web Preview automation"
       },
       "option": {
         "deny": "Deny",
@@ -284,7 +310,12 @@
           "releasePublic": "A published release is visible to everyone with access to the repository and may notify watchers."
         },
         "textCut": "The text is longer than {{max}} characters, so only part of it is shown. It cannot be approved.",
-        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app."
+        "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app.",
+        "hiddenCharacters": "The text holds invisible or direction-changing characters, so what you see may not be what runs.",
+        "nativeCriticalDenyOnly": "This change is critical, and the system dialog cannot hold Allow back, so it can only be denied here. Open OXESpace to approve it.",
+        "preview": {
+          "notLocal": "This page is not on localhost. It can load anything, and it sees what is typed into it."
+        }
       },
       "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
       "expired": "Nobody answered in time, so the request was denied.",
@@ -294,11 +325,17 @@
         "alreadyAnswered": "This request already has an answer.",
         "unknownOption": "That answer is not one of the options this request offers.",
         "alreadyReported": "This request was already reported as not shown.",
-        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears."
+        "tooSoon": "Wait a moment: this request is risky, so Allow is available two seconds after it appears.",
+        "notShown": "This request has not been shown in the app yet, so it cannot be allowed."
       },
       "denied": {
         "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
-        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps."
+        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps.",
+        "timeout": "Nobody answered in time, so it was denied.",
+        "cancelled": "The request was withdrawn before anyone answered."
+      },
+      "notify": {
+        "waiting": "OXESpace: approval waiting"
       }
     },
     "notify": {
@@ -352,7 +389,10 @@
         "overBudget": "An interaction took longer than its budget."
       },
       "app": {
-        "journalReset": "The diagnostics journal was unreadable and started over."
+        "journalReset": "The diagnostics journal was unreadable and started over.",
+        "closeUnanswered": "The window did not answer a close or quit within 3 seconds; the app went ahead.",
+        "closeRendererGone": "The window stopped while a close or quit waited on it; the app went ahead.",
+        "closeGuardFailed": "The check before closing failed; the app closed without asking the window."
       }
     },
     "diagnostics": {
@@ -369,6 +409,11 @@
         "runtime": "Recent runtime events, redacted",
         "versions": "App, Electron, Chrome, Node and system versions",
         "configuration": "Settings that help a diagnosis, without secrets"
+      }
+    },
+    "project": {
+      "file": {
+        "changedMeanwhile": "{{file}} changed on disk since it was read. Nothing was saved; try again."
       }
     },
     "workspace": {

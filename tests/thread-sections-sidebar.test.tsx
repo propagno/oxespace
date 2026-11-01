@@ -49,6 +49,26 @@ describe('sections in the conversation list', () => {
     expect(screen.getByRole('menuitem', { name: 'Section follows the parent conversation' })).toHaveAttribute('aria-disabled', 'true')
   })
 
+  it('says each move and delete in a polite live region, and a menu move gives the focus to the moved row', async () => {
+    fixture()
+    const user = userEvent.setup()
+    render(<ThreadSidebar onCreate={vi.fn()} />)
+    await waitFor(() => expect(region('Work')).toBeInTheDocument())
+    const announcer = screen.getByTestId('thread-sections-announcer')
+    expect(announcer).toHaveAttribute('aria-live', 'polite')
+    await user.click(screen.getByRole('button', { name: 'Actions for Bravo' }))
+    screen.getByRole('menuitem', { name: 'Move to section' }).focus()
+    await user.keyboard('{ArrowRight}')
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Work' }))
+    await waitFor(() => expect(announcer).toHaveTextContent('Moved Bravo to Work'))
+    await waitFor(() => expect(document.activeElement?.closest('[data-thread-row]')?.getAttribute('data-thread-row')).toBe('b'))
+
+    await user.click(within(region('Work')).getByRole('button', { name: 'Actions for section Work' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Delete section…' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Delete this section?' })).getByRole('button', { name: 'Delete section' }))
+    await waitFor(() => expect(announcer).toHaveTextContent('Section deleted; 3 conversations went back to No section'))
+  })
+
   it('drags a conversation into no section, the same move as the menu', async () => {
     fixture()
     render(<ThreadSidebar onCreate={vi.fn()} />)
@@ -95,6 +115,45 @@ describe('sections in the conversation list', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Create section' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(region('Later')).toHaveTextContent('Drag a conversation here')
+  })
+
+  it('explains a duplicate name in the dialog', async () => {
+    fixture()
+    const user = userEvent.setup()
+    render(<ThreadSidebar onCreate={vi.fn()} />)
+    await user.click(await screen.findByRole('button', { name: 'Actions for Repo' }))
+    await user.click(screen.getByRole('menuitem', { name: 'New section…' }))
+    const dialog = screen.getByRole('dialog', { name: 'New section' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Section name' }), 'work')
+    await user.click(within(dialog).getByRole('button', { name: 'Create section' }))
+    expect(await within(dialog).findByText('Another section in this project already has this name.')).toBeInTheDocument()
+  })
+
+  it('a right click, Shift+F10 or the menu key on a conversation opens the same menu as its "…" button', async () => {
+    fixture()
+    render(<ThreadSidebar onCreate={vi.fn()} />)
+    await waitFor(() => expect(titlesIn(region('Work'))).toEqual(['Alpha', 'Nested']))
+    const row = screen.getAllByRole('button', { name: /^Bravo/ })[0]!
+    fireEvent.contextMenu(row)
+    expect(await screen.findByRole('menu', { name: 'Actions for Bravo' })).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    for (const key of [{ key: 'F10', shiftKey: true }, { key: 'ContextMenu' }]) {
+      fireEvent.keyDown(row, key)
+      expect(await screen.findByRole('menu', { name: 'Actions for Bravo' })).toBeInTheDocument()
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    }
+  })
+
+  it('says "0 conversas" for an empty section in Portuguese', async () => {
+    const { changeLanguage, i18n } = await import('../src/i18n')
+    await changeLanguage('pt-BR')
+    try {
+      expect(i18n.t('thread:sections.count', { count: 0 })).toBe('0 conversas')
+      expect(i18n.t('thread:sections.count', { count: 1 })).toBe('1 conversa')
+    } finally { await changeLanguage('en') }
+    expect(i18n.t('thread:sections.count', { count: 0 })).toBe('0 conversations')
   })
 
   it('uses the real API when the preload has it', async () => {

@@ -36,6 +36,13 @@ Before opening the PR, dispatch **CI and Release** on the release branch with
 **packaged_smoke_only = true**. It runs the full checks and the installed-app smoke without
 publishing. Regenerate visual baselines there if the UI changed.
 
+**Required before every release: repeat the real tool-cost measurement (T8).** What OXESpace's MCP tools cost
+depends on the agents' own behaviour, which changes between versions of Claude Code and Codex. With the versions the
+release ships against, repeat the runs in `docs/validation/tool-groups-cost-1.4.md` (plain conversation and every
+group on demand with Claude, plain and one group used with Codex), with the person's consent since they use their
+account. Record the versions and numbers there. If an agent now sends MCP definitions up front, or no longer defers
+them, fix the session plan in `electron/main/services/conversation/tool-groups.ts` before releasing.
+
 ### 2. Open the PR `release/X.Y.Z` → `main` and merge it when CI is green
 
 The push to `main` runs CI once more on the merged commit.
