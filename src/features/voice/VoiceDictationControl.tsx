@@ -3,6 +3,7 @@ import { useEffect, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VoiceRendererApi, VoiceUnavailableReason } from '../../../shared/types/ipc/voice'
 import { loadNamespace } from '../../i18n'
+import { Button, ErrorState, IconButton } from '../../ui'
 import { useVoiceDictation } from './useVoiceDictation'
 import './voice.css'
 
@@ -56,11 +57,12 @@ export function VoiceDictationControl({ api, onInsert }: { api: VoiceRendererApi
 
   return (
     <div className="voice-dictation">
-      <button
-        type="button"
+      <IconButton
+        variant="secondary"
         className="voice-dictation__button"
         data-recording={recording || undefined}
-        aria-label={t('hold')}
+        label={t('hold')}
+        icon={<span className="voice-dictation__dot" aria-hidden="true" />}
         aria-pressed={recording}
         title={reasonText ?? t('hold')}
         disabled={blocked}
@@ -70,9 +72,7 @@ export function VoiceDictationControl({ api, onInsert }: { api: VoiceRendererApi
         onBlur={voice.end}
         onKeyDown={onKeyDown}
         onKeyUp={onKeyUp}
-      >
-        <span className="voice-dictation__dot" aria-hidden="true" />
-      </button>
+      />
 
       {recording ? (
         <div role="status" className="voice-dictation__status">
@@ -87,17 +87,18 @@ export function VoiceDictationControl({ api, onInsert }: { api: VoiceRendererApi
       {reasonAction && (
         <div className="voice-dictation__reason">
           <span>{reasonText}</span>
-          <button type="button" className="voice-dictation__action" onClick={voice.openSpeechSettings}>{t('openSettings')}</button>
+          <Button size="sm" onClick={voice.openSpeechSettings}>{t('openSettings')}</Button>
         </div>
       )}
 
       {voice.error && (
-        <div role="alert" className="voice-dictation__alert">
-          <span>{voice.error.text}</span>
-          {voice.error.code === 'voice.os.speechPrivacyOff' && (
-            <button type="button" className="voice-dictation__action" onClick={voice.openSpeechSettings}>{t('openSettings')}</button>
-          )}
-        </div>
+        <ErrorState
+          compact
+          title={voice.error.text}
+          actions={voice.error.code === 'voice.os.speechPrivacyOff'
+            ? <Button size="sm" onClick={voice.openSpeechSettings}>{t('openSettings')}</Button>
+            : undefined}
+        />
       )}
 
       {askingConsent && (
@@ -105,8 +106,8 @@ export function VoiceDictationControl({ api, onInsert }: { api: VoiceRendererApi
           <h2 id={titleId} className="voice-dictation__dialog-title">{t('consent.title')}</h2>
           <p className="voice-dictation__dialog-body">{t('consent.body', { place: t('consentPlace') })}</p>
           <div className="voice-dictation__dialog-actions">
-            <button type="button" className="voice-dictation__action" onClick={voice.decline}>{t('consent.decline')}</button>
-            <button type="button" className="voice-dictation__action voice-dictation__action--primary" onClick={() => { void voice.allow() }}>{t('consent.allow')}</button>
+            <Button onClick={voice.decline}>{t('consent.decline')}</Button>
+            <Button variant="primary" onClick={() => { void voice.allow() }}>{t('consent.allow')}</Button>
           </div>
         </div>
       )}

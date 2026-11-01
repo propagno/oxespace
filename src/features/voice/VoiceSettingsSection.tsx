@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VoiceEngineInfo, VoiceRendererApi } from '../../../shared/types/ipc/voice'
 import { loadNamespace } from '../../i18n'
+import { Button } from '../../ui'
 
 /**
  * Settings › Voice. Consent for an engine that sends audio off the machine (`os-cloud`) is revocable here.
@@ -49,8 +50,7 @@ export function VoiceSettingsSection({ api }: { api: VoiceRendererApi }) {
         <section key={engine.id} className="voice-settings__section" aria-labelledby={`${headingId}-${engine.id}`}>
           <h3 id={`${headingId}-${engine.id}`}>{t('settings.section')}</h3>
           <p>{t('settings.description')}</p>
-          <button
-            type="button"
+          <Button
             role="switch"
             aria-checked={engine.consented}
             className="voice-settings__switch"
@@ -58,7 +58,7 @@ export function VoiceSettingsSection({ api }: { api: VoiceRendererApi }) {
             onClick={() => { void toggle(engine) }}
           >
             {t('settings.toggle')}
-          </button>
+          </Button>
         </section>
       ))}
       {onDevice.length > 0 && <p className="voice-settings__privacy">{t('privacy.onDevice')}</p>}
