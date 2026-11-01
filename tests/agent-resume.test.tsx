@@ -193,10 +193,15 @@ describe('the pane details name its agent session', () => {
     await waitFor(() => expect(useToasts.getState().items.map(item => item.title)).toContain('Resume command copied'))
     rerender(<AgentSessionDetails session={{ ...session, source: 'hook' }} resume={{ outcome: 'notResumed', agent: 'claude', sessionId: 'old', message: { code: 'agents.resume.sessionMissing', params: {} } }} />)
     expect(screen.getByTestId('pane-agent-session')).toHaveTextContent('Reported by the agent’s status hook')
-    expect(screen.getByTestId('pane-agent-session')).toHaveTextContent(/Not resumed: .+/)
+    // A saved session that was not resumed says so, with its id, never as if the session were new (T13).
+    expect(screen.getByTestId('pane-agent-session-missed')).toHaveTextContent(/A saved session existed but was not resumed: .+ old/)
     expect(screen.getByTestId('pane-agent-session')).not.toHaveTextContent('agents.resume')
     rerender(<AgentSessionDetails session={{ source: 'notFound', message: { code: 'agents.session.notFound', params: {} } }} />)
     expect(screen.getByTestId('pane-agent-session')).not.toHaveTextContent('agents.session')
+    expect(screen.queryByTestId('pane-agent-session-missed')).toBeNull()
+    // No session now, but one was saved and could not be resumed (the Windows 8.3 path case): said explicitly.
+    rerender(<AgentSessionDetails session={{ source: 'notFound', message: { code: 'agents.session.notFound', params: {} } }} resume={{ outcome: 'notResumed', agent: 'claude', sessionId: 'saved-1', message: { code: 'agents.resume.sessionMissing', params: {} } }} />)
+    expect(screen.getByTestId('pane-agent-session-missed')).toHaveTextContent(/A saved session existed but was not resumed: .+ saved-1/)
     expect(screen.queryByRole('button', { name: 'Copy resume command' })).toBeNull()
   })
 })

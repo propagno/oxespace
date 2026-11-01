@@ -1943,7 +1943,7 @@
       "state": "Último início",
       "resumed": "Retomada quando o painel iniciou",
       "startedFresh": "Iniciada do zero, como você escolheu",
-      "notResumed": "Não retomada: {{reason}}",
+      "savedNotResumed": "Havia uma sessão salva, mas ela não foi retomada: {{reason}}",
       "copy": "Copiar comando de retomada",
       "command": "Comando de retomada",
       "copied": "Comando de retomada copiado"

@@ -149,19 +149,26 @@ export const middleCut = (id: string): string => id.length > 20 ? `${id.slice(0,
  * Without a session (`notFound`) it says why.
  */
 export function AgentSessionDetails({ session, resume }: { session: PaneAgentSession; resume?: PaneAgentResume }): ReactElement {
+  // A saved session that was not resumed is said as such (T13), never left to look like a new session: the reason
+  // from main, and the saved session's id, which can still be resumed by hand.
+  const missed = resume?.outcome === 'notResumed' && !startedFresh(resume) ? resume : null
+  const missedRow = missed && <div data-testid="pane-agent-session-missed"><dt>{tc('agentResume.details.state')}</dt>
+    <dd>{tc('agentResume.details.savedNotResumed', { reason: formatMainMessage(missed.message) })} <code title={missed.sessionId}>{middleCut(missed.sessionId)}</code></dd></div>
   if (session.source === 'notFound') {
     return <dl className="detail-list pane-agent-session" data-testid="pane-agent-session">
       <div><dt>{tc('agentResume.details.label')}</dt><dd>{formatMainMessage(session.message)}</dd></div>
+      {missedRow}
     </dl>
   }
-  const state = !resume || resume.outcome === 'nothingRecorded' ? null
-    : resume.outcome === 'resumed' ? tc('agentResume.details.resumed')
-      : startedFresh(resume) ? tc('agentResume.details.startedFresh') : tc('agentResume.details.notResumed', { reason: formatMainMessage(resume.message) })
+  const state = missed ? null
+    : !resume || resume.outcome === 'nothingRecorded' ? null
+      : resume.outcome === 'resumed' ? tc('agentResume.details.resumed') : tc('agentResume.details.startedFresh')
   return <div className="pane-agent-session" data-testid="pane-agent-session">
     <dl className="detail-list">
       <div><dt>{tc('agentResume.details.label')}</dt><dd><code data-testid="pane-agent-session-id" title={session.sessionId}>{middleCut(session.sessionId)}</code> ({AGENT[session.agent]})</dd></div>
       <div><dt>{tc('agentResume.details.source')}</dt><dd>{tc(`agentResume.details.sources.${session.source}`)}</dd></div>
       {state && <div><dt>{tc('agentResume.details.state')}</dt><dd>{state}</dd></div>}
+      {missedRow}
     </dl>
     <Button size="sm" onClick={() => void copyText(session.resumeCommand, tc('agentResume.details.command'), tc('agentResume.details.copied'))}>{tc('agentResume.details.copy')}</Button>
   </div>
