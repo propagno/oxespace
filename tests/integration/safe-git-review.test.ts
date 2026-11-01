@@ -240,6 +240,63 @@ describe("M2: gh's own git", () => {
   })
 })
 
+describe('round 3: N1, N2 and the linked worktree', () => {
+  const blind: ConfigReader = async () => ({ code: 1, stdout: '' })
+
+  test("N1: gh's git may not push to a local path, whose hooks would run", async () => {
+    const { clone } = bareAndClone()
+    const evilBare = join(sandbox, 'evil.git')
+    plain(sandbox, 'clone', '-q', '--bare', join(sandbox, 'src'), evilBare)
+    writeFileSync(join(evilBare, 'hooks', 'pre-receive'), `#!/bin/sh\n${evilRun}\n`, { mode: 0o755 })
+    plain(clone, 'config', 'remote.origin.pushurl', slash(evilBare))
+    plain(clone, 'commit', '-q', '--allow-empty', '-m', 'mine')
+    const push = (env: NodeJS.ProcessEnv) => new Promise<number>(resolve => execFile('git', ['push', '-q', 'origin', 'HEAD:refs/heads/gh'], { cwd: clone, env, windowsHide: true }, error => resolve(error ? 1 : 0)))
+    await push(plainEnv)
+    expect(ran(), "a push with main's env must run the target's pre-receive").toBe(true)
+
+    reset()
+    expect(await push(ghEnv())).toBe(1)
+    expect(ran()).toBe(false)
+  })
+
+  test('N2: the person path reads the config again after the command and flags a new key', async () => {
+    const { clone } = bareAndClone()
+    appendFileSync(join(clone, '.git', 'config'), `[filter "late"]\n\tclean = ${evil}\n`)
+    let calls = 0
+    const late: ConfigReader = (...args) => (calls++ === 0 ? blind(...args) : execConfigReader(...args))
+    const changes: string[][] = []
+    const stop = onRepositoryConfigChanged(change => changes.push(change.keys))
+    try {
+      const fetch = await runPersonGit(clone, ['fetch', 'origin'], { reason: 'git-panel:test-fetch' }, { readConfig: late })
+      expect(fetch.ok, fetch.stderr).toBe(true)
+      expect(changes).toEqual([['filter.late.clean']])
+    } finally { stop() }
+  })
+
+  test('a driver seen in the main checkout is emptied in its linked worktree too (common git dir)', async () => {
+    const root = fullRepo('main-checkout')
+    writeFileSync(join(root, 'c.txt'), 'abc\n')
+    plain(root, 'add', 'c.txt')
+    plain(root, 'commit', '-q', '-m', 'c')
+    const linked = join(sandbox, 'linked')
+    plain(root, 'worktree', 'add', '-q', linked)
+    appendFileSync(join(root, '.git', 'config'), `[filter "agent"]\n\tclean = ${evil}\n\tsmudge = ${evil}\n`)
+    for (const tree of [root, linked]) writeFileSync(join(tree, '.gitattributes'), '*.txt filter=agent\n')
+    const touchC = (tree: string) => { writeFileSync(join(tree, 'c.txt'), 'xyz\n'); utimesSync(join(tree, 'c.txt'), new Date(Date.now() + 9000), new Date(Date.now() + 9000)) }
+    touchC(linked)
+    plainTry(linked, 'status', '--porcelain')
+    expect(ran(), 'the shared config reaches the linked worktree').toBe(true)
+
+    reset()
+    touchC(root)
+    await runGit(root, ['status', '--porcelain'])
+    expect(ran()).toBe(false)
+    utimesSync(join(linked, 'c.txt'), new Date(Date.now() + 20000), new Date(Date.now() + 20000))
+    await runGit(linked, ['status', '--porcelain'], { readConfig: blind })
+    expect(ran(), 'seen in the main checkout, so emptied in the linked one even through a blind read').toBe(false)
+  })
+})
+
 describe('condition (b): only repository scopes refuse', () => {
   test("the person's global credential helper does not refuse a person fetch", async () => {
     const { clone } = bareAndClone()

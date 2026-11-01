@@ -281,7 +281,9 @@ export class GhExec {
       if (error instanceof PersonGitRefused) throw error
       throw new Error(sanitizeError(error instanceof Error ? error.message : String(error)), { cause: error })
     }
-    return this.checked(await this.spawnPrepared(prepared, cwd, undefined, timeout))
+    const result = await this.spawnPrepared(prepared, cwd, undefined, timeout)
+    await verifyAfter(prepared, cwd, this.configReader)
+    return this.checked(result)
   }
 
   /** Local git through utils/safe-git.ts: no transport, no hooks, nothing the repository's config names. */

@@ -21,8 +21,14 @@
  * Check, then act: the read and the command are two processes, so an agent can add a driver in between. Every driver
  * name ever seen in a repository is remembered (this launch) and emptied on every later call there, and the config is
  * read again after a command that read it first; a new command key is reported (`configChanged`, and
- * `onRepositoryConfigChanged`). What stays open: a driver both added and used inside one command's window, the first
- * time; and the person's own global and system config are trusted (B16 protects them from agents).
+ * `onRepositoryConfigChanged`). Names are kept per common git dir, so a linked worktree shares its checkout's set.
+ *
+ * Known limit: a FRESH driver name an agent adds between the read and the command runs once, in that command; it is
+ * then flagged and emptied from the next call on. `--attr-source=<empty tree>` does not close it: git still reads
+ * `$GIT_DIR/info/attributes` (agent-writable, and it can name the driver), and dropping the work tree's
+ * `.gitattributes` changes what status and diff report (eol/text conversion, `-diff`/binary, the LFS filter), so
+ * CRLF and LFS files would show as changed. Also open: the person's own global and system config are trusted (B16
+ * is to protect them from agents).
  *
  * System config stays on for these calls: it is admin-only (`GIT_CONFIG_SYSTEM` is dropped with every `GIT_*`), and
  * Git for Windows keeps `core.autocrlf`, `core.symlinks` and the LFS filter there, without which `git status` reports
@@ -31,7 +37,8 @@
 import { execFile, execFileSync, type ExecFileException } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { devNull } from 'node:os'
-import { resolve as resolvePath } from 'node:path'
+import { readFileSync, statSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve as resolvePath } from 'node:path'
 
 /** Every transport git knows; each is denied by name. */
 export const GIT_TRANSPORTS = ['ext', 'file', 'ssh', 'git', 'http', 'https'] as const
@@ -137,7 +144,8 @@ export function ghEnv(base: NodeJS.ProcessEnv = process.env, extra: readonly Con
   env.GIT_EDITOR = 'false'
   return withConfigPairs(env, [
     ['core.fsmonitor', ''], ['core.hooksPath', NO_HOOKS_PATH], ['diff.external', ''], ['protocol.ext.allow', 'never'],
-    ['core.alternateRefsCommand', ''], ...extra
+    // gh pr create may push: never to a local path, whose own hooks would run (SECURITY #387 N1).
+    ['core.alternateRefsCommand', ''], ['protocol.file.allow', 'never'], ...extra
   ])
 }
 
@@ -167,7 +175,7 @@ export function parseConfigEntries(raw: string): ConfigEntry[] {
 
 /** A key a repository chose, safe to show a person: no control or bidi characters, bounded. */
 export function displayKey(key: string, max = 80): string {
-  const clean = key.replace(/[\u0000-\u001f\u007f-\u009f؜‎‏‪-‮⁦-⁩]/g, '?')
+  const clean = key.replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '?')
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
 }
 
@@ -177,7 +185,35 @@ const SIGNING_DEFAULTS: Record<string, string> = { 'gpg.program': 'gpg', 'gpg.op
 
 /** Driver names seen per repository this launch (M1): `filter:<name>`, `diff:<name>`, `merge:<name>`. */
 const seenDrivers = new Map<string, Set<string>>()
-const repoKey = (cwd: string): string => { const path = resolvePath(cwd); return process.platform === 'win32' ? path.toLowerCase() : path }
+/**
+ * The repository's common git dir, found on disk with no process: a linked worktree shares its main checkout's config,
+ * so the drivers seen in one are emptied in all of them. Falls back to the folder itself.
+ */
+export function commonGitDir(cwd: string): string {
+  let dir = resolvePath(cwd)
+  for (let depth = 0; depth < 64; depth++) {
+    const dotGit = join(dir, '.git')
+    try {
+      const info = statSync(dotGit)
+      let gitDir = dotGit
+      if (info.isFile()) {
+        const pointer = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(dotGit, 'utf8'))
+        if (!pointer) return dir
+        gitDir = isAbsolute(pointer[1]) ? pointer[1] : resolvePath(dir, pointer[1])
+      }
+      try {
+        const common = readFileSync(join(gitDir, 'commondir'), 'utf8').trim()
+        if (common) return resolvePath(gitDir, common)
+      } catch { /* a main checkout: its git dir is the common one */ }
+      return resolvePath(gitDir)
+    } catch { /* no .git here */ }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return resolvePath(cwd)
+}
+const repoKey = (cwd: string): string => { const path = commonGitDir(cwd); return process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path }
 
 function driverPairs(kind: string, name: string): ConfigPair[] {
   if (kind === 'filter') return [[`filter.${name}.clean`, ''], [`filter.${name}.smudge`, ''], [`filter.${name}.process`, ''], [`filter.${name}.required`, 'false']]

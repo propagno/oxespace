@@ -27,7 +27,7 @@
 import { mainMessage, type MainMessage } from '../../../shared/messages'
 import {
   displayKey, GIT_COMMAND_OFF, neutralizeRepositoryCommands, readCommandKeys, safeGitArgs, spawnPrepared, subcommandIndex, trustedScope,
-  withConfigPairs, withoutGitVariables, type ConfigEntry, type ConfigReader, type GitResult, type PreparedGit, type RunGitOptions
+  verifyAfter, withConfigPairs, withoutGitVariables, type ConfigEntry, type ConfigReader, type GitResult, type PreparedGit, type RunGitOptions
 } from './safe-git'
 
 /** Who asked, in the caller's words: `git-panel:push`, `mcp-approved:fetch`. Appears in errors. */
@@ -88,8 +88,14 @@ export async function preparePersonGit(cwd: string, args: readonly string[], per
 
 /** Person-started network git; rejects like a promisified `execFile`, or with `PersonGitRefused`. */
 export async function execPersonGit(cwd: string, args: readonly string[], person: PersonGit, options: RunGitOptions = {}): Promise<{ stdout: string; stderr: string }> {
-  const { stdout, stderr } = await spawnPrepared(await preparePersonGit(cwd, args, person, options), cwd, { ...options, encoding: 'utf8' })
-  return { stdout: String(stdout), stderr }
+  const prepared = await preparePersonGit(cwd, args, person, options)
+  try {
+    const { stdout, stderr } = await spawnPrepared(prepared, cwd, { ...options, encoding: 'utf8' })
+    return { stdout: String(stdout), stderr }
+  } finally {
+    // As on the local path: a key that appeared while it ran is reported, and its driver remembered.
+    await verifyAfter(prepared, cwd, options.readConfig)
+  }
 }
 
 /** `execPersonGit` that never throws. */
