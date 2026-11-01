@@ -53,6 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.oxespace.mobile.protocol.displaySafe
+import com.oxespace.mobile.protocol.showHidden
 import com.oxespace.mobile.protocol.RemoteDelegation
 import com.oxespace.mobile.protocol.RemoteJob
 import com.oxespace.mobile.protocol.RemotePane
@@ -230,10 +232,10 @@ private fun RequestRow(request: RemotePendingRequest, onOpen: () -> Unit) {
         Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button, onClick = onOpen).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
     ) {
-        Text(request.title, style = MaterialTheme.typography.titleMedium)
+        Text(displaySafe(request.title, 200), style = MaterialTheme.typography.titleMedium)
         request.risk?.let { Text(riskLabel(it), style = MaterialTheme.typography.labelMedium, color = riskColor(it)) }
-        request.command?.let { Text(it, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-        Text("${request.threadTitle} · ${ageLabel(request.createdAt)}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
+        request.command?.let { Text(showHidden(it), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+        Text("${displaySafe(request.threadTitle, 200)} · ${ageLabel(request.createdAt)}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
     }
 }
 

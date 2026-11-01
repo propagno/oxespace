@@ -23,4 +23,19 @@ class DisplayTextTest {
         assertTrue(emoji.endsWith("…"))
         assertEquals("short", displaySafe("short", max = 10))
     }
+
+    @Test
+    fun aBlockKeepsItsLinesButNothingHidden() {
+        assertEquals("first line\n\tsecond", displaySafeBlock("first\u200B line\n\tsecond\u202E", max = 100))
+        assertEquals("ab…", displaySafeBlock("abcdef", max = 3))
+    }
+
+    @Test
+    fun whatWouldRunShowsItsHiddenCharactersInsteadOfObeyingThem() {
+        // "rm -rf ~/\u202Etxt.sh" would read as ending in "hs.txt"; the person sees the override written out instead.
+        assertEquals("rm -rf ~/⟨U+202E⟩txt.sh", showHidden("rm -rf ~/\u202Etxt.sh"))
+        assertEquals("a⟨U+200B⟩b⟨U+0007⟩c", showHidden("a\u200Bb\u0007c"))
+        assertEquals("git add .\nnpm\ttest", showHidden("git add .\nnpm\ttest"))
+        assertEquals("tag⟨U+E0041⟩", showHidden("tag\uDB40\uDC41"))
+    }
 }
