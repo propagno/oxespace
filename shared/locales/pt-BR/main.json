@@ -364,7 +364,7 @@
         "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova."
       },
       "session": {
-        "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta, ou quando os ganchos do agente estiverem instalados."
+        "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta do agente, ou antes, com os hooks de status ligados (Configurações › Notificações)."
       }
     },
     "incident": {

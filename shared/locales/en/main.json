@@ -364,7 +364,7 @@
         "failedToLoad": "The agent could not load its previous session and closed, so this pane started a new one."
       },
       "session": {
-        "notFound": "This agent has not reported its session yet. It appears after its first reply, or once the agent hooks are installed."
+        "notFound": "This agent hasn't reported its session yet. It shows after the agent's first reply, or sooner with the status hooks on (Settings › Notifications)."
       }
     },
     "incident": {
