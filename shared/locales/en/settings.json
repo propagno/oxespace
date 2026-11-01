@@ -708,7 +708,7 @@
     "groups": {
       "core": {
         "name": "Core tools",
-        "description": "Code, search and memory lookups, in every conversation."
+        "description": "Source code, search and memory lookups, in every conversation."
       },
       "orchestration": {
         "name": "Orchestration",
