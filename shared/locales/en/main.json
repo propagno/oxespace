@@ -374,7 +374,7 @@
       },
       "mcp": {
         "quarantined": "An MCP server was quarantined after it changed.",
-        "toolGroupOff": "An agent called an OXESpace tool from a group this project turned off. It was refused."
+        "toolGroupOff": "An agent called an OXESpace tool from a group turned off in Settings › Tools. It was refused."
       },
       "database": {
         "busy": "The local database was busy and a write had to wait."

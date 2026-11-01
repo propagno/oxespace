@@ -374,7 +374,7 @@
       },
       "mcp": {
         "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar.",
-        "toolGroupOff": "Um agente chamou uma ferramenta do OXESpace de um grupo que este projeto desligou. A chamada foi recusada."
+        "toolGroupOff": "Um agente chamou uma ferramenta do OXESpace de um grupo desligado em Configurações › Ferramentas. A chamada foi recusada."
       },
       "database": {
         "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."

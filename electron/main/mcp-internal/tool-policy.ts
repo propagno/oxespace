@@ -56,7 +56,7 @@ export function toolCallBlocked(tool: string, ctx: Parameters<typeof callerRoots
   if (off) {
     recordIncident('incident.mcp.toolGroupOff', `${off}:${tool}`)
     // The C3 code is the incident's, the one Settings › Diagnostics shows for it.
-    return `${tool} is not available: the "${off}" tools are turned off for this project (Settings › Tools). Code: incident.mcp.toolGroupOff`
+    return `${tool} is not available: the "${off}" tools are turned off for this project (Settings › Tools). Ask the person to turn it on; editing the MCP configuration does not change this. Code: incident.mcp.toolGroupOff`
   }
   if (!policy) return undefined
   for (const root of roots.length ? roots : [null]) {
