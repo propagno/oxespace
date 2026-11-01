@@ -75,12 +75,20 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     expect(saved.bytes).toBeGreaterThan(100)
     expect(existsSync(saved.path)).toBe(true)
     expect((await run({action:'inspect'},'foreign-workspace')).error).toBeTruthy()
-    // Native confirmation is controlled only inside the isolated test process.
-    await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0,checkboxChecked:false})})
-    expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toContain('declined')
-    await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1,checkboxChecked:false})})
-    expect((await run({action:'fill',selector:'#name',text:'Example',expectedUrl:url})).error).toBeUndefined()
-    expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toBeUndefined()
+    // The window confirms actions in the app's own approval modal (F18): Deny declines, Allow once runs it.
+    const approvalDialog = page.getByTestId('approval-dialog')
+    const answered = async (input: PreviewRequest, answer: 'Deny' | 'Allow once') => {
+      const pending = run(input)
+      await expect(approvalDialog).toBeVisible({ timeout: 15_000 })
+      const button = approvalDialog.getByRole('button', { name: answer, exact: true })
+      await expect(button).toBeEnabled({ timeout: 5_000 })
+      await button.click()
+      await expect(approvalDialog).toBeHidden()
+      return pending
+    }
+    expect((await answered({action:'click',selector:'#save',expectedUrl:url}, 'Deny')).error).toContain('declined')
+    expect((await answered({action:'fill',selector:'#name',text:'Example',expectedUrl:url}, 'Allow once')).error).toBeUndefined()
+    expect((await answered({action:'click',selector:'#save',expectedUrl:url}, 'Allow once')).error).toBeUndefined()
     await expect.poll(async()=>JSON.stringify(await run({action:'inspect'}))).toContain('Saved Example')
     await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('#name').value='Blocked'"),url)
     await app.evaluate(({dialog}) => {dialog.showMessageBox=async()=>new Promise(resolve => { (globalThis as unknown as {approvePreview?:()=>void}).approvePreview=()=>resolve({response:1,checkboxChecked:false}) })})

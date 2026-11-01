@@ -52,7 +52,9 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
       const dialog = page.getByRole('dialog', { name: 'OxeQuery · request from an agent' })
       await expect(dialog).toBeVisible({ timeout: 15_000 })
       await expect(page.getByTestId('approval-production')).toContainText('Production · billing')
-      await expect(page.getByTestId('approval-summary')).toHaveText('Wants to change data in the database · billing · postgres · prod')
+      // The target has its own Where row since #243's design review.
+      await expect(page.getByTestId('approval-summary')).toHaveText('Wants to change data in the database')
+      await expect(page.getByTestId('approval-target')).toHaveText('billing · postgres · prod')
       await expect(dialog.getByTestId('approval-agent-block')).toContainText('⚠ OXESpace says')
       await expect(dialog.getByTestId('approval-app-notes')).not.toContainText('OXESpace says')
       await expect(dialog.locator('[data-default="true"]')).toBeFocused()
