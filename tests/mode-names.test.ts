@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { KEYBINDINGS, SCOPE_LABELS } from '../src/keyboard/keybindings'
+import { bindingLabel } from '../src/keyboard/labels'
 
 /**
  * The modes are named OxeCode and OxeChat on screen (F12), in the family of OxeQuery, OxePod and OxePost, and an
@@ -72,7 +73,7 @@ describe('mode names in the interface copy', () => {
     }
     expect(SCOPE_LABELS.code).toBe('OxeCode')
     expect(SCOPE_LABELS.thread).toBe('OxeChat')
-    const labels = KEYBINDINGS.map(binding => binding.label).filter(label => THREAD.test(label) || CODE.test(label))
+    const labels = KEYBINDINGS.map(binding => bindingLabel(binding)).filter(label => THREAD.test(label) || CODE.test(label))
     expect(labels).toEqual([])
   })
 

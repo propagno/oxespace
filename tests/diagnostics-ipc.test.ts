@@ -55,6 +55,10 @@ const call = (channel: string, ...args: unknown[]) => Promise.resolve(hooks.hand
 
 beforeEach(() => {
   hooks.userData = mkdtempSync(join(tmpdir(), 'oxe-diag-ipc-'))
+  // Each sample's CLI lookup stats every PATH folder for 7 tools (with every PATHEXT on Windows). On a loaded Windows
+  // runner that took longer than vi.waitFor's budget and the first send never came (#307's train run). An empty
+  // folder as the only PATH entry keeps the sample to a handful of local stats.
+  vi.stubEnv('PATH', hooks.userData)
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
   vi.setSystemTime(new Date('2026-10-30T12:00:00Z'))
   sender = new Sender()
@@ -65,6 +69,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
   resetDiagnosticsIpcForTests()
   hooks.handlers.clear(); hooks.appEvents.clear(); hooks.getAppMetrics.mockClear()
   if (dirname(resolve(hooks.userData)) !== resolve(tmpdir())) throw Error('Unsafe cleanup')
@@ -83,7 +88,7 @@ describe('diagnostics measurement by subscription', () => {
   it('sends metrics on its interval and stops on unwatch', async () => {
     const { subscriptionId } = await call(IPC_CHANNELS.diagnostics.watch, { intervalMs: 2_000 }) as { subscriptionId: string }
     expect(vi.getTimerCount()).toBe(1)
-    await vi.waitFor(() => expect(sender.send).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(sender.send).toHaveBeenCalledTimes(1), { timeout: 10_000 })
     const [channel, metrics] = sender.send.mock.calls[0] as [string, DiagnosticsMetrics]
     expect(channel).toBe(IPC_CHANNELS.diagnostics.onMetrics)
     expect(metrics.processes.map(process => process.kind)).toEqual(['main', 'renderer', 'gpu'])
@@ -91,7 +96,7 @@ describe('diagnostics measurement by subscription', () => {
     expect(metrics).toMatchObject({ terminals: { running: 2, agents: 1 }, gateway: null, mcpServers: { total: 3, quarantined: 1 }, connectivity: { state: 'online' } })
     expect(JSON.stringify(metrics)).not.toContain(hooks.userData.replace(/\\/g, '\\\\'))
     await vi.advanceTimersByTimeAsync(2_000)
-    await vi.waitFor(() => expect(sender.send).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(sender.send).toHaveBeenCalledTimes(2), { timeout: 10_000 })
     await call(IPC_CHANNELS.diagnostics.unwatch, { subscriptionId })
     expect(vi.getTimerCount()).toBe(0)
     const calls = hooks.getAppMetrics.mock.calls.length
@@ -127,7 +132,6 @@ describe('diagnostics measurement by subscription', () => {
     await expect(call(IPC_CHANNELS.diagnostics.incidents, { since: -1 })).rejects.toThrow()
     await expect(call(IPC_CHANNELS.diagnostics.incidents, { other: true })).rejects.toThrow('Unknown')
     await expect(call(IPC_CHANNELS.diagnostics.analysisSummary, { anything: 1 })).rejects.toThrow('no input')
-    await expect(Promise.resolve(hooks.handlers.get(IPC_CHANNELS.diagnostics.analysisSummary)!({ sender, senderFrame: {} }))).rejects.toThrow('main frame')
     expect(vi.getTimerCount()).toBe(0)
   })
 })

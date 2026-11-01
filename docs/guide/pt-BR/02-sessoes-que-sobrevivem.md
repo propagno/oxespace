@@ -109,6 +109,8 @@ Nada muda no celular.
 ## Limites conhecidos
 
 - A retomada vale para painéis do Claude Code e do Codex; outros agentes e shells comuns começam uma sessão nova.
-<!-- Conferir com o B17 (#309) quando entrar. -->
+- No Windows, um painel do Claude Code cujo shell foi aberto por um caminho curto com `~1` (por exemplo
+  `C:\Users\RUNNER~1\…`) pode não achar a sessão salva quando o projeto foi adicionado pelo caminho completo. O painel
+  avisa que a sessão não foi retomada e começa do zero; a conversa salva continua no disco.
 
 <!-- Capturas: `docs/guide/assets/S2/<nome>.pt-BR.<claro|escuro>.png`. -->

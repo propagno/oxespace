@@ -104,11 +104,20 @@
         "nameHidden": "A section name cannot contain control or invisible characters.",
         "nameDuplicate": "There is already a section named \"{{name}}\" in this workspace.",
         "unknownWorkspace": "This workspace no longer exists."
+      },
+      "agent": {
+        "scriptUnsupported": "Choose the agent's own executable in Agent Settings: OxeChat does not start agents through .cmd, .ps1 or .bat scripts.",
+        "nativeMissing": "The installed Codex is missing its native executable (codex.exe). Reinstall Codex, or choose codex.exe in Agent Settings."
       }
     },
     "app": {
       "connectivity": {
         "offline": "No network connection."
+      }
+    },
+    "ipc": {
+      "sender": {
+        "refused": "Only the app's own window can make this request."
       }
     },
     "activity": {
@@ -353,6 +362,18 @@
     "agents": {
       "name": {
         "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      },
+      "resume": {
+        "sessionMissing": "The agent's previous session is no longer on disk for this folder, so a new one started.",
+        "otherAgent": "This pane now starts a different agent, so its previous session was not resumed.",
+        "launchOverride": "This start had its own arguments or prompt, so the previous session was not resumed.",
+        "blocked": "Your organization's policy does not allow this agent here, so its session was not resumed.",
+        "disabled": "Resuming agent sessions is turned off in Settings.",
+        "startedFresh": "This pane was restarted with a new session; the previous one will not come back.",
+        "failedToLoad": "The agent could not load its previous session and closed, so this pane started a new one."
+      },
+      "session": {
+        "notFound": "This agent hasn't reported its session yet. It shows after the agent's first reply, or sooner with the status hooks on (Settings › Notifications)."
       }
     },
     "incident": {
@@ -367,13 +388,15 @@
       },
       "ipc": {
         "handlerFailed": "A request from the window failed in the background.",
-        "validationRejected": "The window sent a request the app refused as malformed."
+        "validationRejected": "The window sent a request the app refused as malformed.",
+        "senderRefused": "Something other than the app's window, such as a previewed page, sent a request; the app refused it."
       },
       "agent": {
         "startFailed": "An agent could not start."
       },
       "mcp": {
-        "quarantined": "An MCP server was quarantined after it changed."
+        "quarantined": "An MCP server was quarantined after it changed.",
+        "toolGroupOff": "An agent called an OXESpace tool from a group turned off in Settings › Tools. It was refused."
       },
       "database": {
         "busy": "The local database was busy and a write had to wait."

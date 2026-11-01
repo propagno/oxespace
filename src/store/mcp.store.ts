@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import type {
   CreateMcpServerInput,
@@ -155,5 +156,5 @@ export function selectMcpServers(workspaceId: string | null): (state: McpStoreSt
 }
 
 function sanitizeMcpError(err: unknown): string {
-  return humanizeError(err, 'The MCP server action did not complete.')
+  return humanizeError(err, i18n.t('failures.unexpected.mcp'))
 }
