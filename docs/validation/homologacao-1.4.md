@@ -52,7 +52,7 @@ conferido diz **falta**. Escopo do usuário em modo de economia: S1, S2, S4 e o 
 | S0 | S0.4 aceite antes do código | **Homologado** | `acceptance.yml` (#373) usado de verdade em 3 execuções para o #374 |
 | S3, S6 | (fora do foco do modo de economia) | **Falta** | itens já homologados estão nas seções abaixo; o relatório por item vem quando o coordenador pedir |
 
-### G4: instalação limpa e atualização a partir da 1.3.3 (Windows verde; Linux falta)
+### G4: instalação limpa e atualização a partir da 1.3.3 (verde: Windows, deb e AppImage)
 
 - **Atualização do banco 1.3.3 → main: verde no CI.** `tests/integration/upgrade-rehearsal.native.test.ts` cria o banco
   com o próprio código da tag `v1.3.3` (versão 77), preenche dados, abre com o código atual (versão 88, 11 migrações),
@@ -77,7 +77,7 @@ conferido diz **falta**. Escopo do usuário em modo de economia: S1, S2, S4 e o 
   yet"), sem erro nem saída. Quem volta pelo instalador acha que perdeu tudo, e o que criar antes de restaurar se perde.
   O runbook precisa mandar restaurar o backup **antes de abrir** a 1.3.3. A 1.3.3 não muda mais, então o aviso fica no
   runbook e nas notas de release.
-- **Falta:** o mesmo para `.deb`/AppImage no Linux.
+- **Linux (`.deb` e AppImage): verde** no CI, run 41319224178 (#402 do SRE, os três jobs no mesmo run, sob `xvfb-run`): mesmas etapas; no `.deb`, `chrome-sandbox` do root com modo 4755 (o bug da v0.7.0), entrada `.desktop` instalada e removida com `/opt/OXESpace` pelo `apt-get remove`, dados mantidos; AppImage extraído (`--no-sandbox`, sem desinstalação). A volta para a 1.3.3 (G8) passa nos três, e a 1.3.3 também abre vazia e calada no Linux. No Linux o userData é `~/.config/oxespace` (minúsculo).
 
 ### G5: fluxos críticos ponta a ponta (aberto)
 
