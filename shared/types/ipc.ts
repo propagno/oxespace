@@ -246,6 +246,13 @@ export const IPC_CHANNELS = {
     onRequested: 'approvals:requested',
     onResolved: 'approvals:resolved'
   },
+  /** F30 · The activity center's entries (shared/types/activity.ts). Main frame only; never an MCP tool. */
+  activity: {
+    recent: 'activity:recent',
+    record: 'activity:record',
+    seen: 'activity:seen',
+    resolve: 'activity:resolve'
+  },
   copilot: {
     credits: 'copilot:credits'
   },
@@ -709,6 +716,7 @@ export interface OxeApi {
   voice: VoiceApi
   notifications: NotificationsApi
   approvals?: import('./approvals').ApprovalsApi
+  activity?: import('./activity').ActivityApi
   agentHooks: AgentHooksApi
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
