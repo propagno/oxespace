@@ -111,6 +111,15 @@
         "offline": "Sem conexão de rede."
       }
     },
+    "activity": {
+      "invalid": "Não foi possível salvar esta atividade. Recarregue o app e tente de novo.",
+      "tooMany": "No máximo {{max}} entradas de atividade podem ser salvas de uma vez.",
+      "titleTooLong": "O título de uma atividade tem no máximo {{max}} caracteres.",
+      "detailTooLong": "O detalhe de uma atividade tem no máximo {{max}} caracteres.",
+      "hiddenCharacters": "O texto de uma atividade não pode ter caracteres de controle ou invisíveis.",
+      "future": "Esta atividade tem data no futuro. Confira o relógio do computador.",
+      "secret": "Esta atividade não foi salva porque o texto parece uma senha, token ou chave."
+    },
     "remote": {
       "port": {
         "privileged": "Escolha uma porta a partir de 1024; a porta {{port}} é reservada pelo sistema.",
@@ -344,6 +353,18 @@
     "agents": {
       "name": {
         "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
+      },
+      "resume": {
+        "sessionMissing": "A sessão anterior do agente não está mais no disco para esta pasta, então uma nova foi iniciada.",
+        "otherAgent": "Este painel agora inicia outro agente, então a sessão anterior não foi retomada.",
+        "launchOverride": "Este início tinha argumentos ou prompt próprios, então a sessão anterior não foi retomada.",
+        "blocked": "A política da sua organização não permite este agente aqui, então a sessão não foi retomada.",
+        "disabled": "Retomar sessões de agente está desligado nas Configurações.",
+        "startedFresh": "Este painel foi reiniciado com uma sessão nova; a anterior não volta mais.",
+        "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova."
+      },
+      "session": {
+        "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta do agente, ou antes, com os hooks de status ligados (Configurações › Notificações)."
       }
     },
     "incident": {
@@ -364,7 +385,8 @@
         "startFailed": "Um agente não conseguiu iniciar."
       },
       "mcp": {
-        "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar."
+        "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar.",
+        "toolGroupOff": "Um agente chamou uma ferramenta do OXESpace de um grupo desligado em Configurações › Ferramentas. A chamada foi recusada."
       },
       "database": {
         "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."

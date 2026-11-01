@@ -63,7 +63,7 @@ export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, Integrati
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
 import type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
-export type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+export type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
 export type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
 
 export const IPC_CHANNELS = {
@@ -245,6 +245,13 @@ export const IPC_CHANNELS = {
     history: 'approvals:history',
     onRequested: 'approvals:requested',
     onResolved: 'approvals:resolved'
+  },
+  /** F30 · The activity center's entries (shared/types/activity.ts). Main frame only; never an MCP tool. */
+  activity: {
+    recent: 'activity:recent',
+    record: 'activity:record',
+    seen: 'activity:seen',
+    resolve: 'activity:resolve'
   },
   copilot: {
     credits: 'copilot:credits'
@@ -709,6 +716,7 @@ export interface OxeApi {
   voice: VoiceApi
   notifications: NotificationsApi
   approvals?: import('./approvals').ApprovalsApi
+  activity?: import('./activity').ActivityApi
   agentHooks: AgentHooksApi
   automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi

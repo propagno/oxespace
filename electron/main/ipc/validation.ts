@@ -166,6 +166,15 @@ export function parseTerminalStopInput(value: unknown): TerminalStopInput {
   }
 }
 
+/** terminal:restart · `resume` is absent or the literal `false` (start fresh); anything else is refused. */
+export function parseTerminalRestartInput(value: unknown): TerminalStopInput {
+  const input = expectRecord(value, 'terminal:restart input')
+  const paneId = expectNonEmptyString(input.paneId, 'paneId')
+  if (input.resume === undefined) return { paneId }
+  if (input.resume !== false) throw new Error('resume must be false when given')
+  return { paneId, resume: false }
+}
+
 export function parseSplitPaneInput(value: unknown): SplitPaneInput {
   const input = expectRecord(value, 'workspace:split-pane input')
   return {
