@@ -1931,6 +1931,46 @@
       "create": "Criar skill"
     }
   },
+  "agentResume": {
+    "details": {
+      "label": "Sessão do agente",
+      "source": "Origem",
+      "sources": {
+        "launch": "Definida quando o OXESpace iniciou o agente",
+        "hook": "Informada pelo hook de status do agente",
+        "recorded": "Lembrada de uma execução anterior"
+      },
+      "state": "Último início",
+      "resumed": "Retomada quando o painel iniciou",
+      "startedFresh": "Iniciada do zero, como você escolheu",
+      "savedNotResumed": "Sessão salva não retomada: {{reason}}",
+      "copy": "Copiar comando de retomada",
+      "command": "Comando de retomada",
+      "copied": "Comando de retomada copiado"
+    },
+    "resumedChip": "Sessão retomada",
+    "resumedTitle": "Retomou a sessão anterior do {{agent}}",
+    "notResumedChip": "Não retomada",
+    "notResumedTitle": "A sessão anterior do {{agent}} não foi retomada: {{reason}}",
+    "notResumedNotice": "{{pane}}: a sessão anterior não foi retomada",
+    "notResumedMany_one": "{{count}} painel não retomou a sessão anterior",
+    "notResumedMany_many": "{{count}} painéis não retomaram a sessão anterior",
+    "notResumedMany_other": "{{count}} painéis não retomaram a sessão anterior",
+    "enableMenu": "Ativar a retomada após travamento…",
+    "startFresh": "Começar do zero",
+    "startFreshTitle": "Começar este painel do {{agent}} do zero?",
+    "startFreshBody": "O {{agent}} reinicia aqui numa sessão nova, e o que ele está fazendo agora para. A sessão anterior continua no disco, mas este painel não volta para ela.",
+    "startFreshFailed": "Não foi possível reiniciar o painel.",
+    "hooks": {
+      "title": "Deixar os painéis do {{agent}} voltarem após um travamento?",
+      "body": "Os hooks de status do OXESpace deixam cada painel registrar qual sessão do {{agent}} ele roda, para que reabrir o app a retome. Instalar adiciona algumas entradas às configurações do {{agent}} em {{folder}}; dá para removê-las em Configurações › Notificações.",
+      "install": "Instalar",
+      "notNow": "Agora não",
+      "never": "Não perguntar de novo",
+      "installed": "Os painéis do {{agent}} agora registram as sessões",
+      "failed": "Não foi possível instalar os hooks do {{agent}}"
+    }
+  },
   "paneMenu": {
     "phoneWrite": "Permitir digitar pelo celular",
     "phoneWriteBadge": "Celular pode digitar",

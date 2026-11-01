@@ -5,7 +5,8 @@ import type { TerminalStatusResult } from '../../../shared/types/ipc'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { derivePaneDisplayState } from '../../utils/paneDisplay'
+import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
+import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
@@ -72,6 +73,10 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   })
   const updatePaneName = useWorkspaceStore((s) => s.updatePaneName)
   const isTerminalPane = pane.type === 'terminal'
+  // F32: what main did with this pane's earlier Claude/Codex session when the app reopened (B17).
+  const identityKey = resolvePaneIdentity({ pane, profile: agentProfile, shellProfileName }).key
+  const resumeAgent = identityKey === 'claude' || identityKey === 'codex' ? identityKey : null
+  const resume = usePaneResume(pane.id, display.title, isTerminalPane && terminalState.status === 'running', resumeAgent, terminalState.agentState)
   const terminalCanMutate = terminalState.status === 'running'
   const terminalCanRestart = terminalState.status !== 'starting'
   const phoneWrite = usePhoneWrite(pane.id)
@@ -197,6 +202,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           <span className="pane-header-divider" aria-hidden="true">/</span>
           {isTerminalPane && <PaneBranchBadge workspace={workspace} pane={pane} />}
           {isTerminalPane && phoneWrite.allowed && <PhoneWriteBadge />}
+          {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
           {renaming ? (
             <input
               ref={renameInputRef}
@@ -314,6 +320,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                     </button>
                     <Suspense fallback={null}><TerminalFocusMenuItems paneId={pane.id} onDone={() => setMenuOpen(false)} /></Suspense>
                     {phoneWrite.offered && <PhoneWriteMenuItem paneId={pane.id} allowed={phoneWrite.allowed} onDone={runMenuAction} />}
+                    {isTerminalPane && resumeAgent && <EnableResumeMenuItem agent={resumeAgent} onDone={runMenuAction} />}
+                    {isTerminalPane && resume?.outcome === 'resumed' && <StartFreshMenuItem paneId={pane.id} agent={resume.agent} onDone={runMenuAction} />}
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                   </>
                 ) : null}
@@ -369,9 +377,13 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           </div>
         </div>
       </header>
+      {/* F32: the status-hooks question for this pane's agent, without taking the terminal's focus. */}
+      {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
       {detailsOpen && <Dialog className="desktop-details-dialog" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
-        <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>
+        {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
+        {sessionDetails?.agentSession && <AgentSessionDetails session={sessionDetails.agentSession} resume={sessionDetails.agentResume} />}
+        {(!sessionDetails?.agentSession || sessionDetails.agentSession.source === 'notFound') && <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>}
         <DetailList rows={detailRows([
           [tc('panels.terminal'), display.title],
           [tc('paneMenu.status'), tc(`paneMenu.state.${terminalState.status}`)],

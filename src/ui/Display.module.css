@@ -14,6 +14,7 @@
   line-height: 1;
   white-space: nowrap;
 }
+.badgeIcon { display: inline-flex; flex: none; }
 .badge.success { background: var(--intent-success-bg); border-color: transparent; color: var(--intent-success-fg); }
 .badge.warning { background: var(--intent-warning-bg); border-color: transparent; color: var(--intent-warning-fg); }
 .badge.danger { background: var(--intent-danger-bg); border-color: transparent; color: var(--intent-danger-fg); }
