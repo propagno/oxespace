@@ -138,6 +138,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $version = $env:FROM_TAG.TrimStart('v')
+          # The version the app reports (no "v"), for the checks below.
+          "FROM_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $p = Start-Process "$env:RUNNER_TEMP\from\OXESpace-$version-x64.exe" -ArgumentList '/S' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "$env:FROM_TAG /S over the candidate exited with $($p.ExitCode)" }
 
@@ -145,7 +147,7 @@ jobs:
         run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
         env:
           OXESPACE_UPGRADE_STEP: verify-refuse
-          OXESPACE_EXPECT_VERSION: ${{ env.FROM_TAG }}
+          OXESPACE_EXPECT_VERSION: ${{ env.FROM_VERSION }}
 
       - name: "Rollback: restore the pre-upgrade backup"
         shell: pwsh
@@ -164,7 +166,7 @@ jobs:
         run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
         env:
           OXESPACE_UPGRADE_STEP: verify-rollback
-          OXESPACE_EXPECT_VERSION: ${{ env.FROM_TAG }}
+          OXESPACE_EXPECT_VERSION: ${{ env.FROM_VERSION }}
 
       - name: Uninstall silently
         shell: pwsh
