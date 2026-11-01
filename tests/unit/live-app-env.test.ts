@@ -34,9 +34,13 @@ describe('tests never reach the running OXESpace app (harness safety)', () => {
 
   it('has none of them in this test process, so nothing it spawns gets them either', () => {
     expect(Object.keys(process.env).filter(key => LIVE_APP_ENV.test(key))).toEqual([])
-    // A child started the careless way, with all of process.env, sees none.
-    const child = spawnSync(process.execPath, ['-e', 'console.log(JSON.stringify(Object.keys(process.env)))'], { env: { ...process.env }, encoding: 'utf8' })
-    expect((JSON.parse(child.stdout) as string[]).filter(key => LIVE_APP_ENV.test(key))).toEqual([])
+    // A child started the careless way, with all of process.env, sees none. It reports only the live-app names it is
+    // asked about (never the whole environment), and runs on the system node under Electron, never the Electron
+    // binary as an app (#370).
+    const node = process.versions.electron ? 'node' : process.execPath
+    const child = spawnSync(node, ['-e', 'const n=JSON.parse(process.argv[1]);process.stdout.write(JSON.stringify(Object.keys(process.env).filter(k=>n.includes(k.toUpperCase()))))', JSON.stringify(LIVE)],
+      { env: { ...process.env }, encoding: 'utf8' })
+    expect(JSON.parse(child.stdout) as string[]).toEqual([])
   })
 
   it('scrubs in every test config, and the e2e launcher never passes the raw environment', () => {
