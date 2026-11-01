@@ -1,0 +1,45 @@
+name: Dependency review
+
+# Supply chain gate (SRE-08, docs/ci-cd.md): a pull request that adds or changes a dependency is checked against
+# the GitHub Advisory Database before it merges. It looks only at what the
+# PR changes, so an advisory already on main doesn't block unrelated work; Dependabot covers those.
+# It runs only when a manifest or lockfile changes, so most PRs never see it. A head that the merge train updated
+# with its token gets no new run, so the check from the PR's own push is the one that counts.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - "mobile/**/*.gradle"
+      - "mobile/**/*.gradle.kts"
+      - "mobile/**/libs.versions.toml"
+      - ".github/workflows/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Dependency review
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # Advisory only until the Dependency graph is on (repository setting, decisions.md #13): without it the action
+      # fails on every PR. When it is on, a one-line PR removes continue-on-error and this becomes a gate.
+      - id: review
+        continue-on-error: true
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # High and critical advisories block; lower ones are listed in the job summary.
+          fail-on-severity: high
+
+      - name: Report while advisory
+        if: steps.review.outcome == 'failure'
+        run: echo "::warning title=Dependency review (advisory)::The review failed and does not block yet. Either the Dependency graph is off (decisions.md #13) or this PR adds a high/critical advisory: read the step above."
