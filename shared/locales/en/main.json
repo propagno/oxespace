@@ -379,7 +379,8 @@
         "startFailed": "An agent could not start."
       },
       "mcp": {
-        "quarantined": "An MCP server was quarantined after it changed."
+        "quarantined": "An MCP server was quarantined after it changed.",
+        "toolGroupOff": "An agent called an OXESpace tool from a group turned off in Settings › Tools. It was refused."
       },
       "database": {
         "busy": "The local database was busy and a write had to wait."
