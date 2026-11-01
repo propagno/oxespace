@@ -561,6 +561,12 @@ export interface RemoteAgentRow {
   id: string
   kind: RemoteAgentKind
   state: RemoteAgentState
+  /**
+   * The row's revision: the desktop read model's own counter for this row (the same `rev` the desktop rows carry),
+   * raised on any change to it. The phone applies an upsert only when its `rev` is higher than the row it holds, so a
+   * late or repeated event never overwrites a newer row; a snapshot replaces everything, whatever the revisions.
+   */
+  rev: number
   /** When it entered this state (epoch ms); for needs-you, when it started waiting. */
   since: number
   /**
@@ -603,7 +609,10 @@ export interface RemoteAgentRow {
  * it is off: the phone sends its one reminder from a row's `since`. Both ride on the page marked `last` only.
  */
 export interface RemoteAgentsSnapshot { agents: RemoteAgentRow[]; unavailable?: RemoteAgentKind[]; nudgeAfterMs?: number }
-/** Event: what changed. `unavailable`, when present, replaces the list the phone holds. Never `nudgeAfterMs` (see above). */
+/**
+ * Event: what changed. An upserted row replaces the one the phone holds only when its `rev` is higher; a removal always
+ * applies. `unavailable`, when present, replaces the list the phone holds. Never `nudgeAfterMs` (see above).
+ */
 export interface RemoteAgentsEvent { upsert?: RemoteAgentRow[]; removed?: string[]; unavailable?: RemoteAgentKind[] }
 
 // ---- commands: args, and ack.result -------------------------------------------------------------------------------

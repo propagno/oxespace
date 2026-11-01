@@ -164,7 +164,7 @@ describe('the phone row (C5, §8)', () => {
     expect(Object.keys(args)).toEqual(['agentId', 'observedSince'])
   })
 
-  it('carries no path, session id, cost, seen time or revision', () => {
+  it('carries no path, session id, cost or seen time, and carries the row revision to order upserts', () => {
     const desktop = row('delegation:d1', {
       state: 'needs-you', provider: 'claude', parentKey: 'conversation:t1', cost: { usd: 3, estimated: false }, worktree: { path: 'C:/secret/wt', branch: 'feat/x' },
       lastSeenAt: NOW, rev: 9, tasks: { done: 1, total: 2 },
@@ -172,10 +172,10 @@ describe('the phone row (C5, §8)', () => {
     })
     const remote = toRemoteAgentRow(desktop, context({ workspaceName: 'api', requestTitle: 'Asks to run a command', requestAnswerable: true }))
     expect(remote).toEqual({
-      id: 'delegation:d1', kind: 'delegation', state: 'needs-you', since: NOW, title: 'd1', provider: 'claude', workspaceName: 'api', parentId: 'conversation:t1',
+      id: 'delegation:d1', kind: 'delegation', state: 'needs-you', rev: 9, since: NOW, title: 'd1', provider: 'claude', workspaceName: 'api', parentId: 'conversation:t1',
       request: { requestId: 'a1', title: 'Asks to run a command', risk: 'critical', answerable: false, more: 2 }, tasks: { done: 1, total: 2 }
     } satisfies RemoteAgentRow)
-    expect(JSON.stringify(remote)).not.toMatch(/secret|usd|lastSeenAt|"rev"|worktree|session/i)
+    expect(JSON.stringify(remote)).not.toMatch(/secret|usd|lastSeenAt|worktree|session/i)
   })
 
   it('never lets a path or a token in free text reach the row (SECURITY H1)', () => {
@@ -295,7 +295,7 @@ describe('agents frames stay under 64 KiB (ARCHITECT H2)', () => {
     const id = (prefix: string) => `${prefix}${String(index).padStart(6, '0')}`.padEnd(200, 'x')
     const wide = '\u{1F600}'.repeat(200)
     return {
-      id: id('conversation:'), kind: 'conversation', state: 'needs-you', since: NOW, title: wide, provider: 'p'.repeat(64), workspaceName: wide,
+      id: id('conversation:'), kind: 'conversation', state: 'needs-you', rev: Number.MAX_SAFE_INTEGER, since: NOW, title: wide, provider: 'p'.repeat(64), workspaceName: wide,
       parentId: id('work:'), threadId: id(''), paneId: id(''),
       request: { threadId: id(''), requestId: id(''), title: wide, risk: 'critical', answerable: true, more: 999 }, tasks: { done: 99, total: 99 }, canInterrupt: true
     }
@@ -316,7 +316,7 @@ describe('agents frames stay under 64 KiB (ARCHITECT H2)', () => {
   })
 
   it('pages small rows by count', () => {
-    const agents = Array.from({ length: 450 }, (_, index) => ({ id: `pane:p${index}`, kind: 'pane', state: 'idle', since: NOW, title: 't', workspaceName: 'w' }) as RemoteAgentRow)
+    const agents = Array.from({ length: 450 }, (_, index) => ({ id: `pane:p${index}`, kind: 'pane', state: 'idle', rev: 1, since: NOW, title: 't', workspaceName: 'w' }) as RemoteAgentRow)
     expect(pageRemoteAgents({ agents }).map(page => page.agents.length)).toEqual([200, 200, 50])
     expect(pageRemoteAgents({ agents: [] })).toEqual([{ agents: [] }])
   })
@@ -357,6 +357,10 @@ describe('C5 unknown-value rule (coordinator ruling on ARCHITECT M1/Q5)', () => 
     const row = kotlin.slice(kotlin.indexOf('data class RemoteAgentRow('), kotlin.indexOf('data class RemoteAgentsSnapshot('))
     expect(row).toContain('    val kind: String,\n')
     expect(row).toContain('    val state: String,\n')
+    // #347: the per-row revision orders the phone's upserts; a snapshot replaces everything.
+    expect(row).toContain('    val rev: Long,\n')
+    expect(source).toMatch(/applies an upsert only when its `rev` is higher/)
+    expect(source).toMatch(/a snapshot replaces everything/)
     expect(row).toContain('        val risk: String? = null,\n')
     expect(kotlin).toContain('    val unavailable: List<String>? = null,')
     expect(kotlin).toContain('        fun read(wire: String): RemoteAgentState = fromWire(wire) ?: UNKNOWN')
