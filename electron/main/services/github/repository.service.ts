@@ -23,6 +23,11 @@ import type {
 } from '../../../../shared/types/github'
 import { countStatusLines, emptyRepositorySummary, inferCommitArea, inferCommitType, isAbsolutePath, ok, parseStatusLine, parseWorktreePorcelain, parseWorktreeStatusPorcelainV2, splitPair, summarizeCommitFiles } from './parsers'
 import type { PersonGit } from '../../utils/safe-git-person'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
+
+/** A person-started push, switch or worktree ran without the repository's hooks (utils/safe-git-person.ts). */
+const HOOKS_SKIPPED: MainMessage = mainMessage('git.hooks.skipped', {})
+const withNotices = (result: GitHubMessageResult, notices: MainMessage[]): GitHubMessageResult => notices.length ? { ...result, notices } : result
 import type { GhExec } from './gh-exec'
 import { loadRepoConfig } from '../repo-config/loader'
 import { runHook } from '../repo-config/hook-runner'
@@ -182,13 +187,13 @@ export class GitHubRepositoryService {
 
   async push(input: GitHubWorkspaceInput, person?: PersonGit): Promise<GitHubMessageResult> {
     await this.network(['push'], input.rootPath, person)
-    return ok('Push complete.')
+    return withNotices(ok('Push complete.'), person ? [HOOKS_SKIPPED] : [])
   }
 
   async commitAndPush(input: GitHubCommitInput, person?: PersonGit): Promise<GitHubMessageResult> {
     await this.commit(input)
     await this.push(input, person)
-    return ok('Commit and push complete.')
+    return withNotices(ok('Commit and push complete.'), person ? [HOOKS_SKIPPED] : [])
   }
 
   async listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]> {
@@ -207,10 +212,10 @@ export class GitHubRepositoryService {
   async createBranch(input: GitHubCreateBranchInput, person?: PersonGit): Promise<GitHubMessageResult> {
     if (input.checkout && input.name.startsWith('origin/')) {
       await this.network(['switch', '--track', input.name], input.rootPath, person)
-      return ok(`Branch local criada rastreando ${input.name}.`)
+      return withNotices(ok(`Branch local criada rastreando ${input.name}.`), person ? [HOOKS_SKIPPED] : [])
     }
     await this.network(input.checkout ? ['switch', '-c', input.name] : ['branch', input.name], input.rootPath, person)
-    return ok(input.checkout ? `Branch ${input.name} criada e selecionada.` : `Branch ${input.name} criada.`)
+    return withNotices(ok(input.checkout ? `Branch ${input.name} criada e selecionada.` : `Branch ${input.name} criada.`), person && input.checkout ? [HOOKS_SKIPPED] : [])
   }
 
   async checkoutBranch(input: { rootPath: string; name: string; force?: boolean }, person?: PersonGit): Promise<GitHubMessageResult> {
@@ -223,15 +228,15 @@ export class GitHubRepositoryService {
       const localRef = await this.gh.tryGit(['rev-parse', '--verify', `refs/heads/${localName}`], input.rootPath)
       if (localRef.trim()) {
         await this.network(['switch', localName], input.rootPath, person)
-        return ok(`Branch ${localName} selecionada.`)
+        return withNotices(ok(`Branch ${localName} selecionada.`), person ? [HOOKS_SKIPPED] : [])
       }
 
       await this.network(['switch', '--track', '-c', localName, input.name], input.rootPath, person)
-      return ok(`Branch ${localName} criada rastreando ${input.name}.`)
+      return withNotices(ok(`Branch ${localName} criada rastreando ${input.name}.`), person ? [HOOKS_SKIPPED] : [])
     }
 
     await this.network(['switch', input.name], input.rootPath, person)
-    return ok(`Branch ${input.name} selecionada.`)
+    return withNotices(ok(`Branch ${input.name} selecionada.`), person ? [HOOKS_SKIPPED] : [])
   }
 
   async listWorktrees(input: GitHubWorkspaceInput): Promise<GitHubWorktree[]> {
@@ -300,6 +305,7 @@ export class GitHubRepositoryService {
     // Fetch failures are reported, not thrown: being offline should degrade the
     // guarantee, not block the worktree.
     let warning = ''
+    const notices: MainMessage[] = person ? [HOOKS_SKIPPED] : []
     if (baseRef && input.fetchBase) {
       const remoteName = baseRef.includes('/') ? baseRef.slice(0, baseRef.indexOf('/')) : null
       if (remoteName) {
@@ -307,6 +313,7 @@ export class GitHubRepositoryService {
           await this.network(['fetch', remoteName, '--prune'], input.rootPath, person)
         } catch {
           warning = ` Warning: fetching ${remoteName} failed — the base may be out of date.`
+          notices.push(mainMessage('git.base.maybeStale', { branch: baseRef }))
         }
       }
     }
@@ -323,7 +330,7 @@ export class GitHubRepositoryService {
     warning += await this.prepareNewWorktree(input.rootPath, absolutePath)
 
     const from = baseRef ? ` a partir de ${baseRef}` : ''
-    return ok(`Worktree criado em ${absolutePath} (branch ${input.branch}${from}).${warning}`)
+    return withNotices(ok(`Worktree criado em ${absolutePath} (branch ${input.branch}${from}).${warning}`), notices)
   }
 
   /**

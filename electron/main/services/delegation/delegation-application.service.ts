@@ -17,7 +17,8 @@ import { KnowledgeTransferService, type DelegationEnrichment } from './knowledge
 import { captureDelegationSessions } from './delegation-session-context'
 import type { ThreadDelegationHost } from './thread-delegation-host'
 import { execGit } from '../../utils/safe-git'
-import { execPersonGit } from '../../utils/safe-git-person'
+import { codedMessage, execPersonGit } from '../../utils/safe-git-person'
+import { mainMessage } from '../../../../shared/messages'
 
 const terminalStates = new Set<DelegationState>(['cancelled', 'approved'])
 export interface DelegationDependencies {
@@ -280,7 +281,9 @@ export class DelegationApplicationService {
    */
   private readonly personFetches = new Set<string>()
   private async fetchForPerson(task: DelegationTask, remote: string): Promise<void> {
-    if (!this.personFetches.has(task.id)) throw new Error('FETCH_NEEDS_PERSON: OXESpace fetches only when a person asks; fetch from the Git panel, then delegate without fetchBase')
+    if (!this.personFetches.has(task.id)) {
+      throw new Error(codedMessage("FETCH_NEEDS_PERSON: The agent needs the latest version of the remote branch, but agents can't reach the network through Git. Fetch it yourself in the Git panel or the terminal, then let the agent continue.", mainMessage('git.fetch.needsPerson', {})))
+    }
     await execPersonGit(task.cwd, ['fetch', '--', remote], { reason: 'delegation-dialog:fetch-base' }, { timeout: 120_000 })
   }
   private async git(cwd: string, args: string[]): Promise<string> {

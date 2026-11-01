@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { execGit, execGitSync, ghEnv, needsConfigProbe, neutralizeRepositoryCommands, parseConfigEntries, runGit, safeGitArgs, safeGitEnv, SAFE_GIT_OPTIONS } from '../../electron/main/utils/safe-git'
+import { __forgetSeenDriversForTests, displayKey, execGit, execGitSync, ghEnv, needsConfigProbe, neutralizeRepositoryCommands, parseConfigEntries, runGit, safeGitArgs, safeGitEnv, SAFE_GIT_OPTIONS } from '../../electron/main/utils/safe-git'
 import { PersonGitRefused, runPersonGit } from '../../electron/main/utils/safe-git-person'
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
@@ -258,18 +258,18 @@ describe('the person path', () => {
 
 describe('the pieces', () => {
   test('safeGitEnv drops every GIT_* and sets the guards', () => {
-    const env = safeGitEnv({ PATH: '/bin', HOME: '/home/p', GIT_DIR: '/x', git_exec_path: '/y', GIT_SSH_COMMAND: 'evil', GIT_CONFIG_PARAMETERS: "'core.fsmonitor'='evil'" })
-    expect(env).toEqual({ PATH: '/bin', HOME: '/home/p', GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_LFS_SKIP_SMUDGE: '1' })
+    const env = safeGitEnv({ PATH: '/bin', HOME: '/home/p', GIT_DIR: '/x', git_exec_path: '/y', GIT_SSH_COMMAND: 'evil', GIT_CONFIG_PARAMETERS: "'core.fsmonitor'='evil'", GIT_CEILING_DIRECTORIES: '/c' })
+    expect(env).toEqual({ PATH: '/bin', HOME: '/home/p', GIT_CEILING_DIRECTORIES: '/c', GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_LFS_SKIP_SMUDGE: '1', GIT_EDITOR: 'false', GIT_SEQUENCE_EDITOR: 'false' })
     expect(safeGitEnv({ PATH: '/bin' }, { systemConfig: true }).GIT_CONFIG_NOSYSTEM).toBeUndefined()
   })
 
-  test('ghEnv passes git options as GIT_CONFIG_*, keeps transports and drops main GIT_*', () => {
-    const env = ghEnv({ PATH: '/bin', GIT_DIR: '/x', GH_TOKEN: 'kept' })
+  test('ghEnv passes git options as GIT_CONFIG_*, keeps transports, drops main GIT_* and appends the extra pairs', () => {
+    const env = ghEnv({ PATH: '/bin', GIT_DIR: '/x', GH_TOKEN: 'kept' }, [['filter.a=b.clean', '']])
     expect(env.GIT_DIR).toBeUndefined()
     expect(env.GH_TOKEN).toBe('kept')
-    const pairs = Array.from({ length: Number(env.GIT_CONFIG_COUNT) }, (_, i) => `${env[`GIT_CONFIG_KEY_${i}`]}=${env[`GIT_CONFIG_VALUE_${i}`]}`)
-    expect(pairs).toEqual(expect.arrayContaining(['core.fsmonitor=', 'protocol.ext.allow=never', 'diff.external=']))
-    expect(pairs.some(pair => pair.startsWith('protocol.https'))).toBe(false)
+    const pairs = Array.from({ length: Number(env.GIT_CONFIG_COUNT) }, (_, i) => [env[`GIT_CONFIG_KEY_${i}`], env[`GIT_CONFIG_VALUE_${i}`]])
+    expect(pairs).toEqual(expect.arrayContaining([['core.fsmonitor', ''], ['protocol.ext.allow', 'never'], ['diff.external', ''], ['core.alternateRefsCommand', ''], ['filter.a=b.clean', '']]))
+    expect(pairs.some(([key]) => String(key).startsWith('protocol.https'))).toBe(false)
   })
 
   test('safeGitArgs prefixes the options and adds the diff and submodule guards after the subcommand', () => {
@@ -277,21 +277,40 @@ describe('the pieces', () => {
     expect(safeGitArgs(['--no-pager', 'diff', 'HEAD'])).toEqual([...SAFE_GIT_OPTIONS, '--no-pager', 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty', 'HEAD'])
     expect(safeGitArgs(['rev-parse', 'HEAD'])).toEqual([...SAFE_GIT_OPTIONS, 'rev-parse', 'HEAD'])
     for (const name of ['ext', 'file', 'ssh', 'git', 'http', 'https']) expect(SAFE_GIT_OPTIONS).toContain(`protocol.${name}.allow=never`)
-    expect(needsConfigProbe(['status'])).toBe(true)
-    expect(needsConfigProbe(['rev-parse', 'HEAD'])).toBe(false)
-    expect(needsConfigProbe(['cat-file', '--filters', 'HEAD:a'])).toBe(true)
   })
 
-  test('only repository scopes are neutralized, and the stock LFS filter is kept', () => {
+  test('L1: every command reads the config first except the ones that run nothing', () => {
+    for (const args of [['status'], ['log', '-1'], ['show', 'HEAD'], ['diff-files'], ['diff-index', 'HEAD'], ['describe', '--dirty'], ['blame', 'a'], ['archive', 'HEAD'], ['grep', 'x'], ['ls-files', '-m'], ['ls-files', '--deleted'], ['cat-file', '--filters', 'HEAD:a'], ['cat-file', '--textconv', 'HEAD:a'], ['worktree', 'add', 'x']]) {
+      expect(needsConfigProbe(args), args.join(' ')).toBe(true)
+    }
+    for (const args of [['rev-parse', 'HEAD'], ['config', '--get', 'x'], ['for-each-ref'], ['ls-files', '-z', '-c'], ['ls-files', '-o', '--exclude-standard'], ['cat-file', '-e', 'HEAD'], ['--version'], ['branch', '--show-current']]) {
+      expect(needsConfigProbe(args), args.join(' ')).toBe(false)
+    }
+  })
+
+  test('only repository scopes are neutralized, as separate key and value, and the stock LFS filter is kept', () => {
+    __forgetSeenDriversForTests()
     const entries = parseConfigEntries([
       'system\0filter.lfs.clean\ngit-lfs clean -- %f', 'local\0filter.lfs.process\ngit-lfs filter-process', 'local\0filter.Agent.clean\nevil',
-      'global\0gpg.program\nC:/gpg/gpg.exe', 'local\0gpg.program\nevil', 'worktree\0gpg.ssh.defaultkeycommand\nevil', ''
+      'global\0gpg.program\nC:/gpg/gpg.exe', 'local\0gpg.program\nevil', 'worktree\0gpg.ssh.defaultkeycommand\nevil',
+      'local\0diff.d.textconv\nevil', 'local\0merge.m.driver\nevil', 'local\0submodule.s.update\n!evil', 'global\0filter.mine.clean\nmine', ''
     ].join('\0'))
-    expect(entries).toHaveLength(6)
-    const pairs = neutralizeRepositoryCommands(entries).filter(arg => arg !== '-c')
-    expect(pairs).toEqual(['gpg.program=C:/gpg/gpg.exe', 'filter.Agent.clean=', 'filter.Agent.smudge=', 'filter.Agent.process=', 'filter.Agent.required=false', 'commit.gpgSign=false', 'tag.gpgSign=false'])
+    expect(entries).toHaveLength(10)
+    expect(neutralizeRepositoryCommands(entries)).toEqual([
+      ['gpg.program', 'C:/gpg/gpg.exe'], ['submodule.s.update', 'none'],
+      ['filter.Agent.clean', ''], ['filter.Agent.smudge', ''], ['filter.Agent.process', ''], ['filter.Agent.required', 'false'],
+      ['diff.d.command', ''], ['diff.d.textconv', ''], ['merge.m.driver', 'false'],
+      ['commit.gpgSign', 'false'], ['tag.gpgSign', 'false']
+    ])
     // An LFS extension runs inside git-lfs's own clean: the stock LFS filter is emptied with it.
-    const lfs = neutralizeRepositoryCommands(parseConfigEntries('system\0filter.lfs.clean\ngit-lfs clean -- %f\0local\0lfs.extension.agent.clean\nevil\0')).filter(arg => arg !== '-c')
-    expect(lfs).toContain('filter.lfs.clean=')
+    expect(neutralizeRepositoryCommands(parseConfigEntries('system\0filter.lfs.clean\ngit-lfs clean -- %f\0local\0lfs.extension.agent.clean\nevil\0'))).toContainEqual(['filter.lfs.clean', ''])
+  })
+
+  test('L5: a key a repository chose is shown without control or bidi characters, bounded', () => {
+    expect(displayKey('remote.a\u202eb\u0007c.uploadpack')).toBe('remote.a?b?c.uploadpack')
+    expect(displayKey('x'.repeat(200))).toHaveLength(80)
+    const refused = new PersonGitRefused(['remote.\u202eevil\n.uploadpack'], 'git-panel:test')
+    expect(refused.message.split('\n')[0]).not.toMatch(/[\u202e\n]/)
+    expect(refused.messageCode).toEqual({ code: 'git.person.refused', params: { keys: ['remote.?evil?.uploadpack'] } })
   })
 })

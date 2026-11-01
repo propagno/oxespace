@@ -312,6 +312,11 @@ export interface GitHubConnectedRepository {
 export interface GitHubMessageResult {
   ok: boolean
   message: string
+  /**
+   * What the window shows with the result, translated (C3): `git.hooks.skipped` once per person (FRONTEND keeps the
+   * dismissal), `git.base.maybeStale` when a worktree's base was not fetched first.
+   */
+  notices?: import('../messages').MainMessage[]
 }
 
 export interface GitHubCommitInput extends GitHubWorkspaceInput {

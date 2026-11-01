@@ -9,6 +9,20 @@ import {
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Task } from '../../../shared/types/task'
 import { lazy } from './app-settings-tools'
+import { displayKey, execGit } from '../utils/safe-git'
+
+/**
+ * Where `git push` would send the branch, as git resolves it (push remote, `pushurl`, `pushInsteadOf`), so the person
+ * approves the real destination and not a remote name the repository can repoint (SECURITY #387 H3).
+ */
+async function pushDestination(rootPath: string, branch: string | null | undefined): Promise<string> {
+  try {
+    const ref = branch ? `refs/heads/${branch}` : 'HEAD'
+    const remote = (await execGit(rootPath, ['for-each-ref', '--format=%(push:remotename)', ref], { timeout: 5000 })).stdout.trim() || 'origin'
+    const url = (await execGit(rootPath, ['remote', 'get-url', '--push', '--', remote], { timeout: 5000 })).stdout.trim()
+    return url ? `${displayKey(remote, 60)}: ${displayKey(url, 300)}` : 'unknown'
+  } catch { return 'unknown' }
+}
 
 /**
  * Tools that change the app. They are separate from the read tools so a
@@ -77,7 +91,7 @@ const GIT_CHANGE = domainTool('oxespace_git_change', 'Change the Git state of yo
     confirm: async (_a, scope, ctx) => {
       const status = await ctx.git?.getStatus(scope.rootPath)
       const what = status ? `${status.branch ?? 'HEAD'} → ${status.upstream ?? 'its upstream'} (${status.ahead} commit${status.ahead === 1 ? '' : 's'} ahead)` : 'the current branch'
-      return { summary: `push ${status?.branch ?? 'the current branch'}`, text: `git push\n${what}\nin ${scope.rootPath}` }
+      return { summary: `push ${status?.branch ?? 'the current branch'}`, text: `git push\n${what}\nto ${await pushDestination(scope.rootPath, status?.branch)}\nin ${scope.rootPath}` }
     },
     run: (_a, scope, ctx) => github(ctx).push(workspaceInput(scope), { reason: 'mcp-approved:push' })
   },

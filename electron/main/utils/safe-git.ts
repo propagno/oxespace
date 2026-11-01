@@ -4,25 +4,34 @@
  * The vector (SECURITY S4-1): main runs git inside repositories an agent can write, and a repository's own config
  * can name commands git then runs, with no click and with main's environment: a partial clone lazy-fetches a missing
  * object through `core.sshCommand` or an `ext::` URL, and `core.fsmonitor`, hooks, the pager, textconv and external
- * diff drivers, filter drivers (`filter.<name>.clean` runs on a plain `git diff`), signing programs and
- * `credential.helper` do the same. `GIT_*` variables in main's environment redirect all of it.
+ * diff drivers, filter drivers (`filter.<name>.clean` runs on a plain `git status`), merge drivers,
+ * `core.alternateRefsCommand`, signing programs and `credential.helper` do the same. `GIT_*` variables in main's
+ * environment redirect all of it.
  *
  * Two paths:
  *  - `runGit` / `execGit` / `execGitSync` (this file): local work, never the network. Every `GIT_*` variable is
  *    dropped, lazy fetch is off, every transport is `never` (named one by one, since a repository's
- *    `protocol.<name>.allow` beats the general key), and the command-bearing keys are emptied on the command line,
- *    which beats the repository's config. Filter drivers and signing programs have names only the config knows, so the
- *    commands that can run them first read the config (`git config`, which runs nothing) and empty the ones a
- *    repository set.
- *  - `runPersonGit` (safe-git-person.ts): fetch, pull, push started by the person, which needs its transports. See
- *    that file.
+ *    `protocol.<name>.allow` beats the general key), and the fixed command-bearing keys are emptied on the command
+ *    line, which beats the repository's config. Driver names (filter, diff, merge) are only in the config, so every
+ *    command except a short list that runs nothing first reads the config (`git config`, which runs nothing) and empties
+ *    each one a repository set. Those pairs go through `GIT_CONFIG_COUNT`/`KEY_n`/`VALUE_n` (command-line strength), not
+ *    `-c`: `-c` splits at the first `=`, and a driver may be named `a=b`.
+ *  - `runPersonGit` (safe-git-person.ts): network git the person started. See that file.
+ *
+ * Check, then act: the read and the command are two processes, so an agent can add a driver in between. Every driver
+ * name ever seen in a repository is remembered (this launch) and emptied on every later call there, and the config is
+ * read again after a command that read it first; a new command key is reported (`configChanged`, and
+ * `onRepositoryConfigChanged`). What stays open: a driver both added and used inside one command's window, the first
+ * time; and the person's own global and system config are trusted (B16 protects them from agents).
  *
  * System config stays on for these calls: it is admin-only (`GIT_CONFIG_SYSTEM` is dropped with every `GIT_*`), and
  * Git for Windows keeps `core.autocrlf`, `core.symlinks` and the LFS filter there, without which `git status` reports
  * every CRLF file as changed. `safeGitEnv()` itself turns it off by default, for reads of committed objects only.
  */
 import { execFile, execFileSync, type ExecFileException } from 'node:child_process'
+import { EventEmitter } from 'node:events'
 import { devNull } from 'node:os'
+import { resolve as resolvePath } from 'node:path'
 
 /** Every transport git knows; each is denied by name. */
 export const GIT_TRANSPORTS = ['ext', 'file', 'ssh', 'git', 'http', 'https'] as const
@@ -34,10 +43,10 @@ const config = (pairs: string[]): string[] => pairs.flatMap(pair => ['-c', pair]
 
 /**
  * Options that hold for every main-process git: no pager, no fsmonitor, no hooks, no external diff and no signature
- * check on log. Shared with the person path.
+ * check on log. Shared with the person path. Fixed keys only: no repository-chosen name ever goes through `-c`.
  */
 export const GIT_COMMAND_OFF: readonly string[] = ['--no-pager', ...config([
-  'core.fsmonitor=', `core.hooksPath=${NO_HOOKS_PATH}`, 'diff.external=', 'log.showSignature=false'
+  'core.fsmonitor=', `core.hooksPath=${NO_HOOKS_PATH}`, 'diff.external=', 'log.showSignature=false', 'core.alternateRefsCommand='
 ])]
 
 /** The local path's options: the common ones, no transport at all, and no credential or askpass program. */
@@ -65,17 +74,16 @@ const SUBMODULE_STATUS = new Set(['diff', 'status'])
 
 /**
  * The local path's arguments: the safe options first, then the subcommand with `--no-ext-diff --no-textconv` where it
- * diffs and `--ignore-submodules=dirty` where it would spawn git inside a submodule. `extra` are further `-c` pairs.
+ * diffs and `--ignore-submodules=dirty` where it would spawn git inside a submodule.
  */
-export function safeGitArgs(args: readonly string[], extra: readonly string[] = [], prefix: readonly string[] = SAFE_GIT_OPTIONS): string[] {
+export function safeGitArgs(args: readonly string[], prefix: readonly string[] = SAFE_GIT_OPTIONS): string[] {
   const at = subcommandIndex(args)
-  const out = [...prefix, ...extra]
-  if (at < 0) return [...out, ...args]
+  if (at < 0) return [...prefix, ...args]
   const sub = args[at]
   const added: string[] = []
   if (DIFFING.has(sub)) added.push('--no-ext-diff', '--no-textconv')
   if (SUBMODULE_STATUS.has(sub) && !args.some(arg => arg.startsWith('--ignore-submodules'))) added.push('--ignore-submodules=dirty')
-  return [...out, ...args.slice(0, at + 1), ...added, ...args.slice(at + 1)]
+  return [...prefix, ...args.slice(0, at + 1), ...added, ...args.slice(at + 1)]
 }
 
 /** main's environment without its `GIT_*` variables; `GIT_CEILING_DIRECTORIES` stays, as it only stops git looking up. */
@@ -83,47 +91,66 @@ export function withoutGitVariables(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv 
   return Object.fromEntries(Object.entries(base).filter(([name]) => !/^GIT_/i.test(name) || name.toUpperCase() === 'GIT_CEILING_DIRECTORIES'))
 }
 
+/** A config key and its value, kept apart (never `key=value` text). */
+export type ConfigPair = readonly [key: string, value: string]
+
+/** `pairs` as `GIT_CONFIG_COUNT`/`KEY_n`/`VALUE_n`, after any already in `env`. */
+export function withConfigPairs(env: NodeJS.ProcessEnv, pairs: readonly ConfigPair[]): NodeJS.ProcessEnv {
+  if (!pairs.length) return env
+  const out = { ...env }
+  let count = Number(out.GIT_CONFIG_COUNT ?? 0) || 0
+  for (const [key, value] of pairs) {
+    out[`GIT_CONFIG_KEY_${count}`] = key
+    out[`GIT_CONFIG_VALUE_${count}`] = value
+    count++
+  }
+  out.GIT_CONFIG_COUNT = String(count)
+  return out
+}
+
 /**
- * main's environment without any `GIT_*` variable, with no lazy fetch, no prompt and no LFS download. `systemConfig`
- * keeps the system config (see the header); without it the environment is the one #372's committed reads use.
+ * main's environment without any `GIT_*` variable, with no lazy fetch, no prompt, no editor and no LFS download.
+ * `systemConfig` keeps the system config (see the header); without it the environment is the one #372's committed
+ * reads use.
  */
 export function safeGitEnv(base: NodeJS.ProcessEnv = process.env, options: { systemConfig?: boolean } = {}): NodeJS.ProcessEnv {
   const env = withoutGitVariables(base)
   env.GIT_NO_LAZY_FETCH = '1'
   env.GIT_TERMINAL_PROMPT = '0'
   env.GIT_LFS_SKIP_SMUDGE = '1'
+  env.GIT_EDITOR = 'false'
+  env.GIT_SEQUENCE_EDITOR = 'false'
   if (!options.systemConfig) env.GIT_CONFIG_NOSYSTEM = '1'
   return env
 }
 
 /**
  * The environment for `gh`, which runs git itself: no `GIT_*` of main's, no prompt, no lazy fetch, and git's own
- * options passed as `GIT_CONFIG_*` (command-line strength) since gh's arguments are not git's. Transports stay on, as
- * gh is the person's GitHub panel; `ext::` is never one.
+ * options passed as `GIT_CONFIG_*` (command-line strength) since gh's arguments are not git's: the fixed ones, then
+ * `extra` (the repository's drivers emptied, from `neutralizeRepositoryCommands`). Transports stay on, as gh is the
+ * person's GitHub panel; `ext::` is never one.
  */
-export function ghEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+export function ghEnv(base: NodeJS.ProcessEnv = process.env, extra: readonly ConfigPair[] = []): NodeJS.ProcessEnv {
   const env = withoutGitVariables(base)
-  const pairs = ['core.fsmonitor=', `core.hooksPath=${NO_HOOKS_PATH}`, 'diff.external=', 'protocol.ext.allow=never']
   env.GIT_TERMINAL_PROMPT = '0'
   env.GIT_NO_LAZY_FETCH = '1'
-  env.GIT_CONFIG_COUNT = String(pairs.length)
-  pairs.forEach((pair, index) => {
-    const at = pair.indexOf('=')
-    env[`GIT_CONFIG_KEY_${index}`] = pair.slice(0, at)
-    env[`GIT_CONFIG_VALUE_${index}`] = pair.slice(at + 1)
-  })
-  return env
+  env.GIT_EDITOR = 'false'
+  return withConfigPairs(env, [
+    ['core.fsmonitor', ''], ['core.hooksPath', NO_HOOKS_PATH], ['diff.external', ''], ['protocol.ext.allow', 'never'],
+    ['core.alternateRefsCommand', ''], ...extra
+  ])
 }
 
 // ---- what the repository's own config names ---------------------------------------------------------------
 
 /** Keys whose value git runs as a command, in the scopes they were read from. */
-export const COMMAND_KEYS = String.raw`^(filter\..+\.(clean|smudge|process)|gpg\..*program|gpg\.ssh\.defaultkeycommand|core\.(sshcommand|gitproxy|askpass)|credential\..*helper|remote\..+\.(uploadpack|receivepack)|lfs\.(extension\..+\.(clean|smudge)|customtransfer\..+\.path|standalonetransferagent))$`
+export const COMMAND_KEYS = String.raw`^(filter\..+\.(clean|smudge|process)|diff\..+\.(command|textconv)|merge\..+\.driver|gpg\..*program|gpg\.ssh\.defaultkeycommand|core\.(sshcommand|gitproxy|askpass|alternaterefscommand|editor)|sequence\.editor|credential\..*helper|remote\..+\.(uploadpack|receivepack)|submodule\..+\.update|lfs\.(extension\..+\.(clean|smudge)|customtransfer\..+\.path|standalonetransferagent))$`
 
 export interface ConfigEntry { scope: string; key: string; value: string }
 
 /** The person's own files and the admin's; every other scope (local, worktree, an include of either) is the repository's. */
 export const trustedScope = (scope: string): boolean => scope === 'system' || scope === 'global'
+const repositoryScope = (scope: string): boolean => !trustedScope(scope) && scope !== 'command'
 
 /** `git config --null --show-scope --get-regexp`: `scope NUL key LF value NUL`, or `scope NUL key NUL` with no value. */
 export function parseConfigEntries(raw: string): ConfigEntry[] {
@@ -138,52 +165,89 @@ export function parseConfigEntries(raw: string): ConfigEntry[] {
   return out
 }
 
+/** A key a repository chose, safe to show a person: no control or bidi characters, bounded. */
+export function displayKey(key: string, max = 80): string {
+  const clean = key.replace(/[\u0000-\u001f\u007f-\u009f؜‎‏‪-‮⁦-⁩]/g, '?')
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
+}
+
 /** The LFS filter as `git lfs install --local` writes it: a fixed program, kept so LFS files do not all show as changed. */
 const LFS_VALUES = /^git-lfs (?:(?:clean|smudge)(?: --skip)? -- %f|filter-process(?: --skip)?)$/
 const SIGNING_DEFAULTS: Record<string, string> = { 'gpg.program': 'gpg', 'gpg.openpgp.program': 'gpg', 'gpg.ssh.program': 'ssh-keygen', 'gpg.x509.program': 'gpgsm' }
 
+/** Driver names seen per repository this launch (M1): `filter:<name>`, `diff:<name>`, `merge:<name>`. */
+const seenDrivers = new Map<string, Set<string>>()
+const repoKey = (cwd: string): string => { const path = resolvePath(cwd); return process.platform === 'win32' ? path.toLowerCase() : path }
+
+function driverPairs(kind: string, name: string): ConfigPair[] {
+  if (kind === 'filter') return [[`filter.${name}.clean`, ''], [`filter.${name}.smudge`, ''], [`filter.${name}.process`, ''], [`filter.${name}.required`, 'false']]
+  if (kind === 'diff') return [[`diff.${name}.command`, ''], [`diff.${name}.textconv`, '']]
+  return [[`merge.${name}.driver`, 'false']]
+}
+
 /**
- * `-c` pairs that empty what the repository set: each filter driver it defines (clean, smudge, process; not required),
- * and each signing program back to the person's value or git's default, with signing off when it set a key command.
+ * Pairs that empty what the repository set: each filter (clean, smudge, process; not required), diff (command,
+ * textconv) and merge driver it defines, plus every driver seen before in `cwd`; each signing program back to the
+ * person's value or git's default, with signing off when it set a key command; a `submodule.<name>.update` command
+ * to `none`.
  */
-export function neutralizeRepositoryCommands(entries: readonly ConfigEntry[]): string[] {
-  const pairs: string[] = []
-  const filters = new Set<string>()
+export function neutralizeRepositoryCommands(entries: readonly ConfigEntry[], cwd?: string): ConfigPair[] {
+  const pairs: ConfigPair[] = []
+  const drivers = new Set<string>(cwd ? seenDrivers.get(repoKey(cwd)) ?? [] : [])
   let keyCommand = false
   for (const entry of entries) {
-    if (trustedScope(entry.scope) || entry.scope === 'command') continue
+    if (!repositoryScope(entry.scope)) continue
     const key = entry.key
     const filter = /^filter\.(.+)\.(clean|smudge|process)$/i.exec(key)
     if (filter) {
-      if (!(filter[1] === 'lfs' && LFS_VALUES.test(entry.value.trim()))) filters.add(filter[1])
+      if (!(filter[1] === 'lfs' && LFS_VALUES.test(entry.value.trim()))) drivers.add(`filter:${filter[1]}`)
       continue
     }
+    const diff = /^diff\.(.+)\.(command|textconv)$/i.exec(key)
+    if (diff) { drivers.add(`diff:${diff[1]}`); continue }
+    const merge = /^merge\.(.+)\.driver$/i.exec(key)
+    if (merge) { drivers.add(`merge:${merge[1]}`); continue }
     const lower = key.toLowerCase()
     // git-lfs runs an extension's command from inside its own clean and smudge: the LFS filter goes too.
-    if (/^lfs\.extension\./.test(lower)) { filters.add('lfs'); continue }
+    if (/^lfs\.extension\./.test(lower)) { drivers.add('filter:lfs'); continue }
     if (lower === 'gpg.ssh.defaultkeycommand') { keyCommand = true; continue }
     if (/^gpg\..*program$/.test(lower)) {
       const trusted = entries.filter(other => trustedScope(other.scope) && other.key.toLowerCase() === lower).pop()
-      pairs.push(`${key}=${trusted?.value ?? SIGNING_DEFAULTS[lower] ?? 'gpg'}`)
+      pairs.push([key, trusted?.value ?? SIGNING_DEFAULTS[lower] ?? 'gpg'])
+      continue
     }
+    if (/^submodule\..+\.update$/.test(lower) && entry.value.trim().startsWith('!')) pairs.push([key, 'none'])
   }
-  for (const name of filters) pairs.push(`filter.${name}.clean=`, `filter.${name}.smudge=`, `filter.${name}.process=`, `filter.${name}.required=false`)
-  if (keyCommand) pairs.push('commit.gpgSign=false', 'tag.gpgSign=false')
-  return pairs.flatMap(pair => ['-c', pair])
+  if (cwd && drivers.size) seenDrivers.set(repoKey(cwd), drivers)
+  for (const driver of drivers) {
+    const at = driver.indexOf(':')
+    pairs.push(...driverPairs(driver.slice(0, at), driver.slice(at + 1)))
+  }
+  if (keyCommand) pairs.push(['commit.gpgSign', 'false'], ['tag.gpgSign', 'false'])
+  return pairs
 }
 
-/** Subcommands that can run a filter driver (worktree content in or out) or a signing program. */
-const RUNS_REPOSITORY_COMMANDS = new Set([
-  'add', 'am', 'apply', 'checkout', 'checkout-index', 'cherry-pick', 'clone', 'commit', 'commit-tree', 'diff', 'hash-object',
-  'merge', 'mv', 'pull', 'push', 'read-tree', 'rebase', 'reset', 'restore', 'revert', 'rm', 'stash', 'status', 'switch',
-  'tag', 'update-index', 'worktree'
-])
+/** Test-only: forget the drivers seen this launch. */
+export function __forgetSeenDriversForTests(): void { seenDrivers.clear() }
 
-/** Whether the arguments need the repository's config read first. */
+/**
+ * Subcommands that run nothing a repository names (L1: the list is what may skip the config read, not what needs it).
+ * `ls-files` and `cat-file` only without the options that compare the work tree or convert content.
+ */
+const RUNS_NOTHING = new Set(['rev-parse', 'config', 'for-each-ref', 'symbolic-ref', 'show-ref', 'check-ref-format', 'merge-base', 'rev-list', 'ls-tree', 'remote', 'check-ignore', 'var'])
+const LS_FILES_COMPARES = /^(-m|-d|-k|--modified|--deleted|--killed|-[a-z]*[mdk][a-z]*)$/
+const CAT_FILE_CONVERTS = /^(--filters|--textconv)$/
+
+/** Whether the arguments need the repository's config read first: every command but those above. */
 export function needsConfigProbe(args: readonly string[]): boolean {
   const at = subcommandIndex(args)
   if (at < 0) return false
-  return RUNS_REPOSITORY_COMMANDS.has(args[at]) || args.includes('--filters')
+  const sub = args[at], rest = args.slice(at + 1)
+  if (RUNS_NOTHING.has(sub)) return false
+  if (sub === 'ls-files') return rest.some(arg => LS_FILES_COMPARES.test(arg))
+  if (sub === 'cat-file') return rest.some(arg => CAT_FILE_CONVERTS.test(arg))
+  if (sub === 'branch') return rest.some(arg => arg === '--edit-description')
+  return true
 }
 
 const probeArgs = (prefix: readonly string[]): string[] => [...prefix, 'config', '--null', '--show-scope', '--get-regexp', COMMAND_KEYS]
@@ -191,7 +255,7 @@ const probeArgs = (prefix: readonly string[]): string[] => [...prefix, 'config',
 /** Runs the config read; injectable so a caller with its own spawner (GhExec, tests) reads through it. */
 export type ConfigReader = (command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv) => Promise<{ code: number | null; stdout: string }>
 
-const execConfigReader: ConfigReader = (command, args, cwd, env) => new Promise(resolve => {
+export const execConfigReader: ConfigReader = (command, args, cwd, env) => new Promise(resolve => {
   execFile(command, args, { cwd, env, windowsHide: true, timeout: 10_000, maxBuffer: 1024 * 1024, encoding: 'utf8' }, (error, stdout) => {
     resolve({ code: error ? (typeof error.code === 'number' ? error.code : null) : 0, stdout: String(stdout ?? '') })
   })
@@ -214,6 +278,42 @@ function readCommandKeysSync(cwd: string, env: NodeJS.ProcessEnv, git: string): 
   }
 }
 
+// ---- after the command: did the config change under it? ----------------------------------------------------
+
+const fingerprint = (entries: readonly ConfigEntry[]): Set<string> => new Set(entries.filter(entry => repositoryScope(entry.scope)).map(entry => `${entry.key}\n${entry.value}`))
+
+/** Repository command keys present after a command and not before it. Remembers their drivers for the next call. */
+function changedKeys(cwd: string, before: readonly ConfigEntry[], after: readonly ConfigEntry[]): string[] {
+  const known = fingerprint(before)
+  const added = after.filter(entry => repositoryScope(entry.scope) && !known.has(`${entry.key}\n${entry.value}`))
+  if (!added.length) return []
+  neutralizeRepositoryCommands(added, cwd)
+  const keys = [...new Set(added.map(entry => displayKey(entry.key)))]
+  events.emit('config-changed', { cwd, keys })
+  console.warn(`[safe-git] the git config of ${cwd} gained ${keys.join(', ')} while OXESpace ran git there; that result is not trusted`)
+  return keys
+}
+
+const events = new EventEmitter()
+/** A repository's command keys changed while main's git ran there (M1). The listener shows the person. */
+export function onRepositoryConfigChanged(listener: (change: { cwd: string; keys: string[] }) => void): () => void {
+  events.on('config-changed', listener)
+  return () => { events.off('config-changed', listener) }
+}
+
+/** The config read after a command that read it first; the keys it gained, or none. */
+export async function verifyAfter(prepared: PreparedGit, cwd: string, reader: ConfigReader = execConfigReader): Promise<string[]> {
+  if (!prepared.probed) return []
+  try { return changedKeys(cwd, prepared.probed, await readCommandKeys(cwd, prepared.env, prepared.command, SAFE_GIT_OPTIONS, reader)) }
+  catch { return [] }
+}
+
+function verifyAfterSync(prepared: PreparedGit, cwd: string): string[] {
+  if (!prepared.probed) return []
+  try { return changedKeys(cwd, prepared.probed, readCommandKeysSync(cwd, prepared.env, prepared.command)) }
+  catch { return [] }
+}
+
 // ---- running it ---------------------------------------------------------------------------------------------
 
 export interface RunGitOptions {
@@ -226,7 +326,7 @@ export interface RunGitOptions {
   git?: string
   /** Extra variables, layered over the safe environment; `GIT_*` names are refused. */
   env?: NodeJS.ProcessEnv
-  /** How the config is read before a command that can run a repository's filter or signing program. */
+  /** How the config is read before (and after) a command. */
   readConfig?: ConfigReader
   /**
    * For `rev-parse --git-path hooks` only, which asks where the hooks are and runs none: leaves `core.hooksPath` as
@@ -235,7 +335,8 @@ export interface RunGitOptions {
   asksHooksPath?: boolean
 }
 
-export interface PreparedGit { command: string; args: string[]; env: NodeJS.ProcessEnv }
+/** `probed`: what the config read before the command saw, or null when the command skipped it. */
+export interface PreparedGit { command: string; args: string[]; env: NodeJS.ProcessEnv; probed: ConfigEntry[] | null }
 
 const HOOKS_OFF = `core.hooksPath=${NO_HOOKS_PATH}`
 function prefixFor(options: RunGitOptions): readonly string[] {
@@ -248,7 +349,8 @@ function prefixFor(options: RunGitOptions): readonly string[] {
   return out
 }
 
-function layeredEnv(base: NodeJS.ProcessEnv, extra: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+/** `base` with `extra` over it; a `GIT_*` name in `extra` is refused (only safe-git sets those). */
+export function layeredEnv(base: NodeJS.ProcessEnv, extra: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
   if (!extra) return base
   for (const name of Object.keys(extra)) if (/^GIT_/i.test(name)) throw new Error(`safe-git: ${name} cannot be set here`)
   return { ...base, ...extra }
@@ -258,19 +360,20 @@ function layeredEnv(base: NodeJS.ProcessEnv, extra: NodeJS.ProcessEnv | undefine
 export async function prepareGit(cwd: string, args: readonly string[], options: RunGitOptions = {}): Promise<PreparedGit> {
   const command = options.git ?? 'git'
   const env = layeredEnv(safeGitEnv(process.env, { systemConfig: true }), options.env)
-  const extra = needsConfigProbe(args) ? neutralizeRepositoryCommands(await readCommandKeys(cwd, env, command, SAFE_GIT_OPTIONS, options.readConfig)) : []
-  return { command, args: safeGitArgs(args, extra, prefixFor(options)), env }
+  const probed = needsConfigProbe(args) ? await readCommandKeys(cwd, env, command, SAFE_GIT_OPTIONS, options.readConfig) : null
+  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed }
 }
 
 /** `prepareGit` for the synchronous callers. */
 export function prepareGitSync(cwd: string, args: readonly string[], options: RunGitOptions = {}): PreparedGit {
   const command = options.git ?? 'git'
   const env = layeredEnv(safeGitEnv(process.env, { systemConfig: true }), options.env)
-  const extra = needsConfigProbe(args) ? neutralizeRepositoryCommands(readCommandKeysSync(cwd, env, command)) : []
-  return { command, args: safeGitArgs(args, extra, prefixFor(options)), env }
+  const probed = needsConfigProbe(args) ? readCommandKeysSync(cwd, env, command) : null
+  return { command, args: safeGitArgs(args, prefixFor(options)), env: withConfigPairs(env, neutralizeRepositoryCommands(probed ?? [], cwd)), probed }
 }
 
-export interface GitResult<T extends string | Buffer = string> { ok: boolean; code: number | null; stdout: T; stderr: string; error?: ExecFileException | Error }
+/** `configChanged`: repository command keys that appeared while the command ran; its output is then not trusted. */
+export interface GitResult<T extends string | Buffer = string> { ok: boolean; code: number | null; stdout: T; stderr: string; error?: ExecFileException | Error; configChanged?: string[] }
 
 /** Spawns an already prepared git. Shared with the person path. */
 export function spawnPrepared(prepared: PreparedGit, cwd: string, options: RunGitOptions): Promise<{ stdout: string | Buffer; stderr: string }> {
@@ -292,28 +395,40 @@ export function spawnPrepared(prepared: PreparedGit, cwd: string, options: RunGi
  * Local git, rejecting like a promisified `execFile` (the error carries `code`, `killed`, `stdout` and `stderr`).
  * Use it where a failure is an exception.
  */
-export async function execGit(cwd: string, args: readonly string[], options: RunGitOptions & { encoding: 'buffer' }): Promise<{ stdout: Buffer; stderr: string }>
-export async function execGit(cwd: string, args: readonly string[], options?: RunGitOptions): Promise<{ stdout: string; stderr: string }>
-export async function execGit(cwd: string, args: readonly string[], options: RunGitOptions = {}): Promise<{ stdout: string | Buffer; stderr: string }> {
-  return spawnPrepared(await prepareGit(cwd, args, options), cwd, options)
+export async function execGit(cwd: string, args: readonly string[], options: RunGitOptions & { encoding: 'buffer' }): Promise<{ stdout: Buffer; stderr: string; configChanged?: string[] }>
+export async function execGit(cwd: string, args: readonly string[], options?: RunGitOptions): Promise<{ stdout: string; stderr: string; configChanged?: string[] }>
+export async function execGit(cwd: string, args: readonly string[], options: RunGitOptions = {}): Promise<{ stdout: string | Buffer; stderr: string; configChanged?: string[] }> {
+  const prepared = await prepareGit(cwd, args, options)
+  try {
+    const result = await spawnPrepared(prepared, cwd, options)
+    const changed = await verifyAfter(prepared, cwd, options.readConfig)
+    return changed.length ? { ...result, configChanged: changed } : result
+  } catch (error) {
+    const changed = await verifyAfter(prepared, cwd, options.readConfig)
+    throw changed.length ? Object.assign(error as object, { configChanged: changed }) : error
+  }
 }
 
 /** Local git that never throws: `ok` and the exit code say how it went. */
 export async function runGit(cwd: string, args: readonly string[], options: RunGitOptions = {}): Promise<GitResult> {
   try {
-    const { stdout, stderr } = await execGit(cwd, args, { ...options, encoding: 'utf8' })
-    return { ok: true, code: 0, stdout, stderr }
+    const { stdout, stderr, configChanged } = await execGit(cwd, args, { ...options, encoding: 'utf8' })
+    return { ok: true, code: 0, stdout, stderr, ...(configChanged ? { configChanged } : {}) }
   } catch (error) {
-    const failure = error as ExecFileException & { stdout?: string; stderr?: string }
-    return { ok: false, code: typeof failure.code === 'number' ? failure.code : null, stdout: String(failure.stdout ?? ''), stderr: String(failure.stderr ?? failure.message ?? ''), error: failure }
+    const failure = error as ExecFileException & { stdout?: string; stderr?: string; configChanged?: string[] }
+    return { ok: false, code: typeof failure.code === 'number' ? failure.code : null, stdout: String(failure.stdout ?? ''), stderr: String(failure.stderr ?? failure.message ?? ''), error: failure, ...(failure.configChanged ? { configChanged: failure.configChanged } : {}) }
   }
 }
 
 /** Local git, synchronously, throwing like `execFileSync` (the error carries `status`, `stdout` and `stderr`). */
-export function execGitSync(cwd: string, args: readonly string[], options: Omit<RunGitOptions, 'encoding'> & { encoding?: 'utf8' } = {}): string {
+export function execGitSync(cwd: string, args: readonly string[], options: Omit<RunGitOptions, 'encoding' | 'readConfig'> & { encoding?: 'utf8' } = {}): string {
   const prepared = prepareGitSync(cwd, args, options)
-  return execFileSync(prepared.command, prepared.args, {
-    cwd, env: prepared.env, windowsHide: true, timeout: options.timeout ?? 30_000, maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
-    encoding: 'utf8', stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'], ...(options.input !== undefined ? { input: options.input } : {})
-  })
+  try {
+    return execFileSync(prepared.command, prepared.args, {
+      cwd, env: prepared.env, windowsHide: true, timeout: options.timeout ?? 30_000, maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
+      encoding: 'utf8', stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'], ...(options.input !== undefined ? { input: options.input } : {})
+    })
+  } finally {
+    verifyAfterSync(prepared, cwd)
+  }
 }

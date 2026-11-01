@@ -151,7 +151,17 @@
     },
     "git": {
       "base": {
-        "unresolved": "Não foi possível resolver a base “{{base}}”, e o repositório não tem commits."
+        "unresolved": "Não foi possível resolver a base “{{base}}”, e o repositório não tem commits.",
+        "maybeStale": "A base pode estar desatualizada. Isto foi criado a partir da sua cópia local de {{branch}}, sem um fetch antes."
+      },
+      "fetch": {
+        "needsPerson": "O agente precisa da versão mais recente da branch remota, mas agentes não acessam a rede pelo Git. Faça o fetch você mesmo no painel Git ou no terminal e depois deixe o agente continuar."
+      },
+      "person": {
+        "refused": "O OXESpace não executa Git com acesso à rede neste repositório porque as configurações dele (.git/config) definem {{keys}}. Rode o comando no terminal."
+      },
+      "hooks": {
+        "skipped": "Os hooks do Git não rodam nas ações feitas por aqui. Push, troca de branch e criação de worktree pelo OXESpace não executam os hooks do repositório. Se o seu fluxo depende deles, faça esses passos no terminal."
       }
     },
     "oxe": {
