@@ -28,6 +28,33 @@ export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Accessibility scan (axe)', 'Memo
  * ci.yml always; the others only when they ran on the head before the update.
  */
 export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml']
+/**
+ * Workflow names by file. GitHub's run `name` is the run-name when a workflow sets one (ci.yml titles its runs
+ * "PR #N · …" and "Full check · <ref>"), so a run is identified by its workflow file, never by that name.
+ */
+export const WORKFLOW_NAME_BY_FILE = {
+  'ci.yml': CI_WORKFLOW,
+  'a11y-axe.yml': 'Accessibility scan (axe)',
+  'memory-compatibility.yml': 'Memory compatibility',
+  'android.yml': 'Android',
+  'provider-contract.yml': 'Provider contract',
+}
+/** The workflow name for a run's `path` (".github/workflows/ci.yml"), or `fallback` for an unlisted file. */
+export function workflowName(path, fallback) {
+  const file = String(path ?? '').split('/').pop()
+  return Object.hasOwn(WORKFLOW_NAME_BY_FILE, file) ? WORKFLOW_NAME_BY_FILE[file] : fallback
+}
+
+/**
+ * Whether a run tested the commit it is reported on. A ci.yml dispatch builds `inputs.branch` when that is set,
+ * and then titles itself "Full check · <that branch>" (or "Publish …", "Packaged smoke …"), so only a dispatch
+ * titled exactly "Full check · <its own branch>" counts; its jobs are dropped with it. Runs of other events,
+ * and the other workflows (which have no branch input), always test their own head.
+ */
+export function testsItsOwnHead(run) {
+  if (run?.event !== 'workflow_dispatch' || String(run.path ?? '').split('/').pop() !== 'ci.yml') return true
+  return (run.display_title ?? run.name) === `Full check · ${run.head_branch}`
+}
 export const DEFAULT_TIMEOUT_MINUTES = 60
 /** How long a head may sit with no CI run at all before the train dispatches one itself. */
 export const DISPATCH_GRACE_MS = 3 * 60_000
@@ -558,7 +585,7 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
   /** This repository's own runs of the PR's code on `sha`: a fork's run on the same SHA never counts. */
   const ownRuns = async (sha) => {
     const runs = await paginate(`${r}/actions/runs?head_sha=${sha}&per_page=100`, (d) => d.workflow_runs)
-    return runs.filter((run) => run.head_repository?.full_name === repo && COUNTED_EVENTS.has(run.event))
+    return runs.filter((run) => run.head_repository?.full_name === repo && COUNTED_EVENTS.has(run.event) && testsItsOwnHead(run))
   }
   return {
     async listQueue() {
@@ -616,7 +643,9 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
     },
     async listRuns(sha) {
       return (await ownRuns(sha)).map((run) => ({
-        name: run.name,
+        // A run's `name` is its run-name ("PR #N · …", "Full check · …"), not the workflow's: identify it by path.
+        // An unlisted workflow file is never one of the watched workflows, whatever it calls itself.
+        name: workflowName(run.path, null),
         path: run.path,
         headSha: run.head_sha,
         status: run.status,
