@@ -210,20 +210,32 @@ unchanged. `2` or `3` makes the train test up to that many consecutive cars toge
    merges API). A conflict at car *i* ends the batch at cars 1..*i*-1, and car *i* waits. A tip commit with the
    same tree carries the manifest (base, cars, heads).
 3. **Test.** It dispatches every gate the batch's paths need, from one table that a test keeps equal to the
-   workflow files: `ci.yml` always (it runs memory compatibility too), axe and Android when their path
-   filters match. Green means all of them passed on the tip, latest attempt.
+   workflow files: `ci.yml` always (it runs memory compatibility too), and axe, Android and Provider contract
+   when their path filters match. Green means all of them passed on the tip, latest attempt. A run counts only
+   when the train started it: a `workflow_dispatch` by `github-actions[bot]` on that ref and commit, titled
+   exactly `Full check · <ref>` for `ci.yml`, or the workflow's name for the others. A person's dispatch, a
+   branch override, a publish or a packaged smoke never counts. A dispatched `ci.yml` builds the commit the
+   run was created on (`github.sha`), not the ref by name, so moving the ref after the dispatch changes nothing.
 4. **Verify (R1).** Nothing in a `merge-train/*` ref is trusted. Before a verdict counts, and again before
    merging, the train merges the same heads onto the same base on a scratch `merge-train/verify-*` ref, and
-   requires every tree, and the tip, to match.
+   requires every tree, and the tip, to match. It uses the commit each merge returns and requires the ref to
+   point at it; a ref moved in between stops the batch. The manifest's choice of cars is also a claim: the
+   train plans again on the live queue (labeller roles, migrations, generators, gate cars, queue order) and
+   requires exactly those cars, and for a fallback that its car is the head of the queue and its rest an
+   ordered part of it. A batch's age comes from the train run that built it, and the timeout is only looked at
+   after these checks.
 5. **Merge (R6).** Car by car, with the pull request merge API pinned to the tested head. Before each merge it
    checks again that the car is open, still labelled, not a draft, has no changes requested and is still on
    the tested head, and that main is still where the last merge left it. After each merge it checks that main's
-   new commit has parents [previous main, car head] and the tree the train derived. Each merge commit carries
+   new commit has parents [previous main, car head] and the tree the train derived; a mismatch is an incident,
+   marked with a `merge-train` failure status on that commit. When GitHub refuses car 1 (other than "the head
+   moved"), car 1 leaves the queue with the reason, so the same batch is not rebuilt forever. Each merge commit carries
    `Merge-Train-Batch: <id> <i>/<k>` and `Tested-Run: <run>`. The last one gets an informational `merge-train`
    commit status (never a required check). Then `ci.yml` is dispatched on main.
-6. **Stop the line.** A batch that stops after merging some of its cars leaves main on an untested tree, so the
-   train dispatches main's CI on it and pauses until that run is green. Any red completed main CI run also
-   pauses the train.
+6. **Stop the line.** Any batch commit on main's tip (`i/k`, including `k/k` and a fallback's `1/1`) without the
+   train's success status means main may sit on an untested tree: the train dispatches main's CI on it and
+   pauses until a green run of that commit (a push, or the train's own dispatch) completes. Any red completed
+   main CI run also pauses the train. A person's dispatch on main neither pauses nor lifts a pause.
 7. **Red (R8).** An infrastructure failure (cancelled, timed out, a lost runner) or a nondeterministic step
    (E2E, the performance gate, OxeQuery live, axe) is retried once with "re-run failed jobs". It is never
    retried a second time for the same tree, and never when the same job also flaked in the previous batch.
@@ -231,13 +243,22 @@ unchanged. `2` or `3` makes the train test up to that many consecutive cars toge
    - car 1 is tested alone on main. Red: it leaves the queue, and the rest are planned again. Green: it merges,
      and the next car is tested alone on the new main;
    - a car whose tree on main is the red batch's tree leaves the queue without a new run (verdicts are reused
-     by tree, after checking the failed run).
+     by tree, after checking the failed run). Only a deterministic red is reused: a plain failure in a step that
+     is not on the nondeterministic list. Cancelled, timed-out and flaky reds never stand for a tree.
 
    With three cars, that is the batch plus at most two runs.
 8. **State (R7).** The state is the one live batch ref. More than one live ref aborts them all. Scratch refs
    from a run that died are removed. A batch that waits more than the timeout for CI goes linear: every car stays in
    the queue, labelled, and they are tested one at a time. Only a car that times out on its own (alone, or in
    linear mode) leaves the queue, as in v1.
+
+   A migration car also means one that changes `electron/main/db/index.ts` (the ladder or
+   `LATEST_DB_VERSION`); without a new migration file it is never batched. Shadow verdicts get the same R1
+   check before they count toward the rollout metrics.
+
+   **Accepted (L7):** a writer can abort the batch in flight by creating a second batch ref, and a red or
+   cancelled train-dispatched main run pauses batching. Both need write access, and both fail safe (nothing
+   merges).
 
 **Rollout, with the ARCHITECT's gates.**
 1. **Shadow:** `MERGE_TRAIN_BATCH=1` with `MERGE_TRAIN_BATCH_SHADOW=1`. The train builds and tests the batch it

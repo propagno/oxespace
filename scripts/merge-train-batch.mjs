@@ -19,6 +19,7 @@ import {
   DEFAULT_TIMEOUT_MINUTES,
   LABEL,
   LABELER_ROLES,
+  TRAIN_LOGIN,
   cleanName,
   globToRegExp,
   loadInput,
@@ -26,6 +27,7 @@ import {
   renderComment,
   runTrain,
   upsertComment,
+  workflowName,
 } from './merge-train.mjs'
 
 export const REF_ROOT = 'merge-train/'
@@ -84,6 +86,11 @@ export const WORKFLOW_GATES = [
       'shared/reserved-names.ts',
       '.github/workflows/android.yml',
     ],
+  },
+  {
+    file: 'provider-contract.yml',
+    name: 'Provider contract',
+    paths: ['scripts/probe-providers.cjs', 'scripts/probe-claude-protocol.cjs', 'scripts/provider-contract-report.mjs', '.github/workflows/provider-contract.yml'],
   },
   {
     file: 'memory-compatibility.yml',
@@ -151,9 +158,16 @@ export function parseLatestDbVersion(text) {
  * pair, with NNN = LATEST_DB_VERSION on the base + 1, and LATEST_DB_VERSION set to NNN in the car), `renumber`
  * (the right shape with the wrong number), or `invalid` (anything else: never batched).
  */
+/** A car is a migration car when it touches the migrations folder or the migration ladder (L5). */
+export const touchesMigrations = (files) =>
+  files.some((f) => [f.filename, f.previous_filename].some((p) => typeof p === 'string' && (p.startsWith(MIGRATION_DIR) || p === DB_INDEX)))
+
 export function classifyMigration(files, latestOnBase, latestOnCar) {
   const touched = files.filter((f) => f.filename.startsWith(MIGRATION_DIR) || String(f.previous_filename ?? '').startsWith(MIGRATION_DIR))
-  if (!touched.length) return { kind: 'none' }
+  if (!touched.length) {
+    // L5: the ladder or LATEST_DB_VERSION changed with no new migration file: never batched.
+    return touchesMigrations(files) ? { kind: 'invalid', reason: `it changes ${DB_INDEX} without adding a migration` } : { kind: 'none' }
+  }
   if (touched.some((f) => f.status !== 'added' || f.previous_filename)) return { kind: 'invalid', reason: 'it changes an existing migration' }
   const names = touched.map((f) => f.filename.slice(MIGRATION_DIR.length))
   const numbers = names.map((name) => /^(\d{3})_[a-z0-9_]+\.sql$/.exec(name)?.[1])
@@ -300,7 +314,10 @@ export async function buildChain(api, ref, base, cars, messageFor = () => 'merge
     const result = await api.mergeInto(ref, car.head, messageFor(car, i))
     if (result.status === 409) return { steps, stopAt: i, reason: 'conflict' }
     if (result.status === 204) return { steps, stopAt: i, reason: 'nothing to merge' }
-    const tip = await api.getRef(ref)
+    // The commit POST /merges returned (content-addressed) is the result; the ref must point at it, or someone
+    // moved the ref in between and nothing read through it is the train's.
+    const tip = result.sha
+    if (!isSha(tip) || (await api.getRef(ref)) !== tip) return { steps, stopAt: i, reason: 'the ref moved under the train' }
     const commit = await api.getCommit(tip)
     const merged = commit.parents.length === 2 && commit.parents[0] === prev && commit.parents[1] === car.head
     const fastForward = tip === car.head
@@ -414,21 +431,45 @@ export function describeFailure(f) {
  * mainRuns: CI runs on main ({ headSha, status, conclusion, createdAt, htmlUrl }); tip: { sha, message }.
  * Returns { paused, reason, dispatch } (dispatch: main CI has no run at all on the tip).
  */
-export function mainHealth({ mainRuns, tip }) {
+export function mainHealth({ mainRuns, tip, tipStatus = null }) {
   const runs = [...(mainRuns ?? [])].sort((a, b) => Date.parse(b.createdAt ?? 0) - Date.parse(a.createdAt ?? 0))
   const completed = runs.filter((r) => r.status === 'completed')
   const latest = completed[0]
   if (latest && latest.conclusion !== 'success') {
     return { paused: true, reason: `main CI is ${cleanName(latest.conclusion)} (${latest.htmlUrl ?? 'no link'})`, dispatch: false }
   }
+  // L1: any batch commit on the tip (i/k, including k/k and a fallback's 1/1) that does not carry the train's
+  // success status (posted only after a clean batch) needs a green CI run of its own first.
   const trailer = parseBatchTrailer(tip?.message)
-  if (trailer && trailer.index < trailer.count) {
+  if (trailer && tipStatus !== 'success') {
     const onTip = runs.filter((r) => r.headSha === tip.sha)
     if (!onTip.some((r) => r.status === 'completed' && r.conclusion === 'success')) {
       return { paused: true, reason: `main stopped inside batch ${trailer.id} (${trailer.index}/${trailer.count}); waiting for a green CI run on ${short(tip.sha)}`, dispatch: onTip.length === 0 }
     }
   }
   return { paused: false, reason: '', dispatch: false }
+}
+
+/**
+ * M1: a run counts only when the train started it the way it does: a workflow_dispatch by the train's bot whose
+ * title is exactly what that dispatch gives (ci.yml: "Full check · <ref>", which means no branch override, no
+ * publish and no packaged smoke; the other workflows: their name). A person's dispatch never counts.
+ */
+export function isTrainDispatch(run, ref) {
+  if (!run || run.event !== 'workflow_dispatch' || run.triggeringActor !== TRAIN_LOGIN) return false
+  const file = String(run.path ?? '').split('/').pop()
+  const expected = file === 'ci.yml' ? `Full check · ${ref}` : workflowName(run.path, null)
+  return Boolean(expected) && run.displayTitle === expected
+}
+
+/** The runs that count on a batch tip: this repository, the ref itself, that commit, started by the train. */
+export function countedTipRuns(runs, { sha, ref, repo }) {
+  return (runs ?? []).filter((x) => x.headRepo === repo && x.headSha === sha && x.headBranch === ref && isTrainDispatch(x, ref))
+}
+
+/** The main CI runs that count for stop-the-line: pushes to main, and the train's own dispatches on main. */
+export function countedMainRuns(runs, { repo, base }) {
+  return (runs ?? []).filter((x) => x.headRepo === repo && x.headBranch === base && (x.event === 'push' || isTrainDispatch(x, base)))
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -438,9 +479,13 @@ export function createBatchApi(v1) {
   const { request, paginate, repo, base } = v1.raw
   const r = `/repos/${repo}`
   const enc = (name) => name.split('/').map(encodeURIComponent).join('/')
+  const gateFiles = new Set(WORKFLOW_GATES.map((g) => g.file))
   const run = (data) => ({
     id: data.id,
-    name: data.name,
+    // The run's own `name` is its title; the workflow is known by its file.
+    name: workflowName(data.path, data.name),
+    displayTitle: data.display_title ?? data.name,
+    triggeringActor: data.triggering_actor?.login ?? null,
     path: data.path,
     event: data.event,
     status: data.status,
@@ -484,7 +529,7 @@ export function createBatchApi(v1) {
     async mergeInto(name, head, message) {
       try {
         const { data } = await request('POST', `${r}/merges`, { base: name, head, commit_message: message })
-        return { status: data ? 201 : 204 }
+        return data ? { status: 201, sha: data.sha } : { status: 204 }
       } catch (error) {
         if (error.status === 409) return { status: 409 }
         throw error
@@ -514,10 +559,21 @@ export function createBatchApi(v1) {
     async issueLabels(number) {
       return (await request('GET', `${r}/issues/${number}/labels`)).data.map((l) => l.name)
     },
-    /** Runs the train dispatched on a merge-train ref's tip: this repository, workflow_dispatch, a train branch. */
-    async tipRuns(sha) {
+    /** The runs the train dispatched on a merge-train ref's tip (see countedTipRuns). */
+    async tipRuns(sha, ref) {
       const runs = await paginate(`${r}/actions/runs?head_sha=${sha}&event=workflow_dispatch&per_page=100`, (d) => d.workflow_runs)
-      return runs.map(run).filter((x) => x.headRepo === repo && x.headSha === sha && String(x.headBranch).startsWith(REF_ROOT))
+      return countedTipRuns(runs.map(run), { sha, ref, repo })
+    },
+    /** The train's own merge-train status on a commit: 'success', 'failure', or null. */
+    async trainStatus(sha) {
+      const { data } = await request('GET', `${r}/commits/${sha}/statuses?per_page=100`)
+      const own = (data ?? []).filter((s) => s.context === 'merge-train' && s.creator?.login === TRAIN_LOGIN)
+      return own[0]?.state ?? null
+    },
+    async dispatchWorkflow(file, ref) {
+      // The gate table's workflows (provider-contract.yml too); anything else goes through v1's allowlist.
+      if (!gateFiles.has(file)) return v1.dispatchWorkflow(file, ref)
+      await request('POST', `${r}/actions/workflows/${encodeURIComponent(file)}/dispatches`, { ref })
     },
     async getRun(id) {
       return run((await request('GET', `${r}/actions/runs/${Number(id)}`)).data)
@@ -532,11 +588,11 @@ export function createBatchApi(v1) {
     },
     async mainRuns() {
       const { data } = await request('GET', `${r}/actions/workflows/ci.yml/runs?branch=${encodeURIComponent(base)}&per_page=30`)
-      return data.workflow_runs.map(run).filter((x) => x.headRepo === repo && (x.event === 'push' || x.event === 'workflow_dispatch'))
+      return countedMainRuns(data.workflow_runs.map(run), { repo, base })
     },
     async recentBatchRuns() {
       const { data } = await request('GET', `${r}/actions/workflows/ci.yml/runs?event=workflow_dispatch&per_page=30`)
-      return data.workflow_runs.map(run).filter((x) => x.headRepo === repo && String(x.headBranch).startsWith(BATCH_PREFIX))
+      return data.workflow_runs.map(run).filter((x) => x.headRepo === repo && String(x.headBranch).startsWith(BATCH_PREFIX) && isTrainDispatch(x, x.headBranch))
     },
     async activeRunCount() {
       const count = async (status) => (await request('GET', `${r}/actions/runs?status=${status}&per_page=1`)).data.total_count ?? 0
@@ -590,7 +646,7 @@ async function carInfo(api, entry, { now, timeoutMinutes, baseSha }) {
             : null
   const { files, complete } = await api.prFiles(entry.number)
   let migration = { kind: 'none' }
-  if (files.some((f) => f.filename.startsWith(MIGRATION_DIR) || String(f.previous_filename ?? '').startsWith(MIGRATION_DIR))) {
+  if (touchesMigrations(files)) {
     const latestOnBase = parseLatestDbVersion(await api.readFile(DB_INDEX, baseSha))
     const latestOnCar = parseLatestDbVersion(await api.readFile(DB_INDEX, pr.headSha))
     migration = classifyMigration(files, latestOnBase, latestOnCar)
@@ -604,6 +660,63 @@ async function carInfo(api, entry, { now, timeoutMinutes, baseSha }) {
     eligible: why === null,
     why,
     cls: classifyCar({ headRef: pr.headRef, files, complete, migration }),
+  }
+}
+
+/** The cars the planner takes from the head of `queue` (stopping where planning stops), with their info. */
+async function headCars(api, queue, { now, timeoutMinutes, size, baseSha }) {
+  const cars = []
+  for (const entry of queue.slice(0, size)) {
+    const info = await carInfo(api, entry, { now, timeoutMinutes, baseSha })
+    if (!info) break
+    cars.push(info)
+    if (!info.eligible || !info.cls.batchable || info.cls.solo || info.cls.leave) break
+  }
+  return cars
+}
+
+/**
+ * M4: whether the live queue gives exactly the manifest's cars. A batch: the planner on the live queue gives
+ * these cars first, in this order, on these heads (a batch R5 ended early is a prefix). A fallback: its one
+ * car is the head of the queue and batchable, and `rest` is an ordered subsequence of the queue after it.
+ * Returns { infos } (one per manifest car) or { problem }.
+ */
+export async function replanMatches(api, manifest, queue, opts) {
+  const wanted = manifest.cars.map((c) => c.number)
+  const list = (ns) => ns.map((n) => `#${n}`).join(' ')
+  let infos
+  if (manifest.mode === 'fallback') {
+    if (manifest.cars.length !== 1 || queue[0]?.number !== wanted[0]) return { problem: `the fallback car ${list(wanted)} is not the head of the queue` }
+    const info = await carInfo(api, queue[0], opts)
+    if (!info || !info.eligible || !info.cls.batchable || info.cls.leave) return { problem: `${list(wanted)} is not batchable now` }
+    let at = 0
+    for (const n of manifest.rest) {
+      const index = queue.findIndex((e, i) => i > at && e.number === n)
+      if (index < 0) return { problem: 'the fallback rest is not an ordered part of the queue' }
+      at = index
+    }
+    infos = [info]
+  } else {
+    const cars = await headCars(api, queue, opts)
+    const plan = planBatch(cars, opts.size ?? MAX_BATCH)
+    if (!plan.cars || wanted.some((n, i) => plan.cars[i] !== n)) {
+      return { problem: `the live queue plans ${plan.cars ? list(plan.cars) : 'no batch'}, not ${list(wanted)}` }
+    }
+    infos = wanted.map((n) => cars.find((c) => c.number === n))
+  }
+  if (infos.some((info, i) => info.head !== manifest.cars[i].head)) return { problem: 'a car is no longer on the head the batch was built on' }
+  return { infos }
+}
+
+/** L8: when the train run named in the manifest's id started, or null when that is not a train run of this repository. */
+async function batchStartedAt(api, manifest) {
+  try {
+    const run = await api.getRun(Number(manifest.id.split('-')[0]))
+    if (!run || run.headRepo !== api.repo || !String(run.path ?? '').endsWith('.github/workflows/merge-train.yml')) return null
+    const at = Date.parse(run.createdAt)
+    return Number.isFinite(at) ? at : null
+  } catch {
+    return null
   }
 }
 
@@ -628,10 +741,34 @@ async function startBatch(api, { cars, baseSha, id, mode, rest = [], known = [],
   const last = steps[steps.length - 1]
   const tip = await api.createCommit({ message: renderManifest(manifest), tree: last.tree, parents: [last.sha] })
   await api.updateRef(ref, tip)
-  const paths = cars.slice(0, steps.length).flatMap((c) => c.files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean)))
+  // M2: the ref must hold the commit the train just made before anything is dispatched on it.
+  if ((await api.getRef(ref)) !== tip) {
+    await api.deleteRef(ref)
+    return { stopped: 'the ref moved under the train', stopAt: 0 }
+  }
+  const paths = carPaths(cars.slice(0, steps.length))
   for (const gate of requiredGates(paths)) await api.dispatchWorkflow(gate.file, ref)
   log(`${mode} ${id}: ${manifest.cars.map((c) => `#${c.number}`).join(' ')} on ${short(baseSha)}, tip ${short(tip)}`)
   return { manifest, ref, tip, tree: last.tree, stopAt: chain.stopAt, stopReason: chain.reason }
+}
+
+/** Every changed path of these cars, renames' old paths included (the gates and shadow use the same list). */
+const carPaths = (cars) => cars.flatMap((c) => c.files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean)))
+
+/**
+ * L2: a red verdict that may stand for a tree later: every failure is a plain `failure` in a deterministic step.
+ * Cancelled, timed-out, infrastructure and nondeterministic failures (flaky twice included) never do.
+ */
+export function isDeterministicRed(failed) {
+  return (
+    failed.length > 0 &&
+    failed.every(
+      (f) =>
+        f.conclusion === 'failure' &&
+        Boolean(f.step) &&
+        !NONDETERMINISTIC.some((re) => re.test(f.step ?? '') || re.test(f.job ?? '') || re.test(f.workflow ?? '')),
+    )
+  )
 }
 
 /** Verified red verdicts by tree (R8): only a completed, failed train run whose commit has that tree counts. */
@@ -640,8 +777,8 @@ async function verifiedKnownRed(api, known) {
   for (const entry of known ?? []) {
     try {
       const run = await api.getRun(entry.run)
-      if (run.headRepo !== api.repo || run.event !== 'workflow_dispatch' || !String(run.headBranch).startsWith(REF_ROOT)) continue
-      if (run.status !== 'completed' || run.conclusion === 'success') continue
+      if (run.headRepo !== api.repo || !String(run.headBranch).startsWith(BATCH_PREFIX) || !isTrainDispatch(run, run.headBranch)) continue
+      if (run.status !== 'completed' || run.conclusion !== 'failure') continue
       if ((await api.getCommit(run.headSha)).tree === entry.tree) trees.add(entry.tree)
     } catch {
       // An entry that cannot be checked is ignored.
@@ -684,7 +821,7 @@ export async function runBatchTrain(api, opts = {}) {
 
   // R6: stop the line.
   const mainSha = await api.getRef(base)
-  const health = mainHealth({ mainRuns: await api.mainRuns(), tip: await api.getCommit(mainSha) })
+  const health = mainHealth({ mainRuns: await api.mainRuns(), tip: await api.getCommit(mainSha), tipStatus: await api.trainStatus(mainSha) })
   if (health.paused) {
     if (health.dispatch) await api.dispatchWorkflow('ci.yml', base)
     note('paused', health.reason)
@@ -702,13 +839,7 @@ export async function runBatchTrain(api, opts = {}) {
     note('idle', `no pull request is labelled ${LABEL}`)
     return actions
   }
-  const cars = []
-  for (const entry of queue.slice(0, size)) {
-    const info = await carInfo(api, entry, { now, timeoutMinutes, baseSha: mainSha })
-    if (!info) break
-    cars.push(info)
-    if (!info.eligible || !info.cls.batchable || info.cls.solo || info.cls.leave) break
-  }
+  const cars = await headCars(api, queue, { now, timeoutMinutes, size, baseSha: mainSha })
   const plan = planBatch(cars, size)
   if (plan.idle) {
     note('idle', 'nothing to batch')
@@ -755,18 +886,35 @@ async function driveBatch(api, ref, ctx) {
   const manifest = parseManifest(tipCommit.message)
   if (!manifest || manifest.mode === 'shadow') return abort('no valid manifest')
   if (manifest.base !== mainSha) return abort(`main moved from ${short(manifest.base)} to ${short(mainSha)}; rebuilding`)
-  for (const car of manifest.cars) {
-    const why = await carProblem(api, car)
+
+  // M4: the manifest's choice of cars is a claim. The train plans again on the live queue (labeller roles, R3, R4,
+  // R9, queue order) and requires exactly those cars; then the per-car checks, with the labeller.
+  const queue = orderQueue(await api.listQueue())
+  const replan = await replanMatches(api, manifest, queue, { now, timeoutMinutes, size: ctx.size, baseSha: mainSha })
+  if (replan.problem) return abort(replan.problem)
+  const infos = replan.infos
+  for (const [i, car] of manifest.cars.entries()) {
+    const why = await carProblem(api, car, infos[i].labeledBy)
     if (why) return abort(`#${car.number}: ${why}`)
   }
-  const files = []
-  for (const car of manifest.cars) files.push(...(await api.prFiles(car.number)).files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean)))
-  const gates = requiredGates(files)
-  const runs = await api.tipRuns(tip)
+
+  // R1: the train re-derives the chain before anything about this batch counts (L8: the timeout included).
+  const derive = async (tag) => rederive(api, manifest.base, manifest.cars, `${id}-${tag}`)
+  const carCommits = []
+  for (const car of manifest.cars) carCommits.push(await api.getCommit(car.sha))
+  const rederived = await derive('a')
+  const mismatch = verifyChain({ manifest, tipCommit, carCommits, rederived })
+  if (mismatch) return abort(`integrity: ${mismatch}`)
+
+  const gates = requiredGates(carPaths(infos))
+  const runs = await api.tipRuns(tip, ref)
   const jobs = {}
   for (const run of runs.filter((x) => x.status === 'completed' && x.conclusion !== 'success')) jobs[run.id] = await api.runJobs(run.id)
   const verdict = evaluateBatchCI({ gates, runs, jobs })
-  const age = now - Date.parse(tipCommit.date ?? new Date(now).toISOString())
+  // L8: the batch's age comes from the train run that built it (its id is in the manifest), not a commit date.
+  const builtAt = await batchStartedAt(api, manifest)
+  if (builtAt === null) return abort('the train run that built this batch could not be found')
+  const age = now - builtAt
 
   if (verdict.state === 'missing' || verdict.state === 'pending') {
     if (age > timeoutMinutes * 60_000) {
@@ -795,14 +943,6 @@ async function driveBatch(api, ref, ctx) {
     return
   }
 
-  // R1: before the verdict counts, the train re-derives the chain.
-  const derive = async (tag) => rederive(api, manifest.base, manifest.cars, `${id}-${tag}`)
-  const carCommits = []
-  for (const car of manifest.cars) carCommits.push(await api.getCommit(car.sha))
-  const rederived = await derive('a')
-  const mismatch = verifyChain({ manifest, tipCommit, carCommits, rederived })
-  if (mismatch) return abort(`integrity: ${mismatch}`)
-
   if (verdict.state === 'red') {
     let flaked = new Set()
     const previous = (await api.recentBatchRuns()).filter((x) => x.headSha !== tip && x.status === 'completed')[0]
@@ -826,7 +966,8 @@ async function driveBatch(api, ref, ctx) {
     }
     // R8: the linear fallback. Car 1 alone first; the red tree is remembered so a later identical tree is not rerun.
     await api.deleteRef(ref)
-    const known = [...manifest.known, { tree: tipCommit.tree, run: ciRun.id }].slice(-MAX_BATCH)
+    // L2: only a deterministic red may later stand for this tree; otherwise every car gets its own run.
+    const known = isDeterministicRed(verdict.failed) ? [...manifest.known, { tree: tipCommit.tree, run: ciRun.id }].slice(-MAX_BATCH) : manifest.known
     await startFallback(api, { cars: manifest.cars.map((c) => c.number), known, mainSha, id, note, now, timeoutMinutes, log })
     note('fallback', `batch ${manifest.id} red (${failure}); testing #${manifest.cars[0].number} alone`)
     return
@@ -842,7 +983,7 @@ async function driveBatch(api, ref, ctx) {
   let stop = null
   for (let i = 0; i < k; i++) {
     const car = manifest.cars[i]
-    const why = await carProblem(api, car)
+    const why = await carProblem(api, car, infos[i].labeledBy)
     if (why) {
       stop = `#${car.number}: ${why}`
       break
@@ -856,18 +997,28 @@ async function driveBatch(api, ref, ctx) {
     try {
       await api.mergePull(car.number, car.head, text.title, text.message)
     } catch (error) {
-      stop = `#${car.number}: GitHub refused the merge (${cleanName(String(error?.message ?? error))})`
+      const reason = cleanName(String(error?.message ?? error))
+      stop = `#${car.number}: GitHub refused the merge (${reason})`
+      // L3: a refusal of car 1 that is not "the head moved" (409) would only repeat: the car leaves, as in v1.
+      if (i === 0 && error?.status !== 409) {
+        await comment(api, car.number, `left the queue: GitHub refused the merge (${reason}). It needs a merge by hand.`)
+        await api.removeLabel(car.number)
+      }
       break
     }
     const newMain = await api.getRef(api.base ?? 'main')
     const after = await api.getCommit(newMain)
     merged = i + 1
-    if (after.parents.length !== 2 || after.parents[0] !== prev || after.parents[1] !== car.head) {
-      stop = `incident: main ${short(newMain)} has parents ${after.parents.map(short).join(', ')}, not [${short(prev)}, ${short(car.head)}]`
-      break
-    }
-    if (after.tree !== rederived[i]) {
-      stop = `incident: main ${short(newMain)} has a tree that is not the derived one`
+    const incident =
+      after.parents.length !== 2 || after.parents[0] !== prev || after.parents[1] !== car.head
+        ? `incident: main ${short(newMain)} has parents ${after.parents.map(short).join(', ')}, not [${short(prev)}, ${short(car.head)}]`
+        : after.tree !== rederived[i]
+          ? `incident: main ${short(newMain)} has a tree that is not the derived one`
+          : null
+    if (incident) {
+      // L1: the commit is marked, so stop-the-line holds even at the last car (k/k, a fallback's 1/1).
+      await api.postStatus(newMain, { state: 'failure', context: 'merge-train', description: `Batch ${manifest.id}: ${incident}`.slice(0, 140), target_url: ciRun.htmlUrl })
+      stop = incident
       break
     }
     await comment(api, car.number, `merged ${short(car.head)} in batch ${manifest.id} (${i + 1}/${k}), tested in ${ciRun.htmlUrl}.`)
@@ -937,15 +1088,27 @@ export async function runShadow(api, opts = {}) {
     const tip = await api.getRef(name)
     const tipCommit = await api.getCommit(tip)
     const manifest = parseManifest(tipCommit.message)
-    if (!manifest) return api.deleteRef(name)
-    const files = []
-    for (const car of manifest.cars) files.push(...(await api.prFiles(car.number)).files.map((f) => f.filename))
-    const runs = await api.tipRuns(tip)
+    if (!manifest || manifest.mode !== 'shadow') return api.deleteRef(name)
+    const cars = []
+    for (const car of manifest.cars) cars.push({ files: (await api.prFiles(car.number)).files })
+    const runs = await api.tipRuns(tip, name)
     const jobs = {}
     for (const run of runs.filter((x) => x.status === 'completed' && x.conclusion !== 'success')) jobs[run.id] = await api.runJobs(run.id)
-    const verdict = evaluateBatchCI({ gates: requiredGates(files), runs, jobs })
-    const age = now - Date.parse(tipCommit.date ?? new Date(now).toISOString())
+    // The same path list as the real mode (renames' old paths included).
+    const verdict = evaluateBatchCI({ gates: requiredGates(carPaths(cars)), runs, jobs })
+    const builtAt = await batchStartedAt(api, manifest)
+    const age = builtAt === null ? Number.POSITIVE_INFINITY : now - builtAt
     if (verdict.state === 'green' || verdict.state === 'red' || age > 24 * 3_600_000) {
+      // L6: a shadow verdict counts toward the rollout metrics only after the same R1 check as a real batch.
+      const carCommits = []
+      for (const car of manifest.cars) carCommits.push(await api.getCommit(car.sha))
+      const rederived = await rederive(api, manifest.base, manifest.cars, `${runId}-${runAttempt}-s`)
+      const mismatch = verifyChain({ manifest, tipCommit, carCommits, rederived })
+      if (mismatch || builtAt === null) {
+        log(`merge-train-shadow unverified ${JSON.stringify({ id: manifest.id, reason: mismatch ?? 'no train run built it' })}`)
+        await api.deleteRef(name)
+        return
+      }
       const outcome = []
       for (const car of manifest.cars) {
         const pr = await api.getPull(car.number)

@@ -28,6 +28,22 @@ export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Accessibility scan (axe)', 'Memo
  * ci.yml always; the others only when they ran on the head before the update.
  */
 export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml']
+/**
+ * Workflow names by file. GitHub's run `name` is the run-name when a workflow sets one (ci.yml titles its runs
+ * "PR #N · …" and "Full check · <ref>"), so a run is identified by its workflow file, never by that name.
+ */
+export const WORKFLOW_NAME_BY_FILE = {
+  'ci.yml': CI_WORKFLOW,
+  'a11y-axe.yml': 'Accessibility scan (axe)',
+  'memory-compatibility.yml': 'Memory compatibility',
+  'android.yml': 'Android',
+  'provider-contract.yml': 'Provider contract',
+}
+/** The workflow name for a run's `path` (".github/workflows/ci.yml"), or `fallback` for an unlisted file. */
+export function workflowName(path, fallback) {
+  const file = String(path ?? '').split('/').pop()
+  return Object.hasOwn(WORKFLOW_NAME_BY_FILE, file) ? WORKFLOW_NAME_BY_FILE[file] : fallback
+}
 export const DEFAULT_TIMEOUT_MINUTES = 60
 /** How long a head may sit with no CI run at all before the train dispatches one itself. */
 export const DISPATCH_GRACE_MS = 3 * 60_000
@@ -618,7 +634,8 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
     },
     async listRuns(sha) {
       return (await ownRuns(sha)).map((run) => ({
-        name: run.name,
+        // A run's `name` is its run-name ("PR #N · …", "Full check · …"), not the workflow's: identify it by path.
+        name: workflowName(run.path, run.name),
         path: run.path,
         headSha: run.head_sha,
         status: run.status,

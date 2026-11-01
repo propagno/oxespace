@@ -136,18 +136,27 @@ jobs:
       - name: Resolve checkout ref
         id: ref
         shell: pwsh
+        # Values come in through env, never pasted into the script: a branch name may hold quotes or `$`.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BRANCH_INPUT: ${{ inputs.branch }}
+          REF_NAME: ${{ github.ref_name }}
+          GIT_REF: ${{ github.ref }}
+          RUN_SHA: ${{ github.sha }}
         run: |
           $ErrorActionPreference = 'Stop'
-          # Manual runs: GitHub "Use workflow from" is github.ref_name.
-          # Optional inputs.branch overrides that when non-empty.
-          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $override = '${{ inputs.branch }}'.Trim()
-            $ref = if ($override) { $override } else { '${{ github.ref_name }}' }
+          # Manual runs: GitHub "Use workflow from" is github.ref_name, and the run builds the commit that ref
+          # pointed at when the run was created (github.sha), never the ref by name when the job starts: a ref
+          # that moves in between (a merge-train batch ref, a pushed branch) must not change what this run tests.
+          # Only a non-empty inputs.branch naming another ref builds that ref by name.
+          if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+            $override = "$env:BRANCH_INPUT".Trim()
+            $ref = if ($override -and $override -ne $env:REF_NAME) { $override } else { $env:RUN_SHA }
             if ([string]::IsNullOrWhiteSpace($ref)) {
               throw 'workflow_dispatch could not resolve a branch (set Use workflow from, or branch input).'
             }
           } else {
-            $ref = '${{ github.ref }}'
+            $ref = $env:GIT_REF
           }
           "ref=$ref" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Checkout ref: $ref"

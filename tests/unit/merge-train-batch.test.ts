@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { load } from 'js-yaml'
 import { describe, expect, it } from 'vitest'
@@ -12,6 +12,11 @@ import {
   VERIFY_PREFIX,
   WORKFLOW_GATES,
   buildChain,
+  countedMainRuns,
+  countedTipRuns,
+  isDeterministicRed,
+  isTrainDispatch,
+  replanMatches,
   classifyCar,
   classifyMigration,
   evaluateBatchCI,
@@ -29,6 +34,8 @@ import {
   verifyChain,
   // @ts-expect-error -- a plain ES module script without type declarations
 } from '../../scripts/merge-train-batch.mjs'
+// @ts-expect-error -- a plain ES module script without type declarations
+import { createGitHubApi, workflowName } from '../../scripts/merge-train.mjs'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any
@@ -69,7 +76,7 @@ function fakeGitHub() {
   const jobs = new Map<string, Any[]>()
   let nextComment = 1
   let nextRun = 100
-  const hooks: { beforeMergePull?: (n: number) => void; mergeTree?: (patches: string[]) => string[]; fastForward?: boolean } = {}
+  const hooks: { beforeMergePull?: (n: number) => void; mergeTree?: (patches: string[]) => string[]; fastForward?: boolean; afterMergeInto?: (ref: string) => void } = {}
   const fs = new Map<string, string>() // `${path}@${sha}` -> text
 
   const api: Any = {
@@ -78,7 +85,7 @@ function fakeGitHub() {
     writes,
     // v1 surface
     async listQueue() {
-      return [...prs.values()].filter((p) => p.state === 'open' && p.labels.has('na-fila')).map((p) => ({ number: p.number, labeledAt: p.labeledAt, labeledBy: 'maintainer' }))
+      return [...prs.values()].filter((p) => p.state === 'open' && p.labels.has('na-fila')).map((p) => ({ number: p.number, labeledAt: p.labeledAt, labeledBy: p.labeledBy ?? 'maintainer' }))
     },
     async getPull(n: number) {
       const p = prs.get(n)
@@ -102,8 +109,9 @@ function fakeGitHub() {
     async requiredChecks() {
       return []
     },
-    async collaboratorRole() {
-      return 'write'
+    roles: {} as Record<string, string>,
+    async collaboratorRole(login: string) {
+      return api.roles[login] ?? 'write'
     },
     async listComments(n: number) {
       return comments.get(n) ?? []
@@ -160,10 +168,13 @@ function fakeGitHub() {
       if (clash(a, b)) return { status: 409 }
       if (hooks.fastForward && a.every((x) => b.includes(x))) {
         refs.set(name, head)
-        return { status: 201 }
+        hooks.afterMergeInto?.(name)
+        return { status: 201, sha: head }
       }
-      refs.set(name, commit([...a, ...b], [prev, head], `Merge ${head}`))
-      return { status: 201 }
+      const made = commit([...a, ...b], [prev, head], `Merge ${head}`)
+      refs.set(name, made)
+      hooks.afterMergeInto?.(name)
+      return { status: 201, sha: made }
     },
     async getCommit(sha: string) {
       const c = commits.get(sha)
@@ -184,8 +195,12 @@ function fakeGitHub() {
     async issueLabels(n: number) {
       return [...prs.get(n).labels]
     },
-    async tipRuns(sha: string) {
-      return runs.filter((r) => r.headSha === sha)
+    async tipRuns(sha: string, ref: string) {
+      return countedTipRuns(runs, { sha, ref, repo: 'o/r' })
+    },
+    async trainStatus(sha: string) {
+      const own = writes.filter(([w, at, st]) => w === 'status' && at === sha && st.context === 'merge-train')
+      return own.length ? own[own.length - 1][2].state : null
     },
     async getRun(id: number) {
       return runs.find((r) => r.id === id)
@@ -198,7 +213,7 @@ function fakeGitHub() {
     },
     mainRunList: [] as Any[],
     async mainRuns() {
-      return api.mainRunList
+      return countedMainRuns(api.mainRunList, { repo: 'o/r', base: 'main' })
     },
     async recentBatchRuns() {
       return runs.filter((r) => String(r.headBranch).startsWith(BATCH_PREFIX)).sort((a, b) => b.id - a.id)
@@ -239,16 +254,19 @@ function fakeGitHub() {
     return head
   }
   /** Completed runs of every gate on a tip, all green unless `red` names one with a failing job. */
-  const ci = (tip: string, branch: string, opts: { red?: string; job?: string; step?: string; conclusion?: string; attempt?: number; pending?: boolean } = {}) => {
+  const ci = (tip: string, branch: string, opts: { red?: string; job?: string; step?: string; conclusion?: string; attempt?: number; pending?: boolean; actor?: string; green?: boolean } = {}) => {
     const gates = requiredGates(
       [...new Set(parseManifest(commits.get(tip)!.message)!.cars.flatMap((c: Any) => prs.get(c.number).files.map((f: Any) => f.filename)))],
     )
     for (const gate of gates) {
       const id = nextRun++
-      const red = opts.red === gate.name
+      const red = opts.red === gate.name && !opts.green
       runs.push({
         id,
         name: gate.name,
+        path: `.github/workflows/${gate.file}`,
+        displayTitle: gate.file === 'ci.yml' ? `Full check · ${branch}` : gate.name,
+        triggeringActor: opts.actor ?? 'github-actions[bot]',
         headSha: tip,
         headBranch: branch,
         headRepo: 'o/r',
@@ -263,6 +281,10 @@ function fakeGitHub() {
     }
   }
   const batchRef = () => [...refs.keys()].find((k) => k.startsWith(BATCH_PREFIX))
+  /** The merge-train run a train() call stands for: the batch age comes from its start (L8). */
+  const trainRun = (id: number, at = clock) => {
+    if (!runs.some((r) => r.id === id)) runs.push({ id, name: 'Merge train', path: '.github/workflows/merge-train.yml', headRepo: 'o/r', headBranch: 'main', event: 'schedule', status: 'in_progress', createdAt: new Date(at).toISOString() })
+  }
   return {
     api,
     refs,
@@ -280,6 +302,7 @@ function fakeGitHub() {
     commit,
     treeOf,
     batchRef,
+    trainRun,
     tick: (ms: number) => (clock += ms),
     get now() {
       return clock
@@ -287,8 +310,10 @@ function fakeGitHub() {
   }
 }
 
-const train = (gh: ReturnType<typeof fakeGitHub>, runId: number, over: Any = {}) =>
-  runBatchTrain(gh.api, { now: gh.now, size: 3, runId: String(runId), runAttempt: '1', ...over })
+const train = (gh: ReturnType<typeof fakeGitHub>, runId: number, over: Any = {}) => {
+  gh.trainRun(runId)
+  return runBatchTrain(gh.api, { now: gh.now, size: 3, runId: String(runId), runAttempt: '1', ...over })
+}
 const kinds = (writes: Array<[string, ...Any[]]>, kind: string) => writes.filter(([w]) => w === kind)
 
 describe('batch train: the happy path', () => {
@@ -418,6 +443,13 @@ describe('R2: green means every path-matched gate passed on the tip', () => {
     // Memory compatibility runs inside a dispatched ci.yml.
     const ci = workflow('ci.yml')
     expect(ci.jobs['memory-compatibility'].uses).toMatch(/memory-compatibility\.yml/)
+  })
+
+  it('L4: every workflow that runs on pull requests is a gate in the table', () => {
+    const files = readdirSync(join('.github', 'workflows')).filter((f) => f.endsWith('.yml'))
+    const onPullRequest = files.filter((f) => workflow(f).on?.pull_request !== undefined)
+    expect(onPullRequest.sort()).toEqual(WORKFLOW_GATES.map((g: Any) => g.file).sort())
+    expect(requiredGates(['scripts/probe-providers.cjs']).map((g: Any) => g.name)).toEqual(['CI and Release', 'Accessibility scan (axe)', 'Provider contract'])
   })
 
   it('picks the gates from the changed paths', () => {
@@ -568,8 +600,43 @@ describe('R5 and R11: building the chain', () => {
     gh.hooks.fastForward = false
     const noop = await buildChain(gh.api, 'merge-train/t3', head, [{ number: 1, head }])
     expect(noop).toMatchObject({ stopAt: 0, reason: 'nothing to merge' })
-    const odd = { ...gh.api, mergeInto: async (name: string) => (gh.refs.set(name, gh.commit(['x'], ['y'.repeat(40)])), { status: 201 }) }
+    const odd = {
+      ...gh.api,
+      mergeInto: async (name: string) => {
+        const weird = gh.commit(['x'], ['y'.repeat(40)])
+        gh.refs.set(name, weird)
+        return { status: 201, sha: weird }
+      },
+    }
     expect(await buildChain(odd, 'merge-train/t4', main, [{ number: 1, head }])).toMatchObject({ stopAt: 0, reason: 'unexpected merge result' })
+  })
+
+  it('M2: uses the commit POST /merges returned, and stops when the ref was swapped under it', async () => {
+    const gh = fakeGitHub()
+    const head = gh.pr(1)
+    const main = gh.refs.get('main')!
+    const evil = gh.commit(['m0', 'p1', 'evil'], [main, head])
+    gh.hooks.afterMergeInto = (ref) => gh.refs.set(ref, evil)
+    expect(await buildChain(gh.api, 'merge-train/t5', main, [{ number: 1, head }])).toMatchObject({ stopAt: 0, reason: 'the ref moved under the train', steps: [] })
+    // The train never builds a batch on it: car 1 goes to v1, and nothing is dispatched on a train ref.
+    const actions = await train(gh, 10)
+    expect(actions[0]).toMatchObject({ type: 'single', number: 1 })
+    expect(kinds(gh.writes, 'dispatch').filter(([, , ref]) => String(ref).startsWith('merge-train/'))).toEqual([])
+  })
+
+  it('M2: a batch tip swapped right after the train wrote it is not dispatched', async () => {
+    const gh = fakeGitHub()
+    gh.pr(1)
+    gh.pr(2)
+    const updateRef = gh.api.updateRef
+    gh.api.updateRef = async (name: string, sha: string) => {
+      await updateRef(name, sha)
+      gh.refs.set(name, gh.commit(['m0', 'p1', 'p2', 'evil'], [sha]))
+    }
+    const actions = await train(gh, 10)
+    expect(actions[0].type).toBe('single')
+    expect(gh.batchRef()).toBeUndefined()
+    expect(kinds(gh.writes, 'dispatch').filter(([, , ref]) => String(ref).startsWith('merge-train/'))).toEqual([])
   })
 })
 
@@ -599,7 +666,11 @@ describe('R6: merging car by car, and stop the line', () => {
     const paused = await train(gh, 12)
     expect(paused[0]).toMatchObject({ type: 'paused' })
     expect(paused[0].message).toMatch(/inside batch 10-1 \(1\/3\)/)
-    gh.api.mainRunList = [{ headSha: gh.refs.get('main'), status: 'completed', conclusion: 'success', createdAt: new Date(gh.now).toISOString() }]
+    // A person's dispatch on main never lifts the pause (M1); the train's own one does.
+    const mainRun = (over: Any) => ({ headSha: gh.refs.get('main'), headRepo: 'o/r', headBranch: 'main', path: '.github/workflows/ci.yml', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', createdAt: new Date(gh.now).toISOString(), ...over })
+    gh.api.mainRunList = [mainRun({ triggeringActor: 'someone', displayTitle: 'Full check · main' })]
+    expect((await train(gh, 13))[0].type).toBe('paused')
+    gh.api.mainRunList = [mainRun({ triggeringActor: 'github-actions[bot]', displayTitle: 'Full check · main' })]
     expect((await train(gh, 13))[0].type).not.toBe('paused')
   })
 
@@ -641,7 +712,9 @@ describe('R6: merging car by car, and stop the line', () => {
     const tip = { sha: 'a'.repeat(40), message: 'Merge pull request #1\n\nMerge-Train-Batch: 9-1 1/2\nTested-Run: x' }
     expect(mainHealth({ mainRuns: [], tip })).toMatchObject({ paused: true, dispatch: true })
     expect(mainHealth({ mainRuns: [{ headSha: tip.sha, status: 'in_progress' }], tip })).toMatchObject({ paused: true, dispatch: false })
-    expect(mainHealth({ mainRuns: [], tip: { ...tip, message: 'Merge-Train-Batch: 9-1 2/2' } })).toMatchObject({ paused: false })
+    // A finished batch (2/2) carries the train's success status; without it, the line stops (L1).
+    expect(mainHealth({ mainRuns: [], tip: { ...tip, message: 'Merge-Train-Batch: 9-1 2/2' }, tipStatus: 'success' })).toMatchObject({ paused: false })
+    expect(mainHealth({ mainRuns: [], tip: { ...tip, message: 'Merge-Train-Batch: 9-1 2/2' } })).toMatchObject({ paused: true })
     expect(parseBatchTrailer('x\nMerge-Train-Batch: 9-1 2/3\n')).toEqual({ id: '9-1', index: 2, count: 3 })
   })
 })
@@ -790,12 +863,225 @@ describe('R8 and Q3: red batches', () => {
   })
 })
 
+/** A batch ref built by hand with the train's own merges, as a writer could: a manifest with any cars. */
+async function forge(gh: ReturnType<typeof fakeGitHub>, numbers: number[], over: Any = {}) {
+  const main = gh.refs.get('main')!
+  const ref = `${BATCH_PREFIX}${over.id ?? '5-1'}`
+  const chain = await buildChain(gh.api, ref, main, numbers.map((n) => ({ number: n, head: gh.prs.get(n).head })))
+  const manifest = { v: 1, id: over.id ?? '5-1', mode: over.mode ?? 'batch', base: main, cars: chain.steps.map(({ number, head, sha }: Any) => ({ number, head, sha })), rest: over.rest ?? [], known: [] }
+  const last = chain.steps.at(-1)
+  const tip = await gh.api.createCommit({ message: renderManifest(manifest), tree: over.tree ?? last.tree, parents: [last.sha] })
+  gh.refs.set(ref, tip)
+  return { ref, tip }
+}
+
+describe('SECURITY review of #379', () => {
+  it('M1: only the train-dispatched "Full check · <ref>" run, on that ref and commit, counts', () => {
+    const base = { event: 'workflow_dispatch', triggeringActor: 'github-actions[bot]', path: '.github/workflows/ci.yml', displayTitle: 'Full check · merge-train/batch-1-1', headRepo: 'o/r', headSha: 'a'.repeat(40), headBranch: 'merge-train/batch-1-1' }
+    const at = { sha: 'a'.repeat(40), ref: 'merge-train/batch-1-1', repo: 'o/r' }
+    expect(isTrainDispatch(base, at.ref)).toBe(true)
+    expect(isTrainDispatch({ ...base, triggeringActor: 'propagno' }, at.ref)).toBe(false)
+    expect(isTrainDispatch({ ...base, displayTitle: 'Full check · green-branch' }, at.ref)).toBe(false)
+    expect(isTrainDispatch({ ...base, displayTitle: 'Publish · merge-train/batch-1-1' }, at.ref)).toBe(false)
+    expect(isTrainDispatch({ ...base, event: 'push' }, at.ref)).toBe(false)
+    expect(isTrainDispatch({ ...base, path: '.github/workflows/a11y-axe.yml', displayTitle: 'Accessibility scan (axe)' }, at.ref)).toBe(true)
+    expect(countedTipRuns([base, { ...base, headBranch: 'other' }, { ...base, headSha: 'b'.repeat(40) }, { ...base, headRepo: 'fork/r' }], at)).toEqual([base])
+    const main = { ...base, displayTitle: 'Full check · main', headBranch: 'main' }
+    expect(countedMainRuns([main, { ...main, triggeringActor: 'propagno' }, { ...main, event: 'push', triggeringActor: 'propagno' }], { repo: 'o/r', base: 'main' })).toHaveLength(2)
+  })
+
+  it('M1: a newer green run dispatched by a person cannot replace the train run that failed', async () => {
+    const gh = fakeGitHub()
+    gh.pr(1)
+    gh.pr(2)
+    await train(gh, 10)
+    const ref = gh.batchRef()!
+    const tip = gh.refs.get(ref)!
+    gh.ci(tip, ref, { red: 'CI and Release' })
+    gh.tick(60_000)
+    gh.ci(tip, ref, { actor: 'propagno' })
+    expect((await train(gh, 11))[0].type).toBe('fallback')
+    expect(kinds(gh.writes, 'mergePull')).toEqual([])
+  })
+
+  it('M1: ci.yml builds the dispatched commit, not the ref by name, and pastes no value into the script', () => {
+    const ci = load(readFileSync(join('.github', 'workflows', 'ci.yml'), 'utf8')) as Any
+    const step = ci.jobs.build.steps.find((s: Any) => s.id === 'ref')
+    expect(step.env).toMatchObject({ RUN_SHA: '${{ github.sha }}', BRANCH_INPUT: '${{ inputs.branch }}', REF_NAME: '${{ github.ref_name }}' })
+    expect(step.run).not.toContain('${{')
+    expect(step.run).toContain('$override -and $override -ne $env:REF_NAME')
+    expect(step.run).toMatch(/else \{ \$env:RUN_SHA \}/)
+  })
+
+  it('M4: a forged batch of two migration cars is aborted', async () => {
+    const gh = fakeGitHub()
+    const dir = 'electron/main/db/migrations/'
+    for (const n of [1, 2]) {
+      gh.pr(n)
+      gh.prs.get(n).files = [{ filename: `${dir}088_m${n}.sql`, status: 'added' }, { filename: DB_INDEX, status: 'modified' }]
+      gh.fs.set(`${DB_INDEX}@${gh.prs.get(n).head}`, 'export const LATEST_DB_VERSION = 88')
+    }
+    const { ref, tip } = await forge(gh, [1, 2])
+    gh.trainRun(5)
+    gh.ci(tip, ref)
+    const actions = await train(gh, 11)
+    expect(actions[0]).toMatchObject({ type: 'abort' })
+    expect(actions[0].message).toMatch(/the live queue plans #1, not #1 #2/)
+    expect(kinds(gh.writes, 'mergePull')).toEqual([])
+  })
+
+  it('M4: cars out of queue order, or a car labelled by a triage user, are aborted', async () => {
+    const gh = fakeGitHub()
+    gh.pr(1)
+    gh.pr(2)
+    const out = await forge(gh, [2, 1])
+    gh.trainRun(5)
+    gh.ci(out.tip, out.ref)
+    expect((await train(gh, 11))[0].message).toMatch(/plans #1 #2, not #2 #1/)
+    const other = fakeGitHub()
+    other.pr(1)
+    other.pr(2, ['src/f2.ts'], { labeledBy: 'drive-by' })
+    other.api.roles['drive-by'] = 'triage'
+    const forged = await forge(other, [1, 2])
+    other.trainRun(5)
+    other.ci(forged.tip, forged.ref)
+    const actions = await train(other, 11)
+    expect(actions[0].message).toMatch(/plans #1, not #1 #2/)
+    expect(kinds(other.writes, 'mergePull')).toEqual([])
+    // replanMatches on its own: a fallback whose rest is not in queue order.
+    const third = fakeGitHub()
+    for (const n of [1, 2, 3]) third.pr(n)
+    const fallback = await forge(third, [1], { mode: 'fallback', rest: [3, 2] })
+    const manifest = parseManifest(third.commits.get(fallback.tip)!.message)
+    const queue = await third.api.listQueue()
+    expect(await replanMatches(third.api, manifest, queue, { now: third.now, size: 3, baseSha: third.refs.get('main') })).toMatchObject({ problem: /ordered part of the queue/ })
+    const ok = parseManifest(third.commits.get((await forge(third, [1], { id: '6-1', mode: 'fallback', rest: [2, 3] })).tip)!.message)
+    expect((await replanMatches(third.api, ok, queue, { now: third.now, size: 3, baseSha: third.refs.get('main') })).infos).toHaveLength(1)
+  })
+
+  it('L1: an incident at the last car pauses the line; so does a 1/1 or k/k commit without the success status', async () => {
+    const tip = (count: string) => ({ sha: 'a'.repeat(40), message: `Merge pull request #1\n\nMerge-Train-Batch: 9-1 ${count}\nTested-Run: x` })
+    expect(mainHealth({ mainRuns: [], tip: tip('2/2') }).paused).toBe(true)
+    expect(mainHealth({ mainRuns: [], tip: tip('1/1'), tipStatus: 'failure' }).paused).toBe(true)
+    expect(mainHealth({ mainRuns: [], tip: tip('2/2'), tipStatus: 'success' }).paused).toBe(false)
+    const gh = fakeGitHub()
+    gh.pr(1)
+    gh.pr(2)
+    await train(gh, 10)
+    const ref = gh.batchRef()!
+    gh.ci(gh.refs.get(ref)!, ref)
+    gh.hooks.mergeTree = (patches) => (patches.includes('p2') ? [...patches, 'surprise'] : patches)
+    const actions = await train(gh, 11)
+    expect(actions[0].message).toMatch(/incident/)
+    expect(kinds(gh.writes, 'mergePull')).toHaveLength(2)
+    expect(kinds(gh.writes, 'status').at(-1)![2]).toMatchObject({ state: 'failure', context: 'merge-train' })
+    expect((await train(gh, 12))[0].type).toBe('paused')
+  })
+
+  it('L2: only a deterministic failure becomes a reusable red verdict', async () => {
+    const f = (over: Any) => ({ workflow: 'CI and Release', job: 'build', step: 'Unit tests', conclusion: 'failure', ...over })
+    expect(isDeterministicRed([f({})])).toBe(true)
+    expect(isDeterministicRed([f({ conclusion: 'cancelled' })])).toBe(false)
+    expect(isDeterministicRed([f({ conclusion: 'timed_out' })])).toBe(false)
+    expect(isDeterministicRed([f({ step: 'E2E smoke (Linux)' })])).toBe(false)
+    expect(isDeterministicRed([f({ step: null })])).toBe(false)
+    expect(isDeterministicRed([])).toBe(false)
+    // A batch red only in E2E after its retry: the fallback carries no known red, so every car gets its own run.
+    const gh = fakeGitHub()
+    for (const n of [1, 2, 3]) gh.pr(n)
+    await train(gh, 10)
+    const ref = gh.batchRef()!
+    gh.ci(gh.refs.get(ref)!, ref, { red: 'CI and Release', step: 'E2E smoke (Linux)', attempt: 2 })
+    expect((await train(gh, 11))[0].type).toBe('fallback')
+    expect(parseManifest(gh.commits.get(gh.refs.get(gh.batchRef()!)!)!.message)!.known).toEqual([])
+  })
+
+  it('L3: GitHub refusing car 1 takes it out of the queue instead of rebuilding the same batch forever', async () => {
+    const gh = fakeGitHub()
+    gh.pr(1)
+    gh.pr(2)
+    await train(gh, 10)
+    const ref = gh.batchRef()!
+    gh.ci(gh.refs.get(ref)!, ref)
+    gh.api.mergePull = async () => {
+      throw Object.assign(new Error('Pull Request is not mergeable'), { status: 405 })
+    }
+    const actions = await train(gh, 11)
+    expect(actions[0].type).toBe('abort')
+    expect(kinds(gh.writes, 'unlabel').map(([, n]) => n)).toEqual([1])
+    expect(gh.comments.get(1)!.at(-1)!.body).toMatch(/GitHub refused the merge \(Pull Request is not mergeable\)/)
+    expect(gh.prs.get(2).labels.has('na-fila')).toBe(true)
+  })
+
+  it('L5: a change to the migration ladder without a migration file is a migration car that is never batched', () => {
+    expect(classifyMigration([{ filename: DB_INDEX, status: 'modified' }], 87, 88)).toMatchObject({ kind: 'invalid' })
+    const cls = classifyCar({ headRef: 'x', files: [{ filename: DB_INDEX, status: 'modified' }], complete: true, migration: classifyMigration([{ filename: DB_INDEX, status: 'modified' }], 87, 88) })
+    expect(cls.batchable).toBe(false)
+  })
+
+  it('L6: a forged shadow ref is logged as unverified and never as a verdict', async () => {
+    const gh = fakeGitHub()
+    gh.pr(1)
+    gh.pr(2)
+    gh.trainRun(20)
+    const lines: string[] = []
+    await runShadow(gh.api, { now: gh.now, runId: '20', log: (l: string) => lines.push(l) })
+    const ref = [...gh.refs.keys()].find((k) => k.startsWith(SHADOW_PREFIX))!
+    const real = gh.commits.get(gh.refs.get(ref)!)!
+    const forged = gh.commit([...real.patches, 'evil'], real.parents, real.message)
+    gh.refs.set(ref, forged)
+    gh.ci(forged, ref)
+    await runShadow(gh.api, { now: gh.now, runId: '21', log: (l: string) => lines.push(l) })
+    expect(lines.some((l) => l.startsWith('merge-train-shadow unverified'))).toBe(true)
+    expect(lines.some((l) => l.startsWith('merge-train-shadow {'))).toBe(false)
+  })
+
+  it('L8: an integrity failure is an abort before any timeout, and the age comes from the train run, not a commit date', async () => {
+    const gh = fakeGitHub()
+    gh.pr(1)
+    gh.trainRun(5, NOW - 10 * 3_600_000)
+    const real = await forge(gh, [1])
+    const tree = gh.treeOf(['m0', 'p1', 'evil'])
+    gh.refs.delete(real.ref)
+    await forge(gh, [1], { tree })
+    const actions = await train(gh, 11)
+    expect(actions[0].message).toMatch(/integrity/)
+    expect(kinds(gh.writes, 'unlabel')).toEqual([])
+    // A valid ref whose manifest names a run that is not a train run is aborted, not timed out.
+    const other = fakeGitHub()
+    other.pr(1)
+    await forge(other, [1], { id: '777-1' })
+    other.runs.push({ id: 777, path: '.github/workflows/ci.yml', headRepo: 'o/r', createdAt: new Date(NOW - 10 * 3_600_000).toISOString() })
+    const aborted = await train(other, 11)
+    expect(aborted[0].message).toMatch(/could not be found/)
+    expect(kinds(other.writes, 'unlabel')).toEqual([])
+  })
+})
+
+describe('run identity (found while fixing M1)', () => {
+  it("v1 knows a ci.yml run by its file, since GitHub's run name is the run title", async () => {
+    const respond = (data: unknown) => ({ ok: true, status: 200, json: async () => data, text: async () => '', headers: { get: () => '' } })
+    const fetchImpl = async () =>
+      respond({
+        workflow_runs: [
+          { name: 'PR #5 · fix things', path: '.github/workflows/ci.yml', event: 'pull_request', head_sha: 'a'.repeat(40), head_repository: { full_name: 'o/r' } },
+          { name: 'Full check · feat/x', path: '.github/workflows/ci.yml', event: 'workflow_dispatch', head_sha: 'a'.repeat(40), head_repository: { full_name: 'o/r' } },
+          { name: 'Accessibility scan (axe)', path: '.github/workflows/a11y-axe.yml', event: 'pull_request', head_sha: 'a'.repeat(40), head_repository: { full_name: 'o/r' } },
+        ],
+      })
+    const runs = await createGitHubApi({ token: 't', repo: 'o/r', fetchImpl }).listRuns('a'.repeat(40))
+    expect(runs.map((r: Any) => r.name)).toEqual(['CI and Release', 'CI and Release', 'Accessibility scan (axe)'])
+    expect(workflowName('.github/workflows/unknown.yml', 'x')).toBe('x')
+  })
+})
+
 describe('rollout', () => {
   it('shadow mode builds and tests a batch, logs the verdict, and never merges, comments or labels', async () => {
     const gh = fakeGitHub()
     gh.pr(1)
     gh.pr(2)
     const lines: string[] = []
+    gh.trainRun(20)
     await runShadow(gh.api, { now: gh.now, size: 3, runId: '20', log: (l: string) => lines.push(l) })
     const ref = [...gh.refs.keys()].find((k) => k.startsWith(SHADOW_PREFIX))!
     expect(ref).toBe(`${SHADOW_PREFIX}20-1`)
