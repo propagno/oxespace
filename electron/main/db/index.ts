@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 90
+export const LATEST_DB_VERSION = 91
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
@@ -523,6 +523,7 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 88) db.transaction(() => db.exec(readMigration('088_remote_devices.sql')))()
   if (startingVersion < 89) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('089_remote_gateway_listened.sql'))))()
   if (startingVersion < 90) db.transaction(() => db.exec(readMigration('090_accepted_project_config.sql')))()
+  if (startingVersion < 91) db.transaction(() => db.exec(readMigration('091_agent_seen.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */
