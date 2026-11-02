@@ -276,6 +276,14 @@ describe('registeredWorktree: the worktree of a conversation opens, a folder tha
     for (const path of ['//attacker/share', String.raw`\\attacker\share`, String.raw`\\?\C:\x`, String.raw`\\.\pipe\x`, 'relative/wt']) expect(registeredWorktree([project], path)).toBeNull()
   })
 
+  it('skips a registered worktree whose recorded path is not local, without touching it', () => {
+    const { project, worktree } = repoWithWorktree()
+    const planted = join(project, '.git', 'worktrees', 'planted')
+    mkdirSync(planted)
+    writeFileSync(join(planted, 'gitdir'), String.raw`\\attacker\share\.git`)
+    expect(registeredWorktree([project], worktree)).toBe(worktree)
+  })
+
   it('refuses a missing folder or one without .git', () => {
     expect(registeredWorktree([root], join(base, 'nowhere'))).toBeNull()
     expect(registeredWorktree([root], outside)).toBeNull()

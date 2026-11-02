@@ -47,10 +47,13 @@ export function registeredWorktree(projectRoots: string[], requested: string): s
     try { names = readdirSync(worktrees) } catch { continue }
     for (const name of names) {
       const adminDir = join(worktrees, name)
-      let back: string | null
-      try { back = real(resolve(adminDir, readFileSync(join(adminDir, 'gitdir'), 'utf8').trim())) } catch { back = null }
-      // The registered worktree's folder, as the repository recorded it; only now is the window's path read.
-      if (!back || comparable(dirname(back)) !== wanted) continue
+      // The registered worktree's .git as the repository recorded it, as text: a UNC path planted there is never touched
+      // either (SECURITY #507). Only a local path naming the window's folder goes on to the disk checks.
+      let recorded: string
+      try { recorded = resolve(adminDir, readFileSync(join(adminDir, 'gitdir'), 'utf8').trim()) } catch { continue }
+      if (!isLocalAbsolute(recorded) || comparable(dirname(recorded)) !== wanted) continue
+      const back = real(recorded)
+      if (!back) continue
       const root = real(requested)
       if (!root || real(join(root, '.git')) !== back) continue
       try {
