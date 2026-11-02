@@ -11,7 +11,7 @@ import { ThreadHunkReview } from './ThreadHunkReview'
 import { humanizeError } from '../../utils/humanizeError'
 import { relativeTurnPath } from '../../../shared/threadFilePath'
 import { parseProjectPath } from '../../lib/projectPath'
-import { usePathMenu } from '../PathMenu/usePathMenu'
+import { usePathMenu, WithPathMenu } from '../PathMenu/usePathMenu'
 
 /** A changed file's path relative to its checkout, with the checkout named when it is not the conversation's root. */
 export function TurnPath({ path, roots }: { path: string; roots: Array<string | null | undefined> }) {
@@ -65,7 +65,7 @@ const relativeKey = (path: string, roots: Array<string | null | undefined>): str
   return roots.some(root => root && /^[a-z]:[\\/]/i.test(root)) ? label.toLowerCase() : label
 }
 
-export function ThreadTurnChanges({ events, root, roots = [], onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment }: { events: ThreadEvent[]; root: string; roots?: Array<string | null | undefined>; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
+export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment }: { events: ThreadEvent[]; root: string; roots?: Array<string | null | undefined>; workspaceId?: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
   const { t } = useTranslation('thread')
   const [showAll, setShowAll] = useState(false)
   const [undo, setUndo] = useState<'idle' | 'confirm' | 'working'>('idle')
@@ -111,7 +111,9 @@ export function ThreadTurnChanges({ events, root, roots = [], onOpen, onViewChan
       const status = fileStates[relativeKey(entry.file.path, allRoots)]
       const label = relativeTurnPath(entry.file.path, allRoots).label
       return <div key={entry.key} className="thread-change-file">
-        <button type="button" onClick={() => onOpen(entry)} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>
+        {/* F33: the path menu on a changed file of the conversation's project. */}
+        <WithPathMenu request={(() => { const inProject = workspaceId && root ? parseProjectPath(entry.file.path, root) : null; return inProject && workspaceId ? { workspaceId, rootPath: root, relativePath: inProject.relativePath } : null })()} openInOxespace={() => onOpen(entry)}
+          render={onContextMenu => <button type="button" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>} />
         {status?.state === 'reverted' && <span className="thread-change-file-state">{t('files.reverted')}</span>}
         {status?.state === 'modified' && <span className="thread-change-file-state" title={t('files.editedLaterTitle')}>{t('files.editedLater')}</span>}
         {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={t('files.undoFileLabel', { path: label })} onClick={() => {

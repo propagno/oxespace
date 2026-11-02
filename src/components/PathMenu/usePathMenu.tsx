@@ -49,3 +49,11 @@ export function usePathMenu(request: OpenInRequest | null, options: { openInOxes
     : null
   return { menu, onContextMenu }
 }
+
+/** The path menu for one item of a list, without a component of its own: `render` gets the handler for its element. */
+export function WithPathMenu({ request, openInOxespace, render }: {
+  request: OpenInRequest | null; openInOxespace?: () => void; render(onContextMenu: (event: MouseEvent) => void): ReactElement
+}): ReactElement {
+  const { menu, onContextMenu } = usePathMenu(request, { openInOxespace })
+  return <>{render(onContextMenu)}{menu}</>
+}
