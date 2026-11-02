@@ -100,66 +100,84 @@ describe('a worktree root is the repository\'s own, checked both ways', () => {
   })
 })
 
-describe('a link to a network share is never followed (SECURITY, #518 review)', () => {
+describe('a link to a network share is never followed (SECURITY, #518 review and #520 re-review)', () => {
   const SHARE = '//oxe-probe.invalid/share'
-  /** A link at `at` naming `target`; false where this machine grants no symlink privilege. */
-  const link = (target: string, at: string, type: 'file' | 'dir'): boolean => {
-    try { symlinkSync(target, at, type); return true } catch { return false }
-  }
-  /** Each case must answer at once: a real lookup of the share takes seconds to fail. */
-  const fast = (check: () => void): void => {
-    const started = Date.now()
-    check()
-    expect(Date.now() - started).toBeLessThan(1000)
-  }
+  /** Whether this machine lets a test create a symlink (Windows: Developer Mode or admin). */
+  const canLink = (() => {
+    const probe = mkdtempSync(join(tmpdir(), 'oxe-link-probe-'))
+    try { symlinkSync(join(probe, 'nowhere'), join(probe, 'link'), 'file'); return true } catch { return false } finally { rmSync(probe, { recursive: true, force: true }) }
+  })()
+  const link = (target: string, at: string, type: 'file' | 'dir' | 'junction'): void => { symlinkSync(target, at, type) }
 
-  it('a .git that is a file link to a share', () => {
+  it.skipIf(!canLink)('a .git that is a file link to a share', () => {
     const folder = join(sandbox, 'git-to-share')
     mkdirSync(folder)
-    if (!link(`${SHARE}/repo/.git`, join(folder, '.git'), 'file')) return
-    fast(() => {
-      expect(gitCommonDir(folder)).toBeNull()
-      expect(findCheckoutRoot(join(folder, 'sub'))).toBe(folder)
-      expect(sameRepository(repo, folder)).toBe(false)
-      expect(worktreeOrWorkspaceRoot(repo, folder)).toBe(repo)
-    })
+    link(`${SHARE}/repo/.git`, join(folder, '.git'), 'file')
+    expect(staysLocal(join(folder, '.git'))).toBe(false)
+    expect(gitCommonDir(folder)).toBeNull()
+    expect(findCheckoutRoot(join(folder, 'sub'))).toBe(folder)
+    expect(sameRepository(repo, folder)).toBe(false)
+    expect(worktreeOrWorkspaceRoot(repo, folder)).toBe(repo)
   })
 
-  it('a gitdir pointer that passes through a folder link to a share, directly or through a local link', () => {
-    if (!link(SHARE, join(sandbox, 'evil'), 'dir')) return
+  it.skipIf(!canLink)('a gitdir pointer that passes through a folder link to a share, directly or through a local hop', () => {
+    link(SHARE, join(sandbox, 'evil'), 'dir')
     link(join(sandbox, 'evil'), join(sandbox, 'hop'), 'dir')
+    expect(staysLocal(join(sandbox, 'evil', 'repo', '.git'))).toBe(false)
+    expect(staysLocal(join(sandbox, 'hop', 'repo', '.git'))).toBe(false)
     for (const [name, pointer] of [['via-evil', 'evil/repo/.git/worktrees/x'], ['via-hop', 'hop/repo/.git/worktrees/x']]) {
       const folder = join(sandbox, name)
       mkdirSync(folder)
       writeFileSync(join(folder, '.git'), `gitdir: ../${pointer}\n`)
-      fast(() => {
-        expect(gitCommonDir(folder)).toBeNull()
-        expect(sameRepository(repo, folder)).toBe(false)
-        expect(resolveSessionLocation(folder, repo)).toMatchObject({ sameRepository: false })
-      })
+      expect(gitCommonDir(folder)).toBeNull()
+      expect(sameRepository(repo, folder)).toBe(false)
+      expect(resolveSessionLocation(folder, repo)).toMatchObject({ sameRepository: false })
     }
-    fast(() => expect(resolveSessionLocation(join(sandbox, 'hop', 'repo'), repo)).toBeNull())
+    expect(resolveSessionLocation(join(sandbox, 'hop', 'repo'), repo)).toBeNull()
+    expect(resolveSessionLocation(worktree, join(sandbox, 'hop', 'repo'))).toMatchObject({ sameRepository: false })
   })
 
-  it('a commondir that is a link to a share', () => {
+  it.skipIf(!canLink)('a commondir that is a link to a share', () => {
     const admin = join(repo, '.git', 'worktrees', 'wt-real')
     rmSync(join(admin, 'commondir'))
-    if (!link(`${SHARE}/common`, join(admin, 'commondir'), 'file')) return
-    fast(() => {
-      expect(gitCommonDir(worktree)).toBeNull()
-      expect(sameRepository(repo, worktree)).toBe(false)
-    })
+    link(`${SHARE}/common`, join(admin, 'commondir'), 'file')
+    expect(staysLocal(join(admin, 'commondir'))).toBe(false)
+    expect(gitCommonDir(worktree)).toBeNull()
+    expect(sameRepository(repo, worktree)).toBe(false)
   })
 
-  it('local links still resolve, and a link cycle ends', () => {
+  it.skipIf(!canLink || process.platform !== 'win32')('a link written in device or NT-namespace form is refused (H1)', () => {
+    for (const [name, target] of [
+      ['globalroot', String.raw`\\?\GLOBALROOT\Device\Mup\oxe-probe.invalid\share`],
+      ['device', String.raw`\\.\UNC\oxe-probe.invalid\share`],
+      ['volume', String.raw`\\?\Volume{00000000-0000-0000-0000-000000000000}\x`]
+    ]) {
+      const at = join(sandbox, name)
+      try { link(target, at, 'dir') } catch { continue }
+      expect(staysLocal(join(at, 'repo', '.git')), name).toBe(false)
+    }
+  })
+
+  it.skipIf(!canLink)('a relative link target resolves from the link\'s real folder, as the system does (H2)', () => {
+    // hop → hop2/sub, hop2 → deep/er/far; inside far/sub, l → ../../net. Read as text, l lands on <sandbox>/net (a
+    // harmless folder); the system lands on deep/er/net, a link to the share.
+    mkdirSync(join(sandbox, 'deep', 'er', 'far', 'sub'), { recursive: true })
+    mkdirSync(join(sandbox, 'net', 'x'), { recursive: true })
+    link(SHARE, join(sandbox, 'deep', 'er', 'net'), 'dir')
+    link(join(sandbox, 'deep', 'er', 'far'), join(sandbox, 'hop2'), 'dir')
+    link(join('hop2', 'sub'), join(sandbox, 'hop'), 'dir')
+    link(join('..', '..', 'net'), join(sandbox, 'deep', 'er', 'far', 'sub', 'l'), 'dir')
+    expect(staysLocal(join(sandbox, 'hop', 'l', 'x', 'commondir'))).toBe(false)
+  })
+
+  it.skipIf(!canLink)('local links still resolve, and a link cycle ends', () => {
     expect(staysLocal(worktree)).toBe(true)
     const viaJunction = join(sandbox, 'wt-junction')
-    if (link(worktree, viaJunction, process.platform === 'win32' ? 'junction' as 'dir' : 'dir')) {
-      expect(staysLocal(viaJunction)).toBe(true)
-      expect(gitCommonDir(viaJunction)).toBe(gitCommonDir(worktree))
-    }
-    if (link(join(sandbox, 'loop-b'), join(sandbox, 'loop-a'), 'dir') && link(join(sandbox, 'loop-a'), join(sandbox, 'loop-b'), 'dir')) {
-      fast(() => expect(staysLocal(join(sandbox, 'loop-a', 'x'))).toBe(false))
-    }
+    link(worktree, viaJunction, process.platform === 'win32' ? 'junction' : 'dir')
+    expect(staysLocal(viaJunction)).toBe(true)
+    expect(gitCommonDir(viaJunction)).toBe(gitCommonDir(worktree))
+    link(join(sandbox, 'loop-b'), join(sandbox, 'loop-a'), 'dir')
+    link(join(sandbox, 'loop-a'), join(sandbox, 'loop-b'), 'dir')
+    expect(staysLocal(join(sandbox, 'loop-a', 'x'))).toBe(false)
   })
 })

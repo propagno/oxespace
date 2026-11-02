@@ -55,30 +55,57 @@ const localPointer = (pointer: string): boolean => !/^[\\/]{2}/.test(pointer)
 const MAX_LINKS = 40
 
 /**
- * Whether reaching `path` stays on this machine: every component is lstat'ed and every link on the way read with
- * readlink, which touches only the link, never its target. A link naming a share or a device path, or too many
- * links, is refused before stat, read or realpath would follow it there (and, on Windows, hand that host the
- * person's credentials). A component that does not exist ends the walk: nothing past it can be reached.
+ * A link target the walk may follow by hand. On Windows only a drive path (`C:\…`) or a plain relative one: never a
+ * UNC share, and never a device or NT-namespace form (`\\?\…`, `\??\GLOBALROOT\…`, `\\.\…`, `\Device\…`), which
+ * readlink returns as written and which reach the network redirector (SECURITY #520 H1). Elsewhere, anything but `//`.
  */
-export function staysLocal(path: string, budget = { links: MAX_LINKS }): boolean {
+function localTarget(target: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (!target || target.includes('\0')) return false
+  if (platform !== 'win32') return !target.startsWith('//')
+  if (/[?*"<>|]/.test(target)) return false
+  if (/^[A-Za-z]:[\\/]/.test(target)) return true
+  return !/^[\\/]/.test(target) && !target.includes(':')
+}
+
+/**
+ * The real, link-free path of `path`, resolved by hand so that reaching it stays on this machine; null when it would
+ * not. Every component is lstat'ed and every link on the way read with readlink, which touches only the link, never
+ * its target. A link naming a share or a device path, too many links, or a component after a link that cannot be
+ * checked is refused before stat, read or realpath would follow it there (and, on Windows, hand that host the
+ * person's credentials). A link's relative target is resolved from the link's real folder, as Windows does
+ * (SECURITY #520 H2). A missing last component, or a missing folder before any link, ends the walk: nothing past it
+ * can be reached.
+ */
+function localReal(path: string, budget = { links: MAX_LINKS }): string | null {
   const full = resolve(path)
-  if (!localPointer(full)) return false
+  if (!localPointer(full)) return null
   const { root } = parse(full)
+  const parts = full.slice(root.length).split(/[\\/]+/).filter(Boolean)
   let current = root
-  for (const part of full.slice(root.length).split(/[\\/]+/).filter(Boolean)) {
-    const next = join(current, part)
+  let followed = false
+  for (let index = 0; index < parts.length; index++) {
+    const next = join(current, parts[index])
     let link: boolean
-    try { link = lstatSync(next).isSymbolicLink() } catch { return true }
+    try { link = lstatSync(next).isSymbolicLink() } catch {
+      if (followed && index < parts.length - 1) return null
+      return join(next, ...parts.slice(index + 1))
+    }
     if (!link) { current = next; continue }
-    if (--budget.links < 0) return false
+    if (--budget.links < 0) return null
     let target: string
-    try { target = readlinkSync(next) } catch { return false }
-    if (!localPointer(target)) return false
-    const resolved = resolve(current, target)
-    if (!staysLocal(resolved, budget)) return false
-    current = resolved
+    try { target = readlinkSync(next) } catch { return null }
+    if (!localTarget(target)) return null
+    const real = localReal(resolve(current, target), budget)
+    if (real === null) return null
+    current = real
+    followed = true
   }
-  return true
+  return current
+}
+
+/** Whether reaching `path` stays on this machine (see `localReal`). */
+export function staysLocal(path: string): boolean {
+  return localReal(path) !== null
 }
 
 /** The real path of `path` in compare form, or null when it does not exist or is reached through a share. */
@@ -154,7 +181,8 @@ export function resolveSessionLocation(cwd: string, launchRoot: string): Session
   if (!staysLocal(cwd)) return null
   try { if (!statSync(cwd).isDirectory()) return null } catch { return null }
   const found = findCheckoutRoot(cwd)
-  const launchCheckout = findCheckoutRoot(launchRoot) ?? launchRoot
+  // The launch folder is the pane's, but an agent can replace it with a link: walked first like the reported cwd.
+  const launchCheckout = (staysLocal(launchRoot) ? findCheckoutRoot(launchRoot) : null) ?? launchRoot
   // The launch checkout itself is reported in the spelling the pane already uses, so a short or long form
   // of the same folder never reads as a move into another worktree.
   const checkoutRoot = found !== null && canonicalPath(found) === canonicalPath(launchCheckout) ? launchCheckout : found
