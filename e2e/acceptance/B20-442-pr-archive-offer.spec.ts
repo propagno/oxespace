@@ -80,13 +80,6 @@ test('B20/#486: the automatic archive after a PR closes or merges, with Keep, pa
     expect.soft((await calls(app)).keep.map(k => k[1]), 'Escape keeps PR 11').toContain(11)
     expect.soft(await archives(app), 'Escape archives nothing').toBe(0)
 
-    // Keep keeps.
-    await setPr(app, 12, 'CLOSED'); await read(page)
-    await expect.soft(offer(page), 'PR 12 closed: the toast').toBeVisible({ timeout: 35_000 })
-    await offer(page).first().getByRole('button', { name: /^Keep/ }).click()
-    expect.soft((await calls(app)).keep.map(k => k[1]), 'Keep keeps PR 12').toContain(12)
-    expect.soft(await archives(app), 'Keep archives nothing').toBe(0)
-
     // Hover pauses the timer; then the timeout archives, and Restore is offered.
     await setPr(app, 13, 'MERGED'); await read(page)
     await expect.soft(offer(page), 'PR 13 merged: the toast').toBeVisible({ timeout: 35_000 })
@@ -102,6 +95,21 @@ test('B20/#486: the automatic archive after a PR closes or merges, with Keep, pa
     await page.waitForTimeout(1_000)
     log.final = await calls(app)
     expect.soft((await calls(app)).commands.some(c => /resume/i.test(c)), 'Restore restores it (/resume)').toBe(true)
+
+    // Keep keeps. Then a later PR still times out: clicking a toast's button must not leave the stack paused.
+    await page.mouse.move(5, 5)
+    await setPr(app, 12, 'CLOSED'); await read(page)
+    await expect.soft(offer(page), 'PR 12 closed: the toast').toBeVisible({ timeout: 35_000 })
+    await offer(page).first().getByRole('button', { name: /^Keep/ }).click()
+    expect.soft((await calls(app)).keep.map(k => k[1]), 'Keep keeps PR 12').toContain(12)
+    const archivedBefore = await archives(app)
+    log.focusAfterKeep = await page.evaluate(() => { const a = document.activeElement; return a ? `${a.tagName} ${a.getAttribute('aria-label') ?? ''}`.trim() : 'none' })
+    await page.mouse.move(5, 5)
+    await setPr(app, 14, 'MERGED'); await read(page)
+    await expect.soft(offer(page), 'PR 14 merged: the toast').toBeVisible({ timeout: 35_000 })
+    await page.waitForTimeout(16_000)
+    log.afterKeep = { offerVisible: await offer(page).count(), archived: (await archives(app)) - archivedBefore }
+    expect.soft(log.afterKeep, 'after a Keep click, the next toast still times out and archives').toEqual({ offerVisible: 0, archived: 1 })
     expect.soft(consoleErrors.filter(l => l.startsWith('pageerror')), 'no page error').toEqual([])
   } finally {
     log.reads = await app.evaluate(() => (globalThis as Record<string, unknown>).reads).catch(() => null)
