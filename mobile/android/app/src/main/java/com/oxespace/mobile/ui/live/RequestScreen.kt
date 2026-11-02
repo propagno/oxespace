@@ -272,7 +272,7 @@ fun RequestScreen(
                     OutlinedButton(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
                 }
             }
-            if ("accept" in request.decisions) {
+            if ("accept" in decisions) {
                 Text(
                     stringResource(if (held) R.string.request_hold else R.string.request_allow_biometric),
                     style = MaterialTheme.typography.bodySmall,
