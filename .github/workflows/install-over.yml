@@ -145,6 +145,28 @@ jobs:
           OXESPACE_UPGRADE_STEP: verify-upgrade
           OXESPACE_EXPECT_VERSION: ${{ env.CANDIDATE_VERSION }}
 
+      # The exe exactly as the installer shipped it (every fuse as configured, --inspect off), started the way a person
+      # starts it, without Playwright, on the upgraded profile: it must still be running after 20 s. Its main.log is
+      # kept with the job's state.
+      - name: "The shipped exe runs on the upgraded profile without Playwright"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\OXESpace\OXESpace.exe'
+          Copy-Item -Force (Join-Path $env:RUNNER_TEMP 'OXESpace.shipped.exe') $exe
+          node scripts/check-fuses.mjs --app $exe
+          $out = 'upgrade-state/shipped-exe'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          $p = Start-Process $exe -PassThru -RedirectStandardOutput "$out/stdout.txt" -RedirectStandardError "$out/stderr.txt"
+          Start-Sleep -Seconds 25
+          $alive = -not $p.HasExited
+          "alive after 25 s: $alive$(if (-not $alive) { "; exit code $($p.ExitCode)" })" | Tee-Object "$out/result.txt"
+          $log = Join-Path $env:APPDATA 'OXESpace\logs\main.log'
+          if (Test-Path $log) { Copy-Item $log "$out/main.log" } else { 'no main.log' | Add-Content "$out/result.txt" }
+          Get-Process | Where-Object { $_.ProcessName -match '^OXESpace' } | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 3
+          if (-not $alive) { throw 'the shipped exe exited within 25 s on the upgraded profile' }
+
       # G8 (docs/ci-cd.md, "When a release goes wrong"): a user who already updated goes back to the last stable.
       # The runbook's steps, in order: reinstall the previous installer, see that it refuses the upgraded database
       # without touching it, restore the backup the upgrade took, open the previous release on it.

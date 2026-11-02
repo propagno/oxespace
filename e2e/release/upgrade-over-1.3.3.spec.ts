@@ -16,7 +16,7 @@ import { DatabaseSync } from 'node:sqlite'
  *   seed            after `OXESpace-1.3.3-x64.exe /S`: the installed 1.3.3 opens, a workspace is created through its
  *                   wizard, as a person would; the database is version 77.
  *   verify-upgrade  after main's installer `/S` over it: the installed build reports the expected version; Desktop and
- *                   Start Menu shortcuts point at it; it opens; the database is OXESPACE_EXPECT_DB_VERSION (88 today),
+ *                   Start Menu shortcuts point at it; it opens; the database is the latest migration in this checkout,
  *                   passes integrity_check and still holds the workspace; db-backups holds the verified v77 backup with
  *                   the same workspace; nothing reached a native dialog.
  *   verify-refuse   (G8, rollback runbook) after v1.3.3's installer `/S` over the candidate, before anything is
@@ -29,7 +29,7 @@ import { DatabaseSync } from 'node:sqlite'
  *                   (userData database and backups) is kept.
  *
  * Inputs (env): OXESPACE_UPGRADE_STEP, OXESPACE_UPGRADE_STATE, OXESPACE_EXPECT_VERSION (main's package version; 1.3.3 for verify-rollback),
- * OXESPACE_EXPECT_DB_VERSION (default 88); optional OXESPACE_INSTALL_DIR, OXESPACE_USER_DATA.
+ * OXESPACE_EXPECT_DB_VERSION (default: the highest numbered electron/main/db/migrations/NNN_*.sql); optional OXESPACE_INSTALL_DIR, OXESPACE_USER_DATA.
  * Linux (SRE's matrix, every step under xvfb-run): OXESPACE_INSTALL_KIND = nsis | deb | appimage (default nsis on
  * Windows, deb elsewhere) and OXESPACE_EXECUTABLE (deb: /opt/OXESpace/oxespace; appimage: the AppImage, run with
  * APPIMAGE_EXTRACT_AND_RUN=1 and --no-sandbox, since an extracted AppImage has no setuid chrome-sandbox). The shortcut
@@ -51,7 +51,17 @@ const SHORTCUTS = KIND === 'nsis'
   : KIND === 'deb' ? ['/usr/share/applications/oxespace.desktop'] : []
 const LAUNCH_ARGS = KIND === 'appimage' ? ['--no-sandbox'] : []
 const LAUNCH_ENV: Record<string, string> = KIND === 'appimage' ? { APPIMAGE_EXTRACT_AND_RUN: '1' } : {}
-const EXPECT_DB = Number(process.env.OXESPACE_EXPECT_DB_VERSION ?? '88')
+/**
+ * The schema version the candidate migrates to: the highest numbered migration in this checkout, which is the code the
+ * job builds the candidate from. A fixed number went stale as soon as a migration landed (88 while main was at 90).
+ */
+function latestMigration(): number {
+  const numbers = readdirSync(join(process.cwd(), 'electron', 'main', 'db', 'migrations'))
+    .map(name => /^(\d{3})_.+\.sql$/.exec(name)?.[1]).filter((n): n is string => Boolean(n)).map(Number)
+  if (!numbers.length) throw new Error('no migrations found under electron/main/db/migrations')
+  return Math.max(...numbers)
+}
+const EXPECT_DB = process.env.OXESPACE_EXPECT_DB_VERSION ? Number(process.env.OXESPACE_EXPECT_DB_VERSION) : latestMigration()
 
 test.skip(STEP === '' || process.env.GITHUB_ACTIONS !== 'true', 'runs only inside the release upgrade job on a CI runner')
 
