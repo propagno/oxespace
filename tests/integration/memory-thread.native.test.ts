@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, test, vi } from 'vitest'
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createServer } from 'node:net'
@@ -18,6 +18,7 @@ import { MemoryService } from '../../electron/main/services/memory/memory.servic
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import type { MemoryOutboxRecord } from '../../electron/main/services/memory/memory-outbox'
 import type { AgentConversationAdapter } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
   encryptString: (text: string) => Buffer.from(text), decryptString: (value: Buffer) => value.toString() } }))
@@ -159,7 +160,7 @@ for (const provider of ['codex', 'claude'] as const) {
       await Promise.allSettled(adapters.map(adapter => adapter.dispose()))
       await memory.stop().catch(error => { failure ??= error })
       db.close()
-      await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).catch(error => {
+      removeTempDir(target).catch(error => {
         // Preserve a provider/protocol failure instead of replacing it with a
         // secondary Windows handle error. Only this synthetic fixture remains.
         console.warn(`Native memory fixture cleanup: ${(error as NodeJS.ErrnoException).code}; ${target}`)

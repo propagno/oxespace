@@ -38,6 +38,8 @@ async function launch(options: PackagedMemoryOptions, env: Record<string, string
   const root = mkdtempSync(join(tmpdir(), 'oxe-packaged-memory-'))
   const userData = join(root, 'user-data')
   mkdirSync(userData, { recursive: true })
+  // OXESPACE_DB_PATH is for the unpackaged launcher (memory-gate.spec.ts); a packaged build ignores it (T50) and keeps
+  // its database in the --user-data-dir below.
   const app = await (options.launch ?? shippedBinary)({ OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_EXPERIMENTAL_MEMORY: '', ...env }, [`--user-data-dir=${userData}`])
   const page = await app.firstWindow()
   await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible', timeout: 30_000 })

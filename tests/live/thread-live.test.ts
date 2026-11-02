@@ -8,7 +8,7 @@
  * transport; only the renderer and Electron IPC are absent.
  */
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -18,10 +18,11 @@ import { AgentProcessTransport } from '../../electron/main/services/conversation
 import { ClaudeConversationAdapter } from '../../electron/main/services/conversation/claude-conversation'
 import { CodexConversationAdapter } from '../../electron/main/services/conversation/codex-conversation'
 import type { ThreadProvider } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const live = process.env.OXE_LIVE === '1'
 const directories: string[] = []
-afterAll(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true }) })
+afterAll(() => { for (const directory of directories.splice(0)) removeTempDir(directory) })
 
 function harness(provider: ThreadProvider) {
   const root = mkdtempSync(join(tmpdir(), `oxe-live-${provider}-`)); directories.push(root)

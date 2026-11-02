@@ -14,7 +14,7 @@ test('the design system viewer: motion, components and states in both modes', as
     await page.keyboard.press('Control+k')
     await expect(page.locator('[cmdk-root]')).toBeVisible()
     await page.keyboard.insertText('Design System')
-    await page.locator('[cmdk-item]', { hasText: 'Design System: Open Viewer' }).click()
+    await page.locator('[cmdk-item]', { hasText: 'View: Open the design system viewer' }).click()
     const viewer = page.getByRole('dialog', { name: 'Design system' })
     await expect(viewer).toBeVisible()
     const nav = viewer.getByRole('navigation', { name: 'Design system sections' })

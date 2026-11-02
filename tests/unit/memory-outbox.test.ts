@@ -1,14 +1,15 @@
 // @vitest-environment node
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { mkdir, mkdtemp, open, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, open, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MemoryOutbox, type MemoryOutboxRecord } from '../../electron/main/services/memory/memory-outbox'
 import { MemoryDeliveryWorker } from '../../electron/main/services/memory/memory-delivery'
 import type { AiMemoryClient } from '../../electron/main/services/memory/ai-memory.client'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const directories: string[] = []
-afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }) })
+afterEach(async () => { for (const directory of directories.splice(0)) removeTempDir(directory) })
 async function queue() {
   const directory = await mkdtemp(join(tmpdir(), 'oxe-outbox-test-'))
   directories.push(directory)
@@ -23,7 +24,8 @@ function record(id: string, sessionId = 'native-1', createdAt = Date.now()): Mem
 }
 
 describe('durable memory outbox', () => {
-  test('preserves admission order across restart when timestamps tie or move backwards', async () => {
+  // FL-08: the first test of the file pays the Windows runner's cold disk (13 durable writes with rename); 5 s is not enough there.
+  test('preserves admission order across restart when timestamps tie or move backwards', { timeout: 20_000 }, async () => {
     const outbox = await queue()
     const time = Date.now()
     const events = Array.from({ length: 12 }, (_, index) => record(`event-${index}`, 'same-session', time - Math.floor(index / 4)))

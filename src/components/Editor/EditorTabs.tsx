@@ -1,8 +1,13 @@
 import { ArrowLeft, ArrowRight, Pin, PinOff, X, XSquare } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentType, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { EditorTab } from '../../store/editor.store'
+import type { OpenInRequest } from '../../lib/openIn'
+// F33: the path menu's items load with the first tab menu, not with the window.
+// A chunk that fails to load leaves the tab menu without these items rather than reaching an error boundary.
+const TabPathItems = lazy((): Promise<{ default: ComponentType<{ request: OpenInRequest; close(): void }> }> =>
+  import('../PathMenu/PathMenuView').then(module => ({ default: module.TabPathItems }), () => ({ default: () => null })))
 
 interface EditorTabsProps {
   tabs: EditorTab[]
@@ -13,6 +18,8 @@ interface EditorTabsProps {
   onCloseOthers: (relativePath: string) => void
   onTogglePin: (relativePath: string) => void
   onMove: (fromPath: string, toPath: string) => void
+  /** F33: the workspace the tabs' files belong to; with it, the tab menu ends with the path menu's items. */
+  pathScope?: { workspaceId: string; rootPath: string }
 }
 
 /**
@@ -27,6 +34,7 @@ export function EditorTabs({
   onCloseOthers,
   onMove,
   onTogglePin,
+  pathScope,
   tabs
 }: EditorTabsProps): ReactElement | null {
   const { t } = useTranslation('code')
@@ -179,6 +187,8 @@ export function EditorTabs({
             <button type="button" role="menuitem" onClick={run(() => onClose(tab.relativePath))}>
               <X size={12} aria-hidden="true" />{t('editor.tabs.close')}
             </button>
+            {/* F33: the path menu's items, in its order; this is the editor, so no "open in OXESpace". */}
+            {pathScope ? <Suspense fallback={null}><TabPathItems request={{ ...pathScope, relativePath: tab.relativePath }} close={() => setMenu(null)} /></Suspense> : null}
           </div>,
           document.body
         )

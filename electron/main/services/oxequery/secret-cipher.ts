@@ -14,20 +14,26 @@ export interface SafeStorageLike {
  * "secure storage" would store database passwords, SSH keys and certificates as if protected.
  * They are refused instead, with the way to fix it, unless the person opts in explicitly.
  */
-export function createSecretCipher(storage: SafeStorageLike, platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): SecretCipher & { problem(): string | null } {
+/** Why secrets cannot be kept, for a caller that answers with its own C3 code: no secure storage, or Linux with no keyring. */
+export type SecretStorageProblem = 'unavailable' | 'no-keyring'
+
+export function createSecretCipher(storage: SafeStorageLike, platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): SecretCipher & { problem(): string | null; reason(): SecretStorageProblem | null } {
   const backend = platform === 'linux' ? storage.getSelectedStorageBackend?.() ?? 'unknown' : null
   const weak = backend === 'basic_text' || backend === 'unknown'
   const optedIn = env.OXESPACE_ALLOW_WEAK_SECRETS === '1'
+  const reason = (): SecretStorageProblem | null => !storage.isEncryptionAvailable() ? 'unavailable' : weak && !optedIn ? 'no-keyring' : null
   const problem = (): string | null => {
     if (!storage.isEncryptionAvailable()) return 'Secure storage is unavailable on this system, so passwords, keys and certificates cannot be saved. Use a connection that does not need them.'
     if (weak && !optedIn) {
-      return 'No system keyring was found (Linux), so secrets would only be obfuscated, not protected. Start GNOME Keyring or KWallet and restart OXESpace, or set OXESPACE_ALLOW_WEAK_SECRETS=1 to store them without real protection.'
+      // The safe fixes only: the weak opt-in is something the person seeks out in docs/COMPATIBILITY.md §5 (DESIGN #478).
+      return 'No system keyring was found (Linux) to protect passwords, keys and certificates, so they are not saved. Start GNOME Keyring or KWallet and restart OXESpace. If one is already running (common on i3 or sway), start OXESpace with --password-store=gnome-libsecret.'
     }
     return null
   }
   return {
     available: () => problem() === null,
     problem,
+    reason,
     encrypt: value => storage.encryptString(value),
     decrypt: value => storage.decryptString(value)
   }

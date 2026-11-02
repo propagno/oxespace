@@ -8,6 +8,8 @@ import { EmptyState, ErrorState, LoadingState } from '../../ui'
 import { ThreadHunkReview } from './ThreadHunkReview'
 import { TurnPath } from './ThreadFileActivity'
 import { threadChanges } from './threadChanges'
+import { WithPathMenu } from '../PathMenu/usePathMenu'
+import { parseProjectPath } from '../../lib/projectPath'
 
 const folderName = (path: string): string => path.replace(/\\/g, '/').replace(/\/+$/, '').split('/').at(-1) ?? path
 
@@ -59,14 +61,18 @@ export function ThreadTurnReview({ snapshot, turnId, onShowAll, onComment }: {
         {reported.length > 0 && <span className="thread-turn-review-reported">{reported.map(path => <span key={path} title={path}><TurnPath path={path} roots={[...roots, snapshot.thread.observedLocation?.checkoutRoot]} /></span>)}</span>}
       </EmptyState>
       : <>
-        <ul className="thread-turn-review-files" aria-label={t('turnReview.files')}>{files.map(file => <li key={file.path}>
-          <button type="button" aria-current={file.path === selected || undefined} title={file.root ? `${file.root.replace(/[\\/]+$/, '')}/${file.path}` : file.path} onClick={() => setSelected(file.path)}>
+        <ul className="thread-turn-review-files" aria-label={t('turnReview.files')}>{files.map(file => {
+          // F33: the path menu, rooted at the checkout the file is in: the project or a worktree it registered.
+          const other = file.root && file.root !== snapshot.thread.rootPath ? file.root : null
+          const inProject = parseProjectPath(file.path, other ?? snapshot.thread.rootPath)
+          return <li key={file.path}><WithPathMenu request={inProject ? { workspaceId: snapshot.thread.workspaceId, rootPath: other ?? snapshot.thread.rootPath, relativePath: inProject.relativePath } : null}
+            render={onContextMenu => <button type="button" aria-current={file.path === selected || undefined} title={file.root ? `${file.root.replace(/[\\/]+$/, '')}/${file.path}` : file.path} onClick={() => setSelected(file.path)} onContextMenu={onContextMenu}>
             <span className="thread-change-file-name"><TurnPath path={file.path} roots={roots} /></span>
             {file.state !== 'pending' && <span className="thread-change-file-state">{t(`turnReview.${file.state}`)}</span>}
             {!file.postExists && <span className="thread-change-file-state">{t('turnReview.deleted')}</span>}
             {!file.preExists && file.postExists && <span className="thread-change-file-state">{t('turnReview.added')}</span>}
-          </button>
-        </li>)}</ul>
+          </button>} /></li>
+        })}</ul>
         {current && <div className="thread-turn-review-diff">
           {current.state === 'pending'
             ? <ThreadHunkReview key={`${current.path}:${revision}`} path={current.path} disabled={running || !api?.undoTurnHunk} loadHunks={() => api!.turnFileHunks ? api!.turnFileHunks(id, turnId, current.path) : Promise.resolve([])}

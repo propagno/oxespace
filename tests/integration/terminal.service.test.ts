@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { ThreadProjectService } from '../../electron/main/services/conversation/thread-projects'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { RtkService } from '../../electron/main/services/rtk.service'
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 // Starting a terminal waits a few seconds for RTK, which the real service downloads from GitHub. No test here may
 // depend on the network or that wait: one that started two terminals hit its 5 s timeout on a slow Windows runner.
@@ -35,7 +36,7 @@ describe('TerminalManager', () => {
       expect(manager.attach(input).running).toBe(true)
       manager.stop(input)
       expect(manager.status(input.paneId).running).toBe(false)
-    } finally { manager.stopAll(); db.close(); rmSync(root, { recursive: true, force: true }) }
+    } finally { manager.stopAll(); db.close(); removeTempDir(root) }
   })
 
   test('starts a registered container shell with exactly the registered command and nothing else', async () => {
@@ -143,7 +144,7 @@ describe('TerminalManager', () => {
       workspaceService.setPaneRootPath(input.paneId, missing)
       await expect(manager.start({ ...input, requireCwd: missing, launch: { executable: 'codex', args } })).rejects.toThrow('refusing workspace-root fallback')
       expect(pty.spawn).toHaveBeenCalledTimes(1)
-    } finally { manager.stopAll(); db.close(); rmSync(root, { recursive: true, force: true }) }
+    } finally { manager.stopAll(); db.close(); removeTempDir(root) }
   })
   test('a provider launch withholds unrelated secrets but keeps its own auth; a plain shell keeps everything', async () => {
     const db = openInMemoryDatabase()
@@ -244,7 +245,7 @@ describe('TerminalManager', () => {
       expect(pty.spawn).not.toHaveBeenCalled()
       await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[1].id })
       expect(pty.spawn).toHaveBeenCalledTimes(1)
-    } finally { setPolicyStore(null); manager.stopAll(); db.close(); rmSync(userData, { recursive: true, force: true }) }
+    } finally { setPolicyStore(null); manager.stopAll(); db.close(); removeTempDir(userData) }
   })
 
   test('resolves Windows command shims through PATHEXT', () => {
@@ -256,7 +257,7 @@ describe('TerminalManager', () => {
     try {
       expect(resolveExecutable('copilot', { PATH: binDir, PATHEXT: '.EXE;.CMD' }, 'win32')).toBe(shim)
     } finally {
-      rmSync(binDir, { recursive: true, force: true })
+      removeTempDir(binDir)
     }
   })
 

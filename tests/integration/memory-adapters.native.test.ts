@@ -1,9 +1,10 @@
 import { describe, expect, test, vi } from 'vitest'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { AgentMemoryAdapters, nativeSessionUuid } from '../../electron/main/services/memory/agent-memory-adapter'
 import type { MemoryRuntime } from '../../electron/main/services/memory/memory-runtime'
+import { removeTempDir } from '../helpers/removeTempDir'
 vi.mock('electron', () => ({ safeStorage: {} }))
 
 test('native session UUID mapping preserves real IDs without sharing them across agents', () => {
@@ -35,6 +36,6 @@ describe.skipIf(!process.env.OXESPACE_AI_MEMORY_TEST_BINARY)('official hook inst
       }
       await adapters.setup()
       expect(await Promise.all(targets.map(target => readFile(target.hooks(), 'utf8')))).toEqual(first)
-    } finally { await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) }
+    } finally { removeTempDir(directory) }
   }, 30000)
 })

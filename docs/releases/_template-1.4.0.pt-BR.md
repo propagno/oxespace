@@ -69,7 +69,7 @@ atualiza sozinha).
 - **Detalhes da conversa**, pelo cabeçalho da conversa: o ambiente (projeto, worktree, branch, agente, modelo), o
   contexto em detalhe com **Compactar**, os servidores MCP e as ferramentas que ela usou, os arquivos que ela mudou e
   o trabalho em segundo plano. Reordene as seções arrastando ou pelo menu de cada seção.
-<!-- entra quando o F15b/F15c (#287/#290) for mesclado. -->
+<!-- conversas aninhadas e a coordenadora do projeto (B1.3/B1.4, #287/#290) são da 1.4.1: corte de escopo do usuário; nunca listar aqui. -->
 
 ## O seu celular
 
@@ -103,9 +103,10 @@ mensagem e uma fileira de teclas com Esc, Tab, Ctrl+C e setas para o terminal." 
 - **Configurações › Ferramentas** mostra cada grupo, o modo dele neste projeto e o custo em tokens, e muda o modo.
   Se o `oxe.yaml` tiver um erro, a página avisa e os agentes continuam com os últimos modos que puderam ser lidos até
   você corrigir.
-<!-- entra quando o #336 for mesclado: "**Menos tokens no início de um agente do OxeCode.** Um agente que o OXESpace
-inicia num terminal começa com cerca de 9.000 caracteres de definições de ferramentas em vez de 64.600, e fica
-sabendo quando a busca de código do OXESpace é melhor que o grep." Números medidos: 64.574 → 8.965 caracteres. -->
+- **Menos tokens no início de um agente do OxeCode.** Um agente que o OXESpace inicia num terminal começa com cerca de
+  9.000 caracteres de definições de ferramentas em vez de 64.600, e fica sabendo quando a busca de código do OXESpace
+  é melhor que o grep.
+<!-- #336 mediu 64.574 → 8.965 caracteres. -->
 - **Busca de código que você liga por projeto**: busca semântica por projeto do OxeChat, com um interruptor só.
 
 ## OxePod e OxePost
@@ -123,6 +124,12 @@ sabendo quando a busca de código do OXESpace é melhor que o grep." Números me
 - **Português e inglês** no app inteiro, trocados nas Configurações sem reiniciar.
 - **Um teclado para morar nele**: uma paleta de comandos para tudo (`Ctrl+K`), um guia de atalhos e
   **Configurações › Teclado**, F6 para andar entre regiões e um modo em que o Tab sai do terminal.
+- **Comandos com o mesmo nome em todo lugar.** Todo comando da paleta segue *Categoria: Ação* (**Agentes: Abrir a
+  equipe do projeto…**), o menu do app usa as mesmas palavras, e os nomes antigos continuam encontrando os comandos.
+- **Abrir no seu editor.** Todo caminho de arquivo no OXESpace (conversas, mudanças, terminal, busca, abas do editor)
+  tem o mesmo menu: abrir no VS Code, no Cursor ou no Zed na linha, mostrar na pasta ou copiar o caminho. Só aparecem
+  os editores que você tem instalados; escolha o seu em **Configurações › Geral**, e `Ctrl+Shift+clique` num caminho
+  no terminal abre o arquivo nele.
 - **Acessibilidade**: verificações WCAG 2.2 AA no Windows e no Linux, cores forçadas, alvos de 24 px e caminhos de
   teclado para todas as listas.
 - **Escala da interface, densidade e movimento** (Sistema, Reduzido, Completo) para o app inteiro.
@@ -137,15 +144,15 @@ sabendo quando a busca de código do OXESpace é melhor que o grep." Números me
 
 - **Os contêineres saíram do OxeQuery para o OxePod.**
 - **Nomes dos modos**: Code agora é OxeCode e Thread agora é OxeChat.
-<!-- entra quando o F34 for mesclado: "**O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu
-sistema continua digitando em qualquer campo, e o modelo de voz baixado é apagado no primeiro início. A voz nativa
-está prevista para uma versão futura." -->
-<!-- entra quando o F35 (#344) for mesclado: "**A equipe saiu da barra de título.** Abra em **Ferramentas › Equipe do
-projeto…**, na paleta de comandos ou com `Ctrl+Shift+T`." -->
-<!-- entra quando o #387 for mesclado: "**Ações de Git iniciadas pelo OXESpace pulam os hooks do repositório.** Push,
-troca de branch e criação de worktree rodam sem eles; use o terminal quando um fluxo depende de hooks. Os agentes não
-chegam à rede pelo Git: quando uma tarefa precisa da branch remota mais recente, você faz o fetch no painel Git ou no
-terminal." -->
+- **O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu sistema continua digitando em qualquer
+  campo. A voz nativa está prevista para uma versão futura. Os modelos de voz que você baixou continuam no disco: para
+  liberar o espaço, apague os arquivos cujo nome começa com `ggml-` em `%APPDATA%\oxespace\models` (Windows) ou
+  `~/.config/oxespace/models` (Linux). Mantenha os outros arquivos dessa pasta; eles são usados pela busca semântica.
+- **A equipe saiu da barra de título.** Abra em **Ferramentas › Abrir a equipe do projeto…**, na paleta de comandos ou com
+  `Ctrl+Shift+T`.
+- **Ações de Git iniciadas pelo OXESpace pulam os hooks do repositório.** Push, troca de branch e criação de worktree
+  rodam sem eles; use o terminal quando um fluxo depende de hooks. Os agentes não chegam à rede pelo Git: quando uma
+  tarefa precisa da branch remota mais recente, você faz o fetch no painel Git ou no terminal.
 - **Fechar um painel encerra o que ele iniciou.** Trabalhos mandados para o segundo plano com `nohup` ou `disown`, e
   apps abertos pelo painel (`gedit &`, `notepad x`), agora fecham junto. Para manter algo rodando, inicie fora do
   OXESpace ou como um serviço do sistema.
@@ -158,10 +165,9 @@ terminal." -->
 - **A janela principal não abre link sozinha**, e toda chamada entre processos confere que vem da janela do próprio
   app.
 - **O app instalado carrega menos para ler.** Os source maps do processo principal não vão mais no pacote.
-<!-- entra quando o #387 for mesclado: "**O Git passa por uma proteção só.** O OXESpace não roda Git de rede num
-repositório cujas configurações próprias mudam como o Git se conecta ou se autentica (`core.sshCommand`,
-`credential.helper` e afins); rode esses comandos no terminal. As suas configurações globais do Git nunca disparam
-isso." -->
+- **O Git passa por uma proteção só.** O OXESpace não roda Git de rede num repositório cujas configurações próprias
+  mudam como o Git se conecta ou se autentica (`core.sshCommand`, `credential.helper` e afins); rode esses comandos no
+  terminal. As suas configurações globais do Git nunca disparam isso.
 - **O app empacotado não pode ser usado como um Node.js comum**, então outros programas não conseguem usá-lo para
   rodar o próprio código.
 
@@ -172,8 +178,8 @@ isso." -->
   pelo shell do painel. Shells, Claude Code e Codex não são afetados.
 - **No Linux e no macOS, um daemon de verdade (um processo que se separa duas vezes) continua rodando depois que o
   painel fecha.**
-<!-- entra quando o #387 for mesclado (o B26 fecha isso na 1.4.1): "**Um filtro do Git adicionado às configurações de
-um repositório no momento em que uma ação começa pode rodar uma vez** antes que o OXESpace perceba." -->
+- **Um filtro do Git adicionado às configurações de um repositório no momento em que uma ação começa pode rodar uma
+  vez** antes que o OXESpace perceba.
 - **Voltar para a 1.3.3 exige restaurar o backup automático antes de abrir a 1.3.3.** A 1.4.0 atualiza seus dados na
   primeira vez que abre, depois de salvar uma cópia verificada. A 1.3.3 não consegue ler os dados atualizados: mostra
   "No workspaces yet", sem aviso, embora nada se perca. Para voltar: feche o OXESpace, instale a 1.3.3 pela página de

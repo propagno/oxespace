@@ -2,7 +2,7 @@ import { modeButton, type AppMode } from './helpers/modes'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchApp, type LaunchedApp } from './helpers/launch'
+import { launchApp, layoutAtWidth, layoutDiag, type LaunchedApp } from './helpers/launch'
 
 /**
  * Every entry point the app offers works or is gone (docs/validation/offer-audit-1.4.md).
@@ -32,7 +32,7 @@ const paneCount = (page: Page): Promise<number> => page.locator('[data-testid="p
 const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximize-pane'])
 
 const SETTINGS_LABELS: Record<string, string> = {
-  general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard', voice: 'Voice',
+  general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
   notifications: 'Notifications', updates: 'Updates', policy: 'Policy', devices: 'Devices', diagnostics: 'Diagnostics'
 }
 
@@ -73,7 +73,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
     await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: /Current workspace/ })).toHaveAttribute('aria-pressed', 'true')
   }),
   'toggle-sidebar': async page => { await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
-  'tool-team': dialog('Team'),
+  'tool-team': dialog('Project team'),
   'tool-integration': both(view('code'), testId('workspace-integration-panel')),
   'tool-github': both(view('code'), testId('workspace-github-panel')),
   'tool-worktrees': both(view('code'), testId('workspace-worktree-panel')),
@@ -99,7 +99,6 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'split-vertical': view('code'),
   'split-horizontal': view('code'),
   'restart-terminal': view('code'),
-  'toggle-oxevoice': async () => undefined,
   'thread.new': both(view('thread'), dialog('Add project')),
   'thread.add-project': both(view('thread'), dialog('Add project'))
 }
@@ -146,6 +145,24 @@ async function runCommand(page: Page, id: string): Promise<boolean> {
 }
 
 /** Closes whatever a command opened, back to the work surface. */
+/** Code's side panels, by the tool command that toggles each and the panel it shows. */
+// Integration last: its command only opens it, so it closes from its own Collapse button, shown once it is the only one.
+const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'integration'] as const
+/**
+ * Splits are refused when the halves would be under 240 px (#310), so they are checked from the known layout: Code,
+ * two panes, no side panel. Earlier commands leave theirs open (each panel takes its share of the width), so every
+ * panel still open is toggled off by its own command first.
+ */
+async function closeSidePanels(page: Page): Promise<void> {
+  for (const id of SIDE_PANELS) {
+    const panel = page.getByTestId(id === 'worktrees' ? 'workspace-worktree-panel' : `workspace-${id}-panel`)
+    if (!(await panel.count())) continue
+    if (id === 'integration') await panel.getByRole('button', { name: 'Collapse panel', exact: true }).click()
+    else await runCommand(page, `tool-${id}`)
+    await expect(panel).toHaveCount(0)
+  }
+}
+
 async function dismiss(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 4; attempt++) {
     const open = page.locator('[role="dialog"]:visible, [role="alertdialog"]:visible, [role="menu"]:visible')
@@ -157,16 +174,23 @@ async function dismiss(page: Page): Promise<void> {
 
 async function selectView(page: Page, mode: AppMode): Promise<void> {
   await modeButton(page, mode).click()
+  // F7.2: the current view stays until the next one is in; wait for the switch to land before using the new view.
+  await expect(modeButton(page, mode)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, mode)).not.toHaveAttribute('aria-busy', 'true')
 }
 
 async function launchWithWorkspace(): Promise<LaunchedApp> {
   const launched = await launchApp()
-  const { page, workspaceRoot } = launched
+  const { app, page, workspaceRoot } = launched
   await page.evaluate(root => window.oxe.workspace.create({ rootPath: root, layoutPreset: 2, autoStart: false }), workspaceRoot)
   await page.reload()
   await page.waitForLoadState('load')
   await page.getByTestId('btn-new-workspace').first().waitFor()
   await expect(page.locator('[data-testid="pane-container"]').first()).toBeVisible()
+  // Splits are refused when the halves would be under 240 px (#310). The audit runs them, so it lays out 1440 CSS px
+  // whatever the CI screen (a smaller one clamps the window), after the reload: the app sets its own scale on mount.
+  await layoutAtWidth(app, page, 1440, 900)
+  console.log(`[SPLIT-DIAG] launch ${await layoutDiag(app, page)}`)
   return launched
 }
 
@@ -189,6 +213,7 @@ test.describe('offer audit', () => {
       for (const id of ids) {
         if (NATIVE_DIALOG.has(id)) continue
         await dismiss(page)
+        if (id.startsWith('split-')) { if (await modeButton(page, 'code').getAttribute('aria-pressed') !== 'true') await selectView(page, 'code'); await closeSidePanels(page) }
         const errorsBefore = pageErrors(launched).length
         const panesBefore = await paneCount(page)
         // A command that needs Code's workspace is offered there; come back to Code when the last command left it.
@@ -201,6 +226,7 @@ test.describe('offer audit', () => {
           else await effectFor(id)!(page)
         } catch (error) {
           failures.push(`${id}: ${(error as Error).message.split('\n')[0]}`)
+          if (id.startsWith('split-')) console.log(`[SPLIT-DIAG] ${id} panes ${panesBefore} → ${await paneCount(page)} ${await layoutDiag(app, page)}`)
         }
         const errors = pageErrors(launched).slice(errorsBefore)
         if (errors.length) failures.push(`${id}: page error ${errors[0]}`)
@@ -310,36 +336,39 @@ test.describe('offer audit', () => {
       }
       /** What each item visibly does, by menu and label. Edit items run the browser's own editing commands. */
       const MENU_EFFECTS: Record<string, Check | 'native'> = {
-        'File/New workspace…': dialog('Create new workspace'),
+        'File/Create a workspace…': dialog('Create new workspace'),
         'File/Settings': dialog('Settings'),
-        'File/Workspace settings': dialog('Settings'),
+        'File/Open workspace settings': dialog('Settings'),
         'File/Exit': 'native',
         'Edit/Undo': 'native', 'Edit/Redo': 'native', 'Edit/Cut': 'native', 'Edit/Copy': 'native', 'Edit/Paste': 'native', 'Edit/Select all': 'native',
         'View/Command palette…': async p => { await expect(paletteInput(p)).toBeVisible() },
         'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'), 'View/OxePost': view('post'),
         'View/Toggle sidebar': async p => { await expect(p.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
-        'View/Files': testId('workspace-editor-panel'),
-        'View/Commit & pull request': testId('workspace-github-panel'),
-        'View/Background activity': testId('workspace-background-panel'),
+        'View/Toggle files panel': testId('workspace-editor-panel'),
+        'View/Toggle commit & pull request panel': testId('workspace-github-panel'),
+        'View/Toggle background activity panel': testId('workspace-background-panel'),
         'View/Toggle split layout': testId('workspace-grid'),
         'View/Balance panes': async p => { expect(await paneCount(p)).toBeGreaterThan(0) },
         'View/Split pane right': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Split pane down': async p => { expect(await paneCount(p)).toBe(3) },
-        'View/Maximize / restore pane': async p => { expect(await paneCount(p)).toBe(1) },
-        'Tools/MCP servers': dialog('MCP servers'),
-        'Tools/Skills': dialog('Skills'),
-        'Tools/Usage & limits': dialog('Usage & rate limits'),
-        'Tools/Linear issues': dialog('Linear issues'),
-        'Help/Keyboard shortcuts': dialog('Keyboard shortcuts'),
-        'Help/Diagnostics': settingsPage('Diagnostics'),
+        'View/Maximize or restore pane': async p => { expect(await paneCount(p)).toBe(1) },
+        // F35: the project Team moved off the title bar into the Tools menu.
+        'Tools/Open the project team…': dialog('Project team'),
+        'Tools/Manage MCP servers': dialog('MCP servers'),
+        'Tools/Browse skills': dialog('Skills'),
+        'Tools/Show usage and limits': dialog('Usage & rate limits'),
+        'Tools/Open Linear issues': dialog('Linear issues'),
+        'Help/Show keyboard shortcuts': dialog('Keyboard shortcuts'),
+        'Help/Open diagnostics': settingsPage('Diagnostics'),
         'Help/Report a problem…': dialog('Report a problem'),
-        'Help/Check for updates…': settingsPage('Updates')
+        'Help/Check for updates': settingsPage('Updates')
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
-        Appearance: label => label === 'Follow system' ? async () => undefined : rootData('mode', label.toLowerCase()),
+        // Menu items say the palette's action: "Use the light theme", "Use compact density", "Use 2 panes".
+        Appearance: label => label === 'Follow the system theme' ? async () => undefined : rootData('mode', label.includes('light') ? 'light' : 'dark'),
         // App default resolves to the app-wide density, compact unless Settings › Appearance says otherwise.
-        Density: label => rootData('density', label === 'App default' ? 'compact' : label.toLowerCase()),
-        Layout: label => async p => { await expect.poll(() => paneCount(p)).toBe(Number.parseInt(label, 10)) }
+        Density: label => rootData('density', label.includes('default') ? 'compact' : label.includes('compact') ? 'compact' : 'comfortable'),
+        Layout: label => async p => { await expect.poll(() => paneCount(p)).toBe(Number.parseInt(label.replace(/\D+/g, ''), 10)) }
       }
       const failures: string[] = []
       for (const menu of ['File', 'Edit', 'View', 'Tools', 'Help']) {
@@ -367,11 +396,16 @@ test.describe('offer audit', () => {
           const effect = key === 'Help/About' ? dialog('About OXESpace') : MENU_EFFECTS[key]
           if (!effect) { failures.push(`${key}: no expected effect in e2e/offer-audit.spec.ts`); continue }
           if (effect === 'native') continue
+          if (label.startsWith('Split pane')) await closeSidePanels(page)
           const s = await openMenu(menu)
           const item = s.locator(':scope > [role="menuitem"], :scope > [role="menuitemcheckbox"]').filter({ hasText: label }).first()
           if (await item.getAttribute('aria-disabled') === 'true') { failures.push(`${key}: disabled with a workspace open`); continue }
+          const panesBefore = label.startsWith('Split pane') ? await paneCount(page) : 0
           await item.click()
-          await effect(page).catch(error => failures.push(`${key}: ${(error as Error).message.split('\n')[0]}`))
+          await effect(page).catch(async error => {
+            failures.push(`${key}: ${(error as Error).message.split('\n')[0]}`)
+            if (label.startsWith('Split pane')) console.log(`[SPLIT-DIAG] ${key} panes ${panesBefore} → ${await paneCount(page)} ${await layoutDiag(app, page)}`)
+          })
           const errors = pageErrors(launched).slice(errorsBefore)
           if (errors.length) failures.push(`${key}: page error ${errors[0]}`)
           // Back to a known state: Code, two panes, sidebar shown, split layout on.

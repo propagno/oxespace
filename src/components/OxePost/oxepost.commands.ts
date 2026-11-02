@@ -1,4 +1,5 @@
 import { FilePlus2, Globe, KeyRound, Search, Upload } from 'lucide-react'
+import { commandText } from '../../commands/commandText'
 import { i18n } from '../../i18n'
 import { registerCommands, type ContributedCommand } from '../../utils/commandRegistry'
 import { requestOxePostAction, type OxePostAction } from './oxepost-bridge'
@@ -18,8 +19,8 @@ const ENTRIES: Array<{ action: OxePostAction; icon: typeof Globe; keywords: stri
 
 export function oxePostCommands(): ContributedCommand[] {
   return ENTRIES.map(({ action, icon, keywords, detail }) => ({
-    id: `oxepost.${action}`, category: 'OxePost', icon, keywords, run: () => requestOxePostAction(action),
-    label: i18n.t(`postCommands.${action}.label`), ...(detail ? { detail: i18n.t(`postCommands.${action}.detail` as 'postCommands.open.detail') } : {})
+    id: `oxepost.${action}`, icon, run: () => requestOxePostAction(action),
+    ...commandText('OxePost', `oxepost.${action}`, { keywords }), ...(detail ? { detail: i18n.t(`postCommands.${action}.detail` as 'postCommands.open.detail') } : {})
   }))
 }
 

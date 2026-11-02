@@ -8,6 +8,7 @@ import com.oxespace.mobile.protocol.live.LiveStreams
 import com.oxespace.mobile.session.DesktopStatus
 import com.oxespace.mobile.ui.live.LiveHome
 import com.oxespace.mobile.ui.live.RequestScreen
+import com.oxespace.mobile.ui.live.RiskLine
 import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.PairingScreen
 import com.oxespace.mobile.pairing.PairingState
@@ -44,8 +45,14 @@ class AccessibilitySnapshotTest {
     }
 
     @Test
-    fun conversation() = paparazzi.snapshot { OxeTheme { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true) {} } }
+    fun conversation() = paparazzi.snapshot {
+        // The real clock moved this golden every day ("20758 d ago"); the fixture's clock keeps it still.
+        OxeTheme { CompositionLocalProvider(LocalClock provides Samples.clock) { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true) {} } }
+    }
 
     @Test
     fun riskyRequest() = paparazzi.snapshot { OxeTheme { RequestScreen(Samples.request(risky = true), commands) {} } }
+
+    @Test
+    fun riskLevels() = paparazzi.snapshot { OxeTheme { Samples.RiskLevels { RiskLine(it) } } }
 }

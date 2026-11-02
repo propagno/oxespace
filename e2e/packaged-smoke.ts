@@ -44,12 +44,14 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
     mkdirSync(workspaceRoot, { recursive: true })
 
     const started = performance.now()
+    // A packaged build ignores OXESPACE_DB_PATH (T50): its own --user-data-dir keeps the data, and lets a second
+    // instance run next to an installed OXESpace.
     const app = await electron.launch({
       executablePath,
+      args: [`--user-data-dir=${join(root, 'user-data')}`],
       env: {
         ...process.env,
-        OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
-        OXESPACE_DB_PATH: join(root, 'db.sqlite3')
+        OXESPACE_DISABLE_SINGLE_INSTANCE: '1'
       }
     })
 

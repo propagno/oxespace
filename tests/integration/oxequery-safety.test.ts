@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -10,6 +10,7 @@ import type { ResolvedConnection } from '../../electron/main/services/oxequery/o
 import { setPolicyStore } from '../../electron/main/services/policy'
 import { PolicyStore } from '../../electron/main/services/policy/policy-store'
 import type { ConnectionSafety, OxeQueryConnection, OxeQueryConnectionInput, OxeQueryErrorInfo } from '../../shared/types/oxequery'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 /**
  * Safe production through the service: the worker is a recorder, so what the person is allowed to do is decided,
@@ -21,7 +22,7 @@ const directories: string[] = []
 afterEach(() => {
   setPolicyStore(undefined as unknown as null)
   for (const db of databases.splice(0)) db.close()
-  for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
+  for (const directory of directories.splice(0)) removeTempDir(directory)
 })
 
 const cipher: SecretCipher = { available: () => true, encrypt: value => Buffer.from(value), decrypt: value => value.toString() }
