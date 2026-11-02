@@ -21,9 +21,12 @@ export interface GatewaySettings {
   certificateKey: Buffer | null
   /** The name phones see, or null for the default. */
   desktopName: string | null
+  /** The gateway has really listened on this profile at least once. Never goes back to false. */
+  listenedBefore: boolean
 }
 
-export type RemoteAuditAction = 'enable' | 'disable' | 'pairing-start' | 'pairing-cancel' | 'pairing' | 'revoke' | 'rename' | 'desktop-name' | 'phone-write' | 'auth-failure' | 'certificate'
+export type RemoteAuditAction = 'enable' | 'disable' | 'pairing-start' | 'pairing-cancel' | 'pairing' | 'revoke' | 'rename' | 'desktop-name' | 'auth-failure' | 'certificate'
+  | 'command' | 'phone-write'
 
 export interface RemoteAuditRecord {
   action: RemoteAuditAction
@@ -49,9 +52,18 @@ export class RemoteStore {
   constructor(private readonly db: AppDatabase, private readonly now: () => number = Date.now) {}
 
   settings(): GatewaySettings {
-    const row = this.db.prepare('SELECT port, certificate_der, certificate_key, desktop_name FROM remote_gateway WHERE id = 1').get() as
-      { port: number; certificate_der: Buffer | null; certificate_key: Buffer | null; desktop_name: string | null } | undefined
-    return { port: row?.port ?? REMOTE_DEFAULT_PORT, certificateDer: row?.certificate_der ?? null, certificateKey: row?.certificate_key ?? null, desktopName: row?.desktop_name ?? null }
+    const row = this.db.prepare('SELECT port, certificate_der, certificate_key, desktop_name, listened_before FROM remote_gateway WHERE id = 1').get() as
+      { port: number; certificate_der: Buffer | null; certificate_key: Buffer | null; desktop_name: string | null; listened_before: number } | undefined
+    return {
+      port: row?.port ?? REMOTE_DEFAULT_PORT, certificateDer: row?.certificate_der ?? null, certificateKey: row?.certificate_key ?? null, desktopName: row?.desktop_name ?? null,
+      listenedBefore: row?.listened_before === 1
+    }
+  }
+
+  /** Records that the gateway listened; idempotent, and there is no way back. */
+  markListened(): void {
+    this.db.prepare(`INSERT INTO remote_gateway (id, listened_before, updated_at) VALUES (1, 1, ?)
+      ON CONFLICT(id) DO UPDATE SET listened_before = 1, updated_at = excluded.updated_at WHERE listened_before = 0`).run(this.now())
   }
 
   savePort(port: number): void {

@@ -5,7 +5,8 @@ import type { AppDatabase } from '../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../shared/types/mcp'
 import { mcpServerKeys } from './mcp-keys'
 import { mcpServerAllowed } from './policy'
-import { projectOfferedTools } from './conversation/tool-groups'
+import { projectMcpJsonPlan } from './conversation/tool-groups'
+import { bridgePlanFlags, type BridgePlan } from '../mcp-internal/bridge-plan'
 import { effectiveToolModes } from './policy/tool-config'
 
 /**
@@ -130,9 +131,10 @@ export class McpConfigSync {
       const entry = serializeConfig(row.config_json, {
         injectWorkspaceId: isInternal && workspaceId ? workspaceId : null,
         internal: isInternal,
-        // A tool group the project turned off in oxe.yaml is not offered here either (B7.2): the bridge lists and
-        // answers only these tools. Nothing off leaves the entry as it was.
-        allowedTools: isInternal ? projectOfferedTools(effectiveToolModes(workspaceRoot, policyRead)) : null
+        // The same plan as an agent OXESpace starts in a Code terminal (B7.2): core and the groups the project keeps
+        // always on now, the on-demand ones through oxespace_tools_enable, the off ones never. The modes are the ones
+        // the person accepted (B7.4), so an agent's widening of oxe.yaml waits for their OK.
+        plan: isInternal ? projectMcpJsonPlan(effectiveToolModes(workspaceRoot, policyRead)) : null
       })
       if (!entry) continue
       const finalKey = keys.get(row.id)
@@ -311,11 +313,21 @@ function approveOxespaceToolsInCopilot(workspaceRoot: string, serverName: string
   }
 }
 
+/** The stored arguments without a plan already in them, so the plan written is always the current one. */
+function withoutPlanFlags(args: readonly string[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === '--allowed-tools' || args[i] === '--enableable-groups') { i += 1; continue }
+    out.push(args[i])
+  }
+  return out
+}
+
 interface SerializeOptions {
   injectWorkspaceId: string | null
   internal: boolean
-  /** The internal bridge's `--allowed-tools`, or null for every tool. */
-  allowedTools?: string[] | null
+  /** The internal bridge's tool plan (its `--allowed-tools` and `--enableable-groups`); null for other servers. */
+  plan?: BridgePlan | null
 }
 
 function serializeConfig(configJson: string, options: SerializeOptions): unknown {
@@ -340,7 +352,7 @@ function serializeConfig(configJson: string, options: SerializeOptions): unknown
     const args = cfg.args ?? []
     const entry: Record<string, unknown> = {
       command: cfg.command,
-      args: options.internal && options.allowedTools && !args.includes('--allowed-tools') ? [...args, '--allowed-tools', JSON.stringify(options.allowedTools)] : args
+      args: options.internal && options.plan ? [...withoutPlanFlags(args), ...bridgePlanFlags(options.plan)] : args
     }
     if (Object.keys(env).length > 0) entry.env = env
     return entry
