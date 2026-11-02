@@ -36,6 +36,13 @@ test('#310: splits stop before panes get too small, and the refusal says why', a
       dialog.showMessageBoxSync = (() => 0) as typeof dialog.showMessageBoxSync
     })
     await openRepo(page, profile.repo)
+    // 1280×900 (coordinator, RC). A runner screen of 1024×768 clamps the window, so the page is zoomed to keep that
+    // much room in CSS pixels, the unit the 240/120 px limits are measured in.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 900))
+    await page.waitForTimeout(500)
+    const inner = await page.evaluate(() => [window.innerWidth, window.innerHeight])
+    if (inner[0] < 1200) await app.evaluate(({ BrowserWindow }, z) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(z), Math.max(0.6, Math.min(inner[0] / 1280, inner[1] / 860)))
+    await page.waitForTimeout(800)
     out.window = await page.evaluate(() => [window.innerWidth, window.innerHeight])
     for (const direction of ['right', 'down'] as const) {
       const steps: unknown[] = []
